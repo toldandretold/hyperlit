@@ -1,10 +1,11 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\MarkdownController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return view('markdown');
 });
 
 Route::get('/dashboard', function () {
@@ -16,5 +17,12 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
+Route::get('/markdown-editor', [MarkdownController::class, 'showEditor'])->name('markdown.editor');
+Route::post('/markdown-editor/save', [MarkdownController::class, 'saveMarkdown'])->name('markdown.save');
+
+Route::get('/editor', [MarkdownController::class, 'showEditor'])->name('showEditor');
+Route::get('/markdown', [MarkdownController::class, 'getMarkdown'])->name('getMarkdown');
+Route::post('/save-markdown', [MarkdownController::class, 'saveMarkdown'])->name('saveMarkdown');
 
 require __DIR__.'/auth.php';
