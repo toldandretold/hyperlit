@@ -2,6 +2,7 @@
 
 @section('styles')
     <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css">
+    <link rel="stylesheet" href="/css/toast_reader.css" />
 @endsection
 
 @section('content')
@@ -19,7 +20,7 @@
             // Initialize the editor without initial content
             const editor = new Editor({
                 el: document.querySelector('#editor'),
-                height: '500px',
+                height: '100vh',
                 initialEditType: 'markdown',
                 previewStyle: 'vertical',
                 initialValue: ''

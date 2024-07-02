@@ -1,0 +1,15 @@
+/* Set HTML and body to 100% height */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Ensure the editor container spans the full height */
+#editor {
+  height: 100vh; /* Use 100vh to span the full viewport height */
+}
+
+.toastui-editor {
+  height: 100%;
+}
