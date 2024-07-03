@@ -1,4 +1,3 @@
-
 Basics of displaying content
 ----------------------------
 
@@ -49,4 +48,3 @@ Where 'markdown' refers to markdown.blade.php, a file that has at the top
 	@extends('layout')
 
 Which indicates that it is an extension of layout.blade.php
-
