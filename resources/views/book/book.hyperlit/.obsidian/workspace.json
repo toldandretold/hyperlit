@@ -1,0 +1,170 @@
+{
+  "main": {
+    "id": "ca3d2ff3b0c8e42a",
+    "type": "split",
+    "children": [
+      {
+        "id": "df0352d1b8e5b91f",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "9b3c7d4c9da26589",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "strategic_imaginaries.md",
+                "mode": "source",
+                "source": true
+              }
+            }
+          },
+          {
+            "id": "ef8eb9b57775ba17",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Speech.md",
+                "mode": "source",
+                "source": true
+              }
+            }
+          }
+        ],
+        "currentTab": 1
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "fad9899c5363b29f",
+    "type": "split",
+    "children": [
+      {
+        "id": "509a5cd5a11b04c0",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "30e7c380145d2c2f",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical"
+              }
+            }
+          },
+          {
+            "id": "11890a1b824c48b2",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              }
+            }
+          },
+          {
+            "id": "c4c549d9b9634106",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {}
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "67de539d4c7100fd",
+    "type": "split",
+    "children": [
+      {
+        "id": "30965e79fababf94",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "dcfabce79959b40a",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "strategic_imaginaries.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              }
+            }
+          },
+          {
+            "id": "0b91c3f6e1906d00",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "strategic_imaginaries.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              }
+            }
+          },
+          {
+            "id": "2860dc8e213d6e89",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true
+              }
+            }
+          },
+          {
+            "id": "cf24762b411fc559",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "strategic_imaginaries.md"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false
+    }
+  },
+  "active": "30e7c380145d2c2f",
+  "lastOpenFiles": [
+    "Untitled",
+    "strategic_imaginaries.md",
+    "Speech.md",
+    "long_strategicimaginaries.md",
+    "Welcome.md"
+  ]
+}

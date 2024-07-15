@@ -1,0 +1,155 @@
+{
+  "main": {
+    "id": "245d4fec928d0059",
+    "type": "split",
+    "children": [
+      {
+        "id": "a7c67f7a1168d434",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "f44a9a86abd79278",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "strategic_imaginaries.md",
+                "mode": "source",
+                "source": false
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "072a68e12d8e9c96",
+    "type": "split",
+    "children": [
+      {
+        "id": "4fcd46f66ef5d78b",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "ddea874ece1a3df9",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical"
+              }
+            }
+          },
+          {
+            "id": "bd226a6bd560035d",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              }
+            }
+          },
+          {
+            "id": "68492bac4e20c070",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {}
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "778f144b5daadc44",
+    "type": "split",
+    "children": [
+      {
+        "id": "8ba2bbda6437cd6d",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "485655233bfb05f4",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "strategic_imaginaries.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              }
+            }
+          },
+          {
+            "id": "4623cd4153d80057",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "strategic_imaginaries.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              }
+            }
+          },
+          {
+            "id": "ef481c5d5312c15e",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true
+              }
+            }
+          },
+          {
+            "id": "c5cc7efc583c8117",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "strategic_imaginaries.md"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false
+    }
+  },
+  "active": "f44a9a86abd79278",
+  "lastOpenFiles": [
+    "Prebisch1964.md",
+    "Need_to_do.md",
+    "Speech.md"
+  ]
+}

@@ -10,7 +10,7 @@
     <?php
     use League\CommonMark\CommonMarkConverter;
 
-    $filePath = resource_path('markdown/Need_to_do.md');
+    $filePath = resource_path('markdown/book/strategic_imaginaries.md');
     $markdown = file_get_contents($filePath);
 
     $converter = new CommonMarkConverter();

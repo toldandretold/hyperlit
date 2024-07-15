@@ -17,40 +17,11 @@
 
         document.addEventListener('DOMContentLoaded', function() {
 
-                 const deepNote = document.createElement('button');
-                        deepNote.textContent = 'Deep Note';
-                        deepNote.style.cursor = 'pointer';
-                        deepNote.id = 'deep-note';
-
-                deepNote.addEventListener('click', () => {
-                    fetch('/create-page', {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                        }
-                    }).then(response => response.json()).then(data => {
-                        if (data.success) {
-                            const linkText = `<a href="${data.url}" id="${data.id}"><sup>H</sup></a> `;
-
-                            const cursorPosition = editor.getSelection().start;
-
-                            // Insert link at cursor position
-                            editor.insertText(linkText, cursorPosition);
-                        } else {
-                            alert('Error creating page');
-                        }
-                    }).catch(error => {
-                        console.error('Error:', error);
-                    });
-                });
-
-
                 // Define custom save button
                 const saveButton = document.createElement('button');
                 saveButton.textContent = 'Save';
                 saveButton.id = 'saveButton';  // Assign an ID to the button
                 saveButton.style.cursor = 'pointer';
-
                 saveButton.addEventListener('click', () => {
                   const content = editor.getMarkdown();
                   // Add your save logic here
@@ -71,7 +42,6 @@
                   });
                 });
 
-
             const options = {
                 el: document.querySelector('#editor'),
                       height: '100vh',
@@ -87,10 +57,7 @@
                                 name: 'save',
                                 tooltip: 'Save',
                                 el: saveButton
-                            }, {
-                                name: 'deep note',
-                                tooltip: 'deep note',
-                                el: deepNote
+
                             }]
                           ]
 
