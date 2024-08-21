@@ -6,11 +6,7 @@ use App\Http\Controllers\PageController;
 use App\Http\Controllers\BookController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PandocBookController;
-
-
-
-
-
+use App\Http\Controllers\HighlightController;
 
 
 // Home route
@@ -53,5 +49,21 @@ Route::get('/book/{filename}', [PandocBookController::class, 'show']);
 Route::get('/deepnote', function () {
     return view('deepnote');
 });
+
+Route::post('/save-highlight', [HighlightController::class, 'store']);
+
+Route::get('/hyperlighting', function () {
+    return view('hyperlighting');
+});
+
+Route::get('/test-form', function () {
+    return view('testform');
+});
+
+Route::post('/update-markdown', [HighlightController::class, 'updateMarkdown']);
+
+
+Route::post('/delete-highlight', [HighlightController::class, 'deleteHighlight']);
+
 
 require __DIR__.'/auth.php';

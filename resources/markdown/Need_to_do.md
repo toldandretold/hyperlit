@@ -1,17 +1,15 @@
 # Speech #
 
-*3min*
-
 In this talk I will survey some of the key counterfactuals — or imaginary “what if?” scenarios — that were foundational to the campaign for a New International Economic Order. I consider how several of the project’s intellectual leaders answered the question: 
 
-“What would happen if NIEO-style reforms were successfully implemented?”
+“What would happen if NIEO-style reforms were successfully implemented?”<a href="http://localhost:8000/pages/page-22a821ac-9fb7-4ede-ab31-093b29106c42.html" id="page-22a821ac-9fb7-4ede-ab31-093b29106c42"><sup>H</sup></a> 
 
 
 # Why? #
 
 For some, counterfactuals should be ignored. As imaginary scenarios, it is claimed that they have no place in historical research. 
 
-This misses that imaginary “what if?” Scenarios are foundational to decision making.
+This misses that imaginary “what if?” Scenarios are foundational to decision making.<a href="http://localhost:8000/pages/page-374eb552-cf90-4a14-b2d5-4b9956586a7e.html" id="page-374eb552-cf90-4a14-b2d5-4b9956586a7e"><sup>H</sup></a> 
 
 When deciding to come to this panel, we had to imagine the alternatives, the  possible futures where we instead learned about other interesting topics, or where we simply sat outside, free from social anxiety. 
 
