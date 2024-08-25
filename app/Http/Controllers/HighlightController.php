@@ -1,121 +1,164 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
-use App\Models\Highlight; // Import the Highlight model
+use Illuminate\Support\Facades\DB;
+use App\Models\Highlight;
+use League\CommonMark\CommonMarkConverter;
 
 class HighlightController extends Controller
 {
     public function store(Request $request)
     {
+        $textSegment = $request->input('text');
+        $hash = $request->input('hash'); // Use the hash generated on the frontend
+        $book = $request->input('book'); // Ensure book is passed in the request
+
+        // Check if the fingerprint hash already exists
+        $existingFingerprint = DB::table('text_fingerprints')->where('hash', $hash)->first();
+
+        if ($existingFingerprint) {
+            // Handle the case where the fingerprint already exists
+            return response()->json(['success' => false, 'message' => 'Duplicate highlight'], 400);
+        }
+
+        // Store the new highlight and fingerprint
         $highlight = new Highlight();
-        $highlight->text = $request->input('text'); // Store plain text
-        $highlight->highlight_id = $request->input('id');
-        $highlight->numerical = $request->input('numerical');
+        $highlight->text = $textSegment;
+        $highlight->highlight_id = $hash; // Use hash as highlight_id
+        $highlight->book = $book;
+        $highlight->numerical = $request->input('numerical'); // Numerical value for ordering
         $highlight->save();
 
+        // Save the fingerprint
+        DB::table('text_fingerprints')->insert([
+            'hash' => $hash,
+            'text_segment' => $textSegment,
+            'source_id' => $highlight->id, // Link to the highlight's ID
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->updateHyperLightsMarkdown($book);
+
         return response()->json(['success' => true, 'data' => $highlight]);
-            
     }
 
-     public function updateMarkdown(Request $request)
+    private function updateHyperLightsMarkdown($book)
     {
-        $filePath = resource_path('markdown/Need_to_do.md');
+        $filePath = resource_path("markdown/{$book}/hyper-lights.md");
+        $highlights = Highlight::where('book', $book)->orderBy('numerical')->get(); // Order by numerical value
+
+        $content = "";
+
+        foreach ($highlights as $highlight) {
+            $content .= "\"{$highlight->text}\" <a href=\"/hyper-lights#{$highlight->highlight_id}\">↩</a>\n\n";
+        }
+
+        // Save the updated content to hyper-lights.md
+        File::put($filePath, $content);
+    }
+
+
+
+    public function updateMarkdown(Request $request)
+    {
+        $book = $request->input('book');
+        
+        \Log::info('Book in request:', ['book' => $request->input('book')]);
+
+        if (!$book) {
+        \Log::error('Book is not set in the request');
+        return response()->json(['success' => false, 'message' => 'Book not provided'], 400);
+    }
+
+        $filePath = resource_path("markdown/{$book}/main-text.md");
+
+        \Log::info('Updating file at path: ' . $filePath);
+
         $markdown = file_get_contents($filePath);
+        $highlightedText = $request->input('text');
+        $hash = $request->input('hash'); // Use the hash provided from the frontend
 
-        $highlightedText = $request->input('text'); // Plain text from the request
-        $highlightId = $request->input('highlightId');
+        // Convert Markdown to HTML
+        $htmlContent = $this->convertMarkdownToHtml($markdown);
 
-        // Strip existing HTML tags from the markdown for matching purposes
-        $strippedMarkdown = strip_tags($markdown);
+        // Search within the HTML content
+        $positionInHtml = strpos($htmlContent, $highlightedText);
 
-        // Ensure the highlighted text exists in the stripped markdown
-        $position = strpos($strippedMarkdown, $highlightedText);
+        if ($positionInHtml !== false) {
+            // Calculate the overall position within the Markdown
+            $overallPosition = strpos($markdown, strip_tags($highlightedText));
 
-        if ($position !== false) {
-            // Calculate the correct position in the original markdown
-            $actualPosition = $this->findOriginalPosition($strippedMarkdown, $markdown, $highlightedText, $position);
+            if ($overallPosition !== false) {
+                $wrappedText = "<mark><a href=\"/hyper-lights#{$hash}\" id=\"{$hash}\">" . $highlightedText . "</a></mark>";
+                $updatedMarkdown = substr_replace($markdown, $wrappedText, $overallPosition, strlen($highlightedText));
 
-            // Wrap the matched text with <mark> and <a> tags, including the correct ID
-            $wrappedText = "<mark><a href=\"/hyper-lights#{$highlightId}\" id=\"{$highlightId}\">" . $highlightedText . "</a></mark>";
+                File::put($filePath, $updatedMarkdown);
 
-            // Replace the original text with the wrapped text in the markdown file
-            $updatedMarkdown = substr_replace($markdown, $wrappedText, $actualPosition, strlen($highlightedText));
+                return response()->json(['success' => true]);
+            }
+        }
 
-            // Save the updated markdown file
-            File::put($filePath, $updatedMarkdown);
+        \Log::error("Text not found or mismatch for book: {$book}, highlight: {$highlightedText}");
+        return response()->json(['success' => false, 'message' => 'Text not found or mismatch'], 400);
+    }
+
+    public function deleteHighlight(Request $request)
+    {
+        $hash = $request->input('hash'); // Use hash from request
+
+        $highlight = Highlight::where('highlight_id', $hash)->first(); // Find by hash
+
+        if ($highlight) {
+            $highlight->delete();
+
+            // Remove the highlight from the markdown file
+            $this->removeHighlightFromMarkdown($highlight->book, $highlight->text);
+
+            // Update the hyper-lights.md file to remove the deleted highlight
+            $this->updateHyperLightsMarkdown($highlight->book);
 
             return response()->json(['success' => true]);
         } else {
-            // Handle case where the text is not found in the markdown file
-            return response()->json(['success' => false, 'message' => 'Text not found or mismatch'], 400);
+            return response()->json(['success' => false, 'message' => 'Highlight not found'], 404);
         }
     }
 
-    // Helper function to find the correct position in the original markdown
-    private function findOriginalPosition($strippedMarkdown, $originalMarkdown, $highlightedText, $position)
+    private function removeHighlightFromMarkdown($book, $highlightedText)
     {
-        $currentIndex = 0;
-        $actualPosition = 0;
+        $filePath = resource_path("markdown/{$book}/main-text.md");
+        $markdown = file_get_contents($filePath);
 
-        // Iterate through the stripped markdown and match with the original markdown
-        while ($currentIndex < strlen($strippedMarkdown)) {
-            if ($strippedMarkdown[$currentIndex] === $highlightedText[0]) {
-                // Check if this is the correct match
-                if (substr($strippedMarkdown, $currentIndex, strlen($highlightedText)) === $highlightedText) {
-                    return $actualPosition;
-                }
-            }
+        // Generate hash from text for removal
+        $hash = $this->generateFingerprint($highlightedText);
 
-            // Move to the next character
-            $currentIndex++;
-            $actualPosition++;
+        // Update the pattern to match the hash
+        $pattern = "/<mark><a href=\"\/hyper-lights#{$hash}\" id=\"{$hash}\">(.*?)<\/a><\/mark>/";
+        $updatedMarkdown = preg_replace($pattern, '$1', $markdown);
 
-            // Skip over HTML tags in the original markdown
-            while (isset($originalMarkdown[$actualPosition]) && $originalMarkdown[$actualPosition] === '<') {
-                while ($originalMarkdown[$actualPosition] !== '>') {
-                    $actualPosition++;
-                }
-                $actualPosition++;
-            }
-        }
-
-        return $actualPosition;
+        File::put($filePath, $updatedMarkdown);
     }
 
-        public function deleteHighlight(Request $request)
-            {
-            $highlightId = $request->input('id');
+    // Convert markdown content to HTML
+    private function convertMarkdownToHtml($markdown)
+    {
+        $converter = new CommonMarkConverter();
+        return $converter->convertToHtml($markdown);
+    }
 
-            // Find the highlight by its ID and mark it as deleted
-            $highlight = Highlight::where('highlight_id', $highlightId)->first();
+    // Generate fingerprint hash for a text segment
+    private function generateFingerprint($textSegment)
+    {
+        return hash('sha256', $textSegment);
+    }
 
-            if ($highlight) {
-                $highlight->delete(); // Soft delete the highlight
-
-                // Also, remove the highlight from the markdown file
-                $this->removeHighlightFromMarkdown($highlight->text);
-
-        return response()->json(['success' => true]);
-    } else {
-        return response()->json(['success' => false, 'message' => 'Highlight not found'], 404);
-                }
-            }
-
-        // Helper method to remove the highlight from the markdown file
-        private function removeHighlightFromMarkdown($highlightedText)
-        {
-            $filePath = resource_path('markdown/Need_to_do.md');
-            $markdown = file_get_contents($filePath);
-
-            // Find and remove the <mark> and <a> tags from the markdown
-            $pattern = '/<mark><a href="\/hyper-lights#.*?" id=".*?">(.*?)<\/a><\/mark>/';
-            $updatedMarkdown = preg_replace($pattern, '$1', $markdown);
-
-            // Save the updated markdown file
-            File::put($filePath, $updatedMarkdown);
-        }
-
+    // Check if a fingerprint hash already exists
+    public function checkFingerprint(Request $request)
+    {
+        $hash = $request->input('hash');
+        $exists = DB::table('text_fingerprints')->where('hash', $hash)->exists();
+        return response()->json(['exists' => $exists]);
+    }
 }

@@ -7,6 +7,7 @@ use App\Http\Controllers\BookController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PandocBookController;
 use App\Http\Controllers\HighlightController;
+use App\Http\Controllers\TextController;
 
 
 // Home route
@@ -37,33 +38,30 @@ Route::post('/save-markdown', [MarkdownController::class, 'saveMarkdown'])->name
 Route::post('/create-page', [PageController::class, 'createPage']);
 Route::post('/save-content', [PageController::class, 'saveContent']);
 
-// Book route for strategic_imaginaries (ensure SiteController exists)
+// Book route for strategic_imaginaries
 Route::get('/book/strategic_imaginaries', [App\Http\Controllers\SiteController::class, 'show']);
 
-// Dynamic book page route
-Route::get('book/{page}', [BookController::class, 'show']);
-
+// Dynamic book page routes (specific before general)
 Route::get('/book/{filename}', [PandocBookController::class, 'show']);
+Route::get('book/{page}', [BookController::class, 'show']);
 
 // Deepnote route
 Route::get('/deepnote', function () {
     return view('deepnote');
 });
 
+// Highlight routes
 Route::post('/save-highlight', [HighlightController::class, 'store']);
+Route::post('/update-markdown', [HighlightController::class, 'updateMarkdown']);
+Route::post('/delete-highlight', [HighlightController::class, 'deleteHighlight']);
 
+
+// Hyperlighting route (specific book dynamic route)
 Route::get('/hyperlighting', function () {
     return view('hyperlighting');
 });
 
-Route::get('/test-form', function () {
-    return view('testform');
-});
-
-Route::post('/update-markdown', [HighlightController::class, 'updateMarkdown']);
-
-
-Route::post('/delete-highlight', [HighlightController::class, 'deleteHighlight']);
-
+// General book route (should be last to avoid conflict)
+Route::get('/{book}', [TextController::class, 'show']);
 
 require __DIR__.'/auth.php';

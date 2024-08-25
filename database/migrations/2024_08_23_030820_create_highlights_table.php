@@ -10,10 +10,11 @@ class CreateHighlightsTable extends Migration
     {
         Schema::create('highlights', function (Blueprint $table) {
             $table->id();
-            $table->text('text'); // Column to store the highlighted text
-            $table->string('highlight_id')->unique(); // Column to store the highlight ID
-            $table->integer('numerical')->nullable(); // Column to store numerical metadata
-            $table->timestamps(); // Columns to store created_at and updated_at timestamps
+            $table->string('highlight_id')->unique();
+            $table->text('text');
+            $table->string('book');
+            $table->integer('numerical');
+            $table->timestamps();
         });
     }
 
@@ -22,4 +23,3 @@ class CreateHighlightsTable extends Migration
         Schema::dropIfExists('highlights');
     }
 }
-
