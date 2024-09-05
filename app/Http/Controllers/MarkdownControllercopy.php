@@ -1,4 +1,4 @@
-<?php 
+
 
 // app/Http/Controllers/MarkdownController.php
 namespace App\Http\Controllers;

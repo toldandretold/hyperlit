@@ -6,7 +6,6 @@
     <link rel="stylesheet" href="{{ asset('css/reader.css') }}">
 
     <style>
-    /* In your styles.css file */
     mark {
         background-color: yellow;
     }
@@ -28,6 +27,7 @@
     </style>
     @endsection
 
+
     {!! $html !!}
 
     <!-- Buttons for hyper-lighting -->
@@ -36,13 +36,12 @@
         <button id="hyper-cite" style="display:none;">Hyper-Cite</button>
     </div>
 
-  
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-core.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-classapplier.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-highlighter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-classapplier.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-highlighter.min.js"></script>
 
-<script>
+  <script>
     rangy.init();
 
     // Custom function to generate the fingerprint hash
@@ -90,13 +89,31 @@
             return;
         }
 
-        // Calculate the numerical value
-        let numerical = calculateNumerical(range);
+        // Get the XPath for the start and end containers
+        let startXPath = getXPath(range.startContainer);
+        let endXPath = getXPath(range.endContainer);
+
+        // Normalize the XPath to match the format expected on the backend
+        startXPath = normalizeXPath(startXPath);
+        endXPath = normalizeXPath(endXPath);
+
+        // Calculate start and end positions relative to the container
+        let containerText = range.startContainer.textContent || range.startContainer.innerText;
+        let startPosition = range.startOffset; // Start offset within the container
+        let endPosition = startPosition + selectedText.length; // Calculate end position
+
+        console.log("Start XPath:", startXPath);
+        console.log("End XPath:", endXPath);
+        console.log("Start Position:", startPosition, "End Position:", endPosition);
+
+        // Capture a larger surrounding context to reduce collision
+        let surroundingContext = getExtendedSurroundingContext(range);
+        let contextHash = generateFingerprint(surroundingContext);
 
         // Use Rangy to highlight the selection
         highlighter.highlightSelection("highlight");
 
-        // After the highlight is added, replace the highlighted text with <mark><a></a></mark>
+        // Replace highlighted text with <mark><a></a></mark>
         const highlights = document.querySelectorAll('mark.highlight');
         highlights.forEach(function(mark) {
             if (!mark.querySelector('a')) {
@@ -105,18 +122,15 @@
                 a.setAttribute('href', `/hyper-lights#${hash}`);
                 a.setAttribute('id', hash);
                 a.innerHTML = mark.innerHTML;
-                mark.innerHTML = '';  // Clear the current content of <mark>
-                mark.appendChild(a);  // Add the <a> inside <mark>
+                mark.innerHTML = '';
+                mark.appendChild(a);
             }
         });
 
         // Save the highlight and update the markdown file in the background
-        const fingerprintHash = generateFingerprint(selectedText);
-        const timestamp = new Date().toISOString(); // Capture the current timestamp
+        const timestamp = new Date().toISOString();
 
-        let book = "{{ $book }}"; // Get the book name from the Blade template
-
-        console.log("Book:", book); // This should log the correct book name
+        let book = "{{ $book }}";
 
         fetch('/save-highlight', {
             method: 'POST',
@@ -126,10 +140,14 @@
             },
             body: JSON.stringify({
                 text: selectedText,
-                hash: fingerprintHash, // Save the hash for backend consistency
+                hash: contextHash,
+                surrounding_hash: contextHash,
                 book: book,
-                numerical: numerical, // Pass the numerical value
-                created_at: timestamp   // Save the time the highlight was created
+                start_xpath: startXPath,
+                end_xpath: endXPath,
+                start_position: startPosition, // Send start position
+                end_position: endPosition,     // Send end position
+                created_at: timestamp
             })
         })
         .then(response => {
@@ -141,8 +159,7 @@
         .then(data => {
             console.log('Highlight saved:', data);
 
-            // Optionally, update the markdown file with the new highlight
-            fetch('/update-markdown', {
+            return fetch('/update-markdown', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -150,49 +167,67 @@
                 },
                 body: JSON.stringify({
                     text: selectedText,
-                    hash: fingerprintHash,
-                    book: book
-                     // Use the hash to update the markdown
+                    hash: contextHash,
+                    surrounding_hash: contextHash,
+                    book: book,
+                    start_xpath: startXPath,
+                    end_xpath: endXPath
                 })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.text().then(text => { throw new Error(text); });
-                }
-                console.log('Markdown file updated');
-            })
-            .catch(error => {
-                console.error('Error updating markdown:', error);
             });
-
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => { throw new Error(text); });
+            }
+            console.log('Markdown file updated');
         })
         .catch(error => {
             console.error('Error:', error);
         });
     });
 
-    // Function to calculate the numerical value based on character positions
-    function calculateNumerical(range) {
-        let startPosition = getTextPosition(range.startContainer, range.startOffset);
-        let endPosition = getTextPosition(range.endContainer, range.endOffset);
-        return startPosition + endPosition;
+    // Function to calculate XPath of a node
+    function getXPath(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            node = node.parentNode;
+        }
+        if (node.id !== '') {
+            return 'id("' + node.id + '")';
+        }
+        if (node === document.body) {
+            return '/html/' + node.tagName.toLowerCase();
+        }
+        let ix = 0;
+        let siblings = node.parentNode.childNodes;
+        for (let i = 0; i < siblings.length; i++) {
+            let sibling = siblings[i];
+            if (sibling === node) {
+                return getXPath(node.parentNode) + '/' + node.tagName.toLowerCase() + '[' + (ix + 1) + ']';
+            }
+            if (sibling.nodeType === 1 && sibling.tagName === node.tagName) {
+                ix++;
+            }
+        }
     }
 
-    function getTextPosition(container, offset) {
-        let position = 0;
+    // Function to normalize XPath to match backend format
+    function normalizeXPath(xpath) {
+        // Remove the initial /html/body/div[1]/div[1] from the XPath to match the backend format
+        return xpath.replace(/^\/html\/body\/div\[1\]/, '').replace(/^\/div\[1\]/, '');
+    }
 
-        // Traverse all nodes before the container and add their lengths to the position
-        while (container.previousSibling) {
-            container = container.previousSibling;
-            position += (container.textContent || container.innerText || "").length;
-        }
-
-        // Add the offset within the container
-        position += offset;
-
-        return position;
+    function getExtendedSurroundingContext(range) {
+        const contextBefore = range.startContainer.textContent.slice(Math.max(0, range.startOffset - 50), range.startOffset);
+        const contextAfter = range.endContainer.textContent.slice(range.endOffset, range.endOffset + 50);
+        return contextBefore + range.toString() + contextAfter;
     }
 </script>
+
+
+
+
+
+
 
 
 

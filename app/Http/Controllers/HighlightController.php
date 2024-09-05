@@ -1,164 +1,178 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\DB;
 use App\Models\Highlight;
-use League\CommonMark\CommonMarkConverter;
+use App\Http\Controllers\HtmlContentExtractor;
 
 class HighlightController extends Controller
 {
     public function store(Request $request)
     {
         $textSegment = $request->input('text');
-        $hash = $request->input('hash'); // Use the hash generated on the frontend
-        $book = $request->input('book'); // Ensure book is passed in the request
+        $hash = $request->input('hash');
+        $book = $request->input('book');
+        $contextHash = $request->input('context_hash');
+        $startPosition = $request->input('start_position');
+        $endPosition = $request->input('end_position');
 
-        // Check if the fingerprint hash already exists
-        $existingFingerprint = DB::table('text_fingerprints')->where('hash', $hash)->first();
+        \Log::info("Store function called for book: {$book}, text: {$textSegment}, start position: {$startPosition}, end position: {$endPosition}");
 
-        if ($existingFingerprint) {
-            // Handle the case where the fingerprint already exists
-            return response()->json(['success' => false, 'message' => 'Duplicate highlight'], 400);
+        // Get the XPath positions for the highlighted text
+        $startXPath = $request->input('start_xpath');
+        $endXPath = $request->input('end_xpath');
+
+        // Validate XPath values
+        if (empty($startXPath) || empty($endXPath)) {
+            \Log::error("Invalid or missing XPath values.");
+            return response()->json(['success' => false, 'message' => 'Invalid or missing XPath values.'], 400);
         }
 
-        // Store the new highlight and fingerprint
-        $highlight = new Highlight();
-        $highlight->text = $textSegment;
-        $highlight->highlight_id = $hash; // Use hash as highlight_id
-        $highlight->book = $book;
-        $highlight->numerical = $request->input('numerical'); // Numerical value for ordering
-        $highlight->save();
+        \Log::info("Start XPath: {$startXPath}, End XPath: {$endXPath}");
 
-        // Save the fingerprint
-        DB::table('text_fingerprints')->insert([
-            'hash' => $hash,
-            'text_segment' => $textSegment,
-            'source_id' => $highlight->id, // Link to the highlight's ID
+        // Extract the relevant HTML content using the XPath positions
+        try {
+            $actualHtmlContent = HtmlContentExtractor::extractHtmlContentFromXPath($book, $startXPath, $endXPath);
+        } catch (\Exception $e) {
+            \Log::error("Error extracting HTML content: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error extracting HTML content.'], 500);
+        }
+
+        \Log::info("Actual HTML content retrieved: {$actualHtmlContent}");
+
+        // Log additional information for debugging occurrence search
+        \Log::info("Attempting to find correct occurrence for text: {$textSegment} within HTML content: {$actualHtmlContent}");
+
+        // Find the correct occurrence of the text within the XPath
+        $correctOccurrenceIndex = $this->findCorrectOccurrenceInHtml($actualHtmlContent, $textSegment, $startPosition, $endPosition);
+
+        if ($correctOccurrenceIndex === -1) {
+            \Log::error("Correct occurrence of the highlighted text not found. Text: '{$textSegment}', Start XPath: {$startXPath}, End XPath: {$endXPath}");
+            return response()->json(['success' => false, 'message' => 'Correct occurrence of the highlighted text not found.'], 400);
+        }
+
+        \Log::info("Correct occurrence index: {$correctOccurrenceIndex}");
+
+        // Get the original markdown
+        $originalMarkdown = $this->getOriginalMarkdown($book);
+
+        // Use text_mappings to find the corresponding markdown positions
+        $markdownPosition = $this->findMarkdownPositionFromXPath($book, $textSegment, $startXPath, $correctOccurrenceIndex);
+
+        if ($markdownPosition === false) {
+            \Log::error("Could not find the correct instance of the highlighted text in Markdown for text: {$textSegment}");
+            return response()->json(['success' => false, 'message' => 'Could not find the correct instance of the highlighted text in Markdown.'], 400);
+        }
+
+        \Log::info("Markdown position found: {$markdownPosition}");
+
+        // Insert the highlight tags in the Markdown file
+        $updatedMarkdown = substr_replace(
+            $originalMarkdown,
+            "<mark><a href=\"/hyper-lights#{$hash}\" id=\"{$hash}\">{$textSegment}</a></mark>",
+            $markdownPosition,
+            strlen($textSegment)
+        );
+
+        // Save the updated markdown back to the file
+        $filePath = resource_path("markdown/{$book}/main-text.md");
+        File::put($filePath, $updatedMarkdown);
+
+        \Log::info("Successfully updated markdown at position: {$markdownPosition}");
+
+        // Save highlight to highlights table with start and end positions and XPath
+        DB::table('highlights')->insert([
+            'text' => $textSegment,
+            'highlight_id' => $hash,   // Changed from 'hash' to 'highlight_id'
+            'book' => $book,
+            'context_hash' => $contextHash,
+            'start_xpath' => $startXPath,
+            'end_xpath' => $endXPath,
+            'start_position' => $startPosition,  // Record start position
+            'end_position' => $endPosition,  // Record end position
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        $this->updateHyperLightsMarkdown($book);
+        \Log::info("Highlight saved to database for hash: {$hash}");
 
-        return response()->json(['success' => true, 'data' => $highlight]);
+        return response()->json(['success' => true]);
     }
 
-    private function updateHyperLightsMarkdown($book)
+    private function findCorrectOccurrenceInHtml($htmlContent, $textSegment, $startPosition, $endPosition)
     {
-        $filePath = resource_path("markdown/{$book}/hyper-lights.md");
-        $highlights = Highlight::where('book', $book)->orderBy('numerical')->get(); // Order by numerical value
+        // Logging HTML content and positions for better debugging
+        \Log::info("Searching for correct occurrence of '{$textSegment}' between start position: {$startPosition} and end position: {$endPosition} in HTML content: '{$htmlContent}'");
 
-        $content = "";
+        // Logic to find the correct occurrence of the highlighted text using start and end positions in the HTML
+        $currentPosition = 0;
+        $occurrenceIndex = 0;
 
-        foreach ($highlights as $highlight) {
-            $content .= "\"{$highlight->text}\" <a href=\"/hyper-lights#{$highlight->highlight_id}\">↩</a>\n\n";
+        while (($currentPosition = strpos($htmlContent, $textSegment, $currentPosition)) !== false) {
+            \Log::info("Found occurrence of '{$textSegment}' at position: {$currentPosition} in HTML content.");
+            // Check if this occurrence's position matches the range (startPosition, endPosition)
+            if ($currentPosition >= $startPosition && ($currentPosition + strlen($textSegment)) <= $endPosition) {
+                \Log::info("Correct occurrence found at position: {$currentPosition} (index {$occurrenceIndex})");
+                return $occurrenceIndex;
+            }
+            $occurrenceIndex++;
+            $currentPosition += strlen($textSegment);
         }
 
-        // Save the updated content to hyper-lights.md
-        File::put($filePath, $content);
+        \Log::error("Correct occurrence not found for text: '{$textSegment}' within the specified range in HTML content.");
+        return -1; // If the correct occurrence was not found
     }
 
-
-
-    public function updateMarkdown(Request $request)
+    private function findMarkdownPositionFromXPath($book, $textSegment, $startXPath, $correctOccurrenceIndex)
     {
-        $book = $request->input('book');
-        
-        \Log::info('Book in request:', ['book' => $request->input('book')]);
+        // Retrieve the text_mappings for the given book and XPath
+        $mapping = DB::table('text_mappings')
+            ->where('book', $book)
+            ->where('xpath', $startXPath)
+            ->first();
 
-        if (!$book) {
-        \Log::error('Book is not set in the request');
-        return response()->json(['success' => false, 'message' => 'Book not provided'], 400);
-    }
+        if ($mapping) {
+            $startMarkdownPosition = $mapping->start_position_markdown;
+            $endMarkdownPosition = $mapping->end_position_markdown;
 
-        $filePath = resource_path("markdown/{$book}/main-text.md");
+            \Log::info("Mapping found: Start Markdown Position: {$startMarkdownPosition}, End Markdown Position: {$endMarkdownPosition}");
 
-        \Log::info('Updating file at path: ' . $filePath);
+            // Ensure the correct occurrence is found within this range
+            $currentPosition = $startMarkdownPosition;
+            $occurrenceInMarkdown = 0;
 
-        $markdown = file_get_contents($filePath);
-        $highlightedText = $request->input('text');
-        $hash = $request->input('hash'); // Use the hash provided from the frontend
-
-        // Convert Markdown to HTML
-        $htmlContent = $this->convertMarkdownToHtml($markdown);
-
-        // Search within the HTML content
-        $positionInHtml = strpos($htmlContent, $highlightedText);
-
-        if ($positionInHtml !== false) {
-            // Calculate the overall position within the Markdown
-            $overallPosition = strpos($markdown, strip_tags($highlightedText));
-
-            if ($overallPosition !== false) {
-                $wrappedText = "<mark><a href=\"/hyper-lights#{$hash}\" id=\"{$hash}\">" . $highlightedText . "</a></mark>";
-                $updatedMarkdown = substr_replace($markdown, $wrappedText, $overallPosition, strlen($highlightedText));
-
-                File::put($filePath, $updatedMarkdown);
-
-                return response()->json(['success' => true]);
+            // Search within the markdown from the mapped start position
+            $originalMarkdown = $this->getOriginalMarkdown($book);
+            while (($currentPosition = strpos($originalMarkdown, $textSegment, $currentPosition)) !== false) {
+                \Log::info("Found occurrence of '{$textSegment}' at markdown position: {$currentPosition}");
+                if ($occurrenceInMarkdown === $correctOccurrenceIndex) {
+                    \Log::info("Correct markdown occurrence found at position: {$currentPosition}");
+                    return $currentPosition;
+                }
+                $occurrenceInMarkdown++;
+                $currentPosition += strlen($textSegment);
             }
         }
 
-        \Log::error("Text not found or mismatch for book: {$book}, highlight: {$highlightedText}");
-        return response()->json(['success' => false, 'message' => 'Text not found or mismatch'], 400);
+        \Log::error("No mapping found for XPath: {$startXPath} or occurrence not found in markdown.");
+        return false; // If the correct position was not found
     }
 
-    public function deleteHighlight(Request $request)
+    private function getOriginalMarkdown($book)
     {
-        $hash = $request->input('hash'); // Use hash from request
-
-        $highlight = Highlight::where('highlight_id', $hash)->first(); // Find by hash
-
-        if ($highlight) {
-            $highlight->delete();
-
-            // Remove the highlight from the markdown file
-            $this->removeHighlightFromMarkdown($highlight->book, $highlight->text);
-
-            // Update the hyper-lights.md file to remove the deleted highlight
-            $this->updateHyperLightsMarkdown($highlight->book);
-
-            return response()->json(['success' => true]);
-        } else {
-            return response()->json(['success' => false, 'message' => 'Highlight not found'], 404);
-        }
-    }
-
-    private function removeHighlightFromMarkdown($book, $highlightedText)
-    {
+        // Construct the file path to the Markdown file
         $filePath = resource_path("markdown/{$book}/main-text.md");
-        $markdown = file_get_contents($filePath);
 
-        // Generate hash from text for removal
-        $hash = $this->generateFingerprint($highlightedText);
+        // Check if the file exists
+        if (!File::exists($filePath)) {
+            \Log::error("Markdown file not found for book: {$book}");
+            throw new \Exception("Markdown file not found for book: {$book}");
+        }
 
-        // Update the pattern to match the hash
-        $pattern = "/<mark><a href=\"\/hyper-lights#{$hash}\" id=\"{$hash}\">(.*?)<\/a><\/mark>/";
-        $updatedMarkdown = preg_replace($pattern, '$1', $markdown);
-
-        File::put($filePath, $updatedMarkdown);
-    }
-
-    // Convert markdown content to HTML
-    private function convertMarkdownToHtml($markdown)
-    {
-        $converter = new CommonMarkConverter();
-        return $converter->convertToHtml($markdown);
-    }
-
-    // Generate fingerprint hash for a text segment
-    private function generateFingerprint($textSegment)
-    {
-        return hash('sha256', $textSegment);
-    }
-
-    // Check if a fingerprint hash already exists
-    public function checkFingerprint(Request $request)
-    {
-        $hash = $request->input('hash');
-        $exists = DB::table('text_fingerprints')->where('hash', $hash)->exists();
-        return response()->json(['exists' => $exists]);
+        // Retrieve the content of the Markdown file
+        return File::get($filePath);
     }
 }

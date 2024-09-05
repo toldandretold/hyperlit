@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PandocBookController;
 use App\Http\Controllers\HighlightController;
 use App\Http\Controllers\TextController;
+use App\Http\Controllers\TestController;
 
 
 // Home route
@@ -59,6 +60,20 @@ Route::post('/delete-highlight', [HighlightController::class, 'deleteHighlight']
 // Hyperlighting route (specific book dynamic route)
 Route::get('/hyperlighting', function () {
     return view('hyperlighting');
+});
+
+
+
+// Test mapping route
+Route::get('/test-mapping', [TestController::class, 'testMapping']);
+
+Route::get('/test-parsedown', function () {
+    $markdown = "Sample **bold** text";
+    $parsedown = new \App\Http\Controllers\MappedParsedown();
+    $result = $parsedown->text($markdown);
+
+    // Output result for testing
+    return response()->json($result);
 });
 
 // General book route (should be last to avoid conflict)
