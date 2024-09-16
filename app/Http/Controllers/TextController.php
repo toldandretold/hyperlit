@@ -8,83 +8,144 @@ use Illuminate\Support\Facades\DB;
 
 class TextController extends Controller
 {
+    // Show the main text or its HTML version for a specific book
     public function show($book)
     {
-        // Define paths to the markdown files based on the folder name
+        // Define paths to the markdown and HTML files based on the folder name
         $markdownPath = resource_path("markdown/{$book}/main-text.md");
-        $hyperLightsPath = resource_path("markdown/{$book}/hyper-lights.md");
+        $htmlPath = resource_path("markdown/{$book}/main-text.html");
 
-        // Check if the main text markdown file exists
-        if (!File::exists($markdownPath)) {
-            abort(404, "Book not found");
-        }
+        // Check if the HTML version of the file exists
+        if (File::exists($htmlPath)) {
+            // Load the HTML file directly
+            $html = File::get($htmlPath);
+        } else {
+            // Fallback to markdown conversion if HTML file does not exist
 
-        // Load the main text markdown file
-        $markdown = File::get($markdownPath);
+            // Check if the main text markdown file exists
+            if (!File::exists($markdownPath)) {
+                abort(404, "Book not found");
+            }
 
-        // Create an instance of MappedParsedown
-        $converter = new MappedParsedown();
+            // Load the main text markdown file
+            $markdown = File::get($markdownPath);
 
-        // Set the book identifier before processing the markdown text
-        $converter->setBook($book); // This is critical to avoid exceptions
+            // Preprocess the markdown to handle soft line breaks
+            $markdown = $this->normalizeMarkdown($markdown);
 
-        // Now process the markdown content
-        $result = $converter->text($markdown);
+            // Create an instance of MappedParsedown or another Markdown converter
+            $converter = new MappedParsedown();
+            $converter->setBook($book); // Set the book identifier
 
-        $html = $result['html'];
-        $mapping = $result['mapping'];
+            // Convert the markdown content to HTML
+            $result = $converter->text($markdown);
+            $html = $result['html'];
+            $mapping = $result['mapping'];
 
-        foreach ($mapping as $map) {
-            \Log::info("Processing mapping for text: {$map['markdown']}, Start Markdown: {$map['start_position_markdown']}, End Markdown: {$map['end_position_markdown']}, Start HTML: {$map['start_position_html']}, End HTML: {$map['end_position_html']}");
+            // Save the converted HTML for future use
+            File::put($htmlPath, $html);
 
-            $mappingData = [
-                'book' => $book,
-                'markdown_text' => $map['markdown'],
-                'html_text' => $map['html'],
-                'start_position_markdown' => $map['start_position_markdown'],
-                'end_position_markdown' => $map['end_position_markdown'],
-                'start_position_html' => $map['start_position_html'],
-                'end_position_html' => $map['end_position_html'],
-                'context_hash' => $map['context_hash'],
-                'mapping_id' => $map['mapping_id'],
-                'xpath' => $map['xpath'], // Ensure this is included
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-
-            \Log::info("Checking for existing mapping with book: {$book}, text: {$map['markdown']}, start_position_markdown: {$map['start_position_markdown']}, end_position_markdown: {$map['end_position_markdown']}");
-
-            $existingMapping = DB::table('text_mappings')
-                ->where('book', $book)
-                ->where('markdown_text', $map['markdown'])
-                ->where('start_position_markdown', $map['start_position_markdown'])
-                ->where('end_position_markdown', $map['end_position_markdown'])
-                ->where('start_position_html', $map['start_position_html'])
-                ->where('end_position_html', $map['end_position_html'])
-                ->first();
-
-            if ($existingMapping) {
-                \Log::info("Existing mapping found for ID: {$existingMapping->id}. Checking if update is necessary.");
-
-                if ($existingMapping->html_text !== $map['html']) {
-                    \Log::info("Updating mapping ID: {$existingMapping->id} with new HTML.");
-
-                    DB::table('text_mappings')
-                        ->where('id', $existingMapping->id)
-                        ->update($mappingData);
-                }
-            } else {
-                \Log::info("Inserting new mapping for text: {$map['markdown']}");
-
-                DB::table('text_mappings')->insert($mappingData);
+            // Handle text mapping (for highlights, etc.)
+            foreach ($mapping as $map) {
+                $this->saveMapping($book, $map);
             }
         }
 
+        // Pass the HTML (either from file or generated) to the view
         return view('hyperlightingM', [
             'html' => $html,
             'book' => $book,
-            'hyperLightsPath' => $hyperLightsPath,
-            'mapping' => $mapping,
         ]);
+    }
+
+    // Preprocess the markdown to handle soft line breaks
+    private function normalizeMarkdown($markdown)
+{
+    // Split markdown content by double newlines to preserve block-level elements like headers, paragraphs, and lists
+    $paragraphs = preg_split('/(\n\s*\n)/', $markdown, -1, PREG_SPLIT_DELIM_CAPTURE);
+
+    // Iterate through each block and normalize only the inner soft line breaks, excluding code blocks
+    foreach ($paragraphs as &$block) {
+        // Skip processing if the block is a code block (either fenced or indented)
+        if (preg_match('/^( {4}|\t)|(```)/', $block)) {
+            continue;  // Skip normalization for code blocks
+        }
+
+        // If the block isn't just a delimiter (double newline), normalize inner soft line breaks
+        if (!preg_match('/^\n\s*\n$/', $block)) {
+            // Replace single newlines within a paragraph block with spaces
+            $block = preg_replace('/(?<!\n)\n(?!\n)/', ' ', $block);
+        }
+    }
+
+    // Recombine the paragraphs to maintain block structure
+    return implode('', $paragraphs);
+}
+
+
+    // Show the hyperlights content for a specific book
+    public function showHyperlights($book)
+    {
+        // Define the path to the hyperlights markdown file
+        $hyperLightsPath = resource_path("markdown/{$book}/hyperlights.md");
+
+        // Check if the hyperlights markdown file exists
+        if (!File::exists($hyperLightsPath)) {
+            abort(404, "Hyperlights not found for book: $book");
+        }
+
+        // Load the hyperlights markdown file
+        $markdown = File::get($hyperLightsPath);
+
+        // Use a Markdown converter to convert the markdown to HTML
+        $converter = new \League\CommonMark\CommonMarkConverter();
+        $html = $converter->convertToHtml($markdown);
+
+        // Pass the converted HTML to the Blade template
+        return view('hyperlights', [
+            'html' => $html,
+            'book' => $book
+        ]);
+    }
+
+    // Helper method to save the text mappings for highlights
+    private function saveMapping($book, $map)
+    {
+        $mappingData = [
+            'book' => $book,
+            'markdown_text' => $map['markdown'],
+            'html_text' => $map['html'],
+            'start_position_markdown' => $map['start_position_markdown'],
+            'end_position_markdown' => $map['end_position_markdown'],
+            'start_position_html' => $map['start_position_html'],
+            'end_position_html' => $map['end_position_html'],
+            'context_hash' => $map['context_hash'],
+            'mapping_id' => $map['mapping_id'],
+            'xpath' => $map['xpath'],
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+
+        // Check for existing mapping
+        $existingMapping = DB::table('text_mappings')
+            ->where('book', $book)
+            ->where('markdown_text', $map['markdown'])
+            ->where('start_position_markdown', $map['start_position_markdown'])
+            ->where('end_position_markdown', $map['end_position_markdown'])
+            ->where('start_position_html', $map['start_position_html'])
+            ->where('end_position_html', $map['end_position_html'])
+            ->first();
+
+        if ($existingMapping) {
+            // Update existing mapping if necessary
+            if ($existingMapping->html_text !== $map['html']) {
+                DB::table('text_mappings')
+                    ->where('id', $existingMapping->id)
+                    ->update($mappingData);
+            }
+        } else {
+            // Insert new mapping
+            DB::table('text_mappings')->insert($mappingData);
+        }
     }
 }

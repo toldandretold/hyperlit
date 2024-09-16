@@ -23,6 +23,7 @@
     },
     "dependencies": {
         "@toast-ui/editor": "^3.2.2",
-        "easymde": "^2.18.0"
+        "easymde": "^2.18.0",
+        "markdown-it": "^14.1.0"
     }
 }

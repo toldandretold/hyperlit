@@ -68,91 +68,88 @@ class MappedParsedown extends Parsedown
         \Log::info("Old mappings for book: {$book} have been cleared.");
     }
 
-   protected function element(array $Element)
-{
-    $text = $Element['text'] ?? '';
+    protected function element(array $Element)
+    {
+        $text = $Element['text'] ?? '';
 
-    if (is_array($text)) {
-        $text = implode('', array_map(function ($item) {
-            return is_array($item) ? $item['text'] ?? '' : $item;
-        }, $text));
-    }
-
-    $text = trim($text);
-
-    // Log the text being processed
-    \Log::info("Processing element text: '{$text}'");
-
-    $startPositionMarkdown = $this->findUniqueStartPosition($this->originalText, $text);
-    $endPositionMarkdown = $startPositionMarkdown !== false ? $startPositionMarkdown + strlen($text) : null;
-
-    if ($startPositionMarkdown === false) {
-        \Log::warning("Element text '{$text}' not found in original markdown.");
-    } else {
-        \Log::info("Mapping element text: {$text}, Start Position: {$startPositionMarkdown}, End Position: {$endPositionMarkdown}");
-
-        $contextHash = hash('sha256', $text . $startPositionMarkdown);
-        $mappingId = Str::uuid()->toString();
-
-        $htmlText = $this->elementToHtml($Element);
-        $startPositionHtml = $this->htmlPosition;
-        $endPositionHtml = $startPositionHtml + strlen($htmlText);
-
-        // Generate XPath expression with refined hierarchy tracking
-        $xpath = $this->generateXPath($Element);
-
-        // Update manual HTML position
-        $this->htmlPosition = $endPositionHtml;
-
-        $this->mapping[] = [
-            'markdown' => $text,
-            'start_position_markdown' => $startPositionMarkdown,
-            'end_position_markdown' => $endPositionMarkdown,
-            'html' => $htmlText,
-            'start_position_html' => $startPositionHtml,
-            'end_position_html' => $endPositionHtml,
-            'context_hash' => $contextHash,
-            'mapping_id' => $mappingId,
-            'xpath' => $xpath, // Add the XPath expression to the mapping
-        ];
-    }
-
-    // Log the stack after processing
-    \Log::info('Current XPath Stack after processing: ' . json_encode($this->xpathStack));
-
-    return parent::element($Element);
-}
-
-protected function generateXPath(array $Element)
-{
-    $tag = $Element['name'];
-    $currentLevel = count($this->xpathStack);
-
-    if ($currentLevel === 0) {
-        // If the stack is empty, start with the first element
-        $xpath = '/' . $tag . '[1]';
-        $this->xpathStack[] = ['tag' => $tag, 'xpath' => $xpath, 'level' => 1];
-    } else {
-        $lastElement = end($this->xpathStack);
-
-        if ($lastElement['tag'] === $tag && $lastElement['level'] === $currentLevel) {
-            // If the last element is a sibling at the same level, increment the index
-            $siblingIndex = intval(substr($lastElement['xpath'], strrpos($lastElement['xpath'], '[') + 1, -1)) + 1;
-            $xpath = '/' . $tag . '[' . $siblingIndex . ']';
-            $this->xpathStack[$currentLevel - 1] = ['tag' => $tag, 'xpath' => $xpath, 'level' => $currentLevel];
-        } else {
-            // Otherwise, this is a child element or a new tag type
-            $xpath = $lastElement['xpath'] . '/' . $tag . '[1]';
-            $this->xpathStack[] = ['tag' => $tag, 'xpath' => $xpath, 'level' => $currentLevel + 1];
+        if (is_array($text)) {
+            // Handle arrays by recursively converting array elements to text
+            $text = $this->convertArrayToText($text);
         }
+
+        $text = trim($text);
+
+        // Log the text being processed
+        \Log::info("Processing element text: '{$text}'");
+
+        $startPositionMarkdown = $this->findUniqueStartPosition($this->originalText, $text);
+        $endPositionMarkdown = $startPositionMarkdown !== false ? $startPositionMarkdown + strlen($text) : null;
+
+        if ($startPositionMarkdown === false) {
+            \Log::warning("Element text '{$text}' not found in original markdown.");
+        } else {
+            \Log::info("Mapping element text: {$text}, Start Position: {$startPositionMarkdown}, End Position: {$endPositionMarkdown}");
+
+            $contextHash = hash('sha256', $text . $startPositionMarkdown);
+            $mappingId = Str::uuid()->toString();
+
+            $htmlText = $this->elementToHtml($Element);
+            $startPositionHtml = $this->htmlPosition;
+            $endPositionHtml = $startPositionHtml + strlen($htmlText);
+
+            // Generate XPath expression with refined hierarchy tracking
+            $xpath = $this->generateXPath($Element);
+
+            // Update manual HTML position
+            $this->htmlPosition = $endPositionHtml;
+
+            $this->mapping[] = [
+                'markdown' => $text,
+                'start_position_markdown' => $startPositionMarkdown,
+                'end_position_markdown' => $endPositionMarkdown,
+                'html' => $htmlText,
+                'start_position_html' => $startPositionHtml,
+                'end_position_html' => $endPositionHtml,
+                'context_hash' => $contextHash,
+                'mapping_id' => $mappingId,
+                'xpath' => $xpath, // Add the XPath expression to the mapping
+            ];
+        }
+
+        // Log the stack after processing
+        \Log::info('Current XPath Stack after processing: ' . json_encode($this->xpathStack));
+
+        return parent::element($Element);
     }
 
-    \Log::info('Generated XPath: ' . $xpath);
-    \Log::info('Current XPath Stack after processing: ' . json_encode($this->xpathStack));
-    return $xpath;
-}
+    protected function generateXPath(array $Element)
+    {
+        $tag = $Element['name'];
+        $currentLevel = count($this->xpathStack);
 
+        if ($currentLevel === 0) {
+            // If the stack is empty, start with the first element
+            $xpath = '/' . $tag . '[1]';
+            $this->xpathStack[] = ['tag' => $tag, 'xpath' => $xpath, 'level' => 1];
+        } else {
+            $lastElement = end($this->xpathStack);
 
+            if ($lastElement['tag'] === $tag && $lastElement['level'] === $currentLevel) {
+                // If the last element is a sibling at the same level, increment the index
+                $siblingIndex = intval(substr($lastElement['xpath'], strrpos($lastElement['xpath'], '[') + 1, -1)) + 1;
+                $xpath = '/' . $tag . '[' . $siblingIndex . ']';
+                $this->xpathStack[$currentLevel - 1] = ['tag' => $tag, 'xpath' => $xpath, 'level' => $currentLevel];
+            } else {
+                // Otherwise, this is a child element or a new tag type
+                $xpath = $lastElement['xpath'] . '/' . $tag . '[1]';
+                $this->xpathStack[] = ['tag' => $tag, 'xpath' => $xpath, 'level' => $currentLevel + 1];
+            }
+        }
+
+        \Log::info('Generated XPath: ' . $xpath);
+        \Log::info('Current XPath Stack after processing: ' . json_encode($this->xpathStack));
+        return $xpath;
+    }
 
     protected function findUniqueStartPosition($originalText, $text)
     {
@@ -184,6 +181,7 @@ protected function generateXPath(array $Element)
     protected function convertArrayToText($input)
     {
         if (is_array($input)) {
+            // Recursive call to handle nested arrays
             return implode('', array_map([$this, 'convertArrayToText'], $input));
         }
         return $input;

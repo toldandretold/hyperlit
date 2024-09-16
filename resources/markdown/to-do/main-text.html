@@ -1,0 +1,96 @@
+<div><blockquote>
+<p><em>Yes, it is possible to modify the save logic in MarkdownITController and markdown-IT-editor.blade.php to capture the text between the highlighted text and the arrow link, and save it to a new annotations column in the highlights table.</em></p>
+</blockquote>
+<h1>Here’s how you can approach this:</h1>
+<h2>Steps to Implement:</h2>
+<p>Modify markdown-IT-editor.blade.php: Add logic to capture the annotation text between the highlight blockquote and the line break in the markdown file. When the save button is clicked, this annotation text needs to be sent along with the highlight ID to the controller. Modify MarkdownITController: Capture the incoming annotation text from the request. Find the corresponding highlight in the database using the highlight_id. Update the annotations column in the highlights table with the captured text.</p>
+<h1>Example Code Implementation:</h1>
+<h2>1: Modify markdown-IT-editor.blade.php</h2>
+<p>You need to extract the annotation text from the markdown editor and send it to the controller when the save button is clicked.</p>
+<pre><code>&lt;script&gt;
+function saveMarkdown() {
+    <a href="/to-do/hyperlights#39/pre[1]/code[1]-1726455134493"><mark class="39/pre[1]/code[1]-1726455134493" id="39/pre[1]/code[1]-1726455134493">//</mark></a> Get the markdown content from the editor (assuming you have an editor instance)
+    const markdownContent = editorInstance.getValue();
+
+    // Split the content based on highlights and the arrow link
+    const regex = /&gt; "(.*?)"\n&gt; \[↩\]\((.*?)\)\n\n([\s\S]*?)---/g;
+    let match;
+    const annotations = [];
+
+    // Use regex to find the highlights and annotations
+    while ((match = regex.exec(markdownContent)) !== null) {
+        const highlightText = match[1];  // Captured highlight text
+        const highlightId = match[2].split("#")[1];  // Extract the highlight ID
+        const annotationText = match[3].trim();  // Text between the arrow and line break
+
+        annotations.push({
+            highlight_id: highlightId,
+            annotation: annotationText,
+        });
+    }
+
+    // Send the annotations data to the controller
+    fetch('/save-annotations', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({ annotations })
+    })
+    .then(response =&gt; response.json())
+    .then(data =&gt; {
+        if (data.success) {
+            alert('Annotations saved successfully.');
+        } else {
+            alert('Error saving annotations.');
+        }
+    });
+}
+&lt;/script&gt;
+
+&lt;!-- Add a save button --&gt;
+&lt;button onclick="saveMarkdown()"&gt;Save Annotations&lt;/button&gt;</code></pre>
+<h1>2: Modify MarkdownITController</h1>
+<p>Now, the controller should process the incoming annotations and update the highlights table with the new annotation data.</p>
+<h2>php</h2>
+<pre><code>namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class MarkdownITController extends Controller
+{
+// Add a new method to handle saving annotations
+public function saveAnnotations(Request $request)
+{
+    // Validate the incoming request data
+    $request-&gt;validate([
+        'annotations' =&gt; 'required|array',
+        'annotations.*.highlight_id' =&gt; 'required|string',
+        'annotations.*.annotation' =&gt; 'required|string',
+    ]);
+
+    $annotations = $request-&gt;input('annotations');
+
+    // Loop through each annotation and update the corresponding highlight
+    foreach ($annotations as $annotation) {
+        DB::table('highlights')
+            -&gt;where('highlight_id', $annotation['highlight_id'])
+            -&gt;update(['annotations' =&gt; $annotation['annotation'], 'updated_at' =&gt; now()]);
+    }
+
+    return response()-&gt;json(['success' =&gt; true, 'message' =&gt; 'Annotations saved successfully']);
+}
+}</code></pre>
+<h2>Explanation:</h2>
+<p>markdown-IT-editor.blade.php:</p>
+<p>The saveMarkdown() function uses a regex to extract the highlighted text, arrow link, and the annotation text between them. It sends the highlight_id and the annotation to the server using a POST request. MarkdownITController: The saveAnnotations() method processes the request, looping through the annotations and updating the corresponding highlights in the database. Each annotation is saved in the annotations column of the highlights table.</p>
+<h2>Database Structure:</h2>
+<p>Make sure the highlights table has an annotations column:</p>
+<p>php</p>
+<pre><code>Schema::table('highlights', function (Blueprint $table) {
+$table-&gt;text('annotations')-&gt;nullable();  // Add a nullable text column for annotations
+});</code></pre>
+<h2>Final Thoughts:</h2>
+<p>This solution will allow you to save annotations tied to each highlight into the highlights table. Let me know if you need further refinements or help with specific parts!</p></div>

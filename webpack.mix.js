@@ -6,3 +6,7 @@ mix.js('resources/js/app.js', 'public/js')
    .version();
 
 
+mix.js('node_modules/markdown-it/dist/markdown-it.min.js', 'public/js');
+
+
+

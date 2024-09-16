@@ -2,8 +2,6 @@
  /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black #221F20 */
 
 
-
-
     body {
 
         font-family: arial;
@@ -25,9 +23,17 @@
 
     }
 
+    h2 {
+
+        font-size: 80;
+        color: #EF8D34;
+
+    }
+
    blockquote {
 
-        background-color: #4EACAE;
+        
+        background: linear-gradient(#EE4A95, #EF8D34, #4EACAE, #EE4A95);
         color: black;
         padding: 10px;
         text-decoration-color: #221F20;
@@ -100,13 +106,16 @@
         /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black #221F20 */
 
         font-family: "Courier New", Courier, monospace;
-          background: linear-gradient(#EE4A95, #EF8D34, #4EACAE, #EE4A95);
+          
+          background-color: #4EACAE;
           padding: 2px 4px;
           border-radius: 4px;
           font-size: 20px;
 
 
     }
+
+    
 
     /* Base styles for code blocks */
     pre code {
@@ -121,4 +130,9 @@
               line-height: 1.5;
     }
 
+
+    hr {
+
+        border-color: #EE4A95;
+    }
   
