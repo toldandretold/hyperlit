@@ -3,24 +3,34 @@
 namespace App\Services;
 
 use League\CommonMark\CommonMarkConverter;
+use League\CommonMark\Environment\Environment;
+use League\CommonMark\Extension\Footnote\FootnoteExtension;
 
-class CustomMarkdownConverter extends CommonMarkConverter
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\DB;
+use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
+use League\HTMLToMarkdown\HtmlConverter;
+use App\Http\Controllers\MarkConverter;
+use App\Http\Controllers\AnchorConverter;
+use DOMDocument;
+
+class CustomMarkdownConverter
 {
-    protected $mapping = [];
+    protected $converter;
 
-    public function convertToHtmlWithMapping($markdown, &$mapping)
+    public function __construct()
     {
-        // Call the parent method to get the HTML
-        $html = parent::convertToHtml($markdown);
+        // Create an environment with footnote support
+        $environment = new Environment([]);
+        $environment->addExtension(new FootnoteExtension()); // Add footnote extension
 
-        // Here, you'll need to implement logic to create the mapping
-        // You might hook into the parsing process or manually parse the HTML
-
-        // Store the mapping
-        $mapping = $this->mapping;
-
-        return $html;
+        // Initialize the converter using the environment
+        $this->converter = new CommonMarkConverter([], $environment);
     }
 
-    // You can override methods or add new methods to track positions
+    public function convert($markdown)
+    {
+        // Convert the markdown to HTML using the initialized converter
+        return $this->converter->convertToHtml($markdown);
+    }
 }

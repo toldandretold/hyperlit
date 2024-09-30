@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\ConversionController;
+use League\CommonMark\CommonMarkConverter;
 
 class TextController extends Controller
 {
@@ -15,40 +17,54 @@ class TextController extends Controller
         $markdownPath = resource_path("markdown/{$book}/main-text.md");
         $htmlPath = resource_path("markdown/{$book}/main-text.html");
 
-        // Check if the HTML version of the file exists
-        if (File::exists($htmlPath)) {
-            // Load the HTML file directly
-            $html = File::get($htmlPath);
-        } else {
-            // Fallback to markdown conversion if HTML file does not exist
+        // Check if both files exist
+        $markdownExists = File::exists($markdownPath);
+        $htmlExists = File::exists($htmlPath);
 
-            // Check if the main text markdown file exists
-            if (!File::exists($markdownPath)) {
-                abort(404, "Book not found");
+        // If neither file exists, abort with an error
+        if (!$markdownExists && !$htmlExists) {
+            abort(404, "Book not found");
+        }
+
+        // Determine if we need to convert markdown to HTML
+        $convertToHtml = false;
+
+        if ($markdownExists) {
+            if (!$htmlExists) {
+                // HTML does not exist, need to convert
+                $convertToHtml = true;
+            } else {
+                // Both files exist, compare modification times
+                $markdownModified = File::lastModified($markdownPath);
+                $htmlModified = File::lastModified($htmlPath);
+
+                if ($markdownModified > $htmlModified) {
+                    // Markdown is newer, need to convert
+                    $convertToHtml = true;
+                }
             }
+        }
 
+        if ($convertToHtml) {
             // Load the main text markdown file
             $markdown = File::get($markdownPath);
 
             // Preprocess the markdown to handle soft line breaks
             $markdown = $this->normalizeMarkdown($markdown);
 
-            // Create an instance of MappedParsedown or another Markdown converter
-            $converter = new MappedParsedown();
-            $converter->setBook($book); // Set the book identifier
+            // Use ConversionController to convert markdown to HTML
+            $conversionController = new ConversionController($book);
+
+            // Save the preprocessed markdown back to the file before conversion
+            File::put($markdownPath, $markdown);
 
             // Convert the markdown content to HTML
-            $result = $converter->text($markdown);
-            $html = $result['html'];
-            $mapping = $result['mapping'];
+            $html = $conversionController->markdownToHtml();
 
-            // Save the converted HTML for future use
-            File::put($htmlPath, $html);
-
-            // Handle text mapping (for highlights, etc.)
-            foreach ($mapping as $map) {
-                $this->saveMapping($book, $map);
-            }
+            // The markdownToHtml() method saves the HTML file, so we can proceed
+        } else {
+            // Load the existing HTML file
+            $html = File::get($htmlPath);
         }
 
         // Pass the HTML (either from file or generated) to the view
@@ -60,28 +76,32 @@ class TextController extends Controller
 
     // Preprocess the markdown to handle soft line breaks
     private function normalizeMarkdown($markdown)
-{
-    // Split markdown content by double newlines to preserve block-level elements like headers, paragraphs, and lists
-    $paragraphs = preg_split('/(\n\s*\n)/', $markdown, -1, PREG_SPLIT_DELIM_CAPTURE);
+    {
+        // Split markdown content by double newlines to preserve block-level elements
+        $paragraphs = preg_split('/(\n\s*\n)/', $markdown, -1, PREG_SPLIT_DELIM_CAPTURE);
 
-    // Iterate through each block and normalize only the inner soft line breaks, excluding code blocks
-    foreach ($paragraphs as &$block) {
-        // Skip processing if the block is a code block (either fenced or indented)
-        if (preg_match('/^( {4}|\t)|(```)/', $block)) {
-            continue;  // Skip normalization for code blocks
+        // Iterate through each block and normalize only the inner soft line breaks, excluding code blocks, blockquotes, and lists
+        foreach ($paragraphs as &$block) {
+            // Skip processing if the block is a code block (either fenced or indented)
+            if (preg_match('/^( {4}|\t)|(```)/m', $block)) {
+                continue;  // Skip normalization for code blocks
+            }
+
+            // Skip processing if the block starts with a blockquote or a list item
+            if (preg_match('/^\s*>|\d+\.\s|\*\s|-\s|\+\s/m', $block)) {
+                continue;  // Skip normalization for blockquotes and lists
+            }
+
+            // If the block isn't just a delimiter (double newline), normalize inner soft line breaks
+            if (!preg_match('/^\n\s*\n$/', $block)) {
+                // Replace single newlines within a paragraph block with spaces
+                $block = preg_replace('/(?<!\n)\n(?!\n)/', ' ', $block);
+            }
         }
 
-        // If the block isn't just a delimiter (double newline), normalize inner soft line breaks
-        if (!preg_match('/^\n\s*\n$/', $block)) {
-            // Replace single newlines within a paragraph block with spaces
-            $block = preg_replace('/(?<!\n)\n(?!\n)/', ' ', $block);
-        }
+        // Recombine the paragraphs to maintain block structure
+        return implode('', $paragraphs);
     }
-
-    // Recombine the paragraphs to maintain block structure
-    return implode('', $paragraphs);
-}
-
 
     // Show the hyperlights content for a specific book
     public function showHyperlights($book)
@@ -97,55 +117,34 @@ class TextController extends Controller
         // Load the hyperlights markdown file
         $markdown = File::get($hyperLightsPath);
 
-        // Use a Markdown converter to convert the markdown to HTML
-        $converter = new \League\CommonMark\CommonMarkConverter();
+        // Use CommonMarkConverter to convert the markdown to HTML
+        $converter = new CommonMarkConverter();
         $html = $converter->convertToHtml($markdown);
 
         // Pass the converted HTML to the Blade template
-        return view('hyperlights', [
+        return view('hyperlights-md', [
             'html' => $html,
             'book' => $book
         ]);
     }
 
-    // Helper method to save the text mappings for highlights
-    private function saveMapping($book, $map)
+    public function showHyperlightsHTML($book)
     {
-        $mappingData = [
-            'book' => $book,
-            'markdown_text' => $map['markdown'],
-            'html_text' => $map['html'],
-            'start_position_markdown' => $map['start_position_markdown'],
-            'end_position_markdown' => $map['end_position_markdown'],
-            'start_position_html' => $map['start_position_html'],
-            'end_position_html' => $map['end_position_html'],
-            'context_hash' => $map['context_hash'],
-            'mapping_id' => $map['mapping_id'],
-            'xpath' => $map['xpath'],
-            'created_at' => now(),
-            'updated_at' => now(),
-        ];
+        // Define the path to the HTML file for this book
+        $htmlFilePath = resource_path("markdown/{$book}/hyperlights.html");
 
-        // Check for existing mapping
-        $existingMapping = DB::table('text_mappings')
-            ->where('book', $book)
-            ->where('markdown_text', $map['markdown'])
-            ->where('start_position_markdown', $map['start_position_markdown'])
-            ->where('end_position_markdown', $map['end_position_markdown'])
-            ->where('start_position_html', $map['start_position_html'])
-            ->where('end_position_html', $map['end_position_html'])
-            ->first();
-
-        if ($existingMapping) {
-            // Update existing mapping if necessary
-            if ($existingMapping->html_text !== $map['html']) {
-                DB::table('text_mappings')
-                    ->where('id', $existingMapping->id)
-                    ->update($mappingData);
-            }
-        } else {
-            // Insert new mapping
-            DB::table('text_mappings')->insert($mappingData);
+        // Check if the HTML file exists
+        if (!File::exists($htmlFilePath)) {
+            abort(404, "Main HTML content not found for book: $book");
         }
+
+        // Load the HTML file content
+        $htmlContent = File::get($htmlFilePath);
+
+        // Pass the content to the Blade template
+        return view('hyperlights', [
+            'htmlContent' => $htmlContent,  // Pass the HTML content
+            'book' => $book
+        ]);
     }
 }

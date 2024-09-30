@@ -8,20 +8,11 @@
         background-color: yellow;
     }
 
-    #hyperlight-buttons {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        background-color: white;
-        border: 1px solid #ccc;
-        padding: 10px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    /* Disable the native iOS menu */
+    html, body, * {
+        -webkit-touch-callout: none; /* Disable the callout menu */
+        -webkit-user-select: text;   /* Allow text selection */
     }
-
-    #hyperlight-buttons button {
-        margin: 5px;
-    }
-
     </style>
 @endsection
 
@@ -30,11 +21,10 @@
     <!-- Load the content of the main-text.html file -->
     <div id="main-content" data-book="{{ $book }}">
         {!! File::get(resource_path("markdown/{$book}/main-text.html")) !!}
-
     </div>
 
     <!-- Buttons for hyper-lighting -->
-    <div id="hyperlight-buttons" style="display:none;">
+    <div id="hyperlight-buttons" style="display: none; position: absolute; z-index: 9999;">
         <button id="copy-hyperlight">Hyperlight</button>
         <button id="delete-hyperlight" type="button" style="display:none;">Delete</button>
     </div>
@@ -47,9 +37,45 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-classapplier.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-highlighter.min.js"></script>
 
+    <script>
+
+        let book = document.getElementById('main-content').getAttribute('data-book');
+
+        // Make sure the book variable is available globally if needed
+        window.book = book;
 
 
-<script>
+      
+   // Function to attach event listeners to all mark tags
+    function attachMarkListeners() {
+        const markTags = document.querySelectorAll('mark');
+
+        markTags.forEach(function(mark) {
+            const highlightId = mark.getAttribute('class');
+
+            if (highlightId) {
+                mark.addEventListener('click', function() {
+                    window.location.href = `/${book}/hyperlights#${highlightId}`;  
+                });
+
+                mark.style.cursor = 'pointer';
+
+                mark.addEventListener('mouseover', function() {
+                    mark.style.textDecoration = 'underline';
+                });
+                mark.addEventListener('mouseout', function() {
+                    mark.style.textDecoration = 'none';
+                });
+            }
+        });
+    }
+
+    // Call the function on page load to attach listeners to existing marks
+    document.addEventListener("DOMContentLoaded", function() {
+        attachMarkListeners(); // Attach listeners on page load
+    });
+
+
     rangy.init();
 
     // Initialize the highlighter
@@ -63,8 +89,8 @@
 
     highlighter.addClassApplier(classApplier);
 
-    // Event listener for mouseup to detect selected text and show buttons
-    document.addEventListener('mouseup', function() {
+    // Cross-platform selection detection: desktop and mobile
+    function handleSelection() {
         let selectedText = window.getSelection().toString().trim();
         const highlights = document.querySelectorAll('mark');
         let isOverlapping = false;
@@ -78,8 +104,29 @@
 
         if (selectedText.length > 0) {
             console.log('Showing buttons. Selected text:', selectedText);
-            document.getElementById('hyperlight-buttons').style.display = 'block';
 
+            // Get the bounding box of the selected text to position buttons near it
+            const selection = window.getSelection();
+            const range = selection.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+
+            // Position the buttons near the selected text, but far from iOS context menu
+            const buttons = document.getElementById('hyperlight-buttons');
+            buttons.style.display = 'block';
+
+            // Position the buttons below the selection (or above if there's no room below)
+            let offset = 100; // Adjust this value to move the buttons further from iOS context menu
+            if (rect.bottom + offset > window.innerHeight) {
+                // Position the buttons above the selection if there's no room below
+                buttons.style.top = `${rect.top + window.scrollY - offset}px`;
+            } else {
+                // Default: Position the buttons below the selection
+                buttons.style.top = `${rect.bottom + window.scrollY + 10}px`; // 10px padding from selection
+            }
+
+            buttons.style.left = `${rect.left + window.scrollX}px`;
+
+            // Show or hide the delete button based on overlap detection
             if (isOverlapping) {
                 console.log('Detected overlapping highlight');
                 document.getElementById('delete-hyperlight').style.display = 'block';
@@ -92,10 +139,39 @@
             document.getElementById('hyperlight-buttons').style.display = 'none';
             document.getElementById('delete-hyperlight').style.display = 'none';
         }
+    }
+
+    // Event listener for desktop (mouseup)
+    document.addEventListener('mouseup', handleSelection);
+
+    // Event listeners for mobile (touchend)
+    document.addEventListener('touchend', function() {
+        setTimeout(handleSelection, 100);  // Small delay to ensure touch selection happens
     });
 
-   // Function to handle creating a highlight
-document.getElementById('copy-hyperlight').addEventListener('click', function() {
+    // Prevent iOS from cancelling the selection when interacting with buttons
+    document.getElementById('hyperlight-buttons').addEventListener('touchstart', function(event) {
+        event.preventDefault(); // Prevents native iOS behavior like cancelling the selection
+        event.stopPropagation(); // Prevent touch events from bubbling and cancelling selection
+    });
+
+    // Allow interaction with buttons on touch
+    document.getElementById('hyperlight-buttons').addEventListener('click', function(event) {
+        event.preventDefault(); // Ensure the button click doesn't cancel the selection
+        event.stopPropagation(); // Stop the event from bubbling
+    });
+
+    // Helper function to bind click and touchstart events
+    function addTouchAndClickListener(element, handler) {
+        element.addEventListener('click', handler);
+        element.addEventListener('touchstart', function(event) {
+            event.preventDefault(); // Prevents default touch behavior
+            handler(event); // Call the same handler for touch events
+        });
+    }
+
+    // Function to handle creating a highlight
+addTouchAndClickListener(document.getElementById('copy-hyperlight'), function() {
     let selection = window.getSelection();
     let range;
 
@@ -107,16 +183,13 @@ document.getElementById('copy-hyperlight').addEventListener('click', function() 
         return;
     }
 
-    // Get the selected text
     let selectedText = selection.toString().trim();
 
-    // Ensure that there is a valid selection
     if (!selectedText) {
         console.error('No valid text selected.');
         return;
     }
 
-    // Get the book name from the data attribute
     let book = document.getElementById('main-content').getAttribute('data-book');
 
     if (!book) {
@@ -124,64 +197,36 @@ document.getElementById('copy-hyperlight').addEventListener('click', function() 
         return;
     }
 
-    // Get the XPath for the start and end containers
-    let startXPath = getXPath(range.startContainer);
-    let endXPath = getXPath(range.endContainer);
+    // Generate the highlight_id on the front-end
+    let userName = 'user-name'; // Use the actual user name
+    let timestamp = Date.now();
+    let highlightId = userName + '_' + timestamp;
 
-    // Generate the full XPath for the start of the highlight
-    let fullXPath = getFullXPath(range.startContainer);
-
-    // Normalize the start and end XPaths
-    startXPath = normalizeXPath(startXPath);
-    endXPath = normalizeXPath(endXPath);
-
-    // Calculate start and end positions relative to the container
-    let containerText = range.startContainer.textContent || range.startContainer.innerText;
-    let startPosition = range.startOffset;
-    let endPosition = startPosition + selectedText.length;
-
-    // Generate the highlight ID based on character count and XPath
-    let highlightId = `${startPosition}${startXPath}-${Date.now()}`;
-
-    console.log("Generated Highlight ID:", highlightId);
-    console.log("Start XPath:", startXPath);
-    console.log("End XPath:", endXPath);
-    console.log("Full XPath:", fullXPath);
-    console.log("Start Position:", startPosition, "End Position:", endPosition);
-
-    // Use Rangy to highlight the selection
+    // Highlight the selection and assign id and class
     highlighter.highlightSelection("highlight");
 
-    // Get all <mark> tags applied by Rangy
-    const highlights = document.querySelectorAll('mark.highlight');
+    // Remove 'highlight' class from the new marks, as it's no longer needed
+    const newMarks = document.querySelectorAll('mark.highlight');
 
-    if (highlights.length > 0) {
-        // Loop through all <mark> tags
-        highlights.forEach((mark, index) => {
-            // Remove any existing class and add the correct highlight class
-            mark.removeAttribute('class');
-            mark.classList.add(highlightId);  // Add class based on highlightId
+    if (newMarks.length > 0) {
+    newMarks.forEach((mark, index) => {
+        // Add id and class to the first <mark> tag
+        if (index === 0) {
+            mark.setAttribute('id', highlightId);
+        }
+        // Add class="highlight_id" to all <mark> tags
+        mark.classList.add(highlightId);
 
-            // Apply the id to only the first <mark> tag
-            if (index === 0) {
-                mark.setAttribute('id', highlightId);
-            }
+        // Optionally remove the default 'highlight' class if it exists
+        mark.classList.remove('highlight'); // Remove the class if not needed
+    });
+}
 
-            // Create an <a> tag for each <mark>
-            const a = document.createElement('a');
-            a.setAttribute('href', `/${book}/hyperlights#${highlightId}`);
 
-            // Wrap the <mark> tag inside the <a> tag
-            mark.parentNode.insertBefore(a, mark);
-            a.appendChild(mark);
-        });
-    }
-
-    // Capture only the content of the main container
     let updatedHtml = document.getElementById('main-content').innerHTML;
 
-    // Send the updated HTML and highlight data to the backend
-    fetch('/save-updated-html', {
+    // Send data to the server, including the generated highlight_id
+    fetch('/highlight/store', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -191,27 +236,32 @@ document.getElementById('copy-hyperlight').addEventListener('click', function() 
             book: book,
             updated_html: updatedHtml,
             text: selectedText,
-            start_xpath: startXPath,
-            end_xpath: endXPath,
-            xpath_full: fullXPath,
-            start_position: startPosition,
-            end_position: endPosition,
-            highlight_id: highlightId
+            start_xpath: getXPath(range.startContainer),
+            end_xpath: getXPath(range.endContainer),
+            xpath_full: getFullXPath(range.startContainer),
+            start_position: range.startOffset,
+            end_position: range.startOffset + selectedText.length,
+            highlight_id: highlightId  // Send highlight_id to the backend
         })
     })
-    .then(response => {
-        if (!response.ok) {
-            return response.text().then(text => { throw new Error(text); });
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('HTML updated and highlight saved');
+        // Re-run the listener function for the newly created marks
+            attachMarkListeners();  // Attach listeners to newly created mark tags
+        } else {
+            console.error('Error from server:', data.message);
         }
-        console.log('HTML updated and highlight saved');
     })
     .catch(error => {
         console.error('Error updating HTML:', error);
     });
 });
-// Function to handle deleting a highlight
-document.getElementById('delete-hyperlight').addEventListener('click', function(event) {
-    event.preventDefault();  // Prevent default behavior like page reload
+
+    // Function to handle deleting a highlight
+addTouchAndClickListener(document.getElementById('delete-hyperlight'), function(event) {
+    event.preventDefault();
     console.log("Delete button clicked.");
 
     let selection = window.getSelection();
@@ -222,34 +272,24 @@ document.getElementById('delete-hyperlight').addEventListener('click', function(
         return;
     }
 
-    // Keep track of the IDs and classes of the <mark> tags that are removed
     let removedHighlightIds = [];
-    let removedHighlightClasses = [];
 
-    // Loop through all <mark> elements in the document
     const allMarks = document.querySelectorAll('mark');
     allMarks.forEach(function(mark) {
         let markText = mark.textContent.trim();
 
-        // Check if the selected text contains the text inside the <mark> tag
         if (selectedText.includes(markText)) {
             if (mark.hasAttribute('id')) {
                 let highlightId = mark.getAttribute('id');
-                removedHighlightIds.push(highlightId);  // Store the highlight ID for backend update
+                removedHighlightIds.push(highlightId);
+                console.log("Mark with ID to be deleted:", highlightId);  // Log for clarity
             }
 
-            if (mark.hasAttribute('class')) {
-                let highlightClass = mark.getAttribute('class');
-                removedHighlightClasses.push(highlightClass);  // Store the class for backend update
-            }
-
-            // Find the parent <a> tag and remove both the <a> and <mark> tags but keep the text
             let parentAnchor = mark.closest('a');
             if (parentAnchor) {
                 let parent = parentAnchor.parentNode;
                 parent.replaceChild(document.createTextNode(mark.textContent), parentAnchor);
             } else {
-                // Fallback: Just remove the <mark> tag if <a> is not found (unlikely case)
                 let parent = mark.parentNode;
                 parent.replaceChild(document.createTextNode(mark.textContent), mark);
             }
@@ -257,47 +297,42 @@ document.getElementById('delete-hyperlight').addEventListener('click', function(
     });
 
     console.log("Removed highlight IDs:", removedHighlightIds);
-    console.log("Removed highlight classes:", removedHighlightClasses);
 
-    if (removedHighlightIds.length > 0 || removedHighlightClasses.length > 0) {
-        // Capture the updated HTML after deletion
+    // Ensure that highlight IDs are always sent as an array
+    if (removedHighlightIds.length > 0) {
         let updatedHtml = document.getElementById('main-content').innerHTML;
-        let book = document.getElementById('main-content').getAttribute('data-book');  // Get the book value
+        let book = document.getElementById('main-content').getAttribute('data-book');
 
-        // Send the deletion request to the backend
-        fetch('/delete-highlight', {
+        // Send the removed IDs as an array, even if there’s only one highlight ID
+        fetch('/highlight/delete', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
             },
             body: JSON.stringify({
-                highlight_ids: removedHighlightIds,
-                highlight_classes: removedHighlightClasses,
+                highlight_ids: removedHighlightIds, // Ensure this is an array
                 updated_html: updatedHtml,
-                book: book  // Include the book value here
+                book: book
             })
         })
-        .then(response => {
-            if (!response.ok) {
-                return response.text().then(text => { throw new Error(text); });
-            }
-            console.log('Highlights deleted and HTML updated');
-            return response.json(); // Handle successful JSON response
-        })
+        .then(response => response.json())
         .then(data => {
-            console.log('Success:', data);  // Log success response from the server
+            if (data.success) {
+                console.log('Highlights deleted and HTML updated');
+            } else {
+                console.error('Error from server:', data.message);
+            }
         })
         .catch(error => {
-            console.error('Error deleting highlights:', error);  // Log errors more clearly
+            console.error('Error deleting highlights:', error);
         });
     } else {
         console.error('No matching mark elements found in selection.');
     }
 });
 
-
-    // Function to calculate XPath of a node
+    // Helper functions: getXPath, getFullXPath, normalizeXPath
     function getXPath(node) {
         if (node.nodeType === Node.TEXT_NODE) {
             node = node.parentNode;
@@ -321,7 +356,6 @@ document.getElementById('delete-hyperlight').addEventListener('click', function(
         }
     }
 
-    // Function to generate the full XPath
     function getFullXPath(node) {
         if (node.nodeType === Node.TEXT_NODE) {
             node = node.parentNode;
@@ -336,13 +370,9 @@ document.getElementById('delete-hyperlight').addEventListener('click', function(
         return '/html' + fullXPath;
     }
 
-    // Function to normalize XPath to match backend format
     function normalizeXPath(xpath) {
-        const regex = /^id\(".*?"\)\/div\[1\]/;  // Matches id("...")/div[1] or similar pattern
-        return xpath.replace(regex, '');  // Replace the match with an empty string
+        const regex = /^id\(".*?"\)\/div\[1\]/;
+        return xpath.replace(regex, '');
     }
-</script>
-
-
-
+    </script>
 @endsection

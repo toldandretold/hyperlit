@@ -135,4 +135,50 @@
 
         border-color: #EE4A95;
     }
+
+    #html-editor div.annotation {
+    margin-bottom: 20px; /* Adds space at the bottom of the annotation div */
+    margin-top: 20px; /* Adds space at the top of the annotation div */
+}
+
+/* change cursor behaviour for links in editable div */
+#html-editor a {
+    cursor: pointer; /* Change the cursor to a pointer (arrow) */
+    color: #221F20;
+
+}
+
+/* Disable iOS long-press text selection menu */
+html, body, * {
+    -webkit-touch-callout: none; /* Disable the iOS touch callout */
+    -webkit-user-select: none;   /* Disable text selection */
+    user-select: none;           /* Disable text selection (for other browsers) */
+}
+
+#hyperlight-buttons {
+    position: absolute;
+    display: none; /* Hidden until text is selected */
+    z-index: 9999; /* Keep it above other elements */
+    background-color: white;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Add a small shadow for visibility */
+}
+
+#hyperlight-buttons button {
+    background-color: white; /* Button background color */
+    border: 1px solid #ccc;
+    padding: 5px 10px;
+    margin-right: 5px;
+    border-radius: 5px;
+}
+
+mark {
+    text-decoration: none !important; /* No underline by default */
+    cursor: pointer; /* Make the cursor a pointer like a link */
+}
+
+mark:hover {
+    text-decoration: none !important; /* Ensure no underline on hover */
+}
   

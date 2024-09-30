@@ -6,7 +6,9 @@ use Parsedown;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use League\HTMLToMarkdown\HtmlConverter;
 
+// Convert main-text.md to main-text.html, and generate mappings
 class MappedParsedown extends Parsedown
 {
     protected $mapping = [];
@@ -15,6 +17,7 @@ class MappedParsedown extends Parsedown
     protected $book; // Store the book identifier
     protected $xpathStack = []; // Stack to keep track of the current XPath
     protected $currentDepth = 0; // Track the current depth of the DOM
+    protected $usedMarkdownPositions = []; // Track used positions to avoid recomputing
 
     // Method to set the book identifier
     public function setBook($book)
@@ -40,6 +43,7 @@ class MappedParsedown extends Parsedown
 
         // Reset mapping and position trackers for each conversion
         $this->mapping = [];
+        $this->usedMarkdownPositions = []; // Reset used positions
         $this->originalText = $text;
         $this->htmlPosition = 0;
         $this->xpathStack = [];
@@ -70,6 +74,11 @@ class MappedParsedown extends Parsedown
 
     protected function element(array $Element)
     {
+        // Skip processing if the element contains raw HTML
+        if (isset($Element['rawHtml']) || $Element['name'] === 'html') {
+            return parent::element($Element);
+        }
+
         $text = $Element['text'] ?? '';
 
         if (is_array($text)) {
@@ -78,6 +87,11 @@ class MappedParsedown extends Parsedown
         }
 
         $text = trim($text);
+
+        // Skip processing if text is empty
+        if ($text === '') {
+            return parent::element($Element);
+        }
 
         // Log the text being processed
         \Log::info("Processing element text: '{$text}'");
@@ -122,6 +136,32 @@ class MappedParsedown extends Parsedown
         return parent::element($Element);
     }
 
+    // Convert main-text.html to main-text.md, so that markdown file is updated to reflect hyperlit changes
+    public function htmlToMarkdown()
+    {
+        // Ensure the book is set
+        if (empty($this->book)) {
+            throw new \Exception('Book identifier must be set before calling htmlToMarkdown.');
+        }
+
+        // Read the HTML content from the file
+        $htmlFilePath = resource_path("markdown/{$this->book}/main-text.html");
+        if (!File::exists($htmlFilePath)) {
+            throw new \Exception("HTML file does not exist at path: {$htmlFilePath}");
+        }
+        $htmlContent = File::get($htmlFilePath);
+
+        // Convert HTML to Markdown
+        $converter = new HtmlConverter();
+        $markdown = $converter->convert($htmlContent);
+
+        // Save the markdown content to a file
+        $markdownFilePath = resource_path("markdown/{$this->book}/main-text.md");
+        File::put($markdownFilePath, $markdown);
+
+        return $markdown;
+    }
+
     protected function generateXPath(array $Element)
     {
         $tag = $Element['name'];
@@ -153,18 +193,29 @@ class MappedParsedown extends Parsedown
 
     protected function findUniqueStartPosition($originalText, $text)
     {
+        if ($text === '') {
+            return false; // Avoid infinite loops when text is empty
+        }
+
         $offset = 0;
+
         while (($position = strpos($originalText, $text, $offset)) !== false) {
-            if (!in_array($position, array_column($this->mapping, 'start_position_markdown'))) {
+            if (!isset($this->usedMarkdownPositions[$position])) {
+                // Mark this position as used
+                $this->usedMarkdownPositions[$position] = true;
                 return $position;
             }
-            $offset = $position + strlen($text);
+            $offset = $position + 1; // Increment offset by 1 to handle overlapping occurrences
         }
         return false;
     }
 
     protected function elementToHtml(array $Element)
     {
+        if (isset($Element['rawHtml'])) {
+            return $Element['rawHtml'];
+        }
+
         $tag = $Element['name'];
         $text = $this->convertArrayToText($Element['text'] ?? '');
         $attributes = '';
@@ -181,8 +232,19 @@ class MappedParsedown extends Parsedown
     protected function convertArrayToText($input)
     {
         if (is_array($input)) {
-            // Recursive call to handle nested arrays
-            return implode('', array_map([$this, 'convertArrayToText'], $input));
+            $text = '';
+            foreach ($input as $item) {
+                if (is_array($item)) {
+                    if (isset($item['rawHtml'])) {
+                        $text .= $item['rawHtml'];
+                    } else {
+                        $text .= $this->convertArrayToText($item);
+                    }
+                } else {
+                    $text .= $item;
+                }
+            }
+            return $text;
         }
         return $input;
     }

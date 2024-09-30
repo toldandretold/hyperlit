@@ -52,26 +52,18 @@ class MarkdownITController extends Controller
         return response()->json(['success' => true]);
     }
 
-    // Existing show method for the test markdown file
-    public function show()
-    {
-        // Load the markdown file content
-        $content = File::exists(storage_path('app/public/test.md')) ? File::get(storage_path('app/public/test.md')) : '';
+    public function showMarkdown($book)
+{
+    // Define the path to the markdown file based on the book
+    $path = resource_path("markdown/{$book}/hyperlights.md");
 
-        // Pass the markdown content to the view
-        return view('markdown-it-editor', compact('content'));
-    }
+    // Load the content from the markdown file (ensure the file exists)
+    $content = file_exists($path) ? file_get_contents($path) : '';
 
-    // Existing save method for the test markdown file
-    public function save(Request $request)
-    {
-        // Validate and save the new markdown content
-        $request->validate([
-            'markdown_it_content' => 'required|string',
-        ]);
+    // Return the view with the content variable
+    return view('hyperlights-md', ['book' => $book, 'content' => $content]);
+}
 
-        File::put(storage_path('app/public/test.md'), $request->markdown_content);
 
-        return redirect()->route('markdown.show')->with('success', 'Markdown saved successfully!');
-    }
+    
 }

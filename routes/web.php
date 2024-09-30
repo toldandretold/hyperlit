@@ -1,16 +1,13 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\MarkdownController;
-use App\Http\Controllers\PageController;
-use App\Http\Controllers\BookController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\PandocBookController;
 use App\Http\Controllers\HighlightController;
 use App\Http\Controllers\TextController;
-use App\Http\Controllers\TestController;
-use App\Http\Controllers\MarkdownITController;
-
+use App\Http\Controllers\CiteCreator;
+use App\Http\Controllers\MarkdownITController; // Added back
+use App\Http\Controllers\ConversionController;  // In case you need it
+use App\Http\Controllers\MainTextEditableDivController;
 
 // Home route
 Route::get('/', function () {
@@ -29,62 +26,32 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Markdown editor routes
-Route::get('/markdown-editor', [MarkdownController::class, 'showEditor'])->name('markdown.editor');
-Route::post('/markdown-editor/save', [MarkdownController::class, 'saveMarkdown'])->name('markdown.save');
-Route::get('/editor', [MarkdownController::class, 'showEditor'])->name('showEditor');
-Route::get('/markdown', [MarkdownController::class, 'getMarkdown'])->name('getMarkdown');
-Route::post('/save-markdown', [MarkdownController::class, 'saveMarkdown'])->name('saveMarkdown');
-
-// Markdown-it routes
-Route::get('/markdown-IT-editor', [MarkdownITController::class, 'show'])->name('markdown.show');
-Route::post('/markdown-IT-editor/save', [MarkdownITController::class, 'save'])->name('markdownIT.save');
-
-// Page creation routes
-Route::post('/create-page', [PageController::class, 'createPage']);
-Route::post('/save-content', [PageController::class, 'saveContent']);
-
-// Book route for strategic_imaginaries (specific book)
-Route::get('/book/strategic_imaginaries', [App\Http\Controllers\SiteController::class, 'show']);
-
-// Dynamic book page routes (specific before general)
-Route::get('/book/{filename}', [PandocBookController::class, 'show']);
-Route::get('/book/{page}', [BookController::class, 'show']);
-
-// Deepnote route
-Route::get('/deepnote', function () {
-    return view('deepnote');
-});
-
 // Highlight routes
-Route::post('/save-highlight', [HighlightController::class, 'store']);
-Route::post('/update-markdown', [HighlightController::class, 'updateMarkdown']);
-Route::post('/delete-highlight', [HighlightController::class, 'deleteHighlight']);
-Route::post('/save-updated-html', [HighlightController::class, 'store']);
+Route::post('/highlight/store', [HighlightController::class, 'store'])->name('highlight.store');
+Route::post('/highlight/delete', [HighlightController::class, 'deleteHighlight'])->name('highlight.delete');
+Route::post('/{book}/update-annotations', [HighlightController::class, 'updateAnnotations'])->name('highlight.update-annotations');
+Route::post('/{book}/mark-as-deleted', [HighlightController::class, 'markHighlightsAsDeleted'])->name('highlight.mark-as-deleted');
 
-// Hyperlighting route
-Route::get('/hyperlighting', function () {
-    return view('hyperlighting');
-});
 
-// Test mapping route
-Route::get('/test-mapping', [TestController::class, 'testMapping']);
 
-Route::get('/test-parsedown', function () {
-    $markdown = "Sample **bold** text";
-    $parsedown = new \App\Http\Controllers\MappedParsedown();
-    $result = $parsedown->text($markdown);
+// main-text div edit
+Route::post('/save-edited-content', [MainTextEditableDivController::class, 'saveEditedContent']);
+Route::get('/{book}/hyperlighting_div', [MainTextEditableDivController::class, 'showEditableText']);
 
-    // Output result for testing
-    return response()->json($result);
-});
 
-// Specific route for book's hyperlights
-Route::get('/{book}/hyperlights', [MarkdownITController::class, 'showEditor'])->name('markdownIT.show');
+
+
+
+// Hyperlights routes
+Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML'])->name('hyperlights.show');
+
+// Cite Creator routes
+Route::get('/cite-creator', [CiteCreator::class, 'create'])->name('createCite');
+Route::post('/cite-creator', [CiteCreator::class, 'store'])->name('processCite');
+
+// MarkdownITController routes
 Route::post('/{book}/saveMarkdown', [MarkdownITController::class, 'saveMarkdown'])->name('markdownIT.save');
+Route::get('/{book}/hyperlights.md', [MarkdownITController::class, 'showMarkdown'])->name('markdownIT.showMarkdown');
 
 // General book route (should be last to avoid conflict with more specific routes)
-Route::get('/{book}', [TextController::class, 'show']);
-
-
-require __DIR__.'/auth.php';
+Route::get('/{book}', [TextController::class, 'show'])->name('book.show');
