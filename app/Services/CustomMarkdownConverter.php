@@ -21,7 +21,11 @@ class CustomMarkdownConverter
     public function __construct()
     {
         // Create an environment with footnote support
-        $environment = new Environment([]);
+        $environment = new Environment([
+            'backref_class' => 'footnote-backref',  // Class for the backref link
+            'container_add_hr' => true,  // Add <hr> before footnotes
+        ]);
+        $environment->addExtension(new CommonMarkCoreExtension());
         $environment->addExtension(new FootnoteExtension()); // Add footnote extension
 
         // Initialize the converter using the environment

@@ -3,15 +3,13 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\File;
-use App\Services\CustomMarkdownConverter;
+use ParsedownExtra; // ParsedownExtra is imported here as a class, not a trait
 use Illuminate\Support\Facades\DB;
-use League\CommonMark\CommonMarkConverter;
-use League\CommonMark\Extension\Footnote\FootnoteExtension;
-use League\CommonMark\Environment\Environment;
-use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
 use League\HTMLToMarkdown\HtmlConverter;
+use League\HTMLToMarkdown\ElementInterface;
 use App\Http\Controllers\MarkConverter;
 use App\Http\Controllers\AnchorConverter;
+use App\Http\Controllers\CustomHeaderConverter;
 use DOMDocument;
 
 class ConversionController extends Controller
@@ -43,10 +41,11 @@ class ConversionController extends Controller
         }
         $markdown = File::get($markdownFilePath);
 
-         // Convert markdown to HTML using the custom converter
-        $converter = new CustomMarkdownConverter();
-        $html = $converter->convert($markdown);
+        // Create a new instance of ParsedownExtra
+        $converter = new ParsedownExtra(); // Instantiate ParsedownExtra class
 
+        // Convert markdown to HTML using Parsedown Extra
+        $html = $converter->text($markdown);
 
         // Save the HTML content to a file
         $htmlFilePath = resource_path("markdown/{$this->book}/main-text.html");
@@ -72,23 +71,17 @@ class ConversionController extends Controller
         }
         $htmlContent = File::get($htmlFilePath);
 
-        // Log the HTML content for debugging
-        \Log::info("HTML content being converted: " . $htmlContent);
-
         // Configure the HTML to Markdown converter
-        $converter = new HtmlConverter([
-            'strip_tags' => false,  // Do not strip any tags
-        ]);
+        $converter = new HtmlConverter([]);
 
         // Add custom handlers to preserve <mark>, <a>, and now <h1>-<h6> tags
         $converter->getEnvironment()->addConverter(new MarkConverter());
         $converter->getEnvironment()->addConverter(new AnchorConverter());
+        $converter->getEnvironment()->addConverter(new CustomHeaderConverter()); // Add the custom header converter
+
 
         // Convert HTML to Markdown
         $markdown = $converter->convert($htmlContent);
-
-        // Log the converted markdown for debugging
-        \Log::info("Converted Markdown content: " . $markdown);
 
         // Save the markdown content to a file
         $markdownFilePath = resource_path("markdown/{$this->book}/main-text.md");

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use League\HTMLToMarkdown\Converter\ConverterInterface;
 use League\HTMLToMarkdown\ElementInterface;
+use League\HTMLToMarkdown\HtmlConverter;
 
 class AnchorConverter implements ConverterInterface
 {
