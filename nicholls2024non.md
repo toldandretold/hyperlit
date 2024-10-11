@@ -1,7 +1,5 @@
 []{#index.xhtml}
 
-<article data-type="research-article" vocab="http://schema.org/" typeof="ScholarlyArticle">
-
 ::::::::::::::::::::::::::::: {#index.xhtml_frontmatter .section .frontmatter extent="frontmatter"}
 <div>
 
@@ -23,7 +21,7 @@ Ahead-of-print[,
 logo](images/product/open-access.png)](https://www.tandfonline.com/openaccess){target="_blank"}
 :::
 
-# Non-aligned common front: strategic imaginaries of the new international economic order (NIEO) {property="name"}
+# Non-aligned common front: strategic imaginaries of the new international economic order (NIEO) {#non-aligned-common-front-strategic-imaginaries-of-the-new-international-economic-order-nieo property="name"}
 
 </div>
 
@@ -40,8 +38,8 @@ Adelaide, Adelaide, Australia]{property="name"}
 ::::
 
 ::::::::::::::: ahk
-:::: {#index.xhtml_abstract .section .simple .abstract property="abstract" typeof="Text" role="doc-abstract"}
-## Abstract {property="name"}
+:::: {#index.xhtml_abstract .section .simple .abstract typeof="Text" role="doc-abstract" property="name"}
+## Abstract {#abstract property="name"}
 
 ::: {role="paragraph"}
 Fifty years after the Sixth Special Session, the Progressive
@@ -140,7 +138,7 @@ repository by the author(s) or with their consent.
 :::::::
 :::::::::::::::::::::::::::::
 
-::::::::::::::::::::::::::::::::::::::::::: {#index.xhtml_bodymatter .section .bodymatter extent="bodymatter" property="articleBody" typeof="Text"}
+:::::::::::::::::::::::::::::::::::::: {#index.xhtml_bodymatter .section .bodymatter extent="bodymatter" property="articleBody" typeof="Text"}
 ::: {role="paragraph"}
 This article is part of a Special Issue commemorating the fiftieth
 anniversary of the campaign for a NIEO (UN
@@ -225,8 +223,7 @@ role="doc-biblioref" xml-rid="CIT0024"}) has argued, that the NIEO is a
 global development.
 :::
 
-::::::::: {#index.xhtml_sec-1 .section}
-## Question of strategic decision-making
+## Question of strategic decision-making {#index.xhtml_sec-1}
 
 ::: {role="paragraph"}
 By the early 1980s, scholars began to realise that the core proposals of
@@ -247,24 +244,24 @@ Robert W. Cox ([1981](#index.xhtml_CIT0014){.biblioref
 role="doc-biblioref" xml-rid="CIT0014"}), all agreed. For them, the
 demise of the NIEO proved that it had never stood a chance. This
 dismissive consensus became the baseline assumption across the social
-sciences, including in development studies.[^1] The pioneering global
-political economist, Susan Strange, went so far as to describe the
-NIEO's hopes as "an illusion" (Strange
-\[[1988](#index.xhtml_CIT0055){.biblioref role="doc-biblioref"
-xml-rid="CIT0055"}\] [2015](#index.xhtml_CIT0055){.biblioref
-role="doc-biblioref" xml-rid="CIT0055"}, 263). In Gilbert Rist's
-critique of development, he argued that the NIEO's ambivalent proposals
-do "no more than reinforce the existing order of things"
-([2009](#index.xhtml_CIT0049){.biblioref role="doc-biblioref"
-xml-rid="CIT0049"}, 49--150). In other words, it had no capacity for
-change. There is nothing wrong with these conclusions, per se. The
-problem is that they were made without historical research into the
-decision-making which had created and led the project. To prove that the
-NIEO could never have succeeded, one must understand the available
-options. Had G77 elites considered choices which, if taken, might have
-led to more success? In short, no one knew, and until Vijay Prashad's
-pioneering histories of the "Third World Project"
-([2007](#index.xhtml_CIT0046){.biblioref role="doc-biblioref"
+sciences, including in development studies.[^1^](#fn1){#fnref1
+.footnote-ref role="doc-noteref"} The pioneering global political
+economist, Susan Strange, went so far as to describe the NIEO's hopes as
+"an illusion" (Strange \[[1988](#index.xhtml_CIT0055){.biblioref
+role="doc-biblioref" xml-rid="CIT0055"}\]
+[2015](#index.xhtml_CIT0055){.biblioref role="doc-biblioref"
+xml-rid="CIT0055"}, 263). In Gilbert Rist's critique of development, he
+argued that the NIEO's ambivalent proposals do "no more than reinforce
+the existing order of things" ([2009](#index.xhtml_CIT0049){.biblioref
+role="doc-biblioref" xml-rid="CIT0049"}, 49--150). In other words, it
+had no capacity for change. There is nothing wrong with these
+conclusions, per se. The problem is that they were made without
+historical research into the decision-making which had created and led
+the project. To prove that the NIEO could never have succeeded, one must
+understand the available options. Had G77 elites considered choices
+which, if taken, might have led to more success? In short, no one knew,
+and until Vijay Prashad's pioneering histories of the "Third World
+Project" ([2007](#index.xhtml_CIT0046){.biblioref role="doc-biblioref"
 xml-rid="CIT0046"}, [2014](#index.xhtml_CIT0047){.biblioref
 role="doc-biblioref" xml-rid="CIT0047"}), no one bothered to find out.
 Instead, the NIEO's failure was assumed to be inevitable. As a result,
@@ -456,10 +453,8 @@ nothing that G77 elites could have done to avoid the destruction of the
 NIEO project. In fact, he thought the G77's "common front" had been
 dangerous. As such, this article starts with Amin.
 :::
-:::::::::
 
-::::: {#index.xhtml_sec-2 .section}
-## Samir Amin's Leninist rejection of the NIEO
+## Samir Amin's Leninist rejection of the NIEO {#index.xhtml_sec-2}
 
 ::: {role="paragraph"}
 Despite contributing to the scholarly consensus that the NIEO's failure
@@ -544,10 +539,8 @@ was a dangerous strategy, such projects should focus instead on the
 development of domestic social forces. However, other counterfactuals
 are possible.
 :::
-:::::
 
-::::::::::::::::::: {#index.xhtml_sec-3 .section}
-## Strategic imaginary of Kwame Nkrumah
+## Strategic imaginary of Kwame Nkrumah {#index.xhtml_sec-3}
 
 ::: {role="paragraph"}
 Nkrumah agreed with Amin that imperialism was the final stage of
@@ -705,10 +698,8 @@ role="doc-biblioref" xml-rid="CIT0051"}). As I show below, it was this
 collective independence that had underlined the NIEO's initial moment of
 possibility.
 :::
-:::::::::::::::::::
 
-::::: {#index.xhtml_sec-4 .section}
-## Raúl Prebisch's strategy of a liberal consensus
+## Raúl Prebisch's strategy of a liberal consensus {#index.xhtml_sec-4}
 
 ::: {role="paragraph"}
 Whereas Nkrumah imagined NIEO-style reforms as useful for creating
@@ -789,10 +780,8 @@ xml-rid="CIT0039"}, 12; see also Helleiner
 [2016](#index.xhtml_CIT0028){.biblioref role="doc-biblioref"
 xml-rid="CIT0028"}).
 :::
-:::::
 
-:::::::: {#index.xhtml_sec-5 .section}
-## Decision-making: the strategic imaginaries in practice
+## Decision-making: the strategic imaginaries in practice {#index.xhtml_sec-5}
 
 ::: {role="paragraph"}
 So far, this article has shown that Nkrumah and Prebisch contributed
@@ -1002,7 +991,6 @@ this new, still somewhat implicit strategy, the PI is attempting to
 empower an NIEO from below, via its movement of movements, or grass
 roots social forces.
 :::
-::::::::
 
 :::: {#index.xhtml_sec-6 .section data-type="conclusions"}
 ## Conclusion
@@ -1030,10 +1018,10 @@ create possibilities for the structural transformation of
 neo-colonialism, the highest stage of monopoly capitalism.
 :::
 ::::
-:::::::::::::::::::::::::::::::::::::::::::
+::::::::::::::::::::::::::::::::::::::
 
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: {#index.xhtml_backmatter .section .backmatter extent="backmatter"}
-::: {#index.xhtml_footnotes .footnotes}
+::: {#index.xhtml_footnotes .section .footnotes}
 ## Notes
 :::
 
@@ -1624,6 +1612,10 @@ diss.* University of California.]{.citation}
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-</article>
+::: {#footnotes .section .footnotes .footnotes-end-of-document role="doc-endnotes"}
 
-[^1]:
+------------------------------------------------------------------------
+
+1.  ::: {#fn1}
+    :::
+:::

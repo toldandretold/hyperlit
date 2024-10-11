@@ -59,14 +59,34 @@ class CiteCreator extends Controller
                 // For markdown, rename the file to main-text.md
                 File::move($originalFilePath, "{$path}/main-text.md");
             } elseif (in_array($extension, ['epub', 'doc', 'docx'])) {
-                // If it's EPUB, DOC, or DOCX, dispatch Pandoc conversion job
-                $filename = 'main-text.md';
-                $markdownPath = "{$path}/{$filename}";
+                if ($extension === 'epub') {
+                    // Handle EPUB file by unzipping
+                    $epubPath = "{$path}/epub_original";
+                    
+                    if (!File::exists($epubPath)) {
+                        File::makeDirectory($epubPath, 0755, true);
+                    }
 
-                Log::info("Dispatching Pandoc job with input: {$originalFilePath} and output: {$markdownPath}");
-                
-                // Dispatch the job to run Pandoc in the background
-                PandocConversionJob::dispatch($originalFilePath, $markdownPath);
+                    // Unzip EPUB file
+                    $zip = new \ZipArchive();
+                    if ($zip->open($originalFilePath) === TRUE) {
+                        $zip->extractTo($epubPath);
+                        $zip->close();
+                        Log::info("EPUB file unzipped successfully to: {$epubPath}");
+                    } else {
+                        Log::error("Failed to unzip the EPUB file.");
+                        return redirect()->back()->with('error', 'Failed to unzip the EPUB file.');
+                    }
+                } else {
+                    // Handle DOC or DOCX using Pandoc
+                    $filename = 'main-text.md';
+                    $markdownPath = "{$path}/{$filename}";
+
+                    Log::info("Dispatching Pandoc job with input: {$originalFilePath} and output: {$markdownPath}");
+                    
+                    // Dispatch the job to run Pandoc in the background
+                    PandocConversionJob::dispatch($originalFilePath, $markdownPath);
+                }
             }
         } else {
             // No file was uploaded, so create a citation.html file with citation details
@@ -92,4 +112,5 @@ class CiteCreator extends Controller
         // Redirect after everything is done
         return redirect()->back()->with('success', 'Book entry created and conversion started!');
     }
+
 }

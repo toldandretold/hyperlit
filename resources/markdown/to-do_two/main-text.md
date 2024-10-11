@@ -70,9 +70,7 @@ these differeny hyperlights can be re-organised in that hyperlights.blade.php te
 
 when this page is saved, any text in divs with id="highlight\_id" have their contents updated to the annotations table for those highlight\_ids.
 
-this means that, if user goes to url/hyperlights.md, they can see all their hyperlights pasted in markdown format. If these are edited, it is saved back to the annotations column for the highlight\_<mark><mark class="user-name_1727061113633" id="user-name_1727061113633">id. and, these are converted to html and inserted, along with the higlighted text in a blockquote, into hyperlights.html.</mark></mark>
-
-<mark><mark class="user-name_1727061113633">This markdown to html and html to markdown conversion, should be done via MappedCommonmark.php, so that it is consistent with conversions for the @book\_id. it can also be done </mark></mark>
+this means that, if user goes to url/hyperlights.md, they can see all their hyperlights pasted in markdown format. If these are edited, it is saved back to the annotations column for the highlight\_
 
 according to fixed, mathematical schema, which will produce deep, rich and evolving heat maps.
 

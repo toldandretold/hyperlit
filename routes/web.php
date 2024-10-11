@@ -8,6 +8,33 @@ use App\Http\Controllers\CiteCreator;
 use App\Http\Controllers\MarkdownITController; // Added back
 use App\Http\Controllers\ConversionController;  // In case you need it
 use App\Http\Controllers\MainTextEditableDivController;
+use ParsedownExtra\ParsedownExtra;
+
+Route::get('/test-markdown', function () {
+    $converter = new ParsedownExtra();
+
+    // Example markdown with footnotes
+    $markdown = <<<MD
+This is some text with a footnote.[^1]
+
+Another sentence with a second footnote.[^2]
+
+[^1]: This is the first footnote.
+
+    this is an indented majig
+
+    and so is this
+    
+[^2]: This is the second footnote.
+MD;
+
+    // Convert markdown to HTML
+    $html = $converter->text($markdown);
+
+    // Return the HTML in the response
+    return $html;
+});
+
 
 // Home route
 Route::get('/', function () {

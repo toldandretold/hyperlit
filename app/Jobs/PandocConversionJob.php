@@ -28,7 +28,7 @@ class PandocConversionJob implements ShouldQueue
         Log::info("Pandoc conversion started for input: {$this->filePath}, output: {$this->outputPath}");
 
         // Step 1: Run the Pandoc conversion process
-        $process = new Process(['/usr/local/bin/pandoc', $this->filePath, '-o', $this->outputPath, '--wrap=none', '--from=markdown-smart']);
+        $process = new Process(['/usr/local/bin/pandoc', $this->filePath, '-f', 'docx', '-t', 'markdown-smart+raw_html', '-o', $this->outputPath, '--wrap=none']);
         $process->setTimeout(300);  // Set a timeout of 5 minutes
         $process->run();
 
@@ -167,7 +167,12 @@ class PandocConversionJob implements ShouldQueue
         Log::info("Removing unwanted Pandoc artifacts...");
         $cleanedContent = preg_replace('/\{dir="rtl"\}/', '', $cleanedContent);
 
-        // Step 3: Indent footnotes
+        // Step 3: Remove square brackets around quotes
+        Log::info("Removing square brackets around quotes...");
+        $cleanedContent = preg_replace('/\[\’\]/', '’', $cleanedContent); // For single quotes
+        $cleanedContent = preg_replace('/\[\“\]/', '“', $cleanedContent); // For double quotes
+
+        // Step 4: Indent footnotes
         Log::info("Indenting footnotes...");
         $pattern = '/(\[\^[0-9]+\]:\s*)(.*?)(?=\n\[\^|\z)/s';  // Match footnotes until the next footnote or end of content
         $cleanedContent = preg_replace_callback($pattern, function ($matches) {
@@ -183,6 +188,47 @@ class PandocConversionJob implements ShouldQueue
             // Reconstruct the footnote with proper indentation
             return $matches[1] . implode("\n\n", $indentedParagraphs) . "\n\n";
         }, $cleanedContent);
+
+        // Step 5: Convert the first stand-alone line to H1 if it's a stand-alone line
+        Log::info("Checking for stand-alone first sentence to convert to H1...");
+        $lines = explode("\n", $cleanedContent);
+    
+        // Check the first non-empty line and convert it to H1
+        foreach ($lines as $index => $line) {
+            if (trim($line) !== '') {
+                // Convert only if it's a stand-alone line
+                $lines[$index] = '# ' . trim($line) . ' #';
+                break;
+            }
+        }
+
+        // Step 6: Convert stand-alone lines to H2 (title case, acronym, or bold) unless indented
+        Log::info("Checking for stand-alone lines to convert to H2...");
+        foreach ($lines as $index => $line) {
+            $trimmedLine = trim($line);
+
+            // Skip conversion if the line is indented (e.g., part of a code block)
+            if (preg_match('/^\s{4,}/', $line)) {
+                continue; // Skip if the line is indented by 4 or more spaces (or tabs)
+            }
+
+            // Check for title case: Each word should start with a capital letter, and allow punctuation
+            $isTitleCase = preg_match('/^([A-Z][a-z]+(\s[A-Z][a-z]*)*)$/', $trimmedLine);
+
+            // Check for all-uppercase lines (e.g., "NIEO")
+            $isAllUppercase = preg_match('/^[A-Z\s]+$/', $trimmedLine);
+
+            // Check for bold text (**bold**)
+            $isBold = preg_match('/^\*\*(.*?)\*\*$/', $trimmedLine);
+
+            // If either title case, all-uppercase, or bold, convert to H2
+            if ($isTitleCase || $isAllUppercase || $isBold) {
+                $lines[$index] = '## ' . preg_replace('/\*\*/', '', $trimmedLine) . ' ##';
+            }
+        }
+
+        // Update the cleaned content after modifications
+        $cleanedContent = implode("\n", $lines);
 
         Log::info("Combined cleanup completed.");
         return $cleanedContent;

@@ -75,11 +75,24 @@
     sup {
 
         color: #EE4A95;
-        font-size: 16px;
+        font-size: 14px;
     }
+
+    .footnote-ref {
+
+        color: #EE4A95;
+        
+    }
+
         /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black 221F20 */
+    
+    li {
+
+        color: #CBCCCC;
+    }
 
     a {
+        color: #4EACAE;
         text-decoration: none;
         outline: none;
     }
