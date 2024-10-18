@@ -1,0 +1,114 @@
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="2.0">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>The Twenty Years' Crisis, 1919-1939</dc:title>
+<dc:creator>Michael Cox</dc:creator>
+<dc:subject/>
+<dc:description>E.H. Carr's Twenty Years' Crisis is a classic work in International Relations. Published in 1939, on the eve of World War II, it was immediately recognized by friend and foe alike as a defining work in the fledgling discipline. The author was one of the most influential and controversial intellectuals of the twentieth century. The issues and themes he develops in this book continue to have relevance to modern day concerns with power and its distribution in the international system.&amp;nbsp;&lt;br&gt;Michael Cox's critical introduction provides the reader with background information about the author, the context for the book, its main themes and contemporary relevance. Written with the student in mind, it offers a guide to understanding a complex, but crucial text.&lt;br&gt;Now updated with a new preface from Michael Cox.</dc:description>
+<dc:publisher>Palgrave Macmillan UK</dc:publisher>
+<dc:date>2016-12-18</dc:date>
+<dc:source/>
+<dc:relation/>
+<dc:coverage/>
+<dc:rights/>
+<dc:language>en-GB</dc:language>
+<dc:identifier id="bookid">9781349950768</dc:identifier>
+<meta content="cover-jpg" name="cover"/>
+</metadata>
+<manifest>
+<!--CSS-->
+<item href="toc.ncx" id="ncx" media-type="application/x-dtbncx+xml"/>
+<item href="css/Carr.css" id="Carr" media-type="text/css"/>
+<!--Image-->
+<item href="image/cover.jpg" id="cover-img" media-type="image/jpeg"/>
+<item href="image/titleIMG.jpg" id="titleIMG" media-type="image/jpeg"/>
+<!--File-->
+<item href="01_cover.xhtml" id="cover" media-type="application/xhtml+xml"/>
+<item href="02_fm01.xhtml" id="fm01" media-type="application/xhtml+xml"/>
+<item href="03_title.xhtml" id="title" media-type="application/xhtml+xml"/>
+<item href="04_copy.xhtml" id="copy" media-type="application/xhtml+xml"/>
+<item href="05_fm02.xhtml" id="fm02" media-type="application/xhtml+xml"/>
+<item href="06_TOC.xhtml" id="toc" media-type="application/xhtml+xml"/>
+<item href="07_fm03.xhtml" id="fm03" media-type="application/xhtml+xml"/>
+<item href="08_ack.xhtml" id="ack" media-type="application/xhtml+xml"/>
+<item href="09_intro.xhtml" id="intro" media-type="application/xhtml+xml"/>
+<item href="10_bg.xhtml" id="bg" media-type="application/xhtml+xml"/>
+<item href="11_guide.xhtml" id="guide" media-type="application/xhtml+xml"/>
+<item href="12_fe.xhtml" id="fe" media-type="application/xhtml+xml"/>
+<item href="13_glos.xhtml" id="glos" media-type="application/xhtml+xml"/>
+<item href="14_chronology.xhtml" id="chronology" media-type="application/xhtml+xml"/>
+<item href="15_fm04.xhtml" id="fm04" media-type="application/xhtml+xml"/>
+<item href="16_preface1.xhtml" id="preface1" media-type="application/xhtml+xml"/>
+<item href="17_preface2.xhtml" id="preface2" media-type="application/xhtml+xml"/>
+<item href="18_preface3.xhtml" id="preface3" media-type="application/xhtml+xml"/>
+<item href="19_part1.xhtml" id="part1" media-type="application/xhtml+xml"/>
+<item href="20_ch01.xhtml" id="ch01" media-type="application/xhtml+xml"/>
+<item href="21_ch02.xhtml" id="ch02" media-type="application/xhtml+xml"/>
+<item href="22_part2.xhtml" id="part2" media-type="application/xhtml+xml"/>
+<item href="23_ch03.xhtml" id="ch03" media-type="application/xhtml+xml"/>
+<item href="24_ch04.xhtml" id="ch04" media-type="application/xhtml+xml"/>
+<item href="25_ch05.xhtml" id="ch05" media-type="application/xhtml+xml"/>
+<item href="26_ch06.xhtml" id="ch06" media-type="application/xhtml+xml"/>
+<item href="27_part3.xhtml" id="part3" media-type="application/xhtml+xml"/>
+<item href="28_ch07.xhtml" id="ch07" media-type="application/xhtml+xml"/>
+<item href="29_ch08.xhtml" id="ch08" media-type="application/xhtml+xml"/>
+<item href="30_ch09.xhtml" id="ch09" media-type="application/xhtml+xml"/>
+<item href="31_part4.xhtml" id="part4" media-type="application/xhtml+xml"/>
+<item href="32_ch10.xhtml" id="ch10" media-type="application/xhtml+xml"/>
+<item href="33_ch11.xhtml" id="ch11" media-type="application/xhtml+xml"/>
+<item href="34_ch12.xhtml" id="ch12" media-type="application/xhtml+xml"/>
+<item href="35_ch13.xhtml" id="ch13" media-type="application/xhtml+xml"/>
+<item href="36_part5.xhtml" id="part5" media-type="application/xhtml+xml"/>
+<item href="37_ch14.xhtml" id="ch14" media-type="application/xhtml+xml"/>
+<item href="38_index.xhtml" id="index" media-type="application/xhtml+xml"/>
+<!--Font-->
+<item href="font/GalliardStd-Bold.otf" id="GalliardStd-Bold" media-type="application/vnd.ms-opentype"/>
+<item href="font/GalliardStd-BoldItalic.otf" id="GalliardStd-BoldItalic" media-type="application/vnd.ms-opentype"/>
+<item href="font/GalliardStd-Italic.otf" id="GalliardStd-Italic" media-type="application/x-font-type1"/>
+<item href="font/GalliardStd-Roman.otf" id="GalliardStd-Roman" media-type="application/vnd.ms-opentype"/>
+</manifest>
+<spine toc="ncx">
+<itemref idref="cover"/>
+<itemref idref="fm01"/>
+<itemref idref="title"/>
+<itemref idref="copy"/>
+<itemref idref="fm02"/>
+<itemref idref="toc"/>
+<itemref idref="fm03"/>
+<itemref idref="ack"/>
+<itemref idref="intro"/>
+<itemref idref="bg"/>
+<itemref idref="guide"/>
+<itemref idref="fe"/>
+<itemref idref="glos"/>
+<itemref idref="chronology"/>
+<itemref idref="fm04"/>
+<itemref idref="preface1"/>
+<itemref idref="preface2"/>
+<itemref idref="preface3"/>
+<itemref idref="part1"/>
+<itemref idref="ch01"/>
+<itemref idref="ch02"/>
+<itemref idref="part2"/>
+<itemref idref="ch03"/>
+<itemref idref="ch04"/>
+<itemref idref="ch05"/>
+<itemref idref="ch06"/>
+<itemref idref="part3"/>
+<itemref idref="ch07"/>
+<itemref idref="ch08"/>
+<itemref idref="ch09"/>
+<itemref idref="part4"/>
+<itemref idref="ch10"/>
+<itemref idref="ch11"/>
+<itemref idref="ch12"/>
+<itemref idref="ch13"/>
+<itemref idref="part5"/>
+<itemref idref="ch14"/>
+<itemref idref="index"/>
+</spine>
+<guide>
+<reference href="01_cover.xhtml" title="cover" type="cover"/>
+<reference href="06_TOC.xhtml" title="toc" type="toc"/>
+<reference href="20_ch01.xhtml" title="text" type="text"/>
+</guide>
+</package>
