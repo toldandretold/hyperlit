@@ -2,7 +2,7 @@ import os
 import re
 import shutil
 
-# Temporary record of old-to-new file names
+# Temporary record of old-to-new file names to prevent duplicates
 file_name_mapping = {}
 
 # Ensure the output directory exists
@@ -20,32 +20,34 @@ def strip_html_tags(file_content):
 # Function to classify files based on filename or content patterns
 def classify_file(file_name, file_content):
     # Pre-content patterns
-    if re.search(r'publisher|series', file_content, re.IGNORECASE):
+    if re.search(r'publisher|series', file_content, re.IGNORECASE) and "1.html" not in file_name_mapping.values():
         return "1.html"  # Publisher information
 
-    if re.search(r'<h1>|<h2>|title', file_content, re.IGNORECASE):
+    if re.search(r'<h1>|<h2>|title', file_content, re.IGNORECASE) and "A01_TitlePage.html" not in file_name_mapping.values():
         return "A01_TitlePage.html"  # Title page
 
-    if re.search(r'copyright|isbn|published by', file_content, re.IGNORECASE):
+    if re.search(r'copyright|isbn|published by', file_content, re.IGNORECASE) and "A02_Copyright.html" not in file_name_mapping.values():
         return "A02_Copyright.html"  # Copyright page
 
-    if re.search(r'dedicated to|acknowledgments', file_content, re.IGNORECASE) or file_content.strip().count(' ') < 50:
+    if re.search(r'dedicated to|acknowledgments', file_content, re.IGNORECASE) or file_content.strip().count(' ') < 50 and "A03_Dedication.html" not in file_name_mapping.values():
         return "A03_Dedication.html"  # Dedication
 
-    if re.search(r'table of contents|toc', file_content, re.IGNORECASE) or re.search(r'<a href=".+">', file_content):
+    if re.search(r'table of contents|toc', file_content, re.IGNORECASE) or re.search(r'<a href=".+">', file_content) and "A04_TOC.html" not in file_name_mapping.values():
         return "A04_TOC.html"  # Table of Contents
 
     # Main content patterns (chapters)
     if re.search(r'\bchapter\b|\d+', file_name.lower()):
         chapter_number = re.findall(r'\d+', file_name)
         if chapter_number:
-            return f"B0{chapter_number[0]}_Chapter{chapter_number[0]}.html"  # Chapter file
+            new_name = f"B0{chapter_number[0]}_Chapter{chapter_number[0]}.html"
+            if new_name not in file_name_mapping.values():
+                return new_name  # Chapter file
 
     # Post-content patterns (deepnotes, index)
-    if re.search(r'endnotes|references|bibliography', file_content, re.IGNORECASE):
+    if re.search(r'endnotes|references|bibliography', file_content, re.IGNORECASE) and "C01_Deepnotes1.html" not in file_name_mapping.values():
         return "C01_Deepnotes1.html"  # Deepnotes/footnotes page
 
-    if re.search(r'index', file_content, re.IGNORECASE):
+    if re.search(r'index', file_content, re.IGNORECASE) and "C02_Index.html" not in file_name_mapping.values():
         return "C02_Index.html"  # Index page
 
     # Default fallback for random files
@@ -56,9 +58,11 @@ def rename_and_classify_files(input_directory, output_directory):
     pre_content, main_content, post_content = [], [], []
     random_counter = 1
 
-    files = [f for f in os.listdir(input_directory) if f.endswith('.html')]
+    # Get files and sort them in strict numerical order (1, 2, 3... then a1, a2...)
+    files = sorted([f for f in os.listdir(input_directory) if f.endswith('.html')],
+                   key=lambda x: (int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else float('inf'), x))
 
-    for file_name in sorted(files):
+    for file_name in files:
         file_path = os.path.join(input_directory, file_name)
 
         # Read and strip the <head> tags and anything before <body>
@@ -74,7 +78,7 @@ def rename_and_classify_files(input_directory, output_directory):
             new_name = f"C03_Random{random_counter}.html"
             random_counter += 1
 
-        # Save to the output directory
+        # Save to the output directory and record mapping
         new_file_path = os.path.join(output_directory, new_name)
         file_name_mapping[file_name] = new_name
 
