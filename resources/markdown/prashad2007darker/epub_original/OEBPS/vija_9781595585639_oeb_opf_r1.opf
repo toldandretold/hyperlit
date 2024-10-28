@@ -1,0 +1,112 @@
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+      <dc:title>The Darker Nations</dc:title>
+      <dc:creator>Vijay Prashad</dc:creator>
+      <dc:publisher>The New Press</dc:publisher>
+      <dc:format/>
+      <dc:date>2011-09-08</dc:date>
+      <dc:subject/>
+      <dc:description>&lt;p&gt;Here, from a brilliant young writer, is a paradigm-shifting history of both a utopian concept and global movement&amp;#8212;the idea of the Third World. The Darker Nations traces the intellectual origins and the political history of the twentieth century attempt to knit together the world's impoverished countries in opposition to the United States and Soviet spheres of influence in the decades following World War II.&lt;BR&gt;Spanning every continent of the global South, Vijay Prashad's fascinating narrative takes us from the birth of postcolonial nations after World War II to the downfall and corruption of nationalist regimes. A breakthrough book of cutting-edge scholarship, it includes vivid portraits of Third World giants like India's Nehru, Egypt's Nasser, and Indonesia's Sukarno&amp;#8212;as well as scores of extraordinary but now-forgotten intellectuals, artists, and freedom fighters. The Darker Nations restores to memory the vibrant though flawed idea of the Third World, whose demise,...</dc:description>
+      <dc:rights>© 2007 by Vijay Prashad All rights reserved.</dc:rights>
+      <dc:identifier id="bookid">9781595585639</dc:identifier>
+      <dc:language>en</dc:language>
+  </metadata>
+  <manifest>
+    <item href="page-template.xpgt" id="pt" media-type="application/vnd.adobe-page-template+xml"/>
+    <item href="vija_9781595585639_oeb_css_r1.css" id="style" media-type="text/css"/>
+    <item href="vija_9781595585639_msr_cvi_r1.jpg" id="coverimagestandard" media-type="image/jpeg"/>
+    <item href="vija_9781595585639_msr_cvt_r1.jpg" id="thumbimagestandard" media-type="image/jpeg"/>
+    <item href="vija_9781595585639_msr_ppl_r1.jpg" id="PPCthumbnailimage" media-type="image/jpeg"/>
+    <item href="vija_9781595585639_oeb_cover_r1.html" id="cover" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_tp_r1.html" id="tp" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_toc_r1.html" id="toc" media-type="application/xhtml+xml"/>
+    <item href="toc.ncx" id="ncx" media-type="application/x-dtbncx+xml"/>
+    <item href="vija_9781595585639_oeb_als_r1.html" id="als" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_ded_r1.html" id="ded" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_prf_r1.html" id="prf" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_ack_r1.html" id="ack" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_itr_r1.html" id="itr" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_p01_r1.html" id="p01" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c01_r1.html" id="c01" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c02_r1.html" id="c02" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c03_r1.html" id="c03" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c04_r1.html" id="c04" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c05_r1.html" id="c05" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c06_r1.html" id="c06" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c07_r1.html" id="c07" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c08_r1.html" id="c08" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_p02_r1.html" id="p02" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c09_r1.html" id="c09" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c10_r1.html" id="c10" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c11_r1.html" id="c11" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c12_r1.html" id="c12" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c13_r1.html" id="c13" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c14_r1.html" id="c14" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_p03_r1.html" id="p03" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c15_r1.html" id="c15" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c16_r1.html" id="c16" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c17_r1.html" id="c17" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_c18_r1.html" id="c18" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_bm1_r1.html" id="bm1" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_nts_r1.html" id="nts" media-type="application/xhtml+xml"/>
+	<item href="vija_9781595585639_oeb_nts_r1_b.html" id="nts_b" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_in1_r1.html" id="in1" media-type="application/xhtml+xml"/>
+    <item href="vija_9781595585639_oeb_cop_r1.html" id="cop" media-type="application/xhtml+xml"/>
+      <item href="vija_9781595585639_oeb_001_r1.jpg" id="vija_9781595585639_oeb_001_r1" media-type="image/jpeg"/>
+    <item href="vija_9781595585639_oeb_002_r1.jpg" id="vija_9781595585639_oeb_002_r1" media-type="image/jpeg"/>
+    <item href="vija_9781595585639_oeb_003_r1.jpg" id="vija_9781595585639_oeb_003_r1" media-type="image/jpeg"/>
+    <item href="vija_9781595585639_oeb_004_r1.jpg" id="vija_9781595585639_oeb_004_r1" media-type="image/jpeg"/>
+    <item href="vija_9781595585639_oeb_005_r1.jpg" id="vija_9781595585639_oeb_005_r1" media-type="image/jpeg"/>
+    <item href="vija_9781595585639_oeb_006_r1.jpg" id="vija_9781595585639_oeb_006_r1" media-type="image/jpeg"/>
+    <item href="vija_9781595585639_oeb_008_r1.jpg" id="vija_9781595585639_oeb_008_r1" media-type="image/jpeg"/>
+    <item href="vija_9781595585639_oeb_009_r1.jpg" id="vija_9781595585639_oeb_009_r1" media-type="image/jpeg"/>
+    <item href="vija_9781595585639_oeb_010_r1.jpg" id="vija_9781595585639_oeb_010_r1" media-type="image/jpeg"/>
+    <item href="vija_9781595585639_oeb_007_r1.gif" id="vija_9781595585639_oeb_007_r1" media-type="image/gif"/>
+	<item href="fonts/DejaVuSerif-Bold.ttf" id="f01" media-type="application/octet-stream"/>
+	<item href="fonts/DejaVuSerif-Italic.ttf" id="f02" media-type="application/octet-stream"/>
+	<item href="fonts/DejaVuSerif.ttf" id="f03" media-type="application/octet-stream"/>
+</manifest>
+  <spine toc="ncx">
+    <itemref idref="cover"/>
+    <itemref idref="tp"/>
+    <itemref idref="toc"/>
+    <itemref idref="als"/>
+    <itemref idref="ded"/>
+    <itemref idref="prf"/>
+    <itemref idref="ack"/>
+    <itemref idref="itr"/>
+    <itemref idref="p01"/>
+    <itemref idref="c01"/>
+    <itemref idref="c02"/>
+    <itemref idref="c03"/>
+    <itemref idref="c04"/>
+    <itemref idref="c05"/>
+    <itemref idref="c06"/>
+    <itemref idref="c07"/>
+    <itemref idref="c08"/>
+    <itemref idref="p02"/>
+    <itemref idref="c09"/>
+    <itemref idref="c10"/>
+    <itemref idref="c11"/>
+    <itemref idref="c12"/>
+    <itemref idref="c13"/>
+    <itemref idref="c14"/>
+    <itemref idref="p03"/>
+    <itemref idref="c15"/>
+    <itemref idref="c16"/>
+    <itemref idref="c17"/>
+    <itemref idref="c18"/>
+    <itemref idref="bm1"/>
+    <itemref idref="nts"/>
+	<itemref idref="nts_b"/>
+    <itemref idref="in1"/>
+    <itemref idref="cop"/>
+  </spine>
+  <guide>
+    <reference href="vija_9781595585639_oeb_toc_r1.html" title="Table of Contents" type="toc"/>
+    <reference href="vija_9781595585639_msr_cvi_r1.jpg" title="Cover" type="other.ms-coverimage-standard"/>
+    <reference href="vija_9781595585639_msr_cvt_r1.jpg" title="ThumbImageStandard" type="other.ms-thumbimage-standard"/>
+    <reference href="vija_9781595585639_msr_ppl_r1.jpg" title="PPCThumbnailImage" type="other.ms-thumbimage"/>
+    <reference href="vija_9781595585639_oeb_cop_r1.html" title="Copyright" type="copyright"/>
+  </guide>
+</package>

@@ -1,0 +1,34 @@
+<ade:template xmlns="http://www.w3.org/1999/xhtml" xmlns:ade="http://ns.adobe.com/2006/ade" xmlns:fo="http://www.w3.org/1999/XSL/Format">
+
+<fo:layout-master-set>
+	<fo:simple-page-master master-name="full_page" margin-bottom="0pt" margin-top="0pt" margin-left="0pt" margin-right="0pt">
+		<fo:region-body />
+	</fo:simple-page-master>
+
+	<fo:simple-page-master master-name="single_column" margin-bottom="1.5em" margin-top="1.5em" margin-left="1.5em" margin-right="1.5em" >
+		<fo:region-body />
+	</fo:simple-page-master>
+
+	<fo:simple-page-master master-name="two_column" margin-bottom="1.5em" margin-top="1.5em" margin-left="1.5em" margin-right="1.5em" >
+		<fo:region-body column-count="2" column-gap="10pt"/>
+	</fo:simple-page-master>
+
+	<fo:simple-page-master master-name="three_column"  margin-bottom="1.5em" margin-top="1.5em" margin-left="1.5em" margin-right="1.5em" >
+		<fo:region-body column-count="3" column-gap="10pt"/>
+	</fo:simple-page-master>
+
+	<fo:page-sequence-master>
+		<fo:repeatable-page-master-alternatives>
+	    		<fo:conditional-page-master-reference master-reference="three_column" ade:min-page-width="80em"/>
+	   		<fo:conditional-page-master-reference master-reference="two_column" ade:min-page-width="50em"/>
+	    		<fo:conditional-page-master-reference master-reference="single_column"/>
+		</fo:repeatable-page-master-alternatives>
+	</fo:page-sequence-master>
+
+</fo:layout-master-set>
+
+<ade:style>
+	<ade:styling-rule selector=".img" condition="{ade:page-width() &gt; 0}" max-width="100%"/>
+</ade:style>
+
+</ade:template>
