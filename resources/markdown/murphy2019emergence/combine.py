@@ -1,10 +1,18 @@
 import os
 from bs4 import BeautifulSoup
 
-# Define paths for the TOC file and the parsed files folder
-toc_file = 'epub_original/TOC.ncx'
+# Define the root folder where the search will begin
+root_folder = 'epub_original'
 parsed_folder = 'epub_original/parsed_html'
 output_file = 'epub_original/main-text.html'
+
+# Function to search for the TOC.ncx file recursively
+def find_toc_file(root_folder):
+    for dirpath, _, filenames in os.walk(root_folder):
+        for filename in filenames:
+            if filename.lower() == 'toc.ncx':  # Case-insensitive search
+                return os.path.join(dirpath, filename)
+    return None
 
 # Function to parse the TOC.ncx file and return the ordered list of file names
 def get_ordered_filenames_from_toc(toc_file):
@@ -12,15 +20,28 @@ def get_ordered_filenames_from_toc(toc_file):
         soup = BeautifulSoup(f, 'xml')  # Parse as XML because ncx is an XML file
         nav_points = soup.find_all('navPoint')
 
+        # Extract the base directory of the TOC file
+        base_dir = os.path.dirname(toc_file)
+
         # Extract the file names and play order
         ordered_filenames = []
         for nav_point in nav_points:
             content_tag = nav_point.find('content')
             if content_tag:
                 src_file = content_tag['src']  # Extract the file path from 'src'
-                # Modify the path from "Text/27.html" to "parsed_html/27.html"
-                filename = os.path.join(parsed_folder, os.path.basename(src_file))
-                ordered_filenames.append(filename)
+
+                # If the path contains a fragment (e.g., #fm03), remove it
+                if '#' in src_file:
+                    src_file = src_file.split('#', 1)[0]  # Ignore fragment identifiers
+
+                # Rebuild the full path based on the original TOC.ncx directory
+                full_file_path = os.path.join(base_dir, src_file)
+
+                # Check if the file exists in its original location
+                if os.path.exists(full_file_path):
+                    ordered_filenames.append(full_file_path)
+                else:
+                    print(f"File not found: {full_file_path}")
 
         return ordered_filenames
 
@@ -35,7 +56,7 @@ def combine_files_into_main_text(ordered_filenames, output_file):
                     outfile.write(content)
                     outfile.write("\n\n")  # Add some spacing between chapters
 
-# Function to clean HTML by handling <div>, <a>, and <p> tags, and removing all class attributes
+# Function to clean HTML by handling <div>, <a>, <p> tags, and removing all class attributes
 def clean_html(output_file):
     with open(output_file, 'r', encoding='utf-8') as f:
         soup = BeautifulSoup(f, 'html.parser')
@@ -44,22 +65,27 @@ def clean_html(output_file):
         for div_tag in soup.find_all('div', class_='delete'):
             div_tag.unwrap()  # Remove the tag but keep the content
 
-        # Step 2: Convert remaining <div> tags to <p> and remove class and id attributes
+        # Step 2: Convert remaining <div> tags to <p> and handle id attributes
         for div_tag in soup.find_all('div'):
             # Check if the div has an 'id' attribute
             if 'id' in div_tag.attrs:
                 div_id = div_tag['id']  # Store the div's id
-                
+
                 # Find any existing <a> tags inside the div
                 anchor_tag = div_tag.find('a')
-                
+
                 if anchor_tag:
-                    # Add the div's id to the existing <a> tag (as id attribute)
-                    anchor_tag['id'] = div_id
+                    if 'id' not in anchor_tag.attrs:
+                        # If the <a> tag doesn't have an id, add the div's id to it
+                        anchor_tag['id'] = div_id
+                    else:
+                        # If the <a> tag already has an id, create a new <a> tag with the div's id
+                        new_anchor = soup.new_tag('a', id=div_id)
+                        # Insert the new <a> tag at the start of the div's content
+                        div_tag.insert(0, new_anchor)
                 else:
-                    # Create a new <a> tag with the div's id
+                    # If no <a> tag exists, create a new <a> tag with the div's id
                     new_anchor = soup.new_tag('a', id=div_id)
-                    # Insert the new <a> tag at the start of the div's content
                     div_tag.insert(0, new_anchor)
 
             # Change the tag name from <div> to <p>
@@ -84,7 +110,7 @@ def clean_html(output_file):
             inner_p = p_tag.find('p')
             if inner_p:
                 p_tag.unwrap()  # Remove the outer <p> tag but keep the content
-            
+
             # Remove empty <p> tags (those that contain only whitespace or no content)
             if not p_tag.get_text(strip=True):  # Check if the <p> has no visible text
                 p_tag.decompose()  # Remove the empty tag completely
@@ -98,9 +124,7 @@ def clean_html(output_file):
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(str(soup))
 
-
-
-  # Function to remove the old TOC and place a placeholder marker for new TOC
+# Function to remove the old TOC and place a placeholder marker for new TOC
 def remove_old_toc(output_file):
     with open(output_file, 'r', encoding='utf-8') as f:
         soup = BeautifulSoup(f, 'html.parser')
@@ -115,42 +139,38 @@ def remove_old_toc(output_file):
     print(f"TOC Start Found: {toc_start}")  # Log the found TOC heading
 
     if toc_start:
-        # Step 2: Find the next <br/> or title (<h1>, <h2>, etc.), whichever comes first
-        found_end = False
+        # Step 2: Find the next <br class="end-page"/> or title (<h1>, <h2>, etc.), whichever comes first
         siblings_to_remove = []
+        found_end = None  # To store the element we stop at (next heading or <br class="end-page"/>)
+
         for element in toc_start.find_all_next():
             if element.name is None:
                 continue
 
-            # Collect the elements to remove until we hit the <br/> or a new title
-            siblings_to_remove.append(element)
+            # Stop at the next <br class="end-page"/> or header (h1, h2, h3)
+            if (element.name == 'br' and 'end-page' in element.get('class', [])) or element.name in ['h1', 'h2', 'h3']:
+                found_end = element  # Mark the element where we should stop
+                break  # Stop before removing this element
 
-            # Stop at the next <br/> or header (h1, h2, h3)
-            if element.name == 'br' or element.name in ['h1', 'h2', 'h3']:
-                found_end = True
-                break
+            siblings_to_remove.append(element)  # Collect elements to remove
 
-        if found_end:
-            print(f"Removing TOC heading and content up to: {element}")
-            toc_start.decompose()  # Remove the TOC heading itself
+        print(f"Removing TOC heading and content up to (but not including): {found_end}")
+        
+        # Insert placeholder **before** removing the TOC heading and content
+        placeholder_tag = soup.new_tag('a', id='TOC')
+        toc_start.insert_before(placeholder_tag)
 
-            for sibling in siblings_to_remove:
-                try:
-                    sibling.decompose()  # Remove each sibling in the range
-                except Exception as e:
-                    print(f"Error while removing: {sibling} - {e}")
+        # Now remove the TOC heading itself
+        toc_start.decompose()
 
-            print("Old TOC and its content removed successfully.")
-            
-            # Insert the TOC placeholder safely
-            placeholder_tag = soup.new_tag('a', id='TOC')
-            if toc_start.parent:
-                toc_start.parent.append(placeholder_tag)  # Append placeholder safely
-            else:
-                soup.body.append(placeholder_tag)  # Fallback to append to the body if no parent
-            print("Inserted TOC placeholder.")
-        else:
-            print("No <br/> or title found after the TOC heading.")
+        # Remove all collected siblings, but not the found_end (next heading or <br/>)
+        for sibling in siblings_to_remove:
+            try:
+                sibling.decompose()  # Remove each sibling
+            except Exception as e:
+                print(f"Error while removing: {sibling} - {e}")
+
+        print("Old TOC and its content removed successfully, next heading retained.")
     else:
         print("No TOC heading found.")
 
@@ -159,8 +179,6 @@ def remove_old_toc(output_file):
         f.write(str(soup))
 
     return toc_start  # Return the TOC start or None
-
-
 
 # Function to generate a new Table of Contents (TOC), and indent headings correctly
 def generate_new_toc(output_file):
@@ -239,26 +257,28 @@ def generate_new_toc(output_file):
     else:
         print("TOC placeholder not found.")
 
-
 # Combine the functions
 def process_toc(output_file):
     toc_start_parent = remove_old_toc(output_file)
     if toc_start_parent:
         generate_new_toc(output_file)
 
+# Search for the TOC.ncx file
+toc_file = find_toc_file(root_folder)
 
+# Get the ordered list of file names from the TOC.ncx and process
+if toc_file:
+    print(f"TOC.ncx found at: {toc_file}")
+    # Combine the content of the parsed files into "main-text.html"
+    ordered_filenames = get_ordered_filenames_from_toc(toc_file)
+    combine_files_into_main_text(ordered_filenames, output_file)
 
-# Get the ordered list of file names from the TOC.ncx
-ordered_filenames = get_ordered_filenames_from_toc(toc_file)
+    # Clean the HTML by handling <div>, <a>, <p> tags, and removing all class attributes
+    clean_html(output_file)
 
-# Combine the content of the parsed files into "main-text.html"
-combine_files_into_main_text(ordered_filenames, output_file)
+    # Process the TOC: remove the old one and insert a new one
+    process_toc(output_file)
 
-# Clean the HTML by handling <div>, <a>, <p> tags, and removing all class attributes
-clean_html(output_file)
-
-# Process the TOC: remove the old one and insert a new one
-process_toc(output_file)
-
-
-print(f"Main text compiled, cleaned, modified, and TOC processed in {output_file}")
+    print(f"Main text compiled, cleaned, modified, and TOC processed in {output_file}")
+else:
+    print("TOC.ncx file not found.")

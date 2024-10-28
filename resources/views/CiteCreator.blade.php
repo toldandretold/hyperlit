@@ -74,7 +74,7 @@ form textarea:focus {
 
 @section('content')
 
-   <form id="cite-form" action="{{ route('processCite') }}" method="POST" enctype="multipart/form-data">
+   <form id="cite-form" action="{{ route('processCite') }}" method="POST" enctype="multipart/form-data" target="_blank">
     @csrf
 
     <!-- Drag and drop field for Markdown file -->
@@ -247,7 +247,7 @@ document.getElementById('clearButton').addEventListener('click', function() {
 
 
 document.getElementById('createButton').addEventListener('click', function(event) {
-    event.preventDefault();  // Prevent the default form submission
+    //event.preventDefault();  // Prevent the default form submission
     const form = document.getElementById('cite-form');
 
     // Create an object to store form data, replacing empty values with null
@@ -274,11 +274,11 @@ document.getElementById('createButton').addEventListener('click', function(event
     });
 
     // Submit the form with cleaned data
-    const actionUrl = form.getAttribute('action');
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', actionUrl);
-    xhr.setRequestHeader('X-CSRF-TOKEN', document.querySelector('input[name="_token"]').value);
-    xhr.send(cleanedFormData);
+    //const actionUrl = form.getAttribute('action');
+    //const xhr = new XMLHttpRequest();
+    //xhr.open('POST', actionUrl);
+    //xhr.setRequestHeader('X-CSRF-TOKEN', document.querySelector('input[name="_token"]').value);
+    //xhr.send(cleanedFormData);
 });
 
 
@@ -357,6 +357,17 @@ document.querySelectorAll('input[type="text"], textarea').forEach((input) => {
         }
     });
 });
+
+ // Check if the Laravel session has a success message
+    @if(session()->has('success'))
+        // Clear form data from localStorage
+        clearFormData();
+    @endif
+
+    // Define the clearFormData function (previously commented out)
+    function clearFormData() {
+        localStorage.removeItem('formData');  // Clears the saved form data
+    }
 
 </script>
 

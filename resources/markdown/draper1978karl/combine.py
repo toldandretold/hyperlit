@@ -20,15 +20,28 @@ def get_ordered_filenames_from_toc(toc_file):
         soup = BeautifulSoup(f, 'xml')  # Parse as XML because ncx is an XML file
         nav_points = soup.find_all('navPoint')
 
+        # Extract the base directory of the TOC file
+        base_dir = os.path.dirname(toc_file)
+
         # Extract the file names and play order
         ordered_filenames = []
         for nav_point in nav_points:
             content_tag = nav_point.find('content')
             if content_tag:
                 src_file = content_tag['src']  # Extract the file path from 'src'
-                # Modify the path from its current location to parsed_html folder
-                filename = os.path.join(parsed_folder, os.path.basename(src_file))
-                ordered_filenames.append(filename)
+
+                # If the path contains a fragment (e.g., #fm03), remove it
+                if '#' in src_file:
+                    src_file = src_file.split('#', 1)[0]  # Ignore fragment identifiers
+
+                # Rebuild the full path based on the original TOC.ncx directory
+                full_file_path = os.path.join(base_dir, src_file)
+
+                # Check if the file exists in its original location
+                if os.path.exists(full_file_path):
+                    ordered_filenames.append(full_file_path)
+                else:
+                    print(f"File not found: {full_file_path}")
 
         return ordered_filenames
 
@@ -43,7 +56,7 @@ def combine_files_into_main_text(ordered_filenames, output_file):
                     outfile.write(content)
                     outfile.write("\n\n")  # Add some spacing between chapters
 
-# Function to clean HTML by handling <div>, <a>, and <p> tags, and removing all class attributes
+# Function to clean HTML by handling <div>, <a>, <p> tags, and removing all class attributes
 def clean_html(output_file):
     with open(output_file, 'r', encoding='utf-8') as f:
         soup = BeautifulSoup(f, 'html.parser')
@@ -57,10 +70,10 @@ def clean_html(output_file):
             # Check if the div has an 'id' attribute
             if 'id' in div_tag.attrs:
                 div_id = div_tag['id']  # Store the div's id
-                
+
                 # Find any existing <a> tags inside the div
                 anchor_tag = div_tag.find('a')
-                
+
                 if anchor_tag:
                     if 'id' not in anchor_tag.attrs:
                         # If the <a> tag doesn't have an id, add the div's id to it
@@ -97,7 +110,7 @@ def clean_html(output_file):
             inner_p = p_tag.find('p')
             if inner_p:
                 p_tag.unwrap()  # Remove the outer <p> tag but keep the content
-            
+
             # Remove empty <p> tags (those that contain only whitespace or no content)
             if not p_tag.get_text(strip=True):  # Check if the <p> has no visible text
                 p_tag.decompose()  # Remove the empty tag completely
@@ -116,65 +129,98 @@ def remove_old_toc(output_file):
     with open(output_file, 'r', encoding='utf-8') as f:
         soup = BeautifulSoup(f, 'html.parser')
 
+    # Step 1: Find the first <h1> or <h2> that contains "Contents"
     toc_start = None
     for header in soup.find_all(['h1', 'h2']):
         if "contents" in header.get_text(strip=True).lower():
             toc_start = header
             break
 
+    print(f"TOC Start Found: {toc_start}")  # Log the found TOC heading
+
     if toc_start:
+        # Step 2: Find the next <br class="end-page"/> or title (<h1>, <h2>, etc.), whichever comes first
         siblings_to_remove = []
-        found_end = None
+        found_end = None  # To store the element we stop at (next heading or <br class="end-page"/>)
+
         for element in toc_start.find_all_next():
             if element.name is None:
                 continue
+
+            # Stop at the next <br class="end-page"/> or header (h1, h2, h3)
             if (element.name == 'br' and 'end-page' in element.get('class', [])) or element.name in ['h1', 'h2', 'h3']:
-                found_end = element
-                break
-            siblings_to_remove.append(element)
+                found_end = element  # Mark the element where we should stop
+                break  # Stop before removing this element
+
+            siblings_to_remove.append(element)  # Collect elements to remove
+
+        print(f"Removing TOC heading and content up to (but not including): {found_end}")
+        
+        # Insert placeholder **before** removing the TOC heading and content
         placeholder_tag = soup.new_tag('a', id='TOC')
         toc_start.insert_before(placeholder_tag)
+
+        # Now remove the TOC heading itself
         toc_start.decompose()
+
+        # Remove all collected siblings, but not the found_end (next heading or <br/>)
         for sibling in siblings_to_remove:
             try:
-                sibling.decompose()
+                sibling.decompose()  # Remove each sibling
             except Exception as e:
                 print(f"Error while removing: {sibling} - {e}")
 
+        print("Old TOC and its content removed successfully, next heading retained.")
+    else:
+        print("No TOC heading found.")
+
+    # Save the modified HTML back to the file
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(str(soup))
 
-    return toc_start
+    return toc_start  # Return the TOC start or None
 
 # Function to generate a new Table of Contents (TOC), and indent headings correctly
 def generate_new_toc(output_file):
     with open(output_file, 'r', encoding='utf-8') as f:
         soup = BeautifulSoup(f, 'html.parser')
 
+    print("Generating new TOC based on headers after the placeholder...")
+
+    # Find the TOC placeholder
     toc_placeholder = soup.find('a', id="TOC")
 
     if toc_placeholder:
-        toc_container = soup.new_tag('div')
+        # Step 1: Create the new TOC container
+        toc_container = soup.new_tag('div')  # Container for the TOC
         toc_heading = soup.new_tag('h1')
         toc_heading.string = "Contents"
         toc_container.append(toc_heading)
 
+        # Create the <ul> for the TOC
         toc_list = soup.new_tag('ul')
         toc_container.append(toc_list)
 
-        current_ul = toc_list
+        current_ul = toc_list  # Start with the top-level <ul> for h1
         h2_ul = None
         h3_ul = None
+        found_headers = False
 
+        # Collect all headers (h1, h2, h3) that come **after** the TOC placeholder
         for header in toc_placeholder.find_next_siblings(['h1', 'h2', 'h3']):
-            header_id = header.get_text(strip=True).replace(' ', '-').lower()
-            header['id'] = header_id
+            found_headers = True
+            header_id = header.get_text(strip=True).replace(' ', '-').lower()  # Create an ID from header text
+            header['id'] = header_id  # Assign the ID to the header
 
+            print(f"Found header: {header}")  # Log the headers found
+
+            # Create the TOC entry that matches the header level
             toc_entry = soup.new_tag('li')
             toc_link = soup.new_tag('a', href=f"#{header_id}")
             toc_link.string = header.get_text()
             toc_entry.append(toc_link)
 
+            # Handle indentation by ensuring consistent levels
             if header.name == 'h1':
                 toc_list.append(toc_entry)
                 h2_ul = soup.new_tag('ul')
@@ -192,11 +238,24 @@ def generate_new_toc(output_file):
             elif header.name == 'h3' and h3_ul:
                 h3_ul.append(toc_entry)
 
+        if not found_headers:
+            print("No headers found for TOC after the placeholder.")
+            return
+
+        # Step 3: Insert the new TOC container into the document safely
+        print("Inserting new TOC into document.")
         toc_placeholder.insert_after(toc_container)
+
+        # Step 4: Add a <br/> tag after the new TOC
         toc_container.insert_after(soup.new_tag('br'))
 
+        # Save the modified HTML back to the file
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(str(soup))
+
+        print("New TOC generated, inserted, and <br/> tag added successfully.")
+    else:
+        print("TOC placeholder not found.")
 
 # Combine the functions
 def process_toc(output_file):

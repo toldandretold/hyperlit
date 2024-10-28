@@ -3,11 +3,13 @@
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\HighlightController;
+use App\Http\Controllers\HyperciteController;
 use App\Http\Controllers\TextController;
 use App\Http\Controllers\CiteCreator;
 use App\Http\Controllers\MarkdownITController; // Added back
 use App\Http\Controllers\ConversionController;  // In case you need it
 use App\Http\Controllers\MainTextEditableDivController;
+use App\Http\Controllers\MainTextEditableMarkdownController;
 use ParsedownExtra\ParsedownExtra;
 
 Route::get('/test-markdown', function () {
@@ -62,8 +64,15 @@ Route::post('/{book}/mark-as-deleted', [HighlightController::class, 'markHighlig
 
 
 // main-text div edit
-Route::post('/save-edited-content', [MainTextEditableDivController::class, 'saveEditedContent']);
-Route::get('/{book}/hyperlighting_div', [MainTextEditableDivController::class, 'showEditableText']);
+Route::post('/save-div-content', [MainTextEditableDivController::class, 'saveEditedContent']);
+Route::get('/{book}/div', [MainTextEditableDivController::class, 'showEditableText']);
+
+// main-text markdown edit
+Route::post('/save-md-content', [MainTextEditableMarkdownController::class, 'saveEditedContent']);
+Route::get('/{book}/md', [MainTextEditableMarkdownController::class, 'showEditableText']);
+
+
+
 
 
 
@@ -71,6 +80,10 @@ Route::get('/{book}/hyperlighting_div', [MainTextEditableDivController::class, '
 
 // Hyperlights routes
 Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML'])->name('hyperlights.show');
+
+// HyperCites routes
+Route::post('/save-updated-html/{book}', [HyperciteController::class, 'saveUpdatedHTML'])->name('save.updated.html');
+
 
 // Cite Creator routes
 Route::get('/cite-creator', [CiteCreator::class, 'create'])->name('createCite');
