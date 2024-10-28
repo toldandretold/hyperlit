@@ -13,6 +13,47 @@
         -webkit-touch-callout: none; /* Disable the callout menu */
         -webkit-user-select: text;   /* Allow text selection */
     }
+
+
+     #main-content {
+            width: 100%;
+            height: calc(100vh - 60px); /* Full height minus space for buttons */
+            border: none;               /* Remove border */
+            outline: none;              /* Remove default focus outline */
+            padding: 20px;              /* Add padding for text */
+            box-sizing: border-box;     /* Ensure padding doesn’t overflow */
+            font-family: 'Arial', sans-serif;  /* Make it look more like a document */
+            font-size: 16px;
+            line-height: 1.6;
+            background-color: #221F20;   /* dark background color */
+            color: #CBCCCC;
+        }
+
+        div[style*="position: fixed"] button {
+            margin-right: 10px;
+            padding: 10px 20px;
+            font-size: 14px;
+        }
+
+        button {
+            background-color: #444; /* Dark background */
+            color: #fff; /* White text */
+            border: 1px solid #777; /* Subtle border */
+            padding: 10px 20px; /* Spacing */
+            border-radius: 5px; /* Rounded corners */
+            font-weight: 600; /* Semi-bold text */
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.5); /* Soft shadow */
+            transition: background-color 0.3s ease, box-shadow 0.3s ease; /* Smooth hover transition */
+        }
+
+        button:hover {
+            background-color: #555; /* Slightly lighter on hover */
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3); /* Larger shadow on hover */
+        }
+
+
+
+
     </style>
 @endsection
 
@@ -23,10 +64,13 @@
         {!! File::get(resource_path("markdown/{$book}/main-text.html")) !!}
     </div>
 
-    <!-- Buttons for hyper-lighting -->
-    <div id="hyperlight-buttons" style="display: none; position: absolute; z-index: 9999;">
-        <button id="copy-hyperlight">Hyperlight</button>
-        <button id="delete-hyperlight" type="button" style="display:none;">Delete</button>
+    <div style="position: fixed; bottom: 10px; width: 100%;">
+        <button type="button" id="saveButton">Save</button>
+        <button type="button" id="markdown-link">Markdown</button>
+    </div>
+
+    <div style="position: fixed; top: 10px; right: 10px;">
+    <button type="button" id="readButton">Read</button>
     </div>
 
 @endsection
@@ -36,13 +80,20 @@
     
 
     <script>
+    // Handle clicks on links inside the editable div
+    document.getElementById('main-content').addEventListener('click', function(event) {
+        if (event.target.tagName === 'A') {
+            event.preventDefault();  // Prevent the editable div from taking over
+            window.open(event.target.href, '_blank');  // Open the link in a new tab
+        }
+    });
 
         let book = document.getElementById('main-content').getAttribute('data-book');
 
         // Make sure the book variable is available globally if needed
         window.book = book;
 
-
+ 
       
    // Function to attach event listeners to all mark tags
     function attachMarkListeners() {
@@ -68,8 +119,65 @@
         });
     }
 
- 
+    // Call the function on page load to attach listeners to existing marks
+    document.addEventListener("DOMContentLoaded", function() {
+        attachMarkListeners(); // Attach listeners on page load
+    // Adjust internal links to handle #hash navigation properly
+        const internalLinks = document.querySelectorAll('a[href^="#"]');
+        
+        internalLinks.forEach(function(link) {
+            link.addEventListener('click', function(event) {
+                event.preventDefault();  // Prevent default behavior
+                const targetId = link.getAttribute('href').substring(1);  // Get the ID from href (remove the '#')
+                const targetElement = document.getElementById(targetId);
 
+                if (targetElement) {
+                    // Scroll to the target element smoothly
+                    targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else {
+                    console.error(`Target element with ID "${targetId}" not found.`);
+                }
+            });
+        });
+    });
+
+
+    document.getElementById('saveButton').addEventListener('click', function () {
+    const content = document.getElementById('main-content').innerHTML;
+
+    fetch(`/save-div-content/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({ book: book, updated_html: content })
+    })
+    .then(response => {
+        if (response.ok) {
+            alert('Content saved successfully!');
+        } else {
+            alert('Failed to save content.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while saving.');
+    });
+});
+
+        // Redirect to /{book}/md when the Markdown button is clicked
+    document.getElementById('markdown-link').addEventListener('click', function () {
+        window.location.href = `/${book}/md`;
+    });
+
+    // Redirect to /{book} when the read button is pressed
+        document.getElementById('readButton').addEventListener('click', function () {
+            window.location.href = `/${book}`;
+        });
+    
+
+ 
     
 
 

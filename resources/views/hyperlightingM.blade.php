@@ -13,10 +13,35 @@
         -webkit-touch-callout: none; /* Disable the callout menu */
         -webkit-user-select: text;   /* Allow text selection */
     }
+
+    #editButton
+
+      {
+            margin-right: 10px;
+            padding: 10px 20px;
+            font-size: 14px;
+            background-color: #444; /* Dark background */
+            color: #fff; /* White text */
+            border: 1px solid #777; /* Subtle border */
+            padding: 10px 20px; /* Spacing */
+            border-radius: 5px; /* Rounded corners */
+            font-weight: 600; /* Semi-bold text */
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.5); /* Soft shadow */
+            transition: background-color 0.3s ease, box-shadow 0.3s ease; /* Smooth hover transition */
+        }
+
+        #editbutton:hover {
+            background-color: #555; /* Slightly lighter on hover */
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3); /* Larger shadow on hover */
+        }
     </style>
 @endsection
 
 @section('content')
+
+    <!-- Add the <base> tag here to ensure correct resolution of relative URLs -->
+    <base href="{{ url('markdown/' . $book . '/epub_original/') }}">
+
 
     <!-- Load the content of the main-text.html file -->
     <div id="main-content" data-book="{{ $book }}">
@@ -27,6 +52,10 @@
     <div id="hyperlight-buttons" style="display: none; position: absolute; z-index: 9999;">
         <button id="copy-hyperlight">Hyperlight</button>
         <button id="delete-hyperlight" type="button" style="display:none;">Delete</button>
+    </div>
+
+    <div style="position: fixed; top: 10px; right: 10px;">
+    <button type="button" id="editButton">Edit</button>
     </div>
 
 @endsection
@@ -73,6 +102,23 @@
     // Call the function on page load to attach listeners to existing marks
     document.addEventListener("DOMContentLoaded", function() {
         attachMarkListeners(); // Attach listeners on page load
+    // Adjust internal links to handle #hash navigation properly
+        const internalLinks = document.querySelectorAll('a[href^="#"]');
+        
+        internalLinks.forEach(function(link) {
+            link.addEventListener('click', function(event) {
+                event.preventDefault();  // Prevent default behavior
+                const targetId = link.getAttribute('href').substring(1);  // Get the ID from href (remove the '#')
+                const targetElement = document.getElementById(targetId);
+
+                if (targetElement) {
+                    // Scroll to the target element smoothly
+                    targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else {
+                    console.error(`Target element with ID "${targetId}" not found.`);
+                }
+            });
+        });
     });
 
 
@@ -374,5 +420,139 @@ addTouchAndClickListener(document.getElementById('delete-hyperlight'), function(
         const regex = /^id\(".*?"\)\/div\[1\]/;
         return xpath.replace(regex, '');
     }
+
+
+  
+
+
+
+// HYPERCITE[:]
+// Function to generate a unique hyper-cite ID
+function generateHyperciteID() {
+    return 'hypercite_' + Math.random().toString(36).substring(2, 9); // Unique ID generation
+}
+
+// Fallback copy function: Standard copy if HTML format isn't supported
+function fallbackCopyText(text) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+        document.execCommand('copy');  // Fallback copy for plain text
+    } catch (err) {
+        console.error('Fallback: Unable to copy text', err);
+    }
+    document.body.removeChild(textArea);
+}
+
+
+
+// Function to wrap selected text with <u> tag in the DOM
+function wrapSelectedTextInDOM(hyperciteId) {
+    const selection = window.getSelection();
+    const range = selection.getRangeAt(0);
+    
+    // Create a <u> element with the hypercite_id
+    const wrapper = document.createElement('u');
+    wrapper.setAttribute('id', hyperciteId);
+
+    // Wrap the selected text in the <u> tag
+    range.surroundContents(wrapper);
+    
+    // Clear the selection after modifying the DOM
+    selection.removeAllRanges();
+
+    // Capture the HTML content inside the #main-content div
+    const updatedHTML = document.querySelector('#main-content').innerHTML;
+
+    // Send the updated HTML to the server for saving
+    saveUpdatedHTMLToFile(updatedHTML, book);
+}
+    
+
+  
+
+// Function to send updated HTML to the server for saving
+function saveUpdatedHTMLToFile(updatedHTML, book) {
+    fetch(`/save-updated-html/${book}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({
+            html: updatedHTML
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('HTML saved successfully');
+        } else {
+            console.error('Error saving HTML:', data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error saving HTML:', error);
+    });
+}
+
+// Event listener for 'copy' event
+document.addEventListener('copy', (event) => {
+    const selection = window.getSelection();
+    const selectedText = selection.toString();  // Get the selected text
+
+    if (!selectedText) {
+        return; // Do nothing if no text is selected
+    }
+
+    // Generate a unique hyper-cite ID for the copied text
+    const hyperciteId = generateHyperciteID();
+
+    // Get the current page URL without any existing hash
+    const baseUrl = window.location.href.split('#')[0];  // Removes any existing hash in the URL
+
+    // Custom HTML to save to the clipboard with the base URL plus the new hyper-cite ID
+    const htmlData = `'${selectedText}'<a href="${baseUrl}#${hyperciteId}">[:]</a>`;
+
+    // Prevent the default copy action and set clipboard content
+    event.preventDefault();
+    if (event.clipboardData) {
+        event.clipboardData.setData('text/html', htmlData);
+        event.clipboardData.setData('text/plain', selectedText);  // Optional: plain text fallback
+    }
+
+    // Alter the DOM by wrapping the selected text with <u> tag in the HTML page
+    wrapSelectedTextInDOM(hyperciteId);
+
+    // Check if clipboardData supports HTML, if not fallback to normal copy
+    if (event.clipboardData && event.clipboardData.setData) {
+        try {
+            // Attempt to copy the customized clipboard data
+            event.clipboardData.setData('text/html', htmlData);
+            // Also copy plain text in case the target app uses plain text format
+            event.clipboardData.setData('text/plain', selectedText);
+            console.log('Copied with custom HTML:', htmlData);
+        } catch (error) {
+            console.error('Failed to copy HTML. Fallback to normal copy.');
+            // If any error occurs, fallback to plain text copy
+            fallbackCopyText(selectedText);
+        }
+    } else {
+        // Fallback to normal copy if clipboardData or setData is not available
+        fallbackCopyText(selectedText);
+    }
+});
+
+
+
+// [edit] button
+
+// Redirect to /{book} when the read button is pressed
+    document.getElementById('editButton').addEventListener('click', function () {
+        window.location.href = `/${book}/div`;
+    });
     </script>
 @endsection

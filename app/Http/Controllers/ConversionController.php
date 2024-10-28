@@ -79,7 +79,7 @@ class ConversionController extends Controller
         $converter->getEnvironment()->addConverter(new AnchorConverter());
         $converter->getEnvironment()->addConverter(new CustomHeaderConverter()); // Add the custom header converter
 
-
+ 
         // Convert HTML to Markdown
         $markdown = $converter->convert($htmlContent);
 
