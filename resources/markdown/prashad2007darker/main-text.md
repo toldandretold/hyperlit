@@ -9,18 +9,15 @@ ALSO BY VIJAY PRASHAD
 *Keeping Up with the Dow Joneses: Debt, Prison, Workfare*
 
   
-![001](epub_original/OEBPS/vija_9781595585639_oeb_001_r1.jpg)  
-FOR BELA MALIK   
-**SERIES PREFACE**Turning history on its head opens up whole new worlds of possibility. Once, historians looked only at society’s upper crust: the leaders and others who made the headlines and whose words and deeds survived as historical truth. In our lifetimes, this has begun to change. Shifting history’s lens from the upper rungs to the lower, we are learning more than ever about the masses of people who did the work that made society tick.
+![001](epub_original/OEBPS/vija_9781595585639_oeb_001_r1.jpg)   FOR BELA MALIK    **SERIES PREFACE**Turning history on its head opens up whole new worlds of possibility. Once, historians looked only at society’s upper crust: the leaders and others who made the headlines and whose words and deeds survived as historical truth. In our lifetimes, this has begun to change. Shifting history’s lens from the upper rungs to the lower, we are learning more than ever about the masses of people who did the work that made society tick.
 
-Not surprisingly, as the lens shifts the basic narratives change as well. The history of men and women of all classes, colors, and cultures reveals an astonishing degree of struggle and independent political action. Everyday people played complicated historical roles, and they developed highly sophisticated and often very different political ideas from the people who ruled them. Sometimes their accomplishments left tangible traces; other times, the traces are invisible but no less real. They left their mark on our institutions, our folkways and language, on our political habits and vocabulary. We are only now beginning to excavate this multifaceted history.
+Not surprisingly, as the lens shifts the basic narratives change as well. The history of men and women of all classes, colors, and cultures reveals an astonishing degree of struggle and independent <mark class="user-name_1730162810721" id="user-name_1730162810721">political action</mark>. Everyday people played complicated historical roles, and they developed highly sophisticated and often very different political ideas from the people who ruled them. Sometimes their accomplishments left tangible traces; other times, the traces are invisible but no less real. They left their mark on our institutions, our folkways and language, on our political habits and vocabulary. We are only now beginning to excavate this multifaceted history.
 
 The New Press People’s History Series roams far and wide through human history, revisiting old stories in new ways, and introducing altogether new accounts of the struggles of common people to make their own history. Taking the lives and viewpoints of common people as its point of departure, the series reexamines subjects as different as the American Revolution, the history of sports, the history of American art, the Mexican Revolution, and the rise of the Third World.
 
 A people’s history does more than add to the catalogue of what we  already know. These books will shake up readers’ understanding of the past—just as common people throughout history have shaken up their always changeable worlds.
 
-Howard Zinn   
-Boston, 2000
+Howard Zinn    Boston, 2000
 
   
 **ACKNOWLEDGMENTS**In 1981, during the summer, I wrote a short essay as a school project on the history of oil. My father introduced me to Anthony Sampson’s *The Seven Sisters*, and to the complex history of the Organization of Petroleum Exporting Countries (OPEC), <mark class="user-name_1729744819011" id="user-name_1729744819011">including the role of the Venezuelan and Saudi Arabian oil ministers who feature in this book. When my father died in 1999, I had alrea</mark>dy begun to think of this book, and we had briefly discussed its contours. As with all my other books, this one too is written in conversation with his spirit.
@@ -411,16 +408,7 @@ The Shah exiled tens of thousands of National Party members and  Communists, and
 
 Out of Tudeh came disaffected intellectuals, among whom numbered the best of Farsi letters. Enthused by the Mosaddeq moment, by the possibility of a socially just nationalism (guaranteed by the presence of a strong Tudeh Party), they had written manifestos and poems, short stories and diatribes. The cultural suffocation of imperialism and the feudal aristocracy had been lifted by the Mosaddeq moment, and even with the restoration of the Shah, this cultural productivity on the terrain of nationalism continued. The intellectuals and cultural workers who had been motivated by anticolonialism, antimonarchism, and the militancy of the Tudeh movement regrouped in the early 1950s into small organizations. One such was Niru-ye Sevum (the Third Force), led by Khalil Maleki, who had left Tudeh in 1947. Maleki prepared the ground for others to follow in the next few years. These people disparaged First World capitalism and Second World socialism. They took refuge briefly in Mosaddeq’s National Front, even as they remained suspicious of the hesitancy and conservatism of the bourgeois party. They were essentially cultural workers who disliked equally the hierarchies of America’s market economy as much as the arid monotony of the Khrushchev era socialist bureaucracy.<a href="#en229" id="Ref-en229"><sup>4</sup></a> As artists, they longed for the space to let the spirit soar free, and neither of these options provided a way forward from the Shah.
 
-The strong emphasis both on liberty and social justice attracted a wide following among an intelligentsia that had no loyalty to royalty, and little fealty to a political party that increasingly burdened itself with the foreign policy needs of the USSR. Maleki’s journal carried imaginative discussions of the type of modernity envisaged by the Third World, by his Third Force. In 1955, one of his journals, *Nabard-e Zendegi*, ran a poem titled “Call to Arms” by Forugh Farrokhzad:O Iranian woman, only you have remained,   
-In the bonds of cruelty and wretchedness and misfortune.   
-It is your warm embracing bosom that has nurtured   
-Prideful and pompous man.   
-It is your joyous smile that bestows    
-On his heart vigor and warmth.   
-For that person who is your creation   
-To be preferred and superior is shameful.   
-Woman, take action because a world   
-Awaits and beckons you.<a href="#en230" id="Ref-en230"><sup>5</sup></a>
+The strong emphasis both on liberty and social justice attracted a wide following among an intelligentsia that had no loyalty to royalty, and little fealty to a political party that increasingly burdened itself with the foreign policy needs of the USSR. Maleki’s journal carried imaginative discussions of the type of modernity envisaged by the Third World, by his Third Force. In 1955, one of his journals, *Nabard-e Zendegi*, ran a poem titled “Call to Arms” by Forugh Farrokhzad:O Iranian woman, only you have remained,    In the bonds of cruelty and wretchedness and misfortune.    It is your warm embracing bosom that has nurtured    Prideful and pompous man.    It is your joyous smile that bestows     On his heart vigor and warmth.    For that person who is your creation    To be preferred and superior is shameful.    Woman, take action because a world    Awaits and beckons you.<a href="#en230" id="Ref-en230"><sup>5</sup></a>
 
 Filled with leaden speeches, economic discussions, and organizational matters, nationalist periodicals nevertheless made room for poems and stories, drawings and photographs. The “nation” had to be imagined as well as thought through politically, economically, and culturally. The imagination played an enormous role in the construction of the nation, its states, and of course the Third World itself. Stories of humiliation and hope, poems of despair and revolution—these form part of the massive output of the imagination that made its way into the texts of national liberation. Farrokhzad’s verse is in that sense typical: there is the encomium to Iranian women for their buried labors, the condemnation of patriarchy for its rejection of women/mothers who have created the world, and a “call to arms” for women to birth a new kind of order. In these three moments—praise, condemnation, and war cry—there is the basic structure of the national liberation story. It charts out the past and demands an engagement with the future.
 
@@ -480,48 +468,9 @@ Al-e Ahmad and his contemporaries (including Ali Shariati, who drew from Al-e Ah
 
 Nationalism, democracy, and rationalism: the root of the Third World intellectual’s quandary was how to create a new self in the new nations. Each of their societies had ample resources to fill this self, but they also recognized the necessity to articulate a new relationship with the “West.” Al-e Ahmad did not ask for the return to some pristine Iranian culture or even Islam as the solitary basis for the subjectivity of the new Iranian.<a href="#en277" id="Ref-en277"><sup>52</sup></a> His affection for plebian Shiism meant that he sought a new Iranian personality in its cultural resources. In 1969, the year that Al-e Ahmad died (or was killed by the Shah’s intelligence service, SAVAK), his wife, Simin Daneshvar, published a remarkable novel, *Savushun*.<a href="#en278" id="Ref-en278"><sup>53</sup></a> Set in the 1940s, the novel traces the tale of Zari, a woman who fought against imperialism, agrarian inequalities, and family suffocation. The novel is named after a folkloric hero (from the *Shahnama*) who is betrayed by his people and killed by foreigners. That was one part of Daneshvar’s reach into folklore; the other was in her search for national salvation. If the various social agents had been paralyzed by imperialism and autarky, Zari, like others, waited for the coming of a Mahdi, the last prophet. For people like Daneshvar and Al-e Ahmad, the new Mahdi would be a reconstructed people’s movement. In 1966,  Forugh Farrokhzad evoked that longing in “Someone Who Is Not Like Anyone.”
 
-I’ve had a dream that someone is coming.   
-I’ve dreamt of a red star,   
-And my eyelids keep twitching   
-And my shoes keep snapping to attention   
-And I may go blind   
-If I’m lying.   
-I’ve dreamt of that red star   
-When I wasn’t asleep,   
-Someone is coming,   
-Someone is coming,   
-Someone better.
+I’ve had a dream that someone is coming.    I’ve dreamt of a red star,    And my eyelids keep twitching    And my shoes keep snapping to attention    And I may go blind    If I’m lying.    I’ve dreamt of that red star    When I wasn’t asleep,    Someone is coming,    Someone is coming,    Someone better.
 
-Someone is coming,   
-Someone is coming,   
-Someone who in his heart is with us,   
-In his breathing is with us,   
-In his voice is with us,   
-Someone whose coming   
-Can’t be stopped   
-And handcuffed and thrown in jail   
-Someone who’s been born   
-Under Yahya’s old clothes,   
-And day by day   
-Grows bigger and bigger,   
-Someone from the rain,   
-From the sound of rain splashing,   
-From among the whispering petunias,   
-Someone is coming from the sky   
-At Tupkhaneh Square on the night of the fireworks   
-To spread out the tablecloth   
-And divide up the bread   
-And pass out the Pepsi   
-And divide up Melli Park   
-And pass out the whooping cough syrup   
-And pass out the slips on registration day   
-And give everybody hospital waiting room numbers   
-And distribute the rubber boots    
-And pass out Fardin movie tickets   
-And give away Sayyed Javad’s daughter’s dresses   
-And give away whatever doesn’t sell   
-And even give us our share.   
-I’ve had a dream.<a href="#en279" id="Ref-en279"><sup>54</sup></a>
+Someone is coming,    Someone is coming,    Someone who in his heart is with us,    In his breathing is with us,    In his voice is with us,    Someone whose coming    Can’t be stopped    And handcuffed and thrown in jail    Someone who’s been born    Under Yahya’s old clothes,    And day by day    Grows bigger and bigger,    Someone from the rain,    From the sound of rain splashing,    From among the whispering petunias,    Someone is coming from the sky    At Tupkhaneh Square on the night of the fireworks    To spread out the tablecloth    And divide up the bread    And pass out the Pepsi    And divide up Melli Park    And pass out the whooping cough syrup    And pass out the slips on registration day    And give everybody hospital waiting room numbers    And distribute the rubber boots     And pass out Fardin movie tickets    And give away Sayyed Javad’s daughter’s dresses    And give away whatever doesn’t sell    And even give us our share.    I’ve had a dream.<a href="#en279" id="Ref-en279"><sup>54</sup></a>
 
 The tragedy of this beautiful hunger is that it displaces the *work* that needs to be done for the creation of this new Mahdi onto destiny or fate. In 1968, Tomás Gutiérrez Alea released his masterful *Memories of Underdevelopment*. In the movie, Sergio Corrieri Hernández played the part of a desolate bourgeois who, despite his sympathies to radicalism, has a hard time finding himself in the revolution. Such was the dilemma of Farrokhzad, Daneshvar, Al-e Ahmad, and others. Corrieri had no such trouble. He continued to act, but also worked for almost two decades in El Teatro Escambray, a rural theater ensemble. He reached the Central Committee of the Cuban Communist Party and took over international solidarity work, at the same time as he worked among young theater activists to forge a new way to be Cuban. Corrieri, too, longed for the coming of a Mahdi called revolution, and he put his life behind the attempt to construct that someone.
 
@@ -726,37 +675,10 @@ The colonels’ coups succumbed to their authoritarian roots in military culture
 
 Even if the colonel’s coup comes with tremendous promise, it can only momentarily deliver the administrative apparatus to energetic officers. The soldiers, as First put it, “hold the ring while new internal power amalgams are arranged.” The soldiers can do no permanent good. They can only postpone solutions.<a href="#en440" id="Ref-en440"><sup>56</sup></a> As the national liberation state removes itself from popular mobilization, begins to cultivate the domestic elites in the name of national development, and perhaps opens itself to intervention by imperialism, it loses the élan of the national liberation struggle. In the worst case, the military intervenes to preserve the status quo or recover the past. In the best case, the military rejects the civilian administration to disrupt the cozy alliance of the revolutionary leaders, the domestic bourgeoisie, and imperialism. Nevertheless, the military in power, as First shows, regardless of its motivations, *freezes the political process and cuts down the ability of social movements to move the historical process in a progressive direction*. Nothing good comes from a military dictatorship.
 
-While on the run from a Chilean government that he had condemned for its betrayal of its people in the 1940s, Neruda composed his *Cantos General*. In its midst, he offered a lyrical passage titled “Los Dictadores” (“The Dictators”):An odor lingers among the sugarcane:   
-A mixture of blood and body, a penetrating   
-Nauseous petal.   
-Between the coconut palms the graves are filled   
-Of demolished bones, of smothered grasps.   
-The delicate dictator talks   
-With wineglasses, collars, and gold braid.   
-The tiny palace shines like a wristwatch   
-And smart-gloved laughter   
-Occasionally drifts across the corridors   
-To join the dead voices   
-And freshly buried mouths.   
-The sob is hidden like a plant   
-Whose seed falls ceaselessly to the ground   
-And makes its great blind leaves grow without light.   
-Hatred has been formed scale by scale,   
-Coup by coup, in the terrible water of the swamp   
-With a snout full of clay and silence.<a href="#en441" id="Ref-en441"><sup>57</sup></a>
+While on the run from a Chilean government that he had condemned for its betrayal of its people in the 1940s, Neruda composed his *Cantos General*. In its midst, he offered a lyrical passage titled “Los Dictadores” (“The Dictators”):An odor lingers among the sugarcane:    A mixture of blood and body, a penetrating    Nauseous petal.    Between the coconut palms the graves are filled    Of demolished bones, of smothered grasps.    The delicate dictator talks    With wineglasses, collars, and gold braid.    The tiny palace shines like a wristwatch    And smart-gloved laughter    Occasionally drifts across the corridors    To join the dead voices    And freshly buried mouths.    The sob is hidden like a plant    Whose seed falls ceaselessly to the ground    And makes its great blind leaves grow without light.    Hatred has been formed scale by scale,    Coup by coup, in the terrible water of the swamp    With a snout full of clay and silence.<a href="#en441" id="Ref-en441"><sup>57</sup></a>
 
   
-**BALI**Neruda’s rage at the betrayal of popular aspirations came with a deep sense of hope that the people, organized by Communists and others, would prevail. When Communism arrived in the darker nations in the 1920s, it drew adherents who had been embittered by the failures of constitutional nationalism and revolutionary terrorism as well as empire. Intellectuals and peasants from their different places, but with equal intensity, took refuge in the new ideology, grafted it on to their various homespun versions of freedom and equality, and sewed red flags for their demonstrations. Repression followed as soon as they let out their flags. Empire knew immediately that Communism spelled its doom. It did not stop to negotiate with the Communists; it wanted only to annihilate them. Neruda sings of the formation of the Communist Party of Chile in the 1920s, of the foundation of the party by people like Luis Emilio Recabarren to the massacres of its members by the oligarchy. And then, in “Recabarren,” Neruda explodes:How much has happened since then,   
-How much blood upon blood,   
-How many struggles upon the earth.   
-Hours of splendid conquest,   
-Triumphs won drop by drop,   
-Bitter streets, defeated,   
-Zones dark as tunnels,   
-Razor-edged betrayals   
-That seemed to sever life,    
-Repressions armed with hatred,   
-Militarily crowned.
+**BALI**Neruda’s rage at the betrayal of popular aspirations came with a deep sense of hope that the people, organized by Communists and others, would prevail. When Communism arrived in the darker nations in the 1920s, it drew adherents who had been embittered by the failures of constitutional nationalism and revolutionary terrorism as well as empire. Intellectuals and peasants from their different places, but with equal intensity, took refuge in the new ideology, grafted it on to their various homespun versions of freedom and equality, and sewed red flags for their demonstrations. Repression followed as soon as they let out their flags. Empire knew immediately that Communism spelled its doom. It did not stop to negotiate with the Communists; it wanted only to annihilate them. Neruda sings of the formation of the Communist Party of Chile in the 1920s, of the foundation of the party by people like Luis Emilio Recabarren to the massacres of its members by the oligarchy. And then, in “Recabarren,” Neruda explodes:How much has happened since then,    How much blood upon blood,    How many struggles upon the earth.    Hours of splendid conquest,    Triumphs won drop by drop,    Bitter streets, defeated,    Zones dark as tunnels,    Razor-edged betrayals    That seemed to sever life,     Repressions armed with hatred,    Militarily crowned.
 
 The earth seemed to give way.
 
@@ -1044,11 +966,7 @@ For us, the first task is to untangle the policies of the IMF in the aftermath o
   
 **KINGSTON**A hundred years after Christopher Columbus arrived on the island of Jamaica in 1494, the Arawak population of a hundred thousand dwindled to a handful. In time, the entire population was cleansed, and the island was peopled by English colonial officials and plantation owners as well as enslaved Africans and indentured Indians. Captive labor grew the sugarcane that provided the main economic resource of the island. Rebellions came over time, and these generated a strong consciousness of distaste for the brutality and paternalism of colonial rule. It took centuries for independence to come, and when it did come in 1962, it was overdue.
 
-Just as the abolition of slavery advanced the cause of human freedom and yet left the formerly enslaved people in decrepit socioeconomic conditions, so too did national independence move history forward and yet do little for the everyday dilemmas of Jamaicans.<a href="#en638" id="Ref-en638"><sup>1</sup></a> When the British took down the Union Jack from the island, they could very well have sung the youthful lyrics from Bob Marley’s second album, except that the British didn’t leave much money behind:I brought the money like your lawyer said to do   
-Ain’t nothing funny, babe, I am still in love with you   
-Said I’m leaving you tomorrow   
-I’ll cause you no more sorrow   
-One more cup of coffee then I’ll go.
+Just as the abolition of slavery advanced the cause of human freedom and yet left the formerly enslaved people in decrepit socioeconomic conditions, so too did national independence move history forward and yet do little for the everyday dilemmas of Jamaicans.<a href="#en638" id="Ref-en638"><sup>1</sup></a> When the British took down the Union Jack from the island, they could very well have sung the youthful lyrics from Bob Marley’s second album, except that the British didn’t leave much money behind:I brought the money like your lawyer said to do    Ain’t nothing funny, babe, I am still in love with you    Said I’m leaving you tomorrow    I’ll cause you no more sorrow    One more cup of coffee then I’ll go.
 
 The new regime of Nelson Manley’s People’s National Party crafted a social development agenda to counter the chainless bondage  of postcolonial life. Drawing from the work of W. Arthur Lewis, a comrade and friend of Prebisch, the Jamaican government pursued the policy of “industrialization by invitation.” A system of leases permitted the government to channel industrial investment into those areas of the economy that allowed for social development.<a href="#en639" id="Ref-en639"><sup>2</sup></a> Economic policy generally drew from the import-substitution theory, and the government relied on targeted direct foreign investment, notably in the bauxite sector. The latter provided Jamaica with most of its foreign exchange earnings. Discovered in the 1940s, the bauxite reserves fell prey to Canadian and U.S. firms starting in 1952. These firms have since dominated the extraction of the mineral, with Jamaica becoming the largest exporter to North America in the 1960s.<a href="#en640" id="Ref-en640"><sup>3</sup></a> But as with sugar and tourism, the Jamaican people did not benefit from their natural resources. The only return to Jamaica came in the way of modest taxes to the government, meager wages to the working class, and a small tribute to the Jamaican managers at the mines and plantations—for this reason, what Jamaica exported despite its fabulous resources was cheap labor, and what it gained for that was a pittance toward its grandiose development aims.<a href="#en641" id="Ref-en641"><sup>4</sup></a>
 
@@ -1074,18 +992,9 @@ By the end of the 1980s, some commodity cartels remained in business, such as th
 
 Burned by the failure of its cartel maneuver and unwilling to challenge the authority of global capitalism in general, the Manley government also pursued regional cooperation options. Jamaica took a leadership role in moving the Caribbean Community and Common Market (Caricom) from a free trade area into a customs union—that is, from an area without tariffs between the various countries in Caricom to an area with a common external tariff policy against those outside it. The Manley regime initiated a dialogue about the transformation of Caricom into a common market, but it did not go anywhere, Even Caricom failed its self-image as states demanded concessions for their own tariff policies or else cut side deals with the Caribbean Development Bank.<a href="#en651" id="Ref-en651"><sup>14</sup></a> These were difficult times, and the leadership of these nations had no easy choices. They stumbled around in search of a way out of the debt trap, and even those such as Cuba only managed with considerable assistance from the already-faltering Soviet economy.<a href="#en652" id="Ref-en652"><sup>15</sup></a>
 
-In the early years of Michael Manley’s democratic socialism experiment, Jamaica’s main reggae artist became the voice of the Third World. In 1973, Marley and the Wailers released *Burnin’*, their second major international hit after the previous year’s *Catch a Fire*. On this album, the Wailers produced a series of songs that reflected the rage of those who began to feel increasingly marginalized by their own state and the international order: “Get Up, Stand Up,” “I Shot the Sheriff,” “Burnin’ and Lootin’,” and “Oppressed Song.”<a href="#en653" id="Ref-en653"><sup>16</sup></a> One of them, the title track, set the tone with regard to the difficulty of finding the “boss” who controlled the system of everyday economic curfews:This morning I woke up in a curfew.   
-Oh God, I was a prisoner too.   
-Could not recognize the faces standing over me.   
-They were all dressed in uniforms of brutality.   
-How many rivers do we have to cross,    
-Before we can talk to the boss?   
-All that we got, it seems we have lost,   
-We must have really paid the cost.
+In the early years of Michael Manley’s democratic socialism experiment, Jamaica’s main reggae artist became the voice of the Third World. In 1973, Marley and the Wailers released *Burnin’*, their second major international hit after the previous year’s *Catch a Fire*. On this album, the Wailers produced a series of songs that reflected the rage of those who began to feel increasingly marginalized by their own state and the international order: “Get Up, Stand Up,” “I Shot the Sheriff,” “Burnin’ and Lootin’,” and “Oppressed Song.”<a href="#en653" id="Ref-en653"><sup>16</sup></a> One of them, the title track, set the tone with regard to the difficulty of finding the “boss” who controlled the system of everyday economic curfews:This morning I woke up in a curfew.    Oh God, I was a prisoner too.    Could not recognize the faces standing over me.    They were all dressed in uniforms of brutality.    How many rivers do we have to cross,     Before we can talk to the boss?    All that we got, it seems we have lost,    We must have really paid the cost.
 
-And then, because of the structural failure of the Third World agenda,That’s why we gonna be   
-Burnin’ and lootin’ tonight . . .   
-Burnin’ all illusions tonight.
+And then, because of the structural failure of the Third World agenda,That’s why we gonna be    Burnin’ and lootin’ tonight . . .    Burnin’ all illusions tonight.
 
 By 1976, the Jamaican balance of payments registered a deficit (in Jamaican dollars) of $231.3 million, and the net foreign exchange reserves fell precipitously from a positive balance of $136.7 million in June 1975 to a negative one of $181.4 million in December 1976. World inflation, high oil prices, and a drop in commodity prices effected the reserves, as it did those of most of the darker nations. In 1960, the total debt of the 133 states that the World Bank counted as part of the “developing countries” held a total public and private debt just short of US$18 billion. In ten years, the debt had escalated to $75 billion, and when Jamaica went into fiscal crisis, it was $113 billion. By 1982, the debt had reached the astronomical figure of $612 billion. While many scholars and commentators blame the oil crisis of 1973–74 for the ballooning debt, this is a superficial argument. The rise in oil prices due to the action of the OPEC cartel only exacerbated tendencies that had already stymied the social development of the formerly colonized states. The distorted development agenda followed by most of the Third World, whether those that adopted or shunned socialism, and the imperialist pressure faced by these states produced a structurally impoverished international political economy. When the oil crisis hit, it provided the conjuncture for the Third World’s structural rot.
 
@@ -1105,10 +1014,7 @@ The debt crisis and the general disunity in the Third World over its response to
 
 In 1954, the government of Peru came to the IMF for a short-term loan. The IMF did not provide the loan with the hope that Peru’s government would make good use of it. Instead, the IMF demanded one condition: that Peru’s economy must maintain a stable exchange rate. Gradually the IMF created procedures for accountability and punishment, generally as a poor report against the country that might lead to a dearth of commercial finance. States outside the G-7 that took IMF money had to submit to a total makeover of their political and economic relations. In March 1980, the World Bank would give these sorts of policies a name, “Structural Adjustment loan,” which would soon be called the Structural Adjustment Policy (SAP). Jamaica and other countries in the 1970s had to submit to SAP loans avant la lettre.
 
-In December 1976, as Marley took the stage at Kingston’s National Heroes Park for his Smile Jamaica concert, Manley’s government acceded to the IMF.<a href="#en661" id="Ref-en661"><sup>24</sup></a>We’re gonna help our people, help them right.   
-O Lord, help us tonight.   
-Cast away that evil spell, throw some water in the well, and smile   
-In Jamaica, c’mon and smile
+In December 1976, as Marley took the stage at Kingston’s National Heroes Park for his Smile Jamaica concert, Manley’s government acceded to the IMF.<a href="#en661" id="Ref-en661"><sup>24</sup></a>We’re gonna help our people, help them right.    O Lord, help us tonight.    Cast away that evil spell, throw some water in the well, and smile    In Jamaica, c’mon and smile
 
 The IMF plan was rigorous. First, it called on the government to devalue its currency to discourage imports and increase its ability to export its products. The policy intended to shift the import-substitution thrust to an export-oriented economy. Second, the government had to discourage an increase in wages to keep down the need to import goods. Third, the IMF called for the reduction of state expenditure and a contraction of the role of the state in the economy (no more price controls and subsidies). Fourth, the state needed to sell off its public-sector assets and enhance the private enterprises. Finally, the state had to hamper the money supply and raise interest rates to induce “fiscal discipline.” If Marley asked Jamaica to smile in late 1976, a few months earlier his wife, Rita, wrote a different song. “Them crazy,” she wrote in a song that Bob sang in the summer. “Them crazy. We gonna chase those crazy baldheads out of town.... Here comes the con man, coming with his con plan.... We gonna chase those crazy . . . baldheads out of town.”
 
@@ -1122,11 +1028,7 @@ In the 1960s, the Third World states organized into UNCTAD had pledged not to at
 
 Sacrifices could not be demanded without the expectation that they would result in protest. Early victims of IMF policies vigorously battled their governments for their accession to the IMF conditions. From Egypt to Peru, Sudan to Ecuador, Bolivia to Liberia—the streets of the Third World rang with the cries of “The Poor Can’t Take No More” (as street graffiti in Kingston put it).
 
-Come we go burn down Babylon one more time   
-Come we go chant down Babylon one more time . . .   
-Men see their dreams and aspirations crumble in front of their face   
-And all their wicked intentions to destroy the human race . . .   
-Come we go chant down Babylon one more time.
+Come we go burn down Babylon one more time    Come we go chant down Babylon one more time . . .    Men see their dreams and aspirations crumble in front of their face    And all their wicked intentions to destroy the human race . . .    Come we go chant down Babylon one more time.
 
 Babylon knew that its demands would not come without a response. In early 1980, the Independent Commission for International Developmental Issues, chaired by the former socialist chancellor of West Germany Willy Brandt, published “North-South: A Program for Survival,” which became known as the Brandt Report. The report had been commissioned by the World Bank’s Robert McNamara to find out why the process known as “development” had failed to produce justice. Toward the end of the report the commission noted, “The Fund’s insistence on drastic measures has tended to impose unnecessary and unacceptable political burdens on the poorest, on occasion leading to ‘IMF riots’ and even downfall of governments.”<a href="#en670" id="Ref-en670"><sup>33</sup></a> Jamaica had both these riots and the downfall of its government. The Manley government could have disavowed the IMF demands, refused to cover its deficit, and turned to Cuba and others for assistance. But this was a dangerous strategy given  the overwhelmingly military response that would have come from the United States (as the Nicaraguans found after the successful Sandinista revolution of 1979, and as the Cubans continued to experience). Instead, Michael Manley accepted the IMF funds and tried to ameliorate its demands, to produce structural adjustment with a human face. Manley objected to the IMF’s demand that the state cut its social programs, as this was “the price of survival for the democratic system.”<a href="#en671" id="Ref-en671"><sup>34</sup></a> Of course the IMF did not budge and the Manley government’s budget had to give, and give again. As Manley hesitated, the commercial banks refused to proffer loans. When these came, the conditions were onerous. By the end of 1980, the per capita income in Jamaica fell by 40 percent.
 
@@ -2783,8 +2685,7 @@ Azhari, Ismail el
 
 Azikiwe, Nnamdi
 
-# 
-Baghdad Pact (Central Treaty Organization)
+#  Baghdad Pact (Central Treaty Organization)
 
 Bailey, Frederick Markham
 
@@ -2898,8 +2799,7 @@ Bundy, McGeorge
 
 Burma: borders of; Communist Party in; independence of; military coup in
 
-# 
-Caballero de Castillo Ledón, Amalia
+#  Caballero de Castillo Ledón, Amalia
 
 Cabral, Amilcar
 
@@ -3001,8 +2901,7 @@ cultural nationalism. *See* nationalism
 
 Cummings, Hugh S. Jr.
 
-# 
-Dahomey, military coup in
+#  Dahomey, military coup in
 
 Dalai Lama
 
@@ -3113,8 +3012,7 @@ Friedman, Milton
 
 Fürer-Haimendorf, Christoph von
 
-# 
-Gandhi, Indira
+#  Gandhi, Indira
 
 Gandhi, Mohandas K. “Mahatma,”
 
@@ -3172,8 +3070,7 @@ Gumeda, Josiah
 
 Gutiérrez Alea, Tomás
 
-# 
-Hadj, Messali
+#  Hadj, Messali
 
 Haiti
 
@@ -3229,8 +3126,7 @@ Hussein, king of Jordan
 
 Hussein, Saddam
 
-# 
-IAEA (International Atomic Energy Agency)
+#  IAEA (International Atomic Energy Agency)
 
 IMF (International Monetary Fund): and debt crisis; G-7 and; globalization driven by; inequality perpetuated by; influence of; loans with conditions attached; Terra Nova Statement on; and UNCTAD
 
@@ -3278,8 +3174,7 @@ Italy
 
 Ivory Coast
 
-# 
-Jamaica: Arawak population of; bauxite industry in; as British colony; democratic socialism in; economic problems of; fall of government in; foreign investment in; independence of; People’s National Party in; reconstruction program for; social unrest in; sugarcane grown on; women’s movement in
+#  Jamaica: Arawak population of; bauxite industry in; as British colony; democratic socialism in; economic problems of; fall of government in; foreign investment in; independence of; People’s National Party in; reconstruction program for; social unrest in; sugarcane grown on; women’s movement in
 
 Japan: and China; economic success of; imperialism of; land reform in; surrender of
 
@@ -3287,8 +3182,7 @@ Johnson, Lyndon B.
 
 Justo, Juan Bautista
 
-# 
-Kahin, George
+#  Kahin, George
 
 Kalecki, Michal
 
@@ -3348,8 +3242,7 @@ Kulthum, Umm
 
 Kuwait
 
-# 
-La Guma, James
+#  La Guma, James
 
 Lansky, Meyer
 
@@ -3399,8 +3292,7 @@ Lutz, Bertha
 
 Lu Xun
 
-# 
-MacArthur, Douglas
+#  MacArthur, Douglas
 
 Machel, Samora
 
@@ -3524,8 +3416,7 @@ Musharraf, Pervez
 
 Muslim Brotherhood (Ikhwan al-Muslimin)
 
-# 
-Nabaraoui, Ceza
+#  Nabaraoui, Ceza
 
 Naguib, Mohamed
 
@@ -3583,8 +3474,7 @@ Ne Win
 
 New Zealand, and SEATO
 
-# 
-Nguyen Thi Binh
+#  Nguyen Thi Binh
 
 Nguyen Van Tien
 
@@ -3604,8 +3494,7 @@ nostalgia, political purpose of
 
 Nyerere, Julius
 
-# 
-oil: in Algeria; in Arab nations; Bolivia-Paraguay war; control of; embargo (1973); exploration for;
+#  oil: in Algeria; in Arab nations; Bolivia-Paraguay war; control of; embargo (1973); exploration for;
 
 oil *(cont.)*
 
@@ -3619,8 +3508,7 @@ Organization of African Unity
 
 Ottoman Empire
 
-# 
-Padmore, George
+#  Padmore, George
 
 Pakistan: and Baghdad Pact; and Bangladesh; and China; CIA in; Communist Party in; IMF influence in; independence of; and India; Islamization of; and Kashmir; military coup in; Partition of; and SEATO; U.S. deals with
 
@@ -3690,13 +3578,11 @@ Prebisch, Raúl; on public commodity cartels; on Third World economic problems; 
 
 Punta Del Este Conference (1967)
 
-# 
-Qaddafi, Muammar
+#  Qaddafi, Muammar
 
 Qasim, ‘Abd al-Karim
 
-# 
-Radi, Husain ar-
+#  Radi, Husain ar-
 
 Raikes, Philip
 
@@ -3762,8 +3648,7 @@ Russell, Bertrand
 
 Russia. *See* USSR
 
-# 
-Saadawi, Nawal El-
+#  Saadawi, Nawal El-
 
 Sadat, Anwar es-
 
@@ -3934,8 +3819,7 @@ Tunisia, nationalism in
 
 Turkey
 
-# 
-Uganda, military coup in
+#  Uganda, military coup in
 
 UNCTAD (UN Conference on Trade and Development): creation of; decline of; and G-; and IMF; Nairobi meeting of (1976); and NIEO; on one-commodity nations; and Third World economic development; and transnationals
 
@@ -3967,8 +3851,7 @@ Uslar-Pietri, Arturo
 
 USSR: and African nations; and Arab nations; arms sales by; Bolshevik Revolution in; and China; and Cold War; Comecon of; Cominform in; Cominterm of; Communist Party in; decline of; Eastern European states in orbit of; economic aid from; Karakhan Manifesto; and Latin America; nuclear weapons of; October Revolution in; oil in; Stalinist purges in; and Third World; and UN Security Council; and World War II, ; and zone of peace
 
-# 
-Vandervelde, Émile
+#  Vandervelde, Émile
 
 Vasconcelias, José
 
@@ -3978,8 +3861,7 @@ Vietnam
 
 Vietnam War
 
-# 
-Wahhab, Muhammed ibn ‘Abd al-
+#  Wahhab, Muhammed ibn ‘Abd al-
 
 Wahhabism
 
@@ -4007,8 +3889,7 @@ World War II: alliances in; economic impact of; horrors of; populations lost in
 
 Wright, Richard
 
-# 
-Yalta Conference (1945)
+#  Yalta Conference (1945)
 
 Ydígoras Fuentes, Miguel
 
@@ -4018,8 +3899,7 @@ Youssef, Ben
 
 Yugoslavia: Belgrade conference (1961); Brijuni conference (1956); in Cold War; and Communist Party; dismemberment of; and Third World; and USSR; U.S. violation of airspace of
 
-# 
-Zaire
+#  Zaire
 
 Zakaria, Fareed
 
@@ -4042,9 +3922,7 @@ New York, NY 10013.
 
 Grateful acknowledgment is made to the following for permission to reprint the following previously published material:
 
-“The Dictators” and a section of “Recabarren” by Pablo Neruda from *Canto General*, translated by   
-Jack Schmitt. Copyright © 1991 by The Regents of the University of California. Reprinted with   
-permission of University of California Press.
+“The Dictators” and a section of “Recabarren” by Pablo Neruda from *Canto General*, translated by    Jack Schmitt. Copyright © 1991 by The Regents of the University of California. Reprinted with    permission of University of California Press.
 
 “A Call to Arms” and “Someone Who Is Not Like Anyone” by Forugh Farrokhzad from   
 *A Lonely Woman: Forugh Farrokhzad and Her Poetry* by Michael C. Hillman.   
