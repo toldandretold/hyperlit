@@ -60,6 +60,24 @@
             box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3); /* Larger shadow on hover */
         }
 
+        h1 {
+    color: #4CAF50; /* Example color */
+            }
+        h2 {
+    color: #FF5722;
+            }
+        /* Blockquotes */
+        blockquote {
+            color: #9E9E9E;
+            border-left: 3px solid #FF5722;
+            padding-left: 10px;
+        }
+        /* Code blocks */
+        pre code {
+            background-color: #F5F5F5;
+            color: #333;
+        }
+
 
 
 

@@ -30,7 +30,7 @@
             transition: background-color 0.3s ease, box-shadow 0.3s ease; /* Smooth hover transition */
         }
 
-        #editbutton:hover {
+        button:hover {
             background-color: #555; /* Slightly lighter on hover */
             box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3); /* Larger shadow on hover */
         }
@@ -120,6 +120,36 @@
             });
         });
     });
+
+
+// Save position on refresh or navigation away
+window.addEventListener('beforeunload', function () {
+    const elementInView = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+    const domPath = getDomPath(elementInView);
+    localStorage.setItem('originalReadPath', domPath);
+    localStorage.setItem('refreshFlag', 'true'); // Set the flag to indicate a refresh
+    console.log("Updated originalReadPath on refresh:", domPath);
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+    const fromEditPage = localStorage.getItem('fromEditPage');
+    const domPath = localStorage.getItem('originalReadPath');
+    console.log("Retrieved originalReadPath:", domPath); // Debugging log
+
+    if (domPath && fromEditPage) {
+        const targetElement = document.querySelector(domPath);
+        if (targetElement) {
+            targetElement.scrollIntoView({ behavior: 'smooth' });
+            console.log("Scrolled to:", targetElement); // Debugging log
+        } else {
+            console.log("Target element not found for:", domPath); // Debugging log
+        }
+    }
+
+    // Clear the flags to reset for future actions
+    localStorage.removeItem('refreshFlag');
+    localStorage.removeItem('fromEditPage');
+});
 
 
     rangy.init();
@@ -447,8 +477,6 @@ function fallbackCopyText(text) {
     document.body.removeChild(textArea);
 }
 
-
-
 // Function to wrap selected text with <u> tag in the DOM
 function wrapSelectedTextInDOM(hyperciteId) {
     const selection = window.getSelection();
@@ -470,10 +498,7 @@ function wrapSelectedTextInDOM(hyperciteId) {
     // Send the updated HTML to the server for saving
     saveUpdatedHTMLToFile(updatedHTML, book);
 }
-    
-
   
-
 // Function to send updated HTML to the server for saving
 function saveUpdatedHTMLToFile(updatedHTML, book) {
     fetch(`/save-updated-html/${book}`, {
@@ -499,12 +524,10 @@ function saveUpdatedHTMLToFile(updatedHTML, book) {
     });
 }
 
-// Event listener for 'copy' event
 document.addEventListener('copy', (event) => {
     const selection = window.getSelection();
-    const selectedText = selection.toString();  // Get the selected text
 
-    if (!selectedText) {
+    if (selection.rangeCount === 0) {
         return; // Do nothing if no text is selected
     }
 
@@ -512,47 +535,83 @@ document.addEventListener('copy', (event) => {
     const hyperciteId = generateHyperciteID();
 
     // Get the current page URL without any existing hash
-    const baseUrl = window.location.href.split('#')[0];  // Removes any existing hash in the URL
+    const baseUrl = window.location.href.split('#')[0];
 
-    // Custom HTML to save to the clipboard with the base URL plus the new hyper-cite ID
-    const htmlData = `'${selectedText}'<a href="${baseUrl}#${hyperciteId}">[:]</a>`;
+    // Clone the HTML structure of the selected content
+    const range = selection.getRangeAt(0).cloneContents();
+    const div = document.createElement('div');
+    div.appendChild(range);
+    const selectedHtml = div.innerHTML;  // Original HTML with styles intact
 
-    // Prevent the default copy action and set clipboard content
-    event.preventDefault();
-    if (event.clipboardData) {
-        event.clipboardData.setData('text/html', htmlData);
-        event.clipboardData.setData('text/plain', selectedText);  // Optional: plain text fallback
-    }
+    // Add the hyperlink at the end of the selected HTML content
+    const clipboardHtml = `'${selectedHtml}'<a href="${baseUrl}#${hyperciteId}">[:]</a>`;
 
-    // Alter the DOM by wrapping the selected text with <u> tag in the HTML page
+    // Set plain text version for fallback
+    const clipboardText = `'${selection.toString()}'[[:]](${baseUrl}#${hyperciteId})`;
+
+    // Set clipboard data
+    event.clipboardData.setData('text/html', clipboardHtml);
+    event.clipboardData.setData('text/plain', clipboardText);
+    event.preventDefault(); // Prevent default copy behavior
+
+    // Wrap the selected text with <u> tags in the HTML page only
     wrapSelectedTextInDOM(hyperciteId);
-
-    // Check if clipboardData supports HTML, if not fallback to normal copy
-    if (event.clipboardData && event.clipboardData.setData) {
-        try {
-            // Attempt to copy the customized clipboard data
-            event.clipboardData.setData('text/html', htmlData);
-            // Also copy plain text in case the target app uses plain text format
-            event.clipboardData.setData('text/plain', selectedText);
-            console.log('Copied with custom HTML:', htmlData);
-        } catch (error) {
-            console.error('Failed to copy HTML. Fallback to normal copy.');
-            // If any error occurs, fallback to plain text copy
-            fallbackCopyText(selectedText);
-        }
-    } else {
-        // Fallback to normal copy if clipboardData or setData is not available
-        fallbackCopyText(selectedText);
-    }
 });
+
+
+
+
+
 
 
 
 // [edit] button
 
-// Redirect to /{book} when the read button is pressed
-    document.getElementById('editButton').addEventListener('click', function () {
-        window.location.href = `/${book}/div`;
-    });
+// Function to get the full DOM path of the element in view
+function getDomPath(element) {
+    let path = [];
+    while (element && element.nodeType === Node.ELEMENT_NODE) {
+        let selector = element.nodeName.toLowerCase();
+        if (element.id) {
+            selector += `#${element.id}`;
+            path.unshift(selector);
+            break;
+        } else {
+            let sibling = element;
+            let siblingIndex = 1;
+            while ((sibling = sibling.previousElementSibling)) {
+                if (sibling.nodeName.toLowerCase() === selector) siblingIndex++;
+            }
+            selector += `:nth-of-type(${siblingIndex})`;
+        }
+        path.unshift(selector);
+        element = element.parentNode;
+    }
+    return path.join(" > ");
+}
+
+// Save position on refresh or navigation away
+window.addEventListener('beforeunload', function () {
+    const elementInView = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+    const domPath = getDomPath(elementInView);
+    localStorage.setItem('originalReadPath', domPath);
+    console.log("Updated originalReadPath on refresh:", domPath);
+});
+
+// Save original read position when clicking "edit" button
+document.getElementById('editButton').addEventListener('click', function () {
+    const elementInView = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+    const domPath = getDomPath(elementInView);
+
+    // Save and log the original path for returning from edit mode
+    localStorage.setItem('originalReadPath', domPath);
+    console.log("Saved originalReadPath on edit:", domPath);
+
+    // Redirect to the editable page
+    window.location.href = `/${book}/div`; // Adjust URL as needed
+});
+
+
+
     </script>
 @endsection

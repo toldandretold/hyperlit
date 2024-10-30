@@ -1,24 +1,20 @@
 # test
-## <u id="hypercite_xmk6ojg">Future</u> GPT Chats
-Immediate steps to <u id="hypercite_e30esls">get it working for me as</u> a solo users
-
+# <u id="hypercite_xmk6ojg">Future</u> GPT Chats Immediate steps to get it working for me as a solo users
 > Get {book} to update the main-text.html to main-text.md file after a highlight is created or deleted.
 > 
 > Get hyperlights.html to update hyperlights.md when user presses save, and vice versa. So steps would be
 > 
-> 1. update highlights database with annotations.
+> 1. update highlights database with annotations. 'some kind of forumula'<a href="http://localhost:8000/to-do_two#hypercite_fac9yur">\[:\]</a>
 > 2. if it's markdown, convert to html and update hyperlights.html
 > 3. if it's html, convert to md and update hyperlights.md
 
 Adding in a test line.
 
-Currently, this is being done by taking from the annotations column. The problem is that this is a raw string without any md or html. So, when markdown is changed, it doesn't update the html side with appropriate markup.
+Currently, this is being done by taking from the annotations column. The problem is that this is a raw <mark class="user-name_1730244547336" id="user-name_1730244547336">string without</mark> any md or html. So, when markdown is changed, it doesn't update the html side with appropriate markup.
 
 For now, can revert to converting file to the other. However, it is <u id="hypercite_jcmn23k">probably also good to work</u> out how <u id="hypercite_aq34pnm">to store the</u> selected text as html or md in the annotations column, and then to convert these after they are inserted into the hyperlights file. This
 
-# ToldandRetold hyperBase
-When page loads the markdown or html, it is entered into a database table for that particular book's book\_id.
-
+# ToldandRetold hyperBase When page loads the markdown or html, it is entered into a database table for that particular book's book\_id.
 > 1. page is opened via url/{book}, where {book} is both the folder name, and the books unique @id \[@book\_id\], as stored in the bibteX data, and in the citations data folder.
 > 2. the PageController.php looks in the folder.
 > 
@@ -140,9 +136,7 @@ I'll have to see if this is something that Chat reckons is feasible. But the poi
 
 a check would have to be carried out, such that, if \[HL\] or \[/HL\] tags were deleted in the markdown, this wouldn't interfere with the logic of converting the rest of them back into html.
 
-# Hypercite functionality\[:\]
-When a hypercite is pasted into a hyperlit article, an event listener detects that the \[:\] symbol (which could be switched out with javascript for a custom hyperlit "negative space" symbol) has been pasted. this triggers some javascript which:
-
+# Hypercite functionality\[:\] When a hypercite is pasted into a hyperlit article, an event listener detects that the \[:\] symbol (which could be switched out with javascript for a custom hyperlit "negative space" symbol) has been pasted. this triggers some javascript which:
 > 1. posts the URL of the current hyperlit article to the backend controller "hyperCite", which adds it to the column "pasted" in the hypercite data \[table\].
 > 2. the controller then opens the file from the "copied" row for the hypercite with the id from the id of the hypercite.
 > 3. it adds the URL from the "pasted" column of the hypercite to the href="", of the \[ tags with the hypercite's id.\]()\[1. the controller then triggers a click response for the save button (not sure how this would be done in code?). \]()\[\]()
@@ -156,37 +150,27 @@ The intended result is that the quoted text is followed by a \[:\] symbol, which
 
 when <mark class="user-name_1730070971337" id="user-name_1730070971337">that is pasted into a hyper-lit page</mark> (or even somewhere else on the same page), and saved:
 
-- the pasted text will be wrapped with <u> tags, that include a new hypercite-id, as so:</u>
+- the pasted text will be wrapped with \[u\] tags, that include a new hypercite-id, as so:
     
-    <u></u><u id="hypercite_id_b">'the text'<a href="url.com/citation_id#hypercite_id"></a></u><a href="url.com/citation_id#hypercite_id">\[:\]</a><u>1. the save function will include logic to parse the text to recognised any new linked \[:\] symbols. If detected, the href="" data will be used to locate the hyper-cite id in the hyper-cite data table. It will update the "activated" column to include the book and hyper-cite info of the pasted text. for example: "/{book}#hypercite\_id\_b"</u>
-    
-    <u></u>
-    
-    <u></u>
-    
-    <u></u>
+    <u id="hypercite_id_b">'the text'<a href="url.com/citation_id#hypercite_id"></a></u><a href="url.com/citation_id#hypercite_id">\[:\]</a><u>1. the save function will include logic to parse the text to recognised any new linked \[:\] symbols. If detected, the href="" data will be used to locate the hyper-cite id in the hyper-cite data table. It will update the "activated" column to include the book and hyper-cite info of the pasted text. for example: "/{book}#hypercite\_id\_b"</u>
     
     <u>
     2. java script in the original text is set, such that any <u id="hypercite"> is turned into an underlined link to the "activated" column in the hyper-cite data table, if it is not null. Thus, when the original source is loaded this section:</u>
     
-    </u><u></u><u></u><u></u><u id="hypercite"></u><u id="hypercite_id"> text </u>
+    </u><u></u><u></u><u></u><u></u><u id="hypercite"></u><u id="hypercite_id"> text </u>
     
     <u>will be altered to appear in the browser as *actually* underlined, and linking to the "/{book}#hypercite\_id\_b" found in the "activated" column for the given "hypercite\_id". </u><u id="hypercite"></u><u><u id="hypercite"></u></u>As a result, this system will ensure two way links are automatically generated, just by copying and pasting from one page to another.
 
 a parser recognises the linked \[:\] symbol, and uses the href="" data to trigger a mechanism that adds a link to ***activate*** that hypercite with the
 
-# Idea for when the hyperlights nad hypercites get too overwhelming
-Users should be able to customise which hyperlights and hypercites appear in their text. They can select from "most recent", "most upvoted", and "most read", for example. This will be calculated, eventually, also by the highlights and citations data table. Which will correspond with javascript, I think, for removing and displaying the relevant hyperlights and hypercites.
-
+# Idea for when the hyperlights nad hypercites get too overwhelming Users should be able to customise which hyperlights and hypercites appear in their text. They can select from "most recent", "most upvoted", and "most read", for example. This will be calculated, eventually, also by the highlights and citations data table. Which will correspond with javascript, I think, for removing and displaying the relevant hyperlights and hypercites.
 However, if user presses a highlight, for example, all highlights that overlap with that will also be opened, in a single html page, for example.
 
 Also, if multiple sources have cited the same hypercite, then when it is pressed, these will appear, also in the same html page, showing them as different citations. That is, author, title and date. If these are pressed, user is taken into the exact location of the quote. If the \[:\] is pressed, user is taken back to all the hypercites. Back again, and to the original location in the main-text.
 
 In this way, users will move freely between each hyperlit source, whether from the <mark class="user-name_1729848642769" id="user-name_1729848642769">quoted</mark> text to the primary source, or from the primary source to all those <u id="hypercite_z7gk6qq">which </u>have hypercited it.
 
-## Repeating for reading and editing hyperlights
-Once this is set up, a similar thing will need to be established for the hyperlights.md
-
+## Repeating for reading and editing hyperlights Once this is set up, a similar thing will need to be established for the hyperlights.md
 # syncing to a local folder?
 Ideally, all markdown files can be synced, via alliases, to a folder that syncs to a users account. This can, in theory, be synced to -- for example -- Obsidian.
 

@@ -29,6 +29,9 @@
             color: #CBCCCC;
         }
 
+
+    
+
         div[style*="position: fixed"] button {
             margin-right: 10px;
             padding: 10px 20px;
@@ -80,6 +83,17 @@
     
 
     <script>
+
+        window.addEventListener('DOMContentLoaded', () => {
+    const domPath = localStorage.getItem('originalReadPath');
+    if (domPath) {
+        const targetElement = document.querySelector(domPath);
+        if (targetElement) {
+            targetElement.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+});
+
     // Handle clicks on links inside the editable div
     document.getElementById('main-content').addEventListener('click', function(event) {
         if (event.target.tagName === 'A') {
@@ -141,6 +155,30 @@
         });
     });
 
+    document.getElementById('main-content').addEventListener('paste', (event) => {
+    event.preventDefault();
+    
+    // Get the HTML content from the clipboard
+    const htmlContent = (event.clipboardData || window.clipboardData).getData('text/html');
+    const textContent = (event.clipboardData || window.clipboardData).getData('text');
+
+    // Check if HTML content is available; if not, fallback to plain text
+    const contentToInsert = htmlContent || textContent;
+
+    // Insert the content at the cursor position
+    document.execCommand('insertHTML', false, contentToInsert);
+
+    // Clean up inline styles after paste
+    setTimeout(() => {
+        const mainContent = document.getElementById('main-content');
+        const elementsWithStyles = mainContent.querySelectorAll('[style]');
+        
+        elementsWithStyles.forEach((element) => {
+            element.removeAttribute('style');
+        });
+    }, 0); // Timeout allows the pasted content to appear before cleanup
+});
+
 
     document.getElementById('saveButton').addEventListener('click', function () {
     const content = document.getElementById('main-content').innerHTML;
@@ -171,11 +209,13 @@
         window.location.href = `/${book}/md`;
     });
 
-    // Redirect to /{book} when the read button is pressed
-        document.getElementById('readButton').addEventListener('click', function () {
-            window.location.href = `/${book}`;
-        });
     
+        document.getElementById('readButton').addEventListener('click', function () {
+        // Set a flag indicating we're returning to the read page, not refreshing
+        localStorage.setItem('fromEditPage', 'true');
+        window.location.href = `/${book}`; // Replace with the actual URL of the read page
+    });
+
 
  
     
