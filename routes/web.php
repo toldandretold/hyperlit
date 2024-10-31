@@ -85,6 +85,9 @@ Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML']
 Route::post('/save-updated-html/{book}', [HyperciteController::class, 'saveUpdatedHTML'])->name('save.updated.html');
 Route::post('/save-hypercite', [HyperciteController::class, 'store']);
 Route::post('/process-hypercite-link', [HyperciteController::class, 'processHyperciteLink']);
+Route::post('/process-connected-hypercites', [HyperciteController::class, 'processConnectedHyperCites']);
+
+
 
 // Cite Creator routes
 Route::get('/cite-creator', [CiteCreator::class, 'create'])->name('createCite');

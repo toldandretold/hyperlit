@@ -1,5 +1,5 @@
 <h1>test</h1>
-<h1><u id="hypercite_xmk6ojg">Future</u> GPT Chats Immediate steps to get it working for me as a solo users</h1>
+<h1><u id="hypercite_xmk6ojg">Future</u> GPT Chats <u id="hypercite_o1hop1h">Immediate</u> steps <u id="hypercite_193ryfj">to get</u> it working for me as a solo users</h1>
 <blockquote>
 <p>Get {book} to update the main-text.html to main-text.md file after a highlight is created or deleted.</p>
 <p>Get hyperlights.html to update hyperlights.md when user presses save, and vice versa. So steps would be</p>
@@ -9,9 +9,9 @@
 <li>if it's html, convert to md and update hyperlights.md</li>
 </ol>
 </blockquote>
-<p>Adding in a test line.</p>
-<p>Currently, this is being done by taking from the annotations column. The problem is that this is a raw <mark class="user-name_1730244547336" id="user-name_1730244547336">string without</mark> any <u id="hypercite_nt1z094">md or html</u>. So, when markdown is changed, it doesn't update the html side with appropriate markup.</p>
-<p>For now, can revert to converting file to the other. However, it is <u id="hypercite_jcmn23k">probably also good to work</u> out how <u id="hypercite_aq34pnm">to store the</u> selected text as html or md in the annotations column, and then to convert these after they are inserted into the hyperlights file. <u id="hypercite_z1wq5xr">This</u></p><p>'This'<a href="http://localhost:8000/to-do_two#hypercite_z1wq5xr" id="hypercite_id_6722f8429c0ab">[:]</a><br></p>
+<p>Adding in a test line.&nbsp;<span>'Update the'</span><a href="http://localhost:8000/to-do#hypercite_vbz1epb">[:]</a></p>
+<p>Currently, <u id="hypercite_e5ilurg">this is being</u> done by taking from the annotations column. The problem is that this is a raw <mark class="user-name_1730244547336" id="user-name_1730244547336">string without</mark> any <u id="hypercite_nt1z094">md or html</u>. So, when markdown is changed, it doesn't update the html side with <u id="hypercite_1ehazv5">appropriate markup</u>.</p>
+<p>For now, can revert to converting file to the other. However, it is <u id="hypercite_jcmn23k">probably also good to work</u> out how <u id="hypercite_aq34pnm">to store the</u> selected text as html or md in the annotations column, and then to convert these after they are inserted <u id="hypercite_2adoqbj">into the hyperlights</u> file. <u id="hypercite_z1wq5xr">This</u></p><p>'This'<a href="http://localhost:8000/to-do_two#hypercite_z1wq5xr" id="hypercite_id_6722f8429c0ab">[:]</a>&nbsp;<span>'the save button is clicked'</span><a href="http://localhost:8000/to-do#hypercite_mqqtnd3" id="hypercite_id_67231c3fd7086">[:]</a><br></p>
 <h1>ToldandRetold hyperBase When page loads the markdown or html, it is entered into a database table for that particular book's book_id.</h1>
 <blockquote>
 <ol>
@@ -32,7 +32,7 @@
 <p>Then, it parses through the newest column until it finds the same value. Then, it compares the next row of data from the older column, with the next row of data from the newer column. If they match, repeat. If a discontinuity arises, the character in the older column is noted. The newer column is passed until that same value appears. Then, when it does, its position is noted.</p>
 <p>With this data, we can work out when the newest file had characters either added, or delted. If characters were added, then they are inserted, at the discontinuity point, and time_stamped. This automatically shifts the values of the global_position for each character that follows the added characters. If the rows of data have been deleted, by the author, they are not removed, but the deleted characters do receive deleted_time_stamp in the authors column, and a forced null for global position, which means the next, non-deleted characters are revalued accordingly. Its just like deleteing rows of data from excel, but instead of htem being deleted, they are effectively being cut out and pasted to the bottom of the page, because table is sorted by global_position with 'null' values put to the bottom, uncounted.</p>
 </blockquote>
-<p>This effectively solves the problem of how to update the highlights. The data table for each @book_id has columns for each user. These start at null. However, if a user highlights text, then the global_position of the first character is marked</p>
+<p>This effectively solves the problem of how to update the highlights. The data table for each @book_id has columns for each user. These start at null. However, if a user highlights text, then the global_position of the first character is marked</p><p>'to get'<a href="http://localhost:8000/to-do_two#hypercite_193ryfj" id="hypercite_id_6723285b72809">[:]</a>&nbsp;<br></p>
 <p>However, if other users have also marked a character with 'HL', then its opacity will be darkened.</p>
 <p>In fact, the CSS should have some kind of forumula, whereby a given HL score for each character gives it a given css highlight intensity, and these should fade, in a given pattern, form character to character.</p>
 <p>Thus, the page will be covered in a hyperlight heat map. It will have three different colours bleading into each other. Unless there is only<u id="hypercite_fs1tv88"> one, or two highlights.</u> If there are three, then there is an inner, darkest intensity, then a mid intensity, and a weakest intensity.</p>
@@ -137,4 +137,4 @@ Therefore, we can conclude that all data gaps were positive for the positive col
 <h2>Repeating for reading and editing hyperlights Once this is set up, a similar thing will need to be established for the hyperlights.md</h2>
 <h1>syncing to a local folder?</h1>
 <p>Ideally, all markdown files can be synced, via alliases, to a folder that syncs to a users account. This can, in theory, be synced to -- for example -- Obsidian.</p>
-<p>Thus, users could have <u id="hypercite_wpqr7dz">a completely</u> socially interractive hypercite and hyperlight experience, and be able to connect with it via both browser, phone app, and obsidian.</p>
+<p>Thus, users could have <u id="hypercite_wpqr7dz">a completely</u> socially interractive hypercite and hyperlight experience, and be able to connect with it via both browser, phone app, and obsidian.</p><p>'Immediate'<a href="http://localhost:8000/to-do_two#hypercite_o1hop1h" id="hypercite_id_672326bfe1969">[:]</a><br></p><p>'Immediate'<a href="http://localhost:8000/to-do_two#hypercite_o1hop1h" id="hypercite_id_672326bfe1969">[:]</a><br></p><p><br></p><p><br></p>

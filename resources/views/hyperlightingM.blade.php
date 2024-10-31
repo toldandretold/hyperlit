@@ -568,7 +568,8 @@ document.addEventListener('copy', (event) => {
 
 
 
-function saveHyperciteData(citation_id, hypercite_id, hypercited_text, href) {
+// Function to save hypercite data to the server, including citation_id-a and href-a
+function saveHyperciteData(citation_id_a, hypercite_id, hypercited_text, href_a) {
     fetch(`/save-hypercite`, {
         method: 'POST',
         headers: {
@@ -576,10 +577,10 @@ function saveHyperciteData(citation_id, hypercite_id, hypercited_text, href) {
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
         },
         body: JSON.stringify({
-            citation_id: citation_id,
+            citation_id_a: citation_id_a, // Use the updated column name
             hypercite_id: hypercite_id,
             hypercited_text: hypercited_text,
-            href: href // Include the href in the request body
+            href_a: href_a // Use the updated column name
         })
     })
     .then(response => response.json())
@@ -594,6 +595,7 @@ function saveHyperciteData(citation_id, hypercite_id, hypercited_text, href) {
         console.error('Error saving hypercite data:', error);
     });
 }
+
 
 
 

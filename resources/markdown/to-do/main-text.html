@@ -2,11 +2,11 @@
 <p><em>Yes, it is possible to modify the save logic in MarkdownITController and markdown-IT-editor.blade.php to capture the text between the highlighted text and the arrow link, and save it to a new annotations column in the highlights table.</em></p>
 </blockquote>
 <h1>Here’s how you can approach this:</h1>
-<h2>Steps to Implement:</h2>
-<p>Modify markdown-IT-editor.blade.php: Add logic to capture the annotation text between the highlight blockquote and the line break in the markdown file. <a href="/to-do/hyperlights#152/p[1]-1726704190142"><mark class="152/p[1]-1726704190142" id="152/p[1]-1726704190142">When the save button is clicked, this annotation text needs to be sent along with the highlight ID to the controller. Modify Mar</mark></a>kdownITController: Capture the incoming annotation text from the request. Find the corresponding highlight in the database using the highlight_id. Update the annotations column in the highlights table with the captured text.</p>
+<h2>Steps to Implement:</h2><div><br></div><div>'appropriate markup'<a href="http://localhost:8000/to-do_two#hypercite_1ehazv5" id="hypercite_id_67231c7024719">[:]</a><br></div>
+<p>Modify markdown-IT-editor.blade.php: Add logic to capture the annotation text between the highlight blockquote and the line break in the markdown file. <a href="/to-do/hyperlights#152/p[1]-1726704190142"><mark class="152/p[1]-1726704190142" id="152/p[1]-1726704190142" style="cursor: pointer;">When the save button is clicked, this annotation text needs to be sent along with the highlight ID to the controller. Modify Mar</mark></a>kdownITController: Capture the incoming annotation text from the request. Find the corresponding highlight in the database using the highlight_id. <u id="hypercite_vbz1epb">Update the</u> annotations <u id="hypercite_wgy86g2">column</u> in the highlights table with the <u id="hypercite_3yotlez">captured text</u>.&nbsp;<span>'captured text'</span><a href="http://localhost:8000/to-do#hypercite_3yotlez" id="hypercite_id_6723232906c23">[:]</a></p>
 <h1>Example Code Implementation:</h1>
 <h2>1: Modify markdown-IT-editor.blade.php</h2>
-<p>You need to extract the annotation text from the markdown editor and send it to the controller when the save button is clicked.</p>
+<p>You need to extract the annotation text from the markdown editor and send it to the controller when <u id="hypercite_mqqtnd3">the save button is clicked</u>.</p>
 <pre><code>&lt;script&gt;
 function saveMarkdown() {
     // Get the markdown content from the editor (assuming you have an editor instance)
@@ -85,7 +85,7 @@ public function saveAnnotations(Request $request)
 }</code></pre>
 <h2>Explanation:</h2>
 <p>markdown-IT-editor.blade.php:</p>
-<p>The saveMarkdown() function uses a regex to extract the highlighted text, arrow link, and the annotation text between them. It sends the highlight_id and the annotation to the server using a POST request. MarkdownITController: The saveAnnotations() method processes the request, looping through the annotations and updating the corresponding highlights in the database. Each annotation is saved in the annotations column of the highlights table.</p>
+<p>The saveMarkdown() function uses a regex to extract the highlighted text, arrow link, and the annotation text between them. It sends the highlight_id and the annotation to the server using a POST request. MarkdownITController: The saveAnnotations() method processes the request, looping through the annotations and updating the corresponding highlights in the database. Each annotation is saved in the annotations column of the highlights table.&nbsp;<span>'captured text'</span><a href="http://localhost:8000/to-do#hypercite_tkzt0o2" id="hypercite_id_672322ce08166">[:]</a></p><p>&nbsp;</p>
 <h2>Database Structure:</h2>
 <p>Make sure the highlights table has an annotations column:</p>
 <p>php</p>

@@ -9,7 +9,7 @@ class Hypercite extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['citation_id', 'hypercite_id', 'hypercited_text', 'href'];
+    protected $fillable = ['citation_id_a', 'hypercite_id', 'hypercited_text', 'href_a'];
 
     public function links()
     {

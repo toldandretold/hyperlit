@@ -245,7 +245,7 @@ function saveUpdatedHTMLToFile(updatedHTML, book) {
 }
 
 
-// process hypercites[:] 
+// Process hyperlinks with [:] symbol
 async function processHyperCiteLinks(book) {
     const mainContent = document.querySelector('#main-content');
     const parser = new DOMParser();
@@ -255,9 +255,9 @@ async function processHyperCiteLinks(book) {
     for (const anchor of anchors) {
         if (anchor.textContent.includes('[:]') && !anchor.hasAttribute('id')) {
             const href = anchor.getAttribute('href');
+            console.log(`Processing hyperlink with href: ${href}`);
 
             try {
-                // Send href and citation_id to the server to process
                 const response = await fetch(`/process-hypercite-link`, {
                     method: 'POST',
                     headers: {
@@ -265,8 +265,8 @@ async function processHyperCiteLinks(book) {
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                     },
                     body: JSON.stringify({
-                        href: href,
-                        citation_id: book
+                        href_b: href, 
+                        citation_id_b: book 
                     })
                 });
 
@@ -277,7 +277,7 @@ async function processHyperCiteLinks(book) {
                 const data = await response.json();
 
                 if (data.success) {
-                    // Only add the new ID, without changing href
+                    console.log(`New hypercite ID assigned: ${data.new_hypercite_id_x}`);
                     anchor.setAttribute('id', data.new_hypercite_id_x);
                 } else {
                     console.log(`Processing for href=${href} stopped:`, data.message);
@@ -293,10 +293,32 @@ async function processHyperCiteLinks(book) {
     saveUpdatedHTMLToFile(mainContent.innerHTML, book);
 }
 
+// Trigger processing of connected hypercites
+async function triggerProcessConnectedHyperCites(book, htmlContent) {
+    console.log('Triggering processConnectedHyperCites with book:', book);
+    try {
+        const response = await fetch(`/process-connected-hypercites`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({
+                citation_id_a: book,
+                html: htmlContent
+            })
+        });
 
-
- 
-
+        const data = await response.json();
+        if (data.success) {
+            console.log('Connected hypercites processed successfully');
+        } else {
+            console.error('Error processing connected hypercites:', data.message);
+        }
+    } catch (error) {
+        console.error('Error triggering processConnectedHyperCites:', error);
+    }
+}
 
 
 
