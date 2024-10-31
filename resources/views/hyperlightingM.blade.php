@@ -498,7 +498,9 @@ function wrapSelectedTextInDOM(hyperciteId) {
     // Send the updated HTML to the server for saving
     saveUpdatedHTMLToFile(updatedHTML, book);
 }
-  
+
+
+
 // Function to send updated HTML to the server for saving
 function saveUpdatedHTMLToFile(updatedHTML, book) {
     fetch(`/save-updated-html/${book}`, {
@@ -524,6 +526,8 @@ function saveUpdatedHTMLToFile(updatedHTML, book) {
     });
 }
 
+
+
 document.addEventListener('copy', (event) => {
     const selection = window.getSelection();
 
@@ -536,18 +540,18 @@ document.addEventListener('copy', (event) => {
 
     // Get the current page URL without any existing hash
     const baseUrl = window.location.href.split('#')[0];
+    const href = `${baseUrl}#${hyperciteId}`;
 
     // Clone the HTML structure of the selected content
     const range = selection.getRangeAt(0).cloneContents();
     const div = document.createElement('div');
     div.appendChild(range);
     const selectedHtml = div.innerHTML;  // Original HTML with styles intact
+    const selectedText = selection.toString(); // Plain text version of selected content
 
     // Add the hyperlink at the end of the selected HTML content
-    const clipboardHtml = `'${selectedHtml}'<a href="${baseUrl}#${hyperciteId}">[:]</a>`;
-
-    // Set plain text version for fallback
-    const clipboardText = `'${selection.toString()}'[[:]](${baseUrl}#${hyperciteId})`;
+    const clipboardHtml = `'${selectedHtml}'<a href="${href}">[:]</a>`;
+    const clipboardText = `'${selectedText}'[[:]](${href})`;
 
     // Set clipboard data
     event.clipboardData.setData('text/html', clipboardHtml);
@@ -556,7 +560,41 @@ document.addEventListener('copy', (event) => {
 
     // Wrap the selected text with <u> tags in the HTML page only
     wrapSelectedTextInDOM(hyperciteId);
+
+    // Save the hypercite data to the server, including the href
+    saveHyperciteData(book, hyperciteId, selectedText, href);
 });
+
+
+
+
+function saveHyperciteData(citation_id, hypercite_id, hypercited_text, href) {
+    fetch(`/save-hypercite`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({
+            citation_id: citation_id,
+            hypercite_id: hypercite_id,
+            hypercited_text: hypercited_text,
+            href: href // Include the href in the request body
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('Hypercite data saved successfully');
+        } else {
+            console.error('Error saving hypercite data:', data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error saving hypercite data:', error);
+    });
+}
+
 
 
 

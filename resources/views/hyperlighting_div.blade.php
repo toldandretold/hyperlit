@@ -180,28 +180,36 @@
 });
 
 
-    document.getElementById('saveButton').addEventListener('click', function () {
+   document.getElementById('saveButton').addEventListener('click', async function () {
     const content = document.getElementById('main-content').innerHTML;
 
-    fetch(`/save-div-content/`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-        },
-        body: JSON.stringify({ book: book, updated_html: content })
-    })
-    .then(response => {
+    // First, save the content to the server
+    try {
+        const response = await fetch(`/save-div-content/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({ book: book, updated_html: content })
+        });
+
         if (response.ok) {
             alert('Content saved successfully!');
+            
+            // Now process hyperlinks with the [:] symbol in main-content
+            await processHyperCiteLinks(book);  // Call the function to process <a> tags
+
+            alert('Hypercite links processed!');
         } else {
             alert('Failed to save content.');
         }
-    })
-    .catch(error => {
+    } catch (error) {
         console.error('Error:', error);
         alert('An error occurred while saving.');
-    });
+    }
+
+
 });
 
         // Redirect to /{book}/md when the Markdown button is clicked
@@ -216,9 +224,79 @@
         window.location.href = `/${book}`; // Replace with the actual URL of the read page
     });
 
+function saveUpdatedHTMLToFile(updatedHTML, book) {
+    fetch(`/save-updated-html/${book}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({ html: updatedHTML })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('HTML saved successfully');
+        } else {
+            console.error('Error saving HTML:', data.error);
+        }
+    })
+    .catch(error => console.error('Error saving HTML:', error));
+}
+
+
+// process hypercites[:] 
+async function processHyperCiteLinks(book) {
+    const mainContent = document.querySelector('#main-content');
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(mainContent.innerHTML, 'text/html');
+    const anchors = doc.querySelectorAll('a');
+
+    for (const anchor of anchors) {
+        if (anchor.textContent.includes('[:]') && !anchor.hasAttribute('id')) {
+            const href = anchor.getAttribute('href');
+
+            try {
+                // Send href and citation_id to the server to process
+                const response = await fetch(`/process-hypercite-link`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({
+                        href: href,
+                        citation_id: book
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Only add the new ID, without changing href
+                    anchor.setAttribute('id', data.new_hypercite_id_x);
+                } else {
+                    console.log(`Processing for href=${href} stopped:`, data.message);
+                }
+            } catch (error) {
+                console.error('Error processing hypercite link:', error);
+            }
+        }
+    }
+
+    // Apply changes back to #main-content and save
+    mainContent.innerHTML = doc.body.innerHTML;
+    saveUpdatedHTMLToFile(mainContent.innerHTML, book);
+}
+
+
 
  
-    
+
 
 
 
