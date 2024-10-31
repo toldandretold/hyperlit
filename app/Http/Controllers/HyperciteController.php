@@ -8,7 +8,32 @@ use App\Models\Hypercite;
 use App\Models\HyperciteLink; 
 
 class HyperciteController extends Controller
+
 {
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'citation_id_a' => 'required|string', // Corrected for hypercites table
+            'hypercite_id' => 'required|string',
+            'hypercited_text' => 'required|string',
+            'href_a' => 'required|string' // Corrected for hypercites table
+        ]);
+
+        try {
+            Hypercite::create([
+                'citation_id_a' => $request->input('citation_id_a'), // Corrected for hypercites table
+                'hypercite_id' => $request->input('hypercite_id'),
+                'hypercited_text' => $request->input('hypercited_text'),
+                'href_a' => $request->input('href_a') // Corrected for hypercites table
+            ]);
+
+            return response()->json(['success' => true]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
     public function saveUpdatedHTML(Request $request, $book)
     {
         // Validate the request
@@ -31,14 +56,14 @@ class HyperciteController extends Controller
 
     public function processHyperciteLink(Request $request)
     {
-        $href = $request->input('href');
-        $citation_id = $request->input('citation_id');
+        $href_b = $request->input('href_b'); // Corrected for hypercite_links
+        $citation_id_b = $request->input('citation_id_b'); // Corrected for hypercite_links
 
         // Log received data for debugging
-        \Log::info('Processing hypercite link', ['href' => $href, 'citation_id' => $citation_id]);
+        \Log::info('Processing hypercite link', ['href_b' => $href_b, 'citation_id_b' => $citation_id_b]);
 
-        // Check if href exists in hypercites table
-        $hypercite = Hypercite::where('href', $href)->first();
+        // Check if href_a exists in hypercites table
+        $hypercite = Hypercite::where('href_a', $href_b)->first();
 
         if (!$hypercite) {
             return response()->json(['success' => false, 'message' => 'Href not found in hypercites table']);
@@ -55,8 +80,8 @@ class HyperciteController extends Controller
             HyperciteLink::create([
                 'hypercite_id' => $hypercite->hypercite_id,
                 'hypercite_id_x' => $newHyperciteID,
-                'citation_id' => $citation_id,
-                'href' => $href // Save the original href without modifying
+                'citation_id_b' => $citation_id_b, // Corrected to citation_id_b for hypercite_links
+                'href_b' => $href_b // Corrected to href_b for hypercite_links
             ]);
 
             // Only return the new id without updated_href
@@ -71,28 +96,97 @@ class HyperciteController extends Controller
     }
 
 
-    public function store(Request $request)
-    {
-        $request->validate([
-            'citation_id' => 'required|string',
-            'hypercite_id' => 'required|string',
-            'hypercited_text' => 'required|string',
-            'href' => 'required|string' // Add validation for href
-        ]);
 
-        try {
-            Hypercite::create([
-                'citation_id' => $request->input('citation_id'),
-                'hypercite_id' => $request->input('hypercite_id'),
-                'hypercited_text' => $request->input('hypercited_text'),
-                'href' => $request->input('href') // Store the href value
+
+     public function processConnectedHyperCites(Request $request)
+    {
+        $citation_id_a = $request->input('citation_id_a');
+        $htmlContent = $request->input('html');
+
+        \Log::info('Starting processConnectedHyperCites', ['citation_id_a' => $citation_id_a]);
+
+        $dom = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $dom->loadHTML($htmlContent, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        libxml_clear_errors();
+
+        $xpath = new \DOMXPath($dom);
+        $uTags = $xpath->query('//u[@id]');
+
+        foreach ($uTags as $uTag) {
+            $hypercite_id = $uTag->getAttribute('id');
+            \Log::info('Processing <u> tag', ['hypercite_id' => $hypercite_id]);
+
+            // Fetch the corresponding hypercite record
+            $hypercite = Hypercite::where('hypercite_id', $hypercite_id)->first();
+
+            // Skip if hypercite_id not in hypercites table or if href_a is null
+            if (!$hypercite || is_null($hypercite->href_a)) {
+                \Log::info('Hypercite not found or href_a is null, skipping', ['hypercite_id' => $hypercite_id]);
+                continue;
+            }
+
+            $connected = $hypercite->connected;
+            $linkCount = HyperciteLink::where('hypercite_id', $hypercite_id)->count();
+            
+            \Log::info('Hypercite status before processing', [
+                'connected' => $connected,
+                'linkCount' => $linkCount,
+                'href_in_hypercite_links' => $linkCount > 0 ? HyperciteLink::where('hypercite_id', $hypercite_id)->pluck('href') : 'No href found'
             ]);
 
-            return response()->json(['success' => true]);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+            // Logic for wrapping and updating, with further logs for each case
+            if ($connected == 0 && $linkCount > 0) {
+                if ($linkCount == 1) {
+                    $href_b = HyperciteLink::where('hypercite_id', $hypercite_id)->first()->href;
+                    \Log::info('Wrapping <u> tag with <a> for single link', [
+                        'hypercite_id' => $hypercite_id,
+                        'href' => $href_b
+                    ]);
+                    $this->wrapUTagWithAnchor($dom, $uTag, $href_b);
+                    $hypercite->connected = 1;
+                    $hypercite->save();
+                } elseif ($linkCount > 1) {
+                    $href_z = "/$citation_id_a/{$hypercite_id}_z";
+                    \Log::info('Wrapping <u> tag with <a> for multiple links', [
+                        'hypercite_id' => $hypercite_id,
+                        'href' => $href_z
+                    ]);
+                    $this->wrapUTagWithAnchor($dom, $uTag, $href_z);
+                    $hypercite->connected = 2;
+                    $hypercite->save();
+                }
+            } elseif ($connected == 1 && $linkCount > 1) {
+                $href_z = "/$citation_id_a/{$hypercite_id}_z";
+                \Log::info('Updating <a> href for already connected hypercite', [
+                    'hypercite_id' => $hypercite_id,
+                    'new_href' => $href_z
+                ]);
+                $this->wrapUTagWithAnchor($dom, $uTag, $href_z);
+                $hypercite->connected = 2;
+                $hypercite->save();
+            }
         }
+
+        $updatedHTML = $dom->saveHTML();
+        file_put_contents(storage_path("app/{$citation_id_a}/main-text.html"), $updatedHTML);
+
+        \Log::info('Completed processConnectedHyperCites', ['citation_id_a' => $citation_id_a]);
+
+        return response()->json(['success' => true]);
     }
 
+
+
+
+
+        private function wrapUTagWithAnchor($dom, $uTag, $href)
+        {
+            $aTag = $dom->createElement('a');
+            $aTag->setAttribute('href', $href);
+
+            $uTag->parentNode->replaceChild($aTag, $uTag);
+            $aTag->appendChild($uTag);
+        }
 
 }
