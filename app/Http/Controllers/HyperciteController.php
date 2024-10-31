@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use App\Models\Hypercite;
+use App\Models\HyperciteLink; 
 
 class HyperciteController extends Controller
 {
@@ -26,4 +28,71 @@ class HyperciteController extends Controller
 
         return response()->json(['success' => true]);
     }
+
+    public function processHyperciteLink(Request $request)
+    {
+        $href = $request->input('href');
+        $citation_id = $request->input('citation_id');
+
+        // Log received data for debugging
+        \Log::info('Processing hypercite link', ['href' => $href, 'citation_id' => $citation_id]);
+
+        // Check if href exists in hypercites table
+        $hypercite = Hypercite::where('href', $href)->first();
+
+        if (!$hypercite) {
+            return response()->json(['success' => false, 'message' => 'Href not found in hypercites table']);
+        }
+
+        // Check if there are links for this hypercite_id in hypercite_links
+        $existingLink = HyperciteLink::where('hypercite_id', $hypercite->hypercite_id)->first();
+
+        if (!$existingLink) {
+            // Generate a new hypercite_id_x for the <a> tag
+            $newHyperciteID = 'hypercite_id_' . uniqid();
+
+            // Add a new link in the hypercite_links table
+            HyperciteLink::create([
+                'hypercite_id' => $hypercite->hypercite_id,
+                'hypercite_id_x' => $newHyperciteID,
+                'citation_id' => $citation_id,
+                'href' => $href // Save the original href without modifying
+            ]);
+
+            // Only return the new id without updated_href
+            return response()->json([
+                'success' => true,
+                'new_hypercite_id_x' => $newHyperciteID
+            ]);
+        }
+
+        // If a link already exists, stop processing for this <a> tag
+        return response()->json(['success' => false, 'message' => 'Link already exists for this hypercite_id']);
+    }
+
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'citation_id' => 'required|string',
+            'hypercite_id' => 'required|string',
+            'hypercited_text' => 'required|string',
+            'href' => 'required|string' // Add validation for href
+        ]);
+
+        try {
+            Hypercite::create([
+                'citation_id' => $request->input('citation_id'),
+                'hypercite_id' => $request->input('hypercite_id'),
+                'hypercited_text' => $request->input('hypercited_text'),
+                'href' => $request->input('href') // Store the href value
+            ]);
+
+            return response()->json(['success' => true]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+
 }

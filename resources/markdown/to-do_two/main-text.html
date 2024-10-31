@@ -10,8 +10,8 @@
 </ol>
 </blockquote>
 <p>Adding in a test line.</p>
-<p>Currently, this is being done by taking from the annotations column. The problem is that this is a raw <mark class="user-name_1730244547336" id="user-name_1730244547336" style="cursor: pointer; text-decoration: none;">string without</mark> any <u id="hypercite_nt1z094">md or html</u>. So, when markdown is changed, it doesn't update the html side with appropriate markup.</p>
-<p>For now, can revert to converting file to the other. However, it is <u id="hypercite_jcmn23k">probably also good to work</u> out how <u id="hypercite_aq34pnm">to store the</u> selected text as html or md in the annotations column, and then to convert these after they are inserted into the hyperlights file. This</p>
+<p>Currently, this is being done by taking from the annotations column. The problem is that this is a raw <mark class="user-name_1730244547336" id="user-name_1730244547336">string without</mark> any <u id="hypercite_nt1z094">md or html</u>. So, when markdown is changed, it doesn't update the html side with appropriate markup.</p>
+<p>For now, can revert to converting file to the other. However, it is <u id="hypercite_jcmn23k">probably also good to work</u> out how <u id="hypercite_aq34pnm">to store the</u> selected text as html or md in the annotations column, and then to convert these after they are inserted into the hyperlights file. <u id="hypercite_z1wq5xr">This</u></p><p>'This'<a href="http://localhost:8000/to-do_two#hypercite_z1wq5xr" id="hypercite_id_6722f8429c0ab">[:]</a><br></p>
 <h1>ToldandRetold hyperBase When page loads the markdown or html, it is entered into a database table for that particular book's book_id.</h1>
 <blockquote>
 <ol>
@@ -37,7 +37,7 @@
 <p>In fact, the CSS should have some kind of forumula, whereby a given HL score for each character gives it a given css highlight intensity, and these should fade, in a given pattern, form character to character.</p>
 <p>Thus, the page will be covered in a hyperlight heat map. It will have three different colours bleading into each other. Unless there is only<u id="hypercite_fs1tv88"> one, or two highlights.</u> If there are three, then there is an inner, darkest intensity, then a mid intensity, and a weakest intensity.</p>
 <p>There will be java-script so that each different region triggers a different page, filled with the hyperlights of that region of text with annotations.</p>
-<p>Thus, people's hyperlights, and their annotations, become public, in-text comments, that are viewed alongside the annotations that others have left for the same region of text.</p>
+<p>Thus, people's hyperlights, and their annotations, become public, in-text comments, that are viewed alongside the annotations that others have left for the same region of text.</p><p>'the quoted text'<a href="/to-do_two/hypercite_id_6722f671e1a59" id="hypercite_id_6722f671e1a59">[:]</a><br></p>
 <p>However, this is done in an orderly, and visually pleasing way.</p>
 <p>For example, if user clicks on a red colour of the hyperlight heat map that spans characters 10-15, then they will be taken to a blade view that brings up any users hyperlight that</p>
 <p>these differeny hyperlights can be re-organised in that hyperlights.blade.php template as an editable div, where that is within a div="highlight_id", is added to the annotations column of that highlight_id, stored as markdown.</p>
@@ -69,9 +69,9 @@ Therefore, we can conclude that all data gaps were positive for the positive col
 <ol start="2">
 <li>This character position and count is compared to the one from the last time the page was saved.</li>
 <li>
-<p>Working from the start, down each column, the parser will notice a change. This is either because text, from this point, has been inserted or deleted in either of the two columns.</p>
+<p>Working from the start, down each column, the parser will notice a change. <u id="hypercite_h7oxehz">This is either</u> because text, from this point, has been inserted or deleted in either of the two columns.</p>
 <p>Most important, though, is the column for the positions of all characters the last time this was c</p>
-<p>If some have been deleted from column*(b) from the row 5-10, then column*(a) will have 5 rows with different characters until it logs, in row a11, the same value as row b6. If from this pont on, from b6 and a11, the two columns match up, then we can determine that values had either been added or deleted.</p>
+<p>If some have been deleted from column*(b) from the row 5-10, then column*(a) will have 5 rows with different characters until it logs, in row a11, <u id="hypercite_cqz753f">the same value as row b6</u>. If from this pont on, from b6 and a11, the two columns match up, then we can determine that <u id="hypercite_6ozw22i">values had either </u>been added or deleted.</p>
 <p>Even if one row ends exaclty 5 spaces below the other, this doesn't mean that the columns were either</p>
 <p>from column_(a)</p>
 <p>from row 5 - 10, then</p>
@@ -80,7 +80,7 @@ Therefore, we can conclude that all data gaps were positive for the positive col
 <p>What's the significance of this?</p>
 </li>
 <li>When a person highlights text, the computer detects the character position of each selected character, and checks a <u id="hypercite_8jwc5fm">highlighted yes/no boolean data column, changing from no to yes for those characters.</u></li>
-<li>then, a javascript function/method is called, which a. inserts and tags both before the first character count form the selected text, and immediately after the last one.</li>
+<li>then, a javascript function/method is called, which a. inserts and tags both before the first character count form the selected text, and <u id="hypercite_qil0o9z">immediately after the last one</u>.</li>
 <li>
 </li>
 </ol>
@@ -100,24 +100,24 @@ Therefore, we can conclude that all data gaps were positive for the positive col
 <p>Which will correspond to a markdown of:</p>
 <pre><code>This is [HL:1]some [/HL][HL: "1,2"]sample text[/HL][HL: 2] that[/HL] will be highlighted.
 </code></pre>
-<p>I'll have to see if this is something that Chat reckons is feasible. But the point is that these numbers, 1 and 2, would correspond in the highlights table to specific highlight_ids, and so when it goes to converting the markdown to html, it would be able to regenerate the same <span> tags as previously.</span></p>
-<p>a check would have to be carried out, such that, if [HL] or [/HL] tags were deleted in the markdown, this wouldn't interfere with the logic of converting the rest of them back into html.</p>
+<p>I'll have to see if this is something that Chat reckons is feasible. But the point is that these numbers, <u id="hypercite_0zib6si">1 and 2, would correspond in the highlights table to specific</u> highlight_ids, and so when it goes to converting the markdown to html, it would be able to regenerate the same <span> tags as previously.&nbsp;</span><span>'immediately after the last one'</span><a href="http://localhost:8000/to-do_two#hypercite_qil0o9z">[:]</a></p>
+<p>a check would have to be carried out, such that, if [HL] or [/HL] tags were deleted in the markdown, this wouldn't interfere with the logic of converting the rest of them back into html.</p><p><br></p><p>'1 and 2, would <u id="hypercite_uckhciz">correspond in the highlights</u> table to specific'<a href="http://localhost:8000/to-do_two#hypercite_0zib6si">[:]</a><br></p><p><br></p><p><br></p>
 <h1>Hypercite functionality[:] When a hypercite is pasted into a hyperlit article, an event listener detects that the [:] symbol (which could be switched out with javascript for a custom hyperlit "negative space" symbol) has been pasted. this triggers some javascript which:</h1>
 <blockquote>
 <ol>
 <li>posts the URL of the current hyperlit article to the backend controller "hyperCite", and adds it to the column "pasted" in the hypercite data [table].</li>
-<li>the controller then opens the file from the "copied" row for the hypercite with the id from the id of the hypercite.</li>
+<li>the controller then opens the file from the "copied" row for the <u id="hypercite_eww39vc">hypercite with the id</u> from the id of the hypercite.</li>
 <li>it adds the URL from the "pasted" column of the hypercite to the href="", of the [ tags with the hypercite's id.]()[1. the controller then triggers a click response for the save button (not sure how this would be done in code?). ]()[]()</li>
 </ol>
 </blockquote>
-<p>The intended result is that the quoted text is followed by a [:] symbol, which links diretly back to that text in the hyper-source, which is now underlined, <ins>with another negative space hyperlit symbold at the end</ins>[:] Hopefully, this actually looks good, because then we won't need to change much by way of design. This is something that we may need to consult Simon on.</p>
+<p>The intended result is that <u id="hypercite_m4ggmd5">the quoted text</u> is followed by a [:] symbol, which links diretly back to that text in the hyper-source, which is now underlined, <ins>with another negative space hyperlit symbold at the end</ins>[:] Hopefully, this actually looks good, because then we won't need to change much by way of design.&nbsp;</p><p><span class="hljs-keyword">use</span><span>&nbsp;</span><span class="hljs-title">App</span><span>\</span><span class="hljs-title">Models</span><span>\</span><span class="hljs-title">HyperciteLink</span><span>; &nbsp;a.@</span><br></p><p>'hypercite with the id'<a href="http://localhost:8000/to-do_two#hypercite_eww39vc">[:]</a><br></p><p><br></p><p>This is something that we may need to consult Simon on.</p>
 <h1>hyper cite steps when text is copied, it is:</h1>
 <ul>
 <li>saved to clipboard as: "'the text'<a href="url.com/{book}#hypercite_id">[:]</a>"</li>
 <li>the highlighted text itself is wrapped with <u id="hypercite_id"> text </u></li>
 <li>the text is added to a hyper-cite data table, which features a column "activated", with is set as null by default.</li>
 </ul><div>[or]: the original hypercited text receives &lt;u id="hypercite_id"&gt; highlighted text &lt;/u&gt;&nbsp;</div><div><br></div><div>[then]: the hypercites data-table is updated to include the: [citation_id] (book), hypercite_id (string), hypercited text (string), activated (numerical, and starts as 0).</div><div><br></div><div>[when]: the hypercited text ispasted in a hyperlit text (like this one), it looks like: 'highlighted text'&lt;a href="/{book}/hypercite_id" id="hypercite_id_1"&gt;[:]&lt;/a&gt;</div><div><br></div><div>[then]: when the page is saved, the content is parsed, looking for any [:] symbols that have an id of hypercited_id_[numerical]. these are checked against the hypercites data-table</div><div><br></div><div>&nbsp;the hypercites data-table has the activated column updated to '1'.&nbsp;</div><div><br></div><div><br></div><div><br></div><div><br></div>
-<p>when <mark class="user-name_1730070971337" id="user-name_1730070971337" style="cursor: pointer; text-decoration: none;">that is pasted into a hyper-lit page</mark> (or even somewhere else on the same page), and saved:</p>
+<p>when <mark class="user-name_1730070971337" id="user-name_1730070971337">that is pasted into a hyper-lit page</mark> (or even somewhere else on the same page), and saved:</p>
 <ul>
 <li>
 <p>the pasted text will be wrapped with [u] tags, that include a new hypercite-id, as so:</p>
@@ -129,11 +129,11 @@ Therefore, we can conclude that all data gaps were positive for the positive col
 <p><u>will be altered to appear in the browser as <em>actually</em> underlined, and linking to the "/{book}#hypercite_id_b" found in the "activated" column for the given "hypercite_id". </u><u id="hypercite"></u><u><u id="hypercite"></u></u>As a result, this system will ensure two way links are automatically generated, just by copying and pasting from one page to another.</p>
 </li>
 </ul>
-<p>a parser recognises the linked [:] symbol, and uses the href="" data to trigger a mechanism that adds a link to <strong><em>activate</em></strong> that hypercite with the</p>
+<p>a parser recognises the linked [:] symbol, and uses the href="" data to trigger a mechanism that adds a link to <strong><em>activate</em></strong> that hypercite with the</p><p># Chat Prompt: #</p><p><span>after page is saved, the saved text ({book}/main-text.html} should be parsed, and each time a [:] symbol is detected within an &lt;a&gt; tag, it should be processed as follows:&nbsp;</span></p><p><span>- does it already have an id=""? if so, then process can stop.&nbsp;</span></p><p><span>- if not, then its href="" should be extracted, and sent to the HypercitesController, so that it can be compared with the hypercites and hypercite_links data tables.</span></p><p><span>- first, does the href exist in the href column of the hypercites data-table? If no, process stops.&nbsp;</span></p><p><span>- if yes: does the hypercite_id of that row have any links in the hypercite_links data-table?&nbsp;</span></p><p><span>- if not, then an id="hypercite_id_1" should be added to the &lt;a&gt; tag in the main-text.html after that href value.&nbsp;</span></p><p><span><br></span></p><p>'correspond in the highlights'<a href="http://localhost:8000/to-do_two#hypercite_uckhciz">[:]</a><span><br></span></p><p>- it should now have the pattern &lt;a href="/{citation_id}/hypercite_id" id="hypercite_id_1&gt;[:]&lt;/a&gt;.&nbsp;</p><p><br></p><p>dd</p><p>- and, that id "hypercite_id_1" should be added to the hypercite_links data-table in the "hypercite_id_x" column, alongside the hypercite_id from the hypercites data-table, and the citation_id (the {book} that the hypercite has been pasted in), href, or the url of the pasted hypercite ("/citation_id/hypercite_id_x). does this make sense?&nbsp;</p><p><span><br></span></p><p><span><br></span></p><p><span>. i</span><br></p><p><br></p><p><br></p>
 <h1>Idea for when the hyperlights nad hypercites get too overwhelming Users should be able to customise which hyperlights and hypercites appear in their text. They can select from "most recent", "most upvoted", and "most read", for example. This will be calculated, eventually, also by the highlights and citations data table. Which will correspond with javascript, I think, for removing and displaying the relevant hyperlights and hypercites.</h1>
 <p>However, if user presses a highlight, for example, all highlights that overlap with that will also be opened, in a single html page, for example.</p>
 <p>Also, if multiple sources have cited the same hypercite, then when it is pressed, these will appear, also in the same html page, showing them as different citations. That is, author, title and date. If these are pressed, user is taken into the exact location of the quote. If the [:] is pressed, user is taken back to all the hypercites. Back again, and to the original location in the main-text.</p>
-<p>In this way, users will move freely between each hyperlit source, whether from the <mark class="user-name_1729848642769" id="user-name_1729848642769" style="cursor: pointer; text-decoration: none;">quoted</mark> text to the primary source, or from the primary source to all those <u id="hypercite_z7gk6qq">which </u>have hypercited it.</p>
+<p>In this way, users will move freely between each hyperlit source, whether from the <mark class="user-name_1729848642769" id="user-name_1729848642769">quoted</mark> text to the primary source, or from the primary source to all those <u id="hypercite_z7gk6qq">which </u>have hypercited it.</p>
 <h2>Repeating for reading and editing hyperlights Once this is set up, a similar thing will need to be established for the hyperlights.md</h2>
 <h1>syncing to a local folder?</h1>
 <p>Ideally, all markdown files can be synced, via alliases, to a folder that syncs to a users account. This can, in theory, be synced to -- for example -- Obsidian.</p>
