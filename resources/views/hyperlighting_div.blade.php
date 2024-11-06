@@ -180,10 +180,9 @@
 });
 
 
-   document.getElementById('saveButton').addEventListener('click', async function () {
+       document.getElementById('saveButton').addEventListener('click', async function () {
     const content = document.getElementById('main-content').innerHTML;
 
-    // First, save the content to the server
     try {
         const response = await fetch(`/save-div-content/`, {
             method: 'POST',
@@ -196,11 +195,10 @@
 
         if (response.ok) {
             alert('Content saved successfully!');
-            
-            // Now process hyperlinks with the [:] symbol in main-content
-            await processHyperCiteLinks(book);  // Call the function to process <a> tags
+            await processHyperCiteLinks(book);  // Process hyperlinks
 
-            alert('Hypercite links processed!');
+            alert('Hypercite links processed! The page will now refresh to ensure changes are visible.');
+            window.location.reload(); // Refresh the page after processing
         } else {
             alert('Failed to save content.');
         }
@@ -208,44 +206,11 @@
         console.error('Error:', error);
         alert('An error occurred while saving.');
     }
-
-
 });
 
-        // Redirect to /{book}/md when the Markdown button is clicked
-    document.getElementById('markdown-link').addEventListener('click', function () {
-        window.location.href = `/${book}/md`;
-    });
-
-    
-        document.getElementById('readButton').addEventListener('click', function () {
-        // Set a flag indicating we're returning to the read page, not refreshing
-        localStorage.setItem('fromEditPage', 'true');
-        window.location.href = `/${book}`; // Replace with the actual URL of the read page
-    });
-
-function saveUpdatedHTMLToFile(updatedHTML, book) {
-    fetch(`/save-updated-html/${book}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-        },
-        body: JSON.stringify({ html: updatedHTML })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log('HTML saved successfully');
-        } else {
-            console.error('Error saving HTML:', data.error);
-        }
-    })
-    .catch(error => console.error('Error saving HTML:', error));
-}
 
 
-// Process hyperlinks with [:] symbol
+// Function to process hyperlinks with [:] symbol
 async function processHyperCiteLinks(book) {
     const mainContent = document.querySelector('#main-content');
     const parser = new DOMParser();
@@ -264,18 +229,10 @@ async function processHyperCiteLinks(book) {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                     },
-                    body: JSON.stringify({
-                        href_b: href, 
-                        citation_id_b: book 
-                    })
+                    body: JSON.stringify({ href_a: href, citation_id_b: book })
                 });
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
                 const data = await response.json();
-
                 if (data.success) {
                     console.log(`New hypercite ID assigned: ${data.new_hypercite_id_x}`);
                     anchor.setAttribute('id', data.new_hypercite_id_x);
@@ -288,40 +245,20 @@ async function processHyperCiteLinks(book) {
         }
     }
 
-    // Apply changes back to #main-content and save
     mainContent.innerHTML = doc.body.innerHTML;
     saveUpdatedHTMLToFile(mainContent.innerHTML, book);
 }
 
-// Trigger processing of connected hypercites
-async function triggerProcessConnectedHyperCites(book, htmlContent) {
-    console.log('Triggering processConnectedHyperCites with book:', book);
-    try {
-        const response = await fetch(`/process-connected-hypercites`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            },
-            body: JSON.stringify({
-                citation_id_a: book,
-                html: htmlContent
-            })
-        });
-
-        const data = await response.json();
-        if (data.success) {
-            console.log('Connected hypercites processed successfully');
-        } else {
-            console.error('Error processing connected hypercites:', data.message);
-        }
-    } catch (error) {
-        console.error('Error triggering processConnectedHyperCites:', error);
-    }
-}
-
-
+// Redirect to /{book}/md when the Markdown button is clicked
+    document.getElementById('markdown-link').addEventListener('click', function () {
+        window.location.href = `/${book}/md`;
+    });
 
     
-    </script>
+        document.getElementById('readButton').addEventListener('click', function () {
+        // Set a flag indicating we're returning to the read page, not refreshing
+        localStorage.setItem('fromEditPage', 'true');
+        window.location.href = `/${book}`; // Replace with the actual URL of the read page
+    });
+</script>
 @endsection
