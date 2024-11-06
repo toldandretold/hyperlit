@@ -62,40 +62,40 @@ fetch('/save-markdown', {
 });
 &lt;/script&gt;</code></pre>
 <h1>Step 5: Add Front-End Validation and Auto-Save (Optional)</h1>
-<p>Once you’ve connected the editor to the database, you can add more advanced features like:</p>
-<pre><code>•   Auto-save: Automatically save the user’s content at intervals.
-•   Public/Private Toggle: Add buttons in the HTML view for toggling annotation privacy, as discussed earlier.
-•   Live Validation: Validate the markdown input on the front end before sending it to the server.</code></pre>
-<p>By starting with these small steps, you’ll build up the functionality incrementally while ensuring each step works as intended. After the editor is in place, you can move on to more advanced features, like linking highlights, annotation management, and syncing the Markdown content with the database efficiently.</p>
+<p>Once you&acirc;&#128;&#153;ve connected the editor to the database, you can add more advanced features like:</p>
+<pre><code>&acirc;&#128;&cent;   Auto-save: Automatically save the user&acirc;&#128;&#153;s content at intervals.
+&acirc;&#128;&cent;   Public/Private Toggle: Add buttons in the HTML view for toggling annotation privacy, as discussed earlier.
+&acirc;&#128;&cent;   Live Validation: Validate the markdown input on the front end before sending it to the server.</code></pre>
+<p>By starting with these small steps, you&acirc;&#128;&#153;ll build up the functionality incrementally while ensuring each step works as intended. After the editor is in place, you can move on to more advanced features, like linking highlights, annotation management, and syncing the Markdown content with the database efficiently.</p>
 <p>Would you like more detailed help with any of these steps, or are you ready to start with the basic setup?</p>
 <p>Later</p>
-<p>That idea—where users could edit either in HTML or Markdown mode—is really interesting! It introduces flexibility into the editor that allows for a fluid experience, especially for users who are more comfortable editing in one format over the other. However, as you noted, there are some challenges to consider, especially in terms of front-end processing and synchronization between Markdown and HTML.</p>
+<p>That idea&acirc;&#128;&#148;where users could edit either in HTML or Markdown mode&acirc;&#128;&#148;is really interesting! It introduces flexibility into the editor that allows for a fluid experience, especially for users who are more comfortable editing in one format over the other. However, as you noted, there are some challenges to consider, especially in terms of front-end processing and synchronization between Markdown and HTML.</p>
 <h1>Key Points to Consider:</h1>
 <pre><code>1.  Seamless Editing in HTML:
-•   When users switch to HTML mode, having an [edit] button next to certain elements (like annotations) that turns them into editable fields is very possible.
-•   When they press this button, the specific content could turn into a text area or inline input field. Once the edit is confirmed, you can send the updated content to the server and update the database.
-•   Challenge: The edited content would need to be re-synchronized with the Markdown version to keep both formats in sync.
+&acirc;&#128;&cent;   When users switch to HTML mode, having an [edit] button next to certain elements (like annotations) that turns them into editable fields is very possible.
+&acirc;&#128;&cent;   When they press this button, the specific content could turn into a text area or inline input field. Once the edit is confirmed, you can send the updated content to the server and update the database.
+&acirc;&#128;&cent;   Challenge: The edited content would need to be re-synchronized with the Markdown version to keep both formats in sync.
 2.  Auto-Syncing Edits to Markdown:
-•   Once an annotation is edited in the HTML view, you could convert the updated HTML element back into Markdown.
-•   This keeps the Markdown file up-to-date, and when the user switches back to Markdown mode, they see their updates reflected.
-•   Benefit: This approach provides the flexibility to edit in either view while keeping everything synced.
-•   Challenge: You’ll need to manage the parsing between HTML and Markdown carefully to avoid inconsistencies or potential issues with complex formatting.
+&acirc;&#128;&cent;   Once an annotation is edited in the HTML view, you could convert the updated HTML element back into Markdown.
+&acirc;&#128;&cent;   This keeps the Markdown file up-to-date, and when the user switches back to Markdown mode, they see their updates reflected.
+&acirc;&#128;&cent;   Benefit: This approach provides the flexibility to edit in either view while keeping everything synced.
+&acirc;&#128;&cent;   Challenge: You&acirc;&#128;&#153;ll need to manage the parsing between HTML and Markdown carefully to avoid inconsistencies or potential issues with complex formatting.
 3.  How It Could Work:
-•   Edit Mode in HTML: When users press the [edit] button next to an annotation, the static text becomes a text field. After making changes and submitting, the new annotation is saved to the database.
-•   Update Flow: The server receives the updated annotation and:
+&acirc;&#128;&cent;   Edit Mode in HTML: When users press the [edit] button next to an annotation, the static text becomes a text field. After making changes and submitting, the new annotation is saved to the database.
+&acirc;&#128;&cent;   Update Flow: The server receives the updated annotation and:
 1.  Saves the new content to the database.
 2.  Converts it back into Markdown format and updates the Markdown file.
 3.  Sends back the updated HTML view for consistency, or the page automatically updates the HTML view with the newly rendered content.
 4.  Pros of This System:
-•   User Flexibility: Users can choose to edit in either Markdown or HTML, providing a better experience for different skill levels or preferences.
-•   Dynamic Interaction: An interactive [edit] button in the HTML view creates a smooth workflow where users can edit without needing to switch modes constantly.
-•   Real-time Updates: Any updates made in HTML would instantly reflect in the Markdown file and vice versa.
+&acirc;&#128;&cent;   User Flexibility: Users can choose to edit in either Markdown or HTML, providing a better experience for different skill levels or preferences.
+&acirc;&#128;&cent;   Dynamic Interaction: An interactive [edit] button in the HTML view creates a smooth workflow where users can edit without needing to switch modes constantly.
+&acirc;&#128;&cent;   Real-time Updates: Any updates made in HTML would instantly reflect in the Markdown file and vice versa.
 5.  Potential Challenges:
-•   Synchronization Complexity: Ensuring both the Markdown and HTML versions stay in sync after edits could introduce complexity, especially with formatting or more advanced Markdown features.
-•   UI/UX Consistency: Users may expect certain behavior when switching between views, so you’ll need to ensure the transitions are smooth and the content is always accurately represented in both modes.</code></pre>
+&acirc;&#128;&cent;   Synchronization Complexity: Ensuring both the Markdown and HTML versions stay in sync after edits could introduce complexity, especially with formatting or more advanced Markdown features.
+&acirc;&#128;&cent;   UI/UX Consistency: Users may expect certain behavior when switching between views, so you&acirc;&#128;&#153;ll need to ensure the transitions are smooth and the content is always accurately represented in both modes.</code></pre>
 <h1>Possible Approa<a href="#hyperlights#15/h1[5]"></a><mark id="15/h1[5]">ch:</mark></h1>
 <pre><code><a href="#hyperlights#15/h1[5]"></a><mark id="15/h1[5]">1.  HTML Mode Editing: Add [edit] buttons next to interactive elements like annotations in the HTML view.
 2.  Inline Editing: When the user clicks [edit], the element becomes an inline text field or textarea.
 3.  Auto-Save: After the user makes an edit, save it directly to the database and auto-convert the updated content to both Markdown and HTML.
 4.  Seamless Mode Switching: Ensure that when switching back to Markdown, any edits in the HTML are reflected immediately.</mark></code></pre>
-<p><a href="#hyperlights#15/h1[5]"></a><mark id="15/h1[5]">This hybrid approach, where users can edit in both HTML an</mark>d Markdown, could make your editor really powerful and flexible. How do you feel about balancing the complexity of synchronization with the potential benefit of allowing edits in either mode? Would you want more feedback on ways to handle this synchronization, or do you have thoughts on which aspects you’d prioritize?</p></div>
+<p><a href="#hyperlights#15/h1[5]"></a><mark id="15/h1[5]">This hybrid approach, where users can edit in both HTML an</mark>d Markdown, could make your editor really powerful and flexible. How do you feel about balancing the complexity of synchronization with the potential benefit of allowing edits in either mode? Would you want more feedback on ways to handle this synchronization, or do you have thoughts on which aspects you&acirc;&#128;&#153;d prioritize?</p></div>
