@@ -4,92 +4,153 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Bus;
 use App\Models\Hypercite;
 use App\Models\HyperciteLink; 
+use App\Jobs\ProcessConnectedHyperCitesJob;
+use App\Jobs\ProcessCitationIdBLinksJob;
+use App\Events\ProcessComplete;
+use Illuminate\Support\Facades\Log;
 
 class HyperciteController extends Controller
-
 {
+    
 
     public function store(Request $request)
     {
-        $request->validate([
-            'citation_id_a' => 'required|string', // Corrected for hypercites table
+        $validatedData = $request->validate([
+            'citation_id_a' => 'required|string',
             'hypercite_id' => 'required|string',
             'hypercited_text' => 'required|string',
-            'href_a' => 'required|string' // Corrected for hypercites table
+            'href_a' => 'required|string'
         ]);
 
         try {
-            Hypercite::create([
-                'citation_id_a' => $request->input('citation_id_a'), // Corrected for hypercites table
-                'hypercite_id' => $request->input('hypercite_id'),
-                'hypercited_text' => $request->input('hypercited_text'),
-                'href_a' => $request->input('href_a') // Corrected for hypercites table
-            ]);
-
+            Hypercite::create($validatedData);
             return response()->json(['success' => true]);
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+            // Log the exception details for debugging
+            Log::error('Error saving hypercite data:', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'error' => 'Failed to save hypercite data.'], 500);
         }
     }
 
     public function saveUpdatedHTML(Request $request, $book)
     {
-        // Validate the request
-        $validated = $request->validate([
-            'html' => 'required|string',
-        ]);
+        try {
+            $validated = $request->validate([
+                'html' => 'required|string',
+            ]);
 
-        // Path to the main-text.html file for the given book
-        $htmlFilePath = resource_path("markdown/{$book}/main-text.html");
-        // Ensure the file exists before attempting to update
-        if (!File::exists($htmlFilePath)) {
-            return response()->json(['error' => 'File not found.'], 404);
+            $htmlFilePath = resource_path("markdown/{$book}/main-text.html");
+
+            // Check if file exists and has correct permissions
+            if (!File::exists($htmlFilePath)) {
+                Log::error("File not found at path: {$htmlFilePath}");
+                return response()->json(['success' => false, 'error' => 'File not found.'], 404);
+            }
+            if (!is_writable($htmlFilePath)) {
+                Log::error("File is not writable at path: {$htmlFilePath}");
+                return response()->json(['success' => false, 'error' => 'File is not writable.'], 500);
+            }
+
+            // Attempt to write to the file
+            File::put($htmlFilePath, $validated['html']);
+
+            return response()->json(['success' => true]);
+
+        } catch (\Exception $e) {
+            // Log any exceptions and return JSON error response
+            Log::error('Exception caught in saveUpdatedHTML:', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'error' => 'An error occurred.'], 500);
         }
-
-        // Save the updated HTML content to the file
-        File::put($htmlFilePath, $validated['html']); // You can customize how this is done
-
-        return response()->json(['success' => true]);
     }
 
-// processHyperCiteLink: Creates a new hypercite link and updates citation_id_a and citation_id_b
-public function processHyperCiteLink(Request $request)
-{
-    $href_a = $request->input('href_a');
-    $citation_id_b = $request->input('citation_id_b');
-
-    // Dispatch a job to handle the hypercite link processing
-    ProcessHyperCiteLinkJob::dispatch($href_a, $citation_id_b);
-
-    return response()->json(['success' => true, 'message' => 'Processing started in background']);
-}
-
-
-// processConnectedHyperCites: Updates <u> tags in citation_id_a and <a> tags in citation_id_b
-public function processConnectedHyperCites(Request $request)
-{
-    $citation_id_a = $request->input('citation_id_a');
-    $htmlContent = $request->input('html');
-
-    // Dispatch a job to handle the connected hypercite processing
-    ProcessConnectedHyperCitesJob::dispatch($citation_id_a, $htmlContent);
-
-    return response()->json(['success' => true, 'message' => 'Connected hypercite processing started in background']);
-}
 
 
 
+   public function processHyperCiteLink(Request $request)
+    {
+        $href_a = $request->input('href_a');
+        $citation_id_b = $request->input('citation_id_b');
 
+        // Extract citation_id_a from href_a
+        $parsedUrl = parse_url($href_a);
+        $citation_id_a = trim($parsedUrl['path'] ?? '', '/');
 
-        private function wrapUTagWithAnchor($dom, $uTag, $href)
-        {
-            $aTag = $dom->createElement('a');
-            $aTag->setAttribute('href', $href);
-
-            $uTag->parentNode->replaceChild($aTag, $uTag);
-            $aTag->appendChild($uTag);
+        // Check for and retrieve the hypercite record
+        $hypercite = Hypercite::where('href_a', $href_a)->first();
+        if (!$hypercite) {
+            return response()->json(['success' => false, 'message' => 'Href not found in hypercites table']);
         }
 
+        // Create a new unique ID and href for hypercite link
+        $existingLinks = HyperciteLink::where('hypercite_id', $hypercite->hypercite_id)->count();
+        $newHyperciteIDX = $hypercite->hypercite_id . '_' . chr(98 + $existingLinks);
+        $newHrefB = "/$citation_id_b#$newHyperciteIDX";
+
+        // Early response to frontend with new hypercite ID
+        response()->json(['success' => true, 'new_hypercite_id_x' => $newHyperciteIDX])->send();
+
+        // Insert new link
+        HyperciteLink::create([
+            'hypercite_id' => $hypercite->hypercite_id,
+            'hypercite_id_x' => $newHyperciteIDX,
+            'citation_id_b' => $citation_id_b,
+            'href_b' => $newHrefB
+        ]);
+
+        // Prepare and log request for job processing
+        $updatedRequest = $request->merge([
+            'citation_id_a' => $citation_id_a,
+            'hypercite_id' => $hypercite->hypercite_id,
+            'new_href_b' => $newHrefB,
+        ]);
+        Log::info("Updated request prepared for", ['updatedRequest' => $updatedRequest->all()]);
+
+        // Process jobs in the background
+        //$this->processAllJobs($updatedRequest);
+
+        // Terminate further execution
+        exit;
+    }
+
+
+
+    public function processConnectedHyperCites(Request $request)
+    {
+        $citation_id_a = $request->input('citation_id_a');
+
+        ProcessConnectedHyperCitesJob::dispatch($citation_id_a);
+
+        return response()->json(['success' => true]);
+        event(new ProcessComplete("Connected hypercites processing complete"));
+    }
+
+    public function processAllJobs(Request $request)
+    {
+        Log::info("Starting processAllJobs without ProcessCitationIdBLinksJob");
+
+        // Only add jobs that are still necessary, excluding ProcessCitationIdBLinksJob
+        $jobs = [
+            new ProcessConnectedHyperCitesJob($request->input('citation_id_a'))
+        ];
+
+        Bus::batch($jobs)
+        ->then(function () {
+            Log::info("All necessary jobs completed successfully");
+            event(new ProcessComplete("Connected hypercites processing complete"));
+        })
+        ->catch(function (Throwable $e) {
+            Log::error("Error in batch processing", ['message' => $e->getMessage()]);
+        })
+        ->finally(function () {
+            Log::info("Batch processing finished");
+        })
+        ->dispatch();
+
+        return response()->json(['success' => true, 'message' => 'Processing started without ProcessCitationIdBLinksJob']);
+    }
+
+    
 }

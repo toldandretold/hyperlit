@@ -54,7 +54,20 @@
             box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3); /* Larger shadow on hover */
         }
 
-
+        /* Loading indicator styling */
+        #loading-indicator {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            font-size: 18px;
+        }
 
 
     </style>
@@ -76,77 +89,88 @@
     <button type="button" id="readButton">Read</button>
     </div>
 
+      <div id="loading-indicator">Processing... Please wait.</div>
+
 @endsection
 
 @section('scripts')
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+     <!-- Include Pusher first -->
+<script src="https://js.pusher.com/7.0/pusher.min.js"></script>
+
+<!-- Include the Vite bundle (usually in your main layout) -->
+@vite(['resources/js/echo.js']) <!-- Add echo.js here -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     
 
     <script>
-
-        window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', () => {
     const domPath = localStorage.getItem('originalReadPath');
-    if (domPath) {
-        const targetElement = document.querySelector(domPath);
-        if (targetElement) {
-            targetElement.scrollIntoView({ behavior: 'smooth' });
+    console.log("Retrieved domPath:", domPath);  // Debugging log to check value
+
+        if (domPath) {
+            try {
+                // Only attempt to query if domPath looks like a valid selector (e.g., starts with "#" or ".")
+                if (domPath.startsWith('#') || domPath.startsWith('.')) {
+                    const targetElement = document.querySelector(domPath);
+
+                    if (targetElement) {
+                        targetElement.scrollIntoView({ behavior: 'smooth' });
+                    } else {
+                        console.error(`No element found for selector: ${domPath}`);
+                    }
+                } else {
+                    console.error("Invalid selector format in domPath:", domPath);
+                }
+            } catch (error) {
+                console.error("Error with querySelector for domPath:", domPath, error);
+            }
+        } else {
+            console.warn("No originalReadPath found in localStorage.");
         }
-    }
-});
 
-    // Handle clicks on links inside the editable div
-    document.getElementById('main-content').addEventListener('click', function(event) {
-        if (event.target.tagName === 'A') {
-            event.preventDefault();  // Prevent the editable div from taking over
-            window.open(event.target.href, '_blank');  // Open the link in a new tab
-        }
-    });
 
-        let book = document.getElementById('main-content').getAttribute('data-book');
-
-        // Make sure the book variable is available globally if needed
-        window.book = book;
-
- 
-      
-   // Function to attach event listeners to all mark tags
-    function attachMarkListeners() {
-        const markTags = document.querySelectorAll('mark');
-
-        markTags.forEach(function(mark) {
-            const highlightId = mark.getAttribute('class');
-
-            if (highlightId) {
-                mark.addEventListener('click', function() {
-                    window.location.href = `/${book}/hyperlights#${highlightId}`;  
-                });
-
-                mark.style.cursor = 'pointer';
-
-                mark.addEventListener('mouseover', function() {
-                    mark.style.textDecoration = 'underline';
-                });
-                mark.addEventListener('mouseout', function() {
-                    mark.style.textDecoration = 'none';
-                });
+        // Handle clicks on links inside the editable div
+        document.getElementById('main-content').addEventListener('click', function(event) {
+            if (event.target.tagName === 'A') {
+                event.preventDefault();
+                window.open(event.target.href, '_blank');
             }
         });
-    }
 
-    // Call the function on page load to attach listeners to existing marks
-    document.addEventListener("DOMContentLoaded", function() {
-        attachMarkListeners(); // Attach listeners on page load
-    // Adjust internal links to handle #hash navigation properly
+        let book = document.getElementById('main-content').getAttribute('data-book');
+        window.book = book;
+
+        // Function to attach event listeners to all mark tags
+        function attachMarkListeners() {
+            const markTags = document.querySelectorAll('mark');
+            markTags.forEach(function(mark) {
+                const highlightId = mark.getAttribute('class');
+                if (highlightId) {
+                    mark.addEventListener('click', function() {
+                        window.location.href = `/${book}/hyperlights#${highlightId}`;  
+                    });
+                    mark.style.cursor = 'pointer';
+                    mark.addEventListener('mouseover', function() {
+                        mark.style.textDecoration = 'underline';
+                    });
+                    mark.addEventListener('mouseout', function() {
+                        mark.style.textDecoration = 'none';
+                    });
+                }
+            });
+        }
+
+        attachMarkListeners();
+
+        // Adjust internal links to handle #hash navigation properly
         const internalLinks = document.querySelectorAll('a[href^="#"]');
-        
         internalLinks.forEach(function(link) {
             link.addEventListener('click', function(event) {
-                event.preventDefault();  // Prevent default behavior
-                const targetId = link.getAttribute('href').substring(1);  // Get the ID from href (remove the '#')
+                event.preventDefault();
+                const targetId = link.getAttribute('href').substring(1);
                 const targetElement = document.getElementById(targetId);
-
                 if (targetElement) {
-                    // Scroll to the target element smoothly
                     targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 } else {
                     console.error(`Target element with ID "${targetId}" not found.`);
@@ -155,110 +179,154 @@
         });
     });
 
+    let isListenerSet = false; // Flag to check if listener is already set
+
+    function setupEchoListener() {
+        window.Echo.channel('process-channel')
+            .listen('.ProcessComplete', (event) => {
+                console.log('Received event:', event);
+                if (event.message === 'Citation ID B file update complete') {
+                    console.log("Citation ID B file update complete");
+                    location.reload();
+                }
+            });
+    }
+
     document.getElementById('main-content').addEventListener('paste', (event) => {
-    event.preventDefault();
-    
-    // Get the HTML content from the clipboard
-    const htmlContent = (event.clipboardData || window.clipboardData).getData('text/html');
-    const textContent = (event.clipboardData || window.clipboardData).getData('text');
+        event.preventDefault();
+        const htmlContent = (event.clipboardData || window.clipboardData).getData('text/html');
+        const textContent = (event.clipboardData || window.clipboardData).getData('text');
+        const contentToInsert = htmlContent || textContent;
+        document.execCommand('insertHTML', false, contentToInsert);
 
-    // Check if HTML content is available; if not, fallback to plain text
-    const contentToInsert = htmlContent || textContent;
+        setTimeout(() => {
+            const mainContent = document.getElementById('main-content');
+            const elementsWithStyles = mainContent.querySelectorAll('[style]');
+            elementsWithStyles.forEach((element) => {
+                element.removeAttribute('style');
+            });
+        }, 0);
+    });
 
-    // Insert the content at the cursor position
-    document.execCommand('insertHTML', false, contentToInsert);
+    function showLoadingIndicator() {
+        document.getElementById('loading-indicator').style.display = 'block';
+    }
 
-    // Clean up inline styles after paste
-    setTimeout(() => {
-        const mainContent = document.getElementById('main-content');
-        const elementsWithStyles = mainContent.querySelectorAll('[style]');
-        
-        elementsWithStyles.forEach((element) => {
-            element.removeAttribute('style');
-        });
-    }, 0); // Timeout allows the pasted content to appear before cleanup
-});
+    function hideLoadingIndicator() {
+        document.getElementById('loading-indicator').style.display = 'none';
+    }
 
+    document.getElementById('saveButton').addEventListener('click', async function () {
+        const content = document.getElementById('main-content').innerHTML;
+            showLoadingIndicator();
 
-       document.getElementById('saveButton').addEventListener('click', async function () {
-    const content = document.getElementById('main-content').innerHTML;
+        // Activate Echo listener if it hasn't been set up yet
+        if (!isListenerSet) {
+            setupEchoListener();
+            isListenerSet = true; // Mark listener as set
+        }
 
-    try {
-        const response = await fetch(`/save-div-content/`, {
+        try {
+            const response = await fetch(`/save-div-content/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({ book: book, updated_html: content })
+            });
+
+            if (response.ok) {
+                console.log("Content saved successfully");
+                await processHyperCiteLinks(book);
+                console.log("Hypercite links are being processed...");
+            } else {
+                console.error('Failed to save content.');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        } finally {
+            hideLoadingIndicator();
+        }
+    });
+
+    function saveUpdatedHTMLToFile(updatedHTML, book) {
+        fetch(`/save-updated-html/${book}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
             },
-            body: JSON.stringify({ book: book, updated_html: content })
+            body: JSON.stringify({ html: updatedHTML })
+        })
+        .then(response => {
+            if (response.ok) {
+                console.log('HTML file saved successfully!');
+            } else {
+                console.error('Failed to save HTML file.');
+            }
+        })
+        .catch(error => {
+            console.error('Error saving HTML file:', error);
         });
-
-        if (response.ok) {
-            alert('Content saved successfully!');
-            await processHyperCiteLinks(book);  // Process hyperlinks
-
-            alert('Hypercite links processed! The page will now refresh to ensure changes are visible.');
-            window.location.reload(); // Refresh the page after processing
-        } else {
-            alert('Failed to save content.');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        alert('An error occurred while saving.');
     }
-});
 
+    async function processHyperCiteLinks(book) {
+        const mainContent = document.querySelector('#main-content');
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(mainContent.innerHTML, 'text/html');
+        const anchors = doc.querySelectorAll('a');
 
+        for (const anchor of anchors) {
+            if (anchor.textContent.includes('[:]') && !anchor.hasAttribute('id')) {
+                const href = anchor.getAttribute('href');
+                console.log(`Processing hyperlink with href: ${href}`);
 
-// Function to process hyperlinks with [:] symbol
-async function processHyperCiteLinks(book) {
-    const mainContent = document.querySelector('#main-content');
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(mainContent.innerHTML, 'text/html');
-    const anchors = doc.querySelectorAll('a');
+                try {
+                    const response = await fetch(`/process-hypercite-link`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        },
+                        body: JSON.stringify({ href_a: href, citation_id_b: book })
+                    });
 
-    for (const anchor of anchors) {
-        if (anchor.textContent.includes('[:]') && !anchor.hasAttribute('id')) {
-            const href = anchor.getAttribute('href');
-            console.log(`Processing hyperlink with href: ${href}`);
-
-            try {
-                const response = await fetch(`/process-hypercite-link`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                    },
-                    body: JSON.stringify({ href_a: href, citation_id_b: book })
-                });
-
-                const data = await response.json();
-                if (data.success) {
-                    console.log(`New hypercite ID assigned: ${data.new_hypercite_id_x}`);
-                    anchor.setAttribute('id', data.new_hypercite_id_x);
-                } else {
-                    console.log(`Processing for href=${href} stopped:`, data.message);
+                    const data = await response.json();
+                    if (data.success) {
+                        console.log(`New hypercite ID assigned: ${data.new_hypercite_id_x}`);
+                        anchor.setAttribute('id', data.new_hypercite_id_x);
+                    } else {
+                        console.log(`Processing for href=${href} stopped:`, data.message);
+                    }
+                } catch (error) {
+                    console.error('Error processing hypercite link:', error);
                 }
-            } catch (error) {
-                console.error('Error processing hypercite link:', error);
             }
         }
+
+        mainContent.innerHTML = doc.body.innerHTML;
+        await saveUpdatedHTMLToFile(mainContent.innerHTML, book);
+
+        // Trigger the ProcessConnectedHyperCitesJob after the frontend has completed its updates
+        fetch(`/process-connected-hypercites`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({ citation_id_a: book })
+        });
     }
 
-    mainContent.innerHTML = doc.body.innerHTML;
-    saveUpdatedHTMLToFile(mainContent.innerHTML, book);
-}
-
-// Redirect to /{book}/md when the Markdown button is clicked
     document.getElementById('markdown-link').addEventListener('click', function () {
         window.location.href = `/${book}/md`;
     });
 
-    
-        document.getElementById('readButton').addEventListener('click', function () {
-        // Set a flag indicating we're returning to the read page, not refreshing
+    document.getElementById('readButton').addEventListener('click', function () {
         localStorage.setItem('fromEditPage', 'true');
-        window.location.href = `/${book}`; // Replace with the actual URL of the read page
+        window.location.href = `/${book}`;
     });
 </script>
+
 @endsection
