@@ -1,0 +1,124 @@
+<?xml version='1.0' encoding='utf-8'?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="ISBN978-1-64259-218-4" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:title>A People's Guide to Capitalism: An Introduction to Marxist Economics</dc:title>
+    <dc:creator opf:role="aut" opf:file-as="Thier, Hadas">Hadas Thier</dc:creator>
+    <dc:source>978-1-64259-218-4</dc:source>
+    <dc:identifier id="ISBN978-1-64259-218-4">6266978</dc:identifier>
+    <dc:publisher>Haymarket Books</dc:publisher>
+    <dc:type>Text</dc:type>
+    <dc:format>306 pages</dc:format>
+    <dc:date>2018-06-01T23:00:00+00:00</dc:date>
+    <dc:description>&lt;div&gt;
+&lt;p style="font-weight: 600"&gt;A lively, accessible, and timely guide to Marxist economics for those who want to understand and dismantle the world of the 1%. &lt;/p&gt;
+&lt;p&gt;Economists regularly promote Capitalism as the greatest system ever to grace the planet. With the same breath, they implore us to leave the job of understanding the magical powers of the market to the “experts.”&lt;/p&gt;
+&lt;p&gt;Despite the efforts of these mainstream commentators to convince us otherwise, many of us have begun to question why this system has produced such vast inequality and wanton disregard for its own environmental destruction. This book offers answers to exactly these questions on their own terms: in the form of a radical economic theory.&lt;/p&gt;
+&lt;p&gt;“Thier’s urgently needed book strips away jargon to make Marx’s essential work accessible to today’s diverse mass movements.” —Sarah Leonard, contributing editor to &lt;em&gt;The Nation&lt;/em&gt;&lt;/p&gt;
+&lt;p&gt;“A great book for proletarian chain-breaking.” —Rob Larson, author of &lt;em&gt;Bit Tyrants: The Political Economy of Silicon Valley&lt;/em&gt;&lt;/p&gt;
+&lt;p&gt;“Thier unpacks the mystery of capitalist inequality with lucid and accessible prose . . . . We will need books like A People’s Guide to help us make sense of the root causes of the financial crises that shape so many of our struggles today.” —Keeanga-Yamahtta Taylor, author of &lt;em&gt;Race for Profit: How Banks and the Real Estate Industry Undermined Black Homeownership&lt;/em&gt;&lt;/p&gt;
+&lt;p&gt;“Ranging from exploitation at work to the operations of modern finance, this book takes the reader through a fine-tuned introduction to Marx’s analysis of the modern economy . . . . Thier combines theoretical explanation with contemporary examples to illuminate the inner workings of capitalism . . . . Reminds us of the urgent need for alternatives to a crisis-ridden system.” —David McNally, author of &lt;em&gt;Blood and Money&lt;/em&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Hadas Thier&lt;/strong&gt; is an activist, writer, and socialist, and in her spare time, an amateur paleontologist (aka mom to a toddler).&lt;/p&gt;&lt;/div&gt;</dc:description>
+    <dc:subject>Politics</dc:subject>
+    <dc:subject>Sociology</dc:subject>
+    <dc:subject>Economics</dc:subject>
+    <dc:subject>Capitalism</dc:subject>
+    <dc:subject>Neoliberalism</dc:subject>
+    <dc:subject>Populism</dc:subject>
+    <dc:subject>History</dc:subject>
+    <dc:language>en</dc:language>
+    <dc:identifier opf:scheme="calibre">7e106d05-37ed-460d-b3fd-713aeb453576</dc:identifier>
+    <dc:identifier opf:scheme="AMAZON">1642591696</dc:identifier>
+    <dc:identifier opf:scheme="GOOGLE">YTXyDwAAQBAJ</dc:identifier>
+    <dc:identifier opf:scheme="GOODREADS">55184051</dc:identifier>
+    <dc:identifier opf:scheme="ISBN">9781642592184</dc:identifier>
+    <meta content="1.2.0" name="Sigil version"/>
+    <meta name="calibre:title_sort" content="People's Guide to Capitalism: An Introduction to Marxist Economics, A"/>
+    <meta name="calibre:rating" content="10"/>
+    <meta name="calibre:author_link_map" content="{&quot;Hadas Thier&quot;: &quot;&quot;}"/>
+    <meta name="calibre:user_metadata:#formats" content="{&quot;search_terms&quot;: [&quot;#formats&quot;], &quot;is_editable&quot;: true, &quot;link_column&quot;: &quot;value&quot;, &quot;column&quot;: &quot;value&quot;, &quot;label&quot;: &quot;formats&quot;, &quot;#extra#&quot;: null, &quot;datatype&quot;: &quot;composite&quot;, &quot;category_sort&quot;: &quot;value&quot;, &quot;colnum&quot;: 2, &quot;name&quot;: &quot;Formats&quot;, &quot;is_category&quot;: false, &quot;table&quot;: &quot;custom_column_2&quot;, &quot;rec_index&quot;: 22, &quot;is_custom&quot;: true, &quot;display&quot;: {&quot;contains_html&quot;: false, &quot;composite_sort&quot;: &quot;text&quot;, &quot;description&quot;: &quot;&quot;, &quot;use_decorations&quot;: 0, &quot;make_category&quot;: false, &quot;composite_template&quot;: &quot;{:'re(approximate_formats(), ',', ', ')'}&quot;}, &quot;#value#&quot;: &quot;EPUB&quot;, &quot;is_multiple2&quot;: {}, &quot;is_csp&quot;: false, &quot;is_multiple&quot;: null, &quot;kind&quot;: &quot;field&quot;}"/>
+    <meta name="calibre:user_metadata:#isbn" content="{&quot;search_terms&quot;: [&quot;#isbn&quot;], &quot;is_editable&quot;: true, &quot;link_column&quot;: &quot;value&quot;, &quot;column&quot;: &quot;value&quot;, &quot;label&quot;: &quot;isbn&quot;, &quot;#extra#&quot;: null, &quot;datatype&quot;: &quot;composite&quot;, &quot;category_sort&quot;: &quot;value&quot;, &quot;colnum&quot;: 1, &quot;name&quot;: &quot;ISBN&quot;, &quot;is_category&quot;: false, &quot;table&quot;: &quot;custom_column_1&quot;, &quot;rec_index&quot;: 23, &quot;is_custom&quot;: true, &quot;display&quot;: {&quot;contains_html&quot;: false, &quot;composite_sort&quot;: &quot;text&quot;, &quot;description&quot;: &quot;&quot;, &quot;use_decorations&quot;: 0, &quot;make_category&quot;: false, &quot;composite_template&quot;: &quot;{identifiers:select(isbn)}&quot;}, &quot;#value#&quot;: &quot;9781642592184&quot;, &quot;is_multiple2&quot;: {}, &quot;is_csp&quot;: false, &quot;is_multiple&quot;: null, &quot;kind&quot;: &quot;field&quot;}"/>
+    <meta name="cover" content="cover"/>
+  </metadata>
+  <manifest>
+    <item href="xhtml/01_fm001.html" id="fm001" media-type="application/xhtml+xml"/>
+    <item href="xhtml/02_fm002.html" id="fm002" media-type="application/xhtml+xml"/>
+    <item href="xhtml/03_fm003.html" id="fm003" media-type="application/xhtml+xml"/>
+    <item href="xhtml/04_fm004.html" id="fm004" media-type="application/xhtml+xml"/>
+    <item href="xhtml/05_toc.html" id="toc" media-type="application/xhtml+xml"/>
+    <item href="xhtml/06_fm005.html" id="fm005" media-type="application/xhtml+xml"/>
+    <item href="xhtml/07_ch001.html" id="ch001" media-type="application/xhtml+xml"/>
+    <item href="xhtml/08_ch002.html" id="ch002" media-type="application/xhtml+xml"/>
+    <item href="xhtml/09_ch003.html" id="ch003" media-type="application/xhtml+xml"/>
+    <item href="xhtml/10_ch004.html" id="ch004" media-type="application/xhtml+xml"/>
+    <item href="xhtml/11_ch005.html" id="ch005" media-type="application/xhtml+xml"/>
+    <item href="xhtml/12_ch006.html" id="ch006" media-type="application/xhtml+xml"/>
+    <item href="xhtml/13_ch007.html" id="ch007" media-type="application/xhtml+xml"/>
+    <item href="xhtml/14_bm001.html" id="bm001" media-type="application/xhtml+xml"/>
+    <item href="xhtml/15_bm002.html" id="bm002" media-type="application/xhtml+xml"/>
+    <item href="xhtml/16_bm003.html" id="bm003" media-type="application/xhtml+xml"/>
+    <item href="xhtml/17_bm004.html" id="bm004" media-type="application/xhtml+xml"/>
+    <item href="xhtml/18_bm005.html" id="bm005" media-type="application/xhtml+xml"/>
+    <item href="xhtml/19_bm006.html" id="bm006" media-type="application/xhtml+xml"/>
+    <item href="xhtml/20_bm007.html" id="bm007" media-type="application/xhtml+xml"/>
+    <item href="xhtml/21_bm008.html" id="bm008" media-type="application/xhtml+xml"/>
+    <item href="xhtml/22_bm009.html" id="bm009" media-type="application/xhtml+xml"/>
+    <item href="xhtml/23_bbcover.html" id="bbcover" media-type="application/xhtml+xml"/>
+    <item href="toc.ncx" id="ncx" media-type="application/x-dtbncx+xml"/>
+    <item href="styles/stylesheet.css" id="stylesheet" media-type="text/css"/>
+    <item href="images/bcover.jpg" id="bcover" media-type="image/jpeg"/>
+    <item href="images/cover.jpg" id="cover" media-type="image/jpeg"/>
+    <item href="images/img001-01.jpg" id="img001-01" media-type="image/jpeg"/>
+    <item href="images/img003-01.jpg" id="img003-01" media-type="image/jpeg"/>
+    <item href="images/img004-01.jpg" id="img004-01" media-type="image/jpeg"/>
+    <item href="images/img011-01.jpg" id="img011-01" media-type="image/jpeg"/>
+    <item href="images/img012-01.jpg" id="img012-01" media-type="image/jpeg"/>
+    <item href="images/img042-01.jpg" id="img042-01" media-type="image/jpeg"/>
+    <item href="images/img078-01.jpg" id="img078-01" media-type="image/jpeg"/>
+    <item href="images/img079-01.jpg" id="img079-01" media-type="image/jpeg"/>
+    <item href="images/img080-01.jpg" id="img080-01" media-type="image/jpeg"/>
+    <item href="images/img081-01.jpg" id="img081-01" media-type="image/jpeg"/>
+    <item href="images/img089-01.jpg" id="img089-01" media-type="image/jpeg"/>
+    <item href="images/img101-01.jpg" id="img101-01" media-type="image/jpeg"/>
+    <item href="images/img102-01.jpg" id="img102-01" media-type="image/jpeg"/>
+    <item href="images/img112-01.jpg" id="img112-01" media-type="image/jpeg"/>
+    <item href="images/img121-01.jpg" id="img121-01" media-type="image/jpeg"/>
+    <item href="images/img121-02.jpg" id="img121-02" media-type="image/jpeg"/>
+    <item href="images/img125-01.jpg" id="img125-01" media-type="image/jpeg"/>
+    <item href="images/img188-01.jpg" id="img188-01" media-type="image/jpeg"/>
+    <item href="images/img200-01.jpg" id="img200-01" media-type="image/jpeg"/>
+    <item href="images/img207-01.jpg" id="img207-01" media-type="image/jpeg"/>
+    <item href="images/img222-01.jpg" id="img222-01" media-type="image/jpeg"/>
+    <item href="xhtml/titlepage.xhtml" id="titlepage" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine toc="ncx">
+    <itemref idref="titlepage"/>
+    <itemref idref="fm001"/>
+    <itemref idref="fm002"/>
+    <itemref idref="fm003"/>
+    <itemref idref="fm004"/>
+    <itemref idref="toc"/>
+    <itemref idref="fm005"/>
+    <itemref idref="ch001"/>
+    <itemref idref="ch002"/>
+    <itemref idref="ch003"/>
+    <itemref idref="ch004"/>
+    <itemref idref="ch005"/>
+    <itemref idref="ch006"/>
+    <itemref idref="ch007"/>
+    <itemref idref="bm001"/>
+    <itemref idref="bm002"/>
+    <itemref idref="bm003"/>
+    <itemref idref="bm004"/>
+    <itemref idref="bm005"/>
+    <itemref idref="bm006"/>
+    <itemref idref="bm007"/>
+    <itemref idref="bm008"/>
+    <itemref idref="bm009"/>
+    <itemref idref="bbcover"/>
+  </spine>
+  <guide>
+    <reference href="xhtml/05_toc.html" title="Contents" type="toc"/>
+    <reference href="xhtml/06_fm005.html" title="Begin Reading" type="text"/>
+    <reference href="xhtml/titlepage.xhtml" title="Cover" type="cover"/>
+  </guide>
+</package>

@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" xml:lang="en" version="2005-1">
+<head>
+<meta name="dtb:uid" content="978-1-64259-218-4"/>
+<meta name="dtb:depth" content="1"/>
+<meta name="dtb:totalPageCount" content="306"/>
+<meta name="dtb:maxPageNumber" content="306"/>
+</head>
+<docTitle>
+<text>A People’s guide to capitalism: An introduction to marxist economics</text>
+</docTitle>
+<navMap>
+<navPoint id="i1" playOrder="1"><navLabel><text>COVER</text></navLabel><content src="xhtml/titlepage.xhtml"/></navPoint>
+<navPoint id="i2" playOrder="2"><navLabel><text>COPYRIGHT</text></navLabel><content src="xhtml/03_fm003.html"/></navPoint>
+<navPoint id="i3" playOrder="3"><navLabel><text>CONTENTS</text></navLabel><content src="xhtml/05_toc.html"/></navPoint>
+<navPoint id="i4" playOrder="4"><navLabel><text>INTRODUCTION</text></navLabel><content src="xhtml/06_fm005.html"/></navPoint>
+<navPoint id="i5" playOrder="5"><navLabel><text>CHAPTER ONE: The Birth of Capital</text></navLabel><content src="xhtml/07_ch001.html"/></navPoint>
+<navPoint id="i6" playOrder="6"><navLabel><text>CHAPTER TWO: The Labor Theory of Value</text></navLabel><content src="xhtml/08_ch002.html"/></navPoint>
+<navPoint id="i7" playOrder="7"><navLabel><text>CHAPTER THREE: Money</text></navLabel><content src="xhtml/09_ch003.html"/></navPoint>
+<navPoint id="i8" playOrder="8"><navLabel><text>CHAPTER FOUR: Where Do Profits Come From?</text></navLabel><content src="xhtml/10_ch004.html"/></navPoint>
+<navPoint id="i9" playOrder="9"><navLabel><text>CHAPTER FIVE: The Accumulation of Capital</text></navLabel><content src="xhtml/11_ch005.html"/></navPoint>
+<navPoint id="i10" playOrder="10"><navLabel><text>CHAPTER SIX: Capitalist Crisis</text></navLabel><content src="xhtml/12_ch006.html"/></navPoint>
+<navPoint id="i11" playOrder="11"><navLabel><text>CHAPTER SEVEN: Credit and Financialization</text></navLabel><content src="xhtml/13_ch007.html"/></navPoint>
+<navPoint id="i12" playOrder="12"><navLabel><text>CONCLUSION: Capitalism’s Gravediggers</text></navLabel><content src="xhtml/14_bm001.html"/></navPoint>
+<navPoint id="i13" playOrder="13"><navLabel><text>AFTERWORD: The Coronavirus Crisis</text></navLabel><content src="xhtml/15_bm002.html"/></navPoint>
+<navPoint id="i14" playOrder="14"><navLabel><text>ACKNOWLEDGMENTS</text></navLabel><content src="xhtml/16_bm003.html"/></navPoint>
+<navPoint id="i15" playOrder="15"><navLabel><text>GLOSSARY</text></navLabel><content src="xhtml/17_bm004.html"/></navPoint>
+<navPoint id="i16" playOrder="16"><navLabel><text>FURTHER READING</text></navLabel><content src="xhtml/18_bm005.html"/></navPoint>
+<navPoint id="i17" playOrder="17"><navLabel><text>NOTES</text></navLabel><content src="xhtml/19_bm006.html"/></navPoint>
+<navPoint id="i18" playOrder="18"><navLabel><text>INDEX</text></navLabel><content src="xhtml/20_bm007.html"/></navPoint>
+<navPoint id="i19" playOrder="19"><navLabel><text>BACK COVER</text></navLabel><content src="xhtml/23_bbcover.html"/></navPoint>
+</navMap>
+</ncx>
