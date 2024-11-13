@@ -9,6 +9,7 @@
         "erusev/parsedown": "^1.7",
         "erusev/parsedown-extra": "*",
         "laravel/framework": "^11.9",
+        "laravel/reverb": "@beta",
         "laravel/tinker": "^2.9",
         "league/commonmark": "^2.5",
         "league/html-to-markdown": "^5.1",

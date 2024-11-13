@@ -65,10 +65,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-core.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-classapplier.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-highlighter.min.js"></script>
+    
+    
+
+
 
     <script>
 
         let book = document.getElementById('main-content').getAttribute('data-book');
+
 
         // Make sure the book variable is available globally if needed
         window.book = book;
@@ -493,38 +498,49 @@ function wrapSelectedTextInDOM(hyperciteId) {
     selection.removeAllRanges();
 
     // Capture the HTML content inside the #main-content div
-    const updatedHTML = document.querySelector('#main-content').innerHTML;
+    const updatedHTML = document.getElementById('main-content').innerHTML;
+    console.log('Captured updatedHTML:', updatedHTML);
 
     // Send the updated HTML to the server for saving
     saveUpdatedHTMLToFile(updatedHTML, book);
+
+    
 }
 
 
 
-// Function to send updated HTML to the server for saving
 function saveUpdatedHTMLToFile(updatedHTML, book) {
-    fetch(`/save-updated-html/${book}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-        },
-        body: JSON.stringify({
-            html: updatedHTML
+    try {
+        // Validate JSON format
+        const jsonPayload = JSON.stringify({ html: updatedHTML });
+        
+        // Send the request
+        fetch(`/save-updated-html/${book}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: jsonPayload
         })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log('HTML saved successfully');
-        } else {
-            console.error('Error saving HTML:', data.error);
-        }
-    })
-    .catch(error => {
-        console.error('Error saving HTML:', error);
-    });
+        .then(response => response.text())
+        .then(text => {
+            console.log('Raw server response:', text); // Log raw text to identify issues
+            const data = JSON.parse(text); // Attempt to parse as JSON
+            if (data.success) {
+                console.log('HTML saved successfully');
+            } else {
+                console.error('Error saving HTML:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error saving HTML:', error);
+        });
+    } catch (error) {
+        console.error('Invalid JSON structure:', error);
+    }
 }
+
 
 
 
@@ -650,6 +666,8 @@ document.getElementById('editButton').addEventListener('click', function () {
     // Redirect to the editable page
     window.location.href = `/${book}/div`; // Adjust URL as needed
 });
+
+
 
 
 

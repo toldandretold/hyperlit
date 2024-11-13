@@ -11,6 +11,23 @@ use App\Http\Controllers\ConversionController;  // In case you need it
 use App\Http\Controllers\MainTextEditableDivController;
 use App\Http\Controllers\MainTextEditableMarkdownController;
 use ParsedownExtra\ParsedownExtra;
+use App\Events\TestEvent;
+// In routes/web.php
+use App\Events\ProcessComplete;
+
+Route::get('/test-broadcast', function () {
+    broadcast(new ProcessComplete("citation_id_b complete"));
+    return "Broadcast sent!";
+});
+
+
+Route::get('/trigger-event', function () {
+    broadcast(new TestEvent('Hello, this is a test message!'));
+    return 'Event has been broadcasted!';
+});
+
+
+
 
 Route::get('/test-markdown', function () {
     $converter = new ParsedownExtra();
@@ -86,6 +103,8 @@ Route::post('/save-updated-html/{book}', [HyperciteController::class, 'saveUpdat
 Route::post('/save-hypercite', [HyperciteController::class, 'store']);
 Route::post('/process-hypercite-link', [HyperciteController::class, 'processHyperciteLink']);
 Route::post('/process-connected-hypercites', [HyperciteController::class, 'processConnectedHyperCites']);
+
+
 
 
 
