@@ -118,39 +118,18 @@ class HyperciteController extends Controller
 
 
     public function processConnectedHyperCites(Request $request)
-    {
-        $citation_id_a = $request->input('citation_id_a');
+        {
+            $citation_id_a = $request->input('citation_id_a');
 
-        ProcessConnectedHyperCitesJob::dispatch($citation_id_a);
+            // Dispatch the job
+            ProcessConnectedHyperCitesJob::dispatch($citation_id_a);
+            Log::info("ProcessConnectedHyperCitesJob dispatched for citation_id_a: {$citation_id_a}");
 
-        return response()->json(['success' => true]);
-        event(new ProcessComplete("Connected hypercites processing complete"));
-    }
+            // Broadcast the event
+            event(new ProcessComplete("Hypercited"));
+            Log::info("ProcessComplete event broadcast for citation_id_a: {$citation_id_a}");
 
-    public function processAllJobs(Request $request)
-    {
-        Log::info("Starting processAllJobs without ProcessCitationIdBLinksJob");
-
-        // Only add jobs that are still necessary, excluding ProcessCitationIdBLinksJob
-        $jobs = [
-            new ProcessConnectedHyperCitesJob($request->input('citation_id_a'))
-        ];
-
-        Bus::batch($jobs)
-        ->then(function () {
-            Log::info("All necessary jobs completed successfully");
-            event(new ProcessComplete("Connected hypercites processing complete"));
-        })
-        ->catch(function (Throwable $e) {
-            Log::error("Error in batch processing", ['message' => $e->getMessage()]);
-        })
-        ->finally(function () {
-            Log::info("Batch processing finished");
-        })
-        ->dispatch();
-
-        return response()->json(['success' => true, 'message' => 'Processing started without ProcessCitationIdBLinksJob']);
-    }
-
+            return response()->json(['success' => true]);
+        }
     
 }

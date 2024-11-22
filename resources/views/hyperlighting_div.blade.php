@@ -105,31 +105,6 @@
 
     <script>
     window.addEventListener('DOMContentLoaded', () => {
-    const domPath = localStorage.getItem('originalReadPath');
-    console.log("Retrieved domPath:", domPath);  // Debugging log to check value
-
-        if (domPath) {
-            try {
-                // Only attempt to query if domPath looks like a valid selector (e.g., starts with "#" or ".")
-                if (domPath.startsWith('#') || domPath.startsWith('.')) {
-                    const targetElement = document.querySelector(domPath);
-
-                    if (targetElement) {
-                        targetElement.scrollIntoView({ behavior: 'smooth' });
-                    } else {
-                        console.error(`No element found for selector: ${domPath}`);
-                    }
-                } else {
-                    console.error("Invalid selector format in domPath:", domPath);
-                }
-            } catch (error) {
-                console.error("Error with querySelector for domPath:", domPath, error);
-            }
-        } else {
-            console.warn("No originalReadPath found in localStorage.");
-        }
-
-
         // Handle clicks on links inside the editable div
         document.getElementById('main-content').addEventListener('click', function(event) {
             if (event.target.tagName === 'A') {
@@ -185,9 +160,9 @@
         window.Echo.channel('process-channel')
             .listen('.ProcessComplete', (event) => {
                 console.log('Received event:', event);
-                if (event.message === 'Citation ID B file update complete') {
+                if (event.message === 'Hypercited') {
                     console.log("Citation ID B file update complete");
-                    location.reload();
+                    hideLoadingIndicator();
                 }
             });
     }
@@ -245,9 +220,7 @@
             }
         } catch (error) {
             console.error('Error:', error);
-        } finally {
-            hideLoadingIndicator();
-        }
+        } 
     });
 
     function saveUpdatedHTMLToFile(updatedHTML, book) {
