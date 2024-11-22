@@ -127,34 +127,6 @@
     });
 
 
-// Save position on refresh or navigation away
-window.addEventListener('beforeunload', function () {
-    const elementInView = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
-    const domPath = getDomPath(elementInView);
-    localStorage.setItem('originalReadPath', domPath);
-    localStorage.setItem('refreshFlag', 'true'); // Set the flag to indicate a refresh
-    console.log("Updated originalReadPath on refresh:", domPath);
-});
-
-window.addEventListener('DOMContentLoaded', () => {
-    const fromEditPage = localStorage.getItem('fromEditPage');
-    const domPath = localStorage.getItem('originalReadPath');
-    console.log("Retrieved originalReadPath:", domPath); // Debugging log
-
-    if (domPath && fromEditPage) {
-        const targetElement = document.querySelector(domPath);
-        if (targetElement) {
-            targetElement.scrollIntoView({ behavior: 'smooth' });
-            console.log("Scrolled to:", targetElement); // Debugging log
-        } else {
-            console.log("Target element not found for:", domPath); // Debugging log
-        }
-    }
-
-    // Clear the flags to reset for future actions
-    localStorage.removeItem('refreshFlag');
-    localStorage.removeItem('fromEditPage');
-});
 
 
     rangy.init();
