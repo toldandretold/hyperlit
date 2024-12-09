@@ -108,8 +108,7 @@
         // Handle clicks on links inside the editable div
         document.getElementById('main-content').addEventListener('click', function(event) {
             if (event.target.tagName === 'A') {
-                event.preventDefault();
-                window.open(event.target.href, '_blank');
+                
             }
         });
 
