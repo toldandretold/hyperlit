@@ -10,6 +10,8 @@
       
     }
 
+
+
     b, strong {
 
         color: #EF8D34;
@@ -29,6 +31,14 @@
         color: #EF8D34;
 
     }
+
+    h3, h4 {
+
+        font-size: 80;
+        color: #CBCCCC;
+    }
+
+   
 
    blockquote {
 
@@ -194,4 +204,52 @@ mark {
 mark:hover {
     text-decoration: none !important; /* Ensure no underline on hover */
 }
+
+table {
+    width: 100%; /* Full width of container */
+    border-collapse: collapse; /* Remove double borders */
+    background-color: #2e2e2e; /* Dark background for table */
+    color: #e0e0e0; /* Light text for contrast */
+    border: 1px solid #444; /* Subtle border for the table */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.6); /* Slight shadow for depth */
+}
+
+th, td {
+    padding: 12px 15px; /* Comfortable padding */
+    text-align: left; /* Align text to the left */
+    border: 1px solid #444; /* Subtle borders between cells */
+}
+
+th {
+    background-color: #1f1f1f; /* Slightly darker header row */
+    color: #ffffff; /* Bright text for headers */
+    font-weight: bold; /* Emphasize header */
+    text-transform: uppercase; /* Optional: uppercase text */
+}
+
+tr:nth-child(odd) {
+    background-color: #252525; /* Alternating row background for readability */
+}
+
+tr:nth-child(even) {
+    background-color: #2e2e2e; /* Match main table background */
+}
+
+tr:hover {
+    background-color: #444; /* Highlight row on hover */
+    cursor: pointer; /* Indicate interactivity if applicable */
+}
+
+caption {
+    margin-bottom: 10px; /* Space below caption */
+    font-size: 1.25em; /* Larger, prominent font size */
+    color: #e0e0e0; /* Match table text color */
+    text-align: center; /* Center-align caption */
+}
+
+/* Optional: make table scrollable on smaller screens */
+.table-container {
+    overflow-x: auto;
+}
+
   

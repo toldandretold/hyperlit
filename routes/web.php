@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\HighlightController;
+use App\Http\Controllers\HighlightMdController;
 use App\Http\Controllers\HyperciteController;
 use App\Http\Controllers\TextController;
 use App\Http\Controllers\CiteCreator;
@@ -77,6 +78,8 @@ Route::post('/highlight/store', [HighlightController::class, 'store'])->name('hi
 Route::post('/highlight/delete', [HighlightController::class, 'deleteHighlight'])->name('highlight.delete');
 Route::post('/{book}/update-annotations', [HighlightController::class, 'updateAnnotations'])->name('highlight.update-annotations');
 Route::post('/{book}/mark-as-deleted', [HighlightController::class, 'markHighlightsAsDeleted'])->name('highlight.mark-as-deleted');
+
+Route::post('/highlight/custom-markdown', [HighlightMdController::class, 'store'])->name('highlight.store');
 
 
 

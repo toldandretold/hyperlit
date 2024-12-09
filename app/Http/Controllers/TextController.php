@@ -68,7 +68,7 @@ class TextController extends Controller
         }
 
         // Pass the HTML (either from file or generated) to the view
-        return view('hyperlightingM', [
+        return view('reader', [
             'html' => $html,
             'book' => $book,
         ]);

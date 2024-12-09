@@ -53,13 +53,14 @@
 
 @section('scripts')
 <script>
-    // Handle clicks on links inside the editable div
-    document.getElementById('html-editor').addEventListener('click', function(event) {
-        if (event.target.tagName === 'A') {
-            event.preventDefault();  // Prevent the editable div from taking over
-            window.open(event.target.href, '_blank');  // Open the link in a new tab
-        }
-    });
+   // Handle clicks on links inside the editable div
+document.getElementById('html-editor').addEventListener('click', function(event) {
+    if (event.target.tagName === 'A') {
+        event.preventDefault();  // Prevent default behavior
+        window.location.href = event.target.href;  // Navigate to the link in the same tab
+    }
+});
+
 
     // Redirect to the markdown version
     document.getElementById('markdown-link').addEventListener('click', function() {
