@@ -1,19 +1,8 @@
-> "University Press"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1733368356297)
-
-
-
----
-
-> "dominate in the twenty-first"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1733368874816)
-
-
-
----
-
 > "dominate"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733369787599)
+
+
+
 
 
 
@@ -24,10 +13,16 @@
 
 
 
+
+
+
 ---
 
 > "Press"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733374095969)
+
+
+
 
 
 
@@ -38,6 +33,9 @@
 
 
 
+
+
+
 ---
 
 > "development myth"
@@ -45,10 +43,96 @@
 
 
 
+
+
+
+---
+
+> "Notes"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733746860729)
+
+
+
+
+
+
+---
+
+> "Notes"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733746911467)
+
+
+
+
+
+
+---
+
+> "Notes"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733747552799)
+
+
+
+
+
+
+---
+
+> "This relates to the characteristic they have in common: being more developed than most other Third World capitals, yet remaining non-monopolistic in relation to imperialism"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733187334905)
+
+
+
+
+
+
 ---
 
 > "King"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733374778817)
+
+
+
+
+
+
+---
+
+> "Sam"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733747873289)
+
+
+
+
+
+
+---
+
+> "historical"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733747896377)
+
+
+
+
+
+
+---
+
+> "Their entry into the imperialist camp would not have been possible had they not been able to develop the type of parasitical relationship between themselves and China (and other Third World countries) that the rest of the imperialist states had already developed. To view these areas as a model for the development of the Third World more broadly misunderstands the type of development that has taken place. In short, they are now imperialist economies sitting within the top echelons of the global division of labour – though still below the leading imperialist societies like the United States, Germany and Japan."
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733187437618)
+
+
+Why doesn't this disprove Prashad's claim that there is no such thing as non-western imperialism. Why isn't this "sub-imperialism"?
+
+
+
+---
+
+> "page"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733786704721)
+
+
+
 
 
 
@@ -66,6 +150,16 @@ This, and other references to "sub-imperialism", depends on what is actually mea
 
 > "Recent studies by Marxist economists on international trade between imperialist economies and the rest show the huge and persistent transfer of value through ‘unequal exchange’ from the poor to the rich. And that includes China"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733183042339)
+
+
+
+
+
+
+---
+
+> "plot the"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733748354293)
 
 
 
@@ -116,6 +210,16 @@ change to: "the idea that the"
 
 > "For example, US socialists like Ashley Smith argue that China is ‘a new imperial power’"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733183456245)
+
+
+
+
+
+
+---
+
+> "Other"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733785918255)
 
 
 
@@ -296,38 +400,21 @@ On determinism.
 
 ---
 
+> "2"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733199038558)
+
+
+
+
+
+
+---
+
 > "Imperialism in the twenty-first century is expanding the army of its own gravediggers – the world working class – far beyond any it could have previously imagined."
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733185035400)
 
 
 
-
-
-
----
-
-> "This relates to the characteristic they have in common: being more developed than most other Third World capitals, yet remaining non-monopolistic in relation to imperialism"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1733187334905)
-
-
-
-
-
-
----
-
-> "Their entry into the imperialist camp would not have been possible had they not been able to develop the type of parasitical relationship between themselves and China (and other Third World countries) that the rest of the imperialist states had already developed. To view these areas as a model for the development of the Third World more broadly misunderstands the type of development that has taken place. In short, they are now imperialist economies sitting within the top echelons of the global division of labour – though still below the leading imperialist societies like the United States, Germany and Japan."
-> [↩](http://localhost:8000/king2021imperialism#user-name_1733187437618)
-
-
-Why doesn't this disprove Prashad's claim that there is no such thing as non-western imperialism. Why isn't this "sub-imperialism"?
-
-
-
----
-
-> "2"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1733199038558)
 
 
 
@@ -348,6 +435,9 @@ Lolz
 
 
 
+
+
+
 ---
 
 > "It is significant that the only large area of the Third World with exceptionally rapid development – China – is also where imperialism was politically defeated and expelled from the country."
@@ -355,10 +445,96 @@ Lolz
 
 
 
+
+
+
 ---
 
 > "These developmental exceptions form a ring around China’s eastern seaboard and were consciously developed with special assistance from the United States and Britain as bulwarks against communist expansion."
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733198823922)
+
+
+
+
+
+
+---
+
+> "the output of"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733788959965)
+
+
+
+
+
+
+---
+
+> "articles"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733789015562)
+
+
+
+
+
+
+---
+
+> "property"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733786996657)
+
+
+
+
+
+
+---
+
+> "includes"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733785934160)
+
+
+
+
+
+
+---
+
+> "here"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733786916596)
+
+
+
+
+
+
+---
+
+> "factors"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733785960419)
+
+
+
+
+
+
+---
+
+> "Craig"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733790885262)
+
+
+
+
+
+
+---
+
+> "Rise and Fall"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733786679816)
+
+
+
 
 
 
