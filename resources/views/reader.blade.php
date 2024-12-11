@@ -11,7 +11,8 @@
     /* Disable the native iOS menu */
     html, body, * {
         -webkit-touch-callout: none; /* Disable the callout menu */
-        -webkit-user-select: text;   /* Allow text selection */
+        -webkit-user-select: text;   /* Allow text selection */ 
+
     }
 
     #editButton
@@ -34,6 +35,21 @@
             background-color: #555; /* Slightly lighter on hover */
             box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3); /* Larger shadow on hover */
         }
+
+   
+
+  
+#main-content {
+    height: 90vh; /* Ensures a fixed height based on the viewport */
+    overflow-y: auto; /* Enable vertical scrolling */
+    overflow-x: hidden; /* Prevent horizontal scrolling */
+    padding: 1rem; /* Optional padding for better content appearance */
+    margin: 0 auto; /* Center the container horizontally, if needed */
+    box-sizing: border-box; /* Ensure padding is included in height calculation */
+}
+
+
+       
     </style>
 @endsection
 
@@ -77,189 +93,40 @@ let book = document.getElementById('main-content').getAttribute('data-book');
 // Make sure the book variable is available globally if needed
         window.book = book;
 
-document.addEventListener("DOMContentLoaded", function () {
-    const mainContentDiv = document.getElementById("main-content");
-    let markdownContent = mainContentDiv.textContent; // Raw Markdown content
-    const chunkSize = 100; // Number of lines to process per chunk
-    let targetLine = null; // Line number of the target id, if any
-    const processedChunks = new Set(); // To track already processed chunks
-    let currentRangeStart = null; // Tracks the upper bound of the current processing range
-    let currentRangeEnd = null; // Tracks the lower bound of the current processing range
-
-    if (!markdownContent) {
-        console.error("No Markdown content found.");
-        return;
-    }
-
-    console.log("Raw Markdown Content Loaded:", markdownContent);
-
-    // Utility: Extract target `id` from the URL
-    function getTargetIdFromUrl() {
-        return window.location.hash ? window.location.hash.substring(1) : null;
-    }
-
-    // Utility: Find the line number of a unique id in the Markdown
-    function findLineForId(markdown, id) {
-        const lines = markdown.split("\n");
-        for (let i = 0; i < lines.length; i++) {
-            if (lines[i].includes(`id="${id}"`)) {
-                return i; // Return the line number where the id is found
-            }
-        }
-        return null; // Return null if the id is not found
-    }
-
-    function processRange(startLine, endLine, initial = false, direction = "downward") {
-    const lines = markdownContent.split("\n").slice(startLine, endLine);
-
-    // Debugging: Log the Markdown content being processed
-    console.log(`Processing Markdown lines ${startLine}-${endLine}:`, lines);
-
-    const chunk = lines.join("\n");
-    const startIndex = startLine; // Use the actual starting line number
-    const processedHtml = convertMarkdownToHtmlWithIds(chunk, startIndex); // Pass the offset
-
-    if (!processedHtml) {
-        console.error(`Failed to process lines ${startLine}-${endLine}.`);
-        return false;
-    }
-
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = processedHtml;
-
-    // Insert content based on the processing direction
-    if (initial) {
-        mainContentDiv.textContent = ""; // Clear raw Markdown content for the first chunk
-    }
-
-    if (direction === "upward") {
-        // Insert content at the beginning of the mainContentDiv
-        mainContentDiv.insertBefore(tempDiv, mainContentDiv.firstChild);
-    } else {
-        // Append content for downward or initial processing
-        mainContentDiv.appendChild(tempDiv);
-    }
-
-    console.log(`Lines ${startLine}-${endLine} successfully ${direction === "upward" ? "prepended" : "appended"} to DOM.`);
-
-    // Reattach listeners to newly added <mark> tags
-    attachMarkListeners();
-
-    // Track the chunk as processed
-    processedChunks.add(`${startLine}-${endLine}`);
-    console.log("Processed chunks so far:", Array.from(processedChunks));
-
-    return true;
-}
-
-
-
-    function processNextRange() {
-    const totalLines = markdownContent.split("\n").length;
-
-    // Expand the range upward
-    if (currentRangeStart > 0) {
-        const newStart = Math.max(0, currentRangeStart - chunkSize);
-        if (!processedChunks.has(`${newStart}-${currentRangeStart}`)) {
-            console.log(`Processing upward chunk: ${newStart}-${currentRangeStart}`);
-            processRange(newStart, currentRangeStart, false, "upward");
-        } else {
-            console.log(`Upward chunk ${newStart}-${currentRangeStart} already processed.`);
-        }
-        currentRangeStart = newStart;
-    }
-
-    // Expand the range downward
-    if (currentRangeEnd < totalLines) {
-        const newEnd = Math.min(totalLines, currentRangeEnd + chunkSize);
-        if (!processedChunks.has(`${currentRangeEnd}-${newEnd}`)) {
-            console.log(`Processing downward chunk: ${currentRangeEnd}-${newEnd}`);
-            processRange(currentRangeEnd, newEnd, false, "downward");
-        } else {
-            console.log(`Downward chunk ${currentRangeEnd}-${newEnd} already processed.`);
-        }
-        currentRangeEnd = newEnd;
-    }
-
-    // Stop when the entire file is processed
-    if (currentRangeStart <= 0 && currentRangeEnd >= totalLines) {
-        console.log("Entire file processed.");
-        return;
-    }
-
-    // Schedule the next range processing
-    setTimeout(processNextRange, 50);
-}
-
-
-
-    // Handle prioritization of the target section if applicable
-    const targetId = getTargetIdFromUrl();
-    if (targetId) {
-        console.log(`Navigating to target id: ${targetId}`);
-        targetLine = findLineForId(markdownContent, targetId);
-        if (targetLine !== null) {
-            console.log(`Found target id at line: ${targetLine}`);
-
-            // Process lines around the target line (±50 lines for context)
-            const startLine = Math.max(0, targetLine - 50);
-            const endLine = Math.min(markdownContent.split("\n").length, targetLine + 50);
-            processRange(startLine, endLine, true);
-
-            // Initialize the range for upward and downward processing
-            currentRangeStart = startLine;
-            currentRangeEnd = endLine;
-
-            // Scroll to the target id
-            setTimeout(() => {
-                const targetElement = document.getElementById(targetId);
-                if (targetElement) {
-                    targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-                } else {
-                    console.warn(`Target element with id "${targetId}" not found.`);
-                }
-            }, 100);
-        } else {
-            console.warn(`Target id "${targetId}" not found in Markdown.`);
-        }
-    } else {
-        console.log("No target id provided. Reverting to default progressive rendering.");
-        currentRangeStart = 0;
-        currentRangeEnd = chunkSize;
-        processRange(0, chunkSize, true); // Process the first chunk immediately
-    }
-
-    // Start progressive range processing
-    setTimeout(processNextRange, 50);
-
+// Function to attach listeners to <mark> tags
     // Function to attach listeners to <mark> tags
-    function attachMarkListeners() {
-        const markTags = document.querySelectorAll("mark");
+function attachMarkListeners() {
+    // Select only <mark> tags that do not already have a listener attached
+    const markTags = document.querySelectorAll("mark:not([data-listener-attached])");
 
-        markTags.forEach(function (mark) {
-            const highlightId = mark.getAttribute("class");
+    markTags.forEach(function (mark) {
+        const highlightId = mark.getAttribute("id"); // Ensure we're getting the correct ID for the highlight
 
-            if (highlightId && !mark.dataset.listenerAttached) {
-                mark.dataset.listenerAttached = true; // Avoid attaching multiple listeners
-                mark.addEventListener("click", function () {
-                    window.location.href = `/${book}/hyperlights#${highlightId}`;
-                });
+        if (highlightId) {
+            mark.dataset.listenerAttached = true; // Mark this <mark> tag to avoid duplicate listeners
 
-                mark.style.cursor = "pointer";
+            // Add click event listener to navigate to the highlight
+            mark.addEventListener("click", function () {
+                window.location.href = `/${book}/hyperlights#${highlightId}`;
+            });
 
-                mark.addEventListener("mouseover", function () {
-                    mark.style.textDecoration = "underline";
-                });
-                mark.addEventListener("mouseout", function () {
-                    mark.style.textDecoration = "none";
-                });
-            }
-        });
-        console.log("Mark listeners attached.");
-    }
-});
+            // Set cursor style for hover effect
+            mark.style.cursor = "pointer";
 
+            // Add mouseover effect for underline
+            mark.addEventListener("mouseover", function () {
+                mark.style.textDecoration = "underline";
+            });
 
+            // Remove underline on mouseout
+            mark.addEventListener("mouseout", function () {
+                mark.style.textDecoration = "none";
+            });
+        }
+    });
+
+    console.log(`Mark listeners attached to ${markTags.length} new <mark> tags.`);
+}
 
 // Function to convert Markdown to HTML with IDs and inline parsing
 function convertMarkdownToHtmlWithIds(markdown, offset = 0) {
@@ -296,23 +163,239 @@ function convertMarkdownToHtmlWithIds(markdown, offset = 0) {
     return htmlOutput;
 }
 
-
 // Function to parse inline Markdown for italics, bold, and inline code
 function parseInlineMarkdown(text) {
-    // Remove escape characters before processing
-    text = text.replace(/\\([`*_{}\[\]()#+.!-])/g, "$1");
-
-    // Convert **bold** to <strong>
-    text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-
-    // Convert *italic* to <em>
-    text = text.replace(/\*([^*]+)\*/g, "<em>$1</em>");
-
-    // Convert `code` to <code>
-    text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
-
+    text = text.replace(/\\([`*_{}\[\]()#+.!-])/g, "$1"); // Remove escape characters before processing
+    text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>"); // Convert **bold** to <strong>
+    text = text.replace(/\*([^*]+)\*/g, "<em>$1</em>"); // Convert *italic* to <em>
+    text = text.replace(/`([^`]+)`/g, "<code>$1</code>"); // Convert `code` to <code>
     return text;
 }
+
+
+
+
+document.addEventListener("DOMContentLoaded", function () {
+    const mainContentDiv = document.getElementById("main-content");
+    let markdownContent = mainContentDiv.textContent; // Raw Markdown content
+    const chunkSize = 100; // Number of lines to process per chunk
+    const processedChunks = new Set(); // Track processed chunks
+    const lastVisitedKey = "last-visited-id"; // Key for session storage
+    let currentRangeStart = 0;
+    let currentRangeEnd = 0;
+    let isLazyLoadSetup = false; // Flag to avoid duplicate setup
+
+    if (!markdownContent) {
+        console.error("No Markdown content found.");
+        return;
+    }
+
+    console.log("Raw Markdown Content Loaded.");
+
+    // Utility: Extract target `id` from the URL
+    function getTargetIdFromUrl() {
+        return window.location.hash ? window.location.hash.substring(1) : null;
+    }
+
+    // Utility: Check if an ID is numerical
+    function isNumericId(id) {
+        return /^\d+$/.test(id);
+    }
+
+    // Utility: Find a line for a numerical ID
+    function findLineForNumericId(lineNumber, markdown) {
+        const totalLines = markdown.split("\n").length;
+        return Math.max(0, Math.min(lineNumber, totalLines - 1));
+    }
+
+    // Utility: Find the line number of a unique `id` in the Markdown
+    function findLineForId(markdown, id) {
+        const lines = markdown.split("\n");
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].includes(`id="${id}"`)) {
+                return i; // Return the line number where the `id` is found
+            }
+        }
+        return null; // Return null if the `id` is not found
+    }
+
+    // Utility: Process and render a range of Markdown lines
+    function processRange(startLine, endLine, isInitial = false, direction = "downward") {
+        const lines = markdownContent.split("\n").slice(startLine, endLine);
+        const chunk = lines.join("\n");
+        const processedHtml = convertMarkdownToHtmlWithIds(chunk, startLine); // Pass the offset
+
+        if (!processedHtml) {
+            console.error(`Failed to process lines ${startLine}-${endLine}.`);
+            return false;
+        }
+
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = processedHtml;
+
+        if (isInitial) {
+            mainContentDiv.innerHTML = ""; // Clear raw Markdown content for the initial render
+        }
+
+        // Append or prepend the content based on direction
+        if (direction === "upward") {
+            mainContentDiv.insertBefore(tempDiv, mainContentDiv.firstChild);
+        } else {
+            mainContentDiv.appendChild(tempDiv);
+        }
+
+        processedChunks.add(`${startLine}-${endLine}`);
+        attachMarkListeners(); // Ensure listeners are attached to newly added content
+        console.log(`Processed lines ${startLine}-${endLine}.`);
+        return true;
+    }
+
+    // Step 1: Handle navigation and fallback logic
+    function handleNavigation() {
+        const targetId = getTargetIdFromUrl();
+        let targetLine = null;
+
+        if (targetId) {
+            console.log(`Navigating to target ID: ${targetId}`);
+            if (isNumericId(targetId)) {
+                // Handle numerical ID as line number
+                targetLine = findLineForNumericId(parseInt(targetId, 10), markdownContent);
+                console.log(`Target ID "${targetId}" treated as line number: ${targetLine}`);
+            } else {
+                // Handle non-numerical ID
+                targetLine = findLineForId(markdownContent, targetId);
+                if (targetLine === null) {
+                    console.warn(`Target ID "${targetId}" not found in Markdown.`);
+                }
+            }
+        }
+
+        if (targetLine === null) {
+            // Fallback to browser memory
+            const lastVisitedId = sessionStorage.getItem(lastVisitedKey);
+            if (lastVisitedId) {
+                console.log(`Falling back to last visited ID: ${lastVisitedId}`);
+                targetLine = isNumericId(lastVisitedId)
+                    ? findLineForNumericId(parseInt(lastVisitedId, 10), markdownContent)
+                    : findLineForId(markdownContent, lastVisitedId);
+            }
+        }
+
+        if (targetLine === null) {
+            console.log("No valid target ID. Defaulting to top of the page.");
+            targetLine = 0;
+        }
+
+        // Navigate to the target line
+        processAndNavigate(targetLine);
+    }
+
+    // Process and navigate to a line
+    function processAndNavigate(targetLine) {
+        const startLine = Math.max(0, targetLine - 50);
+        const endLine = Math.min(markdownContent.split("\n").length, targetLine + 50);
+
+        processRange(startLine, endLine, true, "downward");
+        attachMarkListeners();
+
+        // Ensure upward content is also loaded if near the top
+        if (startLine > 0) {
+            const newStart = Math.max(0, startLine - chunkSize);
+            processRange(newStart, startLine, false, "upward");
+        }
+
+        setTimeout(() => {
+            const targetId = getTargetIdFromUrl();
+            const targetElement = document.getElementById(targetId);
+            if (targetElement) {
+                targetElement.scrollIntoView({ block: "start" });
+                console.log(`Scrolled to target ID: ${targetId}`);
+            } else {
+                console.warn(`Unable to navigate directly to target ID.`);
+            }
+        }, 100);
+    }
+
+
+        // Step 2: Setup lazy loading
+        function setupLazyLoad() {
+            if (isLazyLoadSetup) return; // Prevent duplicate setup
+            isLazyLoadSetup = true;
+
+            let isScrolling = false;
+
+            function lazyLoadOnScroll() {
+    if (isScrolling) return; // Prevent overlapping executions
+    isScrolling = true;
+
+    setTimeout(() => {
+        const totalLines = markdownContent.split("\n").length;
+
+        const scrollTop = mainContentDiv.scrollTop;
+        const scrollHeight = mainContentDiv.scrollHeight;
+        const clientHeight = mainContentDiv.clientHeight;
+
+        console.log({
+            scrollTop,
+            clientHeight,
+            scrollHeight,
+        });
+
+        // Lazy load upward
+        if (scrollTop <= 100 && currentRangeStart > 0) { // Increased threshold for better triggering
+            console.log("Lazy loading upward...");
+            const newStart = Math.max(0, currentRangeStart - chunkSize);
+            const previousHeight = mainContentDiv.scrollHeight; // Capture current height before prepending
+
+            if (!processedChunks.has(`${newStart}-${currentRangeStart}`)) {
+                processRange(newStart, currentRangeStart, false, "upward");
+                const newHeight = mainContentDiv.scrollHeight; // Calculate new height after prepending
+                mainContentDiv.scrollTop += newHeight - previousHeight; // Adjust scrollTop to maintain position
+                console.log({
+                    previousHeight,
+                    newHeight,
+                    adjustedScrollTop: mainContentDiv.scrollTop,
+                });
+            }
+            currentRangeStart = newStart;
+        }
+
+        // Lazy load downward
+        if (scrollTop + clientHeight >= scrollHeight - 50 && currentRangeEnd < totalLines) {
+            console.log("Lazy loading downward...");
+            const newEnd = Math.min(totalLines, currentRangeEnd + chunkSize);
+            if (!processedChunks.has(`${currentRangeEnd}-${newEnd}`)) {
+                processRange(currentRangeEnd, newEnd, false, "downward");
+            }
+            currentRangeEnd = newEnd;
+        }
+
+        isScrolling = false; // Reset the flag
+    }, 100); // Debounce
+}
+
+
+
+        mainContentDiv.addEventListener("scroll", lazyLoadOnScroll);
+        console.log("Lazy loading setup complete.");
+    }
+
+    // Initialize navigation and lazy loading
+    handleNavigation();
+    setupLazyLoad();
+
+    // Step 3: Update browser memory with the last visible ID
+    window.addEventListener("scroll", () => {
+        const elementInView = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+        if (elementInView && elementInView.id) {
+            sessionStorage.setItem(lastVisitedKey, elementInView.id);
+            console.log(`Updated last visited ID: ${elementInView.id}`);
+        }
+    });
+});
+
+
+
 
    
 
@@ -460,6 +543,10 @@ addTouchAndClickListener(document.getElementById('copy-hyperlight'), function ()
             mark.classList.remove('highlight'); // Remove the class if not needed
         });
     }
+
+    console.log("New highlight mark created with ID:", highlightId);
+
+    attachMarkListeners(); // Attach listeners to new highlights
 
     // Find the closest block-level elements containing the start and end of the highlight
     let startContainer = range.startContainer.parentElement.closest('[id]');
@@ -636,166 +723,6 @@ addTouchAndClickListener(document.getElementById('delete-hyperlight'), function(
 
 
   
-
-
-
-// HYPERCITE[:]
-// Function to generate a unique hyper-cite ID
-function generateHyperciteID() {
-    return 'hypercite_' + Math.random().toString(36).substring(2, 9); // Unique ID generation
-}
-
-// Fallback copy function: Standard copy if HTML format isn't supported
-function fallbackCopyText(text) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-        document.execCommand('copy');  // Fallback copy for plain text
-    } catch (err) {
-        console.error('Fallback: Unable to copy text', err);
-    }
-    document.body.removeChild(textArea);
-}
-
-// Function to wrap selected text with <u> tag in the DOM
-function wrapSelectedTextInDOM(hyperciteId) {
-    const selection = window.getSelection();
-    const range = selection.getRangeAt(0);
-    
-    // Create a <u> element with the hypercite_id
-    const wrapper = document.createElement('u');
-    wrapper.setAttribute('id', hyperciteId);
-
-    // Wrap the selected text in the <u> tag
-    range.surroundContents(wrapper);
-    
-    // Clear the selection after modifying the DOM
-    selection.removeAllRanges();
-
-    // Capture the HTML content inside the #main-content div
-    const updatedHTML = document.getElementById('main-content').innerHTML;
-    console.log('Captured updatedHTML:', updatedHTML);
-
-    // Send the updated HTML to the server for saving
-    saveUpdatedHTMLToFile(updatedHTML, book);
-
-    
-}
-
-
-
-function saveUpdatedHTMLToFile(updatedHTML, book) {
-    try {
-        // Validate JSON format
-        const jsonPayload = JSON.stringify({ html: updatedHTML });
-        
-        // Send the request
-        fetch(`/save-updated-html/${book}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            },
-            body: jsonPayload
-        })
-        .then(response => response.text())
-        .then(text => {
-            console.log('Raw server response:', text); // Log raw text to identify issues
-            const data = JSON.parse(text); // Attempt to parse as JSON
-            if (data.success) {
-                console.log('HTML saved successfully');
-            } else {
-                console.error('Error saving HTML:', data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error saving HTML:', error);
-        });
-    } catch (error) {
-        console.error('Invalid JSON structure:', error);
-    }
-}
-
-
-
-
-document.addEventListener('copy', (event) => {
-    const selection = window.getSelection();
-
-    if (selection.rangeCount === 0) {
-        return; // Do nothing if no text is selected
-    }
-
-    // Generate a unique hyper-cite ID for the copied text
-    const hyperciteId = generateHyperciteID();
-
-    // Get the current page URL without any existing hash
-    const baseUrl = window.location.href.split('#')[0];
-    const href = `${baseUrl}#${hyperciteId}`;
-
-    // Clone the HTML structure of the selected content
-    const range = selection.getRangeAt(0).cloneContents();
-    const div = document.createElement('div');
-    div.appendChild(range);
-    const selectedHtml = div.innerHTML;  // Original HTML with styles intact
-    const selectedText = selection.toString(); // Plain text version of selected content
-
-    // Add the hyperlink at the end of the selected HTML content
-    const clipboardHtml = `'${selectedHtml}'<a href="${href}">[:]</a>`;
-    const clipboardText = `'${selectedText}'[[:]](${href})`;
-
-    // Set clipboard data
-    event.clipboardData.setData('text/html', clipboardHtml);
-    event.clipboardData.setData('text/plain', clipboardText);
-    event.preventDefault(); // Prevent default copy behavior
-
-    // Wrap the selected text with <u> tags in the HTML page only
-    wrapSelectedTextInDOM(hyperciteId);
-
-    // Save the hypercite data to the server, including the href
-    saveHyperciteData(book, hyperciteId, selectedText, href);
-});
-
-
-
-
-// Function to save hypercite data to the server, including citation_id-a and href-a
-function saveHyperciteData(citation_id_a, hypercite_id, hypercited_text, href_a) {
-    fetch(`/save-hypercite`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-        },
-        body: JSON.stringify({
-            citation_id_a: citation_id_a, // Use the updated column name
-            hypercite_id: hypercite_id,
-            hypercited_text: hypercited_text,
-            href_a: href_a // Use the updated column name
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log('Hypercite data saved successfully');
-        } else {
-            console.error('Error saving hypercite data:', data.error);
-        }
-    })
-    .catch(error => {
-        console.error('Error saving hypercite data:', error);
-    });
-}
-
-
-
-
-
-
-
 
 
 
