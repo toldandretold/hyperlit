@@ -78,31 +78,43 @@
 
 ---
 
-> "This relates to the characteristic they have in common: being more developed than most other Third World capitals, yet remaining non-monopolistic in relation to imperialism"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1733187334905)
-
-
-
-
-
-
----
-
-> "King"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1733374778817)
-
-
-
+> "A"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734052056175)
 
 
 
 ---
 
-> "Sam"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1733747873289)
+> "I"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734052111873)
 
 
 
+---
+
+> "It is"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734052138909)
+
+
+
+---
+
+> "since"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734053279591)
+
+
+
+---
+
+> "Mancheste"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734052246169)
+
+
+
+---
+
+> "University"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734053161163)
 
 
 
@@ -412,6 +424,16 @@ On determinism.
 
 > "Imperialism in the twenty-first century is expanding the army of its own gravediggers – the world working class – far beyond any it could have previously imagined."
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733185035400)
+
+
+
+
+
+
+---
+
+> "This relates to the characteristic they have in common: being more developed than most other Third World capitals, yet remaining non-monopolistic in relation to imperialism"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733187334905)
 
 
 

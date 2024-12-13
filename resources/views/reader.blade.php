@@ -132,25 +132,67 @@ function attachMarkListeners() {
 function convertMarkdownToHtmlWithIds(markdown, offset = 0) {
     const lines = markdown.split("\n"); // Split Markdown into lines
     let htmlOutput = "";
+    let insideBlockquote = false;
+    let currentBlockquote = "";
 
     lines.forEach((line, index) => {
         const trimmedLine = line.trim();
 
-        if (!trimmedLine) return; // Skip empty lines
+        // Skip lines that are completely empty (no content, no `>`)
+        if (!trimmedLine && !insideBlockquote) return;
 
         const absoluteIndex = index + offset; // Add the offset to get the correct ID
 
         // Handle block-level Markdown elements
         if (trimmedLine.startsWith("# ")) {
+            // Close blockquote if needed
+            if (insideBlockquote) {
+                htmlOutput += currentBlockquote + "</blockquote>\n";
+                insideBlockquote = false;
+                currentBlockquote = "";
+            }
             htmlOutput += `<h1 id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^# /, ""))}</h1>\n`;
         } else if (trimmedLine.startsWith("## ")) {
+            if (insideBlockquote) {
+                htmlOutput += currentBlockquote + "</blockquote>\n";
+                insideBlockquote = false;
+                currentBlockquote = "";
+            }
             htmlOutput += `<h2 id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^## /, ""))}</h2>\n`;
         } else if (trimmedLine.startsWith("### ")) {
+            if (insideBlockquote) {
+                htmlOutput += currentBlockquote + "</blockquote>\n";
+                insideBlockquote = false;
+                currentBlockquote = "";
+            }
             htmlOutput += `<h3 id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^### /, ""))}</h3>\n`;
         } else if (trimmedLine.startsWith("#### ")) {
+            if (insideBlockquote) {
+                htmlOutput += currentBlockquote + "</blockquote>\n";
+                insideBlockquote = false;
+                currentBlockquote = "";
+            }
             htmlOutput += `<h4 id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^#### /, ""))}</h4>\n`;
-        } else if (trimmedLine.startsWith("> ")) {
-            htmlOutput += `<blockquote id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^> /, ""))}</blockquote>\n`;
+        } else if (trimmedLine.startsWith(">")) {
+            // Start a new blockquote if not already inside one
+            if (!insideBlockquote) {
+                insideBlockquote = true;
+                currentBlockquote = `<blockquote id="${absoluteIndex}">`;
+            }
+            // Check for blank blockquote line (`>` or `> `)
+            if (trimmedLine === ">" || trimmedLine === "> ") {
+                currentBlockquote += `<p></p>`;
+            } else {
+                // Add the current line to the blockquote, wrapped in <p> tags
+                currentBlockquote += `<p>${parseInlineMarkdown(trimmedLine.replace(/^> /, "").trim())}</p>`;
+            }
+        } else if (insideBlockquote) {
+            // Close the blockquote when encountering a non-blockquote line
+            htmlOutput += currentBlockquote + "</blockquote>\n";
+            insideBlockquote = false;
+            currentBlockquote = "";
+            // Process the current non-blockquote line
+            htmlOutput += `<p id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine)}</p>\n`;
         } else if (trimmedLine.startsWith("- ") || trimmedLine.match(/^\d+\. /)) {
             // Handle lists (unordered or ordered)
             htmlOutput += `<li id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^[-\d\. ]+/, ""))}</li>\n`;
@@ -160,8 +202,16 @@ function convertMarkdownToHtmlWithIds(markdown, offset = 0) {
         }
     });
 
+    // Ensure any remaining open blockquote is closed at the end
+    if (insideBlockquote) {
+        htmlOutput += currentBlockquote + "</blockquote>\n";
+        insideBlockquote = false;
+    }
+
     return htmlOutput;
 }
+
+
 
 // Function to parse inline Markdown for italics, bold, and inline code
 function parseInlineMarkdown(text) {
@@ -221,9 +271,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Utility: Process and render a range of Markdown lines
     function processRange(startLine, endLine, isInitial = false, direction = "downward") {
+        if (processedChunks.has(`${startLine}-${endLine}`)) {
+            console.log(`Skipping already processed range: ${startLine}-${endLine}`);
+            return false;
+        }
+
         const lines = markdownContent.split("\n").slice(startLine, endLine);
         const chunk = lines.join("\n");
-        const processedHtml = convertMarkdownToHtmlWithIds(chunk, startLine); // Pass the offset
+        const processedHtml = convertMarkdownToHtmlWithIds(chunk, startLine);
 
         if (!processedHtml) {
             console.error(`Failed to process lines ${startLine}-${endLine}.`);
@@ -237,7 +292,6 @@ document.addEventListener("DOMContentLoaded", function () {
             mainContentDiv.innerHTML = ""; // Clear raw Markdown content for the initial render
         }
 
-        // Append or prepend the content based on direction
         if (direction === "upward") {
             mainContentDiv.insertBefore(tempDiv, mainContentDiv.firstChild);
         } else {
@@ -250,7 +304,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return true;
     }
 
-    // Step 1: Handle navigation and fallback logic
+    // Handle navigation to specific ID or position
     function handleNavigation() {
         const targetId = getTargetIdFromUrl();
         let targetLine = null;
@@ -258,11 +312,8 @@ document.addEventListener("DOMContentLoaded", function () {
         if (targetId) {
             console.log(`Navigating to target ID: ${targetId}`);
             if (isNumericId(targetId)) {
-                // Handle numerical ID as line number
                 targetLine = findLineForNumericId(parseInt(targetId, 10), markdownContent);
-                console.log(`Target ID "${targetId}" treated as line number: ${targetLine}`);
             } else {
-                // Handle non-numerical ID
                 targetLine = findLineForId(markdownContent, targetId);
                 if (targetLine === null) {
                     console.warn(`Target ID "${targetId}" not found in Markdown.`);
@@ -286,105 +337,83 @@ document.addEventListener("DOMContentLoaded", function () {
             targetLine = 0;
         }
 
-        // Navigate to the target line
-        processAndNavigate(targetLine);
-    }
-
-    // Process and navigate to a line
-    function processAndNavigate(targetLine) {
         const startLine = Math.max(0, targetLine - 50);
         const endLine = Math.min(markdownContent.split("\n").length, targetLine + 50);
 
         processRange(startLine, endLine, true, "downward");
-        attachMarkListeners();
 
-        // Ensure upward content is also loaded if near the top
-        if (startLine > 0) {
-            const newStart = Math.max(0, startLine - chunkSize);
-            processRange(newStart, startLine, false, "upward");
-        }
+        currentRangeStart = startLine;
+        currentRangeEnd = endLine;
 
         setTimeout(() => {
-            const targetId = getTargetIdFromUrl();
             const targetElement = document.getElementById(targetId);
             if (targetElement) {
                 targetElement.scrollIntoView({ block: "start" });
                 console.log(`Scrolled to target ID: ${targetId}`);
-            } else {
-                console.warn(`Unable to navigate directly to target ID.`);
             }
         }, 100);
     }
 
+    // Lazy loading setup
+    function setupLazyLoad() {
+    if (isLazyLoadSetup) return;
+    isLazyLoadSetup = true;
 
-        // Step 2: Setup lazy loading
-        function setupLazyLoad() {
-            if (isLazyLoadSetup) return; // Prevent duplicate setup
-            isLazyLoadSetup = true;
+    let isScrolling = false;
 
-            let isScrolling = false;
+    function lazyLoadOnScroll() {
+        if (isScrolling) return;
+        isScrolling = true;
 
-            function lazyLoadOnScroll() {
-    if (isScrolling) return; // Prevent overlapping executions
-    isScrolling = true;
+        setTimeout(() => {
+            const totalLines = markdownContent.split("\n").length;
 
-    setTimeout(() => {
-        const totalLines = markdownContent.split("\n").length;
+            const scrollTop = mainContentDiv.scrollTop;
+            const scrollHeight = mainContentDiv.scrollHeight;
+            const clientHeight = mainContentDiv.clientHeight;
 
-        const scrollTop = mainContentDiv.scrollTop;
-        const scrollHeight = mainContentDiv.scrollHeight;
-        const clientHeight = mainContentDiv.clientHeight;
+            // Lazy load upward
+            if (scrollTop <= 100 && currentRangeStart > 0) {
+                console.log("Lazy loading upward...");
+                const newStart = Math.max(0, currentRangeStart - chunkSize);
+                if (!processedChunks.has(`${newStart}-${currentRangeStart}`)) {
+                    const previousHeight = mainContentDiv.scrollHeight; // Capture current height before prepending
 
-        console.log({
-            scrollTop,
-            clientHeight,
-            scrollHeight,
-        });
+                    processRange(newStart, currentRangeStart, false, "upward");
 
-        // Lazy load upward
-        if (scrollTop <= 100 && currentRangeStart > 0) { // Increased threshold for better triggering
-            console.log("Lazy loading upward...");
-            const newStart = Math.max(0, currentRangeStart - chunkSize);
-            const previousHeight = mainContentDiv.scrollHeight; // Capture current height before prepending
+                    const newHeight = mainContentDiv.scrollHeight; // Calculate new height after prepending
+                    const heightDifference = newHeight - previousHeight;
 
-            if (!processedChunks.has(`${newStart}-${currentRangeStart}`)) {
-                processRange(newStart, currentRangeStart, false, "upward");
-                const newHeight = mainContentDiv.scrollHeight; // Calculate new height after prepending
-                mainContentDiv.scrollTop += newHeight - previousHeight; // Adjust scrollTop to maintain position
-                console.log({
-                    previousHeight,
-                    newHeight,
-                    adjustedScrollTop: mainContentDiv.scrollTop,
-                });
+                    mainContentDiv.scrollTop += heightDifference; // Adjust scrollTop to maintain position
+                    console.log({
+                        previousHeight,
+                        newHeight,
+                        adjustedScrollTop: mainContentDiv.scrollTop,
+                    });
+
+                    currentRangeStart = newStart;
+                }
             }
-            currentRangeStart = newStart;
-        }
 
-        // Lazy load downward
-        if (scrollTop + clientHeight >= scrollHeight - 50 && currentRangeEnd < totalLines) {
-            console.log("Lazy loading downward...");
-            const newEnd = Math.min(totalLines, currentRangeEnd + chunkSize);
-            if (!processedChunks.has(`${currentRangeEnd}-${newEnd}`)) {
-                processRange(currentRangeEnd, newEnd, false, "downward");
+            // Lazy load downward
+            if (scrollTop + clientHeight >= scrollHeight - 50 && currentRangeEnd < totalLines) {
+                console.log("Lazy loading downward...");
+                const newEnd = Math.min(totalLines, currentRangeEnd + chunkSize);
+                if (!processedChunks.has(`${currentRangeEnd}-${newEnd}`)) {
+                    processRange(currentRangeEnd, newEnd, false, "downward");
+                    currentRangeEnd = newEnd;
+                }
             }
-            currentRangeEnd = newEnd;
-        }
 
-        isScrolling = false; // Reset the flag
-    }, 100); // Debounce
+            isScrolling = false;
+        }, 100);
+    }
+
+    mainContentDiv.addEventListener("scroll", lazyLoadOnScroll);
 }
 
 
-
-        mainContentDiv.addEventListener("scroll", lazyLoadOnScroll);
-        console.log("Lazy loading setup complete.");
-    }
-
-    // Initialize navigation and lazy loading
-    handleNavigation();
-    setupLazyLoad();
-
-    // Step 3: Update browser memory with the last visible ID
+    // Track last visible ID for refresh
     window.addEventListener("scroll", () => {
         const elementInView = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
         if (elementInView && elementInView.id) {
@@ -392,7 +421,11 @@ document.addEventListener("DOMContentLoaded", function () {
             console.log(`Updated last visited ID: ${elementInView.id}`);
         }
     });
+
+    handleNavigation();
+    setupLazyLoad();
 });
+
 
 
 
@@ -606,6 +639,7 @@ addTouchAndClickListener(document.getElementById('copy-hyperlight'), function ()
 
 
     // Function to handle deleting a highlight
+// Function to handle deleting a highlight
 addTouchAndClickListener(document.getElementById('delete-hyperlight'), function(event) {
     event.preventDefault();
     console.log("Delete button clicked.");
@@ -619,53 +653,83 @@ addTouchAndClickListener(document.getElementById('delete-hyperlight'), function(
     }
 
     let removedHighlightIds = [];
+    let blockIds = [];
 
+    // Select all `mark` elements in the document
     const allMarks = document.querySelectorAll('mark');
-    allMarks.forEach(function(mark) {
-        let markText = mark.textContent.trim();
 
-        if (selectedText.includes(markText)) {
-            if (mark.hasAttribute('id')) {
-                let highlightId = mark.getAttribute('id');
-                removedHighlightIds.push(highlightId);
-                console.log("Mark with ID to be deleted:", highlightId);  // Log for clarity
-            }
+    // Inside the delete highlight logic
+    allMarks.forEach(function (mark) {
+    let markText = mark.textContent.trim();
 
-            let parentAnchor = mark.closest('a');
-            if (parentAnchor) {
-                let parent = parentAnchor.parentNode;
-                parent.replaceChild(document.createTextNode(mark.textContent), parentAnchor);
-            } else {
-                let parent = mark.parentNode;
-                parent.replaceChild(document.createTextNode(mark.textContent), mark);
+    if (selectedText.includes(markText)) {
+        if (mark.hasAttribute('id')) {
+            let highlightId = mark.getAttribute('id');
+            removedHighlightIds.push(highlightId);
+            console.log("Mark with ID to be deleted:", highlightId);
+        }
+
+        // Use the new function to find the nearest parent with a numerical ID
+        let blockId = findParentWithNumericalId(mark);
+        if (blockId) {
+            blockIds.push(blockId);
+            console.log("Found numerical block ID:", blockId);
+        } else {
+            console.warn("No numerical block ID found for mark:", mark);
+        }
+
+        // Remove the highlight mark
+        let parentAnchor = mark.closest('a');
+        if (parentAnchor) {
+            let parent = parentAnchor.parentNode;
+            parent.replaceChild(document.createTextNode(mark.textContent), parentAnchor);
+        } else {
+            let parent = mark.parentNode;
+            parent.replaceChild(document.createTextNode(mark.textContent), mark);
+        }
+    }
+     attachMarkListeners();
+});
+
+
+// Find the nearest ancestor with a numerical ID
+function findParentWithNumericalId(element) {
+    let current = element; // Start from the given element
+    while (current) {
+        if (current.hasAttribute('id')) {
+            let blockId = current.getAttribute('id');
+            if (!isNaN(blockId)) {
+                return blockId; // Found a numerical ID, return it
             }
         }
-    });
+        current = current.parentElement; // Move to the next parent
+    }
+    return null; // No numerical ID found in the hierarchy
+}
 
     console.log("Removed highlight IDs:", removedHighlightIds);
+    console.log("Affected block IDs:", blockIds);
 
-    // Ensure that highlight IDs are always sent as an array
     if (removedHighlightIds.length > 0) {
-        let updatedHtml = document.getElementById('main-content').innerHTML;
         let book = document.getElementById('main-content').getAttribute('data-book');
 
-        // Send the removed IDs as an array, even if there’s only one highlight ID
-        fetch('/highlight/delete', {
+        // Send the removed IDs and block IDs to the backend
+        fetch('/highlight/custom-markdown-delete', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
             },
             body: JSON.stringify({
-                highlight_ids: removedHighlightIds, // Ensure this is an array
-                updated_html: updatedHtml,
-                book: book
+                highlight_ids: removedHighlightIds, // IDs of highlights to delete
+                block_ids: blockIds,               // IDs of affected block-level elements
+                book: book                         // Book identifier
             })
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                console.log('Highlights deleted and HTML updated');
+                console.log('Highlights deleted and HTML updated.');
             } else {
                 console.error('Error from server:', data.message);
             }
@@ -677,6 +741,7 @@ addTouchAndClickListener(document.getElementById('delete-hyperlight'), function(
         console.error('No matching mark elements found in selection.');
     }
 });
+
 
     // Helper functions: getXPath, getFullXPath, normalizeXPath
     function getXPath(node) {

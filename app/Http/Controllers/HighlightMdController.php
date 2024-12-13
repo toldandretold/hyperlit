@@ -126,59 +126,74 @@ private function convertHtmlToMarkdown($html)
     return trim($markdownContent);
 }
 
-
-
-
-
-
-
-    // Delete highlights and update HTML/Markdown files
     public function deleteHighlight(Request $request)
-    {
-        \Log::info('Request Data for Deleting Highlight:', [
-            'highlight_ids' => $request->input('highlight_ids'),
-            'updated_html' => $request->input('updated_html'),
-            'book' => $request->input('book')
-        ]);
+{
+    \Log::info('Request Data for Deleting Highlight:', [
+        'highlight_ids' => $request->input('highlight_ids'),
+        'block_ids' => $request->input('block_ids'), // Receive block IDs from the frontend
+        'book' => $request->input('book')
+    ]);
 
-        // Validate the incoming data
-        $request->validate([
-            'highlight_ids' => 'required|array',  // Ensure highlight_ids is provided as an array
-            'updated_html' => 'required|string',  // Ensure updated_html is provided
-            'book' => 'required|string',  // Ensure book is provided
-        ]);
+    // Validate the incoming data
+    $request->validate([
+        'highlight_ids' => 'required|array',  // Ensure highlight_ids is provided as an array
+        'block_ids' => 'required|array',     // Ensure block_ids is provided as an array
+        'book' => 'required|string',         // Ensure book is provided
+    ]);
 
-        $highlightIds = $request->input('highlight_ids');
-        $updatedHtml = $request->input('updated_html');
-        $book = $request->input('book');
+    $highlightIds = $request->input('highlight_ids');
+    $blockIds = $request->input('block_ids');
+    $book = $request->input('book');
 
-        \Log::info("Highlight IDs to delete: ", $highlightIds);
+    \Log::info("Highlight IDs to delete: ", $highlightIds);
+    \Log::info("Block IDs to process: ", $blockIds);
 
-        // Step 1: Mark the highlights as deleted in the database
-        try {
-            DB::table('highlights')
-                ->whereIn('highlight_id', $highlightIds)
-                ->update(['deleted_at' => now()]);
+    // Step 1: Mark the highlights as deleted in the database
+    try {
+        DB::table('highlights')
+            ->whereIn('highlight_id', $highlightIds)
+            ->update(['deleted_at' => now()]);
 
-            \Log::info('Successfully marked highlights as deleted.');
-        } catch (\Exception $e) {
-            \Log::error("Error updating highlights: " . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error deleting highlights.'], 500);
+        \Log::info('Successfully marked highlights as deleted.');
+    } catch (\Exception $e) {
+        \Log::error("Error updating highlights: " . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Error deleting highlights.'], 500);
+    }
+
+    // Step 2: Update the relevant lines in the Markdown file
+    $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
+
+    try {
+        $markdownLines = file($markdownFilePath); // Read the Markdown file into an array
+
+        foreach ($blockIds as $blockId) {
+            $lineIndex = (int)$blockId - 1; // Convert block ID to line index (1-based to 0-based)
+
+            if (isset($markdownLines[$lineIndex])) {
+                \Log::info("Processing line {$lineIndex}: {$markdownLines[$lineIndex]}");
+
+                // Remove any `mark` tags containing the highlight IDs
+                foreach ($highlightIds as $highlightId) {
+                    $markdownLines[$lineIndex] = preg_replace(
+                        "/<mark[^>]*class=[\"']?{$highlightId}[\"']?[^>]*>(.*?)<\/mark>/i",
+                        "$1",
+                        $markdownLines[$lineIndex]
+                    );
+                }
+
+                \Log::info("Updated line {$lineIndex}: {$markdownLines[$lineIndex]}");
+            } else {
+                \Log::warning("Block ID {$blockId} not found in Markdown file.");
+            }
         }
 
-        // Step 2: Update the HTML content
-        $htmlFilePath = resource_path("markdown/{$book}/main-text.html");
-        try {
-            File::put($htmlFilePath, $updatedHtml);
-            \Log::info("Successfully updated HTML file for book: {$book}");
-        } catch (\Exception $e) {
-            \Log::error("Error updating HTML content: " . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error updating HTML.'], 500);
-        }
-
-        // Convert updated HTML back to Markdown using ConversionController
-        $conversionController = new ConversionController($book);
-        $conversionController->htmlToMarkdown();
+        // Save the updated Markdown content back to the file
+        file_put_contents($markdownFilePath, implode('', $markdownLines));
+        \Log::info("Successfully updated Markdown file for book: {$book}");
+    } catch (\Exception $e) {
+        \Log::error("Error updating Markdown file: " . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Error updating Markdown file.'], 500);
+    }
 
 
         // Update hyperlights.md and hyperlights.html after deleting a highlight

@@ -75,11 +75,15 @@ Route::middleware('auth')->group(function () {
 
 // Highlight routes
 Route::post('/highlight/store', [HighlightController::class, 'store'])->name('highlight.store');
+
 Route::post('/highlight/delete', [HighlightController::class, 'deleteHighlight'])->name('highlight.delete');
+
 Route::post('/{book}/update-annotations', [HighlightController::class, 'updateAnnotations'])->name('highlight.update-annotations');
 Route::post('/{book}/mark-as-deleted', [HighlightController::class, 'markHighlightsAsDeleted'])->name('highlight.mark-as-deleted');
 
 Route::post('/highlight/custom-markdown', [HighlightMdController::class, 'store'])->name('highlight.store');
+
+Route::post('/highlight/custom-markdown-delete', [HighlightMdController::class, 'deleteHighlight'])->name('highlight.md.delete');
 
 
 
