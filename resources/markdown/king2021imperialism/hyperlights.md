@@ -1,13 +1,3 @@
-> "dominate"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1733369787599)
-
-
-
-
-
-
----
-
 > "and the development myth"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733373927301)
 
@@ -83,10 +73,16 @@
 
 
 
+
+
+
 ---
 
 > "I"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1734052111873)
+
+
+
 
 
 
@@ -97,10 +93,286 @@
 
 
 
+
+
+
 ---
 
 > "since"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1734053279591)
+
+
+
+
+
+
+---
+
+> "back"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734055029623)
+
+
+
+
+
+
+---
+
+> "ardba"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734056611836)
+
+
+
+
+
+
+---
+
+> "faction"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734056687734)
+
+
+
+
+
+
+---
+
+> "since"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734056908760)
+
+
+
+
+
+
+---
+
+> "such"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734057695050)
+
+
+
+
+
+
+---
+
+> "Sam"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734057895210)
+
+
+
+
+
+
+---
+
+> "5261"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734058000602)
+
+
+
+
+
+
+---
+
+> "has"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734058078805)
+
+
+
+
+
+
+---
+
+> "ck"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734058147647)
+
+
+
+
+
+
+---
+
+> "2021"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734058230851)
+
+
+
+
+
+
+---
+
+> "and"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734058320855)
+
+
+
+
+
+
+---
+
+> "countries"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734058596817)
+
+
+
+
+
+
+---
+
+> "2021"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734058711060)
+
+
+
+
+
+
+---
+
+> "Alfred"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734058873917)
+
+
+
+
+
+
+---
+
+> "ba"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734058921157)
+
+
+
+
+
+
+---
+
+> "ard"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734058955176)
+
+
+
+
+
+
+---
+
+> "published 202"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734059324439)
+
+
+
+
+
+
+---
+
+> "5261 5901"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734059417422)
+
+
+
+
+
+
+---
+
+> "for any external"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734059629255)
+
+
+
+
+
+
+---
+
+> "202"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734059782446)
+
+
+
+
+
+
+---
+
+> "t published 2"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734060010146)
+
+
+
+
+
+
+---
+
+> "Number of states and territories	32	14	148	194
+Population (thousand)	996, 667	100, 412	6, 239, 386	7, 336, 465
+GDP (trillion)"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734089996705)
+
+
+
+
+
+
+---
+
+> "nature"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734090059860)
+
+
+
+
+
+
+---
+
+> "It was from"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734308447997)
+
+
+
+---
+
+> "writing"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734323605993)
+
+
+
+---
+
+> "collectively"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734330843318)
+
+
+
+---
+
+> "reassures"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734351859011)
+
+
+
+---
+
+> "it is defined by the monopoly of techno­ logical superiority that enables the imperialist countries to extract surplus value from the ‘non-​monopoly’ capitals through both trade and subsidiaries located abroad"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1732079440287)
+
+
+Definition.
 
 
 
@@ -111,6 +383,9 @@
 
 
 
+
+
+
 ---
 
 > "University"
@@ -118,10 +393,73 @@
 
 
 
+
+
+
+---
+
+> "has no"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734059270352)
+
+
+
+
+
+
+---
+
+> "Imperialism"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734061903492)
+
+
+
+
+
+
+---
+
+> "Sam King 2021"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734061917294)
+
+
+
+
+
+
+---
+
+> "It is in work­ers’ power to end imperialist domination and replace it with a cooperative world of equality that is ‘from each according to her ability and to each according to her need’"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1732079618694)
+
+
+Relevant to knowledge production, as the alternative to imperialism, lib-gen and open source, would almost exactly meet this goal.
+
+
+
 ---
 
 > "historical"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733747896377)
+
+
+
+
+
+
+---
+
+> "There are no middle-​rank economies, halfway between, which could be considered as ‘sub-​imperialist’ as some Marxist economists argue"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1732079335019)
+
+
+This, and other references to "sub-imperialism", depends on what is actually meant by the term.
+
+
+
+---
+
+> "China remains a poor country – with low per capita income and wealth – and is being held in that position by the scientific and productive monopolies of the rich countries"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733183111724)
 
 
 
@@ -150,58 +488,8 @@ Why doesn't this disprove Prashad's claim that there is no such thing as non-wes
 
 ---
 
-> "There are no middle-​rank economies, halfway between, which could be considered as ‘sub-​imperialist’ as some Marxist economists argue"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1732079335019)
-
-
-This, and other references to "sub-imperialism", depends on what is actually meant by the term.
-
-
-
----
-
 > "Recent studies by Marxist economists on international trade between imperialist economies and the rest show the huge and persistent transfer of value through ‘unequal exchange’ from the poor to the rich. And that includes China"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733183042339)
-
-
-
-
-
-
----
-
-> "plot the"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1733748354293)
-
-
-
-
-
-
----
-
-> "it is defined by the monopoly of techno­ logical superiority that enables the imperialist countries to extract surplus value from the ‘non-​monopoly’ capitals through both trade and subsidiaries located abroad"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1732079440287)
-
-
-Definition.
-
-
-
----
-
-> "It is in work­ers’ power to end imperialist domination and replace it with a cooperative world of equality that is ‘from each according to her ability and to each according to her need’"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1732079618694)
-
-
-Relevant to knowledge production, as the alternative to imperialism, lib-gen and open source, would almost exactly meet this goal.
-
-
-
----
-
-> "China remains a poor country – with low per capita income and wealth – and is being held in that position by the scientific and productive monopolies of the rich countries"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1733183111724)
 
 
 
@@ -222,6 +510,16 @@ change to: "the idea that the"
 
 > "For example, US socialists like Ashley Smith argue that China is ‘a new imperial power’"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733183456245)
+
+
+
+
+
+
+---
+
+> "plot the"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733748354293)
 
 
 
@@ -412,16 +710,6 @@ On determinism.
 
 ---
 
-> "2"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1733199038558)
-
-
-
-
-
-
----
-
 > "Imperialism in the twenty-first century is expanding the army of its own gravediggers – the world working class – far beyond any it could have previously imagined."
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733185035400)
 
@@ -434,6 +722,16 @@ On determinism.
 
 > "This relates to the characteristic they have in common: being more developed than most other Third World capitals, yet remaining non-monopolistic in relation to imperialism"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733187334905)
+
+
+
+
+
+
+---
+
+> "2"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733199038558)
 
 
 

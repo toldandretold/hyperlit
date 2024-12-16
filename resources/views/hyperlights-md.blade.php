@@ -179,7 +179,7 @@
 
             // Send content, annotations, and deleted highlights to the server
                 // Send annotations and update markdown
-        fetch('{{ route("highlight.update-annotations", ["book" => $book]) }}', {
+        fetch('{{ route("highlight.update-annotations-md", ["book" => $book]) }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -200,7 +200,7 @@
             // After saving annotations, check if there are any deleted highlights to process
             if (deletedHighlights.length > 0) {
                 // Send deleted highlights to the server
-                fetch('{{ route("highlight.mark-as-deleted", ["book" => $book]) }}', {
+                fetch('{{ route("highlight.mark-as-deleted-md", ["book" => $book]) }}', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

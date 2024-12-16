@@ -96,37 +96,50 @@ let book = document.getElementById('main-content').getAttribute('data-book');
 // Function to attach listeners to <mark> tags
     // Function to attach listeners to <mark> tags
 function attachMarkListeners() {
-    // Select only <mark> tags that do not already have a listener attached
-    const markTags = document.querySelectorAll("mark:not([data-listener-attached])");
+    // Select all <mark> tags, including those with `data-listener-attached`
+    const markTags = document.querySelectorAll("mark");
 
     markTags.forEach(function (mark) {
-        const highlightId = mark.getAttribute("id"); // Ensure we're getting the correct ID for the highlight
+        const highlightId = mark.getAttribute("id");
 
         if (highlightId) {
-            mark.dataset.listenerAttached = true; // Mark this <mark> tag to avoid duplicate listeners
+            // Remove existing listeners to avoid duplication
+            mark.removeEventListener("click", handleMarkClick);
+            mark.removeEventListener("mouseover", handleMarkHover);
+            mark.removeEventListener("mouseout", handleMarkHoverOut);
 
             // Add click event listener to navigate to the highlight
-            mark.addEventListener("click", function () {
-                window.location.href = `/${book}/hyperlights#${highlightId}`;
-            });
+            mark.addEventListener("click", handleMarkClick);
 
-            // Set cursor style for hover effect
-            mark.style.cursor = "pointer";
+            // Add hover effect for underline
+            mark.addEventListener("mouseover", handleMarkHover);
+            mark.addEventListener("mouseout", handleMarkHoverOut);
 
-            // Add mouseover effect for underline
-            mark.addEventListener("mouseover", function () {
-                mark.style.textDecoration = "underline";
-            });
-
-            // Remove underline on mouseout
-            mark.addEventListener("mouseout", function () {
-                mark.style.textDecoration = "none";
-            });
+            // Mark the <mark> tag as having a listener attached
+            mark.dataset.listenerAttached = true;
         }
     });
 
-    console.log(`Mark listeners attached to ${markTags.length} new <mark> tags.`);
+    console.log(`Mark listeners refreshed for ${markTags.length} <mark> tags.`);
 }
+
+// Click handler for <mark> tags
+function handleMarkClick(event) {
+    event.preventDefault(); // Prevent default link behavior
+    const highlightId = event.target.id;
+    console.log(`Mark clicked: ${highlightId}`);
+    window.location.href = `/${book}/hyperlights#${highlightId}`;
+}
+
+// Hover handlers for <mark> tags
+function handleMarkHover(event) {
+    event.target.style.textDecoration = "underline"; // Add underline on hover
+}
+
+function handleMarkHoverOut(event) {
+    event.target.style.textDecoration = "none"; // Remove underline on hover out
+}
+
 
 // Function to convert Markdown to HTML with IDs and inline parsing
 function convertMarkdownToHtmlWithIds(markdown, offset = 0) {
@@ -134,11 +147,12 @@ function convertMarkdownToHtmlWithIds(markdown, offset = 0) {
     let htmlOutput = "";
     let insideBlockquote = false;
     let currentBlockquote = "";
+    let blockquoteOffset = 0; // Counter for assigning unique IDs within a blockquote
 
     lines.forEach((line, index) => {
         const trimmedLine = line.trim();
 
-        // Skip lines that are completely empty (no content, no `>`)
+        // Skip lines that are completely empty (no content, no `>`) unless inside a blockquote
         if (!trimmedLine && !insideBlockquote) return;
 
         const absoluteIndex = index + offset; // Add the offset to get the correct ID
@@ -150,6 +164,7 @@ function convertMarkdownToHtmlWithIds(markdown, offset = 0) {
                 htmlOutput += currentBlockquote + "</blockquote>\n";
                 insideBlockquote = false;
                 currentBlockquote = "";
+                blockquoteOffset = 0; // Reset blockquote counter
             }
             htmlOutput += `<h1 id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^# /, ""))}</h1>\n`;
         } else if (trimmedLine.startsWith("## ")) {
@@ -157,6 +172,7 @@ function convertMarkdownToHtmlWithIds(markdown, offset = 0) {
                 htmlOutput += currentBlockquote + "</blockquote>\n";
                 insideBlockquote = false;
                 currentBlockquote = "";
+                blockquoteOffset = 0;
             }
             htmlOutput += `<h2 id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^## /, ""))}</h2>\n`;
         } else if (trimmedLine.startsWith("### ")) {
@@ -164,41 +180,37 @@ function convertMarkdownToHtmlWithIds(markdown, offset = 0) {
                 htmlOutput += currentBlockquote + "</blockquote>\n";
                 insideBlockquote = false;
                 currentBlockquote = "";
+                blockquoteOffset = 0;
             }
             htmlOutput += `<h3 id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^### /, ""))}</h3>\n`;
-        } else if (trimmedLine.startsWith("#### ")) {
-            if (insideBlockquote) {
-                htmlOutput += currentBlockquote + "</blockquote>\n";
-                insideBlockquote = false;
-                currentBlockquote = "";
-            }
-            htmlOutput += `<h4 id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^#### /, ""))}</h4>\n`;
         } else if (trimmedLine.startsWith(">")) {
             // Start a new blockquote if not already inside one
             if (!insideBlockquote) {
                 insideBlockquote = true;
                 currentBlockquote = `<blockquote id="${absoluteIndex}">`;
+                blockquoteOffset = 0; // Reset blockquote paragraph counter
             }
             // Check for blank blockquote line (`>` or `> `)
             if (trimmedLine === ">" || trimmedLine === "> ") {
-                currentBlockquote += `<p></p>`;
+                currentBlockquote += `<p id="${absoluteIndex}_${blockquoteOffset}"></p>`;
+                blockquoteOffset++; // Increment blockquote paragraph counter
             } else {
                 // Add the current line to the blockquote, wrapped in <p> tags
-                currentBlockquote += `<p>${parseInlineMarkdown(trimmedLine.replace(/^> /, "").trim())}</p>`;
+                currentBlockquote += `<p id="${absoluteIndex}_${blockquoteOffset}">${parseInlineMarkdown(trimmedLine.replace(/^> /, "").trim())}</p>`;
+                blockquoteOffset++; // Increment blockquote paragraph counter
             }
-        } else if (insideBlockquote) {
-            // Close the blockquote when encountering a non-blockquote line
-            htmlOutput += currentBlockquote + "</blockquote>\n";
-            insideBlockquote = false;
-            currentBlockquote = "";
-            // Process the current non-blockquote line
-            htmlOutput += `<p id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine)}</p>\n`;
-        } else if (trimmedLine.startsWith("- ") || trimmedLine.match(/^\d+\. /)) {
-            // Handle lists (unordered or ordered)
-            htmlOutput += `<li id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^[-\d\. ]+/, ""))}</li>\n`;
         } else {
-            // Default to paragraph
-            htmlOutput += `<p id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine)}</p>\n`;
+            // Close the blockquote when encountering a non-blockquote line
+            if (insideBlockquote) {
+                htmlOutput += currentBlockquote + "</blockquote>\n";
+                insideBlockquote = false;
+                currentBlockquote = "";
+                blockquoteOffset = 0; // Reset blockquote counter
+            }
+            // Process the current non-blockquote line
+            if (trimmedLine) {
+                htmlOutput += `<p id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine)}</p>\n`;
+            }
         }
     });
 
@@ -210,6 +222,7 @@ function convertMarkdownToHtmlWithIds(markdown, offset = 0) {
 
     return htmlOutput;
 }
+
 
 
 
@@ -788,6 +801,167 @@ function findParentWithNumericalId(element) {
 
 
   
+
+// Function to generate a unique hypercite ID
+function generateHyperciteID() {
+    return 'hypercite_' + Math.random().toString(36).substring(2, 9); // Unique ID generation
+}
+
+// Fallback copy function: Standard copy if HTML format isn't supported
+function fallbackCopyText(text) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+        document.execCommand('copy'); // Fallback copy for plain text
+    } catch (err) {
+        console.error('Fallback: Unable to copy text', err);
+    }
+    document.body.removeChild(textArea);
+}
+
+function findParentWithNumericalId(element) {
+    let currentElement = element;
+    while (currentElement) {
+        const id = currentElement.getAttribute('id');
+        if (id && !isNaN(parseInt(id, 10))) {
+            return currentElement; // Found a parent with a numerical ID
+        }
+        currentElement = currentElement.parentElement; // Move to the next parent
+    }
+    return null; // No valid parent with numerical ID found
+}
+
+function collectHyperciteData(hyperciteId, wrapper) {
+    console.log("Wrapper outerHTML:", wrapper.outerHTML);
+
+    // Use the iterative method to find a parent with a numerical ID
+    let parentElement = findParentWithNumericalId(wrapper);
+
+    if (!parentElement) {
+        console.error("No valid parent element with a numerical ID found for the <u> tag:", wrapper.outerHTML);
+        return [];
+    }
+
+    return [
+        {
+            id: parentElement.id, // The parent element's ID
+            html: parentElement.outerHTML, // Full outer HTML of the parent
+            hypercite_id: wrapper.id // The hypercite ID
+        }
+    ];
+}
+
+
+
+function wrapSelectedTextInDOM(hyperciteId, book) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+        console.error("No valid selection found for hypercite.");
+        return;
+    }
+    const range = selection.getRangeAt(0);
+    let parent = range.startContainer.parentElement;
+    while (parent && !parent.hasAttribute('id')) {
+        parent = parent.parentElement; // Traverse up to find a parent with an ID
+    }
+    if (!parent || isNaN(parseInt(parent.id, 10))) {
+        console.error("No valid parent with numerical ID found.");
+        return;
+    }
+    const wrapper = document.createElement('u');
+    wrapper.setAttribute('id', hyperciteId);
+    try {
+        range.surroundContents(wrapper);
+    } catch (e) {
+        console.error("Error wrapping selected text:", e);
+        return;
+    }
+    const blocks = collectHyperciteData(hyperciteId, wrapper);
+    sendHyperciteBlocksToBackend(book, hyperciteId, blocks);
+    attachMarkListeners();
+    setTimeout(() => selection.removeAllRanges(), 50);
+}
+
+
+
+// Send hypercite blocks to the backend
+function sendHyperciteBlocksToBackend(book, hyperciteId, blocks) {
+    fetch('/save-hypercite-blocks', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({
+            book: book,
+            hypercite_id: hyperciteId,
+            blocks: blocks // Array of block-level IDs, HTML content, and hypercite IDs
+        })
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Hypercite blocks saved successfully:', data);
+            } else {
+                console.error('Error saving hypercite blocks:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error communicating with backend:', error);
+        });
+}
+
+
+// Event listener for copying text and creating a hypercite
+document.addEventListener('copy', (event) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+        return; // Do nothing if no text is selected
+    }
+
+    const hyperciteId = generateHyperciteID();
+    const book = document.getElementById('main-content').getAttribute('data-book');
+
+    if (!book) {
+        console.error("Book identifier not found.");
+        return;
+    }
+
+    // Wrap the selected text and send the relevant blocks to the backend
+    wrapSelectedTextInDOM(hyperciteId, book);
+});
+
+// Function to save hypercite metadata to the server
+function saveHyperciteData(citation_id_a, hypercite_id, hypercited_text, href_a) {
+    fetch(`/save-hypercite`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({
+            citation_id_a: citation_id_a,
+            hypercite_id: hypercite_id,
+            hypercited_text: hypercited_text,
+            href_a: href_a // Use the updated column name
+        })
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Hypercite data saved successfully');
+            } else {
+                console.error('Error saving hypercite data:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error saving hypercite data:', error);
+        });
+}
+
 
 
 

@@ -53,30 +53,64 @@ class HighlightMdController extends Controller
     }
 
     // Step 2: Update the relevant lines in the Markdown file
-    $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
+$markdownFilePath = resource_path("markdown/{$book}/main-text.md");
 
-    try {
-    $markdownLines = file($markdownFilePath); // Read Markdown file into an array
+try {
+    // Read Markdown file into an array, ensuring no extra newlines are included
+    $markdownLines = file($markdownFilePath, FILE_IGNORE_NEW_LINES);
 
     foreach ($blocks as $block) {
-        $blockId = (int)$block['id'];
+        $blockId = $block['id'];
         $blockHtml = $block['html'];
 
         \Log::info("Original HTML for block {$blockId}: {$blockHtml}");
 
-        // Convert HTML to Markdown
-        $processedMarkdown = $this->convertHtmlToMarkdown($blockHtml);
-        \Log::info("Processed Markdown for block {$blockId}: {$processedMarkdown}");
+        if (str_contains($blockHtml, '<blockquote')) {
+            // Handle blockquotes differently
+            $processedMarkdown = $this->convertBlockquoteToMarkdown($blockHtml);
+            [$startLine, $endLine] = $this->getBlockquoteLineRange($blockId, $blockHtml);
+            \Log::info("Blockquote spans lines {$startLine}-{$endLine}");
 
-        if (isset($markdownLines[$blockId - 1])) {
-            \Log::info("Updating line {$blockId}: {$markdownLines[$blockId - 1]}");
-            $markdownLines[$blockId - 1] = $processedMarkdown . PHP_EOL;
+            // Replace the corresponding range of lines
+            array_splice(
+                $markdownLines,
+                $startLine - 1,
+                ($endLine - $startLine) + 1,
+                explode("\n", $processedMarkdown)
+            );
         } else {
-            \Log::warning("Block ID {$blockId} not found in Markdown file.");
+            // Handle normal blocks
+            $processedMarkdown = $this->convertHtmlToMarkdown($blockHtml);
+            $lineNumber = (int)$blockId;
+
+            if (isset($markdownLines[$lineNumber - 1])) {
+                $currentLine = $markdownLines[$lineNumber - 1];
+
+                // Check if the current line is part of a blockquote
+                $isBlockquote = str_starts_with(trim($currentLine), '>');
+
+                // Apply the blockquote marker if needed
+                $updatedLine = $processedMarkdown;
+                if ($isBlockquote) {
+                    $updatedLine = ' > ' . ltrim($processedMarkdown);
+                }
+
+                // Trim any extra whitespace or newlines from the updated line
+                $updatedLine = rtrim($updatedLine);
+
+                // Log only the relevant lines
+                \Log::info("Updating line {$lineNumber}: Original line: '{$currentLine}' Updated line: '{$updatedLine}'");
+
+                $markdownLines[$lineNumber - 1] = $updatedLine; // Do not append PHP_EOL here
+            } else {
+                \Log::warning("Line number {$lineNumber} not found in Markdown file.");
+            }
         }
     }
 
-    file_put_contents($markdownFilePath, implode('', $markdownLines));
+    // Write the updated Markdown back to the file, ensuring a single newline between lines
+    file_put_contents($markdownFilePath, implode(PHP_EOL, $markdownLines) . PHP_EOL);
+
     \Log::info("Successfully updated Markdown file for book: {$book}");
 } catch (\Exception $e) {
     \Log::error("Error updating Markdown file: " . $e->getMessage());
@@ -98,6 +132,96 @@ class HighlightMdController extends Controller
 
     return response()->json(['success' => true, 'message' => 'Highlight created/updated successfully.']);
 }
+
+
+private function convertBlockquoteToMarkdown($html)
+{
+    $doc = new \DOMDocument();
+    @$doc->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
+
+    $markdownContent = '';
+
+    // Log the input HTML
+    \Log::info("Starting blockquote conversion. Input HTML: " . $html);
+
+    // Process each <blockquote> tag
+    foreach ($doc->getElementsByTagName('blockquote') as $blockquote) {
+        foreach ($blockquote->getElementsByTagName('p') as $p) {
+            // Extract inner HTML of the <p> tag
+            $innerHTML = '';
+            foreach ($p->childNodes as $child) {
+                $childHTML = trim($doc->saveHTML($child)); // Process child nodes only
+                $innerHTML .= $childHTML;
+
+                // Log child node HTML
+                \Log::info("Processed child HTML: " . $childHTML);
+            }
+
+            // Trim the combined inner HTML
+            $innerHTML = trim($innerHTML);
+
+            // Log the content before adding the blockquote marker
+            \Log::info("Constructed inner HTML for paragraph: " . $innerHTML);
+
+            // Add the blockquote marker explicitly
+            $line = '> ' . $innerHTML . "\n";
+            $markdownContent .= $line;
+
+            // Log the constructed Markdown line
+            \Log::info("Constructed Markdown line: " . $line);
+        }
+    }
+
+    // Log the final Markdown content
+    \Log::info("Final Markdown content after blockquote conversion: " . $markdownContent);
+
+    return trim($markdownContent);
+}
+
+
+private function getBlockquoteLineRange($blockId, $markdownLines)
+{
+    $startLine = (int)$blockId; // Start from the given block ID
+    $endLine = $startLine;
+
+    if (!isset($markdownLines[$startLine - 1])) {
+        \Log::warning("Blockquote start line {$startLine} not found in Markdown file.");
+        return [$startLine, $startLine];
+    }
+
+    // Ensure the starting line is part of a blockquote
+    if (!str_starts_with(trim($markdownLines[$startLine - 1]), '>')) {
+        \Log::info("Line {$startLine} is not a blockquote. Treating as single line.");
+        return [$startLine, $startLine];
+    }
+
+    // Find the start of the blockquote
+    for ($i = $startLine - 2; $i >= 0; $i--) {
+        if (str_starts_with(trim($markdownLines[$i]), '>')) {
+            $startLine = $i + 1;
+        } else {
+            break;
+        }
+    }
+
+    // Find the end of the blockquote
+    for ($i = $startLine - 1; $i < count($markdownLines); $i++) {
+        if (str_starts_with(trim($markdownLines[$i]), '>')) {
+            $endLine = $i + 1;
+        } else {
+            break;
+        }
+    }
+
+    \Log::info("Determined blockquote range: Start {$startLine}, End {$endLine}");
+    return [$startLine, $endLine];
+}
+
+
+
+
+
+
 
 // Helper function to convert HTML to Markdown
 private function convertHtmlToMarkdown($html)
@@ -126,82 +250,79 @@ private function convertHtmlToMarkdown($html)
     return trim($markdownContent);
 }
 
-    public function deleteHighlight(Request $request)
+public function deleteHighlight(Request $request)
 {
     \Log::info('Request Data for Deleting Highlight:', [
         'highlight_ids' => $request->input('highlight_ids'),
-        'block_ids' => $request->input('block_ids'), // Receive block IDs from the frontend
-        'book' => $request->input('book')
+        'block_ids' => $request->input('block_ids'),
+        'book' => $request->input('book'),
     ]);
 
-    // Validate the incoming data
     $request->validate([
-        'highlight_ids' => 'required|array',  // Ensure highlight_ids is provided as an array
-        'block_ids' => 'required|array',     // Ensure block_ids is provided as an array
-        'book' => 'required|string',         // Ensure book is provided
+        'highlight_ids' => 'required|array',
+        'block_ids' => 'required|array',
+        'book' => 'required|string',
     ]);
 
     $highlightIds = $request->input('highlight_ids');
     $blockIds = $request->input('block_ids');
     $book = $request->input('book');
 
-    \Log::info("Highlight IDs to delete: ", $highlightIds);
-    \Log::info("Block IDs to process: ", $blockIds);
+    \Log::info("Highlight IDs to delete: " . json_encode($highlightIds));
+    \Log::info("Block IDs to process: " . json_encode($blockIds));
 
-    // Step 1: Mark the highlights as deleted in the database
-    try {
-        DB::table('highlights')
-            ->whereIn('highlight_id', $highlightIds)
-            ->update(['deleted_at' => now()]);
-
-        \Log::info('Successfully marked highlights as deleted.');
-    } catch (\Exception $e) {
-        \Log::error("Error updating highlights: " . $e->getMessage());
-        return response()->json(['success' => false, 'message' => 'Error deleting highlights.'], 500);
-    }
-
-    // Step 2: Update the relevant lines in the Markdown file
     $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
 
     try {
-        $markdownLines = file($markdownFilePath); // Read the Markdown file into an array
+        $markdownLines = file($markdownFilePath, FILE_IGNORE_NEW_LINES);
 
         foreach ($blockIds as $blockId) {
-            $lineIndex = (int)$blockId - 1; // Convert block ID to line index (1-based to 0-based)
+            [$startLine, $endLine] = $this->getBlockquoteLineRange($blockId, $markdownLines);
 
-            if (isset($markdownLines[$lineIndex])) {
-                \Log::info("Processing line {$lineIndex}: {$markdownLines[$lineIndex]}");
+            \Log::info("Deleting highlights in blockquote lines {$startLine}-{$endLine}");
 
-                // Remove any `mark` tags containing the highlight IDs
-                foreach ($highlightIds as $highlightId) {
-                    $markdownLines[$lineIndex] = preg_replace(
-                        "/<mark[^>]*class=[\"']?{$highlightId}[\"']?[^>]*>(.*?)<\/mark>/i",
-                        "$1",
-                        $markdownLines[$lineIndex]
-                    );
+            for ($lineIndex = $startLine - 1; $lineIndex < $endLine; $lineIndex++) {
+                if (isset($markdownLines[$lineIndex])) {
+                    \Log::info("Processing line {$lineIndex}: {$markdownLines[$lineIndex]}");
+
+                    foreach ($highlightIds as $highlightId) {
+                        $markdownLines[$lineIndex] = preg_replace(
+                            "/<mark[^>]*class=[\"']?{$highlightId}[\"']?[^>]*>(.*?)<\/mark>/is",
+                            "$1",
+                            $markdownLines[$lineIndex]
+                        );
+                    }
+
+                    \Log::info("Updated line {$lineIndex}: {$markdownLines[$lineIndex]}");
                 }
-
-                \Log::info("Updated line {$lineIndex}: {$markdownLines[$lineIndex]}");
-            } else {
-                \Log::warning("Block ID {$blockId} not found in Markdown file.");
             }
         }
 
-        // Save the updated Markdown content back to the file
-        file_put_contents($markdownFilePath, implode('', $markdownLines));
+        file_put_contents($markdownFilePath, implode(PHP_EOL, $markdownLines) . PHP_EOL);
         \Log::info("Successfully updated Markdown file for book: {$book}");
     } catch (\Exception $e) {
         \Log::error("Error updating Markdown file: " . $e->getMessage());
         return response()->json(['success' => false, 'message' => 'Error updating Markdown file.'], 500);
     }
 
+    $this->updateHyperlightsMd($book);
+    $this->updateHyperlightsHtml($book);
 
-        // Update hyperlights.md and hyperlights.html after deleting a highlight
-        $this->updateHyperlightsMd($book);
-        $this->updateHyperlightsHtml($book);
+    return response()->json(['success' => true, 'message' => 'Highlights deleted and HTML updated successfully.']);
+}
 
-        return response()->json(['success' => true, 'message' => 'Highlights deleted and HTML updated successfully.']);
-    }
+    
+
+/**
+ * Check if a block ID corresponds to a blockquote.
+ */
+private function isBlockquote($blockId, $markdownLines)
+{
+    $lineIndex = (int)$blockId - 1;
+    return isset($markdownLines[$lineIndex]) && str_starts_with(trim($markdownLines[$lineIndex]), '>');
+}
+
+
 
     // Update hyperlights.md with non-deleted highlights
 
@@ -357,74 +478,66 @@ private function convertHtmlToMarkdown($html)
     }
 
     public function markHighlightsAsDeleted(Request $request, $book)
-    {
-        \Log::info('Received request to mark highlights as deleted for book: ' . $book);
+        {
+            \Log::info('Received request to mark highlights as deleted for book: ' . $book);
 
-        // Get the highlight_ids array from the request
-        $highlightIds = $request->input('deleted_highlights');
+            // Get the highlight_ids array from the request
+            $highlightIds = $request->input('deleted_highlights');
 
-        // Check if highlight_ids are provided and ensure it's an array
-        if (empty($highlightIds) || !is_array($highlightIds)) {
-            return response()->json(['success' => false, 'message' => 'No highlight IDs provided or invalid format.'], 400);
-        }
-
-        \Log::info("Highlight IDs to delete (array):", $highlightIds);  // Log the array to verify its structure
-
-        // Step 1: Mark the highlights as deleted in the database
-        try {
-            DB::table('highlights')
-                ->where('book', $book)
-                ->whereIn('highlight_id', array_column($highlightIds, 'highlight_id'))  // Extract IDs
-                ->update(['deleted_at' => now()]);
-
-            \Log::info("Successfully marked highlights as deleted: " . implode(", ", array_column($highlightIds, 'highlight_id')));
-
-        } catch (\Exception $e) {
-            \Log::error("Error marking highlights as deleted: " . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error marking highlights as deleted.'], 500);
-        }
-
-        // Step 2: Find and remove <mark> tags with deleted highlights from main-text.html
-        $htmlFilePath = resource_path("markdown/{$book}/main-text.html");
-        
-        if (File::exists($htmlFilePath)) {
-            try {
-                $htmlContent = File::get($htmlFilePath);
-
-                // Load the HTML content into a DOMDocument
-                $dom = new \DOMDocument();
-                @$dom->loadHTML($htmlContent, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD); // Suppress warnings
-
-                // Get all <mark> elements in the document
-                $xpath = new \DOMXPath($dom);
-
-                // Query the database for highlights that have been marked as deleted
-                $deletedHighlights = DB::table('highlights')
-                    ->where('book', $book)
-                    ->whereNotNull('deleted_at')
-                    ->pluck('highlight_id');
-
-                foreach ($deletedHighlights as $highlightId) {
-                    // Search for <mark> elements with the class "highlight_id"
-                    $nodesToDelete = $xpath->query("//mark[contains(@class, '{$highlightId}')]");
-                    foreach ($nodesToDelete as $node) {
-                        $node->parentNode->removeChild($node);  // Remove the <mark> node
-                    }
-                }
-
-                // Save the updated HTML content back to the file
-                File::put($htmlFilePath, $dom->saveHTML());
-
-                \Log::info("Successfully updated main-text.html for book: {$book} to remove deleted highlights.");
-
-            } catch (\Exception $e) {
-                \Log::error("Error processing HTML file: " . $e->getMessage());
-                return response()->json(['success' => false, 'message' => 'Error updating HTML file.'], 500);
+            // Check if highlight_ids are provided and ensure it's an array
+            if (empty($highlightIds) || !is_array($highlightIds)) {
+                return response()->json(['success' => false, 'message' => 'No highlight IDs provided or invalid format.'], 400);
             }
-        } else {
-            \Log::error("HTML file not found: " . $htmlFilePath);
-            return response()->json(['success' => false, 'message' => 'HTML file not found.'], 404);
-        }
+
+            \Log::info("Highlight IDs to delete (array):", $highlightIds); // Log the array to verify its structure
+
+            // Step 1: Mark the highlights as deleted in the database
+            try {
+                DB::table('highlights')
+                    ->where('book', $book)
+                    ->whereIn('highlight_id', array_column($highlightIds, 'highlight_id')) // Extract IDs
+                    ->update(['deleted_at' => now()]);
+
+                \Log::info("Successfully marked highlights as deleted: " . implode(", ", array_column($highlightIds, 'highlight_id')));
+            } catch (\Exception $e) {
+                \Log::error("Error marking highlights as deleted: " . $e->getMessage());
+                return response()->json(['success' => false, 'message' => 'Error marking highlights as deleted.'], 500);
+            }
+
+            // Step 2: Remove <mark> tags with deleted highlights from main-text.md
+            $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
+
+            if (File::exists($markdownFilePath)) {
+                try {
+                    $markdownContent = File::get($markdownFilePath);
+
+                    // Query the database for highlights that have been marked as deleted
+                    $deletedHighlights = DB::table('highlights')
+                        ->where('book', $book)
+                        ->whereNotNull('deleted_at')
+                        ->pluck('highlight_id');
+
+                    // Iterate through the deleted highlight IDs and remove corresponding <mark> tags
+                    foreach ($deletedHighlights as $highlightId) {
+                        $pattern = '/<mark[^>]*class=["\']?[^"\'>]*' . preg_quote($highlightId, '/') . '[^"\'>]*["\']?[^>]*>.*?<\/mark>/s';
+                        $markdownContent = preg_replace($pattern, '', $markdownContent);
+                    }
+
+                    // Save the updated Markdown content back to the file
+                    File::put($markdownFilePath, $markdownContent);
+
+                    \Log::info("Successfully updated main-text.md for book: {$book} to remove deleted highlights.");
+                } catch (\Exception $e) {
+                    \Log::error("Error processing Markdown file: " . $e->getMessage());
+                    return response()->json(['success' => false, 'message' => 'Error updating Markdown file.'], 500);
+                }
+            } else {
+                \Log::error("Markdown file not found: " . $markdownFilePath);
+                return response()->json(['success' => false, 'message' => 'Markdown file not found.'], 404);
+            }
+
+            return response()->json(['success' => true, 'message' => 'Highlights marked as deleted and removed from Markdown.']);
+        
 
         // Step 3: Update hyperlights.md and hyperlights.html to reflect only non-deleted highlights
         try {
