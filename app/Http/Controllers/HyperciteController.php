@@ -35,37 +35,91 @@ class HyperciteController extends Controller
         }
     }
 
-    public function saveUpdatedHTML(Request $request, $book)
-    {
-        try {
-            $validated = $request->validate([
-                'html' => 'required|string',
-            ]);
+    public function saveHyperciteBlocks(Request $request)
+{
+    // Log the entire request payload for initial inspection
+    \Log::info('saveHyperciteBlocks called with request:', $request->all());
 
-            $htmlFilePath = resource_path("markdown/{$book}/main-text.html");
+    $validatedData = $request->validate([
+        'book' => 'required|string',
+        'hypercite_id' => 'required|string',
+        'blocks' => 'required|array',
+        'blocks.*.id' => 'required|string', // Ensure each block has an ID
+        'blocks.*.html' => 'required|string', // Ensure each block has HTML content
+    ]);
 
-            // Check if file exists and has correct permissions
-            if (!File::exists($htmlFilePath)) {
-                Log::error("File not found at path: {$htmlFilePath}");
-                return response()->json(['success' => false, 'error' => 'File not found.'], 404);
+    $book = $validatedData['book'];
+    $hyperciteId = $validatedData['hypercite_id'];
+    $blocks = $validatedData['blocks'];
+
+    // Log validated data
+    \Log::info("Validated data: Book: {$book}, Hypercite ID: {$hyperciteId}");
+    \Log::info('Validated Blocks:', $blocks);
+
+    $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
+
+    try {
+        // Log the path to the Markdown file
+        \Log::info("Markdown file path: {$markdownFilePath}");
+
+        // Read Markdown file into an array of lines
+        $markdownLines = file($markdownFilePath, FILE_IGNORE_NEW_LINES);
+        \Log::info("Read Markdown file successfully. Number of lines: " . count($markdownLines));
+
+        foreach ($blocks as $block) {
+            $blockId = (int)$block['id'];
+            $blockHtml = $block['html'];
+
+            // Log each block being processed
+            \Log::info("Processing Block: ID: {$blockId}, HTML: {$blockHtml}");
+
+            // Convert HTML content to Markdown
+            $processedMarkdown = $this->convertHtmlToMarkdown($blockHtml);
+            \Log::info("Converted Markdown for Block ID {$blockId}: {$processedMarkdown}");
+
+            if (isset($markdownLines[$blockId - 1])) {
+                // Log original and updated line content
+                $originalLine = $markdownLines[$blockId - 1];
+                \Log::info("Original line at Block ID {$blockId}: {$originalLine}");
+                \Log::info("Updated line at Block ID {$blockId}: {$processedMarkdown}");
+
+                // Replace the corresponding line in the Markdown file
+                $markdownLines[$blockId - 1] = $processedMarkdown;
+            } else {
+                \Log::warning("Block ID {$blockId} not found in Markdown file.");
             }
-            if (!is_writable($htmlFilePath)) {
-                Log::error("File is not writable at path: {$htmlFilePath}");
-                return response()->json(['success' => false, 'error' => 'File is not writable.'], 500);
-            }
-
-            // Attempt to write to the file
-            File::put($htmlFilePath, $validated['html']);
-
-            return response()->json(['success' => true]);
-
-        } catch (\Exception $e) {
-            // Log any exceptions and return JSON error response
-            Log::error('Exception caught in saveUpdatedHTML:', ['error' => $e->getMessage()]);
-            return response()->json(['success' => false, 'error' => 'An error occurred.'], 500);
         }
-    }
 
+        // Write the updated Markdown content back to the file
+        file_put_contents($markdownFilePath, implode(PHP_EOL, $markdownLines) . PHP_EOL);
+        \Log::info("Successfully updated Markdown file for book: {$book}");
+
+        return response()->json(['success' => true, 'message' => 'Hypercite blocks updated successfully.']);
+    } catch (\Exception $e) {
+        \Log::error("Error updating Markdown file: " . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Error updating Markdown file.'], 500);
+    }
+}
+
+
+    private function convertHtmlToMarkdown($html)
+    {
+        $html = '<div>' . $html . '</div>';
+        $doc = new \DOMDocument();
+        @$doc->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
+
+        $markdownContent = '';
+
+        foreach ($doc->getElementsByTagName('div')->item(0)->childNodes as $node) {
+            if ($node->nodeType === XML_TEXT_NODE) {
+                $markdownContent .= htmlspecialchars($node->nodeValue, ENT_QUOTES | ENT_HTML5);
+            } elseif ($node->nodeType === XML_ELEMENT_NODE) {
+                $markdownContent .= $doc->saveHTML($node);
+            }
+        }
+
+        return trim($markdownContent);
+    }
 
 
 

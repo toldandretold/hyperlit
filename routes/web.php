@@ -73,7 +73,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Highlight routes
+// Old Highlight routes
 Route::post('/highlight/store', [HighlightController::class, 'store'])->name('highlight.store');
 
 Route::post('/highlight/delete', [HighlightController::class, 'deleteHighlight'])->name('highlight.delete');
@@ -81,9 +81,14 @@ Route::post('/highlight/delete', [HighlightController::class, 'deleteHighlight']
 Route::post('/{book}/update-annotations', [HighlightController::class, 'updateAnnotations'])->name('highlight.update-annotations');
 Route::post('/{book}/mark-as-deleted', [HighlightController::class, 'markHighlightsAsDeleted'])->name('highlight.mark-as-deleted');
 
+// new 
 Route::post('/highlight/custom-markdown', [HighlightMdController::class, 'store'])->name('highlight.store');
 
 Route::post('/highlight/custom-markdown-delete', [HighlightMdController::class, 'deleteHighlight'])->name('highlight.md.delete');
+
+Route::post('/{book}/update-annotations-md', [HighlightMdController::class, 'updateAnnotations'])->name('highlight.update-annotations-md');
+
+Route::post('/{book}/mark-as-deleted-md', [HighlightMdController::class, 'markHighlightsAsDeleted'])->name('highlight.mark-as-deleted-md');
 
 
 
@@ -105,11 +110,16 @@ Route::get('/{book}/md', [MainTextEditableMarkdownController::class, 'showEditab
 // Hyperlights routes
 Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML'])->name('hyperlights.show');
 
-// HyperCites routes
+// old HyperCites routes
 Route::post('/save-updated-html/{book}', [HyperciteController::class, 'saveUpdatedHTML'])->name('save.updated.html');
 Route::post('/save-hypercite', [HyperciteController::class, 'store']);
 Route::post('/process-hypercite-link', [HyperciteController::class, 'processHyperciteLink']);
 Route::post('/process-connected-hypercites', [HyperciteController::class, 'processConnectedHyperCites']);
+
+// new Hypercite Routes
+// Route to handle saving hypercite blocks
+Route::post('/save-hypercite-blocks', [HyperciteController::class, 'saveHyperciteBlocks'])->name('save.hypercite.blocks');
+
 
 
 
