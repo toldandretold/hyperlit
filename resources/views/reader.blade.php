@@ -59,7 +59,7 @@
     <base href="{{ url('markdown/' . $book . '/epub_original/') }}">
 
 
-    <!-- Load the content of the main-text.html file -->
+    <!-- Load the content of the main-text.md file -->
 
     <div id="main-content" data-book="{{ $book }}">
     {{ File::get(resource_path("markdown/{$book}/main-text.md")) }}
@@ -916,6 +916,7 @@ function sendHyperciteBlocksToBackend(book, hyperciteId, blocks) {
 
 
 // Event listener for copying text and creating a hypercite
+// Event listener for copying text and creating a hypercite
 document.addEventListener('copy', (event) => {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) {
@@ -923,15 +924,19 @@ document.addEventListener('copy', (event) => {
     }
 
     const hyperciteId = generateHyperciteID();
-    const book = document.getElementById('main-content').getAttribute('data-book');
 
     if (!book) {
         console.error("Book identifier not found.");
         return;
     }
 
+    const citationIdA = book; // Assign 'book' to 'citation_id_a'
+    const hypercitedText = selection.toString(); // The actual text being copied
+    const hrefA = `${citationIdA}#${hyperciteId}`; // Construct href_a dynamically
+
     // Wrap the selected text and send the relevant blocks to the backend
-    wrapSelectedTextInDOM(hyperciteId, book);
+    wrapSelectedTextInDOM(hyperciteId, citationIdA);
+    saveHyperciteData(citationIdA, hyperciteId, hypercitedText, hrefA);
 });
 
 // Function to save hypercite metadata to the server
