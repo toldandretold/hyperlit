@@ -368,6 +368,20 @@ GDP (trillion)"
 
 ---
 
+> "more"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734393286552)
+
+
+
+---
+
+> "income growth"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734395560908)
+
+
+
+---
+
 > "it is defined by the monopoly of techno­ logical superiority that enables the imperialist countries to extract surplus value from the ‘non-​monopoly’ capitals through both trade and subsidiaries located abroad"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1732079440287)
 
