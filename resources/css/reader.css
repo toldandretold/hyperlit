@@ -1,0 +1,27 @@
+/* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black #221F20 */
+
+/* Disable the native iOS menu */
+    html, body, * {
+        -webkit-touch-callout: none; /* Disable the callout menu */
+        -webkit-user-select: text;   /* Allow text selection */ 
+
+    }
+
+    #editButton
+
+      {
+            margin-right: 10px;
+            padding: 10px 20px;
+        }
+
+   
+
+  
+#main-content {
+    height: 90vh; /* Ensures a fixed height based on the viewport */
+    overflow-y: auto; /* Enable vertical scrolling */
+    overflow-x: hidden; /* Prevent horizontal scrolling */
+    padding: 1rem; /* Optional padding for better content appearance */
+    margin: 0 auto; /* Center the container horizontally, if needed */
+    box-sizing: border-box; /* Ensure padding is included in height calculation */
+}
