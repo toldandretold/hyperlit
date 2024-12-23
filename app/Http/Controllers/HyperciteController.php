@@ -99,7 +99,7 @@ class HyperciteController extends Controller
         \Log::error("Error updating Markdown file: " . $e->getMessage());
         return response()->json(['success' => false, 'message' => 'Error updating Markdown file.'], 500);
     }
-}
+
 
 
     private function convertHtmlToMarkdown($html)

@@ -120,6 +120,9 @@ Route::post('/process-connected-hypercites', [HyperciteController::class, 'proce
 // Route to handle saving hypercite blocks
 Route::post('/save-hypercite-blocks', [HyperciteController::class, 'saveHyperciteBlocks'])->name('save.hypercite.blocks');
 
+Route::post('/save-updated-content', [HyperciteController::class, 'saveUpdatedContent']);
+
+
 
 
 

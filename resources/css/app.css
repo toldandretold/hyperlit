@@ -1,4 +1,273 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+    
+ /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black #221F20 */
 
+
+    body {
+
+        font-family: arial;
+        padding: 5%;
+        background-color: #221F20;
+      
+    }
+
+
+
+    b, strong {
+
+        color: #EF8D34;
+    }
+
+
+    h1 {
+
+        font-size: 100;
+        color: #EE4A95;
+
+    }
+
+    h2 {
+
+        font-size: 80;
+        color: #EF8D34;
+
+    }
+
+    h3, h4 {
+
+        font-size: 80;
+        color: #CBCCCC;
+    }
+
+   
+
+   blockquote {
+
+        
+        background: linear-gradient(#EE4A95, #EF8D34, #4EACAE, #EE4A95);
+        color: black;
+        padding: 10px;
+        text-decoration-color: #221F20;
+
+    }   
+
+    /* Media query for phones (small screens) */
+    @media only screen and (max-width: 600px) {
+          blockquote {
+            margin: 10px; /* Adjust margin for smaller screens */
+            padding: 8px; /* Optional: adjust padding for smaller screens */
+           
+          }
+    }  
+
+
+    blockquote p {
+        color: #221F20;
+    }
+
+
+    ins {
+          text-decoration: underline;
+          text-decoration-thickness: 4px; /* Adjust thickness as needed */
+          text-decoration-color: transparent;
+          background: linear-gradient(to right, #EE4A95, #EF8D34, #4EACAE, #EE4A95);
+          background-size: 100% 4px; /* Adjust thickness here as well */
+          background-repeat: no-repeat;
+          background-position: 0 100%;
+        }
+
+
+    blockquote strong {
+
+        color: #221F20;
+    }
+
+    sup {
+
+        color: #EE4A95;
+        font-size: 14px;
+    }
+
+    .footnote-ref {
+
+        color: #EE4A95;
+        
+    }
+
+        /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black 221F20 */
+    
+    li {
+
+        color: #CBCCCC;
+    }
+
+    a {
+        color: #4EACAE;
+        text-decoration: none;
+        outline: none;
+    }
+
+
+
+    p {
+            text-align: justify;
+            hyphens: auto;
+            font-size: 25px;
+            color: #CBCCCC;
+    }
+
+    ol {
+
+        hyphens: auto;
+        font-size: 25px;
+
+    }
+
+    code {
+
+        /* Base styles for inline code */
+        /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black #221F20 */
+
+        font-family: "Courier New", Courier, monospace;
+          
+          background-color: #4EACAE;
+          padding: 2px 4px;
+          border-radius: 4px;
+          font-size: 20px;
+
+
+    }
+
+    
+
+    /* Base styles for code blocks */
+    pre code {
+            display: block;
+              padding: 16px;
+              margin: 0 0 16px;
+              overflow-x: auto;
+              background-color: #f5f5f5;
+              border-radius: 4px;
+              font-size: 90%;
+              color: #333;
+              line-height: 1.5;
+    }
+
+
+    hr {
+
+        border-color: #EE4A95;
+    }
+
+    #html-editor div.annotation {
+    margin-bottom: 20px; /* Adds space at the bottom of the annotation div */
+    margin-top: 20px; /* Adds space at the top of the annotation div */
+}
+
+/* change cursor behaviour for links in editable div */
+#html-editor a {
+    cursor: pointer; /* Change the cursor to a pointer (arrow) */
+    color: #221F20;
+
+}
+
+/* Disable iOS long-press text selection menu */
+html, body, * {
+    -webkit-touch-callout: none; /* Disable the iOS touch callout */
+    -webkit-user-select: none;   /* Disable text selection */
+    user-select: none;           /* Disable text selection (for other browsers) */
+}
+
+#hyperlight-buttons {
+    position: absolute;
+    display: none; /* Hidden until text is selected */
+    z-index: 9999; /* Keep it above other elements */
+    background-color: white;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Add a small shadow for visibility */
+}
+
+#hyperlight-buttons button {
+    background-color: white; /* Button background color */
+    border: 1px solid #ccc;
+    padding: 5px 10px;
+    margin-right: 5px;
+    border-radius: 5px;
+}
+
+mark {
+    text-decoration: none !important; /* No underline by default */
+    cursor: pointer; /* Make the cursor a pointer like a link */
+    background-color: yellow;
+}
+
+
+mark:hover {
+    text-decoration: none !important; /* Ensure no underline on hover */
+}
+
+table {
+    width: 100%; /* Full width of container */
+    border-collapse: collapse; /* Remove double borders */
+    background-color: #2e2e2e; /* Dark background for table */
+    color: #e0e0e0; /* Light text for contrast */
+    border: 1px solid #444; /* Subtle border for the table */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.6); /* Slight shadow for depth */
+}
+
+th, td {
+    padding: 12px 15px; /* Comfortable padding */
+    text-align: left; /* Align text to the left */
+    border: 1px solid #444; /* Subtle borders between cells */
+}
+
+th {
+    background-color: #1f1f1f; /* Slightly darker header row */
+    color: #ffffff; /* Bright text for headers */
+    font-weight: bold; /* Emphasize header */
+    text-transform: uppercase; /* Optional: uppercase text */
+}
+
+tr:nth-child(odd) {
+    background-color: #252525; /* Alternating row background for readability */
+}
+
+tr:nth-child(even) {
+    background-color: #2e2e2e; /* Match main table background */
+}
+
+tr:hover {
+    background-color: #444; /* Highlight row on hover */
+    cursor: pointer; /* Indicate interactivity if applicable */
+}
+
+caption {
+    margin-bottom: 10px; /* Space below caption */
+    font-size: 1.25em; /* Larger, prominent font size */
+    color: #e0e0e0; /* Match table text color */
+    text-align: center; /* Center-align caption */
+}
+
+/* Optional: make table scrollable on smaller screens */
+.table-container {
+    overflow-x: auto;
+}
+
+    button {
+            font-size: 14px;
+            background-color: #444; /* Dark background */
+            color: #fff; /* White text */
+            border: 1px solid #777; /* Subtle border */
+            padding: 10px 20px; /* Spacing */
+            border-radius: 5px; /* Rounded corners */
+            font-weight: 600; /* Semi-bold text */
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.5); /* Soft shadow */
+            transition: background-color 0.3s ease, box-shadow 0.3s ease; /* Smooth hover transition */
+        }
+
+        button:hover {
+            background-color: #555; /* Slightly lighter on hover */
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3); /* Larger shadow on hover */
+        }
+
+  
