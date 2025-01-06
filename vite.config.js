@@ -10,6 +10,7 @@ export default defineConfig({
                 'resources/css/div-editor.css', 
                 'resources/js/app.js',         // Global JavaScript
                 'resources/js/lazy-loading.js', // Shared lazy-loading logic
+                'resources/js/lazy-loading-div.js', // div-editor lazy-loading logic
                 'resources/js/div-editor.js',   // Editable div template logic
                 'resources/js/reader.js',       // Reader template logic
                 'resources/sass/app.scss'       // Global styles
