@@ -1,97 +1,6 @@
 
 let insertedLetters = {}; // Track lettered inserts for each base ID
 
-mainContentDiv.addEventListener("beforeinput", function (e) {
-    if (e.inputType === "insertParagraph") {
-        setTimeout(assignLetteredIdsToDuplicateParagraphs, 0);
-    }
-});
-
-mainContentDiv.addEventListener("input", function (e) {
-    if (e.inputType === "insertParagraph" || e.inputType === "insertText") {
-        setTimeout(assignLetteredIdsToDuplicateParagraphs, 0);
-    }
-});
-
-function generateUniqueId() {
-    return `unique-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-}
-
-// Function to find and fix duplicate IDs
-function assignLetteredIdsToDuplicateParagraphs() {
-    const allParagraphs = mainContentDiv.querySelectorAll("p");
-    const seenIds = new Set();
-
-    allParagraphs.forEach((p, index, paragraphs) => {
-        let currentId = p.id;
-
-         // Ensure each paragraph has a tracked ID for fallback purposes
-        if (!p.dataset.trackedId || !currentId) {
-            p.id = p.id || generateUniqueId(); // Assign a unique ID if missing
-            p.dataset.trackedId = p.id;       // Assign the tracked ID
-        }
-
-        // If the ID is a duplicate or already seen
-        if (seenIds.has(currentId)) {
-            const precedingParagraph = paragraphs[index - 1];
-
-            if (precedingParagraph && precedingParagraph.id) {
-                const baseIdMatch = precedingParagraph.id.match(/^(\d+_\d+)([a-z]*)$/);
-                if (baseIdMatch) {
-                    // Blockquote paragraph: Use base subnumber and append letter
-                    const baseSubId = baseIdMatch[1]; // e.g., "7_7"
-                    const nextLetter = getNextLetter(baseSubId);
-                    p.id = `${baseSubId}${nextLetter}`;
-                    console.log(`Assigned new blockquote paragraph ID: ${p.id}`);
-                } else {
-                    // Standalone paragraph: Default to lettered IDs
-                    const baseId = precedingParagraph.id.match(/^(\d+)/)[1];
-                    const newLetter = getNextLetter(baseId);
-                    p.id = `${baseId}${newLetter}`;
-                    console.log(`Assigned new standalone paragraph ID: ${p.id}`);
-                }
-            }
-            // Update the tracked ID with the new unique ID
-            p.dataset.trackedId = p.id;
-        }
-
-        seenIds.add(p.id);
-    });
-}
-
-// Helper: Get the next letter for a given base ID or base subnumber
-function getNextLetter(baseId) {
-    if (!insertedLetters[baseId]) {
-        insertedLetters[baseId] = "a";
-    } else {
-        let letter = insertedLetters[baseId];
-        letter = String.fromCharCode(letter.charCodeAt(0) + 1); // Increment letter
-        insertedLetters[baseId] = letter;
-    }
-    return insertedLetters[baseId];
-}
-
-
-// Initialize tracker on page load
-function initializeInsertedLetters() {
-    const allParagraphs = mainContentDiv.querySelectorAll("p");
-    allParagraphs.forEach((p) => {
-        const baseIdMatch = p.id.match(/^(\d+_\d+)([a-z]*)$/);
-        if (baseIdMatch) {
-            const baseSubId = baseIdMatch[1];
-            const letter = baseIdMatch[2];
-            if (letter) {
-                if (!insertedLetters[baseSubId] || letter > insertedLetters[baseSubId]) {
-                    insertedLetters[baseSubId] = letter; // Track the largest letter for the baseSubId
-                }
-            }
-        }
-    });
-    console.log("Initialized inserted letters:", insertedLetters);
-}
-
-initializeInsertedLetters();
-
 
 // Function to convert Markdown to HTML with IDs and inline parsing
 function convertMarkdownToHtmlWithIds(markdown, offset = 0) {
@@ -191,6 +100,8 @@ function parseInlineMarkdown(text) {
 const observedSections = new Set(); // Track observed sections to avoid duplicates
 const modifiedNodes = new Set(); // Track modified nodes
 const removedIds = new Set(); // Track IDs of removed nodes
+const addedNodes = new Set(); // Track added nodes
+
 
 function processRange(startLine, endLine, isInitial = false, direction = "downward") {
     const rangeKey = `${startLine}-${endLine}`;
@@ -232,40 +143,143 @@ function processRange(startLine, endLine, isInitial = false, direction = "downwa
     return true;
 }
 
+
+// Function to adjust new nodes (convert <div> to <p> and assign ID)
+function adjustNewNode(node, originalNodeContent) {
+    if (node.tagName === "DIV" && !node.id) {
+        console.log("Detected new <div> node without ID. Adjusting...");
+
+        // Save the current selection
+        const selection = document.getSelection();
+        const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+
+        // Convert <div> to <p>
+        const newP = document.createElement("p");
+        newP.innerHTML = node.innerHTML;
+
+        // Find the preceding node with an ID
+        const allNodes = Array.from(mainContentDiv.querySelectorAll("*")); // Get all nodes
+        const nodeIndex = allNodes.indexOf(node);
+        const precedingNode = findNearestNodeWithId(allNodes, nodeIndex - 1, -1);
+
+        if (precedingNode && precedingNode.id) {
+            const baseId = precedingNode.id.match(/^(\d+)/)?.[1]; // Extract numerical base ID
+            const siblingNodes = getSiblingNodesWithSameBaseId(allNodes, baseId);
+            const nextLetter = getNextSequentialLetter(siblingNodes, baseId);
+
+            newP.id = `${baseId}${nextLetter}`;
+            console.log(`Assigned ID "${newP.id}" to new <p> node.`);
+        } else {
+            console.warn("No valid preceding node found. Assigning unique ID.");
+            newP.id = generateUniqueId(); // Fallback to unique ID generation
+        }
+
+        // Replace the <div> with the new <p>
+        node.parentNode.replaceChild(newP, node);
+
+        // Restore the cursor position
+        if (range) {
+            const newRange = document.createRange();
+            newRange.selectNodeContents(newP);
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+        }
+
+        addedNodes.add(newP); // Track the new node as added
+        originalNodeContent.set(newP.id, newP.innerHTML); // Cache its content
+    }
+}
+
+// Updated MutationObserver logic
 function observeSection(wrapperDiv) {
     if (observedSections.has(wrapperDiv)) return;
 
+    const originalNodeContent = new Map(); // Track original content of nodes by ID
+
+    // Initialize tracking
+    wrapperDiv.querySelectorAll("[id]").forEach((node) => {
+        originalNodeContent.set(node.id, node.innerHTML);
+    });
+
     const observer = new MutationObserver((mutations) => {
+        const tempRemovedIds = new Set();
+
         mutations.forEach((mutation) => {
-            if (mutation.type === "characterData") {
-                const parent = mutation.target.parentElement;
-                if (parent && parent.id) {
-                    modifiedNodes.add(parent.id);
-                    console.log(`Text modified in node with ID: ${parent.id}`);
-                }
-            } else if (mutation.type === "childList") {
+            if (mutation.type === "childList") {
+                // Handle added nodes
                 mutation.addedNodes.forEach((node) => {
                     if (node.nodeType === Node.ELEMENT_NODE) {
-                        console.log(`Node added with ID: ${node.id || "unknown"}`);
+                        if (node.tagName === "P") {
+                            console.log(`Added node: ${node.tagName} with ID: ${node.id || "no ID yet"}`);
+                            adjustIdForNewNode(node); // Ensure new nodes get lettered IDs
+                            addedNodes.add(node); // Track as added
+                            originalNodeContent.set(node.id, node.innerHTML); // Cache its content
+                        } else {
+                            // Adjust new <div> nodes to <p> tags with IDs
+                            adjustNewNode(node, originalNodeContent);
+                        }
                     }
                 });
+
+                // Handle removed nodes
                 mutation.removedNodes.forEach((node) => {
-                    if (node.nodeType === Node.ELEMENT_NODE) {
-                        removedIds.add(node.id || "unknown");
-                        console.log(`Node removed with ID: ${node.id || "unknown"}`);
+                    if (node.nodeType === Node.ELEMENT_NODE && node.id) {
+                        console.log(`Removed node: ${node.tagName} with ID: ${node.id}`);
+                        tempRemovedIds.add(node.id); // Track as temporarily removed
                     }
                 });
+            } else if (mutation.type === "characterData") {
+                // Track text modifications
+                const parent = mutation.target.parentElement;
+                if (parent && parent.id) {
+                    if (originalNodeContent.has(parent.id)) {
+                        if (parent.innerHTML !== originalNodeContent.get(parent.id)) {
+                            modifiedNodes.add(parent.id); // Mark as modified
+                            console.log(`Text modified in node with ID: ${parent.id}`);
+                        }
+                    } else {
+                        originalNodeContent.set(parent.id, parent.innerHTML); // Initialize cache
+                    }
+                }
             }
         });
 
-        if (removedIds.size > 0) {
-            removedIds.forEach((id) => console.log(`Confirmed node deletion: ${id}`));
-            removedIds.clear(); // Clear after logging
-        }
-        if (modifiedNodes.size > 0) {
-            modifiedNodes.forEach((id) => console.log(`Confirmed modification: ${id}`));
-            modifiedNodes.clear(); // Clear after logging
-        }
+        // Handle removed node verification and potential merges (same as before)
+        tempRemovedIds.forEach((id) => {
+            const removedNode = document.getElementById(id);
+            if (!removedNode) {
+                const mergedIntoNode = Array.from(originalNodeContent.keys()).find((key) => {
+                    const currentNode = document.getElementById(key);
+                    return currentNode && currentNode.innerHTML.includes(originalNodeContent.get(id));
+                });
+
+                if (mergedIntoNode) {
+                    console.log(`Merge detected: Content of node ID ${id} merged into node ID ${mergedIntoNode}.`);
+                    modifiedNodes.add(mergedIntoNode);
+                    removedIds.add(id);
+                    console.log(`Node ID ${id} marked as deleted due to merge.`);
+                } else {
+                    removedIds.add(id);
+                    console.log(`Confirmed node removal: ${id}`);
+                }
+
+                originalNodeContent.delete(id); // Cleanup cache
+            }
+        });
+
+        // Cleanup removed nodes no longer in the DOM
+        originalNodeContent.forEach((content, id) => {
+            if (!document.getElementById(id)) {
+                console.log(`Node with ID ${id} disappeared completely.`);
+                removedIds.add(id);
+                originalNodeContent.delete(id);
+            }
+        });
+
+        // Log current states
+        console.log("Current modifiedNodes:", Array.from(modifiedNodes));
+        console.log("Current removedIds:", Array.from(removedIds));
     });
 
     observer.observe(wrapperDiv, {
@@ -277,6 +291,104 @@ function observeSection(wrapperDiv) {
     observedSections.add(wrapperDiv);
     console.log(`Attached MutationObserver to range: ${wrapperDiv.dataset.chunkRange}`);
 }
+
+    
+
+
+
+function adjustIdForNewNode(node) {
+    if (node.tagName !== "P") {
+        console.warn(`Skipping ID adjustment for non-paragraph node: ${node.tagName}`);
+        return;
+    }
+
+    console.log(`Adjusting ID for new or reassigned node: ${node.tagName} with current ID: ${node.id || "no ID"}`);
+
+    const allNodes = Array.from(mainContentDiv.querySelectorAll("*")); // Include all nodes
+    const nodeIndex = allNodes.indexOf(node);
+
+    if (nodeIndex !== -1) {
+        const precedingNode = findNearestNodeWithId(allNodes, nodeIndex - 1, -1);
+
+        if (!precedingNode || !precedingNode.id) {
+            console.warn("No valid preceding node found to determine base ID.");
+            node.id = generateUniqueId();
+            console.log(`Assigned unique ID to isolated node: ${node.id}`);
+            return;
+        }
+
+        const baseId = precedingNode.id.match(/^(\d+)/)?.[1]; // Extract numerical base ID
+        console.log(`Using preceding node's ID: ${precedingNode.id} for baseId: ${baseId}`);
+
+        const siblingNodes = getSiblingNodesWithSameBaseId(allNodes, baseId);
+        const nextLetter = getNextSequentialLetter(siblingNodes, baseId);
+
+        node.id = `${baseId}${nextLetter}`;
+        console.log(`Assigned new ID: ${node.id}`);
+    } else {
+        console.warn("Node not found in allNodes array.");
+    }
+}
+
+
+
+
+
+
+function findNearestNodeWithId(nodes, startIndex, step) {
+    for (let i = startIndex; i >= 0 && i < nodes.length; i += step) {
+        if (nodes[i].id && /^\d+/.test(nodes[i].id)) {
+            return nodes[i]; // Return the first valid preceding node with a numerical ID
+        }
+    }
+    return null; // No valid preceding node found
+}
+
+
+function getSiblingNodesWithSameBaseId(nodes, baseId) {
+    return nodes.filter((node) => node.id && node.id.startsWith(baseId));
+}
+
+function getNextSequentialLetter(siblingNodes, baseId) {
+    const existingLetters = siblingNodes
+        .map((node) => node.id.replace(baseId, "")) // Extract the suffix
+        .filter((suffix) => /^[a-z]+$/.test(suffix)) // Include only letter suffixes
+        .sort(); // Sort alphabetically
+
+    if (existingLetters.length === 0) {
+        console.log(`Starting new sequence for baseId ${baseId} with "a"`);
+        return "a"; // Start with 'a' if no suffix exists
+    }
+
+    const lastLetter = existingLetters[existingLetters.length - 1];
+    const nextLetter = String.fromCharCode(lastLetter.charCodeAt(0) + 1);
+    console.log(`Incrementing letter for baseId ${baseId}: ${lastLetter} -> ${nextLetter}`);
+    return nextLetter; // Increment the last letter
+}
+
+
+
+function getNextLetter(baseId, isAbove = false) {
+    // Initialize the tracking object for inserted letters if not already present
+    if (!insertedLetters[baseId]) {
+        insertedLetters[baseId] = isAbove ? "-a" : "a"; // Start with "-a" for above, "a" for below
+    } else {
+        let letter = insertedLetters[baseId];
+        const isHyphenated = letter.startsWith("-");
+
+        // Determine the current letter without the hyphen
+        let currentLetter = isHyphenated ? letter.slice(1) : letter;
+
+        // Increment the letter
+        currentLetter = String.fromCharCode(currentLetter.charCodeAt(0) + 1);
+
+        // Reapply the hyphen if necessary
+        insertedLetters[baseId] = isAbove ? `-${currentLetter}` : currentLetter;
+    }
+
+    return insertedLetters[baseId];
+}
+
 
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -487,3 +599,125 @@ document.addEventListener("DOMContentLoaded", function () {
     handleNavigation();
     setupLazyLoad();
 });
+
+
+// Save button handler
+document.getElementById("saveButton").addEventListener("click", async () => {
+    console.log("Save button clicked");
+
+    const updates = [];
+
+    // Prepare added nodes for backend
+    addedNodes.forEach((node) => {
+        updates.push({
+            id: node.id,
+            html: node.outerHTML,
+            action: "add", // Mark as an add action
+        });
+    });
+
+    // Prepare modified nodes for backend
+    modifiedNodes.forEach((node) => {
+        updates.push({
+            id: node.id,
+            html: node.outerHTML,
+            action: "update", // Mark as an update action
+        });
+    });
+
+    // Prepare removed nodes for backend
+    removedIds.forEach((id) => {
+        updates.push({
+            id: id,
+            action: "delete", // Mark as a delete action
+        });
+    });
+
+    console.log("Prepared updates for backend:", updates);
+
+    if (updates.length === 0) {
+        console.log("No changes detected.");
+        return;
+    }
+
+    try {
+        const response = await fetch("/save-div-content", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document
+                    .querySelector('meta[name="csrf-token"]')
+                    .getAttribute("content"),
+            },
+            body: JSON.stringify({ updates }),
+        });
+
+        if (response.ok) {
+            console.log("Changes saved successfully.");
+            // Clear tracked nodes only after a successful save
+            addedNodes.clear();
+            modifiedNodes.clear();
+            removedIds.clear();
+        } else {
+            console.error("Failed to save changes.");
+        }
+    } catch (error) {
+        console.error("Error during save:", error);
+    }
+});
+
+
+
+
+
+// Hyperlink processing function
+async function processHyperCiteLinks(book, updatedNodes) {
+    if (!updatedNodes.length) {
+        console.log("No updated nodes to process for hyperlinks.");
+        return;
+    }
+
+    for (const { id, html } of updatedNodes) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const anchors = doc.querySelectorAll('a');
+
+        for (const anchor of anchors) {
+            const href = anchor.getAttribute('href');
+            if (anchor && anchor.textContent.includes('[:]') && href && !anchor.hasAttribute('id')) {
+                try {
+                    const response = await fetch(`/process-hypercite-link`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        },
+                        body: JSON.stringify({ href_a: href, citation_id_b: book })
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        console.log(`New hypercite ID assigned: ${data.new_hypercite_id_x}`);
+                        anchor.setAttribute('id', data.new_hypercite_id_x);
+                    } else {
+                        console.log(`Skipped hyperlink: ${href}`, data.message);
+                    }
+                } catch (error) {
+                    console.error("Error processing hyperlink:", error);
+                }
+            }
+        }
+    }
+
+    console.log("Hyperlink processing completed.");
+    }
+
+
+    document.getElementById('markdown-link').addEventListener('click', function () {
+        window.location.href = `/${book}/md`;
+    });
+
+    document.getElementById('readButton').addEventListener('click', function () {
+        localStorage.setItem('fromEditPage', 'true');
+        window.location.href = `/${book}`;
+    });
