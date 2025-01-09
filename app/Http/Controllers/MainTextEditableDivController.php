@@ -40,7 +40,7 @@ class MainTextEditableDivController extends Controller
         return strcmp($b['id'], $a['id']);
     });
 
-    foreach ($updates as $update) {
+     foreach ($updates as $update) {
         $blockId = $update['id'];
         $action = $update['action'];
 
@@ -55,23 +55,57 @@ class MainTextEditableDivController extends Controller
 
                 if ($letter) {
                     // Insert new paragraph
-                    array_splice($markdownLines, $adjustedLineNumber + 1, 0, [$markdownContent, ""]);
+                    $newLines = [];
+                    
+                    // Add a blank line before if missing
+                    if ($adjustedLineNumber > 0 && trim($markdownLines[$adjustedLineNumber]) !== '') {
+                        $newLines[] = '';
+                    }
+
+                    // Add the new paragraph
+                    $newLines[] = $markdownContent;
+
+                    // Ensure only one blank line after the new paragraph
+                    if ($adjustedLineNumber + 1 < count($markdownLines) && trim($markdownLines[$adjustedLineNumber + 1]) === '') {
+                        // Skip adding another blank line
+                    } else {
+                        $newLines[] = '';
+                    }
+
+                    array_splice($markdownLines, $adjustedLineNumber + 1, 0, $newLines);
                     Log::info("Inserted new line for ID {$blockId} at adjusted line " . ($adjustedLineNumber + 1) . ".");
                 } else {
                     // Replace existing line
                     $markdownLines[$adjustedLineNumber] = $markdownContent;
+
+                    // Ensure one blank line below, remove extras
+                    if ($adjustedLineNumber + 1 < count($markdownLines) && trim($markdownLines[$adjustedLineNumber + 1]) === '') {
+                        $nextLine = $adjustedLineNumber + 2;
+                        while ($nextLine < count($markdownLines) && trim($markdownLines[$nextLine]) === '') {
+                            array_splice($markdownLines, $nextLine, 1);
+                        }
+                    } else {
+                        array_splice($markdownLines, $adjustedLineNumber + 1, 0, ['']);
+                    }
+
                     Log::info("Replaced line for ID {$blockId} at adjusted line {$adjustedLineNumber}.");
                 }
             } elseif ($action === 'delete') {
                 if (isset($markdownLines[$adjustedLineNumber])) {
-                    // Remove blank line before the target line, if present
-                    if ($adjustedLineNumber > 0 && trim($markdownLines[$adjustedLineNumber - 1]) === '') {
-                        array_splice($markdownLines, $adjustedLineNumber - 1, 2);
-                        Log::info("Deleted line {$blockId} and preceding blank line at adjusted line " . ($adjustedLineNumber - 1) . ".");
-                    } else {
+                    // Remove the line and ensure formatting
+                    array_splice($markdownLines, $adjustedLineNumber, 1);
+
+                    // Remove any trailing blank lines if too many exist
+                    while ($adjustedLineNumber < count($markdownLines) && trim($markdownLines[$adjustedLineNumber]) === '') {
                         array_splice($markdownLines, $adjustedLineNumber, 1);
-                        Log::info("Deleted line {$blockId} at adjusted line {$adjustedLineNumber}.");
                     }
+
+                    // Ensure one blank line remains, if necessary
+                    if ($adjustedLineNumber > 0 && trim($markdownLines[$adjustedLineNumber - 1]) !== '') {
+                        array_splice($markdownLines, $adjustedLineNumber, 0, ['']);
+                    }
+
+                    Log::info("Deleted line {$blockId} at adjusted line {$adjustedLineNumber}.");
                 } else {
                     Log::warning("Line {$blockId} not found for deletion.");
                 }
