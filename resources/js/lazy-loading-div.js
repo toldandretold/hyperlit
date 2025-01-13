@@ -210,6 +210,7 @@ function observeSection(wrapperDiv) {
                 // Handle added nodes
                 mutation.addedNodes.forEach((node) => {
                     if (node.nodeType === Node.ELEMENT_NODE) {
+                        console.log(`Detected added node: ${node.tagName} with ID: ${node.id || "no ID yet"}`);
                         if (node.tagName === "P") {
                             console.log(`Added node: ${node.tagName} with ID: ${node.id || "no ID yet"}`);
                             adjustIdForNewNode(node); // Ensure new nodes get lettered IDs
@@ -246,36 +247,49 @@ function observeSection(wrapperDiv) {
         });
 
         // Handle removed node verification and potential merges (same as before)
-        tempRemovedIds.forEach((id) => {
-            const removedNode = document.getElementById(id);
-            if (!removedNode) {
-                const mergedIntoNode = Array.from(originalNodeContent.keys()).find((key) => {
-                    const currentNode = document.getElementById(key);
-                    return currentNode && currentNode.innerHTML.includes(originalNodeContent.get(id));
-                });
+   tempRemovedIds.forEach((id) => {
+    const removedNodeContent = originalNodeContent.get(id);
+    const removedNode = document.getElementById(id);
+    const parentElement = removedNode ? removedNode.parentElement : null;
 
-                if (mergedIntoNode) {
-                    console.log(`Merge detected: Content of node ID ${id} merged into node ID ${mergedIntoNode}.`);
-                    modifiedNodes.add(mergedIntoNode);
-                    removedIds.add(id);
-                    console.log(`Node ID ${id} marked as deleted due to merge.`);
-                } else {
-                    removedIds.add(id);
-                    console.log(`Confirmed node removal: ${id}`);
-                }
+    // Cursor detection for merge
+    const nodeAtCursor = getNodeAtCursor();
+    let mergedIntoNode = null;
 
-                originalNodeContent.delete(id); // Cleanup cache
-            }
-        });
+    if (nodeAtCursor && nodeAtCursor.textContent.trim().includes(removedNodeContent?.trim())) {
+        mergedIntoNode = nodeAtCursor; // Cursor detected merge
+        console.log(`Merge detected via cursor: Node ID ${id} merged into ${nodeAtCursor.id}`);
+    } else if (parentElement) {
+        // Fallback: Check siblings for merge
+        const siblings = Array.from(parentElement.children).filter((sibling) => sibling.id);
+        mergedIntoNode = siblings.find((sibling) =>
+            sibling.textContent.trim().includes(removedNodeContent?.trim())
+        );
 
-        // Cleanup removed nodes no longer in the DOM
-        originalNodeContent.forEach((content, id) => {
-            if (!document.getElementById(id)) {
-                console.log(`Node with ID ${id} disappeared completely.`);
-                removedIds.add(id);
-                originalNodeContent.delete(id);
-            }
-        });
+        if (mergedIntoNode) {
+            console.log(`Merge detected via siblings: Node ID ${id} merged into ${mergedIntoNode.id}`);
+        }
+    }
+
+    // If no merge was detected, handle as simple deletion
+    if (!mergedIntoNode) {
+        console.log(`No merge detected: Node ID ${id} is marked as deleted.`);
+        removedIds.add(id);
+    } else {
+        // Mark the merge target as modified
+        modifiedNodes.add(mergedIntoNode.id);
+
+        // Mark the source of the merge as deleted
+        removedIds.add(id);
+    }
+
+    // Clean up removed node content
+    originalNodeContent.delete(id);
+});
+
+
+
+
 
         // Log current states
         console.log("Current modifiedNodes:", Array.from(modifiedNodes));
@@ -302,6 +316,7 @@ function adjustIdForNewNode(node) {
         return;
     }
 
+
     console.log(`Adjusting ID for new or reassigned node: ${node.tagName} with current ID: ${node.id || "no ID"}`);
 
     const allNodes = Array.from(mainContentDiv.querySelectorAll("*")); // Include all nodes
@@ -321,6 +336,8 @@ function adjustIdForNewNode(node) {
         console.log(`Using preceding node's ID: ${precedingNode.id} for baseId: ${baseId}`);
 
         const siblingNodes = getSiblingNodesWithSameBaseId(allNodes, baseId);
+        console.log(`Siblings with baseId ${baseId}:`, siblingNodes.map((n) => n.id));
+        
         const nextLetter = getNextSequentialLetter(siblingNodes, baseId);
 
         node.id = `${baseId}${nextLetter}`;
@@ -345,15 +362,40 @@ function findNearestNodeWithId(nodes, startIndex, step) {
 }
 
 
-function getSiblingNodesWithSameBaseId(nodes, baseId) {
-    return nodes.filter((node) => node.id && node.id.startsWith(baseId));
+// Function to get the node at the current cursor position
+function getNodeAtCursor() {
+    const selection = document.getSelection();
+    if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const node = range.startContainer;
+
+        // Return the closest parent node with an ID
+        return node.nodeType === Node.ELEMENT_NODE
+            ? node.closest("[id]")
+            : node.parentElement?.closest("[id]");
+    }
+    return null;
 }
+
+
+
+function getSiblingNodesWithSameBaseId(nodes, baseId) {
+    return nodes.filter((node) => {
+        // Exclude heading tags while checking for siblings
+        if (node.tagName.startsWith("H")) return false;
+
+        return node.id && node.id.startsWith(baseId);
+    });
+}
+
 
 function getNextSequentialLetter(siblingNodes, baseId) {
     const existingLetters = siblingNodes
         .map((node) => node.id.replace(baseId, "")) // Extract the suffix
         .filter((suffix) => /^[a-z]+$/.test(suffix)) // Include only letter suffixes
         .sort(); // Sort alphabetically
+
+         console.log(`Base ID: ${baseId}, Existing letters: ${existingLetters}`);
 
     if (existingLetters.length === 0) {
         console.log(`Starting new sequence for baseId ${baseId} with "a"`);
@@ -607,35 +649,104 @@ document.getElementById("saveButton").addEventListener("click", async () => {
 
     const updates = [];
 
-    // Prepare added nodes for backend
-    addedNodes.forEach((node) => {
-        updates.push({
-            id: node.id,
-            html: node.outerHTML,
-            action: "add", // Mark as an add action
-        });
+    const validIdPattern = /^(\d+)([a-z]*)$/; // Matches IDs like "13b" and separates into numeric and suffix parts
+
+    
+    // Step 1: Group nodes by their base ID (numeric part)
+    const groupedNodes = {};
+    const allRelevantNodes = [...addedNodes, ...modifiedNodes]
+        .map((nodeId) => document.getElementById(nodeId))
+        .filter((node) => node !== null); // Filter out null values
+
+    allRelevantNodes.forEach((node) => {
+        const match = validIdPattern.exec(node.id);
+        if (match) {
+            const baseId = match[1]; // Numeric part (e.g., "13")
+            if (!groupedNodes[baseId]) {
+                groupedNodes[baseId] = [];
+            }
+            groupedNodes[baseId].push(node);
+        } else {
+            console.log(`Skipping node with invalid ID: ${node.id}`);
+        }
     });
 
-    // Prepare modified nodes for backend
-    modifiedNodes.forEach((node) => {
-        updates.push({
-            id: node.id,
-            html: node.outerHTML,
-            action: "update", // Mark as an update action
-        });
+
+   // Step 2: Reorder IDs within each group based on DOM position
+    Object.keys(groupedNodes).forEach((baseId) => {
+        const nodes = groupedNodes[baseId];
+
+        // Only reorder IDs if there are multiple nodes with the same base ID
+        if (nodes.length > 1) {
+            // Sort nodes by their position in the DOM
+            nodes.sort((a, b) => {
+                const positionA = a.compareDocumentPosition(b);
+                if (positionA & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+                if (positionA & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+                return 0;
+            });
+
+            // Reassign suffixes based on the sorted order
+            nodes.forEach((node, index) => {
+                const newId = `${baseId}${String.fromCharCode(97 + index)}`; // 'a', 'b', 'c', etc.
+                if (node.id !== newId) {
+                    console.log(`Reassigning ID from ${node.id} to ${newId}`);
+                    node.id = newId; // Update the DOM
+                }
+
+                // Add to updates array
+                updates.push({
+                    id: newId,
+                    html: node.outerHTML,
+                    action: addedNodes.has(node) ? "add" : "update",
+                });
+            });
+        } else {
+            // If there's only one node, preserve its current ID
+            const node = nodes[0];
+            updates.push({
+                id: node.id,
+                html: node.outerHTML,
+                action: addedNodes.has(node) ? "add" : "update",
+            });
+        }
     });
 
-    // Prepare removed nodes for backend
+    // Step 3: Process removed nodes
     removedIds.forEach((id) => {
-        updates.push({
-            id: id,
-            action: "delete", // Mark as a delete action
-        });
+        if (validIdPattern.test(id)) {
+            updates.push({
+                id: id,
+                action: "delete",
+            });
+        } else {
+            console.log(`Skipping removed node with invalid ID: ${id}`);
+        }
     });
 
-    console.log("Prepared updates for backend:", updates);
+    console.log("Prepared updates before filtering:", updates);
 
-    if (updates.length === 0) {
+   
+
+    // Step 4: Filter out redundant updates
+    const uniqueUpdates = [];
+    const processedIds = new Set();
+    updates.forEach((update) => {
+        // Transform 'add' actions to 'update'
+        if (update.action === "add") {
+            update.action = "update";
+        }
+
+        if (!processedIds.has(update.id)) {
+            uniqueUpdates.push(update);
+            processedIds.add(update.id);
+        }
+    });
+
+    console.log("Filtered updates for backend:", uniqueUpdates);
+
+    // Step 5: Send updates to backend
+    if (uniqueUpdates.length === 0) {
         console.log("No changes detected.");
         return;
     }
@@ -649,7 +760,7 @@ document.getElementById("saveButton").addEventListener("click", async () => {
                     .querySelector('meta[name="csrf-token"]')
                     .getAttribute("content"),
             },
-            body: JSON.stringify({ updates }),
+            body: JSON.stringify({ updates: uniqueUpdates, book }),
         });
 
         if (response.ok) {
@@ -665,6 +776,9 @@ document.getElementById("saveButton").addEventListener("click", async () => {
         console.error("Error during save:", error);
     }
 });
+
+
+
 
 
 
