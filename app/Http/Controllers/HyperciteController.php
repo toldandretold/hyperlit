@@ -143,24 +143,22 @@ class HyperciteController extends Controller
     $newHyperciteIDX = $hypercite->hypercite_id . '_' . chr(98 + $existingLinks);
     $newHrefB = "/$citation_id_b#$newHyperciteIDX";
 
-    // Insert the new link into the database
-    HyperciteLink::create([
+    $newLink = HyperciteLink::create([
         'hypercite_id' => $hypercite->hypercite_id,
         'hypercite_id_x' => $newHyperciteIDX,
         'citation_id_b' => $citation_id_b,
         'href_b' => $newHrefB
     ]);
 
-    // Prepare and log request for job processing
-    $updatedRequest = $request->merge([
-        'citation_id_a' => $citation_id_a,
-        'hypercite_id' => $hypercite->hypercite_id,
-        'new_href_b' => $newHrefB,
+    Log::info("New HyperciteLink created:", [
+        'hypercite_id' => $newLink->hypercite_id,
+        'citation_id_b' => $newLink->citation_id_b,
+        'href_b' => $newLink->href_b
     ]);
-    Log::info("Updated request prepared for", ['updatedRequest' => $updatedRequest->all()]);
 
-    // (Optional) Process jobs in the background if needed
-    // $this->processAllJobs($updatedRequest);
+    // Trigger ProcessConnectedHyperCitesJob for citation_a
+    ProcessConnectedHyperCitesJob::dispatch($citation_id_a);
+    Log::info("ProcessConnectedHyperCitesJob dispatched for citation_id_a: {$citation_id_a}");
 
     // Send the response with the new ID
     return response()->json([
@@ -168,6 +166,7 @@ class HyperciteController extends Controller
         'new_hypercite_id_x' => $newHyperciteIDX
     ]);
 }
+
 
 
 

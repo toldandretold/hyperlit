@@ -10,21 +10,25 @@
  >
  > Front cover: Alfred Gescheidt / Getty Images Typeset by Newgen Publishing UK
 
-Foreward
+## Foreward
 
-d
-
-f
-
-c
+"looked only"<a href="http://localhost:8000/prashad2007darker#hypercite_q3rqepp" id="hypercite_q3rqepp_b">[:]</a>
 
 Although Lenin’s Imperialism highlights the export of capital to the ‘developing world’, imperialist exploitation is not defined by this. As Lenin himself argued (see Chapter 5), it is defined by the monopoly of techno­logical superiority that enables the imperialist countries to extract surplus value from the ‘non-monopoly’ capitals through both trade and subsidiaries located abroad. That extraction does not mainly occur within transnational companies, as many modern heterodox analyses argue. According to the United Nations Conference on Trade and Development (UNCTAD) – a key data source about international trade and investment flows – only one-third of value transfers from poor to rich takes place from subsidiaries of transnational companies to the head office. More usually, independent Third World capitalists exploit their own labour force but then, in selling on the world market where international prices are set, much of the surplus value they have extracted domestically is transferred to the dominant higher- technology monopoly capitals in the imperialist economies.
 
+"The final communiqué at Bandung demanded that the United Nations admit all those formerly colonized states, such as Libya and Vietnam, then denied admission into its body (“For effective cooperation for world peace, membership in the United Nations should be universal”)."<a href="http://localhost:8000/prashad2007darker#hypercite_05gyf39" id="hypercite_05gyf39_b">[:]</a>
+
 Monopoly finance capital does not negate Marx’s value theory and the transformation of values into prices of production. Total value still equals total prices globally, as per Marx’s law of value. But through ‘unequal exchange’ in international trade, monopoly capitals (imperialism) achieve a higher rate of profit at the expense of non-monopoly capitals (the periphery or Third World), which get a lower rate of profit. King shows empirically how corporate profitability is higher across many sectors in imperialist countries.
+
+"Sisters and Brothers, that for the sake of all that, we Asians and Africans must be united"<a href="http://localhost:8000/prashad2007darker#hypercite_udl2zi7" id="hypercite_udl2zi7_b">[:]</a>
 
 As Marx showed, only human labour creates value and profit for capital, not machines. Therefore, these advances in the production process lead to a fall in the overall profitability of capital. Marx argued this was the most important law of political economy. Falling profitability in the late nineteenth-century depression in Europe and America forced capitalist companies to expand across the <mark class="user-name_1734911564201" id="user-name_1734911564201" data-listener-attached="true">globe</mark> in the search for more cheap labour and higher profits. Marx recognised this as a key counteracting factor to the tendency for profitability to fall. Imperialism is the result.
 
+"Almost three decades after the Brussels conference, Sukarno, newly installed as the president of Indonesia,"<a href="http://localhost:8000/prashad2007darker#hypercite_tulm6lq" id="hypercite_tulm6lq_b">[:]</a>
+
 King shows that imperialism is alive and not so well for the world’s people. But he also deals with the issue of whether any of the poor countries of the world, under the heel of the imperialist few, can break out. King – correctly in my view – argues that cannot happen because mon­opoly capital with its domination over technology can persist in capturing more of the value created by workers in all countries, while the peripheral, non-monopoly capitalist countries are forced to eke out profits using cheap labour inputs and low-level technology – and that this polarisation cannot be broken while imperialism lasts.
+
+"None of the flamboyance of the delegates on nuclear war is exaggerated. The United States had tested nuclear devices in 1945, and used them on two Japanese cities; the USSR had tested them in 1949, and the United Kingdom had done so in 1952."<a href="http://localhost:8000/prashad2007darker#hypercite_sku9cpx" id="hypercite_sku9cpx_b">[:]</a>
 
 But is that the case with China? Can it be an exception? Can China through its state-controlled and directed economic structure raise its technological level up to the levels monopolised by the imperialist countries? King thinks not because, although China has been the most successful of the non-monopoly capital countries globally in the last several decades, it now has essentially the same economic and social structure as the other BRICS. China is not imperialist, but it is capitalist and therefore in this world of imperialism, it is doomed to be exploited in the same way as all the rest, indeed even more quantitatively.
 
@@ -101,6 +105,8 @@ Societies suffering the legacy of colonial oppression and imperialist subjugatio
 <mark class="user-name_1733184860237" id="user-name_1733184860237">What is decisive is that Third World capitalism is prevented even from taking incremental steps that would eventually make possible a challenge to imperialism. This is because as capitalist societies they participate in production of commodities for the capitalist world market. Moreover, they are compelled to do so in accordance with an existing division of labour </mark><a href="" id="p9"></a><mark class="user-name_1733184860237" id="">complete with its established technological and social polarisation. There is no entry point to this system, other than at the bottom.</mark>
 
 Thus the very form of their participation in the global economy organically and continuously reproduces in these societies the same broadscale underdeveloped social foundation that makes catch-up impossible. This is why even well-meant policies (such as Made in China 2025 or its various precursors), while they may have an impact, cannot fundamentally change the international position of the host society.
+
+"High on the Third World women’s agenda was the stipulation that women must have choice over marriage: they must be able to dictate if they marry, when they marry, and to whom they marry."<a href="http://localhost:8000/prashad2007darker#hypercite_www73lz" id="hypercite_www73lz_b">[:]</a>
 
 Imperialist monopoly over the labour process is the reason no large poor country has joined the imperialist camp for a hundred years – save for those special cases benefiting from the Cold War blessings of US imperialism, namely South Korea and Taiwan. This is also the reason that world income and world division of labour are starkly polarised into two distinct camps – high and low – as opposed to exhibiting a spectrum of variations, with many middle-income countries. In reality there are almost none.
 

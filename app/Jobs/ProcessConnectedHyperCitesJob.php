@@ -10,8 +10,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use DOMDocument;
-use DOMXPath;
 
 class ProcessConnectedHyperCitesJob implements ShouldQueue
 {
@@ -22,13 +20,12 @@ class ProcessConnectedHyperCitesJob implements ShouldQueue
     public function __construct($citation_id_a)
     {
         $this->citation_id_a = $citation_id_a;
-
     }
 
     public function handle()
     {
         \Log::info("ProcessConnectedHyperCitesJob started for citation_id_a", ['citation_id_a' => $this->citation_id_a]);
-        $filePath = resource_path("markdown/{$this->citation_id_a}/main-text.html");
+        $filePath = resource_path("markdown/{$this->citation_id_a}/main-text.md");
 
         // Log file path and check if file exists
         \Log::info("Processing file at path: {$filePath}");
@@ -37,33 +34,40 @@ class ProcessConnectedHyperCitesJob implements ShouldQueue
             return;
         }
 
-        // Load the HTML content and parse it
-        $htmlContent = file_get_contents($filePath);
-        $dom = new DOMDocument();
-        libxml_use_internal_errors(true);
-        $dom->loadHTML($htmlContent, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        $fileLines = file($filePath, FILE_IGNORE_NEW_LINES);
+        \Log::info("Read Markdown file successfully. Number of lines: " . count($fileLines));
 
-        $xpath = new DOMXPath($dom);
-        $uTags = $xpath->query('//u[@id]');
+        foreach ($fileLines as $index => $line) {
+            if (strpos($line, '<u id="') !== false) {
+                \Log::info("Found line with <u> tag", ['line_number' => $index + 1, 'content' => $line]);
 
-        \Log::info("Found u tags", ['count' => $uTags->length]);
+                $updatedLine = $this->processLine($line);
+                $fileLines[$index] = $updatedLine;
+            }
+        }
 
-        foreach ($uTags as $uTag) {
-            $hypercite_id = $uTag->getAttribute('id');
+        // Write the updated content back to the file
+        file_put_contents($filePath, implode(PHP_EOL, $fileLines) . PHP_EOL);
+        \Log::info("Successfully updated Markdown file for citation_id_a: {$this->citation_id_a}");
+    }
+
+    private function processLine($line)
+    {
+        preg_match('/<u id="(.*?)"/', $line, $matches);
+        if (isset($matches[1])) {
+            $hypercite_id = $matches[1];
             \Log::info("Processing u tag with hypercite_id", ['hypercite_id' => $hypercite_id]);
 
-            // Retrieve the hypercite record
             $hypercite = Hypercite::where('hypercite_id', $hypercite_id)->first();
             if (!$hypercite) {
                 \Log::warning("No hypercite record found for id: {$hypercite_id}");
-                continue;
+                return $line;
             }
 
             $linkCount = HyperciteLink::where('hypercite_id', $hypercite_id)->count();
             $link = HyperciteLink::where('hypercite_id', $hypercite_id)->first();
             $href_b = $link ? $link->href_b : null;
 
-            // Log details about the link and its count
             \Log::info("Found hypercite link", [
                 'hypercite_id' => $hypercite_id,
                 'linkCount' => $linkCount,
@@ -71,28 +75,21 @@ class ProcessConnectedHyperCitesJob implements ShouldQueue
             ]);
 
             if ($hypercite->connected == 0 && $linkCount > 0 && $href_b) {
-                // Wrap the <u> tag with <a> and save the update
-                $this->wrapUTagWithAnchor($dom, $uTag, $href_b);
                 $hypercite->connected = ($linkCount > 1) ? 2 : 1;
                 $hypercite->save();
 
-                \Log::info("Wrapped u tag with a href", ['href' => $href_b]);
+                \Log::info("Updated hypercite connected status", ['hypercite_id' => $hypercite_id]);
+
+                // Wrap the <u> tag with <a> and return updated line
+                return $this->wrapUTagWithAnchor($line, $href_b);
             }
         }
 
-
-        // Save the modified HTML content for citation_id_a
-        file_put_contents($filePath, $dom->saveHTML());
-        \Log::info("File updated successfully for citation_id_a: {$this->citation_id_a}");
-        
+        return $line;
     }
 
-    private function wrapUTagWithAnchor($dom, $uTag, $href)
+    private function wrapUTagWithAnchor($line, $href)
     {
-        $aTag = $dom->createElement('a');
-        $aTag->setAttribute('href', $href);
-
-        $uTag->parentNode->replaceChild($aTag, $uTag);
-        $aTag->appendChild($uTag);
+        return preg_replace('/<u id="(.*?)">(.*?)<\/u>/', '<a href="' . $href . '"><u id="$1" class="linked">$2</u></a>', $line);
     }
 }
