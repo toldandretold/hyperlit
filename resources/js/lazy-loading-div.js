@@ -206,6 +206,17 @@ function observeSection(wrapperDiv) {
         originalNodeContent.set(node.id, node.innerHTML);
     });
 
+    // Attach click handler for links inside the section
+    wrapperDiv.addEventListener("click", function (event) {
+        const target = event.target;
+
+        // Check if the clicked element is a link
+        if (target.tagName === "A") {
+            event.preventDefault(); // Prevent default editable behavior
+            window.open(target.href, "_blank"); // Open link in a new tab
+        }
+    });
+
     const observer = new MutationObserver((mutations) => {
         const tempRemovedIds = new Set();
 
@@ -235,6 +246,18 @@ function observeSection(wrapperDiv) {
                         tempRemovedIds.add(node.id); // Track as temporarily removed
                     }
                 });
+
+                // Check if pasted content modified existing nodes
+                if (mutation.target.nodeType === Node.ELEMENT_NODE && mutation.target.id) {
+                    const target = mutation.target;
+                    if (originalNodeContent.has(target.id)) {
+                        if (target.innerHTML !== originalNodeContent.get(target.id)) {
+                            modifiedNodes.add(target.id); // Mark as modified
+                            console.log(`Node with ID "${target.id}" was modified by childList changes.`);
+                            originalNodeContent.set(target.id, target.innerHTML); // Update cache
+                        }
+                    }
+                }
             } else if (mutation.type === "characterData") {
                 // Track text modifications
                 const parent = mutation.target.parentElement;
@@ -775,7 +798,7 @@ async function processHyperCiteLinks(book, updatedNodes) {
 
     for (const node of updatedNodes) {
         const { id, html } = node;
-        const parser = new DOMParser();
+        const parser = new DOMParser(); 
         const doc = parser.parseFromString(html, 'text/html');
         const anchors = doc.querySelectorAll('a');
 
@@ -849,8 +872,14 @@ async function processHyperCiteLinks(book, updatedNodes) {
 
         // Insert parsed HTML content into the current range
         const fragment = document.createDocumentFragment();
-        Array.from(container.childNodes).forEach((node) => fragment.appendChild(node));
-        
+         Array.from(container.childNodes).forEach((node) => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                // Adjust new nodes to ensure they have proper IDs
+                adjustNewNode(node, new Map());
+            }
+            fragment.appendChild(node);
+        });
+
         range.deleteContents(); // Remove any selected content
         range.insertNode(fragment); // Insert the fragment
         range.collapse(false); // Move cursor to the end of the inserted content
@@ -874,3 +903,12 @@ async function processHyperCiteLinks(book, updatedNodes) {
         localStorage.setItem('fromEditPage', 'true');
         window.location.href = `/${book}`;
     });
+
+
+
+
+
+
+
+
+

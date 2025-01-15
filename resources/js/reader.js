@@ -487,14 +487,14 @@ document.addEventListener('copy', (event) => {
     const currentSiteUrl = `${window.location.origin}`; // E.g., "https://thissite.com"
     const citationIdA = book; // Assign 'book' to 'citation_id_a'
     const hypercitedText = selection.toString(); // The actual text being copied
-    const hrefA = `${citationIdA}#${hyperciteId}`; // Construct href_a dynamically
+    const hrefA = `${currentSiteUrl}/${citationIdA}#${hyperciteId}`; // Construct href_a dynamically
 
     // Extract plain text from the selection
     const selectedText = selection.toString().trim(); // Plain text version of selected content
 
     // Create the HTML and plain text for the clipboard, including the full URL
-    const clipboardHtml = `"${selectedText}"<a href="${currentSiteUrl}/${hrefA}">[:]</a>`;
-    const clipboardText = `"${selectedText}" [[:]](${currentSiteUrl}/${hrefA})`;
+    const clipboardHtml = `"${selectedText}"<a href="${hrefA}">[:]</a>`;
+    const clipboardText = `"${selectedText}" [[:]](${hrefA})`;
 
     // Set clipboard data
     event.clipboardData.setData('text/html', clipboardHtml);
