@@ -1,17 +1,17 @@
 ALSO BY VIJAY PRASHAD
 
-*Everybody Was Kung Fu Fighting: Afro-Asian Connections and the Myth of Cultural Purity*
+<p id="3"><em>Everybody Was <u id="hypercite_pwwohqs">Kung</u> Fu Fighting: <u id="hypercite_w9px6hh">Afro</u>-Asian Connections and the Myth of Cultural Purity</em></p>
 
-*Fat Cats and Running Dogs: The Enron Stage of Capitalism*
+<p id="5"><em>Fat Cats and <u id="hypercite_1mcwtzl">Running</u> <u id="hypercite_4iq1ga5">Dogs</u>: The <u id="hypercite_6r0rvol">Enron</u> Stage of Capitalism</em></p>
 
-*The Karma of Brown Folk*
+<p id="7"><em>The <u id="hypercite_fichsri">Karma of Brown</u> Folk</em></p>
 
-*Keeping Up with the Dow Joneses: Debt, Prison, Workfare*
+<p id="9"><em>Keeping Up with the <u id="hypercite_ty3m9jf">Dow Joneses</u>: <u id="hypercite_zfboa5h">Debt</u>, <u id="hypercite_py59omx">Prison</u>, <u id="hypercite_0vaoare">Work</u>fare</em></p>
 
   
-![001](epub_original/OEBPS/vija_9781595585639_oeb_001_r1.jpg)   FOR BELA MALIK    **SERIES PREFACE**Turning history on its head opens up whole new worlds of possibility. Once, historians looked only at society’s upper crust: the leaders and others who made the headlines and whose words and deeds survived as historical truth. In our lifetimes, this has begun to change. Shifting history’s lens from the upper rungs to the lower, we are learning more than ever about the masses of people who did the work that made society tick.
+<p id="12">![001](epub_original/OEBPS/vija_9781595585639_oeb_001_r1.jpg)   FOR BELA MALIK    <strong>SERIES PREFACE</strong>Turning history on its head opens up whole new worlds of possibility. Once, historians looked only at society’s upper crust: the leaders and others who made the headlines and whose words and deeds <u id="hypercite_xlrhzrs">survived as historical truth</u>. <u id="hypercite_483lbc8">In our lifetimes</u>, this has begun to change. Shifting history’s lens from the upper rungs to the lower, we are learning more than ever about the masses of people who did the work that made society tick.</p>
 
-Not surprisingly, as the lens shifts the basic narratives change as well. The history of men and women of all classes, colors, and cultures reveals an astonishing degree of struggle and independent <mark class="user-name_1730162810721" id="user-name_1730162810721">political action</mark>. Everyday people played complicated historical roles, and they developed highly sophisticated and often very different political ideas from the people who ruled them. Sometimes their accomplishments left tangible traces; other times, the traces are invisible but no less real. They left their mark on our institutions, our folkways and language, on our political habits and vocabulary. We are only now beginning to excavate this multifaceted history.
+<p id="14"><u id="hypercite_ylzdf4b">Not surprisingly</u>, as the lens shifts the basic <u id="hypercite_axwl6qu">narratives</u> change as well. The history of men and women of all classes, colors, and cultures reveals an astonishing degree of struggle and independent <mark class="user-name_1730162810721" id="user-name_1730162810721" data-listener-attached="true">political action</mark>. Everyday people played complicated historical roles, and they developed highly sophisticated and often very different political ideas from the people who ruled them. Sometimes their accomplishments left tangible traces; other times, the traces are invisible but no less real. They left their mark on our institutions, our folkways and language, on our political habits and vocabulary. We are only now beginning to excavate this multifaceted history.</p>
 
 The New Press People’s History Series roams far and wide through human history, revisiting old stories in new ways, and introducing altogether new accounts of the struggles of common people to make their own history. Taking the lives and viewpoints of common people as its point of departure, the series reexamines subjects as different as the American Revolution, the history of sports, the history of American art, the Mexican Revolution, and the rise of the Third World.
 

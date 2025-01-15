@@ -468,9 +468,8 @@ function sendHyperciteBlocksToBackend(book, hyperciteId, blocks) {
         });
 }
 
+// Event listener for copying text and creating a hypercite
 
-// Event listener for copying text and creating a hypercite
-// Event listener for copying text and creating a hypercite
 document.addEventListener('copy', (event) => {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) {
@@ -484,14 +483,43 @@ document.addEventListener('copy', (event) => {
         return;
     }
 
+    // Get the current site URL
+    const currentSiteUrl = `${window.location.origin}`; // E.g., "https://thissite.com"
     const citationIdA = book; // Assign 'book' to 'citation_id_a'
     const hypercitedText = selection.toString(); // The actual text being copied
     const hrefA = `${citationIdA}#${hyperciteId}`; // Construct href_a dynamically
 
-    // Wrap the selected text and send the relevant blocks to the backend
+    // Extract plain text from the selection
+    const selectedText = selection.toString().trim(); // Plain text version of selected content
+
+    // Create the HTML and plain text for the clipboard, including the full URL
+    const clipboardHtml = `"${selectedText}"<a href="${currentSiteUrl}/${hrefA}">[:]</a>`;
+    const clipboardText = `"${selectedText}" [[:]](${currentSiteUrl}/${hrefA})`;
+
+    // Set clipboard data
+    event.clipboardData.setData('text/html', clipboardHtml);
+    event.clipboardData.setData('text/plain', clipboardText);
+    event.preventDefault(); // Prevent default copy behavior
+
+    // Wrap the selected text in the DOM and send data to the backend
     wrapSelectedTextInDOM(hyperciteId, citationIdA);
     saveHyperciteData(citationIdA, hyperciteId, hypercitedText, hrefA);
 });
+
+
+
+
+
+    
+
+    
+
+
+
+
+
+
+
 
 // Function to save hypercite metadata to the server
 function saveHyperciteData(citation_id_a, hypercite_id, hypercited_text, href_a) {
