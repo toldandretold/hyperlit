@@ -10,9 +10,13 @@
  >
  > Front cover: Alfred Gescheidt / Getty Images Typeset by Newgen Publishing UK
 
-## Foreward 
+Foreward
 
-Despite Lenin’s Imperialism proving correct in its predictions, it has been ignored, dismissed, criticised and condemned as irrelevant to twenty-first- century capitalism. King examines the various criticisms that range from claiming that Lenin’s work is out of date because colonies have disappeared; Lenin lacked rigour in concept; he relied on non-Marxist theories like those of Hobson; and even that imperialism, as Lenin described it, no longer exists in the twenty-first century.
+d
+
+f
+
+c
 
 Although Lenin’s Imperialism highlights the export of capital to the ‘developing world’, imperialist exploitation is not defined by this. As Lenin himself argued (see Chapter 5), it is defined by the monopoly of techno­logical superiority that enables the imperialist countries to extract surplus value from the ‘non-monopoly’ capitals through both trade and subsidiaries located abroad. That extraction does not mainly occur within transnational companies, as many modern heterodox analyses argue. According to the United Nations Conference on Trade and Development (UNCTAD) – a key data source about international trade and investment flows – only one-third of value transfers from poor to rich takes place from subsidiaries of transnational companies to the head office. More usually, independent Third World capitalists exploit their own labour force but then, in selling on the world market where international prices are set, much of the surplus value they have extracted domestically is transferred to the dominant higher- technology monopoly capitals in the imperialist economies.
 

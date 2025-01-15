@@ -182,18 +182,12 @@ html, body, * {
     display: none; /* Hidden until text is selected */
     z-index: 9999; /* Keep it above other elements */
     background-color: white;
-    padding: 10px;
+    padding: 0px;
     border-radius: 5px;
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Add a small shadow for visibility */
 }
 
-#hyperlight-buttons button {
-    background-color: white; /* Button background color */
-    border: 1px solid #ccc;
-    padding: 5px 10px;
-    margin-right: 5px;
-    border-radius: 5px;
-}
+
 
 mark {
     text-decoration: none !important; /* No underline by default */

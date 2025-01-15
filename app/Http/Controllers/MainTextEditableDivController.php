@@ -185,10 +185,11 @@ private function convertHtmlToMarkdown($html)
                     $markdownContent .= "**" . $node->textContent . "**";
                 } elseif (in_array($node->nodeName, ['i', 'em'])) {
                     $markdownContent .= "*" . $node->textContent . "*";
-                } elseif ($node->nodeName === 'a' && $node->hasAttribute('href')) {
-                    $markdownContent .= "[" . $node->textContent . "](" . $node->getAttribute('href') . ")";
+                } elseif ($node->nodeName === 'a') {
+                    // Preserve <a> tags with all attributes
+                    $markdownContent .= $this->preserveElementWithAttributes($node);
                 } elseif ($node->nodeName === 'mark') {
-                    // Preserve <mark> tag with all attributes
+                    // Preserve <mark> tags with all attributes
                     $markdownContent .= $this->preserveElementWithAttributes($node);
                 } elseif ($node->nodeName === 'p') {
                     // Process <p> block recursively
@@ -222,8 +223,9 @@ private function processInlineElements($parentNode)
                 $markdown .= "**" . $child->textContent . "**";
             } elseif ($child->nodeName === 'i' || $child->nodeName === 'em') {
                 $markdown .= "*" . $child->textContent . "*";
-            } elseif ($child->nodeName === 'a' && $child->hasAttribute('href')) {
-                $markdown .= "[" . $child->textContent . "](" . $child->getAttribute('href') . ")";
+            } elseif ($child->nodeName === 'a') {
+                // Preserve <a> tags with all attributes
+                $markdown .= $this->preserveElementWithAttributes($child);
             } else {
                 $markdown .= $child->textContent;
             }
