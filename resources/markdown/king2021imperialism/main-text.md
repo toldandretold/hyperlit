@@ -14,6 +14,8 @@
 
 "looked only"<a href="http://localhost:8000/prashad2007darker#hypercite_q3rqepp" id="hypercite_q3rqepp_b">[:]</a>
 
+"The combination"<a href="http://localhost:8000/thier2018people#hypercite_n1q6pgb" id="hypercite_n1q6pgb_b">[:]</a>
+
 Although Lenin’s Imperialism highlights the export of capital to the ‘developing world’, imperialist exploitation is not defined by this. As Lenin himself argued (see Chapter 5), it is defined by the monopoly of techno­logical superiority that enables the imperialist countries to extract surplus value from the ‘non-monopoly’ capitals through both trade and subsidiaries located abroad. That extraction does not mainly occur within transnational companies, as many modern heterodox analyses argue. According to the United Nations Conference on Trade and Development (UNCTAD) – a key data source about international trade and investment flows – only one-third of value transfers from poor to rich takes place from subsidiaries of transnational companies to the head office. More usually, independent Third World capitalists exploit their own labour force but then, in selling on the world market where international prices are set, much of the surplus value they have extracted domestically is transferred to the dominant higher- technology monopoly capitals in the imperialist economies.
 
 "The final communiqué at Bandung demanded that the United Nations admit all those formerly colonized states, such as Libya and Vietnam, then denied admission into its body (“For effective cooperation for world peace, membership in the United Nations should be universal”)."<a href="http://localhost:8000/prashad2007darker#hypercite_05gyf39" id="hypercite_05gyf39_b">[:]</a>

@@ -137,4 +137,6 @@ Route::post('/{book}/saveMarkdown', [MarkdownITController::class, 'saveMarkdown'
 Route::get('/{book}/hyperlights.md', [MarkdownITController::class, 'showMarkdown'])->name('markdownIT.showMarkdown');
 
 // General book route (should be last to avoid conflict with more specific routes)
-Route::get('/{book}', [TextController::class, 'show'])->name('book.show');
+Route::get('/{book}', [TextController::class, 'show'])
+    ->where('book', '[a-zA-Z0-9\-]+') // Adjust regex as needed
+    ->name('book.show');

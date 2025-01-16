@@ -129,9 +129,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Utility: Find the line number of a unique `id` in the Markdown
     function findLineForId(markdown, id) {
+        const regex = new RegExp(`id="${id}"`, "i");
         const lines = markdown.split("\n");
         for (let i = 0; i < lines.length; i++) {
-            if (lines[i].includes(`id="${id}"`)) {
+            if (regex.test(lines[i])) {
                 return i; // Return the line number where the `id` is found
             }
         }
@@ -223,64 +224,113 @@ document.addEventListener("DOMContentLoaded", function () {
         }, 100);
     }
 
-    // Lazy loading setup
-    function setupLazyLoad() {
-    if (isLazyLoadSetup) return;
-    isLazyLoadSetup = true;
+    // Function to handle navigation to internal links
+    function navigateToInternalId(targetId) {
+        const targetElement = document.getElementById(targetId);
 
-    let isScrolling = false;
+        if (targetElement) {
+            // If the element is already in the DOM, scroll to it
+            targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+            console.log(`Scrolled to existing ID: ${targetId}`);
+        } else {
+            // If the element is not in the DOM, load the content dynamically
+            console.log(`ID not found in DOM, loading dynamically: ${targetId}`);
+            loadContentAroundId(targetId);
+        }
+    }
 
-    function lazyLoadOnScroll() {
-        if (isScrolling) return;
-        isScrolling = true;
+    // Function to dynamically load content around a target ID
+    function loadContentAroundId(targetId) {
+        const targetLine = findLineForId(markdownContent, targetId);
+        if (targetLine === null) {
+            console.warn(`Target ID "${targetId}" not found in Markdown.`);
+            return;
+        }
+
+        const totalLines = markdownContent.split("\n").length;
+        const startLine = Math.max(0, targetLine - 50); // Load 50 lines before the target
+        const endLine = Math.min(totalLines, targetLine + 50); // Load 50 lines after the target
+
+        processRange(startLine, endLine, false, "downward");
 
         setTimeout(() => {
-            const totalLines = markdownContent.split("\n").length;
-
-            const scrollTop = mainContentDiv.scrollTop;
-            const scrollHeight = mainContentDiv.scrollHeight;
-            const clientHeight = mainContentDiv.clientHeight;
-
-            // Lazy load upward
-            if (scrollTop <= 100 && currentRangeStart > 0) {
-                console.log("Lazy loading upward...");
-                const newStart = Math.max(0, currentRangeStart - chunkSize);
-                if (!processedChunks.has(`${newStart}-${currentRangeStart}`)) {
-                    const previousHeight = mainContentDiv.scrollHeight; // Capture current height before prepending
-
-                    processRange(newStart, currentRangeStart, false, "upward");
-
-                    const newHeight = mainContentDiv.scrollHeight; // Calculate new height after prepending
-                    const heightDifference = newHeight - previousHeight;
-
-                    mainContentDiv.scrollTop += heightDifference; // Adjust scrollTop to maintain position
-                    console.log({
-                        previousHeight,
-                        newHeight,
-                        adjustedScrollTop: mainContentDiv.scrollTop,
-                    });
-
-                    currentRangeStart = newStart;
-                }
+            const newTargetElement = document.getElementById(targetId);
+            if (newTargetElement) {
+                newTargetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                console.log(`Scrolled to dynamically loaded ID: ${targetId}`);
+            } else {
+                console.error(`ID "${targetId}" still not found after loading.`);
             }
-
-            // Lazy load downward
-            if (scrollTop + clientHeight >= scrollHeight - 50 && currentRangeEnd < totalLines) {
-                console.log("Lazy loading downward...");
-                const newEnd = Math.min(totalLines, currentRangeEnd + chunkSize);
-                if (!processedChunks.has(`${currentRangeEnd}-${newEnd}`)) {
-                    processRange(currentRangeEnd, newEnd, false, "downward");
-                    currentRangeEnd = newEnd;
-                }
-            }
-
-            isScrolling = false;
         }, 100);
     }
 
-    mainContentDiv.addEventListener("scroll", lazyLoadOnScroll);
-    }
+    // Intercept internal links
+    document.addEventListener("click", function (event) {
+        const link = event.target.closest("a");
+        if (link && link.hash && link.hash.startsWith("#")) {
+            event.preventDefault(); // Prevent default anchor behavior
+            const targetId = link.hash.substring(1); // Get the ID without the "#"
+            navigateToInternalId(targetId);
+        }
+    });
 
+    // Lazy loading setup
+    function setupLazyLoad() {
+        if (isLazyLoadSetup) return;
+        isLazyLoadSetup = true;
+
+        let isScrolling = false;
+
+        function lazyLoadOnScroll() {
+            if (isScrolling) return;
+            isScrolling = true;
+
+            setTimeout(() => {
+                const totalLines = markdownContent.split("\n").length;
+
+                const scrollTop = mainContentDiv.scrollTop;
+                const scrollHeight = mainContentDiv.scrollHeight;
+                const clientHeight = mainContentDiv.clientHeight;
+
+                // Lazy load upward
+                if (scrollTop <= 100 && currentRangeStart > 0) {
+                    console.log("Lazy loading upward...");
+                    const newStart = Math.max(0, currentRangeStart - chunkSize);
+                    if (!processedChunks.has(`${newStart}-${currentRangeStart}`)) {
+                        const previousHeight = mainContentDiv.scrollHeight; // Capture current height before prepending
+
+                        processRange(newStart, currentRangeStart, false, "upward");
+
+                        const newHeight = mainContentDiv.scrollHeight; // Calculate new height after prepending
+                        const heightDifference = newHeight - previousHeight;
+
+                        mainContentDiv.scrollTop += heightDifference; // Adjust scrollTop to maintain position
+                        console.log({
+                            previousHeight,
+                            newHeight,
+                            adjustedScrollTop: mainContentDiv.scrollTop,
+                        });
+
+                        currentRangeStart = newStart;
+                    }
+                }
+
+                // Lazy load downward
+                if (scrollTop + clientHeight >= scrollHeight - 50 && currentRangeEnd < totalLines) {
+                    console.log("Lazy loading downward...");
+                    const newEnd = Math.min(totalLines, currentRangeEnd + chunkSize);
+                    if (!processedChunks.has(`${currentRangeEnd}-${newEnd}`)) {
+                        processRange(currentRangeEnd, newEnd, false, "downward");
+                        currentRangeEnd = newEnd;
+                    }
+                }
+
+                isScrolling = false;
+            }, 100);
+        }
+
+        mainContentDiv.addEventListener("scroll", lazyLoadOnScroll);
+    }
 
     // Track last visible ID for refresh
     window.addEventListener("scroll", () => {
