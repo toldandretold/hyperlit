@@ -18,6 +18,14 @@ export default defineConfig({
             refresh: true,
         }),
     ],
+    server: {
+        host: '0.0.0.0', // Allow connections from the network
+        port: 5173,      // Default port for Vite (can be customized)
+        hmr: {
+            host: '10.0.0.93', // Replace with your computer's local IP address
+            port: 5173,
+        },
+    },
     build: {
         sourcemap: true,  // Enable source maps for easier debugging
         minify: false,    // Disable minification for debugging purposes
