@@ -29,7 +29,7 @@ class PandocConversionJob implements ShouldQueue
 
         // Step 1: Run the Pandoc conversion process
         $process = new Process(['/usr/local/bin/pandoc', $this->filePath, '-f', 'docx', '-t', 'markdown-smart+raw_html', '-o', $this->outputPath, '--wrap=none']);
-        $process->setTimeout(300);  // Set a timeout of 5 minutes
+        $process->setTimeout(500);  // Set a timeout of 5 minutes
         $process->run();
 
         if (!$process->isSuccessful()) {

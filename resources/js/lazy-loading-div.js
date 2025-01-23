@@ -44,6 +44,22 @@ function convertMarkdownToHtmlWithIds(markdown, offset = 0) {
                 blockquoteOffset = 0;
             }
             htmlOutput += `<h3 id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^### /, ""))}</h3>\n`;
+        } else if (trimmedLine.startsWith("#### ")) {
+            if (insideBlockquote) {
+                htmlOutput += currentBlockquote + "</blockquote>\n";
+                insideBlockquote = false;
+                currentBlockquote = "";
+                blockquoteOffset = 0;
+            }
+            htmlOutput += `<h4 id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^#### /, ""))}</h4>\n`;
+        } else if (trimmedLine.startsWith("##### ")) {
+            if (insideBlockquote) {
+                htmlOutput += currentBlockquote + "</blockquote>\n";
+                insideBlockquote = false;
+                currentBlockquote = "";
+                blockquoteOffset = 0;
+            }
+            htmlOutput += `<h5 id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^##### /, ""))}</h5>\n`;
         } else if (trimmedLine.startsWith(">")) {
             // Start a new blockquote if not already inside one
             if (!insideBlockquote) {
@@ -59,6 +75,14 @@ function convertMarkdownToHtmlWithIds(markdown, offset = 0) {
                 // Add the current line to the blockquote, wrapped in <p> tags
                 currentBlockquote += `<p id="${absoluteIndex}_${blockquoteOffset}">${parseInlineMarkdown(trimmedLine.replace(/^> /, "").trim())}</p>`;
                 blockquoteOffset++; // Increment blockquote paragraph counter
+            }
+        } else if (trimmedLine.match(/^!\[.*\]\(.*\)$/)) {
+            // Handle Markdown image syntax
+            const imageMatch = trimmedLine.match(/^!\[(.*)\]\((.*)\)$/);
+            if (imageMatch) {
+                const altText = imageMatch[1];
+                const imageUrl = imageMatch[2];
+                htmlOutput += `<img id="${absoluteIndex}" src="${imageUrl}" alt="${altText}" />\n`;
             }
         } else {
             // Close the blockquote when encountering a non-blockquote line
