@@ -1,0 +1,34 @@
+# Working Class Investors
+
+According to some readings of Marx, the very notion of a 'working-class investor' is a contradiction in terms, and should not be possible. In other readings, Marxism is precisely suited to analysing such contradictory phenomena. This article considers both theories. It argues that the actual historical phenomenon of working-class investing *can be best explained by the latter theory*. In a mannor similar to Trotsky's theory of *uneven and combined development*, and *the permanent revolution*, it is possible to consider the different, and contradictory tendencies of capitalism, and observe how they exist, in tension, even within individual historical subjects, like the working-class investor. In doing so, however, the analysis would inevitably have to contextualise the individual's historical experience within the broader, global history of capital. Of course, the point is not to theories what would be needed, but to go and do the work. This article does that empirically, by showing that –– indeed –– many workers invest their wages. That is, they become owners of capital. However, what this means, concretely, depends on the given historical and geographical position of that working class investor. The existence of a working-class investor would have wildly different implications for different stages of capitalism. This is for the obvious reason that the nature of capitalist competition, and the risks and uncertainty of capital investment, vary according to the unravelling process of global capital accumulation. 
+
+Capital's irratic twists and turns, and long-term, structural changes that take place through the long-cycles of productivity that expand and contract as the result of revolutionary innovations in the means of production, and the diminishing returns that set in as the profitable applications of that innovation become increasingly exhausted. Perhaps most obviously is the change in the nature of global capital accumulation that were predicted by Marx, and most acutely noted, and appreciated, by Lenin. This is the turn from an age of so-called "freely developed capitalism" to one of "monopoly capitalism". Even if we can't agree on fixed time lines, the fundamnetal point of this analysis is that the nature of capital accumulation changes in a fundmental, qualitative way once the monopolisation of capital develops towards an ever larger, and more global scale of concentration and centralisation. This point is absolutely pivotal to understanding the concrete experience of working-class investment. For it forces us, as historical sociologists, to consider not just the binary question of whether the worker, as investor, is now -- to some degree -- a capitalist or not. This truth forces us to consider *what kind* of partial capitalist the worker becomes when they invest. 
+
+The worker is not, quite clearly, a monopoly-capitalist investor, even if they invest in monopoly capitalist firms. Instead, on the market the working-class investor joins other microscopic, small and regular capitals in a faction of capital unified only by thier common opposition to global monopoly capital. While this marxist language is not used by traders, their own language reflects this dyamic almost perfectly. In "trader speak" –– a dialect that wallstreet shares with poker tables –– there are whales and fish. *[explanation of this sourced, etc]*. Fish either die, or learn to fear the whales. For whales posses monopolistic powers over both the absolute money value of a given market, and the knowledge of key movements in this market. At any moment, any orderly, self-equibrilating tendencies of the free market fantasy can be upturned by the manipulations of a whale, or of monopoly capital. 
+
+
+It is this wild ocean of monopoly capital that worker investors are forced to play in. They are forced to do this, forced to become micro capital investors in a dangerous, dark murky sea of monopolies, because of inflation and low wages. A workers savings are not enough, because their real value is always being whittled away by the constant swirling movements of global monopoly finance. As such, if a worker is to save enough for their retirement, they *must* invest. In this sense, the worker does play the partial role of a micro-capitalist, but only because they must. If they do not, they run the risk of their wages falling below the value of their labor power, or the value of the basic human needs required for living. Indeed, it is precisely because workers are paid below the value of their basic needs (which includes retirement), that they are *forced* to invest, not so much by government-imposed superannuation schemes, than by the poverty of their wages, a phenomenon of monopoly capitalism. 
+
+The problem is that, having been forced -- structurally -- to invest, workers are incredibly impotent as individual investors. As workers, they simply do not have the time to learn the ins and outs of stock markets. Plus, their investments are tiny. They are less fish, more like plankton, easily swallowed by the monopoly whale. It is better, then, to simply invest in the whales, which is essentially what superannuation funds do. They invest –– for hte most part –– in monopoly capital. 
+
+Thus, for the workers basic needs to be sustained, they *must* invest that money into the very monopoly capital that exploits them. To receive the value even of their labour power, or means of subsistence, it is no longer enough to simply receive a wage. The worker also must invest part of that wage into the very monopoly whales which -- so ever uncertainly -- create, manipulate and destroy systems of speculative value. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
