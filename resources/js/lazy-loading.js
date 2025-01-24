@@ -1,4 +1,3 @@
-
 // Function to convert Markdown to HTML with IDs and inline parsing
 function convertMarkdownToHtmlWithIds(markdown, offset = 0) {
     const lines = markdown.split("\n"); // Split Markdown into lines
@@ -117,26 +116,57 @@ function parseInlineMarkdown(text) {
     return text;
 }
 
+
+
+    function convertMarkdownToHtml(markdown) {
+        console.log("Markdown content passed to convertMarkdownToHtml:", markdown);
+        const lines = markdown.split("\n");
+        let htmlOutput = "";
+
+        lines.forEach((line) => {
+            const trimmedLine = line.trim();
+            if (trimmedLine.startsWith("# ")) {
+                htmlOutput += `<h1>${parseInlineMarkdown(trimmedLine.replace(/^# /, ""))}</h1>`;
+            } else if (trimmedLine.startsWith("## ")) {
+                htmlOutput += `<h2>${parseInlineMarkdown(trimmedLine.replace(/^## /, ""))}</h2>`;
+            } else if (trimmedLine.startsWith("### ")) {
+                htmlOutput += `<h3>${parseInlineMarkdown(trimmedLine.replace(/^### /, ""))}</h3>`;
+            } else if (trimmedLine.startsWith(">")) {
+                htmlOutput += `<blockquote>${parseInlineMarkdown(trimmedLine.replace(/^> /, ""))}</blockquote>`;
+            } else if (trimmedLine.match(/^!\[.*\]\(.*\)$/)) {
+                const imageMatch = trimmedLine.match(/^!\[(.*)\]\((.*)\)$/);
+                if (imageMatch) {
+                    const altText = imageMatch[1];
+                    const imageUrl = imageMatch[2];
+                    htmlOutput += `<img src="${imageUrl}" alt="${altText}"/>`;
+                }
+            } else if (trimmedLine) {
+                htmlOutput += `<p>${parseInlineMarkdown(trimmedLine)}</p>`;
+            }
+        });
+
+        return htmlOutput;
+    }
+
+
+
+
 // Function to generate and display the Table of Contents
 async function generateTableOfContents(jsonPath, tocContainerId, toggleButtonId) {
     try {
-        // Fetch the JSON file
         const response = await fetch(jsonPath);
         const sections = await response.json();
 
-        // Get the container for the TOC
         const tocContainer = document.getElementById(tocContainerId);
         if (!tocContainer) {
             console.error(`TOC container with ID "${tocContainerId}" not found.`);
             return;
         }
 
-        // Clear any existing content in the container
         tocContainer.innerHTML = "";
 
-        let firstHeadingAdded = false; // Flag to track if the first heading has been added
+        let firstHeadingAdded = false;
 
-        // Generate the TOC content
         sections.forEach((section) => {
             if (section.heading) {
                 const headingContent = Object.values(section.heading)[0]; // Get the heading text
@@ -144,29 +174,30 @@ async function generateTableOfContents(jsonPath, tocContainerId, toggleButtonId)
                 const lineNumber = section.heading.line_number; // Get the line number
 
                 if (headingContent && headingLevel && lineNumber) {
-                    // Create the internal link
-                    const link = document.createElement("a");
-                    link.href = `#${lineNumber}`;
+                    // Convert Markdown to inline HTML for heading content
+                    const headingHtml = parseInlineMarkdown(headingContent);
 
-                    // Create the heading element (e.g., <h1>, <h2>) and set its content
-                    const headingElement = document.createElement(headingLevel);
-                    headingElement.textContent = headingContent;
+                    // Create the heading element dynamically
+                    const headingElement = document.createElement(headingLevel); // e.g., <h1>, <h2>
+                    headingElement.innerHTML = headingHtml;
 
-                    // Add the "first" class to the first heading element of any kind
+                    // Add the "first" class to the first heading
                     if (!firstHeadingAdded) {
                         headingElement.classList.add("first");
-                        firstHeadingAdded = true; // Mark the first heading as processed
+                        firstHeadingAdded = true;
                     }
 
-                    // Append the heading element to the link
+                    // Create a link wrapping the heading
+                    const link = document.createElement("a");
+                    link.href = `#${lineNumber}`;
                     link.appendChild(headingElement);
 
-                    // Create a wrapper div or list item for the link
+                    // Create a container for the link
                     const tocItem = document.createElement("div");
-                    tocItem.classList.add("toc-item", headingLevel); // Optional: Add classes for styling
+                    tocItem.classList.add("toc-item", headingLevel); // Optional: Add class for styling
                     tocItem.appendChild(link);
 
-                    // Append the item to the TOC container
+                    // Append the container to the TOC
                     tocContainer.appendChild(tocItem);
                 }
             }
@@ -176,10 +207,8 @@ async function generateTableOfContents(jsonPath, tocContainerId, toggleButtonId)
         const toggleButton = document.getElementById(toggleButtonId);
         if (toggleButton) {
             toggleButton.addEventListener("click", () => {
-                tocContainer.classList.toggle("hidden"); // Show/hide the TOC
+                tocContainer.classList.toggle("hidden");
             });
-        } else {
-            console.error(`Toggle button with ID "${toggleButtonId}" not found.`);
         }
     } catch (error) {
         console.error("Error generating Table of Contents:", error);
@@ -188,12 +217,29 @@ async function generateTableOfContents(jsonPath, tocContainerId, toggleButtonId)
 
 
 
+
 document.addEventListener("DOMContentLoaded", function () {
     const mainContentDiv = document.getElementById("main-content");
     let markdownContent = mainContentDiv.textContent; // Raw Markdown content
+
+    // JSON path
+    const jsonPath = `/${window.book}/main-text-footnotes.json`;
+    
+    // lazy loading
     const chunkSize = 100; // Number of lines to process per chunk
     const processedChunks = new Set(); // Track processed chunks
+    
+    // read position memory [NOT GOOD!]
     const lastVisitedKey = "last-visited-id"; // Key for session storage
+    
+
+    // footnotes buttons
+    const refContainer = document.getElementById("ref-container");
+    const refOverlay = document.getElementById("ref-overlay");
+    let isRefOpen = false;
+
+
+    // TOC table of contents 
     const tocContainer = document.getElementById("toc-container");
     const tocOverlay = document.getElementById("toc-overlay");
     const tocButton = document.getElementById("toc-toggle-button");
@@ -216,12 +262,6 @@ document.addEventListener("DOMContentLoaded", function () {
         console.error("The 'book' variable is not defined or empty.");
         return;
     }
-
-    // Use the global `book` variable to construct the JSON path
-    const jsonPath = `/${window.book}/main-text-footnotes.json`;
-
-    // Log the JSON path for debugging purposes
-    console.log(`JSON Path: ${jsonPath}`);
 
     // Call the function to generate the TOC
     generateTableOfContents(jsonPath, "toc-container", "toc-toggle-button");
@@ -270,8 +310,6 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
     });
-
-
 
 
     if (!markdownContent) {
@@ -338,14 +376,18 @@ document.addEventListener("DOMContentLoaded", function () {
             mainContentDiv.appendChild(tempDiv);
         }
 
+        // Inject footnotes for the processed range
+        injectFootnotesForRange(startLine, endLine, jsonPath);
+
         processedChunks.add(`${startLine}-${endLine}`);
         attachMarkListeners(); // Ensure listeners are attached to newly added content
         console.log(`Processed lines ${startLine}-${endLine}.`);
         return true;
     }
 
+
     // Handle navigation to specific ID or position
-        function handleNavigation() {
+    function handleNavigation() {
         const targetId = getTargetIdFromUrl(); // Extract target ID from URL
         let targetLine = null;
 
@@ -445,7 +487,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     // Function to dynamically load content around a line number
-        function loadContentAroundLine(lineNumber) {
+    function loadContentAroundLine(lineNumber) {
         const totalLines = markdownContent.split("\n").length;
         const bufferSize = 50; // Buffer size for adjacent content
         const startLine = Math.max(0, lineNumber - bufferSize);
@@ -598,18 +640,18 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function reorderDomContent() {
-            console.log("Reordering DOM content by numerical IDs...");
-            const elements = Array.from(mainContentDiv.children); // Get all child elements
-            elements.sort((a, b) => {
-                const idA = parseInt(a.id, 10);
-                const idB = parseInt(b.id, 10);
-                return idA - idB; // Sort by numerical ID
-            });
+        console.log("Reordering DOM content by numerical IDs...");
+        const elements = Array.from(mainContentDiv.children); // Get all child elements
+        elements.sort((a, b) => {
+            const idA = parseInt(a.id, 10);
+            const idB = parseInt(b.id, 10);
+            return idA - idB; // Sort by numerical ID
+        });
 
-            // Append the sorted elements back into `mainContentDiv`
-            elements.forEach((el) => mainContentDiv.appendChild(el));
-            console.log("DOM content reordered.");
-        }
+        // Append the sorted elements back into `mainContentDiv`
+        elements.forEach((el) => mainContentDiv.appendChild(el));
+        console.log("DOM content reordered.");
+    }
 
 
         function pruneDomContent(start, end, buffer = 50) {
@@ -641,11 +683,244 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
 
+        // [:FOOTNOTES]
+
+       function injectFootnotesForRange(startLine, endLine, jsonPath) {
+            fetch(jsonPath)
+                .then((response) => response.json())
+                .then((sections) => {
+                    sections.forEach((section) => {
+                        if (section.footnotes) {
+                            Object.entries(section.footnotes).forEach(([key, footnote]) => {
+                                const { line_number, content } = footnote;
+
+                                // Process only footnotes within the given range
+                                if (line_number >= startLine && line_number < endLine) {
+                                    const targetElement = document.getElementById(line_number.toString());
+
+                                    if (targetElement) {
+                                        console.log("Target element before regex:", targetElement.innerHTML);
+
+                                        // Check if the content already contains <sup> elements
+                                        if (targetElement.innerHTML.includes(`<sup class="note" data-note-key="${key}">`)) {
+                                            console.log(`Footnote ${key} already processed. Skipping.`);
+                                            return;
+                                        }
+
+                                        const regex = new RegExp(`\\[\\^${key}\\]`, "g");
+
+                                        // Check if the Markdown footnote exists in the content
+                                        if (regex.test(targetElement.innerHTML)) {
+                                            console.log(`Regex matched for key: ${key}`);
+
+                                            // Convert Markdown content to HTML
+                                            const footnoteHtml = content ? convertMarkdownToHtml(content) : "";
+
+                                            // Replace Markdown reference `[ ^key ]` with the `<sup>` element
+                                            targetElement.innerHTML = targetElement.innerHTML.replace(
+                                                regex,
+                                                `<sup class="note" data-note-key="${key}">[${key}]</sup>`
+                                            );
+
+                                            console.log("Updated target element innerHTML:", targetElement.innerHTML);
+                                        } else {
+                                            console.warn(`Regex did not match for key: ${key} in element:`, targetElement.innerHTML);
+                                        }
+                                    } else {
+                                        console.warn(`No target element found for line_number: ${line_number}`);
+                                    }
+                                }
+                            });
+                        }
+                    });
+                })
+                .catch((error) => {
+                    console.error("Error injecting footnotes for range:", error);
+                });
+        }
 
 
 
 
 
+
+         // Function to update the footnotes container state
+        function updateRefState() {
+            if (isRefOpen) {
+                console.log("Opening footnotes container...");
+                refContainer.classList.add("open");
+                refOverlay.classList.add("active");
+            } else {
+                console.log("Closing footnotes container...");
+                refContainer.classList.remove("open");
+                refOverlay.classList.remove("active");
+            }
+        }
+
+
+
+
+         // Function to fetch footnotes JSON
+        async function fetchFootnotes() {
+            try {
+                const response = await fetch(jsonPath);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch footnotes JSON: ${response.statusText}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error("Error fetching footnotes JSON:", error);
+                return null;
+            }
+        }
+
+        // Function to open the footnotes container with content
+        function openReferenceContainer(content) {
+                console.log("Opening reference container with content:", content); // Debugging output
+            if (refContainer) {
+                if (refContainer) {
+                    refContainer.innerHTML = content; // Populate the container
+                    isRefOpen = true;
+                    updateRefState();
+                }
+            }
+        }
+
+        // Function to close the reference container
+            function closeReferenceContainer() {
+                    isRefOpen = false;
+                updateRefState();
+                setTimeout(() => {
+                    refContainer.innerHTML = ""; // Clear content after animation
+                }, 300); // Delay to match the slide-out animation
+            }
+
+            console.log("convertMarkdownToHtml function:", typeof convertMarkdownToHtml);
+
+            async function displayFootnote(noteElement) {
+                const noteKey = noteElement.dataset.noteKey;
+                const parentId = noteElement.closest("[id]")?.id;
+
+                console.log("Note key:", noteKey);
+                console.log("Parent ID:", parentId);
+
+
+                if (!noteKey || !parentId) {
+                    console.warn("Missing note key or parent ID for the clicked footnote.");
+                    return;
+                }
+
+                const footnotesData = await fetchFootnotes();
+                if (!footnotesData) {
+                    console.error("Footnotes data could not be fetched.");
+                    return;
+                }
+
+                console.log("Fetched footnotes data:", footnotesData);
+
+                // Locate the correct section and footnote
+                const section = footnotesData.find((sec) =>
+                    Object.values(sec.footnotes || {}).some(
+                        (footnote) => footnote.line_number.toString() === parentId && footnote.content
+                    )
+                );
+
+                console.log("Matched section:", section);
+
+                if (!section) {
+                    console.warn(`No matching section found for line ${parentId}.`);
+                    return;
+                }
+
+                const footnote = section.footnotes[noteKey];
+                console.log("Matched footnote:", footnote);
+
+                if (!footnote || footnote.line_number.toString() !== parentId) {
+                    console.warn(`Footnote [${noteKey}] not found at line ${parentId}.`);
+                    return;
+                }
+
+                console.log("Footnote content before conversion:", footnote.content);
+                // Convert the Markdown content to HTML
+                const footnoteHtml = convertMarkdownToHtml(footnote.content);
+                console.log("Converted HTML:", footnoteHtml);
+
+                // Display the content in the reference container
+                console.log("Opening reference container with content:", `<div class="footnote-content">${footnoteHtml}</div>`);
+                openReferenceContainer(`<div class="footnote-content">${footnoteHtml}</div>`);
+            }
+
+
+            
+
+
+        // Event listener for clicking on footnote `<sup>` elements
+       // Event listener for clicking on footnote `<sup>` elements
+document.addEventListener("click", (event) => {
+    console.log("Click detected on element:", event.target); // Log the clicked element
+    const noteElement = event.target.closest("sup.note");
+    if (noteElement) {
+        console.log("Footnote <sup> element detected:", noteElement); // Log the matched element
+        event.preventDefault();
+
+        const noteKey = noteElement.dataset.noteKey;
+        const parentId = noteElement.closest("[id]")?.id;
+
+        console.log("Extracted noteKey:", noteKey); // Debugging extracted data
+        console.log("Extracted parentId:", parentId); // Debugging extracted data
+
+        if (!noteKey || !parentId) {
+            console.warn("Missing note key or parent ID for the clicked footnote.");
+            return;
+        }
+
+        fetch(jsonPath)
+            .then((response) => response.json())
+            .then((footnotesData) => {
+                console.log("Fetched footnotes data:", footnotesData); // Debugging output
+                const section = footnotesData.find((sec) => {
+                    return Object.values(sec.footnotes || {}).some(
+                        (fn) => fn.line_number.toString() === parentId && fn.content
+                    );
+                });
+
+                console.log("Matched section:", section);
+
+                if (!section) {
+                    console.warn(`No matching section found for line ${parentId}.`);
+                    return;
+                }
+
+                const footnote = section.footnotes[noteKey];
+                if (!footnote || footnote.line_number.toString() !== parentId) {
+                    console.warn(`Footnote [${noteKey}] not found at line ${parentId}.`);
+                    return;
+                }
+
+                console.log("Footnote content before conversion:", footnote.content);
+
+                // Convert Markdown to HTML directly here
+                const footnoteHtml = convertMarkdownToHtml(footnote.content);
+                console.log("Converted HTML:", footnoteHtml);
+
+                // Open the container with the converted content
+                openReferenceContainer(`<div class="footnote-content">${footnoteHtml}</div>`);
+            })
+            .catch((error) => {
+                console.error("Error fetching footnotes JSON:", error);
+            });
+    } else {
+        console.log("No <sup.note> element detected for this click."); // Log for non-matching elements
+    }
+});
+
+// Close the footnotes container when clicking the overlay
+refOverlay.addEventListener("click", () => {
+    if (isRefOpen) {
+        console.log("Closing footnotes container via overlay click...");
+        closeReferenceContainer();
+    }
+});
 
 
 
