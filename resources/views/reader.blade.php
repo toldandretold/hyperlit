@@ -23,18 +23,24 @@
         <button id="delete-hyperlight" type="button" style="display:none;">Delete</button>
     </div>
 
-
-    <div style="position: fixed; top: 10px; left: 10px;">
-    <button type="button" id="toc-toggle-button">Contents</button>
-    </div>
-
+    <!-- Button edit -->
     <div style="position: fixed; top: 10px; right: 10px;">
     <button type="button" id="editButton">Edit</button>
+    </div>
+
+    <!-- Button for Table of Contents -->
+    <div style="position: fixed; top: 10px; left: 10px;">
+    <button type="button" id="toc-toggle-button">Contents</button>
     </div>
 
     <!-- Container for the Table of Contents -->
     <div id="toc-container" class="hidden"></div>
     <div id="toc-overlay"></div>
+
+
+    <!-- Container for references -->
+    <div id="ref-container" class="hidden"></div>
+    <div id="ref-overlay"></div>
 
 @endsection
 

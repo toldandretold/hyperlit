@@ -295,10 +295,6 @@ caption {
     padding-right: 1em;
 }
 
-
-
-
-
 #toc-container h1.first {
     color: #EE4A95; 
 }
@@ -325,9 +321,6 @@ caption {
 }
 
 
-
-
-
 #toc-container.open {
     transform: translateX(0);
 }
@@ -349,3 +342,49 @@ caption {
     opacity: 1;
     visibility: visible;
 }
+
+
+
+
+
+
+
+/* Reference Container */
+#ref-container {
+    transform: translateX(100%); /* Start off-screen to the right */
+    transition: transform 0.3s ease-in-out; /* Smooth slide-in effect */
+    position: fixed;
+    right: 0; /* Align to the right edge */
+    top: 0;
+    height: 100%;
+    width: 80%; /* Same width as TOC */
+    background-color: #221F20; /* Matching TOC background color */
+    z-index: 1000; /* On top of the overlay */
+    overflow: auto;
+    padding-left: 1em;
+    padding-right: 1em;
+}
+
+#ref-container.open {
+    transform: translateX(0); /* Slide in */
+}
+
+/* Reference Overlay */
+#ref-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%; /* Covers the entire screen */
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent overlay */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease-in-out;
+    z-index: 999; /* Below the reference container */
+}
+
+#ref-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
