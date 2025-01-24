@@ -291,21 +291,37 @@ caption {
     background-color: #221F20;
     z-index: 1000;
     overflow: auto;
+    padding-left: 1em;
+    padding-right: 1em;
 }
+
+
+
+
+
+#toc-container h1.first {
+    color: #EE4A95; 
+}
+
 
 #toc-container h1 {
 
-    font-size: 30px;
+    font-size: 25px;
+    color: #E0E0E0;
+
 }
 
 #toc-container h2 {
 
-    font-size: 25px;
+    font-size: 20px;
+    padding-left: 2em;
+    color: #C4C4C4;
 }
 
 #toc-container h3, h4 {
-
+    padding-left: 4em;
     font-size: 20px;
+    color: #A8A8A8;
 }
 
 

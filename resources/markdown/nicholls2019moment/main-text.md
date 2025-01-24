@@ -1,11 +1,11 @@
 # A Moment of Possibility: The Rise and Fall of the New International Economic Order 
 
-Samuel Thomas Nicholls
-
+ Samuel Thomas Nicholls
+  
 Department of Politics and International Relations
-
+ 
 University of Adelaide
-
+ 
 August 2019
 
 # Abstract
@@ -784,7 +784,7 @@ Dietrich, Christopher R. W. "Mossadegh Madness: Oil and Sovereignty in the Antic
 
 Doherty, Eileen M. *The Difference between Certainly and Perhaps: Ldc Bargaining in Commercial Debt Negotiations.* University of California, Berkeley, 1994.
 
-Dosman, Edgar J. *The Life and Times of RaúL Prebisch, 1901-1986.* Montreal: McGill-Queen's University Press, 2008.
+Dosman, Edgar J. *The Life and Times of RaúL Prebisch, 1901-1986.* Montreal: McGill-Queen's University Press, 2008.
 
 Easterly, William. "The Lost Decades: Developing Countries' Stagnation in Spite of Policy Reform 1980– 1998." *Journal of Economic Growth* 6, no. 2 (2001): 135-57. <https://doi.org/10.1023/A:1011378507540>.
 
@@ -1547,7 +1547,7 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^169]: Of course, these ideas were not created in a vacuum. Eric Helleiner, for example, has shown that much of Prebisch’s thinking was not so different from the views of many New Dealers who helped to build the Bretton Woods institutions. Indeed, many of the ideas proposed as part of the NIEO had been discussed during the Bretton Woods negotiations: Helleiner, *Forgotten Foundations of Bretton Woods*, pp. 9, 21, 51, 112-13, 30, 243 73-74. Likewise, the important new research of Adom Getachew better contextualises the creation of these ideas: Getachew, *Worldmaking After Empire*.
 
 
-[^170]: Edgar J. Dosman, *The Life and Times of Raúl Prebisch, 1901-1986* (Montreal: McGill-Queen's University Press, 2008), p. 70.
+[^170]: Edgar J. Dosman, *The Life and Times of Raúl Prebisch, 1901-1986* (Montreal: McGill-Queen's University Press, 2008), p. 70.
 
 
 [^171]: Adrian Wooldridge and Alan Greenspan, *Capitalism in America: A History* (Penguin UK, 2018), pp. 230-32.
@@ -2566,4 +2566,3 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 
 
 [^508]: Ernest Mandel, *Late Capitalism* (Verso, 1998); Robert Brenner, *The Economics of Global Turbulence: The Advanced Capitalist Economies from Long Boom to Long Downturn, 1945-2005* (Verso, 2006).
-

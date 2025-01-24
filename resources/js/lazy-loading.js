@@ -117,7 +117,6 @@ function parseInlineMarkdown(text) {
     return text;
 }
 
-
 // Function to generate and display the Table of Contents
 async function generateTableOfContents(jsonPath, tocContainerId, toggleButtonId) {
     try {
@@ -135,6 +134,8 @@ async function generateTableOfContents(jsonPath, tocContainerId, toggleButtonId)
         // Clear any existing content in the container
         tocContainer.innerHTML = "";
 
+        let firstHeadingAdded = false; // Flag to track if the first heading has been added
+
         // Generate the TOC content
         sections.forEach((section) => {
             if (section.heading) {
@@ -151,6 +152,12 @@ async function generateTableOfContents(jsonPath, tocContainerId, toggleButtonId)
                     const headingElement = document.createElement(headingLevel);
                     headingElement.textContent = headingContent;
 
+                    // Add the "first" class to the first heading element of any kind
+                    if (!firstHeadingAdded) {
+                        headingElement.classList.add("first");
+                        firstHeadingAdded = true; // Mark the first heading as processed
+                    }
+
                     // Append the heading element to the link
                     link.appendChild(headingElement);
 
@@ -165,7 +172,6 @@ async function generateTableOfContents(jsonPath, tocContainerId, toggleButtonId)
             }
         });
 
-
         // Add a toggle button to show/hide the TOC
         const toggleButton = document.getElementById(toggleButtonId);
         if (toggleButton) {
@@ -179,6 +185,7 @@ async function generateTableOfContents(jsonPath, tocContainerId, toggleButtonId)
         console.error("Error generating Table of Contents:", error);
     }
 }
+
 
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -398,31 +405,59 @@ document.addEventListener("DOMContentLoaded", function () {
     // Function to handle navigation to internal links
     function navigateToInternalId(targetId) {
         if (isNumericId(targetId)) {
-            // If the ID is numeric, treat it as a line number
-            loadContentAroundLine(parseInt(targetId, 10));
+            const lineNumber = parseInt(targetId, 10);
+            loadContentAroundLine(lineNumber);
+
+            // Set the current range after loading content
+            const bufferSize = 50;
+            currentRangeStart = Math.max(0, lineNumber - bufferSize);
+            currentRangeEnd = Math.min(markdownContent.split("\n").length, lineNumber + bufferSize);
+
+
+            console.log({
+                action: "Navigating to internal ID",
+                targetId,
+                lineNumber,
+                currentRangeStart,
+                currentRangeEnd,
+            });
+
+            // Reorder the DOM after loading content
+            reorderDomContent();
+            pruneDomContent(currentRangeStart, currentRangeEnd, bufferSize);
         } else {
             const targetElement = document.getElementById(targetId);
             if (targetElement) {
-                // If the element is already in the DOM, scroll to it
                 targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
                 console.log(`Scrolled to existing ID: ${targetId}`);
             } else {
-                // If the element is not in the DOM, load the content dynamically
-                console.log(`ID not found in DOM, loading dynamically: ${targetId}`);
                 loadContentAroundId(targetId);
             }
         }
+
+        // Reinitialize lazy loading for scrolling up and down
+        setTimeout(() => {
+            setupLazyLoad();
+        }, 200);
     }
 
+
+
+
     // Function to dynamically load content around a line number
-    function loadContentAroundLine(lineNumber) {
+        function loadContentAroundLine(lineNumber) {
         const totalLines = markdownContent.split("\n").length;
-        const startLine = Math.max(0, lineNumber - 50); // Load 50 lines before the target
-        const endLine = Math.min(totalLines, lineNumber + 50); // Load 50 lines after the target
+        const bufferSize = 50; // Buffer size for adjacent content
+        const startLine = Math.max(0, lineNumber - bufferSize);
+        const endLine = Math.min(totalLines, lineNumber + bufferSize);
 
         console.log(`Loading content around line: ${lineNumber} (range: ${startLine}-${endLine})`);
 
         processRange(startLine, endLine, false, "downward");
+
+        // Update global range
+        currentRangeStart = Math.min(currentRangeStart, startLine);
+        currentRangeEnd = Math.max(currentRangeEnd, endLine);
 
         setTimeout(() => {
             const targetElement = document.getElementById(lineNumber.toString());
@@ -434,6 +469,8 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }, 100);
     }
+
+
 
     // Function to dynamically load content around a target ID
     function loadContentAroundId(targetId) {
@@ -487,10 +524,12 @@ document.addEventListener("DOMContentLoaded", function () {
         isLazyLoadSetup = true;
 
         let isScrolling = false;
+        let isLazyLoading = false; // Add a flag to prevent overlapping triggers
 
         function lazyLoadOnScroll() {
-            if (isScrolling) return;
+            if (isScrolling || isLazyLoading) return; // Prevent overlapping triggers
             isScrolling = true;
+            isLazyLoading = true;
 
             setTimeout(() => {
                 const totalLines = markdownContent.split("\n").length;
@@ -499,45 +538,116 @@ document.addEventListener("DOMContentLoaded", function () {
                 const scrollHeight = mainContentDiv.scrollHeight;
                 const clientHeight = mainContentDiv.clientHeight;
 
+                console.log({
+                    action: "Lazy loading triggered",
+                    scrollTop,
+                    scrollHeight,
+                    clientHeight,
+                    currentRangeStart,
+                    currentRangeEnd,
+                });
+
                 // Lazy load upward
-                if (scrollTop <= 100 && currentRangeStart > 0) {
+               if (scrollTop <= 200 && currentRangeStart > 0) { // Increase threshold
                     console.log("Lazy loading upward...");
                     const newStart = Math.max(0, currentRangeStart - chunkSize);
                     if (!processedChunks.has(`${newStart}-${currentRangeStart}`)) {
-                        const previousHeight = mainContentDiv.scrollHeight; // Capture current height before prepending
+                        const previousHeight = mainContentDiv.scrollHeight; // Capture current scroll height
 
                         processRange(newStart, currentRangeStart, false, "upward");
+                        currentRangeStart = newStart;
 
-                        const newHeight = mainContentDiv.scrollHeight; // Calculate new height after prepending
+                        reorderDomContent();
+                        pruneDomContent(currentRangeStart, currentRangeEnd, 50);
+
+                        const newHeight = mainContentDiv.scrollHeight; // Calculate new height after content is added
                         const heightDifference = newHeight - previousHeight;
 
-                        mainContentDiv.scrollTop += heightDifference; // Adjust scrollTop to maintain position
+                        // Adjust `scrollTop` to maintain the same visual position
+                        mainContentDiv.scrollTop += heightDifference;
                         console.log({
+                            action: "Lazy load upward",
                             previousHeight,
                             newHeight,
+                            heightDifference,
                             adjustedScrollTop: mainContentDiv.scrollTop,
                         });
-
-                        currentRangeStart = newStart;
                     }
                 }
 
+
                 // Lazy load downward
-                if (scrollTop + clientHeight >= scrollHeight - 50 && currentRangeEnd < totalLines) {
+                if (scrollTop + clientHeight >= scrollHeight - 100 && currentRangeEnd < totalLines) { // Slightly higher buffer
                     console.log("Lazy loading downward...");
                     const newEnd = Math.min(totalLines, currentRangeEnd + chunkSize);
                     if (!processedChunks.has(`${currentRangeEnd}-${newEnd}`)) {
                         processRange(currentRangeEnd, newEnd, false, "downward");
                         currentRangeEnd = newEnd;
+
+                        reorderDomContent();
+                        pruneDomContent(currentRangeStart, currentRangeEnd, 50);
                     }
                 }
 
                 isScrolling = false;
-            }, 100);
+                setTimeout(() => { isLazyLoading = false; }, 500); // Cooldown for 500ms
+            }, 200);
         }
 
         mainContentDiv.addEventListener("scroll", lazyLoadOnScroll);
     }
+
+    function reorderDomContent() {
+            console.log("Reordering DOM content by numerical IDs...");
+            const elements = Array.from(mainContentDiv.children); // Get all child elements
+            elements.sort((a, b) => {
+                const idA = parseInt(a.id, 10);
+                const idB = parseInt(b.id, 10);
+                return idA - idB; // Sort by numerical ID
+            });
+
+            // Append the sorted elements back into `mainContentDiv`
+            elements.forEach((el) => mainContentDiv.appendChild(el));
+            console.log("DOM content reordered.");
+        }
+
+
+        function pruneDomContent(start, end, buffer = 50) {
+            console.log(`Pruning DOM to keep range: ${start}-${end} with buffer: ${buffer}`);
+            const elements = mainContentDiv.querySelectorAll("[id]");
+
+            let heightRemovedAbove = 0; // Track height of elements removed above the viewport
+            const viewportTop = mainContentDiv.scrollTop;
+
+            elements.forEach((el) => {
+                const id = parseInt(el.id, 10); // Get numerical ID
+                if (isNaN(id) || id < start - buffer || id > end + buffer) {
+                    if (el.offsetTop < viewportTop) {
+                        heightRemovedAbove += el.offsetHeight; // Track removed height
+                    }
+                    console.log(`Removing element with ID: ${id}, offsetTop: ${el.offsetTop}`);
+                    el.remove(); // Remove out-of-range element
+                }
+            });
+
+            // Adjust scroll position if content above was removed
+            if (heightRemovedAbove > 0) {
+                mainContentDiv.scrollTop -= heightRemovedAbove;
+                console.log({
+                    action: "Scroll adjustment",
+                    heightRemovedAbove,
+                    newScrollTop: mainContentDiv.scrollTop,
+                });
+            }
+        }
+
+
+
+
+
+
+
+
 
     // Track last visible ID for refresh
     window.addEventListener("scroll", () => {
