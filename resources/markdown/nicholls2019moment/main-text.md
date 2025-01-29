@@ -1,6 +1,6 @@
 # A Moment of Possibility: The Rise and Fall of the New International Economic Order 
 
- Samuel Thomas Nicholls
+Samuel Thomas Nicholls z
   
 Department of Politics and International Relations
  

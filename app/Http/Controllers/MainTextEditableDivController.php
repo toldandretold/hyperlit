@@ -47,10 +47,8 @@ class MainTextEditableDivController extends Controller
             }
 
             if (preg_match('/^(\d+)([a-z]*)$/', $blockId, $matches)) {
-                // Handle numeric or numeric-letter IDs
                 $this->processNumericIdUpdate($matches, $action, $update, $markdownLines);
             } else {
-                // Handle complex IDs for inline tags like <mark> or <u>
                 $this->processComplexIdUpdate($blockId, $action, $update, $markdownLines);
             }
         }
@@ -59,52 +57,72 @@ class MainTextEditableDivController extends Controller
         file_put_contents($filePath, implode(PHP_EOL, $markdownLines) . PHP_EOL);
         Log::info("Successfully updated Markdown file at: {$filePath}");
 
-        return response()->json(['success' => true, 'message' => 'Content updated successfully.']);
+        // Call the Python script to extract footnotes
+        try {
+            $pythonScriptPath = base_path('app/python/footnote-jason.py'); // Adjust path if necessary
+            $process = new \Symfony\Component\Process\Process(['python3', $pythonScriptPath, $filePath]);
+            $process->setTimeout(300); // Set a timeout of 5 minutes
+            $process->run();
+
+            if (!$process->isSuccessful()) {
+                throw new \Symfony\Component\Process\Exception\ProcessFailedException($process);
+            }
+
+            Log::info("Footnote extraction completed for {$filePath}", [
+                'output' => $process->getOutput(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Footnote extraction failed for {$filePath}: " . $e->getMessage());
+            return response()->json(['success' => false, 'error' => 'Footnote extraction failed.'], 500);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Content updated and footnotes processed.']);
     }
+
 
     private function processNumericIdUpdate($matches, $action, $update, &$markdownLines)
-{
-    try {
-        $lineNumber = (int)$matches[1] - 1; // Convert 1-based ID to 0-based index
-        $letter = $matches[2];
+        {
+            try {
+                $lineNumber = (int)$matches[1] - 1; // Convert 1-based ID to 0-based index
+                $letter = $matches[2];
 
-        if ($action === 'update') {
-            Log::info("Calling convertHtmlToMarkdown for line: {$lineNumber}, ID: {$matches[0]}");
-            $htmlContent = $update['html'];
-            $markdownContent = $this->convertHtmlToMarkdown($htmlContent);
-            Log::info("Markdown conversion result for line {$lineNumber}: " . $markdownContent);
+                if ($action === 'update') {
+                    Log::info("Calling convertHtmlToMarkdown for line: {$lineNumber}, ID: {$matches[0]}");
+                    $htmlContent = $update['html'];
+                    $markdownContent = $this->convertHtmlToMarkdown($htmlContent);
+                    Log::info("Markdown conversion result for line {$lineNumber}: " . $markdownContent);
 
-            if ($letter) {
-                $this->insertNewLineWithLetter($lineNumber, $markdownContent, $markdownLines);
-            } else {
-                $this->updateExistingLine($lineNumber, $markdownContent, $markdownLines);
+                    if ($letter) {
+                        $this->insertNewLineWithLetter($lineNumber, $markdownContent, $markdownLines);
+                    } else {
+                        $this->updateExistingLine($lineNumber, $markdownContent, $markdownLines);
+                    }
+                } elseif ($action === 'delete') {
+                    $this->deleteLine($lineNumber, $markdownLines);
+                }
+            } catch (\Exception $e) {
+                Log::error("Error in processNumericIdUpdate: " . $e->getMessage());
+                throw $e;
             }
-        } elseif ($action === 'delete') {
-            $this->deleteLine($lineNumber, $markdownLines);
         }
-    } catch (\Exception $e) {
-        Log::error("Error in processNumericIdUpdate: " . $e->getMessage());
-        throw $e;
-    }
-}
 
 private function processComplexIdUpdate($blockId, $action, $update, &$markdownLines)
-{
-    if (in_array($action, ['update', 'delete'])) {
-        Log::info("Processing complex ID: {$blockId}");
+    {
+        if (in_array($action, ['update', 'delete'])) {
+            Log::info("Processing complex ID: {$blockId}");
 
-        if ($action === 'update') {
-            Log::info("Calling convertHtmlToMarkdown for complex ID: {$blockId}");
-            $htmlContent = $update['html'];
-            $markdownContent = $this->convertHtmlToMarkdown($htmlContent);
-            Log::info("Markdown conversion result for complex ID {$blockId}: " . $markdownContent);
-        } elseif ($action === 'delete') {
-            Log::info("Delete request for complex ID: {$blockId}");
+            if ($action === 'update') {
+                Log::info("Calling convertHtmlToMarkdown for complex ID: {$blockId}");
+                $htmlContent = $update['html'];
+                $markdownContent = $this->convertHtmlToMarkdown($htmlContent);
+                Log::info("Markdown conversion result for complex ID {$blockId}: " . $markdownContent);
+            } elseif ($action === 'delete') {
+                Log::info("Delete request for complex ID: {$blockId}");
+            }
+        } else {
+            Log::warning("Unsupported action for complex ID: {$blockId}");
         }
-    } else {
-        Log::warning("Unsupported action for complex ID: {$blockId}");
     }
-}
 
 
     private function insertNewLineWithLetter($lineNumber, $markdownContent, &$markdownLines)

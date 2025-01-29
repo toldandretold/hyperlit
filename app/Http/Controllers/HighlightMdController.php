@@ -11,316 +11,357 @@ use League\HTMLToMarkdown\HtmlConverter;
 class HighlightMdController extends Controller
 {
     public function store(Request $request)
-{
-    // Retrieve necessary inputs from the request
-    $book = $request->input('book');
-    $blocks = $request->input('blocks'); // Array of blocks with 'id' and 'html'
-    $highlightId = $request->input('highlight_id'); // Retrieve highlight_id from the request
-    $textSegment = $request->input('text');
-    $startXPath = $request->input('start_xpath');
-    $endXPath = $request->input('end_xpath');
-    $xpathFull = $request->input('xpath_full');
-    $startPosition = $request->input('start_position');
-    $endPosition = $request->input('end_position');
+    {
+        // Retrieve necessary inputs from the request
+        $book = $request->input('book');
+        $blocks = $request->input('blocks'); // Array of blocks with 'id' and 'html'
+        $highlightId = $request->input('highlight_id');
+        $textSegment = $request->input('text');
+        $startXPath = $request->input('start_xpath');
+        $endXPath = $request->input('end_xpath');
+        $xpathFull = $request->input('xpath_full');
+        $startPosition = $request->input('start_position');
+        $endPosition = $request->input('end_position');
 
-    \Log::info("Store function called for book: {$book}, text: {$textSegment}");
-    \Log::info("Blocks received: " . json_encode($blocks));
+        \Log::info("Store function called for book: {$book}, text: {$textSegment}");
+        \Log::info("Blocks received: " . json_encode($blocks));
 
-    // Validate that required fields are present
-    if (empty($blocks) || empty($highlightId) || empty($book)) {
-        \Log::error("Invalid or missing data.");
-        return response()->json(['success' => false, 'message' => 'Invalid or missing data.'], 400);
+        // Validate that required fields are present
+        if (empty($blocks) || empty($highlightId) || empty($book)) {
+            \Log::error("Invalid or missing data.");
+            return response()->json(['success' => false, 'message' => 'Invalid or missing data.'], 400);
+        }
+
+        // Step 1: Insert highlight data into the database
+        try {
+            DB::table('highlights')->insert([
+                'text' => $textSegment,
+                'highlight_id' => $highlightId,
+                'book' => $book,
+                'start_xpath' => $startXPath,
+                'end_xpath' => $endXPath,
+                'xpath_full' => $xpathFull,
+                'start_position' => $startPosition,
+                'end_position' => $endPosition,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            \Log::info("Successfully inserted highlight data into database.");
+        } catch (\Exception $e) {
+            \Log::error("Error inserting highlight data into the database: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error inserting highlight data into the database.'], 500);
+        }
+
+        // Step 2: Update the relevant lines in the Markdown file
+        $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
+
+        try {
+            $markdownLines = file($markdownFilePath, FILE_IGNORE_NEW_LINES);
+
+            foreach ($blocks as $block) {
+                $blockId = $block['id'];
+                $blockHtml = $block['html'];
+
+                \Log::info("Original HTML for block {$blockId}: {$blockHtml}");
+
+                if (str_contains($blockHtml, '<blockquote')) {
+                    $processedMarkdown = $this->convertBlockquoteToMarkdown($blockHtml);
+                    [$startLine, $endLine] = $this->getBlockquoteLineRange($blockId, $blockHtml);
+
+                    array_splice(
+                        $markdownLines,
+                        $startLine - 1,
+                        ($endLine - $startLine) + 1,
+                        explode("\n", $processedMarkdown)
+                    );
+                } else {
+                    $processedMarkdown = $this->convertHtmlToMarkdown($blockHtml);
+                    $lineNumber = (int)$blockId;
+
+                    if (isset($markdownLines[$lineNumber - 1])) {
+                        $currentLine = $markdownLines[$lineNumber - 1];
+                        $isBlockquote = str_starts_with(trim($currentLine), '>');
+                        $updatedLine = $isBlockquote ? ' > ' . ltrim($processedMarkdown) : rtrim($processedMarkdown);
+                        \Log::info("Updating line {$lineNumber}: Original line: '{$currentLine}' Updated line: '{$updatedLine}'");
+                        $markdownLines[$lineNumber - 1] = $updatedLine;
+                    } else {
+                        \Log::warning("Line number {$lineNumber} not found in Markdown file.");
+                    }
+                }
+            }
+
+            file_put_contents($markdownFilePath, implode(PHP_EOL, $markdownLines) . PHP_EOL);
+            \Log::info("Successfully updated Markdown file for book: {$book}");
+        } catch (\Exception $e) {
+            \Log::error("Error updating Markdown file: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error updating Markdown file.'], 500);
+        }
+
+        // Step 3: Update hyperlights and global positions
+        try {
+            $conversionController = new ConversionController($book);
+            $conversionController->updateGlobalPositions($book);
+            $this->updateHyperlightsMd($book);
+            $this->updateHyperlightsHtml($book);
+            \Log::info("Successfully updated hyperlights and global positions for book: {$book}");
+        } catch (\Exception $e) {
+            \Log::error("Error updating hyperlights or global positions: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error updating hyperlights or global positions.'], 500);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Highlight created/updated successfully.']);
     }
 
-    // Step 1: Insert highlight data into the database
-    try {
-        DB::table('highlights')->insert([
-            'text' => $textSegment,
-            'highlight_id' => $highlightId,
-            'book' => $book,
-            'start_xpath' => $startXPath,
-            'end_xpath' => $endXPath,
-            'xpath_full' => $xpathFull,
-            'start_position' => $startPosition,
-            'end_position' => $endPosition,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        \Log::info("Successfully inserted highlight data into database.");
-    } catch (\Exception $e) {
-        \Log::error("Error inserting highlight data into the database: " . $e->getMessage());
-        return response()->json(['success' => false, 'message' => 'Error inserting highlight data into the database.'], 500);
-    }
 
-    // Step 2: Update the relevant lines in the Markdown file
-$markdownFilePath = resource_path("markdown/{$book}/main-text.md");
+    private function convertBlockquoteToMarkdown($html)
+    {
+        $doc = new \DOMDocument();
+        @$doc->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
 
-try {
-    // Read Markdown file into an array, ensuring no extra newlines are included
-    $markdownLines = file($markdownFilePath, FILE_IGNORE_NEW_LINES);
+        $markdownContent = '';
 
-    foreach ($blocks as $block) {
-        $blockId = $block['id'];
-        $blockHtml = $block['html'];
+        // Log the input HTML
+        \Log::info("Starting blockquote conversion. Input HTML: " . $html);
 
-        \Log::info("Original HTML for block {$blockId}: {$blockHtml}");
+        // Process each <blockquote> tag
+        foreach ($doc->getElementsByTagName('blockquote') as $blockquote) {
+            foreach ($blockquote->getElementsByTagName('p') as $p) {
+                // Extract inner HTML of the <p> tag
+                $innerHTML = '';
+                foreach ($p->childNodes as $child) {
+                    $childHTML = trim($doc->saveHTML($child)); // Process child nodes only
+                    $innerHTML .= $childHTML;
 
-        if (str_contains($blockHtml, '<blockquote')) {
-            // Handle blockquotes differently
-            $processedMarkdown = $this->convertBlockquoteToMarkdown($blockHtml);
-            [$startLine, $endLine] = $this->getBlockquoteLineRange($blockId, $blockHtml);
-            \Log::info("Blockquote spans lines {$startLine}-{$endLine}");
-
-            // Replace the corresponding range of lines
-            array_splice(
-                $markdownLines,
-                $startLine - 1,
-                ($endLine - $startLine) + 1,
-                explode("\n", $processedMarkdown)
-            );
-        } else {
-            // Handle normal blocks
-            $processedMarkdown = $this->convertHtmlToMarkdown($blockHtml);
-            $lineNumber = (int)$blockId;
-
-            if (isset($markdownLines[$lineNumber - 1])) {
-                $currentLine = $markdownLines[$lineNumber - 1];
-
-                // Check if the current line is part of a blockquote
-                $isBlockquote = str_starts_with(trim($currentLine), '>');
-
-                // Apply the blockquote marker if needed
-                $updatedLine = $processedMarkdown;
-                if ($isBlockquote) {
-                    $updatedLine = ' > ' . ltrim($processedMarkdown);
+                    // Log child node HTML
+                    \Log::info("Processed child HTML: " . $childHTML);
                 }
 
-                // Trim any extra whitespace or newlines from the updated line
-                $updatedLine = rtrim($updatedLine);
+                // Trim the combined inner HTML
+                $innerHTML = trim($innerHTML);
 
-                // Log only the relevant lines
-                \Log::info("Updating line {$lineNumber}: Original line: '{$currentLine}' Updated line: '{$updatedLine}'");
+                // Log the content before adding the blockquote marker
+                \Log::info("Constructed inner HTML for paragraph: " . $innerHTML);
 
-                $markdownLines[$lineNumber - 1] = $updatedLine; // Do not append PHP_EOL here
-            } else {
-                \Log::warning("Line number {$lineNumber} not found in Markdown file.");
+                // Add the blockquote marker explicitly
+                $line = '> ' . $innerHTML . "\n";
+                $markdownContent .= $line;
+
+                // Log the constructed Markdown line
+                \Log::info("Constructed Markdown line: " . $line);
             }
         }
+
+        // Log the final Markdown content
+        \Log::info("Final Markdown content after blockquote conversion: " . $markdownContent);
+
+        return trim($markdownContent);
     }
 
-    // Write the updated Markdown back to the file, ensuring a single newline between lines
-    file_put_contents($markdownFilePath, implode(PHP_EOL, $markdownLines) . PHP_EOL);
 
-    \Log::info("Successfully updated Markdown file for book: {$book}");
-} catch (\Exception $e) {
-    \Log::error("Error updating Markdown file: " . $e->getMessage());
-    return response()->json(['success' => false, 'message' => 'Error updating Markdown file.'], 500);
-}
+    private function getBlockquoteLineRange($blockId, $markdownLines)
+    {
+        $startLine = (int)$blockId; // Start from the given block ID
+        $endLine = $startLine;
+
+        if (!isset($markdownLines[$startLine - 1])) {
+            \Log::warning("Blockquote start line {$startLine} not found in Markdown file.");
+            return [$startLine, $startLine];
+        }
+
+        // Ensure the starting line is part of a blockquote
+        if (!str_starts_with(trim($markdownLines[$startLine - 1]), '>')) {
+            \Log::info("Line {$startLine} is not a blockquote. Treating as single line.");
+            return [$startLine, $startLine];
+        }
+
+        // Find the start of the blockquote
+        for ($i = $startLine - 2; $i >= 0; $i--) {
+            if (str_starts_with(trim($markdownLines[$i]), '>')) {
+                $startLine = $i + 1;
+            } else {
+                break;
+            }
+        }
+
+        // Find the end of the blockquote
+        for ($i = $startLine - 1; $i < count($markdownLines); $i++) {
+            if (str_starts_with(trim($markdownLines[$i]), '>')) {
+                $endLine = $i + 1;
+            } else {
+                break;
+            }
+        }
+
+        \Log::info("Determined blockquote range: Start {$startLine}, End {$endLine}");
+        return [$startLine, $endLine];
+    }
 
 
-    // Step 3: Update hyperlights and global positions as before
-    try {
-        $conversionController = new ConversionController($book);
-        $conversionController->updateGlobalPositions($book);
+
+
+
+
+
+    // Helper function to convert HTML to Markdown
+    private function convertHtmlToMarkdown($html)
+    {
+            try {
+                \Log::info("Converting HTML to Markdown: " . $html);
+
+                $html = '<div>' . $html . '</div>';
+                $doc = new \DOMDocument();
+                @$doc->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
+
+                $markdownContent = '';
+
+                foreach ($doc->getElementsByTagName('div')->item(0)->childNodes as $node) {
+                    if ($node->nodeType === XML_TEXT_NODE) {
+                        $markdownContent .= $node->nodeValue;
+                    } elseif ($node->nodeType === XML_ELEMENT_NODE) {
+                        if (in_array($node->nodeName, ['b', 'strong'])) {
+                            $markdownContent .= "**" . $node->textContent . "**";
+                        } elseif (in_array($node->nodeName, ['i', 'em'])) {
+                            $markdownContent .= "*" . $node->textContent . "*";
+                        } elseif ($node->nodeName === 'a') {
+                            $markdownContent .= $this->preserveElementWithAttributes($node);
+                        } elseif ($node->nodeName === 'mark') {
+                            $markdownContent .= $this->preserveElementWithAttributes($node);
+                        } elseif ($node->nodeName === 'p') {
+                            $markdownContent .= "\n\n" . $this->processInlineElements($node) . "\n\n";
+                        } else {
+                            $markdownContent .= $node->textContent;
+                        }
+                    }
+                }
+
+                return trim($markdownContent);
+            } catch (\Exception $e) {
+                \Log::error("Error in Markdown conversion: " . $e->getMessage());
+                return '';
+            }
+    }
+
+    private function preserveElementWithAttributes($node)
+    {
+        $tag = $node->nodeName;
+        $attributes = '';
+        foreach ($node->attributes as $attr) {
+            $attributes .= " {$attr->name}='" . htmlspecialchars($attr->value) . "'";
+        }
+        return "<{$tag}{$attributes}>" . $node->textContent . "</{$tag}>";
+    }
+
+    private function processInlineElements($node)
+    {
+        $content = '';
+        foreach ($node->childNodes as $child) {
+            if ($child->nodeType === XML_TEXT_NODE) {
+                $content .= $child->nodeValue;
+            } elseif ($child->nodeType === XML_ELEMENT_NODE) {
+                if (in_array($child->nodeName, ['b', 'strong'])) {
+                    $content .= "**" . $child->textContent . "**";
+                } elseif (in_array($child->nodeName, ['i', 'em'])) {
+                    $content .= "*" . $child->textContent . "*";
+                } elseif ($child->nodeName === 'a') {
+                    $content .= $this->preserveElementWithAttributes($child);
+                } elseif ($child->nodeName === 'mark') {
+                    $content .= $this->preserveElementWithAttributes($child);
+                } else {
+                    $content .= $child->textContent;
+                }
+            }
+        }
+        return trim($content);
+    }
+
+
+    public function deleteHighlight(Request $request)
+    {
+        \Log::info('Request Data for Deleting Highlight:', [
+            'highlight_ids' => $request->input('highlight_ids'),
+            'block_ids' => $request->input('block_ids'),
+            'book' => $request->input('book'),
+        ]);
+
+        // Validate incoming request
+        $request->validate([
+            'highlight_ids' => 'required|array',
+            'block_ids' => 'required|array',
+            'book' => 'required|string',
+        ]);
+
+        $highlightIds = $request->input('highlight_ids');
+        $blockIds = $request->input('block_ids');
+        $book = $request->input('book');
+
+        \Log::info("Highlight IDs to delete: " . json_encode($highlightIds));
+        \Log::info("Block IDs to process: " . json_encode($blockIds));
+
+        $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
+
+        // Step 1: Mark the highlights as deleted in the database
+        try {
+            DB::table('highlights')
+                ->whereIn('highlight_id', $highlightIds)
+                ->update(['deleted_at' => now()]);
+
+            \Log::info('Successfully marked highlights as deleted.');
+        } catch (\Exception $e) {
+            \Log::error("Error updating highlights: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error deleting highlights.'], 500);
+        }
+
+        // Step 2: Remove highlights from the Markdown file
+        try {
+            $markdownLines = file($markdownFilePath, FILE_IGNORE_NEW_LINES);
+
+            foreach ($blockIds as $blockId) {
+                [$startLine, $endLine] = $this->getBlockquoteLineRange($blockId, $markdownLines);
+
+                \Log::info("Deleting highlights in blockquote lines {$startLine}-{$endLine}");
+
+                for ($lineIndex = $startLine - 1; $lineIndex < $endLine; $lineIndex++) {
+                    if (isset($markdownLines[$lineIndex])) {
+                        \Log::info("Processing line {$lineIndex}: {$markdownLines[$lineIndex]}");
+
+                        foreach ($highlightIds as $highlightId) {
+                            $markdownLines[$lineIndex] = preg_replace(
+                                "/<mark[^>]*class=[\"']?{$highlightId}[\"']?[^>]*>(.*?)<\/mark>/is",
+                                "$1",
+                                $markdownLines[$lineIndex]
+                            );
+                        }
+
+                        \Log::info("Updated line {$lineIndex}: {$markdownLines[$lineIndex]}");
+                    }
+                }
+            }
+
+            file_put_contents($markdownFilePath, implode(PHP_EOL, $markdownLines) . PHP_EOL);
+            \Log::info("Successfully updated Markdown file for book: {$book}");
+        } catch (\Exception $e) {
+            \Log::error("Error updating Markdown file: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error updating Markdown file.'], 500);
+        }
+
+        // Step 3: Trigger additional updates
         $this->updateHyperlightsMd($book);
         $this->updateHyperlightsHtml($book);
-        \Log::info("Successfully updated hyperlights and global positions for book: {$book}");
-    } catch (\Exception $e) {
-        \Log::error("Error updating hyperlights or global positions: " . $e->getMessage());
-        return response()->json(['success' => false, 'message' => 'Error updating hyperlights or global positions.'], 500);
+
+        return response()->json(['success' => true, 'message' => 'Highlights deleted and database updated successfully.']);
     }
 
-    return response()->json(['success' => true, 'message' => 'Highlight created/updated successfully.']);
-}
 
+        
 
-private function convertBlockquoteToMarkdown($html)
-{
-    $doc = new \DOMDocument();
-    @$doc->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
-
-    $markdownContent = '';
-
-    // Log the input HTML
-    \Log::info("Starting blockquote conversion. Input HTML: " . $html);
-
-    // Process each <blockquote> tag
-    foreach ($doc->getElementsByTagName('blockquote') as $blockquote) {
-        foreach ($blockquote->getElementsByTagName('p') as $p) {
-            // Extract inner HTML of the <p> tag
-            $innerHTML = '';
-            foreach ($p->childNodes as $child) {
-                $childHTML = trim($doc->saveHTML($child)); // Process child nodes only
-                $innerHTML .= $childHTML;
-
-                // Log child node HTML
-                \Log::info("Processed child HTML: " . $childHTML);
-            }
-
-            // Trim the combined inner HTML
-            $innerHTML = trim($innerHTML);
-
-            // Log the content before adding the blockquote marker
-            \Log::info("Constructed inner HTML for paragraph: " . $innerHTML);
-
-            // Add the blockquote marker explicitly
-            $line = '> ' . $innerHTML . "\n";
-            $markdownContent .= $line;
-
-            // Log the constructed Markdown line
-            \Log::info("Constructed Markdown line: " . $line);
-        }
+    /**
+     * Check if a block ID corresponds to a blockquote.
+     */
+    private function isBlockquote($blockId, $markdownLines)
+    {
+        $lineIndex = (int)$blockId - 1;
+        return isset($markdownLines[$lineIndex]) && str_starts_with(trim($markdownLines[$lineIndex]), '>');
     }
-
-    // Log the final Markdown content
-    \Log::info("Final Markdown content after blockquote conversion: " . $markdownContent);
-
-    return trim($markdownContent);
-}
-
-
-private function getBlockquoteLineRange($blockId, $markdownLines)
-{
-    $startLine = (int)$blockId; // Start from the given block ID
-    $endLine = $startLine;
-
-    if (!isset($markdownLines[$startLine - 1])) {
-        \Log::warning("Blockquote start line {$startLine} not found in Markdown file.");
-        return [$startLine, $startLine];
-    }
-
-    // Ensure the starting line is part of a blockquote
-    if (!str_starts_with(trim($markdownLines[$startLine - 1]), '>')) {
-        \Log::info("Line {$startLine} is not a blockquote. Treating as single line.");
-        return [$startLine, $startLine];
-    }
-
-    // Find the start of the blockquote
-    for ($i = $startLine - 2; $i >= 0; $i--) {
-        if (str_starts_with(trim($markdownLines[$i]), '>')) {
-            $startLine = $i + 1;
-        } else {
-            break;
-        }
-    }
-
-    // Find the end of the blockquote
-    for ($i = $startLine - 1; $i < count($markdownLines); $i++) {
-        if (str_starts_with(trim($markdownLines[$i]), '>')) {
-            $endLine = $i + 1;
-        } else {
-            break;
-        }
-    }
-
-    \Log::info("Determined blockquote range: Start {$startLine}, End {$endLine}");
-    return [$startLine, $endLine];
-}
-
-
-
-
-
-
-
-// Helper function to convert HTML to Markdown
-private function convertHtmlToMarkdown($html)
-{
-    // Wrap the HTML in a dummy <div> to prevent DOMDocument from adding <html><body>
-    $html = '<div>' . $html . '</div>';
-
-    // Load the HTML into DOMDocument
-    $doc = new \DOMDocument();
-    @$doc->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
-
-    $markdownContent = '';
-
-    // Process the child nodes of the dummy <div>
-    foreach ($doc->getElementsByTagName('div')->item(0)->childNodes as $node) {
-        if ($node->nodeType === XML_TEXT_NODE) {
-            // Append plain text directly
-            $markdownContent .= htmlspecialchars($node->nodeValue, ENT_QUOTES | ENT_HTML5);
-        } elseif ($node->nodeType === XML_ELEMENT_NODE) {
-            // Preserve inline and block-level HTML
-            $markdownContent .= $doc->saveHTML($node);
-        }
-    }
-
-    // Return the processed Markdown content
-    return trim($markdownContent);
-}
-
-public function deleteHighlight(Request $request)
-{
-    \Log::info('Request Data for Deleting Highlight:', [
-        'highlight_ids' => $request->input('highlight_ids'),
-        'block_ids' => $request->input('block_ids'),
-        'book' => $request->input('book'),
-    ]);
-
-    $request->validate([
-        'highlight_ids' => 'required|array',
-        'block_ids' => 'required|array',
-        'book' => 'required|string',
-    ]);
-
-    $highlightIds = $request->input('highlight_ids');
-    $blockIds = $request->input('block_ids');
-    $book = $request->input('book');
-
-    \Log::info("Highlight IDs to delete: " . json_encode($highlightIds));
-    \Log::info("Block IDs to process: " . json_encode($blockIds));
-
-    $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
-
-    try {
-        $markdownLines = file($markdownFilePath, FILE_IGNORE_NEW_LINES);
-
-        foreach ($blockIds as $blockId) {
-            [$startLine, $endLine] = $this->getBlockquoteLineRange($blockId, $markdownLines);
-
-            \Log::info("Deleting highlights in blockquote lines {$startLine}-{$endLine}");
-
-            for ($lineIndex = $startLine - 1; $lineIndex < $endLine; $lineIndex++) {
-                if (isset($markdownLines[$lineIndex])) {
-                    \Log::info("Processing line {$lineIndex}: {$markdownLines[$lineIndex]}");
-
-                    foreach ($highlightIds as $highlightId) {
-                        $markdownLines[$lineIndex] = preg_replace(
-                            "/<mark[^>]*class=[\"']?{$highlightId}[\"']?[^>]*>(.*?)<\/mark>/is",
-                            "$1",
-                            $markdownLines[$lineIndex]
-                        );
-                    }
-
-                    \Log::info("Updated line {$lineIndex}: {$markdownLines[$lineIndex]}");
-                }
-            }
-        }
-
-        file_put_contents($markdownFilePath, implode(PHP_EOL, $markdownLines) . PHP_EOL);
-        \Log::info("Successfully updated Markdown file for book: {$book}");
-    } catch (\Exception $e) {
-        \Log::error("Error updating Markdown file: " . $e->getMessage());
-        return response()->json(['success' => false, 'message' => 'Error updating Markdown file.'], 500);
-    }
-
-    $this->updateHyperlightsMd($book);
-    $this->updateHyperlightsHtml($book);
-
-    return response()->json(['success' => true, 'message' => 'Highlights deleted and HTML updated successfully.']);
-}
-
-    
-
-/**
- * Check if a block ID corresponds to a blockquote.
- */
-private function isBlockquote($blockId, $markdownLines)
-{
-    $lineIndex = (int)$blockId - 1;
-    return isset($markdownLines[$lineIndex]) && str_starts_with(trim($markdownLines[$lineIndex]), '>');
-}
 
 
 
@@ -552,6 +593,4 @@ private function isBlockquote($blockId, $markdownLines)
             return response()->json(['success' => false, 'message' => 'Error updating hyperlights files after deletion.'], 500);
         }
     }
-
-
 }
