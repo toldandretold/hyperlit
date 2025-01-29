@@ -437,7 +437,7 @@ function wrapSelectedTextInDOM(hyperciteId, book) {
     sendHyperciteBlocksToBackend(book, hyperciteId, blocks);
     attachMarkListeners();
     setTimeout(() => selection.removeAllRanges(), 50);
-}
+}   
 
 
 

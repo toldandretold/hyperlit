@@ -27,29 +27,39 @@ class PandocConversionJob implements ShouldQueue
     {
         Log::info("Pandoc conversion started for input: {$this->filePath}, output: {$this->outputPath}");
 
-        // Step 1: Run the Pandoc conversion process
+        // Step 1: Pandoc Conversion
         $process = new Process(['/usr/local/bin/pandoc', $this->filePath, '-f', 'docx', '-t', 'markdown-smart+raw_html', '-o', $this->outputPath, '--wrap=none']);
-        $process->setTimeout(500);  // Set a timeout of 5 minutes
+        $process->setTimeout(500);
         $process->run();
 
         if (!$process->isSuccessful()) {
             Log::error('Pandoc conversion failed:', ['error' => $process->getErrorOutput()]);
-            return; // Exit if Pandoc conversion fails
+            return;
         }
+        Log::info('Pandoc conversion successful.');
 
-        Log::info('Pandoc conversion successful:', ['output' => $process->getOutput()]);
-
-        // Step 2: Check if the output file exists before cleaning
-        if (!file_exists($this->outputPath)) {
+        // Step 2: Cleanup
+        if (file_exists($this->outputPath)) {
+            $this->cleanMarkdownFile($this->outputPath);
+        } else {
             Log::error("Markdown file not found: {$this->outputPath}");
             return;
         }
 
-        Log::info("Markdown file found, starting cleanup for: {$this->outputPath}");
+        // Step 3: Extract Footnotes using Python Script
+        $pythonScriptPath = base_path('app/python/footnote-jason.py'); // Ensure this path is correct
+        $process = new Process(['python3', $pythonScriptPath, $this->outputPath]);
+        $process->setTimeout(300);
+        $process->run();
 
-        // Step 3: Clean the markdown file (do this only once)
-        $this->cleanMarkdownFile($this->outputPath);
+        if (!$process->isSuccessful()) {
+            Log::error('Footnote extraction failed:', ['error' => $process->getErrorOutput()]);
+            return;
+        }
+
+        Log::info('Footnote extraction successful:', ['output' => $process->getOutput()]);
     }
+
 
     /**
      * Cleans the Markdown file by performing all necessary cleanup operations
@@ -197,7 +207,7 @@ class PandocConversionJob implements ShouldQueue
         foreach ($lines as $index => $line) {
             if (trim($line) !== '') {
                 // Convert only if it's a stand-alone line
-                $lines[$index] = '# ' . trim($line) . ' #';
+                $lines[$index] = '# ' . trim($line);
                 break;
             }
         }
@@ -223,7 +233,7 @@ class PandocConversionJob implements ShouldQueue
 
             // If either title case, all-uppercase, or bold, convert to H2
             if ($isTitleCase || $isAllUppercase || $isBold) {
-                $lines[$index] = '## ' . preg_replace('/\*\*/', '', $trimmedLine) . ' ##';
+                $lines[$index] = '## ' . preg_replace('/\*\*/', '', $trimmedLine);
             }
         }
 

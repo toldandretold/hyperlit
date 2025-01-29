@@ -140,7 +140,7 @@ class CiteCreator extends Controller
     }
 
     // Define the expected main-text.html path
-    $mainTextPath = "{$path}/main-text.html";
+    $mainTextPath = "{$path}/main-text.md";
     Log::info("Expected path for main-text.html: {$mainTextPath}");
 
     // Retry mechanism: Check for main-text.html file for up to 5 seconds
@@ -153,7 +153,7 @@ class CiteCreator extends Controller
 
     // Check if the file now exists and redirect
     if (File::exists($mainTextPath)) {
-        Log::info("main-text.html created successfully, redirecting to /{$citation_id}");
+        Log::info("main-text.md created successfully, redirecting to /{$citation_id}");
         return redirect("/{$citation_id}")->with('success', 'Book entry created and main-text.html is ready!');
     }
 

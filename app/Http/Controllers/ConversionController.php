@@ -122,7 +122,7 @@ class ConversionController extends Controller
         }
 
         // Read the HTML content from the file
-        $htmlFilePath = resource_path("markdown/{$book}/main-text.html");
+        $htmlFilePath = resource_path("markdown/{$book}/main-text.md");
         if (!File::exists($htmlFilePath)) {
             throw new \Exception("HTML file does not exist at path: {$htmlFilePath}");
         }

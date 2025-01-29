@@ -707,7 +707,7 @@ document.addEventListener("DOMContentLoaded", function () {
                                             return;
                                         }
 
-                                        const regex = new RegExp(`\\[\\^${key}\\]`, "g");
+                                        const regex = new RegExp(`\\[\\^${key}\\](?!:)`, "g");
 
                                         // Check if the Markdown footnote exists in the content
                                         if (regex.test(targetElement.innerHTML)) {
@@ -719,7 +719,7 @@ document.addEventListener("DOMContentLoaded", function () {
                                             // Replace Markdown reference `[ ^key ]` with the `<sup>` element
                                             targetElement.innerHTML = targetElement.innerHTML.replace(
                                                 regex,
-                                                `<sup class="note" data-note-key="${key}">[${key}]</sup>`
+                                                `<sup class="note" data-note-key="${key}">[^${key}]</sup>`
                                             );
 
                                             console.log("Updated target element innerHTML:", targetElement.innerHTML);
@@ -740,10 +740,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
 
-
-
-
-
          // Function to update the footnotes container state
         function updateRefState() {
             if (isRefOpen) {
@@ -756,9 +752,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 refOverlay.classList.remove("active");
             }
         }
-
-
-
 
          // Function to fetch footnotes JSON
         async function fetchFootnotes() {
@@ -851,10 +844,6 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
 
-            
-
-
-        // Event listener for clicking on footnote `<sup>` elements
        // Event listener for clicking on footnote `<sup>` elements
 document.addEventListener("click", (event) => {
     console.log("Click detected on element:", event.target); // Log the clicked element
