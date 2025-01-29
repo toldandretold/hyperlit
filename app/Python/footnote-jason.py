@@ -1,0 +1,99 @@
+import os
+import json
+import re
+import sys
+
+def extract_footnotes_by_reference(file_path):
+    """
+    Extract footnotes from a Markdown or HTML file, grouping them by the headings where the in-text references appear.
+    Args:
+        file_path (str): Path to the file containing footnotes.
+    Returns:
+        str: Path to the generated JSON file.
+    """
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    # Read the file
+    with open(file_path, 'r', encoding='utf-8') as file:
+        file_content = file.readlines()
+
+    # Regex patterns
+    html_reference_pattern = re.compile(r'<a href="#(.*?)" id="(.*?)"><sup>(\d+)</sup></a>', re.MULTILINE)
+    html_definition_pattern = re.compile(r'<a href="#(.*?)" id="(.*?)">(\d+)</a>(.*)', re.MULTILINE)
+    markdown_reference_pattern = re.compile(r'\[\^(\d+)\]', re.MULTILINE)
+    markdown_definition_pattern = re.compile(r'\[\^(\d+)\]:\s*(.*)', re.MULTILINE)
+    heading_pattern = re.compile(r'^(#{1,5})\s+(.*)', re.MULTILINE)
+
+    # Data structures
+    sections = []
+    current_section = {"heading": None, "footnotes": {}}
+    html_definitions = {}
+    markdown_definitions = {}
+
+    # Extract HTML and Markdown definitions
+    for line_number, line in enumerate(file_content, start=1):
+        for match in html_definition_pattern.finditer(line):
+            html_definitions[match.group(2)] = {
+                "number": int(match.group(3)),
+                "content": match.group(4).strip(),
+                "line_number": line_number,
+            }
+        for match in markdown_definition_pattern.finditer(line):
+            markdown_definitions[int(match.group(1))] = {
+                "content": match.group(2).strip(),
+                "line_number": line_number,
+            }
+
+    # Process headings and references
+    for line_number, line in enumerate(file_content, start=1):
+        if heading_match := heading_pattern.match(line):
+            if current_section["heading"] or current_section["footnotes"]:
+                sections.append(current_section)
+                current_section = {"heading": None, "footnotes": {}}
+            current_section["heading"] = {
+                f"h{len(heading_match.group(1))}": heading_match.group(2),
+                "line_number": line_number,
+            }
+        for match in html_reference_pattern.finditer(line):
+            if match.group(1) in html_definitions:
+                current_section["footnotes"][int(match.group(3))] = {
+                    "content": html_definitions[match.group(1)]["content"],
+                    "line_number": line_number,
+                }
+        for match in markdown_reference_pattern.finditer(line):
+            if int(match.group(1)) in markdown_definitions:
+                current_section["footnotes"][int(match.group(1))] = {
+                    "content": markdown_definitions[int(match.group(1))]["content"],
+                    "line_number": line_number,
+                }
+
+    if current_section["heading"] or current_section["footnotes"]:
+        sections.append(current_section)
+
+    # Unreferenced footnotes
+    unreferenced = {"heading": {"h1": "Unreferenced Footnotes"}, "footnotes": {}}
+    for key, value in markdown_definitions.items():
+        if key not in [fn for section in sections for fn in section["footnotes"]]:
+            unreferenced["footnotes"][key] = value
+    if unreferenced["footnotes"]:
+        sections.append(unreferenced)
+
+    # Save to JSON
+    json_file_path = os.path.splitext(file_path)[0] + "-footnotes.json"
+    with open(json_file_path, 'w', encoding='utf-8') as json_file:
+        json.dump(sections, json_file, indent=4, ensure_ascii=False)
+    return json_file_path
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python extract_footnotes.py <file_path>")
+        sys.exit(1)
+    file_path = sys.argv[1]
+    try:
+        json_path = extract_footnotes_by_reference(file_path)
+        print(f"Footnotes extracted to: {json_path}")
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
