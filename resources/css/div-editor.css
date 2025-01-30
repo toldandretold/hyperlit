@@ -5,21 +5,7 @@
     }
 
 
-     #main-content {
-            width: 100%;
-            height: calc(100vh - 60px); /* Full height minus space for buttons */
-            border: none;               /* Remove border */
-            outline: none;              /* Remove default focus outline */
-            padding: 20px;              /* Add padding for text */
-            box-sizing: border-box;     /* Ensure padding doesn’t overflow */
-            font-family: 'Arial', sans-serif;  /* Make it look more like a document */
-            font-size: 16px;
-            line-height: 1.6;
-            background-color: #221F20;   /* dark background color */
-            color: #CBCCCC;
-            overflow-y: auto; /* Enable vertical scrolling */
-            overflow-x: hidden; /* Prevent horizontal scrolling */
-        }
+    
 
        
 
@@ -34,17 +20,4 @@
 
         
 
-        /* Loading indicator styling */
-        #loading-indicator {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 9999;
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 20px;
-            border-radius: 8px;
-            font-size: 18px;
-        }
+      

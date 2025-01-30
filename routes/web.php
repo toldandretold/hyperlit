@@ -60,7 +60,7 @@ MD;
 Route::get('/', function () {
     return view('markdown');
 });
-
+ 
 // Dashboard route with middleware
 Route::get('/dashboard', function () {
     return view('dashboard');
@@ -84,7 +84,7 @@ Route::post('/{book}/mark-as-deleted', [HighlightController::class, 'markHighlig
 // new 
 Route::post('/highlight/custom-markdown', [HighlightMdController::class, 'store'])->name('highlight.store');
 
-Route::post('/highlight/custom-markdown-delete', [HighlightMdController::class, 'deleteHighlight'])->name('highlight.md.delete');
+Route::post('/highlight/custom-markdown-delete', [HighlightMdController::class, 'deleteHighlight'])->name('highlight.md.delete'); 
 
 Route::post('/{book}/update-annotations-md', [HighlightMdController::class, 'updateAnnotations'])->name('highlight.update-annotations-md');
 

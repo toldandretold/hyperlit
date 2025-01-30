@@ -465,7 +465,7 @@ document.addEventListener("DOMContentLoaded", function () {
             });
 
             // Reorder the DOM after loading content
-            reorderDomContent();
+            //reorderDomContent();
             pruneDomContent(currentRangeStart, currentRangeEnd, bufferSize);
         } else {
             const targetElement = document.getElementById(targetId);
@@ -590,7 +590,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
 
                 // Lazy load upward
-               if (scrollTop <= 200 && currentRangeStart > 0) { // Increase threshold
+               if (scrollTop <= 600 && currentRangeStart > 0) { // Increase threshold
                     console.log("Lazy loading upward...");
                     const newStart = Math.max(0, currentRangeStart - chunkSize);
                     if (!processedChunks.has(`${newStart}-${currentRangeStart}`)) {
@@ -599,7 +599,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         processRange(newStart, currentRangeStart, false, "upward");
                         currentRangeStart = newStart;
 
-                        reorderDomContent();
+                        //reorderDomContent();
                         pruneDomContent(currentRangeStart, currentRangeEnd, 50);
 
                         const newHeight = mainContentDiv.scrollHeight; // Calculate new height after content is added
@@ -626,7 +626,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         processRange(currentRangeEnd, newEnd, false, "downward");
                         currentRangeEnd = newEnd;
 
-                        reorderDomContent();
+                        //reorderDomContent();
                         pruneDomContent(currentRangeStart, currentRangeEnd, 50);
                     }
                 }
@@ -654,7 +654,12 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
 
-        function pruneDomContent(start, end, buffer = 50) {
+        function pruneDomContent(start, end, buffer = 300, maxRangeInDom = 2000) {
+            // If the total range of lines in the DOM is not too large, skip pruning entirely:
+            if (end - start < maxRangeInDom) {
+                console.log("Skipping pruning because the DOM range is not too large yet.");
+                return;
+            }
             console.log(`Pruning DOM to keep range: ${start}-${end} with buffer: ${buffer}`);
             const elements = mainContentDiv.querySelectorAll("[id]");
 

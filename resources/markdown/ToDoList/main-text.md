@@ -2,7 +2,7 @@
 
 ## 1: Table of Contents (TOC)
 
-TOC updates via a back-end process that launches when a heading tag is added or removed. This means passing through added and modified nodes when an editable div is saved. If a heading tag is detected, and it is from a removed node, that node should be deleted from a jason file. If it is in the added (modified) nodes, it should be added to the jason file, at the correct point. (It could be a database table that is used to update a jason file.)
+TOC updates via a back-end process that launches when a heading tag is added or removed. This means passing through added and modified nodes when an editable div is saved. If a heading tag is detected, and it is from a removed node, that node should be deleted from a jason file. If it is in the added (modified) nodes, it should be added to the jason file, at the correct point.[^1] (It could be a database table that is used to update a jason file.)
 
 Should just be, whenever any of these happens, the python script is run again, as it needs to know the correct line number of heading tags.
 
@@ -59,5 +59,16 @@ Self explanatory.
 
 ## 8: Add notifications
 
-Once public hyperlighting and hyperciting are working, add notifations so users know when others have hyperlighted or hypercited their texts. This is an opt-in feature.
+Once public hyperlighting and <mark class='user-name_1738192672757' id='user-name_1738192672757' data-listener-attached='true'>hyperciting</mark> are working, add notifations so users know when others have hyperlighted or hypercited their texts. This is an opt-in feature.
+
+## 9: Fix lazy-loading issues... check caching 
+
+Needs to be able to load updwards on scroll up on page load... rather than having to scroll down first then back up.
+
+Also needs to check the caching... 
+
+## Notes [:]
+
+
+[^1]: "When user types '[:]', an 'add citation' div appears from below, up to just below that [:] tag. User can type author/title/publisher <mark class='user-name_1738192705705' id='user-name_1738192705705' data-listener-attached='true'>details</mark> etc, as they do, any similar entries will appear as suggestions. They can also import a copy of the original text of the citation. [OR] they can click [New]. This automatically generates citation data of a new text, and opens a 'new hyperlit document', in editable div mode." [[:]](http://10.0.0.93:8000/todolist#hypercite_wck67b8)
 
