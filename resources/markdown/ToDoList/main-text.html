@@ -1,6 +1,6 @@
 <h1>To Do List [ : hyperlit]</h1>
 <h2>1: Table of Contents (TOC)</h2>
-<p>TOC updates via a back-end process that launches when a heading tag is added or removed. This means passing through added and modified nodes when an editable div is saved. If a heading tag is detected, and it is from a removed node, that node should be deleted from a jason file. If it is in the added (modified) nodes, it should be added to the jason file, at the correct point. (It could be a database table that is used to update a jason file.)</p>
+<p>TOC updates via a back-end process that launches when a heading tag is added or removed. This means passing through added and modified nodes when an editable div is saved. If a heading tag is detected, and it is from a removed node, that node should be deleted from a jason file. If it is in the added (modified) nodes, it should be added to the jason file, at the correct point.<sup id="fnref1:1"><a href="#fn:1" class="footnote-ref">1</a></sup> (It could be a database table that is used to update a jason file.)</p>
 <p>Should just be, whenever any of these happens, the python script is run again, as it needs to know the correct line number of heading tags.</p>
 <p>The process involves parsing the main-text.md file, and noting the line number of each (# Heading) tag.</p>
 <h2>2: Search Bar</h2>
@@ -37,4 +37,16 @@
 <h2>7: move online, with laravel-based sign-up and log-in</h2>
 <p>Self explanatory.</p>
 <h2>8: Add notifications</h2>
-<p>Once public hyperlighting and hyperciting are working, add notifations so users know when others have hyperlighted or hypercited their texts. This is an opt-in feature.</p>
+<p>Once public hyperlighting and <mark class='user-name_1738192672757' id='user-name_1738192672757' data-listener-attached='true'>hyperciting</mark> are working, add notifations so users know when others have hyperlighted or hypercited their texts. This is an opt-in feature.</p>
+<h2>9: Fix lazy-loading issues... check caching </h2>
+<p>Needs to be able to load updwards on scroll up on page load... rather than having to scroll down first then back up.</p>
+<p>Also needs to check the caching... </p>
+<h2>Notes [:]</h2>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn:1">
+<p>&quot;When user types '[:]', an 'add citation' div appears from below, up to just below that [:] tag. User can type author/title/publisher <mark class='user-name_1738192705705' id='user-name_1738192705705' data-listener-attached='true'>details</mark> etc, as they do, any similar entries will appear as suggestions. They can also import a copy of the original text of the citation. [OR] they can click [New]. This automatically generates citation data of a new text, and opens a 'new hyperlit document', in editable div mode.&quot; <a href="http://10.0.0.93:8000/todolist#hypercite_wck67b8">[:]</a>&#160;<a href="#fnref1:1" rev="footnote" class="footnote-backref">&#8617;</a></p>
+</li>
+</ol>
+</div>

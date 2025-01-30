@@ -14,14 +14,5 @@
             padding: 10px 20px;
         }
 
-   
 
-  
-#main-content {
-    height: 90vh; /* Ensures a fixed height based on the viewport */
-    overflow-y: auto; /* Enable vertical scrolling */
-    overflow-x: hidden; /* Prevent horizontal scrolling */
-    padding: 1rem; /* Optional padding for better content appearance */
-    margin: 0 auto; /* Center the container horizontally, if needed */
-    box-sizing: border-box; /* Ensure padding is included in height calculation */
-}
+

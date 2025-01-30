@@ -47,3 +47,24 @@
 
 ---
 
+> "surprising"
+> [↩](http://10.0.0.93:8000/nicholls2019moment#user-name_1738195560929)
+
+
+
+---
+
+> "order"
+> [↩](http://10.0.0.93:8000/nicholls2019moment#user-name_1738193363001)
+
+
+
+---
+
+> "This is important because it shows how the three core concepts that formed the basis of the Third World Project"
+> [↩](http://10.0.0.93:8000/nicholls2019moment#user-name_1738192811790)
+
+
+
+---
+
