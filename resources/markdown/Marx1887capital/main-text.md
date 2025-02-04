@@ -1,64 +1,12 @@
 # Capital: A Critique of Political Economy
 
-## Volume I, Book One: The Process of Production of Capital
-
 First published: in German in 1867, English edition first published in 1887;\ Source: First English edition of 1887 (4th German edition changes included as indicated) with some modernisation of spelling;\ Publisher: Progress Publishers, Moscow, USSR;\ Translated: Samuel Moore and Edward Aveling, edited by Frederick Engels;\ Transcribed: Zodiac, Hinrich Kuhls, Allan Thurrott, Bill McDorman, Bert Schultz and Martha Gimenez (1995-1996);\ Proofed: by Andy Blunden and Chris Clayton (2008), Mark Harris (2010), Dave Allinson (2015).
-
-## Table of Contents ##
-
-Preface to the First German Edition (Marx, 1867) [5](#preface-to-the-first-german-edition-marx-1867)
-
-Preface to the French Edition (Marx, 1872) [8](#preface-to-the-french-edition-marx-1872)
 
 Afterword to the Second German Edition (1873) [9](#afterword-to-the-second-german-edition-1873)
 
 Afterword to the French Edition (1875) [15](#afterword-to-the-french-edition-1875)
 
 Preface to the Third German Edition (1883) [16](#preface-to-the-third-german-edition-1883)
-
-Preface to the English Edition (Engels, 1886) [18](#preface-to-the-english-edition-engels-1886)
-
-Preface to the Fourth German Edition (Engels, 1890) [21](#preface-to-the-fourth-german-edition-engels-1890)
-
-Part 1: Commodities and Money [25](#part-1-commodities-and-money)
-
-Chapter 1: Commodities [26](#chapter-1-commodities)
-
-Section 1: The Two Factors of a Commodity: Use-Value and Value (The Substance of Value and the Magnitude of Value) [26](#section-1-the-two-factors-of-a-commodity-use-value-and-value-the-substance-of-value-and-the-magnitude-of-value)
-
-Section 2: The Two-fold Character of the Labour Embodied in Commodities [29](#section-2-the-two-fold-character-of-the-labour-embodied-in-commodities)
-
-Section 3: The Form of Value or Exchange-Value [31](#section-3-the-form-of-value-or-exchange-value)
-
-Section 4: The Fetishism of Commodities and the Secret Thereof [44](#section-4-the-fetishism-of-commodities-and-the-secret-thereof)
-
-Chapter 2: Exchange [57](#chapter-2-exchange)
-
-Chapter 3: Money, Or the Circulation of Commodities [63](#chapter-3-money-or-the-circulation-of-commodities)
-
-Section 1: The Measure of Values [63](#section-1-the-measure-of-values)
-
-Section 2: The Medium of Circulation [67](#section-2-the-medium-of-circulation)
-
-Section 3: Money [79](#section-3-money)
-
-Part 2: Transformation of Money into Capital [97](#part-2-transformation-of-money-into-capital)
-
-Chapter 4: The General Formula for Capital [98](#chapter-4-the-general-formula-for-capital)
-
-Chapter 5: Contradictions in the General Formula of Capital [105](#chapter-5-contradictions-in-the-general-formula-of-capital)
-
-Chapter 6: The Buying and Selling of Labour-Power [113](#chapter-6-the-buying-and-selling-of-labour-power)
-
-Part 3: The Production of Absolute Surplus-Value [119](#part-3-the-production-of-absolute-surplus-value)
-
-Chapter 7: The Labour-Process and the Process of Producing Surplus-Value [120](#chapter-7-the-labour-process-and-the-process-of-producing-surplus-value)
-
-Section 1: The Labour-Process or the Production of Use-Values [120](#section-1-the-labour-process-or-the-production-of-use-values)
-
-Section 2: The Production of Surplus-Value [124](#section-2-the-production-of-surplus-value)
-
-Chapter 8: Constant Capital and Variable Capital [134](#chapter-8-constant-capital-and-variable-capital)
 
 Chapter 9: The Rate of Surplus-Value [142](#chapter-9-the-rate-of-surplus-value)
 
@@ -197,52 +145,6 @@ Chapter 30: Reaction of the Agricultural Revolution on Industry. Creation of the
 Chapter 31: The Genesis of the Industrial Capitalist [505](#chapter-31-the-genesis-of-the-industrial-capitalist)
 
 Chapter 32: Historical Tendency of Capitalist Accumulation [512](#chapter-32-historical-tendency-of-capitalist-accumulation)
-
-Chapter 33: The Modern Theory of Colonisation [514](#chapter-33-the-modern-theory-of-colonisation)
-
-## Preface to the First German Edition (Marx, 1867)
-
-The work, the first volume of which I now submit to the public, forms the continuation of my *Zur Kritik der Politischen Oekonomie* (*A Contribution to the Criticism of Political Economy*) published in 1859. The long pause between the first part and the continuation is due to an illness of many years’ duration that again and again interrupted my work.
-
-The substance of that earlier work is summarised in the first three chapters of this volume. This is done not merely for the sake of connexion and completeness. The presentation of the subject matter is improved. As far as circumstances in any way permit, many points only hinted at in the earlier book are here worked out more fully, whilst, conversely, points worked out fully there are only touched upon in this volume. The sections on the history of the theories of value and of money are now, of course, left out altogether. The reader of the earlier work will find, however, in the notes to the first chapter additional sources of reference relative to the history of those theories.
-
-Every beginning is difficult, holds in all sciences. To understand the first chapter, especially the section that contains the analysis of commodities, will, therefore, present the greatest difficulty. That which concerns more especially the analysis of the substance of value and the magnitude of value, I have, as much as it was possible, popularised.[^1] The value-form, whose fully developed shape is the money-form, is very elementary and simple. Nevertheless, the human mind has for more than 2,000 years sought in vain to get to the bottom of it all, whilst on the other hand, to the successful analysis of much more composite and complex forms, there has been at least an approximation. Why? Because the body, as an organic whole, is more easy of study than are the cells of that body. In the analysis of economic forms, moreover, neither microscopes nor chemical reagents are of use. The force of abstraction must replace both. But in bourgeois society, the commodity-form of the product of labour – or value-form of the commodity – is the economic cell-form. To the superficial observer, the analysis of these forms seems to turn upon minutiae. It does in fact deal with minutiae, but they are of the same order as those dealt with in microscopic anatomy.
-
-With the exception of the section on value-form, therefore, this volume cannot stand accused on the score of difficulty. I presuppose, of course, a reader who is willing to learn something new and therefore to think for himself.
-
-The physicist either observes physical phenomena where they occur in their most typical form and most free from disturbing influence, or, wherever possible, he makes experiments under conditions that assure the occurrence of the phenomenon in its normality. In this work I have to examine the capitalist mode of production, and the conditions of production and exchange corresponding to that mode. Up to the present time, their classic ground is England. That is the reason why England is used as the chief illustration in the development of my theoretical ideas. If, however, the German reader shrugs his shoulders at the condition of the English industrial and agricultural labourers, or in optimist fashion comforts himself with the thought that in Germany things are not nearly so bad; I must plainly tell him, “*De te fabula narratur!*” \[It is of you that the story is told. – Horace\]
-
-Intrinsically, it is not a question of the higher or lower degree of development of the social antagonisms that result from the natural laws of capitalist production. It is a question of these laws themselves, of these tendencies working with iron necessity towards inevitable results. The country that is more developed industrially only shows, to the less developed, the image of its own future.
-
-But apart from this. Where capitalist production is fully naturalised among the Germans (for instance, in the factories proper) the condition of things is much worse than in England, because the counterpoise of the Factory Acts is wanting. In all other spheres, we, like all the rest of Continental Western Europe, suffer not only from the development of capitalist production, but also from the incompleteness of that development. Alongside the modern evils, a whole series of inherited evils oppress us, arising from the passive survival of antiquated modes of production, with their inevitable train of social and political anachronisms. We suffer not only from the living, but from the dead. *Le mort saisit le vif!* \[The dead holds the living in his grasp. – formula of French common law\]
-
-The social statistics of Germany and the rest of Continental Western Europe are, in comparison with those of England, wretchedly compiled. But they raise the veil just enough to let us catch a glimpse of the Medusa head behind it. We should be appalled at the state of things at home, if, as in England, our governments and parliaments appointed periodically commissions of inquiry into economic conditions; if these commissions were armed with the same plenary powers to get at the truth; if it was possible to find for this purpose men as competent, as free from partisanship and respect of persons as are the English factory-inspectors, her medical reporters on public health, her commissioners of inquiry into the exploitation of women and children, into housing and food. Perseus wore a magic cap down over his eyes and ears as a make-believe that there are no monsters.
-
-Let us not deceive ourselves on this. As in the 18th century, the American war of independence sounded the tocsin for the European middle class, so that in the 19th century, the American Civil War sounded it for the European working class. In England the process of social disintegration is palpable. When it has reached a certain point, it must react on the Continent. There it will take a form more brutal or more humane, according to the degree of development of the working class itself. Apart from higher motives, therefore, their own most important interests dictate to the classes that are for the nonce the ruling ones, the removal of all legally removable hindrances to the free development of the working class. For this reason, as well as others, I have given so large a space in this volume to the history, the details, and the results of English factory legislation. One nation can and should learn from others. And even when a society has got upon the right track for the discovery of the natural laws of its movement – and it is the ultimate aim of this work, to lay bare the economic law of motion of modern society – it can neither clear by bold leaps, nor remove by legal enactments, the obstacles offered by the successive phases of its normal development. But it can shorten and lessen the birth-pangs.
-
-To prevent possible misunderstanding, a word. I paint the capitalist and the landlord in no sense *couleur de rose* \[i.e., seen through rose-tinted glasses\]. But here individuals are dealt with only in so far as they are the personifications of economic categories, embodiments of particular class-relations and class-interests. My standpoint, from which the evolution of the economic formation of society is viewed as a process of natural history, can less than any other make the individual responsible for relations whose creature he socially remains, however much he may subjectively raise himself above them.
-
-In the domain of Political Economy, free scientific inquiry meets not merely the same enemies as in all other domains. The peculiar nature of the materials it deals with, summons as foes into the field of battle the most violent, mean and malignant passions of the human breast, the Furies of private interest. The English Established Church, e.g., will more readily pardon an attack on 38 of its 39 articles than on 1/39 of its income. Now-a-days atheism is *culpa levis* \[a relatively slight sin, c.f. mortal sin\], as compared with criticism of existing property relations. Nevertheless, there is an unmistakable advance. I refer, e.g., to the Blue book published within the last few weeks: “Correspondence with Her Majesty’s Missions Abroad, regarding Industrial Questions and Trades’ Unions.” The representatives of the English Crown in foreign countries there declare in so many words that in Germany, in France, to be brief, in all the civilised states of the European Continent, radical change in the existing relations between capital and labour is as evident and inevitable as in England. At the same time, on the other side of the Atlantic Ocean, Mr. Wade, vice-president of the United States, declared in public meetings that, after the abolition of slavery, a radical change of the relations of capital and of property in land is next upon the order of the day. These are signs of the times, not to be hidden by purple mantles or black cassocks. They do not signify that tomorrow a miracle will happen. They show that, within the ruling classes themselves, a foreboding is dawning, that the present society is no solid crystal, but an organism capable of change, and is constantly changing.
-
-The second volume of this book will treat of the process of the circulation of capital (Book II.), and of the varied forms assumed by capital in the course of its development (Book III.), the third and last volume (Book IV.), the history of the theory.
-
-Every opinion based on scientific criticism I welcome. As to prejudices of so-called public opinion, to which I have never made concessions, now as aforetime the maxim of the great Florentine is mine:
-
-“Segui il tuo corso, e lascia dir le genti.”\ \[Follow your own course, and let people talk – paraphrased from Dante\]
-
-*Karl Marx*\ London\ July 25, 1867
-
-## Preface to the French Edition (Marx, 1872)
-
-To the citizen Maurice Lachâtre
-
-Dear Citizen,
-
-I applaud your idea of publishing the translation of “Das Kapital” as a serial. In this form the book will be more accessible to the working class, a consideration which to me outweighs everything else.
-
-That is the good side of your suggestion, but here is the reverse of the medal: the method of analysis which I have employed, and which had not previously been applied to economic subjects, makes the reading of the first chapters rather arduous, and it is to be feared that the French public, always impatient to come to a conclusion, eager to know the connexion between general principles and the immediate questions that have aroused their passions, may be disheartened because they will be unable to move on at once.
-
-That is a disadvantage I am powerless to overcome, unless it be by forewarning and forearming those readers who zealously seek the truth. There is no royal road to science, and only those who do not dread the fatiguing climb of its steep paths have a chance of gaining its luminous summits.
 
 Believe me,\ dear citizen,\ Your devoted,
 

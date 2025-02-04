@@ -1,5 +1,3 @@
-
-// resources/js/app.js
 console.log('App.js is loaded');
 
 let book = document.getElementById('main-content').getAttribute('data-book');
@@ -8,7 +6,10 @@ window.book = book;
 const mainContentDiv = document.getElementById("main-content"); // This already exists
 window.mainContentDiv = mainContentDiv;
 
+window.jsonPath = `/${window.book}/main-text-footnotes.json`;
+window.mdFilePath = `/markdown/${window.book}/main-text.md`;  // Path to raw MD file
 
+window.markdownContent = ""; // Store Markdown globally
 
 
 

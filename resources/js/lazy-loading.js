@@ -1,111 +1,182 @@
-// Function to convert Markdown to HTML with IDs and inline parsing
-function convertMarkdownToHtmlWithIds(markdown, offset = 0) {
-    const lines = markdown.split("\n"); // Split Markdown into lines
-    let htmlOutput = "";
-    let insideBlockquote = false;
-    let currentBlockquote = "";
-    let blockquoteOffset = 0; // Counter for assigning unique IDs within a blockquote
+/* Lazy Loading Logic [: as i understand it]
 
-    lines.forEach((line, index) => {
-        const trimmedLine = line.trim();
+[haven't done this yet] If a lazy-load.json doesn’t already exist that is update more recently than the main-text.md, 
 
-        // Skip lines that are completely empty (no content, no `>`) unless inside a blockquote
-        if (!trimmedLine && !insideBlockquote) return;
+The main-text.md is processed to generate / update the lazy-load.json [not as a saved file yet, but as: window.nodeChunks = parseMarkdownIntoChunks(window.markdownContent);], and it is saved as browser memory.
 
-        const absoluteIndex = index + offset; // Add the offset to get the correct ID
+This .jason stores: 
 
-        // Handle block-level Markdown elements
-        if (trimmedLine.startsWith("# ")) {
-            // Close blockquote if needed
-            if (insideBlockquote) {
-                htmlOutput += currentBlockquote + "</blockquote>\n";
-                insideBlockquote = false;
-                currentBlockquote = "";
-                blockquoteOffset = 0; // Reset blockquote counter
-            }
-            htmlOutput += `<h1 id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^# /, ""))}</h1>\n`;
-        } else if (trimmedLine.startsWith("## ")) {
-            if (insideBlockquote) {
-                htmlOutput += currentBlockquote + "</blockquote>\n";
-                insideBlockquote = false;
-                currentBlockquote = "";
-                blockquoteOffset = 0;
-            }
-            htmlOutput += `<h2 id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^## /, ""))}</h2>\n`;
-        } else if (trimmedLine.startsWith("### ")) {
-            if (insideBlockquote) {
-                htmlOutput += currentBlockquote + "</blockquote>\n";
-                insideBlockquote = false;
-                currentBlockquote = "";
-                blockquoteOffset = 0;
-            }
-            htmlOutput += `<h3 id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^### /, ""))}</h3>\n`;
-        } else if (trimmedLine.startsWith("#### ")) {
-            if (insideBlockquote) {
-                htmlOutput += currentBlockquote + "</blockquote>\n";
-                insideBlockquote = false;
-                currentBlockquote = "";
-                blockquoteOffset = 0;
-            }
-            htmlOutput += `<h4 id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^#### /, ""))}</h4>\n`;
-        } else if (trimmedLine.startsWith("##### ")) {
-            if (insideBlockquote) {
-                htmlOutput += currentBlockquote + "</blockquote>\n";
-                insideBlockquote = false;
-                currentBlockquote = "";
-                blockquoteOffset = 0;
-            }
-            htmlOutput += `<h5 id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine.replace(/^##### /, ""))}</h5>\n`;
-        } else if (trimmedLine.startsWith(">")) {
-            // Start a new blockquote if not already inside one
-            if (!insideBlockquote) {
-                insideBlockquote = true;
-                currentBlockquote = `<blockquote id="${absoluteIndex}">`;
-                blockquoteOffset = 0; // Reset blockquote paragraph counter
-            }
-            // Check for blank blockquote line (`>` or `> `)
-            if (trimmedLine === ">" || trimmedLine === "> ") {
-                currentBlockquote += `<p id="${absoluteIndex}_${blockquoteOffset}"></p>`;
-                blockquoteOffset++; // Increment blockquote paragraph counter
-            } else {
-                // Add the current line to the blockquote, wrapped in <p> tags
-                currentBlockquote += `<p id="${absoluteIndex}_${blockquoteOffset}">${parseInlineMarkdown(trimmedLine.replace(/^> /, "").trim())}</p>`;
-                blockquoteOffset++; // Increment blockquote paragraph counter
-            }
-        } else if (trimmedLine.match(/^!\[.*\]\(.*\)$/)) {
-            // Handle Markdown image syntax
-            const imageMatch = trimmedLine.match(/^!\[(.*)\]\((.*)\)$/);
-            if (imageMatch) {
-                const altText = imageMatch[1];
-                const imageUrl = imageMatch[2];
-                htmlOutput += `<img id="${absoluteIndex}" src="${imageUrl}" alt="${altText}" />\n`;
-            }
-        } else {
-            // Close the blockquote when encountering a non-blockquote line
-            if (insideBlockquote) {
-                htmlOutput += currentBlockquote + "</blockquote>\n";
-                insideBlockquote = false;
-                currentBlockquote = "";
-                blockquoteOffset = 0; // Reset blockquote counter
-            }
-            // Process the current non-blockquote line
-            if (trimmedLine) {
-                htmlOutput += `<p id="${absoluteIndex}">${parseInlineMarkdown(trimmedLine)}</p>\n`;
-            }
-        }
-    });
+- data-chunk-id: number of each chunk of blocks and lines to be lazy loaded 
+- data-block-id: Block number 
+- id: Md line number 
 
-    // Ensure any remaining open blockquote is closed at the end
-    if (insideBlockquote) {
-        htmlOutput += currentBlockquote + "</blockquote>\n";
-        insideBlockquote = false;
-    }
+On page load, lazy-load.jason is used to:
 
-    return htmlOutput;
+- convert the first chunk of md blocks to html 
+- Pit in DOM within: div.id=“data-chunk-id”
+- insert sentinels at top and bottom of this chunk 
+- listen for when top or bottom sentinel node gets to either the top or bottom of the viewport/rootMargin
+- when it does, check if the next highest chunk (numerically, from the one that the tracked html node id is in) is in the DOM
+- If it isn’t, lazy load it.
+
+When Navigating to internal links: 
+
+- extract the id of internal link
+- search for it in the DOM
+- if it is there, navigate to it, to centre of viewport 
+- if not, use .jason to determine which chunk its in, load that chunk and one above and below.
+- put sentinels above and below this new "contiguous range of chunks"
+- clear nodes outside this range (could change this if needed)
+- so now lazy loading works up and down... 
+
+*/
+    
+// footnotes buttons
+const refContainer = document.getElementById("ref-container");
+const refOverlay = document.getElementById("ref-overlay");
+let isRefOpen = false;
+
+// .jason: could save this as a file, and check its 
+//updated time to determine whether to reload
+//on page load
+window.nodeChunks = parseMarkdownIntoChunks(window.markdownContent);
+
+// ============================================================
+// Adjusting the Page Initialization
+// ============================================================
+function initializePage() {
+  if (!window.markdownContent) {
+    console.error("❌ No Markdown content detected.");
+    return;
+  }
+
+  console.log("📌 Initializing page with Markdown content...");
+
+  if (!mainContentDiv) {
+    console.error("❌ No #main-content found.");
+    return;
+  }
+
+  mainContentDiv.innerHTML = "";
+
+  // Parse Markdown into node chunks.
+  window.nodeChunks = parseMarkdownIntoChunks(window.markdownContent);
+  if (!window.nodeChunks || window.nodeChunks.length === 0) {
+    console.error("❌ Markdown parsing failed! No node chunks found.");
+    return;
+  }
+  console.log(`✅ Markdown successfully parsed into ${window.nodeChunks.length} node chunks.`);
+
+  // Initialize tracking of loaded chunks.
+  window.currentlyLoadedChunks = new Set();
+
+  // Load the first chunk.
+  const firstChunk = window.nodeChunks[0];
+  if (firstChunk) {
+    console.log(`🟢 Loading first chunk (Chunk ID: ${firstChunk.chunk_id})`);
+    loadChunk(firstChunk.chunk_id, "down"); // You can keep your old loadChunk() for manual loading.
+  } else {
+    console.error("❌ First chunk could not be found!");
+  }
+
+  // Now initialize the fixed sentinels for the contiguous block.
+  initializeLazyLoadingFixed();
+
+  // Attach any scroll event listeners, navigation handling, etc.
+  handleNavigation();
 }
 
 
 
+// Markdown Conversion shit
+
+async function loadMarkdownFile() {
+    try {
+        const response = await fetch(mdFilePath);
+        if (!response.ok) throw new Error(`Failed to load Markdown: ${response.statusText}`);
+        
+        window.markdownContent = await response.text(); // Assign Markdown content globally
+        console.log("📄 Markdown file loaded successfully:", window.markdownContent.substring(0, 100));
+
+        // Now that we have the Markdown, initialize everything
+        initializePage();
+    } catch (error) {
+        console.error("❌ Error loading Markdown file:", error);
+    }
+}
+
+function parseMarkdownIntoChunks(markdown) {
+    const lines = markdown.split("\n");
+    const chunks = [];
+    let currentChunk = [];
+    let currentChunkId = 0;
+    let currentStartLine = 1;
+
+    for (let i = 0; i < lines.length; i++) {
+        const rawLine = lines[i];
+        const trimmed = rawLine.trim();
+        const adjustedLineNumber = i + 1;
+        let block = null;
+
+        if (trimmed.match(/^#{1,5}\s/)) {
+            block = { type: "heading", level: trimmed.match(/^#{1,5}/)[0].length, startLine: adjustedLineNumber, content: trimmed.replace(/^#+\s*/, "") };
+        }
+        else if (trimmed.startsWith(">")) {
+            block = { type: "blockquote", startLine: adjustedLineNumber, content: trimmed.replace(/^>\s?/, "") };
+        }
+        else if (trimmed.match(/^!\[.*\]\(.*\)$/)) {
+            const match = trimmed.match(/^!\[(.*)\]\((.*)\)$/);
+            block = { type: "image", startLine: adjustedLineNumber, altText: match ? match[1] : "", imageUrl: match ? match[2] : "" };
+        }
+        else if (trimmed) {
+            block = { type: "paragraph", startLine: adjustedLineNumber, content: trimmed };
+        }
+
+        if (block) {
+            currentChunk.push(block);
+        }
+
+        if (currentChunk.length >= 50 || i === lines.length - 1) {
+            chunks.push({ chunk_id: currentChunkId, start_line: currentStartLine, end_line: adjustedLineNumber, blocks: currentChunk });
+            currentChunk = [];
+            currentChunkId++;
+            currentStartLine = adjustedLineNumber + 1;
+        }
+    }
+
+    return chunks;
+}
+
+
+function renderBlockToHtml(block) {
+    console.log("🔍 Rendering block:", block);
+
+    let html = "";
+    if (!block || !block.type || typeof block.content === "undefined") {
+        console.error("❌ Invalid block detected:", block);
+        return "";
+    }
+
+    // Ensure each block is wrapped in a div with data-block-id
+    let blockWrapper = `<div data-block-id="${block.startLine}">`;
+
+    if (block.type === "heading") {
+        let headingTag = `h${block.level}`;
+        html += `<${headingTag} id="${block.startLine}" data-block-id="${block.startLine}">${parseInlineMarkdown(block.content)}</${headingTag}>\n`;
+    }
+    else if (block.type === "blockquote") {
+        html += `<blockquote data-block-id="${block.startLine}"><p id="${block.startLine}">${parseInlineMarkdown(block.content)}</p></blockquote>\n`;
+    }
+    else if (block.type === "image") {
+        html += `<img id="${block.startLine}" data-block-id="${block.startLine}" src="${block.imageUrl}" alt="${block.altText}" />\n`;
+    }
+    else if (block.type === "paragraph") {
+        // ✅ Ensure each paragraph gets an `id` based on its line number
+        html += `<p id="${block.startLine}" data-block-id="${block.startLine}">${parseInlineMarkdown(block.content)}</p>\n`;
+    }
+
+    return blockWrapper + html + `</div>\n`;  // Close block wrapper
+}
 
 // Function to parse inline Markdown for italics, bold, and inline code
 function parseInlineMarkdown(text) {
@@ -113,10 +184,12 @@ function parseInlineMarkdown(text) {
     text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>"); // Convert **bold** to <strong>
     text = text.replace(/\*([^*]+)\*/g, "<em>$1</em>"); // Convert *italic* to <em>
     text = text.replace(/`([^`]+)`/g, "<code>$1</code>"); // Convert `code` to <code>
+    
+    // Convert Markdown links [text](url) to HTML <a> tags
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
     return text;
 }
-
-
 
     function convertMarkdownToHtml(markdown) {
         console.log("Markdown content passed to convertMarkdownToHtml:", markdown);
@@ -150,8 +223,9 @@ function parseInlineMarkdown(text) {
 
 
 
-
+// TOC shit // 
 // Function to generate and display the Table of Contents
+
 async function generateTableOfContents(jsonPath, tocContainerId, toggleButtonId) {
     try {
         const response = await fetch(jsonPath);
@@ -217,532 +291,328 @@ async function generateTableOfContents(jsonPath, tocContainerId, toggleButtonId)
 
 
 
+// CHUNKY CHUNKY
+// ============================================================
+// Fixed Sentinel Setup for a Contiguous Block
+// ============================================================
 
-document.addEventListener("DOMContentLoaded", function () {
-    const mainContentDiv = document.getElementById("main-content");
-    let markdownContent = mainContentDiv.textContent; // Raw Markdown content
+function initializeLazyLoadingFixed() {
+  const mainContentDiv = document.getElementById("main-content");
 
-    // JSON path
-    const jsonPath = `/${window.book}/main-text-footnotes.json`;
-    
-    // lazy loading
-    const chunkSize = 100; // Number of lines to process per chunk
-    const processedChunks = new Set(); // Track processed chunks
-    
-    // read position memory [NOT GOOD!]
-    const lastVisitedKey = "last-visited-id"; // Key for session storage
-    
+  // Create the top sentinel if it doesn't already exist.
+  let topSentinel = document.getElementById("top-sentinel");
+  if (!topSentinel) {
+    topSentinel = document.createElement("div");
+    topSentinel.id = "top-sentinel";
+    topSentinel.classList.add("sentinel");
+    // Insert at the very top.
+    mainContentDiv.prepend(topSentinel);
+  }
 
-    // footnotes buttons
-    const refContainer = document.getElementById("ref-container");
-    const refOverlay = document.getElementById("ref-overlay");
-    let isRefOpen = false;
+  // Create the bottom sentinel if it doesn't already exist.
+  let bottomSentinel = document.getElementById("bottom-sentinel");
+  if (!bottomSentinel) {
+    bottomSentinel = document.createElement("div");
+    bottomSentinel.id = "bottom-sentinel";
+    bottomSentinel.classList.add("sentinel");
+    // Append at the very bottom.
+    mainContentDiv.appendChild(bottomSentinel);
+  }
 
+  // Set up an IntersectionObserver on these two sentinels.
+  const options = {
+    root: mainContentDiv,
+    rootMargin: "200px", // Adjust as needed.
+    threshold: 0
+  };
 
-    // TOC table of contents 
-    const tocContainer = document.getElementById("toc-container");
-    const tocOverlay = document.getElementById("toc-overlay");
-    const tocButton = document.getElementById("toc-toggle-button");
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
 
-    // Check if elements exist
-    if (!tocContainer || !tocOverlay || !tocButton) {
-        console.error("TOC elements are missing in the DOM.");
-        return;
-    }
-
-    // State to track if TOC is open
-    let isTOCOpen = false;
-
-    let currentRangeStart = 0;
-    let currentRangeEnd = 0;
-    let isLazyLoadSetup = false; // Flag to avoid duplicate setup
-
-    // Ensure the `book` variable is available globally
-    if (typeof window.book === "undefined" || !window.book) {
-        console.error("The 'book' variable is not defined or empty.");
-        return;
-    }
-
-    // Call the function to generate the TOC
-    generateTableOfContents(jsonPath, "toc-container", "toc-toggle-button");
-
-    function updateTOCState() {
-        if (isTOCOpen) {
-            console.log("Opening TOC...");
-            tocContainer.classList.add("open");
-            tocOverlay.classList.add("active");
-        } else {
-            console.log("Closing TOC...");
-            tocContainer.classList.remove("open");
-            tocOverlay.classList.remove("active");
+      if (entry.target.id === "top-sentinel") {
+        // The top of the block is visible → load the previous chunk.
+        const firstChunkEl = mainContentDiv.querySelector("[data-chunk-id]");
+        if (firstChunkEl) {
+          const firstChunkId = parseInt(firstChunkEl.getAttribute("data-chunk-id"), 10);
+          if (firstChunkId > 0) {
+            loadPreviousChunkFixed(firstChunkId);
+          }
         }
-    }
+      }
 
-    // Toggle TOC state when the button is clicked
-    tocButton.addEventListener("click", function () {
-        console.log("TOC button clicked");
-        isTOCOpen = !isTOCOpen; // Toggle state
-        updateTOCState();
+      if (entry.target.id === "bottom-sentinel") {
+        // The bottom of the block is visible → load the next chunk.
+        const lastChunkEl = getLastChunkElement();
+        if (lastChunkEl) {
+          const lastChunkId = parseInt(lastChunkEl.getAttribute("data-chunk-id"), 10);
+          loadNextChunkFixed(lastChunkId);
+        }
+      }
     });
+  }, options);
 
-    // Close TOC when clicking the overlay
-    tocOverlay.addEventListener("click", function () {
-        if (isTOCOpen) {
-            console.log("Closing TOC via overlay click");
-            isTOCOpen = false;
-            updateTOCState();
-        }
-    });
+  // Start observing the fixed sentinels.
+  observer.observe(topSentinel);
+  observer.observe(bottomSentinel);
 
-    // Close TOC when clicking a link inside it
-    tocContainer.addEventListener("click", function (event) {
-        const link = event.target.closest("a");
-        if (link) {
-            console.log("Closing TOC via link click");
-            isTOCOpen = false;
-            updateTOCState();
+  // Save references for later use.
+  window.fixedSentinelObserver = observer;
+  window.topSentinel = topSentinel;
+  window.bottomSentinel = bottomSentinel;
+}
 
-            // Scroll to target (optional)
-            const targetId = link.hash?.substring(1); // Get ID without `#`
-            const targetElement = document.getElementById(targetId);
-            if (targetElement) {
-                targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-            }
-        }
-    });
+// A helper to get the last chunk element currently in the DOM.
+function getLastChunkElement() {
+  const chunks = document.querySelectorAll("[data-chunk-id]");
+  if (chunks.length === 0) return null;
+  return chunks[chunks.length - 1];
+}
+
+// ============================================================
+// Revised Chunk Loading Functions (Fixed Sentinel Version)
+// ============================================================
+
+// Loads the previous chunk and repositions the top sentinel.
+function loadPreviousChunkFixed(currentFirstChunkId) {
+  const previousChunkId = currentFirstChunkId - 1;
+  if (previousChunkId < 0) {
+    console.warn("🚫 No previous chunks to load.");
+    return;
+  }
+  // If already loaded, do nothing.
+  if (document.querySelector(`[data-chunk-id="${previousChunkId}"]`)) {
+    console.log(`✅ Previous chunk ${previousChunkId} is already loaded.`);
+    return;
+  }
+  
+  const prevChunk = window.nodeChunks.find(chunk => chunk.chunk_id === previousChunkId);
+  if (!prevChunk) {
+    console.warn(`❌ No data found for chunk ${previousChunkId}.`);
+    return;
+  }
+  
+  console.log(`🟢 Loading previous chunk: ${previousChunkId}`);
+  const scrollContainer = document.getElementById("main-content");
+  
+  // Store current scroll position
+  const prevScrollTop = scrollContainer.scrollTop;
+  
+  // Create and insert the new chunk at the top.
+  const chunkWrapper = createChunkElement(prevChunk);
+  scrollContainer.insertBefore(chunkWrapper, scrollContainer.firstElementChild);
+  window.currentlyLoadedChunks.add(previousChunkId);
+  
+  // Measure the new chunk's height.
+  const newChunkHeight = chunkWrapper.getBoundingClientRect().height;
+  
+  // Adjust the scroll so the content remains anchored.
+  scrollContainer.scrollTop = prevScrollTop + newChunkHeight;
+  
+  // Reposition the fixed top sentinel to be immediately before the first chunk.
+  if (window.topSentinel) {
+    window.topSentinel.remove();
+    scrollContainer.prepend(window.topSentinel);
+  }
+}
 
 
-    if (!markdownContent) {
-        console.error("No Markdown content found.");
-        return;
-    }
+// Loads the next chunk and repositions the bottom sentinel.
+function loadNextChunkFixed(currentLastChunkId) {
+  const nextChunkId = currentLastChunkId + 1;
+  // If already loaded, do nothing.
+  if (document.querySelector(`[data-chunk-id="${nextChunkId}"]`)) {
+    console.log(`✅ Next chunk ${nextChunkId} is already loaded.`);
+    return;
+  }
 
-    console.log("Raw Markdown Content Loaded.");
+  const nextChunk = window.nodeChunks.find(chunk => chunk.chunk_id === nextChunkId);
+  if (!nextChunk) {
+    console.warn(`❌ No data found for chunk ${nextChunkId}.`);
+    return;
+  }
 
-    // Utility: Extract target `id` from the URL
-    function getTargetIdFromUrl() {
-        return window.location.hash ? window.location.hash.substring(1) : null;
-    }
+  console.log(`🟢 Loading next chunk: ${nextChunkId}`);
+  const mainContentDiv = document.getElementById("main-content");
+  const chunkWrapper = createChunkElement(nextChunk);
+  mainContentDiv.appendChild(chunkWrapper);
+  window.currentlyLoadedChunks.add(nextChunkId);
 
-    // Utility: Check if an ID is numerical
-    function isNumericId(id) {
-        return /^\d+$/.test(id);
-    }
+  // Reposition the bottom sentinel: remove it and re-append it.
+  if (window.bottomSentinel) {
+    window.bottomSentinel.remove();
+    mainContentDiv.appendChild(window.bottomSentinel);
+  }
+}
 
-    // Utility: Find a line for a numerical ID
-    function findLineForNumericId(lineNumber, markdown) {
-        const totalLines = markdown.split("\n").length;
-        return Math.max(0, Math.min(lineNumber, totalLines - 1));
-    }
 
-    // Utility: Find the line number of a unique `id` in the Markdown
-    function findLineForId(markdown, id) {
-        const regex = new RegExp(`id="${id}"`, "i");
-        const lines = markdown.split("\n");
-        for (let i = 0; i < lines.length; i++) {
-            if (regex.test(lines[i])) {
-                return i; // Return the line number where the `id` is found
-            }
-        }
-        return null; // Return null if the `id` is not found
-    }
+// ✅ Creates a chunk element with sentinels
+function createChunkElement(chunk) {
+    const chunkWrapper = document.createElement("div");
+    chunkWrapper.setAttribute("data-chunk-id", chunk.chunk_id);
+    chunkWrapper.classList.add("chunk");
 
-    // Utility: Process and render a range of Markdown lines
-    function processRange(startLine, endLine, isInitial = false, direction = "downward") {
-        if (processedChunks.has(`${startLine}-${endLine}`)) {
-            console.log(`Skipping already processed range: ${startLine}-${endLine}`);
-            return false;
-        }
-
-        const lines = markdownContent.split("\n").slice(startLine, endLine);
-        const chunk = lines.join("\n");
-        const processedHtml = convertMarkdownToHtmlWithIds(chunk, startLine);
-
-        if (!processedHtml) {
-            console.error(`Failed to process lines ${startLine}-${endLine}.`);
-            return false;
-        }
-
+    chunk.blocks.forEach(block => {
+        const html = renderBlockToHtml(block);
         const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = processedHtml;
+        tempDiv.innerHTML = html;
+        chunkWrapper.appendChild(tempDiv);
+    });
 
-        if (isInitial) {
-            mainContentDiv.innerHTML = ""; // Clear raw Markdown content for the initial render
+    return chunkWrapper;
+}
+
+// ✅ Get the first chunk currently in the DOM
+function getFirstChunkId() {
+    const firstChunk = document.querySelector("[data-chunk-id]");
+    return firstChunk ? parseInt(firstChunk.getAttribute("data-chunk-id"), 10) : null;
+}
+
+// ✅ Get the last chunk currently in the DOM
+function getLastChunkId() {
+    const chunks = document.querySelectorAll("[data-chunk-id]");
+    if (chunks.length === 0) return null;
+    return parseInt(chunks[chunks.length - 1].getAttribute("data-chunk-id"), 10);
+}
+
+function insertChunkInOrder(newChunk) {
+    const mainContentDiv = document.getElementById("main-content");
+    const existingChunks = [...mainContentDiv.querySelectorAll("[data-chunk-id]")];
+
+    let inserted = false;
+    const newChunkId = parseInt(newChunk.getAttribute("data-chunk-id"), 10);
+
+    for (let i = 0; i < existingChunks.length; i++) {
+        const existingChunkId = parseInt(existingChunks[i].getAttribute("data-chunk-id"), 10);
+        
+        if (newChunkId < existingChunkId) {
+            mainContentDiv.insertBefore(newChunk, existingChunks[i]);
+            inserted = true;
+            break;
         }
-
-        if (direction === "upward") {
-            mainContentDiv.insertBefore(tempDiv, mainContentDiv.firstChild);
-        } else {
-            mainContentDiv.appendChild(tempDiv);
-        }
-
-        // Inject footnotes for the processed range
-        injectFootnotesForRange(startLine, endLine, jsonPath);
-
-        processedChunks.add(`${startLine}-${endLine}`);
-        attachMarkListeners(); // Ensure listeners are attached to newly added content
-        console.log(`Processed lines ${startLine}-${endLine}.`);
-        return true;
     }
 
-
-    // Handle navigation to specific ID or position
-    function handleNavigation() {
-        const targetId = getTargetIdFromUrl(); // Extract target ID from URL
-        let targetLine = null;
-
-        if (targetId) {
-            console.log(`Navigating to target ID: ${targetId}`);
-            if (isNumericId(targetId)) {
-                // If the ID is numeric, treat it as a line number
-                targetLine = parseInt(targetId, 10);
-            } else {
-                // Otherwise, find the line for the non-numeric ID
-                targetLine = findLineForId(markdownContent, targetId);
-                if (targetLine === null) {
-                    console.warn(`Target ID "${targetId}" not found in Markdown.`);
-                }
-            }
-        }
-
-        if (targetLine === null) {
-            // Fallback to last visited ID from session storage
-            const lastVisitedId = sessionStorage.getItem(lastVisitedKey);
-            if (lastVisitedId) {
-                console.log(`Falling back to last visited ID: ${lastVisitedId}`);
-                targetLine = isNumericId(lastVisitedId)
-                    ? parseInt(lastVisitedId, 10) // Treat as a line number
-                    : findLineForId(markdownContent, lastVisitedId); // Treat as a regular ID
-            }
-        }
-
-        if (targetLine === null) {
-            console.log("No valid target ID. Defaulting to top of the page.");
-            targetLine = 0;
-        }
-
-        // Determine the range of lines to load
-        const startLine = Math.max(0, targetLine - 50);
-        const endLine = Math.min(markdownContent.split("\n").length, targetLine + 50);
-
-        // Process the range
-        processRange(startLine, endLine, true, "downward");
-
-        currentRangeStart = startLine;
-        currentRangeEnd = endLine;
-
-        // Navigate to the loaded content
-        setTimeout(() => {
-            const targetElement = document.getElementById(targetId);
-            if (targetElement) {
-                targetElement.scrollIntoView({ block: "start" });
-                console.log(`Scrolled to target ID: ${targetId}`);
-            } else {
-                console.warn(`Target ID "${targetId}" not found after loading.`);
-            }
-        }, 100);
+    // If it wasn't inserted, append it to the end
+    if (!inserted) {
+        mainContentDiv.appendChild(newChunk);
     }
 
-
-    // Function to handle navigation to internal links
-    function navigateToInternalId(targetId) {
-        if (isNumericId(targetId)) {
-            const lineNumber = parseInt(targetId, 10);
-            loadContentAroundLine(lineNumber);
-
-            // Set the current range after loading content
-            const bufferSize = 50;
-            currentRangeStart = Math.max(0, lineNumber - bufferSize);
-            currentRangeEnd = Math.min(markdownContent.split("\n").length, lineNumber + bufferSize);
+    console.log(`✅ Inserted chunk ${newChunkId} in the correct order.`);
+}
 
 
-            console.log({
-                action: "Navigating to internal ID",
-                targetId,
-                lineNumber,
-                currentRangeStart,
-                currentRangeEnd,
-            });
+function loadChunk(chunkId, direction = "down") {
+    console.log(`🟢 Loading chunk: ${chunkId}, direction: ${direction}`);
 
-            // Reorder the DOM after loading content
-            //reorderDomContent();
-            pruneDomContent(currentRangeStart, currentRangeEnd, bufferSize);
-        } else {
-            const targetElement = document.getElementById(targetId);
-            if (targetElement) {
-                targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-                console.log(`Scrolled to existing ID: ${targetId}`);
-            } else {
-                loadContentAroundId(targetId);
-            }
-        }
-
-        // Reinitialize lazy loading for scrolling up and down
-        setTimeout(() => {
-            setupLazyLoad();
-        }, 200);
+    // Check if the chunk is already loaded
+    if (window.currentlyLoadedChunks.has(chunkId)) {
+        console.log(`✅ Chunk ${chunkId} is already loaded. Skipping.`);
+        return;
     }
 
-
-
-
-    // Function to dynamically load content around a line number
-    function loadContentAroundLine(lineNumber) {
-        const totalLines = markdownContent.split("\n").length;
-        const bufferSize = 50; // Buffer size for adjacent content
-        const startLine = Math.max(0, lineNumber - bufferSize);
-        const endLine = Math.min(totalLines, lineNumber + bufferSize);
-
-        console.log(`Loading content around line: ${lineNumber} (range: ${startLine}-${endLine})`);
-
-        processRange(startLine, endLine, false, "downward");
-
-        // Update global range
-        currentRangeStart = Math.min(currentRangeStart, startLine);
-        currentRangeEnd = Math.max(currentRangeEnd, endLine);
-
-        setTimeout(() => {
-            const targetElement = document.getElementById(lineNumber.toString());
-            if (targetElement) {
-                targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-                console.log(`Scrolled to dynamically loaded line: ${lineNumber}`);
-            } else {
-                console.error(`Line "${lineNumber}" still not found after loading.`);
-            }
-        }, 100);
+    // Find the chunk data
+    const chunk = window.nodeChunks.find(c => c.chunk_id === chunkId);
+    if (!chunk) {
+        console.error(`❌ Chunk ${chunkId} not found!`);
+        return;
     }
 
+    // Create the chunk wrapper
+    const chunkWrapper = document.createElement("div");
+    chunkWrapper.setAttribute("data-chunk-id", chunkId);
+    chunkWrapper.classList.add("chunk"); // Optional for styling
 
-
-    // Function to dynamically load content around a target ID
-    function loadContentAroundId(targetId) {
-        const targetLine = findLineForId(markdownContent, targetId);
-        if (targetLine === null) {
-            console.warn(`Target ID "${targetId}" not found in Markdown.`);
+    chunk.blocks.forEach(block => {
+        if (!block.content) {
+            console.warn(`🚨 Skipping empty block at line ${block.startLine}`);
             return;
         }
 
-        const totalLines = markdownContent.split("\n").length;
-        const startLine = Math.max(0, targetLine - 50); // Load 50 lines before the target
-        const endLine = Math.min(totalLines, targetLine + 50); // Load 50 lines after the target
-
-        processRange(startLine, endLine, false, "downward");
-
-        setTimeout(() => {
-            const newTargetElement = document.getElementById(targetId);
-            if (newTargetElement) {
-                newTargetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-                console.log(`Scrolled to dynamically loaded ID: ${targetId}`);
-            } else {
-                console.error(`ID "${targetId}" still not found after loading.`);
-            }
-        }, 100);
-    }
-
-    // Utility to determine if a string is numeric
-    function isNumericId(id) {
-        return /^\d+$/.test(id);
-    }
-
-    // Utility to get the target ID from the URL
-    function getTargetIdFromUrl() {
-        return window.location.hash ? window.location.hash.substring(1) : null;
-    }
-
-
-    // Intercept internal links
-    document.addEventListener("click", function (event) {
-        const link = event.target.closest("a");
-        if (link && link.hash && link.hash.startsWith("#")) {
-            event.preventDefault(); // Prevent default anchor behavior
-            const targetId = link.hash.substring(1); // Get the ID without the "#"
-            navigateToInternalId(targetId);
-        }
+        const html = renderBlockToHtml(block);
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = html;
+        chunkWrapper.appendChild(tempDiv);
     });
 
-    // Lazy loading setup
-    function setupLazyLoad() {
-        if (isLazyLoadSetup) return;
-        isLazyLoadSetup = true;
+    // ✅ Insert chunk in the correct position
+    insertChunkInOrder(chunkWrapper);
+    injectFootnotesForChunk(chunk.chunk_id, jsonPath);
 
-        let isScrolling = false;
-        let isLazyLoading = false; // Add a flag to prevent overlapping triggers
+    // ✅ Mark chunk as loaded
+    window.currentlyLoadedChunks.add(chunkId);
+    console.log(`✅ Chunk ${chunkId} inserted.`);
+}
 
-        function lazyLoadOnScroll() {
-            if (isScrolling || isLazyLoading) return; // Prevent overlapping triggers
-            isScrolling = true;
-            isLazyLoading = true;
+     // [:FOOTNOTES]
 
-            setTimeout(() => {
-                const totalLines = markdownContent.split("\n").length;
-
-                const scrollTop = mainContentDiv.scrollTop;
-                const scrollHeight = mainContentDiv.scrollHeight;
-                const clientHeight = mainContentDiv.clientHeight;
-
-                console.log({
-                    action: "Lazy loading triggered",
-                    scrollTop,
-                    scrollHeight,
-                    clientHeight,
-                    currentRangeStart,
-                    currentRangeEnd,
-                });
-
-                // Lazy load upward
-               if (scrollTop <= 600 && currentRangeStart > 0) { // Increase threshold
-                    console.log("Lazy loading upward...");
-                    const newStart = Math.max(0, currentRangeStart - chunkSize);
-                    if (!processedChunks.has(`${newStart}-${currentRangeStart}`)) {
-                        const previousHeight = mainContentDiv.scrollHeight; // Capture current scroll height
-
-                        processRange(newStart, currentRangeStart, false, "upward");
-                        currentRangeStart = newStart;
-
-                        //reorderDomContent();
-                        pruneDomContent(currentRangeStart, currentRangeEnd, 50);
-
-                        const newHeight = mainContentDiv.scrollHeight; // Calculate new height after content is added
-                        const heightDifference = newHeight - previousHeight;
-
-                        // Adjust `scrollTop` to maintain the same visual position
-                        mainContentDiv.scrollTop += heightDifference;
-                        console.log({
-                            action: "Lazy load upward",
-                            previousHeight,
-                            newHeight,
-                            heightDifference,
-                            adjustedScrollTop: mainContentDiv.scrollTop,
-                        });
-                    }
+       /**
+ * Injects footnotes for a given chunk.
+ * This function retrieves the chunk data (including its start and end lines)
+ * and then applies footnotes that fall within that range.
+ *
+ * @param {number} chunkId - The ID of the chunk to process.
+ * @param {string} jsonPath - Path to the JSON file containing footnotes.
+ */
+function injectFootnotesForChunk(chunkId, jsonPath) {
+  // Look up the chunk data by chunkId.
+  const chunk = window.nodeChunks.find(c => c.chunk_id === chunkId);
+  if (!chunk) {
+    console.error(`❌ Chunk with ID ${chunkId} not found.`);
+    return;
+  }
+  
+  // Use the chunk’s start and end line numbers.
+  const startLine = chunk.start_line;
+  const endLine = chunk.end_line;
+  
+  // Fetch the footnotes JSON.
+  fetch(jsonPath)
+    .then((response) => response.json())
+    .then((sections) => {
+      sections.forEach((section) => {
+        if (section.footnotes) {
+          Object.entries(section.footnotes).forEach(([key, footnote]) => {
+            const { line_number, content } = footnote;
+            
+            // Process only if the footnote’s line number is within this chunk’s range.
+            if (line_number >= startLine && line_number <= endLine) {
+              const targetElement = document.getElementById(line_number.toString());
+              if (targetElement) {
+                // Avoid duplicate injection.
+                if (targetElement.innerHTML.includes(`<sup class="note" data-note-key="${key}">`)) {
+                  console.log(`Footnote ${key} already processed in chunk ${chunkId}. Skipping.`);
+                  return;
                 }
-
-
-                // Lazy load downward
-                if (scrollTop + clientHeight >= scrollHeight - 100 && currentRangeEnd < totalLines) { // Slightly higher buffer
-                    console.log("Lazy loading downward...");
-                    const newEnd = Math.min(totalLines, currentRangeEnd + chunkSize);
-                    if (!processedChunks.has(`${currentRangeEnd}-${newEnd}`)) {
-                        processRange(currentRangeEnd, newEnd, false, "downward");
-                        currentRangeEnd = newEnd;
-
-                        //reorderDomContent();
-                        pruneDomContent(currentRangeStart, currentRangeEnd, 50);
-                    }
+                
+                // Construct a regex to find the Markdown footnote reference.
+                const regex = new RegExp(`\\[\\^${key}\\](?!:)`, "g");
+                if (regex.test(targetElement.innerHTML)) {
+                  console.log(`Injecting footnote ${key} for line ${line_number} in chunk ${chunkId}.`);
+                  
+                  // Optionally convert Markdown footnote content to HTML.
+                  const footnoteHtml = content ? convertMarkdownToHtml(content) : "";
+                  
+                  // Replace the Markdown footnote marker with a <sup> element.
+                  targetElement.innerHTML = targetElement.innerHTML.replace(
+                    regex,
+                    `<sup class="note" data-note-key="${key}">[^${key}]</sup>`
+                  );
+                } else {
+                  console.warn(`Regex did not match for footnote key: ${key} in element:`, targetElement.innerHTML);
                 }
-
-                isScrolling = false;
-                setTimeout(() => { isLazyLoading = false; }, 500); // Cooldown for 500ms
-            }, 200);
-        }
-
-        mainContentDiv.addEventListener("scroll", lazyLoadOnScroll);
-    }
-
-    function reorderDomContent() {
-        console.log("Reordering DOM content by numerical IDs...");
-        const elements = Array.from(mainContentDiv.children); // Get all child elements
-        elements.sort((a, b) => {
-            const idA = parseInt(a.id, 10);
-            const idB = parseInt(b.id, 10);
-            return idA - idB; // Sort by numerical ID
-        });
-
-        // Append the sorted elements back into `mainContentDiv`
-        elements.forEach((el) => mainContentDiv.appendChild(el));
-        console.log("DOM content reordered.");
-    }
-
-
-        function pruneDomContent(start, end, buffer = 300, maxRangeInDom = 2000) {
-            // If the total range of lines in the DOM is not too large, skip pruning entirely:
-            if (end - start < maxRangeInDom) {
-                console.log("Skipping pruning because the DOM range is not too large yet.");
-                return;
+              } else {
+                console.warn(`No target element found for line_number: ${line_number} in chunk ${chunkId}`);
+              }
             }
-            console.log(`Pruning DOM to keep range: ${start}-${end} with buffer: ${buffer}`);
-            const elements = mainContentDiv.querySelectorAll("[id]");
-
-            let heightRemovedAbove = 0; // Track height of elements removed above the viewport
-            const viewportTop = mainContentDiv.scrollTop;
-
-            elements.forEach((el) => {
-                const id = parseInt(el.id, 10); // Get numerical ID
-                if (isNaN(id) || id < start - buffer || id > end + buffer) {
-                    if (el.offsetTop < viewportTop) {
-                        heightRemovedAbove += el.offsetHeight; // Track removed height
-                    }
-                    console.log(`Removing element with ID: ${id}, offsetTop: ${el.offsetTop}`);
-                    el.remove(); // Remove out-of-range element
-                }
-            });
-
-            // Adjust scroll position if content above was removed
-            if (heightRemovedAbove > 0) {
-                mainContentDiv.scrollTop -= heightRemovedAbove;
-                console.log({
-                    action: "Scroll adjustment",
-                    heightRemovedAbove,
-                    newScrollTop: mainContentDiv.scrollTop,
-                });
-            }
+          });
         }
+      });
+    })
+    .catch((error) => {
+      console.error("Error injecting footnotes for chunk:", error);
+    });
+}
 
-        // [:FOOTNOTES]
-
-       function injectFootnotesForRange(startLine, endLine, jsonPath) {
-            fetch(jsonPath)
-                .then((response) => response.json())
-                .then((sections) => {
-                    sections.forEach((section) => {
-                        if (section.footnotes) {
-                            Object.entries(section.footnotes).forEach(([key, footnote]) => {
-                                const { line_number, content } = footnote;
-
-                                // Process only footnotes within the given range
-                                if (line_number >= startLine && line_number < endLine) {
-                                    const targetElement = document.getElementById(line_number.toString());
-
-                                    if (targetElement) {
-                                        console.log("Target element before regex:", targetElement.innerHTML);
-
-                                        // Check if the content already contains <sup> elements
-                                        if (targetElement.innerHTML.includes(`<sup class="note" data-note-key="${key}">`)) {
-                                            console.log(`Footnote ${key} already processed. Skipping.`);
-                                            return;
-                                        }
-
-                                        const regex = new RegExp(`\\[\\^${key}\\](?!:)`, "g");
-
-                                        // Check if the Markdown footnote exists in the content
-                                        if (regex.test(targetElement.innerHTML)) {
-                                            console.log(`Regex matched for key: ${key}`);
-
-                                            // Convert Markdown content to HTML
-                                            const footnoteHtml = content ? convertMarkdownToHtml(content) : "";
-
-                                            // Replace Markdown reference `[ ^key ]` with the `<sup>` element
-                                            targetElement.innerHTML = targetElement.innerHTML.replace(
-                                                regex,
-                                                `<sup class="note" data-note-key="${key}">[^${key}]</sup>`
-                                            );
-
-                                            console.log("Updated target element innerHTML:", targetElement.innerHTML);
-                                        } else {
-                                            console.warn(`Regex did not match for key: ${key} in element:`, targetElement.innerHTML);
-                                        }
-                                    } else {
-                                        console.warn(`No target element found for line_number: ${line_number}`);
-                                    }
-                                }
-                            });
-                        }
-                    });
-                })
-                .catch((error) => {
-                    console.error("Error injecting footnotes for range:", error);
-                });
-        }
 
 
          // Function to update the footnotes container state
@@ -849,84 +719,459 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
 
-       // Event listener for clicking on footnote `<sup>` elements
-document.addEventListener("click", (event) => {
-    console.log("Click detected on element:", event.target); // Log the clicked element
-    const noteElement = event.target.closest("sup.note");
-    if (noteElement) {
-        console.log("Footnote <sup> element detected:", noteElement); // Log the matched element
-        event.preventDefault();
+    // Handle navigation to specific ID or position
+    function handleNavigation(attempt = 0, maxAttempts = 10) {
+        const targetId = getTargetIdFromUrl();
+        console.log(`🔍 Checking for navigation hash: ${targetId}`);
 
-        const noteKey = noteElement.dataset.noteKey;
-        const parentId = noteElement.closest("[id]")?.id;
-
-        console.log("Extracted noteKey:", noteKey); // Debugging extracted data
-        console.log("Extracted parentId:", parentId); // Debugging extracted data
-
-        if (!noteKey || !parentId) {
-            console.warn("Missing note key or parent ID for the clicked footnote.");
+        if (!targetId) {
+            console.log("No valid target ID found in URL.");
             return;
         }
 
-        fetch(jsonPath)
-            .then((response) => response.json())
-            .then((footnotesData) => {
-                console.log("Fetched footnotes data:", footnotesData); // Debugging output
-                const section = footnotesData.find((sec) => {
-                    return Object.values(sec.footnotes || {}).some(
-                        (fn) => fn.line_number.toString() === parentId && fn.content
-                    );
+        console.log(`✅ Navigating to target ID: ${targetId}`);
+        navigateToInternalId(targetId);
+    }
+
+
+    // Utility: Extract target `id` from the URL
+    function getTargetIdFromUrl() {
+        return window.location.hash ? window.location.hash.substring(1) : null;
+    }
+
+
+      // Utility: Check if an ID is numerical
+    function isNumericId(id) {
+        return /^\d+$/.test(id);
+    }
+
+    // Utility: Find a line for a numerical ID
+    function findLineForNumericId(lineNumber, markdown) {
+        const totalLines = markdown.split("\n").length;
+        return Math.max(0, Math.min(lineNumber, totalLines - 1));
+    }
+
+    // Utility: Find the line number of a unique `id` in the Markdown
+    // Improved function to find an ID in the raw Markdown
+    function findLineForId(markdown, id) {
+        console.log(`Searching for ID: "${id}" in Markdown...`);
+        
+        const regex = new RegExp(`id=['"]${id}['"]`, "i"); // Match both single & double quotes
+        const lines = markdown.split("\n");
+
+        for (let i = 0; i < lines.length; i++) {
+            if (regex.test(lines[i])) {
+                console.log(`✅ Found ID in line ${i}: ${lines[i]}`);
+                return i + 1; // Return the exact line number
+            }
+        }
+
+        console.warn(`❌ ID "${id}" NOT found in Markdown.`);
+        return null;
+    }
+
+
+
+    function findBlockForLine(lineNumber, allBlocks) {
+      for (let i = 0; i < allBlocks.length; i++) {
+        const block = allBlocks[i];
+        const start = block.startLine;
+        const end   = start + block.lines.length - 1;
+        // If lineNumber is within [start..end]
+        if (lineNumber >= start && lineNumber <= end) {
+          return i; // i = index in allBlocks
+        }
+      }
+      return -1; // not found
+    }
+
+
+function waitForElementAndScroll(targetId, maxAttempts = 20, attempt = 0) {
+  const targetElement = document.getElementById(targetId);
+  if (targetElement) {
+    console.log(`✅ Target ID "${targetId}" found! Preparing to scroll...`);
+    // Extra delay to allow layout to settle.
+    setTimeout(() => {
+      targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+    return;
+  }
+  if (attempt >= maxAttempts) {
+    console.warn(`❌ Gave up waiting for "${targetId}".`);
+    return;
+  }
+  setTimeout(() => waitForElementAndScroll(targetId, maxAttempts, attempt + 1), 100);
+}
+
+
+
+// Function to handle navigation to internal links
+function navigateToInternalId(targetId) {
+    console.log(`🟢 Navigating to internal ID: ${targetId}`);
+
+    // ✅ Check if the target ID is already in the DOM
+    let existingElement = document.getElementById(targetId);
+    if (existingElement) {
+        console.log(`✅ Target ID ${targetId} already in DOM. Scrolling now...`);
+        existingElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        return; // ✅ No need to load anything!
+    }
+
+    console.log(`🔍 Target ID ${targetId} not found in DOM. Checking chunk data...`);
+
+    // 🔎 Find which chunk contains this ID
+    const targetChunkIndex = window.nodeChunks.findIndex(chunk =>
+    chunk.blocks.some(block => block.startLine.toString() === targetId)
+  );
+
+    if (targetChunkIndex === -1) {
+      console.warn(`❌ No chunk found for target ID "${targetId}".`);
+      return;
+    }
+
+   // Define the new contiguous block:
+  // For example, include the target chunk plus one chunk before and one after.
+  const startIndex = Math.max(0, targetChunkIndex - 1);
+  const endIndex = Math.min(window.nodeChunks.length - 1, targetChunkIndex + 1);
+  const newBlockChunks = window.nodeChunks.slice(startIndex, endIndex + 1);
+  console.log(`✅ New contiguous block defined for chunks: ${newBlockChunks.map(c => c.chunk_id)}`);
+
+  // Remove any currently loaded chunks that are not in the new contiguous block.
+  removeChunksOutside(newBlockChunks.map(c => c.chunk_id));
+
+  // For each chunk in the new block, load it if not already loaded.
+  newBlockChunks.forEach(chunk => {
+    if (!document.querySelector(`[data-chunk-id="${chunk.chunk_id}"]`)) {
+      console.log(`🔄 Loading missing chunk ${chunk.chunk_id} for contiguous block`);
+      loadChunk(chunk.chunk_id, "down");  // or you can call a dedicated function
+    }
+  });
+
+  // After ensuring the block is contiguous, reposition the fixed sentinels.
+  repositionFixedSentinelsForBlock();
+
+  // Finally, wait for the target element to be in the DOM and scroll to it.
+  waitForElementAndScroll(targetId);
+}
+
+
+// SENTINEL SHIT FOR INTERNAL ID NAVIGATION // 
+
+/**
+ * Removes all loaded chunks whose data-chunk-id is not in the allowedIds array.
+ */
+function removeChunksOutside(allowedIds) {
+  const mainContentDiv = document.getElementById("main-content");
+  const allChunks = mainContentDiv.querySelectorAll("[data-chunk-id]");
+  allChunks.forEach(chunk => {
+    const chunkId = parseInt(chunk.getAttribute("data-chunk-id"), 10);
+    if (!allowedIds.includes(chunkId)) {
+      console.log(`Removing chunk ${chunkId} as it is outside the new block.`);
+      chunk.remove();
+      // Also remove the chunk from your tracking set, if needed:
+      window.currentlyLoadedChunks.delete(chunkId);
+    }
+  });
+}
+
+
+/**
+ * Repositions the fixed top and bottom sentinels so that they wrap
+ * exactly the new contiguous block of chunks.
+ */
+function repositionFixedSentinelsForBlock() {
+  const mainContentDiv = document.getElementById("main-content");
+  const allChunks = mainContentDiv.querySelectorAll("[data-chunk-id]");
+  if (allChunks.length === 0) {
+    console.warn("No chunks in the DOM to reposition sentinels around.");
+    return;
+  }
+  // Assume chunks are in order.
+  const firstChunk = allChunks[0];
+  const lastChunk = allChunks[allChunks.length - 1];
+
+  // Remove the fixed sentinels if they exist.
+  if (window.topSentinel) window.topSentinel.remove();
+  if (window.bottomSentinel) window.bottomSentinel.remove();
+
+  // Create or reuse fixed sentinels.
+  let topSentinel = document.getElementById("top-sentinel") || document.createElement("div");
+  topSentinel.id = "top-sentinel";
+  topSentinel.className = "sentinel";
+
+  let bottomSentinel = document.getElementById("bottom-sentinel") || document.createElement("div");
+  bottomSentinel.id = "bottom-sentinel";
+  bottomSentinel.className = "sentinel";
+
+  // Insert the top sentinel immediately before the first chunk.
+  mainContentDiv.insertBefore(topSentinel, firstChunk);
+  // Insert the bottom sentinel immediately after the last chunk.
+  lastChunk.after(bottomSentinel);
+
+  // Save the references for your IntersectionObserver.
+  window.topSentinel = topSentinel;
+  window.bottomSentinel = bottomSentinel;
+
+  // (If you’re using an observer that watches these, you may need to reobserve them.)
+  if (window.fixedSentinelObserver) {
+    window.fixedSentinelObserver.observe(topSentinel);
+    window.fixedSentinelObserver.observe(bottomSentinel);
+  }
+}
+
+
+
+    // Function to dynamically load content around a line number
+   function loadContentAroundLine(lineNumber) {
+    console.log(`🟢 Loading content around line: ${lineNumber}`);
+
+    // 🔍 Find the chunk that contains this line
+    const targetChunk = window.nodeChunks.find(chunk =>
+        lineNumber >= chunk.start_line && lineNumber <= chunk.end_line
+    );
+
+    if (!targetChunk) {
+        console.warn(`❌ No chunk found for line ${lineNumber}.`);
+        return;
+    }
+
+    console.log(`✅ Line ${lineNumber} is in chunk ${targetChunk.chunk_id}.`);
+
+    // ✅ Load the target chunk if it's not already loaded
+    if (!window.currentlyLoadedChunks.has(targetChunk.chunk_id)) {
+        console.log(`🔄 Loading chunk ${targetChunk.chunk_id}...`);
+        loadChunk(targetChunk.chunk_id, "down");
+    }
+
+    // 🔼 Check if we should load the previous chunk
+    if (lineNumber - targetChunk.start_line < 5) {
+        const prevChunk = window.nodeChunks.find(c => c.chunk_id === targetChunk.chunk_id - 1);
+        if (prevChunk && !window.currentlyLoadedChunks.has(prevChunk.chunk_id)) {
+            console.warn(`⬆️ Loading previous chunk: ${prevChunk.chunk_id}`);
+            loadChunk(prevChunk.chunk_id, "up");
+        }
+    }
+
+    // 🔽 Check if we should load the next chunk
+    if (targetChunk.end_line - lineNumber < 5) {
+        const nextChunk = window.nodeChunks.find(c => c.chunk_id === targetChunk.chunk_id + 1);
+        if (nextChunk && !window.currentlyLoadedChunks.has(nextChunk.chunk_id)) {
+            console.warn(`⬇️ Loading next chunk: ${nextChunk.chunk_id}`);
+            loadChunk(nextChunk.chunk_id, "down");
+        }
+    }
+
+    // ✅ Ensure content is loaded before scrolling
+    setTimeout(() => {
+        const targetElement = document.getElementById(lineNumber.toString());
+        if (targetElement) {
+            console.log(`✅ Scrolling to line: ${lineNumber}`);
+            targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else {
+            console.error(`❌ Line "${lineNumber}" still not found after loading.`);
+        }
+    }, 200); // Allow some time for lazy-loaded content
+}
+
+
+
+
+    function loadContentAroundId(targetId) {
+    console.log(`🟢 Loading content around ID: ${targetId}`);
+
+    const targetLine = findLineForId(markdownContent, targetId);
+    if (targetLine === null) {
+        console.warn(`❌ Target ID "${targetId}" not found in Markdown.`);
+        return;
+    }
+
+    console.log(`✅ Found ID "${targetId}" at line ${targetLine}`);
+
+    // ✅ Use the updated function to load content based on line number
+    loadContentAroundLine(targetLine);
+
+    // ✅ Ensure content is fully loaded before scrolling
+    setTimeout(() => {
+        const newTargetElement = document.getElementById(targetId);
+        if (newTargetElement) {
+            console.log(`✅ Scrolling to target ID: ${targetId}`);
+            newTargetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else {
+            console.error(`❌ ID "${targetId}" still not found after loading.`);
+        }
+    }, 200); // Delay ensures content loads first
+}
+
+
+
+// WELLLLLLllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
+// WELLLLLLllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
+// WELLLLLLllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
+// WELLLLLLllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
+// WELLLLLLllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
+// WELLLLLLllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
+// WELLLLLLllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
+
+
+document.addEventListener("DOMContentLoaded", async () => {
+
+    console.log("✅ DOM is ready. Loading Markdown file...");
+    await loadMarkdownFile();  // ✅ This now runs in the same file where it's defined
+
+     // lazy loading initial launch (I think)
+     if (!markdownContent) {
+        console.error("No Markdown content found in #main-content.");
+        return;
+    }
+
+    // TOC table of contents 
+    const tocContainer = document.getElementById("toc-container");
+    const tocOverlay = document.getElementById("toc-overlay");
+    const tocButton = document.getElementById("toc-toggle-button");
+
+    // Check if elements exist
+    if (!tocContainer || !tocOverlay || !tocButton) {
+        console.error("TOC elements are missing in the DOM.");
+        return;
+    }
+
+    // State to track if TOC is open
+    let isTOCOpen = false;
+
+    let currentRangeStart = 0;
+    let currentRangeEnd = 0;
+    let isLazyLoadSetup = false; // Flag to avoid duplicate setup
+
+    // Ensure the `book` variable is available globally
+    if (typeof window.book === "undefined" || !window.book) {
+        console.error("The 'book' variable is not defined or empty.");
+        return;
+    }
+
+    // Call the function to generate the TOC
+    generateTableOfContents(jsonPath, "toc-container", "toc-toggle-button");
+
+    function updateTOCState() {
+        if (isTOCOpen) {
+            console.log("Opening TOC...");
+            tocContainer.classList.add("open");
+            tocOverlay.classList.add("active");
+        } else {
+            console.log("Closing TOC...");
+            tocContainer.classList.remove("open");
+            tocOverlay.classList.remove("active");
+        }
+    }
+
+    // Toggle TOC state when the button is clicked
+    tocButton.addEventListener("click", function () {
+        console.log("TOC button clicked");
+        isTOCOpen = !isTOCOpen; // Toggle state
+        updateTOCState();
+    });
+
+    // Close TOC when clicking the overlay
+    tocOverlay.addEventListener("click", function () {
+        if (isTOCOpen) {
+            console.log("Closing TOC via overlay click");
+            isTOCOpen = false;
+            updateTOCState();
+        }
+    });
+
+    // Close TOC when clicking a link inside it
+    tocContainer.addEventListener("click", function (event) {
+        const link = event.target.closest("a");
+        if (link) {
+            console.log("Closing TOC via link click");
+            isTOCOpen = false;
+            updateTOCState();
+
+            // Scroll to target (optional)
+            const targetId = link.hash?.substring(1); // Get ID without `#`
+            const targetElement = document.getElementById(targetId);
+            if (targetElement) {
+                targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+        }
+    });
+
+    // Intercept internal links
+    document.addEventListener("click", function (event) {
+        const link = event.target.closest("a");
+        if (link && link.hash && link.hash.startsWith("#")) {
+            event.preventDefault(); // Prevent default anchor behavior
+            const targetId = link.hash.substring(1); // Get the ID without the "#"
+            navigateToInternalId(targetId);
+        }
+    });
+
+       // Event listener for clicking on footnote `<sup>` elements
+    document.addEventListener("click", (event) => {
+        console.log("Click detected on element:", event.target); // Log the clicked element
+        const noteElement = event.target.closest("sup.note");
+        if (noteElement) {
+            console.log("Footnote <sup> element detected:", noteElement); // Log the matched element
+            event.preventDefault();
+
+            const noteKey = noteElement.dataset.noteKey;
+            const parentId = noteElement.closest("[id]")?.id;
+
+            console.log("Extracted noteKey:", noteKey); // Debugging extracted data
+            console.log("Extracted parentId:", parentId); // Debugging extracted data
+
+            if (!noteKey || !parentId) {
+                console.warn("Missing note key or parent ID for the clicked footnote.");
+                return;
+            }
+
+            fetch(jsonPath)
+                .then((response) => response.json())
+                .then((footnotesData) => {
+                    console.log("Fetched footnotes data:", footnotesData); // Debugging output
+                    const section = footnotesData.find((sec) => {
+                        return Object.values(sec.footnotes || {}).some(
+                            (fn) => fn.line_number.toString() === parentId && fn.content
+                        );
+                    });
+
+                    console.log("Matched section:", section);
+
+                    if (!section) {
+                        console.warn(`No matching section found for line ${parentId}.`);
+                        return;
+                    }
+
+                    const footnote = section.footnotes[noteKey];
+                    if (!footnote || footnote.line_number.toString() !== parentId) {
+                        console.warn(`Footnote [${noteKey}] not found at line ${parentId}.`);
+                        return;
+                    }
+
+                    console.log("Footnote content before conversion:", footnote.content);
+
+                    // Convert Markdown to HTML directly here
+                    const footnoteHtml = convertMarkdownToHtml(footnote.content);
+                    console.log("Converted HTML:", footnoteHtml);
+
+                    // Open the container with the converted content
+                    openReferenceContainer(`<div class="footnote-content">${footnoteHtml}</div>`);
+                })
+                .catch((error) => {
+                    console.error("Error fetching footnotes JSON:", error);
                 });
+        } else {
+            console.log("No <sup.note> element detected for this click."); // Log for non-matching elements
+        }
+    });
 
-                console.log("Matched section:", section);
-
-                if (!section) {
-                    console.warn(`No matching section found for line ${parentId}.`);
-                    return;
-                }
-
-                const footnote = section.footnotes[noteKey];
-                if (!footnote || footnote.line_number.toString() !== parentId) {
-                    console.warn(`Footnote [${noteKey}] not found at line ${parentId}.`);
-                    return;
-                }
-
-                console.log("Footnote content before conversion:", footnote.content);
-
-                // Convert Markdown to HTML directly here
-                const footnoteHtml = convertMarkdownToHtml(footnote.content);
-                console.log("Converted HTML:", footnoteHtml);
-
-                // Open the container with the converted content
-                openReferenceContainer(`<div class="footnote-content">${footnoteHtml}</div>`);
-            })
-            .catch((error) => {
-                console.error("Error fetching footnotes JSON:", error);
-            });
-    } else {
-        console.log("No <sup.note> element detected for this click."); // Log for non-matching elements
-    }
-});
-
-// Close the footnotes container when clicking the overlay
-refOverlay.addEventListener("click", () => {
-    if (isRefOpen) {
-        console.log("Closing footnotes container via overlay click...");
-        closeReferenceContainer();
-    }
-});
-
-
-
-    // Track last visible ID for refresh
-    window.addEventListener("scroll", () => {
-        const elementInView = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
-        if (elementInView && elementInView.id) {
-            sessionStorage.setItem(lastVisitedKey, elementInView.id);
-            console.log(`Updated last visited ID: ${elementInView.id}`);
+    // Close the footnotes container when clicking the overlay
+    refOverlay.addEventListener("click", () => {
+        if (isRefOpen) {
+            console.log("Closing footnotes container via overlay click...");
+            closeReferenceContainer();
         }
     });
 
     handleNavigation();
-    setupLazyLoad();
 });
