@@ -27,14 +27,14 @@ class MainTextEditableDivController extends Controller
 
         $book = $validatedData['book'];
         $updates = $validatedData['updates'];
-        $filePath = resource_path("markdown/{$book}/main-text.md");
+        $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
 
-        $markdownLines = file($filePath, FILE_IGNORE_NEW_LINES);
+        $markdownLines = file($markdownFilePath, FILE_IGNORE_NEW_LINES);
         Log::info("Loaded Markdown file with " . count($markdownLines) . " lines.");
 
-        // Sort updates by line ID in reverse order to handle additions and updates without overwriting
+        // Sort updates by line ID in reverse order.
         usort($updates, function ($a, $b) {
-            return strcmp($b['id'], $a['id']); // Descending order
+            return strcmp($b['id'], $a['id']);
         });
 
         foreach ($updates as $update) {
@@ -53,31 +53,44 @@ class MainTextEditableDivController extends Controller
             }
         }
 
-        // Save updated Markdown file
-        file_put_contents($filePath, implode(PHP_EOL, $markdownLines) . PHP_EOL);
-        Log::info("Successfully updated Markdown file at: {$filePath}");
+        // Save updated Markdown file.
+        file_put_contents($markdownFilePath, implode(PHP_EOL, $markdownLines) . PHP_EOL);
+        Log::info("Successfully updated Markdown file at: {$markdownFilePath}");
 
-        // Call the Python script to extract footnotes
+        // Call the Python script to extract footnotes.
         try {
             $pythonScriptPath = base_path('app/python/footnote-jason.py'); // Adjust path if necessary
-            $process = new \Symfony\Component\Process\Process(['python3', $pythonScriptPath, $filePath]);
-            $process->setTimeout(300); // Set a timeout of 5 minutes
+            $process = new \Symfony\Component\Process\Process(['python3', $pythonScriptPath, $markdownFilePath]);
+            $process->setTimeout(300); // 5 minutes timeout
             $process->run();
 
             if (!$process->isSuccessful()) {
                 throw new \Symfony\Component\Process\Exception\ProcessFailedException($process);
             }
 
-            Log::info("Footnote extraction completed for {$filePath}", [
+            Log::info("Footnote extraction completed for {$markdownFilePath}", [
                 'output' => $process->getOutput(),
             ]);
         } catch (\Exception $e) {
-            Log::error("Footnote extraction failed for {$filePath}: " . $e->getMessage());
+            Log::error("Footnote extraction failed for {$markdownFilePath}: " . $e->getMessage());
             return response()->json(['success' => false, 'error' => 'Footnote extraction failed.'], 500);
         }
 
-        return response()->json(['success' => true, 'message' => 'Content updated and footnotes processed.']);
+        // Get the last modified time of the Markdown file.
+        $markdownLastModified = filemtime($markdownFilePath);
+
+        // Assume your Python script writes/updates the footnotes JSON to a file like:
+        $footnotesFilePath = resource_path("markdown/{$book}/main-text-footnotes.json");
+        $footnotesLastModified = file_exists($footnotesFilePath) ? filemtime($footnotesFilePath) : null;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Content updated and footnotes processed.',
+            'markdownLastModified' => $markdownLastModified,
+            'footnotesLastModified' => $footnotesLastModified
+        ]);
     }
+
 
 
     private function processNumericIdUpdate($matches, $action, $update, &$markdownLines)

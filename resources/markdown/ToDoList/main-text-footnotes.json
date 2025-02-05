@@ -13,7 +13,7 @@
         },
         "footnotes": {
             "1": {
-                "content": "\"When user types '[:]', an 'add citation' div appears from below, up to just below that [:] tag. User can type author/title/publisher details etc, as they do, any similar entries will appear as suggestions. They can also import a copy of the original text of the citation. [OR] they can click [New]. This automatically generates citation data of a new text, and opens a 'new hyperlit document', in editable div mode.\" [[:]](http://10.0.0.93:8000/todolist#hypercite_wck67b8)",
+                "content": "\"When user types '[:]', an 'add citation' div appears from below, up to just below that [:] tag. User can type author/title/publisher <mark class='user-name_1738192705705' id='user-name_1738192705705' data-listener-attached='true'>details</mark> etc, as they do, any similar entries will appear as suggestions. They can also import a copy of the original text of the citation. [OR] they can click [New]. This automatically generates citation data of a new text, and opens a 'new hyperlit document', in editable div mode.\" [[:]](http://10.0.0.93:8000/todolist#hypercite_wck67b8)",
                 "line_number": 5
             }
         }
@@ -76,13 +76,20 @@
     },
     {
         "heading": {
-            "h2": "Notes [:]",
+            "h2": "9: Click on highlight opens same div as used for footnotes, BUT",
             "line_number": 70
+        },
+        "footnotes": {}
+    },
+    {
+        "heading": {
+            "h2": "Notes [:]",
+            "line_number": 84
         },
         "footnotes": {
             "1": {
-                "content": "\"When user types '[:]', an 'add citation' div appears from below, up to just below that [:] tag. User can type author/title/publisher details etc, as they do, any similar entries will appear as suggestions. They can also import a copy of the original text of the citation. [OR] they can click [New]. This automatically generates citation data of a new text, and opens a 'new hyperlit document', in editable div mode.\" [[:]](http://10.0.0.93:8000/todolist#hypercite_wck67b8)",
-                "line_number": 73
+                "content": "\"When user types '[:]', an 'add citation' div appears from below, up to just below that [:] tag. User can type author/title/publisher <mark class='user-name_1738192705705' id='user-name_1738192705705' data-listener-attached='true'>details</mark> etc, as they do, any similar entries will appear as suggestions. They can also import a copy of the original text of the citation. [OR] they can click [New]. This automatically generates citation data of a new text, and opens a 'new hyperlit document', in editable div mode.\" [[:]](http://10.0.0.93:8000/todolist#hypercite_wck67b8)",
+                "line_number": 87
             }
         }
     }
