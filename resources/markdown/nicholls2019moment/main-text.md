@@ -1,6 +1,8 @@
 # A Moment of Possibility: The Rise and Fall of the New International Economic Order 
 
-Samuel Thomas Nicholls.
+Samuel Thomas Nicholl<mark class='user-name_1738731387734' id='user-name_1738731387734' data-listener-attached='true'>dddd</mark>
+
+Samuel Thomas Nichollszzz
 
 "If it is surprising that Prebisch’s political economy is pro free trade, it is even more so that Nkrumah’s is."<a href="http://10.0.0.93:8000/nicholls2019moment#hypercite_cf4b31f" id="hypercite_cf4b31f_b">[:]</a>
 

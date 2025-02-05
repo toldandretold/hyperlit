@@ -1,8 +1,6 @@
 # Capital: A Critique of Political Economy
 
-First published: in German in 1867, English edition first published in 1887;\ Source: First English edition of 1887 (4th German edition changes included as indicated) with some modernisation of spelling;\ Publisher: Progress Publishers, Moscow, USSR;\ Translated: Samuel Moore and Edward Aveling, edited by Frederick Engels;\ Transcribed: Zodiac, Hinrich Kuhls, Allan Thurrott, Bill McDorman, Bert Schultz and Martha Gimenez (1995-1996);\ Proofed: by Andy Blunden and Chris Clayton (2008), Mark Harris (2010), Dave Allinson (2015).
-
-Afterword to the Second German Edition (1873) [9](#afterword-to-the-second-german-edition-1873)
+Test
 
 Afterword to the French Edition (1875) [15](#afterword-to-the-french-edition-1875)
 

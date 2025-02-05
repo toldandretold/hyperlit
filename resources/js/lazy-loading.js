@@ -52,11 +52,11 @@ function initializePage() {
 
   console.log("📌 Initializing page with Markdown content...");
 
+  const mainContentDiv = document.getElementById("main-content");
   if (!mainContentDiv) {
     console.error("❌ No #main-content found.");
     return;
   }
-
   mainContentDiv.innerHTML = "";
 
   // Parse Markdown into node chunks.
@@ -70,13 +70,57 @@ function initializePage() {
   // Initialize tracking of loaded chunks.
   window.currentlyLoadedChunks = new Set();
 
-  // Load the first chunk.
-  const firstChunk = window.nodeChunks[0];
-  if (firstChunk) {
-    console.log(`🟢 Loading first chunk (Chunk ID: ${firstChunk.chunk_id})`);
-    loadChunk(firstChunk.chunk_id, "down"); // You can keep your old loadChunk() for manual loading.
+  // Check for an internal link (hash in URL)
+  const targetId = getTargetIdFromUrl();
+  if (targetId) {
+    console.log(`🔗 Internal link detected with target ID: ${targetId}`);
+    let targetChunkIndex;
+
+    if (isNumericId(targetId)) {
+      // Numeric IDs assumed to be the block's startLine
+      targetChunkIndex = window.nodeChunks.findIndex(chunk =>
+        chunk.blocks.some(block => block.startLine.toString() === targetId)
+      );
+    } else {
+      // For non-numeric IDs, try to find the chunk by scanning for the target within the raw Markdown or block content.
+      const targetLine = findLineForCustomId(targetId);
+      if (targetLine === null) {
+        console.warn(`❌ No block found for target ID "${targetId}" in nodeChunks. Loading first chunk as fallback.`);
+        targetChunkIndex = 0;
+      } else {
+        targetChunkIndex = window.nodeChunks.findIndex(chunk =>
+          targetLine >= chunk.start_line && targetLine <= chunk.end_line
+        );
+      }
+    }
+
+    if (targetChunkIndex === -1) {
+      console.warn(`❌ Could not determine a chunk for target ID "${targetId}". Loading first chunk as fallback.`);
+      targetChunkIndex = 0;
+    }
+
+    // Optionally, load a contiguous block of chunks (e.g., one before and one after)
+    const startIndex = Math.max(0, targetChunkIndex - 1);
+    const endIndex = Math.min(window.nodeChunks.length - 1, targetChunkIndex + 1);
+    const chunksToLoad = window.nodeChunks.slice(startIndex, endIndex + 1);
+
+    console.log(`✅ Internal link block determined. Loading chunks: ${chunksToLoad.map(c => c.chunk_id)}`);
+
+    // Load each chunk in the contiguous block.
+    chunksToLoad.forEach(chunk => {
+      if (!document.querySelector(`[data-chunk-id="${chunk.chunk_id}"]`)) {
+        loadChunk(chunk.chunk_id, "down");
+      }
+    });
   } else {
-    console.error("❌ First chunk could not be found!");
+    // No internal link: load the first chunk by default.
+    const firstChunk = window.nodeChunks[0];
+    if (firstChunk) {
+      console.log(`🟢 Loading first chunk (Chunk ID: ${firstChunk.chunk_id})`);
+      loadChunk(firstChunk.chunk_id, "down");
+    } else {
+      console.error("❌ First chunk could not be found!");
+    }
   }
 
   // Now initialize the fixed sentinels for the contiguous block.
@@ -84,26 +128,39 @@ function initializePage() {
 
   // Attach any scroll event listeners, navigation handling, etc.
   handleNavigation();
+
+  // Now that everything's ready, make the main content visible.
+  mainContentDiv.style.visibility = "visible"; 
 }
+
 
 
 
 // Markdown Conversion shit
 
 async function loadMarkdownFile() {
-    try {
-        const response = await fetch(mdFilePath);
-        if (!response.ok) throw new Error(`Failed to load Markdown: ${response.statusText}`);
-        
-        window.markdownContent = await response.text(); // Assign Markdown content globally
-        console.log("📄 Markdown file loaded successfully:", window.markdownContent.substring(0, 100));
+  try {
+    // Retrieve the stored timestamp for the Markdown file, if available.
+    const storedMdTimestamp = localStorage.getItem("markdownLastModified") || new Date().getTime();
+    // Build the fresh URL using the global getFreshUrl function.
+    const freshMdUrl = window.getFreshUrl(window.mdFilePath, storedMdTimestamp);
 
-        // Now that we have the Markdown, initialize everything
-        initializePage();
-    } catch (error) {
-        console.error("❌ Error loading Markdown file:", error);
-    }
+    // Log the timestamp and URL for debugging.
+    console.log(`Loading Markdown from: ${freshMdUrl} (timestamp: ${storedMdTimestamp})`);
+    
+    const response = await fetch(freshMdUrl);
+    if (!response.ok) throw new Error(`Failed to load Markdown: ${response.statusText}`);
+    
+    window.markdownContent = await response.text(); // Assign Markdown content globally
+    console.log("📄 Markdown file loaded successfully:", window.markdownContent.substring(0, 100));
+
+    // Now that we have the Markdown, initialize everything.
+    initializePage();
+  } catch (error) {
+    console.error("❌ Error loading Markdown file:", error);
+  }
 }
+
 
 function parseMarkdownIntoChunks(markdown) {
     const lines = markdown.split("\n");
@@ -149,7 +206,6 @@ function parseMarkdownIntoChunks(markdown) {
 
 
 function renderBlockToHtml(block) {
-    console.log("🔍 Rendering block:", block);
 
     let html = "";
     if (!block || !block.type || typeof block.content === "undefined") {
@@ -192,7 +248,6 @@ function parseInlineMarkdown(text) {
 }
 
     function convertMarkdownToHtml(markdown) {
-        console.log("Markdown content passed to convertMarkdownToHtml:", markdown);
         const lines = markdown.split("\n");
         let htmlOutput = "";
 
@@ -227,67 +282,76 @@ function parseInlineMarkdown(text) {
 // Function to generate and display the Table of Contents
 
 async function generateTableOfContents(jsonPath, tocContainerId, toggleButtonId) {
-    try {
-        const response = await fetch(jsonPath);
-        const sections = await response.json();
+  try {
+    // Get the stored timestamp for the footnotes JSON (or use current time if not available)
+    const storedFootnotesTimestamp = localStorage.getItem("footnotesLastModified") || new Date().getTime();
+    // Use the global getFreshUrl function to build the URL
+    const freshJsonUrl = window.getFreshUrl(jsonPath, storedFootnotesTimestamp);
+    
+    const response = await fetch(freshJsonUrl);
+    const sections = await response.json();
 
-        const tocContainer = document.getElementById(tocContainerId);
-        if (!tocContainer) {
-            console.error(`TOC container with ID "${tocContainerId}" not found.`);
-            return;
-        }
+    // Log the timestamp and URL for debugging.
+    console.log(`Loading .json from: ${freshJsonUrl} (timestamp: ${storedFootnotesTimestamp})`);
 
-        tocContainer.innerHTML = "";
-
-        let firstHeadingAdded = false;
-
-        sections.forEach((section) => {
-            if (section.heading) {
-                const headingContent = Object.values(section.heading)[0]; // Get the heading text
-                const headingLevel = Object.keys(section.heading)[0]; // Get the heading level (e.g., h1, h2)
-                const lineNumber = section.heading.line_number; // Get the line number
-
-                if (headingContent && headingLevel && lineNumber) {
-                    // Convert Markdown to inline HTML for heading content
-                    const headingHtml = parseInlineMarkdown(headingContent);
-
-                    // Create the heading element dynamically
-                    const headingElement = document.createElement(headingLevel); // e.g., <h1>, <h2>
-                    headingElement.innerHTML = headingHtml;
-
-                    // Add the "first" class to the first heading
-                    if (!firstHeadingAdded) {
-                        headingElement.classList.add("first");
-                        firstHeadingAdded = true;
-                    }
-
-                    // Create a link wrapping the heading
-                    const link = document.createElement("a");
-                    link.href = `#${lineNumber}`;
-                    link.appendChild(headingElement);
-
-                    // Create a container for the link
-                    const tocItem = document.createElement("div");
-                    tocItem.classList.add("toc-item", headingLevel); // Optional: Add class for styling
-                    tocItem.appendChild(link);
-
-                    // Append the container to the TOC
-                    tocContainer.appendChild(tocItem);
-                }
-            }
-        });
-
-        // Add a toggle button to show/hide the TOC
-        const toggleButton = document.getElementById(toggleButtonId);
-        if (toggleButton) {
-            toggleButton.addEventListener("click", () => {
-                tocContainer.classList.toggle("hidden");
-            });
-        }
-    } catch (error) {
-        console.error("Error generating Table of Contents:", error);
+    const tocContainer = document.getElementById(tocContainerId);
+    if (!tocContainer) {
+      console.error(`TOC container with ID "${tocContainerId}" not found.`);
+      return;
     }
+
+    tocContainer.innerHTML = "";
+
+    let firstHeadingAdded = false;
+
+    sections.forEach((section) => {
+      if (section.heading) {
+        const headingContent = Object.values(section.heading)[0]; // Get the heading text
+        const headingLevel = Object.keys(section.heading)[0]; // Get the heading level (e.g., h1, h2)
+        const lineNumber = section.heading.line_number; // Get the line number
+
+        if (headingContent && headingLevel && lineNumber) {
+          // Convert Markdown to inline HTML for heading content
+          const headingHtml = parseInlineMarkdown(headingContent);
+
+          // Create the heading element dynamically (e.g., <h1>, <h2>)
+          const headingElement = document.createElement(headingLevel);
+          headingElement.innerHTML = headingHtml;
+
+          // Add the "first" class to the first heading
+          if (!firstHeadingAdded) {
+            headingElement.classList.add("first");
+            firstHeadingAdded = true;
+          }
+
+          // Create a link wrapping the heading
+          const link = document.createElement("a");
+          link.href = `#${lineNumber}`;
+          link.appendChild(headingElement);
+
+          // Create a container for the link
+          const tocItem = document.createElement("div");
+          tocItem.classList.add("toc-item", headingLevel); // Optional: Add class for styling
+          tocItem.appendChild(link);
+
+          // Append the container to the TOC
+          tocContainer.appendChild(tocItem);
+        }
+      }
+    });
+
+    // Add a toggle button to show/hide the TOC
+    const toggleButton = document.getElementById(toggleButtonId);
+    if (toggleButton) {
+      toggleButton.addEventListener("click", () => {
+        tocContainer.classList.toggle("hidden");
+      });
+    }
+  } catch (error) {
+    console.error("Error generating Table of Contents:", error);
+  }
 }
+
 
 
 
@@ -299,50 +363,49 @@ async function generateTableOfContents(jsonPath, tocContainerId, toggleButtonId)
 function initializeLazyLoadingFixed() {
   const mainContentDiv = document.getElementById("main-content");
 
-  // Create the top sentinel if it doesn't already exist.
   let topSentinel = document.getElementById("top-sentinel");
   if (!topSentinel) {
     topSentinel = document.createElement("div");
     topSentinel.id = "top-sentinel";
     topSentinel.classList.add("sentinel");
-    // Insert at the very top.
     mainContentDiv.prepend(topSentinel);
   }
 
-  // Create the bottom sentinel if it doesn't already exist.
   let bottomSentinel = document.getElementById("bottom-sentinel");
   if (!bottomSentinel) {
     bottomSentinel = document.createElement("div");
     bottomSentinel.id = "bottom-sentinel";
     bottomSentinel.classList.add("sentinel");
-    // Append at the very bottom.
     mainContentDiv.appendChild(bottomSentinel);
   }
 
-  // Set up an IntersectionObserver on these two sentinels.
   const options = {
     root: mainContentDiv,
-    rootMargin: "200px", // Adjust as needed.
+    rootMargin: "50px",
     threshold: 0
   };
 
   const observer = new IntersectionObserver((entries) => {
+    if (window.isNavigatingToInternalId || window.isUpdatingJsonContent) {
+      console.log("Navigation in progress; skipping lazy-load triggers.");
+      return;
+    }
+
     entries.forEach(entry => {
       if (!entry.isIntersecting) return;
 
       if (entry.target.id === "top-sentinel") {
-        // The top of the block is visible → load the previous chunk.
         const firstChunkEl = mainContentDiv.querySelector("[data-chunk-id]");
         if (firstChunkEl) {
           const firstChunkId = parseInt(firstChunkEl.getAttribute("data-chunk-id"), 10);
-          if (firstChunkId > 0) {
+          if (firstChunkId > 0 && !window.currentlyLoadedChunks.has(firstChunkId - 1)) {
+            console.log(`🟢 Loading previous chunk ${firstChunkId - 1}`);
             loadPreviousChunkFixed(firstChunkId);
           }
         }
       }
 
       if (entry.target.id === "bottom-sentinel") {
-        // The bottom of the block is visible → load the next chunk.
         const lastChunkEl = getLastChunkElement();
         if (lastChunkEl) {
           const lastChunkId = parseInt(lastChunkEl.getAttribute("data-chunk-id"), 10);
@@ -352,15 +415,19 @@ function initializeLazyLoadingFixed() {
     });
   }, options);
 
-  // Start observing the fixed sentinels.
   observer.observe(topSentinel);
   observer.observe(bottomSentinel);
+  console.log("🕒 Sentinels observation started immediately.");
 
-  // Save references for later use.
+  // Store reference
   window.fixedSentinelObserver = observer;
   window.topSentinel = topSentinel;
   window.bottomSentinel = bottomSentinel;
 }
+
+
+
+
 
 // A helper to get the last chunk element currently in the DOM.
 function getLastChunkElement() {
@@ -392,7 +459,7 @@ function loadPreviousChunkFixed(currentFirstChunkId) {
     return;
   }
   
-  console.log(`🟢 Loading previous chunk: ${previousChunkId}`);
+  console.log(`🟢 Loading previous chunk (loadPreviousChunkFixed): ${previousChunkId}`);
   const scrollContainer = document.getElementById("main-content");
   
   // Store current scroll position
@@ -458,7 +525,6 @@ function createChunkElement(chunk) {
         tempDiv.innerHTML = html;
         chunkWrapper.appendChild(tempDiv);
     });
-
     return chunkWrapper;
 }
 
@@ -537,6 +603,7 @@ function loadChunk(chunkId, direction = "down") {
     // ✅ Insert chunk in the correct position
     insertChunkInOrder(chunkWrapper);
     injectFootnotesForChunk(chunk.chunk_id, jsonPath);
+    
 
     // ✅ Mark chunk as loaded
     window.currentlyLoadedChunks.add(chunkId);
@@ -544,6 +611,14 @@ function loadChunk(chunkId, direction = "down") {
 }
 
      // [:FOOTNOTES]
+
+    /**
+     * We need to prevent lazy loading while doing footnotes, as the footnotes alters dom, and thefore acts as a scroll event that 
+     * To prevent lazy loading from triggering when footnotes are injected, you need to:
+        * Temporarily disable lazy loading (window.isUpdatingJsonContent = true).
+        * Inject footnotes as usual.
+        *Re-enable lazy loading (window.isUpdatingJsonContent = false) after updates.
+        */
 
        /**
  * Injects footnotes for a given chunk.
@@ -554,10 +629,15 @@ function loadChunk(chunkId, direction = "down") {
  * @param {string} jsonPath - Path to the JSON file containing footnotes.
  */
 function injectFootnotesForChunk(chunkId, jsonPath) {
+  // Temporarily disable lazy loading
+  window.isUpdatingJsonContent = true;
+  console.log("⏳ Disabling lazy loading while updating footnotes...");
+
   // Look up the chunk data by chunkId.
   const chunk = window.nodeChunks.find(c => c.chunk_id === chunkId);
   if (!chunk) {
     console.error(`❌ Chunk with ID ${chunkId} not found.`);
+    window.isUpdatingJsonContent = false;
     return;
   }
   
@@ -565,8 +645,12 @@ function injectFootnotesForChunk(chunkId, jsonPath) {
   const startLine = chunk.start_line;
   const endLine = chunk.end_line;
   
+  // Retrieve the stored timestamp for the footnotes JSON (or use current time if not available)
+  const storedFootnotesTimestamp = localStorage.getItem("footnotesLastModified") || new Date().getTime();
+  const freshJsonUrl = window.getFreshUrl(jsonPath, storedFootnotesTimestamp);
+  
   // Fetch the footnotes JSON.
-  fetch(jsonPath)
+  fetch(freshJsonUrl)
     .then((response) => response.json())
     .then((sections) => {
       sections.forEach((section) => {
@@ -587,9 +671,8 @@ function injectFootnotesForChunk(chunkId, jsonPath) {
                 // Construct a regex to find the Markdown footnote reference.
                 const regex = new RegExp(`\\[\\^${key}\\](?!:)`, "g");
                 if (regex.test(targetElement.innerHTML)) {
-                  console.log(`Injecting footnote ${key} for line ${line_number} in chunk ${chunkId}.`);
                   
-                  // Optionally convert Markdown footnote content to HTML.
+                  // Convert Markdown footnote content to HTML.
                   const footnoteHtml = content ? convertMarkdownToHtml(content) : "";
                   
                   // Replace the Markdown footnote marker with a <sup> element.
@@ -607,11 +690,20 @@ function injectFootnotesForChunk(chunkId, jsonPath) {
           });
         }
       });
+
+      // ✅ Re-enable lazy loading after footnotes update
+      setTimeout(() => {
+        window.isUpdatingJsonContent = false;
+        console.log("✅ Re-enabling lazy loading after footnotes update.");
+      }, 200); // Delay ensures any layout shifts settle
     })
     .catch((error) => {
       console.error("Error injecting footnotes for chunk:", error);
+      window.isUpdatingJsonContent = false;
     });
 }
+
+
 
 
 
@@ -720,17 +812,17 @@ function injectFootnotesForChunk(chunkId, jsonPath) {
 
 
     // Handle navigation to specific ID or position
-    function handleNavigation(attempt = 0, maxAttempts = 10) {
-        const targetId = getTargetIdFromUrl();
-        console.log(`🔍 Checking for navigation hash: ${targetId}`);
+    let navigationTimeout;
 
-        if (!targetId) {
-            console.log("No valid target ID found in URL.");
-            return;
-        }
-
-        console.log(`✅ Navigating to target ID: ${targetId}`);
-        navigateToInternalId(targetId);
+    function handleNavigation() {
+        clearTimeout(navigationTimeout);
+        navigationTimeout = setTimeout(() => {
+            const targetId = getTargetIdFromUrl();
+            if (targetId) {
+                console.log(`🔍 Handling navigation to: ${targetId}`);
+                navigateToInternalId(targetId);
+            }
+        }, 300);
     }
 
 
@@ -751,24 +843,7 @@ function injectFootnotesForChunk(chunkId, jsonPath) {
         return Math.max(0, Math.min(lineNumber, totalLines - 1));
     }
 
-    // Utility: Find the line number of a unique `id` in the Markdown
-    // Improved function to find an ID in the raw Markdown
-    function findLineForId(markdown, id) {
-        console.log(`Searching for ID: "${id}" in Markdown...`);
-        
-        const regex = new RegExp(`id=['"]${id}['"]`, "i"); // Match both single & double quotes
-        const lines = markdown.split("\n");
-
-        for (let i = 0; i < lines.length; i++) {
-            if (regex.test(lines[i])) {
-                console.log(`✅ Found ID in line ${i}: ${lines[i]}`);
-                return i + 1; // Return the exact line number
-            }
-        }
-
-        console.warn(`❌ ID "${id}" NOT found in Markdown.`);
-        return null;
-    }
+    
 
 
 
@@ -786,73 +861,131 @@ function injectFootnotesForChunk(chunkId, jsonPath) {
     }
 
 
-function waitForElementAndScroll(targetId, maxAttempts = 20, attempt = 0) {
-  const targetElement = document.getElementById(targetId);
-  if (targetElement) {
-    console.log(`✅ Target ID "${targetId}" found! Preparing to scroll...`);
-    // Extra delay to allow layout to settle.
-    setTimeout(() => {
-      targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 150);
-    return;
-  }
-  if (attempt >= maxAttempts) {
-    console.warn(`❌ Gave up waiting for "${targetId}".`);
-    return;
-  }
-  setTimeout(() => waitForElementAndScroll(targetId, maxAttempts, attempt + 1), 100);
+function waitForElementAndScroll(targetId, maxAttempts = 10, attempt = 0) {
+    const targetElement = document.getElementById(targetId);
+    if (targetElement) {
+        console.log(`✅ Target ID "${targetId}" found! Scrolling...`);
+        setTimeout(() => {
+            scrollElementIntoMainContent(targetElement, 50);
+        }, 150);
+        return;
+    }
+
+    if (attempt >= maxAttempts) {
+        console.warn(`❌ Gave up waiting for "${targetId}".`);
+        return;
+    }
+
+    setTimeout(() => waitForElementAndScroll(targetId, maxAttempts, attempt + 1), 200);
 }
 
 
 
-// Function to handle navigation to internal links
-function navigateToInternalId(targetId) {
-    console.log(`🟢 Navigating to internal ID: ${targetId}`);
 
-    // ✅ Check if the target ID is already in the DOM
-    let existingElement = document.getElementById(targetId);
-    if (existingElement) {
-        console.log(`✅ Target ID ${targetId} already in DOM. Scrolling now...`);
-        existingElement.scrollIntoView({ behavior: "smooth", block: "center" });
-        return; // ✅ No need to load anything!
+
+
+// Utility: Find the line number of a unique `id` in the Markdown
+    // Improved function to find an ID in the raw Markdown
+   function findLineForCustomId(targetId) {
+      // Iterate over all chunks and their blocks
+      for (let chunk of window.nodeChunks) {
+        for (let block of chunk.blocks) {
+          // You can choose how to detect the custom ID.
+          // For instance, if your block.content (or a rendered version) already includes
+          // literal HTML tags with id="targetId", you could use a regex:
+          const regex = new RegExp(`id=['"]${targetId}['"]`, "i");
+          if (regex.test(block.content)) {
+            // Return the start line for this block as the line number
+            return block.startLine;
+          }
+        }
+      }
+      return null;
     }
 
-    console.log(`🔍 Target ID ${targetId} not found in DOM. Checking chunk data...`);
+function navigateToInternalId(targetId) {
+  // Prevent duplicate navigation actions.
+  if (window.isNavigatingToInternalId) {
+    console.log("Navigation already in progress, skipping duplicate call.");
+    return;
+  }
+  window.isNavigatingToInternalId = true;
+  console.log(`🟢 Navigating to internal ID: ${targetId}`);
 
-    // 🔎 Find which chunk contains this ID
-    const targetChunkIndex = window.nodeChunks.findIndex(chunk =>
-    chunk.blocks.some(block => block.startLine.toString() === targetId)
-  );
+  // First, check if the target element is already in the DOM.
+  let existingElement = document.getElementById(targetId);
+  if (existingElement) {
+    console.log(`✅ Target ID ${targetId} already in DOM. Scrolling now...`);
+    // Perform a single scroll action.
+    scrollElementIntoMainContent(existingElement, 50);
+    // After a short delay, reapply the scroll once more to counter any layout shifts.
+    setTimeout(() => {
+      scrollElementIntoMainContent(existingElement, 50);
+      window.isNavigatingToInternalId = false;
+    }, 600);
+    return;
+  }
 
-    if (targetChunkIndex === -1) {
-      console.warn(`❌ No chunk found for target ID "${targetId}".`);
+  // If the target element is not yet in the DOM, determine which chunk it is in.
+  let targetChunkIndex;
+  if (isNumericId(targetId)) {
+    // Numeric IDs: Assume the block's startLine is used as the ID.
+    targetChunkIndex = window.nodeChunks.findIndex(chunk =>
+      chunk.blocks.some(block => block.startLine.toString() === targetId)
+    );
+  } else {
+    // For non-numeric IDs, try to find the block by scanning the raw Markdown.
+    let targetLine = findLineForCustomId(targetId);
+    if (targetLine === null) {
+      console.warn(`❌ No block found for target ID "${targetId}" in nodeChunks.`);
+      window.isNavigatingToInternalId = false;
       return;
     }
+    console.log(`Non-numeric ID detected. Found at line: ${targetLine}`);
+    targetChunkIndex = window.nodeChunks.findIndex(chunk =>
+      targetLine >= chunk.start_line && targetLine <= chunk.end_line
+    );
+  }
+  if (targetChunkIndex === -1) {
+    console.warn(`❌ No chunk found for target ID "${targetId}".`);
+    window.isNavigatingToInternalId = false;
+    return;
+  }
 
-   // Define the new contiguous block:
-  // For example, include the target chunk plus one chunk before and one after.
+  // Load the contiguous block: one chunk before, the target chunk, and one chunk after.
   const startIndex = Math.max(0, targetChunkIndex - 1);
   const endIndex = Math.min(window.nodeChunks.length - 1, targetChunkIndex + 1);
-  const newBlockChunks = window.nodeChunks.slice(startIndex, endIndex + 1);
-  console.log(`✅ New contiguous block defined for chunks: ${newBlockChunks.map(c => c.chunk_id)}`);
+  const chunksToLoad = window.nodeChunks.slice(startIndex, endIndex + 1);
+  console.log(`✅ Internal link block determined. Loading chunks: ${chunksToLoad.map(c => c.chunk_id)}`);
 
-  // Remove any currently loaded chunks that are not in the new contiguous block.
-  removeChunksOutside(newBlockChunks.map(c => c.chunk_id));
-
-  // For each chunk in the new block, load it if not already loaded.
-  newBlockChunks.forEach(chunk => {
+  // Load any missing chunks.
+  chunksToLoad.forEach(chunk => {
     if (!document.querySelector(`[data-chunk-id="${chunk.chunk_id}"]`)) {
       console.log(`🔄 Loading missing chunk ${chunk.chunk_id} for contiguous block`);
-      loadChunk(chunk.chunk_id, "down");  // or you can call a dedicated function
+      loadChunk(chunk.chunk_id, "down");
     }
   });
 
-  // After ensuring the block is contiguous, reposition the fixed sentinels.
   repositionFixedSentinelsForBlock();
 
-  // Finally, wait for the target element to be in the DOM and scroll to it.
-  waitForElementAndScroll(targetId);
+  // Wait until lazy-loading and any layout shifts settle before performing the final scroll.
+  setTimeout(() => {
+    // Now that the necessary chunks should be loaded, wait for the target element.
+    waitForElementAndScroll(targetId);
+    // Optionally, do one final scroll after a short delay to ensure final alignment.
+    setTimeout(() => {
+      let finalTarget = document.getElementById(targetId);
+      if (finalTarget) {
+        scrollElementIntoMainContent(finalTarget, 50);
+      }
+      window.isNavigatingToInternalId = false;
+    }, 400);
+  }, 800);
 }
+
+
+
+
 
 
 // SENTINEL SHIT FOR INTERNAL ID NAVIGATION // 
@@ -947,7 +1080,7 @@ function repositionFixedSentinelsForBlock() {
     if (lineNumber - targetChunk.start_line < 5) {
         const prevChunk = window.nodeChunks.find(c => c.chunk_id === targetChunk.chunk_id - 1);
         if (prevChunk && !window.currentlyLoadedChunks.has(prevChunk.chunk_id)) {
-            console.warn(`⬆️ Loading previous chunk: ${prevChunk.chunk_id}`);
+            console.warn(`⬆️ Loading previous chunk(loadcontentaroundline): ${prevChunk.chunk_id}`);
             loadChunk(prevChunk.chunk_id, "up");
         }
     }
@@ -1105,6 +1238,38 @@ document.addEventListener("DOMContentLoaded", async () => {
             navigateToInternalId(targetId);
         }
     });
+
+     // Use event delegation for <mark> tags within #main-content
+   
+    if (mainContentDiv) {
+        // Click delegation for <mark> elements
+        mainContentDiv.addEventListener("click", function (event) {
+            const mark = event.target.closest("mark");
+            if (mark) {
+                // Call your existing mark click handler
+                event.preventDefault(); // Prevent default if needed
+                handleMarkClick(event);
+            }
+        });
+    
+        // Mouseover delegation for <mark> elements
+        mainContentDiv.addEventListener("mouseover", function (event) {
+            const mark = event.target.closest("mark");
+            if (mark) {
+                handleMarkHover(event);
+            }
+        });
+    
+        // Mouseout delegation for <mark> elements
+        mainContentDiv.addEventListener("mouseout", function (event) {
+            const mark = event.target.closest("mark");
+            if (mark) {
+                handleMarkHoverOut(event);
+            }
+        });
+    } else {
+        console.error("No #main-content container found for attaching mark listeners.");
+    }
 
        // Event listener for clicking on footnote `<sup>` elements
     document.addEventListener("click", (event) => {

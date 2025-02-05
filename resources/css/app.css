@@ -405,6 +405,7 @@ caption {
             color: #CBCCCC;
             overflow-y: auto; /* Enable vertical scrolling */
             overflow-x: hidden; /* Prevent horizontal scrolling */
+            visibility: hidden;
         }
 
 /* Loading indicator styling */

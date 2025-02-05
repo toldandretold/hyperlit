@@ -6,7 +6,7 @@ Published in 2020 by
 
 Haymarket Books
 
-P.O. Box 180165
+P.O. Box 180165.
 
 Chicago, IL 60618
 
@@ -4423,4 +4423,4 @@ World Bank, <a href="#page_72">72</a>, <a href="#page_220">220</a>, <a href="#pa
 
 Z
 
-Zweig, Michael, <a href="#page_88">88</a>, <a href="#page_90">90</a>                 
+Zweig, Michael, <a href="#page_88">88</a>, <a href="#page_90">90</a>                  

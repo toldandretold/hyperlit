@@ -165,6 +165,8 @@ function processRange(startLine, endLine, isInitial = false, direction = "downwa
 
     console.log(`Processed lines ${rangeKey}.`);
     return true;
+
+    
 }
 
 
@@ -555,6 +557,9 @@ document.addEventListener("DOMContentLoaded", function () {
     // Attach observer to the wrapper div
     observeSection(wrapperDiv);
 
+    // Now that everything's ready, make the main content visible.
+     mainContentDiv.style.visibility = "visible"; 
+
     console.log(`Processed lines ${rangeKey}.`);
     return true;
 }
@@ -799,7 +804,14 @@ document.getElementById("saveButton").addEventListener("click", async () => {
         });
 
         if (response.ok) {
-            console.log("Changes saved successfully.");
+             // Assume the server returns a JSON with a lastModified property
+            const result = await response.json();
+            console.log("Changes saved successfully.", result);
+
+            // Store the timestamp (or version) so that view mode can use it.
+            // For example, in localStorage:
+            localStorage.setItem("lastModified", result.lastModified);
+
             addedNodes.clear();
             modifiedNodes.clear();
             removedIds.clear();

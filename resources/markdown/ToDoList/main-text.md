@@ -67,6 +67,20 @@ Needs to be able to load updwards on scroll up on page load... rather than havin
 
 Also needs to check the caching... 
 
+## 9: Click on highlight opens same div as used for footnotes, BUT
+
+The div is filled with the hyperlights.md file, which is lazy loaded in, and targetted at the appropriate hyperlight using #highlight_id
+
+User can scroll up and down in the div, and EDIT (if its users hyperlight), or, [LEAVE Hyperlight] if its someone-elses... 
+
+Perhaps should auto-save this. 
+
+[If click expand], the original div is entirely de-activated (all event listeners, and so on are silenced, scroll position and top ID are saved), and the hyperlights in right sidebar becomes full screen div... 
+
+[if click a back-link]: the div collapses, with all event listeners and such turned off, and scroll position and top id saved].
+
+In this way, moving between highlights and main-text should be super seamless. 
+
 ## Notes [:]
 
 
