@@ -5,6 +5,20 @@
 
 ---
 
+> "Adelaide"
+> [↩](http://10.0.0.93:8000/nicholls2019moment#user-name_1738760133294)
+
+
+
+---
+
+> "Eric Helleiner"
+> [↩](http://10.0.0.93:8000/nicholls2019moment#unknown-user_1738804253931)
+
+
+
+---
+
 > "that potentially"
 > [↩](http://10.0.0.93:8000/nicholls2019moment#user-name_1738367084769)
 

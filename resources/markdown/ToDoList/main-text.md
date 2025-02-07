@@ -2,7 +2,7 @@
 
 ## 1: Table of Contents (TOC)
 
-TOC updates via a back-end process that launches when a heading tag is added or removed. This means passing through added and modified nodes when an editable div is saved. If a heading tag is detected, and it is from a removed node, that node should be deleted from a jason file. If it is in the added (modified) nodes, it should be added to the jason file, at the correct point.[^1] (It could be a database table that is used to update a jason file.)
+TOC updates via a back-end process that launches when a heading tag is added or removed. This means passing through added and modified nodes when an editable div is saved. If a heading tag is detected, and it is from a removed node, that node should be deleted from a jason file. If it is in the added (modified) nodes, it should be added to the jason file, at the correct point.[^1] (It could be a database table that is used to update a jason file.)..
 
 Should just be, whenever any of these happens, the python script is run again, as it needs to know the correct line number of heading tags.
 

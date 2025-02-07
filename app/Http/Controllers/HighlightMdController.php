@@ -109,7 +109,22 @@ class HighlightMdController extends Controller
             return response()->json(['success' => false, 'message' => 'Error updating hyperlights or global positions.'], 500);
         }
 
-        return response()->json(['success' => true, 'message' => 'Highlight created/updated successfully.']);
+        // Step 4: Get the last modified time of the Markdown file.
+        $markdownLastModified = filemtime($markdownFilePath);
+
+        // Assume your Python script updates the footnotes JSON.
+        $footnotesFilePath = resource_path("markdown/{$book}/main-text-footnotes.json");
+        $footnotesLastModified = file_exists($footnotesFilePath) ? filemtime($footnotesFilePath) : null;
+
+        // Return the updated markdown text and timestamps
+        return response()->json([
+            'success' => true,
+            'message' => 'Highlight created/updated successfully.',
+            'markdown' => file_get_contents($markdownFilePath), // ✅ Send updated Markdown
+            'markdownLastModified' => $markdownLastModified,
+            'footnotesLastModified' => $footnotesLastModified
+        ]);
+
     }
 
 
