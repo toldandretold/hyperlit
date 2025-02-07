@@ -94,115 +94,117 @@
     }
 
     // Function to handle creating a highlight
+// Function to handle creating a highlight
 addTouchAndClickListener(document.getElementById('copy-hyperlight'), function () {
     let selection = window.getSelection();
     let range;
 
     try {
         range = selection.getRangeAt(0);
-        console.log('Full selected text:', selection.toString());
+        console.log('📌 Full selected text:', selection.toString());
     } catch (error) {
-        console.error('Error getting range:', error);
+        console.error('❌ Error getting range:', error);
         return;
     }
 
     let selectedText = selection.toString().trim();
-
     if (!selectedText) {
-        console.error('No valid text selected.');
+        console.error('⚠️ No valid text selected.');
         return;
     }
 
-    let book = document.getElementById('main-content').getAttribute('data-book');
-
+    let book = document.getElementById('main-content')?.getAttribute('data-book');
     if (!book) {
-        console.error('Book name not found!');
+        console.error('❌ Book name not found!');
         return;
     }
 
-    // Generate the highlight_id on the front-end
-    let userName = 'user-name'; // Use the actual user name
+    // Generate unique highlight ID
+    let userName = document.getElementById('user-name')?.textContent || 'unknown-user';
     let timestamp = Date.now();
     let highlightId = `${userName}_${timestamp}`;
 
-    // Highlight the selection and assign id and class
-    highlighter.highlightSelection("highlight");
-
-    // Remove 'highlight' class from the new marks
-    const newMarks = document.querySelectorAll('mark.highlight');
-    if (newMarks.length > 0) {
-        newMarks.forEach((mark, index) => {
-            // Add id and class to the first <mark> tag
-            if (index === 0) {
-                mark.setAttribute('id', highlightId);
-            }
-            // Add class="highlight_id" to all <mark> tags
-            mark.classList.add(highlightId);
-
-            // Optionally remove the default 'highlight' class if it exists
-            mark.classList.remove('highlight'); // Remove the class if not needed
-        });
-    }
-
-    console.log("New highlight mark created with ID:", highlightId);
-
-    attachMarkListeners(); // Attach listeners to new highlights
-
-    // Find the closest block-level elements containing the start and end of the highlight
-    let startContainer = range.startContainer.parentElement.closest('[id]');
-    let endContainer = range.endContainer.parentElement.closest('[id]');
-
-    // Ensure both start and end containers are valid
-    if (startContainer && endContainer) {
-        let startId = startContainer.id; // Get the ID of the starting block
-        let endId = endContainer.id; // Get the ID of the ending block
-
-        // Collect all block-level elements between the start and end
-        let blocks = [];
-        let current = startContainer;
-        while (current && current.id <= endId) {
-            blocks.push({
-                id: current.id,
-                html: current.innerHTML
-            });
-            current = current.nextElementSibling;
-        }
-
-        // Send the relevant blocks and their IDs to the backend
-        fetch('/highlight/custom-markdown', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            },
-            body: JSON.stringify({
-                book: book,
-                blocks: blocks, // Array of block IDs and their HTML content
-                text: selectedText,
-                start_xpath: getXPath(range.startContainer),
-                end_xpath: getXPath(range.endContainer),
-                xpath_full: getFullXPath(range.startContainer),
-                start_position: range.startOffset,
-                end_position: range.startOffset + selectedText.length,
-                highlight_id: highlightId // Send highlight_id to the backend
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                console.log('Highlight saved and Markdown updated.');
-                attachMarkListeners(); // Re-run listeners for newly created marks
-            } else {
-                console.error('Error from server:', data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error updating highlight:', error);
-        });
+    // Ensure highlighter function exists before calling it
+    if (typeof highlighter !== "undefined" && highlighter.highlightSelection) {
+        highlighter.highlightSelection("highlight");
     } else {
-        console.error('Could not find valid start or end containers for the selection.');
+        console.warn("⚠️ Highlighter function is not defined.");
     }
+
+    // Assign ID and class to the new marks
+    const newMarks = document.querySelectorAll('mark.highlight');
+    newMarks.forEach((mark, index) => {
+        if (index === 0) mark.setAttribute('id', highlightId);
+        mark.classList.add(highlightId);
+        mark.classList.remove('highlight');
+    });
+
+    console.log("✅ New highlight mark created with ID:", highlightId);
+    attachMarkListeners();
+
+    // Get closest valid block elements
+    let startContainer = range.startContainer?.parentElement?.closest('[id]');
+    let endContainer = range.endContainer?.parentElement?.closest('[id]');
+
+    if (!startContainer || !endContainer) {
+        console.error("❌ Could not determine start or end block.");
+        return;
+    }
+
+    let startId = parseInt(startContainer.id, 10);
+    let endId = parseInt(endContainer.id, 10);
+
+    // Collect all blocks in range
+    let blocks = [];
+    let current = startContainer;
+    while (current && parseInt(current.id, 10) <= endId) {
+        blocks.push({ id: current.id, html: current.innerHTML });
+        current = current.nextElementSibling;
+    }
+
+    // Send blocks to the backend
+    fetch('/highlight/custom-markdown', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({
+            book: book,
+            blocks: blocks,
+            text: selectedText,
+            start_xpath: getXPath(range.startContainer),
+            end_xpath: getXPath(range.endContainer),
+            xpath_full: getFullXPath(range.startContainer),
+            start_position: range.startOffset,
+            end_position: range.startOffset + selectedText.length,
+            highlight_id: highlightId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('✅ Highlight saved and Markdown updated.');
+
+            if (data.markdown && data.markdownLastModified) {
+                localStorage.setItem("cachedMarkdown", data.markdown);
+                localStorage.setItem("markdownLastModified", data.markdownLastModified);
+                console.log("✅ Markdown cache updated in LocalStorage.");
+            } else {
+                console.warn("⚠️ Server response missing markdown data.");
+            }
+
+            reloadMarkdownFromCache();
+            attachMarkListeners();
+        } else {
+            console.error('❌ Error from server:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('❌ Error updating highlight:', error);
+    });
 });
+
 
 
     // Function to handle deleting a highlight
@@ -458,14 +460,26 @@ function sendHyperciteBlocksToBackend(book, hyperciteId, blocks) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                console.log('Hypercite blocks saved successfully:', data);
+            console.log('✅ Hypercite blocks saved and Markdown updated.');
+
+            // ✅ Store the updated Markdown & timestamp in LocalStorage
+            if (data.markdown && data.markdownLastModified) {
+                localStorage.setItem("cachedMarkdown", data.markdown);
+                localStorage.setItem("markdownLastModified", data.markdownLastModified);
+                console.log("✅ Markdown cache updated in LocalStorage.");
             } else {
-                console.error('Error saving hypercite blocks:', data.message);
+                console.warn("⚠️ Server response missing markdown data.");
             }
-        })
-        .catch(error => {
-            console.error('Error communicating with backend:', error);
-        });
+
+            // ✅ Reload the visible content using the cached Markdown
+            reloadMarkdownFromCache();
+        } else {
+            console.error('❌ Error from server:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('❌ Error saving hypercite blocks:', error);
+    });
 }
 
 // Event listener for copying text and creating a hypercite

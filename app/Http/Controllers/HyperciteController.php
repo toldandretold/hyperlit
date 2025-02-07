@@ -36,70 +36,77 @@ class HyperciteController extends Controller
     }
 
     public function saveHyperciteBlocks(Request $request)
-    {
-        // Log the entire request payload for initial inspection
-        \Log::info('saveHyperciteBlocks called with request:', $request->all());
+{
+    \Log::info('saveHyperciteBlocks called with request:', $request->all());
 
-        $validatedData = $request->validate([
-            'book' => 'required|string',
-            'hypercite_id' => 'required|string',
-            'blocks' => 'required|array',
-            'blocks.*.id' => 'required|string', // Ensure each block has an ID
-            'blocks.*.html' => 'required|string', // Ensure each block has HTML content
-        ]);
+    $validatedData = $request->validate([
+        'book' => 'required|string',
+        'hypercite_id' => 'required|string',
+        'blocks' => 'required|array',
+        'blocks.*.id' => 'required|string',
+        'blocks.*.html' => 'required|string',
+    ]);
 
-        $book = $validatedData['book'];
-        $hyperciteId = $validatedData['hypercite_id'];
-        $blocks = $validatedData['blocks'];
+    $book = $validatedData['book'];
+    $hyperciteId = $validatedData['hypercite_id'];
+    $blocks = $validatedData['blocks'];
 
-        // Log validated data
-        \Log::info("Validated data: Book: {$book}, Hypercite ID: {$hyperciteId}");
-        \Log::info('Validated Blocks:', $blocks);
+    \Log::info("Validated data: Book: {$book}, Hypercite ID: {$hyperciteId}");
+    \Log::info('Validated Blocks:', $blocks);
 
-        $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
+    $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
 
-        try {
-            // Log the path to the Markdown file
-            \Log::info("Markdown file path: {$markdownFilePath}");
+    try {
+        \Log::info("Markdown file path: {$markdownFilePath}");
 
-            // Read Markdown file into an array of lines
-            $markdownLines = file($markdownFilePath, FILE_IGNORE_NEW_LINES);
-            \Log::info("Read Markdown file successfully. Number of lines: " . count($markdownLines));
+        // Read Markdown file into an array
+        $markdownLines = file($markdownFilePath, FILE_IGNORE_NEW_LINES);
+        \Log::info("Read Markdown file successfully. Number of lines: " . count($markdownLines));
 
-            foreach ($blocks as $block) {
-                $blockId = (int)$block['id'];
-                $blockHtml = $block['html'];
+        foreach ($blocks as $block) {
+            $blockId = (int)$block['id'];
+            $blockHtml = $block['html'];
 
-                // Log each block being processed
-                \Log::info("Processing Block: ID: {$blockId}, HTML: {$blockHtml}");
+            \Log::info("Processing Block: ID: {$blockId}, HTML: {$blockHtml}");
 
-                // Convert HTML content to Markdown
-                $processedMarkdown = $this->convertHtmlToMarkdown($blockHtml);
-                \Log::info("Converted Markdown for Block ID {$blockId}: {$processedMarkdown}");
+            // Convert HTML content to Markdown
+            $processedMarkdown = $this->convertHtmlToMarkdown($blockHtml);
+            \Log::info("Converted Markdown for Block ID {$blockId}: {$processedMarkdown}");
 
-                if (isset($markdownLines[$blockId - 1])) {
-                    // Log original and updated line content
-                    $originalLine = $markdownLines[$blockId - 1];
-                    \Log::info("Original line at Block ID {$blockId}: {$originalLine}");
-                    \Log::info("Updated line at Block ID {$blockId}: {$processedMarkdown}");
+            if (isset($markdownLines[$blockId - 1])) {
+                $originalLine = $markdownLines[$blockId - 1];
+                \Log::info("Original line at Block ID {$blockId}: {$originalLine}");
+                \Log::info("Updated line at Block ID {$blockId}: {$processedMarkdown}");
 
-                    // Replace the corresponding line in the Markdown file
-                    $markdownLines[$blockId - 1] = $processedMarkdown;
-                } else {
-                    \Log::warning("Block ID {$blockId} not found in Markdown file.");
-                }
+                // Replace the corresponding line in the Markdown file
+                $markdownLines[$blockId - 1] = $processedMarkdown;
+            } else {
+                \Log::warning("Block ID {$blockId} not found in Markdown file.");
             }
+        }
 
         // Write the updated Markdown content back to the file
         file_put_contents($markdownFilePath, implode(PHP_EOL, $markdownLines) . PHP_EOL);
         \Log::info("Successfully updated Markdown file for book: {$book}");
 
-        return response()->json(['success' => true, 'message' => 'Hypercite blocks updated successfully.']);
+        // Get the latest Markdown content
+        $updatedMarkdownContent = file_get_contents($markdownFilePath);
+
+        // Get the last modified timestamp
+        $markdownLastModified = filemtime($markdownFilePath);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Hypercite blocks updated successfully.',
+            'markdown' => $updatedMarkdownContent, // Send the updated Markdown back to the frontend
+            'markdownLastModified' => $markdownLastModified
+        ]);
     } catch (\Exception $e) {
         \Log::error("Error updating Markdown file: " . $e->getMessage());
         return response()->json(['success' => false, 'message' => 'Error updating Markdown file.'], 500);
     }
-    }
+}
+
 
 
     private function convertHtmlToMarkdown($html)

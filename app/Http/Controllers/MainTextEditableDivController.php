@@ -13,83 +13,84 @@ class MainTextEditableDivController extends Controller
         return view('hyperlighting_div', ['book' => $book]);
     }
 
-    public function saveEditedContent(Request $request)
-    {
-        Log::info('Raw input received:', $request->all());
+public function saveEditedContent(Request $request)
+{
+    Log::info('Raw input received:', $request->all());
 
-        $validatedData = $request->validate([
-            'book' => 'required|string',
-            'updates' => 'required|array',
-            'updates.*.id' => 'required|string',
-            'updates.*.action' => 'required|string',
-            'updates.*.html' => 'nullable|string',
-        ]);
+    $validatedData = $request->validate([
+        'book' => 'required|string',
+        'updates' => 'required|array',
+        'updates.*.id' => 'required|string',
+        'updates.*.action' => 'required|string',
+        'updates.*.html' => 'nullable|string',
+    ]);
 
-        $book = $validatedData['book'];
-        $updates = $validatedData['updates'];
-        $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
+    $book = $validatedData['book'];
+    $updates = $validatedData['updates'];
+    $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
 
-        $markdownLines = file($markdownFilePath, FILE_IGNORE_NEW_LINES);
-        Log::info("Loaded Markdown file with " . count($markdownLines) . " lines.");
+    $markdownLines = file($markdownFilePath, FILE_IGNORE_NEW_LINES);
+    Log::info("Loaded Markdown file with " . count($markdownLines) . " lines.");
 
-        // Sort updates by line ID in reverse order.
-        usort($updates, function ($a, $b) {
-            return strcmp($b['id'], $a['id']);
-        });
+    // Sort updates by line ID in reverse order.
+    usort($updates, function ($a, $b) {
+        return strcmp($b['id'], $a['id']);
+    });
 
-        foreach ($updates as $update) {
-            $blockId = $update['id'];
-            $action = $update['action'];
+    foreach ($updates as $update) {
+        $blockId = $update['id'];
+        $action = $update['action'];
 
-            if (!$blockId) {
-                Log::warning("Skipping update with null or invalid ID.");
-                continue;
-            }
-
-            if (preg_match('/^(\d+)([a-z]*)$/', $blockId, $matches)) {
-                $this->processNumericIdUpdate($matches, $action, $update, $markdownLines);
-            } else {
-                $this->processComplexIdUpdate($blockId, $action, $update, $markdownLines);
-            }
+        if (!$blockId) {
+            Log::warning("Skipping update with null or invalid ID.");
+            continue;
         }
 
-        // Save updated Markdown file.
-        file_put_contents($markdownFilePath, implode(PHP_EOL, $markdownLines) . PHP_EOL);
-        Log::info("Successfully updated Markdown file at: {$markdownFilePath}");
-
-        // Call the Python script to extract footnotes.
-        try {
-            $pythonScriptPath = base_path('app/python/footnote-jason.py'); // Adjust path if necessary
-            $process = new \Symfony\Component\Process\Process(['python3', $pythonScriptPath, $markdownFilePath]);
-            $process->setTimeout(300); // 5 minutes timeout
-            $process->run();
-
-            if (!$process->isSuccessful()) {
-                throw new \Symfony\Component\Process\Exception\ProcessFailedException($process);
-            }
-
-            Log::info("Footnote extraction completed for {$markdownFilePath}", [
-                'output' => $process->getOutput(),
-            ]);
-        } catch (\Exception $e) {
-            Log::error("Footnote extraction failed for {$markdownFilePath}: " . $e->getMessage());
-            return response()->json(['success' => false, 'error' => 'Footnote extraction failed.'], 500);
+        if (preg_match('/^(\d+)([a-z]*)$/', $blockId, $matches)) {
+            $this->processNumericIdUpdate($matches, $action, $update, $markdownLines);
+        } else {
+            $this->processComplexIdUpdate($blockId, $action, $update, $markdownLines);
         }
-
-        // Get the last modified time of the Markdown file.
-        $markdownLastModified = filemtime($markdownFilePath);
-
-        // Assume your Python script writes/updates the footnotes JSON to a file like:
-        $footnotesFilePath = resource_path("markdown/{$book}/main-text-footnotes.json");
-        $footnotesLastModified = file_exists($footnotesFilePath) ? filemtime($footnotesFilePath) : null;
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Content updated and footnotes processed.',
-            'markdownLastModified' => $markdownLastModified,
-            'footnotesLastModified' => $footnotesLastModified
-        ]);
     }
+
+    // Save updated Markdown file.
+    file_put_contents($markdownFilePath, implode(PHP_EOL, $markdownLines) . PHP_EOL);
+    Log::info("Successfully updated Markdown file at: {$markdownFilePath}");
+
+    // ✅ Call updateLatestMarkdownTimestamp(), which now returns a JSON response
+    return $this->updateLatestMarkdownTimestamp($book);
+}
+
+private function updateLatestMarkdownTimestamp($book)
+{
+    $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
+    $footnotesFilePath = resource_path("markdown/{$book}/main-text-footnotes.json");
+    $timestampFilePath = resource_path("markdown/{$book}/latest_update.json");
+
+    // ✅ Get the last modified times
+    $markdownLastModified = filemtime($markdownFilePath);
+    $footnotesLastModified = file_exists($footnotesFilePath) ? filemtime($footnotesFilePath) : null;
+
+    // ✅ Save updated timestamp for frontend detection
+    $latestUpdateData = [
+        'updated_at' => time() * 1000, // Convert to milliseconds for JavaScript compatibility
+        'markdownLastModified' => $markdownLastModified,
+        'footnotesLastModified' => $footnotesLastModified
+    ];
+
+    file_put_contents($timestampFilePath, json_encode($latestUpdateData, JSON_PRETTY_PRINT));
+    Log::info("Updated latest_update.json for {$book}");
+
+    // ✅ Return JSON response directly
+    return response()->json([
+        'success' => true,
+        'message' => 'Markdown and footnotes updated.',
+        'markdownLastModified' => $markdownLastModified,
+        'footnotesLastModified' => $footnotesLastModified
+    ]);
+}
+
+   
 
 
 

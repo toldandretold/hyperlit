@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\File;
 use App\Http\Controllers\HighlightController;
 use App\Http\Controllers\HighlightMdController;
 use App\Http\Controllers\HyperciteController;
@@ -100,7 +101,14 @@ Route::get('/{book}/div', [MainTextEditableDivController::class, 'showEditableTe
 Route::post('/save-md-content', [MainTextEditableMarkdownController::class, 'saveEditedContent']);
 Route::get('/{book}/md', [MainTextEditableMarkdownController::class, 'showEditableText']);
 
+Route::get('/api/getMarkdownMetadata', function () {
+    $markdownFilePath = resource_path("markdown/{book}/main-text.md");
+    $markdownLastModified = File::exists($markdownFilePath) ? File::lastModified($markdownFilePath) : null;
 
+    return response()->json([
+        'markdownLastModified' => $markdownLastModified
+    ]);
+});
 
 
 
