@@ -203,6 +203,8 @@ async function getFootnotesFromIndexedDB() {
     });
 }
 
+window.getFootnotesFromIndexedDB = getFootnotesFromIndexedDB;
+
 async function initIndexedDB() {
     return new Promise((resolve, reject) => {
         let request = indexedDB.open("MarkdownCache", 2); // ⬆️ Increment version to trigger upgrade
@@ -880,7 +882,7 @@ function loadChunk(chunkId, direction = "down") {
 
     // ✅ Insert chunk in the correct position
     insertChunkInOrder(chunkWrapper);
-    injectFootnotesForChunk(chunk.chunk_id, jsonPath);
+    injectFootnotesForChunk(chunk.chunk_id);
     
 
     // ✅ Mark chunk as loaded
@@ -906,7 +908,7 @@ function loadChunk(chunkId, direction = "down") {
  * @param {number} chunkId - The ID of the chunk to process.
  * @param {string} jsonPath - Path to the JSON file containing footnotes.
  */
-function injectFootnotesForChunk(chunkId, jsonPath) {
+async function injectFootnotesForChunk(chunkId) {
   // Temporarily disable lazy loading
   window.isUpdatingJsonContent = true;
   console.log("⏳ Disabling lazy loading while updating footnotes...");
@@ -918,68 +920,94 @@ function injectFootnotesForChunk(chunkId, jsonPath) {
     window.isUpdatingJsonContent = false;
     return;
   }
-  
+
   // Use the chunk’s start and end line numbers.
   const startLine = chunk.start_line;
   const endLine = chunk.end_line;
-  
-  // Retrieve the stored timestamp for the footnotes JSON (or use current time if not available)
-  const storedFootnotesTimestamp = localStorage.getItem("footnotesLastModified") || new Date().getTime();
-  const freshJsonUrl = window.getFreshUrl(jsonPath, storedFootnotesTimestamp);
-  
-  // Fetch the footnotes JSON.
-  fetch(freshJsonUrl)
-    .then((response) => response.json())
-    .then((sections) => {
-      sections.forEach((section) => {
-        if (section.footnotes) {
-          Object.entries(section.footnotes).forEach(([key, footnote]) => {
-            const { line_number, content } = footnote;
-            
-            // Process only if the footnote’s line number is within this chunk’s range.
-            if (line_number >= startLine && line_number <= endLine) {
-              const targetElement = document.getElementById(line_number.toString());
-              if (targetElement) {
-                // Avoid duplicate injection.
-                if (targetElement.innerHTML.includes(`<sup class="note" data-note-key="${key}">`)) {
-                  console.log(`Footnote ${key} already processed in chunk ${chunkId}. Skipping.`);
-                  return;
-                }
-                
-                // Construct a regex to find the Markdown footnote reference.
-                const regex = new RegExp(`\\[\\^${key}\\](?!:)`, "g");
-                if (regex.test(targetElement.innerHTML)) {
-                  
-                  // Convert Markdown footnote content to HTML.
-                  const footnoteHtml = content ? convertMarkdownToHtml(content) : "";
-                  
-                  // Replace the Markdown footnote marker with a <sup> element.
-                  targetElement.innerHTML = targetElement.innerHTML.replace(
-                    regex,
-                    `<sup class="note" data-note-key="${key}">[^${key}]</sup>`
-                  );
-                } else {
-                  console.warn(`Regex did not match for footnote key: ${key} in element:`, targetElement.innerHTML);
-                }
-              } else {
-                console.warn(`No target element found for line_number: ${line_number} in chunk ${chunkId}`);
-              }
-            }
-          });
-        }
-      });
 
-      // ✅ Re-enable lazy loading after footnotes update
-      setTimeout(() => {
-        window.isUpdatingJsonContent = false;
-        console.log("✅ Re-enabling lazy loading after footnotes update.");
-      }, 200); // Delay ensures any layout shifts settle
-    })
-    .catch((error) => {
-      console.error("Error injecting footnotes for chunk:", error);
-      window.isUpdatingJsonContent = false;
+  try {
+    // ✅ Check memory cache first
+    let sections = window.footnotesData;
+
+    // ✅ Try IndexedDB if missing
+    if (!sections) {
+      console.log("⚠️ No footnotes in memory, checking IndexedDB...");
+      sections = await getFootnotesFromIndexedDB();
+    }
+
+    // ✅ Fetch from the server if still missing
+    if (!sections) {
+      console.log("🌍 Fetching footnotes from server...");
+
+      // Get last stored timestamp (or default to 0)
+      const storedFootnotesTimestamp = localStorage.getItem("footnotesLastModified") || "0";
+      
+      // Construct URL with timestamp to avoid cache issues
+      const freshJsonUrl = window.getFreshUrl(`/markdown/${book}/main-text-footnotes.json`, storedFootnotesTimestamp);
+      console.log(`🔗 Fetching footnotes from: ${freshJsonUrl}`);
+
+      const response = await fetch(freshJsonUrl);
+      sections = await response.json();
+      
+      // ✅ Save fetched footnotes to IndexedDB for future use
+      await saveFootnotesToIndexedDB(sections);
+      
+      // ✅ Cache in memory for immediate access
+      window.footnotesData = sections;
+    }
+
+    // ✅ Now we have the footnotes in `sections`
+    console.log("✅ Footnotes data loaded, injecting footnotes...");
+
+    sections.forEach((section) => {
+      if (section.footnotes) {
+        Object.entries(section.footnotes).forEach(([key, footnote]) => {
+          const { line_number, content } = footnote;
+
+          // Process only if the footnote’s line number is within this chunk’s range.
+          if (line_number >= startLine && line_number <= endLine) {
+            const targetElement = document.getElementById(line_number.toString());
+            if (targetElement) {
+              // Avoid duplicate injection.
+              if (targetElement.innerHTML.includes(`<sup class="note" data-note-key="${key}">`)) {
+                console.log(`Footnote ${key} already processed in chunk ${chunkId}. Skipping.`);
+                return;
+              }
+
+              // Construct a regex to find the Markdown footnote reference.
+              const regex = new RegExp(`\\[\\^${key}\\](?!:)`, "g");
+              if (regex.test(targetElement.innerHTML)) {
+                // Convert Markdown footnote content to HTML.
+                const footnoteHtml = content ? convertMarkdownToHtml(content) : "";
+
+                // Replace the Markdown footnote marker with a <sup> element.
+                targetElement.innerHTML = targetElement.innerHTML.replace(
+                  regex,
+                  `<sup class="note" data-note-key="${key}">[^${key}]</sup>`
+                );
+              } else {
+                console.warn(`Regex did not match for footnote key: ${key} in element:`, targetElement.innerHTML);
+              }
+            } else {
+              console.warn(`No target element found for line_number: ${line_number} in chunk ${chunkId}`);
+            }
+          }
+        });
+      }
     });
+
+    // ✅ Re-enable lazy loading after footnotes update
+    setTimeout(() => {
+      window.isUpdatingJsonContent = false;
+      console.log("✅ Re-enabling lazy loading after footnotes update.");
+    }, 200); // Delay ensures any layout shifts settle
+
+  } catch (error) {
+    console.error("❌ Error injecting footnotes for chunk:", error);
+    window.isUpdatingJsonContent = false;
+  }
 }
+
 
 
 
@@ -998,19 +1026,56 @@ function injectFootnotesForChunk(chunkId, jsonPath) {
             }
         }
 
-         // Function to fetch footnotes JSON
-        async function fetchFootnotes() {
-            try {
-                const response = await fetch(jsonPath);
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch footnotes JSON: ${response.statusText}`);
-                }
-                return await response.json();
-            } catch (error) {
-                console.error("Error fetching footnotes JSON:", error);
-                return null;
-            }
+        // Function to fetch footnotes from memory, IndexedDB, or server
+async function fetchFootnotes() {
+    try {
+        // ✅ 1. Check if footnotes are already loaded in memory
+        if (window.footnotesData) {
+            console.log("✅ Using cached footnotes from memory.");
+            return window.footnotesData;
         }
+
+        // ✅ 2. Try to load footnotes from IndexedDB
+        console.log("⚠️ No footnotes in memory, checking IndexedDB...");
+        let footnotes = await getFootnotesFromIndexedDB();
+        if (footnotes) {
+            console.log("✅ Loaded footnotes from IndexedDB.");
+            window.footnotesData = footnotes; // Cache in memory for next time
+            return footnotes;
+        }
+
+        // ✅ 3. Fetch footnotes from the server as a last resort
+        console.log("🌍 Fetching footnotes from server...");
+
+        // Get last stored timestamp (or default to 0)
+        const storedFootnotesTimestamp = localStorage.getItem("footnotesLastModified") || "0";
+
+        // Construct URL with timestamp to bypass cache
+        const freshJsonUrl = window.getFreshUrl(`/markdown/${book}/main-text-footnotes.json`, storedFootnotesTimestamp);
+        console.log(`🔗 Fetching footnotes from: ${freshJsonUrl}`);
+
+        const response = await fetch(freshJsonUrl);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch footnotes JSON: ${response.statusText}`);
+        }
+
+        // ✅ Parse footnotes JSON
+        footnotes = await response.json();
+
+        // ✅ Store fetched footnotes in IndexedDB for future use
+        await saveFootnotesToIndexedDB(footnotes);
+
+        // ✅ Cache footnotes in memory for fast access
+        window.footnotesData = footnotes;
+
+        console.log("✅ Successfully fetched and stored footnotes.");
+        return footnotes;
+    } catch (error) {
+        console.error("❌ Error fetching footnotes JSON:", error);
+        return null;
+    }
+}
+
 
         // Function to open the footnotes container with content
         function openReferenceContainer(content) {
@@ -1426,25 +1491,39 @@ function repositionFixedSentinelsForBlock() {
 
 document.addEventListener("DOMContentLoaded", async () => {
     console.log("✅ DOM is ready. Loading Markdown file...");
+
+    // ✅ Initialize IndexedDB
     window.db = await openDatabase();
     console.log("✅ IndexedDB initialized.");
+
+    // ✅ Load main Markdown file
     await loadMarkdownFile();
+
     console.log("🔄 Checking for saved scroll position or internal link before lazy loading...");
     restoreScrollPosition();
+
     console.log("📌 Now initializing lazy loading based on restored position...");
     initializeLazyLoadingFixed();
+
+    // ✅ Attach observer to content elements
     document.querySelectorAll("#main-content [id]").forEach((el) => {
         if (isValidContentElement(el)) observer.observe(el);
     });
+
+    // ✅ Load Table of Contents
+    generateTableOfContents("toc-container", "toc-toggle-button");
+
+    // ✅ TOC Handling
     const tocContainer = document.getElementById("toc-container");
     const tocOverlay = document.getElementById("toc-overlay");
     const tocButton = document.getElementById("toc-toggle-button");
+    
     if (!tocContainer || !tocOverlay || !tocButton) {
         console.error("TOC elements are missing in the DOM.");
         return;
     }
+
     let isTOCOpen = false;
-    generateTableOfContents("toc-container", "toc-toggle-button");
     function updateTOCState() {
         if (isTOCOpen) {
             console.log("Opening TOC...");
@@ -1456,18 +1535,21 @@ document.addEventListener("DOMContentLoaded", async () => {
             tocOverlay.classList.remove("active");
         }
     }
+
     tocButton.addEventListener("click", () => {
         isTOCOpen = !isTOCOpen;
         updateTOCState();
     });
+
     tocOverlay.addEventListener("click", () => {
         if (isTOCOpen) {
             isTOCOpen = false;
             updateTOCState();
         }
     });
+
     tocContainer.addEventListener("click", (event) => {
-      const link = event.target.closest("a");
+        const link = event.target.closest("a");
         if (link) {
             event.preventDefault();
             isTOCOpen = false;
@@ -1482,6 +1564,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             }, 600);
         }
     });
+
+    // ✅ Internal Link Navigation Handling
     document.addEventListener("click", (event) => {
         const link = event.target.closest("a");
         if (link && link.hash && link.hash.startsWith("#")) {
@@ -1490,7 +1574,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             navigateToInternalId(targetId);
         }
     });
-    document.addEventListener("click", (event) => {
+
+    // ✅ Footnotes Click Handling (Replaces `jsonPath`)
+    document.addEventListener("click", async (event) => {
         const noteElement = event.target.closest("sup.note");
         if (noteElement) {
             event.preventDefault();
@@ -1500,30 +1586,44 @@ document.addEventListener("DOMContentLoaded", async () => {
                 console.warn("Missing note key or parent ID for footnote.");
                 return;
             }
-            fetch(jsonPath)
-                .then((response) => response.json())
-                .then((footnotesData) => {
-                    const section = footnotesData.find((sec) =>
-                        Object.values(sec.footnotes || {}).some(
-                            (fn) => fn.line_number.toString() === parentId && fn.content
-                        )
-                    );
-                    if (!section) {
-                        console.warn(`No matching section found for line ${parentId}.`);
-                        return;
-                    }
-                    const footnote = section.footnotes[noteKey];
-                    if (!footnote || footnote.line_number.toString() !== parentId) {
-                        console.warn(`Footnote [${noteKey}] not found at line ${parentId}.`);
-                        return;
-                    }
-                    const footnoteHtml = convertMarkdownToHtml(footnote.content);
-                    openReferenceContainer(`<div class="footnote-content">${footnoteHtml}</div>`);
-                })
-                .catch((error) => console.error("Error fetching footnotes JSON:", error));
+
+            // ✅ Load footnotes from memory, IndexedDB, or fetch from server
+            let footnotesData = window.footnotesData || await getFootnotesFromIndexedDB();
+            
+            if (!footnotesData) {
+                console.log("🌍 Fetching footnotes from server...");
+                const storedFootnotesTimestamp = localStorage.getItem("footnotesLastModified") || "0";
+                const freshJsonUrl = window.getFreshUrl(`/markdown/${book}/main-text-footnotes.json`, storedFootnotesTimestamp);
+                const response = await fetch(freshJsonUrl);
+                footnotesData = await response.json();
+                await saveFootnotesToIndexedDB(footnotesData);
+                window.footnotesData = footnotesData;
+            }
+
+            // ✅ Search for the footnote within the retrieved data
+            const section = footnotesData.find((sec) =>
+                Object.values(sec.footnotes || {}).some(
+                    (fn) => fn.line_number.toString() === parentId && fn.content
+                )
+            );
+
+            if (!section) {
+                console.warn(`No matching section found for line ${parentId}.`);
+                return;
+            }
+
+            const footnote = section.footnotes[noteKey];
+            if (!footnote || footnote.line_number.toString() !== parentId) {
+                console.warn(`Footnote [${noteKey}] not found at line ${parentId}.`);
+                return;
+            }
+
+            const footnoteHtml = convertMarkdownToHtml(footnote.content);
+            openReferenceContainer(`<div class="footnote-content">${footnoteHtml}</div>`);
         }
     });
-    // Footnotes overlay close handler
+
+    // ✅ Footnotes Overlay Close Handler
     refOverlay.addEventListener("click", () => {
         if (isRefOpen) {
             console.log("Closing footnotes container via overlay click...");
@@ -1531,9 +1631,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     });
 
-    // Detect navigation type
-    const navEntry = performance.getEntriesByType("navigation")[0] || {}; // Avoid errors if undefined
-    const navType = navEntry.type || "navigate"; // Default to "navigate" if missing
+    // ✅ Detect Navigation Type
+    const navEntry = performance.getEntriesByType("navigation")[0] || {};
+    const navType = navEntry.type || "navigate";
 
     if (navType === "reload") {
         console.log("🔄 Page refreshed (F5 or Ctrl+R).");
@@ -1545,6 +1645,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     handleNavigation();
 });
+
 
 
 

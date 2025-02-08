@@ -1,6 +1,6 @@
 # A Moment of Possibility: The Rise and Fall of the New International Economic Order 
 
-Samuel Thomas Nicholls
+Samuel Thomas Nicholls d
 
 "If it is surprising that Prebisch’s political economy is pro free trade, it is even more so that Nkrumah’s is."<a href="http://10.0.0.93:8000/nicholls2019moment#hypercite_cf4b31f" id="hypercite_cf4b31f_b">[:]</a>
 
@@ -642,7 +642,7 @@ The available research on the negotiating strategies of debtor states within deb
 
 ### So why, then, did the debtor states not form a cartel?
 
-Several arguments have been put forward to explain the fact that a debtors’ cartel, despite the potential power it could have wielded, was not created by the G77 state elites, or even a smaller subset of them. Karin Lissakers raises two important points. Firstly, she notes that a ‘divide-and-rule tactic’ on behalf of creditors was ‘helped by timing.’[^474] That is, because the debtors did not ‘experience their most acute payments problems simultaneously’, banks ‘could settle with one large debtor before tackling the next, and sweeten the precedent-setting agreement just enough each time to keep the others in line, or at least prevent them from joining forces.’[^475] Secondly, Lissakers shows that any attempt to form a debtors' cartel was attacked vehemently by US state elites. Thus, when discussing a point Lissakers describes as the ‘closest the Latins ever came to forming a debtors’ cartel’, which was ‘a meeting of heads of government in Cartagena, Colombia, in 1984 to discuss common debt issues’, US state elites were very clear that they did not approve:
+Several arguments have been put forward to explain the fact that a debtors’ cartel, despite the potential power it could have wielded, was not created by the G77 state elites, or even a smaller subset of them. <mark class='unknown-user_1738908900842' id='unknown-user_1738908900842' data-listener-attached='true'>Karin Lissakers raises two important points. Firstly, she notes that a ‘divide-and-rule tactic’ on behalf of creditors was ‘helped by timing.’[^474] That is, because the debtors did not ‘experience their most acute payments problems simultaneously’, banks ‘could settle with one large de</mark>btor before tackling the next, and sweeten the precedent-setting agreement just enough each time to keep the others in line, or at least prevent them from joining forces.’[^475] Secondly, Lissakers shows that any attempt to form a debtors' cartel was attacked vehemently by US state elites. Thus, when discussing a point Lissakers describes as the ‘closest the Latins ever came to forming a debtors’ cartel’, which was ‘a meeting of heads of government in Cartagena, Colombia, in 1984 to discuss common debt issues’, US state elites were very clear that they did not approve:
 
 > *an angry Assistant Secretary of State for Western Hemisphere affairs Langhorne Motley warned the Argentine foreign ministry, "We know you initiated the Cartagena group. We don't like it, and you keep that in mind." The Argentines protested that the purpose of the meeting was dialogue and not confrontation—but to no avail. The officials Motley had confronted came home "furious and scared."*[^476] *The debtors' cartel never materialized.’*[^477]
 

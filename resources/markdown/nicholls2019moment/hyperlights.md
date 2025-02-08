@@ -59,3 +59,10 @@
 
 ---
 
+> "Karin Lissakers raises two important points. Firstly, she notes that a ‘divide-and-rule tactic’ on behalf of creditors was ‘helped by timing.’[^474] That is, because the debtors did not ‘experience their most acute payments problems simultaneously’, banks ‘could settle with one large de"
+> [↩](http://10.0.0.93:8000/nicholls2019moment#unknown-user_1738908900842)
+
+
+
+---
+
