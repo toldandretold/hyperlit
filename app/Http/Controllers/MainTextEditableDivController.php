@@ -67,9 +67,34 @@ private function updateLatestMarkdownTimestamp($book)
     $footnotesFilePath = resource_path("markdown/{$book}/main-text-footnotes.json");
     $timestampFilePath = resource_path("markdown/{$book}/latest_update.json");
 
-    // ✅ Get the last modified times
+    // ✅ Check last modified times
     $markdownLastModified = filemtime($markdownFilePath);
     $footnotesLastModified = file_exists($footnotesFilePath) ? filemtime($footnotesFilePath) : null;
+
+    // ✅ If footnotes are outdated OR missing, regenerate them using Python
+    if (!$footnotesLastModified || $markdownLastModified > $footnotesLastModified) {
+        Log::info("📝 Markdown updated. Regenerating footnotes for: {$book}");
+
+        // ✅ Define the correct Python script path
+        $pythonBin = "/usr/local/bin/python3";
+        $pythonScriptPath = "/app/Python/footnote-jason.py";
+        
+        // ✅ Construct command to run Python script
+        $command = escapeshellcmd("{$pythonBin} {$pythonScriptPath} {$markdownFilePath} 2>&1");
+        
+        Log::info("🚀 Running command: {$command}");
+
+        $output = shell_exec($command);
+
+        if ($output === null) {
+            Log::error("❌ Python script execution failed (null output).");
+        } else {
+            Log::info("🔄 Python Footnotes Update Output:\n" . $output);
+        }
+        
+        // ✅ Refresh footnotes timestamp after running script
+        $footnotesLastModified = file_exists($footnotesFilePath) ? filemtime($footnotesFilePath) : time();
+    }
 
     // ✅ Save updated timestamp for frontend detection
     $latestUpdateData = [
@@ -79,9 +104,8 @@ private function updateLatestMarkdownTimestamp($book)
     ];
 
     file_put_contents($timestampFilePath, json_encode($latestUpdateData, JSON_PRETTY_PRINT));
-    Log::info("Updated latest_update.json for {$book}");
+    Log::info("✅ Updated latest_update.json for {$book}");
 
-    // ✅ Return JSON response directly
     return response()->json([
         'success' => true,
         'message' => 'Markdown and footnotes updated.',
@@ -89,6 +113,7 @@ private function updateLatestMarkdownTimestamp($book)
         'footnotesLastModified' => $footnotesLastModified
     ]);
 }
+
 
    
 
