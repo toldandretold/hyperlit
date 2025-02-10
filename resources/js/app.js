@@ -2,20 +2,11 @@
 
 console.log('App.js is loaded');
 
-let book = document.getElementById('main-content').getAttribute('data-book');
+const mainContentDiv = document.getElementById('main-content');
+const book = mainContentDiv.getAttribute('data-book');
 window.book = book;
 
-const mainContentDiv = document.getElementById("main-content"); // This already exists
-window.mainContentDiv = mainContentDiv;
-window.markdownContent = ""; // Store Markdown globally
 
-// Utility function to bust the cache using a lastModified timestamp
-window.getFreshUrl = function(url, lastModified) {
-  return `${url}?v=${lastModified}`;
-};
-window.mdFilePath = `/markdown/${book}/main-text.md`;  // Path to raw MD file
-
-window.isNavigatingToInternalId = false;
 
 // ========= Mark Listeners =========
 function attachMarkListeners() {
@@ -242,24 +233,7 @@ function parseMarkdownIntoChunks(markdown) {
 }
 window.parseMarkdownIntoChunks = parseMarkdownIntoChunks;
 
-function restoreChunksFromCache(storedChunks) {
-    if (!storedChunks || !storedChunks.chunks || storedChunks.chunks.length === 0) {
-        console.log("🚫 No valid cached chunks found.");
-        return;
-    }
-    console.log("✅ Restoring cached chunks...");
-    const mainContentDiv = document.getElementById("main-content");
-    storedChunks.chunks.forEach(chunk => {
-        console.log(`🔄 Reinserting chunk ${chunk.id} from cache.`);
-        const chunkElement = document.createElement("div");
-        chunkElement.innerHTML = chunk.html;
-        chunkElement.setAttribute("data-chunk-id", chunk.id);
-        mainContentDiv.appendChild(chunkElement);
-    });
-    console.log("🔄 Manually triggering lazy loading after reinserting stored chunks.");
-    initializeLazyLoadingFixed();
-}
-window.restoreChunksFromCache = restoreChunksFromCache;
+
 
 window.cachedTimestamp = localStorage.getItem("markdownLastModified") || "null";
 console.log("📂 Initial Cached Timestamp:", window.cachedTimestamp);
@@ -446,5 +420,7 @@ function restoreChunksFromCache(storedChunks) {
 }
 
 window.restoreChunksFromCache = restoreChunksFromCache;
+
+
 
 

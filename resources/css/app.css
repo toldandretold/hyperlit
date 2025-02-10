@@ -21,7 +21,13 @@ a u.linked {
     cursor: text; /* Maintain text cursor */
 }
 
-
+#main-content.loading::before {
+    content: "Loading...";
+    display: block;
+    text-align: center;
+    font-size: 18px;
+    color: gray;
+}
 
     b, strong {
 
@@ -405,6 +411,8 @@ caption {
             color: #CBCCCC;
             overflow-y: auto; /* Enable vertical scrolling */
             overflow-x: hidden; /* Prevent horizontal scrolling */
+            visibility: visible !important;
+            opacity: 1 !important;
         }
 
 /* Loading indicator styling */

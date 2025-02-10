@@ -61,61 +61,205 @@ public function saveEditedContent(Request $request)
     return $this->updateLatestMarkdownTimestamp($book);
 }
 
+/**
+ * Updates timestamps for markdown and footnotes, and also generates nodeChunks.json
+ */
 private function updateLatestMarkdownTimestamp($book)
 {
     $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
     $footnotesFilePath = resource_path("markdown/{$book}/main-text-footnotes.json");
     $timestampFilePath = resource_path("markdown/{$book}/latest_update.json");
+    $nodeChunksPath    = resource_path("markdown/{$book}/nodeChunks.json");
 
-    // ✅ Check last modified times
+    // Check last modified times
     $markdownLastModified = filemtime($markdownFilePath);
     $footnotesLastModified = file_exists($footnotesFilePath) ? filemtime($footnotesFilePath) : null;
 
-    // ✅ If footnotes are outdated OR missing, regenerate them using Python
+    // Regenerate footnotes if needed
     if (!$footnotesLastModified || $markdownLastModified > $footnotesLastModified) {
         Log::info("📝 Markdown updated. Regenerating footnotes for: {$book}");
-
-        // ✅ Define the correct Python script path
         $pythonBin = "/usr/local/bin/python3";
         $pythonScriptPath = "/app/Python/footnote-jason.py";
         
-        // ✅ Construct command to run Python script
         $command = escapeshellcmd("{$pythonBin} {$pythonScriptPath} {$markdownFilePath} 2>&1");
-        
         Log::info("🚀 Running command: {$command}");
 
         $output = shell_exec($command);
-
         if ($output === null) {
             Log::error("❌ Python script execution failed (null output).");
         } else {
             Log::info("🔄 Python Footnotes Update Output:\n" . $output);
         }
-        
-        // ✅ Refresh footnotes timestamp after running script
-        $footnotesLastModified = file_exists($footnotesFilePath) ? filemtime($footnotesFilePath) : time();
+
+        // Refresh footnotes timestamp
+        $footnotesLastModified = file_exists($footnotesFilePath)
+            ? filemtime($footnotesFilePath)
+            : time();
     }
 
-    // ✅ Save updated timestamp for frontend detection
+    // Generate nodeChunks.json if needed
+    if (!file_exists($nodeChunksPath) || filemtime($nodeChunksPath) < $markdownLastModified) {
+        Log::info("📑 Generating nodeChunks.json for: {$book}");
+
+        $markdownContent = file_get_contents($markdownFilePath);
+        $chunks = $this->parseMarkdownIntoChunks($markdownContent);
+
+        file_put_contents($nodeChunksPath, json_encode($chunks, JSON_PRETTY_PRINT));
+        Log::info("✅ nodeChunks.json updated for {$book}");
+    } else {
+        Log::info("✅ nodeChunks.json is already up to date for {$book}");
+    }
+
+    // Grab nodeChunks last modified (if available)
+    $nodeChunksLastModified = file_exists($nodeChunksPath)
+        ? filemtime($nodeChunksPath)
+        : null;
+
+    // Save updated timestamp for front-end
     $latestUpdateData = [
-        'updated_at' => time() * 1000, // Convert to milliseconds for JavaScript compatibility
-        'markdownLastModified' => $markdownLastModified,
-        'footnotesLastModified' => $footnotesLastModified
+        'updated_at'            => time() * 1000,  // ms
+        'markdownLastModified'  => $markdownLastModified,
+        'footnotesLastModified' => $footnotesLastModified,
+        'nodeChunksLastModified'=> $nodeChunksLastModified
+            ? $nodeChunksLastModified * 1000  // convert to ms if you like
+            : null,
     ];
 
     file_put_contents($timestampFilePath, json_encode($latestUpdateData, JSON_PRETTY_PRINT));
     Log::info("✅ Updated latest_update.json for {$book}");
 
+    // Return JSON response with the new field
     return response()->json([
-        'success' => true,
-        'message' => 'Markdown and footnotes updated.',
-        'markdownLastModified' => $markdownLastModified,
-        'footnotesLastModified' => $footnotesLastModified
+        'success'               => true,
+        'message'               => 'Markdown, footnotes, and nodeChunks updated.',
+        'markdownLastModified'  => $markdownLastModified,
+        'footnotesLastModified' => $footnotesLastModified,
+        'nodeChunksLastModified'=> $nodeChunksLastModified
+            ? $nodeChunksLastModified * 1000
+            : null
     ]);
 }
 
 
+
+
    
+private function updateMarkdownChunks($book)
+{
+    $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
+    $chunksJsonPath = resource_path("markdown/{$book}/nodeChunks.json");
+
+    // ✅ Ensure the Markdown file exists
+    if (!file_exists($markdownFilePath)) {
+        Log::error("❌ Markdown file missing: {$markdownFilePath}");
+        return response()->json(['error' => 'Markdown file not found'], 404);
+    }
+
+    $markdownLastModified = filemtime($markdownFilePath);
+    $chunksLastModified = file_exists($chunksJsonPath) ? filemtime($chunksJsonPath) : 0;
+
+    // ✅ Skip processing if chunks are up-to-date
+    if ($chunksLastModified >= $markdownLastModified) {
+        Log::info("✅ nodeChunks.json is up-to-date for {$book}");
+        return response()->json(['success' => true, 'message' => 'Chunks already up-to-date']);
+    }
+
+    // ✅ Read Markdown file
+    $markdown = file_get_contents($markdownFilePath);
+
+    // ✅ Process Markdown into chunks
+    $chunks = $this->parseMarkdownIntoChunks($markdown);
+
+    // ✅ Save chunks as JSON
+    file_put_contents($chunksJsonPath, json_encode($chunks, JSON_PRETTY_PRINT));
+    Log::info("✅ nodeChunks.json updated for {$book}");
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Markdown parsed into chunks and saved',
+        'chunksLastModified' => filemtime($chunksJsonPath),
+    ]);
+}
+
+/**
+ * Parses Markdown into structured chunks for efficient frontend processing.
+ */
+/**
+ * Parses Markdown into an array of "chunks" for efficient use on the frontend.
+ */
+private function parseMarkdownIntoChunks(string $markdown)
+{
+    $lines = explode("\n", $markdown);
+    $chunks = [];
+    $currentChunk = [];
+    $currentChunkId = 0;
+    $currentStartLine = 1;
+
+    foreach ($lines as $i => $rawLine) {
+        $trimmed = trim($rawLine);
+        $adjustedLineNumber = $i + 1;
+        $block = null;
+
+        // Heading detection
+        if (preg_match('/^#{1,5}\s/', $trimmed)) {
+            $level = strlen(explode(' ', $trimmed, 2)[0]); // count '#' in the first token
+            $content = preg_replace('/^#+\s*/', '', $trimmed);
+            $block = [
+                'type'      => 'heading',
+                'level'     => $level,
+                'startLine' => $adjustedLineNumber,
+                'content'   => $content,
+            ];
+        }
+        // Blockquote detection
+        elseif (str_starts_with($trimmed, '>')) {
+            $content = preg_replace('/^>\s?/', '', $trimmed);
+            $block = [
+                'type'      => 'blockquote',
+                'startLine' => $adjustedLineNumber,
+                'content'   => $content
+            ];
+        }
+        // Image detection
+        elseif (preg_match('/^!\[.*\]\(.*\)$/', $trimmed)) {
+            preg_match('/^!\[(.*)\]\((.*)\)$/', $trimmed, $matches);
+            $block = [
+                'type'      => 'image',
+                'startLine' => $adjustedLineNumber,
+                'altText'   => $matches[1] ?? '',
+                'imageUrl'  => $matches[2] ?? '',
+            ];
+        }
+        // Fallback paragraph
+        elseif (!empty($trimmed)) {
+            $block = [
+                'type'      => 'paragraph',
+                'startLine' => $adjustedLineNumber,
+                'content'   => $trimmed,
+            ];
+        }
+
+        // If we identified a block, push it into current chunk
+        if ($block) {
+            $currentChunk[] = $block;
+        }
+
+        // Once chunk reaches size 50 or is at the end, push it
+        if (count($currentChunk) >= 50 || $i === count($lines) - 1) {
+            $chunks[] = [
+                'chunk_id'   => $currentChunkId,
+                'start_line' => $currentStartLine,
+                'end_line'   => $adjustedLineNumber,
+                'blocks'     => $currentChunk,
+            ];
+            $currentChunk = [];
+            $currentChunkId++;
+            $currentStartLine = $adjustedLineNumber + 1;
+        }
+    }
+
+    return $chunks;
+}
 
 
 
