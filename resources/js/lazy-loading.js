@@ -46,14 +46,11 @@ let isRefOpen = false;
 async function loadMarkdownFile() {
     console.log("🚀 ENTERING loadMarkdownFile()...");
 
-    // Retrieve the last known timestamp stored in localStorage
     let cachedServerTimestamp = localStorage.getItem("markdownLastModified") || "null";
     console.log("📂 Cached Server Timestamp BEFORE request:", cachedServerTimestamp);
 
     try {
         console.log("🔍 Fetching latest Markdown update info...");
-        
-        // ✅ Fetch `latest_update.json` instead of `Last-Modified`
         let response = await fetch(`/markdown/${book}/latest_update.json?v=${Date.now()}`);
         if (!response.ok) {
             console.error("⚠️ Could not fetch latest update info. Using cached data.");
@@ -61,90 +58,104 @@ async function loadMarkdownFile() {
         }
 
         let data = await response.json();
-        let serverTimestamp = data.updated_at.toString();  // ✅ Standardized variable
+        let serverTimestamp = data.updated_at.toString();
         console.log("✅ Server reported Markdown last updated at:", serverTimestamp);
 
-        // Convert timestamps to numbers for accurate comparison
         const oldTimestamp = Number(cachedServerTimestamp);
         const newTimestamp = Number(serverTimestamp);
         console.log(`🔍 COMPARING TIMESTAMPS -> cached: ${oldTimestamp}, server: ${newTimestamp}`);
 
-        // 🔥 If timestamps differ, do a full reload
         if (oldTimestamp !== newTimestamp) {
             console.log("❌ TIMESTAMPS DIFFER: Performing Full Reload...");
 
-            // ✅ Update `cachedServerTimestamp` BEFORE fetching new data
             localStorage.setItem("markdownLastModified", serverTimestamp);
             console.log("🚀 Updated localStorage timestamp:", serverTimestamp);
 
-            // 🚨 Clear old saved chunks and cached data
             localStorage.removeItem("savedChunks");
-            await clearIndexedDB(); // Clears old `nodeChunks`
-            
+            await clearIndexedDB();
             console.log("🗑 Cleared old savedChunks & IndexedDB. Fetching fresh Markdown...");
 
-             // ✅ Update `window.jsonPath` to the latest footnotes JSON
-              window.jsonPath = `/markdown/${book}/main-text-footnotes.json?v=${Date.now()}`;
-              console.log("📑 Updated jsonPath for footnotes:", window.jsonPath);
+            window.jsonPath = `/markdown/${book}/main-text-footnotes.json?v=${Date.now()}`;
+            console.log("📑 Updated jsonPath for footnotes:", window.jsonPath);
 
-              // ✅ Fetch and store footnotes JSON in IndexedDB
-              try {
-                  let footnotesResponse = await fetch(window.jsonPath);
-                  if (footnotesResponse.ok) {
-                      let footnotesData = await footnotesResponse.json();
-                      await saveFootnotesToIndexedDB(footnotesData);
-                      console.log("✅ Footnotes successfully saved to IndexedDB.");
-                  } else {
-                      console.warn("⚠️ Failed to fetch footnotes JSON, using fallback.");
-                  }
-              } catch (error) {
-                  console.error("❌ Error fetching footnotes JSON:", error);
-              }
-
-            // ✅ Fetch the full Markdown file (DO NOT STORE RAW MARKDOWN)
-            response = await fetch(`/markdown/${book}/main-text.md?v=${Date.now()}`);
-            let markdown = await response.text();
-
-            // ✅ Parse Markdown into nodeChunks
-            window.nodeChunks = parseMarkdownIntoChunks(markdown);
-            console.log(`📏 Parsed ${window.nodeChunks.length} nodeChunks (Size: ${(new Blob([JSON.stringify(window.nodeChunks)]).size / 1024).toFixed(2)} KB)`);
-
-            // ✅ Save parsed nodeChunks to IndexedDB
+            let footnotesFetched = false;
             try {
-                await saveNodeChunksToIndexedDB(window.nodeChunks);
-                console.log("✅ nodeChunks successfully saved in IndexedDB.");
+                let footnotesResponse = await fetch(window.jsonPath);
+                if (footnotesResponse.ok) {
+                    let footnotesData = await footnotesResponse.json();
+                    await saveFootnotesToIndexedDB(footnotesData);
+                    console.log("✅ Footnotes successfully saved to IndexedDB.");
+                    window.footnotesData = footnotesData;
+                    footnotesFetched = true;
+                } else {
+                    console.warn("⚠️ Failed to fetch footnotes JSON, using fallback.");
+                }
             } catch (error) {
-                console.error("❌ Failed to store nodeChunks in IndexedDB:", error);
+                console.error("❌ Error fetching footnotes JSON:", error);
             }
 
-            // ✅ Reset savedChunks (ensures correct restoration after reload)
+             // --- NEW LOGIC STARTS HERE: Check for existing nodeChunks.json ---
+            let nodeChunksFetched = false;
+            try {
+                console.log("🔍 Checking if /markdown/"+book+"/nodeChunks.json is available...");
+                let chunksResponse = await fetch(`/markdown/${book}/nodeChunks.json?v=${Date.now()}`);
+                if (chunksResponse.ok) {
+                    let nodeChunksData = await chunksResponse.json();
+                    await saveNodeChunksToIndexedDB(nodeChunksData);
+                    window.nodeChunks = nodeChunksData;
+                    console.log("✅ Imported nodeChunks from nodeChunks.json and saved to IndexedDB.");
+                    nodeChunksFetched = true;
+                } else {
+                    console.warn("⚠️ nodeChunks.json not found or not accessible. Will parse from main-text.md");
+                }
+            } catch (e) {
+                console.error("❌ Error fetching nodeChunks.json:", e);
+            }
+
+            // If nodeChunks.json wasn't found, fallback to original parsing logic
+            if (!nodeChunksFetched) {
+                console.log("🚦 Fallback: Fetching and parsing main-text.md locally...");
+                response = await fetch(`/markdown/${book}/main-text.md?v=${Date.now()}`);
+                let markdown = await response.text();
+
+                window.nodeChunks = parseMarkdownIntoChunks(markdown);
+                console.log(`📏 Parsed ${window.nodeChunks.length} nodeChunks from main-text.md`);
+
+                await saveNodeChunksToIndexedDB(window.nodeChunks);
+                console.log("✅ nodeChunks successfully saved in IndexedDB.");
+            }
+
             window.savedChunks = { timestamp: serverTimestamp, chunks: [] };
             localStorage.setItem("savedChunks", JSON.stringify(window.savedChunks));
 
-            // ✅ Initialize the page with fresh data
+            // ✅ Ensure no premature DOM updates before Lazy Loading
+            if (!window.nodeChunks || window.nodeChunks.length === 0) {
+                console.error("❌ nodeChunks is empty after processing. Aborting lazy loading.");
+                return;
+            }
+
             initializeLazyLoadingFixed();
             return;
         }
 
-        // ✅ If timestamps match, load nodeChunks from IndexedDB
-        console.log("✅ Timestamps match! Attempting to use IndexedDB cache...");
+        console.log("✅ Timestamps match! Using IndexedDB cache...");
         let cachedNodeChunks = await getNodeChunksFromIndexedDB();
 
         if (cachedNodeChunks.length > 0) {
             console.log("✅ Using cached nodeChunks from IndexedDB.");
             window.nodeChunks = cachedNodeChunks;
-            initializeLazyLoadingFixed();
         } else {
             console.log("⚠️ No valid nodeChunks found in IndexedDB. Must fetch Markdown.");
             response = await fetch(`/markdown/${book}/main-text.md?v=${Date.now()}`);
             let markdown = await response.text();
 
-            // ✅ Parse & Save nodeChunks again
             window.nodeChunks = parseMarkdownIntoChunks(markdown);
             await saveNodeChunksToIndexedDB(window.nodeChunks);
             console.log("✅ Parsed and stored nodeChunks from fresh Markdown.");
+        }
 
-            // Fetch footnotes from IndexedDB first
+        if (!window.footnotesData) {
+            console.log("⚠️ No footnotes found in memory, checking IndexedDB...");
             let cachedFootnotes = await getFootnotesFromIndexedDB();
             if (cachedFootnotes) {
                 console.log("✅ Using cached footnotes from IndexedDB.");
@@ -157,13 +168,19 @@ async function loadMarkdownFile() {
                 console.log("✅ Fetched and stored footnotes from server.");
                 window.footnotesData = footnotesData;
             }
-            
-            initializeLazyLoadingFixed();
         }
+
+        if (!window.nodeChunks || window.nodeChunks.length === 0) {
+            console.error("❌ nodeChunks is empty. Aborting lazy loading.");
+            return;
+        }
+
+        initializeLazyLoadingFixed();
     } catch (error) {
         console.error("❌ Error loading Markdown:", error);
     }
 }
+
 
 window.loadMarkdownFile = loadMarkdownFile;
 
@@ -316,68 +333,68 @@ async function restoreScrollPosition() {
     console.log("📌 Attempting to restore scroll position...");
 
     const hash = window.location.hash.substring(1);
-    const localSavedId = localStorage.getItem("lastVisibleElement");
-    const sessionSavedId = sessionStorage.getItem("lastVisibleElement");
-    let savedChunks = JSON.parse(localStorage.getItem("savedChunks")) || { chunks: [] };
+    let targetId = hash;
 
-    let targetId = hash || localSavedId || sessionSavedId;
+    // Only try to get stored positions if storage is available
+    try {
+        if (sessionStorage) {
+            const sessionSavedId = sessionStorage.getItem("lastVisibleElement");
+            if (!targetId && sessionSavedId) targetId = sessionSavedId;
+        }
+    } catch (e) {
+        console.log("⚠️ sessionStorage not available");
+    }
 
+    try {
+        if (localStorage) {
+            const localSavedId = localStorage.getItem("lastVisibleElement");
+            if (!targetId && localSavedId) targetId = localSavedId;
+        }
+    } catch (e) {
+        console.log("⚠️ localStorage not available");
+    }
+
+    // If no target ID was found, load the first chunk
     if (!targetId) {
-        console.log("🟢 No internal link or saved position found. Loading default first chunk.");
-        initializeLazyLoadingFixed();
-        return;
-    }
-
-    console.log(`🔄 Deciding which part of the Markdown JSON to load first for: #${targetId}`);
-
-    // ✅ If `savedChunks` exist, restore from cache
-    if (savedChunks.chunks.length > 0) {
-        console.log("✅ Cached chunks found. Restoring from localStorage...");
-
-        const mainContentDiv = document.getElementById("main-content");
-        mainContentDiv.innerHTML = ""; // ⚠️ Clear current content to prevent duplication
-
-        window.isRestoringFromCache = true;
-
-        savedChunks.chunks.forEach(chunk => {
-            if (!document.querySelector(`[data-chunk-id="${chunk.id}"]`)) {
-                console.log(`🔄 Reinserting chunk ${chunk.id} from cache.`);
-                const tempDiv = document.createElement("div");
-                tempDiv.innerHTML = chunk.html;
-                mainContentDiv.appendChild(tempDiv.firstElementChild);
-            }
-        });
-
-         navigateToInternalId(targetId);
-
-        repositionFixedSentinelsForBlock();
+        console.log("🟢 No saved position found. Loading first chunk...");
         
-        console.log("🔄 Manually triggering lazy loading after reinserting stored chunks.");
-        setTimeout(() => {
-            window.isRestoringFromCache = false;
-            initializeLazyLoadingFixed();
-        }, 50);
-
+        // Check if we have nodeChunks in memory or IndexedDB
+        let cachedNodeChunks = await getNodeChunksFromIndexedDB();
+        if (cachedNodeChunks && cachedNodeChunks.length > 0) {
+            console.log("✅ Found nodeChunks in IndexedDB. Loading first chunk...");
+            window.nodeChunks = cachedNodeChunks;
+            
+            // Clear main content and load first chunk
+            const mainContentDiv = document.getElementById("main-content");
+            mainContentDiv.innerHTML = "";
+            loadChunk(0, "down");  // Load the first chunk
+            
+            return;
+        }
+        
+        // If no cached chunks, fetch from main-text.md
+        console.log("⚠️ No cached chunks found. Fetching from main-text.md...");
+        try {
+            const response = await fetch(`/markdown/${book}/main-text.md`);
+            const markdown = await response.text();
+            window.nodeChunks = parseMarkdownIntoChunks(markdown);
+            loadChunk(0, "down");  // Load the first chunk
+        } catch (error) {
+            console.error("❌ Error loading main-text.md:", error);
+            // Show a meaningful message instead of blank page
+            document.getElementById("main-content").innerHTML = 
+                "<p>Unable to load content. Please refresh the page.</p>";
+        }
         return;
     }
 
-    console.log("⚠️ No valid `savedChunks` found. Attempting to restore from IndexedDB...");
-    
-    let cachedNodeChunks = await getNodeChunksFromIndexedDB();
-    if (cachedNodeChunks && cachedNodeChunks.length > 0) {
-        console.log("✅ Loaded `nodeChunks` from IndexedDB. Restoring...");
-        window.nodeChunks = cachedNodeChunks;
-
-        console.log("✅ Reconstructing `savedChunks` from IndexedDB data.");
-        navigateToInternalId(targetId);
-        reconstructSavedChunks();
-        return;
-    }
-
-    console.log("⚠️ No valid data in IndexedDB. Fetching fresh Markdown...");
-    await loadMarkdownFile();
+    // If we have a target ID, proceed with navigation
+    console.log(`🎯 Found target position: ${targetId}. Navigating...`);
     navigateToInternalId(targetId);
 }
+
+
+
 
 
 function reconstructSavedChunks() {
@@ -630,43 +647,40 @@ async function generateTableOfContents(tocContainerId, toggleButtonId) {
 // ============================================================
 
 function initializeLazyLoadingFixed() {
+    console.log("🚀 Initializing Lazy Loading");
 
-    console.log("begin: initializeLazyLodingFixed");
+    if (!window.nodeChunks || window.nodeChunks.length === 0) {
+        console.error("🚨 nodeChunks is empty! Aborting lazy loading initialization.");
+        return;
+    }
 
     if (window.isRestoringFromCache) {
         console.log("🚀 Skipping lazy loading because cached chunks were restored.");
-        return; // 🚫 Do not reinitialize lazy loading
+        return;
     }
 
-    console.log("🕒 Sentinels observation started immediately.");
-    
-    const mainContentDiv = document.getElementById("main-content");
+    // 🔥 Fix Sentinel Duplication: Remove any existing sentinels before adding new ones
+    document.querySelectorAll(".sentinel").forEach(sentinel => sentinel.remove());
 
-    let topSentinel = document.getElementById("top-sentinel");
-    if (!topSentinel) {
-        topSentinel = document.createElement("div");
-        topSentinel.id = "top-sentinel";
-        topSentinel.classList.add("sentinel");
-        mainContentDiv.prepend(topSentinel);
-    }
+    // ✅ Ensure sentinels exist
+    let topSentinel = document.createElement("div");
+    topSentinel.id = "top-sentinel";
+    topSentinel.classList.add("sentinel");
 
-    let bottomSentinel = document.getElementById("bottom-sentinel");
-    if (!bottomSentinel) {
-        bottomSentinel = document.createElement("div");
-        bottomSentinel.id = "bottom-sentinel";
-        bottomSentinel.classList.add("sentinel");
-        mainContentDiv.appendChild(bottomSentinel);
-    }
+    let bottomSentinel = document.createElement("div");
+    bottomSentinel.id = "bottom-sentinel";
+    bottomSentinel.classList.add("sentinel");
 
-    const options = {
-        root: mainContentDiv,
-        rootMargin: "50px",
-        threshold: 0
-    };
+    // ✅ Insert sentinels at the correct positions
+    mainContentDiv.prepend(topSentinel);
+    mainContentDiv.appendChild(bottomSentinel);
 
+    console.log("🛠 Top and bottom sentinels reinserted.");
+
+    // 🔄 Intersection Observer for Lazy Loading
     const observer = new IntersectionObserver((entries) => {
         if (window.isNavigatingToInternalId || window.isUpdatingJsonContent) {
-            console.log("Navigation in progress; skipping lazy-load triggers.");
+            console.log("⏳ Navigation in progress; skipping lazy-load triggers.");
             return;
         }
 
@@ -692,12 +706,14 @@ function initializeLazyLoadingFixed() {
                 }
             }
         });
-    }, options);
+    }, { root: mainContentDiv, rootMargin: "50px", threshold: 0 });
 
     observer.observe(topSentinel);
     observer.observe(bottomSentinel);
+
     console.log("🕒 Sentinels observation started.");
 }
+
 
 
 
@@ -845,7 +861,7 @@ function insertChunkInOrder(newChunk) {
 function loadChunk(chunkId, direction = "down") {
     console.log(`🟢 Loading chunk: ${chunkId}, direction: ${direction}`);
 
-    // ✅ Ensure currentlyLoadedChunks is always initialized
+    // Initialize currentlyLoadedChunks if it doesn't exist
     if (!window.currentlyLoadedChunks) {
         window.currentlyLoadedChunks = new Set();
     }
@@ -860,35 +876,40 @@ function loadChunk(chunkId, direction = "down") {
     const chunk = window.nodeChunks.find(c => c.chunk_id === chunkId);
     if (!chunk) {
         console.error(`❌ Chunk ${chunkId} not found!`);
+        // Show meaningful message instead of blank page
+        if (chunkId === 0) {
+            document.getElementById("main-content").innerHTML = 
+                "<p>Unable to load content. Please refresh the page.</p>";
+        }
         return;
     }
 
-    // Create the chunk wrapper
-    const chunkWrapper = document.createElement("div");
-    chunkWrapper.setAttribute("data-chunk-id", chunkId);
-    chunkWrapper.classList.add("chunk"); // Optional for styling
-
-    chunk.blocks.forEach(block => {
-        if (!block.content) {
-            console.warn(`🚨 Skipping empty block at line ${block.startLine}`);
-            return;
-        }
-
-        const html = renderBlockToHtml(block);
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = html;
-        chunkWrapper.appendChild(tempDiv);
-    });
-
-    // ✅ Insert chunk in the correct position
-    insertChunkInOrder(chunkWrapper);
-    injectFootnotesForChunk(chunk.chunk_id);
+    // Create and insert the chunk
+    const chunkWrapper = createChunkElement(chunk);
+    const mainContentDiv = document.getElementById("main-content");
     
+    if (direction === "up") {
+        mainContentDiv.insertBefore(chunkWrapper, mainContentDiv.firstChild);
+    } else {
+        mainContentDiv.appendChild(chunkWrapper);
+    }
 
-    // ✅ Mark chunk as loaded
+    // Mark chunk as loaded
     window.currentlyLoadedChunks.add(chunkId);
-    console.log(`✅ Chunk ${chunkId} inserted.`);
+
+    if (typeof attachMarkListeners === 'function') {
+        console.log(`🎯 Attaching mark listeners to chunk ${chunkId}`);
+        attachMarkListeners();
+    }
+    
+    // If this is the first chunk (chunkId === 0), make sure sentinels are properly positioned
+    if (chunkId === 0) {
+        repositionFixedSentinelsForBlock();
+    }
+
+    console.log(`✅ Chunk ${chunkId} loaded successfully.`);
 }
+
 
      // [:FOOTNOTES]
 
@@ -1326,6 +1347,12 @@ function navigateToInternalId(targetId) {
       if (finalTarget) {
         scrollElementIntoMainContent(finalTarget, 50);
       }
+
+      if (typeof attachMarkListeners === 'function') {
+            console.log('🎯 Reattaching mark listeners after navigation');
+            attachMarkListeners();
+        }
+
       window.isNavigatingToInternalId = false;
     }, 400);
   }, 800);
@@ -1490,6 +1517,19 @@ function repositionFixedSentinelsForBlock() {
 
 
 document.addEventListener("DOMContentLoaded", async () => {
+
+    const mainContentDiv = document.getElementById("main-content"); // This already exists
+    window.mainContentDiv = mainContentDiv;
+    window.markdownContent = ""; // Store Markdown globally
+
+    // Utility function to bust the cache using a lastModified timestamp
+    window.getFreshUrl = function(url, lastModified) {
+      return `${url}?v=${lastModified}`;
+    };
+    window.mdFilePath = `/markdown/${book}/main-text.md`;  // Path to raw MD file
+
+    window.isNavigatingToInternalId = false;
+
     console.log("✅ DOM is ready. Loading Markdown file...");
 
     // ✅ Initialize IndexedDB
@@ -1502,8 +1542,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.log("🔄 Checking for saved scroll position or internal link before lazy loading...");
     restoreScrollPosition();
 
-    console.log("📌 Now initializing lazy loading based on restored position...");
-    initializeLazyLoadingFixed();
+    if (typeof attachMarkListeners === 'function') {
+        console.log('🎯 Initial attachment of mark listeners');
+        attachMarkListeners();
+    }
 
     // ✅ Attach observer to content elements
     document.querySelectorAll("#main-content [id]").forEach((el) => {

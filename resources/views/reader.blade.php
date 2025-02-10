@@ -14,7 +14,7 @@
     <!-- Load the content of the main-text.md file -->
 
     <div id="main-content" data-book="{{ $book }}">
-    {{ File::get(resource_path("markdown/{$book}/main-text.md")) }}
+    
 </div>
 
     <!-- Buttons for hyper-lighting -->
@@ -45,13 +45,14 @@
 @endsection
 
 @section('scripts')
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-core.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-classapplier.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-highlighter.min.js"></script>
-    
+
+<script src="{{ asset('js/crypto-js.min.js') }}"></script>
+<script src="{{ asset('js/rangy-core.min.js') }}"></script>
+<script src="{{ asset('js/rangy-classapplier.min.js') }}"></script>
+<script src="{{ asset('js/rangy-highlighter.min.js') }}"></script>
 
 
+ 
 @vite(['resources/js/app.js', 'resources/js/lazy-loading.js', 'resources/js/reader.js'])
     
 @endsection
