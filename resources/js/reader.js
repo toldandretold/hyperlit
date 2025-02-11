@@ -185,16 +185,6 @@ addTouchAndClickListener(document.getElementById('copy-hyperlight'), function ()
     .then(data => {
         if (data.success) {
             console.log('✅ Highlight saved and Markdown updated.');
-
-            if (data.markdown && data.markdownLastModified) {
-                localStorage.setItem("cachedMarkdown", data.markdown);
-                localStorage.setItem("markdownLastModified", data.markdownLastModified);
-                console.log("✅ Markdown cache updated in LocalStorage.");
-            } else {
-                console.warn("⚠️ Server response missing markdown data.");
-            }
-
-            reloadMarkdownFromCache();
             attachMarkListeners();
         } else {
             console.error('❌ Error from server:', data.message);
@@ -462,17 +452,7 @@ function sendHyperciteBlocksToBackend(book, hyperciteId, blocks) {
             if (data.success) {
             console.log('✅ Hypercite blocks saved and Markdown updated.');
 
-            // ✅ Store the updated Markdown & timestamp in LocalStorage
-            if (data.markdown && data.markdownLastModified) {
-                localStorage.setItem("cachedMarkdown", data.markdown);
-                localStorage.setItem("markdownLastModified", data.markdownLastModified);
-                console.log("✅ Markdown cache updated in LocalStorage.");
-            } else {
-                console.warn("⚠️ Server response missing markdown data.");
-            }
-
-            // ✅ Reload the visible content using the cached Markdown
-            reloadMarkdownFromCache();
+        
         } else {
             console.error('❌ Error from server:', data.message);
         }

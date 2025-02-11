@@ -7,9 +7,13 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\ConversionController;
 use League\HTMLToMarkdown\HtmlConverter;
+use App\Traits\UpdateMarkdownTimestamps;
 
 class HighlightMdController extends Controller
 {
+
+    use UpdateMarkdownTimestamps;
+
     public function store(Request $request)
     {
         // Retrieve necessary inputs from the request
@@ -112,18 +116,7 @@ class HighlightMdController extends Controller
         // Step 4: Get the last modified time of the Markdown file.
         $markdownLastModified = filemtime($markdownFilePath);
 
-        // Assume your Python script updates the footnotes JSON.
-        $footnotesFilePath = resource_path("markdown/{$book}/main-text-footnotes.json");
-        $footnotesLastModified = file_exists($footnotesFilePath) ? filemtime($footnotesFilePath) : null;
-
-        // Return the updated markdown text and timestamps
-        return response()->json([
-            'success' => true,
-            'message' => 'Highlight created/updated successfully.',
-            'markdown' => file_get_contents($markdownFilePath), // ✅ Send updated Markdown
-            'markdownLastModified' => $markdownLastModified,
-            'footnotesLastModified' => $footnotesLastModified
-        ]);
+        return response()->json($this->updateLatestMarkdownTimestamp($book));
 
     }
 
@@ -362,6 +355,8 @@ class HighlightMdController extends Controller
         // Step 3: Trigger additional updates
         $this->updateHyperlightsMd($book);
         $this->updateHyperlightsHtml($book);
+
+        return response()->json($this->updateLatestMarkdownTimestamp($book));
 
         return response()->json(['success' => true, 'message' => 'Highlights deleted and database updated successfully.']);
     }

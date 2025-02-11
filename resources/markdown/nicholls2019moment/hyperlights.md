@@ -19,6 +19,20 @@
 
 ---
 
+> "New International Economic Order"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739255206024)
+
+
+
+---
+
+> "further"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739240537585)
+
+
+
+---
+
 > "international law"
 > [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739148344805)
 
@@ -75,6 +89,13 @@
 
 > "Karin Lissakers raises two important points. Firstly, she notes that a ‘divide-and-rule tactic’ on behalf of creditors was ‘helped by timing.’[^474] That is, because the debtors did not ‘experience their most acute payments problems simultaneously’, banks ‘could settle with one large de"
 > [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1738908900842)
+
+
+
+---
+
+> "aftermath of the NIEO Project"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739255315140)
 
 
 

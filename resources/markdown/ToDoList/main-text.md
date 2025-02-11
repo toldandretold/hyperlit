@@ -79,7 +79,7 @@ Perhaps should auto-save this. 
 
 [if click a back-link]: the div collapses, with all event listeners and such turned off, and scroll position and top id saved].
 
-In this way, moving between highlights and main-text should be super seamless. 
+In this way, moving between highlights and main-text should be super seamless.
 
 ## Notes [:]
 

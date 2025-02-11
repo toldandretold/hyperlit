@@ -647,8 +647,7 @@ async function generateTableOfContents(tocContainerId, toggleButtonId) {
 // ============================================================
 
 function initializeLazyLoadingFixed() {
-    console.log("🚀 Initializing Lazy Loading");
-
+    // Initial checks
     if (!window.nodeChunks || window.nodeChunks.length === 0) {
         console.error("🚨 nodeChunks is empty! Aborting lazy loading initialization.");
         return;
@@ -659,10 +658,17 @@ function initializeLazyLoadingFixed() {
         return;
     }
 
-    // 🔥 Fix Sentinel Duplication: Remove any existing sentinels before adding new ones
-    document.querySelectorAll(".sentinel").forEach(sentinel => sentinel.remove());
+    // Cleanup previous observer if it exists
+    if (window.fixedSentinelObserver) {
+        window.fixedSentinelObserver.disconnect();
+        console.log("🧹 Previous observer disconnected");
+    }
 
-    // ✅ Ensure sentinels exist
+    // Remove existing sentinels
+    document.querySelectorAll(".sentinel").forEach(sentinel => sentinel.remove());
+    console.log("🧹 Existing sentinels removed");
+
+    // Create new sentinels
     let topSentinel = document.createElement("div");
     topSentinel.id = "top-sentinel";
     topSentinel.classList.add("sentinel");
@@ -671,21 +677,40 @@ function initializeLazyLoadingFixed() {
     bottomSentinel.id = "bottom-sentinel";
     bottomSentinel.classList.add("sentinel");
 
-    // ✅ Insert sentinels at the correct positions
     mainContentDiv.prepend(topSentinel);
     mainContentDiv.appendChild(bottomSentinel);
+    console.log("✨ New sentinels created and inserted");
 
-    console.log("🛠 Top and bottom sentinels reinserted.");
+    // Define observer options with larger rootMargin for easier triggering
+    const options = {
+        root: mainContentDiv,
+        rootMargin: "100px", // Increased from 50px
+        threshold: 0
+    };
 
-    // 🔄 Intersection Observer for Lazy Loading
     const observer = new IntersectionObserver((entries) => {
+        console.log("👀 Intersection Observer triggered", entries.length, "entries");
+        
         if (window.isNavigatingToInternalId || window.isUpdatingJsonContent) {
             console.log("⏳ Navigation in progress; skipping lazy-load triggers.");
             return;
         }
 
         entries.forEach(entry => {
+            console.log(`🎯 Entry for ${entry.target.id}, isIntersecting: ${entry.isIntersecting}`);
+            
             if (!entry.isIntersecting) return;
+
+            if (entry.target.id === "bottom-sentinel") {
+                const lastChunkEl = getLastChunkElement();
+                if (lastChunkEl) {
+                    const lastChunkId = parseInt(lastChunkEl.getAttribute("data-chunk-id"), 10);
+                    console.log(`📍 Bottom sentinel triggered, last chunk ID: ${lastChunkId}`);
+                    loadNextChunkFixed(lastChunkId);
+                } else {
+                    console.warn("⚠️ No last chunk element found");
+                }
+            }
 
             if (entry.target.id === "top-sentinel") {
                 const firstChunkEl = mainContentDiv.querySelector("[data-chunk-id]");
@@ -697,21 +722,19 @@ function initializeLazyLoadingFixed() {
                     }
                 }
             }
-
-            if (entry.target.id === "bottom-sentinel") {
-                const lastChunkEl = getLastChunkElement();
-                if (lastChunkEl) {
-                    const lastChunkId = parseInt(lastChunkEl.getAttribute("data-chunk-id"), 10);
-                    loadNextChunkFixed(lastChunkId);
-                }
-            }
         });
-    }, { root: mainContentDiv, rootMargin: "50px", threshold: 0 });
+    }, options);
 
+    // Start observing
     observer.observe(topSentinel);
     observer.observe(bottomSentinel);
 
-    console.log("🕒 Sentinels observation started.");
+    // Store references globally
+    window.fixedSentinelObserver = observer;
+    window.topSentinel = topSentinel;
+    window.bottomSentinel = bottomSentinel;
+
+    console.log("🕒 Sentinels observation started with options:", options);
 }
 
 
@@ -906,6 +929,8 @@ function loadChunk(chunkId, direction = "down") {
     if (chunkId === 0) {
         repositionFixedSentinelsForBlock();
     }
+
+    injectFootnotesForChunk(chunkId);
 
     console.log(`✅ Chunk ${chunkId} loaded successfully.`);
 }
@@ -1268,95 +1293,87 @@ function waitForElementAndScroll(targetId, maxAttempts = 10, attempt = 0) {
     }
 
 function navigateToInternalId(targetId) {
-  // Prevent duplicate navigation actions.
-  if (window.isNavigatingToInternalId) {
-    console.log("Navigation already in progress, skipping duplicate call.");
-    return;
-  }
-  window.isNavigatingToInternalId = true;
-  console.log(`🟢 Navigating to internal ID: ${targetId}`);
+    if (window.isNavigatingToInternalId) {
+        console.log("Navigation already in progress, skipping duplicate call.");
+        return;
+    }
+    window.isNavigatingToInternalId = true;
+    console.log(`🟢 Navigating to internal ID: ${targetId}`);
 
-  if (!window.currentlyLoadedChunks) {
-        console.warn("⚠️ currentlyLoadedChunks is not initialized! Initializing now...");
+    if (!window.currentlyLoadedChunks) {
         window.currentlyLoadedChunks = new Set();
     }
 
-  // First, check if the target element is already in the DOM.
-  let existingElement = document.getElementById(targetId);
-  if (existingElement) {
-    console.log(`✅ Target ID ${targetId} already in DOM. Scrolling now...`);
-    // Perform a single scroll action.
-    scrollElementIntoMainContent(existingElement, 50);
-    // After a short delay, reapply the scroll once more to counter any layout shifts.
-    setTimeout(() => {
-      scrollElementIntoMainContent(existingElement, 50);
-      window.isNavigatingToInternalId = false;
-    }, 600);
-    return;
-  }
-
-  // If the target element is not yet in the DOM, determine which chunk it is in.
-  let targetChunkIndex;
-  if (isNumericId(targetId)) {
-    // Numeric IDs: Assume the block's startLine is used as the ID.
-    targetChunkIndex = window.nodeChunks.findIndex(chunk =>
-      chunk.blocks.some(block => block.startLine.toString() === targetId)
-    );
-  } else {
-    // For non-numeric IDs, try to find the block by scanning the raw Markdown.
-    let targetLine = findLineForCustomId(targetId);
-    if (targetLine === null) {
-      console.warn(`❌ No block found for target ID "${targetId}" in nodeChunks.`);
-      window.isNavigatingToInternalId = false;
-      return;
+    // First, check if target is already in DOM
+    let existingElement = document.getElementById(targetId);
+    if (existingElement) {
+        scrollElementIntoMainContent(existingElement, 50);
+        setTimeout(() => {
+            scrollElementIntoMainContent(existingElement, 50);
+            window.isNavigatingToInternalId = false;
+        }, 600);
+        return;
     }
-    console.log(`Non-numeric ID detected. Found at line: ${targetLine}`);
-    targetChunkIndex = window.nodeChunks.findIndex(chunk =>
-      targetLine >= chunk.start_line && targetLine <= chunk.end_line
-    );
-  }
-  if (targetChunkIndex === -1) {
-    console.warn(`❌ No chunk found for target ID "${targetId}".`);
-    window.isNavigatingToInternalId = false;
-    return;
-  }
 
-  // Load the contiguous block: one chunk before, the target chunk, and one chunk after.
-  const startIndex = Math.max(0, targetChunkIndex - 1);
-  const endIndex = Math.min(window.nodeChunks.length - 1, targetChunkIndex + 1);
-  const chunksToLoad = window.nodeChunks.slice(startIndex, endIndex + 1);
-  console.log(`✅ Internal link block determined. Loading chunks: ${chunksToLoad.map(c => c.chunk_id)}`);
-
-  // Load any missing chunks.
-  chunksToLoad.forEach(chunk => {
-    if (!document.querySelector(`[data-chunk-id="${chunk.chunk_id}"]`)) {
-      console.log(`🔄 Loading missing chunk ${chunk.chunk_id} for contiguous block`);
-      loadChunk(chunk.chunk_id, "down");
-    }
-  });
-
-  repositionFixedSentinelsForBlock();
-
-  // Wait until lazy-loading and any layout shifts settle before performing the final scroll.
-  setTimeout(() => {
-    // Now that the necessary chunks should be loaded, wait for the target element.
-    waitForElementAndScroll(targetId);
-    // Optionally, do one final scroll after a short delay to ensure final alignment.
-    setTimeout(() => {
-      let finalTarget = document.getElementById(targetId);
-      if (finalTarget) {
-        scrollElementIntoMainContent(finalTarget, 50);
-      }
-
-      if (typeof attachMarkListeners === 'function') {
-            console.log('🎯 Reattaching mark listeners after navigation');
-            attachMarkListeners();
+    // Find target chunk
+    let targetChunkIndex;
+    if (isNumericId(targetId)) {
+        targetChunkIndex = window.nodeChunks.findIndex(chunk =>
+            chunk.blocks.some(block => block.startLine.toString() === targetId)
+        );
+    } else {
+        let targetLine = findLineForCustomId(targetId);
+        if (targetLine === null) {
+            console.warn(`❌ No block found for target ID "${targetId}"`);
+            window.isNavigatingToInternalId = false;
+            return;
         }
+        targetChunkIndex = window.nodeChunks.findIndex(chunk =>
+            targetLine >= chunk.start_line && targetLine <= chunk.end_line
+        );
+    }
 
-      window.isNavigatingToInternalId = false;
-    }, 400);
-  }, 800);
+    if (targetChunkIndex === -1) {
+        console.warn(`❌ No chunk found for target ID "${targetId}"`);
+        window.isNavigatingToInternalId = false;
+        return;
+    }
+
+    // Clear existing content
+    const mainContentDiv = document.getElementById("main-content");
+    mainContentDiv.innerHTML = '';
+    window.currentlyLoadedChunks.clear();
+
+    // Load contiguous block
+    const startIndex = Math.max(0, targetChunkIndex - 1);
+    const endIndex = Math.min(window.nodeChunks.length - 1, targetChunkIndex + 1);
+    
+    console.log(`Loading chunks ${startIndex} to ${endIndex}`);
+    
+    // Load chunks in order
+    for (let i = startIndex; i <= endIndex; i++) {
+        loadChunk(window.nodeChunks[i].chunk_id, "down");
+    }
+
+    // Reposition sentinels
+    repositionFixedSentinelsForBlock();
+
+    // Wait for content to load and scroll
+    setTimeout(() => {
+        waitForElementAndScroll(targetId);
+        setTimeout(() => {
+            let finalTarget = document.getElementById(targetId);
+            if (finalTarget) {
+                scrollElementIntoMainContent(finalTarget, 50);
+            }
+            if (typeof attachMarkListeners === 'function') {
+                attachMarkListeners();
+            }
+            window.isNavigatingToInternalId = false;
+        }, 400);
+    }, 800);
 }
+
 
 
 
@@ -1389,14 +1406,22 @@ function removeChunksOutside(allowedIds) {
  */
 function repositionFixedSentinelsForBlock() {
     const mainContentDiv = document.getElementById("main-content");
-    const allChunks = mainContentDiv.querySelectorAll("[data-chunk-id]");
+    const allChunks = [...mainContentDiv.querySelectorAll("[data-chunk-id]")];
     if (allChunks.length === 0) {
         console.warn("No chunks in the DOM to reposition sentinels around.");
         return;
     }
 
-    const firstChunk = allChunks[0];
-    const lastChunk = allChunks[allChunks.length - 1];
+    // Sort chunks by ID to ensure correct positioning
+    allChunks.sort((a, b) => {
+        return parseInt(a.getAttribute("data-chunk-id")) - 
+               parseInt(b.getAttribute("data-chunk-id"));
+    });
+
+    // Disconnect observer before removing sentinels
+    if (window.fixedSentinelObserver) {
+        window.fixedSentinelObserver.disconnect();
+    }
 
     if (window.topSentinel) window.topSentinel.remove();
     if (window.bottomSentinel) window.bottomSentinel.remove();
@@ -1409,26 +1434,31 @@ function repositionFixedSentinelsForBlock() {
     bottomSentinel.id = "bottom-sentinel";
     bottomSentinel.className = "sentinel";
 
-    mainContentDiv.insertBefore(topSentinel, firstChunk);
-    lastChunk.after(bottomSentinel);
+    // Insert sentinels
+    mainContentDiv.insertBefore(topSentinel, allChunks[0]);
+    allChunks[allChunks.length - 1].after(bottomSentinel);
 
+    // Update global references
     window.topSentinel = topSentinel;
     window.bottomSentinel = bottomSentinel;
 
+    // Reconnect observer
     if (window.fixedSentinelObserver) {
         window.fixedSentinelObserver.observe(topSentinel);
         window.fixedSentinelObserver.observe(bottomSentinel);
+        console.log("🔄 Sentinels repositioned and observation restarted");
     }
+
+    // Update currently loaded chunks set
+    window.currentlyLoadedChunks = new Set(
+        allChunks.map(chunk => parseInt(chunk.getAttribute("data-chunk-id")))
+    );
 }
 
-
-
-
-    // Function to dynamically load content around a line number
-   function loadContentAroundLine(lineNumber) {
+function loadContentAroundLine(lineNumber) {
     console.log(`🟢 Loading content around line: ${lineNumber}`);
 
-    // 🔍 Find the chunk that contains this line
+    // Find the chunk that contains this line
     const targetChunk = window.nodeChunks.find(chunk =>
         lineNumber >= chunk.start_line && lineNumber <= chunk.end_line
     );
@@ -1440,41 +1470,46 @@ function repositionFixedSentinelsForBlock() {
 
     console.log(`✅ Line ${lineNumber} is in chunk ${targetChunk.chunk_id}.`);
 
-    // ✅ Load the target chunk if it's not already loaded
-    if (!window.currentlyLoadedChunks.has(targetChunk.chunk_id)) {
-        console.log(`🔄 Loading chunk ${targetChunk.chunk_id}...`);
-        loadChunk(targetChunk.chunk_id, "down");
-    }
+    // Track chunks to load
+    const chunksToLoad = new Set([targetChunk.chunk_id]);
 
-    // 🔼 Check if we should load the previous chunk
+    // Add adjacent chunks if needed
     if (lineNumber - targetChunk.start_line < 5) {
-        const prevChunk = window.nodeChunks.find(c => c.chunk_id === targetChunk.chunk_id - 1);
-        if (prevChunk && !window.currentlyLoadedChunks.has(prevChunk.chunk_id)) {
-            console.warn(`⬆️ Loading previous chunk(loadcontentaroundline): ${prevChunk.chunk_id}`);
-            loadChunk(prevChunk.chunk_id, "up");
-        }
+        const prevChunkId = targetChunk.chunk_id - 1;
+        if (prevChunkId >= 0) chunksToLoad.add(prevChunkId);
     }
 
-    // 🔽 Check if we should load the next chunk
     if (targetChunk.end_line - lineNumber < 5) {
-        const nextChunk = window.nodeChunks.find(c => c.chunk_id === targetChunk.chunk_id + 1);
-        if (nextChunk && !window.currentlyLoadedChunks.has(nextChunk.chunk_id)) {
-            console.warn(`⬇️ Loading next chunk: ${nextChunk.chunk_id}`);
-            loadChunk(nextChunk.chunk_id, "down");
-        }
+        const nextChunkId = targetChunk.chunk_id + 1;
+        if (nextChunkId < window.nodeChunks.length) chunksToLoad.add(nextChunkId);
     }
 
-    // ✅ Ensure content is loaded before scrolling
-    setTimeout(() => {
-        const targetElement = document.getElementById(lineNumber.toString());
-        if (targetElement) {
-            console.log(`✅ Scrolling to line: ${lineNumber}`);
-            targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-        } else {
-            console.error(`❌ Line "${lineNumber}" still not found after loading.`);
-        }
-    }, 200); // Allow some time for lazy-loaded content
+    // Load all needed chunks
+    const loadPromises = Array.from(chunksToLoad).map(chunkId => {
+        return new Promise(resolve => {
+            if (!window.currentlyLoadedChunks.has(chunkId)) {
+                loadChunk(chunkId, chunkId < targetChunk.chunk_id ? "up" : "down");
+            }
+            resolve();
+        });
+    });
+
+    // After loading chunks, reposition sentinels and scroll
+    Promise.all(loadPromises).then(() => {
+        repositionFixedSentinelsForBlock();
+        
+        setTimeout(() => {
+            const targetElement = document.getElementById(lineNumber.toString());
+            if (targetElement) {
+                console.log(`✅ Scrolling to line: ${lineNumber}`);
+                scrollElementIntoMainContent(targetElement, 50);
+            } else {
+                console.error(`❌ Line "${lineNumber}" not found after loading.`);
+            }
+        }, 100);
+    });
 }
+
 
 
 
