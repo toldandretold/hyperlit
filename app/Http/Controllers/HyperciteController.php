@@ -11,10 +11,13 @@ use App\Jobs\ProcessConnectedHyperCitesJob;
 use App\Jobs\ProcessCitationIdBLinksJob;
 use App\Events\ProcessComplete;
 use Illuminate\Support\Facades\Log;
+use App\Traits\UpdateMarkdownTimestamps;
 
 class HyperciteController extends Controller
+
+
 {
-    
+    use UpdateMarkdownTimestamps;
 
     public function store(Request $request)
     {
@@ -95,12 +98,9 @@ class HyperciteController extends Controller
         // Get the last modified timestamp
         $markdownLastModified = filemtime($markdownFilePath);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Hypercite blocks updated successfully.',
-            'markdown' => $updatedMarkdownContent, // Send the updated Markdown back to the frontend
-            'markdownLastModified' => $markdownLastModified
-        ]);
+        
+        return response()->json($this->updateLatestMarkdownTimestamp($book));
+        
     } catch (\Exception $e) {
         \Log::error("Error updating Markdown file: " . $e->getMessage());
         return response()->json(['success' => false, 'message' => 'Error updating Markdown file.'], 500);

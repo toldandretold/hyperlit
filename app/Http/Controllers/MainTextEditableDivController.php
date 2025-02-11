@@ -5,9 +5,13 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use App\Traits\UpdateMarkdownTimestamps;
 
 class MainTextEditableDivController extends Controller
 {
+
+    use UpdateMarkdownTimestamps;
+
     public function showEditableText($book = 'default-book')
     {
         return view('hyperlighting_div', ['book' => $book]);
@@ -57,88 +61,15 @@ public function saveEditedContent(Request $request)
     file_put_contents($markdownFilePath, implode(PHP_EOL, $markdownLines) . PHP_EOL);
     Log::info("Successfully updated Markdown file at: {$markdownFilePath}");
 
-    // ✅ Call updateLatestMarkdownTimestamp(), which now returns a JSON response
-    return $this->updateLatestMarkdownTimestamp($book);
+    // Instead of calling the private method, use the service
+        // Call the trait method directly
+        return response()->json($this->updateLatestMarkdownTimestamp($book));
 }
 
 /**
  * Updates timestamps for markdown and footnotes, and also generates nodeChunks.json
  */
-private function updateLatestMarkdownTimestamp($book)
-{
-    $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
-    $footnotesFilePath = resource_path("markdown/{$book}/main-text-footnotes.json");
-    $timestampFilePath = resource_path("markdown/{$book}/latest_update.json");
-    $nodeChunksPath    = resource_path("markdown/{$book}/nodeChunks.json");
 
-    // Check last modified times
-    $markdownLastModified = filemtime($markdownFilePath);
-    $footnotesLastModified = file_exists($footnotesFilePath) ? filemtime($footnotesFilePath) : null;
-
-    // Regenerate footnotes if needed
-    if (!$footnotesLastModified || $markdownLastModified > $footnotesLastModified) {
-        Log::info("📝 Markdown updated. Regenerating footnotes for: {$book}");
-        $pythonBin = "/usr/local/bin/python3";
-        $pythonScriptPath = "/app/Python/footnote-jason.py";
-        
-        $command = escapeshellcmd("{$pythonBin} {$pythonScriptPath} {$markdownFilePath} 2>&1");
-        Log::info("🚀 Running command: {$command}");
-
-        $output = shell_exec($command);
-        if ($output === null) {
-            Log::error("❌ Python script execution failed (null output).");
-        } else {
-            Log::info("🔄 Python Footnotes Update Output:\n" . $output);
-        }
-
-        // Refresh footnotes timestamp
-        $footnotesLastModified = file_exists($footnotesFilePath)
-            ? filemtime($footnotesFilePath)
-            : time();
-    }
-
-    // Generate nodeChunks.json if needed
-    if (!file_exists($nodeChunksPath) || filemtime($nodeChunksPath) < $markdownLastModified) {
-        Log::info("📑 Generating nodeChunks.json for: {$book}");
-
-        $markdownContent = file_get_contents($markdownFilePath);
-        $chunks = $this->parseMarkdownIntoChunks($markdownContent);
-
-        file_put_contents($nodeChunksPath, json_encode($chunks, JSON_PRETTY_PRINT));
-        Log::info("✅ nodeChunks.json updated for {$book}");
-    } else {
-        Log::info("✅ nodeChunks.json is already up to date for {$book}");
-    }
-
-    // Grab nodeChunks last modified (if available)
-    $nodeChunksLastModified = file_exists($nodeChunksPath)
-        ? filemtime($nodeChunksPath)
-        : null;
-
-    // Save updated timestamp for front-end
-    $latestUpdateData = [
-        'updated_at'            => time() * 1000,  // ms
-        'markdownLastModified'  => $markdownLastModified,
-        'footnotesLastModified' => $footnotesLastModified,
-        'nodeChunksLastModified'=> $nodeChunksLastModified
-            ? $nodeChunksLastModified * 1000  // convert to ms if you like
-            : null,
-    ];
-
-    file_put_contents($timestampFilePath, json_encode($latestUpdateData, JSON_PRETTY_PRINT));
-    Log::info("✅ Updated latest_update.json for {$book}");
-
-    // Return JSON response with the new field
-    return response()->json([
-        'success'               => true,
-        'message'               => 'Markdown, footnotes, and nodeChunks updated.',
-        'markdownLastModified'  => $markdownLastModified,
-        'footnotesLastModified' => $footnotesLastModified,
-        'nodeChunksLastModified'=> $nodeChunksLastModified
-            ? $nodeChunksLastModified * 1000
-            : null
-    ]);
-}
 
 
 
