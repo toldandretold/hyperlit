@@ -1,5 +1,39 @@
+// ========= Mark Listeners =========
+function attachMarkListeners() {
+    const markTags = document.querySelectorAll("mark[id]");
+    markTags.forEach(function (mark) {
+        mark.removeEventListener("click", handleMarkClick);
+        mark.removeEventListener("mouseover", handleMarkHover);
+        mark.removeEventListener("mouseout", handleMarkHoverOut);
+        mark.addEventListener("click", handleMarkClick);
+        mark.addEventListener("mouseover", handleMarkHover);
+        mark.addEventListener("mouseout", handleMarkHoverOut);
+        mark.dataset.listenerAttached = true;
+    });
+    console.log(`Mark listeners refreshed for ${markTags.length} <mark> tags.`);
+}
+window.attachMarkListeners = attachMarkListeners;   
 
-    rangy.init();
+function handleMarkClick(event) {
+    event.preventDefault();
+    const highlightId = event.target.id;
+    console.log(`Mark clicked: ${highlightId}`);
+    window.location.href = `/${window.book}/hyperlights#${highlightId}`;
+}
+window.handleMarkClick = handleMarkClick;
+
+function handleMarkHover(event) {
+    event.target.style.textDecoration = "underline";
+}
+window.handleMarkHover = handleMarkHover;
+
+function handleMarkHoverOut(event) {
+    event.target.style.textDecoration = "none";
+}
+window.handleMarkHoverOut = handleMarkHoverOut;
+
+
+rangy.init();
 
     // Initialize the highlighter
     var highlighter = rangy.createHighlighter();
