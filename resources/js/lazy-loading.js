@@ -930,7 +930,7 @@ function loadChunk(chunkId, direction = "down") {
         repositionFixedSentinelsForBlock();
     }
 
-    injectFootnotesForChunk(chunkId);
+    
 
     console.log(`✅ Chunk ${chunkId} loaded successfully.`);
 }
@@ -1350,29 +1350,51 @@ function navigateToInternalId(targetId) {
     
     console.log(`Loading chunks ${startIndex} to ${endIndex}`);
     
+    // Create an array to track loaded chunks for footnotes
+    const loadedChunkIds = [];
+
     // Load chunks in order
-    for (let i = startIndex; i <= endIndex; i++) {
-        loadChunk(window.nodeChunks[i].chunk_id, "down");
-    }
+    const loadChunksPromise = Promise.all(
+        Array.from({ length: endIndex - startIndex + 1 }, (_, i) => {
+            const chunkId = window.nodeChunks[startIndex + i].chunk_id;
+            return new Promise(resolve => {
+                loadChunk(chunkId, "down");
+                loadedChunkIds.push(chunkId);
+                resolve();
+            });
+        })
+    );
 
-    // Reposition sentinels
-    repositionFixedSentinelsForBlock();
+    // After all chunks are loaded, inject footnotes and finish navigation
+    loadChunksPromise.then(() => {
+        console.log("All chunks loaded, injecting footnotes...");
+        
+        // Inject footnotes for all loaded chunks
+        loadedChunkIds.forEach(chunkId => {
+            console.log(`Injecting footnotes for chunk ${chunkId}`);
+            injectFootnotesForChunk(chunkId);
+        });
 
-    // Wait for content to load and scroll
-    setTimeout(() => {
-        waitForElementAndScroll(targetId);
+        // Reposition sentinels
+        repositionFixedSentinelsForBlock();
+
+        // Wait for footnotes to be injected before scrolling
         setTimeout(() => {
-            let finalTarget = document.getElementById(targetId);
-            if (finalTarget) {
-                scrollElementIntoMainContent(finalTarget, 50);
-            }
-            if (typeof attachMarkListeners === 'function') {
-                attachMarkListeners();
-            }
-            window.isNavigatingToInternalId = false;
-        }, 400);
-    }, 800);
+            waitForElementAndScroll(targetId);
+            setTimeout(() => {
+                let finalTarget = document.getElementById(targetId);
+                if (finalTarget) {
+                    scrollElementIntoMainContent(finalTarget, 50);
+                }
+                if (typeof attachMarkListeners === 'function') {
+                    attachMarkListeners();
+                }
+                window.isNavigatingToInternalId = false;
+            }, 400);
+        }, 800);
+    });
 }
+
 
 
 
