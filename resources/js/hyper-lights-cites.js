@@ -1,5 +1,5 @@
 // ========= Mark Listeners =========
-function attachMarkListeners() {
+export function attachMarkListeners() {
     const markTags = document.querySelectorAll("mark[id]");
     markTags.forEach(function (mark) {
         mark.removeEventListener("click", handleMarkClick);
@@ -11,8 +11,7 @@ function attachMarkListeners() {
         mark.dataset.listenerAttached = true;
     });
     console.log(`Mark listeners refreshed for ${markTags.length} <mark> tags.`);
-}
-window.attachMarkListeners = attachMarkListeners;   
+}   
 
 function handleMarkClick(event) {
     event.preventDefault();

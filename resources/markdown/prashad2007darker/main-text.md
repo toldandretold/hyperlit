@@ -1,4 +1,4 @@
-ALSO BY VIJAY PRASHADc
+ALSO BY VIJAY PRASHAD.
 
 <p id="3"><em>Everybody Was <u id="hypercite_pwwohqs">Kung</u> Fu Fighting: <u id="hypercite_w9px6hh">Afro</u>-Asian Connections and the Myth of Cultural Purity</em></p>
 

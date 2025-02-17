@@ -1,7 +1,27 @@
-// TOC shit // 
-// Function to generate and display the Table of Contents
+import {
+  book
+} from './reader-DOMContentLoaded.js';
 
-async function generateTableOfContents(tocContainerId, toggleButtonId) {
+import {
+  parseInlineMarkdown
+} from './convert-markdown.js';
+
+import { 
+    openDatabase, 
+    DB_VERSION, 
+    checkIndexedDBSize,
+    getNodeChunksFromIndexedDB,
+    saveNodeChunksToIndexedDB,
+    getFootnotesFromIndexedDB,
+    saveFootnotesToIndexedDB 
+} from './cache-indexedDB.js';
+
+// ✅ TOC Handling
+export const tocContainer = document.getElementById("toc-container");
+export const tocOverlay = document.getElementById("toc-overlay");
+export const tocButton = document.getElementById("toc-toggle-button");
+
+export async function generateTableOfContents(tocContainerId, toggleButtonId) {
   try {
     console.log("📖 Generating Table of Contents...");
 
@@ -39,7 +59,7 @@ async function generateTableOfContents(tocContainerId, toggleButtonId) {
     // ✅ At this point, `sections` contains the footnotes JSON
     console.log(`✅ Loaded footnotes, processing TOC...`);
 
-    const tocContainer = document.getElementById(tocContainerId);
+    
     if (!tocContainer) {
       console.error(`❌ TOC container with ID "${tocContainerId}" not found.`);
       return;
@@ -97,6 +117,4 @@ async function generateTableOfContents(tocContainerId, toggleButtonId) {
     console.error("❌ Error generating Table of Contents:", error);
   }
 }
-
-window.generateTableOfContents = generateTableOfContents;
 
