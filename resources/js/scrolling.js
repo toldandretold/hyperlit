@@ -1,37 +1,47 @@
+import { book } from './reader-DOMContentLoaded.js';
+import { loadChunk } from './lazy-loading.js';
+import { injectFootnotesForChunk } from './footnotes.js';
+
+import {
+  getNodeChunksFromIndexedDB
+} from './cache-indexedDB.js';
+
+// Helper function to generate book-specific storage keys
+function getStorageKey(baseKey) {
+    return `${baseKey}_${book}`;
+}
 
 // ========= Scrolling =========
 function scrollElementIntoMainContent(targetElement, headerOffset = 0) {
-  const container = document.getElementById("main-content");
-  if (!container) {
-    console.error('Container with id "main-content" not found!');
-    targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-    return;
-  }
-  const elementRect = targetElement.getBoundingClientRect();
-  const containerRect = container.getBoundingClientRect();
-  const offset = elementRect.top - containerRect.top + container.scrollTop;
-  const targetScrollTop = offset - headerOffset;
-  console.log("Element rect:", elementRect);
-  console.log("Container rect:", containerRect);
-  console.log("Container current scrollTop:", container.scrollTop);
-  console.log("Calculated targetScrollTop:", targetScrollTop);
-  container.scrollTo({
-    top: targetScrollTop,
-    behavior: "smooth"
-  });
+    const container = document.getElementById("main-content");
+    if (!container) {
+        console.error('Container with id "main-content" not found!');
+        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+    }
+    const elementRect = targetElement.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const offset = elementRect.top - containerRect.top + container.scrollTop;
+    const targetScrollTop = offset - headerOffset;
+    console.log("Element rect:", elementRect);
+    console.log("Container rect:", containerRect);
+    console.log("Container current scrollTop:", container.scrollTop);
+    console.log("Calculated targetScrollTop:", targetScrollTop);
+    container.scrollTo({
+        top: targetScrollTop,
+        behavior: "smooth"
+    });
 }
-window.scrollElementIntoMainContent = scrollElementIntoMainContent;
+
 
 function lockScrollToTarget(targetElement, headerOffset = 50, attempts = 3) {
-  let count = 0;
-  const interval = setInterval(() => {
-    scrollElementIntoMainContent(targetElement, headerOffset);
-    count++;
-    if (count >= attempts) clearInterval(interval);
-  }, 300);
+    let count = 0;
+    const interval = setInterval(() => {
+        scrollElementIntoMainContent(targetElement, headerOffset);
+        count++;
+        if (count >= attempts) clearInterval(interval);
+    }, 300);
 }
-window.lockScrollToTarget = lockScrollToTarget;
-
 
 
 // 🔹 Save the topmost visible Markdown element (excluding sentinels)
@@ -40,8 +50,11 @@ function saveScrollPosition(elementId) {
 
     console.log(`📝 Saving topmost visible element: ${elementId}`);
 
-    sessionStorage.setItem(SCROLL_KEY, elementId);
-    localStorage.setItem(SCROLL_KEY, elementId);
+    // Use book-specific storage keys
+    const scrollKey = getStorageKey("lastVisibleElement");
+    
+    sessionStorage.setItem(scrollKey, elementId);
+    localStorage.setItem(scrollKey, elementId);
 
     const targetChunk = window.nodeChunks.find(chunk =>
         chunk.blocks.some(block => block.startLine.toString() === elementId)
@@ -57,30 +70,33 @@ function saveScrollPosition(elementId) {
     const nextChunk = window.nodeChunks.find(chunk => chunk.chunk_id === targetChunkId + 1);
 
     const savedChunks = {
-        timestamp: localStorage.getItem("markdownLastModified") || Date.now().toString(), // 🔥 Set timestamp
+        timestamp: localStorage.getItem(getStorageKey("markdownLastModified")) || Date.now().toString(),
         chunks: [
             { id: prevChunk?.chunk_id, html: document.querySelector(`[data-chunk-id="${prevChunk?.chunk_id}"]`)?.outerHTML || null },
             { id: targetChunkId, html: document.querySelector(`[data-chunk-id="${targetChunkId}"]`)?.outerHTML || null },
             { id: nextChunk?.chunk_id, html: document.querySelector(`[data-chunk-id="${nextChunk?.chunk_id}"]`)?.outerHTML || null }
-        ].filter(chunk => chunk.html) // Remove nulls
+        ].filter(chunk => chunk.html)
     };
 
-    localStorage.setItem("savedChunks", JSON.stringify(savedChunks));
+    const savedChunksKey = getStorageKey("savedChunks");
+    localStorage.setItem(savedChunksKey, JSON.stringify(savedChunks));
     console.log("💾 Saved chunks:", savedChunks);
 }
 
-window.saveScrollPosition = saveScrollPosition;
 
-async function restoreScrollPosition() {
+export async function restoreScrollPosition() {
     console.log("📌 Attempting to restore scroll position...");
 
     const hash = window.location.hash.substring(1);
     let targetId = hash;
 
+    // Use book-specific storage keys
+    const scrollKey = getStorageKey("lastVisibleElement");
+
     // Only try to get stored positions if storage is available
     try {
         if (sessionStorage) {
-            const sessionSavedId = sessionStorage.getItem("lastVisibleElement");
+            const sessionSavedId = sessionStorage.getItem(scrollKey);
             if (!targetId && sessionSavedId) targetId = sessionSavedId;
         }
     } catch (e) {
@@ -89,7 +105,7 @@ async function restoreScrollPosition() {
 
     try {
         if (localStorage) {
-            const localSavedId = localStorage.getItem("lastVisibleElement");
+            const localSavedId = localStorage.getItem(scrollKey);
             if (!targetId && localSavedId) targetId = localSavedId;
         }
     } catch (e) {
@@ -135,12 +151,6 @@ async function restoreScrollPosition() {
     navigateToInternalId(targetId);
 }
 
-window.restoreScrollPosition = restoreScrollPosition;
-
-
-
-
-
 
 /**
  * Restores scroll position BEFORE lazy loading so that the correct chunk is loaded first.
@@ -148,9 +158,6 @@ window.restoreScrollPosition = restoreScrollPosition;
 // scrolling.js
 export const SCROLL_KEY = "lastVisibleElement";
 
-export function isValidContentElement(element) {
-    // your validation code
-}
 
 // Create and export the observer
 export const observer = new IntersectionObserver(
@@ -167,7 +174,7 @@ export const observer = new IntersectionObserver(
 );
 
 // 🕵️‍♂️ Reattach observer to track visible elements
-function reattachScrollObserver() {
+export function reattachScrollObserver() {
     console.log("🔄 Reattaching scroll observer...");
     document.querySelectorAll("#main-content [id]").forEach(el => {
         if (isValidContentElement(el)) {
@@ -177,10 +184,9 @@ function reattachScrollObserver() {
     });
 }
 
-window.reattachScrollObserver = reattachScrollObserver;
 
 // 🛑 Ensure we only track valid content nodes
-function isValidContentElement(el) {
+export function isValidContentElement(el) {
     // Exclude sentinels & non-content elements
     if (!el.id || el.id.includes("sentinel") || el.id.startsWith("toc-") || el.id === "ref-overlay") {
         console.log(`🚫 Skipping non-tracked element: ${el.id}`);
@@ -189,7 +195,6 @@ function isValidContentElement(el) {
     return ["P", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "IMG"].includes(el.tagName);
 }
 
-window.isValidContentElement = isValidContentElement;
 
 // 🛑 Clear scroll position on full refresh (optional)
 window.addEventListener("beforeunload", () => {
@@ -205,7 +210,7 @@ window.addEventListener("beforeunload", () => {
 // Handle navigation to specific ID or position
     let navigationTimeout;
 
-    function handleNavigation() {
+    export function handleNavigation() {
         clearTimeout(navigationTimeout);
         navigationTimeout = setTimeout(() => {
             const targetId = getTargetIdFromUrl();
@@ -216,21 +221,20 @@ window.addEventListener("beforeunload", () => {
         }, 300);
     }
 
-    window.handleNavigation = handleNavigation;
 
     // Utility: Extract target `id` from the URL
     function getTargetIdFromUrl() {
         return window.location.hash ? window.location.hash.substring(1) : null;
     }
 
-    window.getTargetIdFromUrl = getTargetIdFromUrl;
+    
 
       // Utility: Check if an ID is numerical
     function isNumericId(id) {
         return /^\d+$/.test(id);
     }
 
-    window.isNumericId = isNumericId;
+    
 
     // Utility: Find a line for a numerical ID
     function findLineForNumericId(lineNumber, markdown) {
@@ -238,8 +242,6 @@ window.addEventListener("beforeunload", () => {
         return Math.max(0, Math.min(lineNumber, totalLines - 1));
     }
 
-    
-    window.findLineForNumericId = findLineForNumericId;
 
 
     function findBlockForLine(lineNumber, allBlocks) {
@@ -255,7 +257,6 @@ window.addEventListener("beforeunload", () => {
       return -1; // not found
     }
 
-    window.findBlockForLine = findBlockForLine;
 
 
 function waitForElementAndScroll(targetId, maxAttempts = 10, attempt = 0) {
@@ -275,11 +276,6 @@ function waitForElementAndScroll(targetId, maxAttempts = 10, attempt = 0) {
 
     setTimeout(() => waitForElementAndScroll(targetId, maxAttempts, attempt + 1), 200);
 }
-
-
-window.waitForElementAndScroll = waitForElementAndScroll;
-
-
 
 
 // Utility: Find the line number of a unique `id` in the Markdown
@@ -302,11 +298,9 @@ window.waitForElementAndScroll = waitForElementAndScroll;
     }
 
 
-window.findLineForCustomId = findLineForCustomId;
 
 
-
-function navigateToInternalId(targetId) {
+export function navigateToInternalId(targetId) {
     if (window.isNavigatingToInternalId) {
         console.log("Navigation already in progress, skipping duplicate call.");
         return;
@@ -410,8 +404,6 @@ function navigateToInternalId(targetId) {
 }
 
 
-
-window.navigateToInternalId = navigateToInternalId;
 
 
 

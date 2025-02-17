@@ -45,6 +45,15 @@ export default defineConfig({
             host: getNetworkIp(), // Dynamically set the correct IP
             protocol: 'ws',
         },
+        // Add proxy configuration here
+        proxy: {
+            '/resources/markdown': {
+                target: process.env.VITE_APP_URL || 'http://localhost:8000',
+                changeOrigin: true,
+                secure: false,
+                rewrite: (path) => path
+            }
+        }
     },
 });
 

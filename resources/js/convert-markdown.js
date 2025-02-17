@@ -1,4 +1,4 @@
-function parseMarkdownIntoChunks(markdown) {
+export function parseMarkdownIntoChunks(markdown) {
     const lines = markdown.split("\n");
     const chunks = [];
     let currentChunk = [];
@@ -26,7 +26,8 @@ function parseMarkdownIntoChunks(markdown) {
               type: "image", 
               startLine: adjustedLineNumber, 
               altText: match ? match[1] : "", 
-              imageUrl: match ? match[2] : "" 
+              imageUrl: match ? match[2] : "", 
+              content: "" // Add content property for image blocks
             };
         }
         else if (trimmed) {
@@ -49,15 +50,10 @@ function parseMarkdownIntoChunks(markdown) {
     }
     return chunks;
 }
-window.parseMarkdownIntoChunks = parseMarkdownIntoChunks;
 
-
-
-
-function renderBlockToHtml(block) {
-
+export function renderBlockToHtml(block) {
     let html = "";
-    if (!block || !block.type || typeof block.content === "undefined") {
+    if (!block || !block.type) {
         console.error("❌ Invalid block detected:", block);
         return "";
     }
@@ -73,20 +69,30 @@ function renderBlockToHtml(block) {
         html += `<blockquote data-block-id="${block.startLine}"><p id="${block.startLine}">${parseInlineMarkdown(block.content)}</p></blockquote>\n`;
     }
     else if (block.type === "image") {
-        html += `<img id="${block.startLine}" data-block-id="${block.startLine}" src="${block.imageUrl}" alt="${block.altText}" />\n`;
+        // Handle image blocks with proper fallbacks
+        const imageUrl = block.imageUrl || '/path/to/default-image.jpg';  // Fallback image path
+        const altText = block.altText || 'Image';  // Fallback alt text
+        
+        html += `<img 
+            id="${block.startLine}" 
+            data-block-id="${block.startLine}" 
+            src="${imageUrl}" 
+            alt="${altText}"
+        >\n`;
     }
     else if (block.type === "paragraph") {
-        // ✅ Ensure each paragraph gets an `id` based on its line number
         html += `<p id="${block.startLine}" data-block-id="${block.startLine}">${parseInlineMarkdown(block.content)}</p>\n`;
     }
 
     return blockWrapper + html + `</div>\n`;  // Close block wrapper
 }
 
-window.renderBlockToHtml = renderBlockToHtml;
+
+
+
 
 // Function to parse inline Markdown for italics, bold, and inline code
-function parseInlineMarkdown(text) {
+export function parseInlineMarkdown(text) {
     text = text.replace(/\\([`*_{}\[\]()#+.!-])/g, "$1"); // Remove escape characters before processing
     text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>"); // Convert **bold** to <strong>
     text = text.replace(/\*([^*]+)\*/g, "<em>$1</em>"); // Convert *italic* to <em>
@@ -98,9 +104,9 @@ function parseInlineMarkdown(text) {
     return text;
 }
 
-window.parseInlineMarkdown = parseInlineMarkdown;
 
-    function convertMarkdownToHtml(markdown) {
+
+export function convertMarkdownToHtml(markdown) {
         const lines = markdown.split("\n");
         let htmlOutput = "";
 
@@ -129,5 +135,4 @@ window.parseInlineMarkdown = parseInlineMarkdown;
         return htmlOutput;
     }
 
-window.convertMarkdownToHtml = convertMarkdownToHtml;
 
