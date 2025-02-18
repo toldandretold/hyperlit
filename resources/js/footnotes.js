@@ -20,6 +20,10 @@ import {
   convertMarkdownToHtml
 } from './convert-markdown.js';
 
+import {
+  attachMarkListeners
+} from './hyper-lights-cites.js';
+
 
 // footnotes buttons
 export const refContainer = document.getElementById("ref-container");
@@ -185,6 +189,8 @@ export async function injectFootnotesForChunk(chunkId, book, getFreshUrl) {
         });
       }
     });
+
+    attachMarkListeners();
 
     // ✅ Re-enable lazy loading after footnotes update
     setTimeout(() => {

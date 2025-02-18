@@ -33,6 +33,13 @@
 
 ---
 
+> "NIEO"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739838329539)
+
+
+
+---
+
 > "overview"
 > [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739318767231)
 
@@ -103,6 +110,13 @@
 
 > "Karin Lissakers raises two important points. Firstly, she notes that a ‘divide-and-rule tactic’ on behalf of creditors was ‘helped by timing.’[^474] That is, because the debtors did not ‘experience their most acute payments problems simultaneously’, banks ‘could settle with one large de"
 > [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1738908900842)
+
+
+
+---
+
+> "mp"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739844290250)
 
 
 

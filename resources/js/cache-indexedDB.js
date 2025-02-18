@@ -3,6 +3,14 @@ import {
   mainContentDiv
 } from './reader-DOMContentLoaded.js';
 
+import {
+    initializeLazyLoadingFixed
+} from './lazy-loading.js';
+
+import {
+    parseMarkdownIntoChunks
+} from './convert-markdown.js';
+
 
 // Helper function to get the current page URL as a key
 export function getPageKey() {
@@ -15,21 +23,6 @@ function getLocalStorageKey(baseKey) {
     return `${baseKey}_${getPageKey()}`;
 }
 
-
-
-export function reloadMarkdownFromCache() {
-    console.log("✅ Reloading Markdown from cache...");
-    let cachedMarkdown = localStorage.getItem(getLocalStorageKey("cachedMarkdown"));
-    if (cachedMarkdown) {
-        console.log("✅ Using Cached Markdown for rendering.");
-        window.markdownContent = cachedMarkdown;
-        window.nodeChunks = parseMarkdownIntoChunks(cachedMarkdown);
-        initializePage();
-    } else {
-        console.warn("⚠️ No cached Markdown found, fetching...");
-        loadMarkdownContent();
-    }
-}
 
 
 

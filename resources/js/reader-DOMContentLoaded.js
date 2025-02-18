@@ -33,10 +33,13 @@ import {
 
 import {
     loadMarkdownFile
-} from './lazy-loading.js'
+} from './lazy-loading.js';
 
 import {
-    attachMarkListeners
+    attachMarkListeners,
+    handleMarkClick,
+    handleMarkHover,
+    handleMarkHoverOut
 } from './hyper-lights-cites.js';
 
 import {
@@ -78,7 +81,6 @@ if (!window.isInitialized) {
         // gets scroll position from session storage 
         restoreScrollPosition();
 
-        // add listeners to turn <mark> tags into clickable buttons
         attachMarkListeners();
 
         // Lazy-Loading Scroll Observer:

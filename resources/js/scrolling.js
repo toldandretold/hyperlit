@@ -1,10 +1,15 @@
-import { book } from './reader-DOMContentLoaded.js';
+import { mainContentDiv,
+book } from './reader-DOMContentLoaded.js';
 import { loadChunk } from './lazy-loading.js';
 import { injectFootnotesForChunk } from './footnotes.js';
 
 import {
   getNodeChunksFromIndexedDB
 } from './cache-indexedDB.js';
+
+import {
+    repositionFixedSentinelsForBlock
+} from './lazy-loading';
 
 // Helper function to generate book-specific storage keys
 function getStorageKey(baseKey) {
