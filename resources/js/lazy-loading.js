@@ -58,6 +58,13 @@ import {
 } from './cache-indexedDB.js';
 
 import {
+    attachMarkListeners,
+    handleMarkClick,
+    handleMarkHover,
+    handleMarkHoverOut
+} from './hyper-lights-cites.js';
+
+import {
   parseMarkdownIntoChunks,
 } from './convert-markdown.js';
 
@@ -218,7 +225,7 @@ export async function loadMarkdownFile() {
 // Fixed Sentinel Setup for a Contiguous Block
 // ============================================================
 
-function initializeLazyLoadingFixed() {
+export function initializeLazyLoadingFixed() {
     // Initial checks
     if (!window.nodeChunks || window.nodeChunks.length === 0) {
         console.error("🚨 nodeChunks is empty! Aborting lazy loading initialization.");
@@ -227,6 +234,7 @@ function initializeLazyLoadingFixed() {
 
     if (window.isRestoringFromCache) {
         console.log("🚀 Skipping lazy loading because cached chunks were restored.");
+        attachMarkListeners();
         return;
     }
 
@@ -252,6 +260,8 @@ function initializeLazyLoadingFixed() {
     mainContentDiv.prepend(topSentinel);
     mainContentDiv.appendChild(bottomSentinel);
     console.log("✨ New sentinels created and inserted");
+
+    attachMarkListeners();
 
     // Define observer options with larger rootMargin for easier triggering
     const options = {
@@ -300,6 +310,8 @@ function initializeLazyLoadingFixed() {
     // Start observing
     observer.observe(topSentinel);
     observer.observe(bottomSentinel);
+
+    attachMarkListeners();
 
     // Store references globally
     window.fixedSentinelObserver = observer;
@@ -488,10 +500,9 @@ export function loadChunk(chunkId, direction = "down") {
     // Mark chunk as loaded
     window.currentlyLoadedChunks.add(chunkId);
 
-    if (typeof attachMarkListeners === 'function') {
-        console.log(`🎯 Attaching mark listeners to chunk ${chunkId}`);
-        attachMarkListeners();
-    }
+    
+    attachMarkListeners();
+    
     
     // If this is the first chunk (chunkId === 0), make sure sentinels are properly positioned
     if (chunkId === 0) {
@@ -528,14 +539,13 @@ function removeChunksOutside(allowedIds) {
   });
 }
 
-window.removeChunksOutside = removeChunksOutside;
 
 
 /**
  * Repositions the fixed top and bottom sentinels so that they wrap
  * exactly the new contiguous block of chunks.
  */
-function repositionFixedSentinelsForBlock() {
+export function repositionFixedSentinelsForBlock() {
     const mainContentDiv = document.getElementById("main-content");
     const allChunks = [...mainContentDiv.querySelectorAll("[data-chunk-id]")];
     if (allChunks.length === 0) {
@@ -586,7 +596,6 @@ function repositionFixedSentinelsForBlock() {
     );
 }
 
-window.repositionFixedSentinelsForBlock = repositionFixedSentinelsForBlock;
 
 
 function loadContentAroundLine(lineNumber) {
@@ -631,6 +640,8 @@ function loadContentAroundLine(lineNumber) {
     // After loading chunks, reposition sentinels and scroll
     Promise.all(loadPromises).then(() => {
         repositionFixedSentinelsForBlock();
+
+        attachMarkListeners();
         
         setTimeout(() => {
             const targetElement = document.getElementById(lineNumber.toString());
@@ -645,7 +656,7 @@ function loadContentAroundLine(lineNumber) {
 }
 
 
-window.loadContentAroundLine = loadContentAroundLine;
+
 
 
     function loadContentAroundId(targetId) {
@@ -674,7 +685,7 @@ window.loadContentAroundLine = loadContentAroundLine;
     }, 200); // Delay ensures content loads first
 }
 
-window.loadContentAroundId = loadContentAroundId;
+
 
 
 

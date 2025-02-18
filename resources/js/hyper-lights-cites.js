@@ -1,35 +1,61 @@
+import {
+    mainContentDiv,
+    book
+} from './reader-DOMContentLoaded.js';
+
+
 // ========= Mark Listeners =========
 export function attachMarkListeners() {
     const markTags = document.querySelectorAll("mark[id]");
-    markTags.forEach(function (mark) {
+    console.log(`Attempting to attach listeners to ${markTags.length} mark elements`);
+    
+    markTags.forEach(function(mark) {
+        // Remove existing listeners
         mark.removeEventListener("click", handleMarkClick);
         mark.removeEventListener("mouseover", handleMarkHover);
         mark.removeEventListener("mouseout", handleMarkHoverOut);
+        
+        // Add new listeners
         mark.addEventListener("click", handleMarkClick);
         mark.addEventListener("mouseover", handleMarkHover);
         mark.addEventListener("mouseout", handleMarkHoverOut);
+        
         mark.dataset.listenerAttached = true;
+        console.log(`Listener attached to mark with ID: ${mark.id}`);
     });
-    console.log(`Mark listeners refreshed for ${markTags.length} <mark> tags.`);
-}   
+    
+    console.log(`Mark listeners refreshed for ${markTags.length} <mark> tags`);
+}
 
-function handleMarkClick(event) {
+export function handleMarkClick(event) {
     event.preventDefault();
     const highlightId = event.target.id;
     console.log(`Mark clicked: ${highlightId}`);
-    window.location.href = `/${window.book}/hyperlights#${highlightId}`;
+    
+    // Ensure book is defined
+    if (!book) {
+        console.error("❌ Book variable is not defined.");
+        return;
+    }
+    
+    // Use the book variable in the URL
+    const url = `/${book}/hyperlights#${highlightId}`;
+    console.log(`Redirecting to: ${url}`);
+    
+    window.location.href = url;
 }
-window.handleMarkClick = handleMarkClick;
 
-function handleMarkHover(event) {
+export function handleMarkHover(event) {
+    const highlightId = event.target.id;
     event.target.style.textDecoration = "underline";
+    console.log(`Mark over: ${highlightId}`);
 }
-window.handleMarkHover = handleMarkHover;
 
-function handleMarkHoverOut(event) {
+
+export function handleMarkHoverOut(event) {
     event.target.style.textDecoration = "none";
 }
-window.handleMarkHoverOut = handleMarkHoverOut;
+
 
 
 rangy.init();
@@ -146,12 +172,7 @@ addTouchAndClickListener(document.getElementById('copy-hyperlight'), function ()
         return;
     }
 
-    let book = document.getElementById('main-content')?.getAttribute('data-book');
-    if (!book) {
-        console.error('❌ Book name not found!');
-        return;
-    }
-
+    
     // Generate unique highlight ID
     let userName = document.getElementById('user-name')?.textContent || 'unknown-user';
     let timestamp = Date.now();
@@ -532,19 +553,6 @@ document.addEventListener('copy', (event) => {
     wrapSelectedTextInDOM(hyperciteId, citationIdA);
     saveHyperciteData(citationIdA, hyperciteId, hypercitedText, hrefA);
 });
-
-
-
-
-
-    
-
-    
-
-
-
-
-
 
 
 
