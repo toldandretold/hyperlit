@@ -103,8 +103,8 @@
 
 ---
 
-> "Adelaide"
-> [↩](http://127.0.0.1:8000/nicholls2019moment#user-name_1738760133294)
+> "New International Economic Order"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739255206024)
 
 
 
@@ -112,13 +112,6 @@
 
 > "lt of the inadequate power of its underlying strategy, has not been disproven, moves to reassess this assumption were commenced by the Marxist historian Vijay Prashad. Before Pr"
 > [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739148302394)
-
-
-
----
-
-> "New International Economic Order"
-> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739255206024)
 
 
 
@@ -213,13 +206,6 @@
 
 ---
 
-> "Solemn Declaration"
-> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1740353668773)
-
-
-
----
-
 > "Venezuela"
 > [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1740354118859)
 
@@ -234,6 +220,13 @@
 
 ---
 
+> "Solemn Declaration"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1740353668773)
+
+
+
+---
+
 > "mp"
 > [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739844290250)
 
@@ -241,15 +234,15 @@
 
 ---
 
-> "plan"
-> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1740311177472)
+> "aftermath of the NIEO Project"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739255315140)
 
 
 
 ---
 
-> "aftermath of the NIEO Project"
-> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739255315140)
+> "plan"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1740311177472)
 
 
 

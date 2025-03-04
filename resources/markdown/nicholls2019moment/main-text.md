@@ -6,7 +6,7 @@ Samuel Thomas Nicholls test "history"<a href="http://127.0.0.1:8000/nicholls201
 
 Department of Politics and International Relations m
  
-University of <mark class='user-name_1738760133294' id='user-name_1738760133294' data-listener-attached='true'>Adelaide</mark>
+University of Adelaide
  
 August 2019 
 

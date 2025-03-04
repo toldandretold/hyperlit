@@ -356,7 +356,7 @@ caption {
 
 
 /* Reference Container */
-#ref-container {
+#ref-container, #highlight-container {
     transform: translateX(100%); /* Start off-screen to the right */
     transition: transform 0.3s ease-in-out; /* Smooth slide-in effect */
     position: fixed;
@@ -371,7 +371,7 @@ caption {
     padding-right: 1em;
 }
 
-#ref-container.open {
+#ref-container.open, #highlight-container.open  {
     transform: translateX(0); /* Slide in */
 }
 
