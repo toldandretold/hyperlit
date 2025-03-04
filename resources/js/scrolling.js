@@ -16,6 +16,10 @@ function getStorageKey(baseKey) {
     return `${baseKey}_${book}`;
 }
 
+import {
+    parseMarkdownIntoChunks
+} from './convert-markdown.js';
+
 // ========= Scrolling =========
 function scrollElementIntoMainContent(targetElement, headerOffset = 0) {
     const container = document.getElementById("main-content");

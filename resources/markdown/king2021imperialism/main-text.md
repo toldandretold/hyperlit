@@ -24,7 +24,7 @@ Monopoly finance capital does not negate Marx’s value theory and the transform
 
 "Sisters and Brothers, that for the sake of all that, we Asians and Africans must be united"<a href="http://localhost:8000/prashad2007darker#hypercite_udl2zi7" id="hypercite_udl2zi7_b">[:]</a>
 
-As Marx showed, only human labour creates value and profit for capital, not machines. Therefore, these advances in the production process lead to a fall in the overall profitability of capital. Marx argued this was the most important law of political economy. Falling profitability in the late nineteenth-century depression in Europe and America forced capitalist companies to expand across the <mark class="user-name_1734911564201" id="user-name_1734911564201" data-listener-attached="true">globe</mark> in the search for more cheap labour and higher profits. Marx recognised this as a key counteracting factor to the tendency for profitability to fall. Imperialism is the result.
+As Marx showed, only human labour creates value and profit for capital, not machines. Therefore, these advances in the production process lead to a fall in the overall profitability of capital. Marx argued this was the most important law of political economy. Falling profitability in the late nineteenth-century depression in Europe and America forced capitalist companies to expand across the globe in the search for more cheap labour and higher profits. Marx recognised this as a key counteracting factor to the tendency for profitability to fall. Imperialism is the result.
 
 "Almost three decades after the Brussels conference, Sukarno, newly installed as the president of Indonesia,"<a href="http://localhost:8000/prashad2007darker#hypercite_tulm6lq" id="hypercite_tulm6lq_b">[:]</a>
 

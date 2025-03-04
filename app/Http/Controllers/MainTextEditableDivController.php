@@ -378,6 +378,45 @@ private function preserveElementWithAttributes($node)
     return "<{$tagName}{$attributes}>" . $node->textContent . "</{$tagName}>";
 }
 
+    public function saveNodeChunks(Request $request)
+    {
+        \Log::info("Attempting to save nodeChunks for book: {$request->input('book')}");
+        
+        try {
+            $book = $request->input('book');
+            $chunks = $request->input('chunks');
+            
+            // Validate input
+            if (empty($book) || empty($chunks)) {
+                \Log::error("Invalid or missing data in nodeChunks save request");
+                return response()->json(['success' => false, 'message' => 'Invalid or missing data'], 400);
+            }
 
+            // Ensure the directory exists
+            $directory = resource_path("markdown/{$book}");
+            if (!File::exists($directory)) {
+                File::makeDirectory($directory, 0755, true);
+                \Log::info("Created directory: {$directory}");
+            }
+
+            // Define the file path
+            $filePath = resource_path("markdown/{$book}/nodeChunks.json");
+
+            // Save the chunks to the file
+            $success = file_put_contents($filePath, json_encode($chunks, JSON_PRETTY_PRINT));
+
+            if ($success === false) {
+                \Log::error("Failed to save nodeChunks to file: {$filePath}");
+                return response()->json(['success' => false, 'message' => 'Failed to save nodeChunks'], 500);
+            }
+
+            \Log::info("Successfully saved nodeChunks to: {$filePath}");
+            return response()->json(['success' => true, 'message' => 'nodeChunks saved successfully']);
+
+        } catch (\Exception $e) {
+            \Log::error("Error saving nodeChunks: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error saving nodeChunks'], 500);
+        }
+    }
 
 }

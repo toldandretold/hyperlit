@@ -1,12 +1,25 @@
+/* LOGIC of highlighting: 
+
+1. on highlighting a range of text, a unique highlight_id is generated. it is added as a 
+id= and class= on the first mark tag and only as a class= on any others. this ensures mark tags
+are added to multiple html nodes, without id being duplicated.
+
+2. attachMarkListeners uses this class=highlight_id data to create links to
+    '/{book}/hyperlights#highlight_id'. */
+
+
+
 import {
     mainContentDiv,
     book
 } from './reader-DOMContentLoaded.js';
 
+let highlightId; 
 
 // ========= Mark Listeners =========
 export function attachMarkListeners() {
-    const markTags = document.querySelectorAll("mark[id]");
+    // Get all mark elements (both with ID and with just class)
+    const markTags = document.querySelectorAll("mark");
     console.log(`Attempting to attach listeners to ${markTags.length} mark elements`);
     
     markTags.forEach(function(mark) {
@@ -21,20 +34,40 @@ export function attachMarkListeners() {
         mark.addEventListener("mouseout", handleMarkHoverOut);
         
         mark.dataset.listenerAttached = true;
-        console.log(`Listener attached to mark with ID: ${mark.id}`);
+        console.log(`Listener attached to mark with ID or class: ${mark.id || '[class only]'}`);
     });
     
     console.log(`Mark listeners refreshed for ${markTags.length} <mark> tags`);
 }
 
+
 export function handleMarkClick(event) {
     event.preventDefault();
-    const highlightId = event.target.id;
+    
+    // First try to get the ID directly from the clicked mark
+    let highlightId = event.target.id;
+    
+    // If no ID (it's not the first mark), get ID from the class
+    if (!highlightId) {
+        // Get the class that starts with "unknown-user_" or whatever your pattern is
+        const highlightClass = Array.from(event.target.classList).find(cls => 
+            cls.startsWith("unknown-user_") || cls.includes("_"));
+        
+        if (highlightClass) {
+            highlightId = highlightClass;
+        }
+    }
+    
     console.log(`Mark clicked: ${highlightId}`);
     
-    // Ensure book is defined
+    // Ensure book and highlightId are defined
     if (!book) {
         console.error("❌ Book variable is not defined.");
+        return;
+    }
+    
+    if (!highlightId) {
+        console.error("❌ Could not determine highlight ID.");
         return;
     }
     
@@ -44,6 +77,7 @@ export function handleMarkClick(event) {
     
     window.location.href = url;
 }
+
 
 export function handleMarkHover(event) {
     const highlightId = event.target.id;
@@ -153,7 +187,26 @@ rangy.init();
     }
 
     // Function to handle creating a highlight
-// Function to handle creating a highlight
+// Functions to handle creating a highlight
+
+
+
+function generateHighlightID() {
+    let userName = document.getElementById('user-name')?.textContent || 'unknown-user';
+    let timestamp = Date.now();
+    return `${userName}_${timestamp}`;
+}
+
+function modifyNewMarks(highlightId) {
+    const newMarks = document.querySelectorAll('mark.highlight');
+    newMarks.forEach((mark, index) => {
+        if (index === 0) mark.setAttribute('id', highlightId);
+        mark.classList.add(highlightId);
+        mark.classList.remove('highlight');
+    });
+    console.log("✅ New highlight mark created with ID:", highlightId);
+}
+
 addTouchAndClickListener(document.getElementById('copy-hyperlight'), function () {
     let selection = window.getSelection();
     let range;
@@ -172,11 +225,8 @@ addTouchAndClickListener(document.getElementById('copy-hyperlight'), function ()
         return;
     }
 
-    
     // Generate unique highlight ID
-    let userName = document.getElementById('user-name')?.textContent || 'unknown-user';
-    let timestamp = Date.now();
-    let highlightId = `${userName}_${timestamp}`;
+    const highlightId = generateHighlightID();
 
     // Ensure highlighter function exists before calling it
     if (typeof highlighter !== "undefined" && highlighter.highlightSelection) {
@@ -185,23 +235,26 @@ addTouchAndClickListener(document.getElementById('copy-hyperlight'), function ()
         console.warn("⚠️ Highlighter function is not defined.");
     }
 
-    // Assign ID and class to the new marks
-    const newMarks = document.querySelectorAll('mark.highlight');
-    newMarks.forEach((mark, index) => {
-        if (index === 0) mark.setAttribute('id', highlightId);
-        mark.classList.add(highlightId);
-        mark.classList.remove('highlight');
-    });
-
-    console.log("✅ New highlight mark created with ID:", highlightId);
+    // Modify the marks immediately after highlighting
+    modifyNewMarks(highlightId);
     attachMarkListeners();
 
+
     // Get closest valid block elements
-    let startContainer = range.startContainer?.parentElement?.closest('[id]');
-    let endContainer = range.endContainer?.parentElement?.closest('[id]');
+    let startContainer = range.startContainer.nodeType === 3 
+    ? range.startContainer.parentElement.closest('p, blockquote, table, [id]') 
+    : range.startContainer.closest('p, blockquote, table, [id]');
+
+let endContainer = range.endContainer.nodeType === 3 
+    ? range.endContainer.parentElement.closest('p, blockquote, table, [id]') 
+    : range.endContainer.closest('p, blockquote, table, [id]');
+
+    // 🔍 Debugging: Check if startContainer and endContainer are valid
+    console.log("📌 Start Container:", startContainer);
+    console.log("📌 End Container:", endContainer);
 
     if (!startContainer || !endContainer) {
-        console.error("❌ Could not determine start or end block.");
+        console.error('❌ Could not determine start or end block.');
         return;
     }
 
@@ -210,44 +263,97 @@ addTouchAndClickListener(document.getElementById('copy-hyperlight'), function ()
 
     // Collect all blocks in range
     let blocks = [];
-    let current = startContainer;
-    while (current && parseInt(current.id, 10) <= endId) {
-        blocks.push({ id: current.id, html: current.innerHTML });
-        current = current.nextElementSibling;
+    let allBlocks = [...document.querySelectorAll('[id]')]; // Get all elements with an ID
+
+    // Find the index of start and end containers
+    let startIndex = allBlocks.findIndex(el => el.id === startContainer.id);
+    let endIndex = allBlocks.findIndex(el => el.id === endContainer.id);
+
+    if (startIndex === -1 || endIndex === -1) {
+        console.error("❌ Could not find start or end container in document.");
+        return;
     }
+
+    // Slice the array to get only the selected range
+    let selectedBlocks = allBlocks.slice(startIndex, endIndex + 1);
+
+    // Add the blocks to be sent
+    selectedBlocks.forEach(block => {
+        blocks.push({
+            id: block.id,
+            html: block.innerHTML  // Get latest content
+        });
+    });
+
+    // Debugging
+    console.log("📌 Blocks collected:", blocks);
+
+
+
+    // Apply highlights to each block
+    blocks.forEach(block => {
+        let element = document.getElementById(block.id);
+        if (element) {
+            highlighter.highlightSelection("highlight", element);
+        } else {
+            console.warn(`⚠️ No element found for block ID: ${block.id}`);
+        }
+    });
+
+
+    // Prevent sending empty blocks
+    if (!blocks.length) {
+        console.error("❌ No valid blocks found. Aborting request.");
+        return;
+    }
+
+
+    // Prepare the data
+    const requestBody = JSON.stringify({
+        book: book,
+        blocks: blocks,
+        text: selectedText,
+        start_xpath: getXPath(range.startContainer),
+        end_xpath: getXPath(range.endContainer),
+        xpath_full: getFullXPath(range.startContainer),
+        start_position: range.startOffset,
+        end_position: range.startOffset + selectedText.length,
+        highlight_id: highlightId,  // Now we have the highlightId to use here
+    });
+
+    // Log the data BEFORE sending
+    console.log('➡️ Sending to backend:', requestBody);
 
     // Send blocks to the backend
     fetch('/highlight/custom-markdown', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            'X-CSRF-TOKEN': document
+                .querySelector('meta[name="csrf-token"]')
+                .getAttribute('content'),
         },
-        body: JSON.stringify({
-            book: book,
-            blocks: blocks,
-            text: selectedText,
-            start_xpath: getXPath(range.startContainer),
-            end_xpath: getXPath(range.endContainer),
-            xpath_full: getFullXPath(range.startContainer),
-            start_position: range.startOffset,
-            end_position: range.startOffset + selectedText.length,
-            highlight_id: highlightId
+        body: requestBody,
+    })
+        .then((response) => {
+            console.log('Raw response:', response);
+            return response.json();
         })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log('✅ Highlight saved and Markdown updated.');
-            attachMarkListeners();
-        } else {
-            console.error('❌ Error from server:', data.message);
-        }
-    })
-    .catch(error => {
-        console.error('❌ Error updating highlight:', error);
-    });
+        .then((data) => {
+            if (data.success) {
+                console.log('✅ Highlight saved and Markdown updated.');
+                attachMarkListeners();
+            } else {
+                console.error('❌ Error from server:', data.message);
+            }
+        })
+        .catch((error) => {
+            console.error('❌ Error updating highlight:', error);
+            console.error('❌ Error object:', error);
+        });
 });
+
+
 
 
 

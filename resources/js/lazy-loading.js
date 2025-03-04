@@ -30,8 +30,6 @@ When Navigating to internal links:
 - so now lazy loading works up and down... 
 
 */
-  
-
 // ============================================================
 // Adjusting the Page Initialization
 // ============================================================
@@ -76,6 +74,205 @@ import {
     renderBlockToHtml
 } from './convert-markdown.js';
 
+// Utility functions for timestamp handling
+async function fetchLatestUpdateInfo() {
+  const response = await fetch(`/markdown/${book}/latest_update.json?v=${Date.now()}`);
+  if (!response.ok) {
+    console.warn("⚠️ Could not fetch latest update info. Falling back to main-text.md...");
+    return null;
+  }
+  return response.json();
+}
+
+async function handleTimestampComparison(serverTimestamp, cachedServerTimestamp) {
+  const oldTimestamp = Number(cachedServerTimestamp);
+  const newTimestamp = Number(serverTimestamp);
+  console.log(`🔍 COMPARING TIMESTAMPS -> cached: ${oldTimestamp}, server: ${newTimestamp}`);
+  return oldTimestamp !== newTimestamp;
+}
+
+// Footnotes handling
+async function loadFootnotes() {
+  let footnotesData = await getFootnotesFromIndexedDB();
+  if (footnotesData) {
+    console.log("✅ Footnotes loaded from IndexedDB.");
+    return footnotesData;
+  }
+
+  console.log("⚠️ No footnotes found in IndexedDB. Fetching from server...");
+  try {
+    let footnotesResponse = await fetch(window.jsonPath);
+    if (footnotesResponse.ok) {
+      footnotesData = await footnotesResponse.json();
+      await saveFootnotesToIndexedDB(footnotesData);
+      console.log("✅ Footnotes successfully saved to IndexedDB.");
+      return footnotesData;
+    }
+    console.warn("⚠️ Failed to fetch footnotes JSON, using fallback.");
+  } catch (error) {
+    console.error("❌ Error fetching footnotes JSON:", error);
+  }
+  return null;
+}
+
+// Node chunks handling
+async function fetchNodeChunksJson() {
+  try {
+    console.log("🔍 Checking if /markdown/" + book + "/nodeChunks.json is available...");
+    let chunksResponse = await fetch(`/markdown/${book}/nodeChunks.json?v=${Date.now()}`);
+    if (chunksResponse.ok) {
+      let nodeChunksData = await chunksResponse.json();
+      await saveNodeChunksToIndexedDB(nodeChunksData);
+      return nodeChunksData;
+    }
+    console.warn("⚠️ nodeChunks.json not found or not accessible.");
+    return null;
+  } catch (e) {
+    console.error("❌ Error fetching nodeChunks.json:", e);
+    return null;
+  }
+}
+
+async function parseMainTextMarkdown() {
+  console.log("🚦 Fallback: Fetching and parsing main-text.md locally...");
+  const response = await fetch(`/markdown/${book}/main-text.md?v=${Date.now()}`);
+  const markdown = await response.text();
+  const nodeChunks = parseMarkdownIntoChunks(markdown);
+  await saveNodeChunksToIndexedDB(nodeChunks);
+  return nodeChunks;
+}
+
+async function handleFullReload(serverTimestamp) {
+  localStorage.setItem("markdownLastModified", serverTimestamp);
+  localStorage.removeItem("savedChunks");
+  await clearIndexedDB();
+  
+  window.jsonPath = `/markdown/${book}/main-text-footnotes.json?v=${Date.now()}`;
+  await loadFootnotes();
+  
+  // Try to load nodeChunks.json first, fallback to parsing main-text.md
+  window.nodeChunks = await fetchNodeChunksJson() || await parseMainTextMarkdown();
+  
+  window.savedChunks = {
+    timestamp: serverTimestamp,
+    chunks: []
+  };
+  localStorage.setItem("savedChunks", JSON.stringify(window.savedChunks));
+}
+
+async function handleCachedLoad() {
+  console.log("✅ Timestamps match! Using IndexedDB cache...");
+  let cachedNodeChunks = await getNodeChunksFromIndexedDB();
+
+  if (cachedNodeChunks.length > 0) {
+    console.log("✅ Using cached nodeChunks from IndexedDB.");
+    window.nodeChunks = cachedNodeChunks;
+  } else {
+    console.log("⚠️ No valid nodeChunks found in IndexedDB. Must fetch Markdown.");
+    window.nodeChunks = await parseMainTextMarkdown();
+  }
+
+  await loadFootnotes();
+}
+
+// New function to handle raw reload from main-text.md
+async function handleRawReload() {
+  console.log("🔄 Performing raw reload from main-text.md...");
+  
+  try {
+    // Fetch and parse main-text.md
+    const response = await fetch(`/markdown/${book}/main-text.md?v=${Date.now()}`);
+    if (!response.ok) {
+      throw new Error("Failed to fetch main-text.md");
+    }
+    const markdown = await response.text();
+    
+    // Generate nodeChunks
+    console.log("📑 Generating nodeChunks from markdown...");
+    const nodeChunks = parseMarkdownIntoChunks(markdown);
+    
+    // Trigger backend update
+    console.log("📝 Triggering backend update...");
+    try {
+        const backendResponse = await fetch(`/update-markdown/${book}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+        });
+
+        if (!backendResponse.ok) {
+            throw new Error(`Failed to trigger backend update: ${backendResponse.statusText}`);
+        }
+
+        const result = await backendResponse.json();
+        if (result.success) {
+            console.log("✅ Backend update successful:", result.message);
+            // Handle successful response
+        } else {
+            console.error("❌ Backend update failed:", result.message);
+            // Handle error response
+        }
+    } catch (error) {
+        console.error("❌ Error during backend update:", error);
+        // Handle any exceptions
+    }
+
+    // Save to IndexedDB
+    await saveNodeChunksToIndexedDB(nodeChunks);
+    
+    // Save to window objects
+    window.nodeChunks = nodeChunks;
+    window.jsonPath = `/markdown/${book}/main-text-footnotes.json?v=${Date.now()}`;
+    
+    // Get current timestamp and save it
+    const currentTimestamp = Date.now().toString();
+    localStorage.setItem("markdownLastModified", currentTimestamp);
+    
+    window.savedChunks = {
+      timestamp: currentTimestamp,
+      chunks: []
+    };
+    localStorage.setItem("savedChunks", JSON.stringify(window.savedChunks));
+    
+    console.log("✅ Raw reload complete. Files generated and cached.");
+    // Send generated data to backend
+    await sendGeneratedDataToBackend(nodeChunks, footnotes);
+    return true;
+  } catch (error) {
+    console.error("❌ Error during raw reload:", error);
+    return false;
+  }
+}
+
+// New function to send generated data to backend
+async function sendGeneratedDataToBackend(nodeChunks, footnotes) {
+  try {
+    const response = await fetch(`/api/${book}/generate-files`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        nodeChunks,
+        footnotes,
+        timestamp: Date.now()
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to send generated data to backend');
+    }
+    
+    console.log("✅ Successfully sent generated data to backend");
+  } catch (error) {
+    console.error("❌ Error sending generated data to backend:", error);
+    throw error;
+  }
+}
+
+// Main function
 export async function loadMarkdownFile() {
   console.log("🚀 ENTERING loadMarkdownFile()...");
 
@@ -83,134 +280,45 @@ export async function loadMarkdownFile() {
   console.log("📂 Cached Server Timestamp BEFORE request:", cachedServerTimestamp);
 
   try {
-    console.log("🔍 Fetching latest Markdown update info...");
-    let response = await fetch(`/markdown/${book}/latest_update.json?v=${Date.now()}`);
-    if (!response.ok) {
-      console.error("⚠️ Could not fetch latest update info. Using cached data.");
-      return;
-    }
-
-    let data = await response.json();
-    let serverTimestamp = data.updated_at.toString();
-    console.log("✅ Server reported Markdown last updated at:", serverTimestamp);
-
-    const oldTimestamp = Number(cachedServerTimestamp);
-    const newTimestamp = Number(serverTimestamp);
-    console.log(`🔍 COMPARING TIMESTAMPS -> cached: ${oldTimestamp}, server: ${newTimestamp}`);
-
-    if (oldTimestamp !== newTimestamp) {
-      console.log("❌ TIMESTAMPS DIFFER: Performing Full Reload...");
-
-      localStorage.setItem("markdownLastModified", serverTimestamp);
-      console.log("🚀 Updated localStorage timestamp:", serverTimestamp);
-
-      localStorage.removeItem("savedChunks");
-      await clearIndexedDB();
-      console.log("🗑 Cleared old savedChunks & IndexedDB. Fetching fresh Markdown...");
-
-      window.jsonPath = `/markdown/${book}/main-text-footnotes.json?v=${Date.now()}`;
-      console.log("📑 Updated jsonPath for footnotes:", window.jsonPath);
-
-      // ✅ Load footnotes from IndexedDB first
-       let footnotesData = await getFootnotesFromIndexedDB();
-          if (footnotesData) {
-            console.log("✅ Footnotes loaded from IndexedDB.");
-          } else {
-            console.log("⚠️ No footnotes found in IndexedDB. Fetching from server...");
-            console.log("✅ window.jsonPath:", window.jsonPath); // Add this line
-            try {
-              let footnotesResponse = await fetch(window.jsonPath);
-              if (footnotesResponse.ok) {
-                footnotesData = await footnotesResponse.json();
-                await saveFootnotesToIndexedDB(footnotesData);
-                console.log("✅ Footnotes successfully saved to IndexedDB.");
-              } else {
-                console.warn("⚠️ Failed to fetch footnotes JSON, using fallback.");
-              }
-            } catch (error) {
-              console.error("❌ Error fetching footnotes JSON:", error);
-            }
+    const updateInfo = await fetchLatestUpdateInfo();
+    if (!updateInfo) {
+      console.log("⚠️ No latest_update.json found. Initiating raw reload...");
+      const success = await handleRawReload();
+      
+      if (success) {
+        console.log("✅ Raw reload successful. Initializing lazy loading...");
+        if (!window.nodeChunks || window.nodeChunks.length === 0) {
+          console.error("❌ nodeChunks is empty. Aborting lazy loading.");
+          return;
         }
-
-      // --- NEW LOGIC STARTS HERE: Check for existing nodeChunks.json ---
-      let nodeChunksFetched = false;
-      try {
-        console.log("🔍 Checking if /markdown/" + book + "/nodeChunks.json is available...");
-        let chunksResponse = await fetch(`/markdown/${book}/nodeChunks.json?v=${Date.now()}`);
-        if (chunksResponse.ok) {
-          let nodeChunksData = await chunksResponse.json();
-          await saveNodeChunksToIndexedDB(nodeChunksData);
-          window.nodeChunks = nodeChunksData;
-          console.log("✅ Imported nodeChunks from nodeChunks.json and saved to IndexedDB.");
-          nodeChunksFetched = true;
-        } else {
-          console.warn("⚠️ nodeChunks.json not found or not accessible. Will parse from main-text.md");
-        }
-      } catch (e) {
-        console.error("❌ Error fetching nodeChunks.json:", e);
-      }
-
-      // If nodeChunks.json wasn't found, fallback to original parsing logic
-      if (!nodeChunksFetched) {
-        console.log("🚦 Fallback: Fetching and parsing main-text.md locally...");
-        response = await fetch(`/markdown/${book}/main-text.md?v=${Date.now()}`);
-        let markdown = await response.text();
-
-        window.nodeChunks = parseMarkdownIntoChunks(markdown);
-        console.log(`📏 Parsed ${window.nodeChunks.length} nodeChunks from main-text.md`);
-
-        await saveNodeChunksToIndexedDB(window.nodeChunks);
-        console.log("✅ nodeChunks successfully saved in IndexedDB.");
-      }
-
-      window.savedChunks = {
-        timestamp: serverTimestamp,
-        chunks: []
-      };
-      localStorage.setItem("savedChunks", JSON.stringify(window.savedChunks));
-
-      // ✅ Ensure no premature DOM updates before Lazy Loading
-      if (!window.nodeChunks || window.nodeChunks.length === 0) {
-        console.error("❌ nodeChunks is empty after processing. Aborting lazy loading.");
+        initializeLazyLoadingFixed();
+        return;
+      } else {
+        console.error("❌ Raw reload failed. Cannot proceed.");
         return;
       }
-
-      initializeLazyLoadingFixed();
-      return;
     }
 
-    console.log("✅ Timestamps match! Using IndexedDB cache...");
-    let cachedNodeChunks = await getNodeChunksFromIndexedDB();
+    const serverTimestamp = updateInfo.updated_at.toString();
+    console.log("✅ Server reported Markdown last updated at:", serverTimestamp);
 
-    if (cachedNodeChunks.length > 0) {
-      console.log("✅ Using cached nodeChunks from IndexedDB.");
-      window.nodeChunks = cachedNodeChunks;
+    const needsReload = await handleTimestampComparison(
+      serverTimestamp,
+      cachedServerTimestamp
+    );
+
+    if (needsReload) {
+      console.log("❌ TIMESTAMPS DIFFER: Performing Full Reload...");
+      await handleFullReload(serverTimestamp);
     } else {
-      console.log("⚠️ No valid nodeChunks found in IndexedDB. Must fetch Markdown.");
-      response = await fetch(`/markdown/${book}/main-text.md?v=${Date.now()}`);
-      let markdown = await response.text();
-
-      window.nodeChunks = parseMarkdownIntoChunks(markdown);
-      await saveNodeChunksToIndexedDB(window.nodeChunks);
-      console.log("✅ Parsed and stored nodeChunks from fresh Markdown.");
-    }
-
-    // ✅ Load footnotes from IndexedDB if not already loaded
-    let footnotesData = await getFootnotesFromIndexedDB();
-    if (footnotesData) {
-      console.log("✅ Using cached footnotes from IndexedDB.");
-    } else {
-      console.log("⚠️ No valid footnotes found in IndexedDB. Fetching from server...");
-      let footnotesResponse = await fetch(window.jsonPath);
-      footnotesData = await footnotesResponse.json();
-      await saveFootnotesToIndexedDB(footnotesData);
-      console.log("✅ Fetched and stored footnotes from server.");
+      await handleCachedLoad();
     }
 
     if (!window.nodeChunks || window.nodeChunks.length === 0) {
       console.error("❌ nodeChunks is empty. Aborting lazy loading.");
       return;
     }
+
     initializeLazyLoadingFixed();
   } catch (error) {
     console.error("❌ Error loading Markdown:", error);

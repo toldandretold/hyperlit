@@ -361,13 +361,6 @@ GDP (trillion)"
 
 ---
 
-> "reassures"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1734351859011)
-
-
-
----
-
 > "more"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1734393286552)
 
@@ -377,13 +370,6 @@ GDP (trillion)"
 
 > "income growth"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1734395560908)
-
-
-
----
-
-> "globe"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1734911564201)
 
 
 
@@ -459,16 +445,6 @@ Relevant to knowledge production, as the alternative to imperialism, lib-gen and
 
 ---
 
-> "historical"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1733747896377)
-
-
-
-
-
-
----
-
 > "There are no middle-​rank economies, halfway between, which could be considered as ‘sub-​imperialist’ as some Marxist economists argue"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1732079335019)
 
@@ -484,16 +460,6 @@ This, and other references to "sub-imperialism", depends on what is actually mea
 
 
 
-
-
-
----
-
-> "Their entry into the imperialist camp would not have been possible had they not been able to develop the type of parasitical relationship between themselves and China (and other Third World countries) that the rest of the imperialist states had already developed. To view these areas as a model for the development of the Third World more broadly misunderstands the type of development that has taken place. In short, they are now imperialist economies sitting within the top echelons of the global division of labour – though still below the leading imperialist societies like the United States, Germany and Japan."
-> [↩](http://localhost:8000/king2021imperialism#user-name_1733187437618)
-
-
-Why doesn't this disprove Prashad's claim that there is no such thing as non-western imperialism. Why isn't this "sub-imperialism"?
 
 
 
@@ -531,16 +497,6 @@ change to: "the idea that the"
 
 > "For example, US socialists like Ashley Smith argue that China is ‘a new imperial power’"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733183456245)
-
-
-
-
-
-
----
-
-> "plot the"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1733748354293)
 
 
 
@@ -751,8 +707,38 @@ On determinism.
 
 ---
 
+> "historical"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733747896377)
+
+
+
+
+
+
+---
+
+> "Their entry into the imperialist camp would not have been possible had they not been able to develop the type of parasitical relationship between themselves and China (and other Third World countries) that the rest of the imperialist states had already developed. To view these areas as a model for the development of the Third World more broadly misunderstands the type of development that has taken place. In short, they are now imperialist economies sitting within the top echelons of the global division of labour – though still below the leading imperialist societies like the United States, Germany and Japan."
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733187437618)
+
+
+Why doesn't this disprove Prashad's claim that there is no such thing as non-western imperialism. Why isn't this "sub-imperialism"?
+
+
+
+---
+
 > "2"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733199038558)
+
+
+
+
+
+
+---
+
+> "plot the"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733748354293)
 
 
 
@@ -801,21 +787,8 @@ Lolz
 
 ---
 
-> "the output of"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1733788959965)
-
-
-
-
-
-
----
-
-> "articles"
-> [↩](http://localhost:8000/king2021imperialism#user-name_1733789015562)
-
-
-
+> "reassures"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1734351859011)
 
 
 
@@ -861,6 +834,16 @@ Lolz
 
 ---
 
+> "the output of"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733788959965)
+
+
+
+
+
+
+---
+
 > "Craig"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733790885262)
 
@@ -873,6 +856,16 @@ Lolz
 
 > "Rise and Fall"
 > [↩](http://localhost:8000/king2021imperialism#user-name_1733786679816)
+
+
+
+
+
+
+---
+
+> "articles"
+> [↩](http://localhost:8000/king2021imperialism#user-name_1733789015562)
 
 
 

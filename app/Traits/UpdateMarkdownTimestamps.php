@@ -1,4 +1,51 @@
 <?php
+/*
+|------------------------------------------------------------------
+| Read Me
+|------------------------------------------------------------------
+| 
+| Udates the footnotes, table of contents (TOC) and update-time data in 
+| different .json files. This:
+| - syncs the footnotes and table of contents data 
+| - ensures that the latest files are used on page load
+
+| This triggers data re-generation **whenever necessary**. 
+| It doesn't matter, for example, if a user goes off to obsidian or some external md editor. As long as that file remains or is put back in the right hyperlit.io/user/markdown folder, then the footnotes will be generated at some point along the process. This can happen on page load on front end, or on any update, for example: creating or removing a highlight, hypercite, or markdown text. 
+| This is true, in any case, for the TOC and footnotes. 
+| *While it is true **now** for a user's own highlights and hypercites, it will be altogether more difficult to maintain this backup-processing logic for multi-user public highlights. Although, it might be resolvable using my proposed data-base system.*
+
+| 1. File Paths:
+|   - main-text.md: Source Markdown file
+|   - main-text-footnotes.json: Footnotes and headings extracted from markdown 
+|   - latest_update.json: Timestamps of the latest updates
+|   - nodeChunks.json: Markdown divided into numbered chunks of nodes and lines.
+
+| 2. Footnotes Generation:
+|   - Checks if footnotes need regeneration:
+|     * If footnotes file doesn't exist
+|     * If Markdown file was modified after the footnotes file
+|   - Executes a Python script to extract footnotes from the Markdown
+|   - Ensures the footnotes file is created successfully
+
+| 3. Node Chunks Generation:
+|   - Generates/updates nodeChunks.json if:
+|     * The file doesn't exist
+|     * The Markdown file was modified after the nodeChunks file
+|   - Parses the Markdown content into chunks
+|   - Writes the chunks to nodeChunks.json
+
+| 4. Timestamp Updates:
+|   - Creates an array with current and file modification timestamps
+|   - Writes this data to latest_update.json for frontend use
+
+| 5. Return Response:
+|   - Returns success status and timestamps
+|   - Returns error status and message if any file is missing
+
+| This function ensures that auxiliary files are only updated when necessary,
+| optimizing performance by avoiding redundant operations.
+|------------------------------------------------------------------
+*/
 
 namespace App\Traits;
 
@@ -8,7 +55,7 @@ trait UpdateMarkdownTimestamps
 {
     public function updateLatestMarkdownTimestamp($book)
     {
-              $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
+        $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
         $footnotesFilePath = resource_path("markdown/{$book}/main-text-footnotes.json");
         $timestampFilePath = resource_path("markdown/{$book}/latest_update.json");
         $nodeChunksPath    = resource_path("markdown/{$book}/nodeChunks.json");
@@ -132,46 +179,44 @@ trait UpdateMarkdownTimestamps
         $chunks = [];
         $currentChunk = [];
         $chunkId = 0;
-        $lineNumber = 1;
-        $chunkStartLine = 1;
+        $currentStartLine = 1;
 
-        foreach ($lines as $line) {
-            // Start a new chunk every X lines or at headings
-            if (count($currentChunk) >= 50 || preg_match('/^#{1,6}\s/', $line)) {
-                if (!empty($currentChunk)) {
+        foreach ($lines as $i => $line) {
+            $lineNumber = $i + 1;
+            $block = $this->parseLineIntoBlock($line, $lineNumber);
+
+            if ($block) {
+                $currentChunk[] = $block;
+
+                if (count($currentChunk) >= 50) {
                     $chunks[] = [
                         'chunk_id' => $chunkId,
-                        'start_line' => $chunkStartLine,
-                        'end_line' => $lineNumber - 1,
+                        'start_line' => $currentStartLine,
+                        'end_line' => $lineNumber,
                         'blocks' => $currentChunk
                     ];
                     $chunkId++;
                     $currentChunk = [];
-                    $chunkStartLine = $lineNumber;
+                    $currentStartLine = $lineNumber + 1;
                 }
             }
-
-            // Parse the line into a block
-            $block = $this->parseLineIntoBlock($line, $lineNumber);
-            if ($block) {
-                $currentChunk[] = $block;
-            }
-
-            $lineNumber++;
         }
 
-        // Add the last chunk if it's not empty
         if (!empty($currentChunk)) {
             $chunks[] = [
                 'chunk_id' => $chunkId,
-                'start_line' => $chunkStartLine,
-                'end_line' => $lineNumber - 1,
+                'start_line' => $currentStartLine,
+                'end_line' => $lineNumber,
                 'blocks' => $currentChunk
             ];
         }
 
         return $chunks;
     }
+
+
+
+
 
     private function parseLineIntoBlock($line, $lineNumber) 
     {

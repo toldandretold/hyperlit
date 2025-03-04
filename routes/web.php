@@ -12,6 +12,7 @@ use App\Http\Controllers\MarkdownITController; // Added back
 use App\Http\Controllers\ConversionController;  // In case you need it
 use App\Http\Controllers\MainTextEditableDivController;
 use App\Http\Controllers\MainTextEditableMarkdownController;
+use App\Http\Controllers\DataController;
 use ParsedownExtra\ParsedownExtra;
 use App\Events\TestEvent;
 // In routes/web.php
@@ -83,7 +84,7 @@ Route::post('/{book}/update-annotations', [HighlightController::class, 'updateAn
 Route::post('/{book}/mark-as-deleted', [HighlightController::class, 'markHighlightsAsDeleted'])->name('highlight.mark-as-deleted');
 
 // new 
-Route::post('/highlight/custom-markdown', [HighlightMdController::class, 'store'])->name('highlight.store');
+Route::post('/highlight/custom-markdown', [HighlightMdController::class, 'store'])->name('highlight.store');    
 
 Route::post('/highlight/custom-markdown-delete', [HighlightMdController::class, 'deleteHighlight'])->name('highlight.md.delete'); 
 
@@ -100,6 +101,15 @@ Route::get('/{book}/div', [MainTextEditableDivController::class, 'showEditableTe
 // main-text markdown edit
 Route::post('/save-md-content', [MainTextEditableMarkdownController::class, 'saveEditedContent']);
 Route::get('/{book}/md', [MainTextEditableMarkdownController::class, 'showEditableText']);
+Route::post('/save-node-chunks', [MainTextEditableDivController
+    ::class, 'saveNodeChunks']);
+
+// update data generation for footnotes, TOC, timestamps, etc for main-text.md 
+Route::post('/update-markdown/{book}', [DataController::class, 'updateMarkdown']);
+
+
+
+
 
 Route::get('/api/getMarkdownMetadata', function () {
     $markdownFilePath = resource_path("markdown/{book}/main-text.md");
@@ -132,7 +142,14 @@ Route::post('/save-updated-content', [HyperciteController::class, 'saveUpdatedCo
 
 
 
-
+Route::get('/php-info', function () {
+    return [
+        'upload_max_filesize' => ini_get('upload_max_filesize'),
+        'post_max_size' => ini_get('post_max_size'),
+        'memory_limit' => ini_get('memory_limit'),
+        'php_ini_scanned_files' => php_ini_scanned_files(),
+    ];
+});
 
 
 

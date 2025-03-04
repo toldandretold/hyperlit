@@ -19,6 +19,38 @@ class CiteCreator extends Controller
 
     public function store(Request $request)
 {
+
+    // Add this to your code to debug upload limits
+    Log::info('Current PHP settings:', [
+        'upload_max_filesize' => ini_get('upload_max_filesize'),
+        'post_max_size' => ini_get('post_max_size'),
+        'memory_limit' => ini_get('memory_limit'),
+        'user_ini_file' => php_ini_loaded_file(),
+        'additional_ini_files' => php_ini_scanned_files()
+    ]);
+    Log::info('Directory permissions:', [
+    'path' => resource_path('markdown'),
+    'exists' => File::exists(resource_path('markdown')),
+    'writable' => is_writable(resource_path('markdown')),
+    'permissions' => substr(sprintf('%o', fileperms(resource_path('markdown'))), -4)
+]);
+
+    Log::info('Form submission received', [
+        'hasFile' => $request->hasFile('markdown_file'),
+        'allFiles' => $request->allFiles(),
+        'allInput' => $request->all(),
+        'headers' => $request->headers->all()
+    ]);
+
+    if ($request->hasFile('markdown_file')) {
+        $file = $request->file('markdown_file');
+        Log::info('File details', [
+            'originalName' => $file->getClientOriginalName(),
+            'size' => $file->getSize(),
+            'mimeType' => $file->getMimeType(),
+            'error' => $file->getError()
+        ]);
+    }
     // Log the incoming form data
     Log::info('Form data submitted:', $request->all());
 
