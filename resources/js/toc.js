@@ -1,22 +1,16 @@
-import {
-  book
-} from './reader-DOMContentLoaded.js';
-
-import {
-  parseInlineMarkdown
-} from './convert-markdown.js';
-
+import { book } from './reader-DOMContentLoaded.js';
+import { navigateToInternalId } from './scrolling.js';
+import { parseInlineMarkdown } from './convert-markdown.js';
 import { 
-    openDatabase, 
-    DB_VERSION, 
-    checkIndexedDBSize,
-    getNodeChunksFromIndexedDB,
-    saveNodeChunksToIndexedDB,
     getFootnotesFromIndexedDB,
     saveFootnotesToIndexedDB 
 } from './cache-indexedDB.js';
+import { ContainerManager } from './container-manager.js';
 
-// ✅ TOC Handling
+// Create a container manager for TOC
+const tocManager = new ContainerManager("toc-container", "toc-overlay", "toc-toggle-button");
+
+// Export the DOM elements for backward compatibility
 export const tocContainer = document.getElementById("toc-container");
 export const tocOverlay = document.getElementById("toc-overlay");
 export const tocButton = document.getElementById("toc-toggle-button");
@@ -59,7 +53,6 @@ export async function generateTableOfContents(tocContainerId, toggleButtonId) {
     // ✅ At this point, `sections` contains the footnotes JSON
     console.log(`✅ Loaded footnotes, processing TOC...`);
 
-    
     if (!tocContainer) {
       console.error(`❌ TOC container with ID "${tocContainerId}" not found.`);
       return;
@@ -105,16 +98,37 @@ export async function generateTableOfContents(tocContainerId, toggleButtonId) {
       }
     });
 
-    // ✅ Add a toggle button to show/hide the TOC
-    const toggleButton = document.getElementById(toggleButtonId);
-    if (toggleButton) {
-      toggleButton.addEventListener("click", () => {
-        tocContainer.classList.toggle("hidden");
-      });
-    }
+    // Add click handler for TOC links
+    tocContainer.addEventListener("click", (event) => {
+      const link = event.target.closest("a");
+      if (link) {
+        event.preventDefault();
+        tocManager.closeContainer();
+        const targetId = link.hash?.substring(1);
+        if (!targetId) return;
+        console.log(`📌 Navigating via TOC to: ${targetId}`);
+        navigateToInternalId(targetId);
+        setTimeout(() => {
+          console.log(`🔄 Reattaching scroll observer after TOC navigation...`);
+          window.reattachScrollObserver();
+        }, 600);
+      }
+    });
 
   } catch (error) {
     console.error("❌ Error generating Table of Contents:", error);
   }
 }
 
+// Export functions for toggling TOC
+export function openTOC() {
+  tocManager.openContainer();
+}
+
+export function closeTOC() {
+  tocManager.closeContainer();
+}
+
+export function toggleTOC() {
+  tocManager.toggleContainer();
+}

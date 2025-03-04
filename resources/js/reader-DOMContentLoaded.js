@@ -2,7 +2,6 @@ import {
     convertMarkdownToHtml
 } from './convert-markdown.js';
 
-
 import { observer, 
     isValidContentElement,
     restoreScrollPosition,
@@ -11,16 +10,14 @@ import { observer,
     reattachScrollObserver
 } from './scrolling.js';
 
-
 import { 
     refContainer, 
     refOverlay, 
     isRefOpen,
     openReferenceContainer,
     closeReferenceContainer,
-
+    displayFootnote
 } from './footnotes.js';
-
 
 import { 
     openDatabase, 
@@ -28,7 +25,8 @@ import {
     checkIndexedDBSize,
     getNodeChunksFromIndexedDB,
     saveNodeChunksToIndexedDB,
-    getFootnotesFromIndexedDB
+    getFootnotesFromIndexedDB,
+    saveFootnotesToIndexedDB
 } from './cache-indexedDB.js';
 
 import {
@@ -46,7 +44,8 @@ import {
     generateTableOfContents,
     tocContainer,
     tocOverlay,
-    tocButton
+    tocButton,
+    toggleTOC
 } from './toc.js';
 
 export const mainContentDiv = document.getElementById("main-content"); 
@@ -54,7 +53,6 @@ export const mainContentDiv = document.getElementById("main-content");
 export const markdownContent = ""; // Store Markdown globally
 
 export const book = mainContentDiv.getAttribute('data-book');
-
 
 if (!window.isInitialized) {
     window.isInitialized = true;
@@ -87,7 +85,6 @@ if (!window.isInitialized) {
         // observe all valid elements inside main-content div that have an id
         // validity determined in scrolling.js. it filters out sentinels, overlays and other non-content elements
         // as these are not necessary for the lazy loading
-
         document.querySelectorAll("#main-content [id]").forEach((el) => {
             if (isValidContentElement(el)) observer.observe(el);
         });
@@ -99,49 +96,6 @@ if (!window.isInitialized) {
             console.error("TOC elements are missing in the DOM.");
             return;
         }
-
-        let isTOCOpen = false;
-
-        function updateTOCState() {
-            if (isTOCOpen) {
-                console.log("Opening TOC...");
-                tocContainer.classList.add("open");
-                tocOverlay.classList.add("active");
-            } else {
-                console.log("Closing TOC...");
-                tocContainer.classList.remove("open");
-                tocOverlay.classList.remove("active");
-            }
-        }
-
-        tocButton.addEventListener("click", () => {
-            isTOCOpen = !isTOCOpen;
-            updateTOCState();
-        });
-
-        tocOverlay.addEventListener("click", () => {
-            if (isTOCOpen) {
-                isTOCOpen = false;
-                updateTOCState();
-            }
-        });
-
-        tocContainer.addEventListener("click", (event) => {
-            const link = event.target.closest("a");
-            if (link) {
-                event.preventDefault();
-                isTOCOpen = false;
-                updateTOCState();
-                const targetId = link.hash?.substring(1);
-                if (!targetId) return;
-                console.log(`📌 Navigating via TOC to: ${targetId}`);
-                navigateToInternalId(targetId);
-                setTimeout(() => {
-                    console.log(`🔄 Reattaching scroll observer after TOC navigation...`);
-                    reattachScrollObserver();
-                }, 600);
-            }
-        });
 
         // ✅ Internal Link Navigation Handling
         document.addEventListener("click", (event) => {
@@ -201,14 +155,6 @@ if (!window.isInitialized) {
             }
         });
 
-        // ✅ Footnotes Overlay Close Handler
-        refOverlay.addEventListener("click", () => {
-            if (isRefOpen) {
-                console.log("Closing footnotes container via overlay click...");
-                closeReferenceContainer();
-            }
-        });
-
         // ✅ Detect Navigation Type
         const navEntry = performance.getEntriesByType("navigation")[0] || {};
         const navType = navEntry.type || "navigate";
@@ -223,5 +169,4 @@ if (!window.isInitialized) {
 
         handleNavigation();
     });
-
-} 
+}

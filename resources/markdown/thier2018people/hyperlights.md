@@ -3,9 +3,6 @@
 
 
 
-
-
-
 ---
 
 > "The development of professional traders transformed the goal of exchange from the procurement of like items for use to the accumulation of money. The equation thus changed from C-M-C to M-C-M; or more accurately M-C-M’. The doohickey above the M (“M prime,” technically speaking) represents _more_ money, or an increase of value above and beyond the money initially invested. In pre-capitalist societies, the basis for this added wealth was, more often than not, pilfering loot. Merchants from more economically developed centers were able to take advantage of societies that did not rely on large-scale internal trade. They could thus purchase goods on the cheap, and then sell them at a higher price in places where these goods were scarce and their values unknown."
@@ -23,16 +20,10 @@ The formula this changed means: from one persons perspective to another, though.
 
 
 
-
-
-
 ---
 
 > "The simple circulation of commodities—selling in order to buy—is a means to a final goal which lies outside circulation, namely the appropriation of use-values, the satisfaction of needs. As against this, the circulation of money as capital is an end in itself, for the valorization of value takes place only within this constantly renewed movement. The movement of capital is therefore limitless"
 > [↩](http://172.20.10.4:8000/thier2018people#user-name_1737165233843)
-
-
-
 
 
 
@@ -43,16 +34,10 @@ The formula this changed means: from one persons perspective to another, though.
 
 
 
-
-
-
 ---
 
 > "The exchange-value of labor-power is paid out in a wage. But the use-value of labor-power is _labor itself—_ the source of value, as we discussed in chapter two. What’s more, the exchange-value of labor-power, and the value that labor then produces for the bosses, are two very different things. The worker is paid one thing, but then will normally create much more value during her shift than she is paid:"
 > [↩](http://172.20.10.4:8000/thier2018people#user-name_1737165621043)
-
-
-
 
 
 
@@ -63,16 +48,10 @@ The formula this changed means: from one persons perspective to another, though.
 
 
 
-
-
-
 ---
 
 > "The value of labor-power, and the value which that labor-power valorizes in the labor-process, are two entirely different magnitudes; and this difference was what the capitalist had in mind when he was purchasing the labor-power…. What was really decisive for him was the specific use-value which this commodity possesses of being _a source not only of value, but of more value than it has itself."
 > [↩](http://172.20.10.4:8000/thier2018people#user-name_1737165809074)
-
-
-
 
 
 
@@ -83,16 +62,10 @@ The formula this changed means: from one persons perspective to another, though.
 
 
 
-
-
-
 ---
 
 > "In order to extract value out of the consumption of a commodity, our friend the money-owner must be lucky enough to find within the sphere of circulation, on the market, a commodity whose use-value possesses the peculiar property of being a _source of value_ , whose actual consumption, therefore is itself an objectification of labor, hence a creation of value. The possessor of money does find such a special commodity on the market: the capacity for labor, in other words labor-power.8 [emphasis added]"
 > [↩](http://172.20.10.4:8000/thier2018people#user-name_1737167810508)
-
-
-
 
 
 
@@ -103,9 +76,6 @@ The formula this changed means: from one persons perspective to another, though.
 
 
 
-
-
-
 ---
 
 > "If we pin down the specific forms of appearance assumed in turn by self-valorizing value in the course of its life, we reach the following elucidation: capital is money, capital is commodities. In truth, however, value is here the subject of a _process_ in which, while constantly assuming the form in turn of money and commodities, it changes its own magnitude, throws off surplus value from itself … and thus valorizes itself independently. For the movement in the course of which it adds surplus value is its _own_ movement, its valorization is therefore _self_ -valorization. By virtue of being value, it has acquired the occult ability to add value to itself. It brings forth living offspring, or at least lays golden eggs."
@@ -113,16 +83,10 @@ The formula this changed means: from one persons perspective to another, though.
 
 
 
-
-
-
 ---
 
 > "[The capitalist] shares"
 > [↩](http://172.20.10.4:8000/thier2018people#user-name_1737172130239)
-
-
-
 
 
 
@@ -140,16 +104,10 @@ The formula this changed means: from one persons perspective to another, though.
 
 
 
-
-
-
 ---
 
 > "by"
 > [↩](http://172.20.10.4:8000/thier2018people#unknown-user_1739846565820)
-
-
-
 
 
 
@@ -160,16 +118,10 @@ The formula this changed means: from one persons perspective to another, though.
 
 
 
-
-
-
 ---
 
 > "made a run on overwhelmed hospitals inevitable and which has set countries and states bidding against"
 > [↩](http://172.20.10.4:8000/thier2018people#user-name_1737164000747)
-
-
-
 
 
 
@@ -180,16 +132,10 @@ The formula this changed means: from one persons perspective to another, though.
 
 
 
-
-
-
 ---
 
 > "The capitalist employs both “inputs” in a production process (P) that creates a new set of commodities, worth more than the combined value of the original inputs. The circuit of capital can thus be expanded to a more precise formula: M-C (MP+L) … P … C’-M’.7"
 > [↩](http://172.20.10.4:8000/thier2018people#user-name_1737165451053)
-
-
-
 
 
 
@@ -200,16 +146,10 @@ The formula this changed means: from one persons perspective to another, though.
 
 
 
-
-
-
 ---
 
 > "Modern-day exploitation, however, is disguised by the _appearance_ of a fair deal. It seems that workers are paid a fair day’s wage for a fair day’s work, as the saying goes. But we are not paid for our work, we are paid for our labor-power, and therein lies the rub."
 > [↩](http://172.20.10.4:8000/thier2018people#user-name_1737171631131)
-
-
-
 
 
 
@@ -253,16 +193,10 @@ Interestingly, the Austrian School essentially agrees with this
 
 
 
-
-
-
 ---
 
 > "As Marx argued, “a large part of the social capital is employed by people who do not own it and who consequently tackle things quite differently than the owner, who anxiously weighs the limitations of his private capital in so far as he handles it himself.”"
 > [↩](http://172.20.10.4:8000/thier2018people#unknown-user_1740989144958)
-
-
-
 
 
 
@@ -282,41 +216,28 @@ This is same argument as “skin in the game”
 > [↩](http://172.20.10.4:8000/thier2018people#unknown-user_1741003375698)
 
 
-Chat GPT: “<span style="font-family: "Times New Roman"; font-size: 20px; -webkit-text-stroke-color: rgb(0, 0, 0);">To securitize something means to transform an asset, typically an illiquid one, into a tradable financial instrument (a security). This process involves pooling various financial assetsâ€”like loans, mortgages, or receivablesâ€”and converting them into securities that can be sold to investors.</span>
+**Chat GPT**: "To securitize something means to transform an asset, typically an illiquid one, into a tradable financial instrument (a security). This process involves pooling various financial assetsâ€”like loans, mortgages, or receivablesâ€”and converting them into securities that can be sold to investors.
 
-<span style="font-kerning: none;"></span>
+### How Securitization Works:
 
-<span style="font-kerning: none;">How Securitization Works:</span>
+1. Asset Pooling: A financial institution bundles a group of similar assets (e.g., mortgages, car loans, credit card debt).
+2. Creation of a Special Purpose Vehicle (SPV): The assets are transferred to an SPV, a separate legal entity that will issue securities backed by these assets.
+3. Issuance of Securities: The SPV sells securities (such as mortgage-backed securities or asset-backed securities) to investors, who receive payments based on the cash flows from the underlying assets.
+4. Investors Get Paid: As borrowers repay their loans, the payments are passed on to investors in the form of interest and principal.
 
-<span style="font-kerning: none;">1.</span><span style="font-size: 12px; font-kerning: none;"> </span><span style="font-kerning: none;">Asset Pooling: A financial institution bundles a group of similar assets (e.g., mortgages, car loans, credit card debt).</span>
+### Why Securitize?
 
-<span style="font-kerning: none;">2.</span><span style="font-size: 12px; font-kerning: none;"> </span><span style="font-kerning: none;">Creation of a Special Purpose Vehicle (SPV): The assets are transferred to an SPV, a separate legal entity that will issue securities backed by these assets.</span>
+Liquidity: Converts illiquid assets (like mortgages) into tradable securities.
 
-<span style="font-kerning: none;">3.</span><span style="font-size: 12px; font-kerning: none;"> </span><span style="font-kerning: none;">Issuance of Securities: The SPV sells securities (such as mortgage-backed securities or asset-backed securities) to investors, who receive payments based on the cash flows from the underlying assets.</span>
+Risk Distribution: Shifts risk from the originator (e.g., a bank) to investors.
 
-<span style="font-kerning: none;">4.</span><span style="font-size: 12px; font-kerning: none;"> </span><span style="font-kerning: none;">Investors Get Paid: As borrowers repay their loans, the payments are passed on to investors in the form of interest and principal.</span>
+Capital Efficiency: Frees up capital for financial institutions, allowing them to make more loans.
 
-<span style="font-kerning: none;"></span>
+Example: Mortgage-Backed Securities (MBS)
 
-<span style="font-kerning: none;">Why Securitize?</span>
+A bank that issues home loans pools them together and sells them as MBS to investors. The investors then receive payments as homeowners pay their mortgages.
 
-<span style="font-kerning: none;">â€¢</span><span style="font-size: 12px; font-kerning: none;"> </span><span style="font-kerning: none;">Liquidity: Converts illiquid assets (like mortgages) into tradable securities.</span>
-
-<span style="font-kerning: none;">â€¢</span><span style="font-size: 12px; font-kerning: none;"> </span><span style="font-kerning: none;">Risk Distribution: Shifts risk from the originator (e.g., a bank) to investors.</span>
-
-<span style="font-kerning: none;">â€¢</span><span style="font-size: 12px; font-kerning: none;"> </span><span style="font-kerning: none;">Capital Efficiency: Frees up capital for financial institutions, allowing them to make more loans.</span>
-
-<span style="font-kerning: none;"></span>
-
-<span style="font-kerning: none;">Example: Mortgage-Backed Securities (MBS)</span>
-
-<span style="font-kerning: none;"></span>
-
-<span style="font-kerning: none;">A bank that issues home loans pools them together and sells them as MBS to investors. The investors then receive payments as homeowners pay their mortgages.</span>
-
-<span style="font-kerning: none;"></span>
-
-<span style="font-kerning: none;">Securitization can be beneficial by spreading risk and increasing market efficiency, but it can also create systemic risksâ€”such as in the 2008 financial crisis, when excessive mortgage securitization led to market instability.”</span>
+Securitization can be beneficial by spreading risk and increasing market efficiency, but it can also create systemic risksâ€”such as in the 2008 financial crisis, when excessive mortgage securitization led to market instability.”
 
 
 
@@ -343,8 +264,8 @@ Chat GPT: “<span style="font-family: "Times New Roman"; font-size: 20px; -webk
 
 ---
 
-> "THE STATE AND FINANCE"
-> [↩](http://172.20.10.4:8000/thier2018people#unknown-user_1741006437696)
+> "FINANCE"
+> [↩](http://172.20.10.4:8000/thier2018people#unknown-user_1741050423141)
 
 
 

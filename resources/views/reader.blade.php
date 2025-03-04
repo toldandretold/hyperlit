@@ -38,9 +38,14 @@
     <div id="toc-overlay"></div>
 
 
-    <!-- Container for references -->
+    <!-- Container for references and highlights -->
     <div id="ref-container" class="hidden"></div>
     <div id="ref-overlay"></div>
+    <div id="highlight-container" class="hidden"></div>
+    
+    
+
+    
 
 @endsection
 

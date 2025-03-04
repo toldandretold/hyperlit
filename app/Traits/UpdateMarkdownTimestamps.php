@@ -56,13 +56,16 @@ trait UpdateMarkdownTimestamps
     public function updateLatestMarkdownTimestamp($book)
     {
         $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
+        $highlightFilePath= resource_path("markdown/{$book}/hyperlights.md");
         $footnotesFilePath = resource_path("markdown/{$book}/main-text-footnotes.json");
         $timestampFilePath = resource_path("markdown/{$book}/latest_update.json");
         $nodeChunksPath    = resource_path("markdown/{$book}/nodeChunks.json");
+        $highlightChunksPath = resource_path("markdown/{$book}/highlightChunks.json");
 
         // Check last modified times
         $markdownLastModified = filemtime($markdownFilePath);
         $footnotesLastModified = file_exists($footnotesFilePath) ? filemtime($footnotesFilePath) : null;
+        $highlightsLastModified = file_exists($highlightFilePath) ? filemtime($highlightFilePath) : null;
 
         // Regenerate footnotes if needed
         if (!$footnotesLastModified || $markdownLastModified > $footnotesLastModified) {
@@ -144,17 +147,37 @@ trait UpdateMarkdownTimestamps
             Log::info("✅ nodeChunks.json is already up to date for {$book}");
         }
 
+        // Generate highlightChunks.json if needed
+        if (!file_exists($highlightChunksPath) || filemtime($highlightChunksPath) < $markdownLastModified) {
+            Log::info("📑 Generating nodeChunks.json for: {$book}");
+
+            $highlightContent = file_get_contents($highlightFilePath);
+            $highlightChunks = $this->parseMarkdownIntoChunks($highlightContent);
+
+            file_put_contents($highlightChunksPath, json_encode($highlightChunks, JSON_PRETTY_PRINT));
+            Log::info("✅ highlightChunks.json updated for {$book}");
+        } else {
+            Log::info("✅ highlightChunks.json is already up to date for {$book}");
+        }
+
         // Grab nodeChunks last modified (if available)
         $nodeChunksLastModified = file_exists($nodeChunksPath)
             ? filemtime($nodeChunksPath)
             : null;
+
+        // Grab highlightChunks last modified (if available)
+        $highlightChunksLastModified = file_exists($highlightChunksPath)
+            ? filemtime($highlightChunksPath)
+            : null;
+
 
         // Save updated timestamp for front-end
         $latestUpdateData = [
             'updated_at'            => time() * 1000,  // ms
             'markdownLastModified'  => $markdownLastModified,
             'footnotesLastModified' => $footnotesLastModified,
-            'nodeChunksLastModified'=> $nodeChunksLastModified
+            'nodeChunksLastModified'=> $nodeChunksLastModified,
+            'highlightChunksLastModified'=> $highlightChunksLastModified
                 ? $nodeChunksLastModified * 1000  // convert to ms if you like
                 : null,
         ];
@@ -167,7 +190,8 @@ trait UpdateMarkdownTimestamps
             'message'              => 'Markdown, footnotes, and nodeChunks updated.',
             'markdownLastModified'  => $markdownLastModified,
             'footnotesLastModified' => $footnotesLastModified,
-            'nodeChunksLastModified'=> $nodeChunksLastModified
+            'nodeChunksLastModified'=> $nodeChunksLastModified,
+            'highlightChunksLastModified'=> $highlightChunksLastModified
                 ? $nodeChunksLastModified * 1000
                 : null
         ];

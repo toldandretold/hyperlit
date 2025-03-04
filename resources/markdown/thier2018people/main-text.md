@@ -2043,7 +2043,7 @@ The hyperextension of debt and the inflation of the value of homes and other ass
 
 The multi-trillion-dollar bailouts came at a great price, through austerity measures forced on working class and poor people around the world. Meanwhile massive rounds of layoffs, cutbacks, and deactivation of facilities resulted in skyrocketing unemployment and a sizable drop in production around the world. The crisis created by Wall Street and financial institutions led to a devastating recession for working people.
 
-<mark class='unknown-user_1741006437696' id='unknown-user_1741006437696' data-listener-attached='true'>THE STATE AND FINANCE</mark>
+THE STATE AND<mark class='unknown-user_1741050423141' id='unknown-user_1741050423141' data-listener-attached='true'> FINANCE</mark>
 
 In the wake of the financial meltdown, states made vast sums of public funds available to the financial system in the form of bailouts, loans and, in some cases, nationalizations. In the United States, a $700-billion-dollar bailout of the banks known as Troubled Asset Relief Program (TARP) sparked mass outrage when it first passed. But TARP was just the tip of the iceberg. More than 30 programs overseen by the Treasury Department and Federal Reserve paid, loaned, insured, or reserved money to bail out Wall Street.<a href="#bch07note83" id="ch07note83"><sup>83</sup></a>
 
@@ -4423,4 +4423,4 @@ World Bank, <a href="#page_72">72</a>, <a href="#page_220">220</a>, <a href="#pa
 
 Z
 
-Zweig, Michael, <a href="#page_88">88</a>, <a href="#page_90">90</a>                                        
+Zweig, Michael, <a href="#page_88">88</a>, <a href="#page_90">90</a>                                          

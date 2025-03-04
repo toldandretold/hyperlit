@@ -1,67 +1,32 @@
 // footnotes.js
-// cache-indexedDB.js
-import {
-  book
-} from './reader-DOMContentLoaded.js';
-
+import { book } from './reader-DOMContentLoaded.js';
 import {
   openDatabase,
-  DB_VERSION,
-  checkIndexedDBSize,
-  getNodeChunksFromIndexedDB,
-  saveNodeChunksToIndexedDB,
   getFootnotesFromIndexedDB,
   saveFootnotesToIndexedDB,
   getPageKey
 } from './cache-indexedDB.js';
+import { convertMarkdownToHtml } from './convert-markdown.js';
+import { attachMarkListeners } from './hyper-lights-cites.js';
+import { ContainerManager } from './container-manager.js';
 
+// Create a container manager for references
+const refManager = new ContainerManager("ref-container", "ref-overlay");
 
-import {
-  convertMarkdownToHtml
-} from './convert-markdown.js';
-
-import {
-  attachMarkListeners
-} from './hyper-lights-cites.js';
-
-
-// footnotes buttons
+// Export the DOM elements for backward compatibility
 export const refContainer = document.getElementById("ref-container");
 export const refOverlay = document.getElementById("ref-overlay");
-export let isRefOpen = false;
-
-// Function to update the footnotes container state
-export function updateRefState() {
-  if (isRefOpen) {
-    console.log("Opening footnotes container...");
-    refContainer.classList.add("open");
-    refOverlay.classList.add("active");
-  } else {
-    console.log("Closing footnotes container...");
-    refContainer.classList.remove("open");
-    refOverlay.classList.remove("active");
-  }
-}
+// Export isRefOpen as a getter that returns the current state from the manager
+export const isRefOpen = refManager.isOpen;
 
 // Function to open the footnotes container with content
 export function openReferenceContainer(content) {
-  console.log("Opening reference container with content:", content); // Debugging output
-  if (refContainer) {
-    if (refContainer) {
-      refContainer.innerHTML = content; // Populate the container
-      isRefOpen = true;
-      updateRefState();
-    }
-  }
+  refManager.openContainer(content);
 }
 
 // Function to close the reference container
 export function closeReferenceContainer() {
-  isRefOpen = false;
-  updateRefState();
-  setTimeout(() => {
-    refContainer.innerHTML = ""; // Clear content after animation
-  }, 300); // Delay to match the slide-out animation
+  refManager.closeContainer();
 }
 
 export async function displayFootnote(noteElement, book, convertMarkdownToHtml, getFreshUrl) {
@@ -77,7 +42,7 @@ export async function displayFootnote(noteElement, book, convertMarkdownToHtml, 
   }
 
   // ✅ Load footnotes data from IndexedDB
-  console.log("🔑 Attempting to load footnotes using key:", [getPageKey(), "latest"]); // Add this line
+  console.log("🔑 Attempting to load footnotes using key:", [getPageKey(), "latest"]);
   
   let footnotesData = await getFootnotesFromIndexedDB();
   if (!footnotesData) {
@@ -118,6 +83,10 @@ export async function displayFootnote(noteElement, book, convertMarkdownToHtml, 
   console.log("Opening reference container with content:", `<div class="footnote-content">${footnoteHtml}</div>`);
   openReferenceContainer(`<div class="footnote-content">${footnoteHtml}</div>`);
 }
+
+
+
+
 
 export async function injectFootnotesForChunk(chunkId, book, getFreshUrl) {
   // Temporarily disable lazy loading
