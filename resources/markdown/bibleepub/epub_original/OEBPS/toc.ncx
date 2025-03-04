@@ -1,0 +1,524 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ncx version="2005-1" xmlns="http://www.daisy.org/z3986/2005/ncx/">
+ <head>
+  <meta content="urn:uuid:2ba9fa1f-0a87-5068-9b4d-d692f308e139" name="dtb:uid" />
+  <meta content="2" name="dtb:depth" />
+  <meta content="0" name="dtb:totalPageCount" />
+  <meta content="0" name="dtb:maxPageNumber" />
+ </head>
+ <docTitle>
+  <text>World English Bible Updated</text>
+ </docTitle>
+ <navMap>
+  <navPoint id="navPoint1" playOrder="1">
+   <navLabel>
+    <text>World English Bible Updated</text>
+   </navLabel>
+   <content src="cover.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint2" playOrder="2">
+   <navLabel>
+    <text>©?</text>
+   </navLabel>
+   <content src="copyright.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint3" playOrder="3">
+   <navLabel>
+    <text>Preface</text>
+   </navLabel>
+   <content src="FRT.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint4" playOrder="4">
+   <navLabel>
+    <text>The First Book of Moses, Commonly Called Genesis</text>
+   </navLabel>
+   <content src="GEN.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint5" playOrder="5">
+   <navLabel>
+    <text>The Second Book of Mosis, Commonly Called Exodus</text>
+   </navLabel>
+   <content src="EXO.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint6" playOrder="6">
+   <navLabel>
+    <text>The Third Book of Mosis, Commonly Called Leviticus</text>
+   </navLabel>
+   <content src="LEV.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint7" playOrder="7">
+   <navLabel>
+    <text>The Fourth Book of Moses, Commonly Called Numbers</text>
+   </navLabel>
+   <content src="NUM.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint8" playOrder="8">
+   <navLabel>
+    <text>The Fifth Book of Moses, Commonly Called Deuteronomy</text>
+   </navLabel>
+   <content src="DEU.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint9" playOrder="9">
+   <navLabel>
+    <text>The Book of Joshua</text>
+   </navLabel>
+   <content src="JOS.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint10" playOrder="10">
+   <navLabel>
+    <text>The Book of Judges</text>
+   </navLabel>
+   <content src="JDG.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint11" playOrder="11">
+   <navLabel>
+    <text>The Book of Ruth</text>
+   </navLabel>
+   <content src="RUT.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint12" playOrder="12">
+   <navLabel>
+    <text>The First Book of Samuel</text>
+   </navLabel>
+   <content src="1SA.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint13" playOrder="13">
+   <navLabel>
+    <text>The Second Book of Samuel</text>
+   </navLabel>
+   <content src="2SA.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint14" playOrder="14">
+   <navLabel>
+    <text>The First Book of Kings</text>
+   </navLabel>
+   <content src="1KI.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint15" playOrder="15">
+   <navLabel>
+    <text>The Second Book of Kings</text>
+   </navLabel>
+   <content src="2KI.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint16" playOrder="16">
+   <navLabel>
+    <text>The First Book of Chronicles</text>
+   </navLabel>
+   <content src="1CH.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint17" playOrder="17">
+   <navLabel>
+    <text>The Second Book of Chronicles</text>
+   </navLabel>
+   <content src="2CH.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint18" playOrder="18">
+   <navLabel>
+    <text>The Book of Ezra</text>
+   </navLabel>
+   <content src="EZR.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint19" playOrder="19">
+   <navLabel>
+    <text>The Book of Nehemiah</text>
+   </navLabel>
+   <content src="NEH.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint20" playOrder="20">
+   <navLabel>
+    <text>The Book of Esther</text>
+   </navLabel>
+   <content src="EST.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint21" playOrder="21">
+   <navLabel>
+    <text>The Book of Job</text>
+   </navLabel>
+   <content src="JOB.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint22" playOrder="22">
+   <navLabel>
+    <text>The Psalms</text>
+   </navLabel>
+   <content src="PSA.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint23" playOrder="23">
+   <navLabel>
+    <text>The Proverbs</text>
+   </navLabel>
+   <content src="PRO.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint24" playOrder="24">
+   <navLabel>
+    <text>Ecclesiates or, The Preacher</text>
+   </navLabel>
+   <content src="ECC.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint25" playOrder="25">
+   <navLabel>
+    <text>The Song of Solomon</text>
+   </navLabel>
+   <content src="SNG.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint26" playOrder="26">
+   <navLabel>
+    <text>The Book of Isaiah</text>
+   </navLabel>
+   <content src="ISA.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint27" playOrder="27">
+   <navLabel>
+    <text>The Book of Jeremiah</text>
+   </navLabel>
+   <content src="JER.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint28" playOrder="28">
+   <navLabel>
+    <text>The Lamentations of Jeremiah</text>
+   </navLabel>
+   <content src="LAM.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint29" playOrder="29">
+   <navLabel>
+    <text>The Book of Ezekiel</text>
+   </navLabel>
+   <content src="EZK.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint30" playOrder="30">
+   <navLabel>
+    <text>The Book of Daniel</text>
+   </navLabel>
+   <content src="DAN.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint31" playOrder="31">
+   <navLabel>
+    <text>The Book of Hosea</text>
+   </navLabel>
+   <content src="HOS.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint32" playOrder="32">
+   <navLabel>
+    <text>The Book of Joel</text>
+   </navLabel>
+   <content src="JOL.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint33" playOrder="33">
+   <navLabel>
+    <text>The Book of Amos</text>
+   </navLabel>
+   <content src="AMO.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint34" playOrder="34">
+   <navLabel>
+    <text>The Book of Obadiah</text>
+   </navLabel>
+   <content src="OBA.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint35" playOrder="35">
+   <navLabel>
+    <text>The Book of Jonah</text>
+   </navLabel>
+   <content src="JON.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint36" playOrder="36">
+   <navLabel>
+    <text>The Book of Micah</text>
+   </navLabel>
+   <content src="MIC.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint37" playOrder="37">
+   <navLabel>
+    <text>The Book of Nahum</text>
+   </navLabel>
+   <content src="NAM.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint38" playOrder="38">
+   <navLabel>
+    <text>The Book of Habakkuk</text>
+   </navLabel>
+   <content src="HAB.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint39" playOrder="39">
+   <navLabel>
+    <text>The Book of Zephaniah</text>
+   </navLabel>
+   <content src="ZEP.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint40" playOrder="40">
+   <navLabel>
+    <text>The Book of Haggai</text>
+   </navLabel>
+   <content src="HAG.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint41" playOrder="41">
+   <navLabel>
+    <text>The Book of Zechariah</text>
+   </navLabel>
+   <content src="ZEC.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint42" playOrder="42">
+   <navLabel>
+    <text>The Book of Malachi</text>
+   </navLabel>
+   <content src="MAL.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint43" playOrder="43">
+   <navLabel>
+    <text>Tobit</text>
+   </navLabel>
+   <content src="TOB.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint44" playOrder="44">
+   <navLabel>
+    <text>Judith</text>
+   </navLabel>
+   <content src="JDT.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint45" playOrder="45">
+   <navLabel>
+    <text>Esther (Greek)</text>
+   </navLabel>
+   <content src="ESG.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint46" playOrder="46">
+   <navLabel>
+    <text>The Book of Daniel with Greek Portions</text>
+   </navLabel>
+   <content src="DAG.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint47" playOrder="47">
+   <navLabel>
+    <text>The Wisdom of Solomon</text>
+   </navLabel>
+   <content src="WIS.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint48" playOrder="48">
+   <navLabel>
+    <text>The Wisdom of Jesus the Son of Sirach, or Ecclesiasticus</text>
+   </navLabel>
+   <content src="SIR.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint49" playOrder="49">
+   <navLabel>
+    <text>Baruch</text>
+   </navLabel>
+   <content src="BAR.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint50" playOrder="50">
+   <navLabel>
+    <text>The First Book of the Maccabees</text>
+   </navLabel>
+   <content src="1MA.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint51" playOrder="51">
+   <navLabel>
+    <text>The Second Book of the Maccabees</text>
+   </navLabel>
+   <content src="2MA.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint52" playOrder="52">
+   <navLabel>
+    <text>The First Book of Esdras</text>
+   </navLabel>
+   <content src="1ES.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint53" playOrder="53">
+   <navLabel>
+    <text>The Prayer of Manasses King of Judah when He was Held Captive in Babylon</text>
+   </navLabel>
+   <content src="MAN.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint54" playOrder="54">
+   <navLabel>
+    <text>Psalm 151</text>
+   </navLabel>
+   <content src="PS2.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint55" playOrder="55">
+   <navLabel>
+    <text>The Third Book of the Maccabees</text>
+   </navLabel>
+   <content src="3MA.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint56" playOrder="56">
+   <navLabel>
+    <text>The Second Book of Esdras</text>
+   </navLabel>
+   <content src="2ES.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint57" playOrder="57">
+   <navLabel>
+    <text>The Fourth Book of the Maccabees</text>
+   </navLabel>
+   <content src="4MA.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint58" playOrder="58">
+   <navLabel>
+    <text>The Good News According to Matthew</text>
+   </navLabel>
+   <content src="MAT.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint59" playOrder="59">
+   <navLabel>
+    <text>The Good News According to Mark</text>
+   </navLabel>
+   <content src="MRK.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint60" playOrder="60">
+   <navLabel>
+    <text>The Good News According to Luke</text>
+   </navLabel>
+   <content src="LUK.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint61" playOrder="61">
+   <navLabel>
+    <text>The Good News According to John</text>
+   </navLabel>
+   <content src="JHN.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint62" playOrder="62">
+   <navLabel>
+    <text>The Acts of the Apostles</text>
+   </navLabel>
+   <content src="ACT.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint63" playOrder="63">
+   <navLabel>
+    <text>Paul’s Letter to the Romans</text>
+   </navLabel>
+   <content src="ROM.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint64" playOrder="64">
+   <navLabel>
+    <text>Paul’s First Letter to the Corinthians</text>
+   </navLabel>
+   <content src="1CO.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint65" playOrder="65">
+   <navLabel>
+    <text>Paul’s Second Letter to the Corinthians</text>
+   </navLabel>
+   <content src="2CO.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint66" playOrder="66">
+   <navLabel>
+    <text>Paul’s Letter to the Galatians</text>
+   </navLabel>
+   <content src="GAL.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint67" playOrder="67">
+   <navLabel>
+    <text>Paul’s Letter to the Ephesians</text>
+   </navLabel>
+   <content src="EPH.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint68" playOrder="68">
+   <navLabel>
+    <text>Paul’s Letter to the Philippians</text>
+   </navLabel>
+   <content src="PHP.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint69" playOrder="69">
+   <navLabel>
+    <text>Paul’s Letter to the Colossians</text>
+   </navLabel>
+   <content src="COL.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint70" playOrder="70">
+   <navLabel>
+    <text>Paul’s First Letter to the Thessalonians</text>
+   </navLabel>
+   <content src="1TH.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint71" playOrder="71">
+   <navLabel>
+    <text>Paul’s Second Letter to the Thessalonians</text>
+   </navLabel>
+   <content src="2TH.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint72" playOrder="72">
+   <navLabel>
+    <text>Paul’s First Letter to Timothy</text>
+   </navLabel>
+   <content src="1TI.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint73" playOrder="73">
+   <navLabel>
+    <text>Paul’s Second Letter to Timothy</text>
+   </navLabel>
+   <content src="2TI.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint74" playOrder="74">
+   <navLabel>
+    <text>Paul’s Letter to Titus</text>
+   </navLabel>
+   <content src="TIT.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint75" playOrder="75">
+   <navLabel>
+    <text>Paul’s Letter to Philemon</text>
+   </navLabel>
+   <content src="PHM.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint76" playOrder="76">
+   <navLabel>
+    <text>The Letter to the Hebrews</text>
+   </navLabel>
+   <content src="HEB.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint77" playOrder="77">
+   <navLabel>
+    <text>The Letter from James</text>
+   </navLabel>
+   <content src="JAS.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint78" playOrder="78">
+   <navLabel>
+    <text>Peter’s First Letter</text>
+   </navLabel>
+   <content src="1PE.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint79" playOrder="79">
+   <navLabel>
+    <text>Peter’s Second Letter</text>
+   </navLabel>
+   <content src="2PE.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint80" playOrder="80">
+   <navLabel>
+    <text>John’s First Letter</text>
+   </navLabel>
+   <content src="1JN.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint81" playOrder="81">
+   <navLabel>
+    <text>John’s Second Letter</text>
+   </navLabel>
+   <content src="2JN.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint82" playOrder="82">
+   <navLabel>
+    <text>John’s Third Letter</text>
+   </navLabel>
+   <content src="3JN.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint83" playOrder="83">
+   <navLabel>
+    <text>The Letter from Jude</text>
+   </navLabel>
+   <content src="JUD.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint84" playOrder="84">
+   <navLabel>
+    <text>The Revelation to John</text>
+   </navLabel>
+   <content src="REV.xhtml" />
+  </navPoint>
+  <navPoint id="navPoint85" playOrder="85">
+   <navLabel>
+    <text>World English Bible Glossary</text>
+   </navLabel>
+   <content src="GLO.xhtml" />
+  </navPoint>
+ </navMap>
+</ncx>

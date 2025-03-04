@@ -1,0 +1,224 @@
+[
+    {
+        "chunk_id": 0,
+        "start_line": 1,
+        "end_line": 82,
+        "blocks": [
+            {
+                "type": "paragraph",
+                "startLine": 1,
+                "content": "Sam Nicholls\u00a0"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 3,
+                "content": "<p id=\"3\" data-block-id=\"3\"><u id=\"hypercite_7evixot\">- Email: toldandretold@gmail.com<\/u><\/p>"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 4,
+                "content": "- Address: Lochiel, South Australia."
+            },
+            {
+                "type": "paragraph",
+                "startLine": 5,
+                "content": "- Phone: 0488902722"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 6,
+                "content": "- LinkedIn:"
+            },
+            {
+                "type": "heading",
+                "level": 2,
+                "startLine": 8,
+                "content": "Professional Summary"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 10,
+                "content": "A historian and amateur coder passionate about increasing access to knowledge. After relocating from a small family farm, I struggled to adapt to university life. Fortunately, this process was formative and I eventually discovered a rich intellectual life. Through PhD research, in-class teaching, and work at the Tertiary Education Quality Standards Agency (TEQSA), I gained unique experience of the higher education system. In recent years, I wrote sci-fi scripts for a video game, published an academic article, and began developing a website focused on promoting global access to academic knowledge."
+            },
+            {
+                "type": "heading",
+                "level": 2,
+                "startLine": 12,
+                "content": "Experience"
+            },
+            {
+                "type": "heading",
+                "level": 3,
+                "startLine": 14,
+                "content": "VISITING RESEARCH FELLOW"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 16,
+                "content": "University of Adelaide, Department of Politics and Internatioanl Relations"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 18,
+                "content": "March 2024 - present"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 20,
+                "content": "-   Published an [academic article](https:\/\/www.tandfonline.com\/doi\/full\/10.1080\/09614524.2024.2400160), *The Non-aligned common front: strategic imaginaries of the new international economic order (NIEO)*"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 22,
+                "content": "-   Presented at the conference of the *Development Studies Association of Australia*"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 24,
+                "content": "-   Began investigating open source systems of open access knowledge distribution."
+            },
+            {
+                "type": "heading",
+                "level": 3,
+                "startLine": 26,
+                "content": "WRITER"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 28,
+                "content": "[UWU.computer](https:\/\/uwu.computer)"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 30,
+                "content": "<p id=\"30\" data-block-id=\"30\">Mar 2022 - <u id=\"hypercite_segykm4\">November 2023<\/u><\/p>"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 32,
+                "content": "-   Writing sci-fi scripts for a space-trading flight simulation in Virtual Reality."
+            },
+            {
+                "type": "paragraph",
+                "startLine": 34,
+                "content": "-   Developing the fictional foundations of an interplanetary political economy."
+            },
+            {
+                "type": "paragraph",
+                "startLine": 36,
+                "content": "-   Collaborative writing and editing in a small team environment."
+            },
+            {
+                "type": "heading",
+                "level": 3,
+                "startLine": 38,
+                "content": "PROJECT OFFICER"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 40,
+                "content": "Tertiary Education Quality Standards Agency (TEQSA)"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 42,
+                "content": "Jun 2021 - Mar 2022"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 44,
+                "content": "-   Monitoring and responding to key sector risks for the Higher Education Integrity Unit."
+            },
+            {
+                "type": "heading",
+                "level": 3,
+                "startLine": 46,
+                "content": "RESEARCH ASSISTANT"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 48,
+                "content": "School of Humanities and Social Sciences, University of New South Wales"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 50,
+                "content": "December 2019"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 52,
+                "content": "-   Completed specific research tasks to strict short-term deadlines for a political theorist."
+            },
+            {
+                "type": "paragraph",
+                "startLine": 54,
+                "content": "-   Collected online data from government, media and corporate sources."
+            },
+            {
+                "type": "paragraph",
+                "startLine": 56,
+                "content": "-   Collected, stored and interpreted data in accordance with scholarly standards."
+            },
+            {
+                "type": "heading",
+                "level": 2,
+                "startLine": 58,
+                "content": "Education"
+            },
+            {
+                "type": "heading",
+                "level": 3,
+                "startLine": 60,
+                "content": "Ph.D IN POLITICS AND INTERNATIONAL RELATIONS"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 62,
+                "content": "University of Adelaide"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 64,
+                "content": "January 2016 - November 2019"
+            },
+            {
+                "type": "paragraph",
+                "startLine": 66,
+                "content": "-   Studied the way political elites understood and managed a world economic crisis."
+            },
+            {
+                "type": "paragraph",
+                "startLine": 68,
+                "content": "-   Relied on various sources, including World Bank and IMF annual economic surveys, exchange rate data, commodities pricing, and GDP growth figures, in order to track global trends."
+            },
+            {
+                "type": "paragraph",
+                "startLine": 70,
+                "content": "-   Presented research and fielded questions at multiple academic conferences."
+            },
+            {
+                "type": "paragraph",
+                "startLine": 72,
+                "content": "-   Collaborated with an advisory team who provided constant and in-depth feedback."
+            },
+            {
+                "type": "paragraph",
+                "startLine": 74,
+                "content": "-   Collected data at the United Nations Archives, New York City."
+            },
+            {
+                "type": "heading",
+                "level": 2,
+                "startLine": 76,
+                "content": "Skills"
+            },
+            {
+                "type": "heading",
+                "level": 2,
+                "startLine": 80,
+                "content": "Projects"
+            }
+        ]
+    }
+]

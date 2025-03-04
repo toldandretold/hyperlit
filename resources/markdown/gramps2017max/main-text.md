@@ -1,0 +1,4839 @@
+# THE MAX STUART CASE
+
+## TRUTH AND FICTION
+
+###	 REUBEN GOLDSWORTHY.
+
+FOREWORD 
+
+In the 1950s, life was busy for many people of my age, and I cannot remember reading or hearing anything at that time about the crime of rape and murder in 1958 for which an Aborigine, Rupert Max Stuart, was convicted. In any case, the crime rate in those days was low in South Australia and not of great concern.
+
+It was only a decade or so ago that my attention was drawn to the case, and that was when I started to take an interest. At that time I had a friend who had been a detective in his younger days. He was the late E.C. (Chas) Hopkins, who had been an original member of the homicide squad at the time. During discussions we held about some of the serious crimes committed when he was in the squad, he drew my attention to the affair, and I learnt from him that the investigating police had been strongly, and in his view wrongly, accused of fabricating a confession and of assaulting Stuart. He also outlined the huge controversy which followed.
+
+This kindled my interest, and I soon found and read the first two books which had been written about the case. These were [‘]The Stuart Case’, written by K.S. Inglis, then a young lecturer in history at the University of Adelaide, and [‘]The Stuart Affair ’, whose author was Sir Roderic Chamberlain, who had been the prosecutor at the trial, and who represented the Crown at subsequent hearings. His book was essentially a rebuttal of many of Inglis’s claims, which included the casting of doubt on the trial jury’s verdict of guilty.
+
+The first part of this present book deals with the trial and the following events and repercussions which continued for a year or so after the crime had been committed. The second part reviews much which has been said and portrayed about the case since that time.
+
+Perhaps potential readers should be warned that the book concentrates on evidence, and that some of this is repeated, all of which is potentially boring. This is of course well known: judges have been known to fall asleep during court hearings, as happened not long ago in New South Wales. Nevertheless, it has been necessary to deal with this evidence in order to counter much of what has been falsely said about the case.
+
+My thanks are due to the librarians of the State Library,
+
+the Supreme Court Library, and the Law Library of the University of Adelaide for their willing assistance. I should add too that the first material made available to me at the Supreme Court Library was the original version of the evidence as typed at Stuart’s trial in Adelaide during the hearing, which contains some minor errors and a number of abbreviations. In using this, I have therefore made quite a number of corrections.
+
+I thank too the members of my family who have assisted from time to time. They include my grandsons, Sam and Ben Nicholls, who have been invaluable in checking my work, in dealing with the problems I have because of a lack of computer skills, and with editing. I thank too another grandson, Oliver Lardner, who designed the cover.Then there is my son, Professor Jeffrey Goldsworthy, who has given me advice from time to time, not all of which has been heeded. Finally, I am most grateful to my wife, Jannette, who assisted by reading and checking my work, and who has supported me in many other ways too numerous to mention.
+
+## Reuben Goldsworthy
+
+Adelaide, 2017.
+
+
+# PART I: FROM CRIME TO ROYAL COMMISSION
+
+## 1. Crime and Investigation
+
+On Saturday, 20 December 1958, a nine-year-old girl, Mary Hattam, was brutally murdered and raped at Ceduna, a small seaside town on Eyre peninsula in South Australia. She had gone to the beach with her brother Peter and another boy during the afternoon, but the boys returned home for a time and when they came back later she was not to be seen. When she had not returned home by tea time, her father went to the beach to look for her, but could not see her. Then after searching in other places without success, he notified the local police. The three officers stationed at Ceduna (Sergeant H. L. Walker, and Constables H. Herde and L. Green) and a considerable number of local citizens conducted a search. It was nearly midnight before her body was discovered in a small cave in a low cliff.
+
+There was blood on the body and on the sand beneath. The girl’s bathers and a bloodstained stone were nearby. Next day Dr. Kathleen Thompson carried out a post-mortem examination, and [‘]reported multiple abrasions on the back, chest, and right thigh, torn tissues consistent with violent sexual intercourse, multiple lacerations to the face and head, and a shattered skull.’[^1] This horrendous crime was something quite new in South Australia.
+
+Next morning an Aboriginal tracker, whose nickname was Sonny Jim, was taken to the beach to examine footprints near the cave. There were a number of different kinds, including those of the girl, but those of most interest were the footprints of a person with bare feet. These led from the cave to a pool, and back to the cave. Sonny Jim said [‘]that these were the tracks of an educated aborigine’.[^2] Apparently this opinion was taken to mean that the man was [‘]a native who had lived with white men and acquired some of their ways’.[^3]
+
+On that same day two members of the homicide squad, Detective-Sergeant Paul Turner and Constable Richard Jones, flew to Ceduna, accompanied by Sergeant Low (Lowe according to the later Royal Commission Report), a police photographer and fingerprint expert.[^4] Turner, a highly regarded officer with twenty-five years of
+
+service, was in charge of the investigation. Senior Constable Frank Whitrod and Constable Fairweather came from Port Lincoln.[^5] The police followed up clues, and interviewed possible suspects, but without success: all who were questioned gave satisfactory accounts of their movements.[^6]
+
+service, was in charge of the investigation. Senior Constable Frank Whitrod and Constable Fairweather came from Port Lincoln.[5] The police followed up clues, and interviewed possible suspects, but without success: all who were questioned gave satisfactory accounts of their movements.[6]
+
+A travelling funfair, a small sideshow, was showing at Ceduna on the afternoon when the crime was committed. It was owned by a Mr. Gieseman, who was assisted by his wife. The attractions included a small horse carousel, a number of stalls (laughing clowns, darts, and skittles), and an illusion spectacle whereby a girl in a bikini was by trick glass reduced to dwarf size, the [‘]Girl in a Goldfish Bowl’.[^9]
+
+Gieseman’s employees at the time were a mixed bunch, comprising Johnny Woods, a [‘]man of about thirty-five; a [‘]mixed-blood girl’, Betty Gadd; an older white woman, Betty Hopes; William (Billy) McNeish, a muscular and [‘]quiet young white man’; Allan Moir, a [‘]short, sturdy youth of fifteen’; and an Aboriginal, Rupert Max Stuart.[^10]
+
+Stuart, a member of the Aranda tribe, was born on a pastoral station near Alice Springs, and lived as a child on a government settlement at Jay Creek.[^11] At about age eleven he became a stockman, and later he worked as an odd-job man in Alice Springs. At one stage he was a boxer in Jim Sharman’s well-known boxing troupe,[^12] which provided entertainment at annual shows around Australia. He was obviously no weakling.
+
+Next morning, after packing up, the show left for Whyalla, arriving there on the following day - two days after the murder. Later that day one of the local Whyalla police officers, Detective-Sergeant Alexander Phin, went to the site of the show to carry out a routine inspection, and learned from the owner, Norman Gieseman, that Max Stuart had been sacked for being absent from his job on the Saturday afternoon at Ceduna, and that he had been drinking. Gieseman also mentioned that Stuart had found employment as a wheat bag lumper at the Wheat Board’s installation.[^13] This was at Thevenard, the port a little more than 2 miles (3 km.) from the Ceduna town centre.
+
+Gieseman said that Allan Moir had been with Stuart, so Phin spoke to him too.[^14] Gieseman also told Phin that Stuart and Moir were [‘]the only lads who had been away from the show’ on the day when Mary Hattam was murdered.[^15] Phin realised that Stuart could be a possible suspect and informed his superior, Inspector Blyth.
+
+After receiving Phin’s report, Blyth rang the police station at Ceduna to convey the information that Stuart could be a suspect.[^16] The message came through [‘]well on in the evening’,[^17] and the police soon went in search of Stuart.
+
+In due course, Constable Jones prepared a clear, detailed and coherent account of the finding and questioning of the suspect, and of what led to his signing of a confession. His account was:
+
+At about 10 p.m. on Monday, 22nd. December, 1958, six police officers Jones, Turner, Lowe, Whitrod, and Herde and Fairweather, went to the Wheat Board site between Ceduna and Thevenard. They saw three tents there, and they found a man in one of them. As a result of a conversation with him, they searched the surrounding area and found Stuart nearby, apparently hiding. Turner then proceeded to question Stuart.
+
+[‘]Are you Max Stuart?[’ ‘]Yes.[’ ‘]Why did you leave your tent and hide when we pulled up?[’ ‘]I wasn’t hiding, I went out for a leak.[’ ‘]Why didn’t you return to the tent before this?[’ ‘]I had to go right down to the other end of the yard to the lavatory.[’ ‘]You wouldn’t walk right down there just to have a leak.[’ ‘]No, but I had to have a shit.’ Turner then asked Stuart to show them the toilet block, some 200 yards (180 m.) from his tent. There were two lavatories, and Stuart pointed to the first one as the one he had used. Turner examined the lowered seat, rubbed his finger around the top of the seat and found dust on it. There was also no sound of water running from the cistern. He said, [‘]No one has used this lavatory recently.’ Stuart replied, [‘]Yes I did, I never sat on the seat. It was dark and the seat was up. I didn’t notice it was up until I’d finished. I put the seat down before I left.[’ ‘]That sounds most unlikely to me.[’ ‘]No, that’s true.’ If this account was not accurate, then at least some of it must have been invented by the police. On the other hand, if it was true, then 3 Stuart’s answers were hardly convincing, and it could have been taken that he was nimble-witted.
+
+Jones’s story then continued:
+
+> After the initial questioning he was taken to a police van and asked to stand in front of the van’s spotlight. Turner said, [‘]Pull up your pants and let us see your knees.’ These were then examined and scratches were found on both knees. Stuart said that he did not know how they got there.
+
+The police returned to the tent and collected his property, and he was then taken to the police station. Turner continued his interrogation, cautioning Stuart before he proceeded.
+
+[‘]On last Saturday afternoon a little girl named Mary Hattam was raped and murdered at the bottom of the cliff on the beach at Thevenard, a few hundred feet from the Wheat Board. Do you know anything about that?[’ ‘]No, I never did it.’
+
+> [‘]Whoever raped this little girl would probably have had scratches on his knees. You have scratches on your knees. How did they get there?[’ ‘]I don’t know. But I never did it.[’ ‘]Undress yourself. We want to see if you have any other scratches on you.’
+
+Stuart took off his clothes and was examined. Some small scratches were seen near the small of his back and there were some more on his back near the shoulder blade. [‘]How did you get these scratches on your back?[’ ‘]I don’t know how they got there.’
+
+[‘]We have been told that you arrived in Ceduna last Friday with a
+
+travelling show. Is that correct?[’ ‘]Yes.[’ ‘]Did you get the sack on Sunday morning because you were missing from work on the Saturday?[’ ‘]Yes, I got on the booze.’
+
+[‘]Tell us what you did on the Saturday.[’ ‘]I woke up about half-past seven and had a drink of tea. I worked around the show until about ten o’clock and then I went down the town. I met some half-caste blokes and we drank a flagon of wine between the three of us.[’ ‘]What did you do after that?[’ ‘] I went up near the pub. I saw a white fellow there. He was pretty full. I gave him eighteen bob and he got me a flagon of wine from the pub.[’ ‘]What did you do then?[’ ‘]I drank about half the flagon on the beach. I then met some other half-caste blokes and I stayed with them all day on the beach near the jetty.[’ ‘]Are you sure that you stayed with these chaps all day?[’ ‘]Yes, I was. I don’t know their names because I’ve never been here before. They live around here somewhere.’
+
+[‘]We have reason to believe that you were around at Thevenard on Saturday afternoon.[’ ‘]Yes, I will tell you the truth. I did go around to the pub there, because I could not get any more wine at Ceduna, so I caught a taxi to the Thevenard pub.[’ ‘]Did you get any more wine at Thevenard?[’ ‘]I saw a white man there with a bottle of wine. He gave me a drink out of it and I told him I would buy the bottle off him, but he gave it to me for nothing.
+
+[‘]How did you get back to Ceduna?[’ ‘]I walked back.[’ ‘]What time was that?[’ ‘]I don’t know. I suppose it would be about one o’clock when I got a taxi around to Thevenard. I hung around there for a while. After I got the bottle of wine I walked down near the beach and sat down and drank the bottle. Then I walked back along the road to Ceduna.[’ ‘]Did you walk along the beach at all on your way back?[’ ‘]No, I followed the road around.[’ ‘]Where the beach curves it would be natural to walk along the beach as it is a short cut.[’ ‘]Yes, that’s right, I did walk along the beach for a little while.[’ ‘]Were you in bare feet when you walked along the beach?[’ ‘] No, I had my boots on.[’ ‘]Did you see a little girl on the beach?[’ ‘]No, I never saw any girl.’
+
+[‘]Can you track?[’ ‘]Yes, I’ve done plenty of that.[’ ‘]The person who raped and murdered this little girl left tracks in his bare feet. We have had these tracks examined by two trackers, Sonny Jim and Harry Scott. They told us that if they saw tracks made by the same man, they’d know them. Do you think that is right?[’ ‘]Yes, they would know them.[’ ‘]We are going to let them have a look at some of your tracks. What do you think they will say?[’ ‘]I’ll tell you the truth. I was there and I saw the little girl murdered, but I didn’t do it.[’ ‘]What did you see?[’ ‘]I saw a white man kill the girl on the beach. He had a car at the top of the cliff. He pulled out a gun and made me pick up the little girl on the beach and carry her into the cave. He then told me that he would kill me if I told anyone what he had done. That’s why I never said anything about what I saw.’
+
+[‘]What did you do then?[’ ‘]I went down and washed the blood off myself in a pool.[’ ‘]What did you do then?[’ ‘] The bloke drove off in his car and I walked back along the beach and went back to Ceduna.[’ ‘]Your story is not true. The little girl was raped and murdered in that little cave. We know that because the blood splashed up on the side of the cave, and up on the roof.[’ ‘]Well, I must have done it, but I don’t remember doing it.[’ ‘]You have remembered everything else clearly enough. I think you can remember what you did.[’ ‘]I might as well tell you what I did. I did do it. I was pretty full or I wouldn’t have done it.’
+
+[‘]What happened when you came down onto the beach?[’ ‘]I’ll tell you the truth. I saw the little girl playing in a pool of water. There was no-one else around. I called out to her to come and see the little birdies in the cave, I’ve just found them. She came over to the cave and crawled into it. I went in behind her. She asked me where the birdies were, and I told her they had gone now. I then punched her on the side of the head. She went out to it. Then I rooted her.’
+
+[‘]How was she dressed?[’ ‘]She had a white coat on and red bathers.[’ ‘]Did you take her bathers off?[’ ‘]Yes, I pulled them off. It was hard to root her.[’ ‘]What did you do then?[’ ‘]I killed her.[’ ‘]Why did you kill her?[’ ‘]So she couldn’t tell anyone what I had done.[’ ‘]How did you kill her?[’ ‘]I bashed her head in with a rock.[’ ‘]How many times did you hit her with a rock?[’ ‘]About six I think.’
+
+[‘]What clothes were you wearing?[’ ‘]That shirt and those trousers
+
+and these boots.’ He identified a shirt and trousers among his property, and the boots he was wearing at the time.
+
+[‘]Did you take your trousers off before you raped this child?[’ ‘]Yes, I took off all of my clothes and my boots.[’ ‘]When did you do that?[’ ‘]After I knocked her out and before I rooted her.[’ ‘]Why did you take your clothes off?’ So that they wouldn’t get blood on them.[’ ‘]What did you do then?[’ ‘]I went down in a pool of water and washed all the blood off.[’ ‘]Why did you do that?[’ ‘]So no-one would see me.’
+
+[‘]What did you do then?[’ ‘]I walked out of the water and went back near the place where I had killed the little girl and put on my clothes. I walked along the beach and put my boots on later when I got near the road.’
+
+[‘]How drunk were you at the time you first saw the little girl?[’ ‘] I was pretty full.[’ ‘]Could you walk straight or were you staggering around?[’ ‘] I could walk straight. I wasn’t that full.[’ ‘]Then you can remember clearly what you did?[’ ‘]Yes, I can remember everything, but I would not have done it if I had not had wine. It must have been that what made me do it.’
+
+[‘]Do you wish to make a statement about the matter?[’ ‘]Yes.[’ ‘]I want you to clearly understand that you do not have to make a statement about this matter, or to say anything unless you wish to. Do you clearly understand your position and the fact that you do not have to make any statement unless you want to, or say anything?[’ ‘]Yes.[’ ‘]Now do you wish to make a statement?[’ ‘]Yes.[’ ‘]Do you want to write the statement?[’ ‘]I can’t write much, I can only sign my name.[’ ‘]Do you want us to type the statement for you?[’ ‘]Yes.’ Detective Whitrod then typed the statement made by the defendant.
+
+Then came the confession, which according to the police was essentially a summary of his movements and actions on the day of the murder.
+
+I, RUPERT MAX STUART, aged 27 years, labourer, of Alice Springs, having been warned by Detective-Sergeant Turner that I need not
+
+make this statement do so voluntarily without any fear, threat, reward or promise of any nature state the following:-
+
+I came to Ceduna, on Friday 19th. December, 1958, at about 9 a.m. as an employee of Fun Land Carnival, a travelling show owned by Norman Keaseman (sic). There was a show on Friday Night and I slept in the show tent at Ceduna. At about 7.30 a.m. on Saturday, 20th. December, 1958, I awoke and started work at the show. I had a drink of tea first but nothing to eat. I worked at the Show until 10 o’clock and then I left. The show was situated at the Ceduna Oval. Me and Allan walked down to the Jetty. Then we were talking to one half caste bloke. He’s the bloke who lives around the beach but I don’t know his name. We walked down the beach near the Jetty and into a little cave. The three of us sat down and drank a flagon of wine. The three of us came up to the town here. Allan went back to the Show Ground. It was then about half past eleven I think. I got a flagon of wine off a white fellow I met near the Ceduna pub. He was drunk. I gave him eight shillings to get it. I went down to the same place. I stopped there by myself and drank the flagon. No, I only drank half of it. I put the other half flagon in a sugar bag. I came into town carrying the bag. I left the bag with the flagon in it down by the Picture show wall. I jumped in a taxi. Went down to the Thevenard pub. I got off there. I was sitting down outside the pub. I think I must have stopped there about an hour I think. Then I seen a fellow with a bottle of wine. He offered me a drink. He had a little bit. I said to him, “I think I will buy this off you.” He said, “You can have it for nothing.” I got it off him. Then I started walking back. It was one o’clock I think. Just after coming out of Thevenard town I stood and I finished that bottle. I walked back to the pub again. Could not see that bloke. Then I came back. I walked down to the beach. Then I saw this little girl. I was pretty full then. She was standing in a pool of water playing. I said to the little girl, “There is some little birds over there.” I pointed up towards the cave. She said, “I will go and have a look” She walked in the cave. No I am wrong I crawled in the cave first and she crawled after me. She said, “Where’s the birds?” I said, “They are gone now.” I punched her on the side of the head. She went unconscious. I took her bathers off. Then I raped her. She was hard to root. I done her. Then I hit her with a stone. Before I raped her I took my clothes off. I was wearing a shirt and pants. I also took my boots off. I think I hit her six times with a stone. I left her. I think she was dead. I went and had a wash in the sea. I had no clothes on. I went back to near the cave where I had taken my clothes off and put them on. I started to walk back along the beach towards Ceduna town. I got on the road from the beach near the Church. I went around the back streets to where the caravan park is. Got a flagon of wine. That was the one I left in the bag. I drank that. I then went back to the Show. I worked around there for about two hours. About sundown me and another fellow went down to the Jetty. We were looking for other fellows drinking. Then we saw two blokes sitting down drinking. When we went down there they put the bottle away. I had more wine 9 that night with them. On Sunday morning 21.12 1958 (sic) I got the sack from the Show. A friend of mine “Herbie” helped me to get a job with the Wheat Board. I started work there on Monday, 22nd. December, 1958, at 8 a.m. I slept at the Wheat Board with another native in a tent. We went to bed at about 7 o’clock tonight and I went to sleep and after a while I got up to go to the lavatory. When I went back I seen a car standing in front of the tent and you blokes then spoke to me and took me to the Police Station. I killed her because I did not want her to tell what I had done. I cannot read English. I have heard this statement read to me and it is true and correct in every detail.
+
+## ROPERT MAX STUART
+
+According to the Jones statement, Turner questioned him again before he signed it.
+
+[‘]Do you wish to read the statement you have just made?[’ ‘]No, I can’t read.[’ ‘]Would you like the statement to be read back to you?[’ ‘]Yes.’ Det. Whitrod then read the statement back to the defendant.[’ ‘]Do you understand everything that Det. Whitrod has read to you from your statement?[’ ‘]Yes.[’ ‘]Do you wish to alter or add anything to your statement?[’ ‘]No.[’ ‘]I want you to understand that you need not sign your statement unless you wish to.[’ ‘]Do you wish to sign it?[’ ‘]Yes I will sign.’
+
+Stuart then signed his name, but as Ropert and not Rupert.
+
+It can be seen that the confession, as recorded by Whitrod, contained information which matched that of the record of the interrogation and none that did not. Moreover, Jones’s statement was clear, detailed and coherent, and included information that had become known to the police beforehand. Thus there was no apparent reason for doubting the police version of events.
+
+Jones went on to record what followed, including Turner’s further questioning of Stuart.
+
+Stuart was taken to a patch of sand in the yard of the Police Station, and Turner then spoke to him in the presence of Sonny Jim and Harry Scott. [‘]At the scene of the murder on the beach the impressions of bare feet were found leaving the scene and going into a pool of water, the foot impressions then returned to the scene and were then followed further along the beach towards Ceduna. Do you mind walking through this patch of sand so that the blacktrackers can compare your tracks with those found and followed away from the scene of the murder?’
+
+Stuart then walked through the sand in bare feet and the trackers were asked to examine the tracks. They examined the tracks for about half a minute, and Scott then said, [‘]Yes, same.’ Sonny Jim then gave the same answer. The defendant was then arrested and charged with the murder’
+
+The next part of the Jones statement described a meeting with Stuart on the following morning.
+
+> At about 9-00 a.m. on Tuesday the 23rd. December, 1958, I went to the cells at the Ceduna Police Station in company with Det.Sgt. Turner where I saw the defendant. Det.Sgt. Turner cautioned him. I had in my possession a piece of rock which I had recovered from the small cave and also a pair of bathers. Turned said, [‘]Is this the stone that you killed the young girl with?’ (Showing him the stone produced) He said [‘]It looks like it.’ Turner then showed the defendant the pair of bathers. Turner said...[‘]Are these the bathers you took from the girl after you knocked her unconscious and before you had intercourse with her?’ He said, [‘]They look the same colour, they look like it.’
+
+Soon after this, he was taken before a Justice of the Peace, Mr. John May, who remanded him in custody until the preliminary hearing,[^18] which was held between 21st. and 29th. January 1959.
+
+On that same Tuesday morning, Moir made a statement to Phin, which was dictated to a typist. This gave a detailed description of his movements. The statement included the following information :-
+
+[‘]He said that he and Stuart had left Gieseman’s show at about eight on Saturday morning and had gone into Ceduna. They met some part-Aborigines, and went on to the beach with them where they sat drinking until he left them at a quarter to ten and returned to the show. At about one p.m. Moir left the show again, and went into the town to buy some shoe polish. He saw Stuart “drunk in front of the picture hall with some other male darkies”, and Stuart asked him to buy him a tin of shoe polish when he bought his own. Moir did so, gave him the polish, and returned to the showgrounds.’ He [‘]did not see Stuart again until six o’clock that evening, by which time Stuart had “sobered up.” '
+
+The statement also included the information that Stuart had told Moir later that same evening that he had [‘]just killed someone.’
+
+Later, when Phin gave evidence at the Royal Commission, he said that during the interview he told Moir that Stuart had confessed to the murder. Phin went on to say that Moir [‘]did not seem alarmed’, and asked: [‘]What will happen to him?’, to which Phin replied: [‘]I don’t know, but they could hang him for an offence like that.’ Moir then [‘]put his hands on his face’ and said: [‘]Maxie, Maxie. I am sorry now I told you so much.’[^19]
+
+It appears from this that Moir had accepted that Stuart was the guilty party and that he himself was innocent.
+
+Meanwhile Stuart was escorted by plane to Adelaide, and imprisoned while awaiting trial.
+
+As far as the police were concerned their two long days of intensive work had been rewarded by the identification and arrest of the culprit. They could not have imagined that there would have been any sequel to the forthcoming preliminary hearing and expected trial. No-one could have foreseen the huge public controversy which ensued, or that there were to be appeals to the South Australian Full Court of Appeal, the High Court, and the Privy Council, let alone a Royal Commission.
+
+## \* \* \* \* \* \* \*
+
+## 2. Preliminary Hearing
+
+The preliminary hearing was presided over by Mr. L. K. Gordon, a stipendiary magistrate who later became the Crown Solicitor. Mr. J. D. O’Sullivan appeared for Stuart and Police Inspector Hansberry was the prosecutor.
+
+Local witnesses were called to appear at the hearing in the Ceduna Police Court in a bid to establish the time of the crime and Stuart’s whereabouts at that time. One was Peter Jacobsen, the boy who after lunch had been playing on the beach with Mary’s brother. They left the beach for a time, but when they returned later they could not see her. Peter’s father, a fisherman, [‘]stated that he had landed on the beach at about a quarter to four, but had not seen the girl.’[^1] Thus there was an indication that the crime had been committed some time after lunch and before about 4 p.m. However, Dr. Thompson, who gave evidence about the child’s injuries, considered that the probable time of death was between 2.30 p.m. and 9.30 p.m.[^2] Nevertheless, the balance of evidence was that the time of Mary’s disappearance was between lunchtime and about 4 p.m.
+
+O’Sullivan questioned two police officers [‘]for a total of about ten hours, suggesting that the police had wrung Stuart’s statement out of him by the use of violence.’ In concluding he said that he did [‘]not propose to put *the remainder of the defendant’s version* of the conversation between himself and the police to this witness at this stage’.[^3] Evidently O’Sullivan had been able to communicate well enough with Stuart to prepare himself for a long and detailed questioning of the police witnesses, and this within a few weeks.
+
+: [‘]I came to Ceduna on Friday 19th. December 1958 at about 9 a.m. as an employee of the Funland Carnival show owned by Mr. Norman Keasman’, and Jones said that they were. Jones’s attention was then drawn to the passage [‘]There was a show on Friday night and I slept in the show tent at Ceduna. At about 7.30 a.m. on Saturday 20th. December I awoke and started work at the show.’ He answered: [‘]Those were his actual words as accurately as I can remember them.’[^4] However, it seems unlikely that these sections of the confession, which followed the standard four lines of introduction, were in Stuart’s exact words, but rather that they had been the result of questioning.
+
+A taxi-driver, Dennis Blackham, testified that he had picked up Stuart and another native in Ceduna at about 2 p.m., taken them to the funfair, and then taken Stuart to Thevenard. Blackham also said that he heard Stuart say that he wanted to see a girl at Thevenard.[^5] During cross-examination, he told O’Sullivan that he was quite certain that Stuart had mentioned a girl, but denied that Stuart had suggested that he went to Thevenard to get a drink,[^6] which was the reason for the trip as recorded in the police account of the interrogation and in the confession. Blackham’s evidence was to prove significant when the time came to determine Stuart’s whereabouts and activities during the Saturday afternoon.
+
+The tracker Sonny Jim was examined, partly in court and partly on the beach, and O’Sullivan questioned him closely on his identification of the tracks on the beach and the footprints which Stuart had made at the police station.[^7]
+
+The magistrate found that there was a case to answer, and Stuart was committed for trial, which did not begin until 20th. April 1959.[^8] Hence in comparing the evidence given at the preliminary hearing with that at the later hearing, it is necessary to keep in mind that the witnesses at the preliminary hearing gave their evidence when their memories were fresh, whereas those at the trial were testifying four months later when there could have been some memory loss.
+
+## \* \* \* \* \* \* \*
+
+##
+
+## 3. Trial
+
+Sir Geoffrey Reed was the presiding judge at the trial. The Crown Solicitor, Mr. Roderic (later Sir Roderic) Chamberlain, was the prosecutor, and he was assisted by Mr. E. B. Scarfe. O’Sullivan, assisted by Miss H. Devaney, appeared for the defendant. The Crown called fifteen witnesses. However, the defence did not ask for any to appear. Nor was any request made for the services of an interpreter to assist the defendant.[^1]
+
+The local witnesses confirmed their previous evidence pointing to the time of the murder, and it was eventually accepted by the prosecution and the defence that it was between 2 p.m. and 4 p.m.[^2]
+
+Dennis Blackham, the taxi driver, confirmed the testimony he had given at the preliminary hearing. He had gone to a shop owned by a Mr. Spry, had picked up Max Stuart, and taken him and a younger man to the funfair, after which he took the defendant to the Thevenard hotel. The defendant said that his name was Max and that he was going to Thevenard to look for a girl.[^3] Blackham said that Stuart’s speech was slightly slurred and that he was affected by liquor.[^4]
+
+Sonny Jim and Harry Scott both deposed that Stuart’s tracks which they saw at the police station were the same as the barefoot tracks which they had examined on the beach. Sonny Jim said that the tracks were not those of a [‘]wild aborigine’, and in cross-examination he testified that he had said to Constable Herde that the tracks were those of a [‘]wadichinner’, meaning an [‘]educated black man’.[^5] Both Sonny Jim and Harry Scott agreed that he was [‘]an Aranda man who had lived with white people.’[^6]
+
+Constable Jones was examined at length. Reading from notes, [‘]he gave a detailed account of what had occurred between the police and Stuart at Ceduna.’[^7] Then, under cross-examination, he denied all suggestions that the police had been guilty of any wrongdoing. He had not taken any notes when Stuart was being questioned, but explained that this was because he had been trained to remember conversations accurately, and that when a [‘]person being spoken to sees a notebook, then he automatically doesn’t say what he would normally’.[^8]
+
+Jones confirmed part of his previous evidence when he said that scratches were seen on both of Stuart’s knees when his body was searched in the spotlight at the police van, and repeated his account of the questions which Turner had put to Stuart and of Stuart’s answers.[^9] According to Jones, in reply to a question Stuart had said, [‘]Yes that’s right, I did walk along the beach for a little while’, and [‘]I walked along the beach and put my boots on later when I got near the road.’[^10]
+
+Jones said that after the questioning, Stuart was asked if he wished to make a statement, and when he agreed Detective Whitrod typed it.
+
+At the preliminary hearing Jones had said that in the first five lines \[i.e. the introductory part\] of the confession words such as [‘]There was a show on the Friday night’ and [‘]I awoke and started work at the show’, were Stuart’s actual words as far as he could remember them. (p.14 above) However, he now explained that the first five lines or so were the result of questions by Turner, that Stuart then made his statement, and that when he stopped, which was about three times, Turner asked, [‘]Did anything happen then?’ Jones then added: [‘]Otherwise the statement is exactly as he said it.’[^11] He also said that where dates appeared in the confession they were clarified by Turner who would say [‘]Do you mean the 21st. December?’[^12] Since it is obvious that this must have been the case, it appears that he had been hasty in answering O’Sullivan’s questions at the preliminary hearing.
+
+Regarding the first part of the confession, Whitrod said at the Royal Commission: [‘]Apart from the opening words and references to dates, the confession contained Stuart’s actual words.’[^13] However, like the introductory part of the confession, the last sentence, [‘]I have heard this statement read to me and it is true and correct in every detail’, could also not have been said by Stuart, and was in standard form.
+
+O’Sullivan asked Jones about a number of words which appeared in the confession, such as [‘]rape’ and [‘]lavatory’. Jones replied that they were the words used by Stuart.[^14] Jones was also asked whether hairs had been pulled from Stuart’s head or legs, and he replied that some had been cut from his head.[^15] When questioned by Chamberlain, Turner produced some hairs, saying that some had been taken from the child’s hands and some from Stuart's head.[^16] They were taken for the purpose of determining whether or not there was a match, but a clinical pathologist at the Institute of Medical and Veterinary Science who examined them, said that variations in the hair on the head of any one person were so great that it was not possible to identify with any certainty whether or not they were Stuart’s.[^17]
+
+O’Sullivan then asked Jones if any officer had threatened Stuart with a razor blade, whether he (Jones) had punched Stuart over the right eye, on the right shoulder and in the ribs, and whether Walker had pushed his thumbs into Stuart’s throat. Jones denied these suggestions.[^18] The other police witnesses corroborated Jones’s testimony.[^19]
+
+Jones gave evidence that Turner had said to Stuart: [‘]Whoever raped this little girl would probably have scratches on his knees. You have scratches on your knees. How did they get there?’, and Stuart replied, [‘]I don’t know but I never did it.’ Jones then said that Stuart was asked to undress, and he took off his clothes. There were [‘]some small scratches near the small of his back’ and [‘]some more scratches on his back near the right shoulder blade.’ According to Jones, Stuart then said [‘]I don’t know how they got there.’[^20] Turner said later that the scratches were [‘]clearly defined.’[^21]
+
+Sergeant Low, the police photographer, testified that when he saw the defendant undressed [‘]there were abrasions on the top right of his back’, and [‘]another one I can recall is the left knee I think.’[^22] Constable Fairweather was another who added weight to the testimony. He said: [‘]I did see him undressed. I did see some marks on his body. There were scratch marks on his right and left knee, and the small of his back and below his right shoulder.’[^23]
+
+When Stuart took his clothes off at the police station, he could have been seen through the windows by anyone looking in from outside. O’Sullivan questioned Turner about this, and Turner agreed that if [‘]anyone had looked through the window they could have seen him.’ Then by way of explanation he added that it was a precaution normally taken, but that it was something he did not think of at the time. He thought that it was unlikely that late on a Monday night there would have been any passersby in the quiet community of Ceduna.[^24]
+
+While at Ceduna, Stuart was not examined by a doctor.[^25] Thus there was no independent witness to verify the police claims that his body had been scratched or whether or not he had suffered any other injury.
+
+Jones explained that the [‘]tracks in the sand were not suitable for photographing’, and [‘]that is why...they were not photographed.’[^26]
+
+When Paul Turner took the stand, he denied that the police had used any violence or threat against Stuart, and in particular that Stuart was not punched in the eye or threatened with a razor blade. He went on to say that some of Stuart’s hair had been cut off with a pair of scissors, and that hairs had been taken from each hand of the child and submitted to Dr. Hicks (a clinical pathologist) for analysis.[^27] Under cross-examination he said that he [‘]thought they might be of some value.’[^28] However, Dr. Hicks said that the hairs from any one person could differ so much that he could not tell whether the two sets of hair were from the same person or not.
+
+Turner went on to say that [‘]Jones did not hit him, Whitrod did not hit him and the Sergeant did not touch him either.’[^29] He also denied that Stuart had said [‘]yes, yes’ to everything because he had been subjected to violence, and added: [‘]The \[referral\] to “being hard to root” was not a form in the questioning but was his answer and he laughed when he said it.[’ ‘]My memory is quite clear on that point.’[^30]
+
+When asked about the wording of the confession Turner said:
+
+[‘]He was asked his name, age, occupation, address and that was typed in’. [‘]Some questions were asked - for a start, I said “When did you come to Ceduna?” The description of actual events, no questions were asked about that, other than when he stopped talking, when he was asked “Did anything else happen?” Apart from those interpolations that is his own narrative, word for word.’[^31] [‘]The statement covered everything important from my point of view’. [‘]I do still doubt the defendant’s story that he had gone to the lavatory. In fact, I am certain that he did not go to the lavatory. When he dictated to Whitrod that he went there I think that is false.[’ ‘]It was typed by Whitrod word for word as the defendant dictated it.’[^32]
+
+Turner’s evidence squared with that of Jones and the other police witnesses. Even without the police evidence, it must have been obvious to anyone with any knowledge of statements taken by the police for the purpose of laying a charge, that the first sentences and the last sentence in the confession were in formal police language and not in Stuart’s.
+
+Sergeant Low confirmed that the [‘]marks were not a suitable subject for photographing inasmuch as the colour of the skin was against any good reproduction being obtained’.[^33]
+
+Turner denied that he had told Stuart that [‘]the trackers had seen where a man had washed himself at the pool.[’ ‘]He was only told that the tracks had been identified.’[^34] When he was reexamined, he said that as a result of his experiences his faith in trackers had [‘]improved since these proceedings’.[^35]
+
+The last witness was Mr. John May, the Justice of the Peace before whom Stuart had appeared in Ceduna the morning after his confession. May swore that he had [‘]had a good look’ at Stuart and saw no sign of injury. Nor had Stuart made any complaint.[^36]
+
+Because Stuart could not read or write, O’Sullivan asked for an unsworn statement, signed by Stuart, to be read for him.[^37] Such a statement did not at that time have to be made under oath, and the witness making such a statement could not be cross-examined, and could therefore make unsubstantiated claims. The judge ruled that Stuart could not have the statement read for him without the consent of the prosecutor,[^38] a decision which was correct in law.
+
+With Chamberlain’s consent, the statement could have been read for Stuart, but Chamberlain suggested instead that [‘]O’Sullivan should be allowed to stand by Stuart and more or less prompt him in the giving of \[the\] unsworn statement’. The judge agreed, but O’Sullivan rejected the offer.[^39] This was despite the fact that the judge said, [‘]I will do my best to see he gets out anything he wishes to say on these matters.’[^40] It can be seen that Stuart was disadvantaged because he could not read, but it seems that the difficulty could have been overcome with assistance by way of prompting.
+
+After returning from an adjournment to speak to his client, O’Sullivan said, [‘]I do not know that I can assist him in any way with his statement.’ Then Stuart, while holding a typed statement said to the jury:
+
+[‘]I cannot read or write. Never been to school. I did not see the little girl. I did not kill her. Police hit me. Choke me. Make me say these words.[’ ‘]They say I kill her.’ That’s what I want to say. Someone to read this out for me.’[^41]
+
+O’Sullivan then said: [‘]I do not ask for further questions to be put to him’. [‘]I prefer that Your Honour did not suggest anything further to him.’[^42]
+
+A copy of the original typed unsworn statement was eventually submitted to the Royal Commission,[^43] and it reads as follows:-
+
+I am an aboriginal. I cannot read or write. I was at Ceduna the day the girl was killed. I did not kill her. I did not even see her.
+
+I went in a taxi to Thevenard to get a drink. I did not want a girl. I did not tell anyone I did. I had some wine there. I was not drunk.
+
+I walked back to Ceduna in the afternoon. I walked on the road first and then on the beach. I did not walk near the place where the girl was found. I walked in my boots all day. I did not walk bare-foot. I did not take my clothes off and wash myself in the water. I did not see the little girl or the little boys.
+
+When I got back I worked at the Show for a while. At tea-time I went down to the hotel to get a drink. There were two dark fellows on the beach near the hotel. They gave me a drink of wine. I went up the street later with Herby. He was my friend from the Show. The policeman came and took me to the police station. That was before the pictures started. The policeman let me out next morning. I got the sack from the Show. I got a job with the Wheat Board.
+
+On Monday night I was in bed. When I came back the police were there. I was not hiding. When I came back they were looking for my swag.
+
+\(S\) ROPERT MAX STUART
+
+> Mr. Turner said. “What is your name?” I said “Max Stuart.” He said. “You are the fellow we are looking for for murdering the girl.” I said. “I did not do it.” He said I was hiding. I said. “I was not hiding.” Turner said “You didn’t go to the lavatory.” I said “I did.” I showed them where I had walked in the sand. I cannot track. I did not tell anyone I could. It was easy to see my tracks there. Any fellow could see them. They looked at my clothes. They said they were looking for blood. They did not look at my knees.
+
+They took me to the police station. Mr. Turner said. “Come on you know that you killed the girl.” I said. “No.” He said that a few times. Mr. Jones said, “Take your clothes off.” I took them off. They looked at me. One policeman behind me said. “There are some marks.” I could not see what they were looking at. Mr. Jones said. “How did you get them?” I said. “I don’t know.” They pointed to a mark under my right arm on my ribs. I said. “That has been there for years.” Mr. Turner pulled some hairs out of my head and some from my legs. He didn’t ask me if he could.
+
+\(S\) ROPERT MAX STUART
+
+They told me to get dressed. I got dressed. They told me to sit down. I did that. Mr. Jones said. “Come we know you did it.” I said. “No.” He said. “Yes, come on tell me the truth.” I said. “I didn’t do it.”
+
+Mr. Jones punched me over my eye. I nearly fell off the chair. When I stood up he hit me again on the side of the throat and on the ribs. He tried to punch me again. I stopped it with my elbow. Then Sergeant Walker grabbed me round the throat with two hands. He kept pushing his thumbs into my throat. I could not breathe. I thought I was going to die.
+
+The other policemen were all around me. The Sergeant said. “you had better tell us the bloody truth, now you know.” The Sergeant let me go. The policeman with the typewriter said “You killed the little girl.” I was frightened. My head and throat were hurting. I could hardly breathe. They were all saying things to me. I can’t remember it all. One said, “We have found the dead girl. You must have done it.” He said I was hiding. I said “Perhaps it was a white man.”
+
+\(S\) ROPERT MAX STUART
+
+When they searched me they found a blade from a razor in a coat pocket. It was lying on the desk. One of the policemen picked it up. He said, “If you don’t tell us I will skin you, or kill you,” or something like that. I thought they would kill me if I didn’t say what they wanted. Then I said “Yes” all the time. They told me the trackers would say they were my tracks. I can’t remember all the things they said. They asked me if a white man made me do it.’ I said “Yes.” One of them said. “It is all bull shit a white man doing it. We were only saying that. We knew it was a black man.” One of them said, “She was hard to root wasn’t she?” I said “Yes”. The man with the typewriter was using it while they were talking to me. They kept asking me questions all the time until he finished. One man read it. He said, “That is true, isn’t it?” I said “Yes.” He told me to write my name. I wrote my name because I knew they would hit me again if I didn’t. I did not kill the little girl. I never saw her and I never touched her.
+
+\(S\) ROPERT MAX STUART
+
+Why did O’Sullivan decline the offer of the trial judge to prompt Stuart so that he could tell the Court what was in this statement? At the trial, Stuart held the document in his hand, and O’Sullivan wanted the contents revealed, but when he was given the opportunity to elicit the substance of the document, he backed off. Since Stuart had given him the information, it should have been relatively easy to get it again, so why was the opportunity not taken? Was it because he knew that Stuart could have understood the questions put to him, and probably been able to answer in English? At the time this must have seemed probable.
+
+Apparently O’Sullivan had not needed an interpreter when he interviewed his client before the preliminary hearing, (p. 13 above ) and before the trial. Moreover, if the police were to be believed, then he was quite capable of answering questions with little or no hesitation. At any rate the opportunity for the jury to gauge his ability to make himself understood and also to answer questions was blocked.
+
+Although it was clear that the crime had been committed in the afternoon sometime between about 2 p.m. and 4 p.m., the defence presented no evidence that Stuart was in the company of any other persons during that time. According to his unsworn statement he was in Ceduna at the time the girl was killed and was at the show. Why then did O’Sullivan not test this claim by checking with others such as the Giesemans and their employees, no matter how difficult this might have been? If it had been confirmed, then the trial would have ended abruptly and Stuart would have been cleared.
+
+In the circumstances it must be assumed that there was nothing in the claim. Indeed, if Stuart had known that he had been in Ceduna when the girl was killed, why did he not say so early in the piece when O’Sullivan, as an experienced advocate, would surely have questioned him about his whereabouts during that afternoon.
+
+Following counsels’ final addresses, Justice Reed delivered his charge to the jury. In doing so he was extremely thorough in commenting on the evidence. His address ran to some forty pages of transcript, and his summation included the following advice:-
+
+You are to give [‘]impartial consideration to the evidence’...and are asked [‘]to return your verdict...without any feelings or passion or prejudice.’[^44]
+
+Regardless of what you have heard or what has appeared in the newspapers, [‘]please dismiss that entirely from your minds...and concentrate your attention upon the evidence, and nothing more, which you have heard and seen in this Court.’[^45]
+
+Unless the jury was [‘]satisfied beyond doubt that the confession was obtained without the police having taken unfair advantage of their position, then they would no doubt reject the confession and the answers which preceded it’.[^46]
+
+> No inference of guilt against Stuart is warranted because he [‘]made an unsworn statement only’.[^47] [‘]Except for the confession and the answers given to the police by the defendant...it would be a very dangerous procedure to draw the inference that he was guilty of murder.’[^48]
+
+Referring to Stuart’s movements on the afternoon of the crime, Reed reminded the jury that Stuart’s counsel had admitted that he [‘]went to Thevenard about 2 p.m. or a little afterwards’.[^49] Later he suggested to them that [‘]it would not be an unreasonable view of the facts...that she disappeared… somewhere round perhaps half past 3. At any rate, it could not be much earlier than 3 o’clock.’[^50]
+
+The jury retired at 2.20 p.m. and returned at about 3.35 p.m.[^51] It had taken them not much more than an hour to reach the verdict of [‘]Guilty’.
+
+They had needed little time to make up their minds about the weight of the evidence, the credibility of the witnesses, and the other relevant factors, including the judge’s strong warnings that it would be unsafe to return a verdict of guilty without being quite sure about it. Obviously they considered that the confession was genuine. This should have been no surprise to anyone who had studied the records of the interrogations and the confession. The questions and answers at the Wheat Board tent site follow naturally and logically and make sense, and it seems that Stuart had given an unlikely version of his doings at that time, and that both then and at the police station he was impelled to change his story each time he was challenged.
+
+The confession, like the police accounts of the interrogation, also flows naturally and is in chronological order. According to the police versions of the interrogation and confession, he had left work at the show at about 10 o’clock on the Saturday and then gone to the beach and had wine; he had gone to Thevenard by taxi; he had walked back to Ceduna and went part of the way along the beach; he had then got on the road near the Church; he had drunk more wine and then gone to the show where he worked for a couple of hours; next day he was sacked and a friend found him a job at the Wheat Board; and he had slept in a tent there next evening before the police arrived to question him . These police records of events were to be subjected to very close examination at the Royal Commission.
+
+Apart from the formal beginning and the last sentence, the language of the rest of the confession was such that it could have been spoken by any reasonably intelligent person who could speak English moderately well. Since Stuart had lived as an adult in white societies for a decade or so, the police claim that this part of the confession was in Stuart’s words was quite reasonable, even though the transcription might not have been absolutely perfect.
+
+It might have been expected that there would have been no further legal proceedings. Despite doubts and criticisms made both at the time and later, there was no reason to believe that there had been any unfairness at the trial. The jury had heard all the evidence presented, and had in the usual way decided what to believe and what to discount. The judge had warned them in no uncertain terms not to bring in a verdict of guilty unless they were completely satisfied that it had been freely given by Stuart, but after taking all of this into account they brought in that verdict. Obviously they were completely satisfied. In normal circumstances, there would have been no challenges to this decision. However, ten days later an appeal was lodged.
+
+The jury were not entitled to know about Stuart’s police record, which was detailed in Roderic Chamberlain’s book, *The Stuart Affair,* as follows:-
+
+[‘]He was known to the police in three States, under the names, Max Stuart, Ropert Stuart, Massey Khan, Rex Sullivan, Robert Sullivan, and Robert Hughes. From 1947 onwards, he had been charged twenty-five times. His offences comprised eight of drinking liquor and four of supplying alcohol to Aborigines (those being in the days when Aborigines were not allowed to drink intoxicants); two of being in a prohibited area; two of being unlawfully on premises; four of stealing; two of common assault of which one was on a female adult; two of aggravated assault of which one was on a female child; and one of making a false declaration.’[^52]
+
+Most of the offences were minor, but despite some claims, two of the assaults could be regarded as quite serious. In both cases, Stuart had been affected by liquor. In 1955 he had knocked a nurse unconscious in a lavatory at a dance in Alice Springs, for which he was gaoled for fifteen months.[^53] The assault on the female child was committed at Cloncurry, a town in Queensland, in 1957. This too can be regarded as serious. It was investigated by Constable Corbett who was stationed there at the time. It may also be noted that in making a false declaration he had demonstrated that he could lie when it suited him.
+
+## \* \* \* \* \* \* \*
+
+##
+
+## 4. Full Court Appeal
+
+The Full Court of Appeal comprised the Chief Justice, Sir Mellis Napier, and Justices Abbott and Mayo. There were five grounds of Appeal: (1) that the judge was wrong in law not to allow the defendant’s statement to be read for him; (2) that Chamberlain was in breach of the Evidence Act in commenting during his closing address that Stuart had not given evidence under oath; (3) that early in the piece the judge should have prohibited Chamberlain from referring to evidence to be given later; (4) that the verdict was against the weight of the evidence; and (5) that photographs of the body should not have been admitted as evidence. None of these claims were upheld.
+
+The Court ruled that the judge was right in refusing to allow the unsworn statement to be read, but [‘]approved of a suggestion from the Crown Prosecutor that counsel for the defence should be free to prompt him on any topic, ask him questions, and, generally, assist him as far as possible to make a statement and cover everything that the appellant might desire to put to the jury.’[^1] The report of the Court concluded: [‘]It seems to us that Reed J. went as far as he could properly go, and that there is no substance in this first objection.’[^2]
+
+The Court had some difficulty in considering the second claim, because there was [‘]no accurate record of what was said’, and the affidavits [‘]by junior counsel on either side \[gave\] very different accounts.’[^3] According to Chamberlain, O’Sullivan had claimed that he, Chamberlain, had [‘]tried to give the impression that Stuart was avoiding cross-examination.’ At the same time, Chamberlain recorded that in fact [‘]all \[he\] told the jury was that they must not think that Stuart had been denied the opportunity to tell his story.’[^4]
+
+Reed was asked for his opinion, and said: [‘]the impression I had was that Mr. Chamberlain had gone fairly close to the borderline.’[^5] The Court agreed, and did not think that the comment had infringed the prohibition. Its judgement was that [‘]the comment had been made *alio intuitu*, and was relatively innocuous’.[^6] Thus they did not believe that Chamberlain had made the comment because he wanted to gain an advantage - he had something else in mind (alio intuitu - with a different view or aspect) Another conclusion was that the comment could not have affected the result because Reed had strongly warned the jury that no inference of guilt should be drawn from the fact that Stuart had chosen not to testify as a witness.[^7]
+
+In relation to the third ground, O’Sullivan objected to the fact that Chamberlain had told the jury in his opening address [‘]that they would hear Constable Jones state how Stuart had made his statement in the Ceduna Police Station.’[^8] This of course related to allegations of police brutality .
+
+O’Sullivan put it to the Court that Stuart had been severely attacked by the police in order to obtain the confession. Justice Abbott asked, [‘]You are saying...that six police officers perjured themselves?’ O’Sullivan said [‘]Yes.’ Then in reply to the question [‘]For no reason?’ he answered [‘]For a very good reason - their jobs and careers would have been at stake.’ Justice Mayo commented: [‘]Their jobs and careers would have been at stake if they had done it.’ O’Sullivan then said that it was known to have been done, but Justice Abbott replied: [‘]I have heard it done with one or two,...but not by a group of policemen.’[^9] O’Sullivan had nothing more than Stuart’s word that there had been police brutality - there was no other evidence.
+
+O’Sullivan then turned to the language of the confession, which he said was too perfect to have been worded exactly as Stuart had dictated. Justice Mayo asked him how he thought the confession had been compiled, and he replied: [‘]By the police asking questions, getting answers, disregarding some, getting him back on to the track, more questions, more answers, stopping him as he rambled off on some other subject. They asked a lot of questions and after the assaults he said “Yes” to anything because he thought he was going to be killed.’ The Chief Justice responded forcefully to this assertion, saying: [‘]That is utter rubbish.’ He also mentioned that [‘]the jury saw the witnesses who saw no such treatment, and there was the justice of the peace who saw the man the following morning.’[^10] Obviously this evidence was what prompted Napier’s quick and forceful response. He had not taken kindly to the proposition that the police could have been guilty of perjury, and warned O’Sullivan that [‘]a member of the Bar...ought to be careful of accusing people of perjury.’ He went on to say that the Court’s experience had [‘]not been that police officers as a class are unreliable’, and that they usually told [‘]the truth to the best of their ability.’[^11] He remarked that he was not prepared to say any more than that. However, there could be little doubt that in dealing with the police for many years he would have formed a favourable opinion about their probity, and in this he probably shared the view which most other South Australians held at that time.
+
+O’Sullivan did not submit any evidence to support his claim that Stuart’s command of English was so poor that he could not have made the confession, so the Court was not satisfied that Stuart had been disadvantaged at the trial because of any language deficiency. Nor was there any confirmatory evidence that the confession had been obtained by way of extortion. Hence the third ground of appeal was not upheld. With the rejection of this claim, the Court could do little more than point out that [‘]the jury \[was\] the constitutional tribunal for weighing and assessing the value of the testimony, and that the appeal to a Court of Criminal Appeal is not by way of a rehearing.’[^12]
+
+It was found that the photographs were admitted properly as relevant evidence, and [‘]could only have inflamed the jury against Stuart if it had been certain that he had committed the crime’,[^13] and that [‘]a legitimate use of the photographs would be to exemplify to the jury the justification for the attitude adopted by the detective when interrogating the applicant, namely, that any suggestion that the child had been raped and murdered on the beach, and that the applicant carried her up to the cave, was plainly impossible.’[^14] Thus it was found that the intention of the police had been to demonstrate to the jury that their knowledge of what the photographs had revealed, eliminated one of Stuart’s claims.
+
+Finally, the Court stated that [‘]the evidence of the footprints, and of the scratches, go beyond suspicion. We think that this evidence fortified the confession…, first, by corroborating it, and, secondly, by the way in which it fitted into, and brought about the confession.[’ ‘]It is obvious that \[Stuart\] knew, first, that blacktrackers can recognise footprints, and, secondly, that the prints in question were his own.’[^15]
+
+A few days after the Court had rejected the appeal, Father Thomas Dixon, one of the prison chaplains, visited Stuart and talked to him. Dixon had worked as a missionary in central Australia and had learnt to speak the Aranda language. According to Chamberlain this visit [‘]led to many conversations with \[Stuart\], in which he said constantly that he was innocent of the crime and that the police had forced him to make and sign the confession.’[^16]
+
+Dixon then approached Stuart’s solicitors and was given a copy of the confession. After having read it, he [‘]doubted whether Stuart could have dictated it in the manner alleged.’[^17] He then decided to approach Mr. T.G.H. (Ted) Strehlow, Reader in Australian Linguistics at the University of Adelaide, for help. Strehlow knew the Aranda language well. His father, like Dixon, had worked with Aboriginal people as a missionary and Strehlow had been [‘]brought up in close contact with the Aranda tribespeople.’[^18] He had a record of sterling service on behalf of Northern Territory Aborigines, having assisted a Board of Enquiry into police ill-treatment of natives, worked as a patrol officer, and had held the position of Deputy Director of Native Affairs.[^19] He was also [‘]well acquainted with Stuart’s parents’, [‘]had known Stuart himself from babyhood’, and had last seen him in 1955.[^20]
+
+Following their meeting, the two of them, accompanied by O’Sullivan, visited Stuart in prison and conversed with him. Strehlow spoke to him in his native tongue and in pidgin English.[^21] He found Stuart’s account of events perfectly plausible, and could find [‘]no real grounds for doubting his innocence.’[^22]
+
+He read a copy of the confession in O’Sullivan’s office, and said that he [‘]read it through slowly and with growing amazement. In \[his\] ten years of varied experience of evidence given by aboriginals, part-aboriginals, police officers, and white residents in the Northern Territory, \[he\] had never seen a document even faintly resembling the one \[he\] was now looking at.’[^23]
+
+One matter of particular matter interest during the conversation with Stuart was that he told them that he had paid four pounds (£4) to an Aboriginal girl at the Thevenard hotel who had consented to have sex with him. To Strehlow this [‘]would have been persuasive evidence in his favour if it had been available to O’Sullivan during the trial, since Stuart would have been unlikely, shortly after having had intercourse, to molest a small, strange white girl.’[^24]
+
+Blackham, the taxi driver, had said at the preliminary hearing that he had heard Stuart [‘]say that at Thevenard he wanted to see a girl.’[^25] But the record of the interrogation had Stuart saying that he went for a drink, and in the unsworn statement he had said that he had gone [‘]in a taxi to Thevenard to get a drink’, [‘]did not want a girl’, and [‘]did not tell anyone he did.’ It appeared from the evidence that the essential reason for his going to Thevenard was to get a drink, but that at one stage he was thinking about seeing a girl too. Despite the discrepancy, the new version that he had paid a girl for sex was readily taken on board by those acting on Stuart’s behalf, just as his accusation of police brutality had. Both provided ground for arguing that he could not have committed the crime.
+
+Soon after the visit to Stuart, O’Sullivan applied for permission to appeal to the High Court.
+
+## \* \* \* \* \* \* \*
+
+## 5. High Court Appeal
+
+The appeal was heard by Sir Owen Dixon (the Chief Justice); Sir Wilfred Fullagher; Sir Edward McTiernan; Sir Alan Taylor; and Sir Victor Windeyer.
+
+The five grounds of appeal considered by the Full Court in Adelaide were submitted again as well as four more. These additional grounds were: (1) [‘]that Stuart had been unable to obtain an interpreter to translate for him at the trial’; (2) that Strehlow could have been called on to interpret if he had been available; (3) that Strehlow could have presented [‘]vital evidence’ at the trial [‘]if he had been present as interpreter’; and (4) that Stuart now realised that [‘]his original instructions to counsel were inadequate in some respects.’[^1]
+
+With regard to the first two of the new grounds, it can be said that if Stuart had needed an interpreter, the Crown would have been obliged to provide one, and it follows that this need not necessarily have been Strehlow.
+
+O’Sullivan claimed that he would have called for an interpreter if he had known that [‘]Stuart would not be allowed to have a statement read for him.’[^2] But according to Chamberlain [‘]Stuart’s command of English was not inadequate’, and [‘]the taxi-driver \[Dennis Blackham\], and one or two other people’ thought so too.[^3] Chamberlain also said that well before the trial the defence [‘]could have approached the Protector of Aborigines’ for help.[^4]
+
+If Stuart’s English was as bad as had been alleged, he would have needed an interpreter to understand what was being said in court, and presumably the Protector could have found an interpreter if one had been sought.
+
+The Court noted that the question of Stuart’s ability in English was not raised [‘]at the proper time’, and that [‘]the objection to the police evidence appears to have been based throughout on alleged extortion by violence and threats rather than on any ability of the applicant to understand questions put to him.’[^5] In the Court’s opinion there was no evidence of extortion to justify the granting of an appeal.
+
+The next ground of appeal, i.e. whether or not Strehlow could have given [‘]vital evidence’ at the trial, was supported by an affidavit which Strehlow had submitted to the Court. In it he claimed that Stuart’s English was [‘]inadequate’; that the confession [‘]could not have been dictated by a totally illiterate part-aboriginal’; [‘]that Aranda was the only tongue in which Stuart had any complete fluency of expression’, that the confession appeared to him [‘]to be an admirably concise document which sets out lucidly, skilfully and in logical chronological order all the details of the alleged crime which would have value as evidence in a Court of Law, but which would be in my opinion well beyond the mental and linguistic capacity of Stuart’; and that he was [‘]considerably handicapped when confined to the English language.’[^6]
+
+Although the Court pointed out that the matter of Stuart’s understanding of English was not raised when it should have been, the Chief Justice was disturbed by the claim in Strehlow’s affidavit [‘]that Aranda was the only tongue in which Stuart had any complete fluency of expression’, and expressed some reservations about [‘]the understanding of the accused of what was going forward’, and whether [‘]this aboriginal was capable of really understanding the proceedings and expressing himself’.[^7] Justice Windeyer drew attention to Jones’s claim, made when he was giving evidence at the trial, that the words in the confession were [‘]exactly as the defendant spoke them’, explaining that it was not with what Stuart had apparently said, but how he said it, that troubled him.[^8]
+
+There could be no disagreement that Stuart was illiterate, that is that he could not read or write: it was accepted as a matter of fact. The real issue for the High Court was not that, but whether he had sufficient knowledge of English to understand what was said to him and to say what he wanted to say.
+
+Despite their reservations, the Court rejected the third new ground of appeal. In doing so, they wrote that it is entirely consistent with the affidavit that the applicant was fully capable of understanding and answering questions put to him and of describing intelligibly simple acts and events, and concluded that [‘]Having regard to all the circumstances, we do not think that a ground for special leave to appeal is disclosed by Mr. Strehlow’s affidavit.’[^9]
+
+The Court agreed that Stuart had no legal right to have his statement read for him, but observed that this could have been done with the consent of the Crown, and, in the circumstances of this case, one might have expected consent to be given.[^10] Nevertheless, after having given reasons for this opinion, the judgement concluded: [‘]The Court of Criminal Appeal has held that no miscarriage of justice occurred by reason of what took place, and we do not think that any ground which would justify the intervention of this Court can be found therein.’[^11]
+
+The Court agreed with the opinions of the Full Court of Appeal, with only one exception, holding that they were unable to agree with the judgement of the Court of Appeal that Chamberlain’s comment during his closing address was only [‘]near the borderline.’ In the opinion of the Court it was [‘]forbidden by statute.’[^12] However, the High Court did agree that the comment was made *alio intuitu*, and that [‘]the immediate occasion for that is to be found in the altogether exceptional circumstances attending the making of his statement by the applicant.’[^13] Its conclusion was that it would [‘]be taking an unrealistic view if we were to treat the comment by counsel as a ground warranting the exercise of our jurisdiction to grant special leave to appeal.’[^14]
+
+The judgement of the Court began with the words, [‘]Certain features of this case have caused us some anxiety’.[^15] It repeated its concern at the end of the judgement: [‘]As we have said, this case has caused us a good deal of anxiety, but, after full consideration, we are of opinion that no sufficient ground has been shown for granting special leave to appeal.’[^16] Despite the Court’s anxiety, it was not persuaded that Stuart’s language deficiency was so serious that a rehearing of the case was warranted.
+
+Although Chief Justice Dixon had expressed reservations about Stuart’s ability to understand proceedings at the trial, and Justice Windeyer doubted that the wordings of the confession had been exactly as Stuart had dictated it, there can be no doubt that the Court had given the case very thorough and careful consideration.
+
+At the conclusion of the hearing, the Court reserved its decision, and while waiting for it, Chamberlain obtained a copy of the transcript of proceedings in a case against Stuart in the Court at Alice Springs. He found that it clearly [‘]indicated that Stuart had conducted his own defence and had given a long and connected story in answer to the charge’, and that Stuart [‘]had spoken without assistance and in quite adequate English.’[^17] He therefore sought permission from the High Court to file an affidavit.[^18] The Court rejected his request, and stated in their report: [‘]This communication we have entirely ignored as we do not think it ought to have been made.’[^19]
+
+Chamberlain had sent O’Sullivan copies of his letter to the High Court and of the Alice Springs transcript, but O’Sullivan did not accept what was obvious from the transcript. Based on a story which Stuart had told about what had happened in the Alice Springs Court, he wrote a letter to the High Court saying that he had been informed that a man called Sansbury had written a statement based on Stuart’s story, and that this had been typed in and formed the basis of his defence. O’Sullivan then suggested that on the basis of this story it would be wrong [‘]to say that Stuart “gave evidence unassisted on his own behalf.[” ’][^20] However, later evidence showed that Stuart’s story was not true.[^21] Apparently no-one was ever told why the High Court rejected Chamberlain’s submission.
+
+Chamberlain recorded what the *News*, Adelaide’s evening newspaper, had highlighted when it reported the High Court decision. He wrote: [‘]When the newspaper published the High Court’s decision on 20 June 1959, its report featured three passages set in bold type. These were Strehlow’s assertion that Stuart’s confession “could not have been dictated by a totally illiterate part-aboriginal;” the High Court’s mention of its “anxiety;” and the statement that Stuart “was to be hanged yesterday, but was granted further respite by Mr. Justice Reed to July 7th. as the High Court was still considering its judgment.”[^22] This selective reporting was an early example of the way the News reported the case.
+
+## \* \* \* \* \* \* \*
+
+## 6. Controversy
+
+### *Support for Stuart*
+
+Despite the High Court’s decision, Father Dixon continued to believe that Stuart was innocent. He therefore sought out Dr. Charles Duguid, the then President of the Aborigines’ Advancement League. Duguid was given the opportunity to study reports of the legal proceedings and said: [‘]I was troubled by much that I read’. Following this a meeting at his house was arranged. This was attended, among others, by members of the League, university lecturers and clergymen. [^1] One of the university lecturers was Alex Castles, a professor of law at the University of Adelaide, who took [‘]an active interest in the case after hearing Dixon’ and was [‘]disturbed by his testimony.’[^2] It was decided that the Howard League for Penal Reform would draw up a petition for commutation, which was to be circulated as widely as possible.[^3]
+
+The *News* of 29 June hinted that a campaign was under way.[^4] Next day the *Advertiser* published a letter from the Reverend Frank Borland, Warden of the Students Representative Council of the University of Adelaide, in which he wrote: [‘]I hope that the “anxiety” of the judges of the High Court will be sufficient to persuade the Executive Council to commute his sentence to life imprisonment.’[^5] Numerous other letters to Adelaide’s newspapers followed. Some were for and some against Stuart.[^6]
+
+On this same day (1 July), Dixon and Strehlow, accompanied by Professor Norval Morris, Dean of the Faculty of Law at the University of Adelaide, called on the Attorney-General, [‘]and tried to persuade him that \[Stuart’s\] sentence should be commuted.’[^7]
+
+Strehlow left a long letter with the Attorney-General in which he said that the [‘]court evidence did not indicate whether Stuart had a watch, or whether he could interpret one accurately’, although [‘]in his alleged confession, the illiterate Stuart...is depicted as a person with a perfect obsession for ascertaining clock times at short intervals and for thinking about days in \[terms\] of the calendar’. He prefaced these observations with an opinion that [‘]Northern Territory aboriginals and part-aboriginals...showed when giving evidence an “irritating vagueness about all dates and clock times”.’
+
+Since Strehlow did not know whether Stuart could tell the time or not, there was no justification for asserting that he was depicted as having any [‘]perfect obsession’ with times. His claims were not supported by any hard evidence. In any case, it should have been clear to any impartial and reasonably knowledgeable person who had read the confession that Stuart must have been helped with the dates and times before they were typed in: police necessarily have to ensure that times and dates are accurate when taking a statement. Moreover, Turner had said at the trial that some questions, such as [‘]When did you come to Ceduna?’ had been asked at the start, and Jones had testified that the first sentences were in reply to questions and that any dates were clarified by Turner. (p.20 above) There could be no doubt that Stuart had been assisted in fixing the times, which in the main were given as approximations, e.g. about 9 a.m. The only precise time which Stuart might have fixed with certainty was the one when he reported for work at the Wheat Board site where the starting time was 8 a.m.
+
+In his letter Strehlow also wrote: [‘]For him to have composed a statement free of irrelevant ramblings and repetitions in what was for him a foreign language which he had never been formally taught, would have been a complete linguistic impossibility.’[^9] Then followed the assertion: [‘]How Stuart could have composed, without any outside assistance and at his very first attempt, such a first-class legal document to ensure his own destruction, is beyond human understanding. For an illiterate person to achieve this feat would mean that he would have had to be born as a legal genius, and that his intelligence would have had to be of such a high order, that most white Australian children would have had to be re-classified as sub-human morons in comparison with him.’[^10] Given the language of the confession, it might seem that these dogmatic assertions were rather extravagant.
+
+Strehlow went on to contrast some of the language of the confession with Northern Territory English (N.T.E.), and quoted words and constructions which were in his view [‘]in complete opposition to all the stylistic and grammatical features of Northern Territory English.’[^11]
+
+### *Petitions*
+
+###
+
+Meanwhile O’Sullivan had submitted a petition against the death penalty imposed on Stuart to the Chief Secretary, which reached his office on 1 July, the same day as the visit to the Attorney-General. One claim made in this petition was that because he had not been given assistance with his native tongue, he could not present to the jury his version of the events on the day of the murder. Another was that when he had appeared in the Alice Springs Court in 1956 he presented a statement which had been prepared with the assistance of another Aboriginal, Sansbury by name, and that he had been assisted in court by a Native Welfare Officer. [^1]
+
+With regard to the first complaint, it was O’Sullivan himself who had denied Stuart assistance. (p. 21 above) As for the second claim, O’Sullivan had relied solely on what was purported to have been said by Stuart and by his friend Sansbury. Finally, he had not been assisted [‘]by any Welfare Officer or anyone else.’[^2]
+
+The Executive Council was due to meet on Monday, 6 July, and to consider requests for the commutation of Stuart’s death sentence at that meeting. The petition had [‘]several thousand signatures attached’ and was delivered to the Attorney-General on the morning of that day and in time for consideration at the meeting.[^3]
+
+Most of the residents of Ceduna accepted the verdict that Stuart was guilty and believed that he deserved his punishment, and their views were made quite clear. A petition, organised by Mr. Morrison, the chairman of the local District Council, and signed by 334 residents of the Ceduna district was telegrammed to Adelaide on the Monday morning. Morrison said that he was motivated to act in order [‘]to show how residents of the district were incensed “that people living away from the scene were interfering in the matter”.’ This petition read in part: [‘]The petition of the people of Ceduna, Thevenard and surrounding districts sheweth that it is the unanimous desire that the course of the law should be allowed to prevail and proceed according to the judgment of the courts...insofar as the death sentence has been passed on Rupert Max Stuart’. Morrison said that only one person approached had refused to sign the petition.[^4]
+
+Many Ceduna people, including churchgoers, were not shown Morrison’s petition.[^5] Possibly there was not time for them to have been given the opportunity to sign, but it may be that he thought that many of them would not oblige, given the opposing views of clergymen such as Mr. Borland. The Women’s Christian Temperance Union held the same views as Borland, with the secretary saying: [‘]Most of our members are opposed to capital punishment, but in this case we are opposed to the execution on the specific merits of the case.’[^6]
+
+The Ceduna petition must have been prepared quickly, given that it was necessary to convey the text by telegram in time for the Executive meeting. According to Inglis, many people never saw it,[^7] and of course it did not represent the [‘]unanimous desire’ of all the residents. Nevertheless, to have gained the support of 334 people in a short time with only one dissentient was a strong indication that a majority of residents were opposed to commutation. The population of Ceduna at the time was close to 1,200,[^8] of whom many would have been children.
+
+Inglis records one resident as having said, [‘]We were by no means unanimous about that document.’ Another said, [‘]Thinking people would not sign it’.[^9] This comment must have been well wide of the mark: Morrison himself was obviously a thinking person, and in the circumstances it is difficult to believe that the people who signed the petition would have done so without having supported it.
+
+The Executive Council decided not to commute the sentence: the law was to take its course. Naturally this decision was welcomed by the Ceduna residents and by people who shared their views, but it was severely criticised by those who held contrary opinions.
+
+It seems clear that many people were swayed by compassion, and directly or indirectly by the published views of such people as Strehlow, Dixon and their supporters. On the other hand, the residents of Ceduna must have soon found out details of the behaviour and movements of Stuart during the day of the murder, and this within a day or so after the event. Some of them who later testified at the Royal Commission provided details of his activities during that day. In their small community there would have been intense interest in the court proceedings and most would have concluded, as did some of the Ceduna witnesses at the Royal Commission, that Stuart was guilty. They knew much more about the case than those who formed their opinions on the basis of what was published in newspapers such as the *News.* They also knew the local police well, and probably had no doubt about their probity. People who were familiar with what had transpired during the court hearings knew that the police had been accused of using threats and violence to obtain the conviction, that they had been accused of perjury, and that it had been implied that the confession was a fabrication. Some would probably have known, and the jury certainly did, that the police had given evidence that there were scratches on Stuart’s knees and back which he could not explain, and that there was the evidence of the trackers. Most of these people probably thought that the affair had been settled.
+
+### *A Privy Council Appeal?*
+
+The attention of Dr. H. V. Evatt, the then Leader of the Opposition in Canberra, was drawn to Stuart’s plight and he decided to intervene. He therefore sent a 600-word telegram to the South Australian Premier and the Attorney-General, a copy of which was published on the front page of the *News* of 3 July. [^1] Evatt had been a High Court judge, but he had obviously sent the telegram without a full knowledge of the court proceedings or the Appeal Court judgements.
+
+Dixon later wrote that he had sent a long letter to Evatt, and that this is what prompted the sending of the telegram. According to Dixon, his letter included the following passage:-
+
+[‘]This is an opportunity to bring the aboriginals’ case before the world. If we let this occasion slip of rectifying the law that cannot obviously deal with this case without the judge using his discretion to extend the indulgence of allowing other than an illiterate to read the only thing that could give the jury some idea of his defence and so overturn the evidence of the Crown, then we may very well wait for many years to roll by and many other victims to succumb to such a contradiction of natural justice.’[^2]
+
+Dixon recorded that [‘]Evatt rang and thanked him for the letter, which he described as “brilliant”.’[^3]
+
+Evatt also sent a telegram to Dixon: I ACKNOWLEDGE WITH GREAT INTEREST YOUR LETTER WHICH I HAVE RECEIVED STOP I THANK YOU FOR YOUR GENEROUS REFERENCES AND I MUST SAY THAT YOUR SERVICES IN THIS IMPORTANT CASE HAVE BEEN OUTSTANDING FROM THE FIRST AND I HOPE AND PRAY THAT THEY WILL FIND FULL RECOGNITION IN A FAVOURABLE JUST RESULT STOP FROM YOUR FRIEND AND GREAT ADMIRER HERBERT EVATT [^4]
+
+Dixon’s belief that he could undermine the Crown’s evidence by [‘]rectifying the law’ was unrealistic, but Evatt, like Dixon, was an idealist, passionately committed to social justice, and a man characteristically driven by psychological imperatives. Thus he readily accepted that Stuart could have been treated unfairly.
+
+In his telegram to the Premier and Attorney-General, Evatt repeated Strehlow’s sworn evidence before the High Court that the confession [‘]could not have been dictated by a totally illiterate aboriginal’, and that [‘]the Arunta language was the only tongue in which the prisoner had any fluency of expression.’[^5] This was of course simply repeating the claims of Stuart’s supporters which had not been accepted at the trial or at either of the appeals.
+
+He noted that Chamberlain could have given consent for Stuart’s prepared statement to be read for him at the trial, and that [‘]one might have expected consent to be given.’[^6] However, Chamberlain was not obliged to give his consent, and it was he who suggested that O’Sullivan should be permitted to elicit from Stuart what was in the statement. (p.21 above) It was the judge who decided that the statement should not be read for him, and this decision was correct in law.
+
+Evatt then referred to the fact that [‘]the jury was informed by the prosecution...that they could take into account that the accused “was apparently unwilling to exercise the right to give evidence on oath and so be subject to cross-examination.[” ’] He then posed an [‘]alternative view’ that the trial judge’s comment on this [‘]may well have been regarded by the jury as confirming, and so emphasising, the comment made by the Crown Prosecutor’.[^7] However, the High Court had held that the trial judge’s subsequent comment [‘]must have reduced \[Chamberlain’s\] irregular comment to insignificance.’[^8]
+
+It can be seen that Evatt had no sound reasons for his claims. Despite this, he suggested that [‘]it would be a just and proper thing if time were allowed for Stuart to test the High Court judgment before the Privy Council.’[^9] Stuart’s counsel followed his advice and an appeal was lodged accordingly. It would be costly, but the telegram, as Chamberlain said, [‘]inspired a subscription’ which quite quickly raised enough money to cover the costs.[^10]
+
+### *Escalation of Conflict*
+
+A statement issued by the Secretary of the South Australian Police Association, Mr. L. B. Fenwick, was printed in the *News* of 3 July alongside Evatt’s. The heading was simply POLICE ISSUE STATEMENT, and the statement was simple and relatively brief. It expressed concern [‘]at recent statements aimed at six reputable police officers’, and the concluding paragraph read: [‘]While we feel that statements following Stuart’s sentencing have been actuated by the best of motives, we also feel that the public should be reminded of the real facts.’
+
+Unfortunately there were errors in the statement, and this provided O’Sullivan with a golden opportunity to attack the police, which he did by way of a strongly worded statement which was printed next day in both the *Advertiser* and the *News.* In the *News* the top heading was POLICE STATEMENT CALLED [‘]DISGRACEFUL’ and a heading immediately below, printed in larger type, was BITTER ATTACK BY STUART’S COUNSEL.
+
+O’Sullivan’s first claim was that the Police Association’s statement was [‘]false in almost every detail’. It certainly contained errors, but in Chamberlain’s opinion this was because it had been [‘]prepared too hastily under the mounting pressure of events.’ [^1]
+
+O’Sullivan declared that the police statement [‘]was carefully designed to be read as the disinterested opinion of police officers generally.’ However, there was no basis whatsoever for this claim: it had obviously not been carefully designed, and there can be little doubt that members of the Police Force would have supported the issuing of the statement. Moreover, the statement started with the words [‘]We feel concerned at recent statements aimed at six reputable police officers’, which was rather mild for the representatives of a union. It is hard to imagine that men who had been accused of extremely serious crimes would not have been incensed at deliberate and unsubstantiated accusations if, as seemed likely, they were innocent.
+
+O’Sullivan disputed a number of claims in the police statement. One was [‘]that Stuart admitted that “because he knew from personal experience in Queensland that to assault a child and allow her to live would result in her testifying against him, he calmly killed her with a rock in an attempt to escape the consequences of his deed”.’ O’Sullivan’s criticism was that no police witness at the trial had said [‘]that Stuart had made any such admissions or anything like it.’
+
+O’Sullivan was certainly right in pointing out that there had been no admissions at the trial like the one which had been included in the police statement. According to the police record of the interrogation, Stuart had said that he had killed the girl so that she could not tell anyone what he had done, with no mention of having known this because of a previous experience in Queensland. (p.7 above) Nevertheless, without the reference to Queensland, the explanation in the police record was accurate.
+
+O’Sullivan then challenged the police statement that Stuart had [‘]conducted his own defence in Darwin when he fluently cross-examined a number of witnesses in English and gave evidence on his own behalf, using some of the phrases contained in the confession which he had made in Ceduna.’ There had indeed been an error: the case had been held in Alice Springs and not in Darwin. However, this was of little moment compared with the rest of the statement, which accorded with what Chamberlain had discovered, namely that Stuart had conducted his own defence, could speak English without assistance, and could tell a long and connected story. (p.37 above)
+
+Then there was a police claim that [‘]it had not been suggested until after the trial that \[Stuart’s\] command of English was inadequate’, and O’Sullivan drew attention to the fact that it had been [‘]suggested to the police in cross-examination at the trial that Stuart was too illiterate to have dictated the alleged statement or anything like it.’ Here again O’Sullivan was right. In fact there had been more than a suggestion - there had been an assertion. O’Sullivan had questioned Turner and Jones closely about Stuart’s ability to speak and understand English in an attempt to establish that it was so inadequate that the confession was false.
+
+O’Sullivan went on to describe as reprehensible another statement which was included in the Police Association press release, namely that Stuart had chosen not to go into the witness box. O’Sullivan compared this with a similar remark which Chamberlain had made at the trial, and claimed that the High Court strongly criticised him for having made it.
+
+O’Sullivan’s opinion that this statement was reprehensible was unjustified: the fact that Stuart did not wish to appear as a witness was public knowledge, and Fenwick, like anyone else, was entitled to refer to it. Furthermore, the opinion of the Court of Criminal Appeal was that what Chamberlain had said was not [‘]intended to draw the attention of the jury to the failure of the accused to give evidence on oath.’[^2] And the High Court had said that Chamberlain’s mention of the fact that Stuart did not exercise his decision to give sworn evidence was irregular, but [‘]stated that, “The Court of Criminal Appeal has held that no miscarriage of justice occurred by reason of what took place, and we do not think that any ground which could justify the intervention of this court can be found therein.[” ’][^3] The Court’s final comment was, [‘]It would be taking an unrealistic view if we were to treat the comment by counsel as a ground warranting the exercise of our jurisdiction to grant special leave to appeal.’[^4] Thus although the High Court had found that Chamberlain’s remark was forbidden by statute, it had made no strong criticism.
+
+O’Sullivan asserted that a [‘]survey of the penalties imposed on Stuart for all previous offences makes it obvious that none of them were particularly serious.’ This sounded plausible, but as already mentioned, there had been two convictions for serious offences. There was the one in Alice Springs when he had [‘]knocked a nurse unconscious’, for which he received a fifteen month sentence. (p.28 above) and the other was in Cloncurry, when he had made an attack on a small girl.[^5] Perhaps these offences can be considered to be relatively minor compared with some other offences, but they can hardly be classed as not serious, and it is significant too that he had committed both of these offences when under the influence of alcohol.
+
+O’Sullivan claimed as a fact that [‘]Stuart’s imperfect knowledge of English made it impossible to give evidence on his own behalf.’ There was nothing to support this assertion. Evidently O’Sullivan had been able to communicate with him quite well early in the piece in preparation for the preliminary hearing, (see p.18 above) and the Appeal Courts had not been persuaded that there had been any substantial difficulty.
+
+Then there was the opinion: [‘]If this statement by the association was really issued so “the public should be reminded of the real facts”, the public may well regard the latest police effort as a valuable yardstick to assess the accuracy of the police evidence generally.’
+
+Many members of the public would have known that the courts had rejected the challenges to the police evidence, and it is difficult to believe that they would have questioned these decisions simply because officers of the Police Association had tried to protect their members from unsubstantiated allegations. It is more likely that O’Sullivan’s reply to the Association’s statement and the publicity which the *News* gave to this reply had much more impact on public opinion than the police statement had.
+
+Although O’Sullivan had said that the statement was [‘]false in almost every detail’, it appears that the errors did not destroy its substance. Certainly there were errors, but it is clear that the authors were not guilty of deliberate falsification - they had made what could be called honest mistakes. It could be said too that they were careless and hasty, but the statement could not reasonably have been described as [‘]disgraceful’. Further, it was moderate in tone.
+
+The President of the SA Law Society, Mr. J. L. Travers, Q.C., also issued a statement, and this appeared in the *News* of 4 July under the same heading as the one which appeared above O’Sullivan’s statement. The concluding paragraphs of Travers’ published statement read:
+
+[‘]If there were an appeal, as I see it, one possibility would be that a new trial be ordered.
+
+[‘]It seems to me to entirely surpass the bounds of ordinary decency, to say nothing of the question of contempt of court, for the association to have made at this stage, to every potential juryman, a statement of the type which apparently the Police Association has seen fit to make.
+
+[‘]I feel impelled to say that, while there is a political fight going on for Stuart’s life and while, as I understand it from the Press, legal consideration is still being given to the possibility of an appeal to the Privy Council, I was simply appalled to read a published statement attributed to the Police Association.’
+
+Even though it might have been better in their own interest if the Association’s representatives had not referred to Stuart’s criminal record, they were entitled to do so, as was every member of the public.
+
+Turner was President of the Police Association at the time, and decided to issue two more statements. In the first, he said that [‘]the Police Association was concerned with the protection of its officers and not with the merits or demerits of the case or with red herrings.'[^6]
+
+In the second statement, which was published on 5 July in Adelaide’s Sunday newspaper, the *Sunday Mail*, Turner, like Fenwick, concentrated on what he believed were facts. For example, Turner was reported as having said:
+
+[‘]Copies of depositions have been received from the Northern Territory of a case in which Stuart, conducting his own defence, cross-examined in English. I have also received a statement from the Alice Springs gaoler that Stuart, while an inmate, conducted English classes. All of Stuart’s aborigine convictions, mentioned by Mr. O’Sullivan, were before 1953, when the Northern Territory law was altered giving all but full-blooded aborigines the rights of white men. This included Stuart. Mr. O’Sullivan’s claim that Stuart was arrested on the night of the murder for being an aborigine found drinking liquor is false. Stuart was arrested that night charged with disorderly conduct. Stuart was sentenced twice in Queensland after he was convicted of aggravated assault on girls. In the Northern Territory he served six months after he was convicted of common assault against a female.’
+
+There was a mistake in this statement, and O’Sullivan responded by by way of a rebuttal, which was printed in the same *Sunday Mail* edition as Turner’s statement. Stuart had been gaoled in Ceduna for being an aboriginal drinking liquor, and not for disorderly conduct and O’Sullivan seized on this as an example of police irresponsibility.
+
+His reply was a passionate and unrestrained attack on Turner’s claim. The first part read:
+
+[‘]The two recent irresponsible and reckless outbursts of the
+
+officer who conducted the interrogation of Stuart must cast
+
+grave doubts on the whole of his evidence against Stuart
+
+some of the statements can be proved to be false. The most
+
+glaring example is the allegation that Stuart was arrested at
+
+Ceduna for offensive behaviour and not for “being an aboriginal,
+
+did consume liquor”.’
+
+This [‘]example’ hardly justified the claim that Turner’s comment cast doubt on the rest of his evidence. Stuart had been arrested, and the reason for the arrest was of little moment. Moreover, the fact is that he had been drinking heavily for much of his time in Ceduna, and had also behaved badly on a number of occasions.
+
+O’Sullivan’s reply included much which was not supported by convincing evidence. For example, he asserted that the [‘]claim that Stuart “conducted English classes in gaol” was fantastic.’ In making this assertion, it seems that he was relying on Strehlow’s contention that Stuart’s knowledge of English was so inadequate that he could not have engaged in passing on his knowledge.
+
+O’Sullivan certainly made an assumption when he declared: [‘]It is amazing that the government is allowing its police officers to continue issuing these statements. One can be pardoned the suspicion that the government is determined to hang Stuart and is using the Police Association to do its propaganda work.’ This is highly improbable: it is far more likely that Government had complete faith in the reliability and integrity of the investigators, and there is no apparent reason to believe that it should have acted to stop the police from defending themselves against what seemed in the main to have been false accusations. It also seems highly probable that the government was determined, despite strongly expressed opposition and a probable decrease in its popularity, to uphold the prescribed penalty for murder: in other words that it intended to enforce the law unless there was any substantial reason to commute the sentence to one of life imprisonment. O’Sullivan’s suggestion that the government was using the Police Association [‘]to do its propaganda work’, and this without any supporting evidence, was unwarranted. In any case, the Premier, Sir Thomas Playford, unlike some of his successors, was not known to have engaged much, if at all, in the business of propaganda.
+
+O’Sullivan accused the police of continuing [‘]to bombard the public with allegations based on reports from other parts of Australia’.
+
+There was some irony here. O’Sullivan far outdid the police when it came to bombarding the public, and easily won what had become in effect a publicity contest. His statements were quite different both in tone and credibility from those of the Police Association - many of his claims were made with little or no justification, and were couched in aggressive and passionate language. One can imagine the response of a judge if O’Sullivan had made his public statements in court.
+
+In responding to the police statements, Stuart’s solicitors said: [‘]As various allegations are refuted, they drop them and bring forward others to such an extent that it is difficult to know at any given point of time just what is being alleged against Stuart.’[^7]
+
+This was an obvious fabrication - the solicitors had experienced no difficulty at all in identifying errors in the police statements and these statements were not [‘]allegations against Stuart’: the police had attempted to defend themselves by way of reference to evidence. Although the statements of the Police Association and of Turner were flawed, and hence open to criticism, those of O’Sullivan were on the whole quite unjustified and indeed reckless.
+
+The combined effect of Evatt’s telegram, the Police Association’s statements and O’Sullivan’s replies was that what had been a vehement debate in South Australia rapidly led to a nation-wide and international furore, and this was augmented by strong expressions of opinion in newspapers and in parliament. Opinion in legal circles in Australia was divided.
+
+On 6 July, the day when the Executive Council decided not to commute the death sentence, Stuart’s solicitors decided to petition the Privy Council. Respite was then granted until 20 July and this was later extended to 4 August.[^8]
+
+On this same day the whole of the correspondence column of the *Advertiser* was filled with letters about the Stuart case, with three out of four opposed to the execution. Stewart Cockburn, the lead reporter of the *Advertiser*, expressed the opinion that at that stage [‘]the statements by Dixon, O’Sullivan, Norval Morris, Travers, Duguid, Fenwick, Turner, Evatt, and others almost as prominent had turned the case of Max Stuart into one of the most dramatic news stories in Australia.’[^9]
+
+In these circumstances, many members of the public, and especially Stuart’s supporters, would have been indignant at the Government’s decision, and this was bound to lead to even more impassioned confrontation. Unfortunately for the police, Fenwick and Turner had inadvertently contributed to the uproar.
+
+### *A Pamphlet*
+
+Stuart’s foremost supporters were not willing to wait quietly and patiently for the decision of the Privy Council before repeating their claims, and some sections of the press were only too eager to promulgate their passionately held opinions.
+
+On 20 July, at a meeting held at the Friends’ Centre, it was decided to draft a pamphlet, [^1] designed to show that Stuart could have been wrongly convicted, and to distribute multiple copies to the public. According to the *News*, which printed a copy of the pamphlet on 29 July, the committee which prepared and issued it included doctors, lawyers, MPs, and members of the Adelaide University staff.’[^2] It was headed [‘]*Why not Hang Rupert Max Stuart? Some Questions about a Murder*’.[^3] The pamphlet was in the form of questions and answers, and according to Chamberlain they were [‘]a mixture of half-truths and one-sided statements given a specious appearance of moderation and impartiality.[^4]
+
+Some 15,000 copies were distributed in South Australia, and as a result of the publicity an [‘]almost complete version reached a million purchasers of the *News* in Adelaide and the *Herald* and *Sun* in Melbourne.’[^5] The pamphlet ended with references to a plea from Dixon for a delay of execution.
+
+Naturally the wide distribution of this document led a host of people to doubt the reliability of the decisions of the courts, and to believe that Stuart might be innocent. No-one could blame the organisers of the petition for expressing their concerns publicly. However, there would have been no contention if Strehlow and Dixon had not expressed doubts about the reliability of the confession, and the pamphlet relied heavily on their opinions.
+
+According to Chamberlain, readers of the pamphlet were invited [‘]to study the answers to a variety of questions designed to show that Stuart had been wrongly convicted.’[^6] He gave two examples,[^7] which read:
+
+Q. Why would anyone doubt that Stuart did it?
+
+A. Because he was denied certain *natural rights* when first interrogated at Ceduna...
+
+Q. On what evidence was he convicted?
+
+A. On the evidence of an *alleged confession* obtained by *six policemen* in a lengthy interrogation in the Ceduna Police Station late at night with *the accused man naked for part of the time. (*Chamberlain’s italics)
+
+Chamberlain wrote that he selected the italicised words [‘]purely for their emotional content’.[^8] Whether one agrees with his selection or not, there were assertions in the pamphlet which were based on opinion rather than fact, and for this reason it should have been more moderate in tone.
+
+Allegations that the confession was false had not been upheld in the courts of appeal, and there had been no suggestion that the interrogation had been conducted by anyone other than Turner. Nor had there been any criticism of the police because they asked him to take off his clothes so that his body could be examined, which did not take long. The police had done this because they thought that the culprit was likely to have scratched his knees on the rough sand in the small cave where the crime had been committed, and to have scratched his back on the roof of the cave, and they had given evidence that they found scratches on both of his knees, on the small of his back, and near the right shoulder-blade.
+
+The use of the words [‘]alleged confession’ was based mainly on Strehlow’s assertions, and no doubt it had its intended influence on the opinions of many members of the public who were ignorant of the evidence presented to and accepted by the courts.
+
+In the pamphlet it was pointed out that Aborigines in South Australia were legally entitled to assistance from the Aborigines Department [‘]to protect them against injustice, imposition and fraud’. The pamphlet also had it that [‘]it would have been proper to have had a welfare officer present at the interrogation.’ However, there was no firm evidence either that Stuart had suffered any injustice, or that he had been imposed on or dealt with fraudulently. In fact, it was not accepted at any of the three court hearings that Stuart had suffered any significant disadvantage.
+
+There was no specific requirement for police officers to call for such assistance whenever they were interrogating or taking a statement from an Aborigine, and it would not often have been practicable to have complied with such a requirement. The police position was that Stuart did not need any assistance, and it was clear that he had not been given any when he was interrogated at Cloncurry, and probably not on most other occasions when he had been questioned by police.
+
+Strehlow was quoted as having said that the confession [‘]was expressed in language that Stuart could not have used’, and Dixon that [‘]he could not have dictated the document.’ The authors of the pamphlet wrote that because Stuart was seven-eighth Aboriginal [‘]he was not at home in English; this made it impossible, in the view of Mr. Strehlow and Father Dixon, for him to compose the confession on which he was convicted.’ It seems that the pamphleteers accepted these opinions as incontestable. They ignored the fact that the High Court had decided that Strehlow’s submission, i.e. that Stuart could not have dictated the confession, provided no ground for rejecting its authenticity.
+
+The pamphlet included O’Sullivan’s comment that the Police Association’s statement was [‘]disgraceful’ and [‘]false in almost every detail.’ This was certainly ironic, given that the pamphlet itself was flawed. Moreover, what O’Sullivan had written to support his highly emotive outburst was for the most part extravagant.
+
+There was plenty of time for more care to have been exercised in the preparation of the pamphlet. That it contained errors would not have been obvious to most readers because they would not have known enough about the case to have had reservations. The result was that doubts and suspicions were raised in the minds of a huge number of readers, and debate and emotion intensified.
+
+According to the pamphlet, the Police Association statement misrepresented [‘]a number of crucial facts.’ Two instances of misrepresentation were cited. One was that the Police Association had said that Stuart was [‘]according to law...regarded as a white man’, but that a policeman had said in evidence that he had been charged on the night of the murder with [‘]drinking-being an aboriginal.’ The second was that the Association had [‘]said that Stuart once conducted his own defence fluently in Darwin.’
+
+Neither of these two facts was crucial to the question of Stuart’s guilt or innocence. His arrest for drinking was simply one of a number of indications that he drank too much, and the fact that he had conducted his defence in Alice Springs and not Darwin was of no significance whatsoever when it came to assessing his competence in English.
+
+Then followed the claims that when he had appeared in the Alice Springs Court on one occasion, he had [‘]recited a statement in court’, and [‘]did not conduct his defence fluently.’ These claims were false, as Chamberlain had discovered. (p.38-39 above)
+
+Reference was then made to the fact that the [‘]Police Association said Stuart was convicted of “aggravated assault” in Queensland.’ It was argued that the offence of [‘]aggravated assault’ does not always [‘]involve physical violence.’ Then it was asserted that Stuart had not touched the girl, and that because his sentence of six months [‘]took into account seven other charges’, it was proved that the assault could not have been of the kind [‘]implied in the police statement.’
+
+Here were two complete non sequiturs, and for lawyers and university academics to have agreed to their inclusion is a reflection on their powers of reasoning. It appears that none of the authors of the pamphlet had sought to check the evidence presented to the magistrate in Queensland, on which the conviction of assault was based. This evidence was that he had sexually assaulted a young girl, and this was confirmed later at the Royal Commission. The authors had proceeded without regard to either fact or logic.
+
+The pamphlet included the question: [‘]Why did Stuart’s counsel not have an interpreter in court?’, and cited O’Sullivan’s answer as: [‘]Because he expected until late in the trial that Stuart would have been able to have the prepared statement read for him.’
+
+This answer is unconvincing: if Stuart’s command of the English language was so poor that he needed an interpreter to make known the unsworn statement, then he would have needed one at the outset. O’Sullivan had been able to prepare himself on relatively short notice before the preliminary hearing, enabling him to question the police for some ten hours, and still have more of the defendant’s conversation with Jones with which to continue at a later time. (see p.18 above)
+
+Inglis accepted an invitation to assist in the preparation of the pamphlet, and played a role in drafting it.[^9] At first sight it might have appeared strange that he should have been associated with the preparation of such a flawed declaration. In the research for his book, he was thorough and meticulous in finding facts, especially discrepancies, even very minor ones, in the evidence of witnesses, but there was none of this in the preparation of the pamphlet. Like Strehlow and Dixon and the academics and clerics who had committed themselves to Stuart’s cause, he could not come to terms with evidence which pointed to their having been mistaken.
+
+The authors had lost all sense of balance and fairness.
+
+After the pamphlets had been prepared and printed, they were [‘]posted to members of parliament and distributed by scores of people in the city streets, in suburban letter boxes and at factory gates.’[^10] However, news of the Privy Council’s decision to dismiss the appeal was not published until Wednesday 29 July, and few details of the reasons for these decisions were published, although many of them contradicted the main claims of the pamphleteers. On the other hand, the contents of the pamphlet had attracted considerable publicity, to which there was no effective counter. Nearly thirty years later, Dixon wrote that the pamphlet gave the police [‘]complete rebuttal’,[^11] which certainly was not the case.
+
+On 21 July Dixon issued a statement which was published in the *Sydney Morning Herald* and was headed [‘]CONFLICT ON HANGING IN SOUTH AUSTRALIA’. Three excerpts from this [‘]considered statement’ read:
+
+[‘]We have conversed in Arunta \[the Aranda language\] and in his own peculiar style of English and on all occasions he has consistently and constantly denied all connection with the actual deed.’
+
+[‘]Knowing the tongue and his English, I can confidently say that t
+
+he confession upon which we are assured legally he had been condemned could not have been dictated by him in the form it was presented. (sic) My personal conviction has only been strengthened by my thorough knowledge of the evidence advanced.’
+
+[‘]I cannot rest until I am certain the Stuart is the man who committed the crime. I exhort the authorities to delay his execution at least until that has been proved beyond reasonable doubt.’[^12]
+
+In choosing not to speak to Stuart in normal English, Dixon, like Strehlow, was not in a position to judge his ability to communicate in that language. It would have been natural for Stuart to have followed the lead of these two men by responding in kind, and this is what must have happened. There was no sound basis for Dixon’s bold utterances.
+
+The publication of Strehlow’s and Dixon’s opinions had fuelled the fire of controversy which they had lit, and the claims in the pamphlet added considerably to the blaze. But these confident assertions were to be well and truly tested at the Royal Commission.
+
+### *An [‘]Alibi’*
+
+On 24 July, Rev. Frank Borland, who had continued to be active in the campaign to save Stuart from execution, arranged a meeting between the then editor of the *News,* Rohan Rivett, and Dixon, who wanted to go to Queensland to search for Gieseman and his funfair. Dixon thought that the Giesemans and their employees might be able to provide evidence of Stuart’s innocence. The upshot was that Rivett offered to pay his fare. [^1]
+
+Dixon set out with the Police Roundsman of the *News*, Jack Clark. They flew to Cairns in Northern Queensland, where they were told that Gieseman had headed south, so they went by car in that direction. They found the main part of the show at Atherton. They had left Adelaide on Saturday, 25 July, and found the show late on the following Monday morning.[^2] Another part of the show was in Collinsville, some 200 miles (320 km.) away.[^3]
+
+At Atherton, Dixon interviewed the Giesemans and Betty Hopes. All three said that Stuart had been at the show during the time when the murder had been committed, that is between about 2 p.m. and 4 p.m., and they signed statutory declarations accordingly.[^4]
+
+On 7 August Allan Moir and William McNeish, who was in charge of the show at Collinsville, were interviewed and they made similar statements.[^5]
+
+Hence three months after the trial there were five witnesses who could be called upon to testify that Stuart was not at the scene of the crime when it had been committed, yet none of them had been called in order to provide this evidence at the trial. Obviously they would have been interviewed and called if Stuart had told O’Sullivan at the outset that he had been on duty at the show between two and four o’clock, which he must almost certainly have remembered if he had been there between those times, and there could be no doubt that Stuart had a good memory. Moreover, if any of the five knew that Stuart was at the show during that time, it seems likely that one at least would have heard of his plight and become concerned, so why had none of them come forward to say so?
+
+The Giesemans’ testimony would have come as a surprise to the police and no doubt to others, since according to his statement to Phin, Stuart had been absent from his job on the Saturday afternoon, (p.3 above) and could not have been working at the show at that time, and there had been no evidence to the contrary.
+
+Dixon had found the Gieseman’s show on the day before the Privy Council Committee hearing on 28 July, and this enabled O’Sullivan to tell the members of the Committee that an investigator had discovered that there was an alibi.[^6] And on that same day, the heading on the front page of the *News* was BRITISH PRESS CALLS IT [‘]THE CASE OF THE STONE AGE MAN’ . This must have been the ultimate misconception due to the widespread, unbalanced and sensationalised reporting of the case.
+
+## \* \* \* \* \* \* \*
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+## 7. Privy Council Appeal
+
+The Judicial Committee appointed by the Privy Council to hear the appeal comprised Lord Denning, Lord Radcliffe, Lord Reed, Lord Tucker, and Viscount Simonds. On this occasion O’Sullivan was assisted by Miss Evatt, a niece of Dr. Evatt. Chamberlain appeared for the Crown.
+
+O’Sullivan [‘]opened his submission by telling their Lordships that he had just received news from Australia of developments which would have a vital bearing on the case.’ [^1] This surprising news had come just in time for the hearing.
+
+At the start Viscount Simonds asked, [‘]Why was not that evidence obtained before?’ In response, O’Sullivan went into a long explanation that it was a matter of distance. He said that by the time he first saw Stuart on [‘]sometime like 17 or 18 January’ the show [‘]had gone on to Queensland, a distance of between 2,000 and 3,000 miles...’.[^2] However, the show [‘]was in South Australia until 26 January’, and went [‘]by slow stages’ through New South Wales and [‘]did not reach Queensland until some time in April.’[^3]
+
+O’Sullivan then stated that the witnesses had been located in the Atherton Tablelands, and that statements, which appeared to be of vital importance, had been obtained from them. He pleaded that the petitioner was to be hanged on Tuesday unless the Committee upheld the appeal. Lord Tucker interrupted, asking [‘]Why do you say that? How do we know what may be done by the Executive action if sufficient information is put before the authorities to deal with the matter?’ To this O’Sullivan replied, [‘]One can only speak with some experience of the Executive of South Australia’.[^4] Viscount Simonds was not impressed by this and remarked, [‘]We are not going to assume, if there is any sort of substance in the new evidence you wish to bring forward - which there may be or not - that the Executive will not act upon it.’[^5]
+
+O’Sullivan’s criticism of the Executive was completely unjustified. After the Sundown murder trial in 1957, the convicted man was flown back to the scene of the crime because he had said that he would be able to show evidence that he was innocent, but when taken back he [‘]was unable to unearth the new evidence which he had mentioned and in fact made only rather cursory attempts to find it.’[^6] This had happened the year before the murder of Mary Hattam and must have been known to O’Sullivan.
+
+It can be seen that O’Sullivan had been quite irresponsible in questioning the integrity of the Government Executive. In fact, there was no substantial evidence that it had not done its duty during the whole course of the Stuart affair, although it was generally acknowledged that Playford had made mistakes in some of his statements, a number of which had been widely criticised. Nevertheless, it would be difficult to believe that these errors could have made any difference to the judicial decisions.
+
+In normal circumstances, evidence which could have been obtained and presented at a trial does not lead to a new trial, and there was no such trial. A Royal Commission was appointed instead, and the opinion of the Commission was that [‘]by enabling the petitioner \[Stuart\] to re-open the case...the Executive \[had\] conceded something which the practice of the courts would not allow in the ordinary course of things.’[^7]
+
+O’Sullivan claimed that he had [‘]not had the opportunity of finding out the full facts’ about the new evidence, but Viscount Simonds told him that he could [‘]only proceed upon the material which is before the Board.’[^8]
+
+O'Sullivan then turned to the question of Stuart’s linguistic ability, about which he spoke at some length. He claimed that [‘]a man has been condemned to death, an illiterate aboriginal native, because the means and methods of defence which have been practised in South Australia for fifty years and have been available to literate white men, were not available to your petitioner.’[^9]
+
+Lord Tucker then asked, [‘]Mr. O’Sullivan, if he was able to convey to you or someone else on his behalf what his defence was, it may be in a halting and difficult manner, why was not he able to do the same thing in court?’[^10] O’Sullivan’s answered that there had been a language difficulty. He had conducted [‘]long interviews’ with Stuart [‘]in very simple English, disregarding answers to questions that made it obvious that the questions had not been understood, stopping him from long irrelevant unintelligible statements about matters that appeared to have nothing to do with this and over a period of many days using simple English, monosyllable words, ascertaining the police case against the prisoner, ascertaining some of the facts of the case from other sources, what had happened and where the girl had been killed and all the geography and times and relevant facts from other sources and filling them in by asking him questions, and that occurred over a period of months.’ Viscount Simonds seemed to be very surprised by this, asking, [‘]Months, did you say?’[^11]
+
+The Committee simply did not believe O’Sullivan’s claim. In the circumstances it was apparent that he had been exaggerating, and if Stuart’s English was so bad, he would have needed an interpreter before and at the trial. Moreover, as Chamberlain pointed out, if O’Sullivan [‘]had asked for the services of an interpreter’, the trial could [‘]never have proceeded without one being produced by the Crown.’[^12]
+
+O’Sullivan made a statement which implied that [‘]if a suspect had been in previous trouble, the police could ill-treat him as much as they liked knowing that he would not give them away for fear of having his record disclosed.[’ ‘]To this suggestion, Viscount Simonds replied, “You are not entitled upon any of the material before us to suggest that the evidence of the police was in any way corrupt or in any way wrong. It was accepted by the jury, and the courts through which this case has proceeded have seen no reason to doubt it”.’[^13]
+
+The argument that Stuart should have been allowed to have his statement to the court read for him was also rejected, with Lord Denning saying that it was [‘]contrary to principle altogether.’[^14] O’Sullivan was reminded of the trial judge’s offer to allow him to prompt his client, and in relation to that Viscount Simonds said: [‘]In face of that I think the complaint you now make is wholly unjustified.’[^15] He also said that [‘]the course proposed by the trial judge was “a most merciful way of treating the case”, and [‘]that nothing like that would have been allowed in England’.[^16]
+
+Lord Tucker remarked that [‘]it was highly desirable that the jury should have seen this man and then they would have been able to hear his faltering efforts describing his movements and judge from that the value of any statement made to the police.’ He also said that as a result of this case it was possible that the practice in South Australia of permitting unsworn statements will come to an end.[^17] Eventually the right to make these statements from the dock was abolished in all Australian States: in South Australia this was in 1983.
+
+When O’Sullivan had finished, counsel were directed to retire, and after a short interval were recalled. Viscount Simonds said, [‘]Their Lordships need not trouble you, Mr. Chamberlain’ and read their judgement. The petition was refused. Chamberlain would have liked to have been given the opportunity to answer O’Sullivan’s statements,[^18] but the Committee had needed little time to conduct the hearing and reach its conclusion.
+
+It is clear that its members did not accept that the new evidence could not have been sought earlier, nor that, in seeking it, distance was a particularly difficult problem. They were adamant that it was not their business to deal with the new evidence, and that it should be reported to the proper authorities for consideration by the Government Executive. They did not accept that Stuart was incapable of communicating adequately in English, and they saw no reason to believe that the police had acted corruptly, observing that the jury and the courts which had considered the case had accepted the police evidence.
+
+As soon as Playford became aware that there were claims of an alibi, he realised that they would have to be considered. On 29 July he answered a question in Parliament in the following terms:
+
+[‘]It would obviously be wrong if some new factor arose not known to the Executive Council at the time it made its decision. A decision might then be made on wrong premises. On the other hand, the Executive Council would have to satisfy itself that the new premises were real premises, warranting examination.’[^19]
+
+## \* \* \* \* \* \* \*
+
+##
+
+## 8. Appointment of Royal Commission
+
+### *Context*
+
+Wednesday, 29 July, was climactic for the press: the Privy Council decision was reported, as was the fact that the pamphlet was being distributed, and there was the dramatic revelation that there were witnesses who claimed that Stuart had an alibi.
+
+The *News* that day made the most of its scoop, devoting four pages of its 29 July edition to a report which Clark had sent from Queensland. The main headline, which appeared on the front page in bold type, read STUART HAS PERFECT ALIBI: THREE GIVE AFFIDAVITS ON STUART: MURDER CASE BOMBSHELL. Dixon was quoted as having said, [‘]I am completely satisfied Rupert Max Stuart has the perfect alibi’, and [‘]I have ample evidence to wreck the case against him.’
+
+Unusually, the editorial appeared on the front page too. The heading was [‘]DELAY THIS HANGING’, and the concluding paragraph was [‘]RUPERT MAX STUART SHOULD NOT HANG NEXT TUESDAY. IT IS THE BOUNDEN DUTY OF THE GOVERNMENT SITTING AS EXECUTIVE COUNCIL TO DELAY EXECUTION OF THAT SENTENCE UNTIL ALL MATTERS RELEVANT ARE BROUGHT INTO THE FULL LIGHT OF DAY.’
+
+The editorial emphasised the High Court’s declaration that [‘]CERTAIN FEATURES OF THIS CASE HAVE CAUSED US SOME ANXIETY’. Underneath this, in italics, was the statement: *[‘]The News has no sympathy with the Howard League. A dastardly crime has been committed at Thevenard. This paper has no brief for keeping alive the man who committed it.[’ ]*Capital punishment was supported unequivocally!
+
+Church leaders made statements, but the most moderate and seemingly sensible one was made by Bishop Gleeson, who said: [‘]The Roman Catholic Church was anxious to see justice done like everyone else, but the issue should not be clouded by too many comments.’ [^1]
+
+The second page of the *News* on this remarkable day of reporting was headed: [‘]Why five UK Law Lords refused to intercede’. This was followed by a paragraph which read: [‘]Five grey-headed Law Lords in a lofty sunlit Whitehall room refused to intervene in the Stuart case. The Judicial Committee of the Privy Council, highest court of appeal in British countries, was not prepared to do anything about the man in the condemned cell in Adelaide Gaol.’
+
+Here we have a picture of five cold-hearted and unsympathetic aristocrats, in a comfortable ivory tower and past their prime, doing nothing to save a man condemned to die. This was a distorted picture loaded with emotion, and an early example of what was to become the norm for much news reporting in Australia in later decades. The fact is that the members of the Judicial Committee were among the most erudite and experienced judges in the UK, selected because of their outstanding ability and thorough knowledge of the law. Whether they were Lords, whether they had grey hair, or where the appeal was held, had nothing to do with the decision-making. It was not their job to decide whether or not Stuart should die. It was to decide whether there was any reason to doubt the verdict of the jury. They were in the same position as the judges at the previous appeals. Whether Stuart should die or not was a matter for the South Australian authorities.
+
+It can be seen that what the *News* had written had no bearing on the Committee’s judgements. The Committee’s reasons were quite clear, and there was ample reason for rejecting O’Sullivan’s submissions. In the *Advertiser*, the summary of proceedings was simply headed [‘]Stuart Petition Argument.’ There was no crude appeal to emotion.
+
+Premier Playford acted promptly to the news of the discovery of a possible alibi, announcing the appointment of the Royal Commission on the following day, and the Commissioners appointed were the Chief Justice, Sir Mellis Napier (as Chairman), Sir Geoffrey Reed, and Sir Bruce Ross.
+
+### *Terms of Reference*
+
+The terms of reference. were to enquire into and report on:
+
+\(1\) The facts purporting to be disclosed in certain statutory declarations purporting to be made by Norman George Gieseman, Edna Gieseman and Betty Hopes all of Burpengary, relative to the movements, actions, and intentions of Rupert Max Stuart now a prisoner in Her Majesty’s Gaol at Adelaide.
+
+\(2\) The movements of the said Rupert Max Stuart during Saturday, the 20th day of December, 1958.
+
+\(3\) The reasons why the said statements were not made or furnished to the Supreme Court of South Australia or to an appropriate authority before the dates when they were respectively made and furnished.
+
+\(4\) The circumstances in which the said declarations were obtained and made.[^2]
+
+### *Criticisms, Opinions and Politics*
+
+Soon after the announcement of the Royal Commission, there were
+
+criticisms. Helen Devaney objected to the composition of the Commission, and claimed that the terms of reference were too restricting. O’Sullivan [‘]went further, criticising the choice of Commissioners as well as the terms.[’ ‘]According to a reporter in London, he went on to say that the thing was a farce, “obviously designed as a sop to public opinion...It is completely unfair to Stuart and to the three judges to ask two of them who have made public decisions adverse to Stuart to again review the case...This nonsense will satisfy nobody.[” ’][^3] In making public these extraordinary claims, O’Sullivan was engaging in behaviour unbecoming a member of the legal profession, at least by accepted standards in South Australia at that time. A number of other individuals and also groups joined in by issuing statements critical of the terms of reference and of the composition of the Commission.[^4]
+
+Don Dunstan, then a young and assertive member of the Opposition, was one of those who were inclined to distrust the police version of events, and seized the opportunity to criticise Playford. According to Dunstan, the Premier had gone back on his promise that all the facts of the case would be investigated, and told the *Sydney Morning Herald* that the [‘]announcement of restricted terms for the Royal Commission is a gross breach of his undertakings to the House.’[^5] Dunstan was seldom temperate when it came to criticising others, and this was an early example of his use of the word [‘]gross’, which over the course of time came to be seen as one of his favourite pejoratives.
+
+Later, in writing about what he had said at the time, Dunstan recalled that he had criticised the appointment as Commissioners of the original trial judge, and of the Chief Justice who had presided at the Full Court appeal: he believed that this was inappropriate. He said: [‘]No precedent could be found where that had happened’.[^6]
+
+This claim was false. In a biographical profile of Sir Mellis Napier in *The Australian Dictionary of Biography*, there is reference to the criticism of Napier’s agreement to sit on the Commission, but the author, Peter Howell, pointed out that he [‘]defended himself by citing Australian and British precedents.’[^7] Howell also considered that Napier [‘]showed a lack of political acumen’ in agreeing to accept the appointment, but of course judges are not expected to make political decisions, and it was the Premier who was responsible to Parliament for the appointment.
+
+There can be little doubt that the terms of reference should have included a requirement for a re-examination of the question of Stuart’s language ability and the allegation of police brutality. Playford had ignored the strength and extent of the public criticism which would inevitably follow these exclusions. He must have thought that these matters had been settled, but should have anticipated an outcry, and recognised that his opponents would be relentless in seizing every possible opportunity to discredit him.
+
+In marked contrast to Bishop Gleeson’s caution against clouding the issue with [‘]too many comments’, the *News* of 31 July commented at great length. The front-page editorial censured the Government in no uncertain terms, while at the same time giving high praise to Father Dixon and his supporters. The heading, in large bold type, read: [‘]THERE’S A LONG WAY TO GO’, and this was followed by the words: [‘]Yesterday, public opinion won a notable victory.’ It was as if public opinion, often divided, unreliable, and fickle, was to be preferred to the long established system of trial by jury.
+
+The following paragraphs read:
+
+[‘]There is still a long way to go.’
+
+[‘]Those who, led and inspired by that selfless and magnificent Australian, Thomas Dixon, have been working day and night to end the possibility of a monstrous miscarriage of justice from being piled upon the dark deed which ended a child’s life in December, still have the bulk of the task ahead of them.’
+
+[‘]Shortly after 2 o’clock yesterday the South Australian community was given reason to believe that the Playford Administration was doing all it should to make sure that justice was truly done.’
+
+[‘]The Government of Sir Thomas Playford had been finally aroused to act. Or so it seemed.’
+
+This was hardly balanced, moderate or justifiable comment. There was new evidence which cast doubt on he original verdict that Stuart was guilty, but this evidence needed to be tested. Public opinion was deeply divided, and a great deal of misleading information had been published, with the *News* leading the way in its widespread distribution. Its influence had led to worldwide condemnation of the South Australian justice system and of the attitudes of South Australians to Aborigines. Thus the *News* had entered the political arena by joining the anti-government critics, including Stuart’s counsel and Don Dunstan.
+
+There was no justification for the comment in the *News* that the Government [‘]had been finally aroused to act’: it would have been most unusual for a government to have intervened while the normal procedures of the criminal justice system were being followed.
+
+The *News* editorial went on to say that [‘]the naming of the Royal Commissioners and their terms of reference as published by Sir Thomas Playford yesterday arouse the gravest doubts and fears among all who know something of the inside history of the case.’ Then followed an opinion that there might not be a thorough inquiry into all aspects of the case, and that the Commission might be unsatisfactory.
+
+These slurs on Playford were baseless, and there was no conclusive reason for criticising the selection of Napier and Reed. These two judges had the advantage of knowing more about the case than most other people. Further, there had been any number of precedents both in Australia and overseas.
+
+Christopher Legoe (later Supreme Court Justice Legoe), the junior counsel assisting the Commission, later commented on Sir Mellis Napier’s guidance of the Commission. He wrote:
+
+[‘]Although always the person who took control of the proceedings in a determined way, as was his style, I did not consider that he showed bias or unfairness to Stuart or his counsel. Some of the remarks that were made by Sir Mellis were capable of being construed unfavourably but I do not recall that they went further than a forthright expression of opinion.’[^8]
+
+About Sir Geoffrey Reed he wrote:
+
+[‘]I was his Honour’s Associate in 1953-54. He was an experienced advocate mainly in civil cases. He was a very careful Judge who was well respected by the profession. Although there was a heap of media criticism that he was appointed a Commissioner in Stuart’s matter I found that he conducted himself with dignity and integrity throughout the hearing.’[^9]
+
+Incidentally, Legoe also wrote:
+
+[‘]Mr. Justice Ross…was the truly independent Commissioner who could not be criticised in any way. His Honour maintained his customary careful assessment of the facts. His Honour’s wide experience as a practitioner and Judge ensured that the whole case would be summed up and precise answers delivered to the issues that arose.’[^10]
+
+Included in the *News* editorial was a list of a number of matters which the editor thought should be investigated. These included:
+
+The scope of the inquiries into the murder; the action or inaction of all the law officers concerned with the prosecution; the procedure available to enable an illiterate accused to place his story to the court; the reasons for the High Court’s “anxieties”; the reasons why the new evidence had not been collected in the first place; and the reason why the hair allegedly discovered in the hand of the child was not produced in court so that all should know if it were or were not the hair of the accused.
+
+Theoretically there could have been an inquiry into the conduct of [‘]the law officers concerned’, but it is not usual to hold one unless there is at least some evidence of substance, which no-one, including the defence, had been able to produce. Further, the trial judge had warned the jury strongly against convicting Stuart unless they were satisfied that the police were not guilty of misconduct.
+
+The police could certainly have been more thorough in their investigation. For example, they could have arranged for an independent examination of Stuart’s body for signs of injury, and they could also have asked the Giesemans and their employees whether they knew where he was during the afternoon of the murder. However, this was with the benefit of hindsight.
+
+There was no dispute that Stuart was illiterate. He had told the court that he could not read or write, but the Full Court of Appeal did not accept that he had suffered because of his illiteracy, and apparently the High Court put little or no store on Strehlow’s reference to it in the affidavit which he had submitted, given that it did not order a rehearing. Similarly the Privy Council Committee was not persuaded that his illiteracy carried any significant weight. Nevertheless, the critics thought otherwise.
+
+The editorial erred in calling for the Commission to investigate why the hair of the child was not produced in court. This was careless reporting: at the trial Turner had explained why the hair had been taken. (p.18 above), and as Chamberlain said, they were [‘]put in at the trial...so that it could not be suggested that any evidence was being withheld’.[^11]
+
+The editorial suggested an alternative to a Royal Commission, namely referral to the Full Court. Such a referral was authorised by Section 369 (a) of the Criminal Law Consolidation Act, [^12] but as Chamberlain pointed out, any such referral would have been futile, since the Court would have found that the new evidence could [‘]have been discovered at the time of the trial’, and [‘]would have been bound to refuse to hear it’.[^13] The Commissioners commented too that [‘]if an accused person elects not to give evidence, or abstains from calling evidence that he could have called, he is not - in the ordinary course of things - entitled to another trial or to complain that justice has miscarried.’[^14]
+
+A Royal Commission has considerable powers, generally greater than those of a judge, including the power to summon witnesses under oath. This pointed to the Government having made the right decision. In the event the Commission gave the defence every opportunity to present its case and to cross-examine any witnesses, and among those required to appear were the police, who were in effect put on trial.
+
+The editorial concluded:
+
+[‘]When these and various other matters of the deepest impact are explored to their depths; when the system of law investigation, enforcement, and trial in this State have been probed; when the real murderer of Mary Olive Hattam has been brought to book, and sentence duly passed and executed, then and only then will all South Australian men and women go contented on their way.’
+
+An inquiry into [‘]the system of law investigation, enforcement, and trial’ would have been an enormous task, and an investigation into the [‘]action and inaction...of the law officers’ became a matter for the Royal Commission. In any case most of these these needs could only possibly have arisen if the Commission were to find that there was good reason to overturn the decision of the jury and the subsequent rulings. Similarly, any need for the police to have looked for another suspect was for the Commission to determine. With public opinion divided as it was, the *News* was taking sides, and was promoting the cause of Stuart’s supporters beyond all reason.
+
+There was certainly a case for the appointment of judges other than Napier and Reed as Commissioners, and Playford should have anticipated the huge public backlash which followed their appointment: his usual shrewdness had deserted him. He admitted this later to Sir Walter Crocker, the noted former ambassador and scholar, when he acknowledged [‘]the political ineptitude of the appointment.’[^15] Crocker’s opinion was that these appointments [‘]played right into the hands of those working up public excitement.’[^16]
+
+Further, the *News* made its strong assertions despite having expressed full confidence in the integrity and knowledge of the law of the three justices, who of course knew more about the history of the case than almost anyone else.
+
+During debate in Parliament on 4 August, Playford gave assurances that there would be a thorough investigation and after some debate [‘]the Opposition was satisfied’,[^17] and next day [‘]Miss Devaney said that Stuart’s solicitors were satisfied by the promise of a thorough investigation.’[^18] In the event the Commission decided that [‘]every matter connected with \[the\] case would be sifted to the ground’ as Playford had promised.[^19]
+
+On the same day the *News* published some of Strehlow’s claims. These appeared under the heading NATIVE LANGUAGE EXPERT CLAIMS: STUART’S [‘]CONFESSION’ FALLS DOWN. This statement read in part: [‘]Rupert Max Stuart’s confession to police fell down on three major points, Mr. T. G. Strehlow, reader in Australian Linguistics at Adelaide University, claimed today. These were the time factor, the confession contained only actions and remarks that would help to convict Stuart, and it was not in the style of Northern Territory English by Stuart.’
+
+## \* \* \* \* \* \* \*
+
+## 9. The Royal Commission
+
+###
+
+### *First Session*
+
+The Royal Commission sittings began on 10 August, 1959, with Mr. J. F. Brazel, Q.C. and Mr. C. J. Legoe assisting the Commission. Mr. J. R. Kearnan and Mr. E. B. Scarfe appeared for the Attorney-General and Chamberlain for the Crown, Mr. C. Villeneuve Smith and Miss Helen Devaney represented Stuart.
+
+Before this opening session, Stuart’s solicitors had approached Mr. J. W. Shand, Q. C., of the New South Wales bar, to appear as senior counsel for Stuart, and Shand readily agreed. [^1] Hence at this first hearing Smith applied for Shand to appear as Stuart’s leading counsel. Normally the right to appear in this capacity was limited to South Australian practitioners, and a similar rule applied in other States. Nevertheless, after some discussion Smith’s request was granted.[^2]
+
+Brazel then gave a brief account of the events which had led to the appointment of the Royal Commission. Following this there was a discussion about whether or not Dr. Thompson should be called to appear, and Smith said that this would be necessary so that she could be asked whether she had seen the hairs which had been found under the victim’s fingernails.[^3] In the event this was not necessary: other witnesses provided sufficient evidence for the Commission to deal with the matter.
+
+Napier then declared that the Commission would need to see the written statement which Stuart had held in his hand at the trial, and after some debate Smith said that the document would be submitted as soon as O’Sullivan had returned from London. Finally Napier expressed the view that O’Sullivan would need to give evidence because he was the only one who could identify the document, and said that Stuart too should appear [‘]to disclose what he \[said\] were his movements.’ Smith’s reply was that it was his understanding that Stuart intended to do so with the help of an interpreter.[^4] The Commission then adjourned until 17 August.
+
+### *Preliminary Argument*
+
+When the Commission reopened, Chamberlain attended as the leading counsel for the Attorney-General, and Shand formally sought leave to appear and this was granted. Not long after that, Brazel referred again to the question of Stuart’s statement, pointing out that the Crown had not yet seen the original copy. Shand replied that the Crown had [‘]what we think is the original of this document and have had it for some months. What I am handing to the Commission is a carbon copy of the document which the Crown already holds.’ However, the Crown also had only a carbon copy. Chamberlain then pointed out that he wanted to see the original so that he could compare Stuart’s signature on that document with the one on the confession. Shand responded by stating that he could not produce that because it had [‘]been mislaid between here and the Privy Council.’[^1] It was strange indeed that Shand should have contradicted himself within such a short space of time, given that he knew that the original was still in the hands of the defence, and had been taken to London.
+
+Shand argued that the Commission should re-examine the evidence of [‘]the footprints, the confession, and the hairs’ (which Turner had taken from Stuart’s head), and [‘]that the terms of reference of the Commission should be extended’.[^2] However, the defence did not call either of the trackers to be questioned at the Commission, and there had been [‘]expert opinion on these hairs, and in the long run nothing more was heard about them.’[^3] Mr. Starke, who appeared later for Stuart, made no mention of them. The matter was finally settled by the Royal Commissioners, who [‘]looked at the hair under a magnifying glass’ and found that it appeared [‘]to have been cut and not pulled.’[^4]
+
+Shand asked for the third term of reference to be excluded. [‘]If the statements were true, did it matter to the Commission why or why not they were made?’ In his view this was [‘]unnecessary’, and the real issue was [‘]whether a man should die or whether he should not.’ Inglis reported that this remark [‘]led to Shand’s first brush with Sir Mellis Napier, who observed: “We are fully aware of the nature of the enquiry and it does not help us to be continually reminded of it.[” ’]
+
+After a further exchange, the Chairman made it clear that one object of this particular term of reference was to enquire [‘]into why the new evidence was not called earlier’ since [‘]if Stuart had a complete alibi, that was not mentioned at his trial.’ This prompted Shand to say that [‘]under reference three the very appropriate persons to be called are the police.’ Napier responded by assuring Shand that they would be.[^5]
+
+The reason for Shand’s request was obvious: the inclusion of the third term of reference meant that the alibi witnesses would be obliged to answer for their claim. If there was a [‘]brush’, it was not Napier who was responsible for it. Shand had engaged in a futile exercise which had no hope of success, and had been wasting the Commission’s time. Whether Stuart was to die or not was not for the Commission to decide, and Shand was out of order in suggesting that this was the [‘]real issue’.
+
+Shand also sought to have the police examined before other witnesses were. However, Napier pointed out that he was [‘]now in the position of the accuser as far as the police were concerned’, and [‘]it is the police who should be allowed to answer the evidence.’
+
+Shand’s plea was rejected. The Commission held that the onus remained the same as it had been at the trial, namely that it was for the accusers to make out a case against the accused. The criticisms of the police would be heard first, and they would then respond. The debate ended when Napier said, [‘]We are endeavouring, and I think you will accept our assurance that we are endeavouring - to give you the fullest opportunity to investigate everything that could possibly raise a doubt with respect to the propriety of the verdict.’[^6] Shand was told that he [‘]was in the fortunate position of being an accuser, who is not obliged to prove his case beyond reasonable doubt.’[^7]
+
+### *A False Claim*
+
+Apparently Shand believed that he had evidence that the police had been guilty of extorting the confession by means of violence. He announced to the Commission that [‘]it had come to the knowledge of Stuart’s counsel that on the previous Friday three witnesses - Mr. Wardrop, Mrs. Wardrop, and their daughter - had handed statements to the Crown, and that in them [‘]they said that one of the police had remarked, “We bashed it out of the black bastard”.’ He went on to back this up by claiming that [‘]he would be able to show that Stuart had suffered severe injury following an interview with the police.’ [^1]
+
+These claims were not soundly based, but they had a predictable effect on public opinion. The main heading in the *News* report of 17 August was [‘]3 ALLEGE CONFESSION WAS BASHED OUT OF STUART’, and this was in large bold type. Also on the front page was a cartoon showing [‘]a relief map of Asia and Australia, with the eyes of the East directed towards Adelaide’, and with the caption [‘]The cynosure of all eyes’. Chamberlain noted quite rightly that this [‘]was because Asian newspapers had been fed the story about the injustice being perpetrated towards Stuart, and apparently had taken it up as an example of Australian ill-treatment of coloured races.’[^2] The real irony, as opposed to the intended irony of the cartoon, was that through its sensational posters and headlines the *News* had been responsible for this Asian resentment.
+
+It appeared that no statements by the Wardrops had been handed to anyone on the Friday,[^3] and had not been handed to the Crown, but given to Mr. Ligertwood, one of the solicitors assisting the Commission.[^4] Chamberlain wrote that there was not the slightest evidence to support the contention that the words [‘]We bashed it out of the black bastard’ were ever used, and that [‘]it was indignantly repudiated by Wardrop himself.’ He also wrote, [‘]How responsible counsel could have made such a claim is impossible to understand.’[^5] Be that as it may, it is difficult to accept that Shand had not been irresponsible in making an unfounded statement containing such a grave allegation against the police. The publicity attracted worldwide attention.
+
+Because Shand’s claim had been given such wide publicity, the Commission felt [‘]obliged to deal with the facts and the evidence at some length.’[^6] The police officer alleged to have said that Stuart had been bashed was Whitrod, but at the Commission he denied having said it.[^7]
+
+At no stage was Shand able to provide definite evidence that Stuart had suffered any injury at all at the hands of the police, and Chamberlain recorded that the only sign of an injury turned out [‘]to be a minute scar which had obviously been inflicted long before his arrest for murder, possibly during his days as a boxer.’[^8]
+
+In contrast to the brash and sensational reporting of the *News,* the *Advertiser* heading to its report was [‘]First Witness in Stuart Enquiry’, and the report itself simply summarised the proceedings with some highlighted paragraphs, but with no particular emphasis on any allegations. From the beginning the *Advertiser* reports were comprehensive, balanced and factual, and there was nothing designed to influence public opinion or arouse feelings of anger or other emotion.
+
+The Commission then heard the evidence of the witnesses from Queensland who testified that Stuart had been working at the funfair at the time of the murder, and they were followed by others who gave contrary evidence.
+
+### *The Whyalla Evidence*
+
+After that, Alexander Phin, by then retired, was called, and according to Chamberlain was subjected to a [‘]hostile and stringent cross-examination which occupied thirteen pages of transcript.’ [^1] Shand could be severe in the examination of witnesses. According to Sir Garfield Barwick, a former Chief Justice of the High Court, he had [‘]great vigour as an advocate and the capacity of insinuation in tone which could annoy and bring a witness into antagonism.’[^2] On one occasion he [‘]reduced a detective-inspector to tears.’[^3] Inglis wrote: [‘]As his audience in Adelaide was to discover, Shand in court was brisk to the point of rudeness, irritable towards other counsel, and not very deferential towards the bench,’[^4] and he wrote later that Shand was [‘]a powerful and merciless cross-examiner’.[^5]
+
+Phin said in evidence that Gieseman had told him at Whyalla that [‘]Stuart had gone off on a drinking bout shortly after arriving in Ceduna on the Friday, and that he did not see much more of him or did not get any service from him.’[^6] According to Phin, Gieseman went on to say that on the Sunday he had sacked Stuart because he was of no use to him’, and then that Stuart [‘]adopted a hostile attitude’, and took off his overalls, [‘]got his belongings...and shortly after left the circus.’[^7] He also stated that Gieseman suggested that he speak to Allan Moir who would probably know more about Stuart.[^8]
+
+Phin then outlined a long conversation he had had with Moir on the Monday, during which the boy said that Stuart was [‘]a half caste and a good fellow when he’s sober but nasty when he’s drinking.’ In further
+
+evidence Phin said, inter alia, that Moir had told him that:
+
+After arriving in Ceduna he went to work pitching the camp and arranging the stalls, but Stuart left the circus and went into the town drinking. He next saw Stuart in the evening and found him to be under the influence of liquor and without any money. Stuart cadged some money from him. They went to the pictures, where he molested some half-caste woman in an advanced state of pregnancy.
+
+On the Saturday, somewhere about lunchtime, he and Stuart drank wine in a cave near the jetty in Ceduna. There was a tall half-caste with them named Lennie. He (Moir) became drunk and flaked out. He and Stuart returned to the circus, but he could not remember exactly what happened to Stuart after that.
+
+He next saw Stuart late in the afternoon or early evening in the town of Ceduna. Stuart was drunk and had a handful of money. He asked where Stuart got the money, and Stuart replied, [‘]I just done a fellow over.’ He thought Stuart was joking. But Stuart said, [‘]Do you know where I can get a boat - a dinghy?’ He asked him why, and Stuart said, [‘]I want to take the body out to sea after dark and dump it.’ When he saw Stuart’s face he was frightened and went back to the circus.
+
+On the Sunday, when Stuart returned to the circus wearing overalls and appearing to be under the influence of liquor, the boss said [‘]Get those bloody overalls off, get your stuff and get out.’ He thought Maxie was going to have a go at the boss, but he pulled off his overalls and got his suitcase and went away.[^9]
+
+Shand pressed Phin on some differences between the statements he had made as a witness and what he had written later, and between both of these and the typed statement from Moir. He then asked Phin whether Moir had said that he had [‘]flaked out’ during the afternoon as well as the evening, and Phin replied that he thought that it was before lunch. Shand then read from his written statement which showed that he was wrong about this: he had written that Moir had [‘]flaked out’ during the afternoon and evening. Phin then said that if it was in the statement it would be right.[^10] Shand then pointed out that in his original statement Moir was recorded as having said that he was under the influence of liquor on the Friday evening, but that according to the second document Moir had had nothing to drink at that time. Phin replied that there could have been an omission on his part.[^11] Shand had demonstrated that Phin could not remember exactly some of what had occurred, but this is not surprising since the questions were asked more than six months after he had questioned the boy.
+
+Shand then referred to the fact that Phin had reported that Moir had told him that at the pictures on the Friday night Stuart had interfered with a half-caste woman in an advanced state of pregnancy. Shand wanted to know why this incident had not been recorded in Moir’s written statement, and after further questioning claimed that that there had been inconsistency in what Phin had said about the incident, and that he had given three different explanations for this.[^12] This led to following exchange:
+
+[‘]Do you realise that is the third explanation you have given?’
+
+[‘]Yes. This interview happened seven months ago. I gave one statement on the 30th. of last month and as far as I know it is quite correct.’
+
+[‘]Do you realise that you have given three explanations?’
+
+[‘]No, I don’t think I have given three explanations. I have tried to explain the position as I know it.’
+
+[‘]In doing so you have given three possibilities?’
+
+[‘]Yes.’
+
+[‘]Can you say which if any of these three possibilities you now say is the correct one?’
+
+[‘]I say that when Moir said that Stuart had indecently interfered with a half-caste woman in an advanced state of pregnancy on the Friday night I thought he was telling the truth.’
+
+[‘]That does not appear in the witness statement of Moir’s at all. I am asking you why you did not ask some questions of Moir and you have given three possibilities?[’ ‘]I have previously explained that I might have overlooked that.’
+
+[‘]Is that the one you say is the real explanation?’[^13]
+
+Since Phin had indicated that he was not sure of the reason, there was little point in Shand continuing to probe further. Apparently Napier must have thought so, because he interrupted by saying, [‘]He is not obliged to explain anything.’ Shand then said, [‘]If he says he can’t explain it...’, but Napier interrupted again with [‘]It is for him to say whether he wishes to go any further or whether he wishes to leave the evidence where it is.’[^14] When Napier made these remarks he must have realised that Phin had answered the questions as best he could, and that further questioning would get nowhere.
+
+The following exchange ensued:-
+
+Shand: [‘]If you want to stop me cross-examining I will stop.’ Napier: [‘]I have not the slightest intention of stopping you. But as far as I am concerned I have heard enough of this.’
+
+Shand: [‘]If you are going to take that attitude when cross-examination is going on I think in this case cross-examination must be essentially severe.’ Napier: [‘]If you feel it is helping you to convince us well and good.’
+
+Shand: [‘]I feel it is impossible to convince Your Honour on this because Your Honour says you don’t want to hear any more of it.’
+
+Reed: [‘]That is a rather startling remark to make.’
+
+Shand: [‘]It may be, but I make it and maintain it.’
+
+Napier: [‘]You are at liberty to maintain it and it is for you to say how you are exercising your discretion. But you have a Court or you have a Tribunal that is in the habit of hearing evidence and of assessing the value of a witness and the value of an oath. Everybody makes mistakes at times.’
+
+Shand: [‘]If Your Honour regards it as a mistake before I complete my cross-examination it is useless to cross-examine further and I sit down.’
+
+Napier: [‘]It is for you to say what you wish to do but you are perfectly at liberty to continue and we will stay here as long as it suits you.’
+
+Shand (to Phin): [‘]I will ask you three more questions although I have a number of other questions.’[^15]
+
+The questions which Shand asked and Phin’s answers were:
+
+Will you agree that you gave 10/- \[ten shillings\] to this boy \[Moir\]?[’ ‘]Yes to get a meal after this matter is all over.’
+
+[‘]Would you agree that you gave him a cigar?[’ ‘]No.’
+
+[‘]You agree that you gave him chocolates?. [‘]No. I did not.’
+
+[‘]Was the 10 shillings down in the police records?[’ ‘]It was out of my own pocket. I gave it to him because he said he was hungry.’
+
+[‘]It could have gone in the police records?[’ ‘]No, out of my own pocket because the boy said he was hungry after leaving the police station.’[^16]
+
+Phin asked if he could make an explanation and was permitted to do so. He then related his recollection of his conversation with Moir, which was recorded as follows:-
+
+‘He asked me for a cigarette, but I did not smoke.’ Later Moir asked for a cigarette when they were talking outside the police station. Moir remarked: [‘]I could eat two or three pasties now’ and Phin asked him [‘]What is wrong. Didn’t you have breakfast son?’ The boy said he had not had very much, and Phin gave him 10 shillings, saying: [‘]Go to the Black Cat cafe and get yourself a decent breakfast.’ Phin continued: [‘]The money never came out of Police funds but out of my own pocket.’[^17]
+
+It can be seen that Phin’s memory was reasonably good. Shand’s attempts to discredit his reliability as a witness had failed, and what was at issue was of no real consequence and was irrelevant to the main considerations. Further, although Napier said that he did not want to hear any more, he was quite willing for Shand to continue his [‘]severe cross-examination’. Apparently it had become clear, at least to Napier, that further questioning would not have destroyed Phin’s credibility as a witness.
+
+Brazel adverted to the statements which Shand had made in contending that the confession had been bashed out of Stuart. In addressing the Commission, he said:
+
+[‘]I draw attention to the fact that there are two glaring inaccuracies uttered with great publicity contained in Mr. Shand’s statement last Monday morning...[’ ‘]Mr. Shand took it upon himself to make assertions of fact before your Honours which he now concedes were not gleaned from documents.’ He added that [‘]these statements were not in existence on Friday the 14th August as Mr. Shand so confidently alleged and furthermore none of the persons claims to have heard the words alleged to have been uttered by Mr. Shand last Monday.’[^18]
+
+He submitted copies of the statements to the Commissioners and to Shand, who read his copy and said, [‘]We made a public statement. The statements are a little stronger than I indicated and I admit it.’[^19] There was no apology, only this nominal admission - Shand was not one to make concessions.
+
+He was asked if he would like to have witnesses called, to which he replied: [‘]I would like your Honours to give me an adjournment to consider my own position as to what I intend to do.’ Napier readily agreed to this and added that if Shand wished witnesses to be called then they would be. Shand said that they would be needed.[^20]
+
+### *Shand Quits*
+
+When Shand rose to address the Commission on the following day, Friday 21 August, he referred to an opinion expressed by the *Advertiser*, which was that he had asked for an adjournment because of Brazel’s mention of his public statements. Shand rejected this opinion, claiming instead that it was the question of his cross-examination. He claimed also that, as a result of enquiries, it had been confirmed that the Wardrops had made verbal statements on the Friday, which were typed up on the Monday. [^1]
+
+He then went on to read a prepared statement regarding [‘]the position that arose yesterday’, and the following exchange occurred:
+
+Shand: [‘]My instructing solicitors and myself consider after yesterday that we are not being given, nor will we be given, a thorough investigation of this matter. We consider that our continued association with this Commission will in no way help Stuart and will in fact handicap him. We think the particulars have established that this Commission is unable properly to consider the problems before it and we therefore withdraw.’[^2]
+
+Napier: [‘]Mr. Shand, may I say that you perhaps do not realise that while we are engaged on this enquiry, the whole business of the court is virtually at a standstill. We have, therefore, relied upon counsel to give us the assistance that we are entitled to by seeking to arrive at the truth, and by omitting to waste our time on irrelevant matters.’[^3]
+
+Napier then explained the position as he saw it. As far as he was concerned, the examination of the witness Phin [‘]turned upon two points. Firstly, the indisputable point was that the witness Moir had made a statement in December, a statement in writing, which was in evidence before us. No destruction of Phin’s credit could have altered that unalterable fact. So far as Phin’s testimony went to conversations with the lad \[Moir\] and with Mr. Gieseman, you had already made your point that Phin was speaking from his recollection of events that had happened more than six months before he was asked…to recall and give his statement.’ Napier concluded by saying: [‘]In these circumstances it was obvious that the Commission could hardly use Phin’s recollection of events as contradicting the sworn testimony of any credible witness.’[^4]
+
+Shand: [‘]I am not concerned to argue with Your Honour beyond saying this, that cross-examination has more in it than is involved in Your Honour’s statement. Time and time again it happens, what might be considered severe cross-examination brings out the truth in other respects, and, personally - in the cross-examination which no one suggested was unfair, and which had some object, I have never in my career been stopped before.’ Shand and his two colleagues then left. [^5]
+
+Brazel virtually ignored their departure, and rose immediately to address the Commission. He pointed out that Mr. Shand had again been inaccurate in what he had said about his public statement regarding the Wardrops’ evidence, and then said:
+
+[‘]May I say one or two things; in fairness to, say, the interests of truth, may I say my learned friend is again inaccurate in what he said this morning, that it is perfectly true that of the three witnesses whose statements were handed to Mr. Shand, so far as yesterday, one of them – and one only – was briefly seen on Friday last, and a short note taken of what he might be able to say. The fact is that the other two persons whose statements handed in yesterday, were not seen, as Mr. Shand still continues to allege in defiance of the truth, until a later date. Their formal statements were in fact taken and signed as appears on the 17th.’[^6]
+
+Thus Brazel had demonstrated that Shand’s claim about the statements which the Wardrops had given to counsel assisting the Commission was untrue: the statements had not been handed to the Crown but to Brazel; they were not in existence on the Friday as Shand had claimed ; they had been made verbally at that time; and only one of the Wardrops had been seen on the Friday.
+
+Things had not gone well for Shand before the departure. His challenge to the terms of reference had not been successful; he had claimed that the original of the unsworn statement was in the hands of the Commission, but that was not the case; his call for the police to be called as witnesses before others were had been rejected; he had given false information to the Commission about the Wardrops’ statements; and Napier had suddenly interrupted him when he was questioning Phin in an attempt to discredit him as a witness.
+
+Shand’s parting words that he had never in his career been stopped before were of course widely misinterpreted: many people did not know that the so-called stoppage was no more than an interruption and that there was a reason for it. Napier had made it perfectly clear that he had [‘]not the slightest intention’ of stopping him, and that he was [‘]perfectly at liberty to continue’ for as long as it suited him. He had also stated quite clearly his reasons for the interruption: as far as he was concerned, Shand had been wasting the court’s time because [‘]the Commission could hardly use Phin’s recollection of those conversations’ (i.e. the ones Phin had had with Moir and Gieseman at Whyalla), [‘]as contradicting the sworn testimony of any credible witness.’ Apparently Shand did not accept this opinion. Instead he deliberately chose not to challenge it, although it was open to him to have done so if he had felt that there were any grounds for an objection.
+
+Shand was not prevented from continuing his [‘]severe cross-examination’ in an endeavour to [‘]bring out the truth’: rather he had been given the opportunity to do just that, but he chose not to. He had been interrupted, but as Chamberlain remarked, [‘]Such interruptions are commonplace to every counsel of any experience.’[^7] Ross was of the same opinion when he said that [‘]the stopping of counsel from cross-examining is something that happens every day in the courts.’[^8]
+
+At the next sitting of the Commission, Brazel gave a convincing explanation for the interruption. In the course of his address, he said, [‘]If one thing was manifest, I would have thought, it was that your Honour the Chief Justice in referring to “having heard enough of this” meant, and could only mean to any rational listener, that upon the topic on which Mr. Shand was then cross-examining you had heard sufficient to give it its proper weight.’[^9] Brazel said too that [‘]the value of what Phin could say lay only in providing material with which to check Moir’s evidence’ and [‘]if anything Phin claimed to have been said by Moir conflicted with Moir’s sworn testimony, it would have to be discarded when the reliability of Moir’s evidence...came to be assessed.’[^10]
+
+Napier had made up his mind on the evidence before him that there was no point in hearing any more on the subject, and it seems highly likely that such an able and experienced barrister as Shand must have recognised the futility of questioning Phin any longer.
+
+With the assurances that he had been given, Shand would have had the opportunity to question all of the police who had been involved. Instead of that, Stuart was left without counsel, and questioning of the police on Stuart’s behalf was postponed indefinitely.
+
+### *Press Reports*
+
+The departure of Stuart’s counsel was reported on the same day by the *News,* and next morning by *The Advertiser,* but the reports differed markedly. The *News* headlines concentrated on the sensational nature of Shand’s extraordinary remarks and the unprecedented walkout. On the other hand the *Advertiser* stuck to the bare facts.
+
+The headline in the *Advertiser* was MR. SHAND Q.C. QUITS. ENQUIRY DELAY LIKELY. Then underneath, the report began: [‘]The Commission adjourned suddenly after Mr. Shand had read a prepared statement in which he said the Commission was [‘]unable to consider the problems before it’. This was followed by the information that Shand and his associates then walked out. [^1]
+
+The summary continued in similar vein. It included the information that Brazel had sought permission to approach the Law Society to see whether legal assistance could be made available for Stuart, that this was agreed to, and that Napier had commented that it appeared to the Commissioners that [‘]the interests of Mr. Shand’s client have been completely overlooked, and those interests must be considered and protected.’[^2] The report also referred to a belief that the Government had informed counsel assisting the Commission that it would meet necessary expenses if suitable arrangements could be made through the Law Society.[^3]
+
+The *Advertiser* also reported something which Shand had said to reporters at Mascot on his arrival back in Sydney, namely: [‘]I made my statement on the case this morning in the court. This case needed unfettered cross-examination. In this case I was impeded as soon as I started to cross-examine the first police witness.’[^4]
+
+This was quite untrue: before the interruption, Phin had undergone what Chamberlain observed was a cross-examination which occupied thirteen pages of transcript.’ (p.83 above) It also seems likely that Shand was near the end of what he intended to say to Phin. During his questioning he had been struggling to undermine Phin’s credibility and seemed to have reached the stage where, as Napier said, he was again wasting the Commission’s [‘]time on irrelevant matters.’[^5]
+
+In marked contrast to its rival, the first *News* poster proclaimed: SHAND QUITS “YOU WON’T GIVE STUART A FAIR GO” Another said: COMMISSION BREAKS UP and SHAND BLASTS NAPIER.
+
+The headline was: Mr. Shand, Q.C., indicts Sir Mellis Napier “THESE COMMISSIONERS CANNOT DO THE JOB”[^6]
+
+These captions were misleading: Shand had not used the words [‘]YOU WON’T GIVE STUART A FAIR GO’, nor the words [‘]THESE COMMISSIONERS CANNOT DO THE JOB’, as the posters and headline had implied. Moreover, Shand’s criticisms of the Commission were without foundation, and the *News* had given these false accusations headline status. Naturally this reporting had a strong impact on public opinion.
+
+During the days following Shand’s departure, newspapers both in Australia and overseas published a host of expressions of concern, most of them critical of the Commission. Inglis wrote [‘]outside South Australia it was hard to detect any conflict of public opinion. Every newspaper and almost every individual who spoke about the matter expressed misgivings about the Commission’.[^7]
+
+The *Advertiser* published one such opinion. This had been expressed by the NSW Minister of Health, Mr. W. F. Sheahan, a Q.C. and a former Attorney-General, who said: ’Speaking as a barrister, I would say that the stand taken by Mr. Shand was correct. It was courageous and in accordance with the best traditions of the legal profession.’[^8] A Melbourne columnist agreed: [‘]Some top criminal lawyers tell us that Mr. Shand Q.C., did the only thing possible in the Stuart case yesterday by walking out.’[^9]
+
+The News of 24 August carried the headline: [‘]Q.C.s ATTACK JUDGES NAPIER AND REED - MR. SHAND SUPPORTED’ and the lead article [‘]reported that a group of Sydney barristers, including two Q.C.s, had stated that it was contrary to the ordinary considerations of natural justice that two members of the Commission should be judges involved in earlier proceedings.’ The headline implied that Napier and Reed had been directly criticised, but it was the Government which had appointed them. In any case, as Chamberlain remarked, [‘]all Stuart’s counsel’ agreed that these men [‘]were above criticism.’ [^10]
+
+Stewart Cockburn recorded that expressions of support for Shand came from interstate, observing that a group of Sydney barristers expressed concern, as did some members of the Queensland Bar Association. In reporting an opinion of a former Chief Justice of the High Court he wrote: [‘]Sir John Latham wrote to Playford suggesting that steps should be taken to set aside Stuart’s conviction and provide for a new trial by Judge and jury.’ Latham also referred to a front page editorial in the Sydney *Daily Telegraph* which [‘]urged that further enquiries be undertaken by a Federal Judge and declared, “It should not be forgotten that the millions in the newly-independent Asian countries are particularly sensitive to the civil rights of black minorities.[” ’][^11]
+
+There were many other criticisms that Napier and Reed had been appointed as members of the Commission. Mr. V. H. Treatt, a former lawyer and prominent N.S.W. parliamentarian, [‘]said that a judge involved in an earlier hearing should not sit on such a tribunal.’ Others of the same view included the British dignitaries Lord Attlee, Lord Birkett, and Mr. Jo Grimond. The same opinion was expressed in a Melbourne Herald editorial.[^12] Two other public statements, published in Adelaide’s *Sunday Mail*, urged that the Commission not proceed as planned. One had been made by eighteen University of Adelaide academics and the other was from interested persons including Borland, Duguid and Inglis.[^13]
+
+Many of those who had issued these and similar statements lacked adequate knowledge of the circumstances which had led to the walkout. Others, who had much more information than what had been published interstate, thought that the walkout was neither courageous nor in the best traditions of the legal profession. They understood that Shand could have continued for as long as he liked, and criticised him and his colleagues for abandoning their client. Moreover, at least some people would have realised that Shand had almost completed his cross-examination of Phin. As for the reason or reasons for the walkout, various opinions were expressed, but at that stage many were purely speculative.
+
+Cockburn described the situation as one of ever-intensifying crisis for the Government, and thought that the time had come for Stuart’s death sentence to be commuted as a way of defusing it. In his opinion there was [‘]massive political damage to the Government and to the reputation of the South Australian community.’[^14] Few would have disagreed, but despite the outcry and the possible consequences Playford was not to be moved. As far as he was concerned he had made the right decisions and would stick by them.
+
+### *The Commission Resumes*
+
+The Commission sat again on 31 August, and was informed by O’Sullivan that Stuart did not wish to be represented further by counsel or to give evidence or to proffer any witnesses. [^1]
+
+A copy of the statement made by Stuart to O’Sullivan (the [‘]unsworn statement’) was formally identified by O’Sullivan and read into the transcript of evidence.[^2]
+
+In addressing the Commission, Mr. Brazel said:
+
+[‘]Mr. Shand’s withdrawal was made on a “flimsy pretext” and the imputations against the Commission were “mischievous suggestions without a vestige of justification.[” ’ ‘]An examination of the transcript of the proceedings during Mr. Shand’s presence here reveals that counsel for Stuart were given the widest latitude and every indulgence. Every right-thinking person in this community resents this imputation against the members of the Commission.[’ ‘]A section of the press has seen fit to make the issues before the enquiry an excuse for vituperative and indecent attacks upon the members of this Commission. We at the Bar table have felt stimulated by the countless messages we have received from people in all walks of life expressing their disgust at this sort of behaviour.’[^3] Chamberlain agreed.[^4]
+
+Naturally those who had expressed support for Shand did not agree with Brazel’s strongly worded views, but there had been serious accusations that the Commissioners had not given Shand fair treatment and were unable to do their job. Brazel had been appointed to assist the Commission, and in this position it was his duty to be impartial, and apparently he was never criticised by his professional colleagues for bias in his response to the criticisms of the Commission. On the evidence, it is reasonable to conclude that he had not been deceived by any of Shand’s ploys. If Christopher Legoe, the junior counsel assisting the Commission, is to be believed, Brazel was [‘]a very able barrister’ who was thorough in the preparation of his cases, and [‘]clearsighted in his approach to every turn of events.’[^5]
+
+When Napier spoke, he said that what had happened [‘]had every appearance of an act of deliberate sabotage of this enquiry...’ He then spoke feelingly about his record of service, during which time he had [‘]been heartened by the goodwill and respect which had been shown to \[him\] from every side.’ The other members of the Commission expressed support, with Justice Ross adding: [‘]I am shocked and grieved to know that so many people seem to have accepted the suggestion made by a section of the press that the members of this Commission, in disregard of their oaths, are denying or are about to deny justice to Stuart.’[^6]
+
+Napier took the opportunity to respond to criticisms of the membership of the Commission, such as that made by the *News*. He said that in the case of an appeal which turns upon the discovery of fresh evidence the Court had found it advantageous to have the assistance of the judge who had presided at the trial. He also cited the case of *Wright and Others* (4 CAR 291), in which Lord Alverstone, CJ referred to the [‘]great advantage of having the assistance of the judge who presided at the trial.’[^7]
+
+He then cited a number of other cases which indicated that this practice was not peculiar to South Australia, and referred to one from New South Wales, *Craig (*49 CLR 431), the state from which Shand had come. In that case, the [‘]appeal on the ground of fresh evidence was heard by the Full Court constituted by the three judges who had presided at the three \[previous\] trials.’ He also cited a Victorian case, *Davies v. Rex (*57 CLR170), which, after appeals to the Supreme Court, and then to the High Court to which new evidence was presented, was heard again by the Full Court constituted by the judges who had dismissed the first appeal.[^8]
+
+Apparently no criticism of the appointment or conduct of the judges in these earlier cases had been made, so there was good reason for accepting without demur what had been done in other states and had been established practice in South Australia, and for refraining from criticism of the appointments of Napier and Reed as commissioners.
+
+On 3 September, the *News* published an editorial headed [‘]Let’s get the record straight.’ The writer of the editorial stated, [‘]Mr. Shand did not use the words “THESE COMMISSIONERS CANNOT DO THE JOB”, and the headline “YOU WON’T GIVE STUART A FAIR GO” should never have been published, and we regret that it was.’ It was also conceded that the poster [‘]SHAND BLASTS NAPIER’ should not have appeared. The article read in part: [‘]The Premier, the Royal Commission and others have attacked the *News*. The *News* is prepared to defend itself at the proper time and in the proper place as directed.’
+
+As Chamberlain observed, the editorial gave no reason for quoting [‘]These Commissioners can’t do the job’ as if they had been said by Shand.[^9]
+
+The article continued with the statement: [‘]But what Mr. Shand has said should be remembered, and we leave it to our readers to judge how incorrect was our headline.’[^10] Of course people tend to remember headlines, but the truth cannot be found simply by reading and remembering what has been highlighted - only those who have adequate and reliable information can draw reasonable conclusions.
+
+The *Advertiser* provided much more information on which to base proper decisions than the *News* did, and at no time resorted to misleading captions of any kind. Despite its admission of mistakes, the *News* left readers to decide for themselves how serious they were, which was disingenuous, given that posters and headlines usually have much greater impact than what follows.
+
+In due course, the *News* was called on to defend itself in court after charges were laid against *News Ltd*. and the editor-in-chief, Rohan Rivett. There were three sets of charges, namely [‘]seditious libel’, [‘]criminal libel with knowledge of falsity’, and [‘]criminal libel’. Justice Mayo, the trial judge, dismissed the first set, and the [‘]jury acquitted on the second set, and disagreed on one of the third’.[^11] The disagreement was on whether it was a defamatory libel.[^12]
+
+Playford had claimed that the News had been guilty of [‘]the gravest libel ever made against any judge in this state.’[^13] He must have thought he was right, and he may have been in respect of the charge of defamatory libel, but in the end the Government had had enough, and did not proceed further by way of court action.[^14]
+
+Whatever the rights and wrongs of the case, Shand’s actions and his criticisms of the Commission were unprecedented in South Australia, and so was the reporting by the *News*. Both the criticisms and the walkout came as a complete shock, not only to the public, but also to many members of the South Australian legal establishment, and the shock was intensified by the headlines published by the *News*.
+
+The view of the Commissioners was that there was no valid reason for the withdrawal, that they had given Shand [‘]a full and unrestricted opportunity to cross-examine each witness brought before the Commission, and that he had no ground for believing that there would not be a thorough investigation’. Since the withdrawal left Stuart without representation, the Commission adjourned [‘]with a view to some suitable arrangement being made for counsel to represent him.’[^15]
+
+However, acting on the advice of his solicitors, Stuart declined an offer by the Government to pay for the services of other counsel to represent him, so the Commission was obliged to proceed without this legal assistance, and resumed taking evidence on 4 September.[^16] At this sitting O’Sullivan was asked to find out from Stuart whether he wished to be present at the hearings or to have anyone watch the proceedings on his behalf.[^17] The Commission then resumed taking evidence, with Strehlow as the first witness. The proceedings which followed were completed on 8 September, by which time the Commission had heard all the then available evidence.[^18]
+
+###
+
+### *A Statement to the Commission*
+
+On 7 September, O’Sullivan attended the Commission, and presented a lengthy statement, signed by Stuart, which set out the purported reasons why Stuart did not wish to participate any longer in the Commission’s hearings, and recommended that a respite of several months be granted, and that a Commissioner from interstate or New Zealand be appointed at the end of that period. The document had been prepared at Shand’s instigation. Stuart had signed the document, and under his signature was a sentence, signed by Strehlow, which read: [‘]This document was read and explained by me in Aranda to Rupert Max Stuart, who has informed me that he wishes to accept the advice of his counsel.’ [^1]
+
+Hereunder is a list of assertions in the submission.[^2]
+
+1\. The Commissioners were in a difficult position because they were [‘]confronted with the embarrassing alternative of either making a finding which \[accorded\] with the Government’s predetermined views’ against Stuart, or of reporting that a statement made to the House by the Premier [‘]was incorrect or unfounded.’
+
+> 2\. Napier had [‘]stopped the cross-examination of Phin’, on a [‘]vital issue’ which had [‘]already been unconsciously decided’ against Stuart.
+
+3\. It was [‘]contrary to British justice’ that the onus should have been put on Stuart to establish his innocence.
+
+4\. The Commissioners had [‘]permitted and participated in cross-examination of a witness concerning privileged communications between \[Stuart\] and his counsel’, and hence it appeared that the
+
+Commissioners were [‘]obliged to violate recognised principles of law in an endeavour to discharge their duty in the difficult position in which they \[had\] been placed by the Government and
+
+other circumstances.’
+
+5\. Brazel and Napier had made serious allegations against Shand and his juniors by saying that they withdrew from the Commission in order to sabotage it, and the Commissioners [‘]refused to allow to
+
+be read before them statements by \[Stuart’s\] Counsel in answer to these grave accusations.’
+
+6\. Almost [‘]insurmountable difficulties have been occasioned to everyone concerned in this enquiry in whatever capacity by the intrusion of a variety of irrelevancies’, which rendered it [‘]impossible for \[the Commissioners\] dispassionately to pass on the matters before them.’
+
+7\. Among other things it was claimed that in the event of a re-trial every prospective juror would have in mind Stuart’s
+
+‘inaccurately stated previous convictions, the wild and conflicting rumours current in the State, and many other factors which would render it extremely difficult to empanel a jury which could
+
+approach the matter with an open mind.’
+
+These assertions had no substance and were in fact specious.
+
+1\. There is no reason to believe that the Government’s predetermined views, if they had any, could have affected the conduct of the Commission or the outcome, or that any statement by the Premier would have prevented the Commissioners from discharging their task properly as required.
+
+2\. The [‘]vital issue’, which concerned Phin’s evidence, was not vital at all, and both Napier and Brazel had explained why. (pp.85-88 above)
+
+3\. Stuart did not have to establish his innocence: it was for the Commission to determine whether the new information provided by the alibi witnesses was reliable or not, and Stuart was given the
+
+opportunity to bolster their evidence if he could.
+
+4\. It appears that the privileged conversation was between O’Sullivan and Stuart, but although this might have been regarded as privileged in a court of law, as Ross commented, the [‘]Commissioners were not bound by the laws of evidence or procedure, but could inform their minds in any fit way they chose.’[^3] Thus they could call any persons as witnesses, including Strehlow and Dixon, who had acted as interpreters for Stuart a number of times. Strehlow had been an interpreter in the preparation of the statement to the Commission.[^4] The Commissioners could not be criticised for violating [‘]recognised principles of law’.
+
+5\. Napier had said that the withdrawal [‘]had every appearance of an act of deliberate sabotage of this inquiry’, but in the circumstances this can be seen as fair comment. The work of the Commission
+
+was hampered, Stuart was left without representation, and witnesses such as Strehlow and Dixon were deprived of assistance from defence counsel. At that stage the Playford Government could have terminated the Commission and appointed another, but it is unlikely that Playford would have caved in to pressure to make any change.
+
+> Napier also explained why the Commission did not publish the statements submitted by Stuart’s counsel. He said that if these statements were to be published, then it should be done [‘]without the privilege which applies to a report of our proceedings.’[^5]
+
+6\. The notion that the Commissioners could not be dispassionate was without foundation: they were bent on doing their duty despite the unforeseen difficulties which confronted them, and, as
+
+experienced judges, they were accustomed to dealing with irrelevancies, which frequently intrude into court hearings. As was to be expected, there were any number of these irrelevancies in the answers of many of the witnesses at the Royal Commission.
+
+7\. Despite the [‘]inaccurately stated convictions’ for which the Police Association had been responsible, its reporting that Stuart had been convicted many times, and that two sentences were for quite serious offences, may have led some people to reconsider their opinions and possibly restored some balance in the debate about the case. Despite the confusion in the minds of members of the public, there was none in the minds of the Commissioners. As for the possibility of a retrial, even without public knowledge of Stuart’s criminal record it would almost certainly have been difficult to have appointed a new jury free from bias: strongly held opinions had been formed and expressed forcefully via the press for months.
+
+In stark contrast to the language of the confession, that of Stuart’s statement was pure legalese. As Chamberlain pointed out, apparently Stuart was able to understand and communicate to the Commission that [‘]almost insurmountable difficulties have been occasioned to everyone in this enquiry in whatever capacity by the intrusion of a variety of irrelevancies ...’, whereas he could not have said [‘]The three of us sat down and drank a flagon of wine’,[^6] which appeared in the confession.
+
+It was ironic that Strehlow could see no flaw in the preparation of the statement, which, compared with the confession, was without doubt a [‘]first-class legal document’ (the phrase he had used to describe the confession), and could only have been composed by a person or persons with an extensive vocabulary. Compared with this document, the confession was couched in quite simple language, and apart from some of the language at the beginning and end could have been made by any person with a relatively limited vocabulary.
+
+Was it really possible for Stuart to have had the statement read and explained to him? He certainly would have had great difficulty in understanding much of what was in it, given that it contained so much sophisticated language. Further, it seems likely that Strehlow could have explained it better to him in English than in Aranda, since there are no words in Aranda even remotely resembling many of those in the document. Inglis cited an opinion from the *Melbourne Herald* which was that explaining the contents of the document [‘]must have been a difficult feat.’[^7] This could be seen as a palpable understatement: many people would probably have seen the exercise as futile.
+
+Why Strehlow and O’Sullivan thought that this plea to the Commission had any hope of success is a mystery. The inclusion of a political element could not possibly have carried any weight with the Commission, and the other challenges were equally unrealistic.
+
+Napier responded to the submission by saying,[‘]I am concerned at the inaccuracies and absurdities contained in this extraordinary document. But we can, I think, accept the assurance that Stuart does not wish to be present’, and that [‘]the obstacle to Stuart being supplied with legal representation is that you claim the right to represent him and prevent anybody else representing him.’[^8]
+
+Ross delivered what was virtually a lecture to O’Sullivan. In addition to his reference to the powers of a Royal Commission, he said:
+
+[‘]Mr. Shand was not stopped by the Chairman. He was invited to go on. If he was stopped he made no appeal to the other two Commissioners.’
+
+[‘]If the Commissioners had entirely disbelieved Phin, that would not have helped Stuart’s case, for what Moir and Gieseman told him was pure hearsay.’
+
+The [‘]stopping of council from cross-examining is something which happens every day in the courts.’[^9]
+
+Inglis recognised that [‘]his lawyers were incurring a heavy responsibility’ in advising Stuart to boycott the Royal Commission, a responsibility which, he said, [‘]became even heavier when the Chairman said that Stuart’s refusal to give evidence must be interpreted by “ordinary people” as evidence of guilt, and that if Stuart stayed away he did so “with his eyes open”.’[^10] Perhaps some people thought this, but there may have been others who simply believed that he had been deprived of the opportunity to defend himself. Sir John Latham, a former Chief Justice of the High Court also commented, saying that Stuart’s solicitors [‘]were incurring a heavy responsibility if they did not allow him to be represented at the Commission.’[^11]
+
+Leaving Stuart unrepresented was not in his best interest, since the witnesses who were called to give evidence on his behalf had no counsel to assist them. Strehlow was one who suffered from this lack of help: he acknowledged in his diary that he was [‘]vividly aware of the disadvantage’.[^12] Dixon was troubled too: reflecting later he wrote that he [‘]was considerably handicapped by lack of counsel’, and that the [‘]absence of Shand was deeply depressing’.[^13]
+
+On 9 September, Brazel told the Commission that he had received information indicating that Shand [‘]had advised Stuart to give evidence without the assistance of counsel’, but that later on he had received a different message, namely [‘]that new solicitors might be instructed on behalf of Stuart.’[^14]
+
+Thus Shand had changed his mind. He was still acting for Stuart, and had become an éminence grise, making important decisions and influencing the course of proceedings.
+
+### *Uncertainties Resolved*
+
+###
+
+At this stage it appeared that there were no more witnesses to give evidence in Stuart’s favour, and that Stuart was the only one left who could say anything more to raise doubt about his conviction. The Commissioners were keen for him to appear, since his testimony would give them crucial evidence.
+
+Surprisingly, Brazel announced at a sitting of the Commission on Wednesday, 9 September, that he had received information that Mr. Shand had advised Stuart to give evidence without the assistance of counsel, adding that Shand had completely and with no reason reversed his previous advice.
+
+Then Brazel reported that there had been a later change of advice, namely that it was possible that new solicitors might be appointed to represent him. [^1] It appears that Shand had finally come to his senses, after having abandoned Stuart’s interests and having disadvantaged everyone directly involved.
+
+Chamberlain remarked that Shand’s advice that Stuart [‘]should give his evidence unrepresented \[was\] obviously designed to put those associated with the inquiry on the horns of a dilemma.’ He then pointed out that [‘]Mr. Shand had said twice that Stuart would be called’, and then three or four times that he would not be called, not be represented, and that no evidence \[would\] be tendered on his behalf.[^2] Not long afterwards he expressed the view that [‘]the Commission and the Government indeed would have welcomed counsel in the interests of Stuart from the very time Mr. Shand withdrew’.[^3]
+
+Two days later, Villeneuve Smith reappeared and announced that Mr. Travers had been asked to appear for Stuart, but at the same time informed the Commission that, since Travers was involved in another case, he would have to abandon this commitment unless the Commission adjourned.[^4]
+
+Reed asked whether Stuart would give evidence, but Villeneuve Smith informed the Commission that he could not say whether Stuart would appear or not.[^5]
+
+The Commissioners objected to a long delay, and wanted to know whether or not Stuart would give evidence. Justice Ross pointed out that there were [‘]other counsel in this State accustomed to deal with grave duties.’ To this Smith responded that the matter [‘]involves grave issues for Stuart and not unnaturally he desires the best counsel he can get.’[^6] After more debate, Brazel said, [‘]I respectfully suggest...that there are other counsel in Adelaide who could do justice to the interests of Stuart...and indeed there are counsel in other States, as we know only too well.’[^7]
+
+From the bench, Ross remarked that the Commissioners had [‘]been pressing all along that further counsel should act in the matter and Stuart should be represented’, and he expressed the not unreasonable view that Shand might have been wanting [‘]to enlist the sympathy of the public and the press by his withdrawal’.[^8]
+
+Napier suggested that Stuart’s solicitors [‘]should make other arrangements to have Stuart assisted through his evidence if it is desired to call him.’[^9] Later he was more forceful when he said that it was time for [‘]tactics and manoeuvring’ to cease, and that the Commission would have to continue without the required assistance if it was not forthcoming. He added that someone would need to say whether Stuart wished to come, whether assisted or unassisted.[^10]
+
+Regarding criticisms of the Commissioners, Smith gave an assurance that they all enjoyed [‘]our respect and confidence’, and that he resented the [‘]wounding accusations’ which had been made public.[^11] Napier put it to him that the [‘]shilly shallying’ might have implied distrust of the impartiality of the Commission, but Smith categorically denied this, adding that he had never accused the Chairman of [‘]tactics and manoeuvring.’[^12]
+
+Napier’s view, accepted by the other Commissioners, was that the only option for the Commission was to adjourn until some time in the following week and then to ask whether Stuart would be called.[^13] Accordingly the Commission adjourned until the following Wednesday, 16 September. This gave Stuart’s counsel time to consult their client and to try to find a suitable barrister to replace Travers.
+
+On the evening before the resumption of the hearing, Travers sent an extraordinary letter to the Commission, in which he claimed that for some undisclosed reason his [‘]presence at the Commission is not at all welcome’, and that he [‘]resented’ Napier having used the expressions [‘]tactics and manoeuvrings, and shilly-shallyings’.[^14] He also claimed that it would have been [‘]a gross breach of the professional duty of counsel to his client’ to have given [‘]an undertaking as to whether Stuart would be called as a witness.’[^15]
+
+There was no basis whatsoever for these claims. It is perfectly clear from the evidence that at no time had the Commissioners said anything which implied that Travers would not have been welcome to appear for Stuart - the problem for the Commission was simply that if he was not immediately available there would have been a further and probably unnecessary delay in the proceedings. Another plain fact is that there had been more than enough shilly-shallying, and that Stuart’s counsel had laid themselves open to strong criticism because they had been deliberately uncooperative and indeed obstructive. Finally, there is no reason to believe that Travers would have been in breach of duty if he had stated whether or not Stuart wished to appear.
+
+Not surprisingly, the *News* made the most of the opportunity to focus attention on Travers’ criticism as if it was a critical issue. Its report dominated the front page of its 16 September edition, which was headed Q.C. SAYS: [‘]I AM NOT WELCOME AT THIS INQUIRY’. The reporting continued for another two pages, on one of which Travers’ statement was printed in full. In this statement Travers drew attention to two perceived problems.
+
+One was that he had written a letter to the Commission which Brazel had not passed on. However, there was no urgent need for the Commission to have had the letter, which essentially was written to assure the members that as Stuart’s counsel he would want to proceed as expeditiously as possible subject to certain conditions. Moreover, at that stage the Commission had not ruled out the possibility of Travers appearing, but had suggested that the services of other counsel could be secured. If this could have been done then it would not be necessary to reschedule the hearing of the case to which he was already committed.
+
+The second complaint was that Chamberlain had refused to take any action to postpone the case. However, Chamberlain had no good reason to agree to an adjournment, which in any case would have disrupted the planned working of the courts, and in turn affected the expectations and commitments of others.
+
+There was little, if any, substance in Travers’ complaints, which were at most peripheral to the main issues. Yet the *News* had hugely magnified their importance. It was yet another example of its distorted and irresponsible reporting of the Stuart case.
+
+In the extensive *News* reporting of the day’s proceedings there was barely a mention of anything other than the matter of Travers’ withdrawal. Napier had responded at length to Travers’ assertions, and the *News* report of this response was limited to two small paragraphs in the main text. On the other hand, *The Advertiser* printed a summary of what Napier had said about the matter:
+
+[‘]It appears that what was said at the last sitting of the Commission was interpreted by some as a restriction on Mr. Travers, for whom application was made for leave to appear.
+
+[‘]I wish to say at once that so far as the Commission was concerned, nothing that was said was intended to reflect in any way upon Mr. Travers, whose assistance we would have been very glad to receive if he had been available and prepared to accept the brief and appear before us within a reasonable period.
+
+[‘]What was referred to was the way in which this Commission has been played with over a period of weeks when, in the first instance, we were told that Stuart would be called and give evidence.
+
+[‘]Then we were told that he would not be called, did not desire to be heard, and finally, that he would come, but he did not intend to be represented by counsel.' [‘]This Sir Mellis Napier said, was not a charge in the face of a jury that had to be proved by the Crown.
+
+It was a complaint by those acting for Stuart that there was additional material upon which, if it had been available at the time, a jury might have felt such a reasonable doubt as would then entitle Stuart to an acquittal. In those circumstances, it seemed to the Commission that the question of calling Stuart was for him to decide.
+
+The obvious course for one who said he had an alibi and claimed that his confession was forced from him should be for him to come and tell the Commission all about it.’[^16]
+
+Thus the *Advertiser* had drawn the attention of its readers to information from which they could draw two reasonable conclusions, namely: (1) that there was no ground for suspecting that Travers had been dealt with unfairly by the Commission; and (2) that the work of the Commission had been hampered by the prevarication of Stuart’s counsel.
+
+On 16 September Mr. Starke, a prominent Victorian barrister, appeared and was granted leave to represent Stuart together with Villeneuve Smith. The Commission then adjourned until 5 October, when Miss Devaney was also given leave to appear, and Starke was granted leave until 13 October to prepare.[^17] The hearings resumed on that day, and concluded on 21 October, after which counsel made their final submissions.[^18] During this time Stuart was the first to give evidence, and nearly all of the other witnesses were the police officers who had been involved.
+
+### *Commutation of the Death Sentence*
+
+Then there was another surprise when Chamberlain rose to make a rather lengthy but important announcement, the essence of which was that Cabinet had decided that Stuart’s death sentence should be commuted.[^1] The commutation was a relief to some of Stuart’s supporters, such as Professor Norval Morris and Father Dixon, who saw it as an action which [‘]removed the pressure of time from the search for truth.’[^2] Whether they were right or not, opinion was still sharply divided, with some believing that the Government had caved in to pressure. Another view, expressed in a *Canberra Times* editorial, was that [‘]since commutation had become inevitable,...the Commission might be able to complete its enquiry in a less clouded atmosphere.’[^3] At this time, there was probably no more sensible editorial comment.
+
+There was little or no division of opinion in Ceduna. Inglis wrote:
+
+[‘]Stuart’s escape from the scaffold was not popular in Ceduna and Thevenard’, and he quoted some comments which had been reported in two papers, *Truth* and the *West Coast Sentinel*.
+
+Four comments from the *Truth*, as recorded by Inglis, read:
+
+It [‘]was obviously due to political and religious pressure and the influence of fanatics on the Government. Of course Stuart should have been hanged.’ (P.S. Morrison, the former chairman of the Murat Bay District Council)
+
+[‘]We all think Stuart should hang... What’s the use of having a Royal Commission when, before it gives a decision, the government lets Stuart off?’ (Wife of Ceduna hotel-keeper)
+
+[‘]There’s only one sort of punishment to fit that crime.’ (Unnamed housewife)
+
+[‘]The people feel they have been let down...by the government. They had a right to expect Stuart to pay the penalty and it is shameful that he is not going to hang if he is guilty.’ (Spry)
+
+The following passage, as again recorded by Inglis, appeared in the *West Coast Sentinel*:
+
+[‘]FEELING HIGH OVER CABINET’S DECISION IN STUART CASE ’
+
+The rape and brutal murder of the little girl was without question the most atrocious crime in the book, and people of this country (the west coast of the state) consider that the death penalty could never be applied again if not in this case. The opinion is strongly favoured that the government, by its indecision,...has suffered a big drop in prestige as a result.’[^4]
+
+No-one knew for sure the reason for the commutation. When the Premier told Chamberlain of the decision, he also told him to explain the reason to the Commission in his own way.[^5] Left to his own devices, Chamberlain told the Commission that the continuation of temporary respites would be unfair to Stuart, and that the Commission would be freed from any embarrassment from talk about [‘]the shadow of the gallows’.[^6]
+
+Naturally there was a great deal of speculation. Chamberlain claimed later that he had evidence that Playford had been prompted to act by pressure from the Commonwealth Government which [‘]had become disturbed by the way in which the newspaper campaign was smearing Australia’s image in the eyes of Asian people, by portraying us as pursuing a racist campaign against a probably innocent black man.’[^7] However, Inglis considered at the time that Chamberlain’s guess was [‘]unconvincing’.[^8] In his biography of Playford, Sir Walter Crocker’s explanation for the decision to commute was that Playford had acted because of [‘]the violently overt reactions inside Australia’, and [‘]not least in South Australia.’ Evidently Playford had given this version to Crocker after he had retired from parliament.[^9]
+
+There is no reason to choose between these explanations - they are not mutually exclusive. However, it seems likely that the adverse effects on South Australia’s reputation weighed more heavily on Playford’s mind than other considerations.
+
+### *Stuart’s English Language Competence*
+
+Mr. and Mrs. Gieseman were the first witnesses to appear at the Royal Commission, which was on 10 August. Mr. Gieseman said that he and Stuart could talk in Australian, but that although he took some time to get used to what Stuart said, they could understand one another. [^1] According to Mrs. Gieseman, she and Stuart conversed in English although his was not as good as hers, that she sometimes had difficulty in understanding him, but that he could understand her quite well.[^2]
+
+The next witness was Alan Moir, the young teenager who had been interviewed by Sergeant Phin at Whyalla. He stated that Stuart’s English was [‘]ungrammatical’ but [‘]understandable’.[^3] Moir was followed by his co-worker, William McNeish, who said that he and Stuart spoke to one another in English, and that he could understand Stuart, even though his English was not very good.[^4]
+
+A number of Aboriginal witnesses from Ceduna and the surrounding district, who were called mainly to give evidence regarding Stuart’s whereabouts on the day of the murder, were asked about his language competence. Unlike Stuart they had all been to school, and in his final address to the Commission, Brazel was able to put it to the Commission that these Aboriginals were [‘]an impressive group of witnesses’.[^5]
+
+The first of these witnesses was Roy Wells who stated that Stuart spoke in English, that he understood Stuart, and that he thought that Stuart understood him.[^6] Another, Clem Chester, gave evidence that he had no difficulty in understanding him.[^7] Brenda Kent, an Aboriginal teenage girl who worked at the Thevenard hotel, said that she could understand him easily, and that he appeared to understand her.[^8] Then there were two Aboriginal brothers, Donald and Dennis Kelly, who both said that they had come to Ceduna with their wives. Donald’s evidence was that he [‘]had no trouble understanding Stuart’s English, and Stuart appeared to have no trouble understanding him. He added that Stuart spoke [‘]broken down English’, and that he spoke better language than Stuart.[^9] Dennis said that Stuart spoke [‘]half and half English’ which was [‘]a bit on the broken side’, but that he could understand Stuart [‘]a little’.[^10]
+
+Constable Denis Conaghan, a Northern Territory police officer, testified that he [‘]had not had any difficulty in conversing with Stuart in English, and that Stuart had been able to converse in English.’ This was in1951, seven years before the Ceduna murder.[^11] Mrs. Dorothy Newham, who had been the depositions clerk at the Alice Springs Court in 1956 when Stuart had appeared to answer a charge, deposed that he conducted his own defence, giving his evidence clearly and without prompting, ‘questioned witnesses himself’, cross-examining some of them in English. She went on to say that he ‘would be just about as intelligent as I, or was intelligent as an ordinary person’.[^12] Mr. Milton Liddle, also from Alice Springs, testified that [‘]he had always spoken with \[Stuart\] in English’, and, when asked whether his English had improved much since he last saw him, replied: [‘]I don’t think so’.[^13]
+
+Four witnesses who had visited Stuart in prison expressed opinions about his competence in English. The first was Colonel W. C. N. Waite, the visiting justice to the Adelaide Gaol, who [‘]had been in contact with Aboriginal prisoners for more than twenty years.’ His opinion was that [‘]Stuart’s English was average or perhaps a bit above.’[^14] Brigadier Stevenson of the Salvation Army said that [‘]Stuart spoke good English, and they had no difficulty in understanding one another.’[^15] Mr. G. C. Smith, an Aboriginal welfare officer, stated that Stuart spoke English [‘]quite freely without prompting’ and [‘]could go on with a connected narrative without prompting.’[^16] Dr. G. C. H. Nicol, a surgeon of the Adelaide Gaol, deposed that he had spoken to Stuart in English and that Stuart had answered in English.[^17]
+
+Two warders from the Adelaide Gaol also gave evidence about Stuart’s English. The first, Andrew Ireland, said that Stuart could tell the time, and that his English was very good. He went on to say: [‘]He would be on a par with an uneducated white man.[’ ‘]He starts on a story and carries through to the end.[’ ‘]He can talk for an hour’, and he can give a [‘]good connected story.’[^18] Another warder, Harold Winstanley, followed, and he said that he had no trouble with Stuart’s English whatsoever.[^19]
+
+Thus most witnesses said that Stuart could speak English fluently and that it was easy to understand what he said, and the evidence of the others was that they could communicate with him despite some difficulty.
+
+When Strehlow appeared as a witness, Chamberlain questioned him about his public statement that the confession was implausible. He therefore asked him whether he thought that the confession was a fake. There was no direct answer, so Reed repeated the question with Napier adding, [‘]Did you want people to think that?’ Once more there was no direct answer, with Strehlow saying, [‘]It was a published document and I could not accept it as being genuine.’ Chamberlain responded by asking, [‘]Let us see if we can use a little plain Australian. I am not a student of linguistics. Let us put it in plain language. Did you want it understood when you made that statement that the confession was a fake?’ Strehlow replied: [‘]I think it was a case of mistaken identity.’[^20]
+
+After more questions, Strehlow said,[‘]It meant that there was some doubt’. Napier then said, [‘]Is it possible to give a direct answer to the question?[’ ‘]If you could, it would be quicker.[’ ‘]Yes or no?’, said Chamberlain. The answer to this was, [‘]It did not ring true to me.’[^21] It had not taken long for Strehlow’s categorical public assertion to have been reduced to mere doubt, and the Commission would not have been impressed by his circumlocution and evasiveness.
+
+Not long afterwards, Chamberlain asked: [‘]You know that Stuart and Mr. O’Sullivan had gone through the preliminary hearing and the trial without having asked for an interpreter, don’t you?’ Strehlow replied, [‘]I imagine so. I am not quite sure upon that, because I did not ask that.’ Napier then asked, [‘]Don’t you know Mr. Strehlow?’, and he replied, [‘]I am sorry, Your Honour, I did not read anything about the Full Court, and I do not know what happened in the Full Court.’ This obviously did not satisfy Napier, probably because the question had nothing to do with the Full Court proceedings. Anyway, Napier asked, [‘]You knew that he did not have an interpreter, did you not?’, and Strehlow said that he did. Napier then said, [‘]That is what you were asked.’[^22] Thus the equivocation had continued.
+
+Chamberlain went on to ask whether the only testing of Stuart’s English he had made was by listening to O’Sullivan asking questions and getting answers. Instead of giving a direct answer, Strehlow explained that he was able to form an opinion quickly about Stuart's English. So Chamberlain asked, [‘]You were able to form your opinion quickly, were you?’ This question was repeated three times before Napier asked, [‘]Could you answer the question?’ and Strehlow said, [‘]Yes, I formed it quickly.’[^23] More hedging!
+
+Perhaps there was some irony in Chamberlain’s next question which was: [‘]Are you having any difficulty with my English or can’t you understand me?’, to which Strehlow replied that he could understand him quite well.[^24] Although Strehlow had said that he had been able to find out quickly that Stuart could not speak English well, when Brazel questioned him, he agreed that he had spoken to Stuart in Western Aranda for that purpose.[^25] This made no sense: obviously Stuart could understand Aranda - the question was [‘]Could he understand English?’, and the easy way to have found out was to have spoken to him in that language. Unfortunately this had not been obvious to Strehlow.
+
+Chamberlain then asked him questions based on evidence which Jones had given at the trial. Strehlow agreed that Stuart could have answered the question [‘]Did you get the sack on Sunday morning because you were missing from work on Saturday?’ and also given the answer [‘]Yes, I got on the booze’. Similarly, he said he would accept that Stuart could have used the language in the sentences [‘]I woke up about half past seven and had a drink of tea’, and [‘]I worked round the show until about ten o’clock and then I went down the town.’ He agreed too that this and the language in some of the other passages sounded natural enough to be Stuart’s.[^26]
+
+After further questioning, Strehlow drew attention to the fact that all of the past tenses in the transcript were correct, and that Stuart could not have used so many of these tenses correctly. He said that Stuart was [‘]like the rest of the people in the Northern Territory who are very fond of putting in present tenses and mixing them with the past tenses.’ Chamberlain then asked: [‘]That is another ground upon which you suspect the written confession?’ The reply was, [‘]Very much so.’[^27]
+
+Later Strehlow made it clear that he would also suspect [‘]any document attributed to Stuart which contained accurate past tenses of irregular verbs’.[^28] Chamberlain therefore invited him to look at a copy of Stuart’s unsworn dock statement, [‘]that his solicitor had vouched for.’ Strehlow’s attention was then drawn to one passage: [‘]I was at Ceduna the day the girl was killed. I didn’t kill her. I didn’t even see her. I went in a taxi to Thevenard to get a drink’, in which all the past tenses were correct.[^29]
+
+Chamberlain put it to Strehlow that there were three characteristics about the statement: [‘]One. That it is a complete chronological description of events. Two: That it is expressed with correct past tenses. Three: That it does not contain any great trace...of Aranda or northern dialect.’ Strehlow agreed, and he was then asked whether he doubted the genuineness of the document. Then after a short digression he confirmed that he believed that the dock statement was genuine and expressed the opinion that O’Sullivan had turned Stuart’s replies into [‘]slightly more correct English’.[^30]
+
+Strehlow had again demonstrated his inability to come to terms with plain fact. On the face of it, the turning, if there had been any, was more than slight. No present tenses were used instead of past tenses in this dock statement, which contained the verbs [‘]walked’, [‘]worked’, [‘]pointed’, [‘]pulled’, [‘]punched’, [‘]killed’, [‘]stopped’, [‘]grabbed’, [‘]wanted’, [‘]asked’, and [‘]finished’, as well as the irregulars [‘]took’, [‘]went’, [‘]gave’, [‘]were’, [‘]kept’, [‘]wrote’, and [‘]saw’. All were correct and in the past tense - there was no mixing at all. Despite this, Strehlow has complete faith in the accuracy of this document.
+
+In his affidavit to the High Court, Strehlow had claimed that the confession appeared to him [‘]to be an admirably concise document which sets out lucidly, skilfully and in logical chronological order all the details of the alleged crime which would have value as evidence in a Court of Law’. (p.35 above) However, like the confession, the unsworn statement and the police record of the interrogation were also lucid, detailed, well drawn up and in chronological order.
+
+With regard to the language of the confession, it is unlikely that the police would have said anything like [‘]*Me and Allan* went down to the jetty’; [‘]He’s the *bloke who lives around the beach*’; [‘]I got a flagon of wine *off a white fellow* ...’; [‘]*Went* down to the Thevenard pub’; [‘]I think I must have stopped there about an hour *I think*’; [‘]Then I *seen* a fellow with a bottle of wine’; [‘]I got it *off him*’; [‘]*Could* not see that bloke’; [‘]*There is some* little birds over there’; [‘]*Where’s* the birds?’; [‘]*I done her*’; [‘]...*me and another fellow* went down to the Jetty’; and [‘]*I seen a car*...’. It can be seen that there are quite a number of grammatical errors in the confession; on the other hand, there are none in the unsworn statement. Yet Strehlow rejected the confession as genuine despite the fact that it was expressed in less correct English. On the basis of his own criteria for assessing the worth of these documents, the confession is more likely to have been genuine than the unsworn statement.
+
+After Chamberlain had drawn his attention to two sentences in the unsworn statement: [‘]It was easy to see my tracks there, any feller could see them’, and [‘]I went to have a shit.’, Strehlow agreed that they would have been Stuart’s own words. He also agreed that the unsworn statement was [‘]partly polite translation’ and [‘]partly Stuart’s own words.’[^31]
+
+According to Strehlow, one reason for doubting the confession was its consistency. On the other hand, he had said in his affidavit to the High Court that [‘]the very presence of Northern Australian things in the document made it all the more suspect.’ When Chamberlain asked [‘]Which is it?’, he replied that it was the grammar which did [‘]not deviate to any appreciable extent to any part of the Northern Territory English.’[^32] Strehlow’s answer was right inasmuch as Stuart had used normal English without lapsing into [‘]Northern Territory English’, but from this he had drawn the wrong conclusion.
+
+In considering his claim that the confession contained language that Stuart could not have used, the Royal Commission dealt in detail with a large number of particular words and constructions which Strehlow had said that Stuart could not have used, and it was found that his claims were unjustified. For example, Strehlow had claimed that Stuart could not have used words such as [‘]sat’, [‘]offered’, [‘]saw’, or [‘]lavatory’, which appeared in the confession. However, the Commission found that Stuart had used these words either before or after the confession was made, and that he had said two or three of them during his cross-examination at the Commission hearing.
+
+Under the heading [‘]Annotations’, The Commissioners examined in detail nineteen words and constructions which were taken from the confession and which Strehlow had questioned. A few of these and the Commission’s responses are listed hereunder.
+
+Although Strehlow had pointed out that [‘]awoke’ was [‘]not a word in common use’, the Commission’s view was that Stuart could have used the word in answer to a question, in which case [‘]no significance would attach to the word’, and [‘]as a matter of interest...pointed out that Stuart \[was\] familiar with the word “awake”.’
+
+Strehlow did not accept that Stuart could have said [‘]the three of us’. However, it was shown that he had said the words [‘]the four of us’ in court at Alice Springs.
+
+Strehlow had also doubted that Stuart could have used the phrase [‘]picture show wall’ in the confession, but the Commissioners drew attention to his use of the term [‘]Stuart Arms Verandah’.
+
+In addition, it was shown that Stuart had used the words *saw*, *put, hit, jumped,* and *offered,* which appeared in the confession and which Strehlow had challenged.[^33]
+
+In claiming that Stuart was incapable of using the language of the confession, Strehlow asserted that there were prepositions which could not have been used correctly, that the word [‘]she’ would have become [‘]he’ or [‘]im’ in Northern Territory English , that he could not have used correctly the past tenses of irregular verbs, that the word [‘]the’ was unusual in N.T.E., and that there were certain phrases which he could not have used. However, in its report the Commission drew attention to the fact that Stuart had parried a question from Chamberlain with one of his own, namely, [‘]Where did she come from in the first place?’, which indicated that “(1) the three prepositions, [‘]where’, [‘]from’ and [‘]in’ were all used correctly, (2) the [‘]she’ was not [‘]he’ or [‘]im’ as in N.T.E., (3) the [‘]did’ was not only in the right tense, but was a proper use of the irregular auxiliary, (4) [‘]the’ was not usual in N.T.E., and (5) the idiom, [‘]in the first place’, owed nothing to [‘]Arunta’ or [‘]pidgin’ or to anything but English.[’ ”][^34]
+
+The Commission noted that Strehlow had formed [‘]the impression that pidgin was the best the petitioner could do...in the way of English.’ However, as the Commission observed, [‘]Mr. Strehlow was wrong, as he was obliged to admit when the petitioner had given his evidence.’[^35] It seems that a fundamental flaw in Strehlow’s reasoning was that it proceeded from generalities about the usage of Northern Territory English or pidgin English in the society where Stuart had spent his boyhood to a conclusion about his language ability after he had lived and mixed with all sorts of white people in many different places. He excluded from the start any possibility that Stuart’s English could have improved significantly after he had left the home environment of his childhood.
+
+Chamberlain asked Strehlow whether he had [‘]mentioned something about Stuart having given evidence at Alice Springs’, and Strehlow replied that he had mentioned having [‘]seen a document which purported to be a court transcript of the evidence he gave in Alice Springs.’ Chamberlain responded: [‘]That is in 1956, a charge of supplying liquor to an aboriginal?’ Strehlow: [‘]Yes, I fancy that was the charge.’[^36] The document was the one which Chamberlain had submitted to the High Court to show [‘]that Stuart had conducted his own defence and given a long and connected story in answer to the charge’, but which the Court decided not to accept. (p.37 above)
+
+Chamberlain questioned Strehlow about the evidence in this deposition. This showed that Stuart had given a detailed account of his movements and activities from about 1 p.m. one day until the evening of the next, and like the confession it was lucid, detailed and in chronological order.[^37] Strehlow said that he had read it, but had not sought Stuart’s version of it.[^38]
+
+The first few sentences, as typed, read: [‘]My full name is Rupert Stuart I live at Alice Springs my occupation is stockman-drover. I am the defendant in this case. I now desire to make some remarks in answer to this charge.’ This part was obviously written as a standard requirement for the introduction of a deposition to be submitted to a court, and as such was in formal language. Just as in the introductory part of Stuart’s confession, the words could not have been Stuart’s exact words, but must have been written in answer to questions. It seems unlikely that Stuart would have used the word [‘]desire’, any more than he would have said the word [‘]situated’ in the confession. But there was no reason to cast doubt on the validity of either document because of the inclusion of these words.
+
+Chamberlain asked him whether Stuart could have given this evidence without assistance, and Strehlow replied, [‘]It reproduces his particularly bad rambling style excellently’, did [‘]not seem to get anywhere at all in the first three or four pages’, and was [‘]full of repetition and irrelevancies.’[^39]
+
+This was certainly not the case. After the short standard introduction, the next part in the court transcript reads:
+
+[‘]I was at the racecourse on Mon afternoon I was with old Tom Williams the drover, this was about Monday afternoon about 1.0 o’clock. I seen a taxi coming at the racecourse and me and Tom *jumped in that taxi*, then we went to the Stuart Arms, we *stood* in the front of the Stuart Arms, that was nearly 2 o’clock. Then I asked old Tom Williams to come down to the Underdowns and have a drink with me, *so* when me and Tom Williams walked into the Underdowns Hotel and then I seen *one of my mates*, Noel Beardsley, I *tapped* him on the left shoulder I sd. Good day Mr. Beardsley and Noel Beardsley said Come and have a drink with
+
+me. I sd. sure mate I will drink with you. Then I looked around and seen Peter Fraser *walk in*, I bought 4 glasses, schooners, one for Peter, one for Tom Williams, one for Noel Beardsley one for myself, then Peter Fraser walked out from the bar, then Noel Beardsley and me stopped in there on our own, we had quite a few drinks in there, then I said to Noel Beardsley I think you and I had better go up to the billiard room and have a game of billiards.’[^40]
+
+It can be seen that Stuart had provided detailed information, that there was no rambling, and that there was nothing irrelevant in this account of his doings.
+
+Another excerpt reads:
+
+[‘]*When I went back I walked up near the taxi rank couldn’t see nobody I stopped on Fogarty’s corner, I looked up towards the police stn*. seen nobody there *so I walked up to the billiard room, then when I seen Noel Beardsley I never talked to him at all as he was still playing billiards’.*[^41]
+
+The whole document went on in similar vein, and constituted a coherent story told in chronological order. As in the confession there was a mixture of correct and incorrect English. The statement included language such as [‘]I seen a taxi coming at the race course and me and Tom jumped in that taxi’, [‘]I seen one of my mates’, a [‘]half caste fella and white fella’, [‘]we pulled up down old Jimmy Butler’s place’, [‘]I dunno’, [‘]I picked up me swag’, [‘]I was sitting down thinking’, and [‘]I better walk into town’. At the same time he had used the words [‘]stood’, [‘]walked’, [‘]tapped’, [‘]went’, [‘]walked’, [‘]stopped’, [‘]talked’, [‘]bought’, [‘]offered’, [‘]opened’, [‘]grabbed’, [‘]drank’, [‘]picked’, [‘]woke’, [‘]started’, [‘]finished’ and [‘]got’ - all verbs correctly used in the past tense’.[^42]
+
+Strehlow admitted that it looked very much as if the evidence could have been given without assistance, and after further questioning, he agreed that the transcript looked to have the style of authenticity about it.[^43]
+
+When Stuart appeared as a witness, Chamberlain asked him to relate what had happened in Alice Springs when he had assaulted a nurse. Stuart could remember the details quite clearly, and at one stage stated:
+
+[‘]This other fella was drinking and me and him had a bit of an argument and he went up the street and I followed him and I seen him again up the town and I told him to watch them policemen and I went in the pub, the Mountain Arms, and got a flagon of wine and went up behind Anzac Hill and had a drink up there and he went up Middle Park, up to the reserve and I came down to town and I got some more grog in town there, and I went down to Todd River, the same place we were drinking that morning, and when I finished that bottle I was on my own then and I went to this lavatory to get this bottle and when I got inside I heard a mob of women coming and I could not get out, so one of them came in and I grabbed her and throw her to one side and I run away.’[^44]
+
+The language of this passage matched that of the confession: it was fluent and detailed, there was a mixture of correct and incorrect English, and there was the use of words like [‘]argument’, [‘]followed’, [‘]finished’, and [‘]lavatory’.
+
+It also matched the confession inasmuch as there was English which included some pidgin. Moreover, it showed that he had a good memory, could speak fluently, and relate events in correct sequence. His English was not perfect - like that of many others with a limited education, he often spoke ungrammatically, which was in marked contrast to the language of the Aboriginal witnesses from Ceduna, who all spoke well.
+
+Thus there was additional strong evidence that there was no justification for the claim that Stuart could not have dictated the confession because of any language deficiency.
+
+Because Strehlow had claimed that the confession was an admirably concise document, Chamberlain asked him to explain what he meant. In response he said that by concise he meant that it went on [‘]logically’ and was [‘]clear and logical.’ Chamberlain then proceeded to read a passage from the confession: [‘]It was then about half past eleven I think. I got a flagon off a white fellow I met near the Ceduna pub. He was drunk. I gave him eighteen shillings to get it. I went down to the same place. I stopped there by myself and drank the flagon. No, I only drank half of it. I put the half flagon in a sugar bag.’ He then asked, [‘]This has all got the same quality of admirable conciseness and relevance?’ Instead of answering the question directly, Strehlow asked a question: [‘]Have you ever had a look at any white children’s essays?’ Chamberlain said that he had, and Strehlow then posed another question: [‘]Undergraduates would have a much better style, wouldn’t they?’[^45] Chamberlain’s question was not answered. Instead Strehlow had asked a rhetorical question, to which the answer was obvious.
+
+Chamberlain asked, [‘]I take it that you were trying to express yourself in moderate and correct language to the Attorney-General when you gave him your report, were you?’ Strehlow answered, [‘]I tried to.’ Chamberlain then quoted from the report: [‘]For an illiterate person to achieve this feat would mean he would have had to be born as a legal genius, that his intelligence would have had to be of such a high order that most white Australian children would have had to be re-classified as sub-human morons in comparison with him.[’ ‘]Did you express yourself in those terms?’ Strehlow agreed that he had.[^46] He could not come to terms with the plain fact that the language of the confession was quite simple and resembled that of any white person with a limited command of English. His belief had taken him beyond the bounds of reason and into the realm of the absurd.
+
+When Chamberlain asked him about his use of the word [‘]illiterate’ in this report, he gave two different answers. He said first that by [‘]illiterate’ he meant someone who could not read or write (the dictionary definition), but after further questioning he proposed that the term [‘]illiterate’ did [‘]not mean stupid, but somebody who had never been taught to set his statements down in connected sentences with correct verbs in them and so on.’[^47] Strehlow had unwittingly changed the accepted definition to suit himself. Even so, the essential issue was not whether Stuart could set down statements, but whether he could converse in English.
+
+Chamberlain asked Strehlow why he thought that certain sentences in the confession were cryptic, citing the sentences [‘]I think I will buy this off you’, and [‘]You can have it for nothing.’ He answered by saying that the cryptic part was [‘]that a man was told he could have it for nothing, when he \[had\] offered to pay for it.’ However, there does not seem to have been anything particularly obscure or mystifying about this. He was then asked, [‘]That is the type of reasoning by which you compare the police evidence, that part of it?’ There was no answer.[^48]
+
+Strehlow also testified that it would have been necessary for Stuart to have been asked two questions instead of one in order to elicit the answer to a question such as [‘]What was she wearing?’ He said that Stuart would have said [‘]bathers’, and that another question like [‘]Anything else?’ would have been needed, and that Stuart might then have said [‘]a shirt.’ In their report, the Commissioners referred to what Stuart himself had said in the witness box which easily disproved this notion. For example, when asked [‘]How were you dressed?’, he answered [‘]Trousers and shirt.’[^49]
+
+Among other things, Strehlow was asked to comment on the police evidence that, in response to the question [‘]Why did you kill her?’, Stuart had said, [‘]So she could not tell anyone what I had done.’ Strehlow’s comment was that Stuart would not have used the word [‘]So’, because it was [‘]a subordinate clause coming in again.’ Strehlow also remarked that the word [‘]but’ was rarely used in N.T.E.[^50] However, the word [‘]So’ had been used in the same way by Stuart both in his deposition at Alice Springs and during his interrogation at Cloncurry in 1957, and he had used the word [‘]but’ freely and correctly when he gave his evidence.
+
+It was clearly shown that Stuart had learnt to communicate quite easily years before he had reached Ceduna. The evidence of so many witnesses made complete nonsense of the claims of Strehlow and Dixon that he was unable to communicate in English. In his final address to the Commission, Brazel mentioned that Strehlow [‘]at no time ever had a conversation with Stuart in English, implying that it would therefore be difficult for Strehlow to judge Stuart’s ability to speak that language.’[^51]
+
+From the beginning Strehlow was so convinced of his own infallibility that his mind was closed to the possibility that he could have been mistaken, and he was therefore in a hopeless position at the Commission when he tried to maintain his stand on Stuart’s language ability. He had unwittingly exposed his irrationality and prejudice, and confirmed that instead of giving straight answers to simple questions, he had engaged in parrying.
+
+Before Stuart was called, Strehlow was given another chance to present evidence. Shand had visited Stuart in prison, accompanied by Miss Devaney, Strehlow, and a stenographer. Strehlow translated each sentence of the confession into Aranda, and had Stuart translate each one back into English. The stenographer took down what was said in both languages and a tape recording was made. The aim was to show that Stuart could not have spoken the language of the confession.[^52]
+
+The Commissioners were given a document in which there were two sheets, with each sentence of the confession on the first sheet and Stuart’s retranslations on the second. The tape recording of the original English was then played to the Commissioners, and Starke then led Strehlow through the retranslation sentence by sentence with the Commissioners asking questions from time to time.[^53]
+
+The results showed that when short and simple sentences were put to him in Aranda, his translations were usually in [‘]N.T. English’, and Strehlow said that this was of no significance. In most other cases some of Stuart’s answers were in N.T. English and others in plain English. This matched the other evidence that Stuart was fluent in both these forms of English.[^54]
+
+The Commissioners commented that the test was [‘]interesting and instructive’, but that they could not [‘]agree with the conclusion Mr. Strehlow sought to draw.’[^55]
+
+Before Strehlow left the witness box, Ross asked him to comment on the questions which the police had asked Stuart and which had led to the confession. Strehlow’s reply was, [‘]I cannot remember them, but in many cases it was a case of a leading question being asked...long leading questions and he was supposed to have said either “yes” or “that is it or something like that”.’[^56] Strehlow’s memory was faulty: there were few, if any, leading questions in the police record of the interrogations - the police did not ask questions like [‘]You took off her bathers, didn’t you?’ or [‘]You killed her, didn’t you?’, and most of Stuart’s answers were specific and informative. It appears that Strehlow could not remember the questions, but in answering had exercised his imagination.
+
+Strehlow had been unable to provide any valid reason for doubting the authenticity of the confession, and Chamberlain’s long and detailed questioning established that his claims about Stuart’s language ability were worthless. Given the evidence of so many other witnesses, this would have come as no surprise to the Commissioners.
+
+Why Strehlow gave no credence to the facts about Stuart’s language ability is hard to understand: he knew that no interpreter had been called to assist O’Sullivan before or during the trial, and he had read the transcript of evidence which Stuart had given in Alice Springs in 1956.
+
+There was something else too, known to him but to very few others. A senior and very experienced detective, E.C. (Chas) Hopkins, who had been on holiday when the crime was being investigated, was asked after he had returned to interview some of the people who had spoken to Stuart. They told him that they had had no difficulty in understanding him or making themselves understood. He then interviewed Strehlow, and passed on this evidence, but Strehlow was unmoved, whereupon Hopkins made it clear to him in no uncertain terms that his claims were nonsensical.[^57]
+
+Strehlow, a highly qualified, scholarly and painstaking academic, had issued bold and emphatic public statements while closing his mind to any contradictory evidence no matter how strong it was. Although his expertise had assisted him greatly in contributing to the welfare of Aborigines in the Northern Territory, in this case he was remote from reality. It seems that at the time he did not realise that he had failed dismally as a witness: Inglis recorded that Strehlow’s diary revealed that he [‘]was unaware of the damage’.[^58]
+
+Before the end of his cross-examination, all that Strehlow could say to support his case was, [‘]I think I have said that the particular confession has certain unsatisfactory features which might lead one to doubt’, and that [‘]he had no dogmatic opinion on the subject.’[^59] Yet he had made statements such as that the confession [‘]was not in the style of Northern Territory English’, [‘]Stuart was a totally illiterate part-aboriginal’, the dictation of the confession was [‘]a complete linguistic impossibility’, and that to accomplish this [‘]he would have to be born a legal genius’. These and other such assertions had attracted so much attention that they had led to headlines such as NATIVE LANGUAGE EXPERT CLAIMS: STUART’S [‘]CONFESSION’ FALLS DOWN.
+
+Like Strehlow, Dixon was evasive as a witness at the Commission, and he himself provided some reasons for this in his book *The Wizard of Alice: Father Dixon and the Stuart Case,* published in 1987, in which he wrote: [‘]My problem was to get behind \[Brazel’s\] questions and to get to the implications of what he wanted me to say’.[^60]
+
+The following passage, taken from his book, is just one illustration of Dixon’s determination not to give straight [‘]Yes’ or [‘]No’ answers to simple questions which Brazel had asked him.
+
+[‘]Referring to my own speaking with Stuart he asked me, “Did you get any replies when you addressed him in English?[” ‘]Seeing through the question I replied, and at length, “I spoke in his broken type of English which I know very well because I have been with aboriginals for fourteen years and I have mixed with this type of person. I have also been two years in the place where he lived. I have mixed with these very individuals of his age in Alice Springs.”
+
+[‘]Though I was not led on my right to say anything about aboriginals or their kind of English that everyone knew and enjoyed in the Northern Territory, I was not going to contribute even unconsciously to the bogey that Stuart could not speak English. I insisted that both Strehlow and I were saying it was a special kind of English that is missing in the confession document.
+
+[‘]I returned to the theme again. “I spoke his type of English. I also expatiated and where I found it hard in English I put it into Aranda. Combining both we got on.”
+
+[‘]When conversing with him in English on the first occasion did the conversation relate to spiritual things?’
+
+[‘]By this time I was fairly nettled and answered, “I suppose you understand the distinction, Mr. Brazel?” which brought the well-earned retort, “I attempted to draw the distinction, Father Dixon, in framing my question.”
+
+[‘]I spoke about spiritual things.’
+
+[‘]Did you have any difficulty getting through?[’ ‘]Sometimes.’[^61]
+
+Brazel had asked a few simple questions, to each of which Dixon could and should have given a short and simple answer. Instead there was obfuscation.
+
+Following counsels’ examinations of Dixon, he submitted a document to be read. He shared Strehlow’s opinion that the crime could not have been committed by an Aborigine, and hence claimed that the confession could not have been made by Stuart, and did not even make sense. One of the reasons for this contention was that [‘]the sentence “she was standing in a pool of water playing” was beyond Stuart’s grammatical ability.’ He then went on to say, [‘]This sentence in my mind is the most telling in the whole confession…it is well nigh poetic.[’ ‘]The position of the present participle “playing” suspended at the end of the sentence, away from a noun or verb, is very heavily in favour of another man’s style.’[^62]
+
+This may have sounded plausible, but as Chamberlain pointed out later, Stuart had given evidence in court at Alice Springs and, without any prompting or assistance, had used sentences such as [‘]There was in the billiard room another four *playing*’ and [‘]I seen Peter Fraser *standing drinking*.’[^63]
+
+Thus Dixon’s opinion was without foundation, and of course the claim that the confession made no sense was completely absurd. Although his motives were entirely altruistic, it seems that he had succumbed to Stuart’s persuasive powers. According to Inglis, Dixon was reported as having said, [‘]I am sure he could not deceive me for so long. He would have to be a wizard to do that.’[^64] Stuart was no wizard, but as the Royal Commission said, he was [‘]by any standard - intelligent and quick-witted.’[^65]
+
+When Stuart eventually appeared as a witness, Starke was the first to examine him, and began by deliberately couching many of his questions in N.T. English, which was an obvious attempt to elicit answers in that language so as to demonstrate that this was Stuart’s normal way of speaking.
+
+Early in the piece there were a few instances of Stuart replying in this language as the following examples in the first three pages of the transcript clearly show.
+
+Q. “What you do?’ A: [‘]Put up merry-go-round.’ Q: [‘]Daytime or dark?’ A. [‘]Sun dark.’
+
+Q: [‘]You got there at start or after?’ A: [‘]After start.’
+
+Q: [‘]Half time you stay in the theatre or go outside?’ A: [‘]Went outside’.[^66] Q: [‘]Where you go after pictures?’ A: [‘]Back to funfair.’
+
+Q: [‘]When you get up what you do?’ A: [‘]Drink of tea.’[^67]
+
+Q: [‘]What you say? What he say?’ A: [‘]Said “you like to have drink”.’
+
+Q: [‘]What you say?’ A: [‘] I tell ’im Moir be along directly.’[^68]
+
+A perusal of the following pages shows that few of Stuart’s answers were in N.T. English, and that sometimes they were grammatically correct and at other times not. From then on Starke gave up and questioned him in English .
+
+The following examples, taken from the evidence, illustrate the ease with which Stuart could answer :
+
+Q: [‘]What did he say?’ A: [‘]You better tell the truth now you black bastard,’
+
+Q: [‘]What did he do?’ A: [‘]He said he was going to skin me alive.’[^69]
+
+Q: [‘]Do you remember about a telephone?’ A: [‘]This other policeman was talking to Allan Moir with a telephone.’[^70]
+
+Soon after Chamberlain began his cross-examination, he gave the following answer:
+
+[‘]He hit me on the ribs and on the side of the throat and on the eye and he tried to punch me on the side of the head, but I blocked that.’[^71]
+
+Almost without exception Chamberlain’s questions were in English, and so were nearly all of Stuart’s answers. Altogether there were only half a dozen or so examples of N.T. English recorded in some sixty pages of transcript. Many of Stuart’s answers were short, often simply [‘]Yes.’, [‘]Yeah.’, or [‘]No.’ But there were many examples of longer answers in English.[^72]
+
+Chamberlain wrote that [‘]when Stuart gave evidence, many items in Mr. Strehlow’s list of things he could not have said were refuted out of his own mouth.’ For example, Strehlow had claimed that Stuart could not have said, [‘]The three of us *sat down*’, which was in the confession, but in cross-examination Stuart said [‘]I didn’t say I *sat down*.’[^73] Similarly, Strehlow thought that Stuart could not have uttered the words [‘]I left the bag with the flagon in it behind the picture show wall.’ But Stuart could use language in which there were no grammatical solecisms. One of many examples of this can be found in an answer to a question asked by Starke. The answer was [‘]I can but you will have to wait for a while.’[^74] The Commission considered that this response was one example of Stuart’s ability to speak good English.[^75]
+
+Another illustration of Stuart’s capacity to relate events in chronological order is to be found in what he said to Starke about buying a bottle of wine from a man at Thevenard. The transcript has Stuart saying, [‘]All right if I buy this bottle off you?’, and that the man agreed. Stuart then said, [‘]I put my hand in my pocket and pull out a wallet and I see I have no money, and I said “I have no money mate” and he said “Never mind, you take it without the money”.’[^76] To Chamberlain he said, [‘]I got back to the fun fair about one o’clock. Then I went back to the end of the tent. As soon as I got into the tent I had a feed.’[^77]
+
+The Commission rightly concluded that there was [‘]no truth in the suggestion that that the petitioner’s knowledge and understanding of English was inadequate’, and [‘]no truth in the suggestion…that he was [‘]considerably handicapped when confined to the English language’ or that the written confession…was [‘]beyond his mental and linguistic capacity’.[^78]
+
+### *The Claimed Alibi*
+
+When Mr. Gieseman was questioned at the Commission, he said that Stuart had come back to the show on the Saturday at a quarter to two, which he knew because he had looked at his watch. He added that Stuart had started work at two. [^1] Mrs. Gieseman’s evidence was that he was there [‘]between quarter to two and four-thirty’, and that she knew the four-thirty time because she had glanced at her watch.[^2]
+
+Although they were sure that Stuart had worked at the show from about two to four in the afternoon, there were significant differences between the other evidence of the couple. Gieseman said that he and his wife had been interviewed by Dixon separately,[^3] but Mrs. Gieseman said that when Dixon first came up to their caravan he [‘]just asked us if we knew the movements of Maxie Stuart on that Saturday afternoon between the hours of 2 and 4.’[^4] She said too that she and her husband answered this question together.[^5] If she was right then each knew what the other had said, but Gieseman had testified that he did not know whether he and his wife had given the same time.[^6] He also said that he didn’t know what she told Dixon, and emphasised this when, in answer to a further question, he agreed that he hadn’t the slightest idea what she had said and that he did not ask her.[^7] One conclusion from this evidence is that either Dixon did ask the leading question, or that Mrs. Gieseman’s memory was faulty.
+
+Chamberlain asked Gieseman if he had a clear recollection of his conversation with Phin at Whyalla, and Gieseman said that he did. Napier then asked, [‘]Is what you told Phin the truth?’, and he replied that it was. After that, Chamberlain proceeded to ask him questions based on Phin’s recollection of the conversation. The list of discrepancies between Gieseman’s evidence and Phin’s account is long. Among other things, Gieseman denied that (1) Phin had asked him when he had arrived in Ceduna; (2) Phin was trying to find out about Stuart’s movements; (3) he told Phin that he had fired Stuart because of his uselessness and drunken habits; (4) he told Phin that he arrived at Ceduna on the Friday morning, showed on the Friday night on the showgrounds, also on the Saturday night, and left on the Sunday morning; (5) Stuart went to the town on Friday morning on the booze; (6) apart from an occasional visit for food he did not see much of him; (7) he did not get any service from him during the time they were there; (8) he had said that: [‘]After we had loaded up on the Sunday morning we were having a cup of tea. He arrived at the circus in a condition showing signs of liquor’; (9) he noticed that Stuart was wearing his circus overalls on the Sunday morning; (10) he told Phin that he had said to Stuart: [‘]Get those bloody overalls off and get out. You’re finished’. (11) he told Phin that Stuart [‘]looked savage’, and [‘]I thought that he was going to have a go at me’; and (12) [‘]He took the overalls off and left the circus taking his belongings with him in a suitcase.’[^8]
+
+Clearly, to accept Gieseman’s denials is to believe that Phin manufactured a substantial part of his statement about the conversation, which is simply not credible.
+
+When Phin appeared as a witness, he stated, [‘]Gieseman said he had sacked him because he was no use to him,’ and [‘]Get those bloody overalls off and get out, you’re finished.’ Phin went on to say: [‘]As far as I can remember, his words were to this effect, “He was drinking, I could not get any good out of him, and I sacked him”.’ Moir’s typed statement to Phin read in part: [‘]I heard the boss say to Max “Pack up your swag and keep moving”.[’ ‘]He packed up his swag and the boss told him to take off his overalls.’[^9] Stuart himself gave evidence to the Royal Commission that Gieseman said, [‘]Get those overalls off - you’re finished.’[^10]
+
+Gieseman’s version of the Sunday morning meeting with Stuart was quite different. He gave evidence that Stuart told him on the Sunday morning [‘]that he had got himself a job on the Saturday morning at the Wheatboard...and that he \[thanked\] us very much for everything and shook hands. We parted on the best of terms. There were no hard words between us and we were polite to one another. I am sure of that.’[^11] Gieseman also said: [‘]He was not working for me to sack him.’[^12]
+
+According to Mrs. Gieseman, when Stuart arrived he broke the news that he had got a job at the Wheat Board, he thanked her and her husband, after which they shook hands and parted on the best of terms.[^13] Yet at another stage, her evidence was that she remembered Stuart throwing his overalls on the ground because her [‘]husband was going crook on him’, and she went on to say that that her husband had told Stuart [‘]he was finished.’ This was because [‘]he had not been home that night, and he was not there to help pull down the show and because of his drinking.’[^14] The above part of her evidence disclosed plain vacillation, and no doubt the Commissioners were not impressed: they could not [‘]believe that Mrs. Gieseman was altogether happy under cross-examination upon this subject.’[^15]
+
+In answer to Chamberlain, Gieseman said that he told Stuart that he was no good to him *after* Stuart had said that he had another job.[^16] However, Mrs. Gieseman’s evidence was that Chamberlain [‘]had told Stuart that he could not stay with the show *before* Stuart said anything about having a job at Ceduna.’[^17]
+
+The Giesemans’ evidence about the parting was inconsistent, and could be given little weight against that of other witnesses.
+
+At one stage, Gieseman testified that Father Dixon had said to him that he thought that his information would help Stuart. Yet not long before he had said that he did not know whether the times he had given for Stuart’s movements on the day of the murder would help Stuart or not.[^18] Here was another inconsistency.
+
+When Gieseman was asked whether he thought his visit to Adelaide could help Stuart or not, he again said, [‘]No.’ Then when asked whether he cared [‘]one way or another’, he again answered [‘]No.’[^19] This was strange indeed, coming from a man who had been brought all the way from Queensland in an effort to call into question the guilty verdict.
+
+It must have been clear at this stage that no reliance could be placed on much of Gieseman’s testimony, which was not always consistent, and in too many instances was incompatible with that of his wife and with Moir’s statement to Phin.
+
+As already mentioned, Mrs. Gieseman’s evidence was that Dixon asked them both whether they knew the movements of Maxie Stuart between 2 p.m. and 4 p.m. on the Saturday. (p.134 above) If this was the case, then it should have been clear to both of them that their evidence would help Stuart. Moreover, it may be that both husband and wife were induced to help because this direct question had been asked.
+
+Betty Hopes testified [‘]that Stuart had worked on the darts from ten to eleven on the Saturday morning...and on the darts stall from two until four.’ Her belief that Stuart had worked in the morning was not supported by other evidence. Chamberlain expressed the opinion that apart from the alibi, [‘]she did not have anything to say which threw much more light on the case.’[^20] Then there was another indication that her memory was unreliable: she was certain that on the Friday evening Stuart had [‘]worked beside her at the darts stall from seven until ten’,[^21] which was contrary to the evidence that the show had closed early on that night, and that Stuart had gone to the pictures.[^22]
+
+Brazel was the first to examine Allan Moir, who said that on the Saturday afternoon he worked on the knock-em stall and Stuart on the dart stall from about 10 past 2 until 4 o’clock. Then when Brazel asked [‘]Have you always thought that?’, Moir said [‘]Yes.’[^23] But his own evidence did not support this. For example, according to his statement to Phin at Whyalla, he and Stuart had worked at the dartboard between 6 p.m. and 8 p.m. Then later, at Collinsville, Moir had told another story to Tom O’Farrell, a *Sydney Morning Herald* reporter. This was that he had come [‘]back to the show at about a quarter past ten and started work’, [‘]that he did not know when Maxie came back’, and [‘]that it might have been anything from three to six o’clock’.[^24] Moir had given yet another version to a *Courier-Mail* reporter, which was that [‘]Stuart did not return from the beach until four, five, or six in the afternoon.’[^25]
+
+Although Moir was a most unreliable witness, one piece of his evidence squared with that of others. He remembered the taxi ride, saying that after he had seen Stuart [‘]up the town about half-past one or one o’clock’, he waited on the footpath for a taxi which he thought Stuart had ordered’, and that they both drove back to the funfair in the taxi.’[^26]
+
+Chamberlain observed that [‘]Moir was of little significance as a witness to either side apart from his original statement to Detective Phin.’[^27] He also said that Moir was [‘]not very literate and apparently of limited intelligence’,[^28] and this opinion was confirmed by a reporter who described him as [‘]very slow of thought and speech’, who [‘]would not make an impressive witness.’[^29]
+
+The last of the carnival witnesses was William McNeish. Questioned by Brazel, he confirmed what he had said in his statement, namely that on the afternoon of the murder Stuart [‘]went to work on the darts, possibly at two o’clock’, and that he [‘]was quite sure that Stuart did not leave the showgrounds between two and four.’[^30] But further questioning soon revealed that McNeish had a very poor memory, and in fact he admitted this to Brazel.[^31] Chamberlain wrote that McNeish had little to impart,[^32] and the Commission gave his evidence scant attention.
+
+Dennis Blackham’s evidence at the preliminary hearing and the trial was that he had gone to a shop owned by a Mr. Spry, had picked up Max Stuart at about 2 p.m., and taken him and a younger man to the funfair, after which he took Stuart to the Thevenard hotel. (p.15 above)
+
+When Mr. Spry was called he gave evidence which was quite unequivocal. Stuart came into his shop at about a quarter to two on the Saturday afternoon, asked him to ring for a taxi, and said his name was Stuart. The taxi could not come immediately. Stuart came into the shop two or three times wanting to know why the taxi had not arrived. He had a companion. Spry saw the taxi arrive and they went off.[^33] It seems clear that Spry had a clear recollection of events. Despite close questioning from Shand, he did not budge. He told Shand that he judged the time by the lunch hour, which ended at 2 o’clock.[^34] Stuart wanted a taxi to Thevenard, and he knew that Stuart was a stranger.[^35]
+
+Roy Wells, who had come to Ceduna with a friend, Clem Chester, said that he saw Stuart a number of times during the Saturday, the day of the murder. Although it appears that some of his recall of events was doubtful, parts of his evidence were supported by that of other witnesses. For example, he recalled that he had seen Stuart at about five past two in Spry’s shop and had heard him ask Spry to get him a taxi. Stuart said that he was going to Thevenard. Dennis (Blackham) brought the taxi at about half past 2, and Stuart and a boy from Norseman got into the taxi. Later he saw Stuart at about 4 o’clock coming up from the caravan park to the town. He heard a woman, Olga Betts, speak to Stuart, who told her who he was. Stuart then went on to the funfair.[^36]
+
+Although Chester was not an altogether reliable witness, part of his evidence matched what Wells had said. This was that they had been at the sideshow in the morning, and when they returned to the show at about 2 p.m. Stuart was not there. He saw no-one running the darts, and left the sideshow at 4 o[‘]clock or a little after.[^37]
+
+Colin Ware, another Aboriginal, testified that on arrival in Ceduna at about a quarter to one he went to Spry’s shop.[^38] Some of his initial evidence was nullified by admissions under cross-examination, and he could not be regarded as an entirely reliable witness. However, he did say that while he was at Spry’s shop he saw Stuart get into a taxi with a young lad, whom he was able to identify as Moir, and that he saw Stuart pushing the lad into the front seat after the taxi had waited outside Spry’s shop.[^39] He himself got to the show at about two o’clock, and was there for about two hours, but did not see Stuart there.[^40]
+
+Brenda Kent said that she had seen Stuart at the Thevenard hotel at about half-past two on the Saturday afternoon, though she stated that she had guessed this time, knowing that it was after she had finished washing up the lunch dishes, which would have been half-past one or a quarter to two.[^41] According to her, she [‘]went to the front verandah, where Stuart was sitting.’[^42] She also said that [‘]she saw him again when she went out to a shop at about a quarter to four’.[^43]
+
+Veda Miller, a sixteen-year-old Aboriginal girl who also worked at the hotel, confirmed Brenda’s evidence that Stuart was outside the hotel at about half past two.[^44]
+
+The evidence of the Kelly brothers was quite clear, and they obviously answered the questions put to them without difficulty. They both said: (1) that they arrived in Ceduna at about 4 o’clock; (2) that they walked with Stuart to the funfair; (3) that Stuart showed them his right fist which had been injured; (4) that Stuart offered to buy wine for them. They gave him 30 shillings to pay for it, and he later said that he had given this to his sister; (5) that they walked with him to the funfair, arriving at 4 o’clock; (6) that Stuart was wearing a shirt and trousers at that time; and (7) that at the show he changed into white overalls.[^45]
+
+Donald said that when they met Stuart he was [‘]half shot’, and that at the funfair [‘]Stuart worked at the darts stall for about three-quarters of an hour.’[^46] Dennis also said that Stuart worked at the dart show.[^47]
+
+Mrs. Olga Betts, who was an Aboriginal woman, appeared briefly. She confirmed that she was with Roy Wells and saw a native coming from the direction of Thevenard, and that Roy Wells had identified the man as Stuart.[^48] Thus there was clear evidence that the Kelly brothers, Roy Wells and Mrs. Betts had all seen Stuart at about 4 p.m.
+
+Father Dixon’s evidence included an account of what Stuart had told him about his movements on the day of the murder. Much of this matched the evidence of other witnesses, and can be seen as confirmation. His account included the following information:
+
+He went to the beach, which he thought was at about 10 o’clock. He was drinking with Allan Moir, who left at about 11 o’clock. He came to the town, and got in a taxi with Moir at a shop and went to the circus. They both got out and Moir wanted to go back with him, but he refused, telling Moir that he was too young. He got in the taxi. A girl came out from the hotel and he spoke to her. She went back inside. He had then had intercourse with a girl behind the hotel. After that he came back again and sat down out the front. On the way back he saw a grey Holden. He walked on the beach leaving the cave behind. He met two dark men as he came up to the caravan site. He called one Killy, which Dixon took to be Kelly. He gave Kelly 25 bob to get some wine. He then said that he worked around the darts until about sundown.[^49]
+
+In the light of the other evidence, it appears that there were only two possible inaccuracies in this version of Stuart’s whereabouts on the day of the murder: namely that he had had intercourse behind the hotel, and had seen a Holden on the way back to Ceduna.
+
+Chamberlain questioned Dixon about an apparent contradiction. The transcript, with Chamberlain’s questions and Dixon’s answers, reads:
+
+[‘]You realize that the alibi you have brought back is a very hard thing to manage alongside the unsworn statement,… do you not?[’ ‘]I have never bothered to look into that.[’ ‘]You do not find any difficulty in reconciling Stuart’s statement in his unsworn statement that he went by taxi to Thevenard and walked back in the afternoon with the story that he was working at a sideshow between 2 and 4?[’ ‘]No.[’ ‘]You do not take the slightest notice of anything that Stuart says as to time?[’ ‘]I say that.’[^50]
+
+When Chamberlain asked him if he was sure that Stuart could tell the time, Dixon [‘]stated definitely that he could not do so.’ Chamberlain then proceeded to ask, [‘]Are you sure of that?[’ ‘]Would you be surprised if only this morning I asked the gaoler to go and talk to him and ask what time it was, and he looked at a watch and said “five to nine”.’ Stuart replied, [‘]Very much.’[^51]
+
+Dixon had made a categorical assertion that he was [‘]completely satisfied that Rupert Max Stuart \[had\] the perfect alibi’, yet when Chamberlain asked him whether he had [‘]piled up an alibi that would save Stuart’, he replied that he was not so sure, adding: [‘]Everyone is not so sure even yet.’ Chamberlain then asked, [‘]You would not have been sure yourself?’, and Dixon replied, [‘]No. That is why I was so guarded in my jubilation.’[^52] Although Dixon had proclaimed that Stuart had a perfect alibi, he had now contradicted himself, apparently unwittingly. This was more evidence that he was prone to confusion.
+
+Brazel referred to a passage in the unsworn statement, in which Stuart had said that he did not go to Thevenard because he wanted a girl, but because he wanted a drink. Dixon could not see any inconsistency, but said that he did not pursue the matter because he [‘]was not on any detective work.’[^53]
+
+Brazel: [‘]\[D\]id you notice in the proceedings in this court that Mr. Shand, Q.C. …made it plain by his questions that he was imputing an act of intercourse by Stuart with the little girl named Olive Betts?’ Dixon: [‘]I thought that came from the two girls who gave evidence.’ Brazel: [‘]Do you accept my suggestion that Mr. Shand by his suggestions was imputing that?’ Dixon: [‘]I am afraid I cannot, only for the reason that I do not know.’[^54] But Dixon had every reason to have agreed with Brazel. Shand’s question related to what Stuart himself had told Dixon, and had told Strehlow too. (p.33 above) No doubt O’Sullivan knew this as well.
+
+At one stage Dixon told Brazel that Stuart had not used the word [‘]darts’ at any time,[^55] but not long afterwards he said that Stuart had told him that [‘]he worked around the darts until about sundown.’[^56] Another contradiction followed: he denied that Stuart told him that he worked until sundown on the Saturday’, and when Brazel asked him, [‘]Is it not a fact that you have told us that...Stuart said he worked at the fun fair on this Saturday up to about sundown?’ Dixon replied, [‘]No; he said he went down to the beach about sundown. Did I say that?’[^57] Here was further confirmation that Dixon did not always think clearly, and that at times he was mentally distracted and illogical. Much of his evidence was worthless.
+
+When Stuart was in the witness box, Chamberlain asked him questions based on the the police record of the interrogation at the police station, and his answers accorded with significant parts of that document. He acknowledged that he had been sacked on the Monday morning. He agreed that Turner had said to him, [‘]We have reason to believe that you were round at Thevenard on Saturday afternoon’, and that he had responded, [‘]Yes...I did go round to the pub there’. He agreed that he had gone by taxi, and had had some wine there.[^58] He also agreed that he had walked back to Ceduna, partly along the road and partly along the beach, and that Turner had said: [‘]The person who raped and murdered the little girl left tracks with his bare feet’; [‘]We have had the tracks examined by two blacktrackers, Sonny Jim and Harry Scott’; [‘]They told us that if they saw tracks made by the same man they’d know him.’[^59] Stuart also told the Commission that he left the beach [‘]up near the Church...not far from the railway line’, which the Commission observed [‘]was the track or roadway to which the footprints led, and where they ended.’[^60]
+
+Thus Stuart’s evidence accorded with that of Blackham, Spry, and most of the Aboriginal witnesses, which was that he had been to Thevenard by taxi at about 2 o’clock, had walked back to Ceduna some time after about half-past two, and arrived at Ceduna at about 4 o’clock. However, this did not accord with other evidence which he had given to the Commission which was that he knew that he had started work at two o’clock, and also that he had finished at four, and this because he had looked at the Giesemans’ watches.[^61] However, it seems most unlikely that he and the Giesemans had taken so much interest in the time he arrived at work and when he finished, and this by way of their looking at watches.
+
+At the trial it had certainly been made clear when the crime had been committed, i.e. between about two and four o’clock. Yet Stuart, who was astute and intelligent, and had demonstrated as a witness that he had a good memory and knew that his life was at stake, had not told O’Sullivan that he had an alibi. When asked by Chamberlain why he had not done so, he said that O’Sullivan had not asked him,[^62] which is simply incredible. In any case, it was not until he heard the news from Queensland that he made any claim about an alibi.
+
+The Commission concluded that Stuart’s [‘]movements on the day in question were substantially as...described in the confession.’[^63]
+
+Since it was established that Stuart could speak and understand English perfectly well and had no alibi, it most unlikely that the police had needed to resort to intimidation and violence in order to obtain the confession.
+
+### *Police Brutality?*
+
+Only two matters had to be considered in order to resolve this third main issue. First there were Stuart’s allegations that the police had beaten the confession out of him, that hair had been pulled from his head, and that one of the policemen had threatened to skin him or kill him with a razor blade. The other was to assess the worth of the claims which the Wardrops had made in the statements they had signed and submitted to the Commission. Shand’s claim was that Whitrod had uttered the words [‘]We bashed it out of the black bastard’, but what the Wardrops had alleged in their statements was that Whitrod had told them that Stuart had been subjected to police violence.
+
+According to Stuart’s unsworn statement, he had been severely punched over the eye and hit on the the throat and ribs, as well as choked. Then in evidence he said that the eye took a couple of weeks to heal, and that after the choking it was nearly half an hour before he could breathe again. [^1]
+
+There was nothing to support these assertions, and there was substantial evidence to the contrary.
+
+A welfare officer of the Aborigines Department, Mr. A.R.A. Kleinig said in an affidavit submitted to the Commission, that he had been outside the open door of the office for about a quarter of an hour when Stuart was making his confession, and that voices were subdued.[^2]
+
+The Justice at Ceduna, Mr. May, had had [‘]a good look’ at him and saw no sign of injury, which was the morning after the confession had been made. (p.21 above)
+
+[‘]Dr. G. C. H. Nicol, the surgeon of Adelaide Gaol, testified that he had examined Stuart within three days of his arrival there and had not found any marks of violence.’[^3]
+
+**[‘]**Mr. D. C. Aebi, of the photograph and fingerprint section of the South Australian Police’, told the Commission [‘]that the only sign of injury which he could find on the photographs of Stuart had been what apparently were old scars below the right eye and on the right of the forehead – and he had had to use a magnifying glass to discover these.[^4] Aebi was later recalled, and was asked to use a special magnifying glass to examine a photograph of Stuart, as well as the negatives, and to look in particular for a [‘]mouth’ over the right eye. [‘]All he could see, and all he had been able to see…was the same minute old scar of which evidence had already been given’.[^5] It was not surprising that there were these scars, given that Stuart had been a professional boxer.
+
+When Sergeant Lowe gave evidence, he said that he had sat next to Stuart for part of the journey back from Ceduna to Adelaide and saw no mark of injury on him.[^6]
+
+All of this evidence contradicted Stuart’s claim that the police had extorted the confession from him by threat or violence, and in fact indicated that there had been no such treatment.
+
+According to Stuart’s unsworn statement, when the police searched him they found a razor blade in a coat pocket, and a policemen picked it up from the desk and then threatened to skin him or kill him, or [‘]something like that.’ (p.24 above) However, when Stuart gave evidence at the Commission hearing, he gave a slightly different and more definite version: he said that Turner had taken a number of blades from his coat pocket, and later threatened him with the words, [‘]See these razor blades here, I will skin you alive, tell us the truth now.’[^7]
+
+At least one of these stories must have been false at least in part, since they differed in two respects. Initially he had said that there was only one blade, but in the second version there were more. There was also a difference in what he said about the alleged threat to skin him: at first he had been rather vague, but six months later he recited what he claimed were Turner’s exact words.
+
+Although Turner could not remember all that had happened at the time, he was quite clear about some of the details. His evidence was that [‘]there were 19 blades in a little container’, and that they were [‘]blades of a leather knife about the size of a razor blade.’ They had been [‘]taken from a pocket in his jacket’.[^8] He added that he had examined them, but denied that anything was said about [‘]skinning him alive or causing some other injury.’[^9] Turner had given detailed and unambiguous evidence, indicating that he had a clear recollection of the occasion.
+
+Later, when he was recalled and cross-examined by Starke, Turner [‘]denied that he had picked up the blades to threaten \[Stuart\] with them’, and went on to say that Stuart had told him that the blades [‘]belonged to someone at the Gieseman show.[’ ‘]He added, “I think he said he borrowed a coat and they were in the pocket.[” ’][^10] There was nothing to support Stuart’s allegation. The story resembles a number of answers which Stuart had given during his interrogation, inasmuch as it indicated that he had a fertile imagination.
+
+In his unsworn statement Stuart had claimed that Turner had pulled some hairs from his head and legs, but Jones’s evidence was that they had been cut, and that this was done in an attempt to determine whether they matched hairs from the victim’s hands. Unfortunately for the police, this attempt to identify the hairs as Stuart’s failed. (p.18 above) Chamberlain observed that neither the prosecution nor the defence put any reliance on this matter of the hairs,[^11] and commented that [‘]in the long run nothing more was heard about them.’ (p.75 above)
+
+However, the Commissioners examined the hairs under a magnifying glass and it appeared to them that they had been cut and not pulled. (p.79 above) This put an end to the matter. Stuart had made another false claim.
+
+In due course the members of the Wardrop family, Alan Wardrop, his wife Mary, and their daughter, Christine, were called to give evidence regarding their claims in their statement to Ligertwood that Whitrod had said that the police had assaulted Stuart. At the time of the murder, Wardrop was a café proprietor at Port Lincoln. According to his statement to Ligertwood, Whitrod had told him on two occasions that the police had assaulted Stuart. The first was during a conversation at the local branch of the Returned Services League at Port Lincoln, in which the Secretary of the branch, a Mr. Baker, participated. Wardrop had said in his statement that [‘]From something which Whitrod said (but which I am unable to remember) Baker said “You gave it to him, did you Frank?” I can’t remember Whitrod’s reply, but I said “The bastard deserved it anyway. I can’t remember any other details of the conversation.[” ’][^12]
+
+However, when he gave evidence at the Commission, [‘]Wardrop gave a different version of the alleged conversation at the R.S.L. Club.’ He could remember that the murder was discussed, that Whitrod had said that [‘]he had been up there’, and that Stuart had [‘]got his corner.’ He remembered too that Baker had said, [‘]You gave it to him Frank.’ But he could not remember that Whitrod had then said anything.[^13]
+
+Despite his earlier assertion that his memory had failed, under cross-examination Wardrop said [‘]that he had had a clear recollection of the exact words used by Whitrod’. But this is questionable. He went on to say that he could not remember the exact words of the conversation, and when faced with his written statement and asked whether he had forgotten the conversation, he replied [‘]No to me it is just *a legal technicality*, I am not familiar with this. Physical violence, getting his corner, give him the one two three, what’s the difference, it’s all the same.’[^14]
+
+His memory was tested again by the question: [‘]You profess to remember the exact words that Whitrod said, do you or don’t you?’ To this he replied, [‘]What does a man say to that. I know he said “You gave it to him Frank”, and I know I said “the bastard deserved it.[” ’][^15]
+
+Wardrop was plainly confused, and at times answered without having given much thought to what he was saying.
+
+When Baker appeared later, he described Wardrop's story about Whitrod having said that Stuart had [‘]got his corner’ as [‘]fantastic’,[^16] and when Whitrod gave evidence, he [‘]denied that Stuart had been subjected to any violence’, or ever having [‘]used the expression “got his corner”.’ He said that he knew that it was a term used by gamblers, but that he had [‘]never heard it used in any other sense.’[^17]
+
+Baker flatly denied that he had had a conversation with Whitrod in the R.S.L. Club or at any other time.[^18] He [‘]said that Wardrop had telephoned him from Adelaide on 12 August, 1959, and that, after some discussion of R.S.L. sub-branch business’, Wardrop said, [‘]I am worried about this murder case.’ After a further exchange, Wardrop asked [‘]You remember Frank Whitrod saying they bashed this chap?’ to which Baker replied, [‘]Alan, I have never heard that. You are romancing.’[^18] In cross-examination, he added that [‘]from his knowledge of Wardrop ... he was a stupid man who “talked too much and too much rot”.’[^19]
+
+Wardrop told the Commission that in the course of the second conversation with Whitrod, which took place in the café kitchen, Whitrod had said that when Stuart confessed [‘]the police did their blocks and belted him.’[^20] This accorded with what was in the statements which the Wardrops had given to Ligertwood.
+
+When Chamberlain asked Wardrop whether he had seen a headline in the *News* which claimed that Whitrod had said ‘We bashed it out of the black bastard’ he answered [‘]Yes’. Then when asked if he was horrified, he said, [‘]Was I ever.’[^21] This indicated that Shand’s assertion that the words [‘]We bashed it out of the black bastard’ had never been used. As Chamberlain wrote, not one of the Wardrops ‘suggested that the words “we bashed it out of the black bastard were ever used” ’[^22]
+
+Wardrop had also said in his statement: [‘]I can remember Whitrod telling us that they put sand down and got Stuart to walk across it, and that as soon as he did this Sonny Jim…said, pointing with his finger (as demonstrated by Whitrod), “Him do it - him do it.” ’ He then added: [‘]As he was telling us his story Whitrod was obviously excited and upset and he said “I’ve got kids of my own - you’ve got kids. When he confessed we did our blocks and really belted him.[” ’][^23] On this point Mrs. Wardrop corroborated his evidence: according to her, during the conversation Whitrod [‘]had told them how the blacktrackers had identified Stuart’s footprints’, and that he went on to say that it was [‘]then we really belted him up – you know what it’s like – having children of your own – we were really upset.’[^24]
+
+When it was their turn to give evidence, Whitrod and his colleagues strongly denied that there had been any such assault. In any case, even if the Wardrops’ evidence had been accepted, it would not have helped Stuart, who had accused the police of using violence *before* he confessed, whereas the Wardrops had asserted that it had been *after* the confession.
+
+According to Wardrop, he had been [‘]particularly careful’ not to find out whether or not his daughter had been present during the conversation with Whitrod, and he went on to say that he had [‘]thought it was important for months that there should not be any collaboration at all.’[^25] However, after the publication of Shand’s statement, the Wardrops [‘]held a family conference, which lasted from midnight until 4 a.m*.,* when the conversation with Whitrod had been freely discussed between the three of them.’[^26] According to Christine, this was because her father had said that they [‘]would probably have to go to court about it.’[^27]
+
+If Wardrop had thought that he had to be particularly careful that there should be no collaboration until he decided to go to the Commission, then why had he engaged in these discussions? In the circumstances, it is difficult to believe that his recollections, such as they were, had had no influence on the thinking of his wife and daughter. If they had all remembered what had been said, there would not have been any need for a four-hour discussion. As the Commission reported, [‘]it was really impossible to distinguish between recollection and reconstruction.’[^28]
+
+Starke asked Baker whether it had ever struck him that Wardrop [‘]was a sort of stupid man’, and he answered, [‘]It has on many occasions as a matter of fact.’ Starke then asked him why he thought that, and Baker said, [‘]Because he is one man who has been many times asked at our meetings to take his seat, he has had a motion of censure passed against him, and he is also the only one in the sub-branch who has had a time limit put on him when he gets on his feet.’ Baker added: [‘]That remark of mine can be substantiated by the minute book.’[^29]
+
+It can be seen from this and from Wardrop’s evidence that Baker had good reason for his opinions about Wardrop’s mentality - Wardrop was evidently loquacious, muddle-headed, forgetful, and at times illogical. There was a great deal of inconsistency in his evidence, and it conflicted with that of Baker and others, and in some instances with that of his wife and of their daughter.
+
+In their report, the Commissioners wrote:
+
+> \(a\) Stuart has never alleged that *Whitrod* ever used any violence towards him.   \(b\) Any admission by Whitrod could only affect his own credit. His admissions (if made) could not properly be used to impair the credit of the other police witnesses.   \(c\) Wardrop does not suggest that Whitrod has ever said that violence was used to induce Stuart to confess. The allegations…relate to violence used *after* Stuart had confessed   and *after he had walked through the sand*.[^30]
+
+No doubt Wardrop was a man of good conscience who would not have approached the Commission unless he had felt that there had been some wrongdoing on the part of the police. However, he had not expressed any concern to anyone, other than to his wife and daughter, until after the Commission had been appointed. If he had, it would soon have become public knowledge and there would have been an immediate inquiry. The Commissioners did not criticise Wardrop for coming forward, and in fact accepted that [‘]Mr. and Mrs. Wardrop \[had not\] deliberately concocted or invented the conversation to which they deposed.’[^31]
+
+The Wardrop’s evidence pointing to the confession having been obtained by improper means was unconvincing, and the other evidence, particularly that which indicated that Stuart had been on the beach at the time the crime had been committed, showed that there could be no doubt, as the Commission found, that the allegation that the confession had been obtained by the use of force was false.
+
+### *Stuart’s Behaviour toward Women*
+
+Two of Stuart’ convictions illustrate his attitude to women. The first was the one in Alice Springs in 1955 when he was sentenced for knocking a nurse unconscious. (p.28 above) He admitted that he had pushed her hard, and was sentenced to a term of imprisonment. [^1]
+
+The second was in Cloncurry in 1957. (p.28 above) When Constable Corbett, the Queensland police officer who had interrogated Stuart, gave evidence, the notes which the police had taken at the time were produced. Chamberlain’s account of his examination of Corbett at the Commission reads as follows:-
+
+I asked plainclothes Constable Corbett, [‘]In September 1957 you were stationed in Cloncurry? [‘]Yes’, he said.
+
+[‘]Did you there investigate a report of an offence which led you to interrogate the defendant Stuart?[’‘]Yes.’
+
+[‘]And that Stuart is the man whose picture is there?’ I asked, and Corbett was shown a photograph. [‘]Yes,’ he said. [‘]I knew him as Rupert Stuart or Rex Sullivan or Ron Sullivan.’
+
+[‘]I questioned him on twelfth September 1957 at eleven-ten a.m. in company with Constable Deacon and Constable Lane. I had previously had a conversation with Stuart in connection with reports on some other matters. He knew me at this time. In connection with his offence I said to him: [‘]I am going to ask you some questions about what you were doing last Monday night, that is not last night or the night before, but the night before that. When I ask you any questions, you need not answer them unless you want to, as anything you tell me I will be telling the man over at the court, that is the Magistrate you were before this morning. Do you know what I mean? I say you need not answer anything unless you want to.’ Stuart replied, [‘]Yes, I know.’
+
+[‘]The day before yesterday a girl told us that she was sleeping in her bed with her sister at the Council Reserve, Cloncurry, and she woke up when she felt someone feeling her leg. She tried to push this person’s hand away and the person pushed his hand up under the leg of her pants and touched her on her private part. Do you know what a girl’s private part is?’
+
+[‘]Yes, cunt’, Stuart said, and I said: [‘]The girl said she started to call out and this person put his hand over her mouth but her mother woke up and sat up in bed and the person ran out of the room.’
+
+[‘]Who tell you that?” Stuart asked.
+
+[‘]A girl named Oriel May Simmons, who is nine years of age. Her mother and her father have also told me other things.’
+
+Stuart said, [‘]It was me who did that, I was staying at that place.’
+
+[‘]Will you tell me what happened that night? But remember you don’t have to if you don’t want to.’
+
+[‘]Yes, I was at that place in the evening and we all go to sleep. I sleep outside near house and I lay awake until all the others asleep. I got up and feel like girl, so I go to girl’s bed and I put my hands under the girl’s pants and touch her cunt. The girl called out and I put my hand over her mouth but her mother came in and I ran back to bed.’
+
+[‘]What happened then?’
+
+[‘]The man came and chased me away.’
+
+[‘]Did you know that you shouldn’t have done that to the little girl?’
+
+[‘]Yes, I know it’s wrong. I feel like fuck, but I didn’t know any big woman over here, where I can get one.’
+
+[‘]Why did you do it?’
+
+[‘]It makes me feel good when I feel little girl’s cunt’, Stuart said.
+
+[‘]Will you come with me to the girl’s house and show me where you did this?’
+
+[‘]Yes, all right,’ Stuart agreed.
+
+They went to the house, where Corbett asked, [‘]Where is the bed the girl was sleeping in?’
+
+[‘]That one there, she was sleeping on this side, I was sleeping outside.’
+
+[‘]Did the girl struggle and try to get away?’
+
+[‘]Yes, she yelled,’ Stuart said.
+
+[‘]You will have to go to the Court about this and we can have the Court tomorrow if it suits you.’
+
+[‘]Yes, that will do me,’ Stuart said.[^2]
+
+He also told the police that when he had been drinking he could not control himself with regard to women.[^3]
+
+Obviously the police had been meticulous in taking detailed notes, and there is no reason to doubt Corbett’s evidence, which showed clearly that Stuart had little regard for women, except as objects for sexual gratification. His desire for this was stimulated when there was opportunity, and particularly when he had been drinking.
+
+### *Evidence Discounted*
+
+The Commissioners decided not to take into account some of the evidence which pointed to Stuart’s guilt. In some cases they heard evidence which they excluded as having insufficient value, and in others they refused to hear evidence which the Crown sought to present. Thus they were being extremely cautious. As they said in their report, they took into account [‘]the way in which this case \[had been\] confused and overlaid by misunderstanding and misrepresentation, not only throughout Australia, but even on the other side of the world.’[^1]
+
+Roy Wells had said in evidence that when he saw Stuart at the show at about 5 o’clock, he [‘]heard a part-aboriginal boy’ ask him: [‘]What have you been doing all day – have you had a woman?’, and Stuart replied, [‘]No, I had a maiden on the beach.’[^2] Not long afterwards, Dennis Kelly told the Commission that when they were at the show [‘]he heard Moir ask Stuart “Did you have a root?”, and Stuart replied “I had a tight one.[” ’][^3] Clearly this evidence pointed to Stuart’s having had intercourse on the beach, but the Commissioners decided not to take it into account.
+
+Moir gave evidence pointing to Stuart’s guilt. He had told Phin at Whyalla that he was drinking with Stuart during the evening of the day of the murder, Stuart had said that during that time Stuart told him that he had [‘]just killed someone.’[^4] Then he said at the Commission that Stuart had asked him [‘]Is there any blood on my chest?’ He added that [‘]he looked at Maxie’s chest and could see no blood.’[^5] When Shand asked him about the blood, he responded that Stuart opened his overalls and he could see no sign of blood.[^6]
+
+Later this evidence was confirmed by Dixon, who recorded in his book, *The Wizard of Alice*, that when his statement was being taken at Collinsville Moir had said: [‘]There is just one thing. He \[Stuart\] made some remark about blood on his chest’ and [‘]added details about dumping something in the sea.’[^7]
+
+Moir was a most unreliable witness, but Chamberlain wrote that [‘]two things appeared to stand out among the litter of his recollections. One was that on the night of the murder Stuart had talked about bloodstains and the disposal of a dead body; the other, which impressed the Commission, was that he and Stuart had reached the beach at about sundown.’[^8]
+
+Despite Moir’s unreliability as a witness, there is no cogent reason to reject his evidence that Stuart had asked if there was any sign of blood on his chest and had spoken to him about killing someone: this evidence matched that of the interrogation and of the confession. Yet the Commission declined to give it any weight.
+
+When Brazel asked him whether Stuart was [‘]a nasty person when in liquor’, he answered that he [‘]always wanted to fight.’ Brazel then asked [‘]When he was in liquor?’, and Moir replied, [‘]Yes.’[^9] When Phin gave his evidence, he said that during his conversation with Moir at Whyalla, the boy told him the same thing, i.e. that [‘]he was a good fellow sober but nasty when drinking.’[^10] McNeish shared Moir’s opinion: he gave evidence that he had told Clark, in the presence of Rohan Rivett, [‘]that Stuart made a nuisance of himself when drunk, and that he was on the liquor in Ceduna.’[^11]
+
+The evidence of Wells, Denis Kelly, Moir and McNeish, as cited above, indicated that sex and killing had been very much on Stuart’s mind not long after the crime had been committed, and that he was prone to violence when he drank.
+
+Much of this evidence was not mentioned in the Commissioners’ report. However, their report did observe that alcohol had probably contributed to Stuart’s committing of the crime. They wrote that the crime [‘]may be regarded as an act committed when the self-control and decency which normally restrain the actions of men…are for some reason so released or overcome as to allow lust and passion to have its way. A possible explanation for that is strong drink, and there is no doubt that, on that afternoon, the petitioner had been drinking fairly heavily.’[^12]
+
+Chamberlain sought to have three gaol warders appear as witnesses. They were willing to testify that when they were escorting him from the trial court after he had been sentenced, he had said [‘]That’s what the bloody plonk does to you. I’d had nearly a flagon of wine or I wouldn’t have grabbed her.’ Despite a personal reservation, Chamberlain could not see any legal reason why this evidence could not be given and asked for it to be admitted. However, Napier’s reply was [‘]Despite what some people may think, we are trying to do what is the fair thing.’[^13]
+
+The matter was raised again on 15 October, but after some discussion Napier announced that [‘]although the Commissioners were not very clear about it, and not entirely in agreement’, they recommended that the question not be asked. Chamberlain then replied: [‘]Very well, sir, I cannot compete against a recommendation of that sort. To be quite candid, I find myself in the unfortunate position of having a very strong view about the matter in the public interests concerned here.[^14]
+
+Thus the evidence of the warders was not heard, and the Commissioners wrote in their report that [‘]we excluded evidence, which was tendered by the Crown, to prove what the petitioner had said to the warders guarding him, as he left the court-room after receiving his sentence, and later, in the gaol.’[^15]
+
+Another exclusion was , as the Commissioners put it, [‘]any reference to evidence by Moir and the Kelly brothers, which was calculated to heighten suspicion against the petitioner, without affording any secure basis for a conclusion.’[^16]
+
+Chamberlain also sought permission for a police officer, Detective G. C. Modra, to appear. Modra had accompanied Stuart to the gaol after his return from Ceduna to Adelaide, and apparently had initiated a conversation with him. Chamberlain said that Modra could provide evidence which was [‘]inconsistent with the allegation that Stuart had been forced to make the confession by violence.’ Chamberlain felt that he should submit this evidence, but Brazel believed that it would probably not be admitted.[^17] As both had expected, the application for this evidence to be heard was rejected and Modra was not called.
+
+The Commission had been extremely cautious in omitting so much apparently credible evidence from their consideration, and it was no wonder that they were so wary: there had been persistent and widespread public controversy, including many publicly expressed but baseless claims such as criticisms of the composition of the Commission and its terms of reference, and sensational reporting, including headlines such as [‘]THESE COMMISSIONERS CAN’T DO THE JOB’.
+
+### *Perspectives on the Allegations*
+
+Each of the three main allegations, i.e. that Stuart suffered from a language disability, that he had an alibi, and that the confession was obtained by extortion, had a bearing on the others. Proof of the falsity of one allegation strengthened the case for rejecting the others, and at the end of the day all three were found to have been unsustainable.
+
+First, it was proved that the integrity of the police could not be questioned on the ground that Stuart’s English was deficient.
+
+Secondly, much of what was recorded in the interrogation and confession about Stuart’s movements on the afternoon of the murder was later confirmed in evidence, including that of Strehlow, Dixon and Stuart himself. Finally, the claim that Stuart had an alibi was unsustainable, given the unreliability of the alibi witnesses and the weight of contrary evidence. Surely Stuart would have told O’Sullivan if he had had an alibi, which he later claimed that he had known all along.
+
+After the release of the Commission’s report, Stuart’s strongest supporters had no ground whatsoever for questioning the credibility of the police, given that their own was in tatters.
+
+### *Stuart the Fabulist*
+
+1\.
+
+Chamberlain was given a clear indication that Stuart could lie. This was when Shand questioned Brenda Kent in relation to Olive Betts, one of the Aboriginal girls who worked at the Thevenard hotel. When Shand asked her whether Olive took money from boys when she went out with them, she said that she did not know. Chamberlain wrote that [‘]this gave us a valuable clue as to what to expect and to prepare to meet later on, and was the first hint of a revision to Stuart’s story that he had gone to Thevenard with no thought of girls in mind.’ [^1]
+
+According to the police version of Stuart’s interrogation, he had gone to Thevenard because he could not get any more wine at Ceduna, and in his unsworn statement he said that he was going there to get a drink. However, he had told his mentors (Dixon, Strehlow and O’Sullivan) that it was to see an Aboriginal girl and that he had paid her four pounds to have sex with him (p.33 above), and Blackham, Spry and Moir all said that they had heard him say that he was going to see a girl. It seems that the main reason for the trip was to get a drink, but that he also intended to look for a girl.
+
+When Starke questioned him, Stuart said that after arrival at Thevenard he met a girl who was standing on the footpath, and that they went with him to the back of the hotel where they had [‘]a naughty’.[^2]
+
+Then under cross-examination, Chamberlain showed him some photographs, and without hesitation Stuart pointed to the photograph of Olive Betts as the girl with whom he had had intercourse. Chamberlain recorded what followed:
+
+[‘]She was standing on the footpath and you went over to her, or did she come over to you?’
+
+[‘]I went over to her.’
+
+[‘]What you say to her or what she say to you?[’ ‘]I said: “What are we going to do now?[” ’]
+
+[‘]What did she say?[’ ‘]She said, “We will go down the back.[” ’]
+
+[‘]Was that all you said?[’ ‘]Yeah.’
+
+[‘]Whereabouts did you go?[’ ‘]Behind the pub”
+
+[‘]Out in the open or inside somewhere?[’ ‘]Behind the house.’
+
+[‘]Under cover or behind anything?[’ ‘]No.’
+
+[‘]Just out in the open?[’ ‘]Yeah.’
+
+[‘]What happened when you got round there?[’ ‘]We had a naughty.’
+
+[‘]Nothing further said?[’ ‘]No.’
+
+[‘]This girl seemed like a girl who had had it before?[’ ‘]Yes.’
+
+[‘]How do you tell? What is the difference? Is it harder when they have not had it before, is that what you mean?[’ ‘]I dunno.’
+
+[‘]You had a good one?[’ ‘]Yeah.’
+
+[‘]You gave her four pounds?[’ ‘]Yeah.’
+
+[‘]Did she ask for four pounds?[’ ‘]How did you come to fix four pounds?’ I asked, and perhaps because Stuart seemed to hesitate or not to understand the question, Mr Justice Reed asked him, [‘]Why four pounds?[’ ‘]I just gave her four pounds’, and Mr Justice Reed asked, [‘]She didn’t ask you for it?[’ ‘]No.’
+
+Later on there were the following questions and answers:-
+
+[‘]Did you have any more conversation with this girl, any more talk with her after you had the naughty?[’ ‘]No.[’ ‘]You just got up and did up your trousers and she got up and put on her pants and she went away and you went away?[’ ‘]Yes.’[^3]
+
+The Crown took action to test the story, and the police medical officer, Dr. D.M. Williamson, examined her and found her to be a virgin. When Olive Betts herself gave evidence, she said [‘]that she had never spoken to him or had anything to do with him.’[^4]
+
+The defence challenged this evidence, with Starke quoting a passage from a [‘]book on forensic medicine to the effect that cases have occurred where a hymen has been unruptured after frequent coitus.’
+
+Dr. Williamson was therefore recalled and explained that [‘]it requires a very unusual sort of hymen to remain intact after intercourse, and the one in question was not of that kind.’[^5] This finally disposed of Stuart’s tale about intercourse at Thevenard. He had invented the story, which had been accepted by Stuart’s primary supporters despite what had appeared, and which they knew had appeared, in his unsworn statement.
+
+2\.
+
+Chamberlain questioned Stuart about a passage in the police record of his interrogation at Ceduna. This was the story which had a white man killing the girl, pulling out a gun, making him carry the body into the cave, and threatening to kill him if he spilt the beans. (pp.6-8 above)
+
+The police knew, of course, that the murder had been committed in the cave, and their record has Turner immediately saying, [‘]Your story is not true. The little girl was raped and murdered in that little cave. We know that because of the blood splashed up on the side of the cave, and up on the roof.’ Since the the police knew this, they would not have made up the story that the body had been carried from the beach into the cave. It must have been Stuart’s, and it must have been false.
+
+Despite earlier equivocation and denials, Stuart admitted in evidence that he had said to Turner, [‘]He pulled out a gun, made me pick up the little girl on the beach, \[and\] carry her into the cave’. He also said that the car was a grey Holden. Then when asked whether he said to Turner:
+
+[‘]A white bloke pulled out a gun and made me carry the little girl into the cave?’, he said that this was a lie, and that he had told the lie because he was frightened.[^6] This confirmed the accuracy of one part of the police record of the interrogation and established that Stuart could lie and do so easily on the spur of the moment. Here again Stuart had demonstrated that he had a natural talent for inventing a story.
+
+Stuart provided additional confirmation that the police account of what actually happened was accurate. When he gave evidence he answered the following questions in the affirmative:
+
+[‘]Did Turner say, “We have reason to believe that you were round at Thevenard on Saturday afternoon”.’
+
+[‘]Did you say: “Yes, I will tell you the truth. I did go round to the pub there”.’
+
+[‘]So you caught a taxi to the Thevenard pub?’
+
+[‘]Did they ask you “Did you get any wine at Thevenard?[” ’]
+
+[‘]Did Turner say: “How did you get back to Ceduna”?’
+
+[‘]Did you say “I walked back”?’
+
+[‘]Did you say: “After I got the bottle of wine I walked down near the beach”?’
+
+[‘]Did you say that you walked back along the road to Ceduna?’
+
+[‘]Did you tell \[Turner\] first that you were on the road. Then he said about the beach. Then you said that yes, you did cut across the beach?’
+
+[‘]The person who raped and murdered the little girl left tracks with his bare feet.”?’
+
+[‘]We have had those tracks examined by two blacktrackers, Sonny Jim and Harry Scott?’
+
+[‘]Did Turner say: You remember everything else clearly enough, I think you can remember what you did. Did Turner say that to you?’
+
+[‘]They told us that if they saw tracks made by the same man they’d know him”.’
+
+[‘]Did they ask you if you called the little girl to come and see the little birdies?’
+
+[‘]Did you tell Turner that you punched the little girl on the side of the head. She went out to it and you raped her?’
+
+[‘]Did they ask you if you took her bathers off?’
+
+[‘]Did they ask you if it was hard to root her?’
+
+[‘]Did they ask you what you did then after suggesting that you rooted her, did they ask you what you did then?’
+
+[‘]Did they ask why you killed her?’
+
+[‘]Did they ask how you killed her?’
+
+[‘]Did they ask you if you took her clothes off?’
+
+[‘]Did they ask you what clothes you were wearing?’
+
+[‘]Did Turner say: “Is this the stone you killed the girl with?[” ’]
+
+[‘]Did he show you the bathers?’
+
+[‘]Did he say “ Are these the bathers you took from the girl after you knocked her unconscious and before you had intercourse with her?[” ’]
+
+[‘]Max, you knew that Mr. Turner was asking you, or Mr. Jones, was that the stone with which you killed the girl?’[^7]
+
+3\.
+
+Constable Corbett, the police officer who had questioned Stuart at Cloncurry regarding his sexual assault on a young girl, (p.28 above) possessed detailed notes of the interrogation. The contents became known when he appeared as a witness at the Commission. According to Corbett, Stuart admitted that he had committed the offence after people staying at the Council Reserve had retired for the night.
+
+However, Dixon gave the Commission a different version of this incident from the one Stuart had given to Corbett. When Chamberlain asked Dixon about the incident, he answered: [‘]The general thing that Stuart told me was that he did not attack the girl in the sense that it was intimated.’ (sic) [^8] Dixon then proceeded to provide details of the story which Stuart had told him:
+
+‘He said that he was staying with some others. They were having
+
+a beer party. The little girl concerned was a native girl. After the party was over, he and his three mates from central Australia were sleeping round about the little shed. There was one small shed with a little bed. Mother and father, and children were in the centre, and another fellow named Peter a little further over. During the night he sneaked in to steal a .303 gun and the little girl woke up; he put his hand over her mouth to stop her screaming. The other little girl screamed. He “shot through” and threw the gun into the creek.[^9]
+
+Stuart’s later evidence was that he had been in court in the morning to answer a charge of stealing a rifle, and got three months. Then, after the lunch break, he appeared to answer the charge about the little girl.[^10] Thus in relating his story to Dixon, Stuart had conflated the morning and afternoon accounts into one, thereby persuading Dixon that he must have been innocent. It was another easily contrived story.
+
+4\.
+
+In another of his stories, the first part was true but not the rest. This was the story which he had told to O’Sullivan about his court appearance in Alice Springs in 1956. This was that a man by the name of Sansbury had written Stuart’s defence down for him; that it was handed over in the court and copied down as Stuart’s evidence; and that he himself did not give verbal evidence at all. (pp.37,38 above)
+
+The first of Stuart’s petitions for commutation of the death sentence included his version of the events at Alice Springs:
+
+[‘]I was a defendant in a case at Alice Springs in 1956 when another aboriginal, one Sansbury who could read and write, assisted me by writing out a statement which I wished to present to the Court and I did in fact present such a statement to the Court. I was also assisted in Court on that occasion by the Native Welfare Officer.’[^11]
+
+The Commissioners remarked in their report that:
+
+> [‘]The statement that a document…was written out by Sansbury and presented to the Court (in the sense that it was handed to the Magistrate) is literally true, but it is not the whole truth. The truth is…that the Magistrate refused to read the document, and insisted on the petitioner giving his evidence in the ordinary way. He was not, on that occasion, “assisted in Court” by any Welfare Officer or anyone else.’[^12]
+
+Mrs. Newham, the depositions clerk, confirmed this when she gave evidence. She [‘]stated that Stuart had…a prepared statement, but that the magistrate refused to allow him to have it read’, and [‘]he promptly gave his evidence in English, in the ordinary way, without difficulty.’[^13] It was clear from the evidence that Stuart had lied again.
+
+According to Chamberlain, Stuart’s defenders, including Father Dixon, had stated that before Stuart appeared to answer the charge, he had [‘]sat up all night being coached by a friend.’ At the Royal Commission, Chamberlain showed Dixon [‘]the letter which O’Sullivan had sent to the High Court’, pointing out that the story about Stuart having been coached in what to say was at odds with the one that Stuart’s defence had prepared for him. Dixon could not accept that there was any such inconsistency.[^14] He was so fixated that he could not accept the truth.
+
+When Chamberlain asked Stuart whether he had said up late practising what to say, Stuart answered [‘]Yeah.[’ ‘]Were you going to tell the truth or were you practising a story to tell?[’ ‘]To tell the truth.’ Then after some debate involving Chamberlain, Starke and the Chairman, the examination continued:
+
+[‘]Did you tell Father Dixon that all that happened there was that you had a paper written out by Sainsbury (sic)…and you showed it to the magistrate and it was copied down?[’ ‘]Yeah.’
+
+[‘]Did you tell Father Dixon that?[’ ‘]Yeah.’
+
+[‘]That is not what happened, is it?[’ ‘]Did you stand up in the witness box at Alice Springs…and tell the magistrate what you wanted to tell him?[’ ‘]Yeah’
+
+[‘]You stood up and said what you had to say and it was taken down on the typewriter?[’ ‘]Yeah.’
+
+[‘]Without anybody helping you or asking you questions or anything at the time you were giving evidence?[’ ‘]Yeah.’[^15]
+
+Although it seems clear that Stuart and Sansbury had been together the night before the trial, and that a statement had been prepared at that time, the rest of the story was not true: the statement was not copied
+
+down after its submission, or used as evidence, and Stuart had conducted his own defence without any assistance. Again Stuart had demonstrated that could concoct a story at will and without hesitation.
+
+## \* \* \* \* \* \* \*
+
+## 10. The Commission’s Findings
+
+The Commission retired on 26 October, following the concluding addresses of counsel, and its report was presented to parliament on 3 December. The Commission upheld the verdict of guilty, and stated that the additional evidence confirmed it.
+
+The Commissioners prefaced their findings by commenting that they had [‘]been compelled to state the facts and the evidence at length’...and had [‘]tried to give a strictly factual and objective account.’ [^1] A summary of the findings appears hereunder.
+
+*Summary*
+
+With regard to Stuart’s understanding of English, the Commission found that:
+
+His knowledge and understanding of the English language was adequate [‘]for the purpose of enabling him to follow the evidence and instruct his counsel or to give his version of the facts to the jury’. There was [‘]no truth in the suggestion…that the “petitioner is considerably handicapped when confined to the English language” or that the written confession was “beyond his mental and linguistic capacity”.’[^2] Stuart could speak [‘]reasonably good English’, and [‘]speaks English as it is commonly spoken by people who have had some but not a good deal of education.’[^3]
+
+With regard to the alibi set up by the statutory declarations, the Commission found that:
+
+If Stuart had been aware of the fact that he had returned to Ceduna before 2 p.m., [‘]there was no reason why he should not have told his counsel, or, for that matter, the jury where he was’ on the Saturday afternoon. Since Stuart had claimed in his unsworn statement that he had [‘]walked back to Ceduna in the afternoon’, the Commission could not accept that O’Sullivan would not have prepared the statement without asking him what time that was.[^4] The [‘]new evidence proves quite conclusively, that, the petitioner did, as the confession relates, walk back from Thevenard to Ceduna along the beach, in the vicinity of the cave, in which the body was subsequently discovered, at some time between the hours of 2.30 p.m. and 4 p.m., that is to say, within the period during which the child must have been murdered.’[^5]
+
+With regard to the allegations against the police, the Commission found that:
+
+They were quite unable to accept Stuart’s testimony, and said that having [‘]had the advantage of seeing and hearing the police witnesses subjected to a vigorous and searching cross-examination’, they came [‘]to the conclusion which was reached by the jury at the trial’, and had [‘]no doubt that their testimony was given honestly.’[^6]
+
+With regard to the original verdict of Guilty, the Commission concluded that:
+
+There was [‘]no valid reason for apprehending any miscarriage of justice’...and [‘]if it were a question for us, we should have no hesitation in coming to the conclusion to which the jury came at the trial.[’ ‘]Taking the evidence we have heard, in conjunction with the evidence that was taken at the trial...we think that the conclusion is one to which any reasonable jury would come after a proper direction on the evidence.[^7]
+
+### *Reactions to the Findings*
+
+Following the release of the Report, the *Advertiser* of 4/12/59
+
+provided a comprehensive summary, with the front-page headline reading STUART COMMISSION REPORTS: NO MISCARRIAGE OF JUSTICE. An editorial commented briefly on the history of the case, on the approach adopted by the Commission, and also on the findings, which it opined would be [‘]welcomed by responsible people, not only in this State, but in other places where the remarkable nature of the case has attracted attention.’
+
+The editorial expressed the views that [‘]the Commission was bent on sifting the additional evidence with extreme care,’ that [‘]Stuart’s own counsel were at no disadvantage in this most searching enquiry,’ and that the [‘]same calm, deliberate and penetrating search for the truth is manifest in the report’.
+
+There can be no doubt that the Commissioners had been thorough in their investigation, and that they had been extremely careful and cautious, given that they had refused to hear or discounted so much evidence which clearly pointed to Stuart’s guilt.
+
+The final words of the editorial were:
+
+> Our Courts have justified the confidence traditionally placed in them. No less reassuring to South Australians will be the Commission’s rejection of allegations that members of the Police Force used threats and violence to extort a confession from Stuart. Some of their evidence was subject to keen criticism during the enquiry, and was perhaps not faultless, but the Commission is satisfied that their testimony was given honestly.
+
+The main heading on the front page of the *News* of the same day read:
+
+> [‘]A midnight attempt to have the Stuart commission report debated in Parliament as soon as possible was rejected by the Premier, Sir Thomas Playford, in the Assembly last night.   [‘]The report says the commissioners could not find any miscarriage of justice in the Stuart murder case and that if it had been a question for them they would have come to the same conclusion as the jury.   [‘]Just as the House was about to adjourn until next year, Mr. Dunstan (ALP, Norwood) obtained suspension of Standing Orders to ask a question.   [‘]He asked what opportunity members would have to debate   the report. It was undesirable that the report should go   some time into the new year before it was debated, he said.’   Although the *News* had given prominence to Playford’s refusal for   there to be an early debate in parliament, it was hardly a matter   of urgency, and if there was to be an informed debate, members would   have needed time to study what the *News* said was a [‘]40,000 word   report.’ [^1] In the event, Dunstan did not raise the matter again in the   parliament until October 1960, ten months later.[^2] Thus Dunstan’splea   for there to be an early debate appears to have been opportunistic.
+
+Incidentally, on 19 January 1960, charges of libel were laid against the *News* and its editor, Rohan Rivett, [^3] but the case did not conclude until 17 March of that year.[^4] During this time it would not have been appropriate for the report to have been debated, but Dunstan made no move to comment in parliament until six months after that.
+
+This was in August, when he stated that O’Sullivan at the preliminary hearing had been in the unfortunate position of not knowing the time of the girl’s death, which was not known until the time of the trial.[^5] This was not the case. The evidence given by the local witnesses at the preliminary hearing clearly indicated that the crime had been committed between lunch time and about 4 p.m. (p.14 above)
+
+These times were confirmed at the trial, but O’Sullivan still did not pursue the matter, which at that stage was one of life or death.
+
+According to the *News* report mentioned above, Dunstan’s had referred in Parliament to two of the main findings of the Commission, and included his opinion of Stuart’s character. The relevant passages read:
+
+Stuart [‘]seems to have been an extremely unsatisfactory character at all times and a man not given to the truth on any occasion.’[^6]
+
+[‘]It is clear that the Commission has disposed of - and rightly disposed of - some objections raised concerning the original case. It is proper that they should have disposed, for instance, of Stuart’s ability in English, and certain of his allegations as to how he was treated.’
+
+[‘]From the evidence...Stuart is clearly a liar, he had a most unsatisfactory character and...the suggestion that he was unable to understand English did not bear any sort of examination.’ [^7]
+
+At the time Dunstan seems to have accepted two of the three main findings of the Commission: Stuart had suffered no disadvantage because his English was inadequate, and he had not been treated badly by the police. He had also accepted that Stuart was the sort of man who could have committed the crime.
+
+In the course of the debate Dunstan alleged that O’Sullivan had been [‘]gravely hampered’ because he had been [‘]assigned by the Law Society to an impoverished person’, which meant that he lacked funds and was [‘]severely out of pocket.’[^8] He also [‘]described as “extraordinary” the Commissioners’ view that O’Sullivan could easily have secured the Giesemans as witnesses at the trial.’[^9]
+
+The fact is, however, that for many years the Society had called for volunteers to represent destitute persons in cases such as Stuart’s, but by the time of the Stuart trial, what had been a nominal fee had become more substantial, and O’Sullivan was paid a hundred guineas (£105),[^10] a not insignificant sum in those days, for his appearance in the Supreme Court. In any case, it is very doubtful that O’Sullivan would have accepted the brief if he could not have afforded to.
+
+It was also apparent that Stuart’s cause was not hampered by any lack of funds. The Crown would have been obliged to pay for an interpreter if it had been necessary, and, as the Commission observed, lack of funds did not prevent the finding of the Giesemans, which, as they said, could have been done [‘]by the means provided by our system of administering criminal justice.’[^11] Thus there was nothing extraordinary about the Commission’s comment that the Giesemans’ evidence could have been obtained and then given at the trial.
+
+It was evident too that it was Dixon who first thought that Stuart might have had an alibi, and apparently this was not until after the High Court had handed down its decision.
+
+It was on 27 July when the Giesemans’ statutory declarations were furnished, and O’Sullivan became aware of this for the first time just before he appeared at the Privy Council on the following day. This enabled him to argue at that hearing that lack of funds had prevented him from contacting these witnesses. Stuart himself had not said anything about an alibi until the news had come from Queensland that the Giesemans were willing to testify that he had one.
+
+Another of Dunstan’s claims was that Wardrop’s evidence was dismissed [‘]because there was a difference between a summary of an impression of physical violence and the particular words that were used later.’[^12] The particular words were [‘]got his corner’, which Wardrop alleged had been used by Whitrod.
+
+This claim is complete nonsense. It is extraordinary that Dunstan, a lawyer, should have made an assumption based on two small scraps of evidence given by an unreliable witness, one an impression and the other something which Whitrod had denied. He also ignored the mass of contrary evidence which the Commission had examined in detail. The facts are that Wardrop was muddle-headed, had a bad memory, was evasive when asked direct questions, and that on a number of issues his evidence was contradicted by that of his wife.
+
+Dunstan also claimed that the Commission seemed [‘]to have adopted one attitude to one witness’s credibility and a completely different attitude towards another witness’s credibility’, and [‘]he was unable to dismiss the evidence of the Giesemans “as cavalierly as the Commission \[had\] seen fit to dismiss it.[” ’][^13]
+
+This criticism was completely unjustified. Far from being cavalier in dismissing the Gieseman’s evidence, the Commission had checked it carefully, and their account of their examination of the alibi evidence (the question of timing and the Giesemans’ evidence) occupied more than five pages of their report. The reasons for their rejection of the evidence of the Giesemans and the other [‘]alibi witnesses’ were clearly stated, and were based on its inconsistency and its incompatibility with accepted facts. These reasons were clear and compelling.
+
+The Commission was extremely thorough in examining and assessing all of the evidence, and concentrated on what could be demonstrated as factual. It excluded from consideration some of the evidence which could have strengthened the prosecution’s case, and in doing so, if there was any partiality, it was in favour of Stuart.
+
+Dunstan’s challenge to the validity of the alibi, one of the three major matters which the Commission had to decide on, had no substance.
+
+Dunstan also said that he was [‘]distressed that it should have been suggested that Mr. O’Sullivan did something less than his duty.’[^14] However, the Royal Commission had made no such criticism. Stuart’s lawyers were criticised by Napier, Reed and Brazel during one of the sittings, but essentially this was because they had followed Shand’s lead in withdrawing from the Commission, but since Shand was the senior counsel, his subordinates would have found it difficult not to have followed their leader.
+
+The Commission did criticise O’Sullivan for having claimed he had had difficulty in communicating with Stuart, and that [‘]lack of funds… had prevented him from finding the Giesemans and obtaining their evidence at the trial.[^15] Thus he had not been uncommitted or neglectful, but guilty of misrepresentation. Nevertheless, he was recognised as having been diligent and tireless in his efforts on his client’s behalf.
+
+The *News* report of 4/12/59 noted that the Commission’s report did not dispose of [‘]the request to the Executive of the Government on Stuart’s behalf for the exercise of the prerogative under Section 369 of the Criminal Law Consolidation Act to refer the case to the Full Court’ which would [‘]in effect amount to a retrial, which would be subject to an appeal to the High Court.’
+
+What the Commission had to say about this was that [‘]if the accused person elects not to give evidence he is not - in the ordinary course of things - entitled to another trial or to complain that justice has miscarried’, and [‘]It follows that by enabling the petitioner to re-open the case, first, by setting up the alibi, that he had made no attempt to set up at the trial, and secondly, by giving the testimony which he deliberately elected not to give when he was before the jury, the Executive has conceded something which the practice of the courts would not allow in the ordinary course of things.’[^16] Apparently the *News* had overlooked or ignored this section of the Commission’s report.
+
+Chamberlain shared the opinion of the Commissioners. He wrote that the [‘]Court would have had to enquire whether the “new evidence” could, by reasonable diligence, have been discovered at the time of the trial’, and that it [‘]would have been bound to refuse to hear it.’[^17]
+
+The Commission also expressed the view that the concession had been granted because of [‘]the suggestion that the petitioner \[was\] an illiterate aboriginal native - incapable of following the course of the evidence, incapable of more than a few halting and almost inarticulate words in which he addressed the jury, and quite incapable of understanding the questions put to him by the police, or of dictating or assenting to the written confession which was given in evidence.’[^18] This was final affirmation that the Government had made all of the right decisions relating to the case properly and in accordance with the law.
+
+The *News* had repeatedly given prominence to the allegations that Stuart was severely disadvantaged because of language difficulties, was denied access to help when it was needed, that the police had extorted his confession by threat and/or violence, and that he was not at the scene of the crime when it was committed. None of these allegations could be sustained.
+
+South Australians were branded as racist, and South Australia as [‘]The Hanging State’, but in 1959 no other Australian state or territory, except Queensland, had abolished capital punishment, although there had been no executions in three states for some years.
+
+The *News* was also responsible for initiating the wide publicity which led to the commuting of the death sentence on Stuart, and, in succeeding, it betrayed itself: Stuart escaped the penalty which the paper claimed it had strongly supported all along: it had said that it had [‘]no brief for keeping alive the man who committed’ the [‘]dastardly crime.’ (p.68 above)
+
+On 8 June 1960, the *News* published a leading article which declared that it [‘]regretted certain misunderstandings.[’ ‘]Never at any time did we intend to identify ourselves with any of Mr. Shand's statements regarding the conduct of the Commission.’ It had not intended [‘]to suggest that any member of the Commission was in any way unfitted to adjudicate properly on the issues before it.[’ ‘]It is common practice in our courts that a judge who has heard a case will not sit on appeal,’ but [‘]when the number of judges is limited, as it is in this state, this practice of necessity must be departed from at times.’ The [‘]fresh evidence has been fairly tested and weighed by the Royal Commission and...Stuart is now paying the penalty imposed by the law as a result of a report which we accepted without question. It is with satisfaction now that, after the dust has settled, we can re-affirm what we have always believed, that the members of the Supreme Court of this state are men in whom we and the public do and can have the utmost confidence.’
+
+Any disinterested person who had read what the *News* had written previously would have doubted the sincerity of this expression of regret. Many would have concluded that it was a blatant attempt to deny responsibility for what it had published.
+
+The *News* had published the headline “YOU WON’T GIVE STUART A FAIR GO” as if Shand had said it, and there had been the added words [‘]THESE COMMISSIONERS CANNOT DO THE JOB’ which was a plain accusation of incompetence. It had also headed a front page editorial with the words [‘]Mr. Shand indicts Sir Mellis Napier’, which implied that Shand had accused Napier of at least a misdemeanour, but Shand had not suggested this - he had said that he had been stopped and that the Commission was [‘]unable properly to consider the problems before it.’ (p.89 above.) Shand did not give any satisfactory explanation for this opinion, nor did he specify any other problems.
+
+The *News* had also argued against the appointment of Napier and Reed as Commissioners, and that their appointment aroused [‘]the gravest doubts and fears among all who know something of the inside history of the case’ It had also expressed doubt that there might not be a thorough inquiry and that the Commission might be [‘]unsatisfactory.’
+
+Who would have thought, from what it had published earlier, that the *News* had not intended to identify themselves with any of Mr. Shand’s statements, that it had considered that members of the Commission were fit to [‘]adjudicate properly’, that they had [‘]the utmost confidence’ in them, and that they would test and weigh the evidence fairly. There had been no re-affirmation but rather a volte-face. The *News* had been quite irresponsible, whereas its rival, the *Advertiser*, had done justice to the case from the beginning.
+
+One director of the *News*, Mr. Reginald Wiltshire, said [‘]that he had known Sir Mellis Napier, Sir Geoffrey Reed and Mr. Justice Ross personally for years, and always regarded them as men of the highest integrity’, and [‘]expressed regret to the chairman of directors’ about one of the posters. He said too [‘]that he disagreed with the method of reporting of Shand’s withdrawal.’[^19]
+
+Five weeks after the last charge against the *News* and Rivett was withdrawn, [‘]Rivett was replaced as editor-in-chief.’[^20] No-one can be certain why Rupert Murdoch, the owner of the *News*, demoted him, but Stewart Cockburn believed that it was because of his [‘]emotionalism and instability’.[^21] In commenting on Rivett, Sir Walter Crocker wrote that [‘]while admiring his ability, honesty, courage and generous impulses, I was not unaware of a strain of impulsiveness and quixotry in him.’ [^22] And according to Inglis, Murdoch considered that Rivett was [‘]headstrong’.[^23]
+
+The indications at the time were that South Australians generally were satisfied with the work and judgement of the Commissioners, but apparently some grievances remained for a time. Cockburn observed that the case [‘]had embittered relationships between country dwellers and friends and acquaintances in the city.’[^24]
+
+Despite the Commission’s findings and the supporting evidence, Strehlow and Dixon still clung to their opinion that Stuart was innocent. Dixon [‘]was reported in Sydney newspapers as saying that he was surprised and disappointed and that he still believed Stuart to be innocent.’[^25] Then there were a number of Stuart’s supporters, like Inglis, who still had doubts, but most of those who were not satisfied with the outcome lived interstate or overseas.
+
+## \* \* \* \* \* \* \*
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+## 11. Conclusions.
+
+1\. There can be no doubt that Max Stuart was guilty as charged.
+
+2\. Father Dixon was the first to cast doubt on the verdict, but his claim that Stuart had an alibi was false. Stuart, with his powers of persuasion and repeated claims of innocence, had led Dixon to consider this possibility. Then when Mr. Strehlow, Australia’s most prominent native language expert, declared that the language of the confession could not have been Stuart’s, any possible doubts which Dixon might have had were dispelled. He therefore committed himself to righting what he perceived as a dreadful wrong done to a poor disadvantaged Aborigine, and persisted in this endeavour despite all the evidence to the contrary. In the end he was unable to accept the findings of the Commission.
+
+3\. Having believed that Stuart could not possibly have used the language in the confession. Mr. Strehlow, like the worthy Father Dixon, also fell victim to Stuart’s persuasive wiles.
+
+4\. Strehlow’s assertion that Stuart could not possibly have been guilty quickly attracted the support which sparked the whole controversy, but, as the evidence clearly showed, he was wrong. One result was that his performance as a witness, and that of Dixon, demonstrated that they were blinkered, and their credibility was destroyed. Their previous experience of dealing with Aborigines and their problems had closed their minds to reality. Neither of them could face the facts which contradicted their opinion.
+
+5\. Many of Stuart’s other supporters were also prejudiced, and all too willing to accept Strehlow’s assertion that Stuart could not have used the language of the confession. Among the leaders of the campaigners were university intellectuals, who, as Chamberlain observed, [‘]led a newspaper editor to discover the makings of a front page story’, which [‘]stirred up emotions that developed into an attack on institutions fundamental to the democratic way of life. [^1]
+
+6\. Another conclusion is to be found in Sir Walter Crocker’s
+
+book *Sir Thomas Playford, A Portrait*, in which he wrote: [‘]The public reaction which blew up in favour of Stuart was created by the mass media triggered off by certain academics, above all Strehlow who was considered to have unique competence, and sustained by people with religious affiliations like Reverend F. Borland, Dr. C. Duguid and above all Father Dixon.’ Crocker’s opinion was that [‘]Strehlow’s knowledge of Aborigines or his sincerity could never be in any doubt’, but that there could be doubt about [‘]the judgement and the consequences of the temperament of this rather lonely man.’[^2]
+
+7\. O’Sullivan was assiduous as Stuart’s advocate at all of the hearings which preceded that of the Royal Commission. No other barrister could have been more zealous. Legoe wrote that although he did not know O’Sullivan personally, he had never heard any lawyer say that he was [‘]unprofessional’ or [‘]incompetent’,[^3] and there is no reason to suppose he was lacking in competence in his defence of Stuart.
+
+However, there can be some criticisms. One is that he persistently exaggerated Stuart’s language disability. Another is that at the Privy Council hearing he questioned the integrity of the South Australian Government Executive. (p. 63 above) Some of his public statements are also open to criticism. For example, his bitter attack against the Police Association was uncalled for and intemperate, (pp.46-54 above) and his criticism of the choice of Commissioners was groundless and fatuous. (see p.70 above) Then there was his acquiescence in the decision to leave defence witnesses without representation at the Commission. These actions and decisions were not well received by some members of the legal profession, and consequently he felt that he was persona non grata and decided to move interstate.
+
+8\. Mr. Shand was faced with an impossible task, and failure was inevitable. He had often been the dominant figure in court hearings, but at the Royal Commission he had been thwarted at every turn, and there can be little doubt that this is what led him to accuse the Commissioners of unfairness and incompetence. It is difficult to believe that he left merely because he had been interrupted or was piqued. Perhaps he thought that his pulling out might enable Stuart to avoid having to appear as a witness. Whatever his reason or reasons, the results were disastrous: the work of the Commission was impeded; witnesses like Strehlow and Dixon were disadvantaged; Crown witnesses were not cross-examined; public controversy intensified; and reputations were impaired. Sadly, Shand was seriously ill at the time, and he died only two months after his last appearance at the Commission.
+
+9\. At the trial, the case against Stuart depended almost entirely on the confession. The police had no doubt expected that the evidence of the trackers would be accepted, but the Commission concluded that it was [‘]plainly valueless’.[^4] However, it was found that Stuart’s allegation that hairs had been pulled from his head was false: an examination revealed that they had been cut and not pulled. (p.79 above)
+
+The investigating police could easily have obtained additional information which would have supported the prosecution’s case, but it had not occurred to them that this would be necessary. They could and should have asked an independent witness, such as Dr. Thompson or Mr. Kleinig, to confirm that there were scratches on Stuart’s body and that they matched the police description of their nature and their positions on the body. They could also have questioned the Giesemans, their employees and probably others about Stuart’s language ability and his whereabouts at the time of the crime, and it was not until the Commission heard additional evidence that it became clear that the police had not acted dishonourably and that the verdict was safe.
+
+10\. The Premier, Sir Thomas Playford, who was strongly criticised by many of Stuart’s supporters, had acted with perfect propriety during the whole course of the affair. He trusted the police as a body, and had faith in the judiciary and the justice system. By the time it was all over, it had become perfectly clear that he had acted properly at all times, despite a few unfortunate decisions, and that the judgements of the courts were above reproach.
+
+As far as he was concerned, the normal processes of the law had been followed; none of Stuart’s rights had been denied him; he and his Government had not interfered, but had left the law to run its course; they had accepted that capital punishment was the prescribed punishment for murder; and they had been kept fully informed at all times, and therefore knew much more about the case than most members of the public.
+
+The only mistakes which Playford made were political: his appointment of Napier and Reed as Commissioners was an error of judgement, and so was his choice of the Commission’s terms of reference, since they were open to criticism as having been too narrow. And he should probably have commuted the sentence earlier than he did. These mistakes cost the government dearly: as Cockburn said, they enabled his opponents to [‘]gain entry’ to the [‘]hitherto impregnable Playford fortress’ which eventually led to the Government’s defeat.[^5]
+
+Playford was strongly criticised for his support of capital punishment, but he was not immune to argument on the matter. After he retired, Sir Walter Crocker had many interviews with him, and wrote: [‘]Playford in his talks with me showed that his mind was not closed on the subject and that he understood the feelings of those against capital punishment (including in his own family). On the other hand he was inclined to think that as the crime rate, especially as crimes of violence rose, and, given the attitudes of the man in the street, especially on his right to be protected from violence, capital punishment in the end would be reintroduced.’[^6] No doubt Playford was well aware not only of the case against capital punishment, but also of the difficulty of assessing the effects of its abolition with certainty.
+
+11\. The *News* had been quite irresponsible in its reporting of the case. Every opportunity was taken to sensationalise, often at the expense of accuracy and truth. In reporting Dixon’s claim that Stuart had an alibi, the *News* headline was STUART HAS PERFECT ALIBI: THREE GIVE AFFIDAVITS ON STUART: MURDER CASE BOMBSHELL, and this was followed by the gratuitous advice to the Government to DELAY THIS HANGING.
+
+The fact is that Stuart did not have an alibi, yet the headline proclaimed as a fact that he did, and then proceeded to advise the Government to do what it would necessarily have to, which was to provide for an investigation.
+
+The reporting of Shand’s walkout, of the alibi evidence, and of the untested allegation that the confession had been [‘]bashed out of Stuart’ was particularly reprehensible. Then there was the curious and disparaging description of the Privy Council hearing, (pp.61-62 above) as well as the false headline, [‘]Q.C.s ATTACK JUDGES NAPIER AND REED - MR. SHAND SUPPORTED’. (p.94 above) The extensive account of Travers’ criticisms of the Commission was another example of one-sided reporting – they were baseless and in any case hardly worth mentioning.
+
+Although the *News* had been guilty of unbalanced and unjustifiable reporting, this would probably not have been apparent to many readers. Indeed it can be said that the version of events published by the News was the main factor which contributed to the worldwide denigration of South Australians and in particular of its government, its judges and its police force.
+
+The ultimate responsibility for the way the News had reported the case lay with Rupert Murdoch, the proprietor, whose main aim was to maximise sales. In this respect he was following in the footsteps of others such as Randolph Hearst, one of the first to build a media empire by way of eye-catching and misleading headlines, exaggeration, sensationalism and sometimes blatant untruths, in short - [‘]yellow journalism’. Like Hearst, Murdoch was eager to increase profits even if this meant sacrificing the truth at times .
+
+## \* \* \* \* \* \* \*
+
+# PART II: ONGOING CONTENTIONS
+
+## 12. Articles in [‘]Nation’
+
+At the time of the Stuart affair, Inglis was the Adelaide correspondent for the fortnightly journal *Nation*, considered by many to have been a left-wing paper. During the course of the affair he reported from time to time on the Stuart case, which he was following closely. Not unsurprisingly the views which he expressed accorded with many of those in his book which was published two years later.
+
+### *The Hanging of a Man*
+
+One of his articles appeared in the 18 July 1959 edition of the journal and was headed THE HANGING OF A MAN *A Police Association’s extraordinary campaign*.
+
+He saw the Playford Government as stubborn in not considering the abolition of capital punishment, and not bowing to pressure to commute Stuart’s sentence. He wrote that the [‘]Howard League for Penal Reform...reports from time to time that nowhere in the world has capital punishment led to a decrease in murder; but the Playford Government appears immune to argument on the matter.’
+
+This is contrary to Sir Walter Crocker’s opinion which was based on his conversations with Playford. It seems clear that Playford well understood the arguments of those opposed to capital punishment, and the reasons for their opinion. (pp.182-183 above) Evidently he had considered the question carefully and honestly believed, as he intimated to Crocker, that capital punishment for murder was necessary for the adequate protection of the community.
+
+A majority of quite rational Australians supported the death penalty in the 1950s,[^1] and polls have indicated that a substantial number still do. Many who had previously opposed it changed their minds after the Bali bombings, which reignited debate on the issue. Such people, like Playford and his colleagues, cannot be regarded as stubborn - they shared majority opinion at the time of the Stuart case, and probably would have doubted the conclusions of those who claim that capital punishment is not a deterrent. The issue is complex, and a substantial number of Australians still do not accept this view.
+
+In 1967 the Law Commission of India examined the question of capital punishment, and in its detailed and lengthy report wrote: [‘]India cannot risk the experiment of abolition of capital punishment.’ Then followed the insightful comment: [‘]Arguments which may be valid in one part of the world may not hold good in respect of another.'[^2] Some excerpts from the report, which summarise the reasons for the Commission’s decisions are set out in the Addendum.
+
+Inglis asked the question: [‘]Why has this controversy been so vehement?’ His answer was, [‘]Because Stuart is an aborigine; and because the High Court, though it refused him leave to appeal against the conviction, expressed anxiety about the conduct of the trial.’
+
+Was it reasonable to still doubt that Stuart was guilty on these grounds? The fact that he was an Aborigine was hardly relevant, and those who campaigned on his behalf had only the opinions of Strehlow and Dixon to rely on. Moreover, it appears from the evidence that the High Court was more concerned about Stuart’s ability to understand what was going on at the trial than about anything else, and the Court had put no store on Strehlow’s affidavit.
+
+Nevertheless for some to have still harboured some doubt at the time was understandable, but any challenge to the decisions of the courts needed to be based on sustainable evidence.
+
+The High Court’s decision was handed down on 19 June, and on 27 June the decision to mount the campaign for commutation was made. This became public knowledge on 29 June.[^3] Rev. Frank Borland had added his weight to the campaign via statements printed in the *Advertiser* and the *News*, and there were other letters to the two papers. (p.39 above)
+
+On 29 July came the distribution of the pamphlet, but it was not soundly based, and its inflammatory propaganda had a huge impact, which for many people, apparently including Inglis, outweighed the decision of the Privy Council, for which the authors had not been content to wait.
+
+In the *Nation* article Inglis proceeded to express the following opinions:-
+
+1\. He believed that a Government welfare officer should have been present when Stuart was interrogated.
+
+2\. He also referred to the fact that Strehlow had stated in his affidavit to the High Court that [‘]the confession was expressed in language which Stuart could not have used.’
+
+3\. Chamberlain did not consent to Stuart having the unsworn statement read for him.
+
+Comments:
+
+1\. There was no specific requirement in the relevant legislation for a welfare officer to be present, and the police were entitled to ask questions of anyone suspected of an offence. Moreover, there was nothing to indicate that Stuart had been disadvantaged because he was an Aborigine.
+
+2\. There was no independent evidence to support the claims which Strehlow had made in his affidavit. Further, there was nothing of any substance in the language of the essential part of the confession to indicate that it was not genuine. In fact there were grammatical solecisms which indicated that the words were Stuart’s rather than those of the police.
+
+3\. Chamberlain suggested that Stuart could have been assisted by prompting so as to make known what was in the unsworn statement, but O’Sullivan rejected the offer.
+
+In the same 18 July edition under the heading *Marginal Comment* another writer commented:
+
+[‘]While a man in Adelaide Gaol is waiting to learn whether his sentence to death by hanging will be carried out, the South Australian Police Association has been lashing out publicly with accusations about the man’s past and his character, allegations that were not proved in Court and are denied outright by his counsel. To influence the final decision against giving a condemned man the benefit of the doubt would be a grave transgression of the functions of the police at any time. What makes it particularly shocking in the Stuart case is the fact brought out in Mr. K.S. Inglis’s article in this issue, that the head of the Police Association himself played a part in the arrest and charging of the man.’
+
+Comments:
+
+If there was a lashing out, it was O’Sullivan’s unrestrained public denunciation of the Police Association’s statement. (pp.40-46 above) The police statement was issued in an attempt to defend its members against apparently false accusations, and not to influence a [‘]final decision’ against Stuart. In any case it could not possibly have carried any weight in a judicial hearing.
+
+Moreover, the comment was not accurate, inasmuch as good deal was known about Stuart’s past and character which did not need to be proved in court. The police had been told before the trial that Stuart had been sacked because of his unreliability and his drinking, and that he was aggressive when under the influence of wine - Gieseman and Moir had provided this information to Phin in Whyalla, (pp. 83-84 above) and it was this which indicated that Stuart was a possible suspect. It was also known that he had spent a night in the Ceduna prison. Further, the references to Stuart’s criminal record were not [‘]accusations’: they were to the various court findings which provided information about his past and character.
+
+As far as the police and probably most members of the public were concerned, the matter had been settled by the High Court, and the Police Association statement was issued because, despite the findings of three courts, Stuart’s supporters were still continuing to challenge their integrity via public statements.
+
+No doubt the Association had given no thought to the possibility of a further hearing, but two days after the publication of its statement, which was on 4 July, Stuart’s solicitors applied for a Privy Council Committee review of the case.
+
+In the circumstances, it is difficult to accept that in issuing the statement the police had been guilty of any [‘]grave transgression’, if indeed they had transgressed at all. Moreover, why should persons who were innocent not be free to defend themselves publicly against widely circulated opinion that they were not?
+
+### *Playford’s Sense of Justice*
+
+On 1 August 1959, *Nation* published an article by Inglis under the above heading.
+
+The first part of this article dealt with the case of a murder at the Pine Valley sheep station, committed by John Whelan Brown. A jury had found him guilty, rejecting a defence plea of insanity, and he was sentenced to be hanged. An appeal to the Court of Criminal Appeal was rejected, and Brown’s counsel then appealed to the High Court, which unanimously upheld the appeal and ordered a new trial. However, the Playford Executive decided to appeal to the Privy Council. Inglis reported that this decision was made on the advice of Sir George Ligertwood and Chamberlain.
+
+According to Inglis, this [‘]intervention drew a public statement from Professor Norval Morris, the new Dean of the university’s Law School’, who said that [‘]In England...when the Crown appeals to the House of Lords in the case of a man charged with murder, the Lords are notified in advance that he will not be executed whatever the results; so if the South Australian government were interested in a point of law and not a man’s life, it should announce its intention not to execute Brown.’ Inglis added that the government made no reply to this suggestion.
+
+Comments:
+
+Inglis did not explain how or why this provision of English law could or should have applied in South Australia, where the authority to commute a sentence lay with the Executive, and in any case he did not include any reference to the circumstances under which a Crown appeal to the House of Lords might be warranted.
+
+Nor did he make any mention of the fact that in the Whelan Brown case the Privy Council judges had unanimously rejected the High Court decision, a decision which had become known on 29 July, two days before his article was published. He may have written the article before that date, but if so he could have waited for the verdict of the Council before criticising the Government.
+
+Why Morris criticised the Government for not being interested in [‘]a point of law’ is mystifying. After all, it is the duty of lawyers and judges to seek justice by paying close attention to the law in all its detail, and all that Playford had sought was to have the matter settled in the courts, where all of the relevant points of law could be closely considered. It is of course stating the obvious to say that the law at the time was that convicted murderers were subject to death by hanging, and that it was the duty of governments to uphold the law unless there were extenuating circumstances.
+
+For Playford and his men the question of commutation for Stuart was a separate issue from the one of Brown’s possible guilt. After Brown’s conviction, the Executive Counsel considered the matter and decided to commute his sentence of death to one of life imprisonment because he was [‘]mentally abnormal.’[^4] Thus in this case there were extenuating circumstances, and the Government Executive had seen to it that justice was done.
+
+Inglis had no cause to suggest that Playford had been in any way unjust in dealing with the Stuart case or that of Brown. Playford was interested in establishing the truth, which was the job of the courts. In the Brown case this involved the weighing of evidence to decide whether he was legally insane and whether he had acted on uncontrollable impulse. Thus, if he was guilty, there was the question of whether some allowance should be made for [‘]diminished responsibility’. The fact that the High Court and the Privy Council disagreed so definitely was one indication of how difficult the task of doing justice was in the case.
+
+On 26 September, in the section *Marginal Comment*, there was another reference to the Whelan Brown case. It was claimed that Playford had made [‘]the wretched decision to appeal to the Privy Council’ because the [‘]Chief Justice complained that too many appeals from the verdicts of his bench were going on to the High Court in Melbourne.’ The writer claimed further that [‘]having been misled by his advisers into opposing an order for a re-trial in one murder case, \[Playford\] is now in a cleft stick when it comes to suggesting a re-trial in the other case of Stuart.’
+
+Comment:
+
+The author’s claim that Playford had based his decision on the Chief Justice’s complaint is implausible: Inglis had already written only a month before that Playford had acted on the advice of Ligertwood and Chamberlain and not on that of Napier. It was not Playford who had been misled, but the misguided commentator who drew the extraordinary conclusion that his decision was [‘]wretched’. The notion that Playford was in a [‘]cleft stick’ was equally fanciful. The passage is a prime example of left-wing extremism.
+
+### *Where The Stuart Case Stands*
+
+An article with the above heading was published in the 29 August edition of *Nation*. It was written by Inglis [‘]to remove some misconceptions arising from other reports.’ He began by referring to Playford’s assurance [‘]that every matter connected with \[the Stuart case\] would be “sifted to the ground”.’ He then wrote that it [‘]seemed to many people’ that [‘]Sir Mellis Napier intervened before anything could hit the ground.’
+
+Comments:
+
+This opinion is not supported by fact. Before Napier had [‘]intervened’, the Commission had heard the alibi witnesses and those from Ceduna, and a good deal of evidence had been given about Stuart’s movements and behaviour on the day of the murder. In the main what was left to deal with was the question of Stuart’s language ability and the allegations against the police. There was no cogent reason to suppose that the Commission would not have proceeded to deal with these things. Nor was there any reason to assert that there would not be a thorough and balanced consideration of the evidence.
+
+Further, there was no reason to suppose that Shand would have succeeded in eliciting anything of substance by continuing to question Phin. He had not achieved this after persistent questioning, during which time Phin had established himself as a reliable witness, who gave thoughtful and often detailed answers to the probing of an expert cross-examiner. When Napier interrupted him, Shand was still attempting to undermine Phin’s credibility, but he could not have succeeded by continuing to press the witness on what was a trivial and insignificant matter. Nor would the outcome have affected the credibility of other witnesses. Moreover, Phin’s involvement in the affair was marginal.
+
+After a preliminary summary of a few of the previous events, Inglis turned to those which culminated in the walkout by Shand and his assistants. He wrote that Shand [‘]took over’ and [‘]gained from Phin an admission that before asking Moir any questions he told him he had nothing to worry about, although for all he knew at that time Moir might have been guilty.’
+
+Comments:
+
+Inglis made no reference to the fact that Shand had subjected Phin to [‘]a hostile and stringent cross-examination which occupied thirteen pages of transcript.’ (p.83 above) Nor did he assess Phin’s performance as a witness. Although Phin admitted that there were some things which he had forgotten, it was clear that on the whole his memory was on quite good, and it was only after close questioning that Shand was able to establish that it was not perfect. Moreover, the question at issue was of little moment.
+
+There had been no [‘]admission’- Phin had simply agreed that he had reassured Moir. Phin had known that the murder had been committed before he questioned Gieseman in Whyalla, and he knew from what Gieseman had told him that Stuart could be a suspect. Hence he would not have considered that the teenage Moir could have been guilty. It may well be that he had reassured Moir so that the lad’s answers would not be affected because he was being questioned by a policeman.
+
+Inglis referred to Shand’s false claim that the police had [‘]bashed \[the confession\] out of the black bastard’, and cited an error in the reporting of the walkout by the *Advertiser.* The paper had substituted the words [‘]not quite as strong’ instead of the words used by Shand, i.e. that his statements were [‘]a little stronger’ than he had indicated.[^5] According to Inglis, many people who had read Shand’s [‘]admission’ in the *Advertiser* [‘]must have thought that he had made a damaging admission.’ He then accused the *Advertiser* either by [‘]design or incompetence’ of giving [‘]the impression that Mr. Shand had sought an adjournment because he had been caught out, not because it seemed to him that Sir Mellis Napier had slammed the door against truth.’
+
+Comments:
+
+The *Advertiser* had made a slip in one short paragraph of a long report, but it is difficult to believe that many people would have spotted the error and concluded that Shand had made a [‘]damaging admission’. Shand was the one who had been caught out, and this was because he had made a false claim. (pp.81-82 above)
+
+Napier had not shut the door against truth. He had interrupted Shand because he was satisfied that he had heard enough to make up his mind on the matter before him, but invited Shand to continue if he felt that this would convince the Commission otherwise. And as Chamberlain had remarked, such interruptions are common. (p.91 above)
+
+Inglis thought that readers of the *Advertiser* had been led to believe that it had [‘]been behaving curiously over the Stuart case for weeks.’ He gave three reasons for this opinion. [‘]Its readers were the last people in Australia to hear of Father Dixon who found the new evidence...’; it had attributed to Borland [‘]a statement which he did not make’; and it [‘]reported untruly that copies of a pamphlet issued as part of this campaign had been distributed from an aeroplane.’
+
+Comments:
+
+Inglis did not say why it was important for the *Advertiser* to have reported earlier that Dixon was seeking an alibi. It may be that the editor had simply decided to await developments before going into print.
+
+What the paper did print at the time was: [‘]More than 10,000 pamphlets...are being distributed by a group of Adelaide citizens’, and [‘]Among those responsible for its preparation are the Warden of the University Union, \[Mr. F.T. Borland\], and the Senior lecturer in History at the University, \[Dr. K.S. Inglis\].’[^6] Thus the *Advertiser* had made a wrong attribution, but it was a minor error compared with the ones in the pamphlet, in which there were errors and assumptions based mainly on opinion. (pp.54-60 above)
+
+The *Advertiser* had not said that the copies had been distributed from an aeroplane - it had simply stated that there had been a report of this. The relevant passage in the paper read: [‘]Last night it was reported that copies of the pamphlet had been thrown over the city from a plane in the afternoon.’ Following that it was reported that the Police Commissioner had decided not to investigate the incident, and that it was a matter for the City Council. [^7]
+
+Later in the article, Inglis wrote: [‘]A Royal Commission of this sort, an enquiry into a possible breakdown of the ordinary judicial machinery, is a very rare event. A breakdown of this special device is probably unique and certainly bewildering.’
+
+Comments:
+
+Just what can be made of this is beyond comprehension. Was he referring to the interruption to the proceedings which followed the exit of Shand and his colleagues? This event was almost certainly unprecedented, but why was it bewildering? It was certainly surprising, but there was nothing confusing or mystifying about it.
+
+There had certainly been a breakdown during the Royal Commission hearings when the normal practice of having witnesses represented by counsel had to be abandoned, but it was not the job of the Commission to enquire into the disruption, one which could not have been foreseen as [‘]possible’. The Commission had to do the best it could in the circumstances, and after the inevitable delay, it got on with the task assigned to it.
+
+In any case, the Stuart Royal Commission was not [‘]an enquiry into a possible breakdown of the ordinary judicial machinery’. The Commission was not empowered to make such an examination: what it could do was prescribed by the terms of reference.
+
+The article continued with speculation. What if the Commissioners find ground for doubt about the original verdict? What if the verdict is upheld? What if the Commission [‘]gives any ground for people to think that Mr. Shand and his colleagues were right about it’?
+
+Comment:
+
+There seems to be only one answer to the first and third of these questions - the Commission would have had to recommend either that Stuart be pardoned, or that the Executive legislate to provide for a new trial. Likewise, the answer to the second question is obvious. If the verdict had been upheld, then as far as most people were concerned that would have been the end of the matter.
+
+Then there was a prediction: [‘]In the long run Sir Thomas Playford will have to make some reply to a petition from Miss Devaney requesting a Full Court hearing for Stuart’, which [‘]Professor Norval Morris and others said...would have been better than a Royal Commission.’
+
+Comment:
+
+There were good reasons for preferring a Royal Commission hearing rather than the other options, and Playford would not have had to consider the possibility of a retrial unless the Royal Commission were to find that there was cause for it.
+
+### *Stuart for the Box*
+
+An article with this heading appeared in *Nation* on 10 October, and presumably was written by Inglis. It was stated unequivocally that after [‘]three months’ delay, Sir Thomas Playford had [‘]caught up with a hint of the High Court...that the death sentence on Rupert Max Stuart should be commuted.’ The reason given for this view was that the High Court had found that [‘]certain features of the case have caused us some anxiety’, and that this was [‘]long before the alibi and without Mr. Strehlow’s opinion on the authenticity of the “Confession”.’
+
+Comment:
+
+The fact is that in its judgement the High Court did not specify precisely the reasons for its anxiety, and had not found sufficient reason to order a new trial. In particular, the Court had not accepted Strehlow’s claim that the confession [‘]could not have been dictated by a totally illiterate part-aboriginal.’
+
+Playford, and many others for that matter, would have thought that in view of the High Court’s decision, there could be no doubt that Stuart was guilty, and therefore that there was no reason to consider commutation of the sentence. Nevertheless, after the Court’s decision, much more support for Stuart was mobilised and controversy escalated rapidly.
+
+After observing that at one hearing the Commission had ruled that Stuart would have to give evidence before the police were called, the author of the article proceeded to claim that by adhering to this decision the Commissioners were [‘]conceding the right of a thorough examination of “the accused”.’
+
+Comment:
+
+There had been no concession. The Commission simply ruled that if Stuart were to give evidence, then the police should have the right to reply, (p.80 above) a ruling which normally applies to anyone who makes a claim against someone else.
+
+The author continued: [‘]In most states of the Commonwealth, it is considered the duty of an investigating police officer to obtain all the evidence surrounding a crime, not to obtain evidence to convict one suspect.’ Phin was then identified as one who might not have been thorough.
+
+Comment:
+
+What the author intended by this statement is not clear. It appears that he was inferring that the police had decided that Stuart was guilty and then tried to find evidence to confirm that he was. But is it not the job of an investigating officer to find enough evidence [‘]surrounding a crime’ in order to decide whether or not a suspect should be charged? And is this not what the police did in the case of Stuart? As soon as Phin realised that Stuart might have been a suspect, he reported to his superior, the investigating officers were promptly notified, and they acted quickly to interrogate him. (p.3 above) There was no evidence of any impropriety.
+
+Next came another strange statement: [‘]Mr. Starke has allowed Stuart to go into the box and placed the responsibility squarely on the Commissioners. If the Commissioners adhere to the line of inquiry which last Monday’s proceedings indicate, if Stuart’s guilt is no longer a “foregone conclusion” and the police investigation not a taboo subject, then the public may at last hear those fragments of evidence which only all available witnesses can supply. How those fragments will fit into the total picture which no one person, with the possible exception of Stuart, has witnessed and which even he may not fully recall, is another problem.’
+
+Comments:
+
+This passage appears to have been redundant. The Commissioners had said that they wanted to hear Stuart and had always been willing to accept the responsibility, and Starke very reluctantly agreed to his appearance. Naturally the normal lines of inquiry were followed: Stuart was given the opportunity to challenge the [‘]foregone conclusion’; the police investigation was not a taboo subject; and people would as usual be able to hear the evidence.
+
+The author did not provide any reason for thinking that there was a problem in how parts of the evidence would fit into the picture. The normal processes of assessing evidence had to be followed, and the Commissioners had to decide what fitted together and what did not. There was nothing especially problematic about this.
+
+The article concluded with an opinion that a Full Court hearing would have been better than a Royal Commission because such a hearing would leave open an appeal to the High Court. It was then opined that Shand must have realised that the only appeal open to him was to withdraw from the Commission.
+
+Comment:
+
+Here were more odd ideas. An appeal to the Full Court was not an appropriate option, and all that Shand had said was that the particular Commission before which he was appearing was [‘]unable to consider properly the problems before it.’ If he was appealing, it was probably to public opinion, and if so, what possible outcome he had in mind would have been anyone’s guess. Perhaps Shand thought that there should have been a new Royal Commission constituted differently.
+
+What had been written in *Nation* was one-sided and unconvincing. There was too much speculation, and in too many instances conclusions were drawn without adequate supporting evidence. There were also instances of illogicality, irrelevance, and plain error. Chamberlain accused Inglis of intellectual arrogance, and he may have been right. What seems clear is that despite the findings of the Commission, like Strehlow and Dixon and the other leaders of the campaign to save Stuart, Inglis was not persuaded that Stuart had dictated the confession, that the police were trustworthy, or that Stuart had been dealt with fairly. The passion of Stuart’s supporters in their commitment to his cause, reinforced by their opposition to capital punishment, had blinded them to reason. There was no room for self-doubt.
+
+\* \* \* \* \* \*
+
+##  13. Inglis: ‘The Stuart Case’
+
+### *Overview*
+
+The Stuart case provided all the ingredients for a great story, and Inglis was eager to tell it. In his book he captured the drama and tensions brilliantly, and comprehensively identified and discussed many of the questions raised. He was assiduous in the research he undertook, and his reporting of events and opinions is revealing. Nevertheless, many of his opinions are open to question, and perhaps this should have come as no surprise. It was almost inevitable that the sharp division of opinion which arose during the yearlong saga would continue, at least for a time.
+
+One chapter in his book, [‘]Guilty or not Guilty’, dealt specifically with the question of Stuart’s guilt or innocence, but in considering this question he concentrated his attention on contradictions in the evidence of particular witnesses, and on discrepancies between that of different witnesses. However, contradictions in the evidence of witnesses are not uncommon. They can be due to lapses of memory, and some witnesses simply become confused and give wrong answers inadvertently. It is also well-known that some people have much better memories than others. Sometimes a witness gives a wrong answer, and after being told that the answer is wrong and what the truth is, the memory returns: the witness may then retract, and sometimes even explain why the memory failed. There are other factors: positive evidence that something happened is often more reliable than evidence that it did not - in any particular situation, some people see or hear things that others do not. Corroboration of the evidence of one witness by another is a very important factor. It is also well-known that the evidence of a child or adolescent is more likely to be unreliable than that of a mature adult. A number of witnesses at the Royal Commission were young.
+
+Thus it is not uncommon for witnesses to give conflicting evidence, and the likelihood of this increases over time. Witnesses at the Royal Commission were questioned seven months and more after the crime had been committed.
+
+When it comes to a court hearing, the evidence has to be weighed, with many factors taken into account. The task is not always easy, but it is what has to be done. In many cases, only the judges, jury, and others who are present for the whole of a hearing can make a decision with complete certainty. Even those who have not been present but study transcripts of evidence are not in that position, but if they are to make the most of what information is available they must, like a judge, endeavour to weigh the relevant evidence.
+
+Inglis did not do this. In concentrating his attention on contradictions and discrepancies, rather than taking into account more significant evidence, he was led to conclusions which are not supported by the weight of the evidence as a whole. Many examples of this can be found in the chapter headed [‘]Guilty or not Guilty?’.
+
+In his charge to the jury at the trial, Reed observed that [‘]it is usual to find some contradictions in the evidence of a group of witnesses.’ Then, after giving some examples, his advice to the jury was to [‘]give \[them\] such weight as you think they are entitled to.’[^1]
+
+Inglis made little or no attempt to assess the performance of Strehlow or Dixon in the nine or so pages of his book which deal specifically with their evidence, and cited only a small fraction of the evidence of these two key witnesses.[^2] This is a major flaw, given that a consideration of their evidence in some detail is crucial to an adequate assessment of the worth of their claims.
+
+Both editions of his book set out clearly the course of events after the discovery of the crime, with the second edition proceeding to the end of Stuart’s life. They include background information which is of considerable interest. However, much of this does not bear on the central question of his guilt or innocence.
+
+Inglis considered that Stuart was not treated fairly, either at the trial or during subsequent proceedings, and he found fault with the South Australian judges who had sat at the Full Court of Appeal and at the Royal Commission. He criticised the police, cast doubt on their integrity, and criticised the Premier and Government for their handling of the affair. He also expressed some personal opinions about the character of South Australians and the nature of South Australian society, for example by way of reference to the influence of a so-called [‘]Establishment’. Beyond that he identified historical factors which he believed shaped the character of the people. His opinions about Adelaide’s two newspapers feature prominently. He outlined Stuart’s background well, as he did for a number of others, including Dixon, Strehlow, Duguid, and Rivett. Nothing comparable about the life and achievements of Chamberlain, Napier, Reed or Playford was included.
+
+### *Guilty or Not Guilty?*
+
+In considering this question, instead of dealing with the evidence, Inglis focussed mainly on the Commission’s report, challenging many of its observations and findings. However, many of these challenges were mere speculations, and in too many instances he ignored evidence which should have been taken into account before he drew conclusions.
+
+From two comments made by the Commissioners, namely, [‘]We feel obliged to point out that the need for this enquiry could hardly have arisen, if the evidence which we have taken had been made available at the court of trial,’ and [‘]the plain fact is that the prosecution was content to rest its case upon the confession, without seeking for the testimony by which it has now been fortified’, Inglis concluded: [‘]In effect the Commissioners pass a severe judgment on the police and the Crown law authorities for letting the controversy occur’. [^1]
+
+Certainly there was criticism, but was it severe? The comments related to the fact that as things turned out the police were seen to have been neglectful in not having sought additional evidence to support the case against Stuart. However, at the time, the police and the prosecution believed that they had enough evidence to secure a conviction. They had no idea that there would be any doubt, let alone controversy, and at the trial there was a conviction.
+
+The police believed that what was in the confession was fortified by the evidence of the blacktrackers, and believed, or at least hoped, that a comparison of the hairs cut from Stuart’s head and from the girl’s fingernails would show that they were identical. Moreover, they obviously did not expect that they would be accused of extortion and perjury. It did not occur to them that there was any need for further investigation, and if there had been any suggestion of an alibi at the time of Stuart’s interrogation, then of course they would have taken steps to check its validity.
+
+Some criticism of neglect on the part of the police was justified - they could, and no doubt should, have asked someone to come forward to examine Stuart’s body so as to verify their claim that it had been scratched. And in hindsight it can be seen that they should, and easily could, have sought out local residents who could provide evidence about his movements at the time of the murder and about his behaviour during his time at Ceduna. They could also have sought information about his competence in English. but they had no idea that this would be questioned. In any case, when it comes to blame, Strehlow, Dixon and their supporters initiated the controversy, and their opinions were shown to have been unjustified.
+
+In any case, the strongest criticisms of the police were directed at Constable Jones and Sergeant Walker. The Commissioners observed that Jones had taken no notes of during Stuart’s interrogation, but their conclusion was that there was ‘ample support for Jones’ recollection of the oral interrogation.’ They criticised Walker for not having entered in the Station Journal a note that Stuart had been arrested and locked up on the Saturday evening, but considered that a shortcoming of this kind did not warrant ‘any doubt of his integrity.’ [^2]
+
+Reporting on the third term of reference, which was essentially to inquire into the reasons why the statements of the Giesemans and Betty Hopes had not been made earlier than they were, the Commissioners wrote that the only reason which they could assign to it was that it never occurred to them, or to Stuart’s advisers, that they could give any evidence which would assist Stuart on the trial.[^3] Hence in the opinion of the Commissioners, if there was to be any blame for not pursuing inquiries, Stuart, O’Sullivan, and the alibi witnesses were at least as neglectful as the police had been. Stuart and O’Sullivan in particular had much greater reason to seek the additional evidence than the police had. If Stuart was not guilty, he did not tell the police where he was at the time of the murder, and, as has been said, if he had known that he was at the funfair between 2 p.m. and 4 p.m., he would surely have told them and also O’Sullivan. At the Commission he claimed that he had not told the police because he was frightened, which in the light of the evidence is simply not credible.
+
+Was Inglis suggesting that if the police had found more evidence and that if this had been presented to the Court, then Stuart would possibly not have been convicted? In the event there was no persuasive evidence to support this idea. The Commissioners rightly blamed the police and Crown law authorities for lack of diligence, but not for the controversy which followed.
+
+Inglis wrote that [‘]the Commissioners offer criticism closer to the central issue.’ This was that they had not accepted Jones’s claims that the police account of the interrogation was word perfect or that the confession was dictated verbatim.[^4] He also observed that although the Commission had pointed out that Jones had testified wrongly about the details of the confession, he was [‘]merely described’ by the Commission as [‘]incautious’. He also identified two inconsistencies between the evidence of Jones and that of Turner, and two inconsistencies between the evidence of individual witnesses, commenting that [‘]none of these conflicts \[troubled\] the Commissioners.’[^5]
+
+Although there could be doubt that the police records of the confession and interrogation were word perfect, the Commission found that they faithfully recorded Stuart’s [‘]movements and actions on the day in question’, after citing reasons for its conclusion.[^6] Naturally, the Commissioners would have known that detectives with years of experience in observing and questioning would have come to rely on the power of memory necessary to record what someone had told them, even if the account was not all in that person’s exact words. To possess this power of memory was an essential requirement for a detective.
+
+There can certainly be no doubt that Jones had spoken incautiously at the preliminary hearing when he said that the confession was in Stuart’s exact words, and had done so without any reference to the introductory part. But at the trial he said that the words of this first part were the result of question and answer, and Inglis made no mention of this. At the trial, Whitrod and Turner deposed that the confession was in Stuart’s words except for the first part and the last sentence, and all three maintained this at the Commission hearing.
+
+Apart from a few differences and memory lapses, the evidence given by Jones, Turner and Whitrod during their long appearances as witnesses was in the main consistent and hence persuasive. Turner’s answers in particular were quite clear and detailed.
+
+Apparently Jones had spoken thoughtlessly on only one or two occasions, so there is no reason why the Commissioners should have been any more severe in their criticism. As to inconsistencies, as has been observed, the fact that there are some differences is not surprising: it is not uncommon for witnesses to differ in evidence about what they saw or heard on a particular occasion, and it would be surprising if this were not so. However, in the Stuart case, it should have been no surprise that there were comparatively few differences in the evidence of the police, despite the fact that Starke subjected them to intense and prolonged cross-examination.
+
+The claims that the confession and the police record of the interrogation were demonstrably false were unsustainable, and Inglis should have been satisfied that the [‘]central issue’ had been resolved, and that therefore there was no need for further comment on the matter.
+
+He claimed that some of the nineteen annotations to which the Commission gave particular attention [‘]might be disputed’,[^7] and in so doing questioned the Commissioners’ reference to the word [‘]awoke’. The Commissioners had said that [‘]no significance would attach to the word’, but Inglis disagreed because they had not said why this should have been of interest and had observed that it was an [‘]archaic verb’. He also claimed that [‘]if the word was in fact a policeman’s word and not Stuart’s, this was surely of some significance since police witnesses had denied it.’[^8]
+
+However, there are any number of reasons why the word [‘]awoke’ could have been typed into the confession. One possibility is that Stuart had said the word [‘]woke’, and that the typist, Whitrod, had typed in an extra [‘]a’. Moreover, the Commission also suggested that since Stuart knew the word [‘]awake’, he may have said [‘]awoke’. Another possibility could have been, as Inglis said, that it was a policeman’s word. The fact of the matter is, of course, that there was no evidence to make any firm conclusion, which is what the Commissioners were probably implying when they said that [‘]no significance would attach to the word’. In any case, irrespective of which word he used, there is no reason to doubt that Stuart did recall having woken up early in the morning and then started work.
+
+Another challenge was to the Commission’s comparison of the words [‘]picture show wall’ and [‘]Stuart Arms verandah’. The first of these terms was in the confession and Stuart had used the second when he appeared in the Alice Springs Court. Inglis suggested that the comparison was not valid because the first [‘]is a row of three separate nouns, while in the latter “Stuart Arms” is a single name’.[^9] However, although [‘]Stuart Arms’ is a single name, it identifies a place, as do the terms [‘]picture hall’, [‘]picture show’, and [‘]picture theatre’. All three terms were in common use at the time, with the term [‘]Picture show wall’ appearing in the confession, (p.9 above) and [‘]picture hall’ in Moir’s statement to Phin. (p.12 above)
+
+Moreover, three-word noun phrases are not uncommon - [‘]dining room table’,[‘]car park ticket’, [‘]waste water treatment’, and [‘]mountain bike trail’ for instance. Hence, just as Stuart had used the the term [‘]Stuart Arms verandah, he could also have said [‘]picture show wall’.
+
+A third challenge was to the Commission’s opinion that Stuart knew the word [‘]accident’. Chamberlain had asked him: [‘]You know what an accident is, do you, Max, something that is not your fault?, to which Stuart replied [‘]Yeah.’ Chamberlain had then asked, [‘]Did you tell Mr. Corbett that you never meant to do anything rude to the little girl, just an accident?’, and Stuart replied, [‘]I think I must have told him like that, I forget.’ Inglis wrote: [‘]Since the cross-examiner included a definition in his question, and since Stuart’s second answer was so vague, there could be an argument about whether the exchange demonstrated that Stuart really knew the word.’[^10] However, this line of reasoning is flawed. Stuart had confirmed that he knew the word, which would not be surprising, given that he knew such words as [‘]argument’, [‘]lavatory’, [‘]struggle’, and [‘]remember’ for example.[^11] Moreover, his answers were not vague - they were definite. It was his memory which was unclear.
+
+Inglis also wrote that [‘]in discussing the evidence of Jones \[the Commissioners\] imply agreement with the general proposition of Dixon, and Strehlow, that there were certain words in the confession which the police swore were dictated by Stuart unprompted, and which could not have been.’[^12]
+
+Although the Commissioners concluded that Stuart [‘]had more help with the wording of the confession than Jones was prepared to admit’, nevertheless they went on to say that [‘]the plain fact is that there is ample support for Jones’ recollection of the oral interrogation’, and that it [‘]corroborates the oral confession.’[^13] Then at the end of the day, after having examined a mass of evidence, they found no ground for concluding that the written confession was false.
+
+Inglis wrote that the Commission [‘]report is scathing about assertions...that Stuart’s English was inadequate.’ In support of this view he recorded a number of the Commission’s comments and conclusions, including the following:-
+
+[‘]Until late in the enquiry, the Commissioners were left to understand that \[Stuart\] would give evidence through an interpreter.[’ ‘]They find Strehlow’s affidavit to the High Court and subsequent letter to the Attorney-General “misleading”; it conveyed the impression that Stuart spoke “pidgin” as that expression is generally understood, though in evidence he said that Stuart’s English was not pidgin.[’ ‘]The affidavit was further misleading in suggesting that Strehlow had gained considerably more information from Stuart than O’Sullivan had been able to obtain, “probably because of language difficulties”.’
+
+[‘]The essay in translating the confession to and from Aranda did not impress the Commissioners, who note that on Strehlow’s evidence English and Aranda do not lend themselves to straightforward translation’, and that Stuart [‘]found it difficult to transpose the Aranda form and idiom into the English convention. “He was obviously bilingual in the sense that he was not only speaking, but was actually thinking, in the English language and idiom.”
+
+[‘]There was...“an element of exaggeration and extravagance, even of misrepresentation”, about Stuart’s capacity for English in the presentation of appeals to the High Court and Privy Council’.
+
+[‘]At the trial there was no hint that Stuart had an alibi, or that he could not follow the evidence or instruct his counsel, or that he was incapable of dictating the confession.’ [^14]
+
+In the above passage, Inglis had simply listed some of the Commission’s findings, together with some facts and reasons for the findings. There is nothing particularly scathing in what they wrote - the evidence which Strehlow and O’Sullivan had presented was simply not accepted.
+
+Inglis did not challenge the Commissioners’ observation that they had expected that until late in the piece that Stuart would have been assisted by an interpreter. It seems too that he accepted the view that Stuart was bilingual, since he wrote: [‘]The force of the Commissioners’ judgment here must be fairly clear to the reader of Stuart’s evidence; it was quite plain to anybody who heard him give it.[^15]
+
+He conceded too that some of Stuart’s supporters had made statements which without doubt [‘]led to under-estimates of his fluency in English, and not only in minds disposed already to imagine that any aborigine in trouble with the European newcomer is a defenceless Stone Age man.’[^16]
+
+However, it appears that many of these supporters accepted Strehlow’s claim in his affidavit to the High Court that Stuart was a [‘]totally illiterate part-aboriginal’. Evatt was one supporter, and the publication of this opinion in his telegram to Playford (pp.44-45 above) contributed significantly to the public disquiet, and in the end it was shown that Evatt’s claims were merely unwarranted assertions, and led naturally to the conclusion that they were not merely ‘under-estimates, Since Evatt was considered to have particular expertise in the law, it is no wonder that others followed like sheep, and that millions of people both in Australia and overseas were also deceived.
+
+The incontestable evidence is that Stuart could understand and speak English quite well, and therefore that there could be no doubt that Strehlow’s affidavit and his letter to the Attorney-General were misleading, and that O’Sullivan had exaggerated Stuart’s language disability in his presentations to the High Court and Privy Council. In these circumstances it should have come as no surprise that the Commission considered that there had been [‘]exaggeration’, [‘]extravagance’ and [‘]misrepresentation’.
+
+In attempting to show that there could have been doubts about the Commissioners’ conclusion that Stuart could understand English and make himself understood, Inglis wrote: [‘]A number of people found him as intelligible as an ordinary white person’, but that the [‘]Commissioners do not mention that witnesses differed substantially about Stuart’s English.’ He then went on to cite passages from the evidence of Donald and Dennis Kelly, namely that Donald had said that Stuart spoke [‘]broken down English’ which was not as good as his, and that Donald had said that [‘]Stuart’s English was a bit on the broken side’, but that he could understand him [‘]a little’.[^17]
+
+What Inglis did not include here, but had written earlier, was that Donald had said that he [‘]had no trouble understanding Stuart’s English, and Stuart appeared to have no difficulty understanding him.’[^18] Similarly, in assessing this evidence, Inglis omitted two other statements which he had recorded earlier. He had referred to Gieseman’s reservations about Stuart’s English, but made no mention that Gieseman had admitted that he could make himself understood to Stuart and that Stuart could understand him.[^19] He also did not mention that Mrs. Gieseman had said that Stuart had no difficulty in understanding her, although she sometimes had trouble understanding him.[^20] These omissions were significant, and this was misleading.
+
+Nor did Inglis say how many witnesses had testified that Stuart had no real trouble in conversing in English - an even more significant omission. It is clear that the differences between the evidence of most witnesses to his language ability were not substantial at all. Even the Giesemans said that they could communicate with him. The only people who appeared in court and claimed that Stuart had a significant problem in communicating in English were Strehlow, Dixon, and Stuart’s counsel, particularly O’Sullivan, and it was clearly demonstrated that their claims were insupportable.
+
+Inglis continued by noting that the record of Stuart’s deposition at Alice Springs [‘]diverges further from normal English usage than does the confession’, pointing out that [‘]the deposition contains nine errors of tense, while the confession (about half as long) contains none.’[^21]
+
+This was incorrect- there were four errors of tense in the confession: [‘]I *seen* a fellow’, [‘]there *is* some little birds’, [‘]*Where’s* the birds’, and [‘]I *done* her’), and the ratio of wrong numbers of tense to length of document was nearly the same in these documents. In any case, these numbers are insignificant when compared with the number of correct uses, of which there are more than thirty in each. Inglis’s comparison also pales into insignificance compared with the weight of other evidence. Stuart used tenses correctly at most times, and did so when he gave his evidence, although he sometimes lapsed into the bad grammar of [‘]Northern Territory English.’
+
+Inglis also noted that when Stuart gave evidence his language [‘]departed often from normal usage’, that the Commission suggested [‘]that the departures may have been deliberate’, and [‘]that Stuart “can and does speak good or reasonably good English when he wants to”.’ He then wrote: [‘]To say that he spoke better or worse English by choice is to attribute to him a sophistication for which there is no other evidence.’[^22]
+
+The Commissioners had made a suggestion, not a categorical statement of fact. In any case, at most times people say what they mean to say, and do so almost automatically, but this does not mean that they speak thoughtlessly - nearly always they are able to say what they want to. At other times they take particular care about what to say. Either way the choice of words is theirs. There can be little doubt that Stuart did sometimes deliberate before deciding how to answer a question. However, like most people at most times he expressed himself freely without stopping to think about what words to use, and this was obviously true of the other witnesses at the Royal Commission. It appeared that when Stuart wanted to say something he could use ordinary English without difficulty, and the evidence was that he sometimes spoke in standard English and that at some other times he did not.
+
+In their report, the Commissioners noted that four alibi witnesses, the Giesemans, Betty Hopes and McNeish, had claimed that after having lunch before 2 p.m., Stuart [‘]worked the darts’ until about 4 p.m., after which he left the showground with Alan Moir.[^23] The Commissioners also commented that what the Giesemans had deposed on this question might [‘]not altogether’ have been [‘]a matter of choice.’[^24]
+
+Inglis described this comment as [‘]surprisingly tendentious’, since in his view it seemed to imply [‘]that Dixon induced the Giesemans to oblige with a story that fitted the one that Stuart had given him. In plainer words, that the alibi was concocted.’[^25] However, it may be that Dixon had induced the Giesemans to oblige and that perhaps they had done so unwittingly. Mrs. Gieseman had given evidence that Dixon asked her and her husband about the movements of Stuart [‘]between quarter to two and four’ on the Saturday afternoon,[^26] - a leading question. If Dixon had asked the Giesemans this, then it may well have influenced their responses. Whatever happened, the fact is that the story of the alibi witnesses did not match the evidence of at least eight other witnesses. Blackham, Spry, the hotel girls, Roy Wells, Mrs. Betts, and the Kelly brothers.
+
+Further, it appears that the Commissioners did not believe that the Giesemans had been guilty of having deliberately concocted their story. They wrote in their report that they did [‘]not wish to impute to the Gieseman’s (sic) or their employees any deliberate intention to falsify their evidence.’[^27] It may be that these witnesses were simply unwitting or gullible, and that when interviewed in Queensland responded too readily to a conscientious and apparently trustworthy priest’s plea for help to save the life of an innocent man. Whatever the case may be, Gieseman himself appears to have been mentally wayward.
+
+Inglis commented on the fact that the [‘]circumstantial evidence which supported the confession seemed to the Commissioners “clear and coherent”.’[^28] He then proceeded to identify [‘]inconsistencies’ in the evidence of witnesses, writing that [‘]\[a\]nother summary than the Commissioners’ could have made the evidence against the alibi appear rather less than “clear and coherent.[” ’][^29]
+
+Here again he concentrated on discrepancies, but although there were differences between the evidence of the witnesses, there was close agreement among the most reliable of them on where Stuart was at various times during the afternoon of the murder. The most credible testimony in this regard was that of Spry, Blackham, and the Aboriginal witnesses, whose evidence was compelling, and much more consistent than that of the alibi witnesses.
+
+Then Inglis posed the question: What criteria does one use [‘]to take marks off one witness for inconsistencies, or conflicts with known facts, and not from another?’[^30]
+
+This question assumes that it is possible to set criteria which are adequate for every court hearing, but the task of assessing the value of evidence is often complex, since a multiplicity of interacting factors often have to be taken into account. It would seem therefore that it would be virtually impossible to provide a satisfactory list of criteria.
+
+He then suggested that Gieseman was judged by harsher standards than other witnesses, one reason being that [‘]his account of the last meeting with Stuart’ was taken as evidence that he might [‘]be unreliable in other matters.’[^31]
+
+This is a prime example of Inglis’s failure to weigh the evidence adequately. Gieseman had testified that just before Stuart left the show he [‘]thanked us very much, and they shook hands, and parted on the best of terms’, and that there were [‘]no hard words’, which is directly contrary to the evidence of three other witnesses. His wife’s version was that her husband had been [‘]going crook at him’; Phin’s evidence was that Gieseman had told him that he had ordered Stuart to get [‘]those bloody overalls off’; and McNeish confirmed that the parting had not been amicable - according to him, the boss had told him, to [‘]pick up his things and go’, and that they [‘]parted not very good friends.’[^32] There were also quite a number of discrepancies between the Giesemans’ evidence and that of others who testified to Stuart’s whereabouts on the day when the crime was committed, and there is no reason to believe that the Commissioners’ assessment of Gieseman’s evidence was other than perfectly reasonable and fair.
+
+Next Inglis attempted to provide evidence which supported the Giesemans’ claim that Stuart had returned to the show at two o’clock. He therefore referred to the fact that the [‘]confession had him leaving Thevenard as early as one o’clock’, and that [‘]Stuart said at the Commission that it was one o’clock’. He also referred to the fact that Turner had said in evidence at the Commission that Stuart’s story seemed to indicate that he had returned from Thevenard at about two o’clock. He then pointed out that there was not [‘]the vaguest reference to time’ in Stuart’s unsworn statement, other than that Stuart said that he [‘]walked back to Ceduna in the afternoon.’ He then proceeded to state that all of this evidence [‘]conflicted with Blackham’s evidence, unchallenged at the trial, that it was two o’clock or a little later when he picked up Stuart and Moir; but none of it conflicted with the recollection of the Gieseman party.’[^33]
+
+In drawing attention to these inconsistencies, Inglis did not take into account that the time, as recorded in the confession, was merely a guess: [‘]It was one o’clock *I think*.’ Moreover, Turner had simply referred to his opinion about Stuart’s whereabouts. The weight of the evidence was that he had left Thevenard at about 2 o’clock, and arrived back at Ceduna not long after 4 o’clock.
+
+Under cross-examination at the Royal Commission, Blackham did agree that it could have been as early as one o’clock when Stuart went to Thevenard, but, as Chamberlain pointed out, this [‘]did not really outweigh the reasons which the boy \[Blackham\] had given all along for knowing that it was after two, or the shopkeeper Spry’s evidence to the same effect.’[^34] It may be observed too that, as the Commissioners reported, Spry [‘]was quite unshaken in cross-examination.’[^35] and his evidence was supported by that of Wells and Ware. (pp.139-140 above)
+
+The evidence of the hotel girls was that they saw him there at about 2.30 p.m., and there were four witnesses who said that they saw him coming back from the beach at about 4 p.m. As for the contrary evidence of the Giesemans, there were so many inconsistencies that what conflicted with that of the others had necessarily to be discounted.
+
+The Commission was extremely thorough in its examination of Stuart’s whereabouts and behaviour on the day of the murder. The summary of this evidence and the conclusions drawn from it occupy six pages (pp.15-20) of the Report.
+
+Inglis made the point that it [‘]does not follow from Stuart’s lies that he is a murderer’.[^36] Of course no-one would dispute this, but the fact is that he could and did lie glibly and calmly when in difficult situations, and had no difficulty in inventing seemingly plausible answers on the spur of the moment. This could hardly be ignored in the weighing of his evidence against that of other witnesses.
+
+Later, Inglis referred to paragraph 148 of the of the Commission’s examination of the alibi evidence, in which they wrote that they would not suggest that Mr. and Mrs. Wardrop [‘]deliberately concocted or invented’ a conversation they had had with Whitrod. The Commissioners had commented that perhaps the Wardrops suggested to him [‘]that the police *must have felt* like assaulting Stuart after he confessed, and Whitrod said something which was taken as assent.’ Inglis surmised that the Commissioners’ speculation might be implausible, and then referred to the fact that Wardrop had claimed that on two occasions Whitrod had said that [‘]when Stuart confessed the police did their blocks and belted him’. Inglis then concluded that [‘]this must be either the truth, or a fantasy, or a concoction’.[^37]
+
+However, Wardrop’s own evidence indicated that he himself could not always be believed: it appeared from his evidence and that of Baker, that he was not noted for clarity of thought, and sometimes answered questions without due consideration. Then there was his testimony that he had taken no interest in the case for some time, which was hardly credible and did not accord with his wife’s evidence. Wardrop’s evidence pointed to forgetfulness rather than deliberate concoction or invention, and the obvious conclusion is that he was self-deluded.
+
+The Commission’s speculation was certainly unwarranted, since there appears that there was no evidence to substantiate it, but it may well be that some of the police did feel like assaulting Stuart.
+
+It is certainly possible that Whitrod was indiscreet in saying something to Wardrop which prompted him to go to the Commission, but the evidence was that if the police had assaulted Stuart it was not until after the confession had been made. In any case, even if they had, and as Starke agreed, [‘]any admission by Whitrod could not properly be used to impair the credit of other police witnesses.’[^38] There is no sound reason for believing that the police had assaulted Stuart in any way at all, let alone that he made a false confession under duress. All of the persuasive evidence was that the confession was obtained quite properly.
+
+Inglis cited the Commission’s statements that the Executive had [‘]conceded something which the practice of the courts would not allow in the ordinary course of things’, and that the [‘]reason for granting that concession \[was\] the suggestion that the petitioner \[was\] an illiterate aboriginal native’, who was [‘]incapable of following the evidence, addressing the jury adequately, or indicating or assenting to the confession he signed.’ He then wrote: [‘]All these suggestions, however, were before the Executive on July 6 when it decided not to commute the death sentence’, and suggested that the Commissioners might be [‘]implying here that if fresh evidence of the sort offered by the Giesemans had been offered on behalf of someone who did *not* purport to have unusual disabilities, he would have been hanged without further investigation’. For him this was [‘]not a comforting thought.’[^39]
+
+It was certainly not a comforting thought for the opponents of capital punishment, but in 1959 death by hanging was the sentence for murder, and there are arguments for and against it. In Stuart’s case there were any number of South Australians, almost certainly a majority, who thought that he deserved to suffer the then mandatory death penalty. In any case, the alibi evidence was not before the Executive when it made its decision not to commute the sentence - the statutory declarations that he had one were not obtained until three weeks later, and Stuart had been treated as any other condemned person would have been in similar circumstances.
+
+The Executive decided to appoint the Royal Commission despite the fact that [‘]an accused person’ is not normally [‘]entitled to another trial or to complain that justice has miscarried’ if that person [‘]elects not to give evidence, or abstains from calling evidence that he could have called’.[^40] Thus there had been a concession, and this was obviously made because of the claim that Stuart had an alibi. But, as the Commission recognised, no alibi had been presented at the trial, and Stuart had not suffered from a language disability. The Commission dealt with the claims, and with the suggestion that there had been an element of racism in his treatment.
+
+After all his efforts, Inglis concluded that Stuart was probably guilty. He conceded that (1) Stuart [‘]was certainly capable of dictating something broadly like the confession which he signed’; (2) that Stuart’s account of the interrogation in his unsworn statement was more likely to have been untrue than the evidence of the police under cross-examination, and that of the Wardrops who had raised a suspicion that there had been assault or threatening; and (3) that [‘]the evidence against the alibi \[was\] on balance more persuasive than the evidence for it.’[^41]
+
+Inglis was commenting here on the three key issues in the affair, and given the defects in his examination of the evidence, and indeed of his whole approach, he failed in his attempt to mount an effective or cogent challenge to the findings of the courts or of the Commission. It was clear from the evidence that Stuart was not just *broadly* capable, but *quite* capable of dictating the confession. His language was such that he could easily have used the words in the body of the confession; there was no sign of injury of the kind alleged by Stuart; and there was that of Kleinig, who testified that for a quarter of an hour, while waiting outside of the open door of the room where Stuart was giving his confession, there was no sign of agitation The evidence of the alibi witnesses was flawed, whereas the contrary evidence was on the whole consistent and convincing.
+
+Inglis repeated his suggestions that [‘]the Wardrops’ testimony \[was\] dismissed a little lightly’, and that [‘]the members of the Gieseman party \[were\] judged more harshly than other witnesses’,[^42] but
+
+*t*he consistency of the evidence of these [‘]other witnesses’ clearly indicated their reliability, and led inevitably to the conclusions of the Commission. On the other hand, the Wardrops’ evidence could not be sustained. Wardrop’s recollection of events was hazy, and in too many instances did not accord with that of his wife and daughter. He was a most unsatisfactory witness. On the other hand, Baker and the police witnesses were all clear and definite when they responded to questions about the Wardrops’ allegations.
+
+Inglis then proceeded to repeat some of his concerns, and again resorted to speculation. For example, he referred to a remark which Stuart was said to have made to Dixon when he was in gaol awaiting execution, which was [‘]Some bloke lucky...Bloke who done this.’ Inglis considered that, in saying this, if Stuart was the murderer, he had either come to believe that he was not, or else he had displayed [‘]almost superhuman self-control’ if he was guilty.[^43]
+
+Given Stuart’s apparent equanimity throughout the whole of his trying ordeal, this seems to be nonsense. In protesting his innocence, he had lied to the police when under pressure during the first interrogation, and then retracted; there was an admitted lie in the confession; he had lied to Dixon; and there were lies in his signed unsworn statement. Then there were lies in his story of what had transpired in the court at Alice Springs. Stuart could make up stories without any difficulty - he needed no [‘]superhuman self-control’.
+
+The chapter concluded with further speculations, and ended with the question: [‘]Can one be sure that...twelve reasonable men would have had no reasonable doubt?’[^44]
+
+Besides the twelve apparently reasonable jurymen who thought so, there was Chamberlain, who was the only person to have sat through all of the court and Commission proceedings, and was in a better position than anyone else to assess the value of all the evidence and the character and reliability of the witnesses. Then, as the *Advertiser* editorial of 4 December said: [‘]Our Courts have justified the traditional confidence placed in them.’ And in the end, the *News* said that Stuart was paying the penalty for his crime [‘]as a result of the Commission’s report which \[it\] accepted without question.’ (p.176 above) No doubt most South Australians agreed.
+
+### *Lessons from Stuart*
+
+In the next chapter, LESSONS FROM STUART, Inglis began by citing a remark made by Chamberlain, namely that [‘]attempted trial by newspaper is a dangerous and malignant thing...’. This prompted him to ask whether the *News* had tried [‘]to usurp any function of the courts.’ He went on to write: [‘]On July 31 \[the *News*\] insisted that the Commission investigate whether there were defects in Stuart’s trial and that the whole legal system be “probed”; but nobody said publicly that it was improper to express these opinions and no prosecution was launched in respect of them.’ [^1]
+
+It seems obvious that Chamberlain had used the term [‘]attempted trial’ loosely rather than literally. He was concerned, and no wonder, that many members of the public held opinions which were based on newspaper reports, headlines and editorial opinion rather than on facts. The reporting of the Stuart case by the *News* had generated so much uninformed public opinion that its effect was disastrous for the reputation of the State: South Australians came to be seen as racist, the police as corrupt, and its judicial system as inadequate and highly suspect. Although it could be said that the *News* was not attempting a trial as such, it was guilty of distortion, omission, and sensationalism. There was good reason for Chamberlain to criticise the *News* in the way he did.
+
+There can be no doubt that Chamberlain thought there was no justification for the *News* to have suggested that the [‘]system of law investigation, enforcement and trial’ in South Australia be examined, and that the [‘]action or inaction of all the officers concerned be investigated’, and no doubt others shared Chamberlain’s view. Although it could be claimed that in its statements the *News* was not suggesting that there be a trial in a court of law, it did propose that there be a probing, which would have meant an inquiry - in effect a trial.
+
+It was one thing to question the verdict of the jury, but quite another to propose that the [‘]system’ be probed. There was no valid reason at that stage for suggesting that there should be anything other than a testing of the new evidence, i.e. that there might have been an alibi. In the event, the Royal Commission also conducted a thorough examination of the claims that Stuart’s confession was false and that it had been extorted from him.
+
+Nothing daunted, the *News* continued with: [‘]Yesterday public opinion won a notable victory.’ This was complete nonsense. Public opinion, often fickle, was and remained deeply divided, and the Government simply did what it had to do in response to the claims of an alibi, and in addition gave an undertaking that there would be a thorough inquiry.
+
+In the same article in the *News* there was the suggestion that there could have been [‘]a monstrous miscarriage of justice,’ which at that stage was wild speculation.
+
+Inglis concluded the chapter with an exposition which continued to rely on supposition and opinion: many of the views expressed contain words such as [‘]may’, [‘]virtually’, [‘]perhaps’, [‘]implication’, [‘]believe’, [‘]might’, [‘]doubt’, [‘]likely’, [‘]unlikely’, [‘]could’ or [‘]if’.
+
+Few of the opinions which he cited contribute much to the making of decisions about what lessons can be learnt from the Stuart case. In order to do this satisfactorily, it is necessary to deal with as much relevant information as possible, especially with what was said in evidence at the hearings, and also to examine impartially the judgements of the courts and the reasons for them. Most South Australians accepted the findings of the Commission when its report was released, and as far as they were concerned there was no reason for any further action. However, some were not convinced, and Inglis’s book was welcomed by the doubters. Yet a close examination of his claims reveals that they were not supported by adequate or accurate information, and in some cases there was no supporting evidence at all.
+
+Inglis quoted Francis Williams as having written that the press exists [‘]to shout, protest, expose and play hell.’[^2] Evidently he supported this view, but contrary opinion would have it that the first duty of the press should be to provide factual information about current events and affairs of some importance or interest to the community, followed, if seen fit, by sensible comment. This is not to deny that there should be investigative journalism in the public interest, nor that the media should engage in justifiable criticism.
+
+The *News* might well have agreed that it was shouting and protesting in its reporting of the Stuart affair, but it can be seen that it highlighted the dramatic and contentious, and gave more prominence to the statements and opinions of the dissidents than to those of others, whereas the *Advertiser* reporting was balanced, factual and unemotional. In failing to provide a full and fair account of events, the News was guilty of failing to [‘]tell the truth, the whole truth and nothing but the truth.’ Inglis admitted that [‘]the performance of the *News* was far from perfect’,[^3] which can be seen as an understatement. In fact, it could be claimed that the *News* was in breach of the code of conduct which had been adopted by the International Federation of Journalists in 1954. The first injunction in this code was: [‘]Respect for the truth and the right of the public to the truth is the first duty of the journalist.’
+
+Inglis expressed the opinion that the [‘]peculiar, half-judicial and half-political character of a Royal Commission virtually invites counsel to appeal to a tribunal - public opinion - in which the rules of evidence are loose, each member is judge and jury, and verdicts are inclined to be hasty and passionate.’[^4]
+
+One wonders how many people would agree with this. It is certainly true that the appointment of a Royal Commission, its terms of reference, and the selection of the Commissioners are political decisions, and that such inquiries are sometimes set up for political reasons, but the outcomes do not always suit the initiating government. On the other hand, in many cases a Royal Commission’s recommendations are accepted and implemented. Whether all of this means that Royal Commissions can be described as [‘]half-political’ is open to question. In the Stuart case there had to be either a retrial, for which special legislation would have been required, or a Royal Commission, and the Government had to make the choice. There could be no point in appealing to public opinion at that stage.
+
+It could be said that O’Sullivan appealed to public opinion when he issued vehement and impassioned statements for publication, thereby contributing to the highly charged political atmosphere in which the Stuart Commission later conducted its hearings. It may be too that Shand was seeking the support of public opinion by quitting, but according to him he left because he believed the Commission to have been unfair, and not because of any supposed [‘]half-political’ character of a Royal Commission. Whatever the case, the fact is that any suggestion that the Commissioners had been unfair, or guilty of any political bias in their deliberations, cannot be sustained.
+
+Inglis did not say what he meant by the term [‘]half-judicial’. It is true that a Royal Commission is categorised as a quasi-judicial body, but all this means is that it is a body with powers similar to those of judges in a court of law, and that it makes judgements as do judges in the courts.
+
+Further on, Inglis cited something which *Nation* had said about the Petrov Royal Commission, namely that it was [‘]an intensely political one.’[^5] There certainly was a huge political element associated with that enquiry, and there was also very intense and confronting parliamentary debate, just as there was in the Stuart case. However, in the Petrov case there was controversy and party politicking from the beginning, and the Prime Minister was accused of stage managing the whole affair. Accusations of conspiracy lingered for years afterwards.[^6] There is no evidence that this was the case with the Stuart Commission.
+
+Professor Geoffrey Sawer, professor of law in the Australian National University, was quoted as having said in *Nation*: [‘]Perhaps this case shows you should never have a Royal Commission on a judicial proceeding; it certainly shows that the Royal Commissioners should not come from the court whose activities may be in question.’[^7]
+
+In the circumstances, a hearing by a Royal Commission was almost certainly the best way of dealing with the case, but, given the controversy, and the criticisms of one or two remarks which Napier had made during the Full Court of Appeal hearing, Playford, but only for political reasons, should probably not have appointed as Commissioners the judges who had sat on the case previously.
+
+According to Inglis, there were [‘]disturbing implications’ in the fact that, as Brazel argued, [‘]the outcome of \[the Commission’s\] enquiry can be only to upset the verdict or uphold it’, and [‘]the mere publication of the report would rule out a re-trial’.[^8]
+
+Brazel’s statement indicated that in his opinion it was not open to the Commission to order a retrial. The Commissioners thought so too, pointing out that a retrial would have to be treated as an appeal with the new evidence not admitted. Similarly, Chamberlain pointed out that an appeal to the Full Court would have failed. (p.75 above) Another important consideration was provided by Brazel when he dealt with the matter of a possible retrial during his final address to the Commission when he said, [‘]It seems to me to be a completely unreal suggestion. This matter has received very widespread publicity and on that ground alone it would be inconceivable that one could gather a jury in which some of the members had not formed some judgment in the matter.’[^9]
+
+Inglis went on to argue: [‘]To those who believe that in criminal matters the jury should always have the last word, this alone might well make a Royal Commission the wrong body to consider new evidence.’[^10]
+
+But a jury does not always have the last word. An appellate court can quash a verdict of guilty, and this is sometimes [‘]the last word’. In the Stuart case, given the fact that a Royal Commission was appointed, whether rightly or wrongly, the question to be answered was whether there be any doubt about the findings of the jury. The answer could be found only by an assessment of the evidence presented at previous hearings, of the judgements which preceded the Commission hearing, of the reliability of the witnesses, and of the worth of any fresh evidence. It was the task of the Commission to make this assessment. In the event it was the Commission which had [‘]the last word’ as far as the law was concerned, and at that time most of the people who were not misled by inadequate knowledge and misinformation accepted the findings.
+
+Inglis endorsed O’Sullivan’s claims that actions of the president and secretary of the Police Association were [‘]appalling’ and that Turner should have been told [‘]not to give way...to his feelings.’[^11]
+
+Many would disagree with this view. Since there was no reliable evidence that Turner and his colleagues had obtained the confession improperly or were guilty of any impropriety, they must be presumed innocent, and any innocent persons would feel aggrieved, if not resentful, if there was any suggestion that they might have been guilty of grave criminal offences. In any case unions exist to protect the interests of their members, and Turner, as the President, could hardly be blamed for trying to rebut the allegations made against him and his colleagues. His actions, and those of the Police Association in supporting him, were understandable, and could not in fairness be described as [‘]appalling’.
+
+Inglis made the point that in South Australia an Aborigine [‘]could not have somebody else read out in court a statement prepared on his behalf’, whereas in the Northern Territory there was that right. He then wrote: [‘]It is surely unjust that an illiterate, whether dark or white, should be less easily able than other people to tell his story to the jury.’[^12]
+
+Here again the facts are ignored. The truth is that although the law at the time was that an accused could not have an unsworn dock statement read for him, in the Stuart case the judge had made an offer which would have made it possible for Stuart to have said what he wanted to, but this was rejected. At the end of the day it was apparent that he was fluent in English and could easily have told his story to the jury.
+
+Inglis speculated that if Stuart had been tried [‘]in a state where convicted people are not put to death, Strehlow and Dixon and others could have afforded to express themselves in language as temperate as that of the Commissioners.’[^13]
+
+No doubt they could have, but there is no reason to believe that they would. Dixon and Strehlow decided to take action soon after they had read the confession, and this led to the High Court challenge.[^14] At the Royal Commission, when he was obliged to backtrack after having been questioned closely, Strehlow asserted that he had never held a dogmatic opinion, (p.129 above) in other words that he had been temperate in what he had said about the case.
+
+The [‘]ifs’ continued. Inglis wrote that if [‘]Stuart had been reprieved early in July, if a policeman had not been allowed to engage in public defence of the conviction, and if judges involved in previous decisions against Stuart had not been appointed as Royal Commissioners, very little passion would have been aroused by Stuart’s plight.’[^15]
+
+This was as if Dixon had not been fooled by Stuart, that Strehlow had not been self-deluded in believing that the confession was not genuine, and that they and their supporters did not stir up any passion. Further, if the Inglis version is to be accepted, then Evatt’s telegram and its publication, O’Sullivan’s intemperate attacks on Turner and the Police Association, the prominence which the *News* gave to Strehlow’s unjustified and forceful assertions, the false statements in the widely distributed pamphlet, and the publication of misinformation interstate and overseas, did little or nothing to agitate anyone.
+
+There had been considerable [‘]vehement controversy’ before the appointment of the Royal Commission on 30 July. This had been stimulated by the visit of Strehlow, Dixon and Morris to the Attorney-General, which was followed by letters to the Adelaide newspapers, many of which were passionate. Some correspondents challenged the grounds on which the verdict was based, and others said that [‘]the hanging should take place.’[^16] Dr. Evatt’s proposal [‘]to test the High Court judgement before the Privy Council’ heightened the tension.
+
+Then there were the Police Association’s statements [‘]in defence of the conviction’, and O’Sullivan’s forceful replies. (pp.46-54 above) This altercation continued for some five days, and led to a stream of publicity.
+
+It seems highly unlikely that any intervention during this time could have stopped the contention. Stuart’s supporters were avid in the pursuit of their goals, and their opponents were equally determined.
+
+It is true that on 6 July the Executive Council made [‘]no recommend- ation for pardon or reprieve’. At that stage the Government was satisfied that justice had been done by the trial jury and the Courts of Appeal, and therefore that there was no reason for any reprieve. It was later that same day that Stuart was given another chance - the appeal to the Privy Council was lodged, and Justice Reed granted respite until 20 July.[^17]
+
+Inglis found that it was [‘]astonishing’ that the Commissioners remarked that it was difficult [‘]to see why any heat or excitement should have been injected into the agitation for further enquiry or re-hearing.’[^18]
+
+The fact is that the Commissioners’ remark followed references to three of the petitions which had been presented to the Government. The first of these was lodged on 1 July (after the judgment of the High court, and before the application to the Privy Council), the second was lodged on 29 July (the day after the petition to the Privy Council had been rejected), and the third on 30 July (the day on which Playford announced the appointment of the Royal Commission).[^19] Thus there had been a month’s agitation, and this continued despite the Privy Council’s findings and the Government’s decision to take action.
+
+The Commissioners could see no justification for these petitions, holding the view that there had been no good reason for any protests after the High Court’s decision. As far as they were concerned, there had been [‘]an element of exaggeration and extravagance, even of misrepresentation, in the presentation of the appeals to the High Court and to the Privy Council’. They then proceeded to the conclusion that [‘]it was…a perversion of the truth to describe Stuart as “unable to speak English”, or as being “denied any opportunity of giving his version of the facts to the jury or to suggest that the trial was a mis-trial, or was not a fair trial on the defence that was submitted to the jury.[” ’][^20] Thus the Commissioners had identified, and with justification, some of the main flaws in the reasoning of Stuart’s principal advocates.
+
+Inglis wrote that [‘]people who had genuine doubts about Stuart’s guilt were forced by the impending execution to move quickly.’[^21]
+
+There had certainly been a quick move to lodge the appeal to the Privy Council following the Executive’s decision not to commute Stuart’s sentence, but were the doubts genuine? Those who expressed them were no doubt sincere, but their claims were not well founded. Inglis admitted that some were not sustainable when he wrote that in [‘]the campaign to keep Stuart’s case open there was some recklessness and more sentimentality; there were, for example, mistakes of fact in the pamphlet prepared by Dixon and his allies’.[^22] This time Inglis was quite right, and in the end it was clearly shown that none of the challenges could be sustained.
+
+The petition of 1 July seeking commutation of the death sentence was flawed because it relied on Stuart’s story that the basis of his defence in the Alice Springs trial in 1956 was a statement prepared by his friend Sansbury. The Commission found that this account was [‘]an attempt to explain away’ the actual document which had been presented to the court, [‘]which was clearly disproved in the course of our inquiry.’[^23] Inglis had no answer to this finding. After giving an accurate and adequate account of Mrs. Newham’s compelling evidence, in which she said that at the trial Stuart had [‘]questioned witnesses’, [‘]seemed to have no trouble understanding what was going on’, and [‘]told his story clearly and well’, all that Inglis decided to say was that the Commissioners regarded her evidence as [‘]important’.[^24]
+
+Inglis blamed Playford and his ministers for turning [‘]the exploration of misgivings into a race with the hangman.’[^25] For Stuart’s supporters this was certainly the case, but Playford’s view was that the law should be upheld. At its meeting on 6 July, the Executive considered the issues, including those raised in the petitions, and decided that the law should take its course. In considering these petitions, they must have trusted the decisions of the courts and the reasons for them, rather than the unsupported assertions of the pro-Stuart petitioners, and they made their decision accordingly.
+
+Inglis did not see it this way. Regarding an Executive decision not to grant a reprieve in early July, he wrote: [‘]The formal responsibility...was shared by Sir Thomas Playford and his ministers’, and [‘]they and whoever they consulted were apparently unaware or unconcerned that their decision would provoke intense hostility among a far wider range of opinion than normally engages in public controversy.’[^26]
+
+There can be no doubt that the members of the Executive knew that there would be criticism of their decision, but when it came to responsibility, they saw it as their duty not to grant a reprieve. They did what they believed to be right, irrespective of what public reaction might be.
+
+Inglis wrote that Playford and his men [‘]were convinced that the affairs of the society were in good hands, and that only the naïve and the mischievous would either doubt this general truth or challenge any particular application of it.’[^27]
+
+No justification was given for this assertion. It is more likely that, like other political leaders, Playford and his ministers believed that they were doing what was best. They were of course well aware that there had been doubts and challenges and that these would continue, but most governments in a well-established democratic society believe that what they try to do is for the benefit of society and know that there will sometimes be people who disagree with some of their decisions. They know too that not all of those who disagree are naïve or are mischief makers, but they also are aware that there are such people in the community. Playford and his men may have thought that Strehlow and Dixon and their followers were naïve, but, if they did, it was with good reason, and their opinion was without much doubt shared by a host of others. Although it was not the intention of Stuart’s advocates to create mischief, this was the outcome of their intervention.
+
+If what Inglis wrote was the essential truth, then Strehlow had not made any extravagant, baseless and false claims; Stuart had not deceived his mentors; Shand had had good reason to quit the Commission and had not made false claims on at least two occasions; the *News* reports on the case were not skewed or sensationalised; O’Sullivan had not persisted in grossly exaggerating Stuart’s ability in English, had not continued to make assertions which had not been accepted by the courts, and had not made controversial public statements which he must have known would stir strong emotions among many people.
+
+As for the police, South Australians appreciated living in a stable and orderly society which had an extremely low crime rate, and they also appreciated the protection and reliability of a police force which enjoyed a high reputation locally, nationally, and internationally. It was no accident that, under the Colombo Plan, senior police officers from overseas were sent to South Australia for advanced training.
+
+Brigadier McKinna, the Police Commissioner at the time of the Stuart affair, was known to have been a man of complete integrity who would not tolerate any misconduct. He had already introduced major improvements soon after he came to office in 1957, and the morale of police officers soared. There was mutual trust between him and members of the Force. He was still in office in 1970, at which time the reputation of the Force was still high. This was confirmed by Duncan Chappell, the senior lecturer in law in Sydney University, and Paul Wilson, a senior lecturer in government in the University of Queensland. They conducted a survey and found that among the Australian States South Australia had the highest proportion (76 p.c.) of its population expressing great respect for the police. One of their conclusions was that the [‘]SA force is without equal in this country in the quality of its recruit training scheme, in the flexibility of its
+
+promotion policies, and in the degree of public respect it commands.”[^28]
+
+Having been involved in the investigation of police ill-treatment of Aborigines in the Northern Territory, Strehlow probably thought that South Australian police behaved in the same way as some of the N.T. police had.
+
+Inglis noted that the chief offences of Aborigines at the Koonibba mission near Ceduna were for drunkenness and insolence, and that a minority were given to fighting and drinking. Consequently, [‘]action by the police had reduced the supply of liquor to the aborigines.’[^29] Although this intervention may have led some of the local Aborigines to become wary of the police, Inglis adduced no evidence to indicate that the police had mistreated them.
+
+He also observed that [‘]the people most active in the effort to have \[Stuart’s\] case re-examined were immigrants to South Australia - Duguid...from Britain, Dixon, Rivett, Borland and Morris from the east, and Strehlow from a German mission in the Aranda country.’[^30] Inglis himself had also come from interstate only a few years before the crime was committed, and Dunstan was another, having spent his boyhood elsewhere. Shand’s name can also be added to the list - he had come from New South Wales.
+
+It appears that most of these people thought that they knew more about South Australia and South Australians than did South Australians themselves, and that the Stuart case demonstrated how the conservatism and complacency of the citizens prevented them from questioning the outcome of the trial or the judgements of the Courts of Appeal and the Royal Commission.
+
+These opinions are questionable to say the least. Most of those who had spent all or most of their lives in the state, and particularly the descendants of the pioneers, were no doubt satisfied, if not a little proud, with what had been achieved by their forebears, and had good reason to be conservative. There was no need to complain about the services provided by the police or about the justice system - the crime rate was extremely low, with the police making a significant contribution to keeping it that way. Local police officers were well-known and respected in the communities in which they worked, and their knowledge of the people they served was a great help. Ubiquitous police surveillance at that time, which was valued rather than criticised, was another benefit.
+
+The judicial system was efficient: persons accused of misdemeanours might appear before a magistrate either on the day of the offence or within a few days, with a verdict usually handed down after a very short hearing.
+
+Inglis added that before the Commission enquiry was over, [‘]it was to seem that South Australian institutions were themselves on trial.’[^31] This was certainly how Chamberlain saw it: he wrote that he [‘]found that \[he\] was not only defending the conviction of the murderer’, but...[‘]was defending the honour and integrity of the South Australian Government, its police, and indeed the very institutions on which the administration of justice depends.’[^32]
+
+In the section [‘]Epilogue’, added in 2002 to the original edition of *The Stuart Case*, Inglis identified five additional [‘]lessons from Stuart’.[^33] These are listed as:
+
+1\. [‘]There are perils in appointing judges as royal commissioners into judicial matters.’
+
+2\. [‘]Confidence in the police is jeopardised when they become partisans in public controversy over their own behaviour.’
+
+3\. [‘]The extraction and admission of confessions require more safeguards.’
+
+4\. [‘]The arrangements for taking evidence from Aboriginal witnesses may need to be improved and should not depend on the accident of which state or territory they happened to be in when charged.’
+
+5\. [‘]The state should recompense lawyers who represent poor clients.’
+
+Comments:
+
+1\. Regarding the first of these lessons, the only peril in the Stuart case seems to have been that the appointment of Napier and Reed was likely to attract criticism of the Government because the two men had sat and passed judgement at previous hearings. Expert opinion on this was divided. Some were strongly critical, but others thought that knowledge from previous involvement in the case would be an advantage. In any case there were precedents of such appointments.
+
+2\. With regard to the second lesson, it appears that the efforts of the police to defend themselves publicly did not shake the confidence of South Australians generally in their honesty and integrity: the only jeopardy seems to have been that, by defending themselves, the police risked virulent criticism from those seeking to disparage them, and in the event critics attacked with a vengeance.
+
+3\. In the Stuart case, the police had relied too much on the confession and should have sought more evidence to support the case against him. That they did not do this gave potential critics the opportunity to question the verdict of the trial jury. Regarding this third lesson, Inglis went on to write: [‘]A widespread concern around and beyond Australia about how confessions are gathered and used may have been heightened a little by this case.’[^34] This is an understatement - the concern was heightened more than a little. The implication was that accused persons needed more safeguards, but in the Stuart case the police needed them even more. Their neglect left them open to accusations of serious offences.
+
+4\. As to the fourth lesson, Stuart was at no disadvantage because he was an Aborigine: he had coped as well as any white person with a similar level of education. This is not to say that arrangements for the taking of evidence at that time could not have been better, but Stuart’s treatment in itself provided no reason for making improvements.
+
+5\. It appears that in the Stuart case, O’Sullivan received remuneration for his appearance at the trial, and likewise Shand and Starke for their services. In any case Stuart was ably represented at no cost to himself.
+
+### *Inglis: Napier, Castles and Reed*
+
+Inglis referred to the fact that Napier had signed a document [‘]Call to the People of Australia’, which was, as he wrote, [‘]an appeal for national unity in the face of “moral and intellectual apathy” and “the mortal enemies of mankind which sap the will and darken the understanding and breed evil dissensions...[” ’] He then continued: [‘]Sir Mellis Napier's signature on the “Call” was no mere formality; not every Chief Justice in the country put his name to it, and his own sponsorship was heartfelt.’[^1]
+
+This comment was inconsequential: Napier’s support for the [‘]Call’ was no different from that of many other notables. The Chief Justice of Victoria, Sir Edmund Herring, was [‘]the driving force behind the promotion of the “Call”, and it was signed not only by Herring himself but also by four other chief justices and by religious leaders - Catholic, Protestant, and Jewish’.[^2] Apparently all except one of the Australian chief justices signed it.
+
+No-one felt more strongly than Sir Edmund about protecting the nation from what he saw as [‘]the danger of communism and internal subversion.’ Few Australians matched his record of scholarship and remarkable service to his country in both world wars, as well as in his judicial capacity and in many other ways.[^3] When the [‘]Call’, made in 1951, was broadcast on ABC radio, the Cold War had become a threat to world peace and a major problem for the western democracies. Many Australians were deeply concerned. A proposal to amend the Constitution to enable the proscription of the Communist Party was only narrowly defeated - nearly 50% of voters supported the change.[^4] At the time many people welcomed Herring’s statement, and in hindsight it can be seen as prescient.
+
+Inglis quoted with apparent approval what Professor Alex Castles, then Chairman of the Department of Law at the University of Adelaide, said about the attitude of South Australia’s [‘]custodians of the law’, including Sir Mellis Napier. According to Castles, who had heard Dixon’s testimony at the meeting held in Dr. Duguid’s home, these [‘]custodians of the law demonstrated their conviction that the system of laws they had serenely inherited “was both unchallengeable and omnipotent”.[’ ‘]This state of mind was epitomised for Castles in the man at “the pinnacle of the system”, Sir Mellis Napier. “The notion that he or his colleagues might have the regrettable but human tendency to err seemed to many involved hardly to impinge on the chief justice’s thinking, even as he chaired the royal commission on the matter.” He had never wanted that inquiry, possibly foreseeing that its most durable outcome would be to heighten what Castles describes as “the pressure of changing community attitudes” demanding new directions in the workings of the law and more generally “helping to ensure that the law and its instruments remain subject to the ultimately necessary sanction of public examination”.’[^5]
+
+Comments:
+
+Everything which Castles had said about the [‘]custodians of the law’, including the Royal Commissioners, was merely wild and completely unwarranted personal opinion. It seems unlikely that judges give much thought in the course of their work to the possibility that they might err. In any case their powers to do so are limited: they have to rely on statute law and on the precedents of common law, and normally they are free to make their own judgements only in cases where there are no distinct and accepted precedents. The [‘]system’ cannot be ignored by judges, and they need to provide very good reasons when they create a precedent. They should not be guided by public opinion, but only by what they perceive to be justice.
+
+> Castles did not elaborate on his view that judges should respond to changes in community attitudes or to demands for new directions, but it may be that he favoured what has come to be called judicial activism, which has been controversial ever since it began.   There are no grounds whatsoever for believing that Napier or his colleagues believed that they could not err. As Napier said to Shand: [‘]Everybody makes mistakes at times.’ (p.86 above) What was important was that the judges of the S.A. Supreme Court in Napier’s time were erudite and had had vast experience both before their appointment as judges and during their time on the bench, and consequently they had every reason to be quite confident. It would have been most unfortunate if persons in their position were not.
+
+There are good grounds for believing that Napier was not hidebound as Castles had claimed. According to the Australian Dictionary of Biography, he was instrumental in resuscitating the Law Society of South Australia in 1912-13; was well known for his view that [‘]the law must be a “servant of the people’ and [‘]adapted to the needs of changing circumstances’; and while chancellor of the University of Adelaide, he [‘]backed sweeping reforms demanded by A. P. Rowe, the vice-chancellor’ and frustrated attempts by the council’s conservatives to block the appointment of George Rudé, a communist, as senior lecturer in history, and also the attempt to block the promotion to Reader of Inglis, who had criticised Napier’s role in the Stuart Commission.[^6] It is obvious that Napier was a fair-minded man, who was not swayed by any political bias, even against a communist, or indeed by what Inglis had written about him.
+
+From the same source, there is additional information about Napier’s background and experience. According to Howell, in his early days at the bar, [‘]study and painstaking preparation gave him a “rapid ascendancy” over his contemporaries’. [‘]In 1935 Napier was appointed chairman of a royal commission to inquire into the nation’s monetary and banking systems.’ He was [‘]an inspirational chairman’, and his fellow commissioners, including J. B. Chifley and Robert Menzies, both of whom were later Prime Ministers, were impressed and [‘]complimented his talents’. [‘]The thirty recommendations of the report... became the basis of the regulatory system progressively enacted...between 1939 and 1959.’ Napier also drafted statutes such as [‘]the Justices Act (1921), the Evidence Act (1925) and a new Supreme Court Act (1926)’, again indicating that he was progressive when he saw a need for change.
+
+He attributed his success in these enterprises to Charles Kingston who had employed him as a management clerk in the legal firm of Kingston and McLachlan and had given him the chance to study law.[^7] The fact that he readily acknowledged Kingston’s help was another indication of the sort of man he was.[^8]
+
+Yet another indication that Napier had a progressive attitude to the law was provided by Howell, who wrote: [‘]The High Court and the Privy Council almost invariably upheld his judgements, a number of which were adopted by English judges as proper developments of the common law.’[^9] It was obvious that Napier had excelled throughout his career, and that he was not only fair, but must have been extraordinarily gifted.
+
+Napier’s family did not belong to the Adelaide [‘]Establishment’. On the contrary, his father was [‘]ostracized by Adelaide “society” for his role in keeping the \[Adelaide Hospital\] open’ after the medical superintendent and honorary staff had resigned, and Napier himself was not readily accepted by [‘]Adelaide’s gentry’.[^10]
+
+Reed’s family did not belong to the [‘]Establishment’ either - his father was a Methodist minister. Like Napier he was studious, having won a scholarship to the University of Adelaide.[^11] The information hereunder lists a few of his achievements, and gives an indication of his character.
+
+After serving for a short time overseas in the first A.I.F., he returned to legal practice in South Australia, took silk in 1937, and soon afterwards was appointed to the Supreme Court bench. He chaired a number of royal commissions.
+
+He accepted responsibility for the establishment of ASIO, a job which [‘]he set about in a dedicated and methodical manner, his integrity and bipartisan approach winning him the confidence of his political masters.’ In 1949 he became the first Director-General of ASIO, and when he departed [‘]he received warm tributes from his American and British counterparts, and from both Menzies and Chifley.’
+
+After his return to the Supreme Court of South Australia, he chaired a royal commission into electoral boundaries and served twice as Acting Governor of the State. He engaged in voluntary work, and among other things was Chairman of the Red Cross Emergency Service Committee and the first President of the Asthma Foundation.[^12]
+
+The evidence points to Inglis and Castles as having been completely wrong in their views about the attitude of Napier and his colleagues, to the legal system and its operation, and about the thinking of Napier, who, with his record, deserved to be [‘]at the pinnacle of the system’.
+
+There was no justification for any lack of confidence in the integrity of the judges: indeed there was every reason for faith in them and in the system of law enforcement in South Australia in the 1950s. What Inglis and Castles thought about the South Australian judges applied more to them: [‘]The notion’ that they [‘]might have the regrettable but human capacity to err’ seems hardly to have impinged on their thinking.
+
+### *Inglis and Playford*
+
+Inglis continued his attack on Playford. In regard to the charges of seditious libel against Rivett, he wrote that he [‘]had no doubt that in laying those astonishing charges Playford was impelled by personal animus’, and that the reason for this was that the [‘]more blame he could heap on Rohan Rivett...the more easily might he put out of mind the troubling fact that his conduct had variously disturbed, outraged and bewildered so many other people within and beyond his own state and country, from the unworldly priest Father Thomas Dixon to the former chief justice Sir John Latham to Lord Attlee.’[^1]
+
+It is impossible to accept the reason which Inglis gave for Playford’s decision to lay charges against Rivett. The fact is that Playford was concerned about the effect which the agitators were having on public opinion. His view was that they had made outrageous attacks on those responsible for the enforcement of the law and for the administration of justice in South Australia. In any case, he was not one to harbour grudges, and there is no reason to believe that he decided that Rivett should be prosecuted because of any [‘]personal animus’.
+
+Inglis was certainly not expressing the opinion of anyone who had had dealings with Playford, or indeed of anyone who knew anything of consequence about him as a person or about his reputation. Playford had always been held in high regard by the great majority of South Australians. Stewart Cockburn wrote:
+
+[‘]It has been pointed out many times that, whatever other faults he possessed, Playford was never accused by any person of standing on either side of politics of having been corrupt. His integrity in all conventional matters was part of the essence of his personality and his success.’[^2]
+
+Moreover, Playford was not a member of the [‘]Establishment’: many of the policies which he implemented were seen by conservatives as socialistic, and were passed in parliament only with the support of the Labor Party. He considered the interests of all South Australians, putting the interests of the State as a whole ahead of those of the wealthy. He was always seen as a fair, honest and reliable man. The charge that he was swayed by personal animus is preposterous, and none of Inglis’s repeated criticisms of him were warranted.
+
+Sir Walter Crocker wrote that Playford [‘]insisted upon, and provided, administration which was efficient, thrifty, forward-looking and conscientious. His government was quiet-spoken in tone, but its will, like its honesty, was never in doubt.’[^3] Crocker’s opinion was that [‘]Playford, far from running a dictatorship, presided over a democracy so unusually authentic that it met most of the old Greek criteria.’ As for the man himself, Crocker considered that he was [‘]free of any ideological prejudices, free, too, of social and cultural prejudices’, and [‘]a man from childhood days deeply and innately fair-minded’.[^4]
+
+Crocker’s views, not only on Playford, but also on the character of South Australians in earlier times, differed markedly from those of Inglis. Crocker’s opinion was that Playford [‘]typified the best of the old South Australia, especially its solid hard-working yeomanry, responsible, tending to the Puritan, above all independent, though with little of this world’s goods.’ He observed too that this [‘]was the group, a large one, which made so much of a country having scant natural resources, much of its land arid and close to desert.’ He also observed that the [‘]ascetic environment \[matched\] well the founding settlers.’[^5]
+
+In elaborating on Playford’s background, Crocker wrote: [‘]His social class was that...sort of old South Australian family’ whose ‘members owned their own land, never much, worked and paid their own way, owed nothing to favours, rarely became well-off, and they had little interest in the mundane graces; but it was they who had done the real pioneering, who played a particular part in building up South Australia and who stuck to the old traditional English morality and decencies and, whatever their faith or lack of faith, to the basic standards of Christianity.’ [^6]
+
+There were more encomia:
+
+> [‘]When he went on official travels he was as careful with the   taxpayers’ money as he had grown up to be with his own - no inflated personal staff accompanying him, no suites in expensive hotels, no charging up this and that to the taxpayer.’[^7]   [‘]Several of Playford’s Ministers and political associates volunteered separately that they had never known him to tell a lie.’[^8]   [‘]Another hallmark was courage, moral no less than physical. He never dodged facing the music and he never quailed.’[^9]   [‘]Two members of his family separately defined the driving force of his life as his desire to help people.[’ ‘]Behind the scenes he did much to help the unfortunate - in stealth.’[^10]   [‘]The more I saw of Playford in his last four or five years the more his qualities impressed me. What impressed me above all was his manliness and his wholesomeness.’[^11]
+
+As far as Playford was concerned, the normal processes of the law had been followed in the Stuart case; none of Stuart’s rights had been denied him; he and his government had not interfered, but had left the law to run its course; they had accepted that capital punishment was the prescribed punishment for murder; and they had been kept fully informed at all times, and therefore knew much more about the case than most members of the public.
+
+The only mistakes which Playford made in the Stuart case were political: he should probably not have appointed Napier and Reed as Royal Commissioners; the specified terms of reference of the Commission were too narrow; and possibly he should have commuted the sentence earlier than he did. These decisions cost the Government dearly: as Cockburn said, they eventually led to the Government’s defeat.[^12]
+
+### *Inglis and Chamberlain*
+
+Inglis described Chamberlain’s conclusion that there is no better tribunal to assess a person’s guilt or innocence than a British court as [‘]imperially patriotic’, and commented that he [‘]chafed’ at the [‘]rule in British law that prevents the crown from mentioning the criminal record of a defendant who chooses...not to give evidence on oath.’ He then added that [‘]every piece of evidence from the case \[was\] marshalled to to arrive at that imperially patriotic conclusion.’ [^1]
+
+These opinions are baseless. First, there is no reason to suppose that Chamberlain’s opinion about the prestige of British courts was [‘]imperially patriotic’: he may simply have made a judgement based on a comparison with other systems. If there was any better system in the 1950s, then what was it? Secondly, as any barrister would have known, the prosecution could not refer to information relating to an accused’s character unless the defence had done so. Chamberlain, one of the most experienced prosecutors in the state, would certainly been aware of this rule, and Inglis adduced no evidence that it annoyed Chamberlain. The rule is still in force and has been for more than a century.
+
+There was every reason for Australians to be and to feel patriotic in Chamberlain’s time. They could share pride in their achievements, perhaps especially those in the two World Wars, and there is no reason to believe that Chamberlain was any more [‘]imperially patriotic’ than most other Australians were in his day.
+
+The claim that Chamberlain marshalled every piece of evidence to arrive at his conclusion is also unjustified. For example, he did not refer to the evidence of many of the witnesses who testified that Stuart could speak English reasonably well.
+
+Nevertheless, he selected more than enough to achieve his purpose. Two chapters of his book, [‘]The Native Language Expert’ and [‘]Stuart Accepts Advice’ deal in considerable detail with the evidence of Strehlow and Stuart. This evidence was more than adequate to prove that the claims of these two witnesses were unjustified. Similarly, Chamberlain showed that without doubt the Giesemans, Dixon, Moir, and the Wardrops were unreliable witnesses. The fact is that Chamberlain’s selection of the most significant evidence matched closely that of the Commissioners, and he came to the same conclusions. In all probability his aim was to establish the truth and to counter the preconceptions and fabrications which had blinded so many others.
+
+The section in Inglis’s book which deals with Strehlow’s evidence is
+
+limited to less than five pages, and there is no attempt to assess its value. Most of this section consists of a few of the questions asked of Strehlow and his answers, but why Inglis selected these fragments is not clear. The section allocated to Dixon’s evidence is limited to five pages at most, and in the main comprises questions asked and answers given during Dixon’s time as a witness. Again there is no evaluation of the evidence, and it is impossible to draw any firm conclusions from what Inglis selected.
+
+Inglis criticised Chamberlain for having sought to have two of Stuart’s offences considered by the Commission. These were the assault on a nurse at Alice Springs and the one on the girl at Cloncurry. [^2] However, since the Commission was not bound by the rules of evidence and its object was to establish the truth, there was no reason for excluding this evidence, which obviously had considerable probative value. Corbett’s evidence was particularly telling. As Chamberlain said, [‘]the rumours, so widely broadcast, still remained, and if we were to scotch them then this offence in Queensland was important from several points of view. It showed a sexual attack by Stuart on a small girl, it showed a confession in the same sort of language as the one in question, and it showed the same sort of wool had been pulled over the eyes of Mr. Strehlow and Father Dixon.’[^3]
+
+Inglis also criticised Chamberlain for [‘]one remarkable omission’ from his book, namely that his [‘]summary of the royal commissioner’s findings makes it appear that they offered no criticism of the police, leaving out entirely the passage in which they reject a policeman’s evidence that Stuart’s confession was taken down verbatim.’[^4]
+
+This criticism does not carry much weight. Chamberlain did not attempt to provide a complete summary, and obviously had not considered it necessary to include the passage, but he did select and highlight what in his opinion were the most crucial elements of the evidence which led to the Commission’s findings. Jones, the policeman who had given the evidence, had certainly acted [‘]incautiously’, as the Royal Commission recognised in its report, but this carried little weight when set against the mass of other evidence which led to the conclusion that the police were not guilty of the offences of which they had been accused.
+
+### *Inglis and South Australian Society*
+
+Inglis made some personal observations about the nature of South Australian society and its people. Many of these observations have no direct bearing on the Stuart case, although they seem to point to differences in the perspectives of people who had spent their lives in South Australia and those of [‘]immigrants’ such as Inglis, Strehlow, Dixon and Dunstan, who apparently found it hard believe that the South Australian Police Force as a body, and the Stuart case detectives in particular, could have been free from corruption.
+
+Inglis saw the founders of South Australia as [‘]radicals, Nonconformists and misfits’, who had planned Adelaide [‘]as the capital of their middle-class paradise.’[^1] Around and near Victoria Square were buildings of [‘]archaic gentility.’ There were English trees, flowers and statues in the Square, including one of the [‘]politician, Charles Kingston, who campaigned at the turn of the century to spread downwards the benefits of middle-class civilisation and who earned South Australia its reputation, in those days, for social enlightenment. And at the centre was Queen Victoria...surveying the community where her own values and tastes were shared as earnestly as anywhere in the whole empire.’[^2]
+
+He also mentioned that the discovery of non-precious metals attracted thousands of Cornishmen to the state, helping to make it [‘]the most Methodist part of the continent,’ and went on to comment that [‘]South Australian subjects believed, on good evidence, that they were more sober, thrifty, law-abiding and God-fearing than any of their neighbours’, and that these [‘]characteristics, though diluted, were still noticed in the reign of Elizabeth.’[^3]
+
+The above observations form the first part of a sketchy picture in which he portrayed South Australian society as conservative, genteel, self-satisfied, dominated by an elite, greatly influenced by Methodists, and in need of a shake-up. Inglis fell far short of providing enough factual information to support his views of what South Australians were like. Much more information needed to be considered before deciding how South Australian society and the character of South Australians were shaped. A sample of what could be taken into account is provided hereunder.
+
+There is no doubt that the proposal to establish a planned colony attracted radicals and Non-conformists. Prominent among these settlers were republicans and people who sought freedom from social and religious discrimination. However, not all settlers came for these reasons: a significant number were members of the English established church, and there were officers appointed by the British Government. Then there were the businessmen, artisans, skilled and unskilled labourers, who were needed to provide the necessary support services, and some were escapees rather than misfits - they had been in some kind of trouble and had reason to migrate.
+
+Essentially, the founding fathers, irrespective of their character, were men of vision, who saw value in their plans for a commercial enterprise whereby volunteer settlers could buy land for pasture and cropping. They were nothing if not enterprising.
+
+George Fife Angas, one of the members of the South Australian Colonisation Commission in 1835, was one such person. He was one of the first to purchase a large parcel of land. He also induced many religious dissenters to migrate, helping [‘]to provide the colony with Nonconformist ministers and chapels.[’ ‘]The largest group of devout families that he persuaded to emigrate were…German Lutherans under Pastor August Kavel.’[^4] Angas was prominent among the Nonconformist religious dissenters, and of the wealthy men who migrated, took up land holdings, and established businesses. He himself did not migrate to the new colony until 1948, and in 1951 became a member of the Legislative Council, where he strongly opposed a move to establish state aid to religion. In this he and his colleagues were successful, and South Australia became [‘]the first part of the empire to separate church and state.’[^5] Thus there was religious pluralism from the start, and South Australia became a haven for Nonconformists and other dissidents.
+
+The early decades of the colony were marred by conflict at the political and administrative levels. There were dissensions, animosities and mistakes. Nevertheless, despite this and many other difficulties and setbacks, the colony survived and prospered.
+
+Most of the land acquired initially was used as pasture for sheep, but by 1860 much of it as far north as Clare had been bought for grain growing.
+
+The work of the pioneer farmers was difficult and demanding. Like many other early Australian settlers, many of those who survived the trying, hazardous and long voyage from Britain faced an uncertain future. The experience of hardship and privation was common, and for farmers in particular there was always the prospect of failure: at times prices were low and there were droughts; moreover, in many places the soil was poor.
+
+The farmers had to be patient, persistent, determined, enterprising, innovative, and of course extremely hardworking. Most of these characteristics were shared by many other South Australian pioneers.
+
+Notable inventors included John Ridley, a flour miller, who arrived in South Australia in 1839, and within a few years had invented and manufactured the first stripper harvester for the reaping of wheat. Incidentally, he was an avid Wesleyan lay preacher as well as inventor. [‘]His altruism and passion for practical improvement were sincere and meant more to him than his own financial success’, and [‘]his self-reliance made him eschew government reward in South Australia’.[^6] Then in the 1870s, Richard Smith invented the stump-jump plough, and Charles Mullen introduced a new method of clearing scrub efficiently. Both of these men were farmers.[^7]
+
+The mining of copper began at Kapunda soon after its discovery in 1842. The economy was further improved by mining in Burra after 1845, and in Moonta, where copper was discovered in 1861.[^8] Thus miners, experienced and hard workers, joined farmers, pastoralists and market gardeners as major contributors to the welfare of the state. Much of the credit for the state’s success is due to these people, and to those who provided the support services for them.
+
+Inglis mentioned the Methodists in the context of his observations about Victorian morality in South Australia, and it is no wonder that they had a strong impact on the nature of South Australian society. In 1844 they made up only 10% of the population, but by 1870 more than 20% were Methodists and the proportion remained at this level until the 1960s.[^9]
+
+By 1870 the largest group of Methodists was comprised of farmers, and [‘]Methodism went with the farmers.’[^10]Then there were the miners, who had come to Kapunda and Burra, and then to Moonta and Wallaroo.[^11] But there were also many other migrants, from professionals to tradesmen and labourers, who were service providers.
+
+The Methodists were evangelical and also practical in their efforts to spread their influence. They were at the forefront in building churches, and manses for their ministers in the developing country towns, and by the late 1800s there were churches as far north as Hawker, across the border to Broken Hill and Silverton, and as far south as Mount Gambier.[^12] Thus most people in the populated areas had access to a church. This would not have been possible without donations from members and supporters. Most donations were small, but they were augmented by substantial ones from the wealthy.
+
+This rapid expansion would not have been possible without local community support, and where there was no minister, a local preacher might start a church. There were hundreds of these assistants in rural areas. [‘]In some circuits the minister had over twenty such assistants to share the work of preaching.’[^13] There were also a number of [‘]home-missionaries, one of whom visited the station and railway settlements north of Beltana.’ The expansion into such [‘]sparcely-populated areas depended on a supply of unmarried men who were prepared to endure what to later generations seemed intolerable hardship.’[^14]
+
+The Church was often not simply a place for worship, but a social centre as well, a place where there could be fellowship, debate, and entertainment, and in some cases opportunities for self-improvement. Then there was usually music, especially singing.
+
+The Methodists were certainly strict in their moral and religious outlook, but so were most other citizens, whose fundamental beliefs and values were the same. The virtues of sobriety, thrift, and obedience to the law, were underpinned by the Christian code of morality, and these virtues were shared equally by the adherents of most other churches.
+
+The Methodist Church was particularly sensitive to the needy, and it excelled in the provision of social services. There were what were called Home Missions, for example, the Central Methodist Mission and the Bowden-Brompton and Port Adelaide Missions. The ministers in charge were assisted by a large number of volunteers.
+
+These missions were established for [‘]the relief of the poor, the sick, the widowed and the unemployed’. They [‘]were never flush with money, either before or during the depression, and \[cash\] was seldom given’ to the needy. Rather there was clothing and food, which supplemented [‘]the parsimonious aid provided by the government.[’ ‘]Cases of need were investigated either by a minister \[and often by his wife\] or by a “Sister of the People”, employed, usually on a pittance of a salary, by the mission.’ These Sisters were “social workers” long before that category was invented. They had no training but many were rich in such basic qualities as common-sense, Christian kindness, perseverance, and a judicious capacity - acquired through visits to hundreds of homes - to distinguish between the false and the genuine appeals for help.’[^15] There was a [‘]vast amount of support that came in cash or goods’ from donors.[^16] Home Mission services were often stretched to the limit, and could barely cope during the long depression years.
+
+Near the end of World War I, leaders of the Methodist Church decided to build a hospital in memory of their members who had been killed in the war. Donations soon flowed in.[^17] The hospital opened in 1920 and has served the community ever since.
+
+In 1936 the Methodist Church established a home for the aged, [‘]Resthaven’, for elderly women who could not look after themselves, and originally the service was for women who had a record of service to the Church.[^18] In the course of time they became open to all, and there are now eleven Resthaven homes for the aged as well as eighteen Resthaven establishments which provide community services. After World War II, Rev. Arthur Strange, who had a remarkable record of community service, established what he called a [‘]Helping Hand Centre’, which expanded rapidly, and there is now the [‘]Helping Hand Aged Care’ home for the aged.
+
+Until the 1970s, South Australia was virtually free from the social ills of today, indicating that the codes of behaviour generally expected and those imposed by law were supported by a majority. In the main, Christian churches, and hence a majority of voters, supported legislation which restricted the availability of alcoholic beverages and the then current ban on most forms of gambling. Most churches advocated moderation in drinking, and the Methodists preached total abstinence. Many members of other Nonconformist Churches, such as Baptists and Presbyterians, also decided to become teetotallers.
+
+Most of the miners came from Cornwall and conditions for these men and their families were particularly harsh. At Moonta no machines were used to dig the mine shafts, which were dug by hand using basic tools and blasting powder. Step ladders were used to get from one level to another, and some shafts went as deep as 2,500 feet. (760m.)[^19] It was difficult and dangerous work.
+
+Water collected in underground tanks was often polluted. As a result there were epidemics of typhoid, cholera, and diphtheria. In one year alone, 1873, there were 327 burials in the Moonta cemetery, and there are some 300-400 graves of young children there.[^20] Nevertheless, these hardy people carried on with their lives, buoyed by their Christian faith and by friendship and mutual support.
+
+There is rarely public mention of the pioneer wives and mothers, although their lot was often more exacting than that of their husbands. These women, usually not as physically strong as the men, had to work unremittingly in what were often appalling conditions. This was especially true of the wives of pioneer farmers, who not only had to cope with housekeeping in primitive conditions, with the trials and risks of pregnancy and childbearing, and with child rearing, but also with assisting their husbands with farm work. The contribution of the women pioneers to the physical and moral welfare of the family, and hence to the welfare of South Australian society is inestimable, and it may well be that their contribution to the success of the state and to the character of the people was greater than any other. They had enormous spiritual strength.
+
+By the end of the century, it could be said that the dreams of the founders of the colony of South Australia had been realised.
+
+Hereunder is a list of some of the achievements not already mentioned.[^21]
+
+*LIST OF [‘]FIRSTS’ FOR SOUTH AUSTRALIA - 1851 TO 1936*
+
+1851 Adoption of the Torrens system of land title, later adopted interstate and then world-wide.
+
+1856 First Australian colony to introduce adult male suffrage.
+
+1858 Legislation enabling associations to be registered and incorporated, giving them the right to own property, and providing members with a degree of legal protection.
+
+1876 South Australia was the first territory of the British Empire, excluding Britain, to legalise trade unions.
+
+1879 First state secondary school for girls, the Advanced School for Girls, opened.
+
+1881 A Public Trustee Office was created, the first in Australia.
+
+1881 Adelaide was the first Australian capital city to be connected to a water-borne sewerage system.
+
+1881 The University of Adelaide was the first in Australia to be able to admit women to degrees.
+
+1885 Roseworthy Agricultural College, the first agricultural college in Australia, opened.
+
+1890 The first juvenile court in Australia was established in South Australia.
+
+1891 Cremation was legalised, an Australian [‘]first’.
+
+1897 Establishment of the first Conservatorium of Music in Australia.
+
+1915 Babies Hospital for Children under 12 months opened at St. Peters by the School for Mothers (more recently known as the Mothers’ and Babies’ Health Association), an Australian [‘]first’.
+
+1915 In 1915, the first women police were appointed, the first in the British Empire to be appointed on equal terms with men.
+
+1927 Winifred Kiek became the first woman to be ordained into the Christian ministry in Australia.
+
+1936 The South Australian Housing Trust, the first public housing authority, was founded.
+
+There is another first: the SA Police Force, formed in 1839, only three years after the first settlers arrived, was the first fully established police force in Australasia, and the third oldest in the world.[^22]
+
+As Inglis said, South Australians were certainly sober, thrifty, and law-abiding. But they were far more God-loving than God-fearing.
+
+He observed that, for more than a century after the foundation of the state, most shared the values of Queen Victoria. In this he was right: most South Australians adhered to a strict code of conduct, and were intolerant of crime and sexual promiscuity. There was a very low crime rate, marriages were stable, and caring for children was a top priority. Generally speaking, there was acceptance of and commitment to the social norms of the age. This prevented the harm which comes to societies where there is not such conformity. It is all too obvious in today’s society that the many current prevalent social ills reflect the abandonment of conformity to the social mores of yesteryear. Such conformity now seems to be regarded as having been oppressive, but South Australians generally appreciated the benefits of living in a state relatively free from crime, and from other social ills which they knew from experience needed to be held at bay.
+
+In the pioneering days, the faith of most Christians boosted their confidence and courage to cope with their difficulties and setbacks, and to overcome many of the challenges which confronted them.
+
+With regard to Inglis’s reference to the archaic gentility of Adelaide’s buildings around Victoria Square, it may be said that they were no different in character from that of comparable public buildings in the other states, which were in the same classical styles of the Victorian era. For example, in Melbourne there are the State Library, Supreme Court, G.P.O., Melbourne Town Hall, Royal Exhibition Building, Old Treasury Building, Parliament House, and the Queen Victoria Market. There are similar examples in the other states. The main difference was that the public buildings in Adelaide were concentrated in Victoria Square and along North Terrace. This was part of the continuing planned development of Adelaide, and accorded with the vision of Col. William Light, the colony’s first Surveyor-General. As in the other colonies, the city buildings reflected the confidence of a thriving society, and the power and wealth of the state’s leading citizens. Similarly, the planting of English trees and flowers in Adelaide seems not to have been much different from what happened in other states. It took a long time for settlers from Europe to abandon their preference for European flora in favour of the Australian ones.
+
+It is true that Charles Kingston, Premier from 1893 to 1899, was a noted reformer, but it can be seen from the list of South Australian [‘]firsts’ that the state had been very progressive for decades before he came to power, and there is no reason why Kingston should be singled out in giving credit for establishing South Australia’s reputation for social enlightenment.
+
+As for the values and tastes of Queen Victoria, any differences between states seem to have been matters of degree, and well before the end of the nineteenth century there had come a substantial commonality of national spirit and social objectives. Federation came in 1901, and there was a pride in being Australian, which was reinforced by the experiences of World War I, especially by the heroism of the ANZAC troops. Later there were also the shared experiences of the depression and World War II. Respect for Queen Victoria was not confined to South Australia. There are statues of her in Sydney and in other places. Victoria and Queensland were named in her honour; and Victoria Parade and the Victoria Gardens in Melbourne bear her name.
+
+Inglis devoted some two pages of his book to the background of Rohan Rivett, the editor-in-chief of the *News* at the time of the Stuart affair, to opinions about him, and to Rivett’s ardent promotion of Douglas Pike’s book, *A Paradise of Dissent*.[^23] After mentioning that Rivett was not a member of the Adelaide Club, Inglis quoted Professor L. F. Crisp as having said that it had as members [‘]the key financial, commercial and landed men’ as [‘]an unofficial, extra-parliamentary, anti-Labor caucus.’[^24] He also quoted A. P. Rowe, a former vice-chancellor of the University of Adelaide, who had said that [‘]a small section of the community... claimed leadership in local society, often for no other reason than the possession of money, or because their grandfathers, by the act of coming to Australia, created a spirit of ancestor worship worthy of China.’[^25]
+
+It is difficult to imagine that Inglis cited these opinions unless he shared them. No doubt the wealthy elite exercised very considerable power, but this was not unique to South Australia. Adelaide was not the only Australian city to have what were often called gentlemen’s clubs. Melbourne had at least three of them - the Melbourne Club, the Athenaeum Club, and the Savage Club, and in Sydney there was the Sydney Club. Many of the members of these clubs, like those of the Adelaide Club, belonged to old boy networks of former scholars of private schools, such as Melbourne Grammar School, Scotch College, Wesley College, and Geelong Grammar School in Victoria. The members of these clubs and old boys networks had a similar influence on commercial and political affairs in their states as did those of the Adelaide Club in S.A.
+
+Inglis believed that the *Advertiser* was so conservative that it would not [‘]suggest undue dissatisfaction with the way things were.’[^26] and he selected a number of examples to illustrate his point. He commented that the *Advertiser [‘]*admired Mr. Menzies a good deal more than the *News* did, and the foreign policy of Mr. Nehru rather less.’ He also observed that the *Advertiser* endorsed Prime Minister Menzies’ support for the war against Egypt, whereas the *News* questioned the decision. He then referred to the dismissal of Professor Orr from the University of Tasmania, and wrote: [‘]In the case of Professor S.S. Orr, dismissed from the chair of philosophy at Hobart, the *News* wanted a further inquiry and the *Advertiser* saw most of his supporters as self-deluded.’ His third reference was to the death of Mary Stopes, which was reported in the *News* but not in the A*dvertiser*.[^27]
+
+That there were differences between the reporting of the two papers was certainly true after Rupert Murdoch inherited the *News* from his father in 1952, and there was no doubt that the *Advertiser* was on the whole satisfied [‘]with the way things were.’
+
+By the time of the Stuart affair, Menzies had been Prime Minister for ten years, and remained in office for another eight, so perhaps there was reason for reporting favourably on his achievements. Similarly, in 1959 Playford had held office for a long time, twenty years in fact. There seems to have been little or no reason for questioning the political reporting of the *Advertiser* when there had been such continuous support for these popular leaders.
+
+Nehru’s foreign policy was questioned in Australia and in other democratic countries, mainly because he reached an accord with Communist China. In the event the accord did not last long.
+
+The 1956 Suez crisis was triggered by Egyptian President Abdul Nasser’s nationalisation of the Suez Canal Company, in which Britain and France were the major shareholders. There was insufficient information at the time to decide the rights and wrongs of the affair, and opinion in Britain, France, Australia and some other countries was divided. However, eventually it became clear that in this case the *News* was right to question: the British and French governments had acted unjustifiably, having connived with Israel to fabricate a pretext for starting the war.
+
+Professor Orr was dismissed because he had been found guilty of seducing a young undergraduate student, Suzanne Kemp. There was soon controversy. The *Advertiser* accepted the judgement of the courts but the *News* did not. It appears that in this case the *Advertiser* was right. In her book *Gross Moral Turpitude*, Cassandra Pybus examined the evidence in detail and concluded that the decisions of the courts were correct. She cited Justice Green’s judgement after his hearing of the case in the Tasmanian Supreme Court, in which he said, [‘]Miss Kemp is speaking the truth, while the plaintiff \[Orr\] is not’, and [‘]he used his position as her professor to seduce her.’ Green [‘]detailed the reasons for believing Suzanne’s evidence over Orr’s’.[^28] Pybus then cited part of the subsequent High Court judgement: [‘]We have not the slightest doubt that...the university was entitled to dismiss him. We can only express our surprise that the contrary was maintained.’[^29] This High Court judgement was made in 1957, and should have put an end to the matter, but, as in the Stuart case, controversy continued, and at great cost to many individuals, including Orr himself.
+
+The British author Marie Stopes was notable for her works as a campaigner for women’s rights and for her leadership in the field of birth control, but deaths of foreign notables have not always reported in Australia. The fact that the *Advertiser* did not report hers is of no real consequence.
+
+The selected examples did not demonstrate that the reporting of the *Advertiser* was open to much criticism. Certainly it was more conservative than the *News*, but if the reporting of the Stuart case is anything to go by, the *Advertiser* was a more reliable source of information than its rival. Further, Inglis failed to demonstrate that the *Advertiser* had never suggested [‘]dissatisfaction with the way things were’.
+
+It is all too clear that Inglis favoured the way in which the *News* reported the Stuart case rather than the way the *Advertiser* did. He even quoted something which the *News* wrote following J. B. Priestley’s visit to Australia, namely: [‘]It is good for people to have their prejudices jolted. Those who live in isolated settlements, where the intercourse of ideas is lacking, are the most backward and ignorant. The stimulation of criticism is good mental medicine.’[^30]
+
+It appears that he believed that Australians, or at least South Australians, were prejudiced, and had isolated themselves from new ideas. Evidently he saw them as backward and ignorant, and that their reaction to the Stuart case illustrated this. But conservatism in itself is no proof of ignorance or prejudice, and in the Stuart case, the doubts raised were shown to have had no foundation in fact. At the time, South Australians could be seen as careful, and cautious about radical change, but they had good reason for their attitude. The result of the Stuart case well illustrated a need for caution before coming to a conclusion about allegations that there had been injustice. There can be no doubt that the critics were found to have been the ones who deserved criticism rather than those who had faith in the judicial system and in the judges and the police.
+
+After referring to the prosecution of Rivett for seditious libel, Inglis wrote that [‘]one was reminded that the free society is a precarious achievement, depending as much on the absence of seriously divisive issues as on allegiance to liberal principles among holders of office.’ He then proceeded to claim that there had been [‘]threats to freedom in South Australia’.[^31] However, the decision to prosecute Rivett did not in any way indicate that Playford had abandoned liberal principles. On the contrary, because he was in a free society he could exercise his right to speak his mind freely, and also to use his authority as Premier to make decisions which he believed were in the best interests of the State. The democratic system of government meant that he could be challenged and criticised, and could not be a dictator any more than any other government leader in the country. If Inglis is to be believed, then Playford and the members of his government should not have been able to speak their minds or take action which they were entitled to under the law. Apparently this applied also to statements in parliament under the complete protection of parliamentary privilege. Similarly the police should not have been free to defend themselves publicly, but others, with no real evidence, could freely accuse them of serious crimes.
+
+There can be no doubt that the Government went too far in suing Rivett for seditious libel. This was an error of judgement, but such errors are common in all societies, whether free or not. Moreover, [‘]seriously divisive issues’ are not rare in democracies, and have to be dealt with. At the highest levels this is the function of government and the courts. Finally, it is evident that most South Australians accepted the findings of the Royal Commission, and retained their confidence in the judicial system, in the judiciary, and in the integrity of the police. Although contrary views are still held, in many cases they are expressed by people who have been misled by false or inadequate information, and there are others who are simply incapable of objective assessment.
+
+Although most South Australians were satisfied after the findings of the Commission were released, over the years the promotion of contrary opinion has led a huge number to believe that Stuart had been a victim of grave injustice.
+
+### *Conclusions*
+
+Inglis failed in his attempt to establish that in the Stuart case there could have been any doubt about the verdict of the jury or the judgements of the courts of appeal and of the Royal Commission. His book is discursive and very readable, but some sections, particularly those which deal with the the question of Stuart’s guilt or innocence, are laced with inadequately supported opinion, are far too speculative and do not focus on enough of the relevant evidence to be convincing. Moreover, many of the other opinions cited are those of people who did not know the full facts, and were often misled by what they had read or been told.
+
+In many court cases, a search for inconsistencies in the evidence of witnesses will be successful in finding them, but they are taken into account by judges and juries as a matter of course. For the reasons given previously, inconsistencies are to be expected (see pp.206-207 above). Inglis’s focus on these was not a reliable way of establishing the validity of his conclusions.
+
+Moreover, his picture of South Australian society at the time was limited to a few selected observations and opinions, and was far from adequate. In any case, there is no evidence at all that the nature of S.A. society or the character of its people had any effect on the deliberations of the jury or of the judges involved, and it can hardly be complained that there was any unfairness. Similarly, there is no reason to believe that what was said in parliament affected the conduct of the trial, the deliberations of the trial jury, or of the judges involved in the appeals and the Commission.
+
+There has never been any valid reason for anyone to harbour doubts about the Royal Commission’s findings. However, Inglis was one who did, and his book *The Stuart Case* did more than anything else to fuel continuing debate and uncertainty. Although Inglis was sincere in his commitment to what he perceived as justice, as Chamberlain said, his [‘]attempt to cast doubt on the finding of the Commissioners was both ill-informed and mischievous.’[^1]
+
+In recent years supposed experts have blindly followed Inglis’s lead without any open-minded and rigorous study of the case, and regrettably, the influence of these pundits on public opinion has been huge, with the result that fiction has become accepted as fact. Certainly Stuart was deserving of sympathy, but when it comes to punishment, the prime consideration must be its adequacy as a deterrent. In the long term this means that the degree and nature of punishment should be directed at minimising the crime rate. At present, many ordinary citizens consider that most penalties imposed by the courts are inadequate, and are particularly concerned that many offenders who are found guilty are released without a conviction being recorded.
+
+## \* \* \* \* \* \* \*
+
+## 14. Professor Derham
+
+David Derham (later Sir David Derham) wrote a review of Inglis’s book, which appeared in the Adelaide Law Review. [^1] At the time he was Professor of was Professor of Juisprudence at the University of
+
+Melbourne.
+
+To him it seemed [‘]clear enough...that Stuart was properly convicted’, and that it was rare for [‘]so much time, trouble and expense’ to have been [‘]committed to a demonstration that \[the\] conviction was justified.’
+
+He added later that it could be taken that Stuart did murder Mary Hattam. However, he was critical of the Government. He thought that the authorities should have moved quickly to allay public disquiet by providing the means for testing what he called reasonably based doubts.
+
+On the face of it this seems to have been a valid criticism, but it should be remembered that the appeal to the Full Court was lodged only a few days after the verdict at the trial, and that the application for the High Court hearing was lodged only a fortnight after the Full Court appeal was dismissed. Further, it was less than three weeks after the High Court decision that the application was made for the Privy Council hearing. For most of the time between 20 April, when the trial began, and 28 July, when the Privy Council Committee handed down its decision, the case was in the hands of the courts, and at that stage the Government, and most people for that matter, would have seen no reason for any intervention. After each of the four judgements, the Government was satisfied that justice had been done. As far as it was concerned, the doubts had been tested in the courts and this was the normal and proper way of examining their worth. Thus during that time the government view was that there was no compelling reason to have taken any steps to [‘]allay public disquiet’. It was not until there was the claim that Stuart had an alibi that further action was needed.
+
+According to Derham, Inglis [‘]was able to maintain an objective attitude’, and [‘]to let the facts speak for themselves’. However, contrary to this claim, Inglis’s book revealed clearly where his sympathies lay. He did all he possibly could to cast doubt on the verdicts of the courts and of the Royal Commission, but he failed to weigh the evidence adequately and engaged in far too much speculation and supposition for his case to be persuasive. Despite his best efforts, all that he could conclude was that Stuart was probably guilty.
+
+Derham wrote that the [‘]explosive nature of the proceedings arose...because the campaign of protests on behalf of Stuart was apparently seen by the government, by the judges, and by the police, as a deliberate and unjustified attack upon established authority, upon the efficiency and the security of government administration, and upon the judiciary itself.’ He also wrote that [‘]the story as told by Dr. Inglis \[revealed\] a great deal about the nature of South Australian government and its society and not a little about the importance of the basic detailed work that must be done, principally by the police, if criminal justice is to be efficient and certain.’ Then there were the words, [‘]The Government and officialdom generally reacted to the public expression of doubts as to Stuart’s guilt with immediate resistance and apparent determination to hang Stuart on the appointed day.’
+
+Certainly the Government and the judges saw Stuart’s counsel and the *News* as having deliberately cast doubt on the integrity of the police, the judiciary, and the justice system. They no doubt saw this as unjustified. The publicity which the *News* had given to Shand’s allegation that the Commission was [‘]unable properly to consider the problems before it’ was seen as particularly objectionable, and with good reason. This allegation, and the reasons given for it, provided the campaigners with material with which to attack the authorities. However, the Government had had no objection to the hearing of the appeals as a test of the doubters’ claims.
+
+The primary aim of the campaigners was to establish that Stuart had been wrongly convicted, and the most prominent among them, like Inglis and Strehlow, were anti-establishment from the start. On the other hand, the Government had faith in the fairness of its appointed authorities and in the justice system. At the same time, it accepted the findings of the courts. It had given careful consideration to the pleas of Stuart’s supporters before deciding that it would not be right to commute the sentence. According to Stewart Cockburn, [‘]Playford had...long been convinced that capital punishment had some deterrent effect on potential murders.’[^2] He was not the only one of this opinion, which many still share.
+
+Contrary to Derham’s opinion, the story which Inglis told about [‘]the nature of South Australian government and its society’ did not [‘]reveal a great deal’: the story was very sketchy and one-sided, and was not supported by adequate research.
+
+Derham proceeded to write that [‘]if the police and the prosecution authorities do not do their work well, then, in the Common Law tradition, no hierarchy of courts, however well manned and however dedicated to the impartial administration of justice, can be sure to repair the initial defects. The defects which he then listed were:
+
+1\. The [‘]footprints near the body’ \[were\] not properly compared with Stuart’s, not properly classified, and not recorded’;
+
+2\. There [‘]were hairs in the fingers of the victim not examined’;
+
+3\. There [‘]were witnesses to Stuart’s movements on the day concerned not interrogated’; and
+
+4\. The confession was [‘]quite clearly written more in the words of the interrogation than in the words of Stuart.’
+
+Comments:
+
+1\. The police trusted the ability of the aboriginal trackers to identify the footprints, and believed that their evidence would be given some weight by a jury, which it may well have been. According to Turner, the footprints were not sharp or clearly defined, [^3] and this may have contributed to the doubt about the trackers evidence.
+
+2\. The hairs were examined, but the pathologist who had been given the hairs from the girl’s hands and those cut from Stuart’s head, certified that it was not possible to tell whether they were from the same person.
+
+3\. Before the arrest, the police did not consider speaking to potential witnesses about Stuart’s whereabouts. This indicated that they believed that they had enough evidence to convince a jury without seeking more. Further, if Stuart was not at the scene of the crime when it was committed, he would surely have told O’Sullivan - he was intelligent and had an excellent memory.
+
+4\. Apart from the first few sentences and the last one, almost all of the language of the rest of the confession matched language which Stuart was found to have used in the interrogation, indicating either that both accounts were true or both false. The evidence given at the Commission showed quite definitely that they were true.
+
+According to Derham, the police did not do their work [‘]according to the book’, and did not give their evidence [‘]according to the absolute truth, even on incidental matters.’ He added that, if they had done so, there would probably not have been much concern.
+
+However, although the police had been neglectful, it is clear from the Commission’s findings that Stuart’s counsel and his supporting witnesses were far more prone to error, and in some instances serious error, than were the police.
+
+It is true that Jones was criticised for having claimed that the words in the oral interrogation and the confession were exactly those of Stuart, and it was this claim which provided an opportunity for what Chamberlain described as [‘]a standard line of attack’ on the credibility of police witnesses,[^4] but there is no reason to believe that the body of the confession was not in Stuart’s exact words. Apart from its reprimand of Jones, the Commission could find little fault in the police evidence, even though they were subjected to long, severe, and skilled cross-examination. Naturally there were some memory lapses, but they were few and far between.
+
+Most of what the police had done was [‘]according to the book’. As the Commission said in their report, it would have been prudent to have taken statements from other members of the Gieseman troupe. But the police did not think at the time that any such evidence was needed. No doubt they would have learnt that in future they should seek witnesses to the movements of a suspect in the investigation of cases like that of Stuart. They could also have called for independent witnesses to look at Stuart’s body to confirm their evidence that there were scratches on his knees and back. If these steps had been taken, the case might not have gone any further after the trial.
+
+Derham made two criticisms of Sergeant Walker, the officer in charge at Port Lincoln, but they were minor and unrelated to the investigation. He had delayed making an entry in the Station Journal which recorded that Stuart had been in prison on the night of the murder and had then been released without charge.[^5] However, there can be little doubt that he would have made the entry and formally charged Stuart if he had not been so busy with the murder investigation.
+
+Derham then went on to assert that [‘]the angry and improper reaction of representatives of a proud police force under attack is several times in evidence’, and that ministers and judges suffered from [‘]hurt dignity’.
+
+Although some police officers may have been angry, the public statements issued by the Police Association were comparatively restrained. (pp.47-48 above) On the other hand, O’Sullivan’s public statements at the time were charged with emotion: one prominent headline described his first outburst as [‘]bitter’, and he described the police statement as [‘]disgraceful’. He was the one who sounded angry, but for all anyone knows the police were simply upset and resentful. In fact it would not be surprising if they felt little or no anger, given that they often needed to remain calm in difficult situations rather than give vent to their feelings.
+
+The critics were of course entitled to point out the inaccuracies in the Police Association statements, but there seems to have been only one reason for claiming that they had acted improperly, namely that by referring to Stuart’s criminal record any future trial might have been jeopardised.
+
+If members of the homicide squad, such as Turner and Jones, were proud, they had every reason to be - the mid-century clearance rate was extraordinarily high. The clear-up rates for the most serious offences against the person investigated by the police from 1 July 1948 to 30 June 1958 were: 96% for murder/attempted murder and 93% for grievous bodily harm, and the rate for rape/attempted rape was 79%.[^6] This was in the decade prior to the rape and murder of Mary Hattam. There is no reason to believe that the SA police at that time were any more proud than other people who had a quiet pride in their achievements.
+
+There was no evidence that ministers and judges suffered from [‘]hurt dignity’. Many members of the legal profession resented the fact that the Commissioners had been accused of unfairness, and it was obvious that the Commissioners themselves were disturbed by the reports in the *News* and particularly by the misleading headlines. It was their reputation which was being sullied, and this is what concerned them.
+
+There was never any indication that the Commissioners cared a fig about their dignity.
+
+Justice Ross resented the accusation that the Commission were denying or were about to deny justice to Stuart, and Brazel and Chamberlain also defended the decisions of the Commission. (pp.91-93 above)
+
+Since Derham believed that Stuart was guilty, it seems that despite his criticisms of the police conduct, he had no reason to believe that on the whole the confession was not genuine.
+
+Derham said that Inglis [‘]performed the task of telling the story in an admirably clear and concise way, and that drama and tension are provided through [‘]the emotions aroused among the principal participants.’ No doubt this is close to the mark, but Inglis’s account is discursive rather than concise.
+
+## \* \* \* \* \* \* \*
+
+##
+
+##
+
+##
+
+##
+
+## 15. Chamberlain: [‘]The Stuart Affair’
+
+Chamberlain was motivated to write his book because he wanted to tell the truth as he saw it. He had the advantage of an intimate knowledge of what had happened during all of the hearings, and there was no doubt that he had a thorough knowledge of the law. He focussed on the question of Stuart’s guilt or innocence, and to that end selected and assessed what he thought was the most cogent evidence relevant to the task. In doing so he explained why the balance of the evidence led to the decisions of the trial jury, the appeal judges, and the Royal Commission. He showed clearly why the evidence of the witnesses who challenged the authenticity of the confession and the integrity of the police was unacceptable, and likewise why much of the evidence of the challengers was implausible. What he wrote supplemented the report of the Commission, and in effect reinforced its findings.
+
+In pursuing his aims, Chamberlain necessarily had to deal with the effects of the misleading publicity given to the allegations that the police had extorted the confession by means of threats and violence, that Stuart was disadvantaged by a poor command of English, and that he had an alibi. In disputing the accuracy and balance of the media reporting, he considered the facts carefully, just as the Royal Commission had. There can be no doubt that the reputation of South Australia and of its police and judicial officers suffered immensely both interstate and overseas as a result of the publicity, and South Australians came to be seen as particularly racist .
+
+However, Chamberlain expressed opinions which went beyond these considerations. This is abundantly clear from his derogatory remarks about those who in his view were responsible for the generation of so much unjustified public opinion, criticism, and agitation. He was particularly scathing about the part played by the *News* and the [‘]university intellectuals’ whose [‘]statements led a newspaper editor to discover the makings of a front page story’. He asserted that [‘]between them they stirred up emotions that developed into an attack on institutions fundamental to the democratic way of life.’ As far as he was concerned, although these [‘]intellectuals were wrong, intellectual arrogance made it difficult for them to let go.’[^1] Whether or not they were arrogant, there were no sound reasons for persisting with criticisms after the release of the Commission’s report.
+
+Chamberlain singled out Inglis for attempting [‘]to cast doubt on the finding of the Commissioners’. He then set out in some detail his reasons for this criticism,[^2] and it appears that no-one has attempted to rebut his argument. As Chamberlain noted, Inglis himself had conceded that [‘]Stuart’s “own evidence at the Commission, taken together with the practice of the Courts, makes it difficult to argue that he suffered a miscarriage of justice.[” ’][^3] This was certainly the case: Stuart had demonstrated that he could use and understand English quite well; significant parts of his evidence on his whereabouts on the afternoon of the murder matched that of other key witnesses; and the claim that he had suffered serious injury at the hands of the police was false.
+
+Chamberlain’s pungent comments were seen by some to have detracted from his efforts to counter the claims which Stuart’s supporters had made about the case. However, given that there was no substance in the main claims which Dixon, Strehlow and O’Sullivan had made, the lawyers, academics and churchmen who continued to find fault had no real reason to criticise what Chamberlain had written.
+
+The final paragraph in Chamberlain’s book reads:
+
+[‘]Stuart was given every possible opportunity to show that he had been wrongly convicted. Every request made on his behalf was met at public expense. Every reasonable concession was made to his legal representatives. The enquiry was pursued for month after month, through bewildering changes of front, with infinite patience and at the expense of many thousands of dollars. In the process, Stuart escaped the gallows. In the long run, however, it demonstrated once more the truth of the proposition that there is no tribunal in which truth is so likely to prevail, whether of guilt or innocence, as a British court.’[^4]
+
+In view of the vilification of the Government and the Royal Commission, it was appropriate for Chamberlain to have drawn attention to the care and concern which both had given to the
+
+interests of justice and to the handling of the whole affair.
+
+Chamberlain’s final affirmation of faith in the judicial system was echoed by the *Advertiser* and eventually by the *News*, and apparently by most South Australians.
+
+It is difficult, if not impossible, to find any significant flaws in Chamberlain’s reasoning, and apparently none of his critics have made a detailed and impartial study of his book with a view to exposing any. Some would have seen him as dogmatic and outspoken, and he was certainly forthright. He had every reason to be.
+
+## \* \* \* \* \* \* \*
+
+## 16. Professor Castles
+
+In 1973, Professor Castles, wrote a review of Chamberlain’s book. [^1]
+
+He noted that the Stuart case was the [‘]first occasion a criminal matter was taken from South Australia to London’, and then said that the Privy Council’s refusal to grant leave for further appeal was not surprising because of the long standing reluctance of the Council to reconsider criminal cases.
+
+However, at the hearing of the Privy Council Committee, O’Sullivan’s claims were found to have lacked credibility, so much so that they were rejected out of hand and Chamberlain was not called on to reply. There were no grounds for believing that the Privy Council judges who heard the case were in any way influenced by a reluctance of any kind. If Castles believed that there was any such influence, he should have studied the evidence with a view to finding fault with the Committee’s judgement. Without concrete evidence to the contrary, it must be concluded that these eminent, astute, very knowledgeable, and vastly experienced men had been strictly impartial and considered the case on its merits. A whole chapter in Chamberlain’s book is devoted to a consideration of the Privy Council appeal, but Castles completely ignored this and substituted an unsubstantiated opinion instead.
+
+Castles then cited the judgement of the High Court, viz. [‘]Certain features of this case have caused us some anxiety, but we are of the opinion that it would not be in accordance with the principles governing the exercise of our jurisdiction to give special leave to appeal after a conviction upon indictment.’ Castles’ reference to this remark was not accompanied by any mention of the supporting reasons which the High Court had given for its decision, nor of the evidence considered later by the Royal Commission which reinforced that judgement. On the other hand, Chamberlain’s book deals with the reasons for the decisions of the courts and the Commission.
+
+According to Castles, what appeared on the dustjacket of Chamberlain’s book, [‘]Rape. Murder. Lies. An Appeal to the Queen - 7 Stays of Execution. All these were part of Australia’s notorious Stuart Affair’, helped to set the tone of the book.
+
+No reasons were given for this opinion, and the fact is that the words on the cover simply listed some of the events and aspects of the case which illustrated its dramatic nature. There is no reason to take exception to this: many authors and publishers do the same thing. Chamberlain’s book was important enough to be read widely, and if the prominence given to some of the features of the affair promoted sales, so much the better. Rather than challenge Chamberlain’s choice, Castles simply made a gratuitous and unsupported assertion. In any case what Chamberlain wrote, and what he said since, have apparently had little impact on public opinion both in Australia and overseas. There is still widespread opinion that the South Australian judges, government and police were biassed.
+
+Castles then alleged that Chamberlain used [‘]the wiles of a leading prosecution counsel to present what can only be regarded ...as his own *personal* view of the Stuart case and its ramifications.’
+
+Castle’s view that he used [‘]wiles’ in this exercise is quite unjustified, and is a personal opinion if ever there was one. Chamberlain simply selected relevant evidence to demonstrate that Stuart had been dealt with fairly and that there could be no doubt that he was guilty. Any disinterested, patient and competent person could have done the same, but given his natural ability and long experience, Chamberlain would have found the task easy - he would have had no need to resort to [‘]wiles’. Castles erred when he chose to include and to italicise the word personal, given that what he himself had said was merely personal opinion - an unintended irony!
+
+He considered that Inglis produced a [‘]more definitive study with balanced perspectives, despite his own partisanship at the time’, and that Chamberlain added [‘]little that \[was\] new by way of detail to Inglis’s work.’ He thought too that Chamberlain had neglected [‘]to examine issues and comments’ which Inglis had explored, and that he had presented his own personal attitudes to the case. However, he did not say in what respects Inglis’s work was [‘]more definitive’. Chamberlain had certainly not been neglectful: he did not examine most of what Inglis wrote because it was not germane to his task. In any case, what Inglis wrote in his attempt to cast doubt on the verdict was riddled with surmise, and unbalanced because he ignored or downplayed much of the evidence which pointed to Stuart’s guilt.
+
+Castle’s accusation that Chamberlain [‘]presented his own personal attitudes’ was quite unwarranted, and he adduced no evidence to support the claim. Chamberlain had certainly expressed his opinions, but there is every reason to believe that he did what he always had, which was to deal with facts and evidence and draw conclusions accordingly. On the other hand Castles himself had been neglectful, having made little effort to make out a case to support his own claims. Moreover, Chamberlain’s soundly based reasoning reinforced that of the trial jury, the Courts of Appeal and the Royal Commission.
+
+Castles wrote that Chamberlain expressed opinions which were hard to justify. As an example, he cited Chamberlain’s comment that the Stuart campaign was [‘]an early instance of the phenomenon which has become so familiar in more recent times: the revolt against authority.’ In challenging this opinion he referred to [‘]comments by newspapers...in Australia and overseas, the views expressed by a leading Q.C., now a member of the Supreme Court of New South Wales, and others, including Sir John Latham’, but these comments provided no real ground for questioning Chamberlain’s view. In any case, most of the comments in the interstate and overseas papers were made by people who had little or no direct knowledge of the court proceedings.
+
+Chamberlain was not the only one to use the term [‘]campaign’ to designate the coordinated efforts of Stuart’s supporters: the *News* was probably the first to do so, (see p.39 above) and many others followed suit. Challenges to authority in the late fifties were precursors of what was to come in the next decade, the [‘]swinging sixties’, which saw the full emergence of radical influences and trends, and a sustained [‘]revolt against authority’.
+
+There can be no doubt either that the leaders of the campaign to save Stuart were challenging authority, and that in many instances they were impelled by their own predispositions. There was ample justification for Chamberlain’s opinion that these challenges were early instances of the now all too common protests, often objectionable, against persons in positions of authority, which collectively amount to what may be called a revolt.
+
+The *News* reporting of the Stuart case was something quite new in South Australia, and was an example of the now common sensational and imbalanced accounts published by tabloid papers. It should have been perfectly clear to those who were closely following the proceedings in the courts and the related events that the *News* was guilty of sensationalising the case. Unfortunately this was not clear to Castles or to Inglis and those of like mind.
+
+Castles pointed out that the [‘]issues relating to justice being done and seeming to be done, were very much in the minds of many concerned with the Stuart case’. This was quite true, but the concern was shared by many people, including those who were satisfied all along that justice would be done and would be seen to be done. This included Chamberlain. It was this conviction which motivated him to write his book.
+
+Castles then wrote that it [‘]was a matter of concern’ that Stuart’s confession was made [‘]without the benefit of legal advice’. In this regard it may be said that all persons have a right to silence when being questioned by police, except for having to give their names and addresses. However, many people are unaware of this, and in a similar situation answer police questions. According to the police evidence, after they had found Stuart, and the initial questioning, he was cautioned before the typed statement was taken, and yet again before he signed it. Stuart need not have answered after the cautions, and was not obliged to sign the confession, but he did what he had done previously when questioned by the police in Queensland and the Northern Territory, i.e. he admitted guilt.
+
+Nevertheless, the concern that many people are unaware of their right to remain silent is quite reasonable: those who are aware have an advantage, as do those who refuse to answer without the presence of a legal adviser. However, at the end of the day the fundamental question in the Stuart case is whether his confession was genuine. The jury found that it was, and so did the Commission.
+
+Castles referred to the fact that the police made no plaster casts of the footprints which the aboriginal trackers had examined near the scene of the crime or taken any measurements of them, and that this could give rise to queries. He then wrote that the [‘]hairs taken from under the fingernails of the cruelly murdered little girl may not, as some expert evidence suggested, have provided a firm basis for identification’, and that [‘]there are those who have argued that greater significance can be attached to such evidence. In at least one trial in another State such evidence has been regarded as important.’
+
+The police believed that the evidence of the trackers was adequate. Unfortunately for them, the Commission did not agree, saying that [‘]the so called identification of the footprints’ was [‘]plainly valueless’ as evidence.[^2]
+
+If the footprints on the beach had still been sufficiently distinct on the day after the murder, then plaster casts could possibly have been made and accurate measurements taken.
+
+The investigating police hoped too that the taking of the hairs would provide conclusive evidence. However, as already said, an expert clinical pathologist told them that no such evidence could be provided from an examination of the hairs, (p.18 above) so their hopes were again dashed.
+
+Castles did not name the state where the other evidence was given, and he did not give any information about why this interstate evidence was considered to have been important. As Chamberlain pointed out, when the crime in Ceduna was committed, [‘]there was no Forensic Laboratory in South Australia. Nowadays, members of the Scientific Squad would have been among the first on the scene, to take photographs and plaster casts of the footprints’.[^3]
+
+Castles claimed that [‘]Sir Roderic’s antipathy to the reporting of the Stuart case, particularly by the Adelaide *News*, and the opinions he expressed on this, show little understanding of the traditional role of the press in a democratic society.’ He also said: [‘]Without such newspaper reporting...one of the basic checks on government in a free society would be set at nought’, and [‘]in the era of Watergate, any diminution of such a role for the media, which is implicitly suggested by Sir Roderic, should, it would be hoped, fall on deaf ears.’
+
+There was no resemblance between the Watergate and Stuart cases other than that a crime had been committed. Two young reporters, Bob Woodward and Carl Bernstein, uncovered the Watergate political scandal, which was a prime example of justified and hugely successful investigative journalism. They acted responsibly and exposed conspiracy, crime and a cover-up at the highest political level.
+
+Chamberlain was by no means alone in objecting to the way the *News* reported the Stuart case. A host of others shared his opinion. Nor did he show that he did not understand what the role of the press should be in a democratic society - as far as he was concerned the *News* had abused its responsibility to comment fairly and accurately, and this reflected unjustly on the Government and its institutions.
+
+Castles then suggested that Chamberlain’s [‘]account could be regarded as failing to give full due to persons who...came forward to perform what they believed in all good conscience,... to probe for the truth in a matter in which a convicted murderer might still die on the gallows.’ He added that such persons as Dixon and Strehlow [‘]followed the tradition of such public service in coming forward to assist in the further investigation of the Stuart case.’
+
+Chamberlain did not object to their coming forward per se, and there is no reason to believe that he did. His concern here was with the false claims of the two men. Further, he had no reason to give them any credit, and in fact he paid little or no tribute to any people involved in the affair. In any case, it is not customary to honour people, even if they are of good conscience, whose actions result in needless and divisive public disquiet. Chamberlain’s main concern was to demonstrate that justice had been done to Stuart, and he was able to refute the contentions of those who doubted this, and to show that Stuart had been dealt with just as fairly as would any other person charged with a serious crime.
+
+In concluding his review, Castles expressed the opinion that the Stuart Affair could [‘]not be regarded as a substitute for Professor Inglis’s better all round exposition of the events of 1958-59.’ This was beside the point: Chamberlain did not set out to give an exposition of events which were extraneous to his purposes - he simply sought to show that Stuart was guilty as charged, that challenges to the verdict were insupportable, and that these led to widespread and deplorable social discord. He cited a great deal of evidence to support his conclusions, and by his efforts he succeeded in reaffirming that the claims made by Stuart and his supporters were unsustainable.
+
+What Castles wrote was in fact not a review at all. He did not discuss or assess the evidence which Chamberlain adduced, and provided no convincing reasons for doubting his conclusions. Rather, he succeeded effortlessly and unwittingly in demonstrating that his own were untenable.
+
+He had joined the Adelaide Law School staff in 1958, and, like Inglis and Professor Norval Morris, was an early supporter of Stuart. Nothing that Chamberlain wrote was going to disturb the preconceptions and partiality of these people.
+
+Unfortunately, the [‘]review’ must have had a considerable and widespread impact on opinion in legal and academic circles.
+
+## \* \* \* \* \* \* \*
+
+## 17. Don Dunstan: [‘]Felicia’
+
+Some eight pages of Dunstan’s book *Felicia* are devoted to a discussion of the Stuart case. Much of what he wrote about the case went well beyond anything he had said in the speech which he had made in Parliament twenty-one years earlier, and there are a number of contradictions between what he wrote in his book and what he had said in the speech.
+
+The first sentence in the relevant passage of the book reads: [‘]The year 1959 saw an issue on which Playford and the Adelaide Establishment, in alliance, showed just how tough and ruthless they could be towards those who challenged them.’[^1] He claimed that controversy flared [‘]immediately that an illiterate Aborigine had not had all the fairness due to him in his trial.’[^2]
+
+However, this was simply not true. The jury brought in its verdict on 24 April,[^3] and it was not until 27 June that Dixon and Strehlow addressed the meeting at Dr. Charles Duguid’s home,[^4] and not until 29 June that there was any news report of a campaign to challenge the decision. (p.39 above) There was no immediate [‘]flare’. Moreover, Stuart had suffered no disadvantage because of illiteracy. Although he could not read his unsworn statement, with prompting he could easily have told the trial judge and jury what was in it. Dunstan had blithely ignored what he had said earlier in parliament, namely that close examination did not bear out the claim that Stuart suffered any disadvantage because he could not understand English, and that the Commission’s report had disposed of certain allegations of Stuart’s English. (p.171 above)
+
+His claim that there had been a tough and ruthless alliance was an unjustified assertion not supported by any evidence whatsoever. He named no names, and gave no examples to support the claim that this imagined alliance was tough and ruthless. Unlike Playford, Dunstan was not always careful with the truth.
+
+He also claimed that the terms of reference of the Commission could hardly provide for the [‘]thorough enquiry’ which Playford had promised, and that it [‘]looked, from the terms of reference, as if the enquiry was intended to be a witch-hunt on Father Dixon and David O’Sullivan.’[^5] This again was untrue: it became clear early in the piece that there would have to be a thorough enquiry, as Playford had promised, and there was nothing at all in the terms of reference to suggest that there would be a [‘]witch-hunt’, and of course there never was one. The Commissioners were very tolerant toward the witnesses who appeared on Stuart’s behalf, including Strehlow, Dixon and the Giesemans. O’Sullivan and Villeneuve Smith were reproached on a few occasions, but not without justification.
+
+Another claim by Dunstan was that [‘]the fun-fair proprietor, his wife and a woman employee \[remained\] firm under cross-examination in providing an alibi for Stuart.’[^6] This claim was quite unjustified: there were significant contradictions between the evidence of these three witnesses, (pp.134-137 above) and between theirs and the more persuasive and consistent evidence of Spry, Blackham, the hotel girls, Wells, Mrs. Betts, and the Kelly brothers. (pp.139-141 above)
+
+According to Dunstan, Shand’s claim that he had never been stopped before was [‘]almost certainly true’. He asserted too that some members of the bench of expressed [‘]preconceived conclusions made before full examination of witnesses’, and that Napier had [‘]endeavoured to explain his grave interference in cross-examination’.[^7]
+
+Dunstan adduced no evidence whatsoever for these wild assertions. The fact is that Napier had interrupted Shand’s examination of Phin because he had decided that there was no point in continuing, and explained clearly why this was the case. (p.86 above) His reasons were cogent, and Shand must have realised that he was in a no-win situation. This explains why he decided not to challenge Napier, and to withdraw. Further, according to Chamberlain, interruptions in court hearings were commonplace, and Ross was of the same opinion, (p.91 above) so there has to be doubt about Shand’s claim that he had never been stopped before. There had been no [‘]preconceived conclusions’, and Napier’s explanation had obviously been given without any special effort.
+
+Dunstan continued his comments by writing that Stuart’s [‘]English was clearly better than had been suggested, but certainly not good enough to have dictated the confession in the words used’, and that the Commission dismissed [‘]the suggestion that Stuart’s English was not good enough to have made the confession though agreeing that it was not, as the police alleged, in Stuart’s exact language.’ He noted too that the Commission had dismissed [‘]the allegation that the confession was obtained by violence.’[^8]
+
+Dunstan had reneged on what he had said earlier, which was that ‘the suggestion that \[Stuart\] could not understand English did not bear any sort of examination’, and that [‘]the Commission had disposed’ of [‘]certain allegations about Stuart’s English’, and [‘]certain of his allegations as to how he was treated.’ (p.171 above) In other words at that time he had accepted the Commission’s judgements about Stuart’s language ability and the police conduct. His about-face is inexcusable. In addition, he made no mention in his book that he had said in his speech that Stuart was a [‘]most unsatisfactory character’.
+
+According to Dunstan, [‘]many lawyers and other citizens gravely doubted’ the Commission’s assertion that [‘]no reasonable jury, properly instructed, would, having heard the evidence not available at the trial, have come to a different conclusion than guilty beyond reasonable doubt.’[^9]
+
+However, it seems likely that the number of people who were gravely concerned at that time was relatively small. The number was certainly small in South Australia, where apparently most people, including lawyers, accepted the findings of the Commission and approved the way the judges had dealt with the case. Christopher Legoe wrote that he was not aware of any serious rifts within Adelaide society as a result of the case.[^10] It also seems that South Australians who knew the facts disagreed with the way that Shand and his associates had behaved. Most expressions of doubt probably came from interstate and overseas.
+
+Dunstan also remarked that [‘]O'Sullivan and his two associated counsel found it necessary to move to the Victorian bar rather than remain practising law in South Australia.’[^11] This opinion was held by others, including Stewart Cockburn, who wrote that Stuart’s solicitors [‘]were made to feel persona non grata (sic) in Judicial circles in the South Australian legal profession.’[^12] Among the probable reasons for this ostracism was that the two solicitors had given their support to Shand in his criticisms of the Commission and that their subsequent joint tactics impeded its work. It is also possible that many of their colleagues thought that O’Sullivan had acted unprofessionally by entering the public political debate with his criticism of the Government and the Police Association.
+
+Dunstan expressed the opinion that, although it might seem that the Stuart affair [‘]could be of only minor importance in the social history of South Australia,’ it [‘]shook the complacency of the community a great deal,’ and [‘]was seen as a contest between those who had doubts about the administration and the body of community orthodoxy.’[^13]
+
+This is a very dubious assertion. During the 1950s South Australians had every reason to be pleased with their society, and indeed complacent. As in the other states the difficult years of recovery from the effects of the war had almost passed, and a time of economic prosperity was beginning, with unemployment at a record low level. Per head of population, South Australia had attracted more migrants than any other state, and these people welcomed the opportunities on offer. The so-called baby boomers had even greater opportunities than their parents, and the children of immigrant parents were particularly fortunate. The chance for upward social mobility was made possible, among other factors, because of the remarkable expansion of the public school system and the dedication and professionalism of teachers.
+
+It was a time of hope and contentment, with stable families as the keystones of an orderly, cohesive and safe society. The crime rate was still low, and the clear-up rate for offences reported to the police was still high, so most accused persons were brought to trial. The recollection of elderly people, including former police officers, is that most offenders had fallen victim to temptation, learnt their lesson, and did not reoffend. Although Dunstan had said that there was complacency, there was good reason to believe that most South Australians were well satisfied with the State’s institutions and services and with their political leaders, including Playford himself.
+
+After the release of the Stuart Royal Commission’s report, the [‘]body of community orthodoxy’ was unaffected, with most members of the community accepting the findings of the Commission. Although a significant number later sided with the critics, this was the result of increasingly widespread misinformation about the case.
+
+Dunstan went on to claim that the [‘]doubts raised in the Stuart case were seen by the Playford Government and the Establishment as subversive and heretical, and they reacted in a way which brought the full weight of the Establishment power - Government, courts, police, economic and social pressure - upon those who questioned.’[^14] This immoderate generalisation is typical of much of what he wrote about the case. The Playford Government dealt with the situations which arose quite properly, and took full responsibility for its decisions. In terms of political popularity, some of these decisions were to cost it dearly. However, the only questioners who suffered from the [‘]full weight of Establishment power’ or [‘]economic or social pressure’ seem to have been Rivett and the directors of the *News*. There is no evidence whatsoever that the decision of two of Stuart’s counsel to move interstate was due to any pressure from the Government, the Courts, or the police. Dunstan mentioned the prosecution of the *News* and the departure of the two counsel, but did not identify any others [‘]who questioned’ as having suffered from any exercise of power by anyone.
+
+There is also no evidence that the proceedings and decisions of the courts were influenced in any way by the Government. Nor can it be claimed that any actions of the police involved were directed against [‘]those who questioned’, except when they had felt impelled to defend their actions and reputation. What is true is that the Government, members of the legal profession, including the judges directly involved, and many members of the public were critical of the *News* for its reporting of the case. The Government was clearly outraged. Nevertheless, the critics were justified in claiming that the Government overreacted in pressing for the charges of seditious libel, if not those of criminal libel, and in hindsight it can be seen that the charges should have been only for libel.
+
+## \* \* \* \* \* \* \*
+
+## 18. Dixon: [‘]The Wizard of Alice’
+
+The first edition of Dixon’s book was published in 1987, and his aim was to demonstrate that Stuart was innocent. He had made up his mind early in the piece that Stuart was not guilty, and he continued to believe this despite the findings of the courts and the Royal Commission, and the fact that after the release of each report most people accepted the findings. He continued to assert that the police were not to be trusted, and that the confession was not genuine. The book runs to some 400 odd pages, which is a tribute to his tenacity if to nothing else.
+
+In the foreword he wrote: [‘]In my view the essence of the Stuart case is the necessity to evaluate the evidence of the police both as individuals and as a body’. Later he wrote that [‘]the whole question was whether I should accept the word of the police or the feeling in my own heart that Stuart knew little about the crime.’ [^1]
+
+Later on he wrote that when he first looked at the typed confession, he thought only that [‘]some of the words could not have been used by Stuart’, and that when O’Sullivan [‘]assured \[him\] that apart from the formal introduction... the rest was, on the sworn oath of the police, in Stuart’s exact words’, he was persuaded that the confession was false.[^2] He was still clinging to his belief that Stuart did not have the linguistic ability to have dictated the confession.
+
+Dixon held many strange opinions. No-one else could have written:
+
+> [‘]The one balloon that Chamberlain was continually floating until it reached storm-weather conditioning was the supposed claim by Stuart’s friends that he couldn’t speak English’,[^3] or [‘]O’Sullivan had explained to him several times that “the problem of language was secondary”, and that it “only emphasised the first problem”, which was “What would the jury think of Stuart’s evidence if I had to prompt him sentence by sentence? It would have been absolutely useless”.’[^4]
+
+Dixon must have been the only person to think that Chamberlain was wasting his time in trying to find out how well Stuart could speak English, and that the Commissioners too had no interest in finding out about this. It was perfectly clear that it was essential for Chamberlain to question him about this claim, which was not supposed but all too real, and had been strenuously maintained. Even more absurd was the notion that the [‘]problem of language was secondary’: the consideration of Stuart’s language ability was of prime importance. It was the view of the Privy Councillors and the Royal Commissioners that, with prompting, Stuart could have given the jury the opportunity to judge it, and when Stuart finally gave his evidence, the question was soon resolved - he had little difficulty in understanding the questions put to him and gave ready and clear responses.
+
+Dixon expressed other baseless personal opinions, such as:
+
+Playford [‘]was too surely ensconced to be concerned with public reaction.’[^5]
+
+From the terms of reference: [‘]It was clear that police credibility was not going to be touched, nor any of the tactics since the Trial, whereas my part in getting the declarations and O’Sullivan’s efforts for Stuart were going to be “sifted to the ground”.’[^6]
+
+[‘]O’Sullivan’s blood was what they wanted...[’ ‘]There was every sign of a heresy hunt.’[^7]
+
+[‘]The Prosecution was anxious to rivet attention away from Moir.’[^8]
+
+[‘]Spry had no more reason to remember Stuart’s phone-call than that of any other native on that busy Saturday afternoon.’[^9]
+
+[‘]When Spry walked into the witness box...two things were in my mind: the known hostility to aboriginals and his famous claim that he had no trouble picking out Stuart among the many dark people like Stuart who flocked into such a haven and heaven-sent profit-making business for whites.’[^10]
+
+By the time the nine aboriginal witnesses were called, [‘]they seemed to have been too well schooled in what was expected of them.’[^11]
+
+[‘]Chamberlain went into details \[of Stuart’s Queensland crime\] with an evident delight.’[^12]
+
+[‘]Mrs. Newham’s unabated “yes” stream was punctuated only by her racist attitude that soon came out loud and clear.’[^13]
+
+[‘]Strehlow...stressed that \[Stuart’s English\] “was a certain type of English”.[’ ‘]This was something that both the prosecution and the police were playing up to the press and while Stuart had no one to represent him this grand red-herring was dangled blatantly in front of any prosecution witness who appeared but was consistently rebutted by Strehlow until I became sick in the pit of my stomach listening to or reading about it.’[^14]
+
+All of these opinions lack credibility and most are easily discredited. For example, Playford was very concerned about public opinion, particularly about interstate and overseas criticisms; the credibility of the police was tested by long and severe cross-examination; O’Sullivan was never called upon to defend his actions - his blood was never wanted; Spry had good reason to remember Stuart, who was a stranger and had asked him to call a taxi; the prosecution played nothing up to the press; and there was no red herring - one after another the prosecution witnesses testified that Stuart could use and understand English quite well. Dixon was so committed and emotional that he had become quite irrational.
+
+There are any number of other examples which illustrate the effect which his feelings had on his opinions and his thinking. A few more are listed hereunder.
+
+Referring to Napier’s invitation to Shand to continue his examination of Phin, following the interruption, Dixon wrote:
+
+[‘]Napier could afford to be legally generous with an offer after the mouse had escaped from the trap’, and [‘]Phin must have been delighted as he realised he had slipped the cornering.’[^15]
+
+[‘]Why have Phin come and go over the same territory? It must have been a waste of time and so irrelevant\!’[^16]
+
+[‘]I was not engaged on any detective work.[’ ‘]I rejected to the bitter end any image that I was active in detecting any crime or in making any suggestions to the solicitors.’[^17]
+
+[‘]I sidestepped the invitation’ of Mr. Starke to give him any point that he might consider important.[^18]
+
+Chamberlain’s announcement of the commutation was a [‘]super-pious comment.’[^19]
+
+[‘]Starke had quickly realised the shortcomings of the Commission and their deliberate obtuseness.’[^20]
+
+These opinions were completely without foundation. The facts are that:
+
+Shand had been endeavouring to trap Phin, and perhaps he did think that the mouse (Phin) had walked into it when he gave three
+
+possibilities at a time when his memory was being tested, but it was evident that Shand had failed in his attempt to discredit Phin, and that his questioning on the point at issue was immaterial, as Napier and Brazel had explained. (pp.89-92 above)
+
+Phin’s evidence was neither a waste of time nor irrelevant: it pertained to Moir’s recollection of Stuart’s movements on the day of the murder and to the boy’s opinions about Stuart’s character and behaviour.Phin’s questioning of Moir also indicated that he could not have been the guilty party. Finally, Phin had to counter any suggestions that he himself was complicit in any alleged police wrongdoing.
+
+Dixon was acting very much like a detective in seeking evidence in an attempt to prove that the police were guilty of serious offences, and the reason he gave for not cooperating with Stuart’s counsel is quite odd.
+
+It seems likely that Dixon was the only person to suggest that
+
+Chamberlain’s announcement was [‘]super-pious’, and Starke would surely not have thought that the Commissioners were deliberately obtuse.
+
+Dixon was certain that Stuart could not tell the time. (p.142 above) According to him, Stuart could not tell the time because N.T. Aboriginals could not. This was despite the fact that Stuart had lived and worked with white people for some sixteen years. He wrote that Chamberlain and the Commissioners [‘]showed an unusual interest in the “time” problem.’[^21] How he could have written this is beyond comprehension: the [‘]alibi’, the matter of time, had been all-important, especially to Dixon himself.
+
+Dixon also expressed surprise that [‘]a gaoler would cooperate with the prosecution, obviously one of those who were offering themselves as witnesses in other matters.’[^22] But there was no reason for surprise: the warders were in the same position as the other witnesses who co-operated with the police and were willing to appear in the cause of justice.
+
+Dixon: [‘]The strange thing about this murder case is that no one knows to this very day when the murder occurred.’[^23] The strange thing is that from this statement it appears that Dixon did not accept that the murder had been committed between the hours of two and four, and this despite the fact that he believed that Stuart’s alleged presence at the show during this time gave him a perfect alibi.
+
+According to Dixon, Chamberlain asked two questions which [‘]set a wide trap for Stuart and, unwizardlike, he walked right into it.’ The questions and answers were: ‘When did you get back to the show?’ ‘Two o’clock.’ ‘How long were you there?’ ‘From two to four.’[^24] But Chamberlain had set no trap: Stuart had simply agreed with the alibi witnesses in the hope that the alibi would save him.
+
+Dixon: [‘]To accuse Stuart of knowing these times early in the case and not telling O’Sullivan the importance of these hours is to accuse him of a stupidity he does not possess or of a wizardry he does not have.’[^25] Stuart was certainly no fool, and although he may not have been a wizard, he was intelligent and shrewd, so much so that he knew the time during which the crime had been committed, and also where he was during that period. His reason for not initially telling O’Sullivan that he had an alibi was that he had none.
+
+Dixon: [‘]Brazel pursued me. “I gather it is quite clear...that at some stage Stuart told you that he worked at the darts up to about sundown?[” ’] Once again I avoided the exact times. I do not take any notice of times when Stuart is talking.[’ ‘]Brazel, “Is it not a fact that you have told us on one occasion that he worked at the funfair up to about sundown?[” ’ ‘]No, he went down to the beach about sundown. Did I say that?’[^26]
+
+Apparently Dixon was so fixated that he made no effort to remember what he had said in evidence, which was: [‘]He then tells me that he worked around in the darts until after sundown’[^27]
+
+Stuart had said in evidence that he knew that he had worked at the show from 2 to 4 p.m., because he had looked at the Giesemans’ watches. Yet Dixon asserted that if Stuart had used these clock times,[‘]it was either because he was instructed in some round about way to say them or that he had heard them so often since the appearance of the Giesemans that they had become part of his vocabulary but certainly not because he was able to “tell the time” in our sense.’[^28]
+
+This was mere surmise: once Stuart knew that there were witnesses who were willing to provide an alibi, he had no need for instruction or repetitions of the times. He was smart enough to realise that he might possibly have been given at least a fighting chance of release, but only if his testimony matched that of the alibi witnesses. It was therefore time for him to say what he claimed to have known all along, i.e. that [‘]he had worked from 2 to 4 p.m., but had not told Mr. O’Sullivan because Mr. O’Sullivan had not asked him.’ Even when the unsworn statement was being prepared, Stuart had not taken the opportunity to tell O’Sullivan that he had been at the show during that period.[^29]
+
+Dixon: [‘]I found it strange that Moir’s statement \[to Phin at Whyalla\] which had been taken in January...was not brought into court in April...and that [‘]Chamberlain wisely refrained from producing \[it\] and Phin’s reminiscences.[’ ‘]However, he gave it plenty of airing in the Commission.’ [^30]
+
+This passage in his book was mere fancy. Chamberlain had had no reason to call Phin at the trial, but he had to be called as a witness at the Commission because the police had been accused of serious crimes, and he had to explain his own role in the affair. In doing so he was subjected to very determined cross-examination by Shand.
+
+After referring to the fact that the police had told Stuart that they intended to look at his tracks, Dixon went on to write:
+
+[‘]Turner at the trial could only say, “I don’t think I told him trackers had seen where a man had washed himself at the pool.’” “He was only told the tracks had been identified”. Question \[to Turner\]: “Did anyone say anything to this effect - We know you were there because the tracker has told us?” Answer: “No, that isn’t possible. The tracker hadn’t even seen the accused”.’
+
+[‘]This last unsolicited response is yet another Turner effort.[’ ‘]The plain fact of the matter is that the trackers had told them Stuart was there even though the trackers had not seen him.’[^31]
+
+There was no evidence at all that Turner had given false evidence, and there had never been any serious challenge to the police evidence on this point. The trackers were called on to identify the tracks *after* he had made the confession.
+
+Dixon then referred to some passages which Strehlow had written about the tape recording of the phonetic translation of the confession into Aranda and of Stuart’s translations back into English., as follows:-
+
+[‘]There is no doubt in my mind...that this text yielded a completely valid linguistic record of the kind of English speech that Stuart was using at the time. To my amazement, however, the Commission not only refused to print the English tape version in their Report, but they actually attempted to discredit it.’[^32]
+
+[‘]It is quite clear...there is a vast linguistic difference in what Whitrod typed and what Stuart would have said in his own English if he had made any sort of statement,’[^33] but the Commissioners [‘]went ahead with their own linguistic analysis of the police confession, using as parallel texts the linguistically suspect documents made at Alice Springs and Cloncurry.’[^34]
+
+These assertions were without foundation, as the following
+
+information demonstrates:
+
+Although Strehlow had formed [‘]the impression that pidgin was the best that \[Stuart\] could do in the way of English’, he [‘]was wrong as he was obliged to admit when \[Stuart\] had given his evidence.’[^35]
+
+Both the Alice Springs and Cloncurry documents were genuine and were accepted as such, and they showed without doubt that Stuart was bilingual.
+
+Stuart used more correct tenses than incorrect ones in his various responses in the phonetic translation exercise. In some instances he used the correct past tenses, but in others he was inclined to use the present tense instead. He frequently used correctly the word [‘]went’, and several times the words [‘]was’ and [‘]drank’. Other words correctly used included [‘]showed’, [‘]woke’, [‘]left’, [‘]bought’, [‘]gave’, [‘]told’, [‘]wanted’, [‘]couldn’t’, [‘]took’, [‘]thought’, and [‘]slept’. Examples of the use of the present tense instead of the correct past tense include [‘]come’, [‘]work’, ’start’, [‘]sit’, [‘]meet’, [‘]crawl’, and [‘]take’. In one reply he used the word [‘]gave’, but later said [‘]gibb’ (i.e. [‘]give’) instead of the correct [‘]gave’.
+
+Although Dixon and Strehlow continued to believe that this exercise of translation and retranslation was successful, it was obviously futile. Neither of them could accept the plain fact that Stuart did not need to be spoken to in Aranda before he could say what he wanted to, and, as the Commissioners observed, [‘]the two languages, \[Aranda and English\], do not lend themselves to any straightforward translation.’[^36]
+
+The Commissioners’ concluded: [‘]From the outset the plain fact was that the petitioner (Stuart) had no need to translate the questions into Aranda. He was obviously bi-lingual in the sense that he was not only speaking, but was actually thinking, in the English language and idiom.’[^37]
+
+Chapter 58 of Dixon’s book is devoted almost entirely to comparing passages in the written confession with the corresponding passages in the record of Stuart’s interrogation. Dixon believed that the police record of Stuart’s interrogation was not genuine, and that Turner and Jones had used the typed confession as the basis for writing up their account of the interrogation. He wrote:
+
+[‘]The obvious reason why both of them could claim to recall what went on was the written document they brought back from Ceduna; Stuart’s typed confession.’[^38]
+
+Here again, Dixon expressed an opinion apparently not held by anyone else.
+
+Dixon proceeded with his comparison by considering and commenting on each section of the recorded interrogation with the corresponding section in the confession. These corresponding statements were set out in two columns under the headings ([‘]Interrogation Reconstructed’ and [‘]Written Statement Confession)’, and he made it clear from the start that in his opinion both documents were false.
+
+He reasoned that Stuart would not have used many of the same words or phrases during the interrogation as he had when making the confession, and his claims are based on this assumption. But of course the use of the same words could indicate that the record of the interrogation and the confession were both genuine.
+
+Stewart Cockburn wrote that at the end of Chamberlain’s cross-examination of Stuart at the Commission, [‘]no one had any doubt as to the accused’s ability to use English.’[^39] In this, Cockburn was not quite right - there were exceptions, and Dixon was one. The Commissioners had no doubt.
+
+Dixon’s book is laced with errors and with examples which demonstrate his mental confusion and irrationality. He had been gullible in falling prey to Stuart’s deceptions, and was so obsessed with attempting to demonstrate that Stuart could be innocent, that he could not come to terms with plain facts.
+
+## \* \* \* \* \* \* \*
+
+##
+
+##
+
+## 19. Barry Hill: [‘]Driftwood: T.G.H. Strehlow - the Stuart Case’
+
+An article by Barry Hill forms Chapter 4 in the [‘]Strehlow Research Centre Occasional Paper 2 1999’, and it sets out his views of the case. Regrettably for the most part it comprises opinions not supported by fact, and which can be easily refuted.
+
+Hill: Permission to have the dock statement read was refused on [‘]the grounds that illiteracy was insufficient justification for a departure from...normal procedure’.[^1] The bench [‘]put Stuart in the box to be prompted’, and this was in 1959 before [‘]the exposure of police culture that would come with the Committee of Inquiry into Aboriginal Deaths in Custody’ thirty years later.[^2]
+
+Comment:
+
+Permission was denied because no defendant was entitled to have an unsworn statement read for him, a decision which was upheld by the Full Court of Appeal, the High Court and the Privy Council Committee. The bench did not [‘]put him in the box’; he was in the dock as the defendant and his counsel had sought to have the statement read for him. Further, there was no evidence that the South Australian police at the time were prone to assaulting Aborigines being held in custody.
+
+Hill: When Dixon, Strehlow and O’Sullivan visited Stuart in prison, he [‘]talked in Aranda - the only language in which he possessed full fluency of expression and a reasonable range of vocabulary. Extracts from Strehlow’s “scientific analysis” featured prominently in *Nation*’*...*and were [‘]the subject of ferocious cross-examination during the Royal Commission.’ Strehlow thought that he could test Stuart’s understanding of words such as [‘]unconscious’ and [‘]rape’ by asking him about them in Aranda.[^3]
+
+Comments:
+
+Hill was repeating Strehlow’s claim that Stuart was not fluent in English and did not have [‘]a reasonable range of vocabulary’, but the [‘]scientific analysis’, which was premised on this claim, was ill-conceived. Moreover, few could doubt after Stuart had given evidence at the Royal Commission that he had suffered any difficulty in conversing in English. Hill acknowledged Strehlow’s difficulty when he wrote that [‘]Strehlow argued from an assumption of his own: that knowing two languages necessarily implies being able to translate from one to the other.’[^4]
+
+There was no ferocious cross-examination: Chamberlain was known to have been calm, although persistent and direct, in examining witnesses. In 1971 Chief Justice J. J. Bray recalled that Chamberlain [‘]was always courteous and considerate’ and Justice Kevin Duggan wrote that [‘]he relied on logic and the effective use of language’, and that he [‘]had an acute appreciation of human nature enabling him to relate to jurors and appeal to their common sense.’[^5] This was high praise.
+
+Hill: [‘]On August 15 Strehlow was the lead story in the magazine *Nation*, the smartest publication tracking the Stuart case. The paper ran a detailed summary of his affidavit, and commented: “At the Royal Commission it was not only Stuart who was in the dock. Sir Thomas Playford’s system is up for scrutiny - the system which allowed the Stuart case to get to the point where the accused had the onus of demonstrating his innocence.[’’ ’][^6]
+
+Comments:
+
+The story in *Nation* had been written by Inglis, whose claim that the system was up for scrutiny was merely shallow opinion.
+
+The truth is that Stuart was not obliged to appear: rather he was given the opportunity. Moreover, it was not the job of the Commission to examine Playford’s system, which in any case was not his. The police and the courts were independent of government, and so was the Commission.
+
+After the walkout, Stuart’s counsel made it clear that they opposed his appearance, but they later vacillated, (see pp.100, 106 above) and in the end he did appear and his evidence and that of the police were tested. The result was inevitable.
+
+Playford was in trouble politically, so perhaps in a sense he was [‘]in the dock’. According to Stewart Cockburn, the Stuart case was [‘]one of the principal catalysts’ which [‘]permanently destabilised the Government and went on to accomplish...its fall in 1965’, and that this was due to the efforts of his [‘]disaffected opponents.’ [^7] Many years later, Playford told Sir Walter Crocker that he had erred in appointing Napier and Reed as Royal Commissioners.[^8] As Cockburn wrote, this [‘]enabled the Government’s critics to argue powerfully that here was a case in which justice must not only be done, but must be seen to be done. And in the emotional climate of that time, and of the emotional campaigning..., the public were all too easily persuaded that Stuart could hardly expect impartial justice in the controversial Stuart Commission from the man who had already tried him and directed the jury which found him guilty.’[^9]
+
+The criticisms which stirred up public opinion were made despite the fact that the integrity of the judges could not be doubted, and that Justice Reed’s summing up to the jury was impeccable. He had included strong warnings to the jury that there could be no conviction unless they were completely satisfied that the confession was genuine. (pp.25-26 above)
+
+The legal system was not Playford’s, but one which had been long established and had stood the test of time. Playford’s appointment of the Royal Commission gave the critics a final opportunity to present their case and for Stuart to give evidence whatever the outcome might be.
+
+Hill: [‘]Strehlow was right in thinking that he had no room to lay out his own position properly’. [‘]The Bench might have chosen to draw out Strehlow’s thinking, but it did not.’[^10]
+
+Comment:
+
+In the witness box, Strehlow had no counsel to assist him to say what he wanted to. This was because Shand and his colleagues had withdrawn from the Commission. If they had continued to represent Stuart, Shand would no doubt have assisted Strehlow to [‘]lay out his position’. But even without counsel to assist him, he had been given every opportunity to make out his case, and before he left the witness box the [‘]Commissioners tried to offer a substitute for the normal re-examination of a witness by friendly counsel’. Both [‘]the Chairman and Mr. Justice Reed asked Strehlow whether he wished to explain or extend what he had said.’[^11] However, it was obvious that in giving his evidence he had conveyed to the Commissioners what his thinking was. In any case, he thought that he had [‘]managed to win through’ and hoped that he had made [‘]all his points.’[^12] So it seems that there was no reason for him to complain that he had not had the opportunity to say what he wanted to.
+
+Hill: [‘]By the end of Strehlow’s testimony, Chamberlain had him where he wanted him: Strehlow had to back right off the charge of police brutality that lay behind his linguistic evidence.’[^13]
+
+Comments:
+
+There is no justification for insinuating that Chamberlain was bent on nailing Strehlow: Chamberlain’s job was to question him about his claims, and this meant that Strehlow had to answer for them. Whether or not Chamberlain believed that he could succeed had no bearing on what he was obliged to do.
+
+The inevitable outcome was that Strehlow’s claim about Stuart’s linguistic ability could not be sustained. As the Royal Commission observed, when Stuart gave his evidence there was [‘]no suggestion of the characteristics of “N.T.E.” as described by Mr. Strehlow.’[^14] Moreover, Strehlow, Dixon and Stuart’s counsel were the only ones to claim in any of the hearings that Stuart had an acute language problem. In the end, Strehlow had no option but to admit that he had no reason to criticise the police, and could no longer hold the view that the confession had broken down for the reasons he had stated publicly.
+
+Hill: The opinion of a taxi driver about Stuart’s language ability was [‘]thought to be more important than that of the Reader in Australian Linguistics at the University of Adelaide.’[^15]
+
+Comment:
+
+> In a court of law, impartiality dictates that the social or academic standing of a witness counts for nothing: aristocrat, commoner, professor or illiterate are to be treated equally. There was good reason to accept the evidence of the taxi driver, since his recollection of Stuart’s ability to understand and communicate in English both at Alice Springs, and again later, squared with the testimony of virtually all of the witnesses who testified on this question.
+
+Hill: [‘]The Commissioners omitted to mention that the witnesses had disagreed about Stuart’s English’.[^16]
+
+Comment:
+
+This was simply a repetition of what Inglis had written, and what O’Sullivan had repeatedly claimed. Apart from Strehlow and Dixon, nearly all of the other witnesses said in evidence that they had no real problem. Even the Giesemans said that they could talk with him despite some difficulty at times.
+
+Hill: Strehlow wrote that all his effort had come to nothing, and that in [‘]monolithic South Australia Playford and Napier have all the power, and the findings of a Royal Commission cannot be challenged.’ [^17]
+
+Comments:
+
+Was South Australia a monolithic state in which two men held all the power? The state was a democracy just as the other Australian states were. Playford needed Executive approval for commutation of a death sentence, and he was answerable for the decision to appoint the Royal Commission and for the choice of the terms of reference. Despite heavy and persistent criticism, he was prepared to take the consequences of his decisions. Some agreed with these decisions and others did not.
+
+Even though he was Chief Justice, Napier was only one of the three Appeal Court Justices, and only one of the three Commissioners. All had their say during the proceedings, and their decisions were unanimous.
+
+Apparently Hill and Strehlow considered that Playford and Napier were dictators who could always get their own way and not be challenged, but both of the latter were strongly challenged on any number of occasions during the course of the affair, and, despite the outcome, the views of the critics, including Hill, have held sway with a host of others during the years since.
+
+Hill: From time to time, Strehlow would ponder [‘]his suspicions of conspiracy in the Adelaide establishment and speculations about who really killed Mary Hattam: Allan Moir perhaps.’[^18]
+
+Comment:
+
+There was never any evidence of a conspiracy in an Adelaide establishment, nor was Moir ever a police suspect. According to Phin’s record of his conversation with Moir at Whyalla, which there was no reason to doubt, Moir could not have been guilty, (p.12 above) and in the end it was confirmed that Stuart was the culprit.
+
+Hill’s opinions and assertions are unjustifiable. For example, his ad hominem criticisms of Chamberlain are without foundation, as are his reservations about Stuart’s language ability and his claim that Stuart was dealt with unfairly. What he wrote was mostly wishful thinking.
+
+## \* \* \* \* \* \* \*
+
+##
+
+## 20. The Film [‘]Black and White’
+
+The film was produced by Craig Lahiff, written by Louis Nowra, and screened in 2002. It purports to tell the story of the Stuart case, but essentially it is fictional drama. The fact is that the film does not tell the truth: there are serious omissions, much is fabrication or supposition, and there are anomalies and distortions.
+
+Chamberlain is depicted as a supercilious, arrogant and intensely ambitious upper class snob, who lives a high life in a mansion where he entertains guests in lavish style. He treats his wife with disdain, and denigrates her in front of guests. He treats O’Sullivan in the same way, particularly in encounters outside the courtroom, when he says things like [‘]I’m looking forward to Monday and cross-examining you. Enjoy your weekend’, [‘]You think you’ve won, Mr. O’Sullivan’, and [‘]You’ll be lucky to get a parking ticket in this town.’ He is also shown to be an accomplished pianist, who can perform with consummate ease. To cap it all he is depicted as a man who despises Aborigines.
+
+This portrayal could not have been further from the truth, and in fact is nothing short of defamatory.
+
+Chamberlain was the youngest of a family of ten children, whose father was a farmer at Wirrabarra, a small town some 250 miles north of Adelaide.
+
+His grandfather, William, had worked as a stockman in the outback, and later took on contracting work for the carting of goods to remote settlements. After settling at Wirrabarra, like others in the area, he made money by contracting to cart poles from the Wirrabarra forest for use in the construction of the historic overland telegraph line from Adelaide to Darwin. [^1]
+
+In those early days, settlers in the Wirrabarra district were on friendly terms with the local Aborigines, and in fact a number of Aboriginal women assisted William’s wife, Roderic’s grandmother, during the birth of some of her children. No other midwives were available. The Chamberlains treated these women and their families as friends, and the women in particular were friends in time of need.[^2]
+
+Roderic’s father, Henry, also had to work extremely hard. The life of a farmer in those early days was one of unremitting toil, and the Chamberlain children benefited from a strict upbringing and the discipline of farm work,[^3] as did many other children of pioneer farmers.
+
+Following attendance at the local primary school and Gladstone High School, Roderic won a scholarship to St. Peters College, where he excelled as a scholar, winning a Tennyson Medal for English. He was a conscientious student and the habit of disciplined study remained with him during the course of his long career.[^4]
+
+Far from being arrogant and snobbish, he was a straightforward man, although forthright at times and not lacking in confidence. As already noted, in court he was considered to have been [‘]courteous and considerate’, and possessed of [‘]an acute appreciation of human nature.’ (p.299 above)
+
+He was known to have lived for his family, and his next priority was his work. His marriage was happy, and he was friendly with other people.[^5] He certainly would not have treated his wife badly, nor would he have been scornful of O’Sullivan outside of the courtroom, saying such things as [‘]looking forward...to cross-examining’ him. In any case there was never going to be a cross-examination - O’Sullivan was never called on to be examined.
+
+According to the late Justice Kevin Duggan, in the film Chamberlain was [‘]inaccurately portrayed as an urbane and wealthy lawyer whereas, in fact, he lived in an unostentatious cottage at Glenelg.’[^6]
+
+There was no evidence that Chamberlain despised Aborigines, and he well knew, as did other members of his family, that Aboriginal women had been called on to be midwives when his grandmother was in labour. Family members also knew that he was not an accomplished pianist: as one close relative said, he played like a child.[^7]
+
+The portrayal of Chamberlain is perhaps the most objectionable feature of the film.
+
+There is similar denigration of the police. In the interrogation of Stuart, they are depicted as tough loud-mouthed bully boys, viciously assaulting Stuart. Jones is shown beating him with a baton, knowing that any injuries will not be visible because he is black. Then when Stuart agrees with what they want him to say, they indulge in coarse merriment at his expense, so he joins in, smiles happily, and signs the confession.
+
+There is no substantial evidence for this portrayal. There are only Stuart’s claims, and what Louis Nowra said that Turner had told him on his deathbed, which is only a scrap of hearsay. According to Inglis, Turner told Nowra that [‘]he and his colleagues had laughed the confession out of Stuart’, after which the police said, [‘]Jesus, Max, we’ve all got pissed and done dumb things.’ He went on to record that Turner had then said, [‘]The laughter stopped’, after which Nowra asked if they [‘]gave him a whack or two’, to which he replied, [‘]Yeah, after the laughter stopped.’[^8] Even if this was what Turner had said, which seems unlikely, it does not mean that the confession was obtained by threat or force.
+
+When Inglis was interviewed by Terry Lane on ABC Radio National on 1 September 2002, he said that [‘]Paul Turner told \[Louis Nowra\] on his deathbed, that they had “jollied” and joked the confession out of Stuart, and once they’d got it, they bashed him.’
+
+What is to believed from this? Did the police give him a [‘]whack or two’ after he had confessed, or did they bash him? Either way, what Inglis had said was second-hand hearsay at best. The positive evidence is (1) that Stuart suffered no injury like the one he himself had described; (2) that the interrogation had proceeded quietly and calmly; and (3) that Stuart was a quick-witted liar.
+
+There was never any convincing evidence that there had been any significant police violence. Turner’s evidence at the trial, when the details of the questioning of Stuart would have been still been etched in his mind, was that Stuart of his own accord had said the words [‘]She was hard to root, and that he had [‘]laughed when he said it.’ (p.20 above)
+
+Much of what the film had the police saying and doing when they were obtaining the confession was taken directly from Stuart’s unsworn statement, which was manifestly false.
+
+The film has O’Sullivan questioning Stuart at the Ceduna police station prior to the preliminary hearing, and asking him where he was between 6 p.m. and midnight on the day of the murder. Stuart says that he was in gaol and therefore could not have committed the crime. However, the crime had been committed between 2 p.m. and 4 p.m., which must have been known to O’Sullivan. Where Stuart was after 6 p.m. on that day was irrelevant.
+
+The film also has O’Sullivan saying at the preliminary hearing that he had not had time to ask Stuart about his whereabouts. But he had had ample time: at that hearing O’Sullivan questioned the police for some ten hours on the basis of what Stuart had told him, and then said that he would leave the rest of his conversation until later. (p.14 above)
+
+In response to O’Sullivan’s request at the trial for someone to read Stuart’s dock statement for him, in the film the judge says that he is getting a fair trial, and that is why he cannot accede to the request. Then at one stage he responds to something O’Sullivan said with the word [‘]Rubbish’.
+
+This too was untrue: Justice Reed was not permitted by law to grant the request, and offered a way out, but O’Sullivan rejected the offer. Reed’s decision was upheld at the four subsequent hearings. He did not use the word [‘]Rubbish’, which was used by Napier at the Full Court of Appeal hearing, when he said [‘]That is utter rubbish.’
+
+No mention was made in the film of Reed’s strong warning to the jury not to bring in a verdict of guilty unless they were absolutely sure that he was.
+
+In the film, when answering simple questions, both Turner and Jones say at the trial that they can’t remember. This is misleading: although there were some things which the police could not remember, the evidence is that the memories of these two police officers were exceptionally good. Jones was guilty of one lapse, when he claimed at the preliminary hearing that the first part of the confession was in Stuart’s actual words, (pp.14-15 above) but both officers responded clearly, and often in detail, to the questions put during the trial, and their memories were well and truly tested during long and close cross-examination at the Royal Commission.
+
+The film has O’Sullivan being asked at the Privy Council hearing why no effort was made to find Gieseman, and replying that there was no money available. However, the Crown had no reason to find where the Gieseman’s were, and if O’Sullivan had asked for assistance in finding them, they could have been located in a matter of hours at Crown expense.[^9]
+
+The film then has O’Sullivan suggesting that the SA Executive would not act on the new alibi evidence, and has Viscount Simonds, one of the Privy Council judges, referring to this as implying that there could be [‘]lynch law’ in South Australia. However, Viscount Simonds had said nothing about lynch law. This reference was obviously taken from a passage in Chamberlain’s book, in which he quoted what O’Sullivan had said slightingly at the Privy Council about the S.A Executive, which was: [‘]One can only speak with some experience of the Executive of South Australia.’ Chamberlain had commented that this was [‘]presumably intended to convey to their Lordships that South Australia existed under some kind of lynch law...’[^10]
+
+The proceedings in the Full Court of Appeal are ignored in the film, and what the film portrays about both the High Court and Privy Council hearings is sketchy and over-dramatised to say the least. Furthermore, there is no mention of the specific reasons why these courts rejected the grounds of appeal.
+
+Strehlow appeared in the film twice and in each case only briefly, although he was the man who had claimed that Stuart could not possibly have made the confession because he could not tell the time, and could not speak English adequately. Surely the role of Strehlow should have been an important element in the film’s story of the affair, since he was one of the two prime instigators responsible for the unwarranted public turmoil. The full truth is that Strehlow was unable to sustain his claims: Stuart could tell the time and he relied on this fact in his testimony that he was not at the scene of the crime when it had been committed; and none of the examples which Strehlow submitted as evidence of Stuart’s language disability stood up to examination.
+
+The film has O’Sullivan and Chamberlain as the only counsel to appear before the Royal Commission. O’Sullivan appears as Stuart’s advocate, and, in addition to defending Stuart, is called upon to defend himself. In doing so, he says that he and his partner, Miss Devaney, have lost their business and reputation. Stuart does not appear at all as a witness, and neither do most of those who were called by the prosecution. Gieseman appears very briefly to say that he was quite sure that Stuart was at the show from a quarter to two onward. O’Sullivan gives the final address to the Commission on behalf of Stuart, during which he asks the rhetorical question, [‘]Who in this State cares about boongs?’ He concludes by telling the Commissioners that they [‘]must know in their hearts that Max did not make the confession.’ Chamberlain then makes a short final address, and makes very few remarks. He finds himself [‘]defending not only the police force, but also the institutions of the State’, and remarks that [‘]mob rule’ seems to have become the order of the day.
+
+This part of the film again illustrated its unreality. Some reasons for this assertion are listed hereunder.
+
+O’Sullivan was not Stuart’s advocate at the Royal Commission: Stuart was represented initially by Shand, who withdrew. Subsequently Stuart was abandoned by his counsel and was not represented. The hearing then continued without counsel for the defence, and this was when most of the witnesses who were called by the prosecution gave their evidence. Because Shand and his team had chosen to leave Stuart without representation, Strehlow and Dixon had no support from defence counsel, and the Crown witnesses were not subjected to cross-examination. Starke later replaced Shand as Stuart’s counsel.
+
+Gieseman was examined at length, as was his wife, and the Commission found that their evidence conflicted with that of more reliable witnesses.
+
+Turner, Jones and Whitrod underwent severe cross-examination and the Commission found that their evidence, as well as that of the other police witnesses, had been [‘]given in good faith.’[^11] At the Commission hearing O’Sullivan appeared for the defence only briefly, and this to answer a few questions regarding procedure and representation for Stuart, and then later to present a statement allegedly made by Stuart. He did not defend either Stuart or himself on that occasion. Nor did the Commission call on O’Sullivan to answer any charges or allegations of possible misconduct by anyone. Thus what the film had O’Sullivan saying was make-believe.
+
+Starke and not O’Sullivan gave the final address to the Commission on behalf of Stuart, after Chamberlain had given his final address on behalf of the Crown. During his long and masterly speech, Chamberlain did not mention anything about finding himself defending the police force or the institutions of the Government - this reference, came from his book, which was written some thirteen years or so later.[^12] Nor did he talk about mob rule, which was something that Playford had referred to in parliament. Even if O’Sullivan had addressed the Commission, he would hardly have made an appeal to [‘]their hearts’.
+
+In one episode in the film O’Sullivan interrogates Turner, and is stopped by Napier. However, the only person stopped was Shand, and the stoppage, or more accurately interruption, was followed by an exchange between him and Napier. The words supposedly used by O’Sullivan in this interrogation were taken from what Shand had said.
+
+The film departed from reality in many other ways which were pure inventions. According to the film, there was a conversation between Reed, O’Sullivan and Chamberlain held at a meeting which Reed called, and which was held in his chambers before the end of the trial. Reed pressures O’Sullivan to abandon his cause by asking him whether he is serious in wishing to [‘]alienate the jury’, and telling him that he is [‘]on a hiding to nothing.’ This is of course pure fantasy: judges are obliged to be strictly impartial and Reed would have been in very serious trouble if he had not been.
+
+In the film, Rivett and Murdoch are concerned because the High Court had expressed anxiety about [‘]certain features’ of the case, and ask O’Sullivan for help because they [‘]don’t want to see anyone hung.’ Chamberlain, travelling first class by plane to London, buys drinks for O’Sullivan and Devaney, who are second class passengers, which prompts an angry reaction from O’Sullivan. Murdoch, with a lawyer at his side, is interrogated about the role of the *News* in the affair, and responds that he will not answer questions on the ground that it might incriminate him.
+
+There seems to be no evidence that any of these things happened.
+
+It was Dixon who was asking for help, not Rivett and Murdoch, and it was Rivett who gave it. (p.61 above)
+
+How did the author, Nowra, come by the story about the plane trip? It could certainly not have been obtained from Chamberlain or O’Sullivan, both by that time deceased. (O’Sullivan lost his life tragically in a motorcycle accident in 1963, and Chamberlain died in 1990) In any case, Elizabeth Evatt was the person who travelled to London as O’Sullivan’s assistant. Further, Playford was frugal himself and particularly so about government expenditure, and it is difficult to believe that Chamberlain would not have been obliged to exercise the same restraint.
+
+Likewise it is difficult to believe that there was any police interrogation of Murdoch. No charges were laid against him: Rivett and the *News* were the ones who were called to face court because of what had been published in the *News*. Before this trial his lawyer would have questioned Rivett, but it is highly improbable that the police would have done so.
+
+Two other scenes in the film must have been inventions. In one, Stuart is told that there has been a stay of execution when he is being led to the gallows, and in the other Playford loses patience with Chamberlain, and there is disagreement between the two over commutation of the death sentence. The facts are:
+
+> Stuart was told of the reprieve during the afternoon of the day when it was granted, but executions were always carried out in the morning, and for Stuart the hanging was scheduled for 8 a.m. on the following day.[^13] There would have been headline news if he had been told on the way to the gallows.   Playford was not one to lose his temper, especially with a friend and colleague. It is difficult to believe that he would have said, [‘]Where’s that bloody Chamberlain fellow?’, which was completely out of character. From what Chamberlain wrote about his conversation with Playford regarding the commutation of the death sentence, it appears that there had been no disagreement.[^14] Likewise it is simply not credible that Playford responded angrily: [‘]The law is that Max Stuart will not hang.’ Playford well knew what the law was, and believed that it should apply in Stuart’s case, which is why he had been reluctant to commute the sentence.
+
+In the film there are heated exchanges between bench and bar and between O’Sullivan and Chamberlain, and counsel behave aggressively and interrupt one another. The film also has the judges speaking sternly at times, and admonishing counsel for no good reason. For example, the Chief Justice of the High Court speaks angrily to O’Sullivan, when pointing out that it is not the business of the Court to consider new evidence. The fact is that such angry and aggressive behaviour is simply not accepted in a court of law, and there is no indication in the transcripts of evidence that there was any anger. Nor is there any evidence that O’Sullivan was reprimanded angrily in the High Court.
+
+Naturally most of the evidence given at the hearings could not be included in the film, but what was selected seems to have been aimed at showing that there was fault in the administration of justice, and at casting doubt on the guilty verdict. Almost none of the important evidence of the many witnesses was included, and much of what O’Sullivan said in the film was never said.
+
+Villeneuve Smith, Shand and Starke, who appeared for Stuart, do not appear in the film. And Stuart, who gave critical testimony as a witness before the Royal Commission, does not testify at all in the film.
+
+O’Sullivan is portrayed in the film as a hero, who is constantly frustrated in his valiant efforts to get justice for his client by an establishment determined to uphold its authority against dissidents at the cost of an innocent, poor and illiterate Aboriginal. The fact is that when O’Sullivan appeared as Stuart’s counsel, there was no substantial evidence which he could produce to offer any defence. He persisted in claiming that Stuart was handicapped because he could not communicate well in English, and in backing Stuart’s false claim that the confession had been beaten out of him.
+
+On the other hand, Chamberlain is falsely portrayed as a complete villain. However, Legoe described Chamberlain as [‘]a quiet, able lawyer who rarely (if ever) became agitated.’ This was followed by a comment that Chamberlain [‘]was a persistent cross-examiner with a long background in criminal court work’ whom he [‘]never knew... to be unfair.’[^15]
+
+### *Reactions to the Film*
+
+Despite a few criticisms of the film, most critics gave it high praise. However, apparently the underlying assumption of these critics was that the film was based on the evidence presented at the hearings, which was not the case.
+
+The Honourable Justice Kirby, then a High Court judge, addressed a conference of N.S.W. judges and magistrates, held on 29 July 2002 and commented:
+
+[‘]The film is of special interest to a judicial officer because it tells the story of the Stuart affair...My proposition is that it is a reminder to us of the dangers of formalism and blindness to prejudice, that can be inherent in our work unless we are on our guard. Although there have been great improvements in the courts of our country since the proceedings portrayed in *Black and White,* we the judicial officers of Australia today should watch the film to reinforce our commitment to the avoidance of errors of the kind the film chronicles.’[^16]
+
+The last part of the address was headed [‘]HARDEN NOT YOUR HEARTS’, in which Kirby claimed that the film portrayed [‘]the chief actors in the drama as highly formalistic and basically unconcerned (or not too much concerned) about the risk they might themselves be the instruments of a miscarriage of justice.’ Then he asserted that the courts had not taken note of the [‘]good deal of anxiety’ shared by people such as [‘]a young media personality’, and, although given the full chance to do so, either did not see, or could not, act upon.’
+
+No examples from the film were adduced to support these opinions, and the fact is that all who had been involved during the course of the Stuart affair were very much concerned.
+
+To have accused the judges in the Stuart case of having been influenced by how they felt was a serious allegation and called for evidence which Kirby did not provide. If there was such evidence in the film, what was it?
+
+If one thing is true, it is that in their roles he chief actors expressed a great deal of anxiety, and this matched that of Stuart’s supporters.
+
+However, the anxiety of the supporters was found to have been unjustified, and the High Court rejected the appeal despite its expressed anxiety.
+
+So much in the film is fiction that it is extraordinary that Kirby should have recommended it for viewing by the Australian judiciary. Anyone seeking the facts of the Stuart case will find few in the film, which is essentially a fantasy and a sob story. No doubt most viewers would have been misled. The film had emotive appeal, but those who know the facts also know too that it is not a true depiction of the events or of the participants.
+
+Three days later an article in the Melbourne paper *The Age* there was a summary of Kirby’s views. The report noted that he had urged Australian judges and magistrates to see the film, and had considered that it [‘]should also be of interest to many other citizens.’ Kirby’s reported opinions also included the following:
+
+There was a need for litigants to be protected from [‘]incompetent counsel’; the prosecutor had been partisan; the [‘]fundamental lesson that judges and magistrates should learn’ from the film is that [‘]formalism is not enough’ and that [‘]a devotion to justice is imperative’; [‘]the courts in 1959 \[had\] dealt with Stuart’s complaint about the circumstances in which the confession had been taken’ in a [‘]somewhat peremptory way’, and that as a result of the McKinney case, the High Court had [‘]laid down the rule that wherever police evidence of a confession made in custody is disputed and its making is not corroborated (as by sound or video recording), the judge should warn the jury of the danger of convicting on the basis of that confessional evidence alone’; after Stuart had [‘]served a long prison sentence’, he was [‘]released from parole...only after the chairman of the parole board \[Sir Roderic Chamberlain\] was required to stand aside; it was [‘]right that \[the Stuart\] case should be portrayed and his story be retold to a national and international audience’, because [‘]the conduct of the prosecution, the trial and appeals were not a shining light in Australian legal history.’[^17]
+
+There is no justification for any of these opinions. There is no evidence that O’Sullivan was incompetent. The Law Society had no hesitation in appointing him to defend Stuart,[^18] and he had previously undertaken [‘]many Law Society cases.’[^19]
+
+Nor was there any evidence that Chamberlain was partisan. Legoe had never known him to have been unfair.[^20] Sir Walter Crocker was another who held Chamberlain in high esteem. He knew Chamberlain well, and [‘]was familiar with his qualities of mind and integrity’, including his [‘]quality as a lawyer \[which\] was never questioned.’[^21]
+
+There was never any indication that Chamberlain was not a completely honourable man.
+
+The story told in the film is so far from the truth that it is impossible to accept Kirby’s conclusion that formalism led to injustice. The portrayals of Chamberlain and the police are plainly false, and there can be no doubt that there had been a devotion to proper procedures during all of the Stuart case hearings. The plain fact is that the judges in the Stuart case were as devoted to justice as the very best - they were experienced, shrewd, wise, exceptionally knowledgeable, and held in high regard.
+
+The fundamental lesson to be learnt is that valid conclusions about what the film portrays cannot be drawn from a docudrama unless what it portrays is close to the truth.
+
+Kirby’s contention that the courts in 1959 had acted peremptorily had no basis in fact. The judges in the Stuart case had listened carefully and patiently to the evidence of all the witnesses, and to the claims and counterclaims of counsel, and they had given very careful consideration to the evidence presented. This was reflected in their comments during the hearings and in their reports.
+
+With regard to Kirby’s reference to the McKinney case, all that needs to be said is that sound and video recording were not in general use at the time of the Stuart case, and that Kirby’s reminder that a judge should warn a jury about the danger of convicting an accused without more evidence than a confession carries little weight. In the Stuart case, Justice Reed had warned the jury of this danger at least four times, and in no uncertain terms. (pp.25-26 above)
+
+It is not true that Chamberlain had had to stand aside as chairman of the Parole Board. After the hearing of the first of Stuart’s applications for parole, he was criticised for not having stood aside. However, he defended himself because he could see no reason to think that his previous [‘]professional association with the case...should prevent \[him\] from giving impartial consideration to the entirely different question whether the time had come in which it would be safe to set him at liberty’, and had [‘]four well-qualified and independently-minded colleagues on the Parole Board’, whose decision was unanimous.
+
+In the following year, 1973, when another application was lodged, he stood aside voluntarily.[^23]
+
+Stuart was by no means a model prisoner. Keepers at the prison told Stewart Cockburn that Stuart had [‘]king-hit one prisoner and threatened to kill another’, and had [‘]been in quite a few fights with other inmates and with prison officers.’[^24] After having been in prison for more than fourteen years, he was paroled, but his [‘]probationary release was revoked 21 months later because of his excessive drinking and breaching of parole conditions.’ Subsequently he was re-arrested after breaching parole on five more occasions. It was not until after a sixth parole in 1981 that he did not reoffend.[^25] This was 23 years after his conviction for the murder and rape of Mary Hattam, and he had been convicted twenty-five times before that.
+
+Finally, the film does not tell the actual story at all, and it would perhaps be worth making another in order to tell the real story and to correct the misconceptions which have arisen because of the nonsense which has been said and written over the years. There was no justification whatsoever for Kirby’s recommendation that members of the judiciary should see the film in order to learn from it. It seems that he had not studied the evidence of witnesses or read the judges’ reports before making the recommendation. No doubt many would have acted on the recommendation, seen the film, and believed what it depicted. It is in this kind of way that myth becomes history.
+
+## \* \* \* \* \* \* \*
+
+## 21. A Seminar
+
+##
+
+### *Outline*
+
+On 1 April 2006 a seminar to re-examine the Stuart case was held in the Elder Hall at the University of Adelaide. It was arranged by the John Bray Law Chapter, the Development and Alumni Office, the Law Society of SA, and the University’s Law School. The President of the John Bray Chapter, John Keeler, explained why there was still intense interest in the case, when he said: [‘]The continuing interest...isn’t just in the courtroom dramas and whether the confession was right. It lies in whether the criminal justice system treated - and treats - individuals and minorities fairly, and it’s about relations between the Government and the press in controversies with powerful legal and political impacts.’ [^1]
+
+Geoffrey Robertson, the distinguished lawyer, writer, and TV presenter, led the discussions at the seminar, and Justice Kirby of the High Court gave the keynote address. Dr. Margaret Fereday, a daughter of Sir Thomas Playford, and Ken Inglis, by that time a professor, were among the participants. The intended aim was [‘]to bring informed discussion of legal and social issues to the South Australian community.’[^2]
+
+Just how this could have been accomplished is a mystery, given that some of the assertions of the organisers were questionable.
+
+According to an advance notice in *Lumen*, the university’s alumni magazine, (1) Stuart’s [‘]conviction was based on a typed confession in precise, educated English’; (2) there was [‘]public pressure to locate and convict someone’; (3) there had been [‘]language difficulties’; (4) the [‘]use of forensic evidence’ was an issue; (5) politics intruded [‘]into the legal arena’; and (6) [‘]freedom of the press’ was another issue.
+
+These assertions were not soundly based, and were in fact contrary to the findings made by the judges at the hearings of the Stuart case, including those who had sat as the Royal Commission. For example:
+
+\(1\) The Commission had found that the essential part of the confession was not in precise, educated English: it was found that Stuart could speak [‘]English as it is commonly spoken by people who have had some but not a great deal of education.’[^3] The evidence was that except for the first part of the confession and the last sentence, the English in the confession could have been spoken by Stuart. Hence one of the first tasks of any seminar constituted to bring informed discussion of this issue should surely have been to find reasons for challenging the Commission’s conclusions. This work was not undertaken. The task of closely examining the evidence and the reports of the courts and the Royal Commission should have been carried out by a small group of competent and disinterested scholars. Apart from Chamberlain, few, if any, have been willing to engage in the laborious work of coming to grips with the cold hard facts. The evidence is that the Commission had done so, and that its conclusions were soundly based.
+
+\(2\) What public pressure was there to locate and convict someone? The police located Stuart in Ceduna a very short time after they were notified that he was a possible suspect, and he was convicted by due process, with no public pressure intruding.
+
+\(3\) Stuart did not suffer because of any language difficulty: that he did was an assumption which was not justified. It was clearly demonstrated that he had no such problem, and that the evidence to the contrary was not credible.
+
+\(4\) The finding and use of forensic evidence in trials had not become standard procedure in the 1950s. The detectives who investigated the Stuart case hoped that there would be a way of matching the hairs found in the hands of the victim with those of Stuart, but were told later that this was not possible. The participants referred to the use of DNA, which was irrelevant - it was not an option at that time. Except for measuring the footprints, there was little more that the police could have done to provide more forensic evidence.
+
+\(5\) Did politics intrude into what was termed [‘]the legal arena’? If so, when, in what way, and what was its effect? If there was any such intrusion, there was never any justification for asserting that it had led to unfairness on the part of the judges. One or two of Napier’s remarks and his interruption of Shand during his cross-examination of Phin attracted criticism, but what he had said can be seen as fair comment. It seems likely that the only apposite intrusion was the pressure on Playford which led to the commutation of Stuart’s death sentence.
+
+\(6\) The owner and the editor-in-chief of the *News* felt free to publish what they did, even though they made mistakes, to which they later admitted. Moreover, the outcome of the case which the Government brought against the *News* was favourable to both the *News* and the editor-in-chief. The Government exercised its right to prosecute, believing that it was right to do so. Since it dropped the one remaining charge of libel, there was little more to be said on the subject, except perhaps that a newspaper had been given a message that it should be careful not to overdo sensationalism and imbalance in its reporting.
+
+The event was well advertised and attracted considerable publicity. The legal affairs editor of the *Advertiser*, Colin James, wrote an article which appeared on the day of the seminar, and included some remarks which Margaret Fereday had made to him. James wrote: [‘]As a young girl, Dr. Fereday, a lifelong opponent of the death sentence, argued with Sir Thomas...about capital punishment.’ She is quoted as having said, [‘]I remember going and telling my father he was a killer and a murderer. He would just sit there and take it.’
+
+The article described Stuart as [‘]a desert Aborigine who could not speak English’, which is simply untrue. Stuart was born on a pastoral station near Alice Springs, and worked as a stockman from age eleven. (p.2 above) After that he had lived in white communities for some sixteen years before he arrived at Ceduna. By that time he had learnt to speak English reasonably well. He was no desert Aborigine.
+
+Legoe was quoted in James’s article as having said, [‘]Stuart was accused of murder and was represented by a junior lawyer with little experience and very few resources’, and [‘]These days, he would not be represented by a junior lawyer, but by a Queen’s Counsel.’ Legoe was also cited as having said that in the late 1950s, there was no [‘]forensic testing’, no involvement of [‘]the Aboriginal Legal Rights movement’, and no translators or access to legal aid.
+
+The above account differs somewhat from what Legoe was reported as having said four years earlier, which was: [‘]I wonder, looking back, whether all the changes we now adopt in criminal proceedings, i.e. no unsworn statements, video recording of police interrogation, interpreters of Aboriginal languages, Aboriginal legal aid services, and Judges’ directions on alcohol and its effects on memories of all witnesses, would have ensured any fairer or greater proprietary (sic) in a trial such as Stuart’s.’[^4] These reservations indicated that Legoe did not think that O’Sullivan had lacked resources.
+
+Legoe had also said at that earlier time that he had never heard anyone in the legal profession say that O’Sullivan was [‘]incompetent’, or that there had been any deficiency in \[the\] representation of Stuart, or that [‘]any tactic or presentation was not the appropriate and most effective legal assistance.’ He also considered that [‘]O’Sullivan was a forceful counsel whose services were highly sought after in the criminal courts in South Australia in the late 1950s.’[^5]
+
+Although O’Sullivan was not a Q.C., he had had [‘]twelve years of practice’, [‘]had taken many Law Society cases’, and [‘]was a well-known barrister and solicitor who had gained a reputation as a hard fighter in criminal cases.’[^6] There is no reason to believe that this [‘]junior lawyer’ lacked sufficient experience to represent his client adequately. Moreover, there was no mention in James’s article that Stuart was represented at the Royal Commission by two extremely able Q.C.s, who were given every opportunity to challenge the evidence of the Crown witnesses, including that of the police, as well as the findings of the courts. They were no more successful than O’Sullivan had been.
+
+The evidence of Stuart’s guilt was so strong that forensic testing, if it had been possible, would have confirmed the verdict.
+
+If a representative of an Aboriginal legal rights movement had assisted Stuart soon after his arrest, it may be that the police would have felt impelled to seek additional evidence such as that which they had to find after the appointment of the Commission.
+
+Naturally a translator could have been called to assist Stuart, but none was called and none was needed, and O’Sullivan, who accepted the brief to represent Stuart, provided the legal aid.
+
+What James reported does not appear to have accorded with the facts.
+
+Mention was made of the decisive role of the *News*, of which Inglis obviously approved. It was as if the media had not damaged the well-deserved high reputation of South Australian society, its judges and judicial system, its police force, and its political leaders.
+
+[‘]The debate was interspersed with extracts from the film *Black and White* and other documentaries about the case, and Craig Lahiff and his director Helen Leake took part as panellists.’[^7]
+
+Just how this debate could have arrived at the truth about the Stuart case is difficult to imagine. On the other hand, the inevitable impact of the docudramas which were presented, and the strongly held one-sided opinions of the participants, made it inevitable that the seminar would be accompanied by considerable emotion.
+
+### *Justice Kirby*
+
+Kirby’s views on the Stuart case were already known to members of the Law School of the University of Adelaide. He had given a lecture at the school on12 August 2002, and apparently his perceptions had found favour with many in the audience, so much so that he was invited to be the main speaker at the seminar.
+
+At his lecture in 2002 he asserted that: (1) the film *Black and White* ‘portrayed a legal and judicial system with strengths, but also with faults; (2) the case disclosed ‘defects in the criminal justice system’;
+
+\(3\) there was a ‘disadvantaged litigant’; (4) the Privy Council had no wish to be concerned with such a minor issue; (5) the composition of the Royal Commission was ‘astonishing’; (6) Chamberlain sometimes lacked ‘detachment’ and ‘viewed his opponent as incompetent’; (7) we ‘now live in a world whose laws and practices are less discriminatory against, and dismissal towards, our indigenous people’; (8) prejudice was ‘never far from the surface’ in ‘Max Stuart’s trial’; (9) nowadays Stuart would have ‘have access to professional assistance at the trial’; (10) the High Court's approach to the case was too ‘formalistic’; (11) Some lawyers support the return of unsworn dock statements as in the case of Max Stuart - ‘illiterate, inarticulate, susceptible to cultural norms favouring agreement and discouraging contest’; (12) today, Chamberlain’s ‘highly partisan approach’ would probably ‘have attracted more than a verbal rebuke and an expression of anxiety; (13) a ‘criminal trial is not strictly an adversarial proceeding’; (14) today it seems impossible to think that Chamberlain’s ‘deliberate breach of the *Evidence Act* at the High Court hearing’ would ‘just be brushed aside as immaterial to the circumstances’, ‘especially in relation to a disadvantaged, illiterate person’; (15) today, ‘very ‘high standards of integrity, detachment and fairness are expected’ of ‘the Crown and its prosecutors’; (16) Stuart’s lawyers made tactical and legal mistakes’ which effectively ‘cost their client his appeal to the High Court and the Privy Council’, which ‘could have cost him his life.’ (17) there is evidence of a growing involvement of the High Court in criminal proceedings, when compared to the days of Max Stuart’s proceedings, which suggests a ‘contemporary turning away from the notion that…criminal law and sentencing are beneath the dignity of the highest court in the land’; and
+
+\(18\) ‘DNA and other evidence’ is now available and sometimes can ‘exculpate an accused’.
+
+Most of these comments are questionable, and were made with little or no supporting evidence.
+
+At the seminar Kirby repeated his views, saying that there were important lessons to be learnt because there had been inadequacies and unfairness in the treatment of Stuart. However, a close examination of his speech reveals that he failed to prove that there was any such inadequacy or unfairness, although those who heard it might have thought otherwise. There were in fact many inadequacies, irrelevancies and speculations in what he said.
+
+His speech was recorded on a video disc in 2009, [‘]Politics, power, justice and the media \[videodisc\]: extracts from a seminar held at Elder Hall, University of Adelaide on 1st April 2006. Published: \[Kent Town, S. Aust.\] : Duo Art Productions in association with the Law Foundation of South Australia and South Australian Film Corporation, 2009’.
+
+Early in his speech, Kirby observed that the typed confession became [‘]effectively the only basis upon which Max Stuart was prosecuted.’ This was very close to the mark, but the trial judge had issued strong warnings to the jury that there could be no conviction unless they accepted that the confession was genuine.
+
+Kirby then mentioned that some [‘]objective evidence’ had been provided by the blacktrackers, who had identified footsteps that went [‘]from the cave down to the pool and then back to the main road.’ He said too that the [‘]footsteps ...could not identify Stuart.’ At the time, however, the police thought that the trackers’ evidence was conclusive, although the Royal Commission ruled that the evidence was worthless. Nevertheless, the rejection of this evidence was no indication that the confession was false or was obtained by improper means.
+
+Kirby then asserted that [‘]no proper examination was made at the time, even of a superficial kind, of the hair of Max Stuart’, remarking that today this [‘]would be subjected to DNA examination.’ This statement was misleading. The hairs were examined by a clinical pathologist, who reported that it was not possible to tell whether the hairs were Stuart’s or not. (pp.18 above) Later, the Commissioners used a magnifying glass to look at the hair, and it appeared to them that it had been cut, (p.79 above) which is what Jones had testified. (p.18 above) Thus there could be no criticism of the police on this score.
+
+He then stated that Stuart had been committed to trial before Mr. Justice Reed, but was not represented at this [‘]very large and complex trial by senior counsel’, but instead by Mr. O’Sullivan and Miss Devaney, [‘]who performed at their best’, but [‘]were really inexperienced in the complexities of a murder trial.’ Later, he said that [‘]big cases and complex cases require special competence.’
+
+These opinions are questionable:
+
+No doubt big and complex cases do require special competence, but Kirby did not say what was complex about the Stuart case. And there had been no suggestion before or during the Stuart trial that O’Sullivan was not competent to represent Stuart: he had had considerable experience at the bar, was highly regarded as an advocate, and must have had the confidence to have accepted the challenge of representing Stuart. It was a long time after the trial
+
+before there was any suggestion that Stuart had been disadvantaged because of some inadequacy on O’Sullivan’s part. What more could senior counsel have done?
+
+Although Legoe had been reported as having said that O’Sullivan was a junior who lacked experience, he had said earlier that he could not [‘]see what O’Sullivan’s defects in the conduct of the Stuart case \[might\] have been.’[^8]
+
+\`
+
+Stuart certainly suffered no disadvantage later, when he was represented by two of the most able advocates in Australia, who had the opportunity to challenge any alleged deficiencies in the earlier conduct of the case.
+
+After remarking that at the end of the trial Stuart was convicted, Kirby referred to the appeal to the Court of Criminal Appeal, which had dismissed it, and then to the taking of the case to the High Court. He mentioned what he called three points which were considered by the High Court.
+
+Firstly, he observed that the High Court had rejected Strehlow’s argument, which he said was that [‘]the sophistication of the words’ and the [‘]structure of the words’ in the confession were [‘]inconsistent’ with his [‘]level of understanding of English and his experience and sophistication in life.’
+
+Since the Court had rejected Strehlow’s contentions, why did Kirby make this observation? In any case, immediately after the High Court hearing, Chamberlain found evidence which demonstrated that Stuart had had no problems with English at an earlier court appearance at Alice Springs, (pp.37 above) and if the High Court judges had sought to verify this evidence, instead of rejecting Chamberlain’s submission, they would have found strong additional support for their rejection of the affidavit.
+
+Secondly, Kirby noted that dock statements had been abolished in Australia although they existed in South Australia at the time of the Stuart case, and that [‘]generally the prisoner was not allowed to have anybody else read them.’ He added that the High Court said that it could have been read for him [‘]because Max Stuart could not read’, but that the Court concluded that there was no error in law in not allowing it to be done.
+
+Both Chamberlain and Justice Reed knew that the defence had no right to have the dock statement read, but Chamberlain was not opposed to having the contents of the statement revealed, and in fact it was he who suggested that O’Sullivan could assist Stuart to convey what he wanted to say. (p.21 above)
+
+Thirdly, Kirby pointed out that [‘]Mr. Chamberlain made a statement to the jury that Max Stuart could have given evidence’, and that the making of this comment [‘]was forbidden by law.’ He added that [‘]the High Court said that it was unfortunate that he made it’, but that it [‘]wasn’t a ground for disturbing the conviction.’
+
+Chamberlain certainly did err in making the comment, but he must have been guilty of a minor transgression at most, since it was deemed not to have had any effect on the jury, with the Court of Criminal Appeal considering that it was close [‘]to the borderline’, and had not been made to gain an advantage. (p.29 above) The High Court also set little store by the remark, saying that it did not warrant the granting of an appeal. (p.30 above)
+
+Kirby then remarked that the High Court unanimously [‘]rejected the application to appeal’, despite the fact that Stuart [‘]was inexperienced in our language and unable to read, and uneducated.’ While it is true that Stuart could not read and had not been to school, he was sufficiently experienced in the English language not to have suffered any disadvantage. The evidence that he was competent in English was overwhelming. Apparently none of the reasons for the various Courts’ rejection of the claim that Stuart suffered from a significant language disability were considered at the seminar: it was simply assumed that he had suffered disadvantage.
+
+Kirby pointed out that the High Court judges had said: [‘]Certain matters in this case give us cause for concern.’ He then commented that [‘]the way the judges normally give effect to their reasons for concern and for doubts, at least in a case where a person is condemned to death, is by permitting those doubts to be removed and the matter re-tried so that the case comes to conclusion without such doubts.’
+
+Despite the fact that the judges had expressed some [‘]anxiety’, their opinion was that no re-trial was warranted. All doubts were thoroughly investigated by the Royal Commission, and those who have since expressed reservations about its findings have never made out a sustainable case for doubting them. On the other hand, there is no difficulty in finding fault with the claims of the doubters.
+
+After mentioning that there had been an appeal to the Judicial Committee of the Privy Council and that this had been rejected, Kirby referred to the efforts of some of Stuart’s supporters. He made special mention of Rupert Murdoch’s taking up of the case, which resulted in its [‘]disruption’. According to him this disruption and the consequent [‘]unsettlement of the community’ forced Playford to appoint the Royal Commission.
+
+There is no justification for his opinion. The unsettlement in itself did not force Playford to appoint the Commission: he took action without hesitation after learning that depositions had been made that Stuart had an alibi. (p.67 above) The appointment of the Commission was generally accepted, and after initial criticism even Stuart’s solicitors were satisfied. (p.77 above)
+
+Kirby expressed astonishment that [‘]the Royal Commission contained two of the judges who had sat in the earlier proceedings’, and his reason was that [‘]there was an obvious conflict of interest and duty.’ Later in his speech he claimed that, if the selection of the Commissioners had been subject to [‘]natural justice obligations’, two of the judges would have been forced to stand aside.
+
+Kirby’s astonishment is itself astonishing, and all the more so because of the allegation that Napier and Reed might have been subject to a conflict of interest which implied that this could have affected their judgements. Kirby did not adduce any evidence to support his claim, which could be taken as a slur on the integrity of the two Justices.
+
+It was clear that the Commissioners had been more than fair to Stuart, and that there was no justification whatsoever for any suggestion that they might have been partial. The critics were in no position to be adamant about the question, given their obvious bias.
+
+Although there were some people, including eminent lawyers, who held the opinion that the appointment of Napier and Reed was inappropriate, others disagreed, and the view of the latter was supported by the fact that there were any number of precedents for such reappointments. Napier cited quite a number. (pp.97-98 above)
+
+It may be asked whether any legislation has been passed since 1959 to enforce this particular [‘]natural justice’ obligation.
+
+Kirby then proceeded to identify what he claimed were [‘]the lessons of the Stuart case’.
+
+First he observed that [‘]we have changed in our attitudes to aboriginals before the courts’, and [‘]have changed our attitudes to aboriginals generally,’ adding that citizens now recognise the [‘]disadvantages that aboriginal people have suffered in Australia.’
+
+This was beside the point. Stuart needed no special help. He could communicate quite well and was a man of the world.
+
+In regard to the attitudes to Aboriginals in trouble with the law, Ray Killmier, a former Deputy Commissioner of the SA Police, wrote in a letter to the February 2004 edition of the *Adelaide Review*:
+
+[‘]I have made a study of police history in SA and it is evident that by comparison with other states, the police attitude towards Aborigines was relatively benign. That is not to say that undesirable clashes did not occur on rare occasions. But police often prevented the exploitation of Aborigines by pastoralists and the like.
+
+In my experience, the police also were the main supporters of Aboriginal women, who were often the victims of their liquor-affected men.
+
+That good relations between police and aborigines can and did exist is epitomised by the experience of Sergeant Bruce Evans, who was stationed at Oodnadatta for a considerable period of time in the 1950s and 1960s. The respect for him by the natives was shown by their permission for him to attend their sacred ceremonies. At one he was presented with two Tjuringas (sacred native artefacts), marking their affection for him.’
+
+Killmier was responding to allegations that police beatings of Aborigines were commonplace [‘]well into the 1960s.’
+
+Brigadier McKinna, the Police Commissioner from 1957 to 1972, was noted for his concern for Aboriginal welfare, and regularly travelled to outback communities to check that the police were meeting his expectations in serving the interests of native people.
+
+It may be added that it became clear at the Royal Commission that the Aboriginal witnesses had benefited greatly from their schooling, and were quite ready to co-operate with the police. The fact that the three teen-age Aboriginal girls who testified were employed at the Thevenard hotel indicates that they must have been well-accepted. It seems too that, generally speaking, the Aborigines in the Ceduna district were also treated with respect at the time, and that problems arose mainly when the men committed alcohol-related offences.
+
+It may be, as Kirby claimed, that citizens now are more aware of the disadvantages which Aborigines have suffered, but the plain fact is that in South Australia there is now more conflict than there used to be, and that relations between native and white communities have deteriorated markedly in recent decades. The conditions of the Aborigines in the Ceduna area are now appalling, in marked contrast to what they were at the time of the Stuart affair.
+
+Referring to the problem of [‘]unsettling confessions’, Kirby said that, having dealt with this problem [‘]over a period of about 20 years’, the High Court came to a decision in the case of *The Queen and McKinney*, that [‘]if a confession is not recorded or safely secured, it is the duty of judges, as a rule of practice in this country, to give a clear warning to the jury that reliance on the confession can be unsafe and that they should reflect upon that.’
+
+Kirby’s reference to the *The Queen and McKinney* had no relevance to the Stuart case. Reed had given very clear warnings to the jury, and apparently Stuart’s confession had been [‘]safely secured’.
+
+Kirby then referred to two cases, *The Queen and Gray* and *Mallard and the Queen*. In the Gray case, a detective had withheld evidence which could have cast doubt on the reliability of a witness. Similarly in the Mallard case, as Kirby pointed out, [‘]the prosecutor had not revealed to the defence matters that were important for the cross-examination of the prosecution evidence.’ In this case there had been a conspiracy to withhold evidence in order to obtain a conviction.
+
+It is not possible to accept that Kirby’s references to the Gray and Mallard cases provide any ground for doubting the findings in the Stuart case. For example, he did not say what significant evidence Chamberlain or the police had withheld from the defence. If they had, what was it?
+
+He also said that the High Court insisted that the prosecutor be fair, and was [‘]not just a person in court to win the case.’
+
+There was only one scrap of evidence which could be found to suggest that Chamberlain had been unfair, and this was made a ground of appeal to the Full Court of Appeal and to the High Court. Neither court found that Chamberlain had sought to take any unfair advantage. Except for one unwitting and apparently minor infraction of the rules of evidence, which had no effect on the outcome of the decisions of the courts, there was no reason to believe that Chamberlain had been unfair or was in court simply to win the case. As Legoe said, Chamberlain was a lawyer who was never unfair, and Walter Crocker held a similar opinion. (p.274 above)
+
+Kirby referred to a [‘]provision in criminal appeal statutes that allows a Court of Appeal to uphold a conviction even though mistakes have occurred in the trial’, and observed that the [‘]provision is now more carefully used’. He then added that the High Court [‘]had made the point that this “proviso” was not a provision to simply paper over mistakes’. He went on to say that the provision [‘]requires the appellate court to look most carefully at the central question in criminal appeals which is the question of whether a miscarriage of justice has occurred.’
+
+Kirby gave no reason for believing that the courts of appeal had not exercised due care in the hearings of the appeals lodged on behalf of Stuart. Nor did he provide any evidence to support the contention that there had been a papering over mistakes.
+
+After remarking that [‘]in the time of Max Stuart, the High Court gave very few special leaves in criminal appeals’, he then speculated that [‘]it was as if criminal appeals...were somehow beneath the interest of the legal system.’ He also noted that the [‘]High Court is now hearing many more criminal appeals.’
+
+However, there is no reason to believe that at the time of the Stuart case the High Court should have been granting more leaves to appeal, and it may well be that more of these leaves to appeal were warranted at the time of the seminar than they had been nearly five decades before. This would be no surprise, since the crime rate has skyrocketed since the early seventies and consequently so has the number of cases to be dealt with.
+
+Then there was a reference to a High Court ruling that [‘]if any person in our courts faces a serious criminal charge is indigent, and through no fault of his own cannot afford a barrister, that person must be provided with a barrister of suitable competence to represent him’.
+
+In this regard it may be said that although Stuart was indigent, he was provided with barristers of suitable competence. The fundamental problem for Stuart’s barristers was that there was nothing of substance that they could find to upset the verdict of the trial jury or the judgements at the subsequent hearings.
+
+Kirby repeated that DNA evidence is now available, and stated that the death penalty had been removed. However,DNA evidence was not needed to prove Stuart’s guilt. The belief that he was innocent, or may have been, contributed to the move for the abolition of the death penalty in South Australia, but the reason for the proposed change was based on a false premise, since he was quite definitely guilty.
+
+A substantial proportion of adult Australians still support the death penalty, particularly for the most serious, deliberate, and brutal crimes. Many see it as a deterrent, and no doubt some see it as [‘]natural justice’. There are now frequent complaints from the relatives and friends of victims that imprisonment is an inadequate penalty for murder, which suggests that they hold that the death penalty should be reintroduced. Thus the matter may not yet not be settled as far as some ordinary Australians are concerned.
+
+Inglis mentioned in his book that on a number of occasions [‘]the name of Stuart was compared with that of Alfred Dreyfus. [^9] Without much doubt this inspired Kirby to compare aspects of the Stuart case with that of the much more famous Dreyfus affair, in which Alfred Dreyfus, an officer in the French army, was wrongly convicted for espionage, stripped of his rank, humiliated in public by way of a formal and public military degradation, and deported to a prison on Devil’s Island in French Guiana to serve a life sentence in appalling conditions.
+
+The Dreyfus case was a cause célèbre. In 1894, Dreyfus, who was a member of a wealthy Jewish family and a French army captain, [‘]was accused of selling military secrets to the German attaché.’ After arrest and trial he was [‘]sentenced to life imprisonment on the infamous penal colony of Devil’s Island, off the coast of French Guiana.’ However, the judgement was [‘]based on false evidence’ and was [‘]highly irregular.’ He and his family protested his innocence, but public opinion and the French press generally [‘]welcomed the verdict and the sentence.’[^10] The family sought a reopening of the case, but without success. However, secrets continued to be leaked to the German embassy in Paris after Dreyfus had been imprisoned, and a Major Esterhazy became a suspect. This led Colonel George Picquart, the chief of army counter intelligence, to conclude that Esterhazy and not Dreyfus was the guilty party. Despite this, senior officers refused to reopen the case.[^11] For his pains, Picquart was banished to [‘]the Tunisian hinterland on a dangerous expedition.’[^12] Obviously there had been a conspiracy.
+
+Consequently many prominent citizens joined the Dreyfus family in protesting against the apparent injustice, and these included many eminent authors, journalists, artists, and lawyers. One result of the activities of these Dreyfusards, as they came to be known, was that the conspirators became so anxious that they [‘]made further communications to the newspapers’, and the Government was [‘]questioned and badgered in parliament.’[^13] This led to [‘]new disclosures’ which proved that [‘]the conviction had been based on false documents...not communicated to the counsel for the defence.’ Nevertheless, the [‘]authorities, supported by parliament, declined to reopen the Dreyfus case, but instead they ordered a court-martial of Esterhazy’. This was held behind closed doors and resulted in his acquittal.[^14] Picquart, who had discovered the fraud, was arrested.[^15]
+
+However, the eminent novelist, Émile Zola, was not prepared to wait indefinitely for further action to be taken. He [‘]formulated the case against the general staff of the army in an open letter to the president of the republic, which by its dramatic accusations startled the whole world.’ The letter was published on the front page of Georges Clemenceau’s newspaper *Aurore*...under the headline [‘]J’accuse’. The article accused the army of covering up its mistaken conviction of Dreyfus and of acquitting Esterhazy on the orders of the Ministry of War. By the end of the day, 200,000 copies had been sold.[^16]
+
+By this time the issues had gone well beyond the question of Dreyfus's guilt or innocence, and there were deep social and political divisions, with France split into two opposing camps, the Dreyfusards and the anti-Dreyfusards. There was [‘]uproar in Parliament’ and [‘]anti-Semitic outbursts in central and eastern Europe.’ Zola was tried for libel, found guilty, and [‘]sentenced to a year’s imprisonment and a fine of 3,000 francs.’[^17]
+
+[‘]Half France vehemently held that Dreyfus was guilty, and the other half with equal vehemence that he had been cruelly wronged. Lifelong friendships were ruptured, the peace of families was ruined, the conscience of individuals was racked and tortured. A furious campaign in the Catholic press...spread its anti-Semitic venom through the land.’[^18]
+
+[‘]In August 1898...a re-examination of the documents in the case...showed that one was undoubtedly forged. Colonel Henry, of the intelligence branch of the war office, then confessed that he had fabricated the document’, and, after having been apprehended and taken into custody, he committed suicide.[^19] [‘]Esterhazy, in panic, fled to Belgium and London.’ Henry’s confession [‘]ensured that the appeal of the Dreyfus family for a retrial would be irresistible.’ Consequently Dreyfus was brought back to face a retrial in Rennes.[^20]
+
+On the eve of the trial, one of the defence counsel was shot and wounded - just one of many indications that public opinion [‘]was at fever heat’. Dreyfus was again found guilty, but it was found that there had been [‘]extenuating circumstances’, and the sentence was reduced to ten years of imprisonment. In addition, there was [‘]a recommendation for mercy.’ Hence [‘]all reliance on the conscientiousness of the verdict was removed’. [^21] The President of the Republic was therefore obliged to pardon him, but it was not until 1906 that a civilian court cleared him of all wrongdoing.[^22]
+
+Following that, [‘]Parliament passed a bill reinstating Dreyfus’, and he was awarded the Legion of Honour. He [‘]attained the rank of major’, and served in World War I, during which time he commanded an ammunition column as lieutenant colonel. Despite this the army did not declare his innocence until 1995, nearly a century after he had been cleared.[^23]
+
+The consequences of the affair were dire and far-reaching. [‘]Both the army and the church were seriously hurt by their role in the affair’, and in 1905 the church was disestablished.[^24] ‘For over ten years \[the affair\] had been a nightmare to France’, and it changed the course of French history.[^25] [‘]Morality eventually prevailed’ against [‘]the military and clerical foes of the Republic’, and France was given [‘]its first long spell of firm and steady government.’[^26]
+
+The affair had profound and lasting effects. There was an even deeper division between the rival political parties; drastic anticlerical measures were taken to separate church and state; and the [‘]violent controversy destroyed the cohesion of French life for more than a generation after.’ Another result was that there was [‘]a passionate repudiation of anti-semitism’,[^27] and the case for Zionism, the establishment of a Jewish state, was greatly strengthened.
+
+There are few resemblances between the Dreyfus and Stuart affairs. In both cases people questioned the verdicts, their views were made public, there was vehement controversy, and the authorities took action. There are not many other similarities.
+
+On the other hand the differences can hardly have been more marked: in the Dreyfus case there was racial prejudice from the beginning because Dreyfus was a Jew; he was publicly degraded and exiled; he was maltreated in prison; and there was military, judicial and government corruption on a large scale, with a despicable alliance between conservative parties, anti-Semites, and the army. The progressive forces who believed that Dreyfus was innocent discovered clear evidence that this was the case; they were brave enough to risk severe persecution and even death for the sake of justice and human rights, and indeed many of them suffered greatly as a consequence of their actions; Dreyfus was granted a pardon; it was more than a decade before he was exonerated; French society was sharply and bitterly divided; the political and social ramifications were serious and lasted for decades; during all of this time the affair was followed all over the world; and the guilty parties were eventually identified.
+
+In the Stuart case there was no evidence that he suffered because he was an Aborigine; nor was there any persecution; there was no alliance between the Government, the police, the prosecutors and the judges; the jury and the judges were obviously not corrupt; there was no sustainable evidence that there was unfairness in any of the judicial proceedings; the challengers did not face the same dangers as those who fought on behalf of Dreyfus; no deliberately falsified documents were submitted to any of the courts; the Stuart case was settled reasonably quickly and at the time most members of the public generally were satisfied; there was no violent social unrest and there were no dramatic political or social consequences; the world at large quickly lost interest in the case; and no culprit other than Stuart was ever discovered.
+
+Among other things, in the Dreyfus case there was indisputable evidence that army officers, politicians, clerics, and even the judiciary were corrupt and racist. On the other hand, there was no credible evidence in the Stuart case of government, police or judicial corruption, and none that he was innocent. The evidence showed beyond any possible doubt that Strehlow’s claims about Stuart’s language ability were implausible. There was no evidence at all to support Stuart’s allegation that the police had extorted the confession, and there was no sign of any injury such as Stuart had described: the only visible evidence of injury was examined under a magnifying glass and was insignificant and considered to have been the result of an old wound. The alibi evidence was clearly unsafe, and there was no reason to doubt the contrary evidence. Then there were other claims which were shown to have been false: for example, contrary to what Strehlow and Dixon had testified, Stuart could tell the time.
+
+Dreyfus of course was an honourable man and a model citizen, whereas Stuart was an untrustworthy man and a habitual criminal with a record of offences committed over decades.
+
+Kirby warned that we should [‘]beware of making up any evidentiary deficit on the basis of prejudice against minority groups’. There was certainly fabricated testimony in the Dreyfus case, but the only person found guilty of fabricating evidence in the Stuart case was Stuart himself, who had told lies to make up evidentiary deficits.
+
+Kirby followed with an affirmation of the right to protest and to express opinions. But was there anything arising from the Stuart case which warranted such affirmation? Strehlow, Dixon and their supporters, as well as journalists, Stuart’s counsel, the Police Association, and members of the public were all free to engage in public debate without any official sanctions. Some of the judges criticised the *News,* as did Chamberlain and Brazel, but at the same time there was a superabundance of criticism from all sides. Rivett and the directors of the *News* were certainly called to account for opinions expressed in that paper, but their trial was fair and it was never proved that they had been guilty of any criminal offence.
+
+In asserting that both cases carry lessons, Kirby wrote: [‘]You could say that the Stuart case and the Dreyfus case show the ultimate vindication of institutions. But in both cases it took a long time. And it was obliged to depend on forces outside the law for vindication of the prisoner.’
+
+These conclusions were unwarranted. A decade passed before Dreyfus was vindicated, and it was more than a century before the French army declared him innocent, whereas Stuart was never vindicated, and following the release of the Royal Commission report, there was apparently little or no objection to his imprisonment even after Inglis’s book appeared. Further, it was less than a year from the time of Stuart’s arrest to the release of the Royal Commission report. French institutions were guilty of manifest, serious and continuing injustice, for which there could never be vindication; on the other hand, there was never any need for vindication of any South Australian institution involved in the Stuart case.
+
+Most people were satisfied with the outcome of the Royal Commission, and as Stewart Cockburn commented, [‘]The Royal Commissioners’ Report was received with virtually no challenge by most of those who had provoked the uproar which led to the long and costly enquiry.’[^28] Not unsurprisingly, Strehlow and Dixon were among those who continued to believe that Stuart was innocent. The simple truth is that events outside of the courtrooms had no effect on the consideration which the judges gave to the case, with only one possible exception, namely that the Royal Commissioners went out of their way to be more than fair to the accused. Finally, Stuart was never officially exonerated.
+
+At the end of his speech Kirby said that from both the Stuart and the Dreyfus cases there were [‘]lessons for us in Australia, and that is why as citizens...we are here...to reflect and never to forget.’
+
+Unfortunately, Kirby had not made out a credible case to support this conclusion. Australians needed no lesson from the Dreyfus affair, and those needing a lesson are those who still doubt that Stuart was guilty.
+
+Evidently the presenters at the seminar considered that Inglis had examined the evidence thoroughly. But he had ignored much of what was essential to a balanced consideration of the case, and many of his conclusions were not soundly based. Chamberlain’s examination was certainly thorough, but it appears that no critics of his book have attempted any comprehensive rebuttal of his contentions.
+
+### *A TV Discourse*
+
+The day before the seminar, Geoffrey Robertson participated in the Australian Broadcasting Commission program [‘]Stateline’, which was presented by Ian Henschke.[^29]
+
+Henschke observed that [‘]there was a storm of controversy across the nation’, and Professor Paul Fairall, who held the John Bray Chair of Law at the University of Adelaide, commented that the case was [‘]a defining moment in South Australia’s history.’ Robertson agreed, saying that it was a [‘]very dramatic case \[in\] which the rule of law...applied to an Aboriginal who was dealt with unfairly’, and was [‘]a very important one because it alerted Australia to the difficulties that Aborigines … encountered in our courts.’ He also said: [‘]It alerted Australians to the important feature of capital punishment that applied to people who may well be innocent.’ But there had been no unfairness, so it was not the case itself which alerted Australians to the danger identified by Robertson: it was the publicity given to false and misleading information which led to assumptions that Stuart had been disadvantaged because he was an Aborigine.
+
+Fairall commented that [‘]one of the significant things about the Stuart case \[was\] the speed with which it all moved’, and that it [‘]all took place within a space of six or seven months.’ He then added: [‘]That is almost unthinkable now’. In 1959 this speed would have been no surprise to South Australians. They knew that the system was efficient, and that on the whole magistrates and judges were knowledgeable, experienced and astute. Moreover, the crime rate was low, so that there were relatively few cases to be heard. With the now high rate, the backlog is hardly manageable, even though there are many more judges to deal with criminal offences.
+
+Rupert Murdoch took part and said that he was very proud of the role played by the *News*, and Robertson was prompted to say: [‘]It is one of the remarkable and ironic features of the Stuart case that it taught Rupert Murdoch about campaigning’. However, he needed no lesson in campaigning: what he achieved in the reporting of the Stuart case showed quite clearly that he was an expert, and the result was little short of catastrophic. Since then the culture of his style of journalism has not changed for the better, as was sensationally exposed after the phone hacking by senior staff of his *News of the World* was discovered.
+
+Roger Cardwell, who later became another well-known TV presenter, appeared on the same program. He was the local storekeeper at Ceduna at the time of the murder, and his wife was Mary Hattam’s cousin. He was the man who alerted the police to her disappearance, and was with her father when the body was discovered. When Henschke asked him, [‘]Has it ever occurred to you that Max Stuart might be innocent?’, he replied, [‘]No never. And I asked a question, if he didn’t do it, who did?’ Cardwell was typical of the people who lived in Ceduna at the time of the murder, who knew the local Aborigines and the police well, and, like the other Ceduna residents, knew more about the circumstances surrounding the event than most other members of the public.
+
+## \* \* \* \* \* \* \*
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+##
+
+## 22. A Lecture
+
+Victorian Chief Justice Marilyn Warren, then Justice Warren, was the guest speaker at the Sir Anthony Mason Honorary Lecture on 15 August 2007. The title was [‘]Why be a lawyer?’ In the course of her address she referred to the Stuart case as providing one of the reasons for choosing law as a career.
+
+In doing so, she claimed that during the Royal Commission hearing, Stuart’s leading counsel, Mr. Shand, [‘]was denied the opportunity to ask an important question and walked out.’
+
+This is incorrect: Chief Justice Napier, believing that Shand was getting nowhere with his questioning of Sergeant Phin, had interrupted him, saying that the witness was [‘]not obliged to say anything if he can’t explain it. It is for him to say if he wishes to go further or leave the evidence where it is.’ Then after a rather abrupt exchange, Shand was invited to continue for as long as it suited him. He was perfectly free to ask any question he wished to put. (see pp.86-87 above)
+
+She spoke about some of the experiences of Stuart’s junior counsel, Mr. Villeneuve Smith, whom she described as [‘]one of the heroes of the Victorian bar.’ After referring to the fact that he had followed Shand in the walkout, she stated that the Commission refused an application, which Smith made when he next appeared, [‘]for an adjournment to enable senior counsel to be briefed’. She added: [‘]When Villeneuve-Smith appeared alone to make that application, the Commission raised the matter of the walk out’, and that he replied [‘]with steely courage and resolve “I did my duty as a junior and I would do so again”.’
+
+Evidently Justice Warren did not know the full story: the application was for Mr. Travers to appear, but this would have led to a delay, because he was committed to another court case at the time. The Commissioners therefore asked if it was possible for another barrister to appear. Reed wanted to know whether Stuart would be appearing as a witness, but evidently Villeneuve Smith could not say whether he would or not. [^1] Hence the Commissioners were hesitant at that stage to grant leave for Travers to appear, and, rather than making a decision, suggested that an effort be made to find another barrister to represent Stuart. They then adjourned so that time could be given to find a replacement. (p.99 above) In the interim Travers decided not to appear, and Starke agreed to do so. He was duly given leave to replace Travers, (p.111 above) just as Shand had at the start of the Commission’s proceedings. Moreover, Starke was granted a nineteen day adjournment to give him time to prepare himself.[^2]
+
+With regard to the matter of the walkout, the following evidence is relevant to what Justice Warren said :
+
+When the matter of the walkout was raised there was some discussion, during which Villeneuve Smith answered a question from Justice Reed by saying, [‘]Of course, Your Honour has had the advantage of having sat throughout the Commission. I have not’, to which Reed replied [‘]That was an advantage which you denied yourself, didn’t you?’ It was after Reed’s reply that Villeneuve Smith said, [‘]I don’t know about the advantage I denied myself. I did my duty as a junior and would do so again.’[^3] Incidentally, it was at that stage that Chamberlain remarked that [‘]when Shand withdrew from the case, the government immediately offered to pay for any new counsel whom Stuart’s solicitors saw fit to engage.’[^4]
+
+Villeneuve Smith had followed the lead of Shand, his senior, not only when he walked out of the Commission, but also by acquiescing in the decision to leave Stuart without representation, and the alibi witnesses without counsel to assist them.
+
+It seems that, although some may have thought that Smith showed [‘]steely courage’, others would have concluded that he had been unwise and perhaps audacious to have joined Shand in a confrontation with the Commission.
+
+Warren concluded her reference to the Stuart case with the following passage:
+
+[‘]The aftermath was very difficult for Villeneuve-Smith. It was described in this way: “The Adelaide establishment did not take kindly to the efforts of Villeneuve-Smith and the rest of his legal team to ensure natural justice for Stuart. They were ostracised. Consequently ....Villeneuve-Smith made the difficult and momentous decision to uproot himself from the state in which he was the last in line of generations of distinguished lawyers.''
+
+It is very doubtful that an [‘]establishment’ ostracised Villeneuve Smith or his colleagues, O’Sullivan and Devaney. Many members of the legal profession would have disagreed with their decision to join Shand when he abandoned his responsibility to the Commission and to the witnesses who were to be called on Stuart’s behalf. In following Shand’s lead, his junior counsel were showing their support for him in his criticism that the Commission was not being fair, and this would not have endeared them to South Australian lawyers generally. It seems that their reputation suffered, but this should have come as no surprise.
+
+It must have been obvious too that O’Sullivan knew that Stuart was not disadvantaged because of any inability to speak or understand English. Despite this, he pressed beyond reason the contrary claims of Dixon and Strehlow. It may well be too that O’Sullivan’s strong and emotive public attacks on the Police Association and the terms of reference and composition of the Royal Commission antagonised some of his professional colleagues.
+
+Incidentally, as previously observed, Premier Playford could hardly be counted as a member of [‘]the establishment’: he was strongly opposed by wealthy conservatives when he greatly expanded the operations of the South Australian Housing Trust during his term of office as Premier, and again when he nationalised the Adelaide Electric Supply Company in 1946.
+
+## 23. Richard Jones
+
+In the August 2008 edition of the SA Police Journal there was an article written by Brett Williams who had interviewed Jones about the case.
+
+Early in the article Williams mentioned that Jones had topped the 1956 detective training course. Then, in recording what Jones had told him, Williams wrote *inter alia*: [‘]Lawyers and academics \[continue\] every few years to re-hash the so-called unsafe conviction of Stuart in 1959 for the rape and murder of Mary Olive Hattam near Ceduna. Scholarly types last attacked the evidence of Jones and his colleagues at a formal seminar...at the University of Adelaide in 2006. The talk-fest drew, among others, high-profile legal figures, Geoffrey Robertson QC, and High Court justice Michael Kirby.’
+
+Jones [‘]had no desire to join them, despite his capacity to contribute a first-hand account of the police investigation. “I couldn’t see any sense in it”, he says. “It’s...one of those things that ill-informed people like to hash up now and then.” “In fact, critics...simply do not believe that he used certain words attributed to him.” “Stuart just peeled off the details. Turner at times clarified points, but there was no question-and-answer set-up.[” ’]
+
+Jones told Williams that he had sat next to Stuart throughout the plane journey back to Adelaide, during which a [‘]flight attendant handing out small promotional packets of cigarettes offered one pack to \[him\] and one to Stuart.’ Because Jones was a non-smoker and knew that Stuart smoked, he offered him his cigarettes. [‘]Stuart responded: “Oh good - cigarettes”, and accepted them. And then, from Stuart’s own lips, came confirmation of his earlier confession. Within a few seconds, as if his conscience had pricked him, he just said: “Oh, I’m sorry I killed the little girl.” I asked him if he would repeat it under caution, and he just said: “No.[” ’] Of course, without a caution, this evidence could never be presented in court.
+
+[‘]Jones has never seen, and does not intend to see, the 2002 Stuart-case movie, *Black and White*’. He sees the raft of documentaries, books and lectures on the case as hearsay accounts of the uninformed. His wish is simply for Australians to form their own judgements but on the basis of facts’.
+
+The article then cites Jones again:
+
+[‘ “]All they’ve got to do is look at the court records, and the evidence that was given under oath by police officers”, he insists. “But there’s none so blind as them who will not believe. It wouldn’t matter what you said, and that’s it.” ’
+
+“I just want the people to know exactly what took place, to know the evidence that was presented by Mr. Chamberlain, and exactly what Stuart said on the plane. I just want people to know the facts that were not produced in court on account of the law. Whether people believe \[that Stuart was guilty or not\], that’s up to them. If they still want to believe Stuart or believe ill-informed comment, I can’t change that.[” ’]
+
+Williams concluded with:
+
+[‘]Jones had always taken it as an insult the implications and, in some cases, downright accusations that the police manufactured the confession. “It goes deeper than that,” he explains. “It goes to the allegation that you committed perjury, and none of us did that.” ’
+
+## 24. Conclusions
+
+There was never any credible evidence that the confession was not genuine. The original reason given for the claim that the police extorted the confession was that Stuart could not have used the language in the confession. The introduction, comprising only a few sentences, was in standard form as required, and must have been typed following answers to questions. The last sentence in the document was also standard, and there was nothing in the remainder which could not have been said by Stuart - he had used nearly all of the words and constructions previously, and some when he gave evidence at the Commission. And there is no reason to doubt that he knew the few others.
+
+Strehlow’s claims that he was seriously handicapped because his English was poor were clearly demonstrated to have been false. At the Royal Commission, Strehlow could not sustain his opinion, and virtually admitted that he had been wrong, although it was evident from what he wrote later that he did not accept that he had been.
+
+At no stage during the court proceedings did Stuart suffer any disability because he could not read or write. He could understand what was said to him and make himself understood as well as any other person with a limited education. This became quite clear when he gave evidence at the Royal Commission: he needed no interpreter. With the help offered at the trial, he could have made known at that stage what he had claimed was in his unsworn dock statement.
+
+The evidence of the witnesses who claimed that Stuart had an alibi was unreliable. Further, he had an excellent memory, and if he had had an alibi, he would surely have told O’Sullivan before the trial that he did.
+
+Quite a number of reliable witnesses gave evidence about his whereabouts which confirmed that he had been on the beach at the time of the murder, and he himself admitted that he had walked back to Ceduna in the afternoon and [‘]cut across the beach.’ Some of these witnesses said that they saw him return from the direction of the beach and go on to the show at about 4 o’clock. This meant that he could not have been back before that time as the alibi witnesses had claimed.
+
+There was no substantial evidence whatsoever that the police had behaved improperly at any time, and the credible evidence was that they had not. Any doubts were dispelled at the Royal Commission where the police were virtually on trial and were found to have been not guilty. In these circumstances, it is an injustice to claim that they had acted improperly. Yet public imputations of their guilt are still being made. Those responsible for this injustice include prominent lawyers and academics who have ignored much of the evidence which negated the claim that the police had assaulted him.
+
+Critics of Playford and the Executive have failed to provide any persuasive evidence that they did not act with perfect propriety.
+
+The Government was criticised for its decision not to commute the death sentence and for appointing a Royal Commission, particularly one with two members who had sat on the case previously, but these decisions were justifiable.
+
+There are advantages in appointing a Royal Commission to test new evidence. One is that it has more powers than a judge in a court of law. Although there was criticism that two of the commissioners had sat and passed judgment on the case previously, there were any number of precedents, and the Stuart Commission’s assessment of the evidence could not have been more thoroughgoing.
+
+The Government supported the death penalty for murder, and did not intend to create a precedent. Apparently, in commuting the death sentence, Playford had succumbed in an attempt to calm some of the critics who had been bringing the good name of South Australia and its institutions into disrepute.
+
+Most South Australians accepted the findings, and probably believed that Stuart had been lucky to have escaped with his life. The fact that he was Aboriginal is what saved him: if he had been a white man he would have been hanged, and this with little likelihood that there would have been any fuss.
+
+Inglis observed that misgivings were expressed by all newspapers and many individuals outside of South Australia, (p.81 above) but both South Australian papers accepted the judgement of the Commission. (pp.175-176 above) The opinions of interstate residents were heavily influenced by the reporting of the case in their states, which in a number of cases was at times even more misleading than that of the *News*.
+
+During the controversy many members of the public were swayed by emotion, and initially they could not accept the findings of the courts. Members of the Executive were more realistic, and, like the Judges of Appeal, were not to be swayed by public opinion. They also believed that capital punishment was a form of natural justice as well as a deterrent to potential offenders.
+
+Dixon and Strehlow were the first to believe that Stuart could have been innocent, and without their intervention there would not have been any further ado after the the appeal to the Full Court of Appeal had failed. Both of these men were fooled by Stuart, and did not bother to check facts. They did not test their assumption that he could not understand or use English well enough to communicate easily; nor did they check whether he could tell the time from a watch or clock.
+
+Their performance as witnesses demonstrated that they were blinkered, and their credibility was destroyed. They considered that the Commissioners were their enemies and were not impartial in seeking to arrive at the truth, but they had been given a fair hearing and every opportunity to present their evidence.
+
+Strehlow lived very much in his own intellectual world, and in the Stuart case could not come to terms with reality. One is reminded of the title of two films, *The Nutty Professor (1963)*, and *The Nutty Professor (1996)*. Dixon was a romantic, and quixotic to boot. As a witness he was even less rational than Strehlow - evasion and speculation were the main features of his testimony, as they are of his book.
+
+O’Sullivan decided to reject the trial judge’s offer for him to assist Stuart to tell the story which was in the unsworn statement. He was hiding the fact that Stuart could understand what was said at the trial and could have responded easily, which he must have discovered when he questioned Stuart before the preliminary hearing, at which he was able to question the police for ten hours and still had more up his sleeve. (p.14 above.)
+
+Despite this he went on to claim at the appeals that he himself had great difficulty in communicating with Stuart. This claim was rejected outright by the Full Court of Appeal and the Privy Council Committee, and was not accepted by the High Court. Finally, the evidence at the Commission showed quite clearly that he had been exaggerating. He had overplayed his hand. He was not incompetent, but his basic problem was that he was faced with trying to defend the indefensible.
+
+Then there were his emotional and unprofessional outbursts of criticisms directed at the Police Association and the Government, and of the terms of reference of the Commission.
+
+Another mistake was his decision to join Shand in the walkout from the Commission hearings and to accept Shand’s advice that Stuart should not be represented by counsel at subsequent hearings. Then too was his submission to the Commission on 7 September, which contained serious accusations against the Commissioners themselves, and which evoked a response from Ross which was virtually a lecture. (p.100 above)
+
+Shand’s conduct during and immediately after his association with the Commission was reprehensible. He had accused the Commissioners of incompetence if not unfairness. Yet all three members were recognised as outstanding jurists, with records of long and distinguished service. They were highly esteemed by members of their profession and by others who knew something of their achievements. It would have been difficult to have found any other judges in the country who were better qualified to serve as members.
+
+It must have become obvious to Shand that he had made no headway in his attempts to make out a case against the police, and there can be little doubt that this contributed to his decision to quit. What Brazel and the Commissioners said after the walkout, and what Napier and Reed later said to O’Sullivan about the matter, would have persuaded any fair-minded and uncommitted person that there was no justification for Shand’s accusation that the Commissioners were incompetent or unfair. Brazel and Chamberlain did not believe that they had been, (see p.91-92 above) and neither did Legoe, Brazel’s assistant. (pp.73-74 above) Sadly, the opinion that there had been unfairness continues to hold sway in many academic and legal circles.
+
+Then there was Shand’s assertion that a continued association with the Commission would handicap Stuart. (p.89 above) There could be no valid reason for this opinion, and the result was that Stuart’s advocates who subsequently appeared as witnesses had no support or guidance from counsel. Further, with the assurances he had been given, Shand would have had the opportunity to question all of the police who were later called to appear.
+
+Shand had also made false statements: He had wrongly claimed that the original of Stuart’s unsworn statement was in the hands of the Commission; he had given false information about the Wardrops’ statements; and he had claimed that he had been impeded as soon as he started to examine Phin. (pp. 86-89 above)
+
+Of Stuart’s barristers, Starke was the only one whose behaviour was beyond any reproach.
+
+Character assassination was a strong feature of the criticisms of the Government, the judiciary, and the prosecutor. None of it was justified.
+
+Reviewers of the case continue to insinuate or assert that the police were corrupt and the South Australian judges unfair, and they persist in claiming that political influence impinged on the conduct of the Royal Commission. In their view a South Australian [‘]Establishment’ had exercised an adverse influence on the handling of the case. South Australian society and the character of South Australian people also came in for denigration. There is and never was any justification for these assertions, and they do not stand up to close examination.
+
+Moreover, most, if not all, of the reviewers have ignored the positive evidence on which the verdict of guilty was based and which showed that Stuart had been treated fairly. Nor have they attempted any serious direct rebuttal of Chamberlain’s analysis of the case.
+
+The most obvious flaws in the reviewers’ criticisms are that they are superficial, speculative, and imbalanced. In addition, many are laced with misinformation, unwarranted opinion, appeals to emotion, and in Castles’ review of Chamberlain’s book with ad hominem denigration. Thus most of their claims are baseless, and it is high time for these reviewers to review their own work. So much of what has been written and said about the case has been irrelevant, irrational, obfuscatory, or plainly false, that there can be only one conclusion, namely that historical reality has been replaced by myth.
+
+Debate during the fifty-odd years following the Stuart affair has not been fuelled by the police or members of the public generally, but in the main by academics, lawyers, and human rights advocates who should have known better. Unlike them, men who had already proved themselves and achieved greatness, e.g. the South Australian Supreme Court Justices, and those of the High Court and the Privy Councillors, managed the affair as it should have been, with fairness, firmness and impeccable judgement.
+
+In the Stuart case there was no valid evidence to support a charge that the police were guilty of any offence such as extortion, falsification, assault or perjury. In considering the circumstances, and particularly the fact that the South Australian police at the time had a reputation for honesty, any challenge to the contrary needed to be based on strong and adequate evidence, and certainly not on hearsay, surmise, or innuendo. The police involved in the Stuart case have the right to be presumed innocent given that no substantial evidence has been adduced to indicate that they might not have been.
+
+It seems clear that Inglis, then a young historian, was the person who catalysed the ongoing misconceptions. Although sincere in his pursuit of justice for Stuart, his attempt was in effect [‘]mischievous’, as Chamberlain remarked, and the mischief has since spiralled out of control.
+
+Stuart of course was to be pitied inasmuch as he had become habituated to the over consumption of liquor, and therefore prone to alcohol-fuelled violence and sexual offences. But he was not suffering from any mental disorder which could have been taken into account.
+
+However, Mary Hattam suffered a most terrifying and horrific ordeal, and the effect on her parents of the sudden tragic loss of their beloved daughter in such an atrocious way beggars imagination. Their lives had been shattered, and there could never be any adequate consolation.
+
+For many of their contemporaries, the nature of the crime was such that public reprobation could be expressed adequately only by way of capital punishment. For them it was not a matter of [‘]an eye for an eye’ but a matter of natural justice, and a sign to all that there was a limit to public tolerance of such wilful depravity.
+
+# ADDENDUM
+
+It is clear that the S.A. Police Commissioners’ annual reports that until the 1970s the crime rate in South Australia was extremely low by any standards, but that they rose sharply thereafter, escalating with increasing rapidity. All of these reports are accompanied by statistical information from which it is possible, together with other research material, to estimate the rate of increase per head of population.
+
+The statistics for murder indicate that the rate at the beginning of the twentieth century, although significant, by mid-century had become very low, but that after that time it soared rapidly to a very high level.
+
+Commissioner Ivor Green was the first to report a significant increase in crime, drawing attention in the mid-fifties to a sharp rise in burglary and theft. Following his term of office, the crime rate rose at an increasing rate every year. His successor, Brigadier John McKinna, reported the details with increasing concern until he was succeeded by Harold Salisbury, who continued in the same vein.
+
+Between the five year period (pentad) from 1 July 1963 to the pentad from 1 July 1973, the rate per 100,000 population for persons committed for trial for murder increased from 7 to 12. The rate for other offences increased much more rapidly.
+
+It was during this time that public and political debate on punishment for crime intensified. Many argued for an increase in penalties, and the for the retention of capital punishment for murder, whereas others, who saw themselves as more enlightened, pressed for the introduction of measures for rehabilitation. For murder, long term imprisonment replaced capital punishment. All Australian states have now abolished the death penalty, with New South Wales the last to do so.
+
+Finally in March 2010, the Federal Government passed legislation which abolished the death penalty from being introduced in any state or territory in Australia.
+
+Today the rate of recidivism is high, and many reoffend after having served a gaol sentence. In some cases, repeat offenders who have committed serious crimes, have committed murder after release from prison. Furthermore, not only can the prison system no longer cope, but the gaols themselves have become breeding grounds for crime.
+
+Lesser offences which once led to gaol sentences now often attract no more than a caution or a suspended sentence. Hence punishments have come to be seen as inadequate. It is no wonder that there are frequent calls for stiffer penalties, which would mean a return to the past. However, such a return is likely to have limited effect on the crime rate unless it is accompanied by social reform, and this in turn will require a return to basic ethical standards, particularly to care and consideration for others.
+
+Another huge problem is that the justice system no longer copes: there are long delays before cases are heard in court, and the time between committal for trial and verdict is often unconscionable.
+
+Older South Australians well know that until the 1970s they could feel safe whether at home or out and about, and this at any hour of day or night. Many who are younger find it hard to believe that people could sleep on the front lawn in hot weather, that they could go out at night with little need for concern about their safety, or that parents could allow their children to play in the streets or roam elsewhere without supervision or concern. South Australians enjoyed a degree of freedom from crime and other social ills which has been relatively rare in human history, and is in sharp contrast to the situation today.
+
+The low crime rate was one outcome of what was in effect an implicit social contract which reflected the fundamental values of the people. This comprised an understanding and acceptance of the recognised obligations on individuals and groups to contribute to the welfare of others and hence to society as a whole. This commitment to the common good was essentially Christian, and nearly all adults professed that faith.
+
+The committing of an offence was a breach of this social contract, and warranted adequate punishment. For murder, the most serious breach of this contract, the death penalty was considered to have been the appropriate punishment, and its application was seen as likely to give any potential murderer pause for second thought.
+
+Although death by hanging is cruel, the suffering does not often match that of murder victims, as is well illustrated in the Stuart case. Thus it is not a matter of [‘]an eye for an eye.’ Today of course there is the option of death by lethal injection, which if administered properly would be no more painful than a pinprick. Harold Salisbury was one who held this view. When Stewart Cockburn interviewed him on Radio 5AD in February 1973, Salisbury referred to the murder by an intruder of an elderly, incapacitated and defenceless man. He then went on to say that he was opposed to hanging, but [‘]would support the administration of an anaesthetic followed by some lethal poison.’
+
+Until the 1970s few criminals in South Australia reoffended. Obviously their punishment, whether by way of fine, imprisonment, or corporal or capital punishment, was at least adequate in the then peaceful, and law-abiding society. South Australians wanted to maintain that state of affairs, and were satisfied with the justice system and with the adequacy of penalties for breaches of the law. Serious crime, such as armed robbery, serious assault, and rape, was punished by long and fixed terms of imprisonment. Murder was beyond the pale, and capital punishment, seen as the ultimate deterrent, was an expression of community abhorrence and unwillingness to tolerate such a heinous offence.
+
+Crime rates vary from one country to another, and can vary over time, sometimes quite rapidly. In Australia, social changes have contributed to a huge increase during the last five decades for so, and crime prevention is now extremely difficult. It has also become enormously costly in both financial and social terms. The outlook is grim.
+
+As mentioned above, (p.161) the Law Commission of India in 1967 expressed the view that arguments about capital punishment may be valid in one country but not in another. The following excerpts are taken from the Commission’s conclusions:
+
+[‘]2 (a) The deterrent object of capital punishment is the most important aspect. The retributive object cannot be totally ruled out. “Retribution”, as used here, does not mean the primitive concept of “and eye for an eye” but connotes the expression of public indignation at a shocking crime, which can better be described as “reprobation.”
+
+Even after all the arguments advanced to support the abolition of capital punishment are taken into account, there does remain a *residuum* of cases where it is absolutely impossible to enlist any sympathy on the side of the criminal, or to postulate any mental abnormality on his part, or to assert that the deterrent effect is counterproductive by any external factors other than the will and determination of the criminal.
+
+\(b\) Punishment as a deterrent has various aspects, namely, to stop the offender from offending again (particular deterrence), to deter other potential offenders (general deterrence), and to protect the society from the persistent offender (protection).’
+
+[‘]After a consideration in detail of the various arguments pertaining to the deterrent effect of capital punishment, the Commission has reached the conclusion that capital punishment does act as a deterrent.’
+
+Only quite recently the Indian Law Commission re-examined the question of retaining the death penalty, and in August 2015 recommended its abolition for all offences other than terrorism offences and waging war.
+
+Nevertheless, although the issue remains contentious, from time immemorial human societies have resorted to punishment as a way of protecting their members from behaviour detrimental to their welfare, and until recently it was recognised generally that punishment should be swift, certain and adequate. It was commonly agreed too that the nature and severity of punishment should reflect the seriousness of the particular offence. Perhaps it is time for consideration to be given to the reintroduction of capital punishment for murder, at least in cases where, even after review, there can be absolutely no doubt about a verdict of guilty. If we kill foes in war without compunction, we could well do the same in the war against crime.
+
+## \* \* \* \* \* \* \*
+
+# REFERENCES AND NOTES
+
+## ABBREVIATIONS
+
+**A.D.B.** Australian Dictionary of Biography Melbourne University Press 1940-1980ed.
+
+**Adv.** *The Advertiser.*
+
+**Black and White** *beyond BLACK AND WHITE - an exhibition*
+
+Document for visitors to an exhibition held in 2002
+
+**Britannica** Encyclopaedia Britannica, 11th. ed..
+
+**Britannica New** The New Encyclopaedia Britannica 15th ed..
+
+**Chamberlain** Sir Roderic Chamberlain, *The Stuart Affair*
+
+Rigby, 1973.
+
+**Castles** Alex Castles, *Adelaide Law Review* : Vol.5,
+
+pp.88-90.
+
+**Cockburn** Stewart Cockburn, *Playford - Benevolent*
+
+*Despot* Griffin Press, 1991.
+
+**Crocker** Sir Walter Crocker, *Sir Thomas Playford, A*
+
+*Portrait* Melbourne University Press, 1983.
+
+**Dixon** Thomas Dixon, *The Wizard of Alice* Alella
+
+Books, 1987.
+
+**Fisher** H.A.L. Fisher, A History of Europe, 1936.
+
+**Hill** Barry Hill, *Driftwood: T.G.H. Strehlow and*
+
+*the Stuart Case*, Ch.2. in *Occasional Paper 2*
+
+*1999.* Strehlow Research Centre.
+
+**Hunt** Arnold D. Hunt, *This Side of Heaven - A History*
+
+*of Methodism in South Australia.* *Lutheran*
+
+*Publishing House, Adelaide, 1985.*
+
+**Inglis** K.S.Inglis, *The Stuart Case*, 2nd. edition, Black
+
+Ink, 2002.
+
+**Kirby** Hon. Justice Kirby, *Black and White Lessons for*
+
+*the Australian Judiciary*: Local Court of New South Wales Annual Conference, 29 July 2002.
+
+**L.C.I.** Law Commission of India Thirty-Fifth Report on Capital Punishment, 1967. Government of India Press.
+
+**National Trust** National Trust SA Moonta Branch, 2015.
+
+[http:/www.moontatourism.org.au/area-history]{.underline}
+
+**Pybus** Cassandra Pybus, *Gross Moral Turpitude* William Heinemann, 1993.
+
+**R.C. Report** Report of the Royal Commission into Rupert Max Stuart. (Parliamentary Paper No.80, 1959.
+
+**Samuels, Brian** Samuels, *List of [‘]Firsts’ for South Australia -*
+
+*1851-1936.*
+
+**Slee** Max Slee, *History*, South Australian Police
+
+Historical Society.
+
+**Sullivan** Lucy Sullivan, *Rising Crime in Australia*, Policy
+
+Monograph The Centre for Independent Studies,
+
+1997\.
+
+**Transcript** Transcript of Evidence in Reg. v. Stuart: Trial: pp. 1-142; Full Court of Appeal Report, pp. 143-157 15 pp.; High Court Report, pp.159-166 9 pp.), Supreme Court Library, KB65.S7.
+
+**Transcript: P.H.** Transcript of evidence given at the Preliminary Hearing. Supreme Court Library, KB65.S7.
+
+**Transcript: R.C.** Transcript of evidence given at the Royal
+
+Commission hearings.
+
+**Whitlam & Stubbs** Nicholas Whitlam and John Stubbs, *Nest of Traitors: the Petrov Affair*, Q.U.P., 2nd. edition, 1985.
+
+
+CRIME AND  INVESTIGATION
+[^1]: Inglis,  p.2.
+[^2]: Ibid.,  p.3.
+[^3]: R.C. Report,  p.5,  para.20. 
+[^4]: Inglis, p.2.
+[^5]: Ibid., pp.2,3. 
+[^6]: Ibid.,  p.3;  Chamberlain, p.6.
+[^7]: Chamberlain,  p.6.
+[^8]: Ibid.
+[^9]: Inglis,  p.11.
+[^10]: Ibid., p.11.
+[^11]: Inglis,  pp.8,9.
+[^12]: Ibid.,  p.9. 
+[^13]: Chamberlain,  p.7.
+[^14]: Ibid.
+[^15]: R.C. Report,  p.9,  para.47.
+[^16]: Inglis,  p.12.
+[^17]: R.C. Report,  p.6,  para.26.
+[^18]: Chamberlain,  p.13
+[^19]: Inglis,  p.130.
+
+PRELIMINARY HEARING
+[^1]: Chamberlain,  p.18.
+[^2]: Transcript: P.H.,  pp.6-7, 8.
+[^3]: Chamberlain,  pp.17,18.
+[^4]: Transcript: P.H.,  p.105.
+[^5]: Inglis, p.22.
+[^6]: Transcript: P.H., pp.82,83.
+[^7]: Ibid., p.53.
+[^8]: Inglis, p.401. (Chronology)
+
+
+TRIAL
+[^1]: Chamberlain, pp.20,21.
+[^2]: Ibid., p.23.
+[^3]: Transcript, pp.17-18.
+[^4]: Ibid., p.20.
+[^5]: Inglis, pp.23,24.
+[^6]: Chamberlain, p.6.
+[^7]: Inglis, p.24.
+[^8]: Ibid., pp.26,27.
+[^9]: Transcript, pp.49,50.
+[^10]: Ibid., pp.51,53.
+[^11]: Ibid., pp.54.
+[^12]: Ibid., p.60.
+[^13]: Ibid., p.58.
+[^14]: Inglis, p.183.
+[^15]: Ibid., p.26.
+[^16]: Ibid..				17. Ibid., p.27.
+[^18]: Chamberlain, p.62.
+[^19]: Inglis, p.26.
+[^20]: Chamberlain, p.23.
+[^21]: Transcript, p.50.
+[^22]: Ibid., p.83.
+[^23]: Ibid., p.95.
+[^24]: Ibid., p.96.
+[^25]: Ibid., p.83.
+[^26]: Ibid., p.68.
+[^27]: Ibid., p.68.
+[^28]: Ibid., p.74-75.
+[^29]: Transcript, p.76.
+[^30]: Ibid, p.84.
+[^31]: Ibid., p.85.
+[^32]: Ibid., p.75.
+[^33]: Ibid., p.86.
+[^34]: Ibid., p.95.
+[^35]: Transcript: R.C., p.609.
+[^36]: Transcript, p.85.
+[^37]: Ibid., p.87.
+[^38]: Chamberlain, pp.23-24.
+[^39]: R.C. Report, p.7, para.34.
+[^40]: Ibid, para.35.
+[^41]: Chamberlain, p.26.
+[^42]: Inglis, p.31.
+[^43]: R.C. Report, Appendix V.
+[^44]: Transcript, p.108.
+[^45]: Ibid., p.109.
+[^46]: Inglis, p.34.
+[^47]: Ibid., p.32.
+[^48]: Ibid., p.35.
+[^49]: Ibid, p.32.
+[^50]: Transcript, p.118.
+[^51]: Inglis, p.35.
+[^52]: Chamberlain, p.16.
+[^53]: Ibid., p.151.
+
+FULL COURT APPEAL
+[^1]: Transcript, p.146.
+[^2]: Ibid., pp.150-151.
+[^3]: Ibid., p.151.
+[^4]: Chamberlain, p.32.
+[^5]: Transcript, p.152. 
+[^6]: Ibid., pp.153-154.
+[^7]: Ibid., p.153.
+[^8]: Chamberlain, p.32.
+[^9]: Inglis, p.38.
+[^10]: Ibid.
+[^11]: Ibid., p.39.
+[^12]: R.C. Report, p.8, para.39.
+[^13]: Chamberlain, p.32.
+[^14]: Transcript, pp.155-156.
+[^15]: Ibid.,156-157.
+[^16]: Chamberlain, p.33.
+[^17]: Inglis, p.43.
+[^18]: Chamberlain, p.33.
+[^19]: Inglis, p.44.
+[^20]: Ibid.
+[^21]: Chamberlain, p.35.
+[^22]: Inglis, pp.44, 45.
+[^23]: Ibid., p.45.
+[^24]: Ibid.
+[^25]: Chamberlain, p.34.
+
+HIGH COURT APPEAL
+[^1]: Chamberlain, p.34.
+[^2]: Inglis, pp.46-47.
+[^3]: Ibid., p.47.
+[^4]: Ibid.
+[^5]: Ibid., pp.48-49.
+[^6]: Chamberlain, pp.35,36.
+[^7]: Inglis, p.47.
+[^8]: Ibid.
+[^9]: Transcript, p.160.
+[^10]: Ibid., p.163.
+[^11]: Ibid., p.164.
+[^12]: Ibid., p.65.
+[^13]: Transcript., pp.165-166.
+[^14]: Ibid., p.166.
+[^15]: Inglis, p.48.
+[^16]: Transcript, p.166.
+[^17]: Chamberlain, pp.37,36.
+[^18]: Ibid., p.38.
+[^19]: Ibid., p.38.
+[^20]: Ibid., p.43.
+[^21]: Ibid., p.37.
+[^22]: Ibid., p.43. 
+
+
+CONTROVERSY
+
+Support for Stuart
+[^1]: Inglis, pp.51,52.
+[^2]: Ibid., p.339.
+[^3]: Ibid., p.52.
+[^4]: Ibid.
+[^5]: Ibid., p.53.
+[^6]: Chamberlain, p. 40.
+[^7]: Inglis, p.53.
+[^8]: Ibid., p.54.
+[^9]: Ibid., p.55.
+[^10]: Ibid.
+[^11]: Ibid., p.56.
+
+Petitions
+[^1]: Inglis, pp. 56,57.
+[^2]: R.C. Report, Appendix IV, Part 1.
+[^3]: Inglis, p. 62.
+[^4]: Ibid., pp.62-63
+[^5]: Ibid., p.62.
+[^6]: Inglis, p.52.
+[^7]: Ibid., p.62.
+[^8]: Chamberlain, p.1.
+[^9]: Inglis, p.62.
+
+A Privy Council Appeal?
+[^1]: Chamberlain, p.41.
+[^2]: Dixon, p.29.
+[^3]: Ibid.
+[^4]: Ibid., p.30.
+[^5]: Chamberlain, p.42.
+[^6]: Chamberlain, p.42.
+[^7]: Ibid., pp.42,43.
+[^8]: Ibid., p.43.
+9.Ibid., p.42.
+[^10]: Ibid., p.44.
+
+Escalation of Conflict
+[^1]: Chamberlain, pp.45,44.
+[^2]: Transcript, p.153.
+[^3]: Ibid., p.164.
+[^4]: Ibid., p.166.
+[^5]: Chamberlain, p.150.
+[^6]: Inglis, p.60.
+[^7]: Ibid., pp.61,62.
+[^8]: Ibid., p.401. (Chronology) 
+[^9]: Cockburn, pp.295-296.
+
+A Pamphlet
+[^1]: Inglis, pp.77-78.
+[^2]: News, 29 July 1959, p.5.
+[^3]: Inglis, p.77.
+[^4]: Chamberlain, p.59.
+[^5]: Inglis, pp.77,78.
+[^6]: Chamberlain, p.59.
+[^7]: Chamberlain, pp.59-60.
+[^8]: Ibid., p.60.
+[^9]: Inglis, pp.78,326.
+[^10]: Ibid., p.78.
+[^11]: Dixon, p.28. 
+[^12]: Inglis., p.65.	
+
+An ‘Alibi’
+[^1]: Inglis, pp.69-70.
+[^2]: Ibid., p.70.
+[^3]: Chamberlain, p.58.
+[^4]: Inglis, pp.71-72.
+[^5]: R.C. Report, p.10, para.52.
+[^6]: Inglis, p.401 (Chronology) & p.76. 	
+
+PRIVY COUNCIL APPEAL
+[^1]: Chamberlain, p.50.
+[^2]: Ibid., pp.50-5 1.
+[^3]: Ibid., p.51.
+[^4]: Ibid., p.52.
+[^5]: Ibid., p.53.
+[^6]: Ibid., p.53.
+[^7]: R.C. Report, p.12, para.62.
+[^8]: Chamberlain, p.53.
+[^9]: Ibid., p.54.
+[^10]: Ibid.
+[^11]: Chamberlain, pp.54-55.
+[^12]: Ibid., p.55.
+[^13]: Ibid.
+[^14]: Ibid.
+[^15]: Ibid., p.56.
+[^16]: R.C. Report, p.9, para.44.
+[^17]: Adv., 29 July 1959, p.3.
+[^18]: Chamberlain, p.56.
+[^19]: Inglis, p.79.
+
+APPOINTMENT OF ROYAL COMMISSION
+[^1]: Chamberlain, p.60.	
+[^2]: R.C. Report, p.3.
+[^3]: Inglis, p.82.
+[^4]: Ibid., p.86.
+[^5]: Ibid., pp.82-83.
+[^6]: Dunstan, p.80.
+[^7]: Howell, P.A., A.D.B., Vol 15, p.462.
+[^8]: Black and White, p.84.
+[^9]: Ibid.
+[^10]: Black and White, p.84.
+[^11]: Chamberlain, p.62.
+[^12]: R.C. Report, p.11, para.54. 
+[^13]: Chamberlain, p.60.
+[^14]: R.C. Report, p.12., para.61.
+[^15]: Cockburn, p.300.
+[^16]: Crocker, p.88. 
+[^17]: Inglis, p.91.
+[^18]: Ibid., p.94. 
+[^19]: R.C Report, p.11, para.60. 
+	
+THE ROYAL COMMISSION
+First Session
+[^1]: Inglis, p.95.
+[^2]: Chamberlain, pp.65-66.
+[^3]: Chamberlain, p.66.
+[^4]: Inglis, pp.98,99.
+
+Preliminary Argument
+[^1]: Chamberlain, p.69.
+[^2]: Ibid., p.70.
+[^3]: Ibid., p.66.
+[^4]: R.C. Report, p.34, para.119.
+[^5]: Inglis, pp.104,105.
+[^6]: Transcript, R.C., p.295.
+[^7]: Ibid., p.296.
+
+A False Claim
+[^1]: News, 17 August, 1959, p.1.
+2.Chamberlain, p.72.
+[^3]: Ibid., p.116.
+[^4]: Ibid., p.163.
+[^5]: Chamberlain, pp.116,117.
+[^6]: R.C. Report, p.26, para.131.
+[^7]: Ibid., p.27, para.139.
+[^8]: Chamberlain, pp.71-72.
+
+
+The Whyalla Evidence
+[^1]: Chamberlain, p.115.
+[^2]: John Slee, A.D.B., Vol.17, pp.216-217.
+[^3]: Ibid.
+[^4]: Inglis, p.103.
+[^5]: Ibid., p.326.
+[^6]: Transcript: R.C., pp.347-348..
+[^7]: Ibid.
+[^8]: Ibid., p.349.
+[^9]: Ibid, pp.350, 351, 352, 354.
+[^10]: Inglis, p.131.
+[^11]: Inglis, p.131.
+[^12]: Ibid., pp.131,132.
+[^13]: Transcript, R.C., p.370.
+[^14]: Chamberlain, p.115.
+[^15]: Ibid., pp.115-116.
+[^16]: Transcript: R.C., p.372.
+[^17]: Ibid.
+[^18]: Ibid., p.373.
+[^19]: Ibid.
+[^20]: Ibid.
+
+
+Shand Quits 
+[^1]: Transcript, R.C., p.375.
+[^2]: Ibid.
+[^3]: Ibid., p.376.
+[^4]: Ibid.
+[^5]: Ibid.
+[^6]: Transcript: R.C., p.377.
+[^7]: Chamberlain, p.125.
+[^8]: Inglis, p.180.
+[^9]: Chamberlain. p.122.
+[^10]: Ibid.
+
+Press Reports
+[^1]: Advertiser, 22 August, p.1.
+[^2]: Ibid., p.3.
+[^3]: Ibid.
+[^4]: Ibid.
+[^5]: Chamberlain, p.118.
+[^6]: News, 21 August. 1959, p.1.
+[^7]: Inglis, pp.156-157.
+[^8]: Inglis, p.138.
+[^9]: Ibid., p.137.
+[^10]: Chamberlain, p.126.
+[^11]: Cockburn, p.302.
+[^12]: Inglis, pp.144,145,146,147.
+[^13]: Ibid., p.147.
+[^14]: Cockburn, p.302.
+
+The Commission Resumes
+[^1]: R.C. Report, p.4, para.7.
+[^2]: Chamberlain, p.121.
+[^3]: Advertiser, 1 September, p.1.
+[^4]: Chamberlain, p.124.
+[^5]: Black and White, p.84.
+[^6]: Advertiser, 1 September, 1959, p.13.
+[^7]: Ibid.
+[^8]: Ibid.
+[^9]: Chamberlain, p.127.
+[^10]: Chamberlain, p.128.
+[^11]: Ibid.
+[^12]: Inglis, p.290.
+[^13]: Ibid.
+[^14]: Chamberlain, p.128.
+[^15]: R.C. Report, p.3, para.5.
+[^16]: Ibid., p.4, paras.6,8.
+[^17]: Ibid., para.8.
+[^18]: Ibid., para.1
+
+A Statement to the Commission
+[^1]: Chamberlain, pp.166,168,169.
+[^2]: Ibid., pp.166-169.
+[^3]: Inglis, p.180.
+[^4]: Ibid., p.178.
+[^5]: Ibid., p.180.
+[^6]: Chamberlain, p.169.
+[^7]: Inglis, p.181.
+[^8]: Inglis, p.180.
+[^9]: Ibid.
+[^10]: Ibid., p.181.
+[^11]: Ibid., pp.147-148.
+[^12]: Ibid., p.328.
+[^13]: Dixon, pp.109,120.
+[^14]: R.C. Report, p.4, para.11.
+	
+Uncertainties Resolved
+[^1]: Transcript: R.C., pp.621,622.
+[^2]: Ibid., pp,623,624.
+[^3]: Ibid., pp.321-632.
+[^4]: Ibid., p.626.
+[^5]: Chamberlain, p.181.
+[^6]: Transcript: R.C., p.630.
+[^7]: Ibid., p.636.
+[^8]: Ibid., p.639.
+[^9]: Ibid., p.640.
+[^10]: Transcript: R.C., p.641.
+[^11]: Ibid.
+[^12]: Ibid., pp.641,642.
+[^13]: Ibid., p.639.
+[^14]: Chamberlain, p.183.
+[^15]: Inglis, p.199.
+[^16]: Advertiser, 17 September, 1959, p.1.
+[^17]: R..C. Report, p.4, paras.13,14.
+[^18]: Ibid., p.4., paras.13,14,15.
+	
+Commutation of the Death Sentence           
+[^1]: Inglis, p.204.
+[^2]: Ibid., p.207.
+[^3]: Ibid.
+[^4]: Ibid., pp.208,209.
+[^5]: Chamberlain, pp.185-186.
+[^6]: Inglis, p.209.
+[^7]: Chamberlain, p.191.
+[^8]: Inglis, p.330.
+[^9]: Crocker, p.88.	
+
+
+Stuart’s English Language Competence
+[^1]: Inglis, pp.107-108.
+[^2]: Ibid., p.110.
+[^3]: Chamberlain, p.104.
+[^4]: Transcript:, R.C., p.331.
+[^5]: Ibid., p.1349.
+[^6]: Inglis, p.118.
+[^7]: Ibid., p.119.
+[^8]: Ibid., p.121.
+[^9]: Ibid., p.123.
+[^10]: Ibid., p.125.
+[^11]: Transcript: R.C., pp.586,585.
+[^12]: Ibid., pp.525,526,527.
+[^13]: Chamberlain, p.232.
+[^14]: Transcript: R.C., p.577.
+[^15]: Ibid., pp.579,580.
+[^16]: Ibid., p.578
+[^17]: Ibid., p.583.
+[^18]: Ibid., pp.582,583,584,587.
+[^19]: Ibid., pp.585-586.
+[^20]: Chamberlain, p.132.
+[^21]: Ibid., p.133.
+[^22]: Ibid., p.134.
+[^23]: Ibid., pp.134,135. 
+[^24]: Ibid., p.135.
+[^25]: Transcript: R.C., p.399.
+[^26]: Chamberlain, pp.140,141.
+[^27]: Ibid., p.141.
+[^28]: Ibid., pp. 141-142. 
+[^29]: Ibid., p.142.
+[^30]: Ibid.
+[^31]: Ibid., pp.142,143.
+[^32]: Ibid., pp.146-147. 
+[^33]: R.C. Report, Appendix I, pp.31-32.
+[^34]: Ibid., p.33.
+[^35]: R.C. Report, p.14, paras. 74-75.
+[^36]: Chamberlain. p.147.
+[^37]: R.C. Report, Appendix IV, pp.35-37.
+[^38]: Chamberlain, p.147.
+[^39]: Ibid., p.148.
+[^40]: R.C. Report, Appendix IV, p.35.
+[^41]: Ibid., p.36.
+[^42]: Ibid., pp.35-36.
+[^43]: Chamberlain, p.148.
+[^44]: Ibid., pp.221-222.
+[^45]: Ibid., p.154.
+[^46]: Ibid.
+[^47]: Ibid., p.155.
+[^48]: R.C. Report, pp.13-14, para.71.
+[^49]: Ibid., p.14, para.72.
+[^50]: Chamberlain, p.297.
+[^51]: Chamberlain, p.192.
+[^52]: Transcript: R.C., pp.685-703.
+[^53]: Ibid.
+[^54]: R.C. Report, p.14, para.73.
+[^55]: Transcript, R.C: pp.713,714.
+[^56]: Information provided by the detective, a
+   then senior member of the homicide squad.
+[^57]: Inglis, p.329.
+[^58]: Chamberlain, p.161.
+[^59]: Dixon, p.109.
+[^60]: Chamberlain, p.176. 
+[^61]: Ibid.
+[^62]: Inglis, p.43.
+[^63]: Chamberlain, p. 176.
+[^64]: Inglis, p. 43.
+[^65]: R.C. Report, p.14, para.76.
+[^66]: Transcript: R.C., p.723.
+[^67]: Ibid., p.724.
+[^68]: Ibid., p.725.
+[^69]: Ibid., p.738.
+[^70]: Ibid., p.740.
+[^71]: Ibid., p.772.
+[^72]: Ibid., see pp.745-806.
+[^73]: Chamberlain, p.193.
+[^74]: Ibid.
+[^75]: R.C. Report, p.13, para.69. 
+[^76]: Chamberlain, p.197.
+[^77]:  Transcript, R.C., p.75.
+[^78]: R.C. Report,  p.30, para.154.
+
+The Claimed Alibi
+[^1]: Chamberlain, p.81.
+[^2]: Ibid., p.86.
+[^3]: Ibid., p.74.
+[^4]: Transcript: R.C., p.109.
+[^5]: Chamberlain, p.85.
+[^6]: Ibid., p.74.
+[^7]: Ibid., p.75.
+[^8]: Ibid., pp.76,77,78.
+[^9]: Transcript: R.C., pp.347-348.
+[^10]: Chamberlain, p.198.
+11.Transcript: R.C., pp.49-50.
+[^12]: Ibid., p.65.
+[^13]: Chamberlain, pp.86-87.
+[^14]: Transcript: R.C., pp.99-100.
+[^15]: R.C. Report, p.18, para.90.
+[^16]: Chamberlain, p.76.
+[^17]: Ibid., p.87.
+[^18]: Transcript: R.C., pp.71,69.
+[^19]: Ibid., p.60.
+[^20]: Chamberlain, p.88.
+[^21]: Inglis, p.111.
+[^22]: R.C. Report, p.18, para.91.
+[^23]: Inglis, p.112.
+[^24]: Ibid., p.113.
+[^25]: Chamberlain, p.89.
+[^26]: Transcript: R.C., pp.140,141.
+[^27]: Chamberlain, p.89.
+[^28]: Ibid., p.13.
+[^29]: Inglis, p.80.
+[^30]: Ibid., p.126.
+[^31]: Ibid., p.127.
+[^32]: Ibid., p.112.
+[^33]: Transcript: R.C., pp.191,193.
+[^34]: Ibid., p.191.
+[^35]: Ibid., pp.194,195.
+[^36]: Ibid., pp.200,201,204,205.
+[^37]: Ibid., pp.225,227.
+[^38]: Ibid., p.235.
+[^39]: Ibid., p.238.
+[^40]: Ibid., pp.239,240.
+[^41]: Chamberlain, p.109.
+[^42]: Inglis, pp.120-121.
+[^43]: Chamberlain, p.109.
+[^44]: Ibid., p.110.
+[^45]: see Transcript: R.C., pp. 283-319.
+[^46]: Transcript: R.C., p.286. 
+[^47]: Ibid., p.306.
+[^48]: Ibid., pp.273,274,275.
+[^49]: Ibid., 566,567,569.
+[^50]: Ibid., p.570.
+[^51]: Chamberlain, p.175.
+[^52]: Transcript: R.C., p.558. 
+[^53]: Ibid., p.573.
+[^54]: Ibid.
+[^55]: Ibid., p.574.
+[^56]: Ibid., p.568. 
+[^57]: Ibid., p.574.
+[^58]: Chamberlain, p.208.
+[^59]: Ibid., p.210.
+[^60]: R.C. Report, p.16, para.82. 
+[^61]: Chamberlain, pp.202,203. 
+[^62]: Ibid., p.203. 
+[^63]: R.C. Report, p.30, para.158.
+
+Police Brutality?
+[^1]: Chamberlain, pp.206, 207.
+[^2]: R.C. Report, p.24, para.118.
+[^3]: Chamberlain, p.177.
+[^4]: Ibid.
+[^5]: Ibid., pp.245-246.
+[^6]: Transcript: R.C., p.609.
+[^7]: R.C. Report, p.22, para.110.
+[^8]: Ibid., para.109.
+[^9]: Transcript: R.C., p.597.
+[^10]: R.C. Report, p.22, para.110.
+[^11]: Chamberlain, p.62.
+[^12]: Ibid., p.27, para.132,133.
+[^13]: Ibid., para.137.
+[^14]: Ibid., p.28, para143.
+[^15]: Transcript: R.C., p.465.
+[^16]: Inglis, p182.
+[^17]: Inglis, p.182.
+[^18]: Chamberlain, p.163.
+[^19]: R.C. Report, p.28, para.40.
+[^20]: Inglis, p.306.
+[^21]: Ibid., p.174.
+[^22]: Chamberlain, p.116.
+[^23]: R.C. Report, p.27, para.133.
+[^24]: Ibid., para.134.
+[^25]: Transcript: R.C., pp.1093,1094.
+[^26]: R.C. Report, p.29, para.145.
+[^27]: Transcript: R.C., p.489.
+[^28]: R.C. Report, p.29, para.145.
+29.Transcript: R.C., p.1106.
+[^30]: R.C. Report, p.28, para.142.
+[^31]: Ibid., p.29, para.148.
+
+Stuart’s Behaviour Towards Women
+[^1]: Chamberlain, p.222.
+[^2]: Ibid., pp.170-172.
+[^3]: Chamberlain, p.172.
+
+Evidence Discounted
+[^1]: R.C. Report, p.4, para.16.
+[^2]: Chamberlain, pp.106-107.
+[^3]: Ibid., p.111.
+[^4]: Ibid., p.88.
+[^5]: Inglis, p.113.
+[^6]: Transcript, p.169.
+[^7]: Dixon, p.44.
+[^8]: Chamberlain, p.104.
+[^9]: Ibid., p.91.
+[^10]: Inglis, p.129.
+[^11]: Ibid., pp.126,127.
+[^12]: R.C. Report, p.26, para.128.
+[^13]: Chamberlain, pp.177,178.
+[^14]: Ibid., pp.229,230.
+[^15]: R.C. Report, p.30, para.151.
+[^16]: Ibid., p.29, para.150.
+[^17]: Inglis, pp.189,190.
+
+Stuart the Fabulist
+[^1]: Chamberlain, pp.109-110.
+[^2]: Ibid., pp.196,197.
+[^3]: Ibid., pp.225-227.
+[^4]: Ibid., p.162.
+[^5]: Ibid., p.245.
+[^6]: Ibid., pp.212, 213.
+[^7]: Ibid., pp.208-220.
+[^8]: Ibid., p.174.
+[^9]: Transcript: R.C. p.175.
+[^10]: Ibid., p.760.
+[^11]: R.C. Report, p.35, Appendix IV, Part I.
+[^12]: Ibid.
+[^13]: Chamberlain, p.170.
+[^14]: Ibid., p.174.
+[^15]: Ibid., pp.227, 228.
+
+The Commmission’s Findings
+[^1]: R.C. Report,  p.29,  para.150.
+[^2]: Ibid., p.30, para.154.
+[^3]: Ibid., para.155.
+[^4]: Ibid., para.156.
+[^5]: R.C. Report, p.30, para.157.
+[^6]: Ibid., para.159.
+[^7]: Ibid., p.31, para.160.
+
+Reactions to the Findings
+[^1]: News, 4 December 1959,  p.1.
+[^2]: Inglis, p.278.
+[^3]: Ibid., p.402.
+[^4]: Ibid.
+[^5]: Hansard, 1960, p.1255.
+[^6]: Ibid.
+[^7]: Ibid., pp.1257-1258. 
+[^8]: Ibid., p.1256.
+[^9]: Inglis , p.278.
+[^10]: Chamberlain, pp.16,17.
+[^11]: R.C. Report, p.11, para.58.
+[^12]: Hansard, 1960, p.1257.
+[^13]: Inglis, p 278.
+[^14]: Inglis, p.278.
+[^15]: R.C. Report,  p.11, para.56.
+[^16]: Ibid., p.12,  paras.61,62.
+[^17]: Chamberlain, p.60.
+[^18]: R.C. Report, p.12, para.62.
+[^19]: Inglis, p.284.
+[^20]: Ibid., p.291.
+[^21]: Cockburn, p.309.
+[^22]: Crocker, p.85.
+[^23]: Inglis, pp.332-333.
+[^24]: Cockburn, p.311.
+[^25]: Chamberlain, p.301.
+
+*Conclusions*
+[^1]: Chamberlain, p.303.
+[^2]: Crocker, pp.85,86.
+[^3]: Black and White, p.85.
+[^4]: R.C. Report, p.24, para.121.
+[^5]: Cockburn, p.292.
+[^6]: Crocker  p.91.
+
+ARTICLES IN 'NATION'.
+[^1]: Roy Morgan,com (2009-08-27), (Accessed 27/10/2016)
+[^2]: L.C.I,  p.354.
+[^3]: Inglis,  pp.51,52.
+[^4]: Chamberlain,  p.49.
+[^5]: Adv.,  30 July 1959, p.3.
+[^6]: Ibid.
+[^7]: Ibid.
+
+INGLIS: 'THE STUART CASE' 
+Overview
+[^1]: Transcript, p.118.
+[^2]: see Inglis, pp.169-173 and 183-187.
+
+Guilty or Not Guilty? 
+[^1]:  Inglis, p.293.
+[^2]:  RC. Report, pp.25,26.  
+[^2]: Ibid., p.31, para.161.
+[^4]:  Inglis, p.293.
+[^5]:  Ibid., p.302.
+[^6]:  RC. Report, p.25, para.125.
+[^7]:  Inglis, p.294.
+[^8]:  Ibid., pp. 293-294.
+[^9]:  Ibid., p.294.
+[^10]: Ibid., pp.294-295.
+[^11]: Ibid, p.225, and Chamberlain, pp.172,221.
+[^12]: Ibid., p.297.
+[^13]: RC. Report, p.25, paras.124,125.
+[^14]: Inglis, pp.295,296.
+[^15]: Ibid., p.296.
+[^16]: Ibid.
+[^17]: Ibid., pp.297-298.
+[^18]: Ibid., p.123.
+[^19]: Ibid., p.108.
+[^20]: Ibid., p.110.
+[^21]: Ibid., p.298.
+[^22]: Ibid.
+[^23]: RC. Report, p. 17, para.84.
+[^24]: RC. Report, p.17, para.85.
+[^25]: Inglis, pp.298-299.
+[^26]: Chamberlain, p.84.
+[^27]: RC. Report, p.18, para. 89.
+[^28]: Inglis, p.299.
+[^29]: Ibid., p.300.
+[^30]: Ibid., pp.301-302.
+[^31]: Ibid., p.302.
+[^32]: Transcript, pp.322-333.
+[^33]: Inglis, pp.302-303.
+[^34]: Chamberlain, p.249.
+[^35]: R.C. Report, p.19, para.96.
+[^36]: Inglis, p.304.
+[^37]: Ibid., p.306.
+[^38]: Ibid.
+[^39]: Ibid., pp.307-308.
+[^40]: R.C Report, p.12, paras.61,62.
+[^41]: Inglis, p.308.
+[^42]: Ibid., p.309.
+[^43]: Ibid.
+[^44]: Ibid.
+
+Lessons from Stuart 
+[^1]: Inglis, p.310.
+[^2]: Ibid., p.311.
+[^3]: Ibid.
+[^4]: Ibid., p.312.
+[^5]: Ibid., p.314.
+[^6]: see Whitlam and Stubbs, e.g. pp.79,167.
+[^7]: Inglis, p.314.
+[^8]: Ibid.
+[^9]: Transcript RC., p.1356.
+[^10]: Inglis, p.315.
+[^11]: Ibid.
+[^12]: Ibid., p.317.
+[^13]: Ibid., p.320.
+14  see e.g. Inglis, pp. 44, 45.
+[^15]: Inglis, p.320.
+[^16]: Ibid., p.57.
+[^17]: Ibid. p.402. (Chronology)
+[^18]: Ibid., p.319.
+[^19]: R.C. Report, pp.10-11, para.54.
+[^20]: Ibid., p.11, para.55.
+[^21]: Inglis, p.319.
+[^22]: Ibid.
+[^23]: R.C. Report, p.10, para.54.
+[^24]: Inglis, p.183.
+[^25]: Ibid., pp.319-320.
+[^26]: Ibid., p.320.
+[^27]: Ibid.
+[^28]: Chappell and Wilson, Current Affairs   Bulletin, University of Sydney, Vol.46, no.7, 24/8/1970.
+[^29]: Inglis, p.6.
+[^30]: Ibid., p.95.
+[^31]: Ibid.
+[^32]: Chamberlain, pp.3-4.
+[^33]: Inglis, p.338.
+[^34]: Ibid.
+
+Inglis: Castles, Napier and Reed  
+[^1]: Inglis, p.37.
+[^2]: Brown, Geoff, A.D.B. - Vol.17, p.522.
+[^3]: Ibid.		
+[^4]: Information courtesy of APMC Library, Canberra.
+[^5]: Inglis, p.339.
+[^6]: Howell, P.A., A.D.B. - Vol.15, pp.461-463.
+[^7]: Howell, P.A., A.D.B. - Vol.15, pp.461-463.
+[^8]: Ibid.
+[^9]: Ibid.
+[^10]: Ibid.
+[^11]: Stevenson, Rex, A.D.B.-Vol.16, pp.66-67.
+[^12]: Ibid.
+
+Inglis and Playford 
+[^1]: Inglis, p.331.
+[^2]: Cockburn, p.299.
+[^3]: Crocker, p.1.
+[^4]: Ibid., p.2.
+[^5]: Ibid., pp.3,4.
+[^6]: Ibid., p.4. 
+[^7]: Crocker, p.176.      
+[^8]: Ibid.
+[^9]: Ibid.
+[^10]: Ibid., p.177.
+[^11]: Ibid.
+[^12]: Cockburn, p.292.
+
+Inglis and Chamberlain
+[^1]: Inglis, p.354.
+[^2]: Ibid., pp.354-355.
+[^3]: Chamberlain, p.170.
+[^4]: Inglis, p.355.
+
+Inglis and South Australian Society
+[^1]: Inglis, pp.19-20.
+[^2]: Ibid., p.20.
+[^3]: Ibid.
+[^4]: A.D.B., Vol.1, M.U.P., 1966. 
+[^5]: Ibid.
+[^6]: Finnis, H.J., A.D.B., Vol.2, p.379.
+[^7]: samemory.sa.gov.au/site/page.cfm?u=1155
+[^8]:  Drew, Greg, South Australian Mining Boom.
+[^9]:  Hunt, p.432.
+[^10]: Ibid., pp.99,108.
+[^11]: Ibid., pp. 101, 102..
+[^12]: Hunt., pp., 86, 109, 110.
+[^13]: Ibid., p. 88.
+[^14]: Ibid., p.111.
+[^15]: Ibid, p.317.
+[^16]: Ibid., p.318.
+[^17]: Ibid., p.295.
+[^18]: Hunt., p.403.
+[^19]: National Trust SA - Moonta Branch.                                    
+	Area History.
+[^20]: Ibid.
+[^21]: Samuels, op. cit.
+[^22]: Slee, op. cit. p.27.  
+[^23]: Inglis, pp.67-69.
+[^24]: Ibid., p.68.			
+[^25]: Ibid., p.69.
+[^26]: Ibid., p.73.
+[^27]: Inglis, p.74.
+[^28]: Pybus, pp.69-70.
+[^29]: Ibid, p.71.
+[^30]: Inglis, p.74.
+[^31]: Ibid., p. 321.
+
+Conclusions [^1]:  Chamberlain, p.304.
+
+PROFESSOR DERHAM
+[^1]: Derham, Adelaide Law Review 1962, pp.354-356.
+[^2]: Cockburn, p.296.
+[^3]: Inglis, p.231.
+[^4]: Chamberlain, p.238.
+[^5]:  RC. Report, p.26, para.126.
+[^6]:  Calculated from statistics in the Police Commissioners' Annual Reports.
+	
+CHAMBERLAIN: 'THE STUART AFFAIR'	
+[^1]: Chamberlain, pp.303,304. 
+[^2]: Ibid., pp.304-305.
+[^3]: Chamberlain, p. 304.
+[^4]: Ibid., p. 308.
+                                               
+PROFESSOR CASTLES
+[^1]:  Adelaide Law Review: Vo1.5, pp.88-90.
+[^2]:  RC. Report, p.24, para.121.
+[^3]:  Chamberlain, p.302.
+
+DON DUNSTAN: 'FELICIA'
+[^1]: Dunstan, p.75.      
+[^2]: Ibid., p.76.   			
+[^3]: Inglis, p. 401. Chronology)
+[^4]: Dunstan, p.77.			
+[^5]: Ibid., p.78.
+[^6]: Ibid., p.79.
+[^7]: Ibid., p.81.
+[^8]: Dunstan, p. 81.
+[^9]: Ibid.
+[^10]: Black and White, p.83.
+[^11]: Dunstan, p.81.
+[^12]: Cockburn, p.309.
+[^13]: Dunstan, p.81.
+[^14]: Ibid.
+
+DIXON: ‘THE WIZARD OF ALICE’
+[^1]:  Dixon, p.64.
+[^2]:  Ibid., pp.15-16.
+[^3]:  Ibid., p.121.
+[^4]:  Ibid., p.327.
+[^5]:  Ibid., p.49.
+[^6]:  Ibid., p.52.
+[^7]:  Ibid., p.66.
+[^8]:  Ibid., p.67.
+[^9]:  Ibid., p.69.
+[^10]: Ibid., p.70.
+[^11]: Ibid.
+[^12]: Ibid., p.94.
+[^13]: Ibid., p.102.
+[^14]: Ibid., p.91.
+[^15]: Ibid., p.79.
+[^16]: Ibid., p.80.
+[^17]: Ibid., p.119.
+[^18]: Dixon, p.119.                            
+[^19]: Ibid., p.127.
+[^20]: Ibid., p.137.
+[^21]: Ibid., p. 118
+[^22]: Ibid.
+[^23]: Ibid., p.149.
+[^24]: Ibid.
+[^25]: Ibid, p.150.
+[^26]: Ibid., p.227.
+[^27]: RC. Report, p.17, para.86.
+[^28]: Dixon, p.234.
+[^29]: RC. Report, p.17, para.88.
+[^30]: Dixon, p.224.
+[^31]: Ibid., p.291.
+[^32]: Ibid., p.328.
+[^33]: Ibid., p.349.
+[^34]: Ibid., p.329.   
+[^35]: RC. Report, p.14, paras.74,75.
+[^36]: Ibid., p.14, para.74.
+[^37]: RC. Report, p.14, para.75.
+[^38]: Dixon, p.362.
+[^39]: Cockburn, p.306.
+
+
+BARRY HILL: ‘DRIFTWOOD: T.G.H.  
+STREHLOW AND THE STUART CASE’
+[^1]: Hill, p.124.
+[^2]: Ibid., p.125.
+[^3]: Ibid., p.128.
+[^4]: Ibid., p.159.
+[^5]: Duggan, Kevin, A.D.B., Vol.17, p.203.
+[^6]: Hill, p.136.
+[^7]: Cockburn, p.292.
+[^8]: Ibid., p.300.
+[^9]: Ibid.
+[^10]: Hill, p.148. 
+[^11]: Inglis, p.173.
+[^12]: Hill, p.136.
+[^13]: Ibid., p.148.
+[^14]: RC. Report, p.14, para.75.
+[^15]: Hill, p.156.
+[^16]: Ibid., p.158.
+[^17]: Ibid., p.166.
+[^18]: Ibid.
+
+THE FILM: "BLACK AND WHITE'
+[^1]: Chamberlain family sources.
+[^2]: Ibid.
+[^3]: Ibid.
+[^4]: Ibid.
+[^5]: Ibid.
+[^6]: Duggan, Kevin, A.D.B., Vol.17, p.203.
+[^7]:  Chamberlain family sources.
+[^8]: Inglis, p.389.
+[^9]: Chamberlain, p.51.
+[^10]: Ibid., pp.52-53.
+[^11]: R.C. Report, p.26, para.127. 
+[^12]: Chamberlain, p.4.
+[^13]: Inglis, p.63.
+[^14]: See Chamberlain, pp.185-186.
+[^15]: Black and White, p.84.
+[^16]: Kirby, Address to the Annual Conference   	of N.S.W. Local Court Judges and Magistrates, 29 July 2002.
+[^17]: The Age, 1 August 2002, p.15.
+[^18]: Chamberlain, pp.16-17.
+[^19]: Inglis, p.17.
+[^20]: Black and White, p.84.
+[^21]: Crocker, p.85.
+[^22]: Chamberlain, pp.306,307.
+[^23]: Inglis, p.402. Chronology)
+[^24]: Ibid, p.342.
+[^25]: Cockburn, p.309.
+		
+A SEMINAR
+[^1]: Robyn Mills - Winter Edition of Lumen, University of Adelaide, 2006.
+[^2]: Ibid.
+[^3]: RC. Report, p.30, para.155.
+[^4]: Black and White, p.86.
+[^5]: Ibid., p.85.
+[^6]: Chamberlain, p.17.
+[^7]: University of Adelaide - Lumen 
+    Winter Edition, 2006.
+[^8]: Black and White, p.85.
+[^9]: Inglis, p.318.
+[^10]: Britannica New, Vol.4, p.225.
+[^11]: Ibid., Vol.19, p.516.
+[^12]: Britannica, Vol.2, p.143.
+[^13]: Ibid.
+[^14]: Britannica, Vol.2, p.144.
+[^15]: Ibid., pp.143-144.
+[^16]: Britannica New, Vol.4, p.225.
+[^18]: Fisher, p. 1006.
+[^19]: Britannica, Vol.2, p.144.
+[^20]: Britannica New, Vol.4,  p.225.
+[^21]: Britannica, Vol.2, p.144.
+[^22]: Ibid.
+[^23]: Britannica New, Vol.4, p.225.
+[^24]: Britannica New, Vol.8, p.517.
+[^25]: Britannica, Vol.2, p.78.
+[^26]: Fisher, 1006.
+[^27]: Britannica New, Vol.4, p.225.
+[^28]: Cockburn, p.307.
+[^29]: ABC Stateline, 31 March 2006.
+
+A LECTURE
+[^1]: Inglis, pp.193-194.
+[^2]: Chamberlain, p.184.
+[^3]: Chamberlain, p.181.
+[^4]: Inglis, p.194. 
+
