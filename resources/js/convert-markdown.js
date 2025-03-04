@@ -2,54 +2,93 @@ export function parseMarkdownIntoChunks(markdown) {
     const lines = markdown.split("\n");
     const chunks = [];
     let currentChunk = [];
-    let currentChunkId = 0;
+    let chunkId = 0;
     let currentStartLine = 1;
+
     for (let i = 0; i < lines.length; i++) {
-        const rawLine = lines[i];
-        const trimmed = rawLine.trim();
-        const adjustedLineNumber = i + 1;
-        let block = null;
-        if (trimmed.match(/^#{1,5}\s/)) {
-            block = { 
-              type: "heading", 
-              level: trimmed.match(/^#{1,5}/)[0].length, 
-              startLine: adjustedLineNumber, 
-              content: trimmed.replace(/^#+\s*/, "") 
-            };
-        }
-        else if (trimmed.startsWith(">")) {
-            block = { type: "blockquote", startLine: adjustedLineNumber, content: trimmed.replace(/^>\s?/, "") };
-        }
-        else if (trimmed.match(/^!\[.*\]\(.*\)$/)) {
-            const match = trimmed.match(/^!\[(.*)\]\((.*)\)$/);
-            block = { 
-              type: "image", 
-              startLine: adjustedLineNumber, 
-              altText: match ? match[1] : "", 
-              imageUrl: match ? match[2] : "", 
-              content: "" // Add content property for image blocks
-            };
-        }
-        else if (trimmed) {
-            block = { type: "paragraph", startLine: adjustedLineNumber, content: trimmed };
-        }
+        const line = lines[i];
+        const lineNumber = i + 1;
+        const block = parseLineIntoBlock(line, lineNumber);
+
         if (block) {
             currentChunk.push(block);
-        }
-        if (currentChunk.length >= 50 || i === lines.length - 1) {
-            chunks.push({ 
-              chunk_id: currentChunkId, 
-              start_line: currentStartLine, 
-              end_line: adjustedLineNumber, 
-              blocks: currentChunk 
-            });
-            currentChunk = [];
-            currentChunkId++;
-            currentStartLine = adjustedLineNumber + 1;
+
+            if (currentChunk.length >= 50) {
+                chunks.push({
+                    chunk_id: chunkId,
+                    start_line: currentStartLine,
+                    end_line: lineNumber,
+                    blocks: currentChunk
+                });
+                chunkId++;
+                currentChunk = [];
+                currentStartLine = lineNumber + 1;
+            }
         }
     }
+
+    if (currentChunk.length > 0) {
+        chunks.push({
+            chunk_id: chunkId,
+            start_line: currentStartLine,
+            end_line: lines.length, // Use lines.length instead of lineNumber
+            blocks: currentChunk
+        });
+    }
+
     return chunks;
 }
+
+
+
+function parseLineIntoBlock(line, lineNumber) {
+    const trimmed = line.trim();
+    if (!trimmed) return null;
+
+    // Check for headings
+    const headingMatch = trimmed.match(/^#{1,6}\s+(.*)$/);
+    if (headingMatch) {
+        return {
+            type: 'heading',
+            level: headingMatch[0].match(/^#+/)[0].length,
+            content: headingMatch[1],
+            startLine: lineNumber,
+            lines: [line]
+        };
+    }
+
+    // Check for blockquotes
+    if (trimmed.startsWith('>')) {
+        return {
+            type: 'blockquote',
+            content: trimmed.replace(/^>\s?/, ''),
+            startLine: lineNumber,
+            lines: [line]
+        };
+    }
+
+    // Check for images
+    const imageMatch = trimmed.match(/^!\[([^\]]*)\]\((.*)\)$/);
+    if (imageMatch) {
+        return {
+            type: 'image',
+            altText: imageMatch[1],
+            imageUrl: imageMatch[2],
+            startLine: lineNumber,
+            lines: [line]
+        };
+    }
+
+    // Default to paragraph
+    return {
+        type: 'paragraph',
+        content: trimmed,
+        startLine: lineNumber,
+        lines: [line]
+    };
+}
+
+
 
 export function renderBlockToHtml(block) {
     let html = "";

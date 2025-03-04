@@ -74,7 +74,19 @@ form textarea:focus {
 
 @section('content')
 
-   <form id="cite-form" action="{{ route('processCite') }}" method="POST" enctype="multipart/form-data" target="_blank">
+    @if ($errors->any())
+    <div class="alert alert-danger">
+        <ul>
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+    @endif
+
+    <div id="debug-info" style="display: none;"></div>
+
+   <form id="cite-form" action="{{ route('processCite') }}" method="POST" enctype="multipart/form-data">
     @csrf
 
     <!-- Drag and drop field for Markdown file -->
@@ -244,6 +256,34 @@ document.getElementById('clearButton').addEventListener('click', function() {
     location.reload(); // This will refresh the page
 });
 
+document.getElementById('cite-form').addEventListener('submit', function(event) {
+    //event.preventDefault(); // Temporarily uncomment this to test
+    
+    const fileInput = document.getElementById('markdown_file');
+    const debugDiv = document.getElementById('debug-info');
+    
+    // Debug information
+    let debugInfo = 'Form submission debug:\n';
+    debugInfo += `File selected: ${fileInput.files.length > 0}\n`;
+    
+    if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        debugInfo += `File name: ${file.name}\n`;
+        debugInfo += `File size: ${file.size} bytes\n`;
+        debugInfo += `File type: ${file.type}\n`;
+    }
+    
+    // Log form data
+    const formData = new FormData(this);
+    debugInfo += '\nForm data:\n';
+    for (let pair of formData.entries()) {
+        debugInfo += `${pair[0]}: ${pair[1]}\n`;
+    }
+    
+    console.log(debugInfo);
+    debugDiv.textContent = debugInfo;
+    debugDiv.style.display = 'block';
+});
 
 
 document.getElementById('createButton').addEventListener('click', function(event) {
