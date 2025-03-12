@@ -56,7 +56,7 @@ trait UpdateMarkdownTimestamps
     public function updateLatestMarkdownTimestamp($book)
     {
         $markdownFilePath = resource_path("markdown/{$book}/main-text.md");
-        $highlightFilePath= resource_path("markdown/{$book}/hyperlights.md");
+        $highlightFilePath= resource_path("markdown/{$book}/hyperlights-display.md");
         $footnotesFilePath = resource_path("markdown/{$book}/main-text-footnotes.json");
         $timestampFilePath = resource_path("markdown/{$book}/latest_update.json");
         $nodeChunksPath    = resource_path("markdown/{$book}/nodeChunks.json");

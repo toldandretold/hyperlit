@@ -1,6 +1,6 @@
 import { book } from './reader-DOMContentLoaded.js';
-import { navigateToInternalId,
-          reattachScrollObserver } from './scrolling.js';
+import { navigateToInternalId
+        } from './scrolling.js';
 import { parseInlineMarkdown } from './convert-markdown.js';
 import { 
     getFootnotesFromIndexedDB,
@@ -109,10 +109,6 @@ export async function generateTableOfContents(tocContainerId, toggleButtonId) {
         if (!targetId) return;
         console.log(`📌 Navigating via TOC to: ${targetId}`);
         navigateToInternalId(targetId);
-        setTimeout(() => {
-          console.log(`🔄 Reattaching scroll observer after TOC navigation...`);
-          reattachScrollObserver();
-        }, 600);
       }
     });
 
