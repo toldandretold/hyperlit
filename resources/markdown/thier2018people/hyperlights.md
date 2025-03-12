@@ -264,8 +264,8 @@ Securitization can be beneficial by spreading risk and increasing market efficie
 
 ---
 
-> "FINANCE"
-> [↩](http://172.20.10.4:8000/thier2018people#unknown-user_1741050423141)
+> "As David McNally described: “Between 1980 and 2002, the developing countries made $4.6 trillion in debt payments. This represents about eight times what they owed at the beginning of the period (580 billion in 1980). Yet, after making these payments, thanks to the magic of interest, they now owed $2.4 trillion"
+> [↩](http://172.20.10.4:8000/thier2018people#unknown-user_1741094148695)
 
 
 

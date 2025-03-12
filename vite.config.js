@@ -20,6 +20,7 @@ export default defineConfig({
               input: [
                 'resources/css/app.css',     // Global styles
                 'resources/css/reader.css', // Reader-specific styles
+                'resources/css/highlight-div.css',
                 'resources/css/div-editor.css', 
                 'resources/js/app.js',         // Global JavaScript variables
                 'resources/js/cache-indexedDB.js',        //Browswer storage of nodeChunks.json and main-text-footnotes.json
@@ -28,9 +29,7 @@ export default defineConfig({
                 'resources/js/scrolling.js',              // scrolling, positioning after scroll etc.
                 'resources/js/toc.js',                    // Table Of Contents (TOC) (from main-text-footnotes.json)
                 'resources/js/footnotes.js',              // Footnotes (from main-text-footnotes.json)
-                'resources/js/lazy-loading.js', // Shared lazy-loading logic
                 'resources/js/lazy-loading-div.js', // div-editor lazy-loading logic
-                'resources/js/div-editor.js',   // Editable div template logic
                 'resources/js/reader-DOMContentLoaded.js',       // Reader template logic
                 'resources/sass/app.scss'       // Global styles
             ],

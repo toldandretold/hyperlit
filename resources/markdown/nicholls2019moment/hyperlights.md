@@ -96,6 +96,34 @@
 
 ---
 
+> "had"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1741668260901)
+
+
+
+---
+
+> "G77"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1741669068412)
+
+
+
+---
+
+> "discussions"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1741744795238)
+
+
+
+---
+
+> "Manifesto"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1741767416907)
+
+
+
+---
+
 > "dddd"
 > [↩](http://127.0.0.1:8000/nicholls2019moment#user-name_1738731387734)
 
@@ -103,8 +131,8 @@
 
 ---
 
-> "New International Economic Order"
-> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739255206024)
+> "Economic Order"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1741765659342)
 
 
 
@@ -117,15 +145,8 @@
 
 ---
 
-> "political"
-> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739318330595)
-
-
-
----
-
-> "NIEO"
-> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739838329539)
+> "Dr. Heloise Weber,"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1741756280203)
 
 
 
@@ -133,20 +154,6 @@
 
 > "overview"
 > [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739318767231)
-
-
-
----
-
-> "international law"
-> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739148344805)
-
-
-
----
-
-> "Eric Helleiner"
-> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1738804253931)
 
 
 
@@ -172,11 +179,8 @@
 
 ---
 
-> "This is important because it shows how the three core concepts that formed the basis of the Third World Project"
-> [↩](http://127.0.0.1:8000/nicholls2019moment#user-name_1738192811790)
-
-
-
+> "This is important because it shows how the three core concepts that formed the basis of the Third World Project — the declining terms of trade, neo-colonialism, and permanent sovereignty over natural resources — were entwined not only haphazardly in debates Unitede Unite Nations, but in ways inherent to their conception. Thus, Nkrumah noted in confirmation of"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1741758844232)
 
 
 
@@ -194,6 +198,13 @@
 
 
 
+
+
+
+---
+
+> "and the success"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1741662062985)
 
 
 
@@ -220,15 +231,15 @@
 
 ---
 
-> "Solemn Declaration"
-> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1740353668773)
+> "mp"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739844290250)
 
 
 
 ---
 
-> "mp"
-> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1739844290250)
+> "Solemn Declaration"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1740353668773)
 
 
 
@@ -243,6 +254,13 @@
 
 > "plan"
 > [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1740311177472)
+
+
+
+---
+
+> "General Assembly Session"
+> [↩](http://127.0.0.1:8000/nicholls2019moment#unknown-user_1741765137056)
 
 
 

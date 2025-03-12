@@ -1,7 +1,6 @@
 <?php
 
 namespace App\Http\Controllers;
-
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\DB;
@@ -70,7 +69,7 @@ class HighlightMdController extends Controller
 
                 if (str_contains($blockHtml, '<blockquote')) {
                     $processedMarkdown = $this->convertBlockquoteToMarkdown($blockHtml);
-                    [$startLine, $endLine] = $this->getBlockquoteLineRange($blockId, $blockHtml);
+                    [$startLine, $endLine] = $this->getBlockquoteLineRange($blockId, $markdownLines);
 
                     array_splice(
                         $markdownLines,
@@ -107,6 +106,7 @@ class HighlightMdController extends Controller
             $conversionController->updateGlobalPositions($book);
             $this->updateHyperlightsMd($book);
             $this->updateHyperlightsHtml($book);
+            $this->updateHyperlightsDisplay($book);
             \Log::info("Successfully updated hyperlights and global positions for book: {$book}");
         } catch (\Exception $e) {
             \Log::error("Error updating hyperlights or global positions: " . $e->getMessage());
@@ -116,12 +116,11 @@ class HighlightMdController extends Controller
         // Step 4: Get the last modified time of the Markdown file.
         $markdownLastModified = filemtime($markdownFilePath);
 
-        return response()->json($this->updateLatestMarkdownTimestamp($book));
+    return response()->json($this->updateLatestMarkdownTimestamp($book));
+}
 
-    }
 
-
-    private function convertBlockquoteToMarkdown($html)
+private function convertBlockquoteToMarkdown($html)
     {
         $doc = new \DOMDocument();
         @$doc->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
@@ -166,7 +165,7 @@ class HighlightMdController extends Controller
     }
 
 
-    private function getBlockquoteLineRange($blockId, $markdownLines)
+private function getBlockquoteLineRange($blockId, $markdownLines)
     {
         $startLine = (int)$blockId; // Start from the given block ID
         $endLine = $startLine;
@@ -211,7 +210,7 @@ class HighlightMdController extends Controller
 
 
     // Helper function to convert HTML to Markdown
-    private function convertHtmlToMarkdown($html)
+private function convertHtmlToMarkdown($html)
     {
             try {
                 \Log::info("Converting HTML to Markdown: " . $html);
@@ -249,7 +248,7 @@ class HighlightMdController extends Controller
             }
     }
 
-    private function preserveElementWithAttributes($node)
+private function preserveElementWithAttributes($node)
     {
         $tag = $node->nodeName;
         $attributes = '';
@@ -259,7 +258,7 @@ class HighlightMdController extends Controller
         return "<{$tag}{$attributes}>" . $node->textContent . "</{$tag}>";
     }
 
-    private function processInlineElements($node)
+private function processInlineElements($node)
     {
         $content = '';
         foreach ($node->childNodes as $child) {
@@ -283,7 +282,7 @@ class HighlightMdController extends Controller
     }
 
 
-    public function deleteHighlight(Request $request)
+public function deleteHighlight(Request $request)
     {
         \Log::info('Request Data for Deleting Highlight:', [
             'highlight_ids' => $request->input('highlight_ids'),
@@ -355,29 +354,75 @@ class HighlightMdController extends Controller
         // Step 3: Trigger additional updates
         $this->updateHyperlightsMd($book);
         $this->updateHyperlightsHtml($book);
+        $this->updateHyperlightsDisplay($book);
 
         return response()->json($this->updateLatestMarkdownTimestamp($book));
 
         return response()->json(['success' => true, 'message' => 'Highlights deleted and database updated successfully.']);
     }
 
-
-        
-
     /**
      * Check if a block ID corresponds to a blockquote.
      */
-    private function isBlockquote($blockId, $markdownLines)
+private function isBlockquote($blockId, $markdownLines)
     {
         $lineIndex = (int)$blockId - 1;
         return isset($markdownLines[$lineIndex]) && str_starts_with(trim($markdownLines[$lineIndex]), '>');
     }
 
+private function updateHyperlightsDisplay($book)
+    {
+        $highlights = DB::table('highlights')
+            ->where('book', $book)
+            ->whereNull('deleted_at') // Only get non-deleted highlights
+            ->orderBy('global_position') // Order by global position
+            ->get();
+
+        // Create an instance of the HTML to Markdown converter (if needed for annotations)
+        $converter = new HtmlConverter();
+
+        $mdContent = '';
+
+        foreach ($highlights as $highlight) {
+            // Split the highlight text into paragraphs and trim each one.
+            $paragraphs = array_map('trim', explode("\n\n", $highlight->text));
+            // Join paragraphs with a space in between for a single-line output.
+            $highlightText = implode(' ', $paragraphs);
+
+            // Build the return link URL.
+            $linkUrl = url("{$book}#{$highlight->highlight_id}");
+
+            // Build the highlight blockquote with the return link appended.
+            $mdContent .= '<blockquote id="' . $highlight->highlight_id . '">&quot;' .
+                $highlightText . '&quot; [↩](' . $linkUrl . ')</blockquote>' . "\n\n";
+
+            // If there are annotations, convert them and output on one line.
+            if (!empty($highlight->annotations)) {
+                $markdownAnnotation = trim($converter->convert($highlight->annotations));
+                $mdContent .= '<blockquote>' . $markdownAnnotation . '</blockquote>' .
+                    "\n\n";
+            }
+
+            // Append an HTML horizontal rule with the highlight id as the class.
+            $mdContent .= "\n\n<hr class=\"" . $highlight->highlight_id . "\">\n\n";
+        }
+
+        $mdFilePath = resource_path("markdown/{$book}/hyperlights-display.md");
+
+        if (!File::exists($mdFilePath)) {
+            File::put($mdFilePath, '');
+            \Log::info("Created hyperlights-display.md for book: {$book}");
+        }
+
+        File::put($mdFilePath, $mdContent);
+        \Log::info("Successfully updated hyperlights-display.md for book: {$book}");
+    }
 
 
-    // Update hyperlights.md with non-deleted highlights
 
-    private function updateHyperlightsMd($book)
+
+// Update hyperlights.md with non-deleted highlights
+private function updateHyperlightsMd($book)
     {
         $highlights = DB::table('highlights')
             ->where('book', $book)
@@ -421,8 +466,8 @@ class HighlightMdController extends Controller
     }
 
 
-    // Update hyperlights.html with non-deleted highlights
-    private function updateHyperlightsHtml($book)
+// Update hyperlights.html with non-deleted highlights
+private function updateHyperlightsHtml($book)
     {
         $highlights = DB::table('highlights')
             ->where('book', $book)
@@ -471,8 +516,7 @@ class HighlightMdController extends Controller
     }
 
 
-
-    public function updateAnnotations(Request $request, $book)
+public function updateAnnotations(Request $request, $book)
     {
         // Get the annotations array from the request
         $annotations = $request->input('annotations');
@@ -508,8 +552,7 @@ class HighlightMdController extends Controller
                     // Update the markdown file
             $this->updateHyperlightsHtml($book);
             $this->updateHyperlightsMd($book);
-            
-
+            $this->updateHyperlightsDisplay($book);
 
 
             if (!empty($htmlContent)) {
@@ -528,8 +571,8 @@ class HighlightMdController extends Controller
         }
     }
 
-    public function markHighlightsAsDeleted(Request $request, $book)
-        {
+public function markHighlightsAsDeleted(Request $request, $book)
+    {
             \Log::info('Received request to mark highlights as deleted for book: ' . $book);
 
             // Get the highlight_ids array from the request
@@ -594,6 +637,7 @@ class HighlightMdController extends Controller
         try {
             $this->updateHyperlightsMd($book);
             $this->updateHyperlightsHtml($book);
+            $this->updateHyperlightsDisplay($book);
             \Log::info("Successfully updated hyperlights files for book: {$book} after deletion.");
 
             return response()->json(['success' => true, 'message' => 'Highlights marked as deleted and HTML updated successfully.']);

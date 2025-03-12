@@ -2,7 +2,7 @@
 
 @section('styles')
 
-    @vite(['resources/css/app.css', 'resources/css/reader.css'])
+    @vite(['resources/css/app.css', 'resources/css/reader.css', 'resources/css/highlight-div.css'])
     @endsection
 
 @section('content')
@@ -41,7 +41,7 @@
     <!-- Container for references and highlights -->
     <div id="ref-container" class="hidden"></div>
     <div id="ref-overlay"></div>
-    <div id="highlight-container" class="hidden"></div>
+    <div id="highlight-container" class="hidden" contenteditable="true"></div>
     
     
 

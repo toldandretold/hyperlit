@@ -29,6 +29,30 @@ export function closeReferenceContainer() {
   refManager.closeContainer();
 }
 
+// Footnotes handling
+export async function loadFootnotes() {
+  let footnotesData = await getFootnotesFromIndexedDB();
+  if (footnotesData) {
+    console.log("✅ Footnotes loaded from IndexedDB.");
+    return footnotesData;
+  }
+
+  console.log("⚠️ No footnotes found in IndexedDB. Fetching from server...");
+  try {
+    let footnotesResponse = await fetch(window.jsonPath);
+    if (footnotesResponse.ok) {
+      footnotesData = await footnotesResponse.json();
+      await saveFootnotesToIndexedDB(footnotesData);
+      console.log("✅ Footnotes successfully saved to IndexedDB.");
+      return footnotesData;
+    }
+    console.warn("⚠️ Failed to fetch footnotes JSON, using fallback.");
+  } catch (error) {
+    console.error("❌ Error fetching footnotes JSON:", error);
+  }
+  return null;
+}
+
 export async function displayFootnote(noteElement, book, convertMarkdownToHtml, getFreshUrl) {
   const noteKey = noteElement.dataset.noteKey;
   const parentId = noteElement.closest("[id]")?.id;

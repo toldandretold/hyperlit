@@ -1,14 +1,9 @@
-    
- /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black #221F20 */
-
-
-    body {
-
-        font-family: arial;
-        padding: 2%;
-        background-color: #221F20;
-      
-    }
+/* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black #221F20; "white" #CBCCCC*/
+body {
+    font-family: arial;
+    padding: 2%;
+    background-color: #221F20; 
+}
 
 a u.linked {
     color: #CBCCCC; /* Ensure the text color matches surrounding text */
@@ -29,153 +24,116 @@ a u.linked {
     color: gray;
 }
 
-    b, strong {
+b, strong {
+    color: #EF8D34;
+}
 
-        color: #EF8D34;
+h1 {
+    font-size: 100;
+    color: #EE4A95;
+}
+
+h2 {
+    font-size: 80;
+    color: #CBCCCC;
+}
+
+h3, h4, h5, h6 {
+    font-size: 25px;
+    color: #CBCCCC;
+}
+
+blockquote {
+    border-left: 6px solid #ccc;
+    border-color: #4EACAE;
+    color: #CBCCCC;
+    margin: 1em 2em;
+    padding: 0em 1em;
+}   
+
+/* Media query for phones (small screens) */
+@media only screen and (max-width: 600px) {
+        blockquote {
+        margin: 10px; /* Adjust margin for smaller screens */
+        padding: 8px; /* Optional: adjust padding for smaller screens */  
     }
+}  
 
+ins {
+    text-decoration: underline;
+    text-decoration-thickness: 4px; /* Adjust thickness as needed */
+    text-decoration-color: transparent;
+    background: linear-gradient(to right, #EE4A95, #EF8D34, #4EACAE, #EE4A95);
+    background-size: 100% 4px; /* Adjust thickness here as well */
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+}
 
-    h1 {
+blockquote strong {
+    color: #221F20;
+}
 
-        font-size: 100;
-        color: #EE4A95;
+sup {
+    color: #EE4A95;
+    font-size: 14px;
+}
 
-    }
+.footnote-ref {
+    color: #EE4A95;
+}
 
-    h2 {
-
-        font-size: 80;
-        color: #CBCCCC;
-
-    }
-
-    h3, h4, h5, h6 {
-
-        font-size: 25px;
-        color: #CBCCCC;
-    }
-
-   
-
-   blockquote {
-
-        
-        background: linear-gradient(#EE4A95, #EF8D34, #4EACAE, #EE4A95);
-        color: black;
-        padding: 10px;
-        text-decoration-color: #221F20;
-
-    }   
-
-    /* Media query for phones (small screens) */
-    @media only screen and (max-width: 600px) {
-          blockquote {
-            margin: 10px; /* Adjust margin for smaller screens */
-            padding: 8px; /* Optional: adjust padding for smaller screens */
-           
-          }
-    }  
-
-
-    blockquote p {
-        color: #221F20;
-    }
-
-
-    ins {
-          text-decoration: underline;
-          text-decoration-thickness: 4px; /* Adjust thickness as needed */
-          text-decoration-color: transparent;
-          background: linear-gradient(to right, #EE4A95, #EF8D34, #4EACAE, #EE4A95);
-          background-size: 100% 4px; /* Adjust thickness here as well */
-          background-repeat: no-repeat;
-          background-position: 0 100%;
-        }
-
-
-    blockquote strong {
-
-        color: #221F20;
-    }
-
-    sup {
-
-        color: #EE4A95;
-        font-size: 14px;
-    }
-
-    .footnote-ref {
-
-        color: #EE4A95;
-        
-    }
-
-        /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black 221F20 */
+/* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black 221F20 */
     
-    li {
+li {
+    color: #CBCCCC;
+}
 
-        color: #CBCCCC;
-    }
+a {
+    color: #4EACAE;
+    text-decoration: none;
+    outline: none;
+}
 
-    a {
-        color: #4EACAE;
-        text-decoration: none;
-        outline: none;
-    }
+p {
+    text-align: justify;
+    hyphens: auto;
+    font-size: 25px;
+    color: #CBCCCC;
+}
 
+ol {
+    hyphens: auto;
+    font-size: 25px;
+}
 
-
-    p {
-            text-align: justify;
-            hyphens: auto;
-            font-size: 25px;
-            color: #CBCCCC;
-    }
-
-    ol {
-
-        hyphens: auto;
-        font-size: 25px;
-
-    }
-
-    code {
-
-        /* Base styles for inline code */
-        /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black #221F20 */
-
-        font-family: "Courier New", Courier, monospace;
-          
-          background-color: #4EACAE;
-          padding: 2px 4px;
-          border-radius: 4px;
-          font-size: 20px;
-
-
-    }
-
-    
+code {
+    /* Base styles for inline code */
+    /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black #221F20 */
+    font-family: "Courier New", Courier, monospace; 
+    background-color: #4EACAE;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 20px;
+}
 
     /* Base styles for code blocks */
-    pre code {
-            display: block;
-              padding: 16px;
-              margin: 0 0 16px;
-              overflow-x: auto;
-              background-color: #f5f5f5;
-              border-radius: 4px;
-              font-size: 90%;
-              color: #333;
-              line-height: 1.5;
-    }
+pre code {
+    display: block;
+    padding: 16px;
+    margin: 0 0 16px;
+    overflow-x: auto;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    font-size: 90%;
+    color: #333;
+    line-height: 1.5;
+}
 
+hr {
+    border-color: #EE4A95;
+}
 
-    hr {
-
-        border-color: #EE4A95;
-    }
-
-    #html-editor div.annotation {
+#html-editor div.annotation {
     margin-bottom: 20px; /* Adds space at the bottom of the annotation div */
     margin-top: 20px; /* Adds space at the top of the annotation div */
 }
@@ -184,7 +142,6 @@ a u.linked {
 #html-editor a {
     cursor: pointer; /* Change the cursor to a pointer (arrow) */
     color: #221F20;
-
 }
 
 /* Disable iOS long-press text selection menu */
@@ -206,14 +163,25 @@ html, body, * {
 
 
 
+
+
 mark {
-    text-decoration: none !important; /* No underline by default */
-    cursor: pointer; /* Make the cursor a pointer like a link */
-    background-color: yellow;
+     text-decoration: none !important; /* Ensure no underline on hover */
+  /* A radial gradient that fades from yellow to transparent */
+  background: #EE4A95;
+  padding: 5px;
+  /* Optionally add some padding so the effect is visible */
 }
 
-
 mark:hover {
+    text-decoration: none !important; /* Ensure no underline on hover */
+    cursor: pointer;
+    background: #4EACAE;
+    border-radius: 1em 1em;
+  box-shadow: 0px 0px 5px 5px #4EACAE;
+}
+
+mark:onclick {
     text-decoration: none !important; /* Ensure no underline on hover */
 }
 
@@ -264,24 +232,22 @@ caption {
     overflow-x: auto;
 }
 
-    button {
-            font-size: 14px;
-            background-color: #444; /* Dark background */
-            color: #fff; /* White text */
-            border: 1px solid #777; /* Subtle border */
-            padding: 10px 20px; /* Spacing */
-            border-radius: 5px; /* Rounded corners */
-            font-weight: 600; /* Semi-bold text */
-            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.5); /* Soft shadow */
-            transition: background-color 0.3s ease, box-shadow 0.3s ease; /* Smooth hover transition */
-        }
+button {
+    font-size: 14px;
+    background-color: #444; /* Dark background */
+    color: #fff; /* White text */
+    border: 1px solid #777; /* Subtle border */
+    padding: 10px 20px; /* Spacing */
+    border-radius: 5px; /* Rounded corners */
+    font-weight: 600; /* Semi-bold text */
+    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.5); /* Soft shadow */
+    transition: background-color 0.3s ease, box-shadow 0.3s ease; /* Smooth hover transition */
+}
 
-        button:hover {
-            background-color: #555; /* Slightly lighter on hover */
-            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3); /* Larger shadow on hover */
-        }
-
-
+button:hover {
+     background-color: #555; /* Slightly lighter on hover */
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3); /* Larger shadow on hover */
+}
 
 /* Table of Contents */
 
@@ -305,16 +271,12 @@ caption {
     color: #EE4A95; 
 }
 
-
 #toc-container h1 {
-
     font-size: 25px;
     color: #E0E0E0;
-
 }
 
 #toc-container h2 {
-
     font-size: 20px;
     padding-left: 2em;
     color: #C4C4C4;
@@ -325,7 +287,6 @@ caption {
     font-size: 20px;
     color: #A8A8A8;
 }
-
 
 #toc-container.open {
     transform: translateX(0);
@@ -349,14 +310,9 @@ caption {
     visibility: visible;
 }
 
-
-
-
-
-
-
 /* Reference Container */
-#ref-container, #highlight-container {
+#ref-container, 
+#highlight-container {
     transform: translateX(100%); /* Start off-screen to the right */
     transition: transform 0.3s ease-in-out; /* Smooth slide-in effect */
     position: fixed;
@@ -371,7 +327,8 @@ caption {
     padding-right: 1em;
 }
 
-#ref-container.open, #highlight-container.open  {
+#ref-container.open, 
+#highlight-container.open  {
     transform: translateX(0); /* Slide in */
 }
 
@@ -394,39 +351,62 @@ caption {
     visibility: visible;
 }
 
-
 /* lazy loading */
-
  #main-content {
-            width: 100%;
-            height: calc(100vh - 60px); /* Full height minus space for buttons */
-            border: none;               /* Remove border */
-            outline: none;              /* Remove default focus outline */
-            padding: 20px;              /* Add padding for text */
-            box-sizing: border-box;     /* Ensure padding doesn’t overflow */
-            font-family: 'Arial', sans-serif;  /* Make it look more like a document */
-            font-size: 16px;
-            line-height: 1.6;
-            background-color: #221F20;   /* dark background color */
-            color: #CBCCCC;
-            overflow-y: auto; /* Enable vertical scrolling */
-            overflow-x: hidden; /* Prevent horizontal scrolling */
-            visibility: visible !important;
-            opacity: 1 !important;
-        }
+        width: 100%;
+        height: calc(100vh - 60px); /* Full height minus space for buttons */
+        border: none;               /* Remove border */
+        outline: none;              /* Remove default focus outline */
+        padding: 20px;              /* Add padding for text */
+        box-sizing: border-box;     /* Ensure padding doesn’t overflow */
+        font-family: 'Arial', sans-serif;  /* Make it look more like a document */
+        font-size: 16px;
+        line-height: 1.6;
+        background-color: #221F20;   /* dark background color */
+        color: #CBCCCC;
+        overflow-y: auto; /* Enable vertical scrolling */
+        overflow-x: hidden; /* Prevent horizontal scrolling */
+        visibility: visible !important;
+        opacity: 1 !important;
+}
 
 /* Loading indicator styling */
-        #loading-indicator {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 9999;
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 20px;
-            border-radius: 8px;
-            font-size: 18px;
-        }
+#loading-indicator {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 9999;
+        background-color: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        font-size: 18px;
+    }
 
+.bookmark-indicator {
+    position: relative;
+    background-color: #c0392b; /* red */
+    color: #221F20;
+    padding: 8px 30px;
+    font-size: 1em;
+    font-weight: bold;
+    display: inline-block;
+    /* Optional: remove any border or shadow if you don't need it */
+}
+
+/* Pseudo-element that creates an inward (concave) notch on the right */
+.bookmark-indicator::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 10px; /* Adjust width to control notch size */
+  height: 100%;
+  background-color: #221F20;
+  /* This clip-path creates a triangle starting at the top-right, 
+     going to the left center, then down to the bottom-right.
+     This makes the triangle point inward. */
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+}

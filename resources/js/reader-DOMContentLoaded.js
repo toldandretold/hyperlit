@@ -2,12 +2,10 @@ import {
     convertMarkdownToHtml
 } from './convert-markdown.js';
 
-import { observer, 
+import { // observer, 
     isValidContentElement,
     restoreScrollPosition,
-    handleNavigation,
-    navigateToInternalId,
-    reattachScrollObserver
+    navigateToInternalId
 } from './scrolling.js';
 
 import { 
@@ -31,7 +29,7 @@ import {
 
 import {
     loadMarkdownFile
-} from './lazy-loading.js';
+} from './initializePage.js';
 
 import {
     attachMarkListeners,
@@ -47,6 +45,8 @@ import {
     tocButton,
     toggleTOC
 } from './toc.js';
+
+import { currentLazyLoader } from './initializePage.js';
 
 export const mainContentDiv = document.getElementById("main-content"); 
     
@@ -81,14 +81,6 @@ if (!window.isInitialized) {
 
         attachMarkListeners();
 
-        // Lazy-Loading Scroll Observer:
-        // observe all valid elements inside main-content div that have an id
-        // validity determined in scrolling.js. it filters out sentinels, overlays and other non-content elements
-        // as these are not necessary for the lazy loading
-        document.querySelectorAll("#main-content [id]").forEach((el) => {
-            if (isValidContentElement(el)) observer.observe(el);
-        });
-
         // Load Table of Contents
         generateTableOfContents("toc-container", "toc-toggle-button");
         
@@ -98,13 +90,14 @@ if (!window.isInitialized) {
         }
 
         // ✅ Internal Link Navigation Handling
-        document.addEventListener("click", (event) => {
-            const link = event.target.closest("a");
-            if (link && link.hash && link.hash.startsWith("#")) {
-                event.preventDefault();
-                const targetId = link.hash.substring(1);
-                navigateToInternalId(targetId);
-            }
+       document.addEventListener("click", (event) => {
+          const link = event.target.closest("a");
+          if (link && link.hash && link.hash.startsWith("#")) {
+            event.preventDefault();
+            const targetId = link.hash.substring(1);
+            // Pass the lazyLoader instance as the second argument.
+            navigateToInternalId(targetId, currentLazyLoader);
+          }
         });
 
         // ✅ Footnotes Click Handling (Replaces `jsonPath`)
@@ -167,6 +160,5 @@ if (!window.isInitialized) {
             console.log("🔗 Entered page via direct URL or new tab.");
         }
 
-        handleNavigation();
     });
 }

@@ -4,8 +4,7 @@
 id= and class= on the first mark tag and only as a class= on any others. this ensures mark tags
 are added to multiple html nodes, without id being duplicated.
 
-2. attachMarkListeners uses this class=highlight_id data to create links to
-    '/{book}/hyperlights#highlight_id'. */
+ */
 
 
 
@@ -14,7 +13,67 @@ import {
     book
 } from './reader-DOMContentLoaded.js';
 
+import { fetchLatestUpdateInfo, handleTimestampComparison } from "./updateCheck.js";
+
+
+import { createLazyLoader,
+         loadNextChunkFixed,
+         loadPreviousChunkFixed
+       } from "./lazyLoaderFactory.js";
+
+import { ContainerManager } from "./container-manager.js";
+
+import { navigateToInternalId } from "./scrolling.js";  // or the correct path
+ 
 let highlightId; 
+
+// Create a container manager for highlights using the same overlay if needed
+const highlightManager = new ContainerManager("highlight-container", "ref-overlay");
+
+export function openHighlightContainer(content) {
+  highlightManager.openContainer(content);
+}
+
+export function closeHighlightContainer() {
+  highlightManager.closeContainer();
+}
+
+
+async function fetchHighlightChunksOnDemand(book) {
+  const updateInfo = await fetchLatestUpdateInfo(book);
+  // Read the cached timestamp from localStorage
+  const cachedTimestamp =
+    localStorage.getItem("highlightChunksLastModified") || "null";
+
+  // Assume latest_update.json now includes a property “highlightChunksLastModified”
+  const serverTimestamp =
+    updateInfo && updateInfo.highlightChunksLastModified
+      ? updateInfo.highlightChunksLastModified.toString()
+      : "null";
+
+  console.log(
+    "✅ Server reported highlightChunksLastModified:",
+    serverTimestamp
+  );
+
+  if (serverTimestamp !== cachedTimestamp) {
+    console.log("Highlight chunks timestamp is DIFFERENT. Updating cache.");
+    localStorage.setItem("highlightChunksLastModified", serverTimestamp);
+  } else {
+    console.log("Highlight chunks timestamp unchanged.");
+  }
+
+  // Now load the highlightChunks.json file
+  const resourcePath = `/markdown/${book}/highlightChunks.json`;
+  const response = await fetch(resourcePath);
+  if (!response.ok) {
+    throw new Error(`Failed to load highlightChunks from ${resourcePath}`);
+  }
+  return response.json();
+}
+
+
+
 
 // ========= Mark Listeners =========
 export function attachMarkListeners() {
@@ -41,42 +100,74 @@ export function attachMarkListeners() {
 }
 
 
+
+
 export function handleMarkClick(event) {
-    event.preventDefault();
-    
-    // First try to get the ID directly from the clicked mark
-    let highlightId = event.target.id;
-    
-    // If no ID (it's not the first mark), get ID from the class
-    if (!highlightId) {
-        // Get the class that starts with "unknown-user_" or whatever your pattern is
-        const highlightClass = Array.from(event.target.classList).find(cls => 
-            cls.startsWith("unknown-user_") || cls.includes("_"));
-        
-        if (highlightClass) {
-            highlightId = highlightClass;
-        }
+  event.preventDefault();
+
+  // Determine the highlight ID from the element
+  let highlightId = event.target.id;
+  if (!highlightId) {
+    const highlightClass = Array.from(event.target.classList).find((cls) =>
+      cls.startsWith("unknown-user_") || cls.includes("_")
+    );
+    if (highlightClass) {
+      highlightId = highlightClass;
     }
-    
-    console.log(`Mark clicked: ${highlightId}`);
-    
-    // Ensure book and highlightId are defined
-    if (!book) {
-        console.error("❌ Book variable is not defined.");
-        return;
-    }
-    
-    if (!highlightId) {
-        console.error("❌ Could not determine highlight ID.");
-        return;
-    }
-    
-    // Use the book variable in the URL
-    const url = `/${book}/hyperlights#${highlightId}`;
-    console.log(`Redirecting to: ${url}`);
-    
-    window.location.href = url;
+  }
+  console.log(`Mark clicked: ${highlightId}`);
+
+  if (!book) {
+    console.error("❌ Book variable is not defined.");
+    return;
+  }
+  if (!highlightId) {
+    console.error("❌ Could not determine highlight ID.");
+    return;
+  }
+
+  // Open the highlight container (this should reveal the container if it is off-screen)
+  openHighlightContainer("");
+
+  // Now fetch the highlightChunks and create the lazy loader instance
+ fetchHighlightChunksOnDemand(book)
+  .then((highlightChunks) => {
+    const highlightLazyLoader = createLazyLoader({
+      container: document.getElementById("highlight-container"),
+      nodeChunks: highlightChunks,
+      loadNextChunk: loadNextChunkFixed,
+      loadPreviousChunk: loadPreviousChunkFixed,
+      attachMarkListeners,
+      bookId: book,
+    });
+    // Instead of assigning to global state, pass it directly:
+    navigateToInternalId(highlightId, highlightLazyLoader, false);
+  })
+  .catch((err) => {
+    console.error("❌ Error fetching highlight chunks:", err);
+  });
 }
+
+
+/**
+ * Recursively determine the offsetTop of an element relative to a
+ * container element.
+ *
+ * @param {HTMLElement} element The target element.
+ * @param {HTMLElement} container The container element.
+ * @returns {number} Distance in pixels from the top of the container.
+ */
+function getRelativeOffsetTop(element, container) {
+  let offsetTop = 0;
+  while (element && element !== container) {
+    offsetTop += element.offsetTop;
+    element = element.offsetParent;
+  }
+  return offsetTop;
+}
+
+
+
 
 
 export function handleMarkHover(event) {
@@ -245,7 +336,7 @@ addTouchAndClickListener(document.getElementById('copy-hyperlight'), function ()
     ? range.startContainer.parentElement.closest('p, blockquote, table, [id]') 
     : range.startContainer.closest('p, blockquote, table, [id]');
 
-let endContainer = range.endContainer.nodeType === 3 
+    let endContainer = range.endContainer.nodeType === 3 
     ? range.endContainer.parentElement.closest('p, blockquote, table, [id]') 
     : range.endContainer.closest('p, blockquote, table, [id]');
 
@@ -325,32 +416,40 @@ let endContainer = range.endContainer.nodeType === 3
     console.log('➡️ Sending to backend:', requestBody);
 
     // Send blocks to the backend
+    // When sending new highlight data to the backend...
     fetch('/highlight/custom-markdown', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document
-                .querySelector('meta[name="csrf-token"]')
-                .getAttribute('content'),
-        },
-        body: requestBody,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document
+          .querySelector('meta[name="csrf-token"]')
+          .getAttribute('content'),
+      },
+      body: requestBody,
     })
-        .then((response) => {
-            console.log('Raw response:', response);
-            return response.json();
-        })
-        .then((data) => {
-            if (data.success) {
-                console.log('✅ Highlight saved and Markdown updated.');
-                attachMarkListeners();
-            } else {
-                console.error('❌ Error from server:', data.message);
-            }
-        })
-        .catch((error) => {
-            console.error('❌ Error updating highlight:', error);
-            console.error('❌ Error object:', error);
-        });
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success) {
+          console.log('✅ Highlight saved and Markdown updated.');
+          attachMarkListeners();
+          // After saving, force a refresh of your highlightChunks:
+          return fetchHighlightChunksOnDemand(book);
+        } else {
+          throw new Error(data.message);
+        }
+      })
+      .then((updatedChunks) => {
+        // Assuming you already created the lazy loader somewhere (e.g. when handling the click)
+        // Update its nodeChunks to the latest version.
+        highlightLazyLoader.nodeChunks = updatedChunks;
+        console.log("Updated highlightChunks:", updatedChunks);
+        // Now navigate to the highlight
+        navigateToInternalId(highlightId, highlightLazyLoader, false);
+      })
+      .catch((error) => {
+        console.error('❌ Error updating highlight:', error);
+      });
+
 });
 
 
@@ -359,7 +458,9 @@ let endContainer = range.endContainer.nodeType === 3
 
     // Function to handle deleting a highlight
 // Function to handle deleting a highlight
-addTouchAndClickListener(document.getElementById('delete-hyperlight'), function(event) {
+addTouchAndClickListener(
+  document.getElementById("delete-hyperlight"),
+  function (event) {
     event.preventDefault();
     console.log("Delete button clicked.");
 
@@ -367,99 +468,123 @@ addTouchAndClickListener(document.getElementById('delete-hyperlight'), function(
     let selectedText = selection.toString().trim();
 
     if (!selectedText) {
-        console.error('No text selected to delete.');
-        return;
+      console.error("No text selected to delete.");
+      return;
     }
 
     let removedHighlightIds = [];
     let blockIds = [];
 
-    // Select all `mark` elements in the document
-    const allMarks = document.querySelectorAll('mark');
+    // Select all <mark> elements
+    const allMarks = document.querySelectorAll("mark");
 
-    // Inside the delete highlight logic
     allMarks.forEach(function (mark) {
-    let markText = mark.textContent.trim();
+      let markText = mark.textContent.trim();
+      console.log(
+        "Comparing selectedText:",
+        selectedText,
+        "with markText:",
+        markText
+      );
 
-    if (selectedText.includes(markText)) {
-        if (mark.hasAttribute('id')) {
-            let highlightId = mark.getAttribute('id');
-            removedHighlightIds.push(highlightId);
-            console.log("Mark with ID to be deleted:", highlightId);
-        }
-
-        // Use the new function to find the nearest parent with a numerical ID
-        let blockId = findParentWithNumericalId(mark);
-        if (blockId) {
-            blockIds.push(blockId);
-            console.log("Found numerical block ID:", blockId);
+      if (selectedText.includes(markText)) {
+        // Instead of checking the 'id', check for a class that is not the default "highlight"
+        const highlightClass = Array.from(mark.classList).find(
+          (cls) => cls !== "highlight"
+        );
+        if (highlightClass) {
+          removedHighlightIds.push(highlightClass);
+          console.log(
+            "Mark with highlight class to be deleted:",
+            highlightClass
+          );
         } else {
-            console.warn("No numerical block ID found for mark:", mark);
+          console.warn("No unique highlight class found for mark:", mark);
         }
 
-        // Remove the highlight mark
-        let parentAnchor = mark.closest('a');
+        // Find the parent with a numerical ID
+        let blockElement = findParentWithNumericalId(mark);
+        if (blockElement) {
+          blockIds.push(blockElement.id);
+          console.log("Found numerical block ID:", blockElement.id);
+        } else {
+          console.warn("No numerical block ID found for mark:", mark);
+        }
+
+        // Remove the highlight mark from the DOM
+        let parentAnchor = mark.closest("a");
         if (parentAnchor) {
-            let parent = parentAnchor.parentNode;
-            parent.replaceChild(document.createTextNode(mark.textContent), parentAnchor);
+          let parent = parentAnchor.parentNode;
+          parent.replaceChild(
+            document.createTextNode(mark.textContent),
+            parentAnchor
+          );
         } else {
-            let parent = mark.parentNode;
-            parent.replaceChild(document.createTextNode(mark.textContent), mark);
+          let parent = mark.parentNode;
+          parent.replaceChild(
+            document.createTextNode(mark.textContent),
+            mark
+          );
         }
-    }
-     attachMarkListeners();
-});
-
-
-// Find the nearest ancestor with a numerical ID
-function findParentWithNumericalId(element) {
-    let current = element; // Start from the given element
-    while (current) {
-        if (current.hasAttribute('id')) {
-            let blockId = current.getAttribute('id');
-            if (!isNaN(blockId)) {
-                return blockId; // Found a numerical ID, return it
-            }
-        }
-        current = current.parentElement; // Move to the next parent
-    }
-    return null; // No numerical ID found in the hierarchy
-}
+      }
+    });
+    attachMarkListeners();
 
     console.log("Removed highlight IDs:", removedHighlightIds);
     console.log("Affected block IDs:", blockIds);
 
     if (removedHighlightIds.length > 0) {
-        let book = document.getElementById('main-content').getAttribute('data-book');
+      let book = document
+        .getElementById("main-content")
+        .getAttribute("data-book");
 
-        // Send the removed IDs and block IDs to the backend
-        fetch('/highlight/custom-markdown-delete', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            },
-            body: JSON.stringify({
-                highlight_ids: removedHighlightIds, // IDs of highlights to delete
-                block_ids: blockIds,               // IDs of affected block-level elements
-                book: book                         // Book identifier
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                console.log('Highlights deleted and HTML updated.');
-            } else {
-                console.error('Error from server:', data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error deleting highlights:', error);
-        });
+      // Send the removed IDs and block IDs to the backend
+      fetch("/highlight/custom-markdown-delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN": document
+          .querySelector('meta[name="csrf-token"]')
+          .getAttribute("content"),
+      },
+      body: JSON.stringify({
+        highlight_ids: removedHighlightIds, // now from the class attribute
+        block_ids: blockIds, // IDs of affected block-level elements
+        book: book, // Book identifier
+      }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success) {
+          console.log("Highlights deleted and HTML updated.");
+        } else {
+          console.error("Error from server:", data.message);
+        }
+      })
+      .catch((error) => {
+        console.error("Error deleting highlights:", error);
+      });
     } else {
-        console.error('No matching mark elements found in selection.');
+      console.error("No matching mark elements found in selection.");
     }
-});
+  }
+);
+
+
+
+    // Find the nearest ancestor with a numerical ID
+    function findParentWithNumericalId(element) {
+      let current = element;
+      while (current) {
+        if (current.hasAttribute("id") && !isNaN(parseInt(current.id, 10))) {
+          return current; // Return the element
+        }
+        current = current.parentElement;
+      }
+      return null;
+    }
+
+  
 
 
     // Helper functions: getXPath, getFullXPath, normalizeXPath
@@ -528,17 +653,7 @@ function fallbackCopyText(text) {
     document.body.removeChild(textArea);
 }
 
-function findParentWithNumericalId(element) {
-    let currentElement = element;
-    while (currentElement) {
-        const id = currentElement.getAttribute('id');
-        if (id && !isNaN(parseInt(id, 10))) {
-            return currentElement; // Found a parent with a numerical ID
-        }
-        currentElement = currentElement.parentElement; // Move to the next parent
-    }
-    return null; // No valid parent with numerical ID found
-}
+
 
 function collectHyperciteData(hyperciteId, wrapper) {
     console.log("Wrapper outerHTML:", wrapper.outerHTML);
