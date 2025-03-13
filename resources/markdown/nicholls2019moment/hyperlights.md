@@ -173,6 +173,13 @@
 
 ---
 
+> "re ideas of th"
+> [↩](http://10.0.0.208:8000/nicholls2019moment#unknown-user_1741850201696)
+
+
+
+---
+
 > "that potentially"
 > [↩](http://10.0.0.208:8000/nicholls2019moment#user-name_1738367084769)
 
@@ -183,11 +190,8 @@
 
 ---
 
-> "order"
-> [↩](http://10.0.0.208:8000/nicholls2019moment#user-name_1738193363001)
-
-
-
+> "and the success"
+> [↩](http://10.0.0.208:8000/nicholls2019moment#unknown-user_1741662062985)
 
 
 
@@ -195,13 +199,6 @@
 
 > "This is important because it shows how the three core concepts that formed the basis of the Third World Project — the declining terms of trade, neo-colonialism, and permanent sovereignty over natural resources — were entwined not only haphazardly in debates Unitede Unite Nations, but in ways inherent to their conception. Thus, Nkrumah noted in confirmation of"
 > [↩](http://10.0.0.208:8000/nicholls2019moment#unknown-user_1741758844232)
-
-
-
----
-
-> "and the success"
-> [↩](http://10.0.0.208:8000/nicholls2019moment#unknown-user_1741662062985)
 
 
 
@@ -245,6 +242,13 @@
 
 ---
 
+> "plan"
+> [↩](http://10.0.0.208:8000/nicholls2019moment#unknown-user_1740311177472)
+
+
+
+---
+
 > "Venezuela"
 > [↩](http://10.0.0.208:8000/nicholls2019moment#unknown-user_1740354118859)
 
@@ -254,13 +258,6 @@
 
 > "Karin Lissakers raises two important points. Firstly, she notes that a ‘divide-and-rule tactic’ on behalf of creditors was ‘helped by timing.’[^474] That is, because the debtors did not ‘experience their most acute payments problems simultaneously’, banks ‘could settle with one large de"
 > [↩](http://10.0.0.208:8000/nicholls2019moment#unknown-user_1738908900842)
-
-
-
----
-
-> "plan"
-> [↩](http://10.0.0.208:8000/nicholls2019moment#unknown-user_1740311177472)
 
 
 
