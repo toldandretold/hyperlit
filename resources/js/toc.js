@@ -9,7 +9,7 @@ import {
 import { ContainerManager } from './container-manager.js';
 
 // Create a container manager for TOC
-const tocManager = new ContainerManager("toc-container", "toc-overlay", "toc-toggle-button");
+const tocManager = new ContainerManager("toc-container", "toc-overlay", "toc-toggle-button", ["main-content", "nav-buttons"]);
 
 // Export the DOM elements for backward compatibility
 export const tocContainer = document.getElementById("toc-container");

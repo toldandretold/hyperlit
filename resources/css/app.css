@@ -94,6 +94,28 @@ a {
     outline: none;
 }
 
+/*used by container-manager*/
+.frozen {
+  pointer-events: none; /* Prevent interactions */
+  overflow: hidden;     /* Disable scrolling */
+}
+
+sup.note {
+  position: relative;
+  cursor: pointer;
+}
+
+sup.note::before {
+  content: "";
+  position: absolute;
+  top: -20px;
+  bottom: -20px;
+  left: -20px;
+  right: -20px;
+  /* Ensure the pseudo-element isn’t visible and doesn’t interfere visually */
+  background: transparent;
+}
+
 p {
     text-align: justify;
     hyphens: auto;
@@ -155,15 +177,32 @@ html, body, * {
     position: absolute;
     display: none; /* Hidden until text is selected */
     z-index: 9999; /* Keep it above other elements */
-    background-color: white;
+    background-color: #221F20;
     padding: 0px;
     border-radius: 5px;
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Add a small shadow for visibility */
+    flex-wrap: wrap; /* Allows buttons to wrap to a new row */
+    gap: 8px; /* Optional: adds space between buttons */
+    transition: opacity 0.3s ease;
 }
 
+#hyperlight-buttons button {
+  width: 100%;
+  box-sizing: border-box;
+  flex: 1 1 200px;
+}
 
+#nav-buttons {
+    position: fixed; 
+    top: 10px; 
+    transition: opacity 0.3s ease;
+}
 
-
+/* The hidden class hides the container */
+.hidden-nav {
+  opacity: 0;
+  pointer-events: none;
+}
 
 mark {
      text-decoration: none !important; /* Ensure no underline on hover */
@@ -409,4 +448,13 @@ button:hover {
      going to the left center, then down to the bottom-right.
      This makes the triangle point inward. */
   clip-path: polygon(100% 0, 0 50%, 100% 100%);
+}
+
+div {
+  -ms-overflow-style: none; /* IE and Edge (legacy) */
+  scrollbar-width: none; /* Firefox */
+}
+
+div::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
