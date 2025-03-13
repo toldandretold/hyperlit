@@ -7,6 +7,7 @@ import {
     saveFootnotesToIndexedDB 
 } from './cache-indexedDB.js';
 import { ContainerManager } from './container-manager.js';
+import { currentLazyLoader } from './initializePage.js';
 
 // Create a container manager for TOC
 const tocManager = new ContainerManager("toc-container", "toc-overlay", "toc-toggle-button", ["main-content", "nav-buttons"]);
@@ -108,7 +109,7 @@ export async function generateTableOfContents(tocContainerId, toggleButtonId) {
         const targetId = link.hash?.substring(1);
         if (!targetId) return;
         console.log(`📌 Navigating via TOC to: ${targetId}`);
-        navigateToInternalId(targetId);
+        navigateToInternalId(targetId, currentLazyLoader);
       }
     });
 

@@ -67,16 +67,35 @@ export class ContainerManager {
       console.log(`Opening ${this.container.id} container...`);
       this.container.classList.add("open");
       this.overlay.classList.add("active");
+      
       // Freeze all background elements specified
       this.frozenElements.forEach((el) => this.freezeElement(el));
+
+      // If we're opening the TOC, hide nav-buttons
+      if (this.container.id === "toc-container") {
+        const navButtons = document.getElementById("nav-buttons");
+        if (navButtons) {
+          navButtons.classList.add("hidden-nav");
+        }
+      }
     } else {
       console.log(`Closing ${this.container.id} container...`);
       this.container.classList.remove("open");
       this.overlay.classList.remove("active");
+      
       // Unfreeze background elements when closing
       this.frozenElements.forEach((el) => this.unfreezeElement(el));
+      
+      // If we're closing the TOC, remove the hidden class on nav-buttons
+      if (this.container.id === "toc-container") {
+        const navButtons = document.getElementById("nav-buttons");
+        if (navButtons) {
+          navButtons.classList.remove("hidden-nav");
+        }
+      }
     }
   }
+
 
   openContainer(content = null) {
     if (content && this.container) {
