@@ -46,6 +46,8 @@ import {
     toggleTOC
 } from './toc.js';
 
+import NavButtons from "./nav-buttons.js";
+
 import { currentLazyLoader } from './initializePage.js';
 
 export const mainContentDiv = document.getElementById("main-content"); 
@@ -58,6 +60,8 @@ if (!window.isInitialized) {
     window.isInitialized = true;
 
     document.addEventListener("DOMContentLoaded", async () => {
+
+        window.activeContainer = "main-content";
 
         // Utility function to bust the cache using a lastModified timestamp
         window.getFreshUrl = function(url, lastModified) {
@@ -83,6 +87,13 @@ if (!window.isInitialized) {
 
         // Load Table of Contents
         generateTableOfContents("toc-container", "toc-toggle-button");
+
+
+        const navButtons = new NavButtons({
+            elementId: "nav-buttons", // This should match the id in your HTML.
+            tapThreshold: 10, // Adjust if needed.
+            });
+        navButtons.init();
         
         if (!tocContainer || !tocOverlay || !tocButton) {
             console.error("TOC elements are missing in the DOM.");

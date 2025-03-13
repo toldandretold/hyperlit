@@ -140,108 +140,138 @@ export function navigateToInternalId(targetId, lazyLoader, showBookmark = false)
     console.error("Lazy loader instance not provided!");
     return;
   }
-  console.log("LAZZZZY!!!!!")
+  console.log("Initiating navigation to internal ID:", targetId);
   _navigateToInternalId(targetId, lazyLoader, showBookmark);
 }
 
-
-// This helper function receives the lazy loader instance as a parameter.
 function _navigateToInternalId(targetId, lazyLoader, showBookmark) {
-   if (!lazyLoader.container || 
-      typeof lazyLoader.container.querySelector !== "function") {
+  // Validate the container reference.
+  if (
+    !lazyLoader.container ||
+    typeof lazyLoader.container.querySelector !== "function"
+  ) {
     console.error("Invalid lazyLoader.container:", lazyLoader.container);
     lazyLoader.isNavigatingToInternalId = false;
     return;
   }
+
+  // Prevent duplicate navigations.
   if (lazyLoader.isNavigatingToInternalId) {
     console.log("Navigation already in progress, skipping duplicate call.");
     return;
   }
   lazyLoader.isNavigatingToInternalId = true;
-  console.log(`🟢 Navigating to internal ID: ${targetId}`);
+  console.log(`Navigating to internal ID: ${targetId}`);
 
+  // Ensure we have a set to keep track of the currently loaded chunks.
   if (!lazyLoader.currentlyLoadedChunks) {
     lazyLoader.currentlyLoadedChunks = new Set();
   }
 
-  let existingElement = lazyLoader.container.querySelector(`#${CSS.escape(targetId)}`);
+  // Check if the target element already exists in the container.
+  let existingElement = lazyLoader.container.querySelector(
+    `#${CSS.escape(targetId)}`
+  );
   if (existingElement) {
+    // Scroll once to the target element.
     scrollElementIntoContainer(existingElement, lazyLoader.container, 50);
+    // Use a single delayed call to attach listeners and mark navigation complete.
     setTimeout(() => {
-      scrollElementIntoContainer(existingElement, lazyLoader.container, 50);
+      if (typeof lazyLoader.attachMarkListeners === "function") {
+        lazyLoader.attachMarkListeners(lazyLoader.container);
+      }
       lazyLoader.isNavigatingToInternalId = false;
-    }, 600);
+    }, 400);
     return;
   }
 
-  let targetChunkIndex;
-  // Numeric IDs: you compare against block.startLine (or however your JSON is structured)
+  // Determine the chunk index that should contain targetId.
+  let targetChunkIndex = -1;
   if (/^\d+$/.test(targetId)) {
-    targetChunkIndex = lazyLoader.nodeChunks.findIndex(chunk =>
-      chunk.blocks.some(block => block.startLine.toString() === targetId)
+    targetChunkIndex = lazyLoader.nodeChunks.findIndex((chunk) =>
+      chunk.blocks.some(
+        (block) => block.startLine.toString() === targetId
+      )
     );
   } else {
+    // For non-numeric custom IDs, use a helper to find the appropriate line.
     const targetLine = findLineForCustomId(targetId, lazyLoader.nodeChunks);
     if (targetLine === null) {
-      console.warn(`❌ No block found for target ID "${targetId}"`);
+      console.warn(`No block found for target ID "${targetId}"`);
       lazyLoader.isNavigatingToInternalId = false;
       return;
     }
-    targetChunkIndex = lazyLoader.nodeChunks.findIndex(chunk =>
-      targetLine >= chunk.start_line && targetLine <= chunk.end_line
+    targetChunkIndex = lazyLoader.nodeChunks.findIndex(
+      (chunk) =>
+        targetLine >= chunk.start_line && targetLine <= chunk.end_line
     );
   }
 
   if (targetChunkIndex === -1) {
-    console.warn(`❌ No chunk found for target ID "${targetId}"`);
+    console.warn(`No chunk found for target ID "${targetId}"`);
     lazyLoader.isNavigatingToInternalId = false;
     return;
   }
 
-  // Clear previously loaded chunks if needed.
-  lazyLoader.container.innerHTML = '';
+  // Clear the container; since this container is separate from main-content,
+  // the reflow should be limited.
+  lazyLoader.container.innerHTML = "";
   lazyLoader.currentlyLoadedChunks.clear();
 
+  // Load the chunk containing the target and one preceding/following chunk.
   const startIndex = Math.max(0, targetChunkIndex - 1);
-  const endIndex = Math.min(lazyLoader.nodeChunks.length - 1, targetChunkIndex + 1);
+  const endIndex = Math.min(
+    lazyLoader.nodeChunks.length - 1,
+    targetChunkIndex + 1
+  );
   console.log(`Loading chunks ${startIndex} to ${endIndex}`);
 
-  const loadedChunkIds = [];
-  const loadChunksPromise = Promise.all(
-    Array.from({ length: endIndex - startIndex + 1 }, (_, i) => {
-      const chunkId = lazyLoader.nodeChunks[startIndex + i].chunk_id;
-      return new Promise(resolve => {
-        lazyLoader.loadChunk(chunkId, "down");
-        loadedChunkIds.push(chunkId);
+  const loadedChunksPromises = Array.from(
+    { length: endIndex - startIndex + 1 },
+    (_, i) => {
+      const chunk = lazyLoader.nodeChunks[startIndex + i];
+      return new Promise((resolve) => {
+        // Use your loadChunk function (it may internally update the container).
+        lazyLoader.loadChunk(chunk.chunk_id, "down");
         resolve();
       });
-    })
+    }
   );
 
-  loadChunksPromise.then(() => {
-    console.log("All chunks loaded, injecting footnotes...");
-    loadedChunkIds.forEach(chunkId => {
-      console.log(`Injecting footnotes for chunk ${chunkId}`);
-      injectFootnotesForChunk(chunkId);
-    });
-    lazyLoader.repositionSentinels();
+  Promise.all(loadedChunksPromises)
+    .then(() => {
+      // Inject footnotes into each loaded chunk.
+      for (let i = startIndex; i <= endIndex; i++) {
+        const chunkId = lazyLoader.nodeChunks[i].chunk_id;
+        console.log(`Injecting footnotes for chunk ${chunkId}`);
+        injectFootnotesForChunk(chunkId);
+      }
+      lazyLoader.repositionSentinels();
 
-    setTimeout(() => {
-      waitForElementAndScroll(targetId);
+      // After a brief delay to ensure the DOM is updated,
+      // scroll to the target element within the container.
       setTimeout(() => {
-        let finalTarget = lazyLoader.container.querySelector(`#${CSS.escape(targetId)}`);
+        let finalTarget = lazyLoader.container.querySelector(
+          `#${CSS.escape(targetId)}`
+        );
         if (finalTarget) {
           scrollElementIntoContainer(finalTarget, lazyLoader.container, 50);
+        } else {
+          console.warn(
+            `Target element ${targetId} not found after loading chunks.`
+          );
         }
         if (typeof lazyLoader.attachMarkListeners === "function") {
           lazyLoader.attachMarkListeners(lazyLoader.container);
         }
         lazyLoader.isNavigatingToInternalId = false;
       }, 400);
-    }, 800);
-  });
+    })
+    .catch((error) => {
+      console.error("Error while loading chunks:", error);
+      lazyLoader.isNavigatingToInternalId = false;
+    });
 }
-
 
 
 // Utility: wait for an element and then scroll to it.

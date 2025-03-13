@@ -27,8 +27,14 @@ import { navigateToInternalId } from "./scrolling.js";  // or the correct path
  
 let highlightId; 
 
+let highlightLazyLoader;
+
 // Create a container manager for highlights using the same overlay if needed
-const highlightManager = new ContainerManager("highlight-container", "ref-overlay");
+const highlightManager = new ContainerManager(
+    "highlight-container", 
+    "ref-overlay", 
+    null, 
+    ["main-content", "nav-buttons"]);
 
 export function openHighlightContainer(content) {
   highlightManager.openContainer(content);
@@ -38,6 +44,24 @@ export function closeHighlightContainer() {
   highlightManager.closeContainer();
 }
 
+// Helper that creates or updates the lazy loader.
+function initOrUpdateHighlightLazyLoader(chunks) {
+  if (highlightLazyLoader) {
+    // Update the nodeChunks if the lazy loader already exists.
+    highlightLazyLoader.nodeChunks = chunks;
+  } else {
+    // Create the lazy loader with the given chunks.
+    highlightLazyLoader = createLazyLoader({
+      container: document.getElementById("highlight-container"),
+      nodeChunks: chunks,
+      loadNextChunk: loadNextChunkFixed,
+      loadPreviousChunk: loadPreviousChunkFixed,
+      attachMarkListeners,
+      bookId: book,
+    });
+  }
+  return highlightLazyLoader;
+}
 
 async function fetchHighlightChunksOnDemand(book) {
   const updateInfo = await fetchLatestUpdateInfo(book);
@@ -105,7 +129,7 @@ export function attachMarkListeners() {
 export function handleMarkClick(event) {
   event.preventDefault();
 
-  // Determine the highlight ID from the element
+  // Determine the highlight ID from the element (same logic as before)
   let highlightId = event.target.id;
   if (!highlightId) {
     const highlightClass = Array.from(event.target.classList).find((cls) =>
@@ -126,27 +150,20 @@ export function handleMarkClick(event) {
     return;
   }
 
-  // Open the highlight container (this should reveal the container if it is off-screen)
+  // Open the highlight container
   openHighlightContainer("");
 
-  // Now fetch the highlightChunks and create the lazy loader instance
- fetchHighlightChunksOnDemand(book)
-  .then((highlightChunks) => {
-    const highlightLazyLoader = createLazyLoader({
-      container: document.getElementById("highlight-container"),
-      nodeChunks: highlightChunks,
-      loadNextChunk: loadNextChunkFixed,
-      loadPreviousChunk: loadPreviousChunkFixed,
-      attachMarkListeners,
-      bookId: book,
+  // Fetch the highlight chunks and then create/update the lazy loader
+  fetchHighlightChunksOnDemand(book)
+    .then((highlightChunks) => {
+      const lazyLoader = initOrUpdateHighlightLazyLoader(highlightChunks);
+      navigateToInternalId(highlightId, lazyLoader, false);
+    })
+    .catch((err) => {
+      console.error("❌ Error fetching highlight chunks:", err);
     });
-    // Instead of assigning to global state, pass it directly:
-    navigateToInternalId(highlightId, highlightLazyLoader, false);
-  })
-  .catch((err) => {
-    console.error("❌ Error fetching highlight chunks:", err);
-  });
 }
+
 
 
 /**
@@ -398,7 +415,6 @@ addTouchAndClickListener(document.getElementById('copy-hyperlight'), function ()
         return;
     }
 
-
     // Prepare the data
     const requestBody = JSON.stringify({
         book: book,
@@ -439,15 +455,12 @@ addTouchAndClickListener(document.getElementById('copy-hyperlight'), function ()
         }
       })
       .then((updatedChunks) => {
-        // Assuming you already created the lazy loader somewhere (e.g. when handling the click)
-        // Update its nodeChunks to the latest version.
-        highlightLazyLoader.nodeChunks = updatedChunks;
+        // Ensure the lazy loader exists or update it using the new chunks.
+        const lazyLoader = initOrUpdateHighlightLazyLoader(updatedChunks);
         console.log("Updated highlightChunks:", updatedChunks);
-        // Now navigate to the highlight
-        navigateToInternalId(highlightId, highlightLazyLoader, false);
       })
       .catch((error) => {
-        console.error('❌ Error updating highlight:', error);
+        console.error("❌ Error updating highlight:", error);
       });
 
 });

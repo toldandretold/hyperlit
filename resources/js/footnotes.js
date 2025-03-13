@@ -11,7 +11,12 @@ import { attachMarkListeners } from './hyper-lights-cites.js';
 import { ContainerManager } from './container-manager.js';
 
 // Create a container manager for references
-const refManager = new ContainerManager("ref-container", "ref-overlay");
+const refManager = new ContainerManager(
+  "ref-container",   // The container to manage
+  "ref-overlay",     // The overlay element
+  null,              // No dedicated toggle button
+  ["main-content", "nav-buttons"] // IDs to freeze when ref-container is open
+);
 
 // Export the DOM elements for backward compatibility
 export const refContainer = document.getElementById("ref-container");

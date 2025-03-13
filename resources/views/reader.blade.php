@@ -19,17 +19,13 @@
 
     <!-- Buttons for hyper-lighting -->
     <div id="hyperlight-buttons" style="display: none; position: absolute; z-index: 9999;">
-        <button id="copy-hyperlight">Hyperlight</button>
+        <button id="copy-hyperlight" type="button">Hyperlight</button>
         <button id="delete-hyperlight" type="button" style="display:none;">Delete</button>
     </div>
 
     <!-- Button edit -->
-    <div style="position: fixed; top: 10px; right: 10px;">
+    <div id="nav-buttons">
     <button type="button" id="editButton">Edit</button>
-    </div>
-
-    <!-- Button for Table of Contents -->
-    <div style="position: fixed; top: 10px; left: 10px;">
     <button type="button" id="toc-toggle-button">Contents</button>
     </div>
 
