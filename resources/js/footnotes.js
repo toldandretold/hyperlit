@@ -175,7 +175,7 @@ export async function injectFootnotesForChunk(chunkId, book, getFreshUrl) {
                 // Replace the Markdown footnote marker with a <sup> element.
                 targetElement.innerHTML = targetElement.innerHTML.replace(
                   regex,
-                  `<sup class="note" data-note-key="${key}">[^${key}]</sup>`
+                  `<sup class="note" data-note-key="${key}">${key}</sup>`
                 );
               } else {
                 console.warn(`Regex did not match for footnote key: ${key} in element:`, targetElement.innerHTML);

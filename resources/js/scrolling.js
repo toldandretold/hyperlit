@@ -3,6 +3,8 @@ import { getNodeChunksFromIndexedDB, getLocalStorageKey } from './cache-indexedD
 import { parseMarkdownIntoChunks } from './convert-markdown.js';
 import { injectFootnotesForChunk } from './footnotes.js';
 import { currentLazyLoader } from './initializePage.js';
+import { repositionSentinels } from "./lazyLoaderFactory.js"; // if exported
+
 
 
 // ========= Scrolling Helper Functions =========
@@ -163,6 +165,13 @@ function _navigateToInternalId(targetId, lazyLoader, showBookmark) {
   lazyLoader.isNavigatingToInternalId = true;
   console.log(`Navigating to internal ID: ${targetId}`);
 
+  // Helper to remove any active highlights from elements inside the container.
+  const removeActiveHighlight = () => {
+    const activeElements =
+      lazyLoader.container.querySelectorAll(".active");
+    activeElements.forEach((el) => el.classList.remove("active"));
+  };
+
   // Ensure we have a set to keep track of the currently loaded chunks.
   if (!lazyLoader.currentlyLoadedChunks) {
     lazyLoader.currentlyLoadedChunks = new Set();
@@ -175,6 +184,10 @@ function _navigateToInternalId(targetId, lazyLoader, showBookmark) {
   if (existingElement) {
     // Scroll once to the target element.
     scrollElementIntoContainer(existingElement, lazyLoader.container, 50);
+    // Highlight the element by adding the active class.
+    removeActiveHighlight();
+    existingElement.classList.add("active");
+
     // Use a single delayed call to attach listeners and mark navigation complete.
     setTimeout(() => {
       if (typeof lazyLoader.attachMarkListeners === "function") {
@@ -189,9 +202,7 @@ function _navigateToInternalId(targetId, lazyLoader, showBookmark) {
   let targetChunkIndex = -1;
   if (/^\d+$/.test(targetId)) {
     targetChunkIndex = lazyLoader.nodeChunks.findIndex((chunk) =>
-      chunk.blocks.some(
-        (block) => block.startLine.toString() === targetId
-      )
+      chunk.blocks.some((block) => block.startLine.toString() === targetId)
     );
   } else {
     // For non-numeric custom IDs, use a helper to find the appropriate line.
@@ -256,6 +267,9 @@ function _navigateToInternalId(targetId, lazyLoader, showBookmark) {
         );
         if (finalTarget) {
           scrollElementIntoContainer(finalTarget, lazyLoader.container, 50);
+          // Highlight the target element.
+          removeActiveHighlight();
+          finalTarget.classList.add("active");
         } else {
           console.warn(
             `Target element ${targetId} not found after loading chunks.`
@@ -272,6 +286,7 @@ function _navigateToInternalId(targetId, lazyLoader, showBookmark) {
       lazyLoader.isNavigatingToInternalId = false;
     });
 }
+
 
 
 // Utility: wait for an element and then scroll to it.
@@ -303,5 +318,9 @@ function findLineForCustomId(targetId, nodeChunks) {
   }
   return null;
 }
+
+
+
+
 
 

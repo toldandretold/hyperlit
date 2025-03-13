@@ -48,15 +48,27 @@ blockquote {
     border-color: #4EACAE;
     color: #CBCCCC;
     margin: 1em 2em;
-    padding: 0em 1em;
+    padding: 1em;
+    padding-left: 1rem;
+    display: flow-root;
 }   
 
 /* Media query for phones (small screens) */
 @media only screen and (max-width: 600px) {
-        blockquote {
-        margin: 10px; /* Adjust margin for smaller screens */
-        padding: 8px; /* Optional: adjust padding for smaller screens */  
-    }
+  blockquote {
+    margin: 10px;
+    padding: 8px; /* Increase vertical padding if needed */
+    padding-left: 1rem;
+    overflow: auto; /* or display: flow-root; */
+  }
+}
+
+blockquote p:first-child {
+  margin-top: 0;
+}
+
+blockquote p:last-child {
+  margin-bottom: 0;
 }  
 
 ins {
@@ -93,6 +105,7 @@ a {
     text-decoration: none;
     outline: none;
 }
+
 
 /*used by container-manager*/
 .frozen {
@@ -193,10 +206,16 @@ html, body, * {
 }
 
 #nav-buttons {
-    position: fixed; 
-    top: 10px; 
-    transition: opacity 0.3s ease;
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px; /* Adjust spacing between buttons as needed */
+  transition: opacity 0.3s ease;
 }
+
 
 /* The hidden class hides the container */
 .hidden-nav {
@@ -208,7 +227,6 @@ mark {
      text-decoration: none !important; /* Ensure no underline on hover */
   /* A radial gradient that fades from yellow to transparent */
   background: #EE4A95;
-  padding: 5px;
   /* Optionally add some padding so the effect is visible */
 }
 
@@ -216,12 +234,12 @@ mark:hover {
     text-decoration: none !important; /* Ensure no underline on hover */
     cursor: pointer;
     background: #4EACAE;
-    border-radius: 1em 1em;
-  box-shadow: 0px 0px 5px 5px #4EACAE;
+    
 }
 
-mark:onclick {
-    text-decoration: none !important; /* Ensure no underline on hover */
+mark .active {
+    text-decoration: none !important;
+    background: #4EACAE;
 }
 
 table {
@@ -304,6 +322,8 @@ button:hover {
     overflow: auto;
     padding-left: 1em;
     padding-right: 1em;
+    border-radius: 1em 1em;
+    box-shadow: 0px 0px 5px 5px #221F20;
 }
 
 #toc-container h1.first {
@@ -349,6 +369,60 @@ button:hover {
     visibility: visible;
 }
 
+#toc-toggle-button {
+  width: 40px;
+  height: 40px;
+  background-color: #333; /* Button background color */
+  border: none;
+  border-radius: 5px; /* Rounded corners */
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+#toc-toggle-button::before,
+#toc-toggle-button::after,
+#toc-toggle-button span {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 4px;
+  background-color: white;
+  border-radius: 2px;
+}
+
+#toc-toggle-button::before {
+  top: 12px;
+}
+
+#toc-toggle-button::after {
+  bottom: 12px;
+}
+
+#toc-toggle-button span {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+
+#editButton {
+width: 40px; /* Matching width */
+  height: 40px; /* Matching height */
+  background: #333;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+}
+
+
+#editButton svg {
+  width: 20px;
+  height: 20px;
+  stroke: white; /* Change to your preferred color */
+}
+
 /* Reference Container */
 #ref-container, 
 #highlight-container {
@@ -364,6 +438,8 @@ button:hover {
     overflow: auto;
     padding-left: 1em;
     padding-right: 1em;
+    border-radius: 1em 1em;
+    box-shadow: 0px 0px 5px 5px #221F20;
 }
 
 #ref-container.open, 
