@@ -1,5 +1,5 @@
 // footnotes.js
-import { book } from './reader-DOMContentLoaded.js';
+import { book } from './app.js';
 import {
   openDatabase,
   getFootnotesFromIndexedDB,

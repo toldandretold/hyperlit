@@ -1,4 +1,4 @@
-import { book } from './reader-DOMContentLoaded.js';
+import { book } from './app.js';
 import { navigateToInternalId
         } from './scrolling.js';
 import { parseInlineMarkdown } from './convert-markdown.js';

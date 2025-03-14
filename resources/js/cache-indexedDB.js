@@ -1,21 +1,21 @@
-import {
-  book,
-  mainContentDiv
-} from './reader-DOMContentLoaded.js';
+import { book, mainContentDiv } from "./app.js";
 
-import {
-    parseMarkdownIntoChunks
-} from './convert-markdown.js';
+/**
+ * Returns the current page URL (without protocol, query params, etc.) for use as a composite key.
+ */
 
-// Helper function to get the current page URL as a key
 export function getPageKey() {
-    // Remove protocol, query parameters, and hash to get a clean URL
-    return window.location.pathname;
+  const key = window.location.pathname;
+  console.log("getPageKey() returns:", key);
+  return key;
 }
 
-// cache-indexedDB.js
-export const DB_VERSION = 7; // Increment version for schema change
+export const DB_VERSION = 7;
 
+/**
+ * Opens (or creates) the IndexedDB database.
+ * IMPORTANT: For the nodeChunks store we use chunk_id as the fourth key component.
+ */
 export async function openDatabase() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open("MarkdownDB", DB_VERSION);
@@ -24,22 +24,38 @@ export async function openDatabase() {
       console.log("📌 Upgrading IndexedDB to version " + DB_VERSION);
       const db = event.target.result;
 
-      // List all stores that need to be created with the same keyPath.
-      const storeNames = ["nodeChunks", "markdownStore", "footnotes"];
-
-      storeNames.forEach((storeName) => {
-        // Delete the object store if it already exists.
-        if (db.objectStoreNames.contains(storeName)) {
-          db.deleteObjectStore(storeName);
-          console.log(`Deleted existing store: ${storeName}`);
-        }
-
-        // Create the store with the composite key [url, container, book].
-        db.createObjectStore(storeName, {
+      // Updated composite keys: apply chunk_id for nodeChunks
+      const storeConfigs = [
+        {
+          name: "nodeChunks",
+          keyPath: ["url", "container", "book", "chunk_id"],
+        },
+        {
+          name: "markdownStore",
           keyPath: ["url", "container", "book"],
-        });
+        },
+        {
+          name: "footnotes",
+          keyPath: ["url", "container", "book"],
+        },
+        {
+          name: "hyperlights",
+          keyPath: ["url", "container", "book", "hyperlight_id"],
+        },
+        {
+          name: "hypercites",
+          keyPath: ["url", "container", "book", "hypercite_id"],
+        },
+      ];
+
+      storeConfigs.forEach(({ name, keyPath }) => {
+        if (db.objectStoreNames.contains(name)) {
+          db.deleteObjectStore(name);
+          console.log(`Deleted existing store: ${name}`);
+        }
+        db.createObjectStore(name, { keyPath });
         console.log(
-          `✅ Created store '${storeName}' with composite keyPath: ["url", "container", "book"]`
+          `✅ Created store '${name}' with composite keyPath: ${JSON.stringify(keyPath)}`
         );
       });
     };
@@ -52,54 +68,28 @@ export async function openDatabase() {
   });
 }
 
-export async function checkIndexedDBSize() {
-    let dbRequest = indexedDB.open("MarkdownDB", DB_VERSION); // Use same version
-    dbRequest.onsuccess = function(event) {
-        let db = event.target.result;
-        let tx = db.transaction("nodeChunks", "readonly");
-        let store = tx.objectStore("nodeChunks");
-        let getRequest = store.get("latest");
-        getRequest.onsuccess = function() {
-            let data = getRequest.result;
-            if (data) {
-                let sizeInKB = new Blob([JSON.stringify(data)]).size / 1024;
-                console.log("📂 IndexedDB nodeChunks Size:", sizeInKB.toFixed(2), "KB");
-            } else {
-                console.log("❌ No data found in IndexedDB.");
-            }
-        };
-        getRequest.onerror = function() {
-            console.log("❌ Error retrieving data from IndexedDB.");
-        };
-    };
-    dbRequest.onerror = function() {
-        console.log("❌ Error opening IndexedDB.");
-    };
-}
-
-export async function saveNodeChunksToIndexedDB(
-  nodeChunks,
-  containerId = "default",
-  bookId = "latest"
-) {
+/**
+ * Saves nodeChunks (the array of chunk records) to IndexedDB.
+ * It expects that each record already has:
+ *   - url, container, and book (which are added here),
+ *   - and a chunk_id property produced by the new parser.
+ */
+export async function saveNodeChunksToIndexedDB(nodeChunks, containerId = "default", bookId = "latest") {
   const db = await openDatabase();
   const tx = db.transaction("nodeChunks", "readwrite");
   const store = tx.objectStore("nodeChunks");
 
-  store.put({
-    url: window.location.pathname,
-    container: containerId,
-    book: bookId,
-    data: nodeChunks
+  nodeChunks.forEach((record) => {
+    record.url = window.location.pathname;
+    record.container = containerId;
+    record.book = bookId;
+    // record.chunk_id is already set by the parser
+    store.put(record);
   });
 
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => {
-      console.log(
-        "✅ nodeChunks successfully saved in IndexedDB for",
-        containerId,
-        bookId
-      );
+      console.log("✅ nodeChunks successfully saved in IndexedDB for", containerId, bookId);
       resolve();
     };
     tx.onerror = () => {
@@ -109,135 +99,138 @@ export async function saveNodeChunksToIndexedDB(
   });
 }
 
-export async function getNodeChunksFromIndexedDB() {
-    if (!window.db) {
-        window.db = await openDatabase();
-    }
-    const tx = window.db.transaction("nodeChunks", "readonly");
-    const store = tx.objectStore("nodeChunks");
-    
-    return new Promise((resolve, reject) => {
-        const request = store.get([getPageKey(), "latest"]);
-        request.onsuccess = () => {
-            console.log("✅ Retrieved nodeChunks from IndexedDB for", getPageKey());
-            resolve(request.result?.data || []);
-        };
-        request.onerror = () => reject("❌ Error loading nodeChunks from IndexedDB");
-    });
-}
+/**
+ * Retrieves nodeChunks from IndexedDB using the composite key.
+ * Now the fourth component is chunk_id.
+ */
+export async function getNodeChunksFromIndexedDB(containerId = "default", bookId = "latest") {
+  const db = await openDatabase();
+  const tx = db.transaction("nodeChunks", "readonly");
+  const store = tx.objectStore("nodeChunks");
 
-// === pulling from cache/indexedDB // 
-export function reconstructSavedChunks() {
-    if (!window.nodeChunks || window.nodeChunks.length === 0) {
-        console.error("❌ No `nodeChunks` available to reconstruct `savedChunks`.");
-        return;
-    }
-
-    // ✅ Ensure we use the latest server timestamp
-    let latestServerTimestamp = localStorage.getItem("markdownLastModified") || Date.now().toString();
-
-    let reconstructedChunks = window.nodeChunks.slice(0, 3).map(chunk => ({
-        id: chunk.chunk_id,
-        html: document.querySelector(`[data-chunk-id="${chunk.chunk_id}"]`)?.outerHTML || null
-    })).filter(chunk => chunk.html); // Remove any null chunks
-
-    let reconstructedSavedChunks = { 
-        timestamp: latestServerTimestamp,  // ✅ Ensure we use the latest stored timestamp
-        chunks: reconstructedChunks 
+  // Build key range using chunk_id as the fourth element.
+  const lowerBound = [getPageKey(), containerId, bookId, 0];
+  const upperBound = [getPageKey(), containerId, bookId, Number.MAX_SAFE_INTEGER];
+  const keyRange = IDBKeyRange.bound(lowerBound, upperBound);
+  console.log("Retrieving with lower bound:", lowerBound);
+  console.log("Retrieving with upper bound:", upperBound);
+ 
+  return new Promise((resolve, reject) => {
+    const request = store.getAll(keyRange);
+    request.onsuccess = () => {
+      console.log("✅ Retrieved nodeChunks from IndexedDB for", getPageKey());
+      resolve(request.result || []);
     };
-
-    localStorage.setItem("savedChunks", JSON.stringify(reconstructedSavedChunks));
-
-    console.log("✅ `savedChunks` successfully reconstructed and stored with timestamp:", latestServerTimestamp);
+    request.onerror = () =>
+      reject("❌ Error loading nodeChunks from IndexedDB");
+  });
 }
 
-export async function clearIndexedDB() {
-    try {
-        let db = await openDatabase();
-        let tx = db.transaction("nodeChunks", "readwrite");
-        let store = tx.objectStore("nodeChunks");
-        store.clear();
-        return new Promise((resolve) => {
-            tx.oncomplete = () => {
-                console.log("🗑 IndexedDB `nodeChunks` cleared.");
-                resolve();
-            };
-            tx.onerror = () => {
-                console.error("❌ Error clearing IndexedDB.");
-                resolve();
-            };
-        });
-    } catch (error) {
-        console.error("❌ Failed to clear IndexedDB:", error);
+/**
+ * Reconstructs saved chunks based on window.nodeChunks.
+ * (This is optional and may be used for debugging or to rebuild UI state.)
+ */
+export function reconstructSavedChunks() {
+  if (!window.nodeChunks || window.nodeChunks.length === 0) {
+    console.error("❌ No `nodeChunks` available to reconstruct `savedChunks`.");
+    return;
+  }
+
+  // Group records by chunk_id.
+  const groupedByChunk = window.nodeChunks.reduce((acc, record) => {
+    if (!acc[record.chunk_id]) {
+      acc[record.chunk_id] = [];
     }
+    acc[record.chunk_id].push(record);
+    return acc;
+  }, {});
+
+  // For demonstration, use the first three groups.
+  const reconstructedChunks = Object.keys(groupedByChunk)
+    .slice(0, 3)
+    .map((chunkId) => {
+      const html = document.querySelector(`[data-chunk-id="${chunkId}"]`)?.outerHTML;
+      return html ? { id: chunkId, html } : null;
+    })
+    .filter(chunk => chunk !== null);
+
+  const latestServerTimestamp = localStorage.getItem("markdownLastModified") || Date.now().toString();
+
+  const reconstructedSavedChunks = {
+    timestamp: latestServerTimestamp,
+    chunks: reconstructedChunks,
+  };
+
+  localStorage.setItem("savedChunks", JSON.stringify(reconstructedSavedChunks));
+  console.log("✅ `savedChunks` successfully reconstructed and stored with timestamp:", latestServerTimestamp);
 }
 
-// footnotes //
-// Modified footnotes functions
-export async function getFootnotesFromIndexedDB(
-  containerId = "default",
-  bookId = "latest"
-) {
-  let db = await openDatabase();
+/**
+ * Clears the nodeChunks store in IndexedDB.
+ */
+export async function clearIndexedDB() {
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction("nodeChunks", "readwrite");
+    const store = tx.objectStore("nodeChunks");
+    store.clear();
+    return new Promise((resolve) => {
+      tx.oncomplete = () => {
+        console.log("🗑 IndexedDB `nodeChunks` cleared.");
+        resolve();
+      };
+      tx.onerror = () => {
+        console.error("❌ Error clearing IndexedDB.");
+        resolve();
+      };
+    });
+  } catch (error) {
+    console.error("❌ Failed to clear IndexedDB:", error);
+  }
+}
 
+/* --- Footnotes functions remain mostly unchanged --- */
+
+export async function getFootnotesFromIndexedDB(containerId = "default", bookId = "latest") {
+  const db = await openDatabase();
   return new Promise((resolve, reject) => {
     if (!db.objectStoreNames.contains("footnotes")) {
       console.warn("⚠️ 'footnotes' object store still missing after initialization.");
       return resolve(null);
     }
-
-    let transaction = db.transaction(["footnotes"], "readonly");
-    let store = transaction.objectStore("footnotes");
+    const transaction = db.transaction(["footnotes"], "readonly");
+    const store = transaction.objectStore("footnotes");
     let key = [getPageKey(), containerId, bookId];
     let getRequest = store.get(key);
-
-    getRequest.onsuccess = () =>
-      resolve(getRequest.result?.data || null);
+    getRequest.onsuccess = () => resolve(getRequest.result?.data || null);
     getRequest.onerror = () => resolve(null);
   });
 }
 
-export async function saveFootnotesToIndexedDB(
-  footnotesData,
-  containerId = "default",
-  bookId = "latest"
-) {
-  let db = await openDatabase();
-
+export async function saveFootnotesToIndexedDB(footnotesData, containerId = "default", bookId = "latest") {
+  const db = await openDatabase();
   return new Promise((resolve, reject) => {
     if (!db.objectStoreNames.contains("footnotes")) {
       console.warn("⚠️ Cannot save: 'footnotes' store missing.");
       return reject("Object store missing");
     }
-
-    let transaction = db.transaction(["footnotes"], "readwrite");
-    let store = transaction.objectStore("footnotes");
-
-    let request = store.put({
+    const transaction = db.transaction(["footnotes"], "readwrite");
+    const store = transaction.objectStore("footnotes");
+    const request = store.put({
       url: getPageKey(),
       container: containerId,
       book: bookId,
-      data: footnotesData
+      data: footnotesData,
     });
-    
     request.onsuccess = () => resolve();
-    request.onerror = () =>
-      reject("❌ Failed to save footnotes to IndexedDB");
+    request.onerror = () => reject("❌ Failed to save footnotes to IndexedDB");
   });
 }
 
 function getCompositeKey(containerId = "default", bookId = "latest") {
-  return {
-    url: window.location.pathname, // or your getPageKey() helper
-    container: containerId,
-    book: bookId
-  };
+  return { url: window.location.pathname, container: containerId, book: bookId };
 }
 
-export function getLocalStorageKey(
-  baseKey,
-  containerId = "default",
-  bookId = "latest"
-) {
+export function getLocalStorageKey(baseKey, containerId = "default", bookId = "latest") {
   return `${baseKey}_${window.location.pathname}_${containerId}_${bookId}`;
 }

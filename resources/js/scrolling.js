@@ -1,4 +1,4 @@
-import { mainContentDiv, book } from './reader-DOMContentLoaded.js';
+import { mainContentDiv, book } from './app.js';
 import { getNodeChunksFromIndexedDB, getLocalStorageKey } from './cache-indexedDB.js';
 import { parseMarkdownIntoChunks } from './convert-markdown.js';
 import { injectFootnotesForChunk } from './footnotes.js';
