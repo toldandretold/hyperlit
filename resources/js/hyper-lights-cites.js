@@ -11,7 +11,7 @@ are added to multiple html nodes, without id being duplicated.
 import {
     mainContentDiv,
     book
-} from './reader-DOMContentLoaded.js';
+} from './app.js';
 
 import { fetchLatestUpdateInfo, handleTimestampComparison } from "./updateCheck.js";
 

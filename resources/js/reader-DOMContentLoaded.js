@@ -1,4 +1,10 @@
 import {
+    mainContentDiv,
+    book,
+    markdownContent
+} from './app.js'; 
+
+import {
     convertMarkdownToHtml
 } from './convert-markdown.js';
 
@@ -19,12 +25,6 @@ import {
 
 import { 
     openDatabase, 
-    DB_VERSION, 
-    checkIndexedDBSize,
-    getNodeChunksFromIndexedDB,
-    saveNodeChunksToIndexedDB,
-    getFootnotesFromIndexedDB,
-    saveFootnotesToIndexedDB
 } from './cache-indexedDB.js';
 
 import {
@@ -49,12 +49,7 @@ import {
 import NavButtons from "./nav-buttons.js";
 
 import { currentLazyLoader } from './initializePage.js';
-
-export const mainContentDiv = document.getElementById("main-content"); 
-    
-export const markdownContent = ""; // Store Markdown globally
-
-export const book = mainContentDiv.getAttribute('data-book');
+  
 
 if (!window.isInitialized) {
     window.isInitialized = true;

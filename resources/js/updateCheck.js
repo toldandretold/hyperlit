@@ -2,7 +2,7 @@
 import {
   book,
   mainContentDiv
-} from './reader-DOMContentLoaded.js';
+} from './app.js';
 
 export async function fetchLatestUpdateInfo(book) {
   const response = await fetch(`/markdown/${book}/latest_update.json?v=${Date.now()}`);
