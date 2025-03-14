@@ -241,6 +241,11 @@ async function sendGeneratedDataToBackend(nodeChunks, footnotes) {
 export let currentLazyLoader = null;
 
 export function initializeMainLazyLoader() {
+  // Only initialize if we don't already have a lazy loader.
+  if (currentLazyLoader) {
+    console.log("✅ Lazy loader already initialized. Skipping reinitialization.");
+    return currentLazyLoader;
+  }
   currentLazyLoader = createLazyLoader({
     container: mainContentDiv,
     nodeChunks: window.nodeChunks, // previously generated lazy-load data
@@ -260,13 +265,18 @@ async function updateIfNecessary() {
     return;
   }
   const serverTimestamp = updateInfo.updated_at.toString();
-  const cachedTimestamp = localStorage.getItem("markdownLastModified") || "null";
+  const cachedTimestamp =
+    localStorage.getItem("markdownLastModified") || "null";
   if (cachedTimestamp !== serverTimestamp) {
     console.log("❌ Timestamps differ — performing full reload in background.");
     await handleFullReload(serverTimestamp);
-    initializeMainLazyLoader(); // Reinitialize lazy loader after updating
+    // Because a full reload has updated window.nodeChunks, clear the old lazy loader.
+    currentLazyLoader = null;
+    // Now reinitialize the lazy loader with the fresh content.
+    initializeMainLazyLoader();
   } else {
     console.log("✅ Timestamps match — no update necessary.");
+    // Do not reinitialize the lazy loader if it's already active.
   }
 }
 
@@ -285,17 +295,12 @@ export async function loadMarkdownFile() {
 
   let cachedServerTimestamp =
     localStorage.getItem("markdownLastModified") || "null";
-  console.log(
-    "📂 Cached Server Timestamp BEFORE request:",
-    cachedServerTimestamp
-  );
+  console.log("📂 Cached Server Timestamp BEFORE request:", cachedServerTimestamp);
 
   try {
     const updateInfo = await fetchLatestUpdateInfo(book);
     if (!updateInfo) {
-      console.log(
-        "⚠️ No latest_update.json found. Initiating raw reload..."
-      );
+      console.log("⚠️ No latest_update.json found. Initiating raw reload...");
       const success = await handleRawReload();
       if (!success) {
         console.error("❌ Raw reload failed. Cannot proceed.");
@@ -303,10 +308,7 @@ export async function loadMarkdownFile() {
       }
     } else {
       const serverTimestamp = updateInfo.updated_at.toString();
-      console.log(
-        "✅ Server reported Markdown last updated at:",
-        serverTimestamp
-      );
+      console.log("✅ Server reported Markdown last updated at:", serverTimestamp);
       const needsReload = await handleTimestampComparison(
         serverTimestamp,
         cachedServerTimestamp
@@ -314,6 +316,8 @@ export async function loadMarkdownFile() {
       if (needsReload) {
         console.log("❌ TIMESTAMPS DIFFER: Performing Full Reload...");
         await handleFullReload(serverTimestamp);
+        // Reset the lazy loader since new content was loaded.
+        currentLazyLoader = null;
       } else {
         console.log("✅ Timestamps match! Using IndexedDB cache...");
         await handleCachedLoad();
@@ -325,10 +329,15 @@ export async function loadMarkdownFile() {
       return;
     }
 
-    // Initialize the lazy loader for the first chunk, insert sentinels,
-    // and start lazy loading based on scrolling.
-    console.log("✅ Initializing lazy loader...");
-    initializeMainLazyLoader();
+    // Only initialize the lazy loader if it isn't already active.
+    if (!currentLazyLoader) {
+      console.log("✅ Initializing lazy loader...");
+      initializeMainLazyLoader();
+    } else {
+      console.log(
+        "✅ Lazy loader already initialized, continuing to listen for scroll events."
+      );
+    }
   } catch (error) {
     console.error("❌ Error loading Markdown:", error);
   }
