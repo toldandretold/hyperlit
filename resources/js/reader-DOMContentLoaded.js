@@ -73,12 +73,14 @@ if (!window.isInitialized) {
 
         console.log("✅ DOM is ready. Loading Markdown file...");
 
-        // Initialize IndexedDB
+        // cache-indexedDB.js
         window.db = await openDatabase();
         console.log("✅ IndexedDB initialized.");
 
-        // Load main Markdown file
+
+        // initializePage.js
         await loadMarkdownFile();
+        
         
         // gets scroll position from session storage 
         restoreScrollPosition();
