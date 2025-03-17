@@ -259,7 +259,50 @@ document.addEventListener("visibilitychange", () => {
 // 9. Main Entry Point 
 // ---------------------------------------------------------------------
 export async function loadMarkdownFile() {
+
+    if (!navigator.onLine) {
+    console.warn('Offline mode: using cached data only.');
+    const cachedNodeChunks = await getNodeChunksFromIndexedDB(containerId, bookId);
+    if (cachedNodeChunks) {
+      window.nodeChunks = cachedNodeChunks;
+      await loadFootnotes();
+      initializeMainLazyLoader();
+      return;
+    }
+  }
   console.log("🚀 ENTERING loadMarkdownFile()...");
+
+  // First try to load from IndexedDB
+  try {
+    console.log("🔍 Attempting to load nodeChunks from IndexedDB...");
+    const cachedNodeChunks = await getNodeChunksFromIndexedDB();
+    if (cachedNodeChunks && cachedNodeChunks.length > 0) {
+      console.log("✅ Loaded nodeChunks from IndexedDB");
+      window.nodeChunks = cachedNodeChunks;
+
+      // If the lazy loader hasn't been initialized, do so.
+      if (!currentLazyLoader) {
+        console.log("✅ Initializing lazy loader...");
+        initializeMainLazyLoader();
+      } else {
+        console.log(
+          "✅ Lazy loader already initialized, continuing to listen for scroll events."
+        );
+      }
+
+      // Since we've loaded from offline storage, we can exit here.
+      return;
+    }
+    console.log("⚠️ No nodeChunks found in IndexedDB. Falling back to server.");
+  } catch (error) {
+    console.error(
+      "❌ Error attempting to load nodeChunks from IndexedDB:",
+      error
+    );
+    console.error("⚠️ Falling back to fetching from server...");
+  }
+
+  // Fallback: Load from the server if IndexedDB does not provide valid data
   let cachedServerTimestamp = localStorage.getItem("markdownLastModified") || "null";
   console.log("📂 Cached Server Timestamp BEFORE request:", cachedServerTimestamp);
   try {
@@ -284,6 +327,7 @@ export async function loadMarkdownFile() {
         await handleCachedLoad();
       }
     }
+
     if (!window.nodeChunks || window.nodeChunks.length === 0) {
       console.error("❌ nodeChunks is empty. Aborting lazy loading.");
       return;
@@ -292,7 +336,9 @@ export async function loadMarkdownFile() {
       console.log("✅ Initializing lazy loader...");
       initializeMainLazyLoader();
     } else {
-      console.log("✅ Lazy loader already initialized, continuing to listen for scroll events.");
+      console.log(
+        "✅ Lazy loader already initialized, continuing to listen for scroll events."
+      );
     }
   } catch (error) {
     console.error("❌ Error loading Markdown:", error);

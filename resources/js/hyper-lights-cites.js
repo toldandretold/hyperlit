@@ -7,7 +7,6 @@ are added to multiple html nodes, without id being duplicated.
  */
 
 
-
 import {
     mainContentDiv,
     book
@@ -24,10 +23,18 @@ import { createLazyLoader,
 import { ContainerManager } from "./container-manager.js";
 
 import { navigateToInternalId } from "./scrolling.js";  // or the correct path
+
+import {
+  openDatabase,
+  // Other IndexedDB helper functions as needed.
+} from "./cache-indexedDB.js";
+
  
 let highlightId; 
 
 let highlightLazyLoader;
+
+
 
 // Create a container manager for highlights using the same overlay if needed
 const highlightManager = new ContainerManager(
@@ -286,13 +293,23 @@ rangy.init();
     });
 
     // Helper function to bind click and touchstart events
-    function addTouchAndClickListener(element, handler) {
-        element.addEventListener('click', handler);
-        element.addEventListener('touchstart', function(event) {
-            event.preventDefault(); // Prevents default touch behavior
-            handler(event); // Call the same handler for touch events
-        });
+function addTouchAndClickListener(element, handler) {
+  element.addEventListener("click", function(event) {
+    if (event.target.id === "copy-hyperlight") {
+      //if (event.target.className !== 'this-event')
+      event.preventDefault(); // Ensure the button click doesn't cancel the selection
+      event.stopPropagation(); // Stop the event from bubbling
+      handler(event);
     }
+  });
+  element.addEventListener("touchstart", function(event) {
+    if (event.target.id === "copy-hyperlight") {
+      event.preventDefault(); // Prevents default touch behavior
+      event.stopPropagation(); // Stop the event from bubbling
+      handler(event);
+    }
+  });
+}
 
     // Function to handle creating a highlight
 // Functions to handle creating a highlight
@@ -315,155 +332,238 @@ function modifyNewMarks(highlightId) {
     console.log("✅ New highlight mark created with ID:", highlightId);
 }
 
-addTouchAndClickListener(document.getElementById('copy-hyperlight'), function () {
+
+addTouchAndClickListener(
+  document.getElementById("copy-hyperlight"),
+  async function() {
     let selection = window.getSelection();
     let range;
-
     try {
-        range = selection.getRangeAt(0);
-        console.log('📌 Full selected text:', selection.toString());
+      range = selection.getRangeAt(0);
+      console.log("📌 Full selected text:", selection.toString());
     } catch (error) {
-        console.error('❌ Error getting range:', error);
-        return;
+      console.error("❌ Error getting range:", error);
+      return;
     }
 
     let selectedText = selection.toString().trim();
     if (!selectedText) {
-        console.error('⚠️ No valid text selected.');
-        return;
+      console.error("⚠️ No valid text selected.");
+      return;
     }
 
-    // Generate unique highlight ID
-    const highlightId = generateHighlightID();
-
-    // Ensure highlighter function exists before calling it
-    if (typeof highlighter !== "undefined" && highlighter.highlightSelection) {
-        highlighter.highlightSelection("highlight");
-    } else {
-        console.warn("⚠️ Highlighter function is not defined.");
-    }
-
-    // Modify the marks immediately after highlighting
-    modifyNewMarks(highlightId);
-    attachMarkListeners();
-
-
-    // Get closest valid block elements
-    let startContainer = range.startContainer.nodeType === 3 
-    ? range.startContainer.parentElement.closest('p, blockquote, table, [id]') 
-    : range.startContainer.closest('p, blockquote, table, [id]');
-
-    let endContainer = range.endContainer.nodeType === 3 
-    ? range.endContainer.parentElement.closest('p, blockquote, table, [id]') 
-    : range.endContainer.closest('p, blockquote, table, [id]');
-
-    // 🔍 Debugging: Check if startContainer and endContainer are valid
+    // 2. Get the start/end HTML nodes
+    let startContainer =
+      range.startContainer.nodeType === 3
+        ? range.startContainer.parentElement.closest(
+            "p, blockquote, table, [id]"
+          )
+        : range.startContainer.closest("p, blockquote, table, [id]");
+    let endContainer =
+      range.endContainer.nodeType === 3
+        ? range.endContainer.parentElement.closest(
+            "p, blockquote, table, [id]"
+          )
+        : range.endContainer.closest("p, blockquote, table, [id]");
     console.log("📌 Start Container:", startContainer);
     console.log("📌 End Container:", endContainer);
 
     if (!startContainer || !endContainer) {
-        console.error('❌ Could not determine start or end block.');
-        return;
+      console.error("❌ Could not determine start or end block.");
+      return;
     }
 
-    let startId = parseInt(startContainer.id, 10);
-    let endId = parseInt(endContainer.id, 10);
+    const startOffset = range.startOffset; //save the starting offset
+    const endOffset = range.endOffset; //Save ending offset
 
-    // Collect all blocks in range
-    let blocks = [];
-    let allBlocks = [...document.querySelectorAll('[id]')]; // Get all elements with an ID
+    console.log(`Before Mark: Start offset ${range.startOffset}`);
 
-    // Find the index of start and end containers
-    let startIndex = allBlocks.findIndex(el => el.id === startContainer.id);
-    let endIndex = allBlocks.findIndex(el => el.id === endContainer.id);
+    // Generate unique highlight ID
+    const highlightId = generateHighlightID();
 
-    if (startIndex === -1 || endIndex === -1) {
-        console.error("❌ Could not find start or end container in document.");
-        return;
+    // 1. Immediately call your highlighter to insert <mark> tags
+    if (typeof highlighter !== "undefined" && highlighter.highlightSelection) {
+      highlighter.highlightSelection("highlight");
+    } else {
+      console.warn("⚠️ Highlighter function is not defined.");
+      return;
     }
 
-    // Slice the array to get only the selected range
-    let selectedBlocks = allBlocks.slice(startIndex, endIndex + 1);
+    // Attach unique highlight ID to the new mark tags.
+    // For instance, assume that modifyNewMarks adds a class like "highlight-<ID>"
+    modifyNewMarks(highlightId);
 
-    // Add the blocks to be sent
-    selectedBlocks.forEach(block => {
-        blocks.push({
-            id: block.id,
-            html: block.innerHTML  // Get latest content
-        });
-    });
+    // 3. Find the inserted mark inside each node.
+    const startMark = startContainer.querySelector("." + highlightId);
+    const endMark = endContainer.querySelector("." + highlightId);
 
-    // Debugging
-    console.log("📌 Blocks collected:", blocks);
-
-
-
-    // Apply highlights to each block
-    blocks.forEach(block => {
-        let element = document.getElementById(block.id);
-        if (element) {
-            highlighter.highlightSelection("highlight", element);
-        } else {
-            console.warn(`⚠️ No element found for block ID: ${block.id}`);
-        }
-    });
-
-
-    // Prevent sending empty blocks
-    if (!blocks.length) {
-        console.error("❌ No valid blocks found. Aborting request.");
-        return;
+    if (!startMark || !endMark) {
+      console.error(
+        "❌ Could not locate mark elements for highlight boundaries."
+      );
+      return;
     }
 
-    // Prepare the data
-    const requestBody = JSON.stringify({
-        book: book,
-        blocks: blocks,
-        text: selectedText,
-        start_xpath: getXPath(range.startContainer),
-        end_xpath: getXPath(range.endContainer),
-        xpath_full: getFullXPath(range.startContainer),
-        start_position: range.startOffset,
-        end_position: range.startOffset + selectedText.length,
-        highlight_id: highlightId,  // Now we have the highlightId to use here
-    });
+    /*
 
-    // Log the data BEFORE sending
-    console.log('➡️ Sending to backend:', requestBody);
+    // Calculate character offsets based on the parent's textContent.
+    const startCharOffset =
+      startContainer.textContent.indexOf(startMark.textContent);
+    const endCharOffset =
+      endContainer.textContent.lastIndexOf(endMark.textContent) +
+      endMark.textContent.length;
 
-    // Send blocks to the backend
-    // When sending new highlight data to the backend...
-    fetch('/highlight/custom-markdown', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': document
-          .querySelector('meta[name="csrf-token"]')
-          .getAttribute('content'),
-      },
-      body: requestBody,
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.success) {
-          console.log('✅ Highlight saved and Markdown updated.');
-          attachMarkListeners();
-          // After saving, force a refresh of your highlightChunks:
-          return fetchHighlightChunksOnDemand(book);
-        } else {
-          throw new Error(data.message);
-        }
-      })
-      .then((updatedChunks) => {
-        // Ensure the lazy loader exists or update it using the new chunks.
-        const lazyLoader = initOrUpdateHighlightLazyLoader(updatedChunks);
-        console.log("Updated highlightChunks:", updatedChunks);
-      })
-      .catch((error) => {
-        console.error("❌ Error updating highlight:", error);
+    console.log(
+      "📌 Highlight ID:",
+      highlightId,
+      " Start Offset:",
+      startCharOffset,
+      " End Offset:",
+      endCharOffset
+    );
+ */
+
+    // **NEW Helper function: Retrieves the node from indexedDB based on container**
+    // and line id.  Remember that `startLine` is the keyPath.
+    async function getNodeFromIndexedDB(containerNode) {
+      const db = await openDatabase();
+      const tx = db.transaction("nodeChunks", "readwrite");
+      const store = tx.objectStore("nodeChunks");
+      const startLine = parseInt(containerNode.getAttribute("id"), 10);
+
+      if (isNaN(startLine)) {
+        console.error("❌ Invalid node line id on", containerNode);
+        return null;
+      }
+      // Our keyPath is startLine, so we can access the node by id:
+      const getRequest = store.get(startLine);
+      return new Promise((resolve, reject) => {
+        getRequest.onsuccess = () => {
+          console.log(`Success getting Node from IndexedDB ${startLine}`);
+          resolve(getRequest.result);
+        };
+        getRequest.onerror = () => {
+          console.error(`Error getting Node from IndexedDB ${startLine}`);
+          reject(getRequest.error);
+        };
       });
+    }
 
-});
+    //4a. NEW function: Updates the container node in indexedDB:
+    async function updateNodeHighlight(
+      containerNode,
+      highlightStartOffset,
+      highlightEndOffset
+    ) {
+      const db = await openDatabase();
+
+      return new Promise((resolve, reject) => {
+        //Encase everything into a Promise Pattern for resolving outside the function
+        const tx = db.transaction("nodeChunks", "readwrite");
+        const store = tx.objectStore("nodeChunks");
+        const startLine = parseInt(containerNode.getAttribute("id"), 10);
+
+        if (isNaN(startLine)) {
+          console.error("❌ Invalid node line id on", containerNode);
+          reject(null);
+          return;
+        }
+
+        // Our keyPath is startLine, so we can access the node by id:
+        const getRequest = store.get(startLine);
+
+        getRequest.onsuccess = () => {
+          const node = getRequest.result;
+          if (!node) {
+            console.warn("Could not find node in IDB");
+            resolve(null);
+            return;
+          }
+
+          //Add the highlight info to the node
+          if (!node.hyperlights) {
+            node.hyperlights = [];
+          }
+
+          const existingHighlight = node.hyperlights.find(
+            highlight => highlight.highlightID === highlightId
+          );
+
+          if (!existingHighlight) {
+            node.hyperlights.push({
+              highlightID: highlightId,
+              charStart: highlightStartOffset,
+              charEnd: highlightEndOffset
+            });
+          }
+
+          console.log(
+            `Highlight added to IndexedDB for node with id: ${node.startLine}`
+          );
+          //Update IDB with the updated node:
+          const putRequest = store.put(node);
+
+          putRequest.onsuccess = () => {
+            console.log(
+              `✅ Updated IndexedDB with hyperlight for node with id: ${node.startLine}`
+            );
+            resolve();
+          };
+          putRequest.onerror = event => {
+            console.error(
+              `❌ Error updating IndexedDB with hyperlight for node with id: ${node.startLine}`,
+              event.target.error
+            );
+            reject(event.target.error);
+          };
+        };
+        getRequest.onerror = () => {
+          console.error(`Error getting Node from IndexedDB ${startLine}`);
+          reject(getRequest.error);
+        };
+
+        tx.oncomplete = () => console.log("Transaction Complete");
+        tx.onerror = error => console.warn("Transaction Error", error);
+      });
+    }
+
+    // Update the start container node in its chunk.
+    await updateNodeHighlight(startContainer, startOffset, endOffset);
+    // Update the end container node in its chunk.
+    await updateNodeHighlight(endContainer, startOffset, endOffset);
+
+    // If the highlight spans nodes in between, update them fully.
+    let allNodes = [...document.querySelectorAll("[id]")];
+    let startIndex = allNodes.findIndex(el => el.id === startContainer.id);
+    let endIndex = allNodes.findIndex(el => el.id === endContainer.id);
+    if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex + 1) {
+      let middleNodes = allNodes.slice(startIndex + 1, endIndex);
+      for (const node of middleNodes) {
+        await updateNodeHighlight(node, 0, node.textContent.length);
+      }
+    }
+
+    // 5. Send the highlight metadata to the backend.
+    // The backend only stores the metadata so the lazy loader can reapply the mark tags later.
+    const highlightData = {
+      book: "latest",
+      text: selectedText,
+      start_xpath: getXPath(range.startContainer),
+      end_xpath: getXPath(range.endContainer),
+      xpath_full: getFullXPath(range.startContainer),
+      start_position: range.startOffset,
+      end_position: range.startOffset + selectedText.length,
+      highlight_id: highlightId
+    };
+
+    attachMarkListeners();
+  }
+);
+
+
+
+
+
 
 
 
@@ -752,40 +852,44 @@ function sendHyperciteBlocksToBackend(book, hyperciteId, blocks) {
 
 // Event listener for copying text and creating a hypercite
 
-document.addEventListener('copy', (event) => {
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) {
-        return; // Do nothing if no text is selected
-    }
+document.addEventListener("copy", event => {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    return; // Do nothing if no text is selected
+  }
 
-    const hyperciteId = generateHyperciteID();
+  const hyperciteId = generateHyperciteID();
 
-    if (!book) {
-        console.error("Book identifier not found.");
-        return;
-    }
+  if (!book) {
+    console.error("Book identifier not found.");
+    return;
+  }
 
-    // Get the current site URL
-    const currentSiteUrl = `${window.location.origin}`; // E.g., "https://thissite.com"
-    const citationIdA = book; // Assign 'book' to 'citation_id_a'
-    const hypercitedText = selection.toString(); // The actual text being copied
-    const hrefA = `${currentSiteUrl}/${citationIdA}#${hyperciteId}`; // Construct href_a dynamically
+  // Get the current site URL
+  const currentSiteUrl = `${window.location.origin}`; // E.g., "https://thissite.com"
+  const citationIdA = book; // Assign 'book' to 'citation_id_a'
+  const hypercitedText = selection.toString(); // The actual text being copied
+  const hrefA = `${currentSiteUrl}/${citationIdA}#${hyperciteId}`; // Construct href_a dynamically
 
-    // Extract plain text from the selection
-    const selectedText = selection.toString().trim(); // Plain text version of selected content
+  // Extract plain text from the selection
+  const selectedText = selection.toString().trim(); // Plain text version of selected content
 
-    // Create the HTML and plain text for the clipboard, including the full URL
-    const clipboardHtml = `"${selectedText}"<a href="${hrefA}">[:]</a>`;
-    const clipboardText = `"${selectedText}" [[:]](${hrefA})`;
+  // Create the HTML and plain text for the clipboard, including the full URL
+  const clipboardHtml = `"${selectedText}"<a href="${hrefA}">[:]</a>`;
+  const clipboardText = `"${selectedText}" [[:]](${hrefA})`;
 
-    // Set clipboard data
-    event.clipboardData.setData('text/html', clipboardHtml);
-    event.clipboardData.setData('text/plain', clipboardText);
-    event.preventDefault(); // Prevent default copy behavior
+  // Set clipboard data
+  event.clipboardData.setData("text/html", clipboardHtml);
+  event.clipboardData.setData("text/plain", clipboardText);
+  event.preventDefault(); // Prevent default copy behavior
 
-    // Wrap the selected text in the DOM and send data to the backend
-    wrapSelectedTextInDOM(hyperciteId, citationIdA);
-    saveHyperciteData(citationIdA, hyperciteId, hypercitedText, hrefA);
+  // Wrap the selected text in the DOM and send data to the backend
+  wrapSelectedTextInDOM(hyperciteId, citationIdA);
+  saveHyperciteData(citationIdA, hyperciteId, hypercitedText, hrefA);
+  if (selection) {
+    selection.removeAllRanges(); // Clear out the ranges.
+    console.log("All highlight ranges removed");
+  }
 });
 
 
