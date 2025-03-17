@@ -290,17 +290,25 @@ function createChunkElement(nodes) {
  * Utility: Apply highlight marks.
  */
 function applyHighlights(html, highlights) {
+  if (!highlights || highlights.length === 0) return html;
+  
   // Sort highlights by charStart to ensure correct insertion order
-  highlights.sort((a, b) => a.charStart - b.charStart);
+  // For overlapping highlights, process the longer ones first to handle nesting properly
+  highlights.sort((a, b) => {
+    // If start positions are the same, process the longer highlight first
+    if (a.charStart === b.charStart) {
+      return (b.charEnd - b.charStart) - (a.charEnd - a.charStart);
+    }
+    // Otherwise sort by start position (in reverse since we process from end to start)
+    return b.charStart - a.charStart;
+  });
 
   // Create a temporary DOM element to work with
   const tempElement = document.createElement("div");
   tempElement.innerHTML = html;
 
   // Process highlights in reverse order to avoid position shifts
-  for (let i = highlights.length - 1; i >= 0; i--) {
-    const { highlightID, charStart, charEnd } = highlights[i];
-    
+  for (const { highlightID, charStart, charEnd } of highlights) {
     // Find the positions for the highlight
     const positions = findPositionsInDOM(tempElement, charStart, charEnd);
     
@@ -329,7 +337,7 @@ function findPositionsInDOM(rootElement, startChar, endChar) {
   // Find start position
   for (const node of textNodes) {
     const nodeLength = node.textContent.length;
-    if (currentIndex + nodeLength > startChar) {
+    if (currentIndex <= startChar && currentIndex + nodeLength > startChar) {
       startNode = node;
       startOffset = startChar - currentIndex;
       break;
@@ -343,7 +351,7 @@ function findPositionsInDOM(rootElement, startChar, endChar) {
   // Find end position
   for (const node of textNodes) {
     const nodeLength = node.textContent.length;
-    if (currentIndex + nodeLength >= endChar) {
+    if (currentIndex <= endChar && currentIndex + nodeLength >= endChar) {
       endNode = node;
       endOffset = endChar - currentIndex;
       break;
@@ -355,22 +363,27 @@ function findPositionsInDOM(rootElement, startChar, endChar) {
     return { startNode, startOffset, endNode, endOffset };
   }
   
+  console.warn(`Could not find positions for highlight range: ${startChar}-${endChar}`);
   return null;
 }
 
 // Helper function to wrap a range of text with an element
 function wrapRangeWithElement(startNode, startOffset, endNode, endOffset, wrapElement) {
-  // Create a range
-  const range = document.createRange();
-  range.setStart(startNode, startOffset);
-  range.setEnd(endNode, endOffset);
-  
-  // Extract the contents and wrap them
-  const contents = range.extractContents();
-  wrapElement.appendChild(contents);
-  
-  // Insert the wrapped content
-  range.insertNode(wrapElement);
+  try {
+    // Create a range
+    const range = document.createRange();
+    range.setStart(startNode, startOffset);
+    range.setEnd(endNode, endOffset);
+    
+    // Extract the contents and wrap them
+    const contents = range.extractContents();
+    wrapElement.appendChild(contents);
+    
+    // Insert the wrapped content
+    range.insertNode(wrapElement);
+  } catch (error) {
+    console.error("Error wrapping range with element:", error);
+  }
 }
 
 
