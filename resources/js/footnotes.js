@@ -42,20 +42,20 @@ export async function loadFootnotes() {
     return footnotesData;
   }
 
-  console.log("⚠️ No footnotes found in IndexedDB. Fetching from server...");
-  try {
-    let footnotesResponse = await fetch(window.jsonPath);
-    if (footnotesResponse.ok) {
-      footnotesData = await footnotesResponse.json();
-      await saveFootnotesToIndexedDB(footnotesData);
-      console.log("✅ Footnotes successfully saved to IndexedDB.");
-      return footnotesData;
-    }
-    console.warn("⚠️ Failed to fetch footnotes JSON, using fallback.");
-  } catch (error) {
-    console.error("❌ Error fetching footnotes JSON:", error);
-  }
-  return null;
+  //console.log("⚠️ No footnotes found in IndexedDB. Fetching from server...");
+ // try {
+    //let footnotesResponse = await fetch(window.jsonPath);
+   // if (footnotesResponse.ok) {
+    //  footnotesData = await footnotesResponse.json();
+      //await saveFootnotesToIndexedDB(footnotesData);
+      //console.log("✅ Footnotes successfully saved to IndexedDB.");
+      //return footnotesData;
+    //}
+    //console.warn("⚠️ Failed to fetch footnotes JSON, using fallback.");
+  //} catch (error) {
+    //console.error("❌ Error fetching footnotes JSON:", error);
+  //}
+  //return null;
 }
 
 export async function displayFootnote(noteElement, book, convertMarkdownToHtml, getFreshUrl) {

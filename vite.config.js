@@ -1,61 +1,91 @@
 import { defineConfig } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 import laravel from 'laravel-vite-plugin';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 import os from 'os';
 
 function getNetworkIp() {
-    const interfaces = os.networkInterfaces();
-    for (const interfaceKey in interfaces) {
-        for (const iface of interfaces[interfaceKey]) {
-            if (iface.family === 'IPv4' && !iface.internal) {
-                return iface.address;
-            }
-        }
+  const interfaces = os.networkInterfaces();
+  for (const interfaceKey in interfaces) {
+    for (const iface of interfaces[interfaceKey]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
     }
-    return 'localhost';
+  }
+  return 'localhost';
 }
 
 export default defineConfig({
-    plugins: [
-        laravel({
-              input: [
-                'resources/css/app.css',     // Global styles
-                'resources/css/reader.css', // Reader-specific styles
-                'resources/css/highlight-div.css',
-                'resources/css/div-editor.css', 
-                'resources/js/app.js',         // Global JavaScript variables
-                'resources/js/cache-indexedDB.js',        //Browswer storage of nodeChunks.json and main-text-footnotes.json
-                'resources/js/convert-markdown.js',       // Markdwon conversion/rendering
-                'resources/js/hyper-lights-cites.js',       // highlights and citations 
-                'resources/js/scrolling.js',              // scrolling, positioning after scroll etc.
-                'resources/js/toc.js',                    // Table Of Contents (TOC) (from main-text-footnotes.json)
-                'resources/js/footnotes.js',              // Footnotes (from main-text-footnotes.json)
-                'resources/js/lazy-loading-div.js', // div-editor lazy-loading logic
-                'resources/js/reader-DOMContentLoaded.js',       // Reader template logic
-                'resources/sass/app.scss'       // Global styles
-            ],
-            refresh: true,
-        }),
-    ],
-    server: {
-        host: process.env.VITE_HOST || '0.0.0.0',
-        port: process.env.VITE_PORT || 5173,
-        strictPort: true,
-        hmr: {
-            host: getNetworkIp(), // Dynamically set the correct IP
-            protocol: 'ws',
-        },
-        // Add proxy configuration here
-        proxy: {
-            '/resources/markdown': {
-                target: process.env.VITE_APP_URL || 'http://localhost:8000',
-                changeOrigin: true,
-                secure: false,
-                rewrite: (path) => path
-            }
-        }
+  server: {
+    host: process.env.VITE_HOST || '0.0.0.0',
+    port: process.env.VITE_PORT || 5173,
+    strictPort: true,
+    cors: true,
+    hmr: {
+      host: getNetworkIp(),
+      protocol: 'ws',
     },
+    proxy: {
+      '/resources/markdown': {
+        target: process.env.VITE_APP_URL || 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path,
+      },
+    },
+  },
+  plugins: [
+    VitePWA({
+      registerType: 'autoUpdate',
+      manifest: {
+        name: 'My App',
+        short_name: 'App',
+        start_url: '/',
+        display: 'standalone',
+        background_color: '#ffffff',
+        icons: [
+          {
+            src: 'pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+          },
+        ],
+      },
+    }),
+    laravel({
+      input: [
+        'resources/css/app.css',
+        'resources/css/reader.css',
+        'resources/css/highlight-div.css',
+        'resources/css/div-editor.css',
+        'resources/js/app.js',
+        'resources/js/cache-indexedDB.js',
+        'resources/js/convert-markdown.js',
+        'resources/js/hyper-lights-cites.js',
+        'resources/js/scrolling.js',
+        'resources/js/toc.js',
+        'resources/js/footnotes.js',
+        'resources/js/lazy-loading-div.js',
+        'resources/js/reader-DOMContentLoaded.js',
+        'resources/sass/app.scss',
+        // You can include the service worker here if you wish,
+        // but it will be processed by Vite and not end up at the root.
+      ],
+      refresh: true,
+    }),
+    viteStaticCopy({
+      targets: [
+        {
+          src: 'resources/js/serviceWorker.js',
+          dest: '', // Copies directly to the output dir (public)
+        },
+      ],
+    }),
+  ],
 });
-
-
-
-

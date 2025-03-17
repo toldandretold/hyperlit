@@ -49,6 +49,9 @@ import {
 import NavButtons from "./nav-buttons.js";
 
 import { currentLazyLoader } from './initializePage.js';
+
+
+
   
 
 if (!window.isInitialized) {
@@ -75,7 +78,6 @@ if (!window.isInitialized) {
 
         // initializePage.js
         await loadMarkdownFile();
-        
         
         // gets scroll position from session storage 
         restoreScrollPosition();
