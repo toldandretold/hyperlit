@@ -10,7 +10,7 @@ export function getPageKey() {
   return key;
 }
 
-export const DB_VERSION = 8;
+export const DB_VERSION = 9;
 
 /**
  * Opens (or creates) the IndexedDB database.
@@ -25,13 +25,11 @@ export async function openDatabase() {
       console.log("📌 Upgrading IndexedDB to version " + DB_VERSION);
       const db = event.target.result;
 
-      //  Update nodeChunks to use startLine as keyPath and chunk_id as index
       const storeConfigs = [
         {
           name: "nodeChunks",
-          keyPath: "startLine", // Use startLine as the primary key
-          indices: ["chunk_id", "url", "container", "book"] // Indices for
-          // querying
+          keyPath: "startLine",
+          indices: ["chunk_id", "url", "container", "book"]
         },
         {
           name: "markdownStore",
@@ -43,7 +41,8 @@ export async function openDatabase() {
         },
         {
           name: "hyperlights",
-          keyPath: ["url", "container", "book", "hyperlight_id"]
+          keyPath: ["url", "container", "book", "hyperlight_id"],
+          indices: ["hyperlight_id"] // Add this line to create the index
         },
         {
           name: "hypercites",
@@ -79,6 +78,7 @@ export async function openDatabase() {
     };
   });
 }
+
 
 /**
  * Saves nodeChunks (the array of chunk records) to IndexedDB.
