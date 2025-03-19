@@ -34,21 +34,27 @@ export function parseMarkdownIntoChunks(markdown) {
   const chunkSize = 100;
 
   elements.forEach((el, index) => {
-    const nodeNumber = index + 1; // Use sequential numbering as the line
-    // number for this node.
+    const nodeNumber = index + 1; // Use sequential numbering as the line number for this node.
 
     // Assign the id and data-block-id to the element.
     el.id = nodeNumber;
     el.setAttribute("data-block-id", nodeNumber);
+    
+    // Make sure nested elements don't have IDs that could confuse our highlight system
+    const nestedElements = el.querySelectorAll('*');
+    nestedElements.forEach(nested => {
+      // If it's not a block-level element we care about, remove any ID
+      if (!['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'TABLE'].includes(nested.tagName)) {
+        nested.removeAttribute('id');
+      }
+    });
 
     // Create a block object for this node.
     const node = {
       chunk_id: chunkId,
       type: el.tagName.toLowerCase(), // For example "p", "h1", etc.
-      content: el.outerHTML, // Pre-rendered HTML (with id and data
-      // attributes).
-      plainText: el.textContent, // The text content for accurate highlight
-      // calculations.
+      content: el.outerHTML, // Pre-rendered HTML (with id and data attributes).
+      plainText: el.textContent, // The text content for accurate highlight calculations.
       startLine: nodeNumber, // The node's sequential number.
       hyperlights: [],
       hypercites: [],
@@ -64,6 +70,7 @@ export function parseMarkdownIntoChunks(markdown) {
 
   return nodes;
 }
+
 
 /**
  * (Optional) A helper that converts inline markdown syntax to HTML.

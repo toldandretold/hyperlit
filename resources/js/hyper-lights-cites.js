@@ -161,7 +161,7 @@ export async function handleMarkClick(event) {
 
       const containerContent = `
         <blockquote class="highlight-text">
-          "${highlightData.highlightedText}"
+          "${highlightData.highlightedHTML}"
         </blockquote>
         <div class="annotation">
           <p class="temp-text" data-placeholder="Annotate at will...">${highlightData.annotation || ""}</p>
@@ -353,12 +353,37 @@ async function addToHighlightsTable(highlightData) {
     const tx = db.transaction("hyperlights", "readwrite");
     const store = tx.objectStore("hyperlights");
     
+    // Create a document fragment to hold the highlighted content
+    const fragment = document.createDocumentFragment();
+    const selection = window.getSelection();
+    const range = selection.getRangeAt(0);
+    
+    // Clone the range contents to preserve HTML structure
+    const clonedContents = range.cloneContents();
+    fragment.appendChild(clonedContents);
+    
+    // Get the HTML content as a string, but remove any mark tags
+    const tempDiv = document.createElement('div');
+    tempDiv.appendChild(fragment.cloneNode(true));
+    
+    // Remove all mark tags from the temp div, preserving their content
+    const markTags = tempDiv.querySelectorAll('mark');
+    markTags.forEach(mark => {
+      // Create a text node with the mark's content
+      const textNode = document.createTextNode(mark.textContent);
+      // Replace the mark with its text content
+      mark.parentNode.replaceChild(textNode, mark);
+    });
+    
+    const highlightedHTML = tempDiv.innerHTML;
+    
     const highlightEntry = {
       url: window.location.href, // current page URL
       container: highlightData.container,
       book: book, // or however you determine the book
       hyperlight_id: highlightData.highlightId,
-      highlightedText: highlightData.text,
+      highlightedText: highlightData.text, // Keep the plain text for searching
+      highlightedHTML: highlightedHTML, // Store the HTML structure without mark tags
       annotation: "", // initial empty annotation
       startChar: highlightData.startChar,
       endChar: highlightData.endChar,
@@ -378,6 +403,8 @@ async function addToHighlightsTable(highlightData) {
     };
   });
 }
+
+
 
 
 
@@ -510,14 +537,16 @@ addTouchAndClickListener(
     // Find all nodes that contain marks with this highlightId
     const affectedMarks = document.querySelectorAll(`mark.${highlightId}`);
     const affectedNodes = new Set();
-    
+
     // Collect all unique container nodes that have our highlight
     affectedMarks.forEach(mark => {
-      const container = mark.closest("p, blockquote, table, [id]");
+      // Only look for specific container elements, not any element with an ID
+      const container = mark.closest("p, h1, h2, h3, h4, h5, h6, blockquote, table");
       if (container && container.id) {
         affectedNodes.add(container);
       }
     });
+
     
     console.log("All affected nodes:", Array.from(affectedNodes).map(node => node.id));
     

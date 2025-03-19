@@ -422,28 +422,28 @@ width: 40px; /* Matching width */
   height: 20px;
   stroke: white; /* Change to your preferred color */
 }
-
 /* Reference Container */
-#ref-container, 
+#ref-container,
 #highlight-container {
-    transform: translateX(100%); /* Start off-screen to the right */
-    transition: transform 0.3s ease-in-out; /* Smooth slide-in effect */
-    position: fixed;
-    right: 0; /* Align to the right edge */
-    top: 5%;
-    height: 90%;
-    width: 80%; /* Same width as TOC */
-    background-color: #221F20; /* Matching TOC background color */
-    z-index: 1000; /* On top of the overlay */
-    overflow: auto;
-    padding-left: 1em;
-    padding-right: 1em;
-    border-radius: 1em 1em;
+  transform: translateX(100%); /* Start off-screen to the right */
+  transition: transform 0.3s ease-in-out; /* Smooth slide-in effect */
+  position: fixed;
+  right: 0; /* Align to the right edge */
+  top: 5%;
+  height: 90%;
+  width: 80%; /* 80% width on smaller screens */
+  max-width: 600px; /* Cap the width to 600px on larger devices */
+  background-color: #221F20; /* Matching TOC background color */
+  z-index: 1000; /* On top of the overlay */
+  overflow: auto;
+  padding-left: 2em;
+  padding-right: 1em;
+  border-radius: 1em 1em;
 }
 
-#ref-container.open, 
-#highlight-container.open  {
-    transform: translateX(0); /* Slide in */
+#ref-container.open,
+#highlight-container.open {
+  transform: translateX(0); /* Slide in */
 }
 
 /* Reference Overlay */
