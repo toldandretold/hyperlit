@@ -1,10 +1,14 @@
-<h1 id="1" data-block-id="1">A Moment of Possibility: The Rise and Fall of the New <u id="hypercite_sy3vm4q">International </u>Economic Order</h1> Samuel Thomas Nicholls test "history"<a href='http://127.0.0.1:8000/nicholls2019moment#hypercite_hbpklyh' id='hypercite_hbpklyh_b'>[:]</a> "as well as"<a href='http://127.0.0.1:8000/nicholls2019moment#hypercite_kaa9u0z' id='hypercite_kaa9u0z_b'>[:]</a> d Samuel Thomas Nicholls test "history"<a href="http://127.0.0.1:8000/nicholls2019moment#hypercite_hbpklyh" id="hypercite_hbpklyh_b">[:]</a> "as well as"<a href="http://127.0.0.1:8000/nicholls2019moment#hypercite_kaa9u0z" id="hypercite_kaa9u0z_b">[:]</a> d
+# A Moment of Possibility: The Rise and Fall of the New International Economic Order
 
-"If it is surprising that Prebisch’s political economy is pro free trade, it is even more so that Nkrumah’s is."<a href="http://10.0.0.93:8000/nicholls2019moment#hypercite_cf4b31f" id="hypercite_cf4b31f_b">[:]</a> Samuel Thomas Nicholls test "history"<a href='http://127.0.0.1:8000/nicholls2019moment#hypercite_hbpklyh' id='hypercite_hbpklyh_b'>[:]</a> "as well as"<a href='http://127.0.0.1:8000/nicholls2019moment#hypercite_kaa9u0z' id='hypercite_kaa9u0z_b'>[:]</a> d Department of Politics and International Relations m
+ Samuel Thomas Nicholls 
+
+ <a href='http://127.0.0.1:8000/nicholls2019moment#hypercite_hbpklyh' id='hypercite_hbpklyh_b'>[:]</a>
+
+"If it is surprising that Prebisch’s political economy is pro free trade, it is even more so that Nkrumah’s is."<a href="http://10.0.0.93:8000/nicholls2019moment#hypercite_cf4b31f" id="hypercite_cf4b31f_b">[:]</a> Samuel Thomas Nicholls test "history"<a href='http://127.0.0.1:8000/nicholls2019moment#hypercite_hbpklyh' id='hypercite_hbpklyh_b'>[:]</a> "as well as"<a href='http://127.0.0.1:8000/nicholls2019moment#hypercite_kaa9u0z' id='hypercite_kaa9u0z_b'>[:]</a> d Department of Politics and International Relations m
  
 University of Adelaide
  
-August 2019 
+August 2019
 
 # Abstract
 

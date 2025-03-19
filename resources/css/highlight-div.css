@@ -13,26 +13,30 @@ caret-color: #CBCCCC;
 }
 
 /* Styling blockquotes within #highlight-div */
-#highlight-container blockquote {
-  margin: 1em 2em;
-  padding: 0.5em 1em;
-  border-left: 4px solid #ccc;
-  font-style: italic;
+#highlight-container blockquote h1,
+#highlight-container blockquote h2,
+#highlight-container blockquote h3,
+#highlight-container blockquote h4,
+#highlight-container blockquote h5 {
   background: #221F20;
   color: #CBCCCC;
   font-size: 25px;
 }
 
+#highlight-container blockquote {
+  border-left: 4px solid #ccc;
+  font-size: 25px;
+  line-height: 1.5;
+  color: #CBCCCC;
+  border-color: #EF8D34;
+}
+
 /* Styling blockquotes within #highlight-div */
 #highlight-container blockquote:hover {
-  margin: 1em 2em;
-  padding: 0.5em 1em;
   border-left: 4px solid #ccc;
-  font-style: italic;
   background: #221F20;
   color: #CBCCCC;
-  font-size: 25px;
-  border-color: #EE4A95;
+  border-color: #EF8D34;
 }
 
 
