@@ -430,8 +430,8 @@ width: 40px; /* Matching width */
     transition: transform 0.3s ease-in-out; /* Smooth slide-in effect */
     position: fixed;
     right: 0; /* Align to the right edge */
-    top: 0;
-    height: 100%;
+    top: 5%;
+    height: 90%;
     width: 80%; /* Same width as TOC */
     background-color: #221F20; /* Matching TOC background color */
     z-index: 1000; /* On top of the overlay */
@@ -439,7 +439,6 @@ width: 40px; /* Matching width */
     padding-left: 1em;
     padding-right: 1em;
     border-radius: 1em 1em;
-    box-shadow: 0px 0px 5px 5px #221F20;
 }
 
 #ref-container.open, 
@@ -534,3 +533,16 @@ div {
 div::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
+
+/* Use ::before to show the placeholder text */
+.temp-text:empty::before {
+    content: attr(data-placeholder);
+    color: #aaa;
+}
+
+.temp-text {
+      min-height: 20px;
+      outline: none;
+    }
+
+

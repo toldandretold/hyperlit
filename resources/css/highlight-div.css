@@ -8,6 +8,10 @@
   color: #CBCCCC;
 }
 
+#highlight-container {
+caret-color: #CBCCCC;
+}
+
 /* Styling blockquotes within #highlight-div */
 #highlight-container blockquote {
   margin: 1em 2em;
