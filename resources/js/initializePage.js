@@ -23,6 +23,7 @@ import {
   getFootnotesFromIndexedDB,
   saveFootnotesToIndexedDB,
   clearIndexedDB,
+  clearNodeChunksForBook
 } from "./cache-indexedDB.js";
 
 import {
@@ -121,15 +122,15 @@ async function handleRawReload() {
     window.jsonPath = buildUrl(`/markdown/${book}/main-text-footnotes.json`, true);
     await loadFootnotes();
     const currentTimestamp = Date.now().toString();
-    localStorage.setItem("markdownLastModified", currentTimestamp);
+    localStorage.setItem("markdownLastModified-${book}", currentTimestamp);
     window.savedChunks = {
       timestamp: currentTimestamp,
       chunks: [],
     };
-    localStorage.setItem("savedChunks", JSON.stringify(window.savedChunks));
+    localStorage.setItem("savedChunks--${book}", JSON.stringify(window.savedChunks));
     console.log("✅ Raw reload complete. Files generated and cached.");
     const footnotes = await loadFootnotes();
-    await sendGeneratedDataToBackend(nodeChunks, footnotes);
+    //await sendGeneratedDataToBackend(nodeChunks, footnotes);
     return true;
   } catch (error) {
     console.error("❌ Error during raw reload:", error);
@@ -143,7 +144,7 @@ async function handleRawReload() {
 async function handleFullReload(serverTimestamp) {
   localStorage.setItem("markdownLastModified", serverTimestamp);
   localStorage.removeItem("savedChunks");
-  await clearIndexedDB();
+  await await clearNodeChunksForBook(containerId, bookId);
   window.jsonPath = buildUrl(`/markdown/${book}/main-text-footnotes.json`, true);
   await loadFootnotes();
   // Instead of fetching nodeChunks.json, generate nodeChunks via markdown parsing.
@@ -216,13 +217,14 @@ export function initializeMainLazyLoader() {
     console.log("✅ Lazy loader already initialized. Skipping reinitialization.");
     return currentLazyLoader;
   }
+  console.log("Initializing lazy loader for book:", book);
   currentLazyLoader = createLazyLoader({
     container: mainContentDiv,
     nodeChunks: window.nodeChunks,
     loadNextChunk: loadNextChunkFixed,
     loadPreviousChunk: loadPreviousChunkFixed,
     attachMarkListeners,
-    bookId: "myMainBook", // Optional book id
+    bookId: book, // Optional book id
   });
   return currentLazyLoader;
 }
@@ -237,7 +239,7 @@ async function updateIfNecessary() {
     return;
   }
   const serverTimestamp = updateInfo.updated_at.toString();
-  const cachedTimestamp = localStorage.getItem("markdownLastModified") || "null";
+  const cachedTimestamp = localStorage.getItem("markdownLastModified-${book}") || "null";
   if (cachedTimestamp !== serverTimestamp) {
     console.log("❌ Timestamps differ — performing full reload in background.");
     await handleFullReload(serverTimestamp);
@@ -248,39 +250,41 @@ async function updateIfNecessary() {
   }
 }
 
-document.addEventListener("visibilitychange", () => {
+/*document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     console.log("Page is visible. Checking for background updates...");
     updateIfNecessary();
   }
-});
+});*/
 
 //
 // 9. Main Entry Point 
 // ---------------------------------------------------------------------
 export async function loadMarkdownFile() {
-
-    if (!navigator.onLine) {
-    console.warn('Offline mode: using cached data only.');
+  // 1. Handle Offline Mode
+  if (!navigator.onLine) {
+    console.warn("Offline mode: using cached data only.");
     const cachedNodeChunks = await getNodeChunksFromIndexedDB(containerId, bookId);
-    if (cachedNodeChunks) {
+    if (cachedNodeChunks && cachedNodeChunks.length > 0) {
       window.nodeChunks = cachedNodeChunks;
       await loadFootnotes();
       initializeMainLazyLoader();
-      return;
+    } else {
+      console.error("❌ No cached nodeChunks available while offline.");
     }
+    return;
   }
+
   console.log("🚀 ENTERING loadMarkdownFile()...");
 
-  // First try to load from IndexedDB
+  // 2. Try to load nodeChunks from IndexedDB first
   try {
     console.log("🔍 Attempting to load nodeChunks from IndexedDB...");
-    const cachedNodeChunks = await getNodeChunksFromIndexedDB();
+    const cachedNodeChunks = await getNodeChunksFromIndexedDB(containerId, bookId);
     if (cachedNodeChunks && cachedNodeChunks.length > 0) {
       console.log("✅ Loaded nodeChunks from IndexedDB");
       window.nodeChunks = cachedNodeChunks;
 
-      // If the lazy loader hasn't been initialized, do so.
       if (!currentLazyLoader) {
         console.log("✅ Initializing lazy loader...");
         initializeMainLazyLoader();
@@ -289,61 +293,37 @@ export async function loadMarkdownFile() {
           "✅ Lazy loader already initialized, continuing to listen for scroll events."
         );
       }
-
-      // Since we've loaded from offline storage, we can exit here.
       return;
     }
-    console.log("⚠️ No nodeChunks found in IndexedDB. Falling back to server.");
+    console.log("⚠️ No nodeChunks found in IndexedDB for this book.");
   } catch (error) {
-    console.error(
-      "❌ Error attempting to load nodeChunks from IndexedDB:",
-      error
-    );
+    console.error("❌ Error attempting to load nodeChunks from IndexedDB:", error);
     console.error("⚠️ Falling back to fetching from server...");
   }
 
-  // Fallback: Load from the server if IndexedDB does not provide valid data
-  let cachedServerTimestamp = localStorage.getItem("markdownLastModified") || "null";
-  console.log("📂 Cached Server Timestamp BEFORE request:", cachedServerTimestamp);
-  try {
-    const updateInfo = await fetchLatestUpdateInfo(book);
-    if (!updateInfo) {
-      console.log("⚠️ No latest_update.json found. Initiating raw reload...");
-      const success = await handleRawReload();
-      if (!success) {
-        console.error("❌ Raw reload failed. Cannot proceed.");
-        return;
-      }
-    } else {
-      const serverTimestamp = updateInfo.updated_at.toString();
-      console.log("✅ Server reported Markdown last updated at:", serverTimestamp);
-      const needsReload = await handleTimestampComparison(serverTimestamp, cachedServerTimestamp);
-      if (needsReload) {
-        console.log("❌ TIMESTAMPS DIFFER: Performing Full Reload...");
-        await handleFullReload(serverTimestamp);
-        currentLazyLoader = null;
-      } else {
-        console.log("✅ Timestamps match! Using IndexedDB cache...");
-        await handleCachedLoad();
-      }
-    }
+  // 3. If no cached nodeChunks are found, do a raw reload:
+  console.log("🔄 No cached data – fetching from server...");
+  const success = await handleRawReload();
+  if (!success) {
+    console.error("❌ Raw reload failed. Cannot proceed.");
+    return;
+  }
 
-    if (!window.nodeChunks || window.nodeChunks.length === 0) {
-      console.error("❌ nodeChunks is empty. Aborting lazy loading.");
-      return;
-    }
-    if (!currentLazyLoader) {
-      console.log("✅ Initializing lazy loader...");
-      initializeMainLazyLoader();
-    } else {
-      console.log(
-        "✅ Lazy loader already initialized, continuing to listen for scroll events."
-      );
-    }
-  } catch (error) {
-    console.error("❌ Error loading Markdown:", error);
+  // 4. Ensure nodeChunks are available and initialize the lazy loader:
+  if (!window.nodeChunks || window.nodeChunks.length === 0) {
+    console.error("❌ nodeChunks is empty. Aborting lazy loading.");
+    return;
+  }
+  if (!currentLazyLoader) {
+    console.log("✅ Initializing lazy loader...");
+    initializeMainLazyLoader();
+  } else {
+    console.log(
+      "✅ Lazy loader already initialized, continuing to listen for scroll events."
+    );
   }
 }
+
 
 //
 // 10. Navigation functions (loadContentAroundLine, loadContentAroundId)
