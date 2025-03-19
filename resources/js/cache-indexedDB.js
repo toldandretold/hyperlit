@@ -129,34 +129,45 @@ export async function getNodeChunksFromIndexedDB(
   containerId = "default",
   bookId = "latest"
 ) {
+  console.log("Fetching nodeChunks for container:", containerId, "and book:", bookId);
+  
   const db = await openDatabase();
   const tx = db.transaction("nodeChunks", "readonly");
   const store = tx.objectStore("nodeChunks");
-  const index = store.index("chunk_id"); // Use the chunk_id index
 
-  const lowerBound = 0;
-  const upperBound = Number.MAX_SAFE_INTEGER;
-  const keyRange = IDBKeyRange.bound(lowerBound, upperBound);
+  // Use the "book" index instead of "chunk_id"
+  const bookIndex = store.index("book");
 
   return new Promise((resolve, reject) => {
-    const request = index.getAll(keyRange);
+    // Get all records for the specified bookId
+    const request = bookIndex.getAll(bookId);
     request.onsuccess = () => {
-      console.log(
-        "✅ Retrieved nodeChunks from IndexedDB for",
-        getPageKey()
+      let results = request.result || [];
+
+      // Optionally filter further by container and url (the composite key)
+      results = results.filter(record => 
+        record.container === containerId &&
+        record.url === window.location.pathname
       );
-      resolve(request.result || []);
+
+      // If you need the records sorted by chunk_id, you can do so:
+      results.sort((a, b) => a.chunk_id - b.chunk_id);
+
+      console.log("✅ Retrieved nodeChunks from IndexedDB for", getPageKey());
+      resolve(results);
     };
-    request.onerror = () =>
+    request.onerror = () => {
       reject("❌ Error loading nodeChunks from IndexedDB");
+    };
   });
 }
+
 
 /**
  * Reconstructs saved chunks based on window.nodeChunks.
  * (This is optional and may be used for debugging or to rebuild UI state.)
  */
-export function reconstructSavedChunks() {
+/*export function reconstructSavedChunks() {
   if (!window.nodeChunks || window.nodeChunks.length === 0) {
     console.error("❌ No `nodeChunks` available to reconstruct `savedChunks`.");
     return;
@@ -197,7 +208,7 @@ export function reconstructSavedChunks() {
     "✅ `savedChunks` successfully reconstructed and stored with timestamp:",
     latestServerTimestamp
   );
-}
+}*/
 
 /**
  * Clears the nodeChunks store in IndexedDB.
@@ -286,3 +297,31 @@ export function getLocalStorageKey(
 ) {
   return `${baseKey}_${window.location.pathname}_${containerId}_${bookId}`;
 }
+
+export async function clearNodeChunksForBook(containerId = "default", bookId = "latest") {
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction("nodeChunks", "readwrite");
+    const store = tx.objectStore("nodeChunks");
+    
+    // Use the "book" index to find keys for this book.
+    const bookIndex = store.index("book");
+    const request = bookIndex.getAllKeys(bookId);
+    
+    request.onsuccess = () => {
+      const keys = request.result || [];
+      // Optionally filter keys by container and url
+      keys.forEach(key => {
+        store.delete(key);
+      });
+      console.log(`Cleared nodeChunks for container "${containerId}" and book "${bookId}".`);
+    };
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject("Error clearing nodeChunks for current book.");
+    });
+  } catch (error) {
+    console.error("Failed to clear nodeChunks for book:", error);
+  }
+}
+
