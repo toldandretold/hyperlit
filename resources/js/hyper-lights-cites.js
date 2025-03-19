@@ -31,10 +31,7 @@ import {
 
  
 let highlightId; 
-
 let highlightLazyLoader;
-
-
 
 // Create a container manager for highlights using the same overlay if needed
 const highlightManager = new ContainerManager(
@@ -70,7 +67,7 @@ function initOrUpdateHighlightLazyLoader(chunks) {
   return highlightLazyLoader;
 }
 
-async function fetchHighlightChunksOnDemand(book) {
+/*async function fetchHighlightChunksOnDemand(book) {
   const updateInfo = await fetchLatestUpdateInfo(book);
   // Read the cached timestamp from localStorage
   const cachedTimestamp =
@@ -101,7 +98,7 @@ async function fetchHighlightChunksOnDemand(book) {
     throw new Error(`Failed to load highlightChunks from ${resourcePath}`);
   }
   return response.json();
-}
+}*/
 
 
 
@@ -167,7 +164,7 @@ export async function handleMarkClick(event) {
           "${highlightData.highlightedText}"
         </blockquote>
         <div class="annotation">
-          <p><i>${highlightData.annotation || " "}</i></p>
+          <p class="temp-text" data-placeholder="Annotate at will...">${highlightData.annotation || ""}</p>
         </div>
       `;
 
@@ -198,14 +195,6 @@ export async function handleMarkClick(event) {
 }
 
 
-
-
-
-
-
-
-
-
 /**
  * Recursively determine the offsetTop of an element relative to a
  * container element.
@@ -222,9 +211,6 @@ function getRelativeOffsetTop(element, container) {
   }
   return offsetTop;
 }
-
-
-
 
 
 export function handleMarkHover(event) {
@@ -327,20 +313,15 @@ rangy.init();
 
     // Helper function to bind click and touchstart events
 function addTouchAndClickListener(element, handler) {
-  element.addEventListener("click", function(event) {
-    if (event.target.id === "copy-hyperlight") {
-      //if (event.target.className !== 'this-event')
-      event.preventDefault(); // Ensure the button click doesn't cancel the selection
-      event.stopPropagation(); // Stop the event from bubbling
-      handler(event);
-    }
+  element.addEventListener("click", function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    handler(event);
   });
-  element.addEventListener("touchstart", function(event) {
-    if (event.target.id === "copy-hyperlight") {
-      event.preventDefault(); // Prevents default touch behavior
-      event.stopPropagation(); // Stop the event from bubbling
-      handler(event);
-    }
+  element.addEventListener("touchstart", function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    handler(event);
   });
 }
 
@@ -378,7 +359,7 @@ async function addToHighlightsTable(highlightData) {
       book: book, // or however you determine the book
       hyperlight_id: highlightData.highlightId,
       highlightedText: highlightData.text,
-      annotation: "Note:", // initial empty annotation
+      annotation: "", // initial empty annotation
       startChar: highlightData.startChar,
       endChar: highlightData.endChar,
       startLine: highlightData.startLine
@@ -454,6 +435,7 @@ function calculateTrueCharacterOffset(container, textNode, offset) {
 addTouchAndClickListener(
   document.getElementById("copy-hyperlight"),
   async function() {
+    // Existing code for selection and range checking
     let selection = window.getSelection();
     let range;
     try {
@@ -484,6 +466,9 @@ addTouchAndClickListener(
       return;
     }
     
+    console.log("Start container:", startContainer);
+    console.log("End container:", endContainer);
+    
     // Calculate true character offsets before adding new marks
     const trueStartOffset = calculateTrueCharacterOffset(
       startContainer, 
@@ -492,7 +477,7 @@ addTouchAndClickListener(
     );
     
     const trueEndOffset = calculateTrueCharacterOffset(
-      startContainer,
+      endContainer,
       range.endContainer,
       range.endOffset
     );
@@ -506,20 +491,47 @@ addTouchAndClickListener(
     highlighter.highlightSelection("highlight");
     modifyNewMarks(highlightId);
 
-    // Update the start container node in its chunk
-    await updateNodeHighlight(startContainer, trueStartOffset, trueEndOffset);
-    // Update the end container node in its chunk
-    await updateNodeHighlight(endContainer, trueStartOffset, trueEndOffset);
+    // IMPORTANT: Ensure we update the start container first
+    console.log("Updating start container:", startContainer.id);
+    if (startContainer === endContainer) {
+      // Single node case
+      await updateNodeHighlight(startContainer, trueStartOffset, trueEndOffset);
+      console.log(`Updated single node ${startContainer.id} with offsets:`, { start: trueStartOffset, end: trueEndOffset });
+    } else {
+      // Multi-node case - handle start container
+      await updateNodeHighlight(startContainer, trueStartOffset, startContainer.textContent.length);
+      console.log(`Updated start node ${startContainer.id} with offsets:`, { start: trueStartOffset, end: startContainer.textContent.length });
+      
+      // Handle end container
+      await updateNodeHighlight(endContainer, 0, trueEndOffset);
+      console.log(`Updated end node ${endContainer.id} with offsets:`, { start: 0, end: trueEndOffset });
+    }
 
-    // If the highlight spans nodes in between, update them fully
-    let allNodes = [...document.querySelectorAll("[id]")];
-    let startIndex = allNodes.findIndex(el => el.id === startContainer.id);
-    let endIndex = allNodes.findIndex(el => el.id === endContainer.id);
-    if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex + 1) {
-      let middleNodes = allNodes.slice(startIndex + 1, endIndex);
-      for (const node of middleNodes) {
-        await updateNodeHighlight(node, 0, node.textContent.length);
+    // Find all nodes that contain marks with this highlightId
+    const affectedMarks = document.querySelectorAll(`mark.${highlightId}`);
+    const affectedNodes = new Set();
+    
+    // Collect all unique container nodes that have our highlight
+    affectedMarks.forEach(mark => {
+      const container = mark.closest("p, blockquote, table, [id]");
+      if (container && container.id) {
+        affectedNodes.add(container);
       }
+    });
+    
+    console.log("All affected nodes:", Array.from(affectedNodes).map(node => node.id));
+    
+    // Process middle nodes (excluding start and end containers)
+    for (const node of affectedNodes) {
+      // Skip start and end containers as we've already processed them
+      if (node === startContainer || node === endContainer) continue;
+      
+      const nodeId = parseInt(node.getAttribute("id"), 10);
+      if (isNaN(nodeId)) continue;
+      
+      // Middle node - highlight the whole thing
+      await updateNodeHighlight(node, 0, node.textContent.length);
+      console.log(`Updated middle node ${node.id} with offsets:`, { start: 0, end: node.textContent.length });
     }
 
     try {
@@ -527,25 +539,20 @@ addTouchAndClickListener(
         container: startContainer.id,
         highlightId: highlightId,
         text: selectedText,
-        startChar: trueStartOffset,  // Use trueStartOffset instead of startOffset
-        endChar: trueEndOffset,      // Use trueEndOffset instead of endOffset
+        startChar: trueStartOffset,
+        endChar: trueEndOffset,
         startLine: parseInt(startContainer.getAttribute("id"), 10)
+      });
+      console.log("Added to highlights table with data:", {
+        container: startContainer.id,
+        highlightId: highlightId,
+        text: selectedText,
+        startChar: trueStartOffset,
+        endChar: trueEndOffset
       });
     } catch (error) {
       console.error("❌ Error saving highlight metadata:", error);
     }
-
-    // Send the highlight metadata to the backend
-    const highlightData = {
-      book: "latest",
-      text: selectedText,
-      start_xpath: getXPath(range.startContainer),
-      end_xpath: getXPath(range.endContainer),
-      xpath_full: getFullXPath(range.startContainer),
-      start_position: trueStartOffset,    // Use trueStartOffset
-      end_position: trueStartOffset + selectedText.length,  // Use trueStartOffset
-      highlight_id: highlightId
-    };
 
     attachMarkListeners();
 
@@ -630,22 +637,13 @@ addTouchAndClickListener(
 );
 
 
-
-
-
-
-
-
-
-
-    // Function to handle deleting a highlight
-// Function to handle deleting a highlight
-addTouchAndClickListener(
-  document.getElementById("delete-hyperlight"),
-  function (event) {
+// Simplified delete highlight function
+addTouchAndClickListener(document.getElementById("delete-hyperlight"),
+  async function (event) {
     event.preventDefault();
     console.log("Delete button clicked.");
 
+    // Get the current text selection as plain text.
     let selection = window.getSelection();
     let selectedText = selection.toString().trim();
 
@@ -654,106 +652,154 @@ addTouchAndClickListener(
       return;
     }
 
-    let removedHighlightIds = [];
-    let blockIds = [];
+    // Find all <mark> tags in the document.
+    const marks = document.querySelectorAll("mark");
+    let highlightIdsToRemove = [];
 
-    // Select all <mark> elements
-    const allMarks = document.querySelectorAll("mark");
-
-    allMarks.forEach(function (mark) {
-      let markText = mark.textContent.trim();
-      console.log(
-        "Comparing selectedText:",
-        selectedText,
-        "with markText:",
-        markText
-      );
-
-      if (selectedText.includes(markText)) {
-        // Instead of checking the 'id', check for a class that is not the default "highlight"
-        const highlightClass = Array.from(mark.classList).find(
+    marks.forEach((mark) => {
+      // If the text content of the mark is part of the selected text …
+      if (selectedText.indexOf(mark.textContent.trim()) !== -1) {
+        // Get the unique highlight id from the mark’s classes.
+        // (Assumes that one class is the generated highlightID while 
+        //  the default "highlight" is omitted.)
+        let highlightId = Array.from(mark.classList).find(
           (cls) => cls !== "highlight"
         );
-        if (highlightClass) {
-          removedHighlightIds.push(highlightClass);
-          console.log(
-            "Mark with highlight class to be deleted:",
-            highlightClass
-          );
-        } else {
-          console.warn("No unique highlight class found for mark:", mark);
+
+        if (highlightId) {
+          highlightIdsToRemove.push(highlightId);
+          console.log("Removing highlight for:", highlightId);
         }
 
-        // Find the parent with a numerical ID
-        let blockElement = findParentWithNumericalId(mark);
-        if (blockElement) {
-          blockIds.push(blockElement.id);
-          console.log("Found numerical block ID:", blockElement.id);
-        } else {
-          console.warn("No numerical block ID found for mark:", mark);
-        }
-
-        // Remove the highlight mark from the DOM
-        let parentAnchor = mark.closest("a");
-        if (parentAnchor) {
-          let parent = parentAnchor.parentNode;
-          parent.replaceChild(
-            document.createTextNode(mark.textContent),
-            parentAnchor
-          );
-        } else {
-          let parent = mark.parentNode;
-          parent.replaceChild(
-            document.createTextNode(mark.textContent),
-            mark
-          );
-        }
+        // Remove the mark element and replace it with plain text.
+        let parent = mark.parentNode;
+        parent.replaceChild(
+          document.createTextNode(mark.textContent),
+          mark
+        );
       }
     });
-    attachMarkListeners();
 
-    console.log("Removed highlight IDs:", removedHighlightIds);
-    console.log("Affected block IDs:", blockIds);
-
-    if (removedHighlightIds.length > 0) {
-      let book = document
-        .getElementById("main-content")
-        .getAttribute("data-book");
-
-      // Send the removed IDs and block IDs to the backend
-      fetch("/highlight/custom-markdown-delete", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-TOKEN": document
-          .querySelector('meta[name="csrf-token"]')
-          .getAttribute("content"),
-      },
-      body: JSON.stringify({
-        highlight_ids: removedHighlightIds, // now from the class attribute
-        block_ids: blockIds, // IDs of affected block-level elements
-        book: book, // Book identifier
-      }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.success) {
-          console.log("Highlights deleted and HTML updated.");
-        } else {
-          console.error("Error from server:", data.message);
-        }
-      })
-      .catch((error) => {
-        console.error("Error deleting highlights:", error);
-      });
-    } else {
-      console.error("No matching mark elements found in selection.");
+    // Now remove the corresponding records from IndexedDB (if any)
+    for (const highlightId of highlightIdsToRemove) {
+      try {
+        await removeHighlightFromNodeChunks(highlightId);
+        await removeHighlightFromHyperlights(highlightId);
+      } catch (error) {
+        console.error(
+          `Error removing highlight ${highlightId} from IndexedDB:`,
+          error
+        );
+      }
     }
+
+    console.log("Removed highlight IDs:", highlightIdsToRemove);
   }
 );
 
+//------------------------------------------------------
+// IndexedDB helper to remove highlight from the "nodeChunks" table.
+// It iterates all nodes and removes any hyperlight objects with a matching highlightID.
+async function removeHighlightFromNodeChunks(highlightId) {
+  const db = await openDatabase();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("nodeChunks", "readwrite");
+    const store = tx.objectStore("nodeChunks");
+
+    // Iterate over all nodes using a cursor.
+    const request = store.openCursor();
+
+    request.onsuccess = (event) => {
+      const cursor = event.target.result;
+      if (cursor) {
+        let node = cursor.value;
+        if (node.hyperlights && Array.isArray(node.hyperlights)) {
+          const originalCount = node.hyperlights.length;
+          // Filter out any entry that has the highlightID we want to remove.
+          node.hyperlights = node.hyperlights.filter(
+            (hl) => hl.highlightID !== highlightId
+          );
+          if (node.hyperlights.length !== originalCount) {
+            // Update record in IndexedDB if a change was made.
+            cursor.update(node);
+          }
+        }
+        cursor.continue();
+      } else {
+        resolve();
+      }
+    };
+
+    request.onerror = (error) => {
+      console.error("Error iterating nodeChunks:", error);
+      reject(error);
+    };
+
+    // Also catch transactional errors.
+    tx.onerror = (error) => {
+      console.error("Transaction error in nodeChunks:", error);
+      reject(error);
+    };
+  });
+}
+
+//------------------------------------------------------
+// IndexedDB helper to remove highlight directly from the "hyperlights" table.
+async function removeHighlightFromHyperlights(highlightId) {
+  const db = await openDatabase();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("hyperlights", "readwrite");
+    const store = tx.objectStore("hyperlights");
+    // Use the index to get the primary key from the hyperlight_id field.
+    const index = store.index("hyperlight_id");
+    const getKeyRequest = index.getKey(highlightId);
+
+    getKeyRequest.onsuccess = (e) => {
+      const primaryKey = e.target.result;
+      if (primaryKey === undefined) {
+        console.warn(`No record found for highlight ${highlightId}`);
+        resolve();
+        return;
+      }
+
+      // Now delete the record using its primary key.
+      const deleteRequest = store.delete(primaryKey);
+      deleteRequest.onsuccess = () => {
+        console.log(`Highlight ${highlightId} removed from hyperlights store.`);
+        resolve();
+      };
+
+      deleteRequest.onerror = (error) => {
+        console.error("Error deleting record from hyperlights:", error);
+        reject(error);
+      };
+    };
+
+    getKeyRequest.onerror = (error) => {
+      console.error(
+        `Error looking up primary key for highlight ${highlightId}:`,
+        error
+      );
+      reject(error);
+    };
+
+    tx.oncomplete = () =>
+      console.log("Hyperlights removal transaction complete");
+    tx.onerror = (error) =>
+      console.error("Transaction error in hyperlights removal:", error);
+  });
+}
 
 
+
+
+
+
+
+
+   
     // Find the nearest ancestor with a numerical ID
     function findParentWithNumericalId(element) {
       let current = element;
