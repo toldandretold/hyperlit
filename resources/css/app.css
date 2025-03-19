@@ -425,16 +425,16 @@ width: 40px; /* Matching width */
 /* Reference Container */
 #ref-container,
 #highlight-container {
-  transform: translateX(100%); /* Start off-screen to the right */
-  transition: transform 0.3s ease-in-out; /* Smooth slide-in effect */
+  transform: translateX(calc(100% + 2em)); /* Off-screen, including the gap */
+  transition: transform 0.3s ease-in-out;
   position: fixed;
-  right: 0; /* Align to the right edge */
+  right: 1em;
   top: 5%;
   height: 90%;
-  width: 80%; /* 80% width on smaller screens */
-  max-width: 600px; /* Cap the width to 600px on larger devices */
-  background-color: #221F20; /* Matching TOC background color */
-  z-index: 1000; /* On top of the overlay */
+  width: 70%;
+  max-width: 600px;
+  background-color: #221F20;
+  z-index: 1000;
   overflow: auto;
   padding-left: 2em;
   padding-right: 1em;
@@ -443,8 +443,9 @@ width: 40px; /* Matching width */
 
 #ref-container.open,
 #highlight-container.open {
-  transform: translateX(0); /* Slide in */
+  transform: translateX(0); /* Slide in to show the gap on the right */
 }
+
 
 /* Reference Overlay */
 #ref-overlay {
@@ -467,7 +468,7 @@ width: 40px; /* Matching width */
 
 /* lazy loading */
  #main-content {
-        width: 100%;
+        
         height: calc(100vh - 60px); /* Full height minus space for buttons */
         border: none;               /* Remove border */
         outline: none;              /* Remove default focus outline */
