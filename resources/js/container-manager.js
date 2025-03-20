@@ -1,3 +1,5 @@
+import { saveAnnotationToIndexedDB } from "./annotation-saver.js";
+
 // container-manager.js
 export class ContainerManager {
   /**
@@ -12,6 +14,9 @@ export class ContainerManager {
     this.overlay = document.getElementById(overlayId);
     this.button = buttonId ? document.getElementById(buttonId) : null;
     this.isOpen = false;
+
+    // In case this is a highlight container, store the current highlightId.
+    this.highlightId = null;
 
     // Get background elements (like main-content and nav-buttons) to freeze when open.
     this.frozenElements = frozenContainerIds.map((id) =>
@@ -96,42 +101,88 @@ export class ContainerManager {
     }
   }
 
-
-  openContainer(content = null) {
+  /**
+   * Opens the container.
+   * @param {string|null} content - The inner HTML content to set.
+   * @param {string|null} highlightId - (Optional) The highlight ID in case this is a highlight container.
+   */
+  openContainer(content = null, highlightId = null) {
     if (content && this.container) {
-      console.log(
-        `Opening container ${this.container.id} with content:`,
-        content
-      );
+      console.log(`Opening container ${this.container.id} with content:`, content);
       this.container.innerHTML = content;
     }
-    this.isOpen = true;
-
-    // Set the active container globally.
-    // This allows other components (e.g., NavButtons) to know which container is active.
-    window.activeContainer = this.container.id;
-
-    this.updateState();
-  }
-
-  closeContainer() {
-    this.isOpen = false;
-    this.updateState();
-
-    // Only clear content if this is a dynamic content container
-    if (
-      this.container.id === "ref-container" ||
-      this.container.id === "highlight-container"
-    ) {
-      setTimeout(() => {
-        this.container.innerHTML = ""; // Clear content after animation
-      }, 300); // Delay to match the slide-out animation
+    // If a highlightId is provided, store it.
+    if (highlightId) {
+      this.highlightId = highlightId;
     }
-
-    // When closing, reset the active container.
-    // Adjust this default back to whatever should be active (e.g. "main-content").
-    window.activeContainer = "main-content";
+    // Ensure the container is visible.
+    this.container.classList.remove("hidden");
+    this.container.classList.add("open");
+    
+    this.isOpen = true;
+    window.activeContainer = this.container.id;
+    this.updateState();
+    
+    // Optionally focus the container.
+    this.container.focus();
   }
+
+  /**
+   * Closes the container and, if it's the highlight-container, forces a save.
+   */
+closeContainer() {
+  // If this is the highlight container and a highlightId exists, force-save
+  if (this.container.id === "highlight-container" && this.highlightId) {
+    // Get the editable annotation element and force blur.
+    const annotationEl = this.container.querySelector(".annotation");
+    if (annotationEl) {
+      annotationEl.blur();
+    }
+    // Instead of reading innerHTML, rely on the stored value.
+    const annotationHTML = this.container.dataset.lastAnnotation || "";
+    console.log("Forcing save on close. Stored annotation HTML:", annotationHTML);
+    
+    // Use requestAnimationFrame to force the next frame delay.
+    requestAnimationFrame(() => {
+      saveAnnotationToIndexedDB(this.highlightId, annotationHTML)
+        .then(() => {
+          console.log("Annotation saved on close for highlightId:", this.highlightId);
+        })
+        .catch((err) => {
+          console.error("Error saving annotation on close:", err);
+        });
+    });
+  }
+
+  // Hide the container by setting CSS visibility,
+  // so the DOM remains intact for the save call.
+  this.container.style.visibility = "hidden";
+  
+  this.isOpen = false;
+  this.updateState();
+
+  // Remove classes as before.
+  this.container.classList.remove("open");
+  this.container.classList.add("hidden");
+  
+  // Clear content after a delay.
+  setTimeout(() => {
+    this.container.innerHTML = "";
+    // Reset visibility for next time.
+    this.container.style.visibility = "";
+  }, 500);
+
+  // Reset the active container.
+  window.activeContainer = "main-content";
+}
+
+
+
+
+
+  
+  
+
 
   toggleContainer() {
     if (this.isOpen) {

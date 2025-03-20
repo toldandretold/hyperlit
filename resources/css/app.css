@@ -16,7 +16,7 @@ a u.linked {
     cursor: text; /* Maintain text cursor */
 }
 
-#main-content.loading::before {
+.main-content.loading::before {
     content: "Loading...";
     display: block;
     text-align: center;
@@ -467,7 +467,7 @@ width: 40px; /* Matching width */
 }
 
 /* lazy loading */
- #main-content {
+ .main-content {
         
         height: calc(100vh - 60px); /* Full height minus space for buttons */
         border: none;               /* Remove border */

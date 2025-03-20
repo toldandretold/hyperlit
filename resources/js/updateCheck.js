@@ -1,7 +1,6 @@
 
 import {
-  book,
-  mainContentDiv
+  book
 } from './app.js';
 
 export async function fetchLatestUpdateInfo(book) {

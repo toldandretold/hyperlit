@@ -1,6 +1,6 @@
 // In scrolling.js
 
-import { mainContentDiv, book } from "./app.js";
+import { book } from "./app.js";
 import {
   getNodeChunksFromIndexedDB,
   getLocalStorageKey
@@ -66,7 +66,7 @@ export async function restoreScrollPosition() {
   }
   console.log(
     "📌 Attempting to restore scroll position for container:",
-    currentLazyLoader.container.id
+    currentLazyLoader.bookID
   );
 
   // Determine navigation type.
@@ -78,7 +78,6 @@ export async function restoreScrollPosition() {
   let targetId = hash;
   const scrollKey = getLocalStorageKey(
     "lastVisibleElement",
-    currentLazyLoader.containerId,
     currentLazyLoader.bookId
   );
 
@@ -104,7 +103,6 @@ export async function restoreScrollPosition() {
   if (!targetId) {
     console.log("🟢 No saved position found. Loading first chunk...");
     let cachedNodeChunks = await getNodeChunksFromIndexedDB(
-      currentLazyLoader.containerId,
       currentLazyLoader.bookId
     );
     if (cachedNodeChunks && cachedNodeChunks.length > 0) {
