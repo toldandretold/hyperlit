@@ -1,5 +1,4 @@
 import {
-    mainContentDiv,
     book,
     markdownContent
 } from './app.js'; 
@@ -59,7 +58,6 @@ if (!window.isInitialized) {
 
     document.addEventListener("DOMContentLoaded", async () => {
 
-        window.activeContainer = "main-content";
 
         // Utility function to bust the cache using a lastModified timestamp
         window.getFreshUrl = function(url, lastModified) {

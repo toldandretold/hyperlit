@@ -1,52 +1,49 @@
-import { book, mainContentDiv } from "./app.js";
-
-/**
- * Returns the current page URL (without protocol, query params, etc.) for use
- * as a composite key.
- */
-export function getPageKey() {
-  const key = window.location.pathname;
-  console.log("getPageKey() returns:", key);
-  return key;
-}
+import { book } from "./app.js";
 
 export const DB_VERSION = 9;
 
 /**
  * Opens (or creates) the IndexedDB database.
- * IMPORTANT: For the nodeChunks store, we now use startLine as the keyPath,
- * and chunk_id as an index.
+ * 
+ * For the nodeChunks store, we now use a composite key: [book, startLine],
+ * and keep only chunk_id as an index.
+ * 
+ * For the footnotes store, the key is now just "book".
  */
 export async function openDatabase() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open("MarkdownDB", DB_VERSION);
 
-    request.onupgradeneeded = event => {
+    request.onupgradeneeded = (event) => {
       console.log("📌 Upgrading IndexedDB to version " + DB_VERSION);
       const db = event.target.result;
 
       const storeConfigs = [
         {
+          // For nodeChunks, we use a composite primary key [book, startLine]
           name: "nodeChunks",
-          keyPath: "startLine",
-          indices: ["chunk_id", "url", "container", "book"]
+          keyPath: ["book", "startLine"],
+          indices: ["chunk_id", "book"],
         },
         {
-          name: "markdownStore",
-          keyPath: ["url", "container", "book"]
-        },
-        {
+          // For footnotes, we now use just "book" as the key
           name: "footnotes",
-          keyPath: ["url", "container", "book"]
+          keyPath: "book"
+        },
+        {
+          // The remaining stores remain unchanged;
+          // update these later if you plan to remove url/container there as well.
+          name: "markdownStore",
+          keyPath: ["url", "book"]
         },
         {
           name: "hyperlights",
-          keyPath: ["url", "container", "book", "hyperlight_id"],
-          indices: ["hyperlight_id"] // Add this line to create the index
+          keyPath: ["book", "hyperlight_id"],
+          indices: ["hyperlight_id"]
         },
         {
           name: "hypercites",
-          keyPath: ["url", "container", "book", "hypercite_id"]
+          keyPath: ["url", "book", "hypercite_id"]
         }
       ];
 
@@ -57,13 +54,10 @@ export async function openDatabase() {
         }
         const objectStore = db.createObjectStore(name, { keyPath });
         console.log(
-          `✅ Created store '${name}' with keyPath: ${JSON.stringify(
-            keyPath
-          )}`
+          `✅ Created store '${name}' with keyPath: ${JSON.stringify(keyPath)}`
         );
-
         if (indices) {
-          indices.forEach(indexName => {
+          indices.forEach((indexName) => {
             objectStore.createIndex(indexName, indexName, { unique: false });
             console.log(`  ✅ Created index '${indexName}'`);
           });
@@ -71,47 +65,39 @@ export async function openDatabase() {
       });
     };
 
-    request.onsuccess = event => resolve(event.target.result);
-    request.onerror = event => {
+    request.onsuccess = (event) => resolve(event.target.result);
+    request.onerror = (event) => {
       console.error("❌ Failed to open IndexedDB:", event.target.error);
       reject("IndexedDB Error: " + event.target.error);
     };
   });
 }
 
-
 /**
- * Saves nodeChunks (the array of chunk records) to IndexedDB.
- * It expects that each record already has:
- *   - url, container, and book (which are added here),
- *   - and a chunk_id property produced by the new parser,
- *   - AND a startLine that is unique.
+ * Saves nodeChunks (an array of chunk records) into IndexedDB.
+ * 
+ * Each record must have:
+ *   - book,
+ *   - chunk_id,
+ *   - startLine (unique within the book).
+ *
+ * The composite key for nodeChunks is [book, startLine].
  */
-export async function saveNodeChunksToIndexedDB(
-  nodeChunks,
-  containerId = "default",
-  bookId = "latest"
-) {
+export async function saveNodeChunksToIndexedDB(nodeChunks, bookId = "latest") {
   const db = await openDatabase();
   const tx = db.transaction("nodeChunks", "readwrite");
   const store = tx.objectStore("nodeChunks");
 
-  nodeChunks.forEach(record => {
-    record.url = window.location.pathname;
-    record.container = containerId;
+  nodeChunks.forEach((record) => {
+    // Tag the record with the proper book identifier.
     record.book = bookId;
-    // record.chunk_id is already set by the parser
-    // record.startLine is already set by the parser, and MUST be unique
+    // record.chunk_id and record.startLine must be set by the parser.
     store.put(record);
   });
 
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => {
-      console.log(
-        "✅ nodeChunks successfully saved in IndexedDB for",
-        containerId,
-        bookId
-      );
+      console.log("✅ nodeChunks successfully saved for book:", bookId);
       resolve();
     };
     tx.onerror = () => {
@@ -122,40 +108,34 @@ export async function saveNodeChunksToIndexedDB(
 }
 
 /**
- * Retrieves nodeChunks from IndexedDB using the index on chunk_id, url,
- * container, and book.
+ * Retrieves nodeChunks for a specified book from IndexedDB.
+ * 
+ * The returned array is sorted by chunk_id.
  */
-export async function getNodeChunksFromIndexedDB(
-  containerId = "default",
-  bookId = "latest"
-) {
-  console.log("Fetching nodeChunks for container:", containerId, "and book:", bookId);
-  
+export async function getNodeChunksFromIndexedDB(bookId = "latest") {
+  console.log("Fetching nodeChunks for book:", bookId);
+
   const db = await openDatabase();
   const tx = db.transaction("nodeChunks", "readonly");
   const store = tx.objectStore("nodeChunks");
-
-  // Use the "book" index instead of "chunk_id"
-  const bookIndex = store.index("book");
-
+  
   return new Promise((resolve, reject) => {
-    // Get all records for the specified bookId
-    const request = bookIndex.getAll(bookId);
+    // Get all records and filter manually
+    const request = store.getAll();
+    
     request.onsuccess = () => {
       let results = request.result || [];
+      
+      // Filter by book ID directly
+      results = results.filter((record) => record.book === bookId);
 
-      // Optionally filter further by container and url (the composite key)
-      results = results.filter(record => 
-        record.container === containerId &&
-        record.url === window.location.pathname
-      );
-
-      // If you need the records sorted by chunk_id, you can do so:
+      // Sort the results by chunk_id for proper lazy loading order
       results.sort((a, b) => a.chunk_id - b.chunk_id);
 
-      console.log("✅ Retrieved nodeChunks from IndexedDB for", getPageKey());
+      console.log(`✅ Retrieved ${results.length} nodeChunks for book: ${bookId}`);
       resolve(results);
     };
+    
     request.onerror = () => {
       reject("❌ Error loading nodeChunks from IndexedDB");
     };
@@ -163,55 +143,10 @@ export async function getNodeChunksFromIndexedDB(
 }
 
 
-/**
- * Reconstructs saved chunks based on window.nodeChunks.
- * (This is optional and may be used for debugging or to rebuild UI state.)
- */
-/*export function reconstructSavedChunks() {
-  if (!window.nodeChunks || window.nodeChunks.length === 0) {
-    console.error("❌ No `nodeChunks` available to reconstruct `savedChunks`.");
-    return;
-  }
 
-  // Group records by chunk_id.
-  const groupedByChunk = window.nodeChunks.reduce((acc, record) => {
-    if (!acc[record.chunk_id]) {
-      acc[record.chunk_id] = [];
-    }
-    acc[record.chunk_id].push(record);
-    return acc;
-  }, {});
-
-  // For demonstration, use the first three groups.
-  const reconstructedChunks = Object.keys(groupedByChunk)
-    .slice(0, 3)
-    .map(chunkId => {
-      const html = document.querySelector(`[data-chunk-id="${chunkId}"]`)
-        ?.outerHTML;
-      return html ? { id: chunkId, html } : null;
-    })
-    .filter(chunk => chunk !== null);
-
-  const latestServerTimestamp =
-    localStorage.getItem("markdownLastModified") || Date.now().toString();
-
-  const reconstructedSavedChunks = {
-    timestamp: latestServerTimestamp,
-    chunks: reconstructedChunks
-  };
-
-  localStorage.setItem(
-    "savedChunks",
-    JSON.stringify(reconstructedSavedChunks)
-  );
-  console.log(
-    "✅ `savedChunks` successfully reconstructed and stored with timestamp:",
-    latestServerTimestamp
-  );
-}*/
 
 /**
- * Clears the nodeChunks store in IndexedDB.
+ * Clears the entire nodeChunks store in IndexedDB.
  */
 export async function clearIndexedDB() {
   try {
@@ -219,13 +154,13 @@ export async function clearIndexedDB() {
     const tx = db.transaction("nodeChunks", "readwrite");
     const store = tx.objectStore("nodeChunks");
     store.clear();
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       tx.oncomplete = () => {
-        console.log("🗑 IndexedDB `nodeChunks` cleared.");
+        console.log("🗑 IndexedDB 'nodeChunks' cleared.");
         resolve();
       };
       tx.onerror = () => {
-        console.error("❌ Error clearing IndexedDB.");
+        console.error("❌ Error clearing nodeChunks in IndexedDB.");
         resolve();
       };
     });
@@ -234,12 +169,14 @@ export async function clearIndexedDB() {
   }
 }
 
-/* --- Footnotes functions remain mostly unchanged --- */
+/* ---------- Footnotes Functions ---------- */
 
-export async function getFootnotesFromIndexedDB(
-  containerId = "default",
-  bookId = "latest"
-) {
+/**
+ * Retrieves footnotes data for a specified book from IndexedDB.
+ * 
+ * The key for footnotes is now simply the book ID.
+ */
+export async function getFootnotesFromIndexedDB(bookId = "latest") {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     if (!db.objectStoreNames.contains("footnotes")) {
@@ -250,16 +187,19 @@ export async function getFootnotesFromIndexedDB(
     }
     const transaction = db.transaction(["footnotes"], "readonly");
     const store = transaction.objectStore("footnotes");
-    let key = [getPageKey(), containerId, bookId];
-    let getRequest = store.get(key);
+    let getRequest = store.get(bookId);
     getRequest.onsuccess = () => resolve(getRequest.result?.data || null);
     getRequest.onerror = () => resolve(null);
   });
 }
 
+/**
+ * Saves footnotes data for a specified book to IndexedDB.
+ * 
+ * Uses the book ID as the key.
+ */
 export async function saveFootnotesToIndexedDB(
   footnotesData,
-  containerId = "default",
   bookId = "latest"
 ) {
   const db = await openDatabase();
@@ -271,8 +211,6 @@ export async function saveFootnotesToIndexedDB(
     const transaction = db.transaction(["footnotes"], "readwrite");
     const store = transaction.objectStore("footnotes");
     const request = store.put({
-      url: getPageKey(),
-      container: containerId,
       book: bookId,
       data: footnotesData
     });
@@ -282,46 +220,39 @@ export async function saveFootnotesToIndexedDB(
   });
 }
 
-function getCompositeKey(containerId = "default", bookId = "latest") {
-  return {
-    url: window.location.pathname,
-    container: containerId,
-    book: bookId
-  };
-}
-
-export function getLocalStorageKey(
-  baseKey,
-  containerId = "default",
-  bookId = "latest"
-) {
-  return `${baseKey}_${window.location.pathname}_${containerId}_${bookId}`;
-}
-
-export async function clearNodeChunksForBook(containerId = "default", bookId = "latest") {
+/**
+ * Clears nodeChunks records for a specified book.
+ */
+export async function clearNodeChunksForBook(bookId = "latest") {
   try {
     const db = await openDatabase();
     const tx = db.transaction("nodeChunks", "readwrite");
     const store = tx.objectStore("nodeChunks");
-    
-    // Use the "book" index to find keys for this book.
-    const bookIndex = store.index("book");
-    const request = bookIndex.getAllKeys(bookId);
-    
+
+    const request = store.getAll();
     request.onsuccess = () => {
-      const keys = request.result || [];
-      // Optionally filter keys by container and url
-      keys.forEach(key => {
-        store.delete(key);
+      const records = request.result || [];
+      records.forEach((record) => {
+        if (record.book === bookId) {
+          const key = [record.book, record.startLine];
+          store.delete(key);
+        }
       });
-      console.log(`Cleared nodeChunks for container "${containerId}" and book "${bookId}".`);
+      console.log(`Cleared nodeChunks for book "${bookId}".`);
     };
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
-      tx.onerror = () => reject("Error clearing nodeChunks for current book.");
+      tx.onerror = () =>
+        reject("Error clearing nodeChunks for book " + bookId);
     });
   } catch (error) {
     console.error("Failed to clear nodeChunks for book:", error);
   }
 }
 
+/**
+ * Generates a localStorage key based on a provided base key and book.
+ */
+export function getLocalStorageKey(baseKey, bookId = "latest") {
+  return `${baseKey}_${bookId}`;
+}

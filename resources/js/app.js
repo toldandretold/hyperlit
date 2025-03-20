@@ -18,16 +18,13 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-export const mainContentDiv = document.getElementById("main-content");
+export const book = document.querySelector('.main-content').id;
 
 export const markdownContent = ""; // Store Markdown globally
 
 
 
-export const book = mainContentDiv.getAttribute("data-book");
 
-
-console.log("mainContentDiv:", mainContentDiv);
 console.log("book:", book);
 
 

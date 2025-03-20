@@ -10,6 +10,7 @@
 
 #highlight-container {
 caret-color: #CBCCCC;
+
 }
 
 /* Styling blockquotes within #highlight-div */
@@ -70,5 +71,29 @@ blockquote.active a {
 
 div[contenteditable="true"]:focus {
   outline: none;
+}
+
+
+/* Global spinner and tick fixed at the top-right of the viewport */
+.spinner,
+.tick {
+  /* Positioning will be set inline in the functions. */
+  font-size: 16px;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+  color: #CBCCCC;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.tick {
+  color: green;
 }
 

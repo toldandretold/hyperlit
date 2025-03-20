@@ -12,9 +12,8 @@
 
     <!-- Load the content of the main-text.md file -->
 
-    <div id="main-content" data-book="{{ $book }}">
-    
-</div>
+    <div id="{{ $book }}" class="main-content"> 
+    </div>
 
     <!-- Buttons for hyper-lighting -->
     <div id="hyperlight-buttons" style="display: none; position: absolute; z-index: 9999;">
