@@ -101,42 +101,125 @@ export function createLazyLoader(config) {
 
   // --- SCROLL POSITION SAVING LOGIC ---
   instance.saveScrollPosition = () => {
-    const chunkElements = Array.from(
-      container.querySelectorAll("[data-chunk-id]")
-    );
-    if (chunkElements.length === 0) return;
-    const topVisible = chunkElements.find((el) => {
+    // Instead of querying [data-chunk-id], query for elements with an id that are candidates.
+    // For example, you might have:
+    const elements = Array.from(container.querySelectorAll("[id]"));
+    if (elements.length === 0) return;
+    // Find the first element whose top is at or after the viewport top.
+    const topVisible = elements.find((el) => {
       const rect = el.getBoundingClientRect();
       return rect.top >= 0;
     });
     if (topVisible) {
-      const scrollId = topVisible.getAttribute("data-chunk-id");
-      const storageKey = getLocalStorageKey("lastVisibleElement", instance.bookId);
-      sessionStorage.setItem(storageKey, scrollId);
-      localStorage.setItem(storageKey, scrollId);
-      console.log("Saved scroll position:", scrollId);
+      // Use the element's id
+      const detectedId = topVisible.id;
+      // Build a JSON object. You may add more properties if needed.
+      const scrollData = {
+        elementId: detectedId
+      };
+      const storageKey = getLocalStorageKey("scrollPosition", instance.bookId);
+      const stringifiedData = JSON.stringify(scrollData);
+      sessionStorage.setItem(storageKey, stringifiedData);
+      localStorage.setItem(storageKey, stringifiedData);
+    
+      console.log("Saved scroll data:", scrollData);
     }
   };
+
   container.addEventListener("scroll", throttle(instance.saveScrollPosition, 200));
 
-  instance.restoreScrollPosition = () => {
-    const storageKey = getLocalStorageKey("lastVisibleElement", instance.bookId);
-    const savedScrollId =
+  instance.restoreScrollPosition = async () => {
+    const storageKey = getLocalStorageKey("scrollPosition", instance.bookId);
+    const storedData =
       sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
-    if (!savedScrollId) {
-      console.warn("No saved scroll position found.");
+    if (!storedData) {
+      console.warn("No saved scroll data found.");
       return;
     }
-    const targetElement = container.querySelector(
-      `[data-chunk-id="${savedScrollId}"]`
-    );
+    let scrollData;
+    try {
+      scrollData = JSON.parse(storedData);
+    } catch (e) {
+      console.error("Error parsing scroll data:", e);
+      return;
+    }
+    // Ensure we have an elementId stored. In your case this corresponds to startLine.
+    if (!(scrollData && scrollData.elementId)) return;
+
+    // First, try to find the element in the already loaded DOM.
+    let targetElement = container.querySelector(`#${scrollData.elementId}`);
     if (targetElement) {
-      console.log("Restoring scroll position to chunk:", savedScrollId);
+      console.log(
+        "Restoring scroll position to already loaded element:",
+        scrollData.elementId
+      );
       targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
     } else {
-      console.warn("Element with saved scroll position not found:", savedScrollId);
+      console.log(
+        "Element not in DOM; looking it up in IndexedDB based on startLine:",
+        scrollData.elementId
+      );
+      try {
+        // Get the node chunks from IndexedDB.
+        const nodeChunksData = await instance.getNodeChunks();
+        if (!nodeChunksData || nodeChunksData.length === 0) {
+          console.warn("No node chunks found in IndexedDB.");
+          return;
+        }
+        // Look for the chunk where startLine matches the saved element id.
+        // Note: saved element id is a string; if needed, parse it as an integer.
+        const savedStartLine = parseInt(scrollData.elementId, 10);
+        const matchingChunk = nodeChunksData.find((chunk) => {
+          // Assuming each chunk object contains a startLine property.
+          return parseInt(chunk.startLine, 10) === savedStartLine;
+        });
+
+        if (matchingChunk) {
+          console.log(
+            "Found matching chunk from IndexedDB for startLine:",
+            savedStartLine,
+            "chunk:",
+            matchingChunk
+          );
+          // Load this chunk. If loadChunkInternal() is used, you might load with direction "down".
+          loadChunkInternal(
+            matchingChunk.chunk_id,
+            "down",
+            instance,
+            attachMarkers
+          );
+          // Allow some time for the chunk to be rendered.
+          setTimeout(() => {
+            let newTarget = container.querySelector(
+              `#${scrollData.elementId}`
+            );
+            if (newTarget) {
+              console.log(
+                "Restoring scroll position after loading chunk, element:",
+                scrollData.elementId
+              );
+              newTarget.scrollIntoView({ behavior: "smooth", block: "start" });
+            } else {
+              console.warn(
+                "After loading, element still not found:",
+                scrollData.elementId
+              );
+            }
+          }, 100);
+        } else {
+          console.warn(
+            "No matching chunk (startLine:",
+            scrollData.elementId,
+            ") found in IndexedDB."
+          );
+        }
+      } catch (error) {
+        console.error("Error retrieving node chunks from IndexedDB:", error);
+      }
     }
   };
+
+
   window.addEventListener("resize", throttle(instance.restoreScrollPosition, 200));
   // --- END SCROLL POSITION LOGIC ---
 
