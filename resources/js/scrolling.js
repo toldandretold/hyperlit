@@ -13,9 +13,9 @@ import { repositionSentinels } from "./lazyLoaderFactory.js"; // if exported
 // ========= Scrolling Helper Functions =========
 
 function scrollElementIntoMainContent(targetElement, headerOffset = 0) {
-  const container = document.getElementById("main-content");
+  const container = document.getElementById(book);
   if (!container) {
-    console.error('Container with id "main-content" not found!');
+    console.error(`Container with id ${book} not found!`);
     targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
@@ -66,41 +66,39 @@ export async function restoreScrollPosition() {
   }
   console.log(
     "📌 Attempting to restore scroll position for container:",
-    currentLazyLoader.bookID
-  );
-
-  // Determine navigation type.
-  const navEntry = performance.getEntriesByType("navigation")[0] || {};
-  const navType = navEntry.type || "navigate";
-  // Only show a bookmark marker if the user arrived via a reload or back/forward.
-
-  const hash = window.location.hash.substring(1);
-  let targetId = hash;
-  const scrollKey = getLocalStorageKey(
-    "lastVisibleElement",
     currentLazyLoader.bookId
   );
 
+  // Read saved target id from storage
+  const scrollKey = getLocalStorageKey("scrollPosition", currentLazyLoader.bookId);
+  let targetId = window.location.hash.substring(1);
+  
   try {
-    if (sessionStorage) {
-      const sessionSavedId = sessionStorage.getItem(scrollKey);
-      if (sessionSavedId && sessionSavedId !== "0")
-        targetId = sessionSavedId; // don't set targetId to 0
+    const sessionSavedId = sessionStorage.getItem(scrollKey);
+    if (sessionSavedId && sessionSavedId !== "0") {
+      const parsed = JSON.parse(sessionSavedId);
+      if (parsed && parsed.elementId) {
+        targetId = parsed.elementId;
+      }
     }
   } catch (e) {
-    console.log("⚠️ sessionStorage not available", e);
+    console.log("⚠️ sessionStorage not available or parse error", e);
   }
+  
   try {
-    if (localStorage) {
-      const localSavedId = localStorage.getItem(scrollKey);
-      if (localSavedId && localSavedId !== "0")
-        targetId = localSavedId; // don't set targetId to 0
+    const localSavedId = localStorage.getItem(scrollKey);
+    if (localSavedId && localSavedId !== "0") {
+      const parsed = JSON.parse(localSavedId);
+      if (parsed && parsed.elementId) {
+        targetId = parsed.elementId;
+      }
     }
   } catch (e) {
-    console.log("⚠️ localStorage not available", e);
+    console.log("⚠️ localStorage not available or parse error", e);
   }
 
   if (!targetId) {
+    // No saved scroll position: load first chunk.
     console.log("🟢 No saved position found. Loading first chunk...");
     let cachedNodeChunks = await getNodeChunksFromIndexedDB(
       currentLazyLoader.bookId
@@ -109,19 +107,17 @@ export async function restoreScrollPosition() {
       console.log("✅ Found nodeChunks in IndexedDB. Loading first chunk...");
       currentLazyLoader.nodeChunks = cachedNodeChunks;
       currentLazyLoader.container.innerHTML = "";
-      // currentLazyLoader.loadChunk(0, "down");
-      //We must instead load ALL nodes that have a chunkID of 0
       currentLazyLoader.nodeChunks
         .filter(node => node.chunk_id === 0)
         .forEach(node => currentLazyLoader.loadChunk(node.chunk_id, "down"));
       return;
     }
+    // Fallback: fetch markdown and parse.
     console.log("⚠️ No cached chunks found. Fetching from main-text.md...");
     try {
       const response = await fetch(`/markdown/${book}/main-text.md`);
       const markdown = await response.text();
       currentLazyLoader.nodeChunks = parseMarkdownIntoChunks(markdown);
-      // currentLazyLoader.loadChunk(0, "down");
       currentLazyLoader.nodeChunks
         .filter(node => node.chunk_id === 0)
         .forEach(node => currentLazyLoader.loadChunk(node.chunk_id, "down"));
@@ -134,17 +130,11 @@ export async function restoreScrollPosition() {
   }
 
   console.log(`🎯 Found target position: ${targetId}. Navigating...`);
-  console.log("Lazy loader container:", currentLazyLoader.container);
-  if (
-    !currentLazyLoader.container ||
-    typeof currentLazyLoader.container.querySelector !== "function"
-  ) {
-    console.error("Invalid container in currentLazyLoader!");
-    return;
-  }
-  // Pass the flag to navigateToInternalId
+
+  // Delegate to the navigation function.
   navigateToInternalId(targetId, currentLazyLoader);
 }
+
 
 function scrollElementIntoContainer(targetElement, container, headerOffset = 0) {
   if (!container) {
@@ -178,47 +168,14 @@ export function navigateToInternalId(targetId, lazyLoader) {
 }
 
 function _navigateToInternalId(targetId, lazyLoader) {
-  // Validate the container reference.
-  if (
-    !lazyLoader.container ||
-    typeof lazyLoader.container.querySelector !== "function"
-  ) {
-    console.error("Invalid lazyLoader.container:", lazyLoader.container);
-    lazyLoader.isNavigatingToInternalId = false;
-    return;
-  }
-
-  // Prevent duplicate navigations.
-  if (lazyLoader.isNavigatingToInternalId) {
-    console.log("Navigation already in progress, skipping duplicate call.");
-    return;
-  }
-  lazyLoader.isNavigatingToInternalId = true;
-  console.log(`Navigating to internal ID: ${targetId}`);
-
-  // Helper to remove any active highlights from elements inside the container.
-  const removeActiveHighlight = () => {
-    const activeElements = lazyLoader.container.querySelectorAll(".active");
-    activeElements.forEach(el => el.classList.remove("active"));
-  };
-
-  // Ensure we have a set to keep track of the currently loaded chunks.
-  if (!lazyLoader.currentlyLoadedChunks) {
-    lazyLoader.currentlyLoadedChunks = new Set();
-  }
-
-  // Check if the target element already exists in the container.
+  // Check if the target element is already present.
   let existingElement = lazyLoader.container.querySelector(
     `#${CSS.escape(targetId)}`
   );
   if (existingElement) {
-    // Scroll once to the target element.
+    // Already available: scroll and highlight.
     scrollElementIntoContainer(existingElement, lazyLoader.container, 50);
-    // Highlight the element by adding the active class.
-    removeActiveHighlight();
     existingElement.classList.add("active");
-
-    // Use a single delayed call to attach listeners and mark navigation complete.
     setTimeout(() => {
       if (typeof lazyLoader.attachMarkListeners === "function") {
         lazyLoader.attachMarkListeners(lazyLoader.container);
@@ -228,29 +185,21 @@ function _navigateToInternalId(targetId, lazyLoader) {
     return;
   }
 
-  // Determine the chunk index that should contain targetId.
+  // Otherwise, determine which chunk should contain the target.
   let targetChunkIndex = -1;
   if (/^\d+$/.test(targetId)) {
-    // targetChunkIndex = lazyLoader.nodeChunks.findIndex((chunk) =>
-    //   chunk.blocks.some((block) => block.startLine.toString() === targetId)
-    // );
-    //Updated to use the startLine:
+    // Compare targetId (which is startLine) to node.startLine.
     targetChunkIndex = lazyLoader.nodeChunks.findIndex(
       node => node.startLine.toString() === targetId
     );
   } else {
-    // For non-numeric custom IDs, use a helper to find the appropriate line.
+    // Use custom logic for non-numeric IDs.
     const targetLine = findLineForCustomId(targetId, lazyLoader.nodeChunks);
     if (targetLine === null) {
       console.warn(`No block found for target ID "${targetId}"`);
       lazyLoader.isNavigatingToInternalId = false;
       return;
     }
-    // targetChunkIndex = lazyLoader.nodeChunks.findIndex(
-    //   (chunk) =>
-    //     targetLine >= chunk.start_line && targetLine <= chunk.end_line
-    // );
-    //Update to use node.startLine for finding non-numeric Ids:
     targetChunkIndex = lazyLoader.nodeChunks.findIndex(
       node => targetLine === node.startLine
     );
@@ -262,12 +211,9 @@ function _navigateToInternalId(targetId, lazyLoader) {
     return;
   }
 
-  // Clear the container; since this container is separate from main-content,
-  // the reflow should be limited.
+  // Clear the container and load the chunk (plus adjacent chunks).
   lazyLoader.container.innerHTML = "";
   lazyLoader.currentlyLoadedChunks.clear();
-
-  // Load the chunk containing the target and one preceding/following chunk.
   const startIndex = Math.max(0, targetChunkIndex - 1);
   const endIndex = Math.min(
     lazyLoader.nodeChunks.length - 1,
@@ -275,18 +221,6 @@ function _navigateToInternalId(targetId, lazyLoader) {
   );
   console.log(`Loading chunks ${startIndex} to ${endIndex}`);
 
-  // const loadedChunksPromises = Array.from(
-  //   { length: endIndex - startIndex + 1 },
-  //   (_, i) => {
-  //     const chunk = lazyLoader.nodeChunks[startIndex + i];
-  //     return new Promise((resolve) => {
-  //       // Use your loadChunk function (it may internally update the container).
-  //       lazyLoader.loadChunk(chunk.chunk_id, "down");
-  //       resolve();
-  //     });
-  //   }
-  // );
-  // Updated to not use chunks but nodes, instead:
   const loadedChunksPromises = Array.from(
     { length: endIndex - startIndex + 1 },
     (_, i) => {
@@ -300,30 +234,19 @@ function _navigateToInternalId(targetId, lazyLoader) {
 
   Promise.all(loadedChunksPromises)
     .then(() => {
-      // Inject footnotes into each loaded chunk.
-      // for (let i = startIndex; i <= endIndex; i++) {
-      //   const chunkId = lazyLoader.nodeChunks[i].chunk_id;
-      //   console.log(`Injecting footnotes for chunk ${chunkId}`);
-      //   injectFootnotesForChunk(chunkId);
-      // }
-      //update for individual Nodes instead of Chunks:
+      // Optionally inject footnotes for each node.
       for (let i = startIndex; i <= endIndex; i++) {
         const node = lazyLoader.nodeChunks[i];
-        console.log(`Injecting footnotes for node chunk ${node.chunk_id}`);
         injectFootnotesForChunk(node.chunk_id);
       }
       lazyLoader.repositionSentinels();
-
-      // After a brief delay to ensure the DOM is updated,
-      // scroll to the target element within the container.
+      // Delay a bit to let DOM updates settle.
       setTimeout(() => {
         let finalTarget = lazyLoader.container.querySelector(
           `#${CSS.escape(targetId)}`
         );
         if (finalTarget) {
           scrollElementIntoContainer(finalTarget, lazyLoader.container, 50);
-          // Highlight the target element.
-          removeActiveHighlight();
           finalTarget.classList.add("active");
         } else {
           console.warn(
