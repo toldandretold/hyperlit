@@ -17,6 +17,7 @@ use ParsedownExtra\ParsedownExtra;
 use App\Events\TestEvent;
 // In routes/web.php
 use App\Events\ProcessComplete;
+use App\Http\Controllers\FootnotesController;
 
 Route::get('/test-broadcast', function () {
     broadcast(new ProcessComplete("citation_id_b complete"));
@@ -92,7 +93,8 @@ Route::post('/{book}/update-annotations-md', [HighlightMdController::class, 'upd
 
 Route::post('/{book}/mark-as-deleted-md', [HighlightMdController::class, 'markHighlightsAsDeleted'])->name('highlight.mark-as-deleted-md');
 
-
+Route::get('footnotes/refresh/{book}', [FootnotesController::class, 'refreshFootnotes'])
+    ->name('footnotes.refresh');
 
 // main-text div edit
 Route::post('/save-div-content', [MainTextEditableDivController::class, 'saveEditedContent']);

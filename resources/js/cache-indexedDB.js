@@ -177,48 +177,92 @@ export async function clearIndexedDB() {
  * The key for footnotes is now simply the book ID.
  */
 export async function getFootnotesFromIndexedDB(bookId = "latest") {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    if (!db.objectStoreNames.contains("footnotes")) {
-      console.warn(
-        "⚠️ 'footnotes' object store still missing after initialization."
-      );
-      return resolve(null);
-    }
-    const transaction = db.transaction(["footnotes"], "readonly");
-    const store = transaction.objectStore("footnotes");
-    let getRequest = store.get(bookId);
-    getRequest.onsuccess = () => resolve(getRequest.result?.data || null);
-    getRequest.onerror = () => resolve(null);
-  });
+  try {
+    const db = await openDatabase();
+    // Log the object store names to ensure "footnotes" exists.
+    console.log("Database object stores:", Array.from(db.objectStoreNames));
+    return new Promise((resolve, reject) => {
+      if (!db.objectStoreNames.contains("footnotes")) {
+        console.warn(
+          "⚠️ 'footnotes' object store is missing after initialization."
+        );
+        return resolve(null);
+      }
+      const transaction = db.transaction(["footnotes"], "readonly");
+      const store = transaction.objectStore("footnotes");
+      let getRequest = store.get(bookId);
+      getRequest.onsuccess = () => {
+        console.log(`Data retrieved for key "${bookId}":`, getRequest.result);
+        resolve(getRequest.result?.data || null);
+      };
+      getRequest.onerror = (event) => {
+        console.error(
+          "❌ Error retrieving data from IndexedDB for key:",
+          bookId,
+          event
+        );
+        resolve(null);
+      };
+    });
+  } catch (error) {
+    console.error("❌ Error in getFootnotesFromIndexedDB:", error);
+    return null;
+  }
 }
+
 
 /**
  * Saves footnotes data for a specified book to IndexedDB.
- * 
+ *
  * Uses the book ID as the key.
  */
-export async function saveFootnotesToIndexedDB(
-  footnotesData,
-  bookId = "latest"
-) {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    if (!db.objectStoreNames.contains("footnotes")) {
-      console.warn("⚠️ Cannot save: 'footnotes' store missing.");
-      return reject("Object store missing");
-    }
-    const transaction = db.transaction(["footnotes"], "readwrite");
-    const store = transaction.objectStore("footnotes");
-    const request = store.put({
-      book: bookId,
-      data: footnotesData
+export async function saveFootnotesToIndexedDB(footnotesData, bookId = "latest") {
+  console.log("🙏 Attempting to save to 'footnotes' object store in IndexedDB...");
+
+  try {
+    // Open the database
+    const db = await openDatabase();
+
+    // Return a promise to handle the transaction
+    return new Promise((resolve, reject) => {
+      // Check if the 'footnotes' object store exists
+      if (!db.objectStoreNames.contains("footnotes")) {
+        console.warn("⚠️ Cannot save: 'footnotes' store missing.");
+        return reject("Object store missing");
+      }
+
+      // Start a readwrite transaction on the 'footnotes' store
+      const transaction = db.transaction(["footnotes"], "readwrite");
+      const store = transaction.objectStore("footnotes");
+
+      // Prepare the data to be saved
+      const dataToSave = {
+        book: bookId, // Use the provided bookId or default to "latest"
+        data: footnotesData, // The footnotes data to save
+      };
+
+      // Save the data to the store
+      const request = store.put(dataToSave);
+
+      // Handle success
+      request.onsuccess = () => {
+        console.log("✅ Successfully saved footnotes to IndexedDB.");
+        resolve();
+      };
+
+      // Handle errors
+      request.onerror = () => {
+        console.error("❌ Failed to save footnotes to IndexedDB.");
+        reject("Failed to save footnotes to IndexedDB");
+      };
     });
-    request.onsuccess = () => resolve();
-    request.onerror = () =>
-      reject("❌ Failed to save footnotes to IndexedDB");
-  });
+  } catch (error) {
+    console.error("❌ Error opening database:", error);
+    throw error;
+  }
 }
+
+
 
 /**
  * Clears nodeChunks records for a specified book.

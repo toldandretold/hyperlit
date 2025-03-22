@@ -5,7 +5,7 @@ import {
   getNodeChunksFromIndexedDB,
   getLocalStorageKey
 } from "./cache-indexedDB.js";
-import { parseMarkdownIntoChunks } from "./convert-markdown.js";
+import { parseMarkdownIntoChunksInitial } from "./convert-markdown.js";
 import { injectFootnotesForChunk } from "./footnotes.js";
 import { currentLazyLoader } from "./initializePage.js";
 import { repositionSentinels } from "./lazyLoaderFactory.js"; // if exported
@@ -117,7 +117,7 @@ export async function restoreScrollPosition() {
     try {
       const response = await fetch(`/markdown/${book}/main-text.md`);
       const markdown = await response.text();
-      currentLazyLoader.nodeChunks = parseMarkdownIntoChunks(markdown);
+      currentLazyLoader.nodeChunks = parseMarkdownIntoChunksInitial(markdown);
       currentLazyLoader.nodeChunks
         .filter(node => node.chunk_id === 0)
         .forEach(node => currentLazyLoader.loadChunk(node.chunk_id, "down"));

@@ -3,13 +3,17 @@ import json
 import re
 import sys
 
-def extract_footnotes_by_reference(file_path):
+def extract_footnotes_by_reference(file_path, output_file_path):
     """
-    Extract footnotes from a Markdown or HTML file, grouping them by the headings where the in-text references appear.
+    Extract footnotes from a Markdown or HTML file, grouping them by 
+    the headings where the in-text references appear.
+
     Args:
         file_path (str): Path to the file containing footnotes.
+        output_file_path (str): Path where the extracted JSON should be saved.
+    
     Returns:
-        str: Path to the generated JSON file.
+        str: The output file path where the JSON was written.
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
@@ -19,10 +23,13 @@ def extract_footnotes_by_reference(file_path):
         file_content = file.readlines()
 
     # Regex patterns
-    html_reference_pattern = re.compile(r'<a href="#(.*?)" id="(.*?)"><sup>(\d+)</sup></a>', re.MULTILINE)
-    html_definition_pattern = re.compile(r'<a href="#(.*?)" id="(.*?)">(\d+)</a>(.*)', re.MULTILINE)
+    html_reference_pattern = re.compile(
+        r'<a href="#(.*?)" id="(.*?)"><sup>(\d+)</sup></a>', re.MULTILINE)
+    html_definition_pattern = re.compile(
+        r'<a href="#(.*?)" id="(.*?)">(\d+)</a>(.*)', re.MULTILINE)
     markdown_reference_pattern = re.compile(r'\[\^(\d+)\]', re.MULTILINE)
-    markdown_definition_pattern = re.compile(r'\[\^(\d+)\]:\s*(.*)', re.MULTILINE)
+    markdown_definition_pattern = re.compile(
+        r'\[\^(\d+)\]:\s*(.*)', re.MULTILINE)
     heading_pattern = re.compile(r'^(#{1,5})\s+(.*)', re.MULTILINE)
 
     # Data structures
@@ -73,27 +80,28 @@ def extract_footnotes_by_reference(file_path):
 
     # Unreferenced footnotes
     unreferenced = {"heading": {"h1": "Unreferenced Footnotes"}, "footnotes": {}}
+    used_keys = [fn for section in sections for fn in section["footnotes"]]
     for key, value in markdown_definitions.items():
-        if key not in [fn for section in sections for fn in section["footnotes"]]:
+        if key not in used_keys:
             unreferenced["footnotes"][key] = value
     if unreferenced["footnotes"]:
         sections.append(unreferenced)
 
-    # Save to JSON
-    json_file_path = os.path.splitext(file_path)[0] + "-footnotes.json"
-    with open(json_file_path, 'w', encoding='utf-8') as json_file:
+    # Write the JSON to the provided output file path.
+    with open(output_file_path, 'w', encoding='utf-8') as json_file:
         json.dump(sections, json_file, indent=4, ensure_ascii=False)
-    return json_file_path
-
+    
+    return output_file_path
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python extract_footnotes.py <file_path>")
+    if len(sys.argv) != 3:
+        print("Usage: python extract_footnotes.py <markdown_file_path> <output_file_path>")
         sys.exit(1)
-    file_path = sys.argv[1]
+    markdown_file_path = sys.argv[1]
+    output_file_path = sys.argv[2]
     try:
-        json_path = extract_footnotes_by_reference(file_path)
-        print(f"Footnotes extracted to: {json_path}")
+        result_path = extract_footnotes_by_reference(markdown_file_path, output_file_path)
+        print(f"Footnotes extracted to: {result_path}")
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)

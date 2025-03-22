@@ -123,15 +123,6 @@ if (!window.isInitialized) {
                 // ✅ Load footnotes from memory, IndexedDB, or fetch from server
                 let footnotesData = window.footnotesData || await getFootnotesFromIndexedDB();
                 
-                if (!footnotesData) {
-                    console.log("🌍 Fetching footnotes from server...");
-                    const storedFootnotesTimestamp = localStorage.getItem("footnotesLastModified") || "0";
-                    const freshJsonUrl = window.getFreshUrl(`/markdown/${book}/main-text-footnotes.json`, storedFootnotesTimestamp);
-                    const response = await fetch(freshJsonUrl);
-                    footnotesData = await response.json();
-                    await saveFootnotesToIndexedDB(footnotesData);
-                    window.footnotesData = footnotesData;
-                }
 
                 // ✅ Search for the footnote within the retrieved data
                 const section = footnotesData.find((sec) =>
