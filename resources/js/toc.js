@@ -27,33 +27,8 @@ export async function generateTableOfContents(tocContainerId, toggleButtonId) {
     // ✅ Try to load from IndexedDB if not in memory
     if (!sections) {
       console.log("⚠️ No footnotes in memory, checking IndexedDB...");
-      sections = await getFootnotesFromIndexedDB();
+      sections = await getFootnotesFromIndexedDB(book);
     }
-
-    // ✅ Fetch from the server as a last resort
-    if (!sections) {
-      console.log("🌍 Fetching footnotes from server...");
-      
-      // Get the last stored timestamp (or default to 0 if missing)
-      const storedFootnotesTimestamp = localStorage.getItem("footnotesLastModified") || "0";
-      
-      // Build the URL with the timestamp to bypass cache
-      const freshJsonUrl = window.getFreshUrl(`/markdown/${book}/main-text-footnotes.json`, storedFootnotesTimestamp);
-      console.log(`🔗 Fetching footnotes from: ${freshJsonUrl}`);
-
-      // Fetch the latest footnotes JSON
-      const response = await fetch(freshJsonUrl);
-      sections = await response.json();
-      
-      // Save footnotes to IndexedDB for faster future loads
-      await saveFootnotesToIndexedDB(sections);
-      
-      // Cache in memory for immediate use
-      window.footnotesData = sections;
-    }
-
-    // ✅ At this point, `sections` contains the footnotes JSON
-    console.log(`✅ Loaded footnotes, processing TOC...`);
 
     if (!tocContainer) {
       console.error(`❌ TOC container with ID "${tocContainerId}" not found.`);

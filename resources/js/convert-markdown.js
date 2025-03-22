@@ -1,3 +1,7 @@
+import { processFootnotes} from './footnotes.js';
+import { saveFootnotesToIndexedDB } from './cache-indexedDB.js';
+import { book } from './app.js';
+
 /**
  * Converts the raw markdown into pre-rendered HTML,
  * then creates an array of objects, where each object represents a single HTML
@@ -18,7 +22,10 @@
  * @returns {Array<Object>} An array of objects, each representing an HTML
  * node with a `chunk_id` for IndexedDB.
  */
-export function parseMarkdownIntoChunks(markdown) {
+export function parseMarkdownIntoChunksInitial(markdown) {
+  // Process footnotes first to have them ready
+  const footnoteData = processFootnotes(markdown);
+  
   // Convert the markdown to HTML using your conversion function.
   const html = convertMarkdownToHtml(markdown);
 
@@ -60,6 +67,23 @@ export function parseMarkdownIntoChunks(markdown) {
       hypercites: [],
       footnotes: []
     };
+    
+    // Add footnotes that belong to this node
+    const nodeFootnotes = footnoteData.pairs.filter(pair => {
+      // Find footnote references that are in the current node's line range
+      // For simplicity, we're assuming each node corresponds to one line
+      // You may need to adjust this logic if your nodes span multiple lines
+      return pair.reference.lineNumber === nodeNumber;
+    });
+    
+    if (nodeFootnotes.length > 0) {
+      node.footnotes = nodeFootnotes.map(pair => ({
+        id: pair.reference.id,
+        content: pair.definition.content,
+        referenceLine: pair.reference.lineNumber,
+        definitionLine: pair.definition.lineNumber
+      }));
+    }
 
     nodes.push(node);
 
@@ -68,38 +92,35 @@ export function parseMarkdownIntoChunks(markdown) {
     }
   });
 
+  // Prepare the footnotes data to be saved
+  const footnotesToSave = footnoteData.pairs.map(pair => ({
+    id: pair.reference.id,
+    content: pair.definition.content
+  }));
+
+  // Save the footnotes to IndexedDB
+  saveFootnotesToIndexedDB(footnotesToSave, book);
+
   return nodes;
 }
 
 
 /**
- * (Optional) A helper that converts inline markdown syntax to HTML.
- */
-export function parseInlineMarkdown(text) {
-  if (!text) return "";
-  // Remove escape characters.
-  text = text.replace(/\\([`*_{}\\[\\]()#+.!-])/g, "$1");
-  // Bold: **text** -> <strong>text</strong>
-  text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-  // Italics: *text* -> <em>text</em>
-  text = text.replace(/\*([^*]+)\*/g, "<em>$1</em>");
-  // Inline code: `code` -> <code>code</code>
-  text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
-  // Links: [text](url) -> <a href="url">text</a>
-  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-  return text;
-}
-
-/**
- * Converts markdown to HTML.
- * You can use your existing logic or an external library.
+ * Enhanced version of convertMarkdownToHtml that handles footnote references
  */
 export function convertMarkdownToHtml(markdown) {
   const lines = markdown.split("\n");
   let htmlOutput = "";
 
   lines.forEach(line => {
+    // Skip footnote definition lines - they'll be handled separately
+    if (line.trim().match(/^\[\^(\w+)\]\:(.*)/)) {
+      return;
+    }
+    
     const trimmedLine = line.trim();
+    
+    // Process the line based on its type
     if (trimmedLine.startsWith("# ")) {
       htmlOutput += `<h1>${parseInlineMarkdown(
         trimmedLine.replace(/^# /, "")
@@ -130,6 +151,30 @@ export function convertMarkdownToHtml(markdown) {
 
   return htmlOutput;
 }
+
+/**
+ * Enhanced version of parseInlineMarkdown that handles footnote references
+ */
+export function parseInlineMarkdown(text) {
+  if (!text) return "";
+  // Remove escape characters.
+  text = text.replace(/\\([`*_{}\\[\\]()#+.!-])/g, "$1");
+  // Bold: **text** -> <strong>text</strong>
+  text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  // Italics: *text* -> <em>text</em>
+  text = text.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+  // Inline code: `code` -> <code>code</code>
+  text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
+  // Links: [text](url) -> <a href="url">text</a>
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  
+  // Footnote references: [^1] -> <sup class="footnote-ref" id="fnref-1"><a href="#fn-1">1</a></sup>
+  text = text.replace(/\[\^(\w+)\](?!\:)/g, 
+    '<sup class="footnote-ref" id="fnref-$1"><a href="#fn-$1">$1</a></sup>');
+  
+  return text;
+}
+
 
 /**
  * (Optional) A simple render function to return a block's pre-rendered HTML.

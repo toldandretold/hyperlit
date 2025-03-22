@@ -10,14 +10,14 @@ import {
   openDatabase,
   getNodeChunksFromIndexedDB,
   saveNodeChunksToIndexedDB,
+  saveFootnotesToIndexedDB
 } from "./cache-indexedDB.js";
 
 import {
   attachMarkListeners,
 } from "./hyper-lights-cites.js";
 
-import { parseMarkdownIntoChunks } from "./convert-markdown.js";
-import { loadFootnotes } from "./footnotes.js";
+import { parseMarkdownIntoChunksInitial } from "./convert-markdown.js";
 
 // Helper function: Cache buster for forced reloads
 function buildUrl(path, forceReload = false) {
@@ -35,18 +35,67 @@ async function fetchMainTextMarkdown(forceReload = false) {
 
 // Process markdown and generate nodeChunks
 async function generateNodeChunksFromMarkdown(forceReload = false) {
-  console.log("🚦 Generating nodeChunks from markdown...");
+  console.log("🚦Parsing main-text.md into indexedDB objects");
   const markdown = await fetchMainTextMarkdown(forceReload);
   
   // Save the markdown globally (needed when resolving internal links)
   window.markdownContent = markdown;
   
   // Parse markdown into nodeChunks
-  const nodeChunks = parseMarkdownIntoChunks(markdown);
-  console.log(`✅ Generated ${nodeChunks.length} nodeChunks from markdown`);
+ const nodeChunks = parseMarkdownIntoChunksInitial(markdown);
+console.log(`✅ Generated ${nodeChunks.length} nodeChunks from markdown`);
+
+// Add detailed footnote logging
+const totalFootnotes = nodeChunks.reduce((sum, chunk) => sum + chunk.footnotes.length, 0);
+console.log(`📝 Found ${totalFootnotes} footnotes across all chunks`);
+
+// Log some sample footnotes if any exist
+if (totalFootnotes > 0) {
+  // Find chunks with footnotes
+  const chunksWithFootnotes = nodeChunks.filter(chunk => chunk.footnotes.length > 0);
+  
+  console.log(`📋 Footnote distribution: ${chunksWithFootnotes.length} chunks contain footnotes`);
+  
+  // Log details of the first few chunks with footnotes
+  const samplesToShow = Math.min(3, chunksWithFootnotes.length);
+  
+  console.log(`🔍 Showing footnote details for ${samplesToShow} sample chunks:`);
+  
+  for (let i = 0; i < samplesToShow; i++) {
+    const chunk = chunksWithFootnotes[i];
+    console.log(`\n📄 Chunk #${chunk.chunk_id} (Node #${chunk.startLine}, type: ${chunk.type}):`);
+    console.log(`   Text preview: "${chunk.plainText.substring(0, 50)}${chunk.plainText.length > 50 ? '...' : ''}"`);
+    
+    chunk.footnotes.forEach((footnote, index) => {
+      console.log(`   📌 Footnote ${index + 1}/${chunk.footnotes.length}:`);
+      console.log(`      ID: ${footnote.id}`);
+      console.log(`      Reference at line: ${footnote.referenceLine}`);
+      console.log(`      Definition at line: ${footnote.definitionLine}`);
+      console.log(`      Content: "${footnote.content.substring(0, 100)}${footnote.content.length > 100 ? '...' : ''}"`);
+    });
+  }
+  
+  // Log a summary of all footnote IDs found
+  const allFootnoteIds = nodeChunks
+    .flatMap(chunk => chunk.footnotes)
+    .map(footnote => footnote.id);
+  
+  const uniqueIds = [...new Set(allFootnoteIds)];
+  console.log(`\n🔢 Found ${uniqueIds.length} unique footnote IDs: ${uniqueIds.join(', ')}`);
+  
+  // Check for any potential issues
+  const multipleRefsToSameId = uniqueIds.filter(id => 
+    allFootnoteIds.filter(fid => fid === id).length > 1
+  );
+  
+  if (multipleRefsToSameId.length > 0) {
+    console.log(`⚠️ Note: Found ${multipleRefsToSameId.length} footnote IDs with multiple references: ${multipleRefsToSameId.join(', ')}`);
+  }
+}
   
   // Save to IndexedDB
   await saveNodeChunksToIndexedDB(nodeChunks, book);
+
   
   return nodeChunks;
 }
@@ -110,8 +159,7 @@ export function initializeMainLazyLoader() {
 
 // Main Entry Point - Simplified
 export async function loadMarkdownFile() {
-  console.log(`🚀 Loading content for book: ${book}`);
-  
+  console.log(`📖 Opening: ${book}`);
   try {
     // 1. Check if nodeChunks exist in IndexedDB
     console.log("🔍 Checking for cached nodeChunks in IndexedDB...");
@@ -123,20 +171,21 @@ export async function loadMarkdownFile() {
       window.nodeChunks = cachedNodeChunks;
     } else {
       // Generate new nodeChunks from markdown
-      console.log("⚠️ No cached nodeChunks found. Generating from markdown...");
-      window.nodeChunks = await generateNodeChunksFromMarkdown(true);
+      console.log("🆕 No cached nodeChunks found. Generating from markdown...");
+      window.nodeChunks = await  generateNodeChunksFromMarkdown(true);
       
       // Optional: Trigger backend update
       // await triggerBackendUpdate();
     }
     
-    // 2. Load footnotes
-    await loadFootnotes();
     
     // 3. Initialize lazy loader
     if (!currentLazyLoader) {
       initializeMainLazyLoader();
     }
+
+    // 2. Load footnotes
+    
     
     console.log("✅ Content loading complete");
     
