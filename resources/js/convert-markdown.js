@@ -25,6 +25,14 @@ import { book } from './app.js';
 export function parseMarkdownIntoChunksInitial(markdown) {
   // Process footnotes first to have them ready
   const footnoteData = processFootnotes(markdown);
+  console.log("Footnote Data:", footnoteData);
+  footnoteData.pairs.forEach(pair => {
+    if (!pair.definition.content) {
+      console.warn(
+        `Missing content for footnote with id "${pair.reference.id}" at definition line ${pair.definition.lineNumber}`
+      );
+    }
+  });
   
   // Convert the markdown to HTML using your conversion function.
   const html = convertMarkdownToHtml(markdown);
@@ -47,39 +55,41 @@ export function parseMarkdownIntoChunksInitial(markdown) {
     el.id = nodeNumber;
     el.setAttribute("data-block-id", nodeNumber);
     
-    // Make sure nested elements don't have IDs that could confuse our highlight system
-    const nestedElements = el.querySelectorAll('*');
+    // Ensure nested elements don't have IDs that could confuse our highlight system.
+    const nestedElements = el.querySelectorAll("*");
     nestedElements.forEach(nested => {
-      // If it's not a block-level element we care about, remove any ID
-      if (!['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'TABLE'].includes(nested.tagName)) {
-        nested.removeAttribute('id');
+      // If it's not a block-level element we care about, remove any ID.
+      if (
+        !["P", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "TABLE"].includes(
+          nested.tagName
+        )
+      ) {
+        nested.removeAttribute("id");
       }
     });
 
     // Create a block object for this node.
     const node = {
       chunk_id: chunkId,
-      type: el.tagName.toLowerCase(), // For example "p", "h1", etc.
+      type: el.tagName.toLowerCase(), // e.g., "p", "h1", etc.
       content: el.outerHTML, // Pre-rendered HTML (with id and data attributes).
       plainText: el.textContent, // The text content for accurate highlight calculations.
       startLine: nodeNumber, // The node's sequential number.
       hyperlights: [],
       hypercites: [],
-      footnotes: []
+      footnotes: [] // Here we'll store our paired footnotes.
     };
     
-    // Add footnotes that belong to this node
+    // Add footnotes that belong to this node.
     const nodeFootnotes = footnoteData.pairs.filter(pair => {
-      // Find footnote references that are in the current node's line range
-      // For simplicity, we're assuming each node corresponds to one line
-      // You may need to adjust this logic if your nodes span multiple lines
+      // This assumes each node corresponds to one line, so we match on nodeNumber
       return pair.reference.lineNumber === nodeNumber;
     });
     
     if (nodeFootnotes.length > 0) {
       node.footnotes = nodeFootnotes.map(pair => ({
         id: pair.reference.id,
-        content: pair.definition.content,
+        content: pair.definition.content || "",
         referenceLine: pair.reference.lineNumber,
         definitionLine: pair.definition.lineNumber
       }));
@@ -93,6 +103,7 @@ export function parseMarkdownIntoChunksInitial(markdown) {
   });
 
   // Prepare the footnotes data to be saved
+  // (for saving to IndexedDB elsewhere)
   const footnotesToSave = footnoteData.pairs.map(pair => ({
     id: pair.reference.id,
     content: pair.definition.content
@@ -105,6 +116,7 @@ export function parseMarkdownIntoChunksInitial(markdown) {
 }
 
 
+
 /**
  * Enhanced version of convertMarkdownToHtml that handles footnote references
  */
@@ -112,29 +124,33 @@ export function convertMarkdownToHtml(markdown) {
   const lines = markdown.split("\n");
   let htmlOutput = "";
 
-  lines.forEach(line => {
-    // Skip footnote definition lines - they'll be handled separately
-    if (line.trim().match(/^\[\^(\w+)\]\:(.*)/)) {
+  lines.forEach((line, index) => {
+    const originalLineNumber = index + 1;
+    const lineNumberAttr = `data-original-line="${originalLineNumber}"`;
+    const trimmedLine = line.trim();
+
+    // Process footnote definition lines differently.
+    if (trimmedLine.match(/^\[\^(\w+)\]\:(.*)/)) {
+      // Wrap footnote definitions in a span with a class so they can be hidden.
+      htmlOutput += `<span class="footnote-definition" ${lineNumberAttr} style="display:none;">${line}</span>`;
       return;
     }
     
-    const trimmedLine = line.trim();
-    
-    // Process the line based on its type
+    // Process other lines based on type
     if (trimmedLine.startsWith("# ")) {
-      htmlOutput += `<h1>${parseInlineMarkdown(
+      htmlOutput += `<h1 ${lineNumberAttr}>${parseInlineMarkdown(
         trimmedLine.replace(/^# /, "")
       )}</h1>`;
     } else if (trimmedLine.startsWith("## ")) {
-      htmlOutput += `<h2>${parseInlineMarkdown(
+      htmlOutput += `<h2 ${lineNumberAttr}>${parseInlineMarkdown(
         trimmedLine.replace(/^## /, "")
       )}</h2>`;
     } else if (trimmedLine.startsWith("### ")) {
-      htmlOutput += `<h3>${parseInlineMarkdown(
+      htmlOutput += `<h3 ${lineNumberAttr}>${parseInlineMarkdown(
         trimmedLine.replace(/^### /, "")
       )}</h3>`;
     } else if (trimmedLine.startsWith(">")) {
-      htmlOutput += `<blockquote>${parseInlineMarkdown(
+      htmlOutput += `<blockquote ${lineNumberAttr}>${parseInlineMarkdown(
         trimmedLine.replace(/^> /, "")
       )}</blockquote>`;
     } else if (trimmedLine.match(/^!\[.*\]\(.*\)$/)) {
@@ -142,15 +158,19 @@ export function convertMarkdownToHtml(markdown) {
       if (imageMatch) {
         const altText = imageMatch[1];
         const imageUrl = imageMatch[2];
-        htmlOutput += `<img src="${imageUrl}" alt="${altText}"/>`;
+        htmlOutput += `<img ${lineNumberAttr} src="${imageUrl}" alt="${altText}"/>`;
       }
     } else if (trimmedLine) {
-      htmlOutput += `<p>${parseInlineMarkdown(trimmedLine)}</p>`;
+      htmlOutput += `<p ${lineNumberAttr}>${parseInlineMarkdown(trimmedLine)}</p>`;
+    } else {
+      // For empty lines, you might still output a placeholder element.
+      htmlOutput += `<div ${lineNumberAttr}></div>`;
     }
   });
 
   return htmlOutput;
 }
+
 
 /**
  * Enhanced version of parseInlineMarkdown that handles footnote references
@@ -167,10 +187,6 @@ export function parseInlineMarkdown(text) {
   text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
   // Links: [text](url) -> <a href="url">text</a>
   text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-  
-  // Footnote references: [^1] -> <sup class="footnote-ref" id="fnref-1"><a href="#fn-1">1</a></sup>
-  text = text.replace(/\[\^(\w+)\](?!\:)/g, 
-    '<sup class="footnote-ref" id="fnref-$1"><a href="#fn-$1">$1</a></sup>');
   
   return text;
 }

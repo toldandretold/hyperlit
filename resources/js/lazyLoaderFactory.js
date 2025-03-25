@@ -100,31 +100,38 @@ export function createLazyLoader(config) {
   };
 
   // --- SCROLL POSITION SAVING LOGIC ---
-  instance.saveScrollPosition = () => {
-    // Instead of querying [data-chunk-id], query for elements with an id that are candidates.
-    // For example, you might have:
-    const elements = Array.from(container.querySelectorAll("[id]"));
-    if (elements.length === 0) return;
-    // Find the first element whose top is at or after the viewport top.
-    const topVisible = elements.find((el) => {
-      const rect = el.getBoundingClientRect();
-      return rect.top >= 0;
-    });
-    if (topVisible) {
-      // Use the element's id
-      const detectedId = topVisible.id;
-      // Build a JSON object. You may add more properties if needed.
+instance.saveScrollPosition = () => {
+  // Query for all elements having an id attribute.
+  const elements = Array.from(container.querySelectorAll("[id]"));
+  if (elements.length === 0) return;
+  // Find the first element whose top is at or after the viewport top.
+  const topVisible = elements.find((el) => {
+    const rect = el.getBoundingClientRect();
+    return rect.top >= 0;
+  });
+  if (topVisible) {
+    // Use the element's id
+    const detectedId = topVisible.id;
+    // Only save if it is purely numerical.
+    if (/^\d+$/.test(detectedId)) {
       const scrollData = {
-        elementId: detectedId
+        elementId: detectedId,
       };
-      const storageKey = getLocalStorageKey("scrollPosition", instance.bookId);
+      const storageKey = getLocalStorageKey(
+        "scrollPosition",
+        instance.bookId
+      );
       const stringifiedData = JSON.stringify(scrollData);
       sessionStorage.setItem(storageKey, stringifiedData);
       localStorage.setItem(storageKey, stringifiedData);
-    
       console.log("Saved scroll data:", scrollData);
+    } else {
+      console.log(
+        `Element id "${detectedId}" is not numerical. Skip saving scroll data.`
+      );
     }
-  };
+  }
+};
 
   container.addEventListener("scroll", throttle(instance.saveScrollPosition, 200));
 
@@ -491,7 +498,7 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
     instance.topSentinel.remove();
     container.prepend(instance.topSentinel);
   }
-  injectFootnotesForChunk(previousChunkId);
+  injectFootnotesForChunk(previousChunkId, instance.bookId);
 }
 
 /**
@@ -519,7 +526,7 @@ export function loadNextChunkFixed(currentLastChunkId, instance) {
     instance.bottomSentinel.remove();
     container.appendChild(instance.bottomSentinel);
   }
-  injectFootnotesForChunk(nextChunkId);
+  injectFootnotesForChunk(nextChunkId, instance.bookId);
 }
 
 /**
@@ -549,7 +556,7 @@ function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   if (chunkId === 0) {
     repositionFixedSentinelsForBlockInternal(instance, attachMarkers);
   }
-  injectFootnotesForChunk(chunkId);
+  injectFootnotesForChunk(chunkId, instance.bookId);
   console.log(`Chunk ${chunkId} loaded.`);
 }
 

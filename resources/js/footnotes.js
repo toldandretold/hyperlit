@@ -3,7 +3,8 @@ import { book } from "./app.js";
 import {
   openDatabase,
   getFootnotesFromIndexedDB,
-  saveFootnotesToIndexedDB
+  saveFootnotesToIndexedDB,
+  getNodeChunksFromIndexedDB
 } from "./cache-indexedDB.js";
 import { convertMarkdownToHtml } from "./convert-markdown.js";
 import { attachMarkListeners } from "./hyper-lights-cites.js";
@@ -224,81 +225,81 @@ export async function displayFootnote(noteElement) {
 }
 
 
-// Inject footnotes for a chunk - supports both embedded and legacy approaches
-// Inject footnotes for a chunk - supports both embedded and legacy approaches
-export async function injectFootnotesForChunk(chunkId, book) {
-  // Temporarily disable lazy loading
-  window.isUpdatingJsonContent = true;
-  console.log("⏳ Disabling lazy loading while updating footnotes...");
 
-  // Look up the chunk data by chunkId
-  const chunk = window.nodeChunks.find((c) => c.chunk_id === chunkId);
-  if (!chunk) {
-    console.error(`❌ Chunk with ID ${chunkId} not found.`);
-    window.isUpdatingJsonContent = false;
-    return;
-  }
-
+ /* Inject footnotes for a chunk - supports both embedded and legacy approaches.
+ */
+export async function injectFootnotesForChunk(chunkId, bookId) {
+  console.log(`Injecting footnotes for chunk ${chunkId} in book ${bookId}`);
+  
   try {
-    // Use embedded footnotes if available
-    if (useEmbeddedFootnotes && chunk.footnotes && chunk.footnotes.length > 0) {
-      console.log(`✅ Processing ${chunk.footnotes.length} footnote references for chunk ${chunkId}...`);
-
-      // Process each footnote in the chunk
-      chunk.footnotes.forEach(footnote => {
-        // Find the target element using its line number as the id
-        const targetElement = document.getElementById(chunk.startLine.toString());
+    // 1. Assume nodeChunks is already available (e.g., in window.nodeChunks).
+    if (!window.nodeChunks || window.nodeChunks.length === 0) {
+      console.warn("No nodeChunks available.");
+      return;
+    }
+    
+    // 2. Get the nodes for this chunk.
+    const chunkNodes = window.nodeChunks.filter(node => node.chunk_id === chunkId);
+    if (!chunkNodes || chunkNodes.length === 0) {
+      console.warn(`No nodes found for chunk ${chunkId}`);
+      return;
+    }
+    
+    console.log(`Processing ${chunkNodes.length} nodes in chunk ${chunkId}`);
+    
+    // 3. Find the chunk container in the DOM.
+    const chunkContainer = document.querySelector(`[data-chunk-id="${chunkId}"]`);
+    if (!chunkContainer) {
+      console.error(`Chunk container not found for chunk ${chunkId}`);
+      return;
+    }
+    
+    // 4. Process each node in the chunk.
+    for (const node of chunkNodes) {
+      // Skip nodes with no footnotes.
+      if (!node.footnotes || node.footnotes.length === 0) {
+        continue;
+      }
+      
+      console.log(`Node ${node.id || node.startLine} has ${node.footnotes.length} footnote(s)`);
+      
+      // Escape the node id to create a valid selector.
+      const safeId = CSS.escape(node.startLine.toString());
+      const nodeElement = chunkContainer.querySelector(`#${safeId}`);
+      
+      if (!nodeElement) {
+        console.warn(`DOM element not found for node at line ${node.startLine}`);
+        continue;
+      }
+      
+      // 5. For each footnote stored in the node, replace its markdown reference in the HTML.
+      node.footnotes.forEach(footnote => {
+        // Construct a regex to find the markdown footnote reference, like [^1]
+        const regex = new RegExp(`\\[\\^${footnote.id}\\](?!:)`, "g");
         
-        if (targetElement) {
-          // Avoid duplicate injection
-          if (targetElement.innerHTML.includes(`<sup class="note" data-note-id="${footnote.id}">`)) {
-            console.log(`Footnote ${footnote.id} already processed in chunk ${chunkId}. Skipping.`);
-            return;
-          }
-
-          // Construct a regex to find the Markdown footnote reference
-          const regex = new RegExp(`\\[\\^${footnote.id}\\](?!:)`, "g");
-          
-          if (regex.test(targetElement.innerHTML)) {
-            // Replace the Markdown footnote marker with a <sup> element
-            targetElement.innerHTML = targetElement.innerHTML.replace(
-              regex,
-              `<sup class="note" data-note-id="${footnote.id}">${footnote.id}</sup>`
-            );
-          } else {
-            console.warn(
-              `Regex did not match for footnote ID: ${footnote.id} in element:`,
-              targetElement.innerHTML
-            );
-          }
+        if (regex.test(nodeElement.innerHTML)) {
+          console.log(`Replacing footnote ref [^${footnote.id}] in node ${node.startLine}`);
+          nodeElement.innerHTML = nodeElement.innerHTML.replace(
+            regex,
+            `<sup class="note" data-note-id="${footnote.id}" data-ref-line="${footnote.referenceLine}" data-def-line="${footnote.definitionLine}">${footnote.id}</sup>`
+          );
         } else {
           console.warn(
-            `No target element found for line_number: ${chunk.startLine} in chunk ${chunkId}`
+            `Footnote reference [^${footnote.id}] not found in node ${node.startLine}.`
           );
         }
       });
-    } 
-    // Fall back to legacy approach if needed
-    else if (!useEmbeddedFootnotes) {
-      // Legacy code (unchanged)
-      // ...
-    } else {
-      console.log(`No footnotes found for chunk ${chunkId}`);
     }
-
+    
+    // 6. Attach click listeners to the newly created footnote <sup> elements.
     attachMarkListeners();
-
-    // Re-enable lazy loading after footnotes update
-    setTimeout(() => {
-      window.isUpdatingJsonContent = false;
-      console.log("✅ Re-enabling lazy loading after footnotes update.");
-    }, 200); // Delay to allow layout shifts to settle
+    
+    console.log(`Finished injecting footnotes for chunk ${chunkId}`);
+    
   } catch (error) {
-    console.error("❌ Error injecting footnotes for chunk:", error);
-    window.isUpdatingJsonContent = false;
+    console.error(`Error injecting footnotes for chunk ${chunkId}:`, error);
   }
 }
-
 
 
 
