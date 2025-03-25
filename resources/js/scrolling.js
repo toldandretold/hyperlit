@@ -196,7 +196,14 @@ function _navigateToInternalId(targetId, lazyLoader) {
     // Use custom logic for non-numeric IDs.
     const targetLine = findLineForCustomId(targetId, lazyLoader.nodeChunks);
     if (targetLine === null) {
-      console.warn(`No block found for target ID "${targetId}"`);
+      console.warn(
+        `No block found for target ID "${targetId}". ` +
+          `Fallback: loading default view.`
+      );
+      // Fallback: simply attach listeners (or load first chunk if desired).
+      if (typeof lazyLoader.attachMarkListeners === "function") {
+        lazyLoader.attachMarkListeners(lazyLoader.container);
+      }
       lazyLoader.isNavigatingToInternalId = false;
       return;
     }
@@ -206,7 +213,14 @@ function _navigateToInternalId(targetId, lazyLoader) {
   }
 
   if (targetChunkIndex === -1) {
-    console.warn(`No chunk found for target ID "${targetId}"`);
+    console.warn(
+      `No chunk found for target ID "${targetId}". ` +
+        "Fallback: proceeding with default content."
+    );
+    // Fallback: simply attach listeners (or trigger loading of a default chunk).
+    if (typeof lazyLoader.attachMarkListeners === "function") {
+      lazyLoader.attachMarkListeners(lazyLoader.container);
+    }
     lazyLoader.isNavigatingToInternalId = false;
     return;
   }
@@ -237,7 +251,7 @@ function _navigateToInternalId(targetId, lazyLoader) {
       // Optionally inject footnotes for each node.
       for (let i = startIndex; i <= endIndex; i++) {
         const node = lazyLoader.nodeChunks[i];
-        injectFootnotesForChunk(node.chunk_id);
+        injectFootnotesForChunk(node.chunk_id, book);
       }
       lazyLoader.repositionSentinels();
       // Delay a bit to let DOM updates settle.
@@ -250,7 +264,8 @@ function _navigateToInternalId(targetId, lazyLoader) {
           finalTarget.classList.add("active");
         } else {
           console.warn(
-            `Target element ${targetId} not found after loading chunks.`
+            `Target element ${targetId} not found after loading chunks. ` +
+              "Proceeding without internal id navigation."
           );
         }
         if (typeof lazyLoader.attachMarkListeners === "function") {
@@ -264,6 +279,7 @@ function _navigateToInternalId(targetId, lazyLoader) {
       lazyLoader.isNavigatingToInternalId = false;
     });
 }
+
 
 // Utility: wait for an element and then scroll to it.
 function waitForElementAndScroll(targetId, maxAttempts = 10, attempt = 0) {

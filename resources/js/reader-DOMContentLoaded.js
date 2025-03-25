@@ -24,6 +24,7 @@ import {
 
 import { 
     openDatabase, 
+    getNodeChunksFromIndexedDB
 } from './cache-indexedDB.js';
 
 import {
@@ -73,7 +74,6 @@ if (!window.isInitialized) {
         window.db = await openDatabase();
         console.log("✅ IndexedDB initialized.");
 
-
         // initializePage.js
         await loadMarkdownFile();
         
@@ -109,43 +109,137 @@ if (!window.isInitialized) {
         });
 
         // ✅ Footnotes Click Handling (Replaces `jsonPath`)
-        document.addEventListener("click", async (event) => {
-            const noteElement = event.target.closest("sup.note");
-            if (noteElement) {
-                event.preventDefault();
-                const noteKey = noteElement.dataset.noteKey;
-                const parentId = noteElement.closest("[id]")?.id;
-                if (!noteKey || !parentId) {
-                    console.warn("Missing note key or parent ID for footnote.");
-                    return;
-                }
+        /*document.addEventListener("click", async (event) => {
+    const noteElement = event.target.closest("sup.note");
+    if (noteElement) {
+        event.preventDefault();
+        
+        // Get the note ID from the data-note-id attribute
+        const noteId = noteElement.dataset.noteId;
+        if (!noteId) {
+            console.warn("Missing note ID for footnote.");
+            return;
+        }
 
-                // ✅ Load footnotes from memory, IndexedDB, or fetch from server
-                let footnotesData = window.footnotesData || await getFootnotesFromIndexedDB();
-                
-
-                // ✅ Search for the footnote within the retrieved data
-                const section = footnotesData.find((sec) =>
-                    Object.values(sec.footnotes || {}).some(
-                        (fn) => fn.line_number.toString() === parentId && fn.content
-                    )
-                );
-
-                if (!section) {
-                    console.warn(`No matching section found for line ${parentId}.`);
-                    return;
-                }
-
-                const footnote = section.footnotes[noteKey];
-                if (!footnote || footnote.line_number.toString() !== parentId) {
-                    console.warn(`Footnote [${noteKey}] not found at line ${parentId}.`);
-                    return;
-                }
-
-                const footnoteHtml = convertMarkdownToHtml(footnote.content);
-                openReferenceContainer(`<div class="footnote-content">${footnoteHtml}</div>`);
+        // Find the current book ID from the container
+        const container = noteElement.closest(".main-content");
+        const bookId = container?.id || "latest";
+        
+        try {
+            // Retrieve footnotes from IndexedDB
+            const footnotes = await getFootnotesFromIndexedDB(bookId);
+            if (!footnotes || footnotes.length === 0) {
+                console.warn(`No footnotes found for book ${bookId}`);
+                return;
             }
+
+            // Find the footnote with matching ID
+            const footnote = footnotes.find(fn => fn.id === noteId);
+            if (!footnote) {
+                console.warn(`Footnote with ID ${noteId} not found.`);
+                return;
+            }
+
+            // Convert footnote content to HTML if needed
+            const footnoteContent = footnote.content;
+            const footnoteHtml = typeof footnoteContent === 'string' 
+                ? convertMarkdownToHtml(footnoteContent) 
+                : footnoteContent;
+
+            // Display the footnote content
+            openReferenceContainer(`<div class="footnote-content">${footnoteHtml}</div>`);
+            
+            console.log(`Displayed footnote ${noteId}`);
+        } catch (error) {
+            console.error("Error retrieving footnote:", error);
+        }
+    }
+});*/
+
+
+       document.addEventListener("click", async (event) => {
+          const noteElement = event.target.closest("sup.note");
+          if (!noteElement) return;
+
+          event.preventDefault();
+
+          // Get the note ID from data attribute.
+          const noteId = noteElement.dataset.noteId;
+          if (!noteId) {
+            console.warn("Missing note ID for footnote.");
+            return;
+          }
+
+          // Find the closest parent element with an id.
+          // We assume that when rendering, the node element's id is set to its startLine.
+          const nodeEl = noteElement.closest("[id]");
+          if (!nodeEl) {
+            console.warn("Could not determine the parent node element.");
+            return;
+          }
+
+          // Use the parent's id (startLine) to find the node data.
+          const nodeIdentifier = nodeEl.id; // Expected to be a string like "47"
+          const nodeLine = parseInt(nodeIdentifier, 10);
+          if (isNaN(nodeLine)) {
+            console.warn("Invalid node identifier:", nodeIdentifier);
+            return;
+          }
+
+          // Get the current bookId.
+          const container = noteElement.closest(".main-content");
+          const bookId = container?.id || "latest";
+
+          try {
+            // Retrieve nodeChunks from IndexedDB.
+            const nodeChunks = await getNodeChunksFromIndexedDB(bookId);
+            if (!nodeChunks || nodeChunks.length === 0) {
+              console.error("No nodeChunks available in IndexedDB");
+              return;
+            }
+
+            // Look for the node whose startLine matches nodeLine.
+            const nodeData = nodeChunks.find((node) => parseInt(node.startLine, 10) === nodeLine);
+            if (!nodeData) {
+              console.warn(`Node data not found for startLine: ${nodeLine}`);
+              return;
+            }
+
+            // Now search in that node's footnotes for the matching note by noteId.
+            if (!nodeData.footnotes || nodeData.footnotes.length === 0) {
+              console.warn(`No footnotes stored for node at line ${nodeLine}`);
+              return;
+            }
+            const footnoteData = nodeData.footnotes.find((fn) => fn.id === noteId);
+            if (!footnoteData) {
+              console.warn(`Footnote data not found for note id: ${noteId} in node starting at line ${nodeLine}`);
+              return;
+            }
+
+            // Convert the footnote's Markdown content to HTML.
+            // Assume convertMarkdownToHtml is available in your scope.
+            const footnoteContentMarkdown = footnoteData.content || "";
+            const footnoteHtmlContent = convertMarkdownToHtml(footnoteContentMarkdown);
+
+            // Build the HTML to display in the ref-container/modal.
+            const htmlToDisplay = `
+              <div class="footnote-modal-content">
+                <div class="footnote-text">
+                  ${footnoteHtmlContent}
+                </div>
+              </div>
+            `;
+
+            // Open the reference container (assumes openReferenceContainer is defined).
+            openReferenceContainer(htmlToDisplay);
+
+            console.log(`Displayed footnote ${noteId} from node at line ${nodeLine}`);
+          } catch (error) {
+            console.error("Error retrieving nodeChunks from IndexedDB or displaying footnote:", error);
+          }
         });
+
+
 
         // ✅ Detect Navigation Type
         const navEntry = performance.getEntriesByType("navigation")[0] || {};

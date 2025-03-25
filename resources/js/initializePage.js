@@ -34,16 +34,13 @@ async function fetchMainTextMarkdown(forceReload = false) {
 }
 
 // Process markdown and generate nodeChunks
+// Process markdown and generate nodeChunks
 async function generateNodeChunksFromMarkdown(forceReload = false) {
-  console.log("🚦Parsing main-text.md into indexedDB objects");
   const markdown = await fetchMainTextMarkdown(forceReload);
-  
-  // Save the markdown globally (needed when resolving internal links)
-  window.markdownContent = markdown;
   
   // Parse markdown into nodeChunks
  const nodeChunks = parseMarkdownIntoChunksInitial(markdown);
-console.log(`✅ Generated ${nodeChunks.length} nodeChunks from markdown`);
+  console.log(`✅ Generated ${nodeChunks.length} nodeChunks from markdown`);
 
 // Add detailed footnote logging
 const totalFootnotes = nodeChunks.reduce((sum, chunk) => sum + chunk.footnotes.length, 0);
@@ -174,8 +171,7 @@ export async function loadMarkdownFile() {
       console.log("🆕 No cached nodeChunks found. Generating from markdown...");
       window.nodeChunks = await  generateNodeChunksFromMarkdown(true);
       
-      // Optional: Trigger backend update
-      // await triggerBackendUpdate();
+
     }
     
     
@@ -183,9 +179,6 @@ export async function loadMarkdownFile() {
     if (!currentLazyLoader) {
       initializeMainLazyLoader();
     }
-
-    // 2. Load footnotes
-    
     
     console.log("✅ Content loading complete");
     
