@@ -1,0 +1,113 @@
+/* hyperlit colors: 
+orange #EF8D34; 
+pink #EE4A95; 
+aqua #4EACAE; 
+black #221F20; 
+"white" #CBCCCC*/
+
+/* Base styles for the TOC */
+#toc-container {
+transform: translateX(calc(-105%)); /* Off-screen, including the gap */
+  transition: transform 0.3s ease-in-out;
+  position: fixed;
+  left: 1em;
+  top: 5%;
+  height: 90%;
+  width: 70%;
+  max-width: 500px;
+  background-color: #221F20;
+  z-index: 1000;
+  overflow: auto;
+  padding-left: 1em;
+  padding-right: 2em;
+  border-radius: 1em 1em;
+}
+
+
+#toc-container h1.first {
+    color: #EE4A95 !important;
+}
+
+#toc-container h1 {
+    font-size: 25px;
+    color: #E0E0E0;
+}
+
+#toc-container h2 {
+    font-size: 20px;
+    padding-left: 2em;
+    color: #C4C4C4;
+}
+
+#toc-container h3, h4 {
+    padding-left: 4em;
+    font-size: 20px;
+    color: #A8A8A8;
+}
+
+#toc-container.open {
+    transform: translateX(0);
+}
+
+#toc-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease-in-out;
+    z-index: 999;
+}
+
+#toc-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+
+/* Reference Container */
+#ref-container,
+#highlight-container {
+  transform: translateX(calc(100% + 2em)); /* Off-screen, including the gap */
+  transition: transform 0.3s ease-in-out;
+  position: fixed;
+  right: 1em;
+  top: 5%;
+  height: 90%;
+  width: 70%;
+  max-width: 600px;
+  background-color: #221F20;
+  z-index: 1000;
+  overflow: auto;
+  padding-left: 2em;
+  padding-right: 1em;
+  border-radius: 1em 1em;
+}
+
+#ref-container.open,
+#highlight-container.open {
+  transform: translateX(0); /* Slide in to show the gap on the right */
+}
+
+
+/* Reference Overlay */
+#ref-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%; /* Covers the entire screen */
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent overlay */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease-in-out;
+    z-index: 999; /* Below the reference container */
+}
+
+#ref-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}

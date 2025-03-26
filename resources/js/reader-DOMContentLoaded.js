@@ -83,17 +83,42 @@ if (!window.isInitialized) {
       return;
     }
 
-    // ✅ Internal Link Navigation Handling
+   // ✅ Internal Link Navigation Handling
     document.addEventListener("click", (event) => {
       const link = event.target.closest("a");
-      if (link && link.hash && link.hash.startsWith("#")) {
+      if (!link || !link.hash) return; // No hash? No custom handling.
+
+      // Create a URL object from the link.
+      // (This will resolve relative URLs based on the current window.location)
+      const linkUrl = new URL(link.href, window.location.href);
+
+      // Check if the hash-only navigation or same-book navigation should happen.
+      // One option: compare pathname OR check if the pathname is empty or "/"
+      // relative to the current location; adjust according to your app.
+
+      if (
+        linkUrl.pathname === window.location.pathname ||
+        // Optionally, if you want to cover relative links that start with "#":
+        linkUrl.href.startsWith(window.location.origin + window.location.pathname + "#")
+      ) {
+        // It's an in-page anchor or the same book.
         event.preventDefault();
-        const targetId = link.hash.substring(1);
+        const targetId = linkUrl.hash.substring(1);
         // Navigate via lazy loader.
         navigateToInternalId(targetId, currentLazyLoader);
-        console.log(`navigating to ${targetId} in ${currentLazyLoader}`)
+        console.log(
+          `Navigating internally to ${targetId} in container: ${currentLazyLoader.container.id}`
+        );
+      } else {
+        // If the link points to a different book (page):
+        // You may want to let the browser handle it normally.
+        // If you want to force a full navigation, you could use:
+        console.log(
+          `Navigating externally to a different book: ${linkUrl.pathname} with hash ${linkUrl.hash}`
+        );
       }
     });
+
 
     document.addEventListener("click", async (event) => {
       const noteElement = event.target.closest("sup.note");

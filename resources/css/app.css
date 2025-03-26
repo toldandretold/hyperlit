@@ -1,4 +1,10 @@
-/* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black #221F20; "white" #CBCCCC*/
+/* hyperlit colors: 
+orange #EF8D34; 
+pink #EE4A95; 
+aqua #4EACAE; 
+black #221F20; 
+"white" #CBCCCC*/
+
 body {
     font-family: 'helvetica';
     padding: 2%;
@@ -186,35 +192,7 @@ html, body, * {
     user-select: none;           /* Disable text selection (for other browsers) */
 }
 
-#hyperlight-buttons {
-    position: absolute;
-    display: none; /* Hidden until text is selected */
-    z-index: 9999; /* Keep it above other elements */
-    background-color: #221F20;
-    padding: 0px;
-    border-radius: 5px;
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Add a small shadow for visibility */
-    flex-wrap: wrap; /* Allows buttons to wrap to a new row */
-    gap: 8px; /* Optional: adds space between buttons */
-    transition: opacity 0.3s ease;
-}
 
-#hyperlight-buttons button {
-  width: 100%;
-  box-sizing: border-box;
-  flex: 1 1 200px;
-}
-
-#nav-buttons {
-  position: fixed;
-  bottom: 10px;
-  right: 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px; /* Adjust spacing between buttons as needed */
-  transition: opacity 0.3s ease;
-}
 
 
 /* The hidden class hides the container */
@@ -306,176 +284,16 @@ button:hover {
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3); /* Larger shadow on hover */
 }
 
-/* Table of Contents */
 
-/* Base styles for the TOC */
-#toc-container {
-transform: translateX(calc(-100% + 2em)); /* Off-screen, including the gap */
-  transition: transform 0.3s ease-in-out;
-  position: fixed;
-  left: 1em;
-  top: 5%;
-  height: 90%;
-  width: 70%;
-  max-width: 600px;
-  background-color: #221F20;
-  z-index: 1000;
-  overflow: auto;
-  padding-left: 1em;
-  padding-right: 2em;
-  border-radius: 1em 1em;
-}
-
-
-
-
-#toc-container h1.first {
-    color: #EE4A95; 
-}
-
-#toc-container h1 {
-    font-size: 25px;
-    color: #E0E0E0;
-}
-
-#toc-container h2 {
-    font-size: 20px;
-    padding-left: 2em;
-    color: #C4C4C4;
-}
-
-#toc-container h3, h4 {
-    padding-left: 4em;
-    font-size: 20px;
-    color: #A8A8A8;
-}
-
-#toc-container.open {
-    transform: translateX(0);
-}
-
-#toc-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.3s ease-in-out;
-    z-index: 999;
-}
-
-#toc-overlay.active {
-    opacity: 1;
-    visibility: visible;
-}
-
-#toc-toggle-button {
-  width: 40px;
-  height: 40px;
-  background-color: #333; /* Button background color */
-  border: none;
-  border-radius: 5px; /* Rounded corners */
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-#toc-toggle-button::before,
-#toc-toggle-button::after,
-#toc-toggle-button span {
-  content: "";
-  position: absolute;
-  width: 20px;
-  height: 4px;
-  background-color: white;
-  border-radius: 2px;
-}
-
-#toc-toggle-button::before {
-  top: 12px;
-}
-
-#toc-toggle-button::after {
-  bottom: 12px;
-}
-
-#toc-toggle-button span {
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-
-#editButton {
-width: 40px; /* Matching width */
-  height: 40px; /* Matching height */
-  background: #333;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
-}
-
-
-#editButton svg {
-  width: 20px;
-  height: 20px;
-  stroke: white; /* Change to your preferred color */
-}
-/* Reference Container */
-#ref-container,
-#highlight-container {
-  transform: translateX(calc(100% + 2em)); /* Off-screen, including the gap */
-  transition: transform 0.3s ease-in-out;
-  position: fixed;
-  right: 1em;
-  top: 5%;
-  height: 90%;
-  width: 70%;
-  max-width: 600px;
-  background-color: #221F20;
-  z-index: 1000;
-  overflow: auto;
-  padding-left: 2em;
-  padding-right: 1em;
-  border-radius: 1em 1em;
-}
-
-#ref-container.open,
-#highlight-container.open {
-  transform: translateX(0); /* Slide in to show the gap on the right */
-}
-
-
-/* Reference Overlay */
-#ref-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%; /* Covers the entire screen */
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent overlay */
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.3s ease-in-out;
-    z-index: 999; /* Below the reference container */
-}
-
-#ref-overlay.active {
-    opacity: 1;
-    visibility: visible;
-}
 
 /* lazy loading */
  .main-content {
-        
         height: calc(100vh - 60px); /* Full height minus space for buttons */
         border: none;               /* Remove border */
         outline: none;              /* Remove default focus outline */
-        padding: 20px;              /* Add padding for text */
+        padding-left: 40px;
+        padding-right: 40px;
+        padding-bottom: 10px;               /* Add padding for text */
         box-sizing: border-box;     /* Ensure padding doesn’t overflow */
         font-family: 'Helvetica';  /* Make it look more like a document */
         font-size: 16px;
