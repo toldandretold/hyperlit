@@ -1,107 +1,121 @@
-import { book } from './app.js';
-import { navigateToInternalId
-        } from './scrolling.js';
-import { parseInlineMarkdown } from './convert-markdown.js';
-import { 
-    getFootnotesFromIndexedDB,
-    saveFootnotesToIndexedDB 
-} from './cache-indexedDB.js';
-import { ContainerManager } from './container-manager.js';
-import { currentLazyLoader } from './initializePage.js';
+// toc.js
 
-// Create a container manager for TOC
-const tocManager = new ContainerManager("toc-container", "toc-overlay", "toc-toggle-button", ["main-content", "nav-buttons"]);
+// Import your helper functions and container manager.
+import { getNodeChunksFromIndexedDB } from "./cache-indexedDB.js";
+import { book } from "./app.js";
+import { navigateToInternalId } from "./scrolling.js"; // your internal navigation function
+import { ContainerManager } from "./container-manager.js";
+import { currentLazyLoader } from "./initializePage.js";
 
-// Export the DOM elements for backward compatibility
+// Get DOM elements for TOC container, overlay, and toggle button.
 export const tocContainer = document.getElementById("toc-container");
 export const tocOverlay = document.getElementById("toc-overlay");
 export const tocButton = document.getElementById("toc-toggle-button");
 
-export async function generateTableOfContents(tocContainerId, toggleButtonId) {
-  try {
-    console.log("📖 Generating Table of Contents...");
+// Create a container manager instance for the TOC.  
+// Assuming that "main-content" or "nav-buttons" should be frozen when TOC is open.
+const tocManager = new ContainerManager(
+  "toc-container",
+  "toc-overlay",
+  "toc-toggle-button",
+  ["main-content", "nav-buttons"]
+);
 
-    // ✅ Check if footnotes data is already loaded
-    let sections = window.footnotesData;
-
-    // ✅ Try to load from IndexedDB if not in memory
-    if (!sections) {
-      console.log("⚠️ No footnotes in memory, checking IndexedDB...");
-      sections = await getFootnotesFromIndexedDB(book);
-    }
-
-    if (!tocContainer) {
-      console.error(`❌ TOC container with ID "${tocContainerId}" not found.`);
-      return;
-    }
-
-    tocContainer.innerHTML = ""; // Clear previous TOC content
-
-    let firstHeadingAdded = false;
-
-    sections.forEach((section) => {
-      if (section.heading) {
-        const headingContent = Object.values(section.heading)[0]; // Get the heading text
-        const headingLevel = Object.keys(section.heading)[0]; // Get the heading level (e.g., h1, h2)
-        const lineNumber = section.heading.line_number; // Get the line number
-
-        if (headingContent && headingLevel && lineNumber) {
-          // Convert Markdown to inline HTML for heading content
-          const headingHtml = parseInlineMarkdown(headingContent);
-
-          // Create the heading element dynamically (e.g., <h1>, <h2>)
-          const headingElement = document.createElement(headingLevel);
-          headingElement.innerHTML = headingHtml;
-
-          // Add the "first" class to the first heading
-          if (!firstHeadingAdded) {
-            headingElement.classList.add("first");
-            firstHeadingAdded = true;
-          }
-
-          // Create a link wrapping the heading
-          const link = document.createElement("a");
-          link.href = `#${lineNumber}`;
-          link.appendChild(headingElement);
-
-          // Create a container for the link
-          const tocItem = document.createElement("div");
-          tocItem.classList.add("toc-item", headingLevel); // Optional: Add class for styling
-          tocItem.appendChild(link);
-
-          // Append the container to the TOC
-          tocContainer.appendChild(tocItem);
-        }
-      }
-    });
-
-    // Add click handler for TOC links
-    tocContainer.addEventListener("click", (event) => {
-      const link = event.target.closest("a");
-      if (link) {
-        event.preventDefault();
-        tocManager.closeContainer();
-        const targetId = link.hash?.substring(1);
-        if (!targetId) return;
-        console.log(`📌 Navigating via TOC to: ${targetId}`);
-        navigateToInternalId(targetId, currentLazyLoader);
-      }
-    });
-
-  } catch (error) {
-    console.error("❌ Error generating Table of Contents:", error);
+/**
+ * Generates the Table of Contents.
+ *
+ * This function fetches nodeChunks from IndexedDB, filters out heading nodes,
+ * generates the TOC data and renders the TOC into the container indicated by tocContainer.
+ */
+export async function generateTableOfContents() {
+  if (!tocContainer) {
+    console.error("TOC container not found!");
+    return;
   }
+
+  // Retrieve nodeChunks from IndexedDB for the current book.
+  let nodeChunks = [];
+  try {
+    nodeChunks = await getNodeChunksFromIndexedDB(book);
+  } catch (e) {
+    console.error("Error retrieving nodeChunks from IndexedDB:", e);
+    return;
+  }
+
+  // Filter only heading nodes (h1 through h6) and create TOC data.
+  const headingTags = ["h1", "h2", "h3", "h4", "h5", "h6"];
+  const tocData = nodeChunks
+    .filter((node) => headingTags.includes(node.type))
+    .map((node) => ({
+      id: node.startLine,
+      type: node.type,
+      text: node.plainText.trim(),
+      link: `#${node.startLine}`,
+    }));
+
+  // Render the TOC in the container.
+  renderTOC(tocContainer, tocData);
+
+  // Add click handler to the TOC container for navigation.
+  tocContainer.addEventListener("click", (event) => {
+    // Look for the closest anchor element if clicked within one.
+    const link = event.target.closest("a");
+    if (link) {
+      event.preventDefault();
+      // Close the TOC using the container manager.
+      tocManager.closeContainer();
+      const targetId = link.hash.substring(1); // e.g. "55" from "#55"
+      if (!targetId) return;
+      console.log(`📌 Navigating via TOC to: ${targetId}`);
+      navigateToInternalId(targetId, currentLazyLoader);
+    }
+  });
 }
 
-// Export functions for toggling TOC
+/**
+ * Renders the TOC data into a container.
+ *
+ * The TOC will be rendered as a series of <a> elements wrapping the appropriate heading tag.
+ *
+ * @param {HTMLElement} container - The container element in which to render the TOC.
+ * @param {Array<Object>} tocData - The TOC data array.
+ */
+export function renderTOC(container, tocData) {
+  // Clear any existing content.
+  container.innerHTML = "";
+
+  // Create the TOC entries.
+  tocData.forEach((item) => {
+    const anchor = document.createElement("a");
+    anchor.href = item.link;
+    // Optionally add a CSS class based on the heading type for styling.
+    anchor.classList.add(item.type);
+
+    const heading = document.createElement(item.type);
+    heading.textContent = item.text;
+    anchor.appendChild(heading);
+
+    container.appendChild(anchor);
+  });
+}
+
+/**
+ * Opens the TOC using the container manager.
+ */
 export function openTOC() {
   tocManager.openContainer();
 }
 
+/**
+ * Closes the TOC using the container manager.
+ */
 export function closeTOC() {
   tocManager.closeContainer();
 }
 
+/**
+ * Toggles the TOC using the container manager.
+ */
 export function toggleTOC() {
   tocManager.toggleContainer();
 }

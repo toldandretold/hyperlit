@@ -1,20 +1,16 @@
-# A Moment of Possibility: The Rise and Fall of the New International Economic Order
+# Samuel Thomas Nicholls
 
- Samuel Thomas Nicholls 
+Department of Politics and International Relations
 
- <a href='http://127.0.0.1:8000/nicholls2019moment#hypercite_hbpklyh' id='hypercite_hbpklyh_b'>[:]</a>
-
-"If it is surprising that Prebisch’s political economy is pro free trade, it is even more so that Nkrumah’s is."<a href="http://10.0.0.93:8000/nicholls2019moment#hypercite_cf4b31f" id="hypercite_cf4b31f_b">[:]</a> Samuel Thomas Nicholls test "history"<a href='http://127.0.0.1:8000/nicholls2019moment#hypercite_hbpklyh' id='hypercite_hbpklyh_b'>[:]</a> "as well as"<a href='http://127.0.0.1:8000/nicholls2019moment#hypercite_kaa9u0z' id='hypercite_kaa9u0z_b'>[:]</a> d Department of Politics and International Relations m
- 
 University of Adelaide
- 
+
 August 2019
 
-# Abstract
+## Abstract
 
-The New International Economic Order (NIEO) was a political campaign brought to the United Nations by the Group of 77 (G77) – the state elites from 120 countries of the Global South. The G77 sought to transcend what they saw as ongoing colonial features of the post-World War II world order, defined as the rules and institutions designed to manage the world capitalist system. The NIEO project aimed to overturn Northern protectionism; increase the stability and diversity of Southern economies through the creation of new institutions; and increase the power of the South in global institutions. International Relations (IR) theory, both Orthodox and Critical, has either ignored the NIEO, or constructed it as an authoritarian attack on global liberalism that had little to no chance of succeeding. With new archival research and a relational historical materialist approach, this thesis traces the rise and decline of the NIEO as a political project and challenges these assumptions. First, it argues that the systemic reforms advocated by the G77 were not based on a rejection of liberalism, but on the premise that the post-war order was not “liberal” enough. Second, it shows that experiments in a NIEO came very close to being launched and offers an explanation of how G77 state elites might have succeeded. This history of the NIEO contains important insights into the role that non-Western agency and power have played in the post-war order. Not only did G77 state elites, in relying on the wider ‘Third World Project’, offer a powerful critique of the post-war order, they created a viable strategy for its reformation. This is significant for several reasons. First, it challenges the assumption of Critical IR theory that the power of the United States was so overpowering that non-Western agency was insignificant to the post-war order. Second, it questions the prevalent assumption of Orthodox Liberal Internationalism that only liberal states create liberal international institutions and orders. These assumptions are embedded within Eurocentric narratives that conceive the post-war order as the sole creation of the United States. Such narratives are used to frame the present crisis of world order as a result of the rise of non-Western powers, and a failure of American leadership. Any potential for non-Western states to participate in reforming world order is viewed as unprecedented and is certainly not linked to any possibility of global movements encompassing the world’s poorest states. This thesis revises such historical narratives, and in doing so, sheds light on the present crisis. A more general implication of this is a historically justified optimism. The NIEO was built by decades of work by many Third World intellectuals, diplomats, and states people. Their collective praxis culminated in evidence that amidst the uncertainties of world economic crises, global projects aimed at reforming world order can create viable power and are therefore worth pursuing. I have also learned a lot from my fellow post grad students, and POLIR academics, who have attended the discipline’s post-grad conferences. Likewise, at the IR Theory Forum at the University of Queensland, hosted by Professor Christian Reus-Smit, my ideas were put through a brain storm of many highly intelligent minds. Of particular benefit was a discussion I had with Dr. Heloise Weber, who was able to explain graciously that my then core argument was wrong. I had, as it were, completely mis-read a text that is foundational to this thesis, and I am extremely grateful for her guidance in highlighting this to me. 
+The New International Economic Order (NIEO) was a political campaign brought to the United Nations by the Group of 77 (G77) – the state elites from 120 countries of the Global South. The G77 sought to transcend what they saw as ongoing colonial features of the post-World War II world order, defined as the rules and institutions designed to manage the world capitalist system. The NIEO project aimed to overturn Northern protectionism; increase the stability and diversity of Southern economies through the creation of new institutions; and increase the power of the South in global institutions. International Relations (IR) theory, both Orthodox and Critical, has either ignored the NIEO, or constructed it as an authoritarian attack on global liberalism that had little to no chance of succeeding. With new archival research and a relational historical materialist approach, this thesis traces the rise and decline of the NIEO as a political project and challenges these assumptions. First, it argues that the systemic reforms advocated by the G77 were not based on a rejection of liberalism, but on the premise that the post-war order was not “liberal” enough. Second, it shows that experiments in a NIEO came very close to being launched and offers an explanation of how G77 state elites might have succeeded. This history of the NIEO contains important insights into the role that non-Western agency and power have played in the post-war order. Not only did G77 state elites, in relying on the wider ‘Third World Project’, offer a powerful critique of the post-war order, they created a viable strategy for its reformation. This is significant for several reasons. First, it challenges the assumption of Critical IR theory that the power of the United States was so overpowering that non-Western agency was insignificant to the post-war order. Second, it questions the prevalent assumption of Orthodox Liberal Internationalism that only liberal states create liberal international institutions and orders. These assumptions are embedded within Eurocentric narratives that conceive the post-war order as the sole creation of the United States. Such narratives are used to frame the present crisis of world order as a result of the rise of non-Western powers, and a failure of American leadership. Any potential for non-Western states to participate in reforming world order is viewed as unprecedented and is certainly not linked to any possibility of global movements encompassing the world’s poorest states. This thesis revises such historical narratives, and in doing so, sheds light on the present crisis. A more general implication of this is a historically justified optimism. The NIEO was built by decades of work by many Third World intellectuals, diplomats, and states people. Their collective praxis culminated in evidence that amidst the uncertainties of world economic crises, global projects aimed at reforming world order can create viable power and are therefore worth pursuing.
 
-# Declaration
+## Declaration
 
 I certify that this work contains no material which has been accepted for the award of any other degree or diploma in my name in any university or other tertiary institution and, to the best of my knowledge and belief, contains no material previously published or written by another person, except where due reference has been made in the text. In addition, I certify that no part of this work will, in the future, be used in a submission in my name for any other degree or diploma in any university or other tertiary institution without the prior approval of the University of Adelaide and where applicable, any partner institution responsible for the joint award of this degree.
 
@@ -22,7 +18,7 @@ I give permission for the digital version of my thesis to be made available on t
 
 I acknowledge the support I have received for my research through the provision of an Australian Government Research Training Program Scholarship.
 
-# Acknowledgements
+## Acknowledgements
 
 I am grateful for many people who, in different ways, have helped me write this dissertation. I didn’t study history at school, and owe my interest in it to my Grandpa, and fellow amateur historian, Reuben Goldsworthy. He gave me the first history book I ever read along with lots of discussions and encouragement. At uni, I was taught by incredibly talented academics. All of my history and politics teachers were highly knowledgable and empathetic. After finishing my honours in history my supervisor Dr. Tom Buchanan went far out of his way in helping me to find somewhere to do my PhD on the NIEO. Tom, and Dr. Paul Sendziuk, have been encouraging and supportive to me from undergrad, through honours, and even in my PhD candidature.
 
@@ -44,19 +40,21 @@ I am most indebted, however, to Dr. Priya Chacko. Priya took on the task of supe
 
 Of course, none of this is to excuse any mistakes or flaws, all of which are my own.
 
-# Introduction
+## Introduction
 
-This dissertation is a <a href='/nicholls2019moment#hypercite_hbpklyh_b'>history</a> of the <a href='/nicholls2019moment#hypercite_hbpklyh_b'>New</a> International Economic Order (NIEO) that contributes to the wider theory and <a href='/nicholls2019moment#hypercite_hbpklyh_b'>history of world order</a>. It does this by showing that the NIEO Project was powerful, and so could have succeeded in reforming the post-war liberal order, or the rules and institutions created in an attempt to sustain global capitalism through the promotion of free trade. The NIEO was a project brought to the United Nations by the state elites of the Global South, who caucused as the Group of 77 (G77). The historiography of the NIEO project has concluded, with near consensus, that it failed because it was insufficiently powerful. This is despite renewed efforts by historians, following the Great Recession, to reassess this aspect of the NIEO. I contribute to this historiography by showing that, despite its eventual demise, the state elites of the G77 had created a powerful contingency plan that offered genuine possibilities for the reform of world order. Secondly, by exploring the foundational ideas of the NIEO, I confirm what historians have known for some time, but which has been ignored by orthodox International Relations theory. The NIEO was not opposed to global liberalism. Rather, the NIEO project provides further evidence of the important contribution made by the non-Western state elites to the so-called post-war liberal order. I make these historical arguments in order to contribute towards Amitav Acharya’s stated goal of a ‘Global IR’.[^1] That is, this thesis offers new knowledge of the importance of non-Western agency and power to International Relations by working towards and drawing upon a global, rather than parochially Eurocentric, historiography of the post-war era. By doing this, I contribute to a wider reengagement with the importance of non-Western agency to the history of the post-war order.[^2]
+This dissertation is a history of the New International Economic Order (NIEO) that contributes to the wider theory and history of world order. It does this by showing that the NIEO Project was powerful, and so could have succeeded in reforming the post-war liberal order, or the rules and institutions created in an attempt to sustain global capitalism through the promotion of free trade. The NIEO was a project brought to the United Nations by the state elites of the Global South, who caucused as the Group of 77 (G77). The historiography of the NIEO project has concluded, with near consensus, that it failed because it was insufficiently powerful. This is despite renewed efforts by historians, following the Great Recession, to reassess this aspect of the NIEO. I contribute to this historiography by showing that, despite its eventual demise, the state elites of the G77 had created a powerful contingency plan that offered genuine possibilities for the reform of world order. Secondly, by exploring the foundational ideas of the NIEO, I confirm what historians have known for some time, but which has been ignored by orthodox International Relations theory. The NIEO was not opposed to global liberalism. Rather, the NIEO project provides further evidence of the important contribution made by the non-Western state elites to the so-called post-war liberal order. I make these historical arguments in order to contribute towards Amitav Acharya’s stated goal of a ‘Global IR’.[^1] That is, this thesis offers new knowledge of the importance of non-Western agency and power to International Relations by working towards and drawing upon a global, rather than parochially Eurocentric, historiography of the post-war era. By doing this, I contribute to a wider reengagement with the importance of non-Western agency to the history of the post-war order.[^2]
 
 However, this history of the NIEO offers something unique to the goal of a Global IR. Whereas scholars have emphasised the importance of non-Western agency to the construction of the ideas and norms of the post-war order, I show that through creating a collective power that could leverage a world economic crisis, non-Western state elites wielded an important material-ideational power in negotiations over the constitution of world order. The power of the G77 elites was “material-ideational" because it was based on shared ideas and material interests, and because the shared ideas helped frame the importance of the shared material interests just as much as the shared material interests had helped shape the creation of the shared ideas. Their power was collective in the sense that it required the G77 elites to convince each other that they would act together. As such, this power had to be created and recreated through time, in response to both a changing world order and the changing position of Northern state elites. This collective power was significant because it contained the potential for both material threats and concessions. Depending on how it was wielded, and how the unpredictable global capitalist crisis of the 1970s proceeded, this collective power could have been used to launch experiments in a New International Economic Order.
 
-While important in and of itself, this thesis’ focus on the material-ideational agency of the G77 state elites has specific implications for theories of world order. Firstly, it challenges the conclusions of Critical IR Theory that the post-war order consisted of a US imperialism so overpowering that non-Western agency was too insignificant for consideration. Specifically, I update both the theory and historical interpretation of Robert Cox by showing that a fully relational historical materialism, like that espoused by Bieler and Morton,[^3] is able to achieve what Cox had originally wanted: a historical sociology of world order that avoids overly reifying structure, so as to provide knowledge useful for its reformation.[^4] Secondly, this new history of the NIEO shows that orthodox liberal IR can no longer ignore the importance of non-Western agency under the pretext that only liberal states seek to establish liberal orders. Instead, the history of the NIEO, occupying a fundamental place within the history of the so-called post-war liberal order, should form part of the essential context of the present crisis. Finally, this thesis highlights the importance of global capitalist crises to world order. Such crises can offer openings to the reform of world order, even to actors traditionally considered as materially weak. In surveying the previous explanations of the power of the NIEO Project, it becomes clear that there exists a prevailing consensus that the project was destined for failure, and precisely because of the insufficiency of the collective power of the G77 state elites. While this has been challenged, first by the pioneering work of Vijay Prashad, Ingo Venzke is correct when he argues that this necessary talk of ‘the possibility of something different’ has remained a ‘mere assertion’, which ‘is not the same as arguing that past debates could have taken different turns.’[^56] It is this historical research that I have contributed in this thesis. In the following section, I will outline how I have relied upon a relational historical materialist approach, and new archival research, in order to show that, despite its failure, that the NIEO Project was powerful, and could have succeeded in reforming world order. <p id="55" data-block-id="55">To provide an overview of this historical research, <a href="/nicholls2019moment#hypercite_kaa9u0z_b"><u id="hypercite_kaa9u0z" class="linked">as well as</u></a> its theoretical underpinnings and implications, I begin this introductory chapter by providing a historiography of the power of the NIEO Project. I show that, despite recent efforts, historians have been unable to demonstrate how the NIEO Project could have been successful. I then give an overview of the new interpretation of the NIEO Project contained in this thesis, which has been able to interpret the NIEO Project as powerful enough to reform world order. I explain that this has been made possible by both new archival research and a relational historical materialist approach. To show the theoretical implications of this research, I outline the prevailing Eurocentrism within both Orthodox and Critical IR theories of world order. Thus, I conclude by arguing that this historical sociology of the NIEO contributes to the wider goal of a Global IR. By showcasing the material-ideational agency of the G77 state elites as they came close to saving the post-war liberal order from crisis, I show that the non-West has wielded far more power, in certain historical moments, than has hitherto been acknowledged.</p>
+While important in and of itself, this thesis’ focus on the material-ideational agency of the G77 state elites has specific implications for theories of world order. Firstly, it challenges the conclusions of Critical IR Theory that the post-war order consisted of a US imperialism so overpowering that non-Western agency was too insignificant for consideration. Specifically, I update both the theory and historical interpretation of Robert Cox by showing that a fully relational historical materialism, like that espoused by Bieler and Morton,[^3] is able to achieve what Cox had originally wanted: a historical sociology of world order that avoids overly reifying structure, so as to provide knowledge useful for its reformation.[^4] Secondly, this new history of the NIEO shows that orthodox liberal IR can no longer ignore the importance of non-Western agency under the pretext that only liberal states seek to establish liberal orders. Instead, the history of the NIEO, occupying a fundamental place within the history of the so-called post-war liberal order, should form part of the essential context of the present crisis. Finally, this thesis highlights the importance of global capitalist crises to world order. Such crises can offer openings to the reform of world order, even to actors traditionally considered as materially weak.
 
-## A historiography of the power of the NIEO Project
+To provide an overview of this historical research, as well as its theoretical underpinnings and implications, I begin this introductory chapter by providing a historiography of the power of the NIEO Project. I show that, despite recent efforts, historians have been unable to demonstrate how the NIEO Project could have been successful. I then give an overview of the new interpretation of the NIEO Project contained in this thesis, which has been able to interpret the NIEO Project as powerful enough to reform world order. I explain that this has been made possible by both new archival research and a relational historical materialist approach. To show the theoretical implications of this research, I outline the prevailing Eurocentrism within both Orthodox and Critical IR theories of world order. Thus, I conclude by arguing that this historical sociology of the NIEO contributes to the wider goal of a Global IR. By showcasing the material-ideational agency of the G77 state elites as they came close to saving the post-war liberal order from crisis, I show that the non-West has wielded far more power, in certain historical moments, than has hitherto been acknowledged.
 
+A historiography of the power of the NIEO Project
 
+While the historiography on the NIEO has been unable to transcend interpretations of the project as a movement not powerful enough to force a compromise with the West, it is not true that the literature holds solely to this interpretation. As I will show in this section, a wave of works that do interpret the NIEO Project as containing the possibility of reforming world order were written before the NIEO had failed. These contemporaneous works are secondary sources on the NIEO, forming part of the first draft of its history. However, they are also primary sources, in so far as they are indicative of how the NIEO Project was perceived during its campaign, and in so far as its authors witnessed meetings of the North-South Dialogue. The NIEO Project entered three broad stages. Initially, following the successful show of unity at the Sixth Special Session of the UN General Assembly, in 1974, the G77 state elites had created a moment of possibility, and this is reflected in some of the works published in these years. By the end of the Paris Conference on International Economic Cooperation (CIEC, 1975-77), however, the G77 state elites had not launched any of the actions that had warranted the initial promise of possibility. That is, the strategic basis of the G77’s power was not followed through on. It became instead a historically curious, past potentiality. As such, the NIEO Project entered a period of stalemate which eventually dissipated into a full realization, following the international debt crisis, that G77 elites would not achieve the reforms they had sought. Both these subsequent periods, the stalemate, and then the realization of failure,[^5] are also reflected in the contemporaneous literature. That is, arguments were created which sought to explain why the NIEO failed, and they implied that its failure was inevitable. Either because of a weakness in the unity of the G77, or because of the overwhelming power of the United States, it came to be assumed that the NIEO Project had been insufficiently powerful. This interpretation has been partially challenged by historians, most notably by Vijay Prashad, who writes of the NIEO, despite its failure, as a powerful movement.[^6] Indeed, Prashad’s history has been followed by discussions about the role of contingency in the failure of the NIEO Project.[^7] Nevertheless, these works have not been able to show how the NIEO Project might otherwise have been successful. Equally, they are unable to reveal exactly what caused the failure of the NIEO Project.[^8] This thesis argues that there were, indeed, unpredictable contingencies that disincentivised the implementation of the NIEO Project’s initial strategy. Yet, these were contingencies that could easily have gone the other way, incentivising instead significant investment by certain G77 state elites into the project. That is, by peering into the counterfactual realm of possibilities, I aim to show that, despite its failure, the NIEO Project certainly was a powerful movement, and that the post-war order was, at this moment, ripe for reform.
 
-### The contemporaneous literature
+*The contemporaneous literature*
 
 Writing in 1973, even before the first OPEC oil shock and the subsequent launching of the campaign for a New International Economic Order, C. Fred Bergsten warned in *Foreign Policy* that:
 
@@ -72,7 +70,7 @@ If the writings of Bergsten, Gosovic and Ruggie highlight that mainstream voices
 
 Nevertheless, by 1979, when the most detailed examination to date of the bargaining position of the G77 was published, the mood had changed considerably. In Robert L. Rothstein’s *Global Bargaining* the outcomes that seemed possible to Gosovic and Ruggie had already failed to eventuate.[^25] Rather than the Seventh Special Session leading to a round of fruitful negotiations, the North-South dialogue had, in the several years that followed, fallen into a stalemate. Rothstein noted that the original shock that was felt following the OPEC oil-price rise, in combination with historically unprecedented prices for commodities in general, eventually calmed, and as time passed ‘adjustments occurred and fears of imminent resource shortages diminished’.[^26] The result was that the ‘notion that the old order could be patched together again began to prevail’.[^27] The stalemate emerged, according to Rothstein, because of different assessments of the world economic crisis. Whereas the developed states became more certain that no new international economic order was needed, the developing states believed otherwise, and this meant that both sides perceived stalemate as in keeping with their interests. To Rothstein, however, the original ambition of the G77 had turned out to be a mistake. While he still maintained that some compromise was possible, he concluded that the original ambitions of the G77 had been misplaced, and so it should radically depart from this strategy. Instead, by focusing on pragmatic negotiations over the specifics of implementation, there was a chance that at least something could emerge from the North-South dialogue.[^28] Nevertheless, Rothstein also offered an interpretation of the stalemate that was far less hopeful. He argued that the stalemate may have emerged from conflicts internal to the G77, conflicts which prevented the group from making anything other than broad statements of principle.[^29] Thus, by 1979, Rothstein’s assessment of the power of the G77 was that progress in the North-South dialogue was either impossible because of rigidities within the G77 itself, or possible only if the G77 greatly reduced its demands.
 
-### In the wake of the NIEO
+*In the wake of the NIEO*
 
 Already, by 1983, even sympathetic analysts, like Jeffrey A. Hart, had realized that the period from 1974, when the NIEO Project was launched at the Sixth Special Session of the UN General Assembly, until 1977, after the end of negotiations at the Conference on International Economic Cooperation, was the high point of the NIEO Project.[^30] Since then, the G77 had called for a new round of global negotiations, but the state elites in the United States, especially in the Reagan administration, would not agree even to this, a sure sign of the reassessment, in Washington, of the power of the G77 alliance. To Hart, the results of the North-South dialogue had demonstrated that ‘only a few oil exporters and newly industrializing countries would join the major industrial countries in having the ability to affect global economic conditions’, while ‘the power of the remaining countries was largely the power of the weak: they could default on loans and appeal for more aid on the basis of humanitarian sentiments and/or strategic insecurity.’[^31] Thus the chance that something resembling the NIEO proposals could be successfully implemented was for Hart now in the hands of western state elites. These elites were likely to pass reforms, he argued, because their ‘interests and values will impel the industrial countries toward a more direct confrontation of the issues raised by global poverty.’[^32] Thus, by the early 1980s, even the best scholars on the NIEO had come to view the G77’s original position as essentially powerless, keeping their hopes alive only because of faith in the goodness of Western state elites.
 
@@ -80,7 +78,7 @@ While Hart was optimistic even while viewing the G77 itself as insufficiently po
 
 An even more scathing assessment of the G77’s power was created in the later 1980s by Thomas G. Weiss. Weiss, who began working in the UNCTAD in the period in which the North-South stalemate first emerged, formed his interpretation by ignoring important nuances in the earlier arguments of Ruggie, Rothstein, and Hart. In *Multilateral Development Diplomacy in UNCTAD*, Thomas G. Weiss argued that the NIEO Project had failed in a paradox of inevitability.[^37] Although the G77’s bloc tactics were needed in order for the North-South dialogue to have been launched, it was these same bloc dynamics that led to the inevitable stalemate, and then failure, of the project. This was so, Weiss stressed, because the G77, in seeking a broad platform that could unite the many different states of the G77, had to work at a level of broad ideas and principles. Any attempt to move from a stage of discussion to negotiation would have heightened the group’s internal conflicts to the point of collapse.[^38] Much of this argument Weiss takes from Robert Rothstein’s study. However, where Rothstein offers his account of the G77’s internal conflicts as a potential source of stalemate, he is careful to write in a way that still provides for alternative courses of action. Furthermore, Weiss ignores Jeffrey Hart’s work, which shows that the G77’s choice of preferred policies did change in response to the results of negotiations with the Global North, important evidence that the G77 state elites did not present a simple and inflexible position.[^39] By ignoring this, Weiss explains the failure of the NIEO Project as the inevitable consequence of the G77’s makeup, a strong claim that only added to the growing consensus that the NIEO Project had always been insufficiently powerful.
 
-### A burgeoning challenge to the assumption of inevitable failure
+*A burgeoning challenge to the assumption of inevitable failure*
 
 While the interpretation forged in the wake of the failure of the NIEO project, which saw it as the inevitable result of the inadequate power of its underlying strategy, has not been disproven, moves to reassess this assumption were commenced by the Marxist historian Vijay Prashad. Before Prashad’s work, scholars from various disciplines, such as Amrita Narlikar who studies multilateral diplomacy, and Antony Anghie who studies the philosophy and history of international law, continued to agree with the assumption that the NIEO Project’s failure indicated either a flawed strategy on the behalf of the G77, as Narlikar argues by reference to Weiss, or the overwhelming power of neocolonialism manifest in the structure of post-war order, as concluded by Anghie.[^40] It is within this context that Prashad’s histories, both *Darker Nations* and *Poorer Nations*, are highly significant for both the history and theory of world order. While Prashad’s work still concludes that the NIEO Project failed because of ‘the Atlantic project’, that is, at the hands of the Global North, his history is nevertheless conscious of the fact that too much should not be concluded from the way that history unfolded. That is, to Prashad an important part of the story is the use of agency by the G77 state elites. In particular, Prashad writes that the decision by many G77 state elites to welcome ‘IMF-driven globalization, is as responsible for the assassination of the Third World as the social forces (imperialism and finance capital) that were its major adversaries from the 1950s onward.’[^41] Prashad’s work, therefore, as a macro history that contextualises the NIEO as part of a wider, anti-colonial ‘Third World Project’, details multiple causal factors in his explanation of the failure of the NIEO Project. While such a work is, therefore, unable to pinpoint exactly what would have had to have been different for the NIEO Project to have succeeded, or to have been more successful, it has certainly paved the way for further questioning of the NIEO. In the literature that has followed Prashad’s there exists a deep concern with the importance of contingency, and the potential that the NIEO, despite its failure, might have been powerful. Nevertheless, this research has been unable to determine exactly how powerful the NIEO Project was, or to explain how it might have succeeded.
 
@@ -102,9 +100,9 @@ In surveying the previous explanations of the power of the NIEO Project, it beco
 
 ## A new history of the power of the NIEO
 
-I have written a new history of the NIEO by both conducting new archival research, and relying on a relational historical materialist approach. This approach frames agency as dialectically related to historical structure both by being shaped by it, and by recreating it through time. According to this conception, agency and structure are understood as separate only conceptually, because of the necessary evil of cutting up the seamless web of historical causation for the sake of analysis. This is, essentially, to rely on a historical materialist approach that studies humans as Karl Marx described them: as agents who are shaped by historical forces, even as they can, from such foundations, create their own history.57 In terms of the NIEO, this has meant a focus not just on the historical context from which the project emerged, but also on the decision-making or strategy of the G77 state elites. In particular, I have studied not only the actual diplomacy that took place, what was decided by G77 state elites, but also the options that were discussed but bypassed. It is by discussing the strategic decision making of the G77 within the given historical context that a relational historical materialism, as Bieler and Morton argue, allows for an analysis of the ‘relative autonomy’ of historical actors.58 Importantly, however, because the decision making of historical actors bleeds into (or actually is a constitutive element of) future structure –– and because no one knew what was happening –– the structure in which this decision making took place is not assumed to be fixed. Rather, viewed relationally, the political-economic context of the 1970s is comprehended as it was –– an uncertain, because changing and malleable, world economic crisis. As such, I have analysed the strategic decision making of the G77 state elites as they responded to the unravelling of this world economic crisis. This has not been done previously, and it was from this approach that I have been able to trace the rise and fall of the NIEO project, and to understand it not as a project based on false hope, but on a powerful contingency plan that could have succeeded.
+I have written a new history of the NIEO by both conducting new archival research, and relying on a relational historical materialist approach. This approach frames agency as dialectically related to historical structure both by being shaped by it, and by recreating it through time. According to this conception, agency and structure are understood as separate only conceptually, because of the necessary evil of cutting up the seamless web of historical causation for the sake of analysis. This is, essentially, to rely on a historical materialist approach that studies humans as Karl Marx described them: as agents who are shaped by historical forces, even as they can, from such foundations, create their own history.[^57] In terms of the NIEO, this has meant a focus not just on the historical context from which the project emerged, but also on the decision-making or strategy of the G77 state elites. In particular, I have studied not only the actual diplomacy that took place, what was decided by G77 state elites, but also the options that were discussed but bypassed. It is by discussing the strategic decision making of the G77 within the given historical context that a relational historical materialism, as Bieler and Morton argue, allows for an analysis of the ‘relative autonomy’ of historical actors.[^58] Importantly, however, because the decision making of historical actors bleeds into (or actually is a constitutive element of) future structure –– and because no one knew what was happening –– the structure in which this decision making took place is not assumed to be fixed. Rather, viewed relationally, the political-economic context of the 1970s is comprehended as it was –– an uncertain, because changing and malleable, world economic crisis. As such, I have analysed the strategic decision making of the G77 state elites as they responded to the unravelling of this world economic crisis. This has not been done previously, and it was from this approach that I have been able to trace the rise and fall of the NIEO project, and to understand it not as a project based on false hope, but on a powerful contingency plan that could have succeeded.
 
-A relational historical materialist approach is also useful for explaining the historical context that made the NIEO Project possible. Here, I rely on a relational historical materialism that draws upon both Robert Cox’s understanding of the interrelatedness of ideas and material forces, or what Bieler and Morton call the ‘material structure of ideology’.59 This is to understand the creation of ideas as, in part, a response to the material forces shaping a given historical moment. It is also to understand the conditions of any historical moment as shaped, in part, by the past creation of ideas. In the case of the NIEO, I show this by demonstrating that the three core ideas that formed its intellectual foundations were created in direct response to the interwar crisis, and the conditions of post-war neocolonialism. While explaining the creation of these ideas as a material-ideational response to the history of capitalism, I also explore the NIEO’s objectives in terms of what liberal IR theorists call the post-war liberal order. In doing so, I argue that, despite being based partly on the work of Marxists, like Kwame Nkrumah, the core ideas of the NIEO should not be considered a ‘major attack on the liberal international order’.60 Rather, the NIEO was based on historical analyses of the post-war order that criticised it for not being liberal, or free trade, enough. While the NIEO Project certainly did not advocate laissez-faire, all its proposals were designed in order to transcend the legacies of both formal colonialism and neocolonialism so that, in the future, world order could work as its ahistorical liberal boosters already assumed it did. Any protectionist proposals were not sought so as to inhibit free trade. Rather, free trade, having never existed, was viewed as an ahistorical construct that served to hide a world order shaped indelibly by its actual history of colonisation. Founded on such a historical understanding of global capitalism, the ideas that underlay the NIEO Project did not, as a result, give up on free trade, or its benefits. Rather, the NIEO Project sought to assist in the creation of a world order in which comparative advantage *would* allow all states to benefit. The difference between the ad hoc protectionism in the North, and the proposed protectionism under the NIEO project, was that the NIEO Project was, as paradoxical as it can seem on first reading, consciously designed to seek more, not less, free trade. Thus, I show in this chapter that the NIEO was, according to the definitions of Orthodox IR, a liberal project.
+A relational historical materialist approach is also useful for explaining the historical context that made the NIEO Project possible. Here, I rely on a relational historical materialism that draws upon both Robert Cox’s understanding of the interrelatedness of ideas and material forces, or what Bieler and Morton call the ‘material structure of ideology’.[^59] This is to understand the creation of ideas as, in part, a response to the material forces shaping a given historical moment. It is also to understand the conditions of any historical moment as shaped, in part, by the past creation of ideas. In the case of the NIEO, I show this by demonstrating that the three core ideas that formed its intellectual foundations were created in direct response to the interwar crisis, and the conditions of post-war neocolonialism. While explaining the creation of these ideas as a material-ideational response to the history of capitalism, I also explore the NIEO’s objectives in terms of what liberal IR theorists call the post-war liberal order. In doing so, I argue that, despite being based partly on the work of Marxists, like Kwame Nkrumah, the core ideas of the NIEO should not be considered a ‘major attack on the liberal international order’.[^60] Rather, the NIEO was based on historical analyses of the post-war order that criticised it for not being liberal, or free trade, enough. While the NIEO Project certainly did not advocate laissez-faire, all its proposals were designed in order to transcend the legacies of both formal colonialism and neocolonialism so that, in the future, world order could work as its ahistorical liberal boosters already assumed it did. Any protectionist proposals were not sought so as to inhibit free trade. Rather, free trade, having never existed, was viewed as an ahistorical construct that served to hide a world order shaped indelibly by its actual history of colonisation. Founded on such a historical understanding of global capitalism, the ideas that underlay the NIEO Project did not, as a result, give up on free trade, or its benefits. Rather, the NIEO Project sought to assist in the creation of a world order in which comparative advantage *would* allow all states to benefit. The difference between the ad hoc protectionism in the North, and the proposed protectionism under the NIEO project, was that the NIEO Project was, as paradoxical as it can seem on first reading, consciously designed to seek more, not less, free trade. Thus, I show in this chapter that the NIEO was, according to the definitions of Orthodox IR, a liberal project.
 
 The NIEO Project, once launched, had to be constantly recreated by the diplomatic agency of the G77 state elites. It had to adapt to concomitant developments in international political economy. I trace this process, beginning with the preliminary discussions leading up to the Sixth Special Session. By analysing records of the debates over the founding documents of the NIEO Project, and of records of confidential meetings held between G77 state elites and the UN Secretary General, Kurt Waldheim, I am able to show, in Chapter Three, that the successful show of unity by the G77 was not preordained. Rather, even in the preliminary talks leading up to the Sixth Special Session, important rifts were identifiable between oil-importing and oil-exporting G77 state elites. It is possible to trace these tensions by way of reference to the debates held over the founding documents of the NIEO, because these debates occurred not just between the “North” and “South”, but also between representatives of different G77 states. It was by transcending these differences, I argue, that the G77 state elites were able to project themselves as having genuine power over the reformation of the post-war order, an order that was then in a crisis that certain G77 members had further inflamed with their oil pricing. That is, I show that, via such debates, the G77 state elites were able to work through their differences in order to create a viable strategy. This challenges claims that the G77 alliance, because of unaddressed rigidities, could never have sustained a negotiation over any of the NIEO proposals.
 
@@ -116,7 +114,7 @@ Thus, in Chapter 6, my focus is on attempting to explain the decisions taken by 
 
 If in the first six chapters I trace the creation of the NIEO Project, and the strategic decision making of the G77 state elites amidst an evolving world economic crisis, in order to show that, despite its failure, these elites had created a collective power with the capability to reform world order, in the final chapter, I question why a renewed strategy was not created in the early 1980s, when there appeared to be the potential for a debtors' cartel. Here, again, a relational historical materialist approach requires such an exploration, because it cannot assume that, because a debtors’ cartel was not formed, it was not possible. It is also important in and of itself, because of the vast destruction caused by the debt crisis. In this chapter I first survey previous explanations for the failure of a debtors’ cartel to emerge, noting particularly the difficulty of establishing such a strategy. Then, however, I explore this failure in terms of the collapse of collective power that followed the failure of the NIEO Project’s initial strategy. Having failed to deploy the strategy developed by G77 state elites, a strategy based on a deployment of OPEC’s petrodollars for the achievement of the NIEO, the collective power of the G77 was weakened. I show this via the intra-G77 conflicts that were heightened during the late 1970s. With the power of the G77 weakened, Northern state elites were far less willing to consider even banal compromises with the G77. As such, even calls for a new round of the North-South dialogue failed. This breakdown in collective power made the chances of forming an international debtors’ cartel even more difficult. Thus, even as there was a theoretical possibility of a new strategy to underlie calls for a new international economic order –– the prospect of a collective global default which could have brought down global capitalism –– such a move was not propitious at this moment.
 
-## Towards a Global IR of world order
+Towards a Global IR of world order
 
 The historical research outlined above has clear significance to the historiography of the NIEO. It offers, for the first time, an explanation of how the NIEO Project might have been successful. This is important for answering many curiosities of this project. Why did, for example, so many state elites put so much time and resources towards a project that most historians have concluded had no chance of succeeding, and why were they, for a time, taken seriously by Northern elites? In short, it offers a better understanding of the underlying power relations of the project. However, it also has important implications for the project of a Global International Relations. The concept of a Global IR was coined by Amitav Acharya in an attempt to envision what the field of IR could be if it were to escape its parochially Eurocentric foundations.[^61] Important here is the fact that, as Acharya argues, traditional IR has ignored the agency of the non-West. In contrast, a Global IR would be ‘grounded in world history, not just Greco-Roman, European, or US history’; and recognise ‘multiple forms of agency beyond material power, including resistance, normative action, and local constructions of global order.’[^62] It would not, however, be opposed to the West, or even support the idea that the West can be considered as distinct from the non-West, apart from where this is a necessary evil of analysis. As such, a Global IR ‘subsumes, rather than supplants, existing IR theories and methods.’[^63] More recently Acharya has criticised traditional IR for its ignorance of non-Western agency within theories of world order.[^64] Acharya’s work is significant because it focuses on normative agency in order to highlight the importance of the non-West to a post-war order that is traditionally conceptualised merely as ‘an extension of the European state system, and subsequently, as the by-product of an American-led liberal hegemonic order.’[^65] After outlining the neglect of the non-West by traditional IR, and the emerging body of historical sociology that is challenging this, I will then, in this section, explain how this thesis’ historical sociology of the NIEO contributes to Acharya’s stated goal of a Global IR. By relying on a relational historical materialist approach, I have created a new history of the NIEO that highlights the fundamentally important role of the material-ideational agency of the non-West to the history of the post-war liberal order. While important in and of itself, I then turn to a discussion of the specific theoretical implications of this for the theorisation of world order.
 
@@ -124,19 +122,19 @@ Within IR theory the non-West has, traditionally, been assumed to be either so p
 
 These assumptions about non-Western agency also shape theorising about the post-war world order. Thus, John Ikenberry’s work relies on a historical narrative that conceives of the post-war order as shaped solely by the West, and assesses the non-West only in terms of a rising and authoritarian China.[^71] Georg Sorenson, in assessing the present crisis of global liberalism, argues that liberalism will always be faced by the inherent paradox of extending pluralism to illiberal regimes.[^72] Sorenson’s argument is grounded in an assumption that only liberal states seek to create liberal institutions.[^73] Here, again, the treatment of the non-West as insignificant to the creation and maintenance of liberal world order, while simultaneously existing as an inherent threat to liberal world order, continues. Essentially, the post-war order is understood by traditional IR theory as the sole creation of the West, because only liberal Western states seek to establish liberal world orders. While the post-war order was benevolently bestowed upon 'the rest’, these illiberal states served either a non-role of insignificant weakness, or a role of a dangerous threat to the very orderliness of the post-war liberal order.
 
-<p id="131" data-block-id="131">Fortunately, the Eurocentric narratives that underlie theorising about the post-war order have come under increasing revision by a wave of historical research. Eric Helleiner, in <em>The Forgotten Foundations of Bretton Woods</em>, has shown that the Global South played an <u id="hypercite_wt17qxv">important role</u> in the very founding of the post-war order.<sup class="note" data-note-key="74">[^74]</sup> Mark Mazower’s research has challenged interpretations of the United Nations as an inevitable break with imperialism by showing that, in actual fact, this myth was made possible by the pioneering role of Third World statesmen, especially Jawaharlal Nehru, who used the United Nations to launch sustained attacks on colonialism.<sup class="note" data-note-key="75">[^75]</sup> Similarly, in the above-mentioned book by Adom Getachew, it is shown that anti-colonial leaders had envisioned alternative futures of the post-war order, something that is echoed in Andrew Phillips’ analysis of the historical moment surrounding the Bandung conference.<sup class="note" data-note-key="76">[^76]</sup> Phillips notes that the 1955 Bandung conference occurred at ‘a time of radical systemic fluidity, when the fundamental architecture of the global order remained in flux.’<sup class="note" data-note-key="77">[^77]</sup> Furthermore, as Tim Dunne, Richard Devetak and Ririn Tri Nurhayati show, the purpose of the ‘revolt against the West’ that was brought to Bandung was ‘not driven by a will to dismantle international society’, but ‘to expunge the structures and practices of colonialism and racism that underpinned it.’<sup class="note" data-note-key="78">[^78]</sup> In this way, these authors add to the research of Roland Burke, who has shown Bandung to have been a moment in which the Global South promoted human rights.<sup class="note" data-note-key="79">[^79]</sup> That is, the non-West played an important role in creating a pluralistic world order, an important aspect of liberalism. Finally, and most recently, such work has been extended by Amitav Acharya, who has written a historical sociology of the post-war order that highlights the importance of the normative agency of the non-Western world.<sup class="note" data-note-key="80">[^80]</sup></p>
-
 Fortunately, the Eurocentric narratives that underlie theorising about the post-war order have come under increasing revision by a wave of historical research. Eric Helleiner, in *The Forgotten Foundations of Bretton Woods*, has shown that the Global South played an important role in the very founding of the post-war order.[^74] Mark Mazower’s research has challenged interpretations of the United Nations as an inevitable break with imperialism by showing that, in actual fact, this myth was made possible by the pioneering role of Third World statesmen, especially Jawaharlal Nehru, who used the United Nations to launch sustained attacks on colonialism.[^75] Similarly, in the above-mentioned book by Adom Getachew, it is shown that anti-colonial leaders had envisioned alternative futures of the post-war order, something that is echoed in Andrew Phillips’ analysis of the historical moment surrounding the Bandung conference.[^76] Phillips notes that the 1955 Bandung conference occurred at ‘a time of radical systemic fluidity, when the fundamental architecture of the global order remained in flux.’[^77] Furthermore, as Tim Dunne, Richard Devetak and Ririn Tri Nurhayati show, the purpose of the ‘revolt against the West’ that was brought to Bandung was ‘not driven by a will to dismantle international society’, but ‘to expunge the structures and practices of colonialism and racism that underpinned it.’[^78] In this way, these authors add to the research of Roland Burke, who has shown Bandung to have been a moment in which the Global South promoted human rights.[^79] That is, the non-West played an important role in creating a pluralistic world order, an important aspect of liberalism. Finally, and most recently, such work has been extended by Amitav Acharya, who has written a historical sociology of the post-war order that highlights the importance of the normative agency of the non-Western world.[^80]
+
+This thesis’ history of the rise and decline of the NIEO contributes to this broader historical sociological project which, as Andrew Phillips writes, seeks to ‘unmoor IR from its Eurocentric foundations.’[^81] So far, however, contributions towards a truly Global IR have downplayed the material-ideational agency of the non-West in the history of the post-war order. Besides noting the anticolonial movements themselves, which played one of the most important roles in shaping the post-war order, proponents of a Global IR, including Acharya, have focused on the ideational power of non-Western actors. This is not to say that the ideational and material aspects of power can be neatly separated, or that Acharya’s history of the normative agency of the non-West ignores material power.[^82] Nevertheless, it is true that the emphasis has been placed almost solely on the ideational aspects of agency. Acharya does this intentionally, arguing that in order to improve upon a traditional IR that has neglected non-Western agency, ‘normative agency, or agency through ideas and ideologies’, should be treated as ‘especially relevant.’[^83] Acharya explains this move by quoting Donald J. Puchala, who argues that for ‘ “Third World countries, ideas and ideologies are far more important” than power or wealth, because “powerlessness” and “unequal distribution of the world’s wealth” are “constants” for them.’[^84] While this is no doubt true for much of the post-war era, I show in this thesis that the G77 state elites were able –– in relying on the ideas of the Third World Project –– to create a collective power that could leverage the world economic crisis. What was up for grabs during the North-South dialogue was an alteration to the material basis of global capitalism, and the G77 state elites –– I argue –– had important material-ideational power over this. However, this is not to detract from Acharya’s important work, or from any above-mentioned contribution to a Global IR that prides itself on recognising multiple forms of agency.[^85] Rather, I contribute to this work by offering further insights into the important role of non-Western agency and power to the post-war liberal order.
 
 Thus, this new history of the NIEO, which relies on a relational historical materialist approach in order to trace the collective power of the G77 state elites as they navigated a changing and unpredictable world economic crisis, offers an important contribution to the goal of a Global IR. By showing that, in the most important crisis of global capitalism in the post-war era before the present one, G77 state elites had created a genuine moment of possibility for the reformation of world order, I highlight that non-Western agency had important material power. Of course, this was not solely material. Rather, the collective power that the G77 created was only possible because of the prior creation of ideas (themselves shaped by the material context of the interwar crisis and post-war neocolonialism). Nevertheless, the G77 state elites used these ideas to create a collective power that could leverage the world economic crisis in order to bring about changes to the material basis of world order. Indeed, when G77 state elites were listened to seriously within the North-South dialogue it was because their threats and possible concessions, which were explicit and implicit, had material implications.
 
 This highlighting of the material-ideational agency of the G77 state elites, while important in itself, also has more specific implications for traditional IR theory. These concern conclusions about the malleability of world order, and the contribution of non-Western, and predominantly authoritarian, state elites to global liberalism. By showing that, during the crisis of the 1970s, the G77 state elites had created a collective power that could have been used to reform world order, this thesis paints a new picture of the malleability of world order. While incredibly difficult to create, the NIEO Project shows that global political movements are possible and that they can leverage unpredictable economic crises in order to pry open alternative futures of world order. As such, this thesis argues that, at least in moments of crisis, theorists of world order should be more circumspect about their dismissal of the power of “the weak”. This is especially important for any historical materialist approach to world order, like that of Robert Cox, which specifically seeks to create historical sociologies that can aid in the reformation of world order. Secondly, this thesis’ exploration of the creation of the NIEO Project confirms what a handful of historians and historical sociologists had already concluded. The NIEO was not opposed to global liberalism. Rather, it sought to render world order, if anything, more liberal, in the sense that it sought further advances in free-trade. The possibilities that I argue can be seized upon during moments of economic crisis do not need to be feared, even by Orthodox liberal theorists, simply because they will, because of the sheer distribution of the world’s population, most likely have at least partial origins within the Global South. The power of the Third World should not be restricted to the Eurocentric trope of a barbaric threat to civilisation. While authoritarian attacks on liberal world order are a genuine threat to any such “orderliness”, they can emerge from any region of the globe. Before conclusions can be made about the nature of any political project that may or may not be able to leverage a world economic crisis to reform world order, it must be studied historically. I have shown that this is possible using a relational historical materialism that considers the perspective and action of actors as intertwined dialectically with uncertain, changing and malleable historical structures. That is, by viewing agency and structure as mutually constitutive, and separable only for the sake of analytical emphasis of specific moments of a moving totality.
 
-# Chapter 1: A Relational and non-Eurocentric Approach to World Order
+Chapter 1: A Relational and non-Eurocentric Approach to World Order
 
 In order to write a history of the NIEO that contributes to a ‘Global International Relations’, I have relied upon a relational historical materialist framework.[^86] Here, my primary inspiration has come from Robert Cox. Cox’s work contains the prospect of a historical materialist approach to world order that can transcend the ahistorical and Eurocentric myopia of Orthodox IR theory. Furthermore, it focuses on material-ideational power, an aspect of non-Western agency which, as I have argued above, is under-emphasised by the emerging Global IR of world order. Nevertheless, and as his critics have shown, Cox fetishises the ‘hyper-agential power of the west**’** to such an extent that his work ignores any role for the non-West.[^87] In this chapter, I explain how I have remedied this flaw in Cox’s work by adjusting his approach. I have done this by relying on Hobson and Sajed’s criticisms of Cox, and their call for a fully relational sociological approach to world order. However, such a rendering of Cox’s work is problematised by the fact that in many respects his work already is relational. Thus, in this chapter, after explaining the potential benefits of a Coxian approach to world order, I specify the weakness of his historical sociology. I argue that Cox’s problem was not his approach to theory, but his substantialist approach to history. A fully relational historical materialism appreciates that just as theory must be interrogated historically, history needs to be interrogated theoretically.[^88] Having shown this weakness, I then explain why a fully relational historical materialism, like that espoused by Bieler and Morton, avoids Cox’s reification of the past as fixed structure. Finally, I explain how I have used this relational historical materialist approach to create this thesis’ historical interpretation. This approach allows for the incorporation of counterfactual methodologies, and it understands actors as shaped by uncertain and malleable historical structures that they themselves partially create. As such, a relational historical materialism allows for an assessment of the material-ideational power of the NIEO that is uninhibited, at the outset, by knowledge of the project’s eventual failure.[^89]
 
-## The ignorance of historical research by Orthodox International Relations Theory
+The ignorance of historical research by Orthodox International Relations Theory
 
 I have relied on a Coxian approach to world order because it holds the potential, I argue, to contribute to a truly Global IR of world order. I show this in this section by demonstrating that a Coxian critique of Orthodox IR is able to explain why it has not been able to appreciate the importance of historical investigation into the NIEO. As I outlined in the introductory chapter above, International Relations has perpetuated assumptions about both the NIEO and non-Western agency more generally, despite lacking the requisite historical research into the NIEO. This is a problem, I argue, because this research can and does challenge assumptions that Orthodox IR holds about the NIEO, and therefore also about the role of the non-West in the creation and history of post-war world order. Cox’s approach is a historical materialism that accounts for world order as consisting of domestic, international and transnational social forces. As I show in this section, it is based on an awareness of the historical construction of all theory that can explain the perpetuation of a Eurocentric myopia within Orthodox IR. Furthermore, Cox’s framework should, in theory, demand the historical research into the NIEO that is necessary to challenge this.
 
@@ -148,7 +146,7 @@ If Krasner’s realist analysis of world order assumes the NIEO to have played t
 
 It is via such a circular process that Orthodox IR, as ahistorical problem solving theory, creates from its Eurocentric assumptions narratives of post-war order that ignore the agency of the non-West. Because problem solving theory is ignorant of the historical construction of theory, it necessarily ignores the historical research necessary to challenge its own assumptions, assumptions which, as a result, reflect and uphold the status quo world order. Nevertheless, a growing body of research challenges these assumptions. What I wish to emphasise is that this emerging Global IR of world order is invariably historical. Indeed, a key aspect of Acharya’s call for a Global IR is the need for IR to rely on global histories, rather than Eurocentric stories that have shaped Orthodox IR.[^98] The growing body of work that seeks to do this should be considered, by a Coxian analysis, as critical theory. This is because it is work that challenges theoretical assumptions through historical analysis. In this way, a Coxian analysis can explain the perpetuation of the Eurocentric narratives of the post-war order by Orthodox IR. What is striking, though, is that despite this Cox’s own historical sociology also felt comfortable assuming that the NIEO, and therefore also the material-ideational agency of the non-West, was insignificant. Furthermore, Cox did this without first conducting the requisite historical research.
 
-## The ignorance of the NIEO by Critical International Relations Theory
+The ignorance of the NIEO by Critical International Relations Theory
 
 Cox’s treatment of the NIEO cannot be explained in terms of his ignorance of the historical construction of theory, for that is a founding epistemological assumption of his theoretical framework. This poses the question of why Cox viewed further research into the NIEO Project as unnecessary for conclusions about its powerlessness. Answers to this can be developed from the critique of Cox made by John M. Hobson and Alina Sajed.[^99] Hobson and Sajed criticise Cox, as they criticise most of Critical International Relations Theory, for ignoring non-Western agency through a reliance on substantialist conceptions of West and non-West. The use of such dichotomies, when not properly qualified, can serve to inhibit the analyst from needing to explore more deeply the human agency that creates history without conforming to such constructs –– agents occupying the ‘interstitial spaces’ that such language ignores through a reification of ‘the overwhelming hyper-agential power of the West’.[^100] Such a critique can also be applied to Cox’s conclusions about the NIEO. By focusing on a macro-historical analysis of social forces, and ‘historical structures’, Cox did not zoom in to the level at which these forces were manifest in, resisted, and recreated by the decision making of the G77 state elites calling for a new international economic order. Furthermore, and as I will outline in more detail below, his understanding of his own goal of using history to uncover possible alternative world orders led him, mistakenly, to adopt a rigid view of the past. Cox saw the past as fixed, and as only useful for explaining the structural forces acting upon the present. As fixed, and understandable only as the structure which determines the present, Cox’s view of the past could ignore analysis of past decision making. That is, past agency. This is a problem because this is the type of history needed to analyse the collective power of the G77 state elites who called for a new international economic order. Nevertheless, a simple application of Hobson and Sajed’s critique of Cox can easily miss the important ways that his work is relational, and the fact that he explicitly sought to avoid any reification of power structures. Thus, in what follows I analyse the specific cause of Cox’s eventual dismissal of the NIEO, so as to determine how his approach can be made more fully relational.
 
@@ -166,19 +164,19 @@ Cox’s dismissal of the NIEO Project as powerless arose from his understanding 
 
 It is difficult, within this view of history, to conceive of an investigation into the decision-making of those who led the campaign for a New International Economic Order. What were the key decisions made by the leaders of the NIEO Project? What could these G77 state elites have decided that they did not? Could different political action have changed the interaction of social forces, the alliances that formed the power-base of the movement, that Cox’s view of history leaves as fixed? Peculiarly, this is the sort of historical research that would align with Cox’s vision of a critical theory aimed at uncovering possible futures for world order, because it would allow for a more precise understanding of why past political projects had failed. And if it is not understood why past projects failed, then the structures which arose in the wake of these failures will also be insufficiently understood. As such, counterfactual history becomes useful even for Cox’s own purposes of contextualising the present. Indeed, this is the position taken in Ingo Venzke’s article on the importance, and difficulty, of histories of the contingencies that led to the failure of the NIEO.[^116] Venzke argues, in direct conflict with Cox’s view of history, that: ‘Trying to understand the past out of its own possibilities and not as a mere prelude to the present may well be the defining sensibility of historical inquiry.’[^117] Venzke notes the view of the historian Johan Huizinga who emphasised that the historian ‘must constantly put himself at a point in the past at which the known factors will seem to permit different outcomes.’[^118] Thus, even if counterfactual history is not taken beyond the realm of provability, peering into its unknowability is itself essential, if the decision making that came to create history is to be understood. History needs to enquire into not only what was decided, but also what was bypassed, if it is to come to an understanding of the malleability of the historical structures that Cox fetishises to the exclusion of the agency that potentially created these very same structures.
 
-## A Relational Approach to World Order
+A Relational Approach to World Order
 
 In order to fulfil Cox’s original intentions for critical theory, it is thus necessary to take up Hobson and Sajed’s call for a ‘relational sociology of global interconnectivities.’[^119] A relational approach to world order is able to deploy Cox’s original ontology and his historicist epistemology, while also zooming in deeper, wherever necessary, in order to properly investigate the agency operating at key turning points in the history of world order. Cox’s ontology consisted of social forces emanating from a dialectical relation with production. These social forces, constituted by both ideas and material capabilities, could become embodied within institutions and different forms of state. Social forces could act both from these institutions and forms of state, and independently above them, at the level of world order. A relational approach to world order emphasises that through all time, these social forces were created and recreated by the agents of history. While it is no doubt superfluous to analyse every decision ever made––from the time each person chooses to wake up, to the time they heat their instant coffees in their dirty microwaves, to the store they eventually choose to buy an electric kettle from––the decision making of historical actors, where this contributed to the creation of the continuities and discontinuities of the history of world order, is vital even in terms of Cox’s original ambitions. This is because it is via a study of decision making that the power of past political projects, even if they failed, can be better grasped. And as a result the historical forces that defeated them can also be better understood. A focus on the agency of the non-West serves not only to better elucidate the power of the NIEO Project, but also the neoliberal world order that arose in its defeat. A relational approach to world order that enables such a zooming in on agency draws upon two broad tenets of ‘relational sociology’, as defined by Mustafa Emirbayer.[^120] This is an epistemological caution as to the way that language cordons off into finite units what is, in reality, always in flux (something that, as discussed, aligns easily with Cox’s theory).[^121] And, related to this, the idea that units of analysis are not fixed and self-generating wholes, but instead change through time via their relations and interactions.
 
 Related to its caution as to the deployment of words as tools for creating and sharing knowledge about an undefinable totality, is the relational approach’s understanding of social reality as changing and dynamic. A relational conception does not consider its ontological units as acting and interacting with each other unchanged, like billiard balls on a near-frictionless blue velvet. Rather, the individual agents, their ideas and perceptions, and the emergent groups they create together, change in relation to each other through time. This has important implications for analyses of power, structure and agency. Rather than conceiving of power as a fixed quantum or entity, ‘something that can be “seized” or “held”’, power comes to be understood as an emergent property of the relations between actors themselves, or ‘the outgrowth of the positions that social actors occupy in one or more networks’.[^122] As such, power is always in flux, contingent upon the perceptions that each actor within a given network of power has of the potentialities of all other actors, a perception partly shaped by the actions of these other actors. Likewise agency, ‘commonly identified with the self-actional notion of “human will”’, is conceived relationally ‘as inseparable from the unfolding dynamics of situations’.[^123] In this way, agency and structure are dialectically related, and only exist as different concepts so as to assist the historian in discussing different moments in time. As the use of agency by a historical actor responding to the available options of one moment affects future balances of power, future options, it bleeds seamlessly into the structures of the next moment. Or as Emirbayer and Mische put it, the ‘engagement by actors of different structural environments both reproduces and transforms those structures in interactive response to the problems posed by changing historical situations.’[^124] This is not to say that all agency is equal. Rather, the extent of agency is assessed in terms of the possibilities of altering future structure. As such, structure must also be perceived differently. Just as agency will become, in future, structure, structure can be considered as the product of the many different uses of past agency. Structure is a process of becoming, a process that results from the present decision making of many different actors. Thus, ‘structure’ is itself –– just like the agency it is seamlessly a part of until historians come in and chop it to pieces –– always uncertain, changing and malleable.
 
 This does not necessitate the abandonment of Cox’s theoretical approach. Rather, it necessitates a deeper enquiry into his ontology. Whereas Cox is content, in his treatment of the NIEO, with presenting a historical narrative focused at a macro-level discussion of domestic social forces, social forces constituting different forms of state, and transnational social forces acting at the level of world order, a more fully relational conception of his ontology must flag that such an analysis is, while of fundamental importance, only a rough approximation. These social forces do not act upon each other as self-contained units. Rather, they are embodied within the perceptions and actions of the people who create them. It is from such networks of relations that such concepts as ‘social forces’ can be defined, and it is important not to overly reify such concepts, so as to ignore the actions of the people who create them, and the changing and interconnected consequences that result from such agency. Thus, rather than writing a history that describes hegemony *x* acting upon hegemony *y*, a relational Coxian approach requires historical research into the people leading hegemony *x*, and the decisions that they made which, via the complex consequences of such choices, had consequences on hegemony *y*, and indeed, upon the evolving world order which all actors were attempting to understand, and which, via such uncertain processes, they recreated (always with discontinuities as well as continuities) through time.
-The dialogue over the NIEO, and the success that the G77 had in maintaining its unity through complex multilateral diplomacy, is best explained using a relational conception of the power structures of world order, and political economic power structures more generally. That is, because the structural constraints on the delegates were socially constituted, and because they were uncertain, the dialogue and diplomatic manoeuvres of the Sixth Special Session were needed both to discover possible futures, and to create them. For elites from the most seriously affected developing states, they needed, at the Sixth Special Session, to discover the extent to which they could reasonably rely on the OPEC to use its petrodollar power for the collective interests of the G77, and the extent to which this would be effective. These elites were primarily concerned with finding as much assistance as possible for the alleviation of their pressing, short-term problems. To achieve this, they had to engage in dialogue with both themselves, and the other developing state elites, including those representing the OPEC. They also possessed their own bargaining strength, as will be shown below, by exploring other possible futures through potential alliances with states from the North, some of which were pursued. The OPEC elites, with their own internal disagreements, had themselves to explore, through dialogue, the possible futures then available. At what point would the G77 break down, with the other, poorer states, siding with the North in calls for a more consumer-weighted deal on energy prices? Individual OPEC elites thus had also to determine the extent to which other OPEC member states, and other developing states, were committed to the underlying ideas of the NIEO. How much would other developing state elites be willing to compromise for the sake of the long term goals of a New International Economic Order, and what would those goals have to entail? Not only were the structures of power that encouraged certain possible futures above others uncertain, but they were malleable and so reformable. State elites had to convince each other of their own assessments of the current world economic crisis, such that they could compare the risks of creating history in one particular direction to those involved in steering it off into another. That is, the G77 elites drew upon the underlying ideas of the NIEO in order to come to terms with the future possibilities of a world order that was in a moment of uncertainty and flux.
+
 Such a zooming into the relations that form the basis of Cox’s ontology of historical structures, in order to better explain both the structures themselves and the agency that emerges from and recreates these structures, I borrow from the counterfactual historical research of Manali Desai. Desai argues, in opposition to Cox, that a counterfactual approach is not foreign, but essential to an analysis of class forces. To Desai, who studied the political autonomy of parties in India, a counter-factual analysis did not mean assuming that a party could have made any decision. Rather, Desai assumes that ‘the political autonomy of parties is relative to the structural relations in a given society’.[^125] This conclusion is inseparable from Desai’s relational approach to structure and agency. That is, by rejecting a ‘concept of structures as unchangeable’, and instead drawing upon ‘theoretical efforts to understand the mutual imbrication of structure and agency’, Desai emphasises that ‘it is in the working of structures that we must locate the possible ruptures and openings for transformation, while recognizing that the creativity of strategy and tactics, experience, and other irreducible phenomena make a difference only in so far as they can successfully locate these ruptures and make use of them.’[^126] From this analysis, Desai rightly concludes that a counterfactual approach is unavoidable. This is because any statement of historical causation depends, even if implicitly, on a counterfactual historical interpretation. For example, to argue that the NIEO Project failed because of *x* is to argue that if *x* had not occurred the NIEO would not have failed.[^127] Thus, even if a counterfactual approach should not be taken to the level of fictional speculation, peering into the counterfactual world of possibilities by researching what was once thought about, discussed, and decided against, is itself essential for understanding history.
 
 Such a relational historical sociology of world order considers the power of the NIEO Project as created, in part, by the diplomatic activity of the G77 state elites. The NIEO Project was, like the world order the G77 elites were a part of and attempting to make sense of, uncertain, malleable and changing. For this reason, neither the G77, nor ‘the South’, should be conceived in a substantialist way. Rather, these concepts should be deployed only as useful tools, as representative of a complex multitude of many different historical actors. Importantly, the work of Manali Desai shows that such a relational approach can still rely on Cox’s theoretical framework of world order. Indeed, it requires such a framework, because it considers agency according to ‘a theory of relative autonomy’, whereby agency and structure are intertwined with each other through time. Thus, consideration of the decision making of the G77 state elites must be limited by studying historically the structural conditions –– both material and ideational –– that the strategies of the G77 state elites were created in response to. In this way, Cox’s framework can be used to explain the historical context from which the agency of the G77 state elites emerged, and which they sought to reform. Moreover, just as Cox called for historical research to guide the process of theorising, historical research is required to establish which alternative strategies were considered by the G77 state elites. Having done so, historical research can be used in an attempt to determine what would have had to have happened for alternative strategies to have been enacted.
 
-## Applying this relational approach to the history of the NIEO Project
+Applying this relational approach to the history of the NIEO Project
 
 What does this relational approach to world order look like? It must be able to account for both Cox’s original macro-historical structures of world order –– of institutions, ideas, and material capabilities acting at the levels of social forces, forms of state, and world order. Cox’s ontology and historicist epistemology of world order provides important foundations for a relational historical materialism of world order. However, it must also be able to zoom in, where it can be shown that these historical structures are in a process of recreation, through time, that hinges upon the strategic decision-making of individual historical actors. Thus, the application of a relational Coxian approach to world order depends precisely on the historical moment, and the historical question, being studied. Any specific historical moment, according to this relational approach to world order, can be studied either from the outside in, or from the inside out. That is, one can start from the micro level, studying the primary sources that elucidate the decision making of individual historical actors. Here, it must be shown what these actors thought was possible, what they did decide to do, and what they considered doing but did not. However, to appreciate how close historical actors came to deciding otherwise, and to understand how it was that they found themselves in that specific historical moment weighing up those specific options, an understanding of the macro-historical context is also required. In this way, the decision-making of all the many different moments of the past becomes swept up into an analysis of the broad historical context of a given moment. The decision to focus on the specific agency of a particular moment is, however, not random. The relative power of historical actors varies. Some moments are more ripe for systemic change than others. Thus, the zooming in beneath the surface of Cox’s original macro sociology of world order is not required for every conceivable historical moment, nor every conceivable decision. It is, however, especially required for moments of uncertainty and flux, when agents conceivably did have power over the future of world order.
 
@@ -186,11 +184,11 @@ For this thesis, therefore, I first set out, in the next chapter, to provide the
 
 Proceeding in this way carries inherent limitations. Most importantly, my methodology is limited by the available primary sources. While this thesis is based on new archival research from the United Nations archives, research that has allowed me to peer, as much as possible, into the discussions between G77 state elites that were originally confidential, there are still endless historical blindspots. For example, the archival sources that I have relied upon consist substantially of records of meetings with the UN Secretary General. These illuminate only one vantage point of the North-South dialogue. Of course, I use this in combination with other sources, including records of debates held over the founding documents of the Sixth Special Session, memoirs, newspaper articles etc. Nevertheless, this is an important limitation on this thesis, and of this relational approach to world order. It means that this thesis can certainly not claim to have explained *the* history of the NIEO, even if this were possible. All that I can claim to have produced is a valid interpretation of the available primary source records. Specifically, this thesis could be greatly improved if I had access to the national archives of important G77 member states. In particular, those of Saudi Arabia, which may well provide better answers to how the most powerful G77 state elites were assessing their decision making during this period. Nevertheless, such limitations apply to all accounts of all periods, and apply equally to those studies that have already concluded that the NIEO Project failed because of its weakness. What I am able to do in this thesis is demonstrate, with certainty, that these accounts are not certainly true, while showing a historically valid interpretation of the NIEO Project as a powerful contingency plan that could have succeeded.
 
-# Chapter 2: The NIEO as a Liberal Project
+Chapter 2: The NIEO as a Liberal Project
 
 In keeping with the relational historical materialist approach of this thesis, I outline in this chapter the historical context that made the NIEO Project possible. Here, historical structure is presented as itself the partial creation of past agency. Thus, I show that the ideas that underlay the NIEO were created by a praxis concerned with understanding, and altering, both the inter-war crisis of global capitalism, and the condition of post-war neocolonialism. To do this, I first rely on the work of Vijay Prashad, whose class history of the Third World project provides grounds for a needed revision of Cox’s original dismissal of the NIEO as insufficiently powerful. Then, I turn to assess the actual content of the ideas that formed the basis of the NIEO. Here, my focus is on understanding the relation of the NIEO to what is called by Orthodox Liberal Internationalists the post-war liberal order.[^129] As I outlined in the introductory chapter, Orthodox IR presents a construction of the post-war order in which non-Western agency is either dismissed altogether as powerless, or recognised only as an authoritarian threat to liberal order. Nevertheless, this view is contradicted by the claims of several historians and historical sociologists, who argue that the NIEO was an essentially liberal project.[^130] By exploring the creation of the three core ideas of the NIEO Project –– the declining terms of trade, neocolonialism, and permanent sovereignty over natural resources –– I confirm this interpretation of the NIEO as liberal. This is only so, however, because I adopt the definition of liberal world order espoused by Orthodox Liberal Internationalist IR. Because these theorists defines as liberal any world order that seeks to promote free trade, it should also recognise the NIEO as a political project working within this tradition. The NIEO was a global project, and was led, in the main, by elites from authoritarian regimes. Nevertheless, it sought to establish a world order that consisted of more, not less, free trade. As such, this aspect of the history of the NIEO should be read as an important means of creating a truly Global IR of liberal world order.
 
-## Prashad and the Third World Project
+Prashad and the Third World Project
 
 A Coxian historical sociology of world order must be updated to incorporate the historical work of Vijay Prashad. Indeed, Prashad’s two works, *Darker Nations* and *Poorer Nations*, can be read almost seamlessly with a Coxian theory of world order. That is, Prashad’s history treats the creation of a movement that sought to change world order by investigating the history of the social forces — which included what Cox would call both material capabilities and ideas — as they acted at the domestic level, as they embodied different forms of state, and as they acted at the level of world order. Furthermore, his history considers how these three levels interacted and shaped each other.[^131] In this way, Prashad explains the rise and decline of ‘the Third World project’ in terms of the hollowing away of the original class alliance that had created the anticolonial movement. Nevertheless, he also explains this process in terms of the structural constraints placed on the Global South by the post-war world order. This is a distinctly Coxian approach, in so far as Cox had argued that there was no one-way causality between his three levels of social forces, forms of state, and world order.[^132] In offering this history, Prashad provides better historical context for a close analysis of the NIEO Project than does Cox. As discussed in the preceding chapter, Cox concluded in the early 1980s that the NIEO lacked ‘a sufficiently clear view of an alternative world political economy to constitute counter-hegemony’, which would have required the ‘support from below in the form of a genuine populism (and not just a populism manipulated by political leaders).’[^133] Prashad, on the other hand, explains that this had not always been the case. He shows that the hollowing out of the social forces that had once been foundational to the Third World project did, as Cox would agree, greatly weaken its chances of success. Nevertheless, he shows that the underlying ideas of the NIEO empowered the rulers of the South with enough political capital to ensure that the NIEO Project still had to be defeated by the Atlantic powers. Prashad’s history is aware that the underlying ideas of the NIEO were created within a movement that had great problems, problems that arose from the decision-making of its elites as well as from the world order in which they navigated. Despite this, Prashad claims that it was a significant project that needed to be taken seriously by Western powers. Thus, in this section I will outline Prashad’s explanation of the Third World project in order to update Cox’s analysis of the post-war order.
 
@@ -202,7 +200,7 @@ It is not as simple for Prashad, however, as denouncing the Third World project 
 
 Much can be taken from Prashad’s history by a Coxian theory of world order. The Third World project can be explained as the continuation of the anti-colonial movements that brought political independence to the Global South. Prashad’s history can also explain why the Third World project continued to unify the state elites of the Global South once they had, in many ways, turned against the social forces that had once fought for freedom. This is because the ideas and vision of the Third World project explained the precariousness faced by these elites within the post-war order. Thus, to generalise grossly, if the anti-colonial movement had once relied upon the social forces of the masses, by the time of the NIEO the state elites in the south were motivated by an attempt to bring stability to world order in order to guard against the perennial threat posed by these masses. As such, whereas Cox, in the early 1980s, explained the failure of the NIEO in terms of the lack of any social legitimacy, Prashad’s history essentially agrees, but offers an analysis that can explain why it still presented a significant challenge, during the 1970s, to the state elites in the North.
 
-## The history of the Third World Project, and its relation to ‘global liberalism’
+The history of the Third World Project, and its relation to ‘global liberalism’
 
 Prashad’s history is just as important for Marxist historical sociologies of world order as it is for Orthodox theories. While these approaches are not concerned with envisaging alternative futures for world order, they have suffered from a lack of historical investigation into the NIEO. As I explained in the introductory chapter, Orthodox IR presents the post-war order as created solely by the West, a construction that assumes the non-West to have played either no important role at all, or the role of an authoritarian attack on Global Liberalism. While such assumptions can be found within the literature that seeks to understand the present crisis of world order,[^151] the primary empirical study that supports this view is Stephen Krasner's *Structural Conflict*, from the 1980s.[^152] Krasner argued that the NIEO represented an ‘attack on global liberalism’.[^153] This position is challenged, however, by more historically-minded scholars. Prashad, contemporaneous Marxist analysts including Samir Amin, the neo-Gramscian Craig Murphy, and the historian Johanna Bockman, all agree, with variance as to the specifics, that the NIEO was an essentially pro-market movement.[^154] In an attempt at resolving this debate, I explore in this section the three foundational ideas of the NIEO and the wider Third World project. I show that despite its origins in the ideas of the authoritarian, and Marxist, Kwame Nkrumah, the NIEO Project was based on a historical critique of the post-war order which did not seek to overthrow it, but to save it. The underlying vision of the NIEO was to create an even more “liberal” world order, or one that functioned as its Northern boosters claimed it already did.
 
@@ -222,7 +220,7 @@ Furthermore, Krasner offers an analysis of the importance of ideas to the NIEO t
 
 Despite offering an important contribution to the study of world order by way of a realist analysis of the NIEO, this analysis, because it is ahistorical, is nevertheless unable to understand the perspective of those advocating a new international economic order. By ahistorical I do not mean that Krasner did not consider the past, but rather that a structural realist analysis looks at moments of the past as static, as useful bits of data that can be compared across different periods of time. A historical perspective views the past as changing, and seeks to explain its continuities and discontinuities. It therefore eschews an analysis that ignores change, or the contingencies that exist in each different historical context.[^168] This has muddied understandings of the NIEO for two reasons. Firstly, it marginalises the importance of a deep engagement with the ideas that formed the basis of the NIEO. That is, while Krasner can note that these ideas were important for building the NIEO Project, and for challenging the hegemony of the North, his framework does not require him to interpret these ideas with the intent of understanding the perspective of the NIEO’s advocates. Rather, their motivations can be understood simply as arising from their structural weakness, both domestically and internationally. Secondly, however, these ideas were themselves historical. That is, the three core intellectuals, or the three best articulators of the ideas that formed the basis of the NIEO project,[^169] had created their ideas using historical analysis. If the policy prescriptions of the NIEO project are viewed without an understanding of this analysis, they can be easily misunderstood. This is what Krasner’s static analysis does. By discussing the weakness of the Third World without reference to the history of colonization, it ignores a central point made by advocates of the NIEO. This is that the post-war order was barely liberal, in the sense of promoting ‘free trade’, and that certain short term policies, even if ‘interventionist’, could as a result actually serve to make world order more liberal, both in the short and long term. This I will demonstrate in what follows, by interpreting the core ideas of neocolonialism, the declining terms of trade, and permanent sovereignty over natural resources.
 
-### Prebisch and the declining terms of trade
+*Prebisch and the declining terms of trade*
 
 Raúl Prebisch, as the president of the Central Bank of Argentina, had overseen economic policy during and following the Great Depression. From this experience he took, not a position opposed to international free trade, but a deep appreciation of it. Indeed, while holding the available levers of the Argentinian Central Bank, Prebisch had originally held fast to orthodox economic policy, in the hope that an international solution could be devised that would ease the situation.[^170] Instead, with the failed leadership of the United States, which allowed its international trade policy to be set by domestic special interests, the world’s elites came to competitively out-tariff each other.[^171] This was catastrophic, especially for Latin American states like Argentina, which had less power in a trade war.[^172] To Prebisch, the solution was neither to abandon the ideals of international free trade, or to remain beholden to orthodox economic theories in a world that these theories no longer seemed to explain. Rather, Prebisch acted pragmatically, and his later economic and historical analysis of this moment lead him to view the ideals of international free trade as being possible, but requiring political action.[^173] That is, Prebisch, while coming out of the Great Depression even more infatuated with the ideal of free trade, concluded that for the states of the Global South to benefit from international trade as the theory of comparative advantage suggested that they should, international and domestic efforts would be required to transcend the historical legacy of colonisation. In this way, and as I will demonstrate in what follows, Prebisch’s career following the end of WWII consisted of a praxis aimed not at opposing free trade, but at creating the structural conditions in which free trade could work as it was already supposed to.
 
@@ -236,9 +234,9 @@ Prebisch’s other proposals also fitted this mould of promoting targeted interv
 
 Prebisch’s intellectual contribution to the Third World project was not anti-free trade. Rather, by being based on the nuance of a historical-empirical analysis of actually existing capitalism, Prebisch was able to expose the prevailing global trading system as not free trade enough, while offering solutions to fix this. No doubt, Prebisch’s analysis and the views of the state elites who would come to rely on this analysis are different. Indeed, Prebisch, throughout his career, had lobbied just as much for domestic reforms in the Global South as for global reforms.[^190] Such issues will be discussed later, when the ideas of the Third World project will be compared to the policies advocated by the NIEO Project. Nevertheless, it is important to note that the approach to political economy that formed the basis of the Third World project, and the NIEO Project in particular, was certainly not geared towards an attack on global liberalism. Rather, emerging from the material reality of the great depression in the 1930s, Prebisch wrote of his support for the Bretton Woods system.[^191] Prebisch’s critique was not opposed to trade. It was only that he thought world order could do more to assist in the development of the Global South, such that it could be even more liberal.
 
-### Kwame Nkrumah’s Neo-colonialism
+*Kwame Nkrumah’s Neo-colonialism*
 
-<p id="241"><a href="/nicholls2019moment#hypercite_cf4b31f_b"><u id="hypercite_cf4b31f" class="linked">If it is surprising that Prebisch’s political economy is pro free trade, it is even more so that Nkrumah’s is.</u></a> As one of the twentieth century’s most important Marxists, and as a post-colonial leader who oversaw the whittling away of democracy in Ghana, it is certainly surprising that his key conceptual contribution, an analysis of neo-colonialism, was also geared towards promoting rather than overthrowing international free trade. Like Prebisch, Nkrumah’s theory emerged in response to experiences with the material reality of the global capitalist system. Nkrumah’s praxis embodied the tragedy of the Third World project, as it actually unfolded throughout history. After leading a movement of millions of Ghanaians for independence, Nkrumah was elected democratically, from his prison cell, to be the leader of Ghana.<sup class="note" data-note-key="192">[^192]</sup> From this position, Nkrumah experienced the instability and pressures placed on the post-colonial state by the post-war order. By incorporating and corroborating Prebisch’s analysis of the declining terms of trade, and noting the various forms of imperialism that continued in the post-war era, Nkrumah did the most to advance understandings of neo-colonialism. Neo-colonialism is the idea that in the period following formal colonisation, colonialism continued, but only in a more pernicious, because harder to detect, way. Indeed, Nkrumah argued that in the days of overt colonisation there was at least some measure of support and sympathy for the colonised found within the working classes of the core imperial states.<sup class="note" data-note-key="193">[^193]</sup> Nevertheless, Nkrumah came to undermine the institutions of democracy in Ghana, and imprisoned thousands of untried Ghanaians.<sup class="note" data-note-key="194">[^194]</sup> Nkrumah justified this by referring to the threats posed by neo-colonialism. This was not unfounded paranoia. The CIA did support the coup that overthrew his rule, and had done likewise to many other Third World regimes. Amidst all these contradictions, however, something quite interesting emerged. As I will show in this section, when Nkrumah argues that neo-colonialism was the last stage of imperialism, and that as a system it would breed its own crises that could be harnessed by the Third World to overthrow it, he did not articulate a vision for a world order freed from free trade.</p>
+If it is surprising that Prebisch’s political economy is pro free trade, it is even more so that Nkrumah’s is. As one of the twentieth century’s most important Marxists, and as a post-colonial leader who oversaw the whittling away of democracy in Ghana, it is certainly surprising that his key conceptual contribution, an analysis of neo-colonialism, was also geared towards promoting rather than overthrowing international free trade. Like Prebisch, Nkrumah’s theory emerged in response to experiences with the material reality of the global capitalist system. Nkrumah’s praxis embodied the tragedy of the Third World project, as it actually unfolded throughout history. After leading a movement of millions of Ghanaians for independence, Nkrumah was elected democratically, from his prison cell, to be the leader of Ghana.[^192] From this position, Nkrumah experienced the instability and pressures placed on the post-colonial state by the post-war order. By incorporating and corroborating Prebisch’s analysis of the declining terms of trade, and noting the various forms of imperialism that continued in the post-war era, Nkrumah did the most to advance understandings of neo-colonialism. Neo-colonialism is the idea that in the period following formal colonisation, colonialism continued, but only in a more pernicious, because harder to detect, way. Indeed, Nkrumah argued that in the days of overt colonisation there was at least some measure of support and sympathy for the colonised found within the working classes of the core imperial states.[^193] Nevertheless, Nkrumah came to undermine the institutions of democracy in Ghana, and imprisoned thousands of untried Ghanaians.[^194] Nkrumah justified this by referring to the threats posed by neo-colonialism. This was not unfounded paranoia. The CIA did support the coup that overthrew his rule, and had done likewise to many other Third World regimes. Amidst all these contradictions, however, something quite interesting emerged. As I will show in this section, when Nkrumah argues that neo-colonialism was the last stage of imperialism, and that as a system it would breed its own crises that could be harnessed by the Third World to overthrow it, he did not articulate a vision for a world order freed from free trade.
 
 Written in the 1960s, Nkrumah’s *Neo-colonialism, the Last Stage of Imperialism* incorporated Prebisch’s work on the declining terms of trade with arguments based on Nkrumah’s own experience as the president of Ghana. This is important because it shows how the three core concepts that formed the basis of the Third World Project — the declining terms of trade, neo-colonialism, and permanent sovereignty over natural resources — were entwined not only haphazardly in debates Unitede Unite Nations, but in ways inherent to their conception. Thus, Nkrumah noted in confirmation of Prebisch’s arguments that the productivity gains made by Ghana’s cocoa industry were lost to consumers through lower prices. According to Nkrumah, Ghana’s 210, 000 tons of cocoa earned £85.5 million in 1954, whereas its 590, 000 tons in 1964 earned only £77 million.[^195] Also like Prebisch, Nkrumah argued that this problem could not be overcome by the states of the South acting individually. Instead, Nkrumah argued, a ‘continent like Africa, however much it increases its agricultural output, will not benefit unless it is sufficiently politically and economically united to force the developed world to pay it a fair price for its cash crops.’[^196] Clearly, Prebisch’s work on the declining terms of trade had become an essential aspect of Nkrumah’s concept of neo-colonialism.
 
@@ -254,7 +252,7 @@ Additionally, he argued that:
 
 Thus, just like Prebisch, Nkrumah was not opposed to what its boosters now call a ‘liberal world order’. Rather, he just understood there not to have actually been one. Despite calling for a Marxist-Leninist state, his analysis of neocolonialism could very easily be used in order to argue for a more, not less, liberal regime.[^201] It sought not the abolition of international trade, but of international imperialism.
 
-### Permanent Sovereignty over natural resources
+*Permanent Sovereignty over natural resources*
 
 If Nkrumah’s work on neocolonialism, and Prebisch’s work on the declining terms of trade, were to converge to form the NIEO Project’s political economic critique of the post-war order, Third World elites also drew upon the praxis of an anti-colonial jurisprudence of international law. This is interesting in and of itself, because it shows that the NIEO was not based on a strategy to attack the idea of what is now often termed a ‘rules based’ post-war order. Instead, it sought reform it from within, using international law. That is, the actions of the anticolonial elites were justified in terms of an interpretation of international law that sought to reform, not usurp, the extant order. Interestingly, this position, epitomised most strikingly by the calls for ‘permanent sovereignty over natural resources’, relied on both Prebisch’s and Nkrumah’s political economic analysis. Articulated most forcefully in Mohammed Bedjaoui’s *Towards a New International Economic Order*, the Third World project relied on the concept of sovereignty, and a critique of both the effects of the era of colonisation and its continuation in the era of neo-colonialism, in order to justify needed reforms to international law.[^202] Thus, as I will argue in this section, if the NIEO Project arose from a political economic position that sought not to overthrow but to improve global liberalism, it also provided a basis to do this using the rules and institutions of liberal world order.
 
@@ -266,7 +264,7 @@ Also like Prebisch and Nkrumah, Bedjaoui did not imagine that the decolonisation
 
 Thus, Bedjaoui, the core jurist of the NIEO Project, had relied upon the work of the core intellectuals of the Third World Project’s critique of international political economy. The decolonisation of the post-war order would not mean the abolition of free trade. If anything, it was argued, by freeing the post-war order from the vestiges of neocolonialism, it would be rendered more liberal.
 
-## The intellectual foundations manifest
+The intellectual foundations manifest
 
 If in the previous sections I have outlined the core ideas of the Third World project, in this section I show that these ideas were, indeed, vital to the campaign for a new international economic order. There was, of course, a disconnect between the intellectual foundations of the NIEO and the way that these were used by the state elites of the Group of 77. Nevertheless, while such concerns were not entirely absent from the NIEO platform, the concern was predominantly with reforms to world order that would allow more autonomy for the state elites of the Global South.[^211] Nevertheless, it is striking how closely the founding texts of the NIEO align with the intellectual foundations of the Third World project. While this certainly does not prove that all the G77 state elites agreed with all of these ideas, or that they genuinely wanted to achieve reform in all of these areas, it does suggest that these ideas were essential for allowing the G77 state elites to articulate and create a common position. That is, these ideas, at minimum, were what made it possible for the G77 state elites to work together as an oppositional force that could propose reforms to world order. Without a broadly common set of ideas to understand post-war order, the thousands of state elites from over 100 of the world’s states could not have worked together in proposing a unified set of reforms to that order. This is also important because it means that the NIEO Project was more than, as some have alleged, a simple ‘shopping list of demands’.[^212] Rather, and as Vijay Prashad has argued, it was the culmination of the Third World project, and a movement that sought not an overthrow, but a ‘revision of the “free trade” agenda’.[^213]
 
@@ -296,7 +294,7 @@ In this chapter, I have relied on Prashad’s history of the Third World project
 
 ‘*To support the establishment and/or improvement of an appropriate mechanism to defend the prices of their exportable commodities and to improve access to and stabilize markets for them. In this context the increasingly effective mobilization by the whole group of oil-exporting countries of their natural resources for the benefit of their economic development is to be welcomed. At the same time there is the paramount need for co-operation among the developing countries in evolving urgently and in a spirit of solidarity all possible means to assist developing countries to cope with the immediate problems resulting from this legitimate and perfectly justified action. The measures already taken in this regard are a positive indication of the evolving co-operation between developing countries;*’ – Program of Action on the Establishment of a New International Economic Order.[^224]
 
-# Chapter 3: Creating a strategy for a New International Economic Order: Negotiating Collective power at the Sixth Special Section
+Chapter 3: Creating a strategy for a New International Economic Order: Negotiating Collective power at the Sixth Special Section
 
 This thesis offers a new historical interpretation of the NIEO that claims that it is an important instance of material-ideational agency and power. That is, I argue that the G77 state elites had created genuine possibilities for the reform of world order. For this to be tenable, I must be able to dispel the arguments of scholars who allege that the G77, as a group, was so unwieldy that it had never possessed the collective power necessary to negotiate its demands.[^225] These scholars argue that the G77 elites were only able to maintain unity by ignoring their many intra-group conflicts. As such, it is presumed that while the G77 elites were able to concoct a list of proposals, their only possible strategy was the ultimately futile move of forcing these proposals through the United Nations General Assembly, where the G77 possessed a clear majority. Such a strategy could not, however, have been effective where it mattered most, in negotiations over the implementation of the NIEO proposals. In this and the following three chapters I challenge this interpretation. Here, I show that at the launching of the NIEO campaign at the Sixth Special Session of the UN General Assembly, the position of the G77 was not brittle or non-negotiable. The G77 state elites were able to negotiate with the Northern elites while simultaneously renegotiating their own intra-G77 compromises. This, I argue, is evidence of the adaptability of the collective power created by the G77 state elites. Rather than ignoring their internal conflicts of interest, the G77 elites continuously renegotiated them. In this way, I improve in this chapter upon interpretations of the NIEO, and the Sixth Special Session, as a solely North-South conflict. Central to the construction of a collective power capable of reforming world order was the negotiation of South-South conflicts, and also instances of North-South cooperation. It was because of such innovative and effective diplomacy that the G77 elites were able to act as a powerful diplomatic force at the Sixth Special Session, projecting themselves as possessing genuine power over the future of world order.
 
@@ -306,7 +304,7 @@ In order to explore the creation of this initial underlying strategy of the NIEO
 
 By using these three sets of primary sources, I first describe the way in which the Group of 77 was able to be malleable and reflexive enough, at the *Ad Hoc Committee*, to negotiate and compromise with the North, while simultaneously negotiating a collective G77 response. This was achieved by maintaining the underlying principle of G77 unity while testing and exploiting the weakening structures of world order. Because speaking in public was a necessity of the negotiating process, G77 members could air intra-group conflicts as a way of signalling to other G77 members the importance of an issue when back-room discussions were not leading to the emergence of compromise positions. In this way, there was a constant metabolic relationship between back-room discussions and the debates over the drafting of the founding texts of the NIEO. Following this, I outline the main conflicts that arose and highlight the conflicts that were important enough to be aired in public meetings with the Global North. These conflicts largely reflected the underlying material forces – namely the different interests of dominant classes in each state. Elites representing the states most seriously affected by the economic crisis had an interest in gaining short-term relief from their growing debt in the face of the declining balance of trade, and support for a food crisis. The OPEC elites, on the other hand, were more concerned with medium to long-term structural reforms, like monetary reform that would minimize the whittling away of their export revenues by inflation of the US dollar. Likewise, the OPEC elites had an interest in ensuring that the majority of assistance needed by the most seriously affected states came not from their new-found oil wealth, but from the “old money” of the Global North. Finally, I will attempt to outline how the intra-G77 conflicts were transcended, such that a strategy for the reform of world order could successfully emerge from the Sixth Special Session. To do this I will explore not just South-South cooperation, but also South-North cooperation. The latter was an important aspect of the leverage of the most seriously affected states, as well as a way by which the needs of these states could be met without damaging its alliance with the OPEC. Ultimately, it was this alliance that underpinned the creation of a strategy capable of reforming world order.
 
-## Tactical Approach at the Sixth Special Session
+Tactical Approach at the Sixth Special Session
 
 Previous accounts of the Sixth Special Session, and its role in launching the campaign for a New International Economic Order, have overemphasised the extent to which the G77 bargaining position –– and indeed, the position of its member states –– was bound to positions reached within the preceding meetings of the G77. Just as was the case in UNCTAD meetings throughout the preceding decade, G77 policy was arrived at through a negotiating process that began in closed meetings held in each of its three regional groups (South America, Asia, and Africa), before being finalised in G77 meetings held before any global conference (as in UNCTAD, where the G77 was created).[^229] It is because of this process that a prevailing view about the G77’s negotiating policy at the Sixth Special Session, and throughout the North-South dialogue, has been that it was overly rigid. Because the G77 had to defend a consensus wrought by complex compromises behind closed doors, and because the power of the G77 came from its unity, the position taken by the G77 in advocating for a New International Economic Order, it is argued, was rigid and relied, as a result, only on the majority voting power that the group held in the General Assembly.[^230] The implication of this is often that the NIEO was doomed from the outset, because the consensus position within the G77 states could never be the basis of a consensus with the Global North, least of all the United States.[^231] However, this argument is contradicted by the evidence of the debates over the NIEO in the Sixth Special Session. In the *Ad Hoc Committee*, where the founding texts of the NIEO were debated by all states,[^232] there was explicit debate amongst G77 delegates about their ability to advance amendments to the draft texts agreed upon in earlier meetings. Indeed, proposals to amend the draft texts came just as often from G77 state elites as from either their Soviet or Western counterparts. There certainly existed a view that arguments about amendments to the draft text should be kept, as much as possible, to the closed meetings of the G77. However, this was not agreed on by all representatives and was certainly not a principle followed with fidelity during the negotiations. Besides representing a clear example of the complexities of intra-G77 politics, this disagreement was used by the G77 as a diplomatic tool. While all G77 state elites agreed that they could propose amendments so as to compromise and bargain with developed state elites, this in itself allowed delegates the ability to propose amendments aimed purely at testing the resolve of other G77 members. Such proposals were used as a means of expressing the seriousness of one’s position. In this way, G77 states could use the wider forum of the *Ad Hoc Committee* to express the seriousness of an issue that was failing to be resolved in closed G77 meetings. As such, the records of the *Ad Hoc Committee* display the remarkable negotiating flexibility that a group of 122 states managed to achieve in their attempt to reform such a wide array of aspects of world order.[^233]
 
@@ -316,7 +314,7 @@ Indeed, despite such claims by certain delegates, this principle was openly chal
 
 This tension within the G77 about the appropriate parameters for discussion was used by delegates to test the malleability of world order, so as to create better compromises for both their own individual and collective interests. That is, the fact that compromises needed to be made with Northern elites allowed G77 elites to air their internal grievances in order to push for a better compromise. If, however, such probing by a G77 member received, in response, strong criticism from another member, the G77 states could contain the dispute by calling for the need for a return to closed group discussions. This process is observable in a dispute that emerged between Iraq and Uganda. Iraq, in seeking an amendment to a clause on the transfer of resources,[^242] evoked a response from Mr. Driss, of Tunisia, and Mr. Kinyata, of Uganda.[^243] With this internal G77 conflict surfacing into open discourse with both the Soviet and Western state elites, Iraq’s testing of the waters had received ample evidence, from Uganda and Tunisia, that its concern about the clause on financial assistance was not insignificant. Such was also clear to the representatives of other G77 states, several of whom (Upper Volta, Guinea, Mauritania, and Iran), silenced the dispute by suggesting ‘that the question should be referred to the Group of 77’.[^244] In this way, the group bargaining of the G77 was neither brittle nor certain. Rather, the G77 negotiating strategy within the Sixth Special Session allowed flexibility for its members in seeking amendments, within certain limits, to previous intra-group compromises. Furthermore, this process allowed G77 elites to bring their internal conflicts into dialogue with the group’s collective conflicts of interest with the Northern elites, who had their own internal conflicts of interest. Hence, the G77 negotiating position was constantly being searched for, and created, through processes involving backroom and open discussions. The G77 negotiating strategy, just like the structures of world order that it was seeking to reform, was malleable, and uncertain, and so open to testing and reinventing.
 
-## The Conflicts within the Group of 77
+The Conflicts within the Group of 77
 
 Because of the renegotiation that the G77 allowed for, conflicts of material and ideational interests between G77 states surfaced within the *Ad Hoc Committee*. These conflicts existed, largely, between poorer and less-poorer states, and between states more severely and less severely affected by the world political economic crisis. Certain states that were relatively less severely affected by the world political economic crisis (and especially the OPEC states that had been able to benefit from it directly) relied on the dichotomy between developed and developing states in an attempt to minimise the financial contribution demanded of them by the New International Economic Order. For representatives of states most seriously affected by the economic crisis, emphasis was placed on the difference between its short-term and long-term effects. While these states agreed with the other, relatively-less-severely-affected developing states regarding the need for the NIEO to focus on ameliorating long-term structural problems –– the declining terms of trade, reforms to international institutions, monetary reform etc. –– they were also seeking urgent relief for short term problems, like the famine augmented by increased food and fertiliser prices. Through the debates that surfaced between poorer, and less-poor developing states –– and especially between OPEC and non-OPEC developing states –– the records of the *Ad Hoc Committee* display evidence of the need for the G77 state elites to forge compromises over material and ideational conflicts, so as to allow for the emergence of a negotiating strategy for the actual implementation of, and idea of, a NIEO. That is, the G77 elites had to work together in mitigating the short term consequences of the world economic crisis, so that they could maintain enough cohesion to reform the rules and institutions of liberal world order. In this section, the conflicts that arose between least developed, and most seriously affected, states, and other developing states will first be explored. Then, by using also the records of the Plenary Speeches and confidential meetings with the UN Secretary General to contextualise the negotiations in the *Ad Hoc Committee*, the conflict of interests between OPEC and non-OPEC developing states will be described.
 
@@ -336,9 +334,9 @@ With the importance of this issue even in the lead-up to the Special Session, an
 
 These conflicts within the G77 about the sourcing and distribution of international assistance concerned the essential core of the group’s bargaining position, and how its material power would be wielded in order to achieve a New International Economic Order. Within the G77, already a decade old, there was a consensus that the force underlying the new-found potential to implement reforms to world order lay in the OPEC’s oil weapon. As mentioned above some scholars have assumed that the G77 strategy lay in the hope that it could extend the cartelisation of oil to other commodities.[^263] While this was part of the plans for a NIEO, the weight of the evidence from the Sixth Special Session demonstrates that the G77’s leaders knew that the potential shift in the power structures of world order lay instead in their ability to place their collective efforts behind the possibilities of deals on oil pricing, and the possibilities of either the targeted investment or divestment of petrodollars. This can be seen, firstly, in speeches at the Plenary, where the strategic importance of OPEC for the G77 as a whole was commented on by delegates who also criticised the short term consequences of the oil price hike, by delegates who only praised the price hike, and from the OPEC state elites themselves.[^264] Thus Guyana, although agreeing that for some states the OPEC oil-price hike had caused ‘especial hardships’ and the ‘aggravation of the acute economic crisis’, was keen to note that ‘in terms of the international system, what these policies have produced is a long-needed catalyst, a force at last capable of change within the system.’[^265] Furthermore, comments by G77 delegates in the *Ad Hoc Committee* show that these state elites were had no illusions about the ease with which power could be gained through the cartelisation of other raw materials exports. Thus, Mr. Nioupin, representing Ivory Coast, in seeking clarification on ‘whether the developed countries, particularly the United States, had abandoned their opposition to commodity agreements’, argued that clarification on this point was important because it ‘was evident that, when a developed country like the United States, which imported 25 percent of the world’s cocoa, was opposed to a cocoa agreement, the latter had little chance of success.’[^266] Thus, while some scholars have essentially scoffed at the demands made by the G77 for a NIEO, based on the impossibility of an OPEC-like strategy being applied to other exports,[^267] the evidence shows that this was never intended to be the strategy of the G77. Rather, the G77 strategy lay behind a collective effort to rely on OPEC’s newfound power. This is also why conflicts occurring along this divide were so important for the successful emergence of a G77 strategy that had the potential to reform world order.
 
-## Overcoming the internal divisions: the creation of a strategy for a New International Economic Order
+Overcoming the internal divisions: the creation of a strategy for a New International Economic Order
 
-<p id="343" data-block-id="343"><u id="hypercite_lspg5rk">The dialogue over the</u> NIEO, and the success that the G77 had in maintaining its unity through complex multilateral diplomacy, is best explained using a relational conception of the power structures of world order, and political economic power structures more generally. That is, because the structural constraints on the delegates were socially constituted, and because they were uncertain, the dialogue and diplomatic manoeuvres of the Sixth Special Session were needed both to discover possible futures, and to create them. For elites from the most seriously affected developing states, they needed, at the Sixth Special Session, to discover the extent to which they could reasonably rely on the OPEC to use its petrodollar power for the collective interests of the G77, and the extent to which this would be effective. These elites were primarily concerned with finding as much assistance as possible for the alleviation of their pressing, short-term problems. To achieve this, they had to engage in dialogue with both themselves, and the other developing state elites, including those representing the OPEC. They also possessed their own bargaining strength, as will be shown below, by exploring other possible futures through potential alliances with states from the North, some of which were pursued. The OPEC elites, with their own internal disagreements, had themselves to explore, through dialogue, the possible futures then available. At what point would the G77 break down, with the other, poorer states, siding with the North in calls for a more consumer-weighted deal on energy prices? Individual OPEC elites thus had also to determine the extent to which other OPEC member states, and other developing states, were committed to the underlying ideas of the NIEO. How much would other developing state elites be willing to compromise for the sake of the long term goals of a New International Economic Order, and what would those goals have to entail? Not only were the structures of power that encouraged certain possible futures above others uncertain, but they were malleable and so reformable. State elites had to convince each other of their own assessments of the current world economic crisis, such that they could compare the risks of creating history in one particular direction to those involved in steering it off into another. That is, the G77 elites drew upon the underlying ideas of the NIEO in order to come to terms with the future possibilities of a world order that was in a moment of uncertainty and flux.</p>
+The dialogue over the NIEO, and the success that the G77 had in maintaining its unity through complex multilateral diplomacy, is best explained using a relational conception of the power structures of world order, and political economic power structures more generally. That is, because the structural constraints on the delegates were socially constituted, and because they were uncertain, the dialogue and diplomatic manoeuvres of the Sixth Special Session were needed both to discover possible futures, and to create them. For elites from the most seriously affected developing states, they needed, at the Sixth Special Session, to discover the extent to which they could reasonably rely on the OPEC to use its petrodollar power for the collective interests of the G77, and the extent to which this would be effective. These elites were primarily concerned with finding as much assistance as possible for the alleviation of their pressing, short-term problems. To achieve this, they had to engage in dialogue with both themselves, and the other developing state elites, including those representing the OPEC. They also possessed their own bargaining strength, as will be shown below, by exploring other possible futures through potential alliances with states from the North, some of which were pursued. The OPEC elites, with their own internal disagreements, had themselves to explore, through dialogue, the possible futures then available. At what point would the G77 break down, with the other, poorer states, siding with the North in calls for a more consumer-weighted deal on energy prices? Individual OPEC elites thus had also to determine the extent to which other OPEC member states, and other developing states, were committed to the underlying ideas of the NIEO. How much would other developing state elites be willing to compromise for the sake of the long term goals of a New International Economic Order, and what would those goals have to entail? Not only were the structures of power that encouraged certain possible futures above others uncertain, but they were malleable and so reformable. State elites had to convince each other of their own assessments of the current world economic crisis, such that they could compare the risks of creating history in one particular direction to those involved in steering it off into another. That is, the G77 elites drew upon the underlying ideas of the NIEO in order to come to terms with the future possibilities of a world order that was in a moment of uncertainty and flux.
 
 To strengthen its alliance with the oil-importing G77 members, so that the OPEC could rely on the full weight, and legitimacy, of the Global South in its negotiations with the North, its members had to reassure oil-importing states that the OPEC would use its new-found oil wealth, as much as possible, to help all G77 members. Clearly, however, and as has been discussed earlier, the OPEC states had an interest in arguing that, as much as possible, assistance to oil-importing states should come primarily from developed states. In order to explore the extent and nature of the limits inherent in this tension, the OPEC had to assuage fears within the G77 that it might hang the poorest states out to dry. Thus, at the plenary sessions, each of the OPEC states’ delegates mentioned their concern for the oil-importing states most severely affected by the economic crisis. While this was never done without first emphasising that the economic crisis was the fault of the developed states, and that the prime responsibility for alleviating these problems should come, therefore, from them, the most oil-rich OPEC members nevertheless stressed the point that they were aware of the unforeseen consequences of the oil-price hike, and were willing to use their new-found oil wealth to assist developing states financially, and the new-found oil power to bargain for the collective interests of the G77 as a whole. Thus, Jamshid Amouzegar, the Finance Minister of Iran who had been instrumental in the oil-price hike, and the first OPEC delegate to speak at the plenary sessions, spoke of Iran’s proposed special development fund. The fund, which would receive donations from developed states as well as OPEC states, would be ‘the first time in the history of development assistance … that the recipient countries will have a voice in the policy of receiving aid.’[^268] In this way, Iran’s proposal had complete NIEO credentials, in that all states, whether donors or receivers of aid, would have equal voting on the fund’s board. Also of fundamental importance was the speech by Ahmed Zaki Yamani, Minister of Petroleum and Mineral Resources for Saudi Arabia and also instrumental in the oil-price hike. Yamani, after discussing the problems faced by developing states, and Saudi’s willingness to support their interests, segued from a discussion of the need for states to sacrifice their self-interests to an allusion to Saudi Arabia’s potential and willingness to cut oil production further. After first noting that Saudi Arabia’s current production was, for altruistic reasons, twice as large as the state required for its own ‘economic well-being’, Yamani stated that, ‘Saudi Arabia, with its large oil reserves and production capacities, on the one hand, and its financial standing that permits it to cut its present production by half, on the other, can play an important role in determining the level of oil prices.’[^269] Having been contextualised by a discussion of Saudi Arabia’s keenness to assist the other, oil-importing developing states, Yamani’s speech should be read as a signal to these states, as well as to the Global North, that it was willing to use its newfound oil wealth and power to support the G77’s collective call for a new international economic order.
 
@@ -352,7 +350,7 @@ Such discussions amongst elites from oil-importing G77 members and states from t
 
 Such work by Sri Lankan elites, of exploring the possibilities of collaboration with states like New Zealand, and of Guyana and Sudan, in seeking the assistance of the Secretary General, while perhaps not glorious moments of triumph, are nevertheless indicative of the kinds of actions that were required for the G77 to maintain its unity, and for a general overarching strategy for the reform of world order to emerge. This is because these efforts served to allow the elites from the world’s weakest states, those most severely affected by the world economic crisis, the assurance needed to be confident that their alliance with the OPEC and other developing states would not infringe upon their urgent, short term needs for assistance. The result of this approach by the G77 members, which treated the Sixth Special Session not as a simple forum for rallying against the Global North and pressing forth a list of preordained demands, but as a meeting place whereby the current state of the structure and agency of world order could be discovered, experimented with, and reformed, allowed the emergence of a strategy that, for the first time, contained the possibility of a genuinely global, and pluralistic, reform of the so-called liberal world order. At no point during the Sixth Special Session was it guaranteed that G77 unity could be maintained such that the entire Global South could rally behind the OPEC’s newfound oil power. Rather, this was only one of many possibilities, and it had to be created through explorations by the many G77 delegates of the structural possibilities and constraints of world order. Because of this, elites from the Global North, who were far more divided at the Sixth Special Session than were those representing the G77, were sent a powerful message. While the United States’ elites were struggling to maintain a unity only amongst themselves and the elites of Japan and the European Economic Community, the state elites of the 122 states of the Global South had managed to overcome very real contradictions of material interests. By transcending their short-term conflicts of interests the G77 elites had created a powerful collective challenge to the so-called post-war liberal order.
 
-# Chapter 4: A Moment of Possibility: Collective power in Action
+Chapter 4: A Moment of Possibility: Collective power in Action
 
 In the second chapter I argued that the NIEO project was, despite being supported by the leaders of many authoritarian states, a project aimed at reforming “liberal” world order. In the previous chapter I argued that that the G77 displayed, during the creation of its initial strategy at the Sixth Special Session, a collective power based in large part on an OPEC/NOPEC alliance. Furthermore, I demonstrated that this power could be effectively wielded in negotiations. In this chapter, historical evidence will be used to gauge the effectiveness of the strategy that was created at the Sixth Special Session. While the prevailing view of the NIEO, prevalent in both sympathetic and critical accounts, is that the project was too weak to have ever stood a chance of success, I argue in this chapter that the strategy showed, when implemented, significant gains in the form of compromises from Western state elites. These initial concessions came, as I will argue, because the G77 members were able to project themselves as possessing the ability to wage economic war, and to offer significant concessions. Importantly, this was not simply illusory, a projection sustainable at the time only because of a lack of information. Rather, at that point it was possible that the G77 might actually initiate the South-South cooperation needed to make further threats of economic warfare believable. This was because of the uncertainties of a world economic crisis that was not yet explainable by orthodox economic theory, and the fact that the future was, as always, in the hands of human agency. Then, when G77 elites were optimistic about the prospects of a new international economic order, plans for economic warfare were discussed at the highest ministerial level of the G77, and the OPEC. There were, in fact, several levers which the G77 state elites could have pulled which, because of general world economic uncertainty, recession, and rising commodity prices, could have made concessions towards an NIEO far more appealing for Western powers than global collapse. In this way, the years following the Sixth Special Session in May 1974, and preceding the failure of North-South dialogue at the Paris Conference on International Economic Cooperation in 1977, should be considered –– despite the fact that the NIEO’s underlying strategy was never followed through on –– as a moment of genuine opportunity for the reform of liberal world order.
 
@@ -362,13 +360,13 @@ As detailed in the introduction to this thesis, attempts to re-examine the power
 
 In the following two chapters I will challenge this argument, by showing that there is no reason to think that the OPEC state elites were not genuine in their initial projections of themselves as leaders of the G77. That is, there is no reason to dismiss the prospect that the OPEC elites came close to using their ‘permanent sovereignty over their natural resources’ in order to strengthen ‘South-South solidarity’. In this chapter, I present an interpretation of the available primary source evidence to show, in more detail, what the initial strategy of the NIEO Project was. The purpose of this chapter is to trace the options that were considered by the G77 state elites during the initial moment of optimism for a new international economic order. I then attempt to assess how significant these options could have been for the implementation of a new international economic order if they had been undertaken. By doing this, I show that the contemporaneous analysts of the NIEO, and the leaders of the NIEO Project, who viewed world order as reformable during these years, were not mistaken.[^283] Or, at least, that there is no evidence to prove that they were mistaken. Rather, there were options available which would have greatly increased the chances for the establishment of a new international economic order.
 
-## The latent powers of the G77
+The latent powers of the G77
 
 Historians cannot find primary sources for futures that were once possible but never created, because historians only have access to primary sources reflective of the singular past that leads to now. Nevertheless, this singular past was created by historical actors who chose between other options. As such, even as no evidence exists to show what would have happened if these actors had decided otherwise, their decision-making itself is a part of our past. Indeed, this decision making is of fundamental importance to a history that includes agency as well as structure, and it is only possible to understand it by reconstructing how historical actors imagined and created their available options. In this way, past possible futures, as they existed in the imaginations of historical actors, are just as much a part of “actually existing history” as the futures that were created.
 
 Such an analysis of the decision making of G77 state elites allows the historian to peer from the realm of actual history into the un-certifiable realm of counterfactual history. While this is not counterfactual history proper — not the complete envisioning of what might have been — it is the act of attempting to work out, via historical research, what options were rejected. It is by determining what options were actively rejected that it is possible to trace the options that were available to the G77 state elites, or the extent of their agency. Of course, it is also necessary, as will be discussed in subsequent chapters, to determine how close historical actors came to deciding differently. In this chapter I will only outline what the alternative options were, in so far as they were imagined by the G77 state elites themselves. I show that the strategy created at the Sixth Special Session was further developed in the several years that followed. I will also show that, despite not being followed through on, the G77 state elites had devised a genuinely powerful strategy for the reform of world order. I will show this first by outlining the strategy that the G77 state elites created, via the unity displayed at the Sixth Special Session, and especially in the OPEC’s *Solemn Declaration*. Then, I will show that the creation of this underlying strategy resulted in fundamental changes in the negotiating position and goals of the Northern state elites. This strategy was seen as a legitimate prospect to the extent that it was founded on genuine South-South solidarity. As such, it can be concluded that if further, more tangible efforts had been made to increase South-South solidarity, even further concessions by the North towards the G77 position would have been greatly encouraged. That is, the power of the G77 would have increased.
 
-### OPEC Solemn Declaration
+*OPEC Solemn Declaration*
 
 Following the G77 state elites’ successful show of unity — and flexibility of negotiating position— at the Sixth Special Session in 1974, they continued to project themselves as capable of a united effort, backed by genuine threats of economic warfare, as well as genuine proposals for compromise. This was epitomized in 1975 by the OPEC’s *Solemn Declaration*, the first of only three in the organisation’s history. In it, as will be shown below, the OPEC announced to the world that it was willing to grant the Western powers what they sought with regard to energy pricing and supply, but only if the Western state elites were willing to compromise on not just the OPEC’s but also the G77’s needs for a New International Economic Order. As such, the OPEC was declaring to both Western elites and the elites from the oil-importing developing states that it would only compromise if issues of international political economy were treated as a whole. The *Solemn Declaration* was thus aimed at increasing the perception of G77 unity, so as to increase the bargaining position of the G77 in the North-South dialogue.
 
@@ -380,7 +378,7 @@ In addition to measures such as these, including a call for more food aid, which
 
 For Western state elites, the most important aspect of the *Solemn Declaration* was probably its stated willingness to grant to them their primary goal. For if the *Solemn Declaration* was aimed at presenting the OPEC as a backer of G77 unity, so as to legitimise the bargaining position of the South in advocating for a new international economic order, it also offered Western state elites what they most urgently sought from the OPEC in return: a multilateral agreement on stability in the supply and pricing of oil. For the West, suffering from the historically unprecedented stagflation, oil price rises added only further fuel to the fire. President Nixon had attempted to develop a Western unity via the International Energy Agency so that consumer power could lower oil prices, but division within the West was strong.[^294] Now, in the *Solemn Declaration*, OPEC stated that it was willing, despite the fact that inflation had already begun to reduce the original gains of its oil price hike, ‘to negotiate the conditions for the stabilisation of oil prices which will enable the consuming countries to make necessary adjustments to their economies’.[^295] The *Solemn Declaration* was, by stating this, sending a clear message that the OPEC elites were willing to compromise on exactly what the West wanted of them. In this way, the *Solemn Declaration*, more than just serving to project a united G77 backed by the OPEC, also offered a potential quid pro quo with something to benefit the Western state elites.
 
-### The Seventh Special Session
+*The Seventh Special Session*
 
 The *Solemn Declaration* was an important expression of G77 unity. It expressed the willingness of the recently oil-rich OPEC state elites to overcome the intra-G77 conflicts of interests first raised at the Sixth Special Session so that the G77 could rely collectively on the threat of economic warfare to achieve a New International Economic Order. That such signalling was effective is evidenced by the genuine concern about the NIEO campaign shown by Western analysts,[^296] but even more so by the effects that this strategy had in achieving concessions from the state elites in the West — even as the threat of economic warfare was still only a possibility projected in speeches and declarations. This is seen most evidently at the Seventh Special Session of the United Nations General Assembly, held six months after the release of the OPEC’s *Solemn Declaration* in 1975. If at the Sixth Special Session state elites had debated declarations of principle drafted by the G77, at the Seventh Special Session proposals for reforms to world order aimed at reaching common agreement were brought forth by the G77, the European Economic Community, and the United States. As Christopher Dietrich has argued, such compromise proposals were specifically designed as part of the United States’ strategy of stalling further progress in the North-South dialogue.[^297] Nevertheless, this in itself, in conjunction with the fact that the concessions the United States was committing to were, in many ways, substantial, is significant given the fact that the threat of economic warfare from the South was, at this stage, only a possibility.
 
@@ -396,7 +394,7 @@ The change in the official negotiating position of the Western state elites, as 
 
 The change in Northern state elites’ negotiating positions was sensed by the state elites of the G77, who showed significant variation in their interpretations of it. While some state elites interpreted, for example, the new US negotiating position as a positive step towards progress, others saw it as disruptive to the goals of the G77. This can be observed from reports of confidential meetings held, during the Seventh Special Session, between G77 delegates and the UN Secretary General Kurt Waldheim. In a meeting on the 4^th^ of September, only four days into the conference, the Foreign Minister of Tunisia, Habib Chatti, agreed with Kurt Waldheim that ‘the ongoing Seventh Special Session offered prospects for progress towards creating a new international economic order.’ To this effect, Chatti ‘stressed the efforts made by the United States.’[^308] On the other hand, the Minister of Foreign Affairs of Iraq, Mr. Saadoun Hammadi, was not at all impressed with the stance taken by the United States. He cited Kissinger’s speech at the Seventh Special Session as containing ‘a strong attack’ on OPEC countries, and noted that this ‘had been further highlighted in the paper the US had submitted to the [Ad Hoc]{.underline} Committee.’[^309] While there can be no certainty as to what exactly explains the differences of opinion about the change in US diplomacy, it seems reasonable to hypothesise that what seemed like a sign of increased willingness for compromise from the United States would appear to be a positive change for Tunisia, which was struggling with the increasing costs of its imports, and as a negative move for an OPEC member like Iraq, which could discern quite clearly that the US policy was aimed precisely at splitting G77 unity. If, again, this adds further evidence to the argument made in this thesis that the NIEO cannot be understood in purely North-South terms, and that even the weaker, oil-importing developing states could gain leverage within the North-South dialogue, it is also true that all state elites at the Seventh Special Session were aware that a change in US negotiating policy had occurred, that it was a change towards compromise, and that it had corresponded with the continued projection following the Sixth Special Session, by the G77, that it could overcome its internal conflicts of interest, so as to rely on the threat of petrodollar power.
 
-## Possible futures
+Possible futures
 
 As argued in the previous section, the available evidence suggests that the underlying strategy of the G77, to unify in order to back the proposal for a new international economic order with threats of economic warfare, while also offering cooperation on the pressing needs of Western elites, was effective. Even when such a position existed only as an idea that had emerged from the unity displayed at the Sixth Special Session, and within the speeches and declarations of G77 state elites, and especially the OPEC *Solemn Declaration*, it resulted in fundamental changes in the negotiating position of the Western powers, something keenly noticed by the G77 state elites. Therefore, it can be concluded that if the G77 had moved beyond such declarations, developing more significant South-South solidarity in terms of material assistance for its weakest member states, then the material basis for this strategy, and the perceived threat of the G77 by Western powers, would only have increased. As will be shown in this section, further evidence for this claim exists in the form of documents that highlight a change, after the Seventh Special Session, in the way that the United States viewed the threat of the G77. I argue that the United States, as evidenced in further CIA memoranda, began to doubt the ability of the G77 to maintain unity sufficient to pose a legitimate threat of economic warfare. Nevertheless, I also seek to explore the possibility that such G77 unity, and the economic power of the G77, could have been increased. While never acted upon, innovative proposals were made at the highest level of the OPEC, which would have resulted in a G77 solidarity that disrupted the calming assessments being made in Washington. Of particular importance, state elites from Venezuela, a key G77 leader, proposed an oil-price hike with the sole goal of raising funds to alleviate the debt of the poorest oil-importing developing states. Secondly, an aspect of economic power often neglected in assessments of the G77, is an OPEC proposal to rely on its increased monetary powers to push for the abolishment of the US dollar as the international reserve currency.
 
@@ -412,7 +410,7 @@ The idea of using the powers that the OPEC had over international liquidity was 
 
 With the value of the US dollar under threat from inflation, the OPEC state elites discussed the potential for using their newly increased monetary powers to force changes to the international monetary system. As Skeet quotes in *OPEC: Twenty-five Years of Prices and Politics*, the OPEC had, at its 44^th^ meeting in 1975, ‘decided to adopt the use of the SDR as a unit of account … and will define the practical modalities for the implementation of the SDR at its next Extraordinary Meeting’.[^316] This wasn’t, of course, the same as the OPEC announcing that it would not accept US dollars, but it would have meant that sales of oil could no longer have been whittled away by a depreciating international reserve currency. It also would have bolstered the idea, then widely discussed, of relying on the IMF’s Special Drawing Rights for international liquidity, a move that would have served to reduce even further the United States’ monopoly over international reserve currencies, as well as facilitated, multilaterally, the process of recycling the surpluses from balance of payments deficits, all moves that were, as noted earlier, supported by European state elites. If the United States, via the Federal Reserve Bank, could rely on its monopoly of international reserve currency to force the rest of the world to absorb the costs of its own economic crisis, the rest of the world was not completely powerless. Indeed, as this moment of history shows, the OPEC cartel, at its highest levels, was discussing countervailing measures.
 
-## The Underlying Power and Agency of the G77 state elites
+The Underlying Power and Agency of the G77 state elites
 
 In the previous sections of this chapter it has been shown that the underlying strategy of the G77 — the creation of a unity through South-South solidarity sufficient to legitimise projections of material power — was, when followed, effective. It was also shown that plans to bolster the strategy were discussed at the highest levels by the most powerful G77 (that is, OPEC) state elites. In this concluding section it will be argued that when these plans are considered within the context of the uncertainties of the historical moment, a serious reappraisal of the power and agency of the G77 state elites is in order. The collective power of the G77 consisted of the potential to offer both material threats and concessions to Northern state elites. On the one hand, petrodollars could have been withdrawn from Western banks, or oil prices could have been further raised, acts that risked bringing down the world economic system. On the other hand, the G77, again led by OPEC, could have offered what the Northern state elites wanted: a multilateral agreement to bring stability to oil prices. Finally, OPEC could have invested its petrodollars directly into the establishment of core NIEO proposals, like the Common Fund, which would have drastically altered the international regime of commodity trade, so that more states than ever could have afforded commodity price stabilisation agreements. While I will analyse more deeply why such actions were not taken in Chapter 6, it is important to note here that all of these options were encouraged by conditions of uncertainty and crisis, and that, during the moment of possibility for a NIEO, uncertainty and crisis were endemic.
 
@@ -424,13 +422,13 @@ Indeed, such planning made complete sense, during the moment of possibility for 
 
 In this chapter I have shown that alternative futures of world order were created, and considered, by the most powerful G77 state elites, and that the historical record shows such strategising was powerful. This represented the creation of a powerful strategy for the reformation of world order. In so far as OPEC state elites were willing to support oil-importing developing state elites, the OPEC-NOPEC alliance could be believed as viable. In this way, the G77 elites took advantage of the then world economic crisis in order to assert their power, and push for reform. These efforts had been effective in drawing a response from Northern state elites in the form of new compromises in negotiations. Strikingly, this occurred even without a tangible demonstration that the South-South solidarity that was being projected would actually be followed through on. Additionally, the sorts of actions that were being, explicitly and implicitly, projected as possible by the G77 elites had already been deployed previously, when OPEC elites had used their monetary reserves to force changes in British policy in the Arabian Gulf. Therefore, I argue that from the Sixth Special Session and until the ending of the Paris Conference on International Economic Co-operation, there existed a moment of genuine possibility for a New International Economic Order. What follows from this, however, is the question of why, if this is true, the G77 elites did not follow through on the potential for reform they had created. In the following chapters I will offer explanations for this. In so doing, I will attempt to explain how close the NIEO Project came to being implemented.
 
-# Chapter 5: The Emergence of Stalemate in the North-South Dialogue: A Revisionist Interpretation
+Chapter 5: The Emergence of Stalemate in the North-South Dialogue: A Revisionist Interpretation
 
 In the previous two chapters I argued that the launching of the NIEO Project was successful because of the power created when the G77 elites transcended their material conflicts of interests at the Sixth Special Session. By transcending these conflicts the OPEC was able to project itself as lending the support of its petrodollar power to the NIEO. In order to test my argument that the G77 state elites had, as such, created a moment of possibility for experiments in the reformation of world order, the counterclaim that the G77’s bloc tactics inhibited any possibility of these discussions transitioning into negotiations must be disproved. That is, I must show that the NIEO Project was not destined to fail the moment that hopes for the reformation of world order entered the necessary cutting-room floors of negotiating fora. In order to defend against this counter argument I further develop the arguments made in the previous two chapters by assessing the available primary source evidence and previous interpretations of the stalemate that emerged at UNCTAD IV in Nairobi. I find, in support of my argument that the NIEO Project represented a moment of possibility for the reformation of world order, that an alternative interpretation of the stalemate exists. This interpretation can be traced in an incipient and weaker form in the contemporaneous analysis of Robert L. Rothstein, in the documents of the UNCTAD Secretariat, and in speeches made by the state elites of the G77. By relying on these interpretations, I show that rather than arising from the brittle bloc tactics of the G77, the stalemate at UNCTAD IV emerged as a result of the withdrawal, by the OPEC state elites, of their initially promised support for the NIEO Project.
 
 Explaining the emergence of stalemate in the North-South dialogue is important in forming my thesis that the NIEO Project can be interpreted as a moment when the G77 had created the possibility of reforming the post-war liberal order. It is important because the cause of the stalemate holds implications for assessments of the level of “possibility” that existed for the G77’s proposals. If it is alleged, as Thomas Weiss argues, that the G77’s bloc tactics, while necessary for launching the North-South dialogue, were paradoxically also the reason that the dialogue failed to transition to a stage of substantive negotiations, then the arguments made in the previous two chapters are useful only for explaining the emergence of what, with hindsight, should be considered a moment of false optimism. Indeed, this is the predominant view of the stalemate in the North-South dialogue.[^320] In order to assess this interpretation, I will first provide an overview of the important aspects of its argument. In doing so, I distinguish between the “facts” of the consensus interpretation –– those aspects of the history of the North-South dialogue verified by the available primary source evidence –– and the set of assumptions and corresponding logic that the predominant view relies upon in order to interpret these facts. Having done this I then outline my argument that an alternative interpretation better accounts for both the evidence previous interpretations have relied upon, and for further primary source evidence from UNCTAD IV. This interpretation posits that rather than being bogged down by the bloc tactics of the G77, the stalemate in the North-South dialogue emerged because of the withdrawal of originally promised OPEC support. To show this, I must overcome two core challenges raised by the critics of the G77’s bloc tactics. Firstly, I must show that the G77 continued, leading up to and at UNCTAD IV, to mediate its internal conflicts of interest. Secondly, I must show that the proposals made by the G77 were not overly ambitious, that the G77 state elites had not, in asking for too much, overextended their actual power.
 
-## The hitherto interpretation of the stalemate
+The hitherto interpretation of the stalemate
 
 While, when the G77 was still actively calling for a new international economic order, analysis existed suggesting that the implementation of the G77’s demands, or some watered-down version of them, was or even might be possible, ever since the realisation of the NIEO Project’s failure became widespread the stalemate in the North-South dialogue has predominantly been interpreted as inevitable. More specifically, it has been assumed that the stalemate arose from the bloc tactics of the G77. This literature, just like the contemporaneous literature before it, is very small. Analysis of the stalemate that emerged within the North-South dialogue features primarily in the works of Amrita Narlikar and Thomas G. Weiss.[^321] However, these two works cite the earlier, contemporaneous work of Robert L. Rothstein. Rothstein, writing before it was certain that the NIEO Project would fail, was also critical of the bloc tactics of the G77. He, an observer of UNCTAD IV, was the first to note that the North-South dialogue failed to transition from a stage of discussions to a stage of negotiations. To Rothstein, failure was not inevitable, but the G77 would have to reduce its expectations and be willing to negotiate over the practical details of its proposals, rather than only discussing matters of broad principle.[^322] Rothstein thought that ‘massive change for the benefit of the developing countries was never likely, and persistent demands for such immediate changes only guaranteed immobility’, and therefore that ‘steady change was a good deal better than nothing’, ‘particularly because it at least kept open the possibility of more significant change down the road.’[^323] Despite talking down the power of the G77, Rothstein did not rule it out completely. Even though Rothstein was, in 1979, reasonably certain that the OPEC would not back the NIEO Project with any significant material support, he noted that the fact that this was, nevertheless, a possibility, did empower the G77 to some degree.[^324] He understood that this possibility is what explained the G77’s sense of optimism.
 
@@ -444,11 +442,11 @@ Secondly, the previous interpretation argues that the G77’s demands, which had
 
 Thus, the previous interpretation of the emergence of stalemate in the North-South dialogue relies on the facts that (1) intra-group bargaining was not easy for the G77, (2) the North-South dialogue failed to transition from discussions to negotiations, (3) the North-South dialogue failed to win any significant results for the state elites of the G77, and (4) that, when a watered-down Common Fund was eventually agreed upon, some of the poorest developing states which had called for a Common Fund had to be pressured into ratifying it. In interpreting these facts, Weiss and Narlikar argue that stalemate emerged from the G77’s bloc diplomacy. In order to interpret the facts in this way, Weiss and Narlikar assume that (1) because the G77 was unable to mediate between its internal conflicts of interest it was limited to making overly ambitious rhetorical demands. These rhetorical demands were the glue holding the otherwise fragile G77 bloc together. Thus, (2) its “negotiating” position was limited to making declarations, which were so ambitious that they could never have succeeded in winning the support of the state elites from the Global North. In order to demonstrate the superiority of my counter interpretation I, in what follows, build on the work in my previous two chapters in order to account for all the facts relied on in the previous interpretation, and to challenge its important interpretive assumptions.
 
-## The continuation of intra-G77 bargaining
+The continuation of intra-G77 bargaining
 
 Much of my revisionist interpretation of the emergence of stalemate in the North-South dialogue builds on work in the previous two chapters. As I argued in Chapter 3, the NIEO Project was launched as a result of the successful negotiation of potentially fatal intra-G77 conflicts of interest. This alone challenges the arguments made by the previous interpretation of the stalemate in the North-South dialogue, in so far as the previous interpretation alleges that the G77 failed to transcend its internal conflicts of interest in a way that allowed for flexibility in negotiations.[^334] Nevertheless, I must also demonstrate that the initial ability of the G77 to negotiate amongst its own state elites was extended from the Sixth and Seventh Special Sessions and into the UNCTAD and other forums, where it was hoped that the negotiations over the actual implementation of the NIEO would begin. Thus, in this section I demonstrate the existence of a continuity of intra-G77 conflict mediation. This mediation, I argue, was fruitful. Evidence for this is found in the continued development of G77 policy, which became so nuanced as to incorporate the diverse and potentially conflicting interests of its many member states. Secondly, the proposals brought to, and speeches given at, UNCTAD IV show that the G77 state elites were willing to call upon each other, to pressure each other, in order to make progress. To demonstrate this, I will focus on three issues paramount to the NIEO platform which have been cited in the works of the dominant interpretation as evidence that the G77 bloc could not work as a negotiating team: commodity market stabilisation and indexation; debt forgiveness; and the conflict that existed between oil-importing and oil-exporting developing states. The dominant interpretation alleges that these conflicts were irreconcilable, and that G77 unity was maintained only by ignoring them. I show that strong and successful attempts were made at mediating these conflicts and that this is evident at UNCTAD IV, highlighting a continuity of such conflict mediation that began before the Sixth Special Session.
 
-### Debt
+*Debt*
 
 The G77’s position on debt alleviation is cited in the work of Thomas G. Weiss as serving only to unify the group at the level of rhetoric, while amounting, in terms of material interests, to a conflict between G77 member states too intractable to resolve.[^335] Weiss’ claim about the G77 position on debt at UNCTAD IV in Nairobi is that it was ‘highly unrealistic’, because it ‘demanded cancellation or adjustment measures by all developed countries in respect of the debt of all developing countries.’[^336] Weiss’ point is not only that such an alleged demand was too ambitious, but that it entailed a conflict of interest between relatively poorer and relatively wealthier developing states. While the poorest developing states were seeking debt cancellation, the wealthier developing states did not seek debt cancellation, for fear of damaging their credit ratings.[^337] Thus, Weiss makes the observation that ‘when the Latin American countries withdrew their claims for such measures and the language of the text was changed to eliminate obligation, meaningful negotiations became possible.’[^338] These claims by Weiss are made to support his overall thesis, that the G77’s bloc tactics inhibited any intra-G77 conflict mediation, so that the bloc tactics also inhibited any successful negotiation with the Western powers.
 
@@ -456,7 +454,7 @@ The primary source records, however, show Weiss’ claims to be false. Even in t
 
 By the time of UNCTAD IV, in Manila, the general thrust of what had been agreed to at the Sixth Special Session remained unchanged, but the G77 showed signs that it had further developed its ideas into more practical proposals. In the *Manila Declaration and Program of Action*, adopted at the third ministerial meeting of the Group of 77, from 26 January to 7 February 1976, the G77 called for debt relief from ‘bilateral creditors and donors in the form, *inter alia*, of waivers or postponement of interest payments and/or amortization, and cancellation of principal, of official debt to developing countries’, but only for those countries ‘seeking such relief.’[^342] It did, however, state more matter-of-factly that the ‘least developed, the developing land-locked and the developing island countries should have their official debts cancelled.’ For ‘other most seriously affected countries’ it was stated that they ‘should receive the same treatment or, as a minimum, have their debt-service payments on official debts waived until they cease to be regarded by the United Nations as most seriously affected countries.’[^343] Thus, rather than lumping all the G77 member states together in a demand for a complete debt moratorium, the G77 had managed to mediate between its potential intra-group conflicts of interest over the debt issue, allowing its more developed states, whose elites were concerned about their credit ratings, to stand aside, while it called for support for its ‘most seriously affected’ states. In fact, it even dealt with differences between its relatively poorer developing states, as indicated by reference to those states disadvantaged by their geographies. Perhaps most importantly, it called for a path back to full debt service payments once a state was in a position to do so. Rather than reflecting the immobile bloc tactics of a G77 avoiding its own internal conflicts of interest, the calls for debt relief show the G77 as using its weight to support the interests of its poorest member states, without such pledges having to impact on the interests of its wealthiest.
 
-### Commodities
+*Commodities*
 
 The literature on the emergence of stalemate in the North-South dialogue provides three main arguments in support of the claim that the G77’s bloc tactics, by ignoring important intra-group conflicts of interest, served to inhibit actual negotiations over commodity price stabilisation and/or indexation. As with debt, the claim is made that despite ignoring the intra-G77 conflicts surrounding the commodities issue, the G77 was actually divided in terms of the material interests of its different forms of state. Firstly, there is the fact, as noted by Rothstein, that while the overwhelming majority of G77 states were net exporters of the commodities proposed to be regulated, around 20% of them were not.[^344] Secondly, there existed a potential conflict between elites from member states that already enjoyed commodity market stabilisation agreements, and those from states which did not. This potential conflict existed because of the fear that the proposal for an Integrated Programme for Commodities and Common Fund might render pre-existing agreements less stable.[^345] Lastly, there existed a fear that the negotiation of commodity agreements at a global level would amount to an interference with the more specific interests and sovereignty of commodity exporters.[^346] As I will show in what follows, all of these potential conflicts of interest had remediable solutions, and these solutions were found in the proposals brought to UNCTAD IV.
 
@@ -476,13 +474,13 @@ The G77, as a bloc, had also managed to forge agreement on what could potentiall
 
 This agreement made by the G77 demonstrates further that, contrary to the claims made about its bloc negotiating tactics, the group did not simply paper over its internal conflicts of interests by ignoring issues of practical implementation. The G77 never proposed at UNCTAD IV, as it has been alleged, a scheme in which all commodities would be negotiated together multilaterally.[^354] Rather, the Integrated Programme and Common Fund were intended to provide a negotiating environment in which individual commodity agreements would be more viable. This move by the G77 was needed not only to transcend intra-G77 conflicts, but served to make compromise with the state elites in the North more likely as well.
 
-## The alleged absurdity of the G77’s demands
+The alleged absurdity of the G77’s demands
 
 In the previous section I have shown that, rather than suppressing any mention of its internal conflicts of interest, the Group of 77 continued the work begun at the Sixth Special Session by mediating these intra-group conflicts of interest. In this section, I turn to address the different but related claim that even if compromises were found within the G77 they were so ‘unrealistic' that they could never have formed the basis of negotiations with the Global North.[^355] I do this in order to determine the cause of the stalemate that emerged within the North-South dialogue. What is known, and has been noted frequently in the literature on the stalemate, is that discussions at UNCTAD IV did not move, in general, from considerations of broad principles towards negotiations over the implementation of new measures. While I have shown that this did not occur because the G77 was unable to compromise amongst its own members, I have not yet shown that the resulting compromises were not overly ambitious in terms of the group’s power. This is a claim made most stridently in the work of Thomas Weiss, but also found in a more nuanced fashion in the work of Robert L. Rothstein and Amrita Narlikar. In my reassessment of the emergence of stalemate, I argue that the G77’s power must be understood within the context of the alliance between elites from oil-importing and oil-exporting G77 member states. As such, in this section I further develop the argument I made in the previous chapter, where I showed that the NIEO Project had real power following the Sixth Special Session, because the OPEC projected itself as a willing backer. In this section, I show that the context of the OPEC-G77 alliance is fundamental in understanding the emerging stalemate in the North-South dialogue. The claims made by the G77, and the compromises it arranged in order to mediate between its own internal conflicts of interest, only seem ‘overly ambitious’ when this context is ignored. After showing that the prospect of OPEC investment in the NIEO Project formed the basis of the G77’s negotiating position, it becomes clear that the emergence of the stalemate was the result not simply of the G77’s bloc tactics, but of the withdrawal of originally promised support by the OPEC, as a group.
 
 As I showed in the previous chapter, the G77 had created, by maintaining its unity with its oil-exporting member states, a moment of possibility for a new international economic order. With the G77 maintaining its unity, it was able to call for a new international economic order, even though the majority of its members were negatively affected by the OPEC oil price rise. This support was reciprocated by the OPEC which, as an organisation, declared itself as a willing supporter of the NIEO Project.[^356] With this support, the United States entered the Seventh Special Session with a markedly different approach, as evidenced by CIA analysis of the G77 as genuinely powerful.[^357] If this argument is true –– that this moment was one of possibility for a new international economic order, as opposed to a moment of false optimism –– then several things should be, and are, evident in the primary source records of UNCTAD IV. First, evidence should exist of continued negotiations between oil-importing and oil-exporting developing states, evidence of the efforts needed to maintain the alliance. Second, it would make sense that, if such OPEC support was not as forthcoming as had been initially projected, the G77 bargaining position would suffer. This is what occurred at UNCTAD IV. As I will outline in this section, both the G77 and the UNCTAD Secretariat prepared for UNCTAD IV under the reasonably held belief that the OPEC would provide a strong leadership role in advocating for the G77’s proposals. Furthermore, while the OPEC member states’ representatives did not withdraw their support completely, they certainly did not take a leadership role.
 
-### The intra-G77 diplomacy
+*The intra-G77 diplomacy*
 
 Leading up to, and during UNCTAD IV, the oil-importing state elites were continuing to lobby for the promised support from the oil-exporting member states. Evidence for this is found in the *Manila Declaration and Programme of Action,* which the G77 brought as the basis for its negotiating position at UNCTAD IV. This document, when introducing its proposals in the section ‘Commodities’, quotes two paragraphs from a resolution adopted at the *Ad Hoc Committee* of the Seventh Special Session, stating that ‘developed countries and developing countries in a position to do so should substantially increase the volume of assistance to developing countries for agriculture and food production’.[^358] Given the context of the mid-1970s, when the oil-importing world, in aggregate, was in need of dollars in order to balance their trade deficits, it was only the OPEC member states, with their corresponding balance of trade surpluses, which could be considered as ‘developing countries in a position to do so’. This call for support from the OPEC member states, which reflects the pressure put on the OPEC state elites by the G77’s oil-importing state elites, is found also in the document’s section on ‘Least Developed Among The Developing Countries, Developing Island Countries, and Developing Land-Locked Countries’. There the document states that ‘Developed market-economy countries, the socialist countries of Eastern Europe, developing countries that are in a position to do so … should give high priority to increasing their assistance to the least developed countries.’[^359] The *Manila Declaration and Programme of Action*, in having been worked through by a ministerial meeting of the G77 in preparation for UNCTAD IV, reflects the work done by oil-importing, and especially the least developed and most seriously affected developing, states in pressuring the representatives from the OPEC states to follow through on their pledges of support for the NIEO Project.
 
@@ -490,7 +488,7 @@ There exists also evidence that this pressure was maintained during the conferen
 
 Interestingly, these calls for material support from the OPEC were not based solely on the need for development assistance, but were made also with the explicit goal of strengthening the strategic position of the G77. Thus, Mr. Paul Ilamoko-Djel, Ambassador of Chad to Belgium, after stating that the wealthier developing countries should ‘help those at the lowest stage of development’, stated also that ‘developing countries should awaken to the fact that their economic partners would be impressed by their solidarity in the campaign against poverty only if they began to agree on joint plans and programmes to help one another effectively and resolutely, thus showing their will to achieve collective economic self-reliance.’[^364] For others, like Mr. Frank Abdulah, Ambassador and Permanent Representative of Trinidad and Tobago to the United Nations in New York, such strategic South-South solidarity had already been fostered by the ‘awareness that the developed countries were unwilling to help bring about a new international economic order’. As such, developing countries were determined to ‘mobilize their individual and collective resources’ and ‘increase their bargaining power for negotiation with developed countries on such matters as commodity prices’.[^365] These statements provide evidence that, at UNCTAD IV, G77 state elites believed that if material support was given by the OPEC member states to the poorer developing states, the negotiating position of the G77 would be strengthened. Thus, the OPEC was not just called upon for support, but the alliance between the OPEC and the oil-importing developing states was also talked up, in attempts at projecting G77 power. For this reason, Mr. Osman Hashim Salam, State Minister for National Economy of Sudan, stated that ‘The increased power of some groups of developing countries had changed the world financial situation to an unpredictable extent.’ Furthermore, Salam wished to comment on the ‘rumours about differences of opinion among the developing countries’. He stated that the developing countries had ‘unanimously supported the proposals in the Manila Declaration and Programme of Action’ and ‘hoped to enter into a constructive discussion with the developed countries.[^366] In this way, the public pronouncements of G77 representatives at the plenary sessions of UNCTAD IV can be read, just like those at the Sixth Special Session, as a dialogue not just between North and South, but between South and South, and for the specific purpose of fostering and projecting the collective power that underlay the movement, something that was believed to be possible only if the wealthier developing states lent material support to the poorer.
 
-### The plans of the UNCTAD Secretariat
+*The plans of the UNCTAD Secretariat*
 
 It is in this context, discussed above, of a potential G77 power that rested on fulfilling the earlier promises of the OPEC to significantly invest in the NIEO Project, and the wider efforts of G77 state elites to realise this power, that the UNCTAD Secretariat devised its research and plans for proposals towards the establishment of a new international economic order in international commodities markets. What I mean by this is that the ambition of the plan (to have an estimated 6 billion dollar Common Fund that would enable the establishment of previously unaffordable commodity agreements; to have compensatory financing schemes aimed at supporting the diversification of Southern economies until they were no longer affected by the problem of the declining terms of trade)[^367] makes sense UNCTAD Secretariat that devised the plans had its finger on the pulse of the creation of the collective power that underlay the NIEO Project. As I will show below, the explicit understanding of the UNCTAD Secretariat aligned with the views projected by the state elites of the G77, that the time was different, and ripe, for the launching of a more ambitious international commodity price stabilisation system, because of the alliance the G77 had forged between its oil-importing and oil-exporting member states.
 
@@ -502,11 +500,11 @@ While commodity agreements had been created before, the new element in the UNCTA
 
 The expectation of the UNCTAD Secretariat was not that the state elites of OPEC would act out of magnanimity alone. Rather, as the report went on to state, the long-term loans that were anticipated to be forthcoming would not be unreasonable, ‘since investment in international stocks would be backed by attractive collateral with reasonable rates of return.’[^370] Indeed, this point, which formed the basis of the UNCTAD’s proposals brought to UNCTAD IV, was later elaborated on more closely by the then UNCTAD Secretary General, Gamani Corea. In his memoir, *Taming Commodity Markets*, Corea claims that in a meeting with Sheik Yamani, the then Oil Minister of Saudi Arabia, he had asked whether the OPEC would ‘be interested in investing in the Common Fund’. According to Corea, Yamani had replied that: ‘If there is security and an adequate return to investment, then why not? Saudi has itself some commodities other than oil — like phosphates.’[^371] Corea’s reasoning was that, because commodity price stabilisation operated by purchasing commodities when prices were low, and selling when prices were high, it would be ‘inherently viable and self-financing’.[^372] Thus, in a context in which the OPEC had projected itself as a willing backer of the NIEO Project, and in which that project had, as one of its central goals, the aim of commodity market stabilisation, and in which the oil-importing developing states were pressuring the OPEC to make true its projections, the UNCTAD Secretariat devised plans which, in its assessment, would even make a return for such OPEC investment.
 
-## A Revisionist Interpretation
+A Revisionist Interpretation
 
 In this chapter I have shown that many of the essential claims made by the previous interpretation of the stalemate in the North-South dialogue are unfounded. There is, in fact, evidence that the G77 was able to resolve its internal conflicts of interest, and that the G77’s strategy arose from a genuine source of power. Thus, as an alternative to the previous interpretation, which argues that the G77’s brittle bloc tactics and lack of real power meant stalemate was inevitable, I offer an interpretation that explains the stalemate as the result of the decision making of the OPEC state elites. According to this interpretation the internal G77 conflicts of interests were very real, but the G77 had created possibilities for successfully transcending them. This potential for compromise, however, rested on significant investment towards the NIEO Project by the OPEC state elites. Thus, whereas the previous interpretation assumes that intra-G77 conflicts were ignored, my interpretation highlights that they were, within the G77, actively negotiated. Whereas the previous interpretation assumes that any G77 compromise that was sufficient to account for all the group’s internal conflicts would never be agreed upon by the Northern state elites, my interpretation argues that the power of the G77’s alliance with the OPEC meant that this didn’t have to matter. In this final section, I explain how my revisionist interpretation is able to account for the best arguments for the inevitability of stalemate.
 
-### The eventual failure to ratify the Integrated Programme for Commodities
+*The eventual failure to ratify the Integrated Programme for Commodities*
 
 Perhaps the most damning argument made in the literature on the stalemate concerns the eventual Common Fund and integrated programme that were agreed upon. Eventually, the state elites from the North and South did agree upon a Common Fund and integrated programme. This agreement, however, was heavily watered-down. Whereas originally it was proposed that the Common Fund should be around 6 billion dollars, the final agreement saw only 400 million dollars.[^373] This was itself reflective of a Common Fund that would have played a very different role from that originally envisaged. Whereas originally it was hoped that a Common Fund, with 6 billion dollars, could support any commodity agreement, the one eventually agreed upon would only assist in financing commodity agreements after the relevant countries had already raised sufficient capital. It would do this by seeking capital from international financial markets.[^374] Thus, the original vision of an international order in which even the poorest commodity-exporting states could find financing for commodity price stabilisation was cut short. To come into effect, the Common Fund required ratification by 90 member states, which had, in total, to contribute two thirds of the fund’s required capital base. The ratification process was slow, but even as the number approached 90, without the United States or the USSR contributing, funding remained far from the required two thirds, and this was with OPEC support for the funding requirements of the poorest states.[^375] It was eventually ratified by 101 states and fully funded, on the 11 July 1988, after the USSR agreed to sign up.[^376]
 
@@ -518,7 +516,7 @@ The alternative interpretation of the stalemate also offers an alternative expla
 
 In this chapter, I have outlined the previous interpretations of the emergence of stalemate in the North-South dialogue. Largely, these have explained the stalemate in terms of the brittle bloc tactics of the G77. This interpretation explains the failure of the North-South dialogue to move from discussion to negotiation, and the eventual failure of the NIEO Project in general, as resulting from the inability of the G77 to compromise with the Global North. To explain this inability it is alleged that the G77 was unable to negotiate its own internal conflicts of interest, and so ignored them by focusing only on rhetorical statements of broad principle. It is further alleged that the claims made by the G77 were simply too ambitious to have been successful. Clearly, negotiating both amongst the G77 state elites and with the state elites of the Global North was difficult. However, in this chapter I have provided evidence showing that the G77 was able to do this. Secondly, I have provided evidence that the G77 was able to do this within the context of a historical moment in which it did have real power to implement its demands. The negotiations fell into stalemate then, according to my new interpretation, because of the decision/s of the OPEC state elites to pull back from their originally promised investment in the NIEO Project. That is, rather than stalemate emerging because of the bloc tactics of the G77, it is quite possible that it emerged because of the decision making, or the agency, of certain G77 state elites. Explaining the decision making of these state elites, in order to explain the reasons for the eventual failure of the NIEO Project, will be the focus of the next chapter.
 
-# Chapter 6: Why the NIEO Project failed
+Chapter 6: Why the NIEO Project failed
 
 I argue in this thesis that neglecting the history of the NIEO has weakened knowledge of world order. This has been a problem for both Orthodox and Critical IR theories. For both, an important justification for the lack of engagement with the NIEO is the assumption that it was too weak ever to have had the chance of implementing any of its core proposals. While, following the pioneering work of Vijay Prashad, a handful of historians and legal scholars have argued against this assumption, it has not yet been possible to show historically how the NIEO Project could have been successful. As such, the interpretation of the NIEO’s failure as inevitable that first appeared in the 1980s remains the dominant view. This means that both the theoretical and historical approaches to world order have been able to justify their relative ignorance of the NIEO. I seek to challenge this by showing that the NIEO Project was indeed powerful, and that it could have succeeded. So far, I have worked towards this by showing that the G77 state elites, in relying on a common ideological position that sought not to overthrow but to save the post-war liberal order, were able to create a common platform that was malleable enough to participate in negotiations with the state elites of the Global North. As I argued in the previous chapter, this strategy rested on the potential support of the OPEC state elites, who had recently grown powerful because of their huge trade surpluses. Thus, to show how the NIEO Project could have succeeded, or, what amounts to the same thing, to explain why the underlying strategy of the NIEO was never deployed, it is necessary to explain why the OPEC state elites did not invest in the NIEO Project as they had originally, during and following the Sixth Special Session, implied they would.
 
@@ -540,11 +538,11 @@ When the CIEC did finally end, six months after the postponement of the original
 
 These last-ditch negotiations can, for lack of any substantial compromises, be interpreted as being motivated by the compulsion for all state elites to save face, both for themselves and for their respective causes, by placing any possible veneer of conciliation onto the final agreement. Even Kurt Waldheim’s concluding speech, which usually sought to strike at optimism, conceded failure. The UN Secretary General admitted that: ‘The Conference on International Economic Co-operation fell short of the objectives that the participating governments had set themselves when it was convened eighteen months ago.’[^390] The only consolation that Waldheim could scrape together was to note that the conference had ‘contributed to a better understanding of the complex issues involved, and has helped to elucidate many problems’, while also possessing the symbolic significance of ‘matters affecting the relationship between developed and developing countries’, and having engaged ‘the attention of the highest policy-making officials.’[^391] When it is considered that when the CIEC first began, in 1975, it was hoped that the smaller negotiating team, the “Group of 19”, in conjunction with the fact that energy was being discussed alongside development, would lead to genuine success in implementing a new international economic order, it must be concluded that it was a failure. What was not known at the time, but will be discussed in the next chapter, is that the CIEC was to be the last significant forum of the North-South dialogue. In this sense, despite later attempts to revive it, it can be considered retrospectively to mark the collapse of the NIEO Project.
 
-## Explaining the decline
+Explaining the decline
 
 I have shown that the negotiating position of the G77 depended on the support of the OPEC, and that increasing uncertainty about this support led to stalemate and then to the collapse of the North-South dialogue. It remains to be explained, however, why this support never arose. In the absence of an explanation, it is unclear why the OPEC had, in 1974 and 1975, projected itself as willing to support a new international economic order. Great amounts of time and resources were applied to this end. In order to explain why I feel that the changing economic context is the most important reason for the change in the OPEC’s position towards the NIEO, I explore also alternative interpretations. Firstly, I discuss what I call the cynical view, which argues, essentially, that the OPEC state elites never stopped their support for a NIEO because they had never intended to actually support it. After showing the weaknesses of this argument, I then turn to explaining the historical evidence that underlies my argument that a calming in the world economic crisis, which occurred during the stalemate and subsequent collapse of the North-South dialogue, was hugely significant in discouraging OPEC support for a NIEO. However, the extent to which this was the deciding factor is impossible to pin down precisely. This is because to do so, a counterfactual analysis is necessary, an analysis that is inherently speculative. As such, I qualify my argument by exploring a further counterargument. I explore the potential that, during this period, certain OPEC state elites had succeeded in creating strong enough ties with the United States that they would not have supported the NIEO even if the economic crisis had not calmed. I argue that this argument is not strong enough to dismiss the role of the calming of the economic crisis, but that it is useful for explaining the decision making of the OPEC state elites. It is useful for attempts at understanding how close the history of world order came to experimentation with new international economic orders.
 
-### The Cynical View
+*The Cynical View*
 
 The cynical view of OPEC’s intentions offers great explanatory power, but its strengths are easily incorporated into other interpretations. In order to explain why the primary source records show a change from an OPEC projecting itself as a willing supporter of a NIEO to a group of state elites that failed to agree on significant material support, the cynical view concludes that the OPEC, in aggregate, had simply never intended to support the NIEO in the first place.[^392] This argument is capable of explaining why the OPEC put so much time and resources into G77 diplomacy: its many different state elites, or at least a majority of them, had done this in order to legitimise its oil price hike. The support of the majority of the world’s states in the United Nations, especially when these states were suffering economically and politically because of the oil-price hike, was a very important asset for the OPEC state elites. This legitimacy was important in assisting the OPEC in defending against the possible actions of the United States. This would not have been an unfounded fear, considering that Kissinger, in an interview in *The World* in 1975, had been unwilling to rule out military action.[^393] With the OPEC’s actions so historically unprecedented, and with Mossadegh’s CIA-backed overthrow in recent memory, it is not hard to imagine the OPEC state elites’ understanding the benefit of a global display of solidarity for their oil price hikes, especially from states suffering the most from them. As such, it is possible that OPEC state elites had projected themselves as willing supporters of the NIEO Project without ever actually intending to support it. Such an analysis explains the resulting stalemate and then collapse of the North-South dialogue as a moment whereby the hopes held by the oil-importing developing state elites for genuine South-South solidarity were eventually exposed as naive. Before I turn to explaining the weaknesses of this argument, I must note that its strengths can be easily incorporated into other interpretations. That is, it is of course true that OPEC state elites gained significantly from the legitimacy offered by the G77 as a whole, and as such were motivated to project themselves as supporting the NIEO for reasons other than a genuine intention of granting significant financial backing. Nevertheless, these motivations could, and I argue did, exist alongside genuine attempts at planning for possible futures in which the OPEC would support a NIEO.
 
@@ -552,7 +550,7 @@ The first weakness of the cynical view is that it ignores the role of uncertaint
 
 Most importantly, the cynical view is weak because it does not account for all the available evidence. For example, if OPEC state elites had never actually intended to support the NIEO, then why did they discuss, as I showed in the previous chapter, possible means to this end at OPEC’s highest levels, without actively emphasising this fact?[^394] The historical record shows that the OPEC did more than just project itself as a potential supporter of the NIEO. The record shows that the OPEC state elites actually considered such support as potentially necessary. Indeed, the OPEC state elites designated countless hours and millions of dollars towards the NIEO Project. It is far easier to explain this in terms of a genuine belief, on behalf of the OPEC elites, that they might have more significantly supported the NIEO Project. Perhaps the best argument that can be raised in support of the interpretation that OPEC state elites had never intended to support the NIEO is that they had, because of G77 diplomacy, sufficient knowledge of the internal disagreements of the group to know that a NIEO Project would never get off the ground in a way significant enough to warrant OPEC support. This argument, however, can not account for the fact that it did get off the ground in this way, and that the OPEC state elites saw this unfolding from the best possible seats. Indeed, they were at the Sixth Special Session, where the G77 successfully negotiated, as a group, in order to create compromises on its own position while simultaneously negotiating with the state elites of the North. Lastly, there is definitive evidence that at least some state elites from the OPEC certainly supported the NIEO Project. Boumédiène, Chairman of the Revolutionary Council of Algeria, had been instrumental in launching the Sixth Special Session. Furthermore, Venezuela, as represented by Manuel Perez Guerrero, a former UNCTAD Secretary General, had sought an oil price hike that would have contributed directly to the needs of oil-importing developing states. Furthermore, the evidence of Gamani Corea’s memoir, as shown above, demonstrates that Saudi Arabia had not always been opposed to investing in a Common Fund. Furthermore, sources of US Foreign Relations show that Saudi Arabia had, on multiple occasions, specifically linked NIEO progress to Saudi support on oil pricing.[^395] Thus, because the cynical view that the OPEC had never intended to support the NIEO fails to account for all the available historical evidence, it remains to be explained exactly why such OPEC support never arose.
 
-### The explanation from economic context
+*The explanation from economic context*
 
 No previous explanation of OPEC state elites’ failure to significantly invest in the NIEO has attempted to factor in the changing context of the world economic crisis during this period. This is a problem, I argue, because the economic crisis was precisely what had enabled the G77 to be able to create, with its fellow OPEC members, a genuine source of power. As such, changes in the economic crisis during this period had a profound effect on the North-South dialogue. Such changes are also fundamental in changing the position of the OPEC state elites, from actively projecting themselves as willing supporters of the NIEO, to failing to significantly support experiments in new international economic orders. My essential argument here is that the less stable the status quo world order was, the less risky, in relative terms, was investment in a new international economic order. If, that is, the OPEC state elites were not gaining sufficient stability in their earnings under the status quo world order, they would be far more likely to support experiments in unprecedented new international economic orders. Likewise, a calming of the world economic crisis would have served to discourage investment in a new international economic order. To show that this did in fact occur, I rely on key economic indicators that demonstrate that the economic crisis that had served to position the NIEO Project as an important contingency plan, calmed, from 1975 to 1977, serving to position the NIEO Project as relatively riskier than remaining with the status quo. To prove that the calming of the economic crisis had an effect on the North-South dialogue, I explore records of the negotiations at the Conference on International Economic Cooperation. As such, I am able to offer a better interpretation of the available evidence than the cynical view. I argue that the OPEC state elites had genuine power, in this period, over the future of world order, and that they decided against investment in new international economic orders because of a calming of the world economic crisis, something that could not have been foreseen.
 
@@ -574,7 +572,7 @@ While the reports show that the Third World state elites were highly critical of
 
 To conclude, the available evidence supports the argument that (a) the power of the G77 rested on an OPEC willingness to support the NIEO, which was itself contingent on the uncertainty induced by the world economic crisis, and that (b) this economic crisis calmed in important ways between 1975-1977. As such, the failure of the NIEO does not reflect the incapacity of the movement, but rather the fact that as a plan created in response to an unpredictable economic crisis, it just so happened that the unpredictable conditions required for the OPEC to decide to invest in a new international economic order did not arise. However, determining that the calming of the world economic crisis discouraged OPEC investment into a new international economic order is far easier to argue than it is to assess how close the OPEC actually came to investing in a new international economic order. That is, how uncertain did the status quo world order have to be in order for the OPEC, as an organisation, to decide that investing in experiments in new international economic orders would be more prudent than not? Furthermore, it is possible that, despite the importance of economic context, other non-economic historical forces were pushing in the other direction. If true, then it is possible that the OPEC would not have supported the NIEO even if the economic crisis did not calm. In the next section, I turn to address these considerations.
 
-### The effect of strengthening US-OPEC relations
+*The effect of strengthening US-OPEC relations*
 
 In turning to qualify the above argument by considering non-economic historical forces, I find that while it is true that there were other forces pulling and pushing the decision making of the different OPEC state elites, “in the last instance” these non-economic forces, as embedded dialectically within the economic, were themselves dependent upon the level of uncertainty induced by the world economic crisis. It is for this reason that I am able to argue that it was the changing economic context of the world economic crisis that was the most important factor in explaining the decision that emerged within the OPEC to pull-back from investing in experiments in new international economic orders. In order to develop this argument, I first consider the growth of massive US arms trading with Iran and Saudi Arabia during this period. I explain that the strengthening of bilateral relations that this arms trade represents should not be taken to signify a dependence by either Saudi Arabia or Iran on the United States. Rather, it was the power of petrodollars and the needs of the United States, as much as anything else, that enabled the Saudi and Iranian state elites to purchase such large quantities of advanced weaponry during the 1970s. With these purchases made possible by the OPEC’s oil price hike, and with this contingent on the stability of world order, it is just as true that the sale of arms was a force pulling these OPEC state elites closer to support for US hegemony as it was a possible weapon that these OPEC state elites could have used, by withdrawing such purchases of arms, to threaten that US hegemony.
 
@@ -592,13 +590,13 @@ Then, as their conversation was concluding with preparations to meet again in Pa
 
 The picture that emerges from this analysis is a moment in history whereby, because of an unpredictable world economic crisis, the non-West had tangible power to shape the future of world order. The OPEC state elites, through their petrodollar power, possessed the power to decide the fate of two broadly defined world orders. The evidence shows that it put its time and resources towards the possibility of supporting both of these possible world orders. I argue that through its initial support of the NIEO Project, the OPEC state elites had created a contingency plan whereby, if the uncertainty induced by the world economic crisis had not calmed, it very well may have decided to invest in experiments in new international economic orders. This would have amounted to a radical discontinuity in the history of world order, a moment in time where the rules of liberal world order were decided by a coalition of the world’s poorest states. As it actually eventuated, the OPEC state elites lent their support to a US-led world order. With a calming of world economic crisis, the OPEC states came to use their petrodollar power to increase their purchases of advanced weapons, so as to increase the stability of their rule both domestically and regionally, as powerful allies of a US-led world order. Of course, this plan did not necessarily work out, as evidenced by the social forces that came to overthrow the Shah in 1979. Nevertheless, when the NIEO is dismissed as an inherently weak movement destined for failure from the outset, this important decision making power of the OPEC state elites is ignored. As such, the role of non-Western agency and power in the history and theory of world order is also ignored. The ultimate consequence of this has been that the possible futures open for the reform of world order, as experienced during moments of economic crisis, have been inadequately understood in International Relations.
 
-# Chapter 7: Aftermath: The Debt Crisis and the End of the NIEO
+Chapter 7: Aftermath: The Debt Crisis and the End of the NIEO
 
 In the previous four chapters I have traced the rise and decline of the NIEO Project in terms of its material-ideational power. Nevertheless, by the early 1980s another potential source of power emerged from changes in the world economic crisis. The growth of debt in Latin America and Africa had, as discussed above, been an important concern of the G77 elites at the Conference on International Economic Cooperation (CIEC). When their concerns were eventually proved correct, because a debt crisis swept across much of these two continents, there arose the prospect of a debtors’ cartel. If possible a cartel would have had substantial material power. This is because the loans to the Global South were significant assets to some of the most important banks in the US financial system.[^420] As it turned out, no debtors’ cartel was formed. Instead, loans were renegotiated on a case by case basis. The crisis management that resulted was one that favoured the creditors. Banks were protected so as to ward off a collapse of capitalism at the core, while crises and lost decades of growth were experienced in Latin America and Sub-Saharan Africa. There, as a result of the debt crisis, people who had not agreed to the original loans bore the brunt of the collapse, with child mortality rates and unemployment rising as GDP growth fell. This ending of the debt crisis also coincided with the ending of the NIEO Project. It unfolded without any of the collective action that G77 elites had been discussing during the 1970s. A relational historical materialism, however, cannot be content with only describing this series of events. It must inquire into whether things could have been decided otherwise. Why, given the seeming potential for a debtors’ cartel, was one not created? This is to reconsider the debt crisis, and the aftermath of the NIEO Project, as a moment in which the non-West may have had material-ideational power over the future of world order. The task of this chapter is to explore this, in so far as is possible, by way of historical research.
 
 Thus, in what follows I assess the potential material-ideational agency of the G77 elites by considering the prospects of a debtors’ cartel. To do this, I first explain the emergence and consequences of the debt crisis. I show that it had been allowed by a US unilateralism that at first ignored the issue, and then precipitated it, and I show that it had disastrous consequences for the lives of millions of people in Latin America and Africa. Secondly, I argue that a debtors’ cartel, if possible, would have been powerful. I do this by showing that those states which could project a genuine threat of default gained better deals from their creditors than those that did not. Furthermore, I show that creditors were genuinely fearful of a general debtors’ default. Finally, I provide an overview of the previous explanations for the fact that a debtors’ cartel was not created. I do not disagree with any of the explanations given, and treat them as complementary. Nevertheless, I contribute to such considerations by contextualising the failure of a debtors’ cartel within the history of the rise and fall of the NIEO Project. That the G77 elites had not enacted their initial strategy was a huge blow to their original collective power. I show this by noting the fragility of intra-G77 relations following the CIEC. Thus, while the creation of a debtors’ cartel is difficult in any context, it was rendered almost impossible by the breakdown in confidence that followed the retreat, by certain G77 elites, from the initial ambitions of the NIEO Project. Therefore, I conclude that the formation of a debtors’ cartel was extremely unlikely. However, a further implication is that this was not inevitable. It is not unreasonable to imagine that if the G77 elites had followed through, during the North-South Dialogue, on some of their initially projected tactical moves, their collective power would have increased rather than decreased by the early 1980s. Furthermore, the G77 had been negotiating, during the North-South dialogue, for new rules and institutions that would have made the formation of a debtors’ cartel easier.
 
-## The Latin American and African Debt Crises
+The Latin American and African Debt Crises
 
 The debt crisis was a symptom of a historical moment already marked by crisis. Furthermore, attempts to deal with the economic crises of this era had to be conducted within a context in which the rules and institutions formerly created to deal with such crises had themselves broken down. Even though the notion of a ‘Bretton Woods era’ often inflates the importance of the Bretton Woods institutions to world trade,[^421] it is nevertheless true that this period was marked by a multilaterally agreed upon way of dealing with balance of payments adjustments. If under a gold standard states had to deflate their economies to avoid a loss of reserves to a balance of trade deficit,[^422] under the Bretton Woods agreements, exchange rates were fixed, but the IMF would grant credit to assist with any necessary adjustments. As David E. Spiro argues, the Bretton Woods system, even if it had not collapsed, would not have been capable of dealing with the petrodollar crisis that emerged following OPEC’s oil price hike.[^423] Nevertheless, he notes that it is still important to appreciate that when the petrodollar crisis struck, world order had lost any sense of multilaterally agreed upon rules to deal with such imbalances.[^424] Instead, Spiro shows that what was considered ‘legitimate’ in the 1970s was collusion by Northern states in an attempt to reduce the price of oil, a move that was simultaneously and contradictorily marked by the claim by US state elites that the petrodollar surpluses would be recycled by free market forces.[^425] All the while, these state elites actively intervened through secret bilateral deals to shore up their own share of petrodollars, and to increase their own exports of arms to the OPEC state elites.[^426] Thus, to proponents of the ‘hegemonic stability thesis’, the 1970s marked a period in which the United States shrank back from its role as leader of the so-called rules-based liberal world order, something that worried contemporaneous analysts.[^427] Even though the US dollar was floated, OPEC state elites increased the price of oil, and trade imbalances had to be financed, any calls for multilateral co-ordination were rejected by US state elites.
 
@@ -612,7 +610,7 @@ The result was what would be called the ‘lost decade’ of growth.[^440] As cr
 
 The consequence of the debt crisis and its management was stalled or reversed economic development. As William Easterly has shown, from ‘1960-1970 the median per capita growth in developing countries was 2.5 percent’, whereas from 1980-1999 it was 0.0 percent.[^445] In sub-Saharan Africa, ‘poverty did not fall below the level of 1981 until 2005, whereas gross domestic product (GDP) per capita and investment did not return to 1981 levels until 2006-2007.’[^446] This is because unemployment, which had risen as a result of the economic downturn triggered by the debt crisis, rose at the exact moment when, because of the adjustment measures introduced, there was less government spending on essential services.[^447] This was similar in Latin America, leading a UN report to conclude that ‘the lost decade in both sub-Saharan Africa and Latin America was in fact a lost quarter century.’[^448] In 1989 UNICEF’s *The States of the World’s Children* reported that ‘it is children who are bearing the heaviest burden of debt and recession in the 1980s’. By analysing ‘the rate of decline in under five mortality’ in countries not affected by civil war, and in countries in which a decline had not already been in effect, UNICEF was able to show that, as of 1989, ‘at least half a million young children have died in the last twelve months as a result of the slowing down or the reversal of progress in the developing world.’[^449] This UNICEF attributed to ‘rising interest rates, falling commodity prices, inadequate investment of borrowed funds, and the domestic and international management of the resulting debt crisis.’ This had caused ‘the mounting debt repayments, the drop in export earnings, the increase in food costs, the fall in family incomes, the run-down of health services, \[and\] the narrowing of educational opportunities.’[^450] Regardless of the extent to which these effects were the result of the debt crisis itself or the austerity measures, neither of these were inevitable. Rather, US state and financial elites, and elites working within the institutions of the so-called liberal world order, had persistently dismissed the looming danger of the debt crisis. They ignored preparatory steps that could have mitigated it and then did their best to shift the consequences of it from the core financial institutions of world capitalism to the poorest people of the periphery.
 
-## Debtors’ Power
+Debtors’ Power
 
 Just as it is an open question whether the lost decades of growth that followed the debt crisis, and the debt crisis itself, were inevitable, it is also open to question whether negotiating with the IMF and creditors on a case-by-case basis was inevitable. Once state elites began to realise that they and many of their G77 allies would be defaulting on their scheduled debt payments, it seems possible that they might have formed a debtors’ cartel, and that such a cartel may have provided the basis for a new form of collective power to underly better deals on debt rescheduling and even renewed negotiations about the NIEO. Determining whether this is the case is important for a relational historical materialist approach. This is because this approach does not assume that the decisions taken by historical actors are determined solely by the material context from which they find themselves. Rather, the decision-making of actors is considered as both partially shaped by, and a partial shaper of, historical structure. Creating such a relational historical materialist reading of the debt crisis is important because a debt crisis could offer important leverage to debtors. As John Maynard Keynes said in reference to the position of the heavily indebted United Kingdom in its negotiations over the post-war order: ‘The old saying holds. Owe your banker £1000 and you are at his mercy; owe him £1 million and the position is reversed.’[^451] The G77 state elites had far more than one million pounds of debt to default on, and it was the entire capitalist system that was at stake if they did. As such, it remains to be explained why a debtors’ cartel was not created in order to leverage a better deal on debt repayments, or even for concessions towards the vision of the NIEO. In this section, I review the evidence and literature that suggest that the debt crisis could have been a powerful tool for G77 state elites. In the next section, I explain historically why this was made almost impossible by the breakdown of the G77 alliance following the CIEC.
 
@@ -630,7 +628,7 @@ All these policies could have, theoretically, been enacted via meetings with ind
 
 What was being debated at the Conference on International Economic Cooperation, therefore, was not simply whether or not there should be debt forgiveness for the most seriously affected states, and not simply whether or not there was a more orderly and principled way of dealing with the ballooning debt of the wealthier, mostly Latin American states, but the rules and procedures that would impact on the ability of G77 state elites to form a debtors’ cartel. In this way, the failure of the initial strategy of the NIEO Project at the Conference on International Economic Cooperation was in itself important for the later possibility of a new strategy based on debtors’ power. If a more effective regime for the renegotiation of debt had been established, certain barriers to the formation of a debtors’ cartel could have been mitigated.[^467] This included the fact that, although the debt crisis reflected a systemic problem faced by many different forms of state, their precise symptoms and timings were not the same. As such, without a common institution that could decide on debt renegotiation according to a common set of principles, agreed to with all debtor states, each individual indebted state would arrive at the point of insolvency at different times. Attempting to negotiate before insolvency was itself risky, because it could trigger a lack of confidence from the creditors before it was known that default would have been certain otherwise. It is to these issues that I will now turn. Before doing so, however, it is important to note that the rules and procedures of world order that existed when the debt crisis struck, which in and of themselves inhibited the successful formation of a debtors’ cartel, were open for revision during the initial campaign for a new international economic order.
 
-### The prospect of default and the successes of debtors’ power
+*The prospect of default and the successes of debtors’ power*
 
 When the debt crisis struck, the prospect of a politically motivated default was not absent from the considerations of global elites. Nor is it true that debtor states had no power because of the lack of a debtors' cartel. Eileen M. Doherty has argued that the best explanation for the differences in negotiations between individual debtor states and their creditors was a combination of both the size of the debt, and the strategy that a debtor state’s negotiating team deployed.[^468] Doherty showed this via comparisons between the different negotiating tactics, and results, of different debt negotiations. By comparing Venezuela and Argentina, Doherty was able to show that the tactic of increasing the uncertainty of default contributed to increased short term concessions from creditors. Doherty was able to show this because Venezuela and Argentina had comparable sizes of debt, but Venezuela pursued an ‘uncertainty-minimization’ strategy, whereas Argentina pursued an ‘uncertainty-maximising’ strategy.[^469] The result was that ‘because bankers were never convinced that Argentina would avoid default, they worked hard to keep Buenos Aires at the negotiating table by granting more concessions than they wanted to.’[^470] The size of the debt was just as important as the tactics deployed, however. While both Argentina and the Philipines ‘attempted to maximize their creditors’ uncertainty regarding the possibility of a default’, ‘the Philippines lacked the power of a large debt’, and the ‘effect was that the Philippines was unable to extract concessions in the way that Argentina did.’[^471]
 
@@ -638,7 +636,7 @@ A further finding with important implications for an understanding of debtor pow
 
 The available research on the negotiating strategies of debtor states within debt crises can be extrapolated to make several further claims about the potential power of the G77, or the debtor states of the G77, during the crisis of the 1980s. Firstly, because the size of the debt and the uncertainty as to the ability of a state to service the debt were significant factors, it can certainly be confirmed that if the debtor state elites had formed a cartel rather than representing individual states, their power would have been even further maximised. Secondly, in contrast to what was believed by some at the time, if this cartel had adopted a strategy aimed at increasing the perception that default was likely, then even further concessions would have been likely, and this would not have had significant implications, or necessary implications, on future creditworthiness. While this does not prove that the formation of a debtors’ cartel was, in the early 1980s, historically possible, it does prove that there existed a potential source of power that, if no other factor existed to inhibit the formation of a debtors’ cartel, could have allowed for the formation of a second grand strategy to underlie calls for a new international economic order. Indeed, such a strategy, in so far as it could have been possible, could have greatly reduced the negative consequences of the debt crisis.
 
-### So why, then, did the debtor states not form a cartel?
+*So why, then, did the debtor states not form a cartel?*
 
 Several arguments have been put forward to explain the fact that a debtors’ cartel, despite the potential power it could have wielded, was not created by the G77 state elites, or even a smaller subset of them. Karin Lissakers raises two important points. Firstly, she notes that a ‘divide-and-rule tactic’ on behalf of creditors was ‘helped by timing.’[^474] That is, because the debtors did not ‘experience their most acute payments problems simultaneously’, banks ‘could settle with one large debtor before tackling the next, and sweeten the precedent-setting agreement just enough each time to keep the others in line, or at least prevent them from joining forces.’[^475] Secondly, Lissakers shows that any attempt to form a debtors' cartel was attacked vehemently by US state elites. Thus, when discussing a point Lissakers describes as the ‘closest the Latins ever came to forming a debtors’ cartel’, which was ‘a meeting of heads of government in Cartagena, Colombia, in 1984 to discuss common debt issues’, US state elites were very clear that they did not approve:
 
@@ -648,7 +646,7 @@ A similar point to that of timing is also made by Susan Strange. Strange wrote t
 
 Without taking away from the arguments made by Lissakers or Strange, it is important to take note of Vijay Prashad’s argument about considering the importance of the decision-making of G77 state elites. He writes that at the Non-Aligned Movement (NAM) meeting in New Delhi the more powerful delegates ‘suggested that economic issues should be seen as technical problems, which could be sorted out by technocrats.’[^479] Thus, when ‘some states proposed that the darker nations should simply refuse to pay their external debt, the more influential in the NAM squelched this option. They felt that this would only provoke the G-7 to reprisals and would not improve their bargaining power.’ Thus, rather than ‘an outright debt repayment strike as a tactic to help restructure the debt, the “moderate” members argued that the restructuring of debt should happen individually and in negotiation.’[^480] To Prashad, then, the huge turning point in world order that came in the 1980s, ‘the hegemony of neoliberal economics’, ‘came not only from the imperialist pressure but also from those forces within the countries that fundamentally disagreed with the strategic direction of social development *chosen* by the political parties of national liberation.’[^481] As hope for a NIEO amongst G77 elites waned, they put their weight behind ‘a closer relationship with the “West” for economic gain and consumer pleasure.’[^482]
 
-### Weakening of the G77's collective power
+*Weakening of the G77's collective power*
 
 The above explanations of the failure to form a debtors’ cartel are important, and I do not seek to detract from them in any way. However, further explanatory power can be gained by tracing the decline in the collective power of the G77 that followed the failure of the CIEC in 1977. As has already been noted in this chapter, and before this by Vijay Prashad,[^483] the G77 plans for dealing with the debt bubble that had been brought for discussion at UNCTAD IV in 1976 and at the CIEC, would have, if implemented, made it easier to coordinate the formation of a debtors’ cartel. But the failure of the CIEC, because it represented a collapsing of the original promise of G77 collective power, had deeper and more long-term effects. G77 power had rested on the belief that the G77 state elites could work together in order to leverage the world economic crisis. Originally, this leverage had rested upon the assumption that the OPEC might use its petrodollar surpluses in support of the NIEO. The failure of the OPEC elites to “be good Robin Hoods” served a blow not only to that original strategy, but to the hope necessary to build another one. With the power of the G77 resting on the belief that such global collective strategies were possible, the failure of the first such strategy resulted in a loss of collective power for any subsequent attempts. As such, even if there was a sliver of possibility for a debtors’ cartel, the necessary ideational conditions for this — an intersubjective belief that such a scheme was viable — no longer existed. Or, at least, were nearly impossible to create. Thus, just as Prashad is right to note that the victory of neo-liberal world order was in part the consequence of the decision of G77 elites not to form a debtors’ cartel, this decision itself can be explained in terms of a lack of hope for such grand strategies, a lack of hope that followed from the withdrawal from the original strategy that had underlined the NIEO Project.
 
@@ -678,13 +676,13 @@ Thus, it should not be a surprise that, with the relational ties of the G77 stat
 
 In this chapter I relied upon a relational historical materialist approach in order to reconsider the power of the G77 state elites during the emerging Third World debt crisis. My central concern was to understand why a renewed basis for G77 collective power was not created from the potential for a debtors’ cartel. While a successfully formed debtors’ cartel would have been powerful, I agree with previous analysts that it would have been very difficult to pull off. Nevertheless, I add to this analysis by contextualising the failure to form a debtors’ cartel within the rise and decline of the initial collective power that had underlined calls for a new international economic order. I show that the formation of a debtors’ cartel was made significantly unlikely because the confidence in collective action had been squashed when OPEC state elites did not invest in the NIEO as they had initially suggested that they would. Thus, I find that the prospect for a debtors’ cartel during the 1980s was nearly nonexistent. Nevertheless, I do argue that if the G77’s initial strategy had been followed through on, at the CIEC, the historical context would have been far more ripe for a debtors’ cartel. This is because tangible moves towards South-South solidarity would have strengthened the resolve to experiment with similar strategies, and legitimised the belief that G77 unity was, or at least could be, a significant power. Furthermore, G77 state elites had proposed, at the CIEC, a new regime for the co-ordination of a debt crisis, one that would have made the formation of a debtors’ cartel relatively easier.
 
-# Conclusion
+## Conclusion
 
 The aftermath of the NIEO Project –– debt crises, lost growth, and death for millions of the world’s poorest people –– was not conducive to a positive portrayal of it. From the 1980s, a consensus formed that the NIEO failed because of insufficient power. There did not seem to be a pressing need to revisit this fork in the path of the past during the decades that followed either. Without the NIEO, or a G77 opposed to the wishes of a US-led world order, there didn’t seem to be any other options. Instead of seeking to transcend neo-colonialism by new global agreements to manage capitalism in ways that might assist the economic development of the world’s poorest states, the ‘Real New International Economic order’ that emerged was premised on the belief that states just needed to open themselves up to the forces of a more interconnected world economy.[^502] As such, the kinds of structural disparities that existed for historical reasons, but did not find themselves in the ahistorical models that were used in support of this new world order, were ignored. Since the Great Recession, however, and amidst the present crisis of liberal world order, historians have sought to look back, to find something from which to build an understanding of how things could be recreated differently.[^503] Both Orthodox and Critical IR theories have been slow to respond to this new research and how it might alter perspectives on change in world order. Meanwhile, however, this new historical research into the NIEO –– despite rightly pointing to the fact that the NIEO should not be dismissed purely for having failed –– has itself been unable to show, historically, how it might have succeeded.
 
 This is what I have contributed to in this thesis. By deploying a relational historical materialist approach to world order, I have been able to trace the creation and failure of the power of the NIEO Project. In doing so, I have shown that, despite its failure, the NIEO Project was an important contingency plan. Non-Western agency, during this moment of crisis, is essential for understanding this crucial turning point in the history of the post-war “liberal” order. We are now, amidst new crises and uncertainties, at a second inflexion point. For this reason, this thesis is relevant for both the theory and history of world order, and serves to strengthen the claims of historical sociologists, like Robert Cox, that history and theory should never have been separated in the first place. The result has been an important contribution to the goal of a ‘Global IR’.[^504] The reassessment of the NIEO made possible by a relational historical materialism demonstrates that the material-ideational power of the non-West is essential for understanding world order. In what follows, I will conclude by summarising the account of the rise and decline of the power of the NIEO outlined in this thesis, before explaining the implications of this for the wider theory and history of world order.
 
-### The Creation, and demise, of the power of the NIEO Project
+*The Creation, and demise, of the power of the NIEO Project*
 
 The story of the underlying collective power of the NIEO told in this thesis is very different from that which follows from the assumption that it failed because it was insufficiently powerful ever to have posed a serious threat to the Global North. In these accounts, the NIEO, even if it reflected great ambition and intellectual work on behalf of thousands of people across the Global South, represented only the delusions of the 1970s. My research has led me to develop the pioneering work of Vijay Prashad, who was the first historian to revisit seriously the power of the NIEO. In building upon Prashad’s history of the wider Third World project, I have shown that the NIEO was made possible both by ideas and by material capabilities. If it had not been for the efforts of the intellectuals who worked to create the ideas of the ‘declining terms of trade’, ‘neo-colonialism’, and ‘permanent sovereignty over natural resources’, a shared discourse of the post-war order would not have existed for the G77 state elites to use in the creation of a unified front for the reformation of world order. These ideas were created from a praxis concerned with understanding the post-war order historically in order to change it. It was for this reason that these ideas were able to correspond with the experience of so many different state elites, and therefore to be woven into their rhetoric about the need to reform the post-war order.
 
@@ -700,25 +698,27 @@ The failure of the OPEC elites to follow through on their initial promises of le
 
 Nevertheless, even the aftermath of the NIEO Project –– the lost decade/s of economic growth that came to affect much of the Global South –– can be read as evidence of how powerful the G77 had been. For the NIEO Project came close to establishing the conditions that would have greatly diminished the pain of the debt crisis. Indeed, such catastrophic consequences could have been avoided. While this is no solace to the millions of people who experienced the debt crisis, it does suggest the importance of the NIEO Project to world history, and to the history and theory of world order. The NIEO Project is unprecedented in its diplomatic achievements, and in how close it came to reforming world order from a non-imperialistic basis. As such, even though the power of the NIEO Project was not, in the end, used, the power of the G77 state elites was of the utmost consequence for the history of world order. It was not unimportant because it was insufficiently powerful. Rather, it was important and it was powerful, but this power was not used in order to rewrite the rules and institutions of world order.
 
-### The implications for the theory of world order
+*The implications for the theory of world order*
 
 This history of the NIEO has important implications for both Orthodox and Critical Theories of World Order. For Orthodox, liberal internationalist theory, this reassessment of the NIEO fits alongside a broader re-engagement with the role of the non-West in the creation and subsequent history of the post-war order.[^505] Even as liberal internationalists grapple with the present crisis of world order, and with the rise of non-Western powers, the role of the NIEO has been ignored. This is reflective of ahistorical theoretical assumptions. It is assumed that only liberal states seek to create liberal institutions, or that a liberal world order requires a strong liberal hegemon. Nevertheless, this thesis has confirmed the judgment of previous analysts by demonstrating that, at least according to definitions of Orthodox liberal internationalists, the NIEO was a project that sought not to overturn, but to save the post-war “liberal” order, by making it even more “liberal”. As such, the history of NIEO should be considered as important for creating a truly Global IR of liberal world order. Without acknowledging the history of the NIEO, of what the G77 state elites sought to accomplish, Orthodox Liberal IR will continue to construct world order with a Eurocentric myopia that has undermined, and continues to undermine, its understanding of the present crisis of world order.
 
 This account of the NIEO also has implications for Critical International Relations Theory. Robert Cox created his theory of world order with the explicit intent of assisting in projects that aimed to reform world order. Nevertheless, by viewing the past as fixed, he came to view the NIEO as a powerless project, simply because it had failed. Thus, as Hobson and Sajed have shown, his work perpetuated a Eurofetishised view of Western agency, to the exclusion of the way that the non-West has been important in shaping world order. By taking up Hobson and Sajed’s call for a relational sociology of world order, I was able to transcend the limitations of Cox’s view of the nature of historical research. In doing so, I was able to reassess the NIEO, and show that Cox’s interpretation of it was flawed. Not only was the role of non-Western agency important for the history of world order in the 1970s, but it was important for the exact reasons that Cox claimed to study world order. As a movement that came very close to reforming the post-war order, it should be treated with the utmost importance by any such Critical Theory of world order. Indeed, the NIEO should not be dismissed and ignored by Critical Theory, or by historical materialist work on world order more generally. Instead, it should serve as an example of how malleable world order can be amidst the uncertainties of a world economic crisis, so long as great effort has been dedicated to the creation of a broad-based political project aimed at its reformation.
 
-## Future Research 
+## Future Research
 
 This thesis provides a basis for further research into the history of the NIEO, and the history and theory of world order. Having studied the rise and fall of the NIEO from the vantage point of the United Nations Archives, and other US-based archives, I have outlined a general story of how the North-South dialogue developed, with a view to understanding the decision making at the most crucial moments. This work can be greatly improved upon –– and the central argument of this thesis strengthened or falsified –– through further research within the national archives of leading G77 states. Evidence for the potential fruits of such endeavours can be found in the work of Christy Thornton, who traces important historical foundations of the NIEO within Mexico.[^506] In particular, further archival research, or even interviews, detailing the strategic thinking of Saudi Arabia during this period could prove essential for strengthening knowledge of the high point of the North-South dialogue, and the reasons for its collapse. Looking beyond the NIEO, and towards its significance for the wider history of world order, much could be gained by connecting this story with more overtly economic analyses of the changes occurring during this period. Recently, orthodox economic historians have framed the post-war golden age of capitalism as itself the exception, as a novel space and time in which wages could rise in keeping with productivity so that inequality declined.[^507] This period ended in the crises of the 1970s, something which, in turn, highlights the importance of Marxist analyses which have, for much longer, considered the 1970s to be an important turning point in world capitalism.[^508] This more overtly economic work could provide better explanations for the context from which the crises of the 1970s, which the G77 elites responded to and sought to take advantage of, emerged. Whereas this thesis focuses more narrowly on the NIEO itself, when seeking to extend this research to the wider history of the post war order, it will be essential to connect it to the economic work discussed above. This will enable an analysis of the decision making of historical actors caught up within economic crises to be foregrounded with a macro historical analysis of the development of these crises themselves. This, I hope, could prove fruitful for a more macro-historical sociology of world order, one that can explain the relation between the creation of the rules and institutions of world order to the crisis-propelled history of world capitalism, with a view to focusing on the key moments in which historical actors had the most power to alter the course of this history. In this regard, a core concern, I believe, should be how these seemingly abstracted moments of world history –– oftentimes unknowable decisions made by global elites –– are related to the condition of the majority of the world’s people, whose poverty is often deeply entwined with, but ignored from, these moments of decision. This history should be geared always towards informing knowledge not only of how things have ended up the way they are, but of how they might have been. This is essential, I believe, for informing people’s knowledge of what might be possible now. That is, for informing the praxis which is the most essential research for transcending or mitigating the present crisis. Of course ideally such research should –– in my view –– require extensive and democratic ethics approval.
 
-# References
+[Uncategorized References](https://doi.org/10.1111/isqu.12171)
 
-Acharya, Amitav. *Constructing Global Order: Agency and Change in World Politics.* Cambridge University Press, 2018.
+[77, Group of. *Manila Declaration and Programme of Action*. Manila, 1976.](https://doi.org/10.1111/isqu.12171)
 
-———. "Global International Relations (Ir) and Regional Worlds." *International Studies Quarterly* 58, no. 4 (2014): 647-59. <https://doi.org/10.1111/isqu.12171>.
+[Acharya, Amitav. *Constructing Global Order: Agency and Change in World Politics.* Cambridge University Press, 2018.](https://doi.org/10.1111/isqu.12171)
+
+[———. "Global International Relations (Ir) and Regional Worlds." *International Studies Quarterly* 58, no. 4 (2014): 647-59. [https://doi.org/10.1111/isqu.12171]{.underline}](https://doi.org/10.1111/isqu.12171).
 
 America, United Nations Economic Commission for Latin, and R. Prebisch. *The Economic Development of Latin America and Its Principal Problems.* United Nations Department of Economic Affairs, 1950.
 
-Amin, Samir. "After the New International Economic Order: The Future of International Economic Relations." *Journal of Contemporary Asia* 12, no. 4 (1982): 432-50. <https://doi.org/10.1080/00472338285390361>.
+Amin, Samir. "After the New International Economic Order: The Future of International Economic Relations." *Journal of Contemporary Asia* 12, no. 4 (1982): 432-50. [[https://doi.org/10.1080/00472338285390361]{.underline}](https://doi.org/10.1080/00472338285390361).
 
 Anghie, Antony. *Imperialism, Sovereignty and the Making of International Law.* Cambridge, UK; New York: Cambridge University Press, 2005.
 
@@ -726,9 +726,343 @@ Anghie, Antony. *Imperialism, Sovereignty and the Making of International Law.* 
 
 Anievas, Alexander, and Kerem Nişancıoğlu. *How the West Came to Rule: The Geopolitical Origins of Capitalism.* How the West Came to Rule. London : Pluto Press, 2015.
 
-Assembly, United Nations General. "Declaration on the Establishment of a New International Economic Order." (1974). <http://www.un-documents.net/s6r3201.htm>.
+Assembly, United Nations General. "Declaration on the Establishment of a New International Economic Order." (1974). [[http://www.un-documents.net/s6r3201.htm]{.underline}](http://www.un-documents.net/s6r3201.htm).
 
-———. "Programme of Action on the Establishment of a New International Economic Order." (1974). <http://www.un-documents.net/s6r3202.htm>.
+———. *Programme of Action on the Establishment of a New International Economic Order*. New York, 1974.
+
+———. "Resolution 2626 (Xxv) on an International Development Strategy for the Second United Nations Development Decade." *New York: United Nations* (1970).
+
+Bair, Jennifer. "Taking Aim at the New International Economic Order." In *The Road from Mont Pelerin: The Making of the Neoliberal Thought Collective*, edited by Philip Morowski & Dieter Plehwe, 347. Cambridge, Massachusetts; London, England: Harvard University Press, 2009.
+
+Bedjaoui, M. *Towards a New International Economic Order.* Holmes & Meier, 1979.
+
+Bergsten, C. Fred. "The Threat from the Third World." *Foreign Policy*, no. 11 (1973): 102-24. [[https://doi.org/10.2307/1148041]{.underline}](https://doi.org/10.2307/1148041).
+
+———. "The Threat Is Real." *Foreign Policy*, no. 14 (1974): 84-90. [[https://doi.org/10.2307/1147948]{.underline}](https://doi.org/10.2307/1147948).
+
+Bhagwati, Jagdish N., and John Gerard Ruggie. *Power, Passions, and Purpose: Prospects for North-South Negotiations.* Edited by Jagdish N. Bhagwati and John Gerard Ruggie. Cambridge, Mass: Cambridge, Mass : MIT Press, 1984.
+
+Bieler, Andreas, and David Morton. *Global Capitalism, Global War, Global Crisis.* Cambridge: Cambridge University Press, 2018.
+
+Bockman, Johanna. "Socialist Globalization against Capitalist Neocolonialism: The Economic Ideas Behind the New International Economic Order." *Humanity* 6, no. 1 (Spring 2015 2015): 109-28.
+
+Brenner, R. *The Economics of Global Turbulence: The Advanced Capitalist Economies from Long Boom to Long Downturn, 1945-2005.* Verso, 2006. [[https://books.google.com.au/books?id=MdzRuGutydYC]{.underline}](https://books.google.com.au/books?id=MdzRuGutydYC).
+
+Brzoska, Michael, Thomas Ohlson, and Stockholm International Peace Research Institute. *Arms Transfers to the Third World, 1971-85.* Oxford; New York: Oxford University Press, 1987. Publisher description [[http://www.loc.gov/catdir/enhancements/fy0638/87005579-d.html]{.underline}](http://www.loc.gov/catdir/enhancements/fy0638/87005579-d.html).
+
+Burke, Roland. *Decolonization and the Evolution of International Human Rights.* Philadelphia: Philadelphia: University of Pennsylvania Press, 2010.
+
+CIA. "The Dynamics of “Small-State” Leverage: Implications for North-South Relations, 7 August 1976." (CIA-RDP79T00889A000800020001-9).
+
+———. Intelligence Memorandum: Prospects for the 7th Special Session of the U.N General Assembly.
+
+———. The Politics of the G-77: Near-Term Implications for the North-South Dialouge, 20 April 1977. International Issues: Regional and Political Analysis.
+
+———. Us-Ldc Relations: Problems and Prospects. International Issues: Regional and Political Analysis, 30 August 1977.
+
+Corbridge, Stuart. *Debt and Development.* Oxford, UK; Cambridge, Mass: Blackwell, 1993.
+
+Corea, Gamani, and United Nations Conference on Trade and Development. *Taming Commodity Markets: The Integrated Programme and the Common Fund in Unctad.* Manchester: Manchester University Press, 1992.
+
+Cox, Robert. "Social Forces, States and World Orders: Beyond International Theory." *Millennium* 10, no. 2 (1981): 126.
+
+Cox, Robert W. "'Real Socialism' in Historical Perspective." *Socialist Register* 27, no. 27 (1991).
+
+Cox, Robert W. "Ideologies and the New International Economic Order: Reflections on Some Recent Literature." *International Organization* 33, no. 2 (1979): 257-302.
+
+———. *Production, Power, and World Order: Social Forces in the Making of History.* New York: Columbia University Press, 1987.
+
+Desai, Manali. "The Relative Autonomy of Party Practices: A Counterfactual Analysis of Left Party Ascendancy in Kerala, India.". *American Journal of Sociology* 108, no. 3 (2002): 616-57. [[https://doi.org/10.1086/367919]{.underline}](https://doi.org/10.1086/367919).
+
+Devetak, Richard, Tim Dunne, and Ririn Tri Nurhayati. "Bandung 60 Years On: Revolt and Resilience in International Society." *Australian Journal of International Affairs* 70, no. 4 (2016): 1-16. [[https://doi.org/10.1080/10357718.2016.1155201]{.underline}](https://doi.org/10.1080/10357718.2016.1155201).
+
+Dietrich, Christopher R. W. "Mossadegh Madness: Oil and Sovereignty in the Anticolonial Community." *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 6, no. 1 (2015): 63-78. [[https://doi.org/10.1353/hum.2015.0002]{.underline}](https://doi.org/10.1353/hum.2015.0002).
+
+———. *Oil Revolution: Anticolonial Elites, Sovereign Rights, and the Economic Culture of Decolonization.* Global and International History. Cambridge: Cambridge University Press, 2017.
+
+Doherty, Eileen M. *The Difference between Certainly and Perhaps: Ldc Bargaining in Commercial Debt Negotiations.* University of California, Berkeley, 1994.
+
+Dosman, Edgar J. *The Life and Times of RaúL Prebisch, 1901-1986.* Montreal: Montreal : McGill-Queen's University Press, 2008.
+
+Easterly, William. "The Lost Decades: Developing Countries' Stagnation in Spite of Policy Reform 1980– 1998." *Journal of Economic Growth* 6, no. 2 (2001): 135-57. [[https://doi.org/10.1023/A:1011378507540]{.underline}](https://doi.org/10.1023/A:1011378507540).
+
+Economist, The. "And a Thoroughly Confused New Year." 29 December 1973.
+
+———. "Editorial." 12 January 1974.
+
+———. "Imf Discussions About Monetary Reform." 8 June 1974.
+
+Eichengreen, Barry J. *Globalizing Capital : A History of the International Monetary System / Barry Eichengreen.* History of the International Monetary System. 2nd ed. ed. Princeton, N.J. ; Oxford: Princeton, N.J. ; Oxford : Princeton University Press, 2008.
+
+Eichengreen, Barry, and Peter H Lindert. *The International Debt Crisis in Historical Perspective.* MIT press, 1992.
+
+Elsenhans, Hartmut. "New Tendencies in North-South Relations." *Pakistan Horizon* 46, no. 3/4 (1993): 37-56.
+
+Emirbayer, Mustafa. "Manifesto for a Relational Sociology." *American Journal of Sociology* 103, no. 2 (1997): 281-317. [[https://doi.org/10.1086/231209]{.underline}](https://doi.org/10.1086/231209).
+
+G77. *Manila Declaration and Programme of Action*. Manila, 1976.
+
+Galpern, Steven G. *Money, Oil, and Empire in the Middle East : Sterling and Postwar Imperialism, 1944-1971 / Steven G. Galpern.* Sterling and Postwar Imperialism, 1944-1971. Cambridge: Cambridge : Cambridge University Press, 2009.
+
+Garavini, Giuliano. *After Empires : European Integration, Decolonization, and the Challenge from the Global South, 1957-1985.* 1 vols. Oxford: Oxford University Press, 2012.
+
+———. *After Empires: European Integration, Decolonization, and the Challenge from the Global South, 1957-1986.* Edited by Richard R. Nybakken. Oxford, UK: Oxford University Press, 2012.
+
+Getachew, Adom. *Worldmaking after Empire: The Rise and Fall of Self-Determination.* Princeton University Press, 2019.
+
+Gilman, Nils. "The New International Economic Order: A Reintroduction." *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 6, no. 1 (2015): 1-16.
+
+Gordon, R.J. *The Rise and Fall of American Growth: The U.S. Standard of Living since the Civil War.* Princeton University Press, 2017. [[https://books.google.com.au/books?id=bA8mDwAAQBAJ]{.underline}](https://books.google.com.au/books?id=bA8mDwAAQBAJ).
+
+Gosovic, Branislav, and John Gerard Ruggie. "On the Creation of a New International Economic Order: Issue Linkage and the Seventh Special Session of the Un General Assembly." *International Organization* 30, no. 2 (1976): 309-45. [[https://doi.org/10.1017/S0020818300018300]{.underline}](https://doi.org/10.1017/S0020818300018300).
+
+Gruhn, Isebill V. "The Lomé Convention: Inching Towards Interdependence." *International Organization* 30, no. 2 (1976): 241-62.
+
+Hart, Jeffrey A. *The New International Economic Order: Conflict and Cooperation in North-South Economic Relations, 1974-1977.* London: London: Macmillan, 1983.
+
+Harvey, D. *A Brief History of Neoliberalism.* Oxford University Press, 2007. [[https://books.google.com.au/books?id=CKUiKpWUv0YC]{.underline}](https://books.google.com.au/books?id=CKUiKpWUv0YC).
+
+"The Havana Summit." *Third World Quarterly* 2, no. 2 (1980): 328-38. [[https://doi.org/10.1080/01436598008419501]{.underline}](https://doi.org/10.1080/01436598008419501).
+
+Helleiner, E. *States and the Reemergence of Global Finance: From Bretton Woods to the 1990s.* Cornell University Press, 1996. [[https://books.google.com.au/books?id=jcg6YICLiIYC]{.underline}](https://books.google.com.au/books?id=jcg6YICLiIYC).
+
+Helleiner, Eric. *Forgotten Foundations of Bretton Woods : International Development and the Making of the Postwar Order.* Ithaca ; London: Cornell University Press, 2014.
+
+———. *Forgotten Foundations of Bretton Woods: International Development and the Making of the Postwar Order.* Ithaca; London: Cornell University Press, 2014.
+
+Hobson, John M. *The Eurocentric Conception of World Politics: Western International Theory, 1760-2010.* Cambridge: Cambridge University Press, 2012.
+
+Hobson, John M., and Alina Sajed. "Navigating Beyond the Eurofetishist Frontier of Critical Ir Theory: Exploring the Complex Landscapes of Non-Western Agency." *International Studies Review* (2017). [[https://doi.org/10.1093/isr/vix013]{.underline}](https://doi.org/10.1093/isr/vix013).
+
+Hudson, M. *Global Fracture: The New International Economic Order.* Second ed. London: Pluto Press, 2005.
+
+Huizinga, Johan. "The Idea of History." In *The Varieties of History*, edited by Fritz Stern: Vintage, 1973.
+
+Ikenberry, G. John. "The Future of the Liberal World Order: Internationalism after America." *Foreign Affairs* 90, no. 3 (May/June 2011): 56-68.
+
+———. "Liberal Internationalism 3.0: America and the Dilemmas of Liberal World Order." *Persp on Pol* 7, no. 1 (2009): 71-87. [[https://doi.org/10.1017/S1537592709090112]{.underline}](https://doi.org/10.1017/S1537592709090112).
+
+Institute, Overseas Development. Opec Aid. London. [[https://www.odi.org/sites/odi.org.uk/files/odi-assets/publications-opinion-files/6634.pdf]{.underline}](https://www.odi.org/sites/odi.org.uk/files/odi-assets/publications-opinion-files/6634.pdf).
+
+Issues, Independent Commission on International Development. *North-South, a Programme for Survival: Report of the Independent Commission on International Development Issues.* 1st MIT Press paperback ed. Cambridge, Mass: MIT Press, 1980.
+
+James, C. L. R. *Nkrumah and the Ghana Revolution.* London: Allison and Busby, 1977.
+
+Keynes, John Maynard. *The Collected Writings of John Maynard Keynes / \[John Maynard Keynes\].* Edited by Elizabeth S. Johnson, D. E. Moggridge and Society Royal Economic. Vol. XXIV, London\] : \[New York\]: London : Macmillan ; New York : St. Martin's Press for the Royal Economic Society, 1971.
+
+Krasner, Stephen. "Oil Is the Exception." *Foreign Policy* 0, no. 14 (1974): 68.
+
+Krasner, Stephen D. *Structural Conflict: The Third World against Global Liberalism.* Studies in International Political Economy. Berkeley: University of California Press, 1985.
+
+Lawson, George. "The Eternal Divide? History and International Relations." *European Journal of International Relations* 18, no. 2 (2012): 203-26. [[https://doi.org/10.1177/1354066110373561]{.underline}](https://doi.org/10.1177/1354066110373561).
+
+Lees, Nicholas. "The Evolution of International Inequality: Justice, Order and North-South Relations from the Nieo to the G20." Doctor of Philosophy, University of Oxford, 2013.
+
+Lissakers, Karin. *Banks, Borrowers, and the Establishment: A Revisionist Account of the International Debt Crisis.* Basic Books, 1993.
+
+Mandel, Ernest. *Late Capitalism.* Verso, 1998. [[https://books.google.com.au/books?id=8lO3AAAAIAAJ]{.underline}](https://books.google.com.au/books?id=8lO3AAAAIAAJ).
+
+Marx, Karl. "The Eighteenth Brumaire of Louis Bonaparte." (1852). [[https://www.marxists.org/archive/marx/works/1852/18th-brumaire/ch01.htm]{.underline}](https://www.marxists.org/archive/marx/works/1852/18th-brumaire/ch01.htm).
+
+Mazower, Mark. *Governing the World: The History of an Idea, 1815 to the Present.* Penguin Group USA, 2013.
+
+———. *No Enchanted Palace: The End of Empire and the Ideological Origins of the United Nations.* Princeton, N.J.; Oxford: Princeton University Press, 2009.
+
+Moyn, S. *Not Enough: Human Rights in an Unequal World.* Belknap Press of Harvard University Press, 2018. [[https://books.google.com.au/books?id=bs9-tQEACAAJ]{.underline}](https://books.google.com.au/books?id=bs9-tQEACAAJ).
+
+Murphy, Craig. *Global Institutions, Marginalization, and Development / Craig N. Murphy.* London ; New York, NY: London ; New York, NY : Routledge, 2005.
+
+Murphy, Craig N. "What the Third World Wants: An Interpretation of the Development and Meaning of the New International Economic Order Ideology." *International Studies Quarterly* 27, no. 1 (1983): 55-76. [[https://doi.org/10.2307/2600619]{.underline}](https://doi.org/10.2307/2600619).
+
+Narlikar, Amrita. *International Trade and Developing Countries Bargaining and Coalitions in the Gatt and Wto*. London; New York: Routledge, 2003.
+
+Nations, United. 2209th Plenary Meeting of Sixth Special Session.
+
+———. 2211th Plenary Meeting of Sixth Special Session.
+
+———. 2214th Plenary Meeting of Sixth Special Session.
+
+———. 2215th Plenary Meeting of Sixth Special Session.
+
+———. 2217th Plenary Meeting of Sixth Special Session.
+
+———. 2219th Plenary Meeting of Sixth Special Session.
+
+———. 2221st Plenary Meeting of Sixth Special Session.
+
+———. 2224th Plenary Meeting of Sixth Special Session.
+
+"Creation of the Ldc Category and Timeline of Changes to Ldc Membership and Criteria." 2019, accessed 21/1/19, 2019, [[https://www.un.org/development/desa/dpad/least-developed-country-category/creation-of-the-ldc-category-and-timeline-of-changes-to-ldc-membership-and-criteria.html]{.underline}](https://www.un.org/development/desa/dpad/least-developed-country-category/creation-of-the-ldc-category-and-timeline-of-changes-to-ldc-membership-and-criteria.html).
+
+Nations, United. "The End of the Golden Age, the Debt Crisis and Development Setback." In *World Economic and Social Survey 2017: Reflecting on Seventy Years of Development Policy Analysis*. New York: UN, 2017.
+
+———. "Official Records of the General Assembly: Sixth Special Session." *General Committee and Ad Hoc Committee of the Sixth Special Session, 10 April - 1 May 1974* A/AC.166/SR.1-21 (1974).
+
+———. *World Economic Survey 1975: Fluctuations and Development in the World Economy.* New York, 1976. [[https://www.un.org/en/development/desa/policy/wess/wess_archive/1975wes.pdf]{.underline}](https://www.un.org/en/development/desa/policy/wess/wess_archive/1975wes.pdf).
+
+Nkrumah, Kwame. *Neo-Colonialism: The Last Stage of Imperialism.* London: Nelson, 1965.
+
+OECD. "Net Oda (Indicator)." 22 January 2019 2019.
+
+OPEC. *Solemn Declaration: Conference of the Sovereigns and Heads of State of the Opec Member Countries.* Algiers, 1975.
+
+Özsu, Umut. "“In the Interests of Mankind as a Whole”: Mohammed Bedjaoui’s New International Economic Order." *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 6, no. 1 (2015): 129-43. [[https://doi.org/10.1353/hum.2015.0013]{.underline}](https://doi.org/10.1353/hum.2015.0013).
+
+Phillips, Andrew. "Beyond Bandung: The 1955 Asian-African Conference and Its Legacies for International Order." *Australian Journal of International Affairs* 70, no. 4 (2016): 329-41. [[https://doi.org/10.1080/10357718.2016.1153600]{.underline}](https://doi.org/10.1080/10357718.2016.1153600).
+
+Piketty, T. *Capital in the Twenty-First Century.* Harvard University Press, 2014. [[https://books.google.com.au/books?id=J222AgAAQBAJ]{.underline}](https://books.google.com.au/books?id=J222AgAAQBAJ).
+
+Prashad, Vijay. *The Darker Nations : A People's History of the Third World.* New York ; London: New Press, 2008.
+
+———. *The Darker Nations: A People's History of the Third World.* New York; London: New Press, 2008.
+
+———. *The Poorer Nations : A Possible History of the Global South.* London ; Brooklyn, NY: Verso, 2012.
+
+———. *The Poorer Nations: A Possible History of the Global South.* London: Verso, 2014.
+
+Prebisch, Raúl. "Statement by Dr. Raul Prebisch, Executive Secretary of Ecla at the Inaugural Meeting on 19 November 1956." Economic Committee for Latin America Trade Committee TRADE COMMITTEE, Santiago, 1956.
+
+———. "Statement by Dr. Raul Prebisch, Executive Secretary of Ecla at the Inaugural Meeting on 19 November 1956." Economic Committee for Latin America Trade Committee, Santiago, 1956.
+
+"Robert Brenner the Economics of Global Turbulence." *New Left Review* 0, no. 229 (1998).
+
+Rooney, David. *Kwame Nkrumah Vision and Tragedy.* \[2nd ed.\]. ed. Accra, Ghana: Sub-Saharan Publishers, 2007.
+
+Ross, Mr Kevin, Mr R Brooks, Mr Robert Powell, Ms Ydahlia A Metzgen Quemarez, Ms Doris C Ross, Mr Mariano Cortes, Saqib Rizavi, Benoit Ketchekmen, and Francesca Fornasari. *External Debt Histories of Ten Low-Income Developing Countries: Lessons from Their Experience.* International Monetary Fund, 1998.
+
+Rothschild, Emma. "Banks-Politics of Debt." *New York Review of Books* 23, no. 11 (1976): 25-32.
+
+Rothstein, Robert. "Regime- Creation by a Coalition of the Weak: Lessons from the Nieo and the Integrated Program for Commodities." *International Studies Quarterly* 28, no. 3 (1984): 307. [[https://doi.org/10.2307/2600633]{.underline}](https://doi.org/10.2307/2600633).
+
+Rothstein, Robert L. *Global Bargaining: Unctad and the Quest for a New International Economic Order.* Princeton: Princeton University Press, 1979.
+
+Sargent, Daniel J. "North/South: The United States Responds to the New International Economic Order." *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 6, no. 1 (2015): 201-16. [[https://doi.org/10.1353/hum.2015.0009]{.underline}](https://doi.org/10.1353/hum.2015.0009).
+
+Sauvant, Karl P. *The Group of 77 : Evolution, Structure, Organization / by Karl P. Sauvant.* New York: New York : Oceana Publications, 1981.
+
+Schrijver, Nico. *Sovereignty over Natural Resources: Balancing Rights and Duties.* Cambridge ; New York: Cambridge University Press, 1997.
+
+Senate, The United States. *Alleged Assassination Plots Involving Foreign Leaders.* (1975). [[https://www.intelligence.senate.gov/sites/default/files/94465.pdf]{.underline}](https://www.intelligence.senate.gov/sites/default/files/94465.pdf).
+
+Sharma, Patrick. "Between North and South: The World Bank and the New International Economic Order." *Humanity* 6, no. 1 (Spring 2015 2015): 189-200.
+
+Silk, Leonard. "Opec Maps Its Paris Goals." *The New York Times*, April 7 1975, 49.
+
+Singer, Hans Wolfgang, and Soumitra Sharma. "The 1980s: A Lost Decade — Development in Reverse?". In *Growth and External Debt Management*: Springer, 1989.
+
+Skeet, Ian. *Opec : Twenty-Five Years of Prices and Politics.* Cambridge Energy Studies. Cambridge: Cambridge University Press, 1988.
+
+Smith, Tony. "Changing Configurations of Power in North- South Relations since 1945." *Int Org* 31, no. 1 (1977): 1-27. [[https://doi.org/10.1017/S0020818300006469]{.underline}](https://doi.org/10.1017/S0020818300006469).
+
+Sørensen, Georg. *A Liberal World Order in Crisis : Choosing between Imposition and Restraint.* Ithaca, N.Y. ; London: Cornell University Press, 2011.
+
+———. *A Liberal World Order in Crisis: Choosing between Imposition and Restraint.* Ithaca, N.Y.; London: Cornell University Press, 2011.
+
+Spiro, David E. *The Hidden Hand of American Hegemony : Petrodollar Recycling and International Markets.* Cornell Studies in Political Economy. Ithaca, N.Y.: Cornell University Press, 1999.
+
+State, US Department of. "55. Memorandum of Conversation: Meeting with Yamani—Middle East and the Paris Preparatory Conference." Foreign Relations of the United States, 1969–1976, Volume XXXVII: pp. 189-94.
+
+———. "113. Telegram from the Department of State to All Diplomatic Posts: December 22, 1976." Foreign Relations of the United States, 1969–1976, Volume XXXVII: p. 398.
+
+———. "Memorandum of Conversation: October 30, 1976." Foreign Relations of the United States, 1969–1976, Volume XXXVII: p. 378.
+
+States, Organization of American. *The Charter of Punta Del Este*, 1961.
+
+Stewart, Frances. "The Impact of Global Economic Crises on the Poor: Comparing the 1980s and 2000s." *Journal of Human Development and Capabilities* 13, no. 1 (2012): 83-105. [[https://doi.org/10.1080/19452829.2011.637386]{.underline}](https://doi.org/10.1080/19452829.2011.637386).
+
+Strange, Susan. *States and Markets.* Bloomsbury Publishing, 2015.
+
+Thomas, Caroline. *New States, Sovereignty, and Intervention.* Gower, 1985.
+
+Thornton, Christy. "A Mexican International Economic Order? Tracing the Hidden Roots of the Charter of Economic Rights and Duties of States." *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 9, no. 3 (2018): 389-421. [[https://doi.org/10.1353/hum.2018.0020]{.underline}](https://doi.org/10.1353/hum.2018.0020).
+
+Toye, JFJ, and Richard Toye. "The Origins and Interpretation of the Prebisch-Singer Thesis." *History of political Economy* 35, no. 3 (2003): 437-67.
+
+UNA. 3. Raw Materials Commission (4th Meeting: 3 P.M), 16 February 1976. Conference on International Economic Cooperation, Paris –– July 1976-1978.
+
+———. 4. Commission on Financial Affairs (10th Meeting –– 3.30 P.M), 19 March 1976. Conference on International Economic Cooperation, Paris –– July 1976-1978.
+
+———. 4. Finance Commission (4th Meeting: 10 A.M), 16 February 1976. Conference on International Economic Cooperation, Paris –– July 1976-1978.
+
+———. 4. Financial Affairs Commission (3d Meeting: 3.30 P.M), 14 February 1976. Conference on International Economic Cooperation, Paris –– July 1976-1978.
+
+———. Conference of Ministers of Foreign Affairs of the Non-Aligned Countries, Lima-Peru, 25-30 August 1975. Itims in Non aligned countries.
+
+———. Confidential Notes and Minutes.
+
+———. Confidential Notes and Minutes, Saturday 22 April 1974.
+
+———. "Confidential Notes and Minutes, Saturday, 20 April 1974." (S-0984 Box 1 File 1 ACC 91/5).
+
+———. "Items in Conference on International Economic Co-Operation –– Paris, 2 June 1977." (S-0972-0009-01-00001).
+
+———. Letter to Secretary General from Diego Cordovez: 'The Oas Session at Saint Lucia, 7 December 1981'. Organization of American States.
+
+———. Letter to Secretary General from Enrique Iglesius, 18 November 1975. ECLA 1972-1977.
+
+———. Letter to Un Secretary General, from P.K. Banerjee, 'the Non-Aligned Meeting - Havana'. Non-Aligned Countries 5 Jan 1978 - 29 Oct 1979.
+
+———. Meeting between the Secretary-General and Foreign Minister Habib Chatti of Tunisia, 4 September 1975. Minutes on Meetings.
+
+———. "Minutes on Meetings, 10 September 1975." (Series 0984, Box 1, File 7).
+
+———. New Zealand and Sri Lanka: Draft Resolution: Emergency Measures in Regard to the Supply of Fertilizers and Pesticides.
+
+———. Notes on a Meeting Held in the Secretary-General's Office, 28 March 1974.
+
+———. Proposals on an Interrelated Set of Issues and Policies for International Economic Co-Operation Submitted by Mr. J.B.P Maramis, Executive Secretary, Escap. 'E.S.C.A.P. 1974-1977.
+
+———. Seventh Special Session.
+
+———. "Statement by the Secretary-General on the Conclusions of the Conference on International Economic Co-Operation." (S-0972-0009-01-00001).
+
+———. "Statement by the Secretary-General on the Conclusions Ofthe Conference on International Economic Co-Operation." (S-0972-0009-01-00001).
+
+———. Text of Statement by Secretary-General at Eleventh Special Session of General Assembly, 15 September 1980. General Assembly Sessions –– 11th Special Session –– International Economic Order.
+
+UNCTAD. *Proceedings of the United Nations Conference on Trade and Development: Fourth Session, Nairobi, 5 - 31 May 1976.* Vol. I, New York, 1977. [[http://unctad.org/en/Docs/td218vol1_en.pdf]{.underline}](http://unctad.org/en/Docs/td218vol1_en.pdf).
+
+———. *Proceedings of the United Nations Conference on Trade and Development: Fourth Session, Nairobi, 5 - 31 May 1976.* Vol. III, New York, 1977. [[https://www.unog.ch/80256EDD006B8954/(httpAssets)/469635923CADA310C1257CF5005BD2A9/\$file/TD-218-Vol.3.pdf]{.underline}](https://www.unog.ch/80256EDD006B8954/(httpAssets)/469635923CADA310C1257CF5005BD2A9/$file/TD-218-Vol.3.pdf).
+
+———. *Proceedings of the United Nations Conference on Trade and Development: Fourth Session, Nairobi, 5 - 31 May 1976.* Vol. II, New York, 1977. [[https://www.unog.ch/80256EDD006B8954/(httpAssets)/756E691101A1F4E1C1257CF90030A2C0/\$file/TD-218-Vol.2.pdf]{.underline}](https://www.unog.ch/80256EDD006B8954/(httpAssets)/756E691101A1F4E1C1257CF90030A2C0/$file/TD-218-Vol.2.pdf).
+
+———. "Td/188 'International Financial Co-Operation for Development' a Report by the Unctad Secretariat." In *Proceedings of the United Nations Conference on Trade and Development: Fourth Session, Nairobi, 5-31 May 1976*. New York: United Nations, 1976.
+
+UNICEF. *The State of the World’s Children 1989.* (Oxford: 1989). [[https://www.unicef.org/about/history/files/sowc_1989.pdf]{.underline}](https://www.unicef.org/about/history/files/sowc_1989.pdf).
+
+United Nations Conference on Trade and Development (1st : 1964 : Geneva Switzerland), and Raúl Prebisch. *Towards a New Trade Policy for Development: Report by the Secretary-General of the United Nations Conference on Trade and Development.* Document (United Nations). New York: United Nations, 1964.
+
+United Nations Conference on Trade and Development (1st: 1964: Geneva, Switzerland), and Raúl Prebisch. *Towards a New Trade Policy for Development: Report by the Secretary-General of the United Nations Conference on Trade and Development.* Document (United Nations). New York: United Nations, 1964.
+
+Venzke, Ingo. "Possibilities of the Past: Histories of the Nieo and the Travails of Critique." (2017).
+
+Weiss, Thomas G. *Multilateral Development Diplomacy in Unctad: The Lessons of Group Negotiations, 1964-84.* Houndmills, Basingstoke, Hampshire: Macmillan, 1986.
+
+Wight, David. "The Petrodollar Era and Relations between the United States and the Middle East and North Africa, 1969-1980." edited by Emily S. Rosenberg, Mark LeVine and Salim Yaqub, ProQuest Dissertations Publishing, 2014.
+
+Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Penguin UK, 2018.
+
+"The World: The Intervention Issue." *Time*, 20 January 1975. [[http://content.time.com/time/magazine/article/0,9171,912693-1,00.html]{.underline}](http://content.time.com/time/magazine/article/0,9171,912693-1,00.html).
+
+## Bibliography
+
+[Acharya, Amitav. *Constructing Global Order: Agency and Change in World Politics.* Cambridge University Press, 2018.](https://doi.org/10.1111/isqu.12171)
+
+[———. "Global International Relations (Ir) and Regional Worlds." *International Studies Quarterly* 58, no. 4 (2014): 647-59. [https://doi.org/10.1111/isqu.12171]{.underline}](https://doi.org/10.1111/isqu.12171).
+
+America, United Nations Economic Commission for Latin, and R. Prebisch. *The Economic Development of Latin America and Its Principal Problems.* United Nations Department of Economic Affairs, 1950.
+
+Amin, Samir. "After the New International Economic Order: The Future of International Economic Relations." *Journal of Contemporary Asia* 12, no. 4 (1982): 432-50. [[https://doi.org/10.1080/00472338285390361]{.underline}](https://doi.org/10.1080/00472338285390361).
+
+Anghie, Antony. *Imperialism, Sovereignty and the Making of International Law.* Cambridge, UK; New York: Cambridge University Press, 2005.
+
+———. "Legal Aspects of the New International Economic Order." *Humanity* 6, no. 1 (Spring 2015 2015): 145-58.
+
+Anievas, Alexander, and Kerem Nişancıoğlu. *How the West Came to Rule: The Geopolitical Origins of Capitalism.* How the West Came to Rule. London : Pluto Press, 2015.
+
+Assembly, United Nations General. "Declaration on the Establishment of a New International Economic Order." (1974). [[http://www.un-documents.net/s6r3201.htm]{.underline}](http://www.un-documents.net/s6r3201.htm).
+
+———. "Programme of Action on the Establishment of a New International Economic Order." (1974). [[http://www.un-documents.net/s6r3202.htm]{.underline}](http://www.un-documents.net/s6r3202.htm).
 
 ———. "Resolution 2626 (Xxv) on an International Development Strategy for the Second United Nations Development Decade." (1970).
 
@@ -736,19 +1070,19 @@ Bair, Jennifer. "Taking Aim at the New International Economic Order." In *The Ro
 
 Bedjaoui, M. *Towards a New International Economic Order.* Holmes & Meier, 1979.
 
-Bergsten, C. Fred. "The Threat from the Third World." *Foreign Policy*, no. 11 (1973): 102-24. <https://doi.org/10.2307/1148041>.
+Bergsten, C. Fred. "The Threat from the Third World." *Foreign Policy*, no. 11 (1973): 102-24. [[https://doi.org/10.2307/1148041]{.underline}](https://doi.org/10.2307/1148041).
 
-———. "The Threat Is Real." *Foreign Policy*, no. 14 (1974): 84-90. <https://doi.org/10.2307/1147948>.
+———. "The Threat Is Real." *Foreign Policy*, no. 14 (1974): 84-90. [[https://doi.org/10.2307/1147948]{.underline}](https://doi.org/10.2307/1147948).
 
-Bhagwati, Jagdish N., and John Gerard Ruggie. *Power, Passions, and Purpose: Prospects for North-South Negotiations.* Edited by Jagdish N. Bhagwati and John Gerard Ruggie. Cambridge, Mass: MIT Press, 1984.
+Bhagwati, Jagdish N., and John Gerard Ruggie. *Power, Passions, and Purpose: Prospects for North-South Negotiations.* Edited by Jagdish N. Bhagwati and John Gerard Ruggie. Cambridge, Mass: Cambridge, Mass : MIT Press, 1984.
 
 Bieler, Andreas, and David Morton. *Global Capitalism, Global War, Global Crisis.* Cambridge: Cambridge University Press, 2018.
 
 Bockman, Johanna. "Socialist Globalization against Capitalist Neocolonialism: The Economic Ideas Behind the New International Economic Order." *Humanity* 6, no. 1 (Spring 2015 2015): 109-28.
 
-Brenner, Robert. "The Economics of Global Turbulence." *New Left Review*, no. 229 (1998).
+Brenner, R. *The Economics of Global Turbulence: The Advanced Capitalist Economies from Long Boom to Long Downturn, 1945-2005.* Verso, 2006.
 
-———. *The Economics of Global Turbulence: The Advanced Capitalist Economies from Long Boom to Long Downturn, 1945-2005.* Verso, 2006.
+Brenner, Robert. "The Economics of Global Turbulence." *New Left Review*, no. 229 (1998).
 
 Brzoska, Michael, Thomas Ohlson, and Stockholm International Peace Research Institute. *Arms Transfers to the Third World, 1971-85.* Oxford; New York: Oxford University Press, 1987.
 
@@ -766,27 +1100,27 @@ Corbridge, Stuart. *Debt and Development.* Oxford, UK; Cambridge, Mass: Blackwel
 
 Corea, Gamani. *Taming Commodity Markets: The Integrated Programme and the Common Fund in Unctad.* Manchester: Manchester University Press, 1992.
 
-Cox, Robert W. "Ideologies and the New International Economic Order: Reflections on Some Recent Literature." *International Organization* 33, no. 2 (1979): 257-302. <https://doi.org/10.1017/S0020818300032161>.
+Cox, Robert. "Social Forces, States and World Orders: Beyond International Theory." *Millennium* 10, no. 2 (1981): 126.
+
+Cox, Robert W. "'Real Socialism' in Historical Perspective." *Socialist Register* 27, no. 27 (1991).
+
+Cox, Robert W. "Ideologies and the New International Economic Order: Reflections on Some Recent Literature." *International Organization* 33, no. 2 (1979): 257-302. [[https://doi.org/10.1017/S0020818300032161]{.underline}](https://doi.org/10.1017/S0020818300032161).
 
 ———. *Production, Power, and World Order: Social Forces in the Making of History.* New York: Columbia University Press, 1987.
 
-———. "'Real Socialism' in Historical Perspective." *Socialist Register* 27, no. 27 (1991).
+Desai, Manali. "The Relative Autonomy of Party Practices: A Counterfactual Analysis of Left Party Ascendancy in Kerala, India.". *American Journal of Sociology* 108, no. 3 (2002): 616-57. [[https://doi.org/10.1086/367919]{.underline}](https://doi.org/10.1086/367919).
 
-———. "Social Forces, States and World Orders: Beyond International Theory." *Millennium* 10, no. 2 (1981): 126.
+Devetak, Richard, Tim Dunne, and Ririn Tri Nurhayati. "Bandung 60 Years On: Revolt and Resilience in International Society." *Australian Journal of International Affairs* 70, no. 4 (2016): 1-16. [[https://doi.org/10.1080/10357718.2016.1155201]{.underline}](https://doi.org/10.1080/10357718.2016.1155201).
 
-Desai, Manali. "The Relative Autonomy of Party Practices: A Counterfactual Analysis of Left Party Ascendancy in Kerala, India.". *American Journal of Sociology* 108, no. 3 (2002): 616-57. <https://doi.org/10.1086/367919>.
-
-Devetak, Richard, Tim Dunne, and Ririn Tri Nurhayati. "Bandung 60 Years On: Revolt and Resilience in International Society." *Australian Journal of International Affairs* 70, no. 4 (2016): 1-16. <https://doi.org/10.1080/10357718.2016.1155201>.
-
-Dietrich, Christopher R. W. "Mossadegh Madness: Oil and Sovereignty in the Anticolonial Community." *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 6, no. 1 (2015): 63-78. <https://doi.org/10.1353/hum.2015.0002>.
+Dietrich, Christopher R. W. "Mossadegh Madness: Oil and Sovereignty in the Anticolonial Community." *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 6, no. 1 (2015): 63-78. [[https://doi.org/10.1353/hum.2015.0002]{.underline}](https://doi.org/10.1353/hum.2015.0002).
 
 ———. *Oil Revolution: Anticolonial Elites, Sovereign Rights, and the Economic Culture of Decolonization.* Global and International History. Cambridge: Cambridge University Press, 2017.
 
 Doherty, Eileen M. *The Difference between Certainly and Perhaps: Ldc Bargaining in Commercial Debt Negotiations.* University of California, Berkeley, 1994.
 
-Dosman, Edgar J. *The Life and Times of RaúL Prebisch, 1901-1986.* Montreal: McGill-Queen's University Press, 2008.
+Dosman, Edgar J. *The Life and Times of RaúL Prebisch, 1901-1986.* Montreal: Montreal : McGill-Queen's University Press, 2008.
 
-Easterly, William. "The Lost Decades: Developing Countries' Stagnation in Spite of Policy Reform 1980– 1998." *Journal of Economic Growth* 6, no. 2 (2001): 135-57. <https://doi.org/10.1023/A:1011378507540>.
+Easterly, William. "The Lost Decades: Developing Countries' Stagnation in Spite of Policy Reform 1980– 1998." *Journal of Economic Growth* 6, no. 2 (2001): 135-57. [[https://doi.org/10.1023/A:1011378507540]{.underline}](https://doi.org/10.1023/A:1011378507540).
 
 Economist, The. "And a Thoroughly Confused New Year." 29 December 1973.
 
@@ -800,7 +1134,7 @@ Eichengreen, Barry, and Peter H Lindert. *The International Debt Crisis in Histo
 
 Elsenhans, Hartmut. "New Tendencies in North-South Relations." *Pakistan Horizon* 46, no. 3/4 (1993): 37-56.
 
-Emirbayer, Mustafa. "Manifesto for a Relational Sociology." *American Journal of Sociology* 103, no. 2 (1997): 281-317. .
+Emirbayer, Mustafa. "Manifesto for a Relational Sociology." *American Journal of Sociology* 103, no. 2 (1997): 281-317. [[https://doi.org/10.1086/231209]{.underline}](https://doi.org/10.1086/231209).
 
 G77. "Manila Declaration and Programme of Action." (1976).
 
@@ -814,27 +1148,27 @@ Gilman, Nils. "The New International Economic Order: A Reintroduction." *Humanit
 
 Gordon, R.J. *The Rise and Fall of American Growth: The U.S. Standard of Living since the Civil War.* Princeton University Press, 2017.
 
-Gosovic, Branislav, and John Gerard Ruggie. "On the Creation of a New International Economic Order: Issue Linkage and the Seventh Special Session of the Un General Assembly." *International Organization* 30, no. 2 (1976): 309-45. <https://doi.org/10.1017/S0020818300018300>.
+Gosovic, Branislav, and John Gerard Ruggie. "On the Creation of a New International Economic Order: Issue Linkage and the Seventh Special Session of the Un General Assembly." *International Organization* 30, no. 2 (1976): 309-45. [[https://doi.org/10.1017/S0020818300018300]{.underline}](https://doi.org/10.1017/S0020818300018300).
 
 Gruhn, Isebill V. "The Lomé Convention: Inching Towards Interdependence." *International Organization* 30, no. 2 (1976): 241-62.
 
-Halabi, Sam F. *Intelletual Property and the New International Economic Order: Oligopoly, Regulation, and Wealth Redistribution in the Global Knowledge Economy.* Cambridge: Cambridge University Press, 2018. doi:10.1017/9781316823088.
+Halabi, Sam F. *Intelletual Property and the New Internatioanl Economic Order: Oligopoly, Regulation, and Wealth Redistribution in the Global Knowledge Economy.* Cambridge: Cambridge University Press, 2018. doi:10.1017/9781316823088.
 
-Hart, Jeffrey A. *The New International Economic Order: Conflict and Cooperation in North-South Economic Relations, 1974-1977.* London: Macmillan, 1983.
+Hart, Jeffrey A. *The New International Economic Order: Conflict and Cooperation in North-South Economic Relations, 1974-1977.* London: London: Macmillan, 1983.
 
 Harvey, D. *A Brief History of Neoliberalism.* Oxford University Press, 2007.
 
-"The Havana Summit." *Third World Quarterly* 2, no. 2 (1980): 328-38. <https://doi.org/10.1080/01436598008419501>.
+"The Havana Summit." *Third World Quarterly* 2, no. 2 (1980): 328-38. [[https://doi.org/10.1080/01436598008419501]{.underline}](https://doi.org/10.1080/01436598008419501).
 
 Helleiner, E. *States and the Reemergence of Global Finance: From Bretton Woods to the 1990s.* Cornell University Press, 1996.
 
 Helleiner, Eric. *Forgotten Foundations of Bretton Woods: International Development and the Making of the Postwar Order.* Ithaca; London: Cornell University Press, 2014.
 
-———. "The Mystery of the Missing Sovereign Debt Restructuring Mechanism." *Contributions to Political Economy* 27, no. 1 (2008): 91-113. <https://doi.org/10.1093/cpe/bzn003>.
+———. "The Mystery of the Missing Sovereign Debt Restructuring Mechanism." *Contributions to Political Economy* 27, no. 1 (2008): 91-113. [[https://doi.org/10.1093/cpe/bzn003]{.underline}](https://doi.org/10.1093/cpe/bzn003).
 
 Hobson, John M. *The Eurocentric Conception of World Politics: Western International Theory, 1760-2010.* Cambridge: Cambridge University Press, 2012.
 
-Hobson, John M., and Alina Sajed. "Navigating Beyond the Eurofetishist Frontier of Critical Ir Theory: Exploring the Complex Landscapes of Non-Western Agency." *International Studies Review* (2017). <https://doi.org/10.1093/isr/vix013>.
+Hobson, John M., and Alina Sajed. "Navigating Beyond the Eurofetishist Frontier of Critical Ir Theory: Exploring the Complex Landscapes of Non-Western Agency." *International Studies Review* (2017). [[https://doi.org/10.1093/isr/vix013]{.underline}](https://doi.org/10.1093/isr/vix013).
 
 Hudson, M. *Global Fracture: The New International Economic Order.* Second ed. London: Pluto Press, 2005.
 
@@ -842,9 +1176,9 @@ Huizinga, Johan. "The Idea of History." In *The Varieties of History*, edited by
 
 Ikenberry, G. John. "The Future of the Liberal World Order: Internationalism after America." *Foreign Affairs* 90, no. 3 (May/June 2011): 56-68.
 
-———. "Liberal Internationalism 3.0: America and the Dilemmas of Liberal World Order." *Persp on Pol* 7, no. 1 (2009): 71-87. <https://doi.org/10.1017/S1537592709090112>.
+———. "Liberal Internationalism 3.0: America and the Dilemmas of Liberal World Order." *Persp on Pol* 7, no. 1 (2009): 71-87. [[https://doi.org/10.1017/S1537592709090112]{.underline}](https://doi.org/10.1017/S1537592709090112).
 
-Institute, Overseas Development. Opec Aid. London. <https://www.odi.org/sites/odi.org.uk/files/odi-assets/publications-opinion-files/6634.pdf>.
+Institute, Overseas Development. Opec Aid. London. [[https://www.odi.org/sites/odi.org.uk/files/odi-assets/publications-opinion-files/6634.pdf]{.underline}](https://www.odi.org/sites/odi.org.uk/files/odi-assets/publications-opinion-files/6634.pdf).
 
 Issues, Independent Commission on International Development. *North-South, a Programme for Survival: Report of the Independent Commission on International Development Issues.* 1st MIT Press paperback ed. Cambridge, Mass: MIT Press, 1980.
 
@@ -852,11 +1186,11 @@ James, C. L. R. *Nkrumah and the Ghana Revolution.* London: Allison and Busby, 1
 
 Keynes, John Maynard. *The Collected Writings of John Maynard Keynes.* Edited by Elizabeth S. Johnson, D. E. Moggridge and Society Royal Economic. Vol. XXIV, London; New York: St. Martin's Press for the Royal Economic Society, 1971.
 
-Krasner, Stephen D. "Oil Is the Exception." *Foreign Policy*, no. 14 (1974): 68.
+Krasner, Stephen. "Oil Is the Exception." *Foreign Policy*, no. 14 (1974): 68.
 
-———. *Structural Conflict: The Third World against Global Liberalism.* Studies in International Political Economy. Berkeley: University of California Press, 1985.
+Krasner, Stephen D. *Structural Conflict: The Third World against Global Liberalism.* Studies in International Political Economy. Berkeley: University of California Press, 1985.
 
-Lawson, George. "The Eternal Divide? History and International Relations." *European Journal of International Relations* 18, no. 2 (2012): 203-26. <https://doi.org/10.1177/1354066110373561>.
+Lawson, George. "The Eternal Divide? History and International Relations." *European Journal of International Relations* 18, no. 2 (2012): 203-26. [[https://doi.org/10.1177/1354066110373561]{.underline}](https://doi.org/10.1177/1354066110373561).
 
 Lees, Nicholas. "The Evolution of International Inequality: Justice, Order and North-South Relations from the Nieo to the G20." Doctor of Philosophy, University of Oxford, 2013.
 
@@ -864,7 +1198,7 @@ Lissakers, Karin. *Banks, Borrowers, and the Establishment: A Revisionist Accoun
 
 Mandel, Ernest. *Late Capitalism.* Verso, 1998.
 
-Marx, Karl. "The Eighteenth Brumaire of Louis Bonaparte." (1852). <https://www.marxists.org/archive/marx/works/1852/18th-brumaire/ch01.htm>.
+Marx, Karl. "The Eighteenth Brumaire of Louis Bonaparte." (1852). [[https://www.marxists.org/archive/marx/works/1852/18th-brumaire/ch01.htm]{.underline}](https://www.marxists.org/archive/marx/works/1852/18th-brumaire/ch01.htm).
 
 Mazower, Mark. *Governing the World: The History of an Idea, 1815 to the Present.* Penguin Group USA, 2013.
 
@@ -872,9 +1206,9 @@ Mazower, Mark. *Governing the World: The History of an Idea, 1815 to the Present
 
 Moyn, S. *Not Enough: Human Rights in an Unequal World.* Belknap Press of Harvard University Press, 2018.
 
-Murphy, Craig N. *Global Institutions, Marginalization, and Development.* London; New York, NY: Routledge, 2005.
+Murphy, Craig. *Global Institutions, Marginalization, and Development.* London; New York, NY: Routledge, 2005.
 
-———. "What the Third World Wants: An Interpretation of the Development and Meaning of the New International Economic Order Ideology." *International Studies Quarterly* 27, no. 1 (1983): 55-76. <https://doi.org/10.2307/2600619>.
+Murphy, Craig N. "What the Third World Wants: An Interpretation of the Development and Meaning of the New International Economic Order Ideology." *International Studies Quarterly* 27, no. 1 (1983): 55-76. [[https://doi.org/10.2307/2600619]{.underline}](https://doi.org/10.2307/2600619).
 
 Narlikar, Amrita. *International Trade and Developing Countries Bargaining and Coalitions in the Gatt and Wto.* Ripe Series in Global Political Economy V 13. London; New York: Routledge, 2003.
 
@@ -894,13 +1228,13 @@ Nations, United. 2209th Plenary Meeting of Sixth Special Session.
 
 ———. 2224th Plenary Meeting of Sixth Special Session.
 
-"Creation of the Ldc Category and Timeline of Changes to Ldc Membership and Criteria." 2019, accessed 21/1/19, 2019, <https://www.un.org/development/desa/dpad/least-developed-country-category/creation-of-the-ldc-category-and-timeline-of-changes-to-ldc-membership-and-criteria.html>.
+"Creation of the Ldc Category and Timeline of Changes to Ldc Membership and Criteria." 2019, accessed 21/1/19, 2019, [[https://www.un.org/development/desa/dpad/least-developed-country-category/creation-of-the-ldc-category-and-timeline-of-changes-to-ldc-membership-and-criteria.html]{.underline}](https://www.un.org/development/desa/dpad/least-developed-country-category/creation-of-the-ldc-category-and-timeline-of-changes-to-ldc-membership-and-criteria.html).
 
 Nations, United. "The End of the Golden Age, the Debt Crisis and Development Setback." In *World Economic and Social Survey 2017: Reflecting on Seventy Years of Development Policy Analysis*. New York: UN, 2017.
 
 ———. "Official Records of the General Assembly: Sixth Special Session." *General Committee and Ad Hoc Committee of the Sixth Special Session, 10 April - 1 May 1974* A/AC.166/SR.1-21 (1974).
 
-———. *World Economic Survey 1975: Fluctuations and Development in the World Economy.* New York, 1976. <https://www.un.org/en/development/desa/policy/wess/wess_archive/1975wes.pdf>.
+———. *World Economic Survey 1975: Fluctuations and Development in the World Economy.* New York, 1976. [[https://www.un.org/en/development/desa/policy/wess/wess_archive/1975wes.pdf]{.underline}](https://www.un.org/en/development/desa/policy/wess/wess_archive/1975wes.pdf).
 
 Nkrumah, Kwame. *Neo-Colonialism: The Last Stage of Imperialism.* London: Nelson, 1965.
 
@@ -908,13 +1242,15 @@ OECD. "Net Oda (Indicator)." 22 January 2019 2019.
 
 OPEC. *Solemn Declaration: Conference of the Sovereigns and Heads of State of the Opec Member Countries.* Algiers, 1975.
 
-Özsu, Umut. "“In the Interests of Mankind as a Whole”: Mohammed Bedjaoui’s New International Economic Order." *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 6, no. 1 (2015): 129-43. <https://doi.org/10.1353/hum.2015.0013>.
+Özsu, Umut. "“In the Interests of Mankind as a Whole”: Mohammed Bedjaoui’s New International Economic Order." *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 6, no. 1 (2015): 129-43. [[https://doi.org/10.1353/hum.2015.0013]{.underline}](https://doi.org/10.1353/hum.2015.0013).
 
-Phillips, Andrew. "Beyond Bandung: The 1955 Asian-African Conference and Its Legacies for International Order." *Australian Journal of International Affairs* 70, no. 4 (2016): 329-41. <https://doi.org/10.1080/10357718.2016.1153600>.
+Phillips, Andrew. "Beyond Bandung: The 1955 Asian-African Conference and Its Legacies for International Order." *Australian Journal of International Affairs* 70, no. 4 (2016): 329-41. [[https://doi.org/10.1080/10357718.2016.1153600]{.underline}](https://doi.org/10.1080/10357718.2016.1153600).
 
 Piketty, T. *Capital in the Twenty-First Century.* Harvard University Press, 2014.
 
 Prashad, Vijay. *The Darker Nations: A People's History of the Third World.* New York; London: New Press, 2008.
+
+———. *The Poorer Nations : A Possible History of the Global South.* London ; Brooklyn, NY: Verso, 2012.
 
 ———. *The Poorer Nations: A Possible History of the Global South.* London: Verso, 2014.
 
@@ -928,17 +1264,17 @@ Ross, Mr Kevin, Mr R Brooks, Mr Robert Powell, Ms Ydahlia A Metzgen Quemarez, Ms
 
 Rothschild, Emma. "Banks: The Politics of Debt." *New York Review of Books* 23, no. 11 (June 24 1976): 25-32.
 
-Rothstein, Robert. "Regime- Creation by a Coalition of the Weak: Lessons from the Nieo and the Integrated Program for Commodities." *International Studies Quarterly* 28, no. 3 (1984): 307. <https://doi.org/10.2307/2600633>.
+Rothstein, Robert. "Regime- Creation by a Coalition of the Weak: Lessons from the Nieo and the Integrated Program for Commodities." *International Studies Quarterly* 28, no. 3 (1984): 307. [[https://doi.org/10.2307/2600633]{.underline}](https://doi.org/10.2307/2600633).
 
 Rothstein, Robert L. *Global Bargaining: Unctad and the Quest for a New International Economic Order.* Princeton: Princeton University Press, 1979.
 
-Sargent, Daniel J. "North/South: The United States Responds to the New International Economic Order." *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 6, no. 1 (2015): 201-16. <https://doi.org/10.1353/hum.2015.0009>.
+Sargent, Daniel J. "North/South: The United States Responds to the New International Economic Order." *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 6, no. 1 (2015): 201-16. [[https://doi.org/10.1353/hum.2015.0009]{.underline}](https://doi.org/10.1353/hum.2015.0009).
 
 Sauvant, Karl P. *The Group of 77: Evolution, Structure, Organization.* New York: Oceana Publications, 1981.
 
 Schrijver, Nico. *Sovereignty over Natural Resources: Balancing Rights and Duties.* Cambridge ; New York: Cambridge University Press, 1997.
 
-Senate, The United States. *Alleged Assassination Plots Involving Foreign Leaders.* (1975). <https://www.intelligence.senate.gov/sites/default/files/94465.pdf>.
+Senate, The United States. *Alleged Assassination Plots Involving Foreign Leaders.* (1975). [[https://www.intelligence.senate.gov/sites/default/files/94465.pdf]{.underline}](https://www.intelligence.senate.gov/sites/default/files/94465.pdf).
 
 Sharma, Patrick. "Between North and South: The World Bank and the New International Economic Order." *Humanity* 6, no. 1 (Spring 2015 2015): 189-200.
 
@@ -948,9 +1284,9 @@ Singer, Hans Wolfgang, and Soumitra Sharma. "The 1980s: A Lost Decade — Develo
 
 Skeet, Ian. *Opec: Twenty-Five Years of Prices and Politics.* Cambridge Energy Studies. Cambridge: Cambridge University Press, 1988.
 
-Smith, Tony. "Changing Configurations of Power in North-South Relations since 1945." *Int Org* 31, no. 1 (1977): 1-27. <https://doi.org/10.1017/S0020818300006469>.
+Smith, Tony. "Changing Configurations of Power in North-South Relations since 1945." *Int Org* 31, no. 1 (1977): 1-27. [[https://doi.org/10.1017/S0020818300006469]{.underline}](https://doi.org/10.1017/S0020818300006469).
 
-Soederberg, Susanne. "The Transnational Debt Architecture and Emerging Markets: The Politics of Paradoxes and Punishment." *Third World Quarterly* 26, no. 6 (2005): 927-49. <https://doi.org/10.1080/01436590500089257>.
+Soederberg, Susanne. "The Transnational Debt Architecture and Emerging Markets: The Politics of Paradoxes and Punishment." *Third World Quarterly* 26, no. 6 (2005): 927-49. [[https://doi.org/10.1080/01436590500089257]{.underline}](https://doi.org/10.1080/01436590500089257).
 
 Sørensen, Georg. *A Liberal World Order in Crisis: Choosing between Imposition and Restraint.* Ithaca, N.Y.; London: Cornell University Press, 2011.
 
@@ -964,13 +1300,13 @@ State, US Department of. "55. Memorandum of Conversation: Meeting with Yamani—
 
 States, Organization of American. *The Charter of Punta Del Este*, 1961.
 
-Stewart, Frances. "The Impact of Global Economic Crises on the Poor: Comparing the 1980s and 2000s." *Journal of Human Development and Capabilities* 13, no. 1 (2012): 83-105. <https://doi.org/10.1080/19452829.2011.637386>.
+Stewart, Frances. "The Impact of Global Economic Crises on the Poor: Comparing the 1980s and 2000s." *Journal of Human Development and Capabilities* 13, no. 1 (2012): 83-105. [[https://doi.org/10.1080/19452829.2011.637386]{.underline}](https://doi.org/10.1080/19452829.2011.637386).
 
 Strange, Susan. *States and Markets.* Bloomsbury Publishing, 2015.
 
 Thomas, Caroline. *New States, Sovereignty, and Intervention.* Gower, 1985.
 
-Thornton, Christy. "A Mexican International Economic Order? Tracing the Hidden Roots of the Charter of Economic Rights and Duties of States." *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 9, no. 3 (2018): 389-421. <https://doi.org/10.1353/hum.2018.0020>.
+Thornton, Christy. "A Mexican International Economic Order? Tracing the Hidden Roots of the Charter of Economic Rights and Duties of States." *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 9, no. 3 (2018): 389-421. [[https://doi.org/10.1353/hum.2018.0020]{.underline}](https://doi.org/10.1353/hum.2018.0020).
 
 Toye, JFJ, and Richard Toye. "The Origins and Interpretation of the Prebisch-Singer Thesis." *History of political Economy* 35, no. 3 (2003): 437-67.
 
@@ -1026,9 +1362,9 @@ UNCTAD. *Proceedings of the United Nations Conference on Trade and Development: 
 
 UNCTAD, and Raúl Prebisch. *Towards a New Trade Policy for Development: Report by the Secretary-General of the United Nations Conference on Trade and Development.* Document (United Nations). New York: United Nations, 1964.
 
-UNICEF. *The State of the World’s Children 1989.* (Oxford: 1989). <https://www.unicef.org/about/history/files/sowc_1989.pdf>.
+UNICEF. *The State of the World’s Children 1989.* (Oxford: 1989). [[https://www.unicef.org/about/history/files/sowc_1989.pdf]{.underline}](https://www.unicef.org/about/history/files/sowc_1989.pdf).
 
-Venzke, Ingo. "Possibilities of the Past: Histories of the Nieo and the Travails of Critique." *Journal of the History of International Law* 20, no. 3 (2018): 263-302.
+Venzke, Ingo. "Possibilities of the Past." (2017).
 
 Weiss, Thomas G. *Multilateral Development Diplomacy in Unctad: The Lessons of Group Negotiations, 1964-84.* Houndmills, Basingstoke, Hampshire: Macmillan, 1986.
 
@@ -1036,35 +1372,363 @@ Wight, David. The Petrodollar Era and Relations between the United States and th
 
 Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Penguin UK, 2018.
 
-"The World: The Intervention Issue." *Time*, 20 January 1975. <http://content.time.com/time/magazine/article/0,9171,912693-1,00.html>.
+"The World: The Intervention Issue." *Time*, 20 January 1975. [[http://content.time.com/time/magazine/article/0,9171,912693-1,00.html]{.underline}](http://content.time.com/time/magazine/article/0,9171,912693-1,00.html).
 
-# Footnotes
+## Bibliography
 
-[^1]: Amitav Acharya, "Global International Relations (IR) and Regional Worlds," *International Studies Quarterly* 58, no. 4 (2014), https://doi.org/10.1111/isqu.12171.
+Acharya, Amitav. Constructing Global Order: Agency and Change in World Politics. Cambridge University Press, 2018.
+
+———. "Global International Relations (Ir) and Regional Worlds." *International Studies Quarterly* 58, no. 4 (2014): 647-59. https://doi.org/10.1111/isqu.12171.
+
+America, United Nations Economic Commission for Latin, and R. Prebisch. *The Economic Development of Latin America and Its Principal Problems.* United Nations Department of Economic Affairs, 1950.
+
+Amin, Samir. "After the New International Economic Order: The Future of International Economic Relations." *Journal of Contemporary Asia* 12, no. 4 (1982): 432-50. https://doi.org/10.1080/00472338285390361.
+
+Anghie, Antony. Imperialism, Sovereignty and the Making of International Law. Cambridge, UK; New York: Cambridge University Press, 2005.
+
+———. "Legal Aspects of the New International Economic Order." *Humanity* 6, no. 1 (Spring 2015 2015): 145-58.
+
+Anievas, Alexander, and Kerem Nişancıoğlu. How the West Came to Rule: The Geopolitical Origins of Capitalism. How the West Came to Rule. London : Pluto Press, 2015.
+
+Assembly, United Nations General. "Declaration on the Establishment of a New International Economic Order." (1974). http://www.un-documents.net/s6r3201.htm.
+
+———. "Programme of Action on the Establishment of a New International Economic Order." (1974). http://www.un-documents.net/s6r3202.htm.
+
+———. "Resolution 2626 (Xxv) on an International Development Strategy for the Second United Nations Development Decade." (1970).
+
+Bair, Jennifer. "Taking Aim at the New International Economic Order." In *The Road from Mont Pelerin: The Making of the Neoliberal Thought Collective*, edited by Philip Morowski & Dieter Plehwe, 347. Cambridge, Massachusetts; London, England: Harvard University Press, 2009.
+
+Bedjaoui, M. Towards a New International Economic Order. Holmes & Meier, 1979.
+
+Bergsten, C. Fred. "The Threat from the Third World." *Foreign Policy*, no. 11 (1973): 102-24. https://doi.org/10.2307/1148041.
+
+———. "The Threat Is Real." *Foreign Policy*, no. 14 (1974): 84-90. https://doi.org/10.2307/1147948.
+
+Bhagwati, Jagdish N., and John Gerard Ruggie. *Power, Passions, and Purpose: Prospects for North-South Negotiations.* Edited by Jagdish N. Bhagwati and John Gerard Ruggie. Cambridge, Mass: Cambridge, Mass : MIT Press, 1984.
+
+Bieler, Andreas, and David Morton. *Global Capitalism, Global War, Global Crisis.* Cambridge: Cambridge University Press, 2018.
+
+Bockman, Johanna. "Socialist Globalization against Capitalist Neocolonialism: The Economic Ideas Behind the New International Economic Order." *Humanity* 6, no. 1 (Spring 2015 2015): 109-28.
+
+Brenner, R. The Economics of Global Turbulence: The Advanced Capitalist Economies from Long Boom to Long Downturn, 1945-2005. Verso, 2006.
+
+Brenner, Robert. "The Economics of Global Turbulence." *New Left Review*, no. 229 (1998).
+
+Brzoska, Michael, Thomas Ohlson, and Stockholm International Peace Research Institute. *Arms Transfers to the Third World, 1971-85.* Oxford; New York: Oxford University Press, 1987.
+
+Burke, Roland. *Decolonization and the Evolution of International Human Rights.* Philadelphia: Philadelphia: University of Pennsylvania Press, 2010.
+
+CIA. "The Dynamics of “Small-State” Leverage: Implications for North-South Relations, 7 August 1976." (CIA-RDP79T00889A000800020001-9).
+
+———. Intelligence Memorandum: Prospects for the 7th Special Session of the U.N General Assembly.
+
+———. The Politics of the G-77: Near-Term Implications for the North-South Dialouge, 20 April 1977. International Issues: Regional and Political Analysis.
+
+———. Us-Ldc Relations: Problems and Prospects. International Issues: Regional and Political Analysis, 30 August 1977.
+
+Corbridge, Stuart. *Debt and Development.* Oxford, UK; Cambridge, Mass: Blackwell, 1993.
+
+Corea, Gamani. Taming Commodity Markets: The Integrated Programme and the Common Fund in Unctad. Manchester: Manchester University Press, 1992.
+
+Cox, Robert. "Social Forces, States and World Orders: Beyond International Theory." *Millennium* 10, no. 2 (1981): 126.
+
+Cox, Robert W. "'Real Socialism' in Historical Perspective." *Socialist Register* 27, no. 27 (1991).
+
+Cox, Robert W. "Ideologies and the New International Economic Order: Reflections on Some Recent Literature." *International Organization* 33, no. 2 (1979): 257-302. https://doi.org/10.1017/S0020818300032161.
+
+———. Production, Power, and World Order: Social Forces in the Making of History. New York: Columbia University Press, 1987.
+
+Desai, Manali. "The Relative Autonomy of Party Practices: A Counterfactual Analysis of Left Party Ascendancy in Kerala, India.". *American Journal of Sociology* 108, no. 3 (2002): 616-57. https://doi.org/10.1086/367919.
+
+Devetak, Richard, Tim Dunne, and Ririn Tri Nurhayati. "Bandung 60 Years On: Revolt and Resilience in International Society." *Australian Journal of International Affairs* 70, no. 4 (2016): 1-16. https://doi.org/10.1080/10357718.2016.1155201.
+
+Dietrich, Christopher R. W. "Mossadegh Madness: Oil and Sovereignty in the Anticolonial Community." *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 6, no. 1 (2015): 63-78. https://doi.org/10.1353/hum.2015.0002.
+
+———. Oil Revolution: Anticolonial Elites, Sovereign Rights, and the Economic Culture of Decolonization. Global and International History. Cambridge: Cambridge University Press, 2017.
+
+Doherty, Eileen M. The Difference between Certainly and Perhaps: Ldc Bargaining in Commercial Debt Negotiations. University of California, Berkeley, 1994.
+
+Dosman, Edgar J. *The Life and Times of RaúL Prebisch, 1901-1986.* Montreal: Montreal : McGill-Queen's University Press, 2008.
+
+Easterly, William. "The Lost Decades: Developing Countries' Stagnation in Spite of Policy Reform 1980– 1998." *Journal of Economic Growth* 6, no. 2 (2001): 135-57. https://doi.org/10.1023/A:1011378507540.
+
+Economist, The. "And a Thoroughly Confused New Year." 29 December 1973.
+
+———. "Editorial." 12 January 1974.
+
+———. "Imf Discussions About Monetary Reform." 8 June 1974.
+
+Eichengreen, Barry J. *Globalizing Capital: A History of the International Monetary System.* History of the International Monetary System. 2nd ed. ed. Princeton, N.J.; Oxford: Princeton University Press, 2008.
+
+Eichengreen, Barry, and Peter H Lindert. The International Debt Crisis in Historical Perspective. MIT press, 1992.
+
+Elsenhans, Hartmut. "New Tendencies in North-South Relations." *Pakistan Horizon* 46, no. 3/4 (1993): 37-56.
+
+Emirbayer, Mustafa. "Manifesto for a Relational Sociology." *American Journal of Sociology* 103, no. 2 (1997): 281-317. https://doi.org/10.1086/231209.
+
+G77. "Manila Declaration and Programme of Action." (1976).
+
+Galpern, Steven G. Money, Oil, and Empire in the Middle East: Sterling and Postwar Imperialism, 1944-1971. Cambridge: Cambridge University Press, 2009.
+
+Garavini, Giuliano. After Empires: European Integration, Decolonization, and the Challenge from the Global South, 1957-1986. Edited by Richard R. Nybakken. Oxford, UK: Oxford University Press, 2012.
+
+Getachew, Adom. Worldmaking after Empire: The Rise and Fall of Self-Determination. Princeton University Press, 2019.
+
+Gilman, Nils. "The New International Economic Order: A Reintroduction." Humanity: An International Journal of Human Rights, Humanitarianism, and Development 6, no. 1 (2015): 1-16.
+
+Gordon, R.J. The Rise and Fall of American Growth: The U.S. Standard of Living since the Civil War. Princeton University Press, 2017.
+
+Gosovic, Branislav, and John Gerard Ruggie. "On the Creation of a New International Economic Order: Issue Linkage and the Seventh Special Session of the Un General Assembly." *International Organization* 30, no. 2 (1976): 309-45. https://doi.org/10.1017/S0020818300018300.
+
+Gruhn, Isebill V. "The Lomé Convention: Inching Towards Interdependence." *International Organization* 30, no. 2 (1976): 241-62.
+
+Halabi, Sam F. Intelletual Property and the New Internatioanl Economic Order: Oligopoly, Regulation, and Wealth Redistribution in the Global Knowledge Economy. Cambridge: Cambridge University Press, 2018. doi:10.1017/9781316823088.
+
+Hart, Jeffrey A. The New International Economic Order: Conflict and Cooperation in North-South Economic Relations, 1974-1977. London: London: Macmillan, 1983.
+
+Harvey, D. A Brief History of Neoliberalism. Oxford University Press, 2007.
+
+"The Havana Summit." *Third World Quarterly* 2, no. 2 (1980): 328-38. https://doi.org/10.1080/01436598008419501.
+
+Helleiner, E. States and the Reemergence of Global Finance: From Bretton Woods to the 1990s. Cornell University Press, 1996.
+
+Helleiner, Eric. Forgotten Foundations of Bretton Woods: International Development and the Making of the Postwar Order. Ithaca; London: Cornell University Press, 2014.
+
+———. "The Mystery of the Missing Sovereign Debt Restructuring Mechanism." *Contributions to Political Economy* 27, no. 1 (2008): 91-113. https://doi.org/10.1093/cpe/bzn003.
+
+Hobson, John M. The Eurocentric Conception of World Politics: Western International Theory, 1760-2010. Cambridge: Cambridge University Press, 2012.
+
+Hobson, John M., and Alina Sajed. "Navigating Beyond the Eurofetishist Frontier of Critical Ir Theory: Exploring the Complex Landscapes of Non-Western Agency." *International Studies Review* (2017). https://doi.org/10.1093/isr/vix013.
+
+Hudson, M. Global Fracture: The New International Economic Order. Second ed. London: Pluto Press, 2005.
+
+Huizinga, Johan. "The Idea of History." In *The Varieties of History*, edited by Fritz Stern: Vintage, 1973.
+
+Ikenberry, G. John. "The Future of the Liberal World Order: Internationalism after America." *Foreign Affairs* 90, no. 3 (May/June 2011): 56-68.
+
+———. "Liberal Internationalism 3.0: America and the Dilemmas of Liberal World Order." *Persp on Pol* 7, no. 1 (2009): 71-87. https://doi.org/10.1017/S1537592709090112.
+
+Institute, Overseas Development. Opec Aid. London. https://www.odi.org/sites/odi.org.uk/files/odi-assets/publications-opinion-files/6634.pdf.
+
+Issues, Independent Commission on International Development. North-South, a Programme for Survival: Report of the Independent Commission on International Development Issues. 1st MIT Press paperback ed. Cambridge, Mass: MIT Press, 1980.
+
+James, C. L. R. *Nkrumah and the Ghana Revolution.* London: Allison and Busby, 1977.
+
+Keynes, John Maynard. *The Collected Writings of John Maynard Keynes.* Edited by Elizabeth S. Johnson, D. E. Moggridge and Society Royal Economic. Vol. XXIV, London; New York: St. Martin's Press for the Royal Economic Society, 1971.
+
+Krasner, Stephen. "Oil Is the Exception." *Foreign Policy*, no. 14 (1974): 68.
+
+Krasner, Stephen D. *Structural Conflict: The Third World against Global Liberalism.* Studies in International Political Economy. Berkeley: University of California Press, 1985.
+
+Lawson, George. "The Eternal Divide? History and International Relations." *European Journal of International Relations* 18, no. 2 (2012): 203-26. https://doi.org/10.1177/1354066110373561.
+
+Lees, Nicholas. "The Evolution of International Inequality: Justice, Order and North-South Relations from the Nieo to the G20." Doctor of Philosophy, University of Oxford, 2013.
+
+Lissakers, Karin. Banks, Borrowers, and the Establishment: A Revisionist Account of the International Debt Crisis. Basic Books, 1993.
+
+Mandel, Ernest. *Late Capitalism.* Verso, 1998.
+
+Marx, Karl. "The Eighteenth Brumaire of Louis Bonaparte." (1852). https://www.marxists.org/archive/marx/works/1852/18th-brumaire/ch01.htm.
+
+Mazower, Mark. Governing the World: The History of an Idea, 1815 to the Present. Penguin Group USA, 2013.
+
+———. No Enchanted Palace: The End of Empire and the Ideological Origins of the United Nations. Princeton, N.J.; Oxford: Princeton University Press, 2009.
+
+Moyn, S. *Not Enough: Human Rights in an Unequal World.* Belknap Press of Harvard University Press, 2018.
+
+Murphy, Craig. Global Institutions, Marginalization, and Development. London; New York, NY: Routledge, 2005.
+
+Murphy, Craig N. "What the Third World Wants: An Interpretation of the Development and Meaning of the New International Economic Order Ideology." *International Studies Quarterly* 27, no. 1 (1983): 55-76. https://doi.org/10.2307/2600619.
+
+Narlikar, Amrita. International Trade and Developing Countries Bargaining and Coalitions in the Gatt and Wto. Ripe Series in Global Political Economy V 13. London; New York: Routledge, 2003.
+
+Nations, United. 2209th Plenary Meeting of Sixth Special Session.
+
+———. 2211th Plenary Meeting of Sixth Special Session.
+
+———. 2214th Plenary Meeting of Sixth Special Session.
+
+———. 2215th Plenary Meeting of Sixth Special Session.
+
+———. 2217th Plenary Meeting of Sixth Special Session.
+
+———. 2219th Plenary Meeting of Sixth Special Session.
+
+———. 2221st Plenary Meeting of Sixth Special Session.
+
+———. 2224th Plenary Meeting of Sixth Special Session.
+
+"Creation of the Ldc Category and Timeline of Changes to Ldc Membership and Criteria." 2019, accessed 21/1/19, 2019, https://www.un.org/development/desa/dpad/least-developed-country-category/creation-of-the-ldc-category-and-timeline-of-changes-to-ldc-membership-and-criteria.html.
+
+Nations, United. "The End of the Golden Age, the Debt Crisis and Development Setback." In World Economic and Social Survey 2017: Reflecting on Seventy Years of Development Policy Analysis. New York: UN, 2017.
+
+———. "Official Records of the General Assembly: Sixth Special Session." General Committee and Ad Hoc Committee of the Sixth Special Session, 10 April - 1 May 1974 A/AC.166/SR.1-21 (1974).
+
+———. *World Economic Survey 1975: Fluctuations and Development in the World Economy.* New York, 1976. https://www.un.org/en/development/desa/policy/wess/wess_archive/1975wes.pdf.
+
+Nkrumah, Kwame. Neo-Colonialism: The Last Stage of Imperialism. London: Nelson, 1965.
+
+OECD. "Net Oda (Indicator)." 22 January 2019 2019.
+
+OPEC. Solemn Declaration: Conference of the Sovereigns and Heads of State of the Opec Member Countries. Algiers, 1975.
+
+Özsu, Umut. "“In the Interests of Mankind as a Whole”: Mohammed Bedjaoui’s New International Economic Order." *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 6, no. 1 (2015): 129-43. https://doi.org/10.1353/hum.2015.0013.
+
+Phillips, Andrew. "Beyond Bandung: The 1955 Asian-African Conference and Its Legacies for International Order." *Australian Journal of International Affairs* 70, no. 4 (2016): 329-41. https://doi.org/10.1080/10357718.2016.1153600.
+
+Piketty, T. Capital in the Twenty-First Century. Harvard University Press, 2014.
+
+Prashad, Vijay. The Darker Nations: A People's History of the Third World. New York; London: New Press, 2008.
+
+———. The Poorer Nations : A Possible History of the Global South. London ; Brooklyn, NY: Verso, 2012.
+
+———. The Poorer Nations: A Possible History of the Global South. London: Verso, 2014.
+
+Prebisch, Raúl. "Statement by Dr. Raul Prebisch, Executive Secretary of Ecla at the Inaugural Meeting on 19 November 1956." Economic Committee for Latin America Trade Committee TRADE COMMITTEE, Santiago, 1956.
+
+———. "Statement by Dr. Raul Prebisch, Executive Secretary of Ecla at the Inaugural Meeting on 19 November 1956." Economic Committee for Latin America Trade Committee, Santiago, 1956.
+
+Rooney, David. *Kwame Nkrumah Vision and Tragedy.* \[2nd ed.\]. ed. Accra, Ghana: Sub-Saharan Publishers, 2007.
+
+Ross, Mr Kevin, Mr R Brooks, Mr Robert Powell, Ms Ydahlia A Metzgen Quemarez, Ms Doris C Ross, Mr Mariano Cortes, Saqib Rizavi, Benoit Ketchekmen, and Francesca Fornasari. *External Debt Histories of Ten Low-Income Developing Countries: Lessons from Their Experience.* International Monetary Fund, 1998.
+
+Rothschild, Emma. "Banks: The Politics of Debt." *New York Review of Books* 23, no. 11 (June 24 1976): 25-32.
+
+Rothstein, Robert. "Regime- Creation by a Coalition of the Weak: Lessons from the Nieo and the Integrated Program for Commodities." *International Studies Quarterly* 28, no. 3 (1984): 307. https://doi.org/10.2307/2600633.
+
+Rothstein, Robert L. Global Bargaining: Unctad and the Quest for a New International Economic Order. Princeton: Princeton University Press, 1979.
+
+Sargent, Daniel J. "North/South: The United States Responds to the New International Economic Order." *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 6, no. 1 (2015): 201-16. https://doi.org/10.1353/hum.2015.0009.
+
+Sauvant, Karl P. The Group of 77: Evolution, Structure, Organization. New York: Oceana Publications, 1981.
+
+Schrijver, Nico. Sovereignty over Natural Resources: Balancing Rights and Duties. Cambridge ; New York: Cambridge University Press, 1997.
+
+Senate, The United States. *Alleged Assassination Plots Involving Foreign Leaders.* (1975). https://www.intelligence.senate.gov/sites/default/files/94465.pdf.
+
+Sharma, Patrick. "Between North and South: The World Bank and the New International Economic Order." *Humanity* 6, no. 1 (Spring 2015 2015): 189-200.
+
+Silk, Leonard. "Opec Maps Its Paris Goals." *The New York Times*, April 7 1975, 49.
+
+Singer, Hans Wolfgang, and Soumitra Sharma. "The 1980s: A Lost Decade — Development in Reverse?". In *Growth and External Debt Management*: Springer, 1989.
+
+Skeet, Ian. *Opec: Twenty-Five Years of Prices and Politics.* Cambridge Energy Studies. Cambridge: Cambridge University Press, 1988.
+
+Smith, Tony. "Changing Configurations of Power in North-South Relations since 1945." *Int Org* 31, no. 1 (1977): 1-27. https://doi.org/10.1017/S0020818300006469.
+
+Soederberg, Susanne. "The Transnational Debt Architecture and Emerging Markets: The Politics of Paradoxes and Punishment." *Third World Quarterly* 26, no. 6 (2005): 927-49. https://doi.org/10.1080/01436590500089257.
+
+Sørensen, Georg. A Liberal World Order in Crisis: Choosing between Imposition and Restraint. Ithaca, N.Y.; London: Cornell University Press, 2011.
+
+Spiro, David E. The Hidden Hand of American Hegemony: Petrodollar Recycling and International Markets. Cornell Studies in Political Economy. Ithaca, N.Y.: Cornell University Press, 1999.
+
+State, US Department of. "55. Memorandum of Conversation: Meeting with Yamani—Middle East and the Paris Preparatory Conference." Foreign Relations of the United States, 1969–1976, Volume XXXVII: pp. 189-94.
+
+———. "113. Telegram from the Department of State to All Diplomatic Posts: December 22, 1976." Foreign Relations of the United States, 1969–1976, Volume XXXVII: p. 398.
+
+———. "Memorandum of Conversation: October 30, 1976." Foreign Relations of the United States, 1969–1976, Volume XXXVII: p. 378.
+
+States, Organization of American. *The Charter of Punta Del Este*, 1961.
+
+Stewart, Frances. "The Impact of Global Economic Crises on the Poor: Comparing the 1980s and 2000s." *Journal of Human Development and Capabilities* 13, no. 1 (2012): 83-105. https://doi.org/10.1080/19452829.2011.637386.
+
+Strange, Susan. *States and Markets.* Bloomsbury Publishing, 2015.
+
+Thomas, Caroline. New States, Sovereignty, and Intervention. Gower, 1985.
+
+Thornton, Christy. "A Mexican International Economic Order? Tracing the Hidden Roots of the Charter of Economic Rights and Duties of States." *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 9, no. 3 (2018): 389-421. https://doi.org/10.1353/hum.2018.0020.
+
+Toye, JFJ, and Richard Toye. "The Origins and Interpretation of the Prebisch-Singer Thesis." *History of political Economy* 35, no. 3 (2003): 437-67.
+
+UNA. 3. Raw Materials Commission (4th Meeting: 3 P.M), 16 February 1976. Conference on International Economic Cooperation, Paris –– July 1976-1978.
+
+———. 4. Commission on Financial Affairs (10th Meeting –– 3.30 P.M), 19 March 1976. Conference on International Economic Cooperation, Paris –– July 1976-1978.
+
+———. 4. Finance Commission (4th Meeting: 10 A.M), 16 February 1976. Conference on International Economic Cooperation, Paris –– July 1976-1978.
+
+———. 4. Financial Affairs Commission (3d Meeting: 3.30 P.M), 14 February 1976. Conference on International Economic Cooperation, Paris –– July 1976-1978.
+
+———. Conference of Ministers of Foreign Affairs of the Non-Aligned Countries, Lima-Peru, 25-30 August 1975. Items in Non aligned countries.
+
+———. Confidential Notes and Minutes.
+
+———. Confidential Notes and Minutes, Saturday 22 April 1974.
+
+———. "Confidential Notes and Minutes, Saturday, 20 April 1974." (S-0984 Box 1 File 1 ACC 91/5).
+
+———. "Items in Conference on International Economic Co-Operation –– Paris, 2 June 1977." (S-0972-0009-01-00001).
+
+———. Letter to Secretary General from Diego Cordovez: 'The Oas Session at Saint Lucia, 7 December 1981'. Organization of American States.
+
+———. Letter to Secretary General from Enrique Iglesius, 18 November 1975. ECLA 1972-1977.
+
+———. Letter to Un Secretary General, from P.K. Banerjee, 'the Non-Aligned Meeting - Havana'. Non-Aligned Countries 5 Jan 1978 - 29 Oct 1979.
+
+———. Meeting between the Secretary-General and Foreign Minister Habib Chatti of Tunisia, 4 September 1975. Minutes on Meetings.
+
+———. "Minutes on Meetings, 10 September 1975." (Series 0984, Box 1, File 7).
+
+———. New Zealand and Sri Lanka: Draft Resolution: Emergency Measures in Regard to the Supply of Fertilizers and Pesticides.
+
+———. Notes on a Meeting Held in the Secretary-General's Office, 28 March 1974.
+
+———. Proposals on an Interrelated Set of Issues and Policies for International Economic Co-Operation Submitted by Mr. J.B.P Maramis, Executive Secretary, Escap. 'E.S.C.A.P. 1974-1977.
+
+———. Seventh Special Session.
+
+———. "Statement by the Secretary-General on the Conclusions of the Conference on International Economic Co-Operation." (S-0972-0009-01-00001).
+
+———. "Statement by the Secretary-General on the Conclusions Ofthe Conference on International Economic Co-Operation." (S-0972-0009-01-00001).
+
+———. Text of Statement by Secretary-General at Eleventh Special Session of General Assembly, 15 September 1980. General Assembly Sessions –– 11th Special Session –– International Economic Order.
+
+UNCTAD. Proceedings of the United Nations Conference on Trade and Development: Fourth Session, Nairobi, 5 - 31 May 1976. Vol. III, New York, 1977.
+
+———. Proceedings of the United Nations Conference on Trade and Development: Fourth Session, Nairobi, 5 - 31 May 1976. Vol. II, New York, 1977.
+
+———. Proceedings of the United Nations Conference on Trade and Development: Fourth Session, Nairobi, 5 - 31 May 1976. Vol. I, New York, 1977.
+
+———. "Td/188 'International Financial Co-Operation for Development' a Report by the Unctad Secretariat." In Proceedings of the United Nations Conference on Trade and Development: Fourth Session, Nairobi, 5-31 May 1976. New York: United Nations, 1976.
+
+UNCTAD, and Raúl Prebisch. Towards a New Trade Policy for Development: Report by the Secretary-General of the United Nations Conference on Trade and Development. Document (United Nations). New York: United Nations, 1964.
+
+UNICEF. *The State of the World’s Children 1989.* (Oxford: 1989). https://www.unicef.org/about/history/files/sowc_1989.pdf.
+
+Venzke, Ingo. "Possibilities of the Past." (2017).
+
+Weiss, Thomas G. Multilateral Development Diplomacy in Unctad: The Lessons of Group Negotiations, 1964-84. Houndmills, Basingstoke, Hampshire: Macmillan, 1986.
+
+Wight, David. The Petrodollar Era and Relations between the United States and the Middle East and North Africa, 1969-1980. ProQuest Dissertations Publishing.
+
+Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Penguin UK, 2018.
+
+"The World: The Intervention Issue." *Time*, 20 January 1975. http://content.time.com/time/magazine/article/0,9171,912693-1,00.html.
+
+[^1]: Amitav Acharya, "Global International Relations (IR) and Regional Worlds," International Studies Quarterly 58, no. 4 (2014), https://doi.org/10.1111/isqu.12171.
 
 
-[^2]: Mark Mazower, *No Enchanted Palace: The End of Empire and the Ideological Origins of the United Nations* (Princeton, N.J.; Oxford: Princeton University Press, 2009); Eric Helleiner, *Forgotten Foundations of Bretton Woods: International Development and the Making of the Postwar Order* (Ithaca; London: Cornell University Press, 2014); Amitav Acharya, *Constructing Global Order: Agency and Change in World Politics* (Cambridge University Press, 2018); Adom Getachew, *Worldmaking After Empire: The Rise and Fall of Self-Determination* (Princeton University Press, 2019).
+[^2]: Mark Mazower, No Enchanted Palace: The End of Empire and the Ideological Origins of the United Nations (Princeton, N.J.; Oxford: Princeton University Press, 2009); Eric Helleiner, Forgotten Foundations of Bretton Woods: International Development and the Making of the Postwar Order (Ithaca; London: Cornell University Press, 2014); Amitav Acharya, Constructing Global Order: Agency and Change in World Politics (Cambridge University Press, 2018); Adom Getachew, Worldmaking After Empire: The Rise and Fall of Self-Determination (Princeton University Press, 2019).
 
 
-[^3]: Andreas Bieler and David Morton, *Global Capitalism, Global War, Global Crisis.* (Cambridge: Cambridge University Press, 2018).
+[^3]: Andreas Bieler and David Morton, Global Capitalism, Global War, Global Crisis. (Cambridge: Cambridge University Press, 2018).
 
 
-[^4]: Robert W. Cox, "Social Forces, States and World Orders: Beyond International Theory," *Millennium* 10, no. 2 (1981): pp. 130, 44.
+[^4]: Robert Cox, "Social Forces, States and World Orders: Beyond International Theory," Millennium 10, no. 2 (1981): pp. 130, 44.
 
 
-[^5]: By failure I refer to the stated goals of the G77 for the North-South dialogue, a series of negotiations that broke down in a stalemate. I do not mean, however, that from the perspective of all the G77’s many different state elites their diplomatic efforts had failed or were worthless. Nor do I mean to infer that the NIEO Project failed to have a lasting effect on international negotiations. As an example of the important legacy of the NIEO, in this case to intellectual property rights, see: Sam F. Halabi, *Intelletual Property and the New International Economic Order: Oligopoly, Regulation, and Wealth Redistribution in the Global Knowledge Economy* (Cambridge: Cambridge University Press, 2018), pp. 84-90, 167, 209-28.
+[^5]: By failure I refer to the stated goals of the G77 for the North-South dialogue, a series of negotiations that broke down in a stalemate. I do not mean, however, that from the perspective of all the G77’s many different state elites their diplomatic efforts had failed or were worthless. Nor do I mean to infer that the NIEO Project failed to have a lasting effect on international negotiations. As an example of the important legacy of the NIEO, in this case to intellectual property rights, see: Sam F. Halabi, Intelletual Property and the New Internatioanl Economic Order: Oligopoly, Regulation, and Wealth Redistribution in the Global Knowledge Economy (Cambridge: Cambridge University Press, 2018), pp. 84-90, 167, 209-28.
 
 
-[^6]: Vijay Prashad, *The Darker Nations: A People's History of the Third World* (New York; London: New Press, 2008); Vijay Prashad, *The Poorer Nations: A Possible History of the Global South* (London: Verso, 2014).
+[^6]: Vijay Prashad, The Darker Nations: A People's History of the Third World (New York; London: New Press, 2008); Vijay Prashad, The Poorer Nations: A Possible History of the Global South (London: Verso, 2014).
 
 
-[^7]: Nils Gilman, "The New International Economic Order: A Reintroduction," *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 6, no. 1 (2015); Giuliano Garavini, *After Empires: European Integration, Decolonization, and the Challenge From the Global South, 1957-1986*, ed. Richard R. Nybakken (Oxford, UK: Oxford University Press, 2012).
+[^7]: Nils Gilman, "The New International Economic Order: A Reintroduction," Humanity: An International Journal of Human Rights, Humanitarianism, and Development 6, no. 1 (2015); Giuliano Garavini, After Empires: European Integration, Decolonization, and the Challenge From the Global South, 1957-1986, ed. Richard R. Nybakken (Oxford, UK: Oxford University Press, 2012).
 
 
-[^8]: Ingo Venzke, "Possibilities of the Past: Histories of the NIEO and the Travails of Critique," *Journal of the History of International Law* 20, no. 3 (2018).
+[^8]: Ingo Venzke, "Possibilities of the Past," (2017).
 
 
-[^9]: C. Fred Bergsten, "The Threat from the Third World," *Foreign Policy*, no. 11 (1973), https://doi.org/10.2307/1148041.
+[^9]: C. Fred Bergsten, "The Threat from the Third World," Foreign Policy, no. 11 (1973), https://doi.org/10.2307/1148041.
 
 
 [^10]: Bergsten, "The Threat from the Third World," p. 104.
@@ -1091,10 +1755,10 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^17]: Bergsten, "The Threat from the Third World," pp. 107-11.
 
 
-[^18]: Branislav Gosovic and John Gerard Ruggie, "On the Creation of a New International Economic Order: Issue Linkage and the Seventh Special Session of the UN General Assembly," *International Organization* 30, no. 2 (1976): p. 322, https://doi.org/10.1017/S0020818300018300.
+[^18]: Branislav Gosovic and John Gerard Ruggie, "On the Creation of a New International Economic Order: Issue Linkage and the Seventh Special Session of the UN General Assembly," International Organization 30, no. 2 (1976): p. 322, https://doi.org/10.1017/S0020818300018300.
 
 
-[^19]: Gosovic and Ruggie, "Issue Linkage and the Seventh Special Session," p. 320. The G77’s ability to make concessions on the demands it called most strongly for in response to previous negotiations is assessed more systematically in: Jeffrey A. Hart, *The New International Economic Order: Conflict and Cooperation in North-South Economic Relations, 1974-1977* (London: Macmillan, 1983).
+[^19]: Gosovic and Ruggie, "Issue Linkage and the Seventh Special Session," p. 320. The G77’s ability to make concessions on the demands it called most strongly for in response to previous negotiations is assessed more systematically in: Jeffrey A. Hart, The New International Economic Order: Conflict and Cooperation in North-South Economic Relations, 1974-1977 (London: London: Macmillan, 1983).
 
 
 [^20]: Gosovic and Ruggie, "Issue Linkage and the Seventh Special Session," p. 310. More specifically, Gosovic and Ruggie noted that: *‘The words and arguments of the 77 are backed today by a degree of bargaining power they did not previously possess. An institutional structure is emerging among the developing countries that may increase this power in the years to come. Developing countries will seek to take advantage of their potential for disrupting certain international economic flows and the finely tuned economies of the developed countries, as well as the availability of the autonomous financing capacity through OPEC.’ p. 342.*
@@ -1106,73 +1770,73 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^22]: Gosovic and Ruggie, "Issue Linkage and the Seventh Special Session," pp. 342-43.
 
 
-[^23]: M. Hudson, *Global Fracture: The New International Economic Order*, Second ed. (London: Pluto Press, 2005), pp. 171-75.
+[^23]: M. Hudson, Global Fracture: The New International Economic Order, Second ed. (London: Pluto Press, 2005), pp. 171-75.
 
 
-[^24]: M. Bedjaoui, *Towards a New International Economic Order* (Holmes & Meier, 1979), p. 11.
+[^24]: M. Bedjaoui, Towards a New International Economic Order (Holmes & Meier, 1979), p. 11.
 
 
-[^25]: Robert L. Rothstein, *Global Bargaining: UNCTAD and the Quest for a New International Economic Order* (Princeton: Princeton University Press, 1979).
+[^25]: Robert L. Rothstein, Global Bargaining: UNCTAD and the Quest for a New International Economic Order (Princeton: Princeton University Press, 1979).
 
 
-[^26]: Rothstein, *Global Bargaining*, pp. 44-49, 106-07.
+[^26]: Rothstein, Global Bargaining, pp. 44-49, 106-07.
 
 
-[^27]: Rothstein, *Global Bargaining*, pp. 44-49.
+[^27]: Rothstein, Global Bargaining, pp. 44-49.
 
 
-[^28]: Rothstein, *Global Bargaining*, pp. 44-49.
+[^28]: Rothstein, Global Bargaining, pp. 44-49.
 
 
-[^29]: Rothstein, *Global Bargaining*, p. 98.
+[^29]: Rothstein, Global Bargaining, p. 98.
 
 
-[^30]: Hart, *The NIEO*, p. xvii.
+[^30]: Hart, The NIEO, p. xvii.
 
 
-[^31]: Hart, *The NIEO*, p. 22.
+[^31]: Hart, The NIEO, p. 22.
 
 
-[^32]: Here Hart seems to align with the findings of the ‘Brandt Report’: Independent Commission on International Development Issues, *North-South, a Programme for Survival: Report of the Independent Commission on International Development Issues*, 1st MIT Press paperback ed. (Cambridge, Mass: MIT Press, 1980); Hart, *The NIEO*, p. 154.
+[^32]: Here Hart seems to align with the findings of the ‘Brandt Report’: Independent Commission on International Development Issues, North-South, a Programme for Survival: Report of the Independent Commission on International Development Issues, 1st MIT Press paperback ed. (Cambridge, Mass: MIT Press, 1980); Hart, The NIEO, p. 154.
 
 
-[^33]: Jagdish N. Bhagwati and John Gerard Ruggie, *Power, Passions, and Purpose: Prospects for North-South Negotiations*, ed. Jagdish N. Bhagwati and John Gerard Ruggie (Cambridge, Mass: MIT Press, 1984), p. 325.
+[^33]: Jagdish N. Bhagwati and John Gerard Ruggie, Power, Passions, and Purpose: Prospects for North-South Negotiations, ed. Jagdish N. Bhagwati and John Gerard Ruggie (Cambridge, Mass: Cambridge, Mass : MIT Press, 1984), p. 325.
 
 
-[^34]: Bhagwati and Ruggie, *Power, Passions, and Purpose*, p. 43.
+[^34]: Bhagwati and Ruggie, Power, Passions, and Purpose, p. 43.
 
 
-[^35]: Bhagwati and Ruggie, *Power, Passions, and Purpose*, p. 43.
+[^35]: Bhagwati and Ruggie, Power, Passions, and Purpose, p. 43.
 
 
-[^36]: Bhagwati and Ruggie, *Power, Passions, and Purpose*, p. 43.
+[^36]: Bhagwati and Ruggie, Power, Passions, and Purpose, p. 43.
 
 
-[^37]: Thomas G. Weiss, *Multilateral Development Diplomacy in UNCTAD: the Lessons of Group Negotiations, 1964-84* (Houndmills, Basingstoke, Hampshire: Macmillan, 1986), pp. 6-7.
+[^37]: Thomas G. Weiss, Multilateral Development Diplomacy in UNCTAD: the Lessons of Group Negotiations, 1964-84 (Houndmills, Basingstoke, Hampshire: Macmillan, 1986), pp. 6-7.
 
 
-[^38]: Weiss, *Multilateral Development Diplomacy*, pp. 44-47.
+[^38]: Weiss, Multilateral Development Diplomacy, pp. 44-47.
 
 
-[^39]: Hart, *The NIEO*, pp. 53-54.
+[^39]: Hart, The NIEO, pp. 53-54.
 
 
-[^40]: Amrita Narlikar, *International Trade and Developing Countries Bargaining and Coalitions in the GATT and WTO*, RIPE series in global political economy v 13, (London; New York: Routledge, 2003); Antony Anghie, *Imperialism, Sovereignty and the Making of International Law* (Cambridge, UK; New York: Cambridge University Press, 2005).
+[^40]: Amrita Narlikar, International Trade and Developing Countries Bargaining and Coalitions in the GATT and WTO, RIPE series in global political economy v 13, (London; New York: Routledge, 2003); Antony Anghie, Imperialism, Sovereignty and the Making of International Law (Cambridge, UK; New York: Cambridge University Press, 2005).
 
 
-[^41]: Prashad, *Darker Nations*, p. 209.
+[^41]: Prashad, Darker Nations, p. 209.
 
 
-[^42]: Jennifer Bair, "Taking Aim at the New International Economic Order," in *The Road From Mont Pelerin: The Making of the Neoliberal Thought Collective*, ed. Philip Morowski & Dieter Plehwe (Cambridge, Massachusetts; London, England: Harvard University Press, 2009), p. 356.
+[^42]: Jennifer Bair, "Taking Aim at the New International Economic Order," in The Road From Mont Pelerin: The Making of the Neoliberal Thought Collective, ed. Philip Morowski & Dieter Plehwe (Cambridge, Massachusetts; London, England: Harvard University Press, 2009), p. 356.
 
 
-[^43]: Garavini, *After Empires*.
+[^43]: Garavini, After Empires.
 
 
-[^44]: Garavini, *After Empires*, p. 4.
+[^44]: Garavini, After Empires, p. 4.
 
 
-[^45]: Garavini, *After Empires*, p. 3.
+[^45]: Garavini, After Empires, p. 3.
 
 
 [^46]: Gilman, "NIEO: A Reintroduction," p. 9.
@@ -1184,7 +1848,7 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^48]: Gilman, "NIEO: A Reintroduction," p. 10.
 
 
-[^49]: Antony Anghie, "Legal Aspects of the New International Economic Order," *Humanity* 6, no. 1 (Spring 2015 2015): pp. 145, 55; Christopher R. W. Dietrich, "Mossadegh Madness: Oil and Sovereignty in the Anticolonial Community," *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 6, no. 1 (2015): p. 73., https://doi.org/10.1353/hum.2015.0002; Umut Özsu, "“In the Interests of Mankind as a Whole”: Mohammed Bedjaoui’s New International Economic Order," *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 6, no. 1 (2015): pp. 137-38., https://doi.org/10.1353/hum.2015.0013; Daniel J. Sargent, "North/South: The United States Responds to the New International Economic Order," *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 6, no. 1 (2015): p. 202., https://doi.org/10.1353/hum.2015.0009; Patrick Sharma, "Between North and South: The World Bank and the New International Economic Order," *Humanity* 6, no. 1 (Spring 2015 2015): p. 190.
+[^49]: Antony Anghie, "Legal Aspects of the New International Economic Order," Humanity 6, no. 1 (Spring 2015 2015): pp. 145, 55; Christopher R. W. Dietrich, "Mossadegh Madness: Oil and Sovereignty in the Anticolonial Community," Humanity: An International Journal of Human Rights, Humanitarianism, and Development 6, no. 1 (2015): p. 73., https://doi.org/10.1353/hum.2015.0002; Umut Özsu, "“In the Interests of Mankind as a Whole”: Mohammed Bedjaoui’s New International Economic Order," Humanity: An International Journal of Human Rights, Humanitarianism, and Development 6, no. 1 (2015): pp. 137-38., https://doi.org/10.1353/hum.2015.0013; Daniel J. Sargent, "North/South: The United States Responds to the New International Economic Order," Humanity: An International Journal of Human Rights, Humanitarianism, and Development 6, no. 1 (2015): p. 202., https://doi.org/10.1353/hum.2015.0009; Patrick Sharma, "Between North and South: The World Bank and the New International Economic Order," Humanity 6, no. 1 (Spring 2015 2015): p. 190.
 
 
 [^50]: Venzke, "Possibilities of the Past," pp. 7-8.
@@ -1193,31 +1857,31 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^51]: Venzke, "Possibilities of the Past," p. 10.
 
 
-[^52]: Christopher R. W. Dietrich, *Oil Revolution: Anticolonial Elites, Sovereign Rights, and the Economic Culture of Decolonization*, Global and International History, (Cambridge: Cambridge University Press, 2017).
+[^52]: Christopher R. W. Dietrich, Oil Revolution: Anticolonial Elites, Sovereign Rights, and the Economic Culture of Decolonization, Global and International History, (Cambridge: Cambridge University Press, 2017).
 
 
-[^53]: Dietrich, *Oil Revolution*, pp. 313, 265-68.
+[^53]: Dietrich, Oil Revolution, pp. 313, 265-68.
 
 
-[^54]: Getachew, *Worldmaking After Empire*, pp. 42-44.
+[^54]: Getachew, Worldmaking After Empire, pp. 42-44.
 
 
-[^55]: Getachew, *Worldmaking After Empire*, p. 185.
+[^55]: Getachew, Worldmaking After Empire, p. 185.
 
 
 [^56]: Venzke, "Possibilities of the Past," p. 2.
 
 
-[^57]: Karl Marx, "The Eighteenth Brumaire of Louis Bonaparte," (1852), https://www.marxists.org/archive/marx/works/1852/18th-brumaire/ch01.htm; Bieler and Morton, *Global Capitalism, Global War, Global Crisis.*, p. 44.
+[^57]: Karl Marx, "The Eighteenth Brumaire of Louis Bonaparte," (1852), https://www.marxists.org/archive/marx/works/1852/18th-brumaire/ch01.htm; Bieler and Morton, Global Capitalism, Global War, Global Crisis., p. 44.
 
 
-[^58]: Bieler and Morton, *Global Capitalism, Global War, Global Crisis.*, pp. 31, 36, 134.
+[^58]: Bieler and Morton, Global Capitalism, Global War, Global Crisis., pp. 31, 36, 134.
 
 
-[^59]: Bieler and Morton, *Global Capitalism, Global War, Global Crisis.*, p. 72.
+[^59]: Bieler and Morton, Global Capitalism, Global War, Global Crisis., p. 72.
 
 
-[^60]: Stephen D. Krasner, *Structural Conflict: The Third World Against Global Liberalism*, Studies in International Political Economy, (Berkeley: University of California Press, 1985), pp. 10-11.
+[^60]: Stephen D. Krasner, Structural Conflict: The Third World Against Global Liberalism, Studies in International Political Economy, (Berkeley: University of California Press, 1985), pp. 10-11.
 
 
 [^61]: Acharya, "Global IR," p. 649.
@@ -1229,67 +1893,67 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^63]: Acharya, "Global IR," p. 649.
 
 
-[^64]: Acharya, *Constructing Global Order*, p. 1.
+[^64]: Acharya, Constructing Global Order, p. 1.
 
 
-[^65]: Acharya, *Constructing Global Order*, p. 1.
+[^65]: Acharya, Constructing Global Order, p. 1.
 
 
-[^66]: John M. Hobson, *The Eurocentric Conception of World Politics: Western international theory, 1760-2010* (Cambridge: Cambridge University Press, 2012).
+[^66]: John M. Hobson, The Eurocentric Conception of World Politics: Western international theory, 1760-2010 (Cambridge: Cambridge University Press, 2012).
 
 
-[^67]: Hobson, *Eurocentric Conception of World Politics*, p. 139.
+[^67]: Hobson, Eurocentric Conception of World Politics, p. 139.
 
 
-[^68]: Alexander Anievas and Kerem Nişancıoğlu, *How the West Came to Rule: The Geopolitical Origins of Capitalism*, How the West Came to Rule, (London : Pluto Press, 2015).
+[^68]: Alexander Anievas and Kerem Nişancıoğlu, How the West Came to Rule: The Geopolitical Origins of Capitalism, How the West Came to Rule, (London : Pluto Press, 2015).
 
 
-[^69]: Acharya, "Global IR," p. 651; John M. Hobson and Alina Sajed, "Navigating Beyond the Eurofetishist Frontier of Critical IR Theory: Exploring the Complex Landscapes of Non-Western Agency," *International Studies Review* (2017), https://doi.org/10.1093/isr/vix013.
+[^69]: Acharya, "Global IR," p. 651; John M. Hobson and Alina Sajed, "Navigating Beyond the Eurofetishist Frontier of Critical IR Theory: Exploring the Complex Landscapes of Non-Western Agency," International Studies Review (2017), https://doi.org/10.1093/isr/vix013.
 
 
-[^70]: Hobson, *Eurocentric Conception of World Politics*, p. 202.
+[^70]: Hobson, Eurocentric Conception of World Politics, p. 202.
 
 
-[^71]: G. John Ikenberry, "The Future of the Liberal World Order: Internationalism After America," *Foreign Affairs* 90, no. 3 (May/June 2011).
+[^71]: G. John Ikenberry, "The Future of the Liberal World Order: Internationalism After America," Foreign Affairs 90, no. 3 (May/June 2011).
 
 
-[^72]: Georg Sørensen, *A Liberal World Order in Crisis: Choosing Between Imposition and Restraint* (Ithaca, N.Y.; London: Cornell University Press, 2011), pp. 40-43, 153.
+[^72]: Georg Sørensen, A Liberal World Order in Crisis: Choosing Between Imposition and Restraint (Ithaca, N.Y.; London: Cornell University Press, 2011), pp. 40-43, 153.
 
 
-[^73]: Sørensen, *Liberal World Order in Crisis*, p. 142.
+[^73]: Sørensen, Liberal World Order in Crisis, p. 142.
 
 
-[^74]: Helleiner, *Forgotten Foundations of Bretton Woods*.
+[^74]: Helleiner, Forgotten Foundations of Bretton Woods.
 
 
-[^75]: Mazower, *No Enchanted Palace*.
+[^75]: Mazower, No Enchanted Palace.
 
 
-[^76]: Getachew, *Worldmaking After Empire*.
+[^76]: Getachew, Worldmaking After Empire.
 
 
-[^77]: Andrew Phillips, "Beyond Bandung: the 1955 Asian-African Conference and its Legacies for International Order," *Australian Journal of International Affairs* 70, no. 4 (2016): p. 331., https://doi.org/10.1080/10357718.2016.1153600.
+[^77]: Andrew Phillips, "Beyond Bandung: the 1955 Asian-African Conference and its Legacies for International Order," Australian Journal of International Affairs 70, no. 4 (2016): p. 331., https://doi.org/10.1080/10357718.2016.1153600.
 
 
-[^78]: Richard Devetak, Tim Dunne, and Ririn Tri Nurhayati, "Bandung 60 Years On: Revolt and Resilience in International Society," *Australian Journal of International Affairs* 70, no. 4 (2016): p. 360., https://doi.org/10.1080/10357718.2016.1155201.
+[^78]: Richard Devetak, Tim Dunne, and Ririn Tri Nurhayati, "Bandung 60 Years On: Revolt and Resilience in International Society," Australian Journal of International Affairs 70, no. 4 (2016): p. 360., https://doi.org/10.1080/10357718.2016.1155201.
 
 
-[^79]: Roland Burke, *Decolonization and the Evolution of International Human Rights* (Philadelphia: Philadelphia: University of Pennsylvania Press, 2010); Devetak, Dunne, and Nurhayati, "Bandung 60 Years On: Revolt and Resilience in International Society," p. 360.
+[^79]: Roland Burke, Decolonization and the Evolution of International Human Rights (Philadelphia: Philadelphia: University of Pennsylvania Press, 2010); Devetak, Dunne, and Nurhayati, "Bandung 60 Years On: Revolt and Resilience in International Society," p. 360.
 
 
-[^80]: Acharya, *Constructing Global Order*.
+[^80]: Acharya, Constructing Global Order.
 
 
 [^81]: Phillips, "Beyond Bandung," p. 331.
 
 
-[^82]: Acharya, *Constructing Global Order*, p. 23.
+[^82]: Acharya, Constructing Global Order, p. 23.
 
 
-[^83]: Acharya, *Constructing Global Order*, pp. 18-20.
+[^83]: Acharya, Constructing Global Order, pp. 18-20.
 
 
-[^84]: Acharya, *Constructing Global Order*, pp. 18-20.
+[^84]: Acharya, Constructing Global Order, pp. 18-20.
 
 
 [^85]: Acharya, "Global IR," p. 649.
@@ -1301,10 +1965,10 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^87]: Hobson and Sajed, "Navigating Beyond the Eurofetishist Frontier," p. 2.
 
 
-[^88]: George Lawson, "The Eternal Divide? History and International Relations," *European Journal of International Relations* 18, no. 2 (2012): p. 219., https://doi.org/10.1177/1354066110373561.
+[^88]: George Lawson, "The Eternal Divide? History and International Relations," European Journal of International Relations 18, no. 2 (2012): p. 219., https://doi.org/10.1177/1354066110373561.
 
 
-[^89]: Manali Desai, "The Relative Autonomy of Party Practices: A Counterfactual Analysis of Left Party Ascendancy in Kerala, India.," *American Journal of Sociology* 108, no. 3 (2002), https://doi.org/10.1086/367919.
+[^89]: Manali Desai, "The Relative Autonomy of Party Practices: A Counterfactual Analysis of Left Party Ascendancy in Kerala, India.," American Journal of Sociology 108, no. 3 (2002), https://doi.org/10.1086/367919.
 
 
 [^90]: Cox, "Social Forces."
@@ -1313,22 +1977,22 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^91]: This is in keeping with Cox’s understanding of what it meant to be ahistorical: ‘Having arrived at this view of underlying substances, history becomes for neo-realists a quarry providing materials with which to illustrate variations on always recurrent themes. The mode of thought ceases to be historical even though the materials used are derived from history.’ Cox, "Social Forces," p. 131.
 
 
-[^92]: Hobson, *Eurocentric Conception of World Politics*.
+[^92]: Hobson, Eurocentric Conception of World Politics.
 
 
-[^93]: Krasner, *Structural Conflict*, pp. 5-6.
+[^93]: Krasner, Structural Conflict, pp. 5-6.
 
 
-[^94]: Craig N. Murphy, "What the Third World Wants: An Interpretation of the Development and Meaning of the New International Economic Order Ideology," *International Studies Quarterly* 27, no. 1 (1983), https://doi.org/10.2307/2600619.
+[^94]: Craig N. Murphy, "What the Third World Wants: An Interpretation of the Development and Meaning of the New International Economic Order Ideology," International Studies Quarterly 27, no. 1 (1983), https://doi.org/10.2307/2600619.
 
 
-[^95]: Sørensen, *Liberal World Order in Crisis*, p. 142.
+[^95]: Sørensen, Liberal World Order in Crisis, p. 142.
 
 
 [^96]: Phillips, "Beyond Bandung," p. 331.
 
 
-[^97]: Ikenberry, "Future of the Liberal World Order."; Sørensen, *Liberal World Order in Crisis*.
+[^97]: Ikenberry, "Future of the Liberal World Order."; Sørensen, Liberal World Order in Crisis.
 
 
 [^98]: This problem of Orthodox IR is reflective of Amitav Acharya’s concern for creating a Global International Relations. It is for this reason that he argues that a Global IR would need to rely on global histories: Acharya, "Global IR," p. 652.
@@ -1340,7 +2004,7 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^100]: Hobson and Sajed, "Navigating Beyond the Eurofetishist Frontier," p. 2.
 
 
-[^101]: Robert W. Cox, "Ideologies and the New International Economic Order: Reflections On Some Recent Literature," *International Organization* 33, no. 2 (1979), https://doi.org/10.1017/S0020818300032161.
+[^101]: Robert W. Cox, "Ideologies and the New International Economic Order: Reflections On Some Recent Literature," International Organization 33, no. 2 (1979), https://doi.org/10.1017/S0020818300032161.
 
 
 [^102]: Cox, "Social Forces."
@@ -1349,7 +2013,7 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^103]: Cox, "Social Forces," pp. 150-51.
 
 
-[^104]: Mustafa Emirbayer, "Manifesto for a Relational Sociology," *American Journal of Sociology* 103, no. 2 (1997): pp. 308-09., https://doi.org/10.1086/231209.
+[^104]: Mustafa Emirbayer, "Manifesto for a Relational Sociology," American Journal of Sociology 103, no. 2 (1997): pp. 308-09., https://doi.org/10.1086/231209.
 
 
 [^105]: Cox, "Social Forces," p. 126.
@@ -1379,10 +2043,10 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^113]: Marx, "The Eighteenth Brumaire of Louis Bonaparte."
 
 
-[^114]: Robert W. Cox, *Production, Power, and World Order: Social Forces in the Making of History* (New York: Columbia University Press, 1987), p. 273.
+[^114]: Robert W. Cox, Production, Power, and World Order: Social Forces in the Making of History (New York: Columbia University Press, 1987), p. 273.
 
 
-[^115]: Robert W. Cox, "'Real Socialism' in Historical Perspective," *Socialist Register* 27, no. 27 (1991): p. 175.
+[^115]: Robert W Cox, "'Real Socialism' in Historical Perspective," Socialist Register 27, no. 27 (1991): p. 175.
 
 
 [^116]: Venzke, "Possibilities of the Past."
@@ -1391,7 +2055,7 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^117]: Venzke, "Possibilities of the Past," p. 4-5.
 
 
-[^118]: Johan Huizinga, "The Idea of History," in *The varieties of history*, ed. Fritz Stern (Vintage, 1973), pp. 290-303., quoted in Venzke, "Possibilities of the Past," p. 4-5.
+[^118]: Johan Huizinga, "The Idea of History," in The varieties of history, ed. Fritz Stern (Vintage, 1973), pp. 290-303., quoted in Venzke, "Possibilities of the Past," p. 4-5.
 
 
 [^119]: Hobson and Sajed, "Navigating Beyond the Eurofetishist Frontier."
@@ -1424,10 +2088,10 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^128]: As I outline in the next chapter, I take a critical view of the post-war order, arguing that it is not liberal. Nevertheless, I show that according to the definitions of Orthodox liberal internationalists, the NIEO was a project that sought to save and not overthrow the post-war liberal order.
 
 
-[^129]: G. John Ikenberry, "Liberal Internationalism 3.0: America and the Dilemmas of Liberal World Order," *Persp on Pol* 7, no. 1 (2009), https://doi.org/10.1017/S1537592709090112.
+[^129]: G. John Ikenberry, "Liberal Internationalism 3.0: America and the Dilemmas of Liberal World Order," Persp on Pol 7, no. 1 (2009), https://doi.org/10.1017/S1537592709090112.
 
 
-[^130]: Murphy, "What the Third World Wants."; Johanna Bockman, "Socialist Globalization Against Capitalist Neocolonialism: The Economic Ideas behind the New International Economic Order," *Humanity* 6, no. 1 (Spring 2015 2015); Prashad, *Poorer Nations*.
+[^130]: Murphy, "What the Third World Wants."; Johanna Bockman, "Socialist Globalization Against Capitalist Neocolonialism: The Economic Ideas behind the New International Economic Order," Humanity 6, no. 1 (Spring 2015 2015); Prashad, Poorer Nations.
 
 
 [^131]: Cox, "Social Forces," pp. 140-41.
@@ -1439,70 +2103,70 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^133]: Cox, "Social Forces," pp. 150-51.
 
 
-[^134]: Prashad, *Darker Nations*, p. xv.
+[^134]: Prashad, Darker Nations, p. xv.
 
 
-[^135]: Prashad, *Darker Nations*, p. xv.
+[^135]: Prashad, Darker Nations, p. xv.
 
 
-[^136]: Prashad, *Darker Nations*, p. xv.
+[^136]: Prashad, Darker Nations, p. xv.
 
 
-[^137]: Prashad, *Darker Nations*, p. xvii.
+[^137]: Prashad, Darker Nations, p. xvii.
 
 
-[^138]: This specific aspect of the Third World Project is the focus of: Mazower, *No Enchanted Palace*.
+[^138]: This specific aspect of the Third World Project is the focus of: Mazower, No Enchanted Palace.
 
 
-[^139]: Prashad, *Darker Nations*, p. xvii.
+[^139]: Prashad, Darker Nations, p. xvii.
 
 
-[^140]: Prashad, *Darker Nations*, pp. 122-23, 27, 28-29, 31-33, 62-63.
+[^140]: Prashad, Darker Nations, pp. 122-23, 27, 28-29, 31-33, 62-63.
 
 
-[^141]: Prashad, *Darker Nations*, pp. 110-11, 24, 62-63.
+[^141]: Prashad, Darker Nations, pp. 110-11, 24, 62-63.
 
 
-[^142]: Prashad, *Darker Nations*, pp. 31, 108.
+[^142]: Prashad, Darker Nations, pp. 31, 108.
 
 
-[^143]: Prashad, *Darker Nations*, pp. 13-14.
+[^143]: Prashad, Darker Nations, pp. 13-14.
 
 
-[^144]: A similar point is made by: Getachew, *Worldmaking After Empire*, pp. 181-82.
+[^144]: A similar point is made by: Getachew, Worldmaking After Empire, pp. 181-82.
 
 
-[^145]: Prashad, *Darker Nations*, pp. 67-68.
+[^145]: Prashad, Darker Nations, pp. 67-68.
 
 
-[^146]: Prashad, *Darker Nations*, pp. 138-41.
+[^146]: Prashad, Darker Nations, pp. 138-41.
 
 
-[^147]: Prashad, *Darker Nations*, pp. 110-11.
+[^147]: Prashad, Darker Nations, pp. 110-11.
 
 
-[^148]: Prashad, *Darker Nations*, p. 154.
+[^148]: Prashad, Darker Nations, p. 154.
 
 
-[^149]: Prashad, *Darker Nations*, pp. 71-72.
+[^149]: Prashad, Darker Nations, pp. 71-72.
 
 
-[^150]: Prashad, *Darker Nations*, p. 276.
+[^150]: Prashad, Darker Nations, p. 276.
 
 
-[^151]: Ikenberry, "Liberal Internationalism 3.0."; Sørensen, *Liberal World Order in Crisis*, p. 142.
+[^151]: Ikenberry, "Liberal Internationalism 3.0."; Sørensen, Liberal World Order in Crisis, p. 142.
 
 
-[^152]: Krasner, *Structural Conflict*.
+[^152]: Krasner, Structural Conflict.
 
 
-[^153]: Krasner, *Structural Conflict*, pp. 10-11.
+[^153]: Krasner, Structural Conflict, pp. 10-11.
 
 
-[^154]: Samir Amin, "After the New International Economic Order: The Future of International Economic Relations," *Journal of Contemporary Asia* 12, no. 4 (1982), https://doi.org/10.1080/00472338285390361; Murphy, "What the Third World Wants."; Bockman, "Socialist Globalization."; Prashad, *Poorer Nations*.
+[^154]: Samir Amin, "After the New International Economic Order: The Future of International Economic Relations," Journal of Contemporary Asia 12, no. 4 (1982), https://doi.org/10.1080/00472338285390361; Murphy, "What the Third World Wants."; Bockman, "Socialist Globalization."; Prashad, Poorer Nations.
 
 
-[^155]: Amin, "After the NIEO," pp. 432-33; Murphy, "What the Third World Wants."; Craig N. Murphy, *Global Institutions, Marginalization, and Development* (London; New York, NY: Routledge, 2005), p. 12; Prashad, *Poorer Nations*, pp. 2-3.
+[^155]: Amin, "After the NIEO," pp. 432-33; Murphy, "What the Third World Wants."; Craig Murphy, Global Institutions, Marginalization, and Development (London; New York, NY: Routledge, 2005), p. 12; Prashad, Poorer Nations, pp. 2-3.
 
 
 [^156]: Ikenberry, "Future of the Liberal World Order."
@@ -1529,154 +2193,154 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^163]: Ikenberry, "Liberal Internationalism 3.0," p. 72.
 
 
-[^164]: Krasner, *Structural Conflict*, p. 5.
+[^164]: Krasner, Structural Conflict, p. 5.
 
 
-[^165]: Krasner, *Structural Conflict*, pp. 11-13.
+[^165]: Krasner, Structural Conflict, pp. 11-13.
 
 
-[^166]: Krasner, *Structural Conflict*, pp. 9-10.
+[^166]: Krasner, Structural Conflict, pp. 9-10.
 
 
-[^167]: Krasner, *Structural Conflict*, pp. 9-10.
+[^167]: Krasner, Structural Conflict, pp. 9-10.
 
 
 [^168]: Cox, "Social Forces," p. 131.
 
 
-[^169]: Of course, these ideas were not created in a vacuum. Eric Helleiner, for example, has shown that much of Prebisch’s thinking was not so different from the views of many New Dealers who helped to build the Bretton Woods institutions. Indeed, many of the ideas proposed as part of the NIEO had been discussed during the Bretton Woods negotiations: Helleiner, *Forgotten Foundations of Bretton Woods*, pp. 9, 21, 51, 112-13, 30, 243 73-74. Likewise, the important new research of Adom Getachew better contextualises the creation of these ideas: Getachew, *Worldmaking After Empire*.
+[^169]: Of course, these ideas were not created in a vacuum. Eric Helleiner, for example, has shown that much of Prebisch’s thinking was not so different from the views of many New Dealers who helped to build the Bretton Woods institutions. Indeed, many of the ideas proposed as part of the NIEO had been discussed during the Bretton Woods negotiations: Helleiner, Forgotten Foundations of Bretton Woods, pp. 9, 21, 51, 112-13, 30, 243 73-74. Likewise, the important new research of Adom Getachew better contextualises the creation of these ideas: Getachew, Worldmaking After Empire.
 
 
-[^170]: Edgar J. Dosman, *The Life and Times of Raúl Prebisch, 1901-1986* (Montreal: McGill-Queen's University Press, 2008), p. 70.
+[^170]: Edgar J. Dosman, The Life and Times of Raúl Prebisch, 1901-1986 (Montreal: Montreal : McGill-Queen's University Press, 2008), p. 70.
 
 
-[^171]: Adrian Wooldridge and Alan Greenspan, *Capitalism in America: A History* (Penguin UK, 2018), pp. 230-32.
+[^171]: Adrian Wooldridge and Alan Greenspan, Capitalism in America: A History (Penguin UK, 2018), pp. 230-32.
 
 
-[^172]: Dosman, *Life and Times*. p. 112. UNCTAD and Raúl Prebisch, *Towards a New Trade Policy for Development: Report by the Secretary-General of the United Nations Conference on Trade and Development*, Document (United Nations), (New York: United Nations, 1964), pp. 27-29.
+[^172]: Dosman, Life and Times. p. 112. UNCTAD and Raúl Prebisch, Towards a New Trade Policy for Development: Report by the Secretary-General of the United Nations Conference on Trade and Development, Document (United Nations), (New York: United Nations, 1964), pp. 27-29.
 
 
-[^173]: UNCTAD and Prebisch, *Towards a New Trade Policy*, pp. 27-29.
+[^173]: UNCTAD and Prebisch, Towards a New Trade Policy, pp. 27-29.
 
 
-[^174]: Dosman, *Life and Times*, pp. 98-103.
+[^174]: Dosman, Life and Times, pp. 98-103.
 
 
-[^175]: United Nations Economic Commission for Latin America and R. Prebisch, *The Economic Development of Latin America and Its Principal Problems* (United Nations Department of Economic Affairs, 1950).
+[^175]: United Nations Economic Commission for Latin America and R. Prebisch, The Economic Development of Latin America and Its Principal Problems (United Nations Department of Economic Affairs, 1950).
 
 
-[^176]: JFJ Toye and Richard Toye, "The Origins and Interpretation of the Prebisch-Singer thesis," *History of political Economy* 35, no. 3 (2003).
+[^176]: JFJ Toye and Richard Toye, "The Origins and Interpretation of the Prebisch-Singer thesis," History of political Economy 35, no. 3 (2003).
 
 
-[^177]: UNCTAD and Prebisch, *Towards a New Trade Policy*, p. 14.
+[^177]: UNCTAD and Prebisch, Towards a New Trade Policy, p. 14.
 
 
-[^178]: Prashad, *Darker Nations*, p. 62.
+[^178]: Prashad, Darker Nations, p. 62.
 
 
-[^179]: Dosman, *Life and Times*, pp. 209, 179-83.
+[^179]: Dosman, Life and Times, pp. 209, 179-83.
 
 
 [^180]: Raúl Prebisch, "Statement By Dr. Raul Prebisch, Executive Secretary of ECLA at the Inaugural Meeting on 19 November 1956" (Economic Committee for Latin America Trade Committee, Santiago, 1956).
 
 
-[^181]: Dosman, *Life and Times*, pp. 209, 179-83.
+[^181]: Dosman, Life and Times, pp. 209, 179-83.
 
 
 [^182]: Raúl Prebisch, "Statement By Dr. Raul Prebisch, Executive Secretary of ECLA at the Inaugural Meeting on 19 November 1956" (Economic Committee for Latin America Trade Committee TRADE COMMITTEE, Santiago, 1956).
 
 
-[^183]: Dosman, *Life and Times*, p. 429.
+[^183]: Dosman, Life and Times, p. 429.
 
 
-[^184]: UNCTAD and Prebisch, *Towards a New Trade Policy*, p. 12-13.
+[^184]: UNCTAD and Prebisch, Towards a New Trade Policy, p. 12-13.
 
 
-[^185]: UNCTAD and Prebisch, *Towards a New Trade Policy*, pp. 25-26, 65-66.
+[^185]: UNCTAD and Prebisch, Towards a New Trade Policy, pp. 25-26, 65-66.
 
 
-[^186]: UNCTAD and Prebisch, *Towards a New Trade Policy*, p. 12-13.
+[^186]: UNCTAD and Prebisch, Towards a New Trade Policy, p. 12-13.
 
 
-[^187]: UNCTAD and Prebisch, *Towards a New Trade Policy*, pp. 65-66.
+[^187]: UNCTAD and Prebisch, Towards a New Trade Policy, pp. 65-66.
 
 
-[^188]: UNCTAD and Prebisch, *Towards a New Trade Policy*, p. 14.
+[^188]: UNCTAD and Prebisch, Towards a New Trade Policy, p. 14.
 
 
-[^189]: Gamani Corea, a “Prebischian” economist also Secretary General of UNCTAD also made this point: Gamani Corea, *Taming Commodity Markets: The Integrated Programme and the Common Fund in UNCTAD* (Manchester: Manchester University Press, 1992), p. 9; UNCTAD and Prebisch, *Towards a New Trade Policy*, p.19.
+[^189]: Gamani Corea, a “Prebischian” economist also Secretary General of UNCTAD also made this point: Gamani Corea, Taming Commodity Markets: The Integrated Programme and the Common Fund in UNCTAD (Manchester: Manchester University Press, 1992), p. 9; UNCTAD and Prebisch, Towards a New Trade Policy, p.19.
 
 
-[^190]: Dosman discusses Prebisch’s leading role in the Charter of Punta Del Este, where there was intended to be a quid pro quo between US support and domestic reforms by Latin American states: Organization of American States, The Charter of Punta del Este, (1961); Dosman, *Life and Times*, pp. 364-65.
+[^190]: Dosman discusses Prebisch’s leading role in the Charter of Punta Del Este, where there was intended to be a quid pro quo between US support and domestic reforms by Latin American states: Organization of American States, The Charter of Punta del Este, (1961); Dosman, Life and Times, pp. 364-65.
 
 
-[^191]: UNCTAD and Prebisch, *Towards a New Trade Policy*, pp. 8-9.
+[^191]: UNCTAD and Prebisch, Towards a New Trade Policy, pp. 8-9.
 
 
-[^192]: C. L. R. James, *Nkrumah and the Ghana Revolution* (London: Allison and Busby, 1977), pp. 136-48.
+[^192]: C. L. R. James, Nkrumah and the Ghana Revolution (London: Allison and Busby, 1977), pp. 136-48.
 
 
-[^193]: Kwame Nkrumah, *Neo-colonialism: The Last Stage of Imperialism* (London: Nelson, 1965), pp. xi.
+[^193]: Kwame Nkrumah, Neo-colonialism: The Last Stage of Imperialism (London: Nelson, 1965), pp. xi.
 
 
-[^194]: David Rooney, *Kwame Nkrumah Vision and Tragedy*, \[2nd ed.\]. ed. (Accra, Ghana: Sub-Saharan Publishers, 2007), pp. 195, 201-02, 10-11, 38.
+[^194]: David Rooney, Kwame Nkrumah Vision and Tragedy, \[2nd ed.\]. ed. (Accra, Ghana: Sub-Saharan Publishers, 2007), pp. 195, 201-02, 10-11, 38.
 
 
-[^195]: Nkrumah, *Neo-colonialism*, pp. 10-11.
+[^195]: Nkrumah, Neo-colonialism, pp. 10-11.
 
 
-[^196]: Nkrumah, *Neo-colonialism*, pp. 10-11.
+[^196]: Nkrumah, Neo-colonialism, pp. 10-11.
 
 
-[^197]: Nkrumah, *Neo-colonialism*, p. xvi.
+[^197]: Nkrumah, Neo-colonialism, p. xvi.
 
 
-[^198]: Nkrumah, *Neo-colonialism*, p. 11.
+[^198]: Nkrumah, Neo-colonialism, p. 11.
 
 
-[^199]: Nkrumah, *Neo-colonialism*, p. x.
+[^199]: Nkrumah, Neo-colonialism, p. x.
 
 
-[^200]: Nkrumah, *Neo-colonialism*, pp. 10-11.
+[^200]: Nkrumah, Neo-colonialism, pp. 10-11.
 
 
-[^201]: Getachew makes the same point: *'The NIEO was, as we shall see, Marxist in its diagnosis of economic dependence, drawing on traditions of dependency and world systems theory. Ultimately, however, its prescriptions were articulated within the terms of a liberal political economy, a contradiction dependency and world systems theorists, whose critiques had in part inspired the NIEO, immediately recognized.*’: Getachew, *Worldmaking After Empire*, p. 159.
+[^201]: Getachew makes the same point: *'The NIEO was, as we shall see, Marxist in its diagnosis of economic dependence, drawing on traditions of dependency and world systems theory. Ultimately, however, its prescriptions were articulated within the terms of a liberal political economy, a contradiction dependency and world systems theorists, whose critiques had in part inspired the NIEO, immediately recognized.*’: Getachew, Worldmaking After Empire, p. 159.
 
 
-[^202]: Bedjaoui, *Towards a New International Economic Order*.
+[^202]: Bedjaoui, Towards a New International Economic Order.
 
 
-[^203]: Prashad, *Poorer Nations*, p. 81.
+[^203]: Prashad, Poorer Nations, p. 81.
 
 
-[^204]: Bedjaoui, *Towards a New International Economic Order*, p. 20, 35-36.
+[^204]: Bedjaoui, Towards a New International Economic Order, p. 20, 35-36.
 
 
-[^205]: Özsu, "Mohammed Bedjaoui’s NIEO."; Nico Schrijver, *Sovereignty Over Natural Resources: Balancing Rights and Duties* (Cambridge ; New York: Cambridge University Press, 1997); Anghie, *Imperialism*.
+[^205]: Özsu, "Mohammed Bedjaoui’s NIEO."; Nico Schrijver, Sovereignty Over Natural Resources: Balancing Rights and Duties (Cambridge ; New York: Cambridge University Press, 1997); Anghie, Imperialism.
 
 
-[^206]: Bedjaoui, *Towards a New International Economic Order*, pp. 131-32; Schrijver, *Sovereignty Over Natural Resources*, pp. 31-32; Anghie, *Imperialism*, pp. 212-20.
+[^206]: Bedjaoui, Towards a New International Economic Order, pp. 131-32; Schrijver, Sovereignty Over Natural Resources, pp. 31-32; Anghie, Imperialism, pp. 212-20.
 
 
-[^207]: Bedjaoui, *Towards a New International Economic Order*, pp. 59-60, 86-87.
+[^207]: Bedjaoui, Towards a New International Economic Order, pp. 59-60, 86-87.
 
 
-[^208]: Bedjaoui, *Towards a New International Economic Order*, pp. 86-87.
+[^208]: Bedjaoui, Towards a New International Economic Order, pp. 86-87.
 
 
-[^209]: Bedjaoui, *Towards a New International Economic Order*, p. 71.
+[^209]: Bedjaoui, Towards a New International Economic Order, p. 71.
 
 
-[^210]: Bedjaoui, *Towards a New International Economic Order*, p. 72.
+[^210]: Bedjaoui, Towards a New International Economic Order, p. 72.
 
 
 [^211]: The declaration on the establishment on the NIEO did call for: *‘The need for developing countries to concentrate all their resources for the cause of development’*: United Nations General Assembly, "Declaration on the Establishment of a New International Economic Order," (1974): Para. 4 (r). http://www.un-documents.net/s6r3201.htm.
 
 
-[^212]: Weiss, *Multilateral Development Diplomacy*. p. 44; Narlikar, *International Trade*, pp. 63-64.
+[^212]: Weiss, Multilateral Development Diplomacy. p. 44; Narlikar, International Trade, pp. 63-64.
 
 
-[^213]: Prashad, *Poorer Nations*, pp. 2-3.
+[^213]: Prashad, Poorer Nations, pp. 2-3.
 
 
 [^214]: Assembly, "Declaration on the Establishment of a NIEO."
@@ -1685,13 +2349,13 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^215]: Assembly, "Declaration on the Establishment of a NIEO," para. 4 (g).
 
 
-[^216]: Nkrumah, *Neo-colonialism*, p. x.
+[^216]: Nkrumah, Neo-colonialism, p. x.
 
 
 [^217]: Assembly, "Declaration on the Establishment of a NIEO," para. 4 (k).
 
 
-[^218]: Nkrumah, *Neo-colonialism*, pp. xv-xvi.
+[^218]: Nkrumah, Neo-colonialism, pp. xv-xvi.
 
 
 [^219]: Assembly, "Declaration on the Establishment of a NIEO," para. 4 (j).
@@ -1712,34 +2376,34 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^224]: United Nations General Assembly, "Programme of Action on the Establishment of a New International Economic Order," (1974), http://www.un-documents.net/s6r3202.htm.
 
 
-[^225]: Weiss, *Multilateral Development Diplomacy*; Narlikar, *International Trade*, p. 133; Nicholas Lees, "The Evolution of International Inequality: Justice, Order and North-South Relations from the NIEO to the G20" (Doctor of Philosophy University of Oxford, 2013), p. 133; Mark Mazower, *Governing the World: The History of an Idea, 1815 to the Present* (Penguin Group USA, 2013), p. 302.
+[^225]: Weiss, Multilateral Development Diplomacy; Narlikar, International Trade, p. 133; Nicholas Lees, "The Evolution of International Inequality: Justice, Order and North-South Relations from the NIEO to the G20" (Doctor of Philosophy University of Oxford, 2013), p. 133; Mark Mazower, Governing the World: The History of an Idea, 1815 to the Present (Penguin Group USA, 2013), p. 302.
 
 
-[^226]: Amin, "After the NIEO," p. 435; Hart, *The NIEO*, p. 21; Caroline Thomas, *New States, Sovereignty, and Intervention* (Gower, 1985), pp. 128-29; Garavini, *After Empires*, pp. 168-69; Lees, "The Evolution of International Inequality," pp. 134, 42-44; S. Moyn, *Not Enough: Human Rights in an Unequal World* (Belknap Press of Harvard University Press, 2018), p. 117; Helleiner, *Forgotten Foundations of Bretton Woods*, p. 275.
+[^226]: Amin, "After the NIEO," p. 435; Hart, The NIEO, p. 21; Caroline Thomas, New States, Sovereignty, and Intervention (Gower, 1985), pp. 128-29; Garavini, After Empires, pp. 168-69; Lees, "The Evolution of International Inequality," pp. 134, 42-44; S. Moyn, Not Enough: Human Rights in an Unequal World (Belknap Press of Harvard University Press, 2018), p. 117; Helleiner, Forgotten Foundations of Bretton Woods, p. 275.
 
 
-[^227]: Stephen D. Krasner, "Oil Is The Exception," *Foreign Policy*, no. 14 (1974); Lees, "The Evolution of International Inequality," pp. 142-44.
+[^227]: Stephen Krasner, "Oil Is The Exception," Foreign Policy, no. 14 (1974); Lees, "The Evolution of International Inequality," pp. 142-44.
 
 
-[^228]: Tony Smith, "Changing Configurations of Power in North-South Relations since 1945," *Int Org* 31, no. 1 (1977): pp. 8-9., https://doi.org/10.1017/S0020818300006469; Rothstein, *Global Bargaining*, pp. 44-49; Robert Rothstein, "Regime- Creation by a Coalition of the Weak: Lessons from the NIEO and the Integrated Program for Commodities," *International Studies Quarterly* 28, no. 3 (1984): p. 312, https://doi.org/10.2307/2600633; Dietrich, "Mossadegh Madness," pp. 276-82.
+[^228]: Tony Smith, "Changing Configurations of Power in North-South Relations since 1945," Int Org 31, no. 1 (1977): pp. 8-9., https://doi.org/10.1017/S0020818300006469; Rothstein, Global Bargaining, pp. 44-49; Robert Rothstein, "Regime- Creation by a Coalition of the Weak: Lessons from the NIEO and the Integrated Program for Commodities," International Studies Quarterly 28, no. 3 (1984): p. 312, https://doi.org/10.2307/2600633; Dietrich, "Mossadegh Madness," pp. 276-82.
 
 
 [^229]: The leadership for the NIEO proposals was taken, in this instance, by the Non-Aligned states, led most vociferously by Algeria, which had called for the Sixth Special Session.
 
 
-[^230]: Weiss, *Multilateral Development Diplomacy*, pp. 6-7.
+[^230]: Weiss, Multilateral Development Diplomacy, pp. 6-7.
 
 
-[^231]: Weiss, *Multilateral Development Diplomacy*.
+[^231]: Weiss, Multilateral Development Diplomacy.
 
 
 [^232]: Assembly, "Declaration on the Establishment of a NIEO."; Assembly, "Programme of Action."
 
 
-[^233]: There were 122 members in 1980: Karl P. Sauvant, *The Group of 77: Evolution, Structure, Organization* (New York: Oceana Publications, 1981), p. 103.
+[^233]: There were 122 members in 1980: Karl P. Sauvant, The Group of 77: Evolution, Structure, Organization (New York: Oceana Publications, 1981), p. 103.
 
 
-[^234]: United Nations, "Official Records of the General Assembly: Sixth Special Session," *General Committee and Ad Hoc Committee of the Sixth Special Session, 10 April - 1 May 1974* A/AC.166/SR.1-21 (1974): p. 51.
+[^234]: United Nations, "Official Records of the General Assembly: Sixth Special Session," General Committee and Ad Hoc Committee of the Sixth Special Session, 10 April - 1 May 1974 A/AC.166/SR.1-21 (1974): p. 51.
 
 
 [^235]: Nations, "Sixth Special Session," p. 25.
@@ -1830,7 +2494,7 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^262]: Nations, "Sixth Special Session," pp. 49-50.
 
 
-[^263]: Amin, "After the NIEO," p. 435; Hart, *The NIEO*, p. 21; Thomas, *New States, Sovereignty, and Intervention*, pp. 128-29; Garavini, *After Empires*, pp. 168-69; Lees, "The Evolution of International Inequality," pp. 134, 42-44; Moyn, *Not Enough*, p. 117; Helleiner, *Forgotten Foundations of Bretton Woods*, p. 275.
+[^263]: Amin, "After the NIEO," p. 435; Hart, The NIEO, p. 21; Thomas, New States, Sovereignty, and Intervention, pp. 128-29; Garavini, After Empires, pp. 168-69; Lees, "The Evolution of International Inequality," pp. 134, 42-44; Moyn, Not Enough, p. 117; Helleiner, Forgotten Foundations of Bretton Woods, p. 275.
 
 
 [^264]: States that spoke of the strategic importance of OPEC for the G77 (in addition to those states that called for the use of this power, those already mentioned): Guinea, Yemen, Bahrain, Congo, El Salvador, Ivory Coast, Peru, Ghana, Guyana, Albania, Ecuador.
@@ -1884,31 +2548,31 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^280]: UNA, New Zealand and Sri Lanka: Draft Resolution: Emergency Measures in regard to the supply of fertilizers and pesticides, S-0908-0002-05, A/AC.166/42.
 
 
-[^281]: Dietrich, *Oil Revolution*, p. 313.
+[^281]: Dietrich, Oil Revolution, p. 313.
 
 
-[^282]: Dietrich, *Oil Revolution*, 313.
+[^282]: Dietrich, Oil Revolution, 313.
 
 
-[^283]: C. Fred Bergsten, "The Threat Is Real," *Foreign Policy*, no. 14 (1974), https://doi.org/10.2307/1147948; Gosovic and Ruggie, "Issue Linkage and the Seventh Special Session."
+[^283]: C. Fred Bergsten, "The Threat Is Real," Foreign Policy, no. 14 (1974), https://doi.org/10.2307/1147948; Gosovic and Ruggie, "Issue Linkage and the Seventh Special Session."
 
 
-[^284]: OPEC, *Solemn Declaration: Conference of the Sovereigns and Heads of State of the OPEC Member Countries* (Algiers, 1975), pp. 8-10.
+[^284]: OPEC, Solemn Declaration: Conference of the Sovereigns and Heads of State of the OPEC Member Countries (Algiers, 1975), pp. 8-10.
 
 
-[^285]: OPEC, *Solemn Declaration*, pp. 8-10.
+[^285]: OPEC, Solemn Declaration, pp. 8-10.
 
 
-[^286]: OPEC, *Solemn Declaration*, pp. 8-10.
+[^286]: OPEC, Solemn Declaration, pp. 8-10.
 
 
-[^287]: OPEC, *Solemn Declaration*, pp. 8-10.
+[^287]: OPEC, Solemn Declaration, pp. 8-10.
 
 
-[^288]: OPEC, *Solemn Declaration*, pp. 8-10.
+[^288]: OPEC, Solemn Declaration, pp. 8-10.
 
 
-[^289]: OPEC, *Solemn Declaration*, pp. 8-10.
+[^289]: OPEC, Solemn Declaration, pp. 8-10.
 
 
 [^290]: United Nations General Assembly, "Resolution 2626 (XXV) on an International Development Strategy for the Second United Nations Development Decade," (1970): para. 43.
@@ -1917,22 +2581,22 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^291]: The DAC is a sub-group of countries from the OECD: Overseas Development Institute, OPEC Aid, 1980, p. 3, London, https://www.odi.org/sites/odi.org.uk/files/odi-assets/publications-opinion-files/6634.pdf.; OECD, "Net ODA (indicator)," (22 January 2019 2019).
 
 
-[^292]: OPEC, *Solemn Declaration*, pp. 8-10.
+[^292]: OPEC, Solemn Declaration, pp. 8-10.
 
 
-[^293]: OPEC, *Solemn Declaration*, pp. 8-10.
+[^293]: OPEC, Solemn Declaration, pp. 8-10.
 
 
-[^294]: Garavini, *After Empires*, p. 187.
+[^294]: Garavini, After Empires, p. 187.
 
 
-[^295]: OPEC, *Solemn Declaration*, pp. 8-10.
+[^295]: OPEC, Solemn Declaration, pp. 8-10.
 
 
 [^296]: Sargent, "North-South: The US Responds."
 
 
-[^297]: Dietrich, *Oil Revolution*, pp. 284-89.
+[^297]: Dietrich, Oil Revolution, pp. 284-89.
 
 
 [^298]: CIA, Intelligence Memorandum: Prospects for the 7th Special Session of the U.N General Assembly, 27 August 27 August 1975, CIA-RDP79T00865A002600200001-2.
@@ -1947,13 +2611,13 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^301]: UNA, Seventh Special Session, S-0983-0001-0005-00001.
 
 
-[^302]: A proposal which sought the stabilisation of international commodity trade brought under a common umbrella in an attempt to increase the funds available to stabilise each commodity, an approach that the UNCTAD secretariat considered would overcome shortfalls in commodity price regulation that had occurred in the past: Corea, *Taming Commodity Markets*.
+[^302]: A proposal which sought the stabilisation of international commodity trade brought under a common umbrella in an attempt to increase the funds available to stabilise each commodity, an approach that the UNCTAD secretariat considered would overcome shortfalls in commodity price regulation that had occurred in the past: Corea, Taming Commodity Markets.
 
 
 [^303]: UNA, Seventh Special Session.
 
 
-[^304]: Isebill V Gruhn, "The Lomé Convention: inching towards interdependence," *International Organization* 30, no. 2 (1976).
+[^304]: Isebill V Gruhn, "The Lomé Convention: inching towards interdependence," International Organization 30, no. 2 (1976).
 
 
 [^305]: UNA, Seventh Special Session.
@@ -1980,16 +2644,16 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^312]: CIA, "The Dynamics of “Small-State” Leverage."
 
 
-[^313]: Ian Skeet, *OPEC: Twenty-five Years of Prices and Politics*, Cambridge Energy Studies, (Cambridge: Cambridge University Press, 1988), p. 138.
+[^313]: Ian Skeet, OPEC: Twenty-five Years of Prices and Politics, Cambridge Energy Studies, (Cambridge: Cambridge University Press, 1988), p. 138.
 
 
-[^314]: Steven G. Galpern, *Money, Oil, and Empire in the Middle East: Sterling and Postwar Imperialism, 1944-1971* (Cambridge: Cambridge University Press, 2009), pp. 268-70; Dietrich, *Oil Revolution*, p. 170.
+[^314]: Steven G. Galpern, Money, Oil, and Empire in the Middle East: Sterling and Postwar Imperialism, 1944-1971 (Cambridge: Cambridge University Press, 2009), pp. 268-70; Dietrich, Oil Revolution, p. 170.
 
 
-[^315]: Galpern, *Money, Oil, and Empire*, pp. 268-70; Dietrich, *Oil Revolution*, p. 170.
+[^315]: Galpern, Money, Oil, and Empire, pp. 268-70; Dietrich, Oil Revolution, p. 170.
 
 
-[^316]: Skeet, *OPEC*, p. 131.
+[^316]: Skeet, OPEC, p. 131.
 
 
 [^317]: The Economist, "Editorial," 12 January 1974, p. 11.
@@ -2004,58 +2668,58 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^320]: Within this predominant view there exists a spectrum of fatalism. In the work of Rothstein, writing before the NIEO Project had clearly failed, there exists the idea that the North-South dialogue could be successful. Rothstein is far less absolute in his judgments. Also, however, he is more aware of the power that the G77 did have, because of its alliance with OPEC. Following the full realisation that the NIEO Project had indeed failed, scholars such as Thomas G. Weiss write with much more certainty that the G77 bloc tactics had made stalemate inevitable. The later work of Amrita Narlikar takes up the interpretation of Weiss. This is not because Narlikar failed to read the work of Rothstein, but rather because the nature of her work, of comparing differing negotiating tactics by the South in multilateral channels, demanded a certain level of generalisation. Nevertheless, these concerns, taken together, must be addressed. Was the G77’s negotiating position, because of irreconcilable or unreconciled internal conflicts of interest, so brittle that the North-South Dialogue could not have become a North-South negotiation?
 
 
-[^321]: Weiss, *Multilateral Development Diplomacy*; Narlikar, *International Trade*.
+[^321]: Weiss, Multilateral Development Diplomacy; Narlikar, International Trade.
 
 
-[^322]: Rothstein, *Global Bargaining*, p. 25.
+[^322]: Rothstein, Global Bargaining, p. 25.
 
 
-[^323]: Rothstein, *Global Bargaining*, pp. 25-26.
+[^323]: Rothstein, Global Bargaining, pp. 25-26.
 
 
-[^324]: Rothstein, *Global Bargaining*, pp. 44-49.
+[^324]: Rothstein, Global Bargaining, pp. 44-49.
 
 
-[^325]: Weiss, *Multilateral Development Diplomacy*, pp. 6-7.
+[^325]: Weiss, Multilateral Development Diplomacy, pp. 6-7.
 
 
-[^326]: Weiss, *Multilateral Development Diplomacy*, p. 16.
+[^326]: Weiss, Multilateral Development Diplomacy, p. 16.
 
 
-[^327]: Narlikar, *International Trade*, pp. 16, 31-32.
+[^327]: Narlikar, International Trade, pp. 16, 31-32.
 
 
-[^328]: Rothstein, *Global Bargaining*, pp. 79-81; Weiss, *Multilateral Development Diplomacy*, pp. 14-15.
+[^328]: Rothstein, Global Bargaining, pp. 79-81; Weiss, Multilateral Development Diplomacy, pp. 14-15.
 
 
 [^329]: None of the initial proposals brought to the Sixth Special Session were ever passed. Something resembling a Common Fund for commodities was passed, but it was too watered down to actually alter the incentives inhibiting the formation fo commodity agreements.
 
 
-[^330]: Corea, *Taming Commodity Markets*, pp. 91-92; Weiss, *Multilateral Development Diplomacy*, pp. 82-83.
+[^330]: Corea, Taming Commodity Markets, pp. 91-92; Weiss, Multilateral Development Diplomacy, pp. 82-83.
 
 
-[^331]: Narlikar, *International Trade*, pp. 58-59, 61, 64-65, 68-69.
+[^331]: Narlikar, International Trade, pp. 58-59, 61, 64-65, 68-69.
 
 
-[^332]: Narlikar, *International Trade*, pp. 58-59, 61, 64-65, 68-69.
+[^332]: Narlikar, International Trade, pp. 58-59, 61, 64-65, 68-69.
 
 
-[^333]: Weiss, *Multilateral Development Diplomacy*, p. 59.
+[^333]: Weiss, Multilateral Development Diplomacy, p. 59.
 
 
-[^334]: Weiss, *Multilateral Development Diplomacy*, p. 77.
+[^334]: Weiss, Multilateral Development Diplomacy, p. 77.
 
 
-[^335]: Weiss, *Multilateral Development Diplomacy*, pp. 113-14.
+[^335]: Weiss, Multilateral Development Diplomacy, pp. 113-14.
 
 
-[^336]: Weiss, *Multilateral Development Diplomacy*, pp. 113-14.
+[^336]: Weiss, Multilateral Development Diplomacy, pp. 113-14.
 
 
 [^337]: There are other important differences. The poorer developing states were indebted, in the main, to international financial institutions like the IMF and World Bank which offered concessional loans (loans with interest rates below the market rate).
 
 
-[^338]: Weiss, *Multilateral Development Diplomacy*, pp. 113-14.
+[^338]: Weiss, Multilateral Development Diplomacy, pp. 113-14.
 
 
 [^339]: Assembly, "Programme of Action," Section II, Sub-section 2., para. f.
@@ -2073,43 +2737,43 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^343]: G77, "Manila Declaration," section 4, para. 3.
 
 
-[^344]: Rothstein cites an UNCTAD study of 100 developing countries, in which it is found that 80 were net exporters of the “relevant commodities”, and 20 were net importers: UNCTAD, *Proceedings of the United Nations Conference on Trade and Development: Fourth Session, Nairobi, 5 - 31 May 1976*, vol. II (New York, 1977), p. 8; Rothstein, *Global Bargaining*, pp. 112-17.
+[^344]: Rothstein cites an UNCTAD study of 100 developing countries, in which it is found that 80 were net exporters of the “relevant commodities”, and 20 were net importers: UNCTAD, Proceedings of the United Nations Conference on Trade and Development: Fourth Session, Nairobi, 5 - 31 May 1976, vol. II (New York, 1977), p. 8; Rothstein, Global Bargaining, pp. 112-17.
 
 
-[^345]: Rothstein, *Global Bargaining*, pp. 128-29.
+[^345]: Rothstein, Global Bargaining, pp. 128-29.
 
 
-[^346]: Weiss, *Multilateral Development Diplomacy*, p. 59.
+[^346]: Weiss, Multilateral Development Diplomacy, p. 59.
 
 
-[^347]: UNCTAD, *Proceedings of the United Nations Conference on Trade and Development: Fourth Session, Nairobi, 5 - 31 May 1976*, vol. III (New York, 1977), p. 8, para. 50.
+[^347]: UNCTAD, Proceedings of the United Nations Conference on Trade and Development: Fourth Session, Nairobi, 5 - 31 May 1976, vol. III (New York, 1977), p. 8, para. 50.
 
 
 [^348]: G77, "Manila Declaration," Part two, Section 1B, para. 5e.
 
 
-[^349]: UNCTAD, *UNCTAD IV*, III, p. 18, para. 16.
+[^349]: UNCTAD, UNCTAD IV, III, p. 18, para. 16.
 
 
-[^350]: UNCTAD, *UNCTAD IV*, III, p. 10, para. 63.
+[^350]: UNCTAD, UNCTAD IV, III, p. 10, para. 63.
 
 
 [^351]: G77, "Manila Declaration," Part two, Section 1B, para. 6.
 
 
-[^352]: Weiss, *Multilateral Development Diplomacy*, pp. 59.
+[^352]: Weiss, Multilateral Development Diplomacy, pp. 59.
 
 
 [^353]: G77, "Manila Declaration," Part two, Section 1B, para. 9.
 
 
-[^354]: Weiss, *Multilateral Development Diplomacy*, p. 105.
+[^354]: Weiss, Multilateral Development Diplomacy, p. 105.
 
 
-[^355]: Weiss, *Multilateral Development Diplomacy*, pp. 50-51.
+[^355]: Weiss, Multilateral Development Diplomacy, pp. 50-51.
 
 
-[^356]: OPEC, *Solemn Declaration*.
+[^356]: OPEC, Solemn Declaration.
 
 
 [^357]: CIA, Prospects for the 7th Special Session.
@@ -2121,91 +2785,91 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^359]: G77, "Manila Declaration," Part 2, Section 6, para. 7.
 
 
-[^360]: UNCTAD, *UNCAT IV*, II, pp. 17, 22, 64, 72, 82, 129.
+[^360]: UNCTAD, UNCAT IV, II, pp. 17, 22, 64, 72, 82, 129.
 
 
-[^361]: UNCTAD, *UNCAT IV*, II, pp. 17, 64, 129.
+[^361]: UNCTAD, UNCAT IV, II, pp. 17, 64, 129.
 
 
-[^362]: UNCTAD, *UNCAT IV*, II, p. 82.
+[^362]: UNCTAD, UNCAT IV, II, p. 82.
 
 
-[^363]: UNCTAD, *UNCAT IV*, II, p. 72.
+[^363]: UNCTAD, UNCAT IV, II, p. 72.
 
 
-[^364]: UNCTAD, *UNCAT IV*, II. p. 22.
+[^364]: UNCTAD, UNCAT IV, II. p. 22.
 
 
-[^365]: UNCTAD, *UNCAT IV*, II, pp. 109-10.
+[^365]: UNCTAD, UNCAT IV, II, pp. 109-10.
 
 
-[^366]: UNCTAD, *UNCAT IV*, II, p. 105.
+[^366]: UNCTAD, UNCAT IV, II, p. 105.
 
 
-[^367]: UNCTAD, *UNCTAD IV*, III, pp. 5-6. (6 billion dollars in 1976 translates to approximately 25.6 billion dollars in inflation-adjusted 2018 dollars.)
+[^367]: UNCTAD, UNCTAD IV, III, pp. 5-6. (6 billion dollars in 1976 translates to approximately 25.6 billion dollars in inflation-adjusted 2018 dollars.)
 
 
-[^368]: UNCTAD, *UNCTAD IV*, III, p. 6, para. 29.
+[^368]: UNCTAD, UNCTAD IV, III, p. 6, para. 29.
 
 
-[^369]: OPEC, *Solemn Declaration*.
+[^369]: OPEC, Solemn Declaration.
 
 
-[^370]: UNCTAD, *UNCTAD IV*, III, p. 6, para. 31.
+[^370]: UNCTAD, UNCTAD IV, III, p. 6, para. 31.
 
 
-[^371]: Corea, *Taming Commodity Markets*, pp. 35-36.
+[^371]: Corea, Taming Commodity Markets, pp. 35-36.
 
 
-[^372]: Corea, *Taming Commodity Markets*, pp. 35-36.
+[^372]: Corea, Taming Commodity Markets, pp. 35-36.
 
 
-[^373]: Corea, *Taming Commodity Markets*, pp. 109-14.
+[^373]: Corea, Taming Commodity Markets, pp. 109-14.
 
 
-[^374]: Corea, *Taming Commodity Markets*, pp. 109-14.
+[^374]: Corea, Taming Commodity Markets, pp. 109-14.
 
 
-[^375]: Corea, *Taming Commodity Markets*, p. 128.
+[^375]: Corea, Taming Commodity Markets, p. 128.
 
 
-[^376]: Corea, *Taming Commodity Markets*, p. 132.
+[^376]: Corea, Taming Commodity Markets, p. 132.
 
 
-[^377]: Weiss, *Multilateral Development Diplomacy*, pp. 82-83.
+[^377]: Weiss, Multilateral Development Diplomacy, pp. 82-83.
 
 
-[^378]: UNCTAD, *UNCTAD IV*, III. p. 4, para. 21-22.
+[^378]: UNCTAD, UNCTAD IV, III. p. 4, para. 21-22.
 
 
-[^379]: UNCTAD, *UNCTAD IV*, III. p. 4, para. 21-22.
+[^379]: UNCTAD, UNCTAD IV, III. p. 4, para. 21-22.
 
 
-[^380]: UNCTAD, *UNCTAD IV*, III. p. 4, para. 21-22.
+[^380]: UNCTAD, UNCTAD IV, III. p. 4, para. 21-22.
 
 
-[^381]: UNCTAD, *UNCTAD IV*, III. p. 4, para. 21-22.
+[^381]: UNCTAD, UNCTAD IV, III. p. 4, para. 21-22.
 
 
-[^382]: UNCTAD, *Proceedings of the United Nations Conference on Trade and Development: Fourth Session, Nairobi, 5 - 31 May 1976*, vol. I (New York, 1977), pp. 106-07.
+[^382]: UNCTAD, Proceedings of the United Nations Conference on Trade and Development: Fourth Session, Nairobi, 5 - 31 May 1976, vol. I (New York, 1977), pp. 106-07.
 
 
-[^383]: UNCTAD, *UNCTAD IV*, I, pp. 106-07.
+[^383]: UNCTAD, UNCTAD IV, I, pp. 106-07.
 
 
 [^384]: OPEC state elites did, however, support the poorest oil-importing developing states to meet their financial obligations for the eventually agreed upon, and watered down, Common Fund.
 
 
-[^385]: Weiss, *Multilateral Development Diplomacy*, pp. 105-06.
+[^385]: Weiss, Multilateral Development Diplomacy, pp. 105-06.
 
 
-[^386]: Dietrich, *Oil Revolution*, pp. 289-94.
+[^386]: Dietrich, Oil Revolution, pp. 289-94.
 
 
 [^387]: This is not to say that OPEC state elites had not granted unprecedented levels of foreign aid to the oil-importing members of the G77.
 
 
-[^388]: Leonard Silk, "OPEC Maps Its Paris Goals," *The New York Times*, April 7 1975, p. 49.
+[^388]: Leonard Silk, "OPEC Maps Its Paris Goals," The New York Times, April 7 1975, p. 49.
 
 
 [^389]: UNA, "Items in Conference on International Economic Co-operation –– Paris, 2 June 1977," (S-0972-0009-01-00001).
@@ -2217,13 +2881,13 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^391]: UNA, "Statement by the Secretary-General on the Conclusions ofthe Conference on International Economic Co-operation," (S-0972-0009-01-00001).
 
 
-[^392]: Largely, all the three arguments that I support here are my own, because the literature exploring the failure of the NIEO is very scant. However, Christopher Dietrich does make an argument that surrounds this notion, that the OPEC were ‘unconvincing Robin Hoods’, and that the south-south solidarity required for the NIEO to be successful was never going to arise: Dietrich, *Oil Revolution*, p. 313.
+[^392]: Largely, all the three arguments that I support here are my own, because the literature exploring the failure of the NIEO is very scant. However, Christopher Dietrich does make an argument that surrounds this notion, that the OPEC were ‘unconvincing Robin Hoods’, and that the south-south solidarity required for the NIEO to be successful was never going to arise: Dietrich, Oil Revolution, p. 313.
 
 
-[^393]: "The World: The Intervention Issue," *Time*, 20 January 1975, http://content.time.com/time/magazine/article/0,9171,912693-1,00.html.
+[^393]: "The World: The Intervention Issue," Time, 20 January 1975, http://content.time.com/time/magazine/article/0,9171,912693-1,00.html.
 
 
-[^394]: Skeet, *OPEC*, 131.
+[^394]: Skeet, OPEC, 131.
 
 
 [^395]: US Department of State, "55. Memorandum of Conversation: Meeting with Yamani—Middle East and the Paris Preparatory Conference," Foreign Relations of the United States, 1969–1976, Volume XXXVII: pp. 189-94; US Department of State, "Memorandum of Conversation: October 30, 1976," Foreign Relations of the United States, 1969–1976, Volume XXXVII: p. 378; US Department of State, "113. Telegram From the Department of State to All Diplomatic Posts: December 22, 1976," Foreign Relations of the United States, 1969–1976, Volume XXXVII: p. 398.
@@ -2232,19 +2896,19 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^396]: Economist, "And a Thoroughly Confused New Year."; Economist, "Editorial," p. 11; Economist, "IMF Discussions About Monetary Reform," p. 65.
 
 
-[^397]: United Nations, *World Economic Survey 1975: Fluctuations and Development in the World Economy* (New York, 1976), pp. 8-11. https://www.un.org/en/development/desa/policy/wess/wess_archive/1975wes.pdf.
+[^397]: United Nations, World Economic Survey 1975: Fluctuations and Development in the World Economy (New York, 1976), pp. 8-11. https://www.un.org/en/development/desa/policy/wess/wess_archive/1975wes.pdf.
 
 
-[^398]: Nations, *World Economic Survey 1975*, pp. 8-11.
+[^398]: Nations, World Economic Survey 1975, pp. 8-11.
 
 
-[^399]: Nations, *World Economic Survey 1975*, pp. 8-11.
+[^399]: Nations, World Economic Survey 1975, pp. 8-11.
 
 
-[^400]: Nations, *World Economic Survey 1975*, pp. 3-4.
+[^400]: Nations, World Economic Survey 1975, pp. 3-4.
 
 
-[^401]: Nations, *World Economic Survey 1975*, pp. 3-4.
+[^401]: Nations, World Economic Survey 1975, pp. 3-4.
 
 
 [^402]: UNA, 4. Financial Affairs Commission (3d meeting: 3.30 p.m), 14 February 1976, Series 0913, Box 17, File 4, Conference on International Economic Cooperation, Paris –– July 1976-1978.
@@ -2280,7 +2944,7 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^412]: David Wight, The Petrodollar Era and Relations Between the United States and the Middle East and North Africa, 1969-1980, 2014, Emily S. Rosenberg, Mark LeVine, and Salim Yaqub, ProQuest Dissertations Publishing.
 
 
-[^413]: All above figures are taken from: Michael Brzoska, Thomas Ohlson, and Stockholm International Peace Research Institute., *Arms Transfers to the Third World, 1971-85* (Oxford; New York: Oxford University Press, 1987), pp. 343, 48.
+[^413]: All above figures are taken from: Michael Brzoska, Thomas Ohlson, and Stockholm International Peace Research Institute., Arms Transfers to the Third World, 1971-85 (Oxford; New York: Oxford University Press, 1987), pp. 343, 48.
 
 
 [^414]: Wight, The Petrodollar Era: pp. 10, 25, 35-36.
@@ -2292,7 +2956,7 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^416]: Wight, The Petrodollar Era: pp. 35-36.
 
 
-[^417]: David E. Spiro, *The Hidden Hand of American Hegemony: Petrodollar Recycling and International Markets*, Cornell Studies in Political Economy, (Ithaca, N.Y.: Cornell University Press, 1999), p. 28.
+[^417]: David E. Spiro, The Hidden Hand of American Hegemony: Petrodollar Recycling and International Markets, Cornell Studies in Political Economy, (Ithaca, N.Y.: Cornell University Press, 1999), p. 28.
 
 
 [^418]: State, "55. Memorandum of Conversation: Meeting with Yamani—Middle East and the Paris Preparatory Conference."
@@ -2301,79 +2965,79 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^419]: State, "55. Memorandum of Conversation: Meeting with Yamani—Middle East and the Paris Preparatory Conference."
 
 
-[^420]: Stuart Corbridge, *Debt and Development* (Oxford, UK; Cambridge, Mass: Blackwell, 1993), pp. 44-45; E. Helleiner, *States and the Reemergence of Global Finance: From Bretton Woods to the 1990s* (Cornell University Press, 1996), p. 176; Mazower, *Governing the World*, p. 351.
+[^420]: Stuart Corbridge, Debt and Development (Oxford, UK; Cambridge, Mass: Blackwell, 1993), pp. 44-45; E. Helleiner, States and the Reemergence of Global Finance: From Bretton Woods to the 1990s (Cornell University Press, 1996), p. 176; Mazower, Governing the World, p. 351.
 
 
-[^421]: Susan Strange argues that because European states only managed to stabilise their currencies to meet the criteria of the Bretton Wood system by 1958, ‘Bretton Woods only really worked for one short decade’: Barry J. Eichengreen, *Globalizing Capital: A History of the International Monetary System*, 2nd ed. ed., History of the international monetary system, (Princeton, N.J.; Oxford: Princeton University Press, 2008), pp. 91-94; Susan Strange, *States and markets* (Bloomsbury Publishing, 2015), pp. 113-15.
+[^421]: Susan Strange argues that because European states only managed to stabilise their currencies to meet the criteria of the Bretton Wood system by 1958, ‘Bretton Woods only really worked for one short decade’: Barry J. Eichengreen, Globalizing Capital: A History of the International Monetary System, 2nd ed. ed., History of the international monetary system, (Princeton, N.J.; Oxford: Princeton University Press, 2008), pp. 91-94; Susan Strange, States and markets (Bloomsbury Publishing, 2015), pp. 113-15.
 
 
-[^422]: Eichengreen, *Globalizing Capital*, pp. 24-29.
+[^422]: Eichengreen, Globalizing Capital, pp. 24-29.
 
 
-[^423]: Spiro, *Hidden Hand of American Hegemony*, p. 22.
+[^423]: Spiro, Hidden Hand of American Hegemony, p. 22.
 
 
-[^424]: Spiro, *Hidden Hand of American Hegemony*, p. 22.
+[^424]: Spiro, Hidden Hand of American Hegemony, p. 22.
 
 
-[^425]: Spiro, *Hidden Hand of American Hegemony*, pp. 28, 68.
+[^425]: Spiro, Hidden Hand of American Hegemony, pp. 28, 68.
 
 
-[^426]: Spiro, *Hidden Hand of American Hegemony*, pp. x, 68.
+[^426]: Spiro, Hidden Hand of American Hegemony, pp. x, 68.
 
 
-[^427]: Emma Rothschild, "Banks: The Politics of Debt," *New York Review of Books* 23, no. 11 (June 24 1976).
+[^427]: Emma Rothschild, "Banks: The Politics of Debt," New York Review of Books 23, no. 11 (June 24 1976).
 
 
-[^428]: Spiro, *Hidden Hand of American Hegemony*, pp. 71-73.
+[^428]: Spiro, Hidden Hand of American Hegemony, pp. 71-73.
 
 
-[^429]: Mr Kevin Ross et al., *External Debt Histories of Ten Low-income Developing Countries: Lessons From Their Experience* (International Monetary Fund, 1998), pp. 7-9, 50, 63.
+[^429]: Mr Kevin Ross et al., External Debt Histories of Ten Low-income Developing Countries: Lessons From Their Experience (International Monetary Fund, 1998), pp. 7-9, 50, 63.
 
 
-[^430]: Karin Lissakers, *Banks, Borrowers, and the Establishment: A Revisionist Account of the International Debt Crisis* (Basic Books, 1993), pp. 13-14.
+[^430]: Karin Lissakers, Banks, Borrowers, and the Establishment: A Revisionist Account of the International Debt Crisis (Basic Books, 1993), pp. 13-14.
 
 
-[^431]: Lissakers, *Banks, Borrowers, and the Establishment*, pp. 15-16.
+[^431]: Lissakers, Banks, Borrowers, and the Establishment, pp. 15-16.
 
 
-[^432]: US banks would subsidise tax owned in the United States, by means of a credit applied to compensate for tax already paid in the foreign country that they have loaned to. Nevertheless, in a move that a layperson would call dishonest bookkeeping, this tax is passed on to the recipient of the loan, and from them to the host government. As such US banks earned from foreign loans an enormously generous tax subsidy: Lissakers, *Banks, Borrowers, and the Establishment*, pp. 118-19, 24-27.
+[^432]: US banks would subsidise tax owned in the United States, by means of a credit applied to compensate for tax already paid in the foreign country that they have loaned to. Nevertheless, in a move that a layperson would call dishonest bookkeeping, this tax is passed on to the recipient of the loan, and from them to the host government. As such US banks earned from foreign loans an enormously generous tax subsidy: Lissakers, Banks, Borrowers, and the Establishment, pp. 118-19, 24-27.
 
 
-[^433]: Lissakers, *Banks, Borrowers, and the Establishment*, pp. 50-53.
+[^433]: Lissakers, Banks, Borrowers, and the Establishment, pp. 50-53.
 
 
-[^434]: Corbridge, *Debt and Development*, pp. 101-05, 207.
+[^434]: Corbridge, Debt and Development, pp. 101-05, 207.
 
 
 [^435]: UNA, 4. Financial Affairs Commission (3d meeting: 3.30 p.m), 14 February 1976.
 
 
-[^436]: Lissakers, *Banks, Borrowers, and the Establishment*, pp. 204-09; Mazower, *Governing the World*, p. 317.
+[^436]: Lissakers, Banks, Borrowers, and the Establishment, pp. 204-09; Mazower, Governing the World, p. 317.
 
 
-[^437]: Hans Wolfgang Singer and Soumitra Sharma, "The 1980s: A Lost Decade — Development in Reverse?," in *Growth and external debt management* (Springer, 1989), p. 48; Mazower, *Governing the World*, p. 349; United Nations, "The End of the Golden Age, the Debt Crisis and Development Setback," in *World Economic and Social Survey 2017: Reflecting on Seventy Years of Development Policy Analysis* (New York: UN, 2017), p. 59.
+[^437]: Hans Wolfgang Singer and Soumitra Sharma, "The 1980s: A Lost Decade — Development in Reverse?," in Growth and external debt management (Springer, 1989), p. 48; Mazower, Governing the World, p. 349; United Nations, "The End of the Golden Age, the Debt Crisis and Development Setback," in World Economic and Social Survey 2017: Reflecting on Seventy Years of Development Policy Analysis (New York: UN, 2017), p. 59.
 
 
-[^438]: Corbridge, *Debt and Development*, pp. 44-45; Helleiner, *States and the Reemergence of Global Finance*, p. 176; Robert Brenner, "The Economics of Global Turbulence," *New Left Review*, no. 229 (1998).
+[^438]: Corbridge, Debt and Development, pp. 44-45; Helleiner, States and the Reemergence of Global Finance, p. 176; Robert Brenner, "The Economics of Global Turbulence," New Left Review, no. 229 (1998).
 
 
-[^439]: Corbridge, *Debt and Development*, pp. 58-60; Hartmut Elsenhans, "New Tendencies in North-South Relations," *Pakistan Horizon* 46, no. 3/4 (1993): pp. 53-54; D. Harvey, *A Brief History of Neoliberalism* (Oxford University Press, 2007), pp. 29-31; Mazower, *Governing the World*, pp. 351-52.
+[^439]: Corbridge, Debt and Development, pp. 58-60; Hartmut Elsenhans, "New Tendencies in North-South Relations," Pakistan Horizon 46, no. 3/4 (1993): pp. 53-54; D. Harvey, A Brief History of Neoliberalism (Oxford University Press, 2007), pp. 29-31; Mazower, Governing the World, pp. 351-52.
 
 
-[^440]: Nations, "The End of the Golden Age."; William Easterly, "The Lost Decades: Developing Countries' Stagnation in Spite of Policy Reform 1980– 1998," *Journal of Economic Growth* 6, no. 2 (2001), https://doi.org/10.1023/A:1011378507540; Frances Stewart, "The Impact of Global Economic Crises on the Poor: Comparing the 1980s and 2000s," *Journal of Human Development and Capabilities* 13, no. 1 (2012): pp. 88, 92., https://doi.org/10.1080/19452829.2011.637386.
+[^440]: Nations, "The End of the Golden Age."; William Easterly, "The Lost Decades: Developing Countries' Stagnation in Spite of Policy Reform 1980– 1998," Journal of Economic Growth 6, no. 2 (2001), https://doi.org/10.1023/A:1011378507540; Frances Stewart, "The Impact of Global Economic Crises on the Poor: Comparing the 1980s and 2000s," Journal of Human Development and Capabilities 13, no. 1 (2012): pp. 88, 92., https://doi.org/10.1080/19452829.2011.637386.
 
 
-[^441]: Harvey, *A Brief History of Neoliberalism*, p. 29.
+[^441]: Harvey, A Brief History of Neoliberalism, p. 29.
 
 
-[^442]: Corbridge, *Debt and Development*, p. 47.
+[^442]: Corbridge, Debt and Development, p. 47.
 
 
 [^443]: Stewart, "The Impact of Global Economic Crises," p. 101.
 
 
-[^444]: Corbridge, *Debt and Development*, pp 101-05, 207.
+[^444]: Corbridge, Debt and Development, pp 101-05, 207.
 
 
 [^445]: Easterly, "The Lost Decades," p. 135. *The average rate was higher, a drop from an annual rate of 7.2% in the years 1971-1974, to 1.6% from 1980-1983:* Nations, "The End of the Golden Age," p. 51.
@@ -2382,19 +3046,19 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^446]: Nations, "The End of the Golden Age," pp. 60-61.
 
 
-[^447]: Harvey, *A Brief History of Neoliberalism*, p. 29; Mazower, *Governing the World*, p. 349.
+[^447]: Harvey, A Brief History of Neoliberalism, p. 29; Mazower, Governing the World, p. 349.
 
 
 [^448]: Nations, "The End of the Golden Age," pp. 60-61.
 
 
-[^449]: UNICEF, *The State of the World’s Children 1989* (Oxford, 1989), pp. 1-2, https://www.unicef.org/about/history/files/sowc_1989.pdf.
+[^449]: UNICEF, The State of the World’s Children 1989 (Oxford, 1989), pp. 1-2, https://www.unicef.org/about/history/files/sowc_1989.pdf.
 
 
-[^450]: UNICEF, *The State of the World’s Children 1989*, pp. 1-2.
+[^450]: UNICEF, The State of the World’s Children 1989, pp. 1-2.
 
 
-[^451]: John Maynard Keynes, *The Collected Writings of John Maynard Keynes*, ed. Elizabeth S. Johnson, D. E. Moggridge, and Society Royal Economic, vol. XXIV (London; New York: St. Martin's Press for the Royal Economic Society, 1971), p. 258.
+[^451]: John Maynard Keynes, The Collected Writings of John Maynard Keynes, ed. Elizabeth S. Johnson, D. E. Moggridge, and Society Royal Economic, vol. XXIV (London; New York: St. Martin's Press for the Royal Economic Society, 1971), p. 258.
 
 
 [^452]: Rothschild, "Banks: The Politics of Debt."
@@ -2409,7 +3073,7 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^455]: Rothschild, "Banks: The Politics of Debt."
 
 
-[^456]: The United States Senate, *Alleged Assassination Plots Involving Foreign Leaders* (1975), p. 231, https://www.intelligence.senate.gov/sites/default/files/94465.pdf.
+[^456]: The United States Senate, Alleged Assassination Plots Involving Foreign Leaders (1975), p. 231, https://www.intelligence.senate.gov/sites/default/files/94465.pdf.
 
 
 [^457]: Rothschild, "Banks: The Politics of Debt."
@@ -2421,7 +3085,7 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^459]: Rothschild, "Banks: The Politics of Debt."
 
 
-[^460]: UNCTAD, "TD/188 'International financial co-operation for development' a report by the UNCTAD secretariat," in *Proceedings of the United Nations Conference on Trade and Development: Fourth Session, Nairobi, 5-31 May 1976* (New York: United Nations, 1976), p. 78. *The same broad call for a moratorium for the poorest G77 member states, and an adjustment on repayment times for other developing states via a new multilateral institution can be found in other documents. For example:* UNA, Proposals on an Interrelated Set of Issues and Policies for International Economic Co-operation submitted by MR. J.B.P Maramis, Executive Secretary, ESCAP, S-0913, Box 21, File 5, Acc. 91/5, 'E.S.C.A.P. 1974-1977, p. 7.
+[^460]: UNCTAD, "TD/188 'International financial co-operation for development' a report by the UNCTAD secretariat," in Proceedings of the United Nations Conference on Trade and Development: Fourth Session, Nairobi, 5-31 May 1976 (New York: United Nations, 1976), p. 78. *The same broad call for a moratorium for the poorest G77 member states, and an adjustment on repayment times for other developing states via a new multilateral institution can be found in other documents. For example:* UNA, Proposals on an Interrelated Set of Issues and Policies for International Economic Co-operation submitted by MR. J.B.P Maramis, Executive Secretary, ESCAP, S-0913, Box 21, File 5, Acc. 91/5, 'E.S.C.A.P. 1974-1977, p. 7.
 
 
 [^461]: UNCTAD, "TD/188," p. 78.
@@ -2430,7 +3094,7 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^462]: UNCTAD, "TD/188," p. 78.
 
 
-[^463]: Corbridge, *Debt and Development*, pp. 54-55; Prashad, *Poorer Nations*, pp. 54-55.
+[^463]: Corbridge, Debt and Development, pp. 54-55; Prashad, Poorer Nations, pp. 54-55.
 
 
 [^464]: UNCTAD, "TD/188," p. 78.
@@ -2442,55 +3106,55 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^466]: UNCTAD, "TD/188," 78.
 
 
-[^467]: This point is made by: Prashad, *Poorer Nations*, pp. 54-55. The lack of any institutional architecture to deal with sovereign default, and its relation to the debt crises in the 1980s is also discussed by: Susanne Soederberg, "The Transnational Debt Architecture and Emerging Markets: the politics of paradoxes and punishment," *Third World Quarterly* 26, no. 6 (2005), https://doi.org/10.1080/01436590500089257; Eric Helleiner, "The Mystery of the Missing Sovereign Debt Restructuring Mechanism," *Contributions to Political Economy* 27, no. 1 (2008), https://doi.org/10.1093/cpe/bzn003.
+[^467]: This point is made by: Prashad, Poorer Nations, pp. 54-55. The lack of any institutional architecture to deal with sovereign default, and its relation to the debt crises in the 1980s is also discussed by: Susanne Soederberg, "The Transnational Debt Architecture and Emerging Markets: the politics of paradoxes and punishment," Third World Quarterly 26, no. 6 (2005), https://doi.org/10.1080/01436590500089257; Eric Helleiner, "The Mystery of the Missing Sovereign Debt Restructuring Mechanism," Contributions to Political Economy 27, no. 1 (2008), https://doi.org/10.1093/cpe/bzn003.
 
 
-[^468]: Eileen M Doherty, *The Difference Between Certainly and Perhaps: LDC Bargaining in Commercial Debt Negotiations* (University of California, Berkeley, 1994), pp. 40-43.
+[^468]: Eileen M Doherty, The Difference Between Certainly and Perhaps: LDC Bargaining in Commercial Debt Negotiations (University of California, Berkeley, 1994), pp. 40-43.
 
 
-[^469]: Doherty, *The Difference Between Certainly and Perhaps*, pp. 51-52.
+[^469]: Doherty, The Difference Between Certainly and Perhaps, pp. 51-52.
 
 
-[^470]: Doherty, *The Difference Between Certainly and Perhaps*, p. 51.
+[^470]: Doherty, The Difference Between Certainly and Perhaps, p. 51.
 
 
-[^471]: Doherty, *The Difference Between Certainly and Perhaps*, p. 52.
+[^471]: Doherty, The Difference Between Certainly and Perhaps, p. 52.
 
 
-[^472]: Doherty, *The Difference Between Certainly and Perhaps*, pp. 40-43.
+[^472]: Doherty, The Difference Between Certainly and Perhaps, pp. 40-43.
 
 
-[^473]: Barry Eichengreen and Peter H Lindert, *The International Debt Crisis in Historical Perspective* (MIT press, 1992), p. 5.
+[^473]: Barry Eichengreen and Peter H Lindert, The International Debt Crisis in Historical Perspective (MIT press, 1992), p. 5.
 
 
-[^474]: Lissakers, *Banks, Borrowers, and the Establishment*, pp. 200-04.
+[^474]: Lissakers, Banks, Borrowers, and the Establishment, pp. 200-04.
 
 
-[^475]: Lissakers, *Banks, Borrowers, and the Establishment*, pp. 200-04.
+[^475]: Lissakers, Banks, Borrowers, and the Establishment, pp. 200-04.
 
 
-[^476]: Lissakers, *Banks, Borrowers, and the Establishment*, pp. 200-04.
+[^476]: Lissakers, Banks, Borrowers, and the Establishment, pp. 200-04.
 
 
-[^477]: Lissakers, *Banks, Borrowers, and the Establishment*, pp. 200-04.
+[^477]: Lissakers, Banks, Borrowers, and the Establishment, pp. 200-04.
 
 
-[^478]: Strange, *States and markets*, p. 112.
+[^478]: Strange, States and markets, p. 112.
 
 
-[^479]: Prashad, *Poorer Nations*, pp. 215-19.
+[^479]: Prashad, Poorer Nations, pp. 215-19.
 
 
-[^480]: Prashad, *Darker Nations*, pp. 214-19.
+[^480]: Prashad, Darker Nations, pp. 214-19.
 
 
-[^481]: Prashad, *Darker Nations*, pp. 214-19.
+[^481]: Prashad, Darker Nations, pp. 214-19.
 
 
-[^482]: Prashad, *Darker Nations*, pp. 214-19.
+[^482]: Prashad, Darker Nations, pp. 214-19.
 
 
-[^483]: Prashad, *Poorer Nations*, pp. 54-55.
+[^483]: Prashad, Poorer Nations, pp. 54-55.
 
 
 [^484]: UNA, Letter to Secretary General From Enrique Iglesius, 18 November 1975, Series 0193, Box 21, File 1, ACC 91/5, ECLA 1972-1977.
@@ -2511,7 +3175,7 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^489]: Peoli was not, however, talking solely about the new international economic order. Rather, his comment called also for support in the issues of apartheid, the Middle East, and the arms race: UNA, Letter to UN Secretary General, from P.K. Banerjee, 'The Non-Aligned Meeting - Havana'.
 
 
-[^490]: "The Havana Summit," *Third World Quarterly* 2, no. 2 (1980): pp. 331-32, https://doi.org/10.1080/01436598008419501.
+[^490]: "The Havana Summit," Third World Quarterly 2, no. 2 (1980): pp. 331-32, https://doi.org/10.1080/01436598008419501.
 
 
 [^491]: "The Havana Summit," pp. 331-32.
@@ -2538,31 +3202,32 @@ Wooldridge, Adrian, and Alan Greenspan. *Capitalism in America: A History.* Peng
 [^498]: CIA, US-LDC Relations: Problems and Prospects, CIA-RDP79T00912A002300010006-8, International Issues: Regional and Political Analysis, 30 August 1977.
 
 
-[^499]: Issues, *North-South, a Programme for Survival: Report of the Independent Commission on International Development Issues*.
+[^499]: Issues, North-South, a Programme for Survival: Report of the Independent Commission on International Development Issues.
 
 
 [^500]: UNA, Text of Statement by Secretary-General at Eleventh Special Session of General Assembly, 15 September 1980, Series 0908, Box 7, File 3, General Assembly Sessions –– 11th Special Session –– International Economic Order.
 
 
-[^501]: Prashad, *Poorer Nations*, pp. 5-7; Mazower, *Governing the World*, p. 360.
+[^501]: Prashad, Poorer Nations, pp. 5-7; Mazower, Governing the World, p. 360.
 
 
-[^502]: Mazower, *Governing the World*, p. 343.
+[^502]: Mazower, Governing the World, p. 343.
 
 
-[^503]: Garavini, *After Empires*; Prashad, *Poorer Nations*; Gilman, "NIEO: A Reintroduction."; Venzke, "Possibilities of the Past."
+[^503]: Garavini, After Empires; Vijay Prashad, The poorer nations : a possible history of the Global South (London ; Brooklyn, NY: Verso, 2012); Gilman, "NIEO: A Reintroduction."; Venzke, "Possibilities of the Past."
 
 
 [^504]: Acharya, "Global IR."
 
 
-[^505]: Mazower, *No Enchanted Palace*; Helleiner, *Forgotten Foundations of Bretton Woods*; Devetak, Dunne, and Nurhayati, "Bandung 60 Years On: Revolt and Resilience in International Society."; Phillips, "Beyond Bandung."; Acharya, *Constructing Global Order*; Getachew, *Worldmaking After Empire*.
+[^505]: Mazower, No Enchanted Palace; Helleiner, Forgotten Foundations of Bretton Woods; Devetak, Dunne, and Nurhayati, "Bandung 60 Years On: Revolt and Resilience in International Society."; Phillips, "Beyond Bandung."; Acharya, Constructing Global Order; Getachew, Worldmaking After Empire.
 
 
-[^506]: Christy Thornton, "A Mexican International Economic Order? Tracing the Hidden Roots of the Charter of Economic Rights and Duties of States," *Humanity: An International Journal of Human Rights, Humanitarianism, and Development* 9, no. 3 (2018), https://doi.org/10.1353/hum.2018.0020.
+[^506]: Christy Thornton, "A Mexican International Economic Order? Tracing the Hidden Roots of the Charter of Economic Rights and Duties of States," Humanity: An International Journal of Human Rights, Humanitarianism, and Development 9, no. 3 (2018), https://doi.org/10.1353/hum.2018.0020.
 
 
-[^507]: T. Piketty, *Capital in the Twenty-First Century* (Harvard University Press, 2014); R.J. Gordon, *The Rise and Fall of American Growth: The U.S. Standard of Living since the Civil War* (Princeton University Press, 2017).
+[^507]: T. Piketty, Capital in the Twenty-First Century (Harvard University Press, 2014); R.J. Gordon, The Rise and Fall of American Growth: The U.S. Standard of Living since the Civil War (Princeton University Press, 2017).
 
 
-[^508]: Ernest Mandel, *Late Capitalism* (Verso, 1998); Robert Brenner, *The Economics of Global Turbulence: The Advanced Capitalist Economies from Long Boom to Long Downturn, 1945-2005* (Verso, 2006).
+[^508]: Ernest Mandel, Late Capitalism (Verso, 1998); R. Brenner, The Economics of Global Turbulence: The Advanced Capitalist Economies from Long Boom to Long Downturn, 1945-2005 (Verso, 2006).
+
