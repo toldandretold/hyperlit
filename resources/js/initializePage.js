@@ -42,6 +42,8 @@ async function generateNodeChunksFromMarkdown(forceReload = false) {
  const nodeChunks = parseMarkdownIntoChunksInitial(markdown);
   console.log(`✅ Generated ${nodeChunks.length} nodeChunks from markdown`);
 
+ 
+
 // Add detailed footnote logging
 const totalFootnotes = nodeChunks.reduce((sum, chunk) => sum + chunk.footnotes.length, 0);
 console.log(`📝 Found ${totalFootnotes} footnotes across all chunks`);

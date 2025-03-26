@@ -159,6 +159,7 @@ function scrollElementIntoContainer(targetElement, container, headerOffset = 0) 
 }
 
 export function navigateToInternalId(targetId, lazyLoader) {
+  
   if (!lazyLoader) {
     console.error("Lazy loader instance not provided!");
     return;
