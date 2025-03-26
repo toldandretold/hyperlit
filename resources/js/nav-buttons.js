@@ -2,17 +2,20 @@
 export default class NavButtons {
   /**
    * Options:
-   * - elementId: The ID of the element that contains the buttons (default "nav-buttons").
+   * - elementIds: An array of IDs or selectors of elements to toggle (default ["nav-buttons"]).
    * - tapThreshold: Maximum movement in pixels to consider an event a tap (default 10).
    */
   constructor(options = {}) {
-    this.elementId = options.elementId || "nav-buttons";
+    this.elementIds = options.elementIds || ["nav-buttons"];
     this.tapThreshold = options.tapThreshold || 10;
-    this.navButtons = document.getElementById(this.elementId);
+    this.elements = this.elementIds.map((id) => document.getElementById(id));
 
-    if (!this.navButtons) {
-      throw new Error(`Element with id "${this.elementId}" not found.`);
-    }
+    // Check if all elements exist
+    this.elements.forEach((element, index) => {
+      if (!element) {
+        throw new Error(`Element with id "${this.elementIds[index]}" not found.`);
+      }
+    });
 
     this.startX = 0;
     this.startY = 0;
@@ -70,7 +73,8 @@ export default class NavButtons {
   shouldIgnoreEvent(event) {
     return (
       event.target.closest("sup.note") ||
-      event.target.closest("button, a") || event.target.closest("mark")
+      event.target.closest("button, a") ||
+      event.target.closest("mark")
     );
   }
 
@@ -92,32 +96,54 @@ export default class NavButtons {
    * This handler ignores events that occur on interactive elements or note markers.
    */
   handlePointerUp(event) {
-    // First, make sure that the main-content is active.
-    if (window.activeContainer !== "main-content") {
-      return;
-    }
-    if (this.shouldIgnoreEvent(event)) {
-      return;
-    }
-    const deltaX = Math.abs(event.clientX - this.startX);
-    const deltaY = Math.abs(event.clientY - this.startY);
-    if (deltaX < this.tapThreshold && deltaY < this.tapThreshold) {
-      this.navButtons.classList.toggle("hidden-nav");
-    }
+  // Get the main-content div
+  const mainContent = document.querySelector(".main-content");
+
+  // Check if the main-content div exists and is visible
+  if (!mainContent || mainContent.offsetParent === null) {
+    return; // Exit if the main-content div is not visible
   }
+
+  // Check if the event should be ignored
+  if (this.shouldIgnoreEvent(event)) {
+    return;
+  }
+
+  // Calculate the movement
+  const deltaX = Math.abs(event.clientX - this.startX);
+  const deltaY = Math.abs(event.clientY - this.startY);
+
+  // If the movement is small enough, toggle the hidden-nav class
+  if (deltaX < this.tapThreshold && deltaY < this.tapThreshold) {
+    this.elements.forEach((element) => {
+      element.classList.toggle("hidden-nav");
+    });
+  }
+}
+
 
   /**
    * On click (desktop), toggle the navigation container,
    * but ignore clicks from interactive elements or note markers.
    */
-  handleClick(event) {
-    // Only allow toggling if main-content is active.
-    if (window.activeContainer !== "main-content") {
-      return;
+   handleClick(event) {
+    // Get the main-content div
+    const mainContent = document.querySelector(".main-content");
+
+    // Check if the main-content div exists and is visible
+    if (!mainContent || mainContent.offsetParent === null) {
+      return; // Exit if the main-content div is not visible
     }
+
+    // Check if the event should be ignored
     if (this.shouldIgnoreEvent(event)) {
       return;
     }
-    this.navButtons.classList.toggle("hidden-nav");
+
+    // Toggle the hidden-nav class on all elements
+    this.elements.forEach((element) => {
+      element.classList.toggle("hidden-nav");
+    });
   }
+
 }
