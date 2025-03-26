@@ -1,0 +1,128 @@
+/* hyperlit colors: 
+orange #EF8D34; 
+pink #EE4A95; 
+aqua #4EACAE; 
+black #221F20; 
+"white" #CBCCCC*/
+
+#toc-toggle-button {
+  width: 40px;
+  height: 40px;
+  background-color: #333; /* Button background color */
+  border: none;
+  border-radius: 5px; /* Rounded corners */
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+#toc-toggle-button::before,
+#toc-toggle-button::after,
+#toc-toggle-button span {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 4px;
+  background-color: white;
+  border-radius: 2px;
+}
+
+#toc-toggle-button::before {
+  top: 12px;
+}
+
+#toc-toggle-button::after {
+  bottom: 12px;
+}
+
+#toc-toggle-button span {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+
+#editButton {
+width: 40px; /* Matching width */
+  height: 40px; /* Matching height */
+  background: #333;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+}
+
+
+#editButton svg {
+  width: 20px;
+  height: 20px;
+  stroke: white; /* Change to your preferred color */
+}
+
+
+#hyperlight-buttons {
+    position: absolute;
+    display: none; /* Hidden until text is selected */
+    z-index: 9999; /* Keep it above other elements */
+    background-color: #221F20;
+    padding: 0px;
+    border-radius: 5px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Add a small shadow for visibility */
+    flex-wrap: wrap; /* Allows buttons to wrap to a new row */
+    gap: 8px; /* Optional: adds space between buttons */
+    transition: opacity 0.3s ease;
+}
+
+#hyperlight-buttons button {
+  width: 100%;
+  box-sizing: border-box;
+  flex: 1 1 200px;
+}
+
+
+
+.logo-container {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  height: 40px;
+  width: 40px;
+  z-index: 1000;
+}
+
+#logo {
+  height: 100%;
+  width: 100%;
+  display: block;
+}
+
+.logo-container:hover #logo {
+  opacity: 0;
+}
+
+.logo-container:hover {
+  cursor: pointer;
+}
+
+
+.logo-container:hover::after {
+  content: "";
+  background: url('http://127.0.0.1:8000/images/logob.png')no-repeat center / contain;
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+}
+
+
+#nav-buttons {
+  position: fixed;
+  bottom: 40px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px; /* Adjust spacing between buttons as needed */
+  transition: opacity 0.3s ease;
+}

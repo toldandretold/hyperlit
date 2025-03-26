@@ -64,6 +64,8 @@ export default defineConfig({
         'resources/css/reader.css',
         'resources/css/highlight-div.css',
         'resources/css/div-editor.css',
+        'resources/css/containers.css',
+        'resources/css/buttons.css',
         'resources/js/app.js',
         'resources/js/cache-indexedDB.js',
         'resources/js/convert-markdown.js',

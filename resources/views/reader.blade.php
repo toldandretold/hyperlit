@@ -2,13 +2,18 @@
 
 @section('styles')
 
-    @vite(['resources/css/app.css', 'resources/css/reader.css', 'resources/css/highlight-div.css'])
+    @vite(['resources/css/app.css', 'resources/css/reader.css', 'resources/css/highlight-div.css', 'resources/css/containers.css', 'resources/css/buttons.css'])
     @endsection
 @section('content')
 
     <!-- Add the <base> tag here to ensure correct resolution of relative URLs -->
     <base href="{{ url('markdown/' . $book . '/epub_original/') }}">
 
+
+   <div class="logo-container" onclick="window.location.href='{{ url('/') }}';">
+      <img src="{{ asset('images/logoa.png') }}" id="logo" alt="Logo">
+
+    </div>
 
     <!-- Load the content of the main-text.md file -->
 

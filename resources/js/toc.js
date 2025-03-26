@@ -85,19 +85,23 @@ export function renderTOC(container, tocData) {
   container.innerHTML = "";
 
   // Create the TOC entries.
-  tocData.forEach((item) => {
+  tocData.forEach((item, index) => {
     const anchor = document.createElement("a");
     anchor.href = item.link;
-    // Optionally add a CSS class based on the heading type for styling.
-    anchor.classList.add(item.type);
 
     const heading = document.createElement(item.type);
     heading.textContent = item.text;
-    anchor.appendChild(heading);
 
+    // If this is the first heading, add the "first" class.
+    if (index === 0) {
+      heading.classList.add("first");
+    }
+
+    anchor.appendChild(heading);
     container.appendChild(anchor);
   });
 }
+
 
 /**
  * Opens the TOC using the container manager.
