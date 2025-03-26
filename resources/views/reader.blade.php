@@ -10,7 +10,7 @@
     <base href="{{ url('markdown/' . $book . '/epub_original/') }}">
 
 
-   <div class="logo-container" onclick="window.location.href='{{ url('/') }}';">
+   <div id="logoContainer" onclick="window.location.href='{{ url('/') }}';">
       <img src="{{ asset('images/logoa.png') }}" id="logo" alt="Logo">
 
     </div>

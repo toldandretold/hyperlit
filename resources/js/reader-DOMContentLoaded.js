@@ -68,9 +68,10 @@ if (!window.isInitialized) {
 
     // Initialize Navigation Buttons.
     const navButtons = new NavButtons({
-      elementId: "nav-buttons", // Should match id in the HTML.
-      tapThreshold: 10 // Adjust if needed.
+      elementIds: ["nav-buttons", "logoContainer"],
+      tapThreshold: 10,
     });
+
     navButtons.init();
 
     // Get TOC elements here.

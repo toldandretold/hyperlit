@@ -5,12 +5,27 @@ aqua #4EACAE;
 black #221F20; 
 "white" #CBCCCC*/
 
+button {
+    font-size: 14px;
+    background-color: #444; /* Dark background */
+    color: #fff; /* White text */
+    border: 1px solid #777; /* Subtle border */
+    padding: 10px 20px; /* Spacing */
+    border-radius: 5px; /* Rounded corners */
+    font-weight: 600; /* Semi-bold text */
+    transition: background-color 0.3s ease, box-shadow 0.3s ease; /* Smooth hover transition */
+}
+
+button:hover {
+     background-color: #555; /* Slightly lighter on hover */
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3); /* Larger shadow on hover */
+}
+
 #toc-toggle-button {
   width: 40px;
   height: 40px;
-  background-color: #333; /* Button background color */
-  border: none;
-  border-radius: 5px; /* Rounded corners */
+  background-color: #221F20; /* Button background color */
+  border: none; 
   position: relative;
   display: flex;
   align-items: center;
@@ -25,7 +40,7 @@ black #221F20;
   position: absolute;
   width: 20px;
   height: 4px;
-  background-color: white;
+  background-color: #CBCCCC;
   border-radius: 2px;
 }
 
@@ -46,18 +61,15 @@ black #221F20;
 #editButton {
 width: 40px; /* Matching width */
   height: 40px; /* Matching height */
-  background: #333;
+  background: #221F20;
   border: none;
   cursor: pointer;
   padding: 8px;
 }
 
 
-#editButton svg {
-  width: 20px;
-  height: 20px;
-  stroke: white; /* Change to your preferred color */
-}
+
+
 
 
 #hyperlight-buttons {
@@ -81,13 +93,14 @@ width: 40px; /* Matching width */
 
 
 
-.logo-container {
+#logoContainer {
   position: absolute;
   top: 10px;
   left: 10px;
   height: 40px;
   width: 40px;
   z-index: 1000;
+  transition: opacity 0.3s ease;
 }
 
 #logo {
@@ -96,16 +109,16 @@ width: 40px; /* Matching width */
   display: block;
 }
 
-.logo-container:hover #logo {
+#logoContainer:hover #logo {
   opacity: 0;
 }
 
-.logo-container:hover {
+#logoContainer:hover {
   cursor: pointer;
 }
 
 
-.logo-container:hover::after {
+#logoContainer:hover::after {
   content: "";
   background: url('http://127.0.0.1:8000/images/logob.png')no-repeat center / contain;
   position: absolute;
