@@ -21,10 +21,23 @@
     </div>
 
     <!-- Buttons for hyper-lighting -->
-    <div id="hyperlight-buttons" style="display: none; position: absolute; z-index: 9999;">
-        <button id="copy-hyperlight" type="button">Hyperlight</button>
-        <button id="delete-hyperlight" type="button" style="display:none;">Delete</button>
-    </div>
+ 
+       <div
+  id="hyperlight-buttons"
+  style="display: none; position: absolute; z-index: 9999;"
+>
+  <button id="copy-hyperlight" type="button">
+    <svg
+      id="svgHighlighter"
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+    >
+      <rect width="16" height="16" fill="#EE4A95" />
+    </svg>
+  </button>
+  <button id="delete-hyperlight" type="button">🗑️</button>
+</div>
 
     <!-- Button edit -->
     <div id="nav-buttons">
