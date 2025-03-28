@@ -5,21 +5,7 @@ aqua #4EACAE;
 black #221F20; 
 "white" #CBCCCC*/
 
-button {
-    font-size: 14px;
-    background-color: #444; /* Dark background */
-    color: #fff; /* White text */
-    border: 1px solid #777; /* Subtle border */
-    padding: 10px 20px; /* Spacing */
-    border-radius: 5px; /* Rounded corners */
-    font-weight: 600; /* Semi-bold text */
-    transition: background-color 0.3s ease, box-shadow 0.3s ease; /* Smooth hover transition */
-}
 
-button:hover {
-     background-color: #555; /* Slightly lighter on hover */
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3); /* Larger shadow on hover */
-}
 
 #toc-toggle-button {
   width: 40px;
@@ -72,24 +58,47 @@ width: 40px; /* Matching width */
 
 
 
+/* Container for both buttons */
 #hyperlight-buttons {
-    position: absolute;
-    display: none; /* Hidden until text is selected */
-    z-index: 9999; /* Keep it above other elements */
-    background-color: #221F20;
-    padding: 0px;
-    border-radius: 5px;
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Add a small shadow for visibility */
-    flex-wrap: wrap; /* Allows buttons to wrap to a new row */
-    gap: 8px; /* Optional: adds space between buttons */
-    transition: opacity 0.3s ease;
+  position: absolute;
+  display: flex; /* This only applies when the div is not hidden */
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  z-index: 9999;
+  padding: 8px;
+  border-radius: 5px;
+  background: #221f20;
 }
 
-#hyperlight-buttons button {
-  width: 100%;
-  box-sizing: border-box;
-  flex: 1 1 200px;
+/* Style for the copy button */
+#copy-hyperlight {
+  width: 16px;
+  height: 16px;
+  background: none;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+
+/* Style for the delete/trash button */
+#delete-hyperlight {
+  font-size: 15px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: "Segoe UI Emoji", "NotoColorEmoji", "Apple Color Emoji", sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+
+
+
 
 
 

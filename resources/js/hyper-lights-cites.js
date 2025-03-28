@@ -189,7 +189,7 @@ function handleSelection() {
 
         // Position the buttons near the selected text, but far from iOS context menu
         const buttons = document.getElementById('hyperlight-buttons');
-        buttons.style.display = 'block';
+        buttons.style.display = 'flex';
 
         // Position the buttons below the selection (or above if there's no room below)
         let offset = 100; // Adjust this value to move the buttons further from iOS context menu
