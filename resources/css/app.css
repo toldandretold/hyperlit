@@ -5,10 +5,31 @@ aqua #4EACAE;
 black #221F20; 
 "white" #CBCCCC*/
 
+@import url('./public/fonts/inter/inter.css');
+
 body {
-    font-family: 'helvetica';
-    padding: 2%;
-    background-color: #221F20; 
+    font-family: 'Inter', sans-serif;
+    background-color: #221F20;
+    color: #fff;
+    font-size: 25px;
+}
+
+
+p {
+    margin-bottom: .8em;
+    margin-top: 0em;
+    text-align: left;
+    hyphens: auto;
+    font-size: 1em;
+    color: #CBCCCC;
+    font-weight: 350;
+    letter-spacing: -.02em;
+    word-spacing: -0.02em;
+}
+
+p[data-original-line="1"] {
+  margin-top: 1em;
+  /* other styles here */
 }
 
 a u.linked {
@@ -35,29 +56,48 @@ b, strong {
 }
 
 h1 {
-    font-size: 100;
-    color: #EE4A95;
+    font-size: 1.5em;
+    color: #CBCCCC;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin-top: 2em;
+    margin-bottom: .2em;
+
 }
 
 h2 {
-    font-size: 80;
     color: #CBCCCC;
+    font-size: 1em;
+    letter-spacing: -0.02em;
+    margin-top: 1.6em;
+    margin-bottom: .4em;
+    font-weight: 650;
+
 }
 
 h3, h4, h5, h6 {
-    font-size: 25px;
+    font-size: 1em;
     color: #CBCCCC;
+    margin-top: 1.6em;
+    margin-bottom: .4em;
+    letter-spacing: -0.01em;
+    font-weight: 550;
+    
 }
 
 blockquote {
-    border-left: 6px solid #ccc;
-    border-color: #4EACAE;
+    
     color: #CBCCCC;
-    margin: 1em 2em;
+    
     padding: 1em;
     padding-left: 1rem;
     display: flow-root;
-}   
+    font-style: normal;
+    font-weight: 350;
+    letter-spacing: .01em;
+}
+
+
 
 /* Media query for phones (small screens) */
 @media only screen and (max-width: 600px) {
@@ -66,6 +106,7 @@ blockquote {
     padding: 8px; /* Increase vertical padding if needed */
     padding-left: 1rem;
     overflow: auto; /* or display: flow-root; */
+    font-style: normal;
   }
 }
 
@@ -135,12 +176,7 @@ sup.note::before {
   background: transparent;
 }
 
-p {
-    text-align: justify;
-    hyphens: auto;
-    font-size: 25px;
-    color: #CBCCCC;
-}
+
 
 ol {
     hyphens: auto;
@@ -175,8 +211,7 @@ hr {
 }
 
 #html-editor div.annotation {
-    margin-bottom: 20px; /* Adds space at the bottom of the annotation div */
-    margin-top: 20px; /* Adds space at the top of the annotation div */
+   
 }
 
 /* change cursor behaviour for links in editable div */
@@ -272,24 +307,28 @@ caption {
 
 
 /* lazy loading */
- .main-content {
-        height: calc(100vh - 60px); /* Full height minus space for buttons */
-        border: none;               /* Remove border */
-        outline: none;              /* Remove default focus outline */
-        padding-left: 40px;
-        padding-right: 40px;
-        padding-bottom: 10px;               /* Add padding for text */
-        box-sizing: border-box;     /* Ensure padding doesn’t overflow */
-        font-family: 'Helvetica';  /* Make it look more like a document */
-        font-size: 16px;
-        line-height: 1.6;
-        background-color: #221F20;   /* dark background color */
-        color: #CBCCCC;
-        overflow-y: auto; /* Enable vertical scrolling */
-        overflow-x: hidden; /* Prevent horizontal scrolling */
-        visibility: visible !important;
-        opacity: 1 !important;
+.main-content {
+  height: calc(100vh - 60px); /* Full height minus space for buttons */
+  border: none;               /* Remove border */
+  outline: none;              /* Remove default focus outline */
+  padding-left: 40px;
+  padding-right: 40px;
+  padding-bottom: 10px;       /* Add padding for text */
+  box-sizing: border-box;     /* Include padding in total width */
+  line-height: 1.6;
+  background-color: #221F20;  /* Dark background color */
+  color: #CBCCCC;
+  overflow-y: auto;           /* Enable vertical scrolling */
+  overflow-x: hidden;         /* Prevent horizontal scrolling */
+  visibility: visible !important;
+  opacity: 1 !important;
+
+  /* Set maximum width so that the text area stays approx. 70ch wide */
+  max-width: 60ch;
+  margin: 0 auto; /* Center the content when viewport is wider */
 }
+
+
 
 /* Loading indicator styling */
 #loading-indicator {

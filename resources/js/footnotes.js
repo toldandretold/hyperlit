@@ -78,59 +78,6 @@ export function logFootnotesData() {
   }
 }
 
-// Footnotes handling - legacy approach
-/*export async function loadFootnotes(book) {
-  // If using embedded footnotes, we don't need to load from external sources
-  if (useEmbeddedFootnotes && window.nodeChunks && window.nodeChunks.length > 0) {
-    console.log("✅ Using embedded footnotes from nodeChunks.");
-    return window.nodeChunks;
-  }
-
-  // Legacy approach - try loading footnotes data from IndexedDB first
-  let footnotesData = await getFootnotesFromIndexedDB(book);
-  if (footnotesData) {
-    console.log("✅ Footnotes for book", book, "loaded from IndexedDB.");
-    return footnotesData;
-  }
-
-  console.warn(`⚠️ No footnotes found for book ${book} in IndexedDB.`);
-  console.log("🌍 Generating footnotes on the server...");
-
-  // Call the controller endpoint to generate the updated footnotes.json file
-  const refreshResponse = await fetch(`/footnotes/refresh/${book}`);
-  if (refreshResponse.ok) {
-    const refreshResult = await refreshResponse.json();
-    if (refreshResult.success) {
-      console.log("✅ Footnotes refreshed on server:", refreshResult.message);
-    } else {
-      console.error("❌ Server error refreshing footnotes:", refreshResult.message);
-      return null;
-    }
-  } else {
-    console.error("❌ Failed to call the refresh endpoint.");
-    return null;
-  }
-
-  // Once the generation is successful, fetch the updated footnotes.json file
-  const storedFootnotesTimestamp =
-    localStorage.getItem("footnotesLastModified") || "0";
-  const freshJsonUrl = window.getFreshUrl(
-    `/markdown/${book}/footnotes.json`,
-    storedFootnotesTimestamp
-  );
-
-  const jsonResponse = await fetch(freshJsonUrl);
-  if (jsonResponse.ok) {
-    footnotesData = await jsonResponse.json();
-    // Save the fetched data to IndexedDB
-    await saveFootnotesToIndexedDB(footnotesData, book);
-    console.log("✅ Footnotes loaded and saved to IndexedDB.");
-    return footnotesData;
-  } else {
-    console.error("❌ Failed to fetch the updated footnotes.json file.");
-    return null;
-  }
-} */
 
 
 // Display footnote - supports both embedded and legacy approaches

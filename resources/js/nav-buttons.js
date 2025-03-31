@@ -8,12 +8,16 @@ export default class NavButtons {
   constructor(options = {}) {
     this.elementIds = options.elementIds || ["nav-buttons"];
     this.tapThreshold = options.tapThreshold || 10;
-    this.elements = this.elementIds.map((id) => document.getElementById(id));
+    this.elements = this.elementIds.map((id) =>
+      document.getElementById(id)
+    );
 
     // Check if all elements exist
     this.elements.forEach((element, index) => {
       if (!element) {
-        throw new Error(`Element with id "${this.elementIds[index]}" not found.`);
+        throw new Error(
+          `Element with id "${this.elementIds[index]}" not found.`
+        );
       }
     });
 
@@ -28,12 +32,14 @@ export default class NavButtons {
     this.handlePointerDown = this.handlePointerDown.bind(this);
     this.handlePointerUp = this.handlePointerUp.bind(this);
     this.handleClick = this.handleClick.bind(this);
+    this.updatePosition = this.updatePosition.bind(this);
+    this.handleResize = this.handleResize.bind(this);
+
+    this.resizeDebounceTimeout = null;
   }
 
   /**
    * Initialize event listeners.
-   * - If it's a touch device, use pointer/touch events.
-   * - Otherwise (desktop/laptop/trackpad), use the click event.
    */
   init() {
     if (this.isTouchDevice) {
@@ -47,6 +53,10 @@ export default class NavButtons {
     } else {
       document.addEventListener("click", this.handleClick);
     }
+
+    // Update nav-buttons position initially and on window resize.
+    this.updatePosition();
+    window.addEventListener("resize", this.handleResize);
   }
 
   /**
@@ -64,6 +74,7 @@ export default class NavButtons {
     } else {
       document.removeEventListener("click", this.handleClick);
     }
+    window.removeEventListener("resize", this.handleResize);
   }
 
   /**
@@ -82,7 +93,6 @@ export default class NavButtons {
    * Record the starting pointer/touch coordinates.
    */
   handlePointerDown(event) {
-    // Even before tracking pointer down, check if we should ignore this event.
     if (this.shouldIgnoreEvent(event)) {
       return;
     }
@@ -91,59 +101,95 @@ export default class NavButtons {
   }
 
   /**
-   * On pointer/touch up, determine if the movement was small enough
-   * to be considered a tap and toggle the navigation container.
-   * This handler ignores events that occur on interactive elements or note markers.
+   * On pointer/touch up, check if the movement is small enough to be considered a tap.
    */
   handlePointerUp(event) {
-  // Get the main-content div
-  const mainContent = document.querySelector(".main-content");
-
-  // Check if the main-content div exists and is visible
-  if (!mainContent || mainContent.offsetParent === null) {
-    return; // Exit if the main-content div is not visible
-  }
-
-  // Check if the event should be ignored
-  if (this.shouldIgnoreEvent(event)) {
-    return;
-  }
-
-  // Calculate the movement
-  const deltaX = Math.abs(event.clientX - this.startX);
-  const deltaY = Math.abs(event.clientY - this.startY);
-
-  // If the movement is small enough, toggle the hidden-nav class
-  if (deltaX < this.tapThreshold && deltaY < this.tapThreshold) {
-    this.elements.forEach((element) => {
-      element.classList.toggle("hidden-nav");
-    });
-  }
-}
-
-
-  /**
-   * On click (desktop), toggle the navigation container,
-   * but ignore clicks from interactive elements or note markers.
-   */
-   handleClick(event) {
-    // Get the main-content div
     const mainContent = document.querySelector(".main-content");
-
-    // Check if the main-content div exists and is visible
     if (!mainContent || mainContent.offsetParent === null) {
-      return; // Exit if the main-content div is not visible
+      return;
     }
-
-    // Check if the event should be ignored
     if (this.shouldIgnoreEvent(event)) {
       return;
     }
+    const deltaX = Math.abs(event.clientX - this.startX);
+    const deltaY = Math.abs(event.clientY - this.startY);
+    if (deltaX < this.tapThreshold && deltaY < this.tapThreshold) {
+      this.elements.forEach((element) => {
+        element.classList.toggle("hidden-nav");
+      });
+    }
+  }
 
-    // Toggle the hidden-nav class on all elements
+  /**
+   * On click (desktop), toggle the navigation container.
+   */
+  handleClick(event) {
+    const mainContent = document.querySelector(".main-content");
+    if (!mainContent || mainContent.offsetParent === null) {
+      return;
+    }
+    if (this.shouldIgnoreEvent(event)) {
+      return;
+    }
     this.elements.forEach((element) => {
       element.classList.toggle("hidden-nav");
     });
   }
 
+  /**
+   * Update the position of nav-buttons relative to the .main-content and viewport.
+   */
+  updatePosition() {
+      window.requestAnimationFrame(() => {
+        const mainContent = document.querySelector(".main-content");
+        if (!mainContent) {
+          return;
+        }
+        const windowWidth = window.innerWidth;
+        // Adjust the main-content width—if needed you can subtract any extra padding;
+        // here we use 20 (adjust as needed).
+        const computedMainWidth = mainContent.offsetWidth - 20;
+        const margin = (windowWidth - computedMainWidth) / 2;
+
+        // Desired minimum distance from the main-content's edge.
+        const minDistance = 20;
+        let newRight, newLeft;
+        if (margin >= 2 * minDistance) {
+          newRight = margin - minDistance;
+          newLeft = margin - minDistance;
+        } else {
+          newRight = margin / 2;
+          newLeft = margin / 2;
+        }
+
+        // Iterate over each element and update its offset appropriately based on its ID.
+        this.elements.forEach((element) => {
+          if (element.id === "nav-buttons") {
+            element.style.right = `${newRight}px`;
+          } else if (element.id === "logoContainer") {
+            element.style.left = `${newLeft}px`;
+          }
+        });
+      });
+    }
+
+
+  /**
+   * Handle resize event:
+   * - Temporarily disable the right transition.
+   * - Update the position.
+   * - Remove the temporary class after the resize stops.
+   */
+  handleResize() {
+    this.elements.forEach((element) => {
+      element.classList.add("disable-right-transition");
+    });
+    this.updatePosition();
+    clearTimeout(this.resizeDebounceTimeout);
+    this.resizeDebounceTimeout = setTimeout(() => {
+      this.elements.forEach((element) => {
+        element.classList.remove("disable-right-transition");
+      });
+    }, 100); // Adjust the debounce delay as needed.
+  }
 }
