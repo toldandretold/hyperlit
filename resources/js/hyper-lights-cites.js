@@ -731,48 +731,7 @@ function findParentWithNumericalId(element) {
   return null;
 }
 
-// Helper functions: getXPath, getFullXPath, normalizeXPath
-function getXPath(node) {
-    if (node.nodeType === Node.TEXT_NODE) {
-        node = node.parentNode;
-    }
-    if (node.id !== '') {
-        return 'id("' + node.id + '")';
-    }
-    if (node === document.body) {
-        return '/html/' + node.tagName.toLowerCase();
-    }
-    let ix = 0;
-    let siblings = node.parentNode.childNodes;
-    for (let i = 0; i < siblings.length; i++) {
-        let sibling = siblings[i];
-        if (sibling === node) {
-            return getXPath(node.parentNode) + '/' + node.tagName.toLowerCase() + '[' + (ix + 1) + ']';
-        }
-        if (sibling.nodeType === 1 && sibling.tagName === node.tagName) {
-            ix++;
-        }
-    }
-}
 
-function getFullXPath(node) {
-    if (node.nodeType === Node.TEXT_NODE) {
-        node = node.parentNode;
-    }
-    let fullXPath = '';
-    while (node !== document.body) {
-        let tagName = node.tagName.toLowerCase();
-        let index = Array.prototype.indexOf.call(node.parentNode.children, node) + 1;
-        fullXPath = '/' + tagName + '[' + index + ']' + fullXPath;
-        node = node.parentNode;
-    }
-    return '/html' + fullXPath;
-}
-
-function normalizeXPath(xpath) {
-    const regex = /^id\(".*?"\)\/div\[1\]/;
-    return xpath.replace(regex, '');
-}
 
 // Function to generate a unique hypercite ID
 function generateHyperciteID() {
@@ -844,7 +803,7 @@ function wrapSelectedTextInDOM(hyperciteId, book) {
 }   
 
 // Send hypercite blocks to the backend
-function sendHyperciteBlocksToBackend(book, hyperciteId, blocks) {
+/*function sendHyperciteBlocksToBackend(book, hyperciteId, blocks) {
     fetch('/save-hypercite-blocks', {
         method: 'POST',
         headers: {
@@ -868,7 +827,7 @@ function sendHyperciteBlocksToBackend(book, hyperciteId, blocks) {
     .catch(error => {
         console.error('❌ Error saving hypercite blocks:', error);
     });
-}
+} */
 
 // Event listener for copying text and creating a hypercite
 document.addEventListener("copy", event => {
@@ -970,15 +929,35 @@ window.addEventListener('beforeunload', function () {
     console.log("Updated originalReadPath on refresh:", domPath);
 });
 
-// Save original read position when clicking "edit" button
+// Save original read position when clicking "edit" button and toggle contentEditable
 document.getElementById('editButton').addEventListener('click', function () {
-    const elementInView = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
-    const domPath = getDomPath(elementInView);
+  // Save the current read position by finding the element at the center
+  const elementInView = document.elementFromPoint(
+    window.innerWidth / 2,
+    window.innerHeight / 2
+  );
+  const domPath = getDomPath(elementInView);
 
-    // Save and log the original path for returning from edit mode
-    localStorage.setItem('originalReadPath', domPath);
-    console.log("Saved originalReadPath on edit:", domPath);
+  // Save and log the original path for returning from edit mode
+  localStorage.setItem('originalReadPath', domPath);
+  console.log('Saved originalReadPath on edit:', domPath);
 
-    // Redirect to the editable page
-    window.location.href = `/${book}/div`; // Adjust URL as needed
+  // Instead of redirecting, toggle contentEditable on the target element
+  // Ensure that 'book' variable contains the ID of the <div> you want to edit
+  const editableDiv = document.getElementById(book);
+
+  if (editableDiv) {
+    // Toggle the contenteditable state
+    if (editableDiv.contentEditable === 'true') {
+      editableDiv.contentEditable = 'false';
+      console.log('Edit mode disabled.');
+    } else {
+      editableDiv.contentEditable = 'true';
+      editableDiv.focus(); // Optional: automatically focus the div
+      console.log('Edit mode enabled.');
+    }
+  } else {
+    console.error(`Element with ID "${book}" not found.`);
+  }
 });
+
