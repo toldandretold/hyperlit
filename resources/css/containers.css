@@ -53,6 +53,7 @@ black #221F20;
   bottom: 0;
   overflow: auto;
   padding: 0 1em 1em 1em; /* Remove top padding */
+  border-radius: 1em 1em;
 }
 
 #highlight-container .scroller {
@@ -75,6 +76,7 @@ black #221F20;
   background-color: #221F20;
   z-index: 10;
   box-shadow: inset 0px -4px 4px -4px #221F20; /* Fades the text at the top */
+  border-radius: 1em 1em;
 }
 
 #toc-container .mask-bottom {
@@ -98,7 +100,6 @@ black #221F20;
   pointer-events: none;
   background-color: #221F20;
   z-index: 10;
-  box-shadow: inset 0px -4px 4px -4px #221F20; /* Fades the text at the top */
 }
 
 #highlight-container .mask-bottom {
