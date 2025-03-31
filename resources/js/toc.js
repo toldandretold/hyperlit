@@ -84,7 +84,11 @@ export function renderTOC(container, tocData) {
   // Clear any existing content.
   container.innerHTML = "";
 
-  // Create the TOC entries.
+  // Create a wrapper for the scrollable content.
+  const scroller = document.createElement("div");
+  scroller.classList.add("scroller");
+
+  // Create the TOC entries inside the scroller.
   tocData.forEach((item, index) => {
     const anchor = document.createElement("a");
     anchor.href = item.link;
@@ -98,9 +102,26 @@ export function renderTOC(container, tocData) {
     }
 
     anchor.appendChild(heading);
-    container.appendChild(anchor);
+    scroller.appendChild(anchor);
   });
+
+  // Insert the scrollable container into the main container.
+  container.appendChild(scroller);
+
+  // Create the top mask.
+  const maskTop = document.createElement("div");
+  maskTop.classList.add("mask-top");
+
+  // Create the bottom mask.
+  const maskBottom = document.createElement("div");
+  maskBottom.classList.add("mask-bottom");
+
+  // Append the masks to the container.
+  container.appendChild(maskTop);
+  container.appendChild(maskBottom);
 }
+
+
 
 
 /**

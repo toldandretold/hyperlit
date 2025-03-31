@@ -7,21 +7,115 @@ black #221F20;
 
 /* Base styles for the TOC */
 #toc-container {
-transform: translateX(calc(-105%)); /* Off-screen, including the gap */
+  transform: translateX(calc(-105%)); /* Off-screen, including the gap */
   transition: transform 0.3s ease-in-out;
   position: fixed;
   left: 1em;
-  top: 5%;
+  bottom: 1em;
+  top: 1em;
   height: 90%;
-  width: 70%;
-  max-width: 500px;
+  width: 60%;
+  max-width: 30ch; /* 70ch text plus ~6ch padding (2em left + 1em right) */
   background-color: #221F20;
   z-index: 1000;
-  overflow: auto;
+  overflow: hidden; /* Ensure content doesn't overflow the container */
   padding-left: 1em;
   padding-right: 2em;
   border-radius: 1em 1em;
 }
+
+#ref-container,
+#highlight-container {
+    transform: translateX(calc(100% + 2em)); /* Off-screen, including the gap */
+  transition: transform 0.3s ease-in-out;
+  position: fixed;
+  right: 1em; /* Positioned on the right */
+  bottom: 1em;
+  top: 1em;
+  height: 90%;
+  width: 60%;
+  max-width: 30ch; /* 70ch text plus ~6ch padding (2em left + 1em right) */
+  background-color: #221F20;
+  z-index: 1000;
+  overflow: hidden; /* Ensure content doesn't overflow the container */
+  padding-left: 1em;
+  padding-right: 2em;
+  border-radius: 1em 1em;
+}
+
+
+
+#toc-container .scroller {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: auto;
+  padding: 0 1em 1em 1em; /* Remove top padding */
+}
+
+#highlight-container .scroller {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: auto;
+  padding: 0 1em 1em 1em; /* Remove top padding */
+}
+
+#toc-container .mask-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1em; /* Matches the scroller's top padding */
+  pointer-events: none;
+  background-color: #221F20;
+  z-index: 10;
+  box-shadow: inset 0px -4px 4px -4px #221F20; /* Fades the text at the top */
+}
+
+#toc-container .mask-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1em; /* Matches the scroller's bottom padding */
+  pointer-events: none;
+  background-color: #221F20;
+  z-index: 10;
+  box-shadow: inset 0px 4px 4px -4px #221F20; /* Fades the text at the bottom */
+}
+
+#highlight-container .mask-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1em; /* Matches the scroller's top padding */
+  pointer-events: none;
+  background-color: #221F20;
+  z-index: 10;
+  box-shadow: inset 0px -4px 4px -4px #221F20; /* Fades the text at the top */
+}
+
+#highlight-container .mask-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1em; /* Matches the scroller's bottom padding */
+  pointer-events: none;
+  background-color: #221F20;
+  z-index: 10;
+  box-shadow: inset 0px 4px 4px -4px #221F20; /* Fades the text at the bottom */
+}
+
+
+
+
 
 
 #toc-container h1.first {
@@ -68,24 +162,23 @@ transform: translateX(calc(-105%)); /* Off-screen, including the gap */
 }
 
 
-/* Reference Container */
-#ref-container,
-#highlight-container {
-  transform: translateX(calc(100% + 2em)); /* Off-screen, including the gap */
-  transition: transform 0.3s ease-in-out;
-  position: fixed;
-  right: 1em;
-  top: 5%;
-  height: 90%;
-  width: 70%;
-  max-width: 600px;
-  background-color: #221F20;
-  z-index: 1000;
-  overflow: auto;
-  padding-left: 2em;
-  padding-right: 1em;
-  border-radius: 1em 1em;
+
+
+/* Add a pseudo-element that remains at the top as a mask */
+#ref-container::before,
+#highlight-container::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2em; /* Height of constant masking area */
+  pointer-events: none; /* Allows click events to pass through */
+  background: linear-gradient(to bottom, #221F20, transparent);
+  z-index: 10; /* Ensure it sits over the content */
 }
+
+
 
 #ref-container.open,
 #highlight-container.open {

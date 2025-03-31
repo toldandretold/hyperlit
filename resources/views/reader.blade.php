@@ -27,14 +27,9 @@
   style="display: none; position: absolute; z-index: 9999;"
 >
   <button id="copy-hyperlight" type="button">
-    <svg
-      id="svgHighlighter"
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-    >
-      <rect width="16" height="16" fill="#EE4A95" />
-    </svg>
+   <svg id="svgHighlighter" xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+  <rect width="16" height="16" fill="#EE4A95" rx="4" ry="4" />
+</svg>
   </button>
   <button id="delete-hyperlight" type="button">🗑️</button>
 </div>
@@ -53,13 +48,16 @@
 
     <!-- Container for the Table of Contents -->
     <div id="toc-container" class="hidden"></div>
+    <div id="highlight-container" class="hidden" contenteditable="true"></div>
     <div id="toc-overlay"></div>
 
 
     <!-- Container for references and highlights -->
-    <div id="ref-container" class="hidden"></div>
+    <div id="ref-container" class="hidden">
+        
+    </div>
     <div id="ref-overlay"></div>
-    <div id="highlight-container" class="hidden" contenteditable="true"></div>
+    
     
     
 

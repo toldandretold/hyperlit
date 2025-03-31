@@ -97,12 +97,16 @@ export async function handleMarkClick(event) {
       }
 
       const containerContent = `
+        <div class="scroller">
         <blockquote class="highlight-text">
           "${highlightData.highlightedHTML}"
         </blockquote>
         <div class="annotation" contenteditable="true">
           <p class="temp-text" data-placeholder="Annotate at will...">${highlightData.annotation || ""}</p>
         </div>
+        </div>
+         <div class="mask-bottom"></div>
+        <div class="mask-top"></div>
       `;
 
       // Open container with content directly
