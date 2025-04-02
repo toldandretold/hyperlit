@@ -26,7 +26,7 @@ black #221F20;
 
 #ref-container,
 #highlight-container {
-    transform: translateX(calc(100% + 2em)); /* Off-screen, including the gap */
+  transform: translateX(calc(100% + 2em)); /* Off-screen, including the gap */
   transition: transform 0.3s ease-in-out;
   position: fixed;
   right: 1em; /* Positioned on the right */
@@ -56,7 +56,8 @@ black #221F20;
   border-radius: 1em 1em;
 }
 
-#highlight-container .scroller {
+#highlight-container .scroller,
+#ref-container .scroller {
   position: absolute;
   top: 0;
   left: 0;
@@ -64,6 +65,7 @@ black #221F20;
   bottom: 0;
   overflow: auto;
   padding: 0 1em 1em 1em; /* Remove top padding */
+  border-radius: 1em 1em;
 }
 
 #toc-container .mask-top {
@@ -79,19 +81,9 @@ black #221F20;
   border-radius: 1em 1em;
 }
 
-#toc-container .mask-bottom {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 1em; /* Matches the scroller's bottom padding */
-  pointer-events: none;
-  background-color: #221F20;
-  z-index: 10;
-  box-shadow: inset 0px 4px 4px -4px #221F20; /* Fades the text at the bottom */
-}
 
-#highlight-container .mask-top {
+#highlight-container .mask-top,
+#ref-container .mask-top {
   position: absolute;
   top: 0;
   left: 0;
@@ -100,9 +92,23 @@ black #221F20;
   pointer-events: none;
   background-color: #221F20;
   z-index: 10;
+  box-shadow: inset 0px 4px 4px -4px #221F20; /* Fades the text at the bottom */
 }
 
-#highlight-container .mask-bottom {
+#toc-container .mask-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1em; /* Matches the scroller's bottom padding */
+  pointer-events: none;
+  background-color: #221F20;
+  
+}
+
+
+#highlight-container .mask-bottom,
+#ref-container .mask-bottom {
   position: absolute;
   bottom: 0;
   left: 0;
@@ -115,6 +121,62 @@ black #221F20;
 }
 
 
+
+
+
+
+
+
+#toc-container.open {
+    transform: translateX(0);
+}
+
+#ref-container.open,
+#highlight-container.open {
+  transform: translateX(0); /* Slide in to show the gap on the right */
+}
+
+#toc-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease-in-out;
+    z-index: 999;
+}
+
+/* Reference Overlay */
+#ref-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%; /* Covers the entire screen */
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent overlay */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease-in-out;
+    z-index: 999; /* Below the reference container */
+}
+
+
+
+
+
+#toc-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+
+#ref-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
 
 
 
@@ -138,70 +200,4 @@ black #221F20;
     padding-left: 4em;
     font-size: 20px;
     color: #A8A8A8;
-}
-
-#toc-container.open {
-    transform: translateX(0);
-}
-
-#toc-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.3s ease-in-out;
-    z-index: 999;
-}
-
-#toc-overlay.active {
-    opacity: 1;
-    visibility: visible;
-}
-
-
-
-
-/* Add a pseudo-element that remains at the top as a mask */
-#ref-container::before,
-#highlight-container::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2em; /* Height of constant masking area */
-  pointer-events: none; /* Allows click events to pass through */
-  background: linear-gradient(to bottom, #221F20, transparent);
-  z-index: 10; /* Ensure it sits over the content */
-}
-
-
-
-#ref-container.open,
-#highlight-container.open {
-  transform: translateX(0); /* Slide in to show the gap on the right */
-}
-
-
-/* Reference Overlay */
-#ref-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%; /* Covers the entire screen */
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent overlay */
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.3s ease-in-out;
-    z-index: 999; /* Below the reference container */
-}
-
-#ref-overlay.active {
-    opacity: 1;
-    visibility: visible;
 }

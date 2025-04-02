@@ -5,6 +5,7 @@ import { ContainerManager } from "./container-manager.js";
 import { navigateToInternalId } from "./scrolling.js";
 import { openDatabase } from "./cache-indexedDB.js";
 import { attachAnnotationListener } from "./annotation-saver.js";
+import { startObserving, stopObserving } from "./divEditor.js";
 
 let highlightId; 
 let highlightLazyLoader;
@@ -871,7 +872,7 @@ document.addEventListener("copy", event => {
 });
 
 // Function to save hypercite metadata to the server
-function saveHyperciteData(citation_id_a, hypercite_id, hypercited_text, href_a) {
+/*function saveHyperciteData(citation_id_a, hypercite_id, hypercited_text, href_a) {
     fetch(`/save-hypercite`, {
         method: 'POST',
         headers: {
@@ -896,7 +897,7 @@ function saveHyperciteData(citation_id_a, hypercite_id, hypercited_text, href_a)
     .catch(error => {
         console.error('Error saving hypercite data:', error);
     });
-}
+}*/
 
 // Function to get the full DOM path of the element in view
 function getDomPath(element) {
@@ -929,35 +930,40 @@ window.addEventListener('beforeunload', function () {
     console.log("Updated originalReadPath on refresh:", domPath);
 });
 
-// Save original read position when clicking "edit" button and toggle contentEditable
-document.getElementById('editButton').addEventListener('click', function () {
-  // Save the current read position by finding the element at the center
+// Save original read position when clicking "edit" button and toggle contentEditable.
+document.getElementById("editButton").addEventListener("click", function () {
+
+  // Save the current read position by finding the element at the center.
   const elementInView = document.elementFromPoint(
     window.innerWidth / 2,
     window.innerHeight / 2
   );
   const domPath = getDomPath(elementInView);
 
-  // Save and log the original path for returning from edit mode
-  localStorage.setItem('originalReadPath', domPath);
-  console.log('Saved originalReadPath on edit:', domPath);
+  // Save and log the original path for returning from edit mode.
+  localStorage.setItem("originalReadPath", domPath);
+  console.log("Saved originalReadPath on edit:", domPath);
 
-  // Instead of redirecting, toggle contentEditable on the target element
-  // Ensure that 'book' variable contains the ID of the <div> you want to edit
+  // Toggle contentEditable on the target element.
+  // Ensure that 'book' variable contains the ID of the <div> you want to edit.
   const editableDiv = document.getElementById(book);
 
+  this.classList.toggle("inverted");
+
   if (editableDiv) {
-    // Toggle the contenteditable state
-    if (editableDiv.contentEditable === 'true') {
-      editableDiv.contentEditable = 'false';
-      console.log('Edit mode disabled.');
+    if (editableDiv.contentEditable === "true") {
+      // Disable editing and stop the observer.
+      editableDiv.contentEditable = "false";
+      stopObserving();
+      console.log("Edit mode disabled.");
     } else {
-      editableDiv.contentEditable = 'true';
-      editableDiv.focus(); // Optional: automatically focus the div
-      console.log('Edit mode enabled.');
+      // Enable editing, focus the div, and start the observer.
+      editableDiv.contentEditable = "true";
+      editableDiv.focus();
+      startObserving(editableDiv);
+      console.log("Edit mode enabled.");
     }
   } else {
     console.error(`Element with ID "${book}" not found.`);
   }
 });
-

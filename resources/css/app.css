@@ -5,7 +5,7 @@ aqua #4EACAE;
 black #221F20; 
 "white" #CBCCCC*/
 
-@import url('./public/fonts/inter/inter.css');
+@import url('/public/fonts/inter/inter.css');
 
 body {
     font-family: 'Inter', sans-serif;
