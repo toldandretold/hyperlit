@@ -50,11 +50,17 @@ width: 36px; /* Matching width */
   background: #221F20;
   border: none;
   cursor: pointer;
-  padding: 8px;
+  padding: 4px;
+  stroke: #CBCCCC;
 }
 
 
-
+.inverted svg {
+  background: #CBCCCC;
+  stroke: #221F20;
+  border-radius: 4px;
+  padding: 4px;
+}
 
 
 
