@@ -300,3 +300,157 @@ export async function clearNodeChunksForBook(bookId = "latest") {
 export function getLocalStorageKey(baseKey, bookId = "latest") {
   return `${baseKey}_${bookId}`;
 }
+
+
+export async function updateIndexedDBRecord(record) {
+  try {
+    // Get the current book ID.
+    const bookId = book || "latest";
+    
+    console.log(`Updating IndexedDB record for node ${record.id}, action: ${record.action}`);
+    
+    const node = document.getElementById(record.id);
+    
+    // Accept decimal IDs such as "19.1" or "19".
+    if (!record.id.match(/^\d+(\.\d+)?$/)) {
+      console.log(`Skipping IndexedDB update for node with non-standard ID: ${record.id}`);
+      return;
+    }
+    
+    // Open the database.
+    const db = await openDatabase();
+    const tx = db.transaction("nodeChunks", "readwrite");
+    const store = tx.objectStore("nodeChunks");
+    
+    // Always store startLine as a number.
+    const newStartLine = parseFloat(record.id);
+    
+    // Helper: extract the base number from the record id.
+    const getBaseFromId = (id) => parseFloat(id.match(/^(\d+)/)[1]); // e.g. "19.1" -> 19
+    const baseNumber = getBaseFromId(record.id);
+    
+    if (record.action !== "normalize") {
+      // Try to get the base record by key [book, baseNumber]
+      const baseKey = [bookId, baseNumber];
+      const baseRequest = store.get(baseKey);
+      
+      baseRequest.onsuccess = () => {
+        let inheritedChunkId = null;
+        const baseRecord = baseRequest.result;
+        if (baseRecord && baseRecord.chunk_id !== undefined) {
+          inheritedChunkId = baseRecord.chunk_id;
+          console.log(`Inheriting chunk_id from record with startLine ${baseNumber}:`, inheritedChunkId);
+        } else {
+          // Fallback: if no base record exists, use default (here, 0)
+          inheritedChunkId = 0;
+          console.log(`No base record found for startLine ${baseNumber}. Using default chunk_id:`, inheritedChunkId);
+        }
+        
+        // Now, proceed to check if a record already exists for record.id.
+        const getRequest = store.get([bookId, newStartLine]);
+        getRequest.onsuccess = () => {
+          const existingRecord = getRequest.result;
+          
+          // Create or update the record.
+          const nodeRecord = existingRecord
+            ? { ...existingRecord, content: record.html }
+            : {
+                book: bookId,
+                startLine: newStartLine, // numeric value, e.g. 19.1
+                chunk_id: inheritedChunkId,
+                content: record.html
+              };
+          
+          const putRequest = store.put(nodeRecord);
+          putRequest.onsuccess = () => {
+            console.log(`Successfully ${record.action === "add" ? "added" : "updated"} record for node ${record.id}`);
+          };
+        };
+      };
+    } else {
+      // Normalization branch: update the record keyed by the old numeric value.
+      const oldKey = [bookId, parseFloat(record.oldId)];
+      const getRequest = store.get(oldKey);
+      getRequest.onsuccess = () => {
+        const oldRecord = getRequest.result;
+        if (oldRecord) {
+          const newRecord = {
+            ...oldRecord,
+            startLine: newStartLine,
+            content: record.html
+          };
+          const putRequest = store.put(newRecord);
+          putRequest.onsuccess = () => {
+            store.delete(oldKey);
+            console.log(`Normalized record from ID ${record.oldId} to ${record.id}`);
+          };
+        } else {
+          console.log(`No record found with ID ${record.oldId} for normalization`);
+          // Create a new record anyway.
+          const newRecord = {
+            book: bookId,
+            startLine: newStartLine,
+            chunk_id: parseInt(baseNumber, 10),  // fallback calculation
+            content: record.html
+          };
+          store.put(newRecord);
+          console.log(`Created new record for normalized node ${record.id}`);
+        }
+      };
+    }
+    
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = resolve;
+      tx.onerror = (event) => {
+        console.error("Transaction error:", event.target.error);
+        reject(event.target.error);
+      };
+    });
+    
+  } catch (error) {
+    console.error("Error in updateIndexedDBRecord:", error);
+  }
+}
+
+
+
+export async function deleteIndexedDBRecord(id) {
+  try {
+    const bookId = book || "latest";
+    
+    const node = document.getElementById(id);
+    
+    // Updated regex to accept decimal IDs.
+    if (!id.match(/^\d+(\.\d+)?$/)) {
+      console.log(`Skipping IndexedDB delete for node with non-standard ID: ${id}`);
+      return;
+    }
+    
+    console.log(`Deleting node with ID ${id} from IndexedDB`);
+    
+    const db = await openDatabase();
+    const tx = db.transaction("nodeChunks", "readwrite");
+    const store = tx.objectStore("nodeChunks");
+    
+    // Convert id to a number for the composite key.
+    const numericId = parseFloat(id);
+    
+    // Delete the record using the composite key [book, numericId].
+    const deleteRequest = store.delete([bookId, numericId]);
+    
+    deleteRequest.onsuccess = () => {
+      console.log(`Successfully deleted record for node ${id}`);
+    };
+    
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = resolve;
+      tx.onerror = (event) => {
+        console.error("Transaction error:", event.target.error);
+        reject(event.target.error);
+      };
+    });
+  } catch (error) {
+    console.error("Error in deleteIndexedDBRecord:", error);
+  }
+}
+
