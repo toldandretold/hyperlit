@@ -1,5 +1,5 @@
 import { renderBlockToHtml } from "./convert-markdown.js";
-import { attachMarkListeners } from "./hyper-lights-cites.js";
+import { attachMarkListeners } from "./hyperLights.js";
 import { injectFootnotesForChunk } from "./footnotes.js";
 import {
   saveNodeChunksToIndexedDB,
