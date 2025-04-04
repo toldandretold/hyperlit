@@ -23,7 +23,7 @@ import {
   handleMarkClick,
   handleMarkHover,
   handleMarkHoverOut
-} from "./hyper-lights-cites.js";
+} from "./hyperLights.js";
 import {
   generateTableOfContents,
   toggleTOC
@@ -32,6 +32,8 @@ import {
 } from "./toc.js";
 import NavButtons from "./nav-buttons.js";
 import { currentLazyLoader } from "./initializePage.js";
+import "./editButton.js";
+import "./hyperCites.js";
 
 if (!window.isInitialized) {
   window.isInitialized = true;

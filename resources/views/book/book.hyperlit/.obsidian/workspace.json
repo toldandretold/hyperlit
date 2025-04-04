@@ -30,9 +30,19 @@
                 "source": true
               }
             }
+          },
+          {
+            "id": "774206596d335934",
+            "type": "leaf",
+            "state": {
+              "type": "release-notes",
+              "state": {
+                "currentVersion": "1.6.7"
+              }
+            }
           }
         ],
-        "currentTab": 1
+        "currentTab": 2
       }
     ],
     "direction": "vertical"
@@ -159,7 +169,7 @@
       "command-palette:Open command palette": false
     }
   },
-  "active": "30e7c380145d2c2f",
+  "active": "774206596d335934",
   "lastOpenFiles": [
     "Untitled",
     "strategic_imaginaries.md",

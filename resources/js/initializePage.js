@@ -15,7 +15,7 @@ import {
 
 import {
   attachMarkListeners,
-} from "./hyper-lights-cites.js";
+} from "./hyperLights.js";
 
 import { parseMarkdownIntoChunksInitial } from "./convert-markdown.js";
 

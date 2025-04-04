@@ -302,35 +302,126 @@ export function getLocalStorageKey(baseKey, bookId = "latest") {
 }
 
 
+// Helper function to process node content and highlights
+function processNodeContentAndHighlights(node) {
+  const content = node.cloneNode(true);
+  const hyperlights = [];
+  
+  // Find all mark tags in the original node
+  const markTags = node.getElementsByTagName('mark');
+  
+  console.log("Processing node:", node.outerHTML);
+  
+  // Process each mark tag to get position data
+  Array.from(markTags).forEach(mark => {
+    // Get text content up to the mark tag's start position
+    let currentNode = node.firstChild;
+    let startPos = 0;
+    let foundMark = false;
+    
+    while (currentNode && !foundMark) {
+      if (currentNode === mark) {
+        foundMark = true;
+      } else if (currentNode.nodeType === Node.TEXT_NODE) {
+        startPos += currentNode.length;
+      } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
+        if (currentNode.contains(mark)) {
+          // If the current element contains our mark, we need to traverse its children
+          let child = currentNode.firstChild;
+          while (child && child !== mark) {
+            if (child.nodeType === Node.TEXT_NODE) {
+              startPos += child.length;
+            }
+            child = child.nextSibling;
+          }
+          foundMark = true;
+        } else {
+          startPos += currentNode.textContent.length;
+        }
+      }
+      if (!foundMark) {
+        currentNode = currentNode.nextSibling;
+      }
+    }
+    
+    const highlightLength = mark.textContent.length;
+    
+    const highlightData = {
+      highlightID: mark.id,
+      charStart: startPos,
+      charEnd: startPos + highlightLength
+    };
+    
+    console.log("Calculated highlight positions:", {
+      id: mark.id,
+      text: mark.textContent,
+      startPos,
+      endPos: startPos + highlightLength,
+      totalNodeLength: node.textContent.length
+    });
+    
+    hyperlights.push(highlightData);
+  });
+  
+  // Remove all mark tags from the clone while preserving their text content
+  const markTagsInClone = content.getElementsByTagName('mark');
+  while (markTagsInClone.length > 0) {
+    const markTag = markTagsInClone[0];
+    const textContent = markTag.textContent;
+    markTag.parentNode.replaceChild(document.createTextNode(textContent), markTag);
+  }
+  
+  const result = {
+    content: content.outerHTML,
+    hyperlights
+  };
+  
+  console.log("Processed result:", result);
+  
+  return result;
+}
+
+
 export async function updateIndexedDBRecord(record) {
   try {
-    // Get the current book ID.
     const bookId = book || "latest";
     
-    console.log(`Updating IndexedDB record for node ${record.id}, action: ${record.action}`);
+    // Find the parent node with a numeric ID if we're dealing with a mark tag
+    let nodeId = record.id;
+    let node = document.getElementById(record.id);
     
-    const node = document.getElementById(record.id);
+    if (node && !nodeId.match(/^\d+(\.\d+)?$/)) {
+      // Traverse up until we find a parent with a numeric ID
+      while (node && node.parentElement) {
+        node = node.parentElement;
+        if (node.id && node.id.match(/^\d+(\.\d+)?$/)) {
+          nodeId = node.id;
+          break;
+        }
+      }
+    }
     
-    // Accept decimal IDs such as "19.1" or "19".
-    if (!record.id.match(/^\d+(\.\d+)?$/)) {
-      console.log(`Skipping IndexedDB update for node with non-standard ID: ${record.id}`);
+    if (!nodeId.match(/^\d+(\.\d+)?$/)) {
+      console.log(`Skipping IndexedDB update - no valid parent node ID found for: ${record.id}`);
       return;
     }
     
-    // Open the database.
+    console.log(`Updating IndexedDB record for node ${nodeId}, action: ${record.action}`);
+    
+    // Process content and hyperlights if we have a node
+    let processedContent = null;
+    if (node) {
+      processedContent = processNodeContentAndHighlights(node);
+    }
+    
     const db = await openDatabase();
     const tx = db.transaction("nodeChunks", "readwrite");
     const store = tx.objectStore("nodeChunks");
     
-    // Always store startLine as a number.
-    const newStartLine = parseFloat(record.id);
-    
-    // Helper: extract the base number from the record id.
-    const getBaseFromId = (id) => parseFloat(id.match(/^(\d+)/)[1]); // e.g. "19.1" -> 19
-    const baseNumber = getBaseFromId(record.id);
+    const newStartLine = parseFloat(nodeId);
+    const baseNumber = parseFloat(nodeId.match(/^(\d+)/)[1]);
     
     if (record.action !== "normalize") {
-      // Try to get the base record by key [book, baseNumber]
       const baseKey = [bookId, baseNumber];
       const baseRequest = store.get(baseKey);
       
@@ -339,36 +430,56 @@ export async function updateIndexedDBRecord(record) {
         const baseRecord = baseRequest.result;
         if (baseRecord && baseRecord.chunk_id !== undefined) {
           inheritedChunkId = baseRecord.chunk_id;
-          console.log(`Inheriting chunk_id from record with startLine ${baseNumber}:`, inheritedChunkId);
         } else {
-          // Fallback: if no base record exists, use default (here, 0)
           inheritedChunkId = 0;
-          console.log(`No base record found for startLine ${baseNumber}. Using default chunk_id:`, inheritedChunkId);
         }
         
-        // Now, proceed to check if a record already exists for record.id.
         const getRequest = store.get([bookId, newStartLine]);
         getRequest.onsuccess = () => {
           const existingRecord = getRequest.result;
           
-          // Create or update the record.
-          const nodeRecord = existingRecord
-            ? { ...existingRecord, content: record.html }
-            : {
-                book: bookId,
-                startLine: newStartLine, // numeric value, e.g. 19.1
-                chunk_id: inheritedChunkId,
-                content: record.html
-              };
+          let nodeRecord;
+          if (existingRecord) {
+            nodeRecord = {
+              ...existingRecord,
+              content: processedContent ? processedContent.content : record.html
+            };
+            // Update existing hyperlights if we have new ones
+            if (processedContent && processedContent.hyperlights.length > 0) {
+              // Update existing hyperlights while preserving any that weren't changed
+              const updatedHyperlights = existingRecord.hyperlights || [];
+              processedContent.hyperlights.forEach(newHyperlight => {
+                const existingIndex = updatedHyperlights.findIndex(
+                  h => h.highlightID === newHyperlight.highlightID
+                );
+                if (existingIndex !== -1) {
+                  // Update existing hyperlight
+                  updatedHyperlights[existingIndex] = newHyperlight;
+                } else {
+                  // Add new hyperlight
+                  updatedHyperlights.push(newHyperlight);
+                }
+              });
+              nodeRecord.hyperlights = updatedHyperlights;
+            }
+          } else {
+            nodeRecord = {
+              book: bookId,
+              startLine: newStartLine,
+              chunk_id: inheritedChunkId,
+              content: processedContent ? processedContent.content : record.html,
+              hyperlights: processedContent ? processedContent.hyperlights : []
+            };
+          }
           
           const putRequest = store.put(nodeRecord);
           putRequest.onsuccess = () => {
-            console.log(`Successfully ${record.action === "add" ? "added" : "updated"} record for node ${record.id}`);
+            console.log(`Successfully ${record.action === "add" ? "added" : "updated"} record for node ${nodeId}`);
           };
         };
       };
     } else {
-      // Normalization branch: update the record keyed by the old numeric value.
+      // Normalization branch
       const oldKey = [bookId, parseFloat(record.oldId)];
       const getRequest = store.get(oldKey);
       getRequest.onsuccess = () => {
@@ -377,24 +488,39 @@ export async function updateIndexedDBRecord(record) {
           const newRecord = {
             ...oldRecord,
             startLine: newStartLine,
-            content: record.html
+            content: processedContent ? processedContent.content : record.html
           };
+          // Update hyperlights during normalization if needed
+          if (processedContent && processedContent.hyperlights.length > 0) {
+            const updatedHyperlights = oldRecord.hyperlights || [];
+            processedContent.hyperlights.forEach(newHyperlight => {
+              const existingIndex = updatedHyperlights.findIndex(
+                h => h.highlightID === newHyperlight.highlightID
+              );
+              if (existingIndex !== -1) {
+                updatedHyperlights[existingIndex] = newHyperlight;
+              } else {
+                updatedHyperlights.push(newHyperlight);
+              }
+            });
+            newRecord.hyperlights = updatedHyperlights;
+          }
           const putRequest = store.put(newRecord);
           putRequest.onsuccess = () => {
             store.delete(oldKey);
-            console.log(`Normalized record from ID ${record.oldId} to ${record.id}`);
+            console.log(`Normalized record from ID ${record.oldId} to ${nodeId}`);
           };
         } else {
           console.log(`No record found with ID ${record.oldId} for normalization`);
-          // Create a new record anyway.
           const newRecord = {
             book: bookId,
             startLine: newStartLine,
-            chunk_id: parseInt(baseNumber, 10),  // fallback calculation
-            content: record.html
+            chunk_id: parseInt(baseNumber, 10),
+            content: processedContent ? processedContent.content : record.html,
+            hyperlights: processedContent ? processedContent.hyperlights : []
           };
           store.put(newRecord);
-          console.log(`Created new record for normalized node ${record.id}`);
+          console.log(`Created new record for normalized node ${nodeId}`);
         }
       };
     }

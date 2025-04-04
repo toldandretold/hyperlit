@@ -69,7 +69,7 @@ export default defineConfig({
         'resources/js/app.js',
         'resources/js/cache-indexedDB.js',
         'resources/js/convert-markdown.js',
-        'resources/js/hyper-lights-cites.js',
+        'resources/js/hyperLights.js',
         'resources/js/scrolling.js',
         'resources/js/toc.js',
         'resources/js/footnotes.js',

@@ -7,7 +7,7 @@ import {
   getNodeChunksFromIndexedDB
 } from "./cache-indexedDB.js";
 import { convertMarkdownToHtml } from "./convert-markdown.js";
-import { attachMarkListeners } from "./hyper-lights-cites.js";
+import { attachMarkListeners } from "./hyperLights.js";
 import { ContainerManager } from "./container-manager.js";
 
 // Create a container manager for references
