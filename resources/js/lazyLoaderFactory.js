@@ -8,6 +8,7 @@ import {
   getFootnotesFromIndexedDB,
   getLocalStorageKey
 } from "./cache-indexedDB.js";
+import { attachUnderlineClickListeners } from "./hyperCites.js";
 
 // --- A simple throttle helper to limit scroll firing
 function throttle(fn, delay) {
@@ -371,7 +372,7 @@ function createChunkElement(nodes) {
  * 
  * @returns {string} - The modified HTML with <u> tags inserted.
  */
-function applyHypercites(html, hypercites) {
+export function applyHypercites(html, hypercites) {
   if (!hypercites || hypercites.length === 0) return html;
 
   // Sort hypercites so that those later in the text (or longer ones) are applied first.
@@ -386,7 +387,12 @@ function applyHypercites(html, hypercites) {
   tempElement.innerHTML = html;
 
   for (const hypercite of hypercites) {
-    const { hyperciteId, charStart, charEnd } = hypercite;
+    const {
+      hyperciteId,
+      charStart,
+      charEnd,
+      relationshipStatus
+    } = hypercite;
     if (
       !hyperciteId ||
       charStart === undefined ||
@@ -400,11 +406,15 @@ function applyHypercites(html, hypercites) {
       `Applying hypercite ${hyperciteId} from ${charStart} to ${charEnd}`
     );
 
+    // Determine class name based on relationshipStatus
+    // Allowed values: "single", "couple", "poly"
+    const classValue = relationshipStatus ? relationshipStatus : "single";
+
     const positions = findPositionsInDOM(tempElement, charStart, charEnd);
     if (positions) {
       const uElement = document.createElement("u");
       uElement.id = hyperciteId;
-      uElement.className = "single"; // you may add additional classes as needed
+      uElement.className = classValue;
       // class copied means the hypercite hasn't been connected to its paste-nodes...
       //     this will be altered in the event that it is connected, to: "connectedA", and later "connectedB"
       wrapRangeWithElement(
@@ -420,17 +430,17 @@ function applyHypercites(html, hypercites) {
       );
     }
   }
-
   return tempElement.innerHTML;
 }
 
+
 /**
  * Utility: Apply highlight marks.
  */
 /**
  * Utility: Apply highlight marks.
  */
-function applyHighlights(html, highlights) {
+export function applyHighlights(html, highlights) {
   if (!highlights || highlights.length === 0) return html;
 
   // Debug the actual structure of the highlights data
@@ -578,7 +588,9 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
     instance.topSentinel.remove();
     container.prepend(instance.topSentinel);
   }
+  attachUnderlineClickListeners();
   injectFootnotesForChunk(previousChunkId, instance.bookId);
+  
 }
 
 /**
@@ -606,6 +618,7 @@ export function loadNextChunkFixed(currentLastChunkId, instance) {
     instance.bottomSentinel.remove();
     container.appendChild(instance.bottomSentinel);
   }
+  attachUnderlineClickListeners();
   injectFootnotesForChunk(nextChunkId, instance.bookId);
 }
 
@@ -636,6 +649,7 @@ function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   if (chunkId === 0) {
     repositionFixedSentinelsForBlockInternal(instance, attachMarkers);
   }
+  attachUnderlineClickListeners();
   injectFootnotesForChunk(chunkId, instance.bookId);
   console.log(`Chunk ${chunkId} loaded.`);
 }
