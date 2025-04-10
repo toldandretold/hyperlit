@@ -43,7 +43,8 @@ export async function openDatabase() {
         },
         {
           name: "hypercites",
-          keyPath: ["url", "book", "hypercite_id"]
+          keyPath: ["book", "hyperciteId"],
+          indices: ["hyperciteId"]
         }
       ];
 
@@ -303,22 +304,24 @@ export function getLocalStorageKey(baseKey, bookId = "latest") {
 
 
 // Helper function to process node content and highlights
-function processNodeContentAndHighlights(node) {
-  const content = node.cloneNode(true);
+// Helper function to process node content, highlights (<mark>) and citations (<u>)
+// Helper function to process node content for highlights (<mark>) and citations (<u>)
+function processNodeContentHighlightsAndCites(node) {
+  // Clone the node to work on a copy of its content.
+  const contentClone = node.cloneNode(true);
   const hyperlights = [];
-  
-  // Find all mark tags in the original node
-  const markTags = node.getElementsByTagName('mark');
-  
+  const hypercites = [];
+
   console.log("Processing node:", node.outerHTML);
-  
-  // Process each mark tag to get position data
-  Array.from(markTags).forEach(mark => {
-    // Get text content up to the mark tag's start position
+
+  // --- Process <mark> tags for hyperlights ---
+  const markTags = node.getElementsByTagName("mark");
+  Array.from(markTags).forEach((mark) => {
+    // Get text content up to the <mark>'s start position.
     let currentNode = node.firstChild;
     let startPos = 0;
     let foundMark = false;
-    
+
     while (currentNode && !foundMark) {
       if (currentNode === mark) {
         foundMark = true;
@@ -326,7 +329,7 @@ function processNodeContentAndHighlights(node) {
         startPos += currentNode.length;
       } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
         if (currentNode.contains(mark)) {
-          // If the current element contains our mark, we need to traverse its children
+          // Traverse the children until we find the mark.
           let child = currentNode.firstChild;
           while (child && child !== mark) {
             if (child.nodeType === Node.TEXT_NODE) {
@@ -343,43 +346,99 @@ function processNodeContentAndHighlights(node) {
         currentNode = currentNode.nextSibling;
       }
     }
-    
+
     const highlightLength = mark.textContent.length;
-    
-    const highlightData = {
+    hyperlights.push({
       highlightID: mark.id,
       charStart: startPos,
-      charEnd: startPos + highlightLength
-    };
-    
-    console.log("Calculated highlight positions:", {
+      charEnd: startPos + highlightLength,
+    });
+
+    console.log("Calculated hyperlight positions:", {
       id: mark.id,
       text: mark.textContent,
       startPos,
       endPos: startPos + highlightLength,
-      totalNodeLength: node.textContent.length
+      totalNodeLength: node.textContent.length,
     });
-    
-    hyperlights.push(highlightData);
   });
-  
-  // Remove all mark tags from the clone while preserving their text content
-  const markTagsInClone = content.getElementsByTagName('mark');
-  while (markTagsInClone.length > 0) {
-    const markTag = markTagsInClone[0];
+
+  // --- Process <u> tags for hypercites ---
+  const uTags = node.getElementsByTagName("u");
+  Array.from(uTags).forEach((uTag) => {
+    // Get text content up to the <u>'s start position.
+    let currentNode = node.firstChild;
+    let startPos = 0;
+    let foundU = false;
+
+    while (currentNode && !foundU) {
+      if (currentNode === uTag) {
+        foundU = true;
+      } else if (currentNode.nodeType === Node.TEXT_NODE) {
+        startPos += currentNode.length;
+      } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
+        if (currentNode.contains(uTag)) {
+          // Traverse the children until we find the u tag.
+          let child = currentNode.firstChild;
+          while (child && child !== uTag) {
+            if (child.nodeType === Node.TEXT_NODE) {
+              startPos += child.length;
+            }
+            child = child.nextSibling;
+          }
+          foundU = true;
+        } else {
+          startPos += currentNode.textContent.length;
+        }
+      }
+      if (!foundU) {
+        currentNode = currentNode.nextSibling;
+      }
+    }
+
+    const uLength = uTag.textContent.length;
+    hypercites.push({
+      hyperciteId: uTag.id,
+      charStart: startPos,
+      charEnd: startPos + uLength,
+    });
+
+    console.log("Calculated hypercite positions:", {
+      id: uTag.id,
+      text: uTag.textContent,
+      startPos,
+      endPos: startPos + uLength,
+      totalNodeLength: node.textContent.length,
+    });
+  });
+
+  // --- Remove all <mark> tags from the cloned content while preserving their text content ---
+  const clonedMarkTags = contentClone.getElementsByTagName("mark");
+  while (clonedMarkTags.length > 0) {
+    const markTag = clonedMarkTags[0];
     const textContent = markTag.textContent;
     markTag.parentNode.replaceChild(document.createTextNode(textContent), markTag);
   }
-  
+
+  // --- Remove all <u> tags from the cloned content while preserving their text content ---
+  const clonedUTags = contentClone.getElementsByTagName("u");
+  while (clonedUTags.length > 0) {
+    const uTag = clonedUTags[0];
+    const textContent = uTag.textContent;
+    uTag.parentNode.replaceChild(document.createTextNode(textContent), uTag);
+  }
+
   const result = {
-    content: content.outerHTML,
-    hyperlights
+    content: contentClone.outerHTML,
+    hyperlights,
+    hypercites,
   };
-  
+
   console.log("Processed result:", result);
-  
   return result;
 }
+
+
 
 
 export async function updateIndexedDBRecord(record) {
@@ -411,7 +470,7 @@ export async function updateIndexedDBRecord(record) {
     // Process content and hyperlights if we have a node
     let processedContent = null;
     if (node) {
-      processedContent = processNodeContentAndHighlights(node);
+      processedContent = processNodeContentHighlightsAndCites(node);
     }
     
     const db = await openDatabase();
@@ -444,23 +503,41 @@ export async function updateIndexedDBRecord(record) {
               ...existingRecord,
               content: processedContent ? processedContent.content : record.html
             };
-            // Update existing hyperlights if we have new ones
+            
+            // For hyperlights: update only the position fields.
             if (processedContent && processedContent.hyperlights.length > 0) {
-              // Update existing hyperlights while preserving any that weren't changed
               const updatedHyperlights = existingRecord.hyperlights || [];
               processedContent.hyperlights.forEach(newHyperlight => {
-                const existingIndex = updatedHyperlights.findIndex(
+                const index = updatedHyperlights.findIndex(
                   h => h.highlightID === newHyperlight.highlightID
                 );
-                if (existingIndex !== -1) {
-                  // Update existing hyperlight
-                  updatedHyperlights[existingIndex] = newHyperlight;
+                if (index !== -1) {
+                  // Update only the changed position fields
+                  updatedHyperlights[index].charStart = newHyperlight.charStart;
+                  updatedHyperlights[index].charEnd = newHyperlight.charEnd;
                 } else {
-                  // Add new hyperlight
                   updatedHyperlights.push(newHyperlight);
                 }
               });
               nodeRecord.hyperlights = updatedHyperlights;
+            }
+            
+            // For hypercites: update only the position fields.
+            if (processedContent && processedContent.hypercites.length > 0) {
+              const updatedHypercites = existingRecord.hypercites || [];
+              processedContent.hypercites.forEach(newHypercite => {
+                const index = updatedHypercites.findIndex(
+                  h => h.hyperciteId === newHypercite.hyperciteId
+                );
+                if (index !== -1) {
+                  // Update only the positional fields.
+                  updatedHypercites[index].charStart = newHypercite.charStart;
+                  updatedHypercites[index].charEnd = newHypercite.charEnd;
+                } else {
+                  updatedHypercites.push(newHypercite);
+                }
+              });
+              nodeRecord.hypercites = updatedHypercites;
             }
           } else {
             nodeRecord = {
@@ -468,9 +545,11 @@ export async function updateIndexedDBRecord(record) {
               startLine: newStartLine,
               chunk_id: inheritedChunkId,
               content: processedContent ? processedContent.content : record.html,
-              hyperlights: processedContent ? processedContent.hyperlights : []
+              hyperlights: processedContent ? processedContent.hyperlights : [],
+              hypercites: processedContent ? processedContent.hypercites : []
             };
           }
+
           
           const putRequest = store.put(nodeRecord);
           putRequest.onsuccess = () => {
