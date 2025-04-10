@@ -25,14 +25,26 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "strategic_imaginaries.md",
+                "file": "long_strategicimaginaries.md",
+                "mode": "source",
+                "source": false
+              }
+            }
+          },
+          {
+            "id": "53f9607ae4486203",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "IndexedDB Hypercites.md",
                 "mode": "source",
                 "source": false
               }
             }
           }
         ],
-        "currentTab": 1
+        "currentTab": 2
       }
     ],
     "direction": "vertical"
@@ -98,7 +110,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "strategic_imaginaries.md",
+                "file": "IndexedDB Hypercites.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -115,7 +127,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "strategic_imaginaries.md",
+                "file": "IndexedDB Hypercites.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -138,7 +150,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "strategic_imaginaries.md"
+                "file": "IndexedDB Hypercites.md"
               }
             }
           }
@@ -159,11 +171,13 @@
       "command-palette:Open command palette": false
     }
   },
-  "active": "8a824330125cf705",
+  "active": "53f9607ae4486203",
   "lastOpenFiles": [
+    "long_strategicimaginaries.md",
+    "IndexedDB Hypercites.md",
+    "strategic_imaginaries.md",
     "Prebisch1964.md",
     "main-text.md",
-    "long_strategicimaginaries.md",
     "Need_to_do.md",
     "Speech.md"
   ]

@@ -320,7 +320,7 @@ function createChunkElement(nodes) {
     return null;
   }
 
-  const chunkId = nodes[0].chunk_id; // All nodes should have the same chunk_id
+  const chunkId = nodes[0].chunk_id; // Assuming all nodes share the same chunk_id.
   const chunkWrapper = document.createElement("div");
   chunkWrapper.setAttribute("data-chunk-id", chunkId);
   chunkWrapper.classList.add("chunk");
@@ -330,18 +330,98 @@ function createChunkElement(nodes) {
   nodes.forEach((node) => {
     let html = renderBlockToHtml(node);
 
-    // Apply highlights if available.
+    // Apply highlights (if available) exactly as before.
     if (node.hyperlights && node.hyperlights.length > 0) {
-      console.log(`Node ${node.id || node.startLine} hyperlights:`, node.hyperlights);
+      console.log(
+        `Node ${node.id || node.startLine} hyperlights:`,
+        node.hyperlights
+      );
       html = applyHighlights(html, node.hyperlights);
     }
 
+    // Apply hypercites if available
+    if (node.hypercites && node.hypercites.length > 0) {
+      console.log(
+        `Node ${node.id || node.startLine} hypercites:`,
+        node.hypercites
+      );
+      html = applyHypercites(html, node.hypercites);
+    }
+
+    // Convert the modified HTML string back to a DOM node.
     const temp = document.createElement("div");
     temp.innerHTML = html;
-    chunkWrapper.appendChild(temp.firstChild);
+    // Append the first child (converted block) into the chunk wrapper.
+    if (temp.firstChild) {
+      chunkWrapper.appendChild(temp.firstChild);
+    }
   });
 
   return chunkWrapper;
+}
+
+/**
+ * Utility: Apply hypercite markings to rendered HTML.
+ * 
+ * @param {string} html - The HTML for a block.
+ * @param {Array} hypercites - An array of hypercite objects with properties:
+ *    - hyperciteId
+ *    - charStart
+ *    - charEnd
+ * 
+ * @returns {string} - The modified HTML with <u> tags inserted.
+ */
+function applyHypercites(html, hypercites) {
+  if (!hypercites || hypercites.length === 0) return html;
+
+  // Sort hypercites so that those later in the text (or longer ones) are applied first.
+  hypercites.sort((a, b) => {
+    if (a.charStart === b.charStart) {
+      return (b.charEnd - b.charStart) - (a.charEnd - a.charStart);
+    }
+    return b.charStart - a.charStart;
+  });
+
+  const tempElement = document.createElement("div");
+  tempElement.innerHTML = html;
+
+  for (const hypercite of hypercites) {
+    const { hyperciteId, charStart, charEnd } = hypercite;
+    if (
+      !hyperciteId ||
+      charStart === undefined ||
+      charEnd === undefined
+    ) {
+      console.warn("Invalid hypercite data:", hypercite);
+      continue;
+    }
+
+    console.log(
+      `Applying hypercite ${hyperciteId} from ${charStart} to ${charEnd}`
+    );
+
+    const positions = findPositionsInDOM(tempElement, charStart, charEnd);
+    if (positions) {
+      const uElement = document.createElement("u");
+      uElement.id = hyperciteId;
+      uElement.className = "single"; // you may add additional classes as needed
+      // class copied means the hypercite hasn't been connected to its paste-nodes...
+      //     this will be altered in the event that it is connected, to: "connectedA", and later "connectedB"
+      wrapRangeWithElement(
+        positions.startNode,
+        positions.startOffset,
+        positions.endNode,
+        positions.endOffset,
+        uElement
+      );
+    } else {
+      console.warn(
+        `Could not find positions for hypercite range ${charStart}-${charEnd}`
+      );
+    }
+  }
+
+  return tempElement.innerHTML;
 }
 
 /**
