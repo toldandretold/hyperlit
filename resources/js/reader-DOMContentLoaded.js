@@ -34,6 +34,8 @@ import NavButtons from "./nav-buttons.js";
 import { currentLazyLoader } from "./initializePage.js";
 import "./editButton.js";
 import "./hyperCites.js";
+import {attachUnderlineClickListeners} from "./hyperCites.js";
+import { initializeBroadcastListener } from "./BroadcastListener.js";
 
 if (!window.isInitialized) {
   window.isInitialized = true;
@@ -61,6 +63,10 @@ if (!window.isInitialized) {
 
     // Attach mark listeners.
     attachMarkListeners();
+
+    initializeBroadcastListener();
+  
+
 
     // Now that DOM is ready, the TOC elements exist.
     // Generate the Table of Contents.

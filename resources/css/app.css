@@ -32,7 +32,7 @@ p[data-original-line="1"] {
   /* other styles here */
 }
 
-a u.linked {
+u.couple {
     color: #CBCCCC; /* Ensure the text color matches surrounding text */
     text-decoration: none; /* Remove underline styling from the anchor */
     background: linear-gradient(to right, #EE4A95, #EF8D34, #4EACAE, #EE4A95); /* Triple-faded effect */
