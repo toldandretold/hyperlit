@@ -25,7 +25,8 @@ black #221F20;
 }
 
 #ref-container,
-#highlight-container {
+#highlight-container,
+#hypercite-container {
   transform: translateX(calc(100% + 2em)); /* Off-screen, including the gap */
   transition: transform 0.3s ease-in-out;
   position: fixed;
@@ -57,7 +58,8 @@ black #221F20;
 }
 
 #highlight-container .scroller,
-#ref-container .scroller {
+#ref-container .scroller,
+#hypercite-container .scroller {
   position: absolute;
   top: 0;
   left: 0;
@@ -83,7 +85,8 @@ black #221F20;
 
 
 #highlight-container .mask-top,
-#ref-container .mask-top {
+#ref-container .mask-top,
+#hypercite-container .mask-top {
   position: absolute;
   top: 0;
   left: 0;
@@ -108,7 +111,8 @@ black #221F20;
 
 
 #highlight-container .mask-bottom,
-#ref-container .mask-bottom {
+#ref-container .mask-bottom,
+#hypercite-container .mask-bottom {
   position: absolute;
   bottom: 0;
   left: 0;
@@ -132,7 +136,8 @@ black #221F20;
 }
 
 #ref-container.open,
-#highlight-container.open {
+#highlight-container.open,
+#hypercite-container.open {
   transform: translateX(0); /* Slide in to show the gap on the right */
 }
 

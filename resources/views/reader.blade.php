@@ -49,6 +49,7 @@
     <!-- Container for the Table of Contents -->
     <div id="toc-container" class="hidden"></div>
     <div id="highlight-container" class="hidden" contenteditable="true"></div>
+    <div id="hypercite-container" class="hidden"></div>
     <div id="toc-overlay"></div>
 
 

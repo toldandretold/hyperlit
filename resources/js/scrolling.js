@@ -58,6 +58,197 @@ export function isValidContentElement(el) {
   );
 }
 
+
+// Adjusted helper: load default content if container is empty.
+async function loadDefaultContent(lazyLoader) {
+  console.log("Loading default content (first chunk)...");
+  
+  // Check if we already have nodeChunks
+  if (!lazyLoader.nodeChunks || lazyLoader.nodeChunks.length === 0) {
+    console.log("No nodeChunks in memory, trying to fetch from IndexedDB...");
+    try {
+      let cachedNodeChunks = await getNodeChunksFromIndexedDB(lazyLoader.bookId);
+      if (cachedNodeChunks && cachedNodeChunks.length > 0) {
+        console.log(`Found ${cachedNodeChunks.length} chunks in IndexedDB`);
+        lazyLoader.nodeChunks = cachedNodeChunks;
+      } else {
+        // Fallback: fetch markdown and parse
+        console.log("No cached chunks found. Fetching main-text.md...");
+        const response = await fetch(`/markdown/${lazyLoader.bookId}/main-text.md`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch markdown: ${response.status}`);
+        }
+        const markdown = await response.text();
+        lazyLoader.nodeChunks = parseMarkdownIntoChunksInitial(markdown);
+        console.log(`Parsed ${lazyLoader.nodeChunks.length} chunks from markdown`);
+      }
+    } catch (error) {
+      console.error("Error loading content:", error);
+      throw error; // Re-throw to handle in the calling function
+    }
+  }
+  
+  // Clear container and load first chunk
+  lazyLoader.container.innerHTML = "";
+  
+  // Find chunks with chunk_id === 0
+  const firstChunks = lazyLoader.nodeChunks.filter(node => node.chunk_id === 0);
+  if (firstChunks.length === 0) {
+    console.warn("No chunks with ID 0 found! Loading first available chunk instead.");
+    if (lazyLoader.nodeChunks.length > 0) {
+      lazyLoader.loadChunk(lazyLoader.nodeChunks[0].chunk_id, "down");
+    } else {
+      throw new Error("No chunks available to load");
+    }
+  } else {
+    console.log(`Loading ${firstChunks.length} chunks with ID 0`);
+    firstChunks.forEach(node => {
+      lazyLoader.loadChunk(node.chunk_id, "down");
+    });
+  }
+  
+  // Ensure sentinels are properly positioned
+  if (typeof lazyLoader.repositionSentinels === "function") {
+    lazyLoader.repositionSentinels();
+  } else if (typeof repositionSentinels === "function") {
+    repositionSentinels(lazyLoader);
+  }
+  
+  // Verify content was loaded
+  if (lazyLoader.container.children.length === 0) {
+    console.error("Failed to load any content into container!");
+    throw new Error("No content loaded");
+  }
+  
+  console.log("Default content loaded successfully");
+}
+
+
+/**
+ * Fallback function that first tries to load 
+ * a previously saved scroll position (if available),
+ * otherwise scrolls to the top of the container.
+ */
+async function fallbackScrollPosition(lazyLoader) {
+  console.log("Falling back to saved scroll position or top of page...");
+
+  // Check specifically for chunk elements
+  const chunkElements = Array.from(lazyLoader.container.children).filter(
+    el => el.classList.contains("chunk")
+  );
+  
+  console.log(`Container has ${lazyLoader.container.children.length} total children and ${chunkElements.length} chunk elements`);
+  
+  // If no chunks, force load the default content
+  if (chunkElements.length === 0) {
+    console.log("Container has no chunk elements, loading default content first...");
+    try {
+      // Keep the sentinels but remove anything else
+      const topSentinel = lazyLoader.container.querySelector(`#${lazyLoader.bookId}-top-sentinel`);
+      const bottomSentinel = lazyLoader.container.querySelector(`#${lazyLoader.bookId}-bottom-sentinel`);
+      
+      // Clear container but preserve sentinels
+      lazyLoader.container.innerHTML = "";
+      if (topSentinel) lazyLoader.container.appendChild(topSentinel);
+      if (bottomSentinel) lazyLoader.container.appendChild(bottomSentinel);
+      
+      // Reset loaded chunks tracking
+      lazyLoader.currentlyLoadedChunks = new Set();
+      
+      await loadDefaultContent(lazyLoader);
+      console.log("Default content loaded successfully");
+      
+      // Debug what was loaded
+      const afterLoadChunks = Array.from(lazyLoader.container.children).filter(
+        el => el.classList.contains("chunk")
+      );
+      console.log(`After loading, container has ${afterLoadChunks.length} chunk elements`);
+    } catch (error) {
+      console.error("Failed to load default content:", error);
+      // Emergency fallback - just put some text
+      const errorDiv = document.createElement('div');
+      errorDiv.className = "chunk";
+      errorDiv.innerHTML = "<p>Unable to load content. Please refresh the page.</p>";
+      
+      // Insert between sentinels
+      const bottomSentinel = lazyLoader.container.querySelector(`#${lazyLoader.bookId}-bottom-sentinel`);
+      if (bottomSentinel) {
+        lazyLoader.container.insertBefore(errorDiv, bottomSentinel);
+      } else {
+        lazyLoader.container.appendChild(errorDiv);
+      }
+      return;
+    }
+  } else {
+    console.log("Container already has chunk elements, proceeding with scroll positioning");
+    // Debug what chunks are there
+    chunkElements.forEach((el, i) => {
+      console.log(`Chunk element ${i}: id=${el.id}`);
+    });
+  }
+
+  // Now try to find a saved position
+  const scrollKey = getLocalStorageKey("scrollPosition", lazyLoader.bookId);
+  let savedTargetId = null;
+  
+  // Try session storage first
+  try {
+    const sessionSavedId = sessionStorage.getItem(scrollKey);
+    if (sessionSavedId && sessionSavedId !== "0") {
+      const parsed = JSON.parse(sessionSavedId);
+      if (parsed && parsed.elementId) {
+        savedTargetId = parsed.elementId;
+        console.log(`Found saved position in sessionStorage: ${savedTargetId}`);
+      }
+    }
+  } catch (e) {
+    console.warn("sessionStorage not available or parse error", e);
+  }
+  
+  // Try local storage if session storage didn't have anything
+  if (!savedTargetId) {
+    try {
+      const localSavedId = localStorage.getItem(scrollKey);
+      if (localSavedId && localSavedId !== "0") {
+        const parsed = JSON.parse(localSavedId);
+        if (parsed && parsed.elementId) {
+          savedTargetId = parsed.elementId;
+          console.log(`Found saved position in localStorage: ${savedTargetId}`);
+        }
+      }
+    } catch (e) {
+      console.warn("localStorage not available or parse error", e);
+    }
+  }
+
+  // If we have a saved target and it exists, scroll to it
+  if (savedTargetId) {
+    let targetElement = lazyLoader.container.querySelector(
+      `#${CSS.escape(savedTargetId)}`
+    );
+    if (targetElement) {
+      console.log(`Scrolling to previously saved element: ${savedTargetId}`);
+      scrollElementIntoMainContent(targetElement, 50);
+      targetElement.classList.add("active");
+      return;
+    } else {
+      console.log(`Saved element ID ${savedTargetId} not found in current DOM`);
+    }
+  }
+
+  // Fallback: simply scroll to the top
+  console.log("No saved scroll position available or element not found. Scrolling to top.");
+  lazyLoader.container.scrollTo({ top: 0, behavior: "smooth" });
+  
+  // Make sure we have at least one visible element
+  if (lazyLoader.container.children.length === 0) {
+    console.warn("Container still empty after fallback attempts!");
+    lazyLoader.container.innerHTML = "<p>Content could not be loaded. Please refresh the page.</p>";
+  }
+}
+
+
+
 export async function restoreScrollPosition() {
   console.log("restoring scroll position...");
   if (!currentLazyLoader) {
@@ -69,15 +260,17 @@ export async function restoreScrollPosition() {
     currentLazyLoader.bookId
   );
 
-  // Read saved target id from storage
-  const scrollKey = getLocalStorageKey("scrollPosition", currentLazyLoader.bookId);
+  // Read target id from URL hash first.
   let targetId = window.location.hash.substring(1);
-  
+
   try {
+    const scrollKey = getLocalStorageKey("scrollPosition", currentLazyLoader.bookId);
     const sessionSavedId = sessionStorage.getItem(scrollKey);
     if (sessionSavedId && sessionSavedId !== "0") {
       const parsed = JSON.parse(sessionSavedId);
       if (parsed && parsed.elementId) {
+        // only override if we have a valid target from storage and
+        // if the hash target doesn't exist in the document.
         targetId = parsed.elementId;
       }
     }
@@ -86,6 +279,7 @@ export async function restoreScrollPosition() {
   }
   
   try {
+    const scrollKey = getLocalStorageKey("scrollPosition", currentLazyLoader.bookId);
     const localSavedId = localStorage.getItem(scrollKey);
     if (localSavedId && localSavedId !== "0") {
       const parsed = JSON.parse(localSavedId);
@@ -135,8 +329,11 @@ export async function restoreScrollPosition() {
   navigateToInternalId(targetId, currentLazyLoader);
 }
 
-
-function scrollElementIntoContainer(targetElement, container, headerOffset = 0) {
+function scrollElementIntoContainer(
+  targetElement,
+  container,
+  headerOffset = 0
+) {
   if (!container) {
     console.error(
       "Container not available, falling back to default scrollIntoView"
@@ -159,7 +356,6 @@ function scrollElementIntoContainer(targetElement, container, headerOffset = 0) 
 }
 
 export function navigateToInternalId(targetId, lazyLoader) {
-  
   if (!lazyLoader) {
     console.error("Lazy loader instance not provided!");
     return;
@@ -201,7 +397,8 @@ function _navigateToInternalId(targetId, lazyLoader) {
         `No block found for target ID "${targetId}". ` +
           `Fallback: loading default view.`
       );
-      // Fallback: simply attach listeners (or load first chunk if desired).
+      // Instead of silently finishing, try the fallback.
+      fallbackScrollPosition(lazyLoader);
       if (typeof lazyLoader.attachMarkListeners === "function") {
         lazyLoader.attachMarkListeners(lazyLoader.container);
       }
@@ -218,7 +415,7 @@ function _navigateToInternalId(targetId, lazyLoader) {
       `No chunk found for target ID "${targetId}". ` +
         "Fallback: proceeding with default content."
     );
-    // Fallback: simply attach listeners (or trigger loading of a default chunk).
+    fallbackScrollPosition(lazyLoader);
     if (typeof lazyLoader.attachMarkListeners === "function") {
       lazyLoader.attachMarkListeners(lazyLoader.container);
     }
@@ -240,7 +437,7 @@ function _navigateToInternalId(targetId, lazyLoader) {
     { length: endIndex - startIndex + 1 },
     (_, i) => {
       const node = lazyLoader.nodeChunks[startIndex + i];
-      return new Promise(resolve => {
+      return new Promise((resolve) => {
         lazyLoader.loadChunk(node.chunk_id, "down");
         resolve();
       });
@@ -266,8 +463,9 @@ function _navigateToInternalId(targetId, lazyLoader) {
         } else {
           console.warn(
             `Target element ${targetId} not found after loading chunks. ` +
-              "Proceeding without internal id navigation."
+              "Using fallback scroll position."
           );
+          fallbackScrollPosition(lazyLoader);
         }
         if (typeof lazyLoader.attachMarkListeners === "function") {
           lazyLoader.attachMarkListeners(lazyLoader.container);
@@ -280,7 +478,6 @@ function _navigateToInternalId(targetId, lazyLoader) {
       lazyLoader.isNavigatingToInternalId = false;
     });
 }
-
 
 // Utility: wait for an element and then scroll to it.
 function waitForElementAndScroll(targetId, maxAttempts = 10, attempt = 0) {
@@ -302,23 +499,44 @@ function waitForElementAndScroll(targetId, maxAttempts = 10, attempt = 0) {
   );
 }
 
-// Utility: find the line for a custom id in raw markdown.
+// Utility: find the line for a custom id in content, hypercites, and hyperlights.
 function findLineForCustomId(targetId, nodeChunks) {
-  // for (let chunk of nodeChunks) {
-  //   for (let block of chunk.blocks) {
-  //     const regex = new RegExp(`id=['"]${targetId}['"]`, "i");
-  //     if (regex.test(block.content)) {
-  //       return block.startLine;
-  //     }
-  //   }
-  // }
-  //Update for Individual Nodes:
+  // Normalize for case-insensitive comparisons.
+  const normalizedTarget = targetId.toLowerCase();
+  // Create a regex to look in content for an element with the matching id.
+  const regex = new RegExp(`id=['"]${targetId}['"]`, "i");
+
+  // Iterate over each node in nodeChunks.
   for (let node of nodeChunks) {
-    const regex = new RegExp(`id=['"]${targetId}['"]`, "i");
-    if (regex.test(node.content)) {
+    // Check if the content has an element with the target id.
+    if (node.content && regex.test(node.content)) {
       return node.startLine;
     }
+
+    // Check in hypercites array.
+    if (Array.isArray(node.hypercites)) {
+      for (let cite of node.hypercites) {
+        if (
+          cite.hyperciteId &&
+          cite.hyperciteId.toLowerCase() === normalizedTarget
+        ) {
+          return node.startLine;
+        }
+      }
+    }
+
+    // Check in hyperlights array.
+    if (Array.isArray(node.hyperlights)) {
+      for (let light of node.hyperlights) {
+        if (
+          light.highlightID &&
+          light.highlightID.toLowerCase() === normalizedTarget
+        ) {
+          return node.startLine;
+        }
+      }
+    }
   }
+  // Return null if no match is found.
   return null;
 }
-
