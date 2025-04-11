@@ -474,15 +474,21 @@ export async function updateIndexedDBRecord(record) {
     }
     
     const db = await openDatabase();
-    const tx = db.transaction("nodeChunks", "readwrite");
-    const store = tx.objectStore("nodeChunks");
+    const tx = db.transaction(["nodeChunks", "hyperlights", "hypercites"], "readwrite");
+    const nodeChunksStore = tx.objectStore("nodeChunks");
+    const hyperlightsStore = tx.objectStore("hyperlights");
+    const hypercitesStore = tx.objectStore("hypercites");
     
     const newStartLine = parseFloat(nodeId);
     const baseNumber = parseFloat(nodeId.match(/^(\d+)/)[1]);
     
+    // Track which hyperlights and hypercites need updating
+    let hyperlightsToUpdate = [];
+    let hypercitesToUpdate = [];
+    
     if (record.action !== "normalize") {
       const baseKey = [bookId, baseNumber];
-      const baseRequest = store.get(baseKey);
+      const baseRequest = nodeChunksStore.get(baseKey);
       
       baseRequest.onsuccess = () => {
         let inheritedChunkId = null;
@@ -493,7 +499,7 @@ export async function updateIndexedDBRecord(record) {
           inheritedChunkId = 0;
         }
         
-        const getRequest = store.get([bookId, newStartLine]);
+        const getRequest = nodeChunksStore.get([bookId, newStartLine]);
         getRequest.onsuccess = () => {
           const existingRecord = getRequest.result;
           
@@ -515,8 +521,28 @@ export async function updateIndexedDBRecord(record) {
                   // Update only the changed position fields
                   updatedHyperlights[index].charStart = newHyperlight.charStart;
                   updatedHyperlights[index].charEnd = newHyperlight.charEnd;
+                  
+                  // Add to list of hyperlights that need updating in the hyperlights store
+                  hyperlightsToUpdate.push({
+                    id: newHyperlight.highlightID,
+                    startChar: newHyperlight.charStart,
+                    endChar: newHyperlight.charEnd,
+                    startLine: newStartLine,
+                    highlightedText: newHyperlight.highlightedText,
+                    highlightedHTML: newHyperlight.highlightedHTML
+                  });
                 } else {
                   updatedHyperlights.push(newHyperlight);
+                  
+                  // Add new hyperlight to update list
+                  hyperlightsToUpdate.push({
+                    id: newHyperlight.highlightID,
+                    startChar: newHyperlight.charStart,
+                    endChar: newHyperlight.charEnd,
+                    startLine: newStartLine,
+                    highlightedText: newHyperlight.highlightedText,
+                    highlightedHTML: newHyperlight.highlightedHTML
+                  });
                 }
               });
               nodeRecord.hyperlights = updatedHyperlights;
@@ -533,8 +559,26 @@ export async function updateIndexedDBRecord(record) {
                   // Update only the positional fields.
                   updatedHypercites[index].charStart = newHypercite.charStart;
                   updatedHypercites[index].charEnd = newHypercite.charEnd;
+                  
+                  // Add to list of hypercites that need updating in the hypercites store
+                  hypercitesToUpdate.push({
+                    id: newHypercite.hyperciteId,
+                    startChar: newHypercite.charStart,
+                    endChar: newHypercite.charEnd,
+                    hypercitedText: newHypercite.hypercitedText,
+                    hypercitedHTML: newHypercite.hypercitedHTML
+                  });
                 } else {
                   updatedHypercites.push(newHypercite);
+                  
+                  // Add new hypercite to update list
+                  hypercitesToUpdate.push({
+                    id: newHypercite.hyperciteId,
+                    startChar: newHypercite.charStart,
+                    endChar: newHypercite.charEnd,
+                    hypercitedText: newHypercite.hypercitedText,
+                    hypercitedHTML: newHypercite.hypercitedHTML
+                  });
                 }
               });
               nodeRecord.hypercites = updatedHypercites;
@@ -548,19 +592,48 @@ export async function updateIndexedDBRecord(record) {
               hyperlights: processedContent ? processedContent.hyperlights : [],
               hypercites: processedContent ? processedContent.hypercites : []
             };
+            
+            // Add all hyperlights and hypercites to update lists
+            if (processedContent) {
+              processedContent.hyperlights.forEach(hyperlight => {
+                hyperlightsToUpdate.push({
+                  id: hyperlight.highlightID,
+                  startChar: hyperlight.charStart,
+                  endChar: hyperlight.charEnd,
+                  startLine: newStartLine,
+                  highlightedText: hyperlight.highlightedText,
+                  highlightedHTML: hyperlight.highlightedHTML
+                });
+              });
+              
+              processedContent.hypercites.forEach(hypercite => {
+                hypercitesToUpdate.push({
+                  id: hypercite.hyperciteId,
+                  startChar: hypercite.charStart,
+                  endChar: hypercite.charEnd,
+                  hypercitedText: hypercite.hypercitedText,
+                  hypercitedHTML: hypercite.hypercitedHTML
+                });
+              });
+            }
           }
 
-          
-          const putRequest = store.put(nodeRecord);
+          const putRequest = nodeChunksStore.put(nodeRecord);
           putRequest.onsuccess = () => {
             console.log(`Successfully ${record.action === "add" ? "added" : "updated"} record for node ${nodeId}`);
+            
+            // Update hyperlights store
+            updateHyperlightsStore(hyperlightsStore, bookId, hyperlightsToUpdate);
+            
+            // Update hypercites store
+            updateHypercitesStore(hypercitesStore, bookId, hypercitesToUpdate);
           };
         };
       };
     } else {
       // Normalization branch
       const oldKey = [bookId, parseFloat(record.oldId)];
-      const getRequest = store.get(oldKey);
+      const getRequest = nodeChunksStore.get(oldKey);
       getRequest.onsuccess = () => {
         const oldRecord = getRequest.result;
         if (oldRecord) {
@@ -578,16 +651,77 @@ export async function updateIndexedDBRecord(record) {
               );
               if (existingIndex !== -1) {
                 updatedHyperlights[existingIndex] = newHyperlight;
+                
+                // Add to list of hyperlights that need updating
+                hyperlightsToUpdate.push({
+                  id: newHyperlight.highlightID,
+                  startChar: newHyperlight.charStart,
+                  endChar: newHyperlight.charEnd,
+                  startLine: newStartLine,
+                  highlightedText: newHyperlight.highlightedText,
+                  highlightedHTML: newHyperlight.highlightedHTML
+                });
               } else {
                 updatedHyperlights.push(newHyperlight);
+                
+                // Add new hyperlight to update list
+                hyperlightsToUpdate.push({
+                  id: newHyperlight.highlightID,
+                  startChar: newHyperlight.charStart,
+                  endChar: newHyperlight.charEnd,
+                  startLine: newStartLine,
+                  highlightedText: newHyperlight.highlightedText,
+                  highlightedHTML: newHyperlight.highlightedHTML
+                });
               }
             });
             newRecord.hyperlights = updatedHyperlights;
           }
-          const putRequest = store.put(newRecord);
+          
+          // Update hypercites during normalization if needed
+          if (processedContent && processedContent.hypercites.length > 0) {
+            const updatedHypercites = oldRecord.hypercites || [];
+            processedContent.hypercites.forEach(newHypercite => {
+              const existingIndex = updatedHypercites.findIndex(
+                h => h.hyperciteId === newHypercite.hyperciteId
+              );
+              if (existingIndex !== -1) {
+                updatedHypercites[existingIndex] = newHypercite;
+                
+                // Add to list of hypercites that need updating
+                hypercitesToUpdate.push({
+                  id: newHypercite.hyperciteId,
+                  startChar: newHypercite.charStart,
+                  endChar: newHypercite.charEnd,
+                  hypercitedText: newHypercite.hypercitedText,
+                  hypercitedHTML: newHypercite.hypercitedHTML
+                });
+              } else {
+                updatedHypercites.push(newHypercite);
+                
+                // Add new hypercite to update list
+                hypercitesToUpdate.push({
+                  id: newHypercite.hyperciteId,
+                  startChar: newHypercite.charStart,
+                  endChar: newHypercite.charEnd,
+                  hypercitedText: newHypercite.hypercitedText,
+                  hypercitedHTML: newHypercite.hypercitedHTML
+                });
+              }
+            });
+            newRecord.hypercites = updatedHypercites;
+          }
+          
+          const putRequest = nodeChunksStore.put(newRecord);
           putRequest.onsuccess = () => {
-            store.delete(oldKey);
+            nodeChunksStore.delete(oldKey);
             console.log(`Normalized record from ID ${record.oldId} to ${nodeId}`);
+            
+            // Update hyperlights store
+            updateHyperlightsStore(hyperlightsStore, bookId, hyperlightsToUpdate);
+            
+            // Update hypercites store
+            updateHypercitesStore(hypercitesStore, bookId, hypercitesToUpdate);
           };
         } else {
           console.log(`No record found with ID ${record.oldId} for normalization`);
@@ -596,10 +730,44 @@ export async function updateIndexedDBRecord(record) {
             startLine: newStartLine,
             chunk_id: parseInt(baseNumber, 10),
             content: processedContent ? processedContent.content : record.html,
-            hyperlights: processedContent ? processedContent.hyperlights : []
+            hyperlights: processedContent ? processedContent.hyperlights : [],
+            hypercites: processedContent ? processedContent.hypercites : []
           };
-          store.put(newRecord);
-          console.log(`Created new record for normalized node ${nodeId}`);
+          
+          // Add all hyperlights and hypercites to update lists
+          if (processedContent) {
+            processedContent.hyperlights.forEach(hyperlight => {
+              hyperlightsToUpdate.push({
+                id: hyperlight.highlightID,
+                startChar: hyperlight.charStart,
+                endChar: hyperlight.charEnd,
+                startLine: newStartLine,
+                highlightedText: hyperlight.highlightedText,
+                highlightedHTML: hyperlight.highlightedHTML
+              });
+            });
+            
+            processedContent.hypercites.forEach(hypercite => {
+              hypercitesToUpdate.push({
+                id: hypercite.hyperciteId,
+                startChar: hypercite.charStart,
+                endChar: hypercite.charEnd,
+                hypercitedText: hypercite.hypercitedText,
+                hypercitedHTML: hypercite.hypercitedHTML
+              });
+            });
+          }
+          
+          const putRequest = nodeChunksStore.put(newRecord);
+          putRequest.onsuccess = () => {
+            console.log(`Created new record for normalized node ${nodeId}`);
+            
+            // Update hyperlights store
+            updateHyperlightsStore(hyperlightsStore, bookId, hyperlightsToUpdate);
+            
+            // Update hypercites store
+            updateHypercitesStore(hypercitesStore, bookId, hypercitesToUpdate);
+          };
         }
       };
     }
@@ -616,6 +784,106 @@ export async function updateIndexedDBRecord(record) {
     console.error("Error in updateIndexedDBRecord:", error);
   }
 }
+
+// Helper function to update hyperlights store
+function updateHyperlightsStore(store, bookId, hyperlightsToUpdate) {
+  if (!hyperlightsToUpdate.length) return;
+  
+  hyperlightsToUpdate.forEach(hyperlight => {
+    const key = [bookId, hyperlight.id];
+    const getRequest = store.get(key);
+    
+    getRequest.onsuccess = () => {
+      const existingRecord = getRequest.result;
+      
+      if (existingRecord) {
+        // Update only the position fields and text content
+        const updatedRecord = {
+          ...existingRecord,
+          startChar: hyperlight.startChar,
+          endChar: hyperlight.endChar,
+          startLine: hyperlight.startLine
+        };
+        
+        // Only update text content if it's provided
+        if (hyperlight.highlightedText) {
+          updatedRecord.highlightedText = hyperlight.highlightedText;
+        }
+        if (hyperlight.highlightedHTML) {
+          updatedRecord.highlightedHTML = hyperlight.highlightedHTML;
+        }
+        
+        store.put(updatedRecord);
+        console.log(`Updated hyperlight record for ID: ${hyperlight.id}`);
+      } else {
+        // Create a new record if it doesn't exist
+        const newRecord = {
+          book: bookId,
+          hyperlight_id: hyperlight.id,
+          startChar: hyperlight.startChar,
+          endChar: hyperlight.endChar,
+          startLine: hyperlight.startLine,
+          highlightedText: hyperlight.highlightedText || "",
+          highlightedHTML: hyperlight.highlightedHTML || "",
+          annotation: ""
+        };
+        
+        store.put(newRecord);
+        console.log(`Created new hyperlight record for ID: ${hyperlight.id}`);
+      }
+    };
+  });
+}
+
+// Helper function to update hypercites store
+function updateHypercitesStore(store, bookId, hypercitesToUpdate) {
+  if (!hypercitesToUpdate.length) return;
+  
+  hypercitesToUpdate.forEach(hypercite => {
+    const key = [bookId, hypercite.id];
+    const getRequest = store.get(key);
+    
+    getRequest.onsuccess = () => {
+      const existingRecord = getRequest.result;
+      
+      if (existingRecord) {
+        // Update only the position fields and text content
+        const updatedRecord = {
+          ...existingRecord,
+          startChar: hypercite.startChar,
+          endChar: hypercite.endChar
+        };
+        
+        // Only update text content if it's provided
+        if (hypercite.hypercitedText) {
+          updatedRecord.hypercitedText = hypercite.hypercitedText;
+        }
+        if (hypercite.hypercitedHTML) {
+          updatedRecord.hypercitedHTML = hypercite.hypercitedHTML;
+        }
+        
+        store.put(updatedRecord);
+        console.log(`Updated hypercite record for ID: ${hypercite.id}`);
+      } else {
+        // Create a new record if it doesn't exist
+        const newRecord = {
+          book: bookId,
+          hyperciteId: hypercite.id,
+          startChar: hypercite.startChar,
+          endChar: hypercite.endChar,
+          hypercitedText: hypercite.hypercitedText || "",
+          hypercitedHTML: hypercite.hypercitedHTML || "",
+          citedIN: [],
+          relationshipStatus: "single"
+        };
+        
+        store.put(newRecord);
+        console.log(`Created new hypercite record for ID: ${hypercite.id}`);
+      }
+    };
+  });
+}
+
 
 
 
