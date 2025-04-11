@@ -32,6 +32,24 @@
 </svg>
   </button>
   <button id="delete-hyperlight" type="button">🗑️</button>
+  <button id="copy-hypercite" type="button">
+    <svg
+  id="svgHyperciter"
+  viewBox="0 0 15 16"
+  width="16"
+  height="16"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <!-- Background rectangle -->
+  <rect width="15" height="16" fill="#221F20" />
+
+  <!-- Quotation mark symbol -->
+  <path
+    fill="#CBCCCC"
+    d="M6.5 3.5H1.5V8.5H3.75L1.75 12.5H4.75L6.5 9V3.5zM13.5 3.5H8.5V8.5H10.75L8.75 12.5H11.75L13.5 9V3.5z"
+  />
+</svg>
+</button>
 </div>
 
     <!-- Button edit -->
