@@ -89,6 +89,17 @@ width: 36px; /* Matching width */
   justify-content: center;
 }
 
+#copy-hypercite {
+  width: 16px;
+  height: 16px;
+ background: none;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Style for the delete/trash button */
 #delete-hyperlight {
   font-size: 15px;
