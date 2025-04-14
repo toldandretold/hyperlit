@@ -17,7 +17,7 @@ body {
 
 p {
     margin-bottom: .8em;
-    margin-top: 0em;
+    margin-top: -.1em;
     text-align: left;
     hyphens: auto;
     font-size: 1em;
@@ -68,8 +68,7 @@ h1 {
     color: #CBCCCC;
     font-weight: 700;
     letter-spacing: -0.03em;
-    margin-top: 2em;
-    margin-bottom: .2em;
+    margin-bottom: 0em;
 
 }
 
@@ -311,30 +310,6 @@ caption {
 }
 
 
-
-
-
-/* lazy loading */
-.main-content {
-  height: calc(100vh - 60px); /* Full height minus space for buttons */
-  border: none;               /* Remove border */
-  outline: none;              /* Remove default focus outline */
-  padding-left: 40px;
-  padding-right: 40px;
-  padding-bottom: 10px;       /* Add padding for text */
-  box-sizing: border-box;     /* Include padding in total width */
-  line-height: 1.6;
-  background-color: #221F20;  /* Dark background color */
-  color: #CBCCCC;
-  overflow-y: auto;           /* Enable vertical scrolling */
-  overflow-x: hidden;         /* Prevent horizontal scrolling */
-  visibility: visible !important;
-  opacity: 1 !important;
-
-  /* Set maximum width so that the text area stays approx. 70ch wide */
-  max-width: 60ch;
-  margin: 0 auto; /* Center the content when viewport is wider */
-}
 
 
 

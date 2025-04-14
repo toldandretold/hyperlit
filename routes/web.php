@@ -61,7 +61,7 @@ MD;
 
 // Home route
 Route::get('/', function () {
-    return view('markdown');
+    return view('home');
 });
  
 // Dashboard route with middleware

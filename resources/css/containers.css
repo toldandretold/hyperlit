@@ -24,6 +24,101 @@ black #221F20;
   border-radius: 1em 1em;
 }
 
+#topRightContainer {
+    transition: transform 0.3s ease-in-out;
+}
+
+#source-container, 
+#newbook-container {
+    transition: transform 0.3s ease-in-out;
+    border-radius: 1em 1em;
+}
+
+.scroll-container {
+  height: calc(100vh - 60px); /* Full height minus space for buttons */
+  overflow-y: auto;           /* Enable vertical scrolling for the container */
+  overflow-x: hidden;         /* Prevent horizontal scrolling */
+  background-color: #221F20;  /* Dark background color */
+  color: #CBCCCC;
+}
+
+.scroll-container .main-content {
+     height: calc(100vh - 60px); /* Full height minus space for buttons */
+  border: none;               /* Remove border */
+  outline: none;              /* Remove default focus outline */
+  padding-left: 40px;
+  padding-right: 40px;
+  padding-bottom: 10px;       /* Add padding for text */
+  box-sizing: border-box;     /* Include padding in total width */
+  line-height: 1.6;
+  background-color: #221F20;  /* Dark background color */
+  color: #CBCCCC;       
+  visibility: visible !important;
+  opacity: 1 !important;
+  margin-top: 0;
+
+  /* Set maximum width so that the text area stays approx. 70ch wide */
+  max-width: 60ch;
+  margin: 0 auto; /* Center the content when viewport is wider */
+}
+
+/* lazy loading */
+.main-content {
+  height: calc(100vh - 60px); /* Full height minus space for buttons */
+  border: none;               /* Remove border */
+  outline: none;              /* Remove default focus outline */
+  padding-left: 40px;
+  padding-right: 40px;
+  padding-bottom: 10px;       /* Add padding for text */
+  box-sizing: border-box;     /* Include padding in total width */
+  line-height: 1.6;
+  background-color: #221F20;  /* Dark background color */
+  color: #CBCCCC;       
+  visibility: visible !important;
+  opacity: 1 !important;
+  margin-top: 0;
+  overflow-y: auto;           /* Enable vertical scrolling for the container */
+  overflow-x: hidden;
+  /* Set maximum width so that the text area stays approx. 70ch wide */
+  max-width: 60ch;
+  margin: 0 auto; /* Center the content when viewport is wider */
+}
+
+/* lazy loading */
+/* Ensure both divs have the same styling */
+/* Update these styles in your CSS */
+.top-content {
+  width: 100%;
+  max-width: 60ch; /* Match the main-content max-width */
+  margin: 0 auto;
+  padding-left: 40px;
+  padding-right: 40px;
+  box-sizing: border-box;
+  background-color: #221F20;
+  text-align: center; /* Center the image */
+  overflow: hidden; /* Prevent any overflow issues */
+}
+
+#top {
+    width: 50%;
+}
+
+#imageContainer {
+  margin-bottom: 20px;
+  text-align: left; /* Align container content to the left */
+   height: auto;
+  margin-bottom: 0;
+}
+
+#imageContainer img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0; /* Remove auto margins */
+  margin-right: auto; /* This keeps space on the right side */
+}
+
+
 #ref-container,
 #highlight-container,
 #hypercite-container {
@@ -43,6 +138,8 @@ black #221F20;
   padding-right: 2em;
   border-radius: 1em 1em;
 }
+
+
 
 
 
@@ -129,8 +226,6 @@ black #221F20;
 
 
 
-
-
 #toc-container.open {
     transform: translateX(0);
 }
@@ -206,3 +301,5 @@ black #221F20;
     font-size: 20px;
     color: #A8A8A8;
 }
+
+
