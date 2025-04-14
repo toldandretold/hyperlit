@@ -32,10 +32,27 @@ import {
 } from "./toc.js";
 import NavButtons from "./nav-buttons.js";
 import { currentLazyLoader } from "./initializePage.js";
+import sourceManager from './sourceButton.js';
+import newBookManager from './newBookButton.js';
 import "./editButton.js";
 import "./hyperCites.js";
 import {attachUnderlineClickListeners} from "./hyperCites.js";
 import { initializeBroadcastListener } from "./BroadcastListener.js";
+
+window.uiState = {
+  activeContainer: "main-content",
+  isNavigating: false,
+  navElementsVisible: true,
+  
+  setActiveContainer(containerId) {
+    console.log(`Setting active container: ${containerId}`);
+    this.activeContainer = containerId;
+    // Dispatch a custom event that components can listen for
+    document.dispatchEvent(new CustomEvent('containerChanged', {
+      detail: { containerId }
+    }));
+  }
+};
 
 if (!window.isInitialized) {
   window.isInitialized = true;
@@ -45,7 +62,7 @@ if (!window.isInitialized) {
     window.getFreshUrl = function (url, lastModified) {
       return `${url}?v=${lastModified}`;
     };
-    window.mdFilePath = `/markdown/${book}/main-text.md`; // Path to raw MD file
+    window.mdFilePath = `/markdown/book/main-text.md`; // Path to raw MD file
 
     window.isNavigatingToInternalId = false;
 
@@ -75,12 +92,30 @@ if (!window.isInitialized) {
     generateTableOfContents("toc-container", "toc-toggle-button");
 
     // Initialize Navigation Buttons.
-    const navButtons = new NavButtons({
-      elementIds: ["nav-buttons", "logoContainer"],
-      tapThreshold: 10,
-    });
+    
 
-    navButtons.init();
+    // Get the data-page attribute from the <body> tag
+    const pageType = document.body.getAttribute("data-page");
+
+    // Initialize Navigation Buttons differently based on pageType
+    if (pageType === "reader") {
+      const navButtons = new NavButtons({
+        elementIds: ["nav-buttons", "logoContainer", "topRightContainer"],
+        tapThreshold: 10,
+      });
+
+      navButtons.init();
+    } else if (pageType === "home") {
+      // Initialize differently for the home page.
+      // You can change any properties or call a different method.
+      const navButtons = new NavButtons({
+        elementIds: ["nav-buttons", "userContainer", "topRightContainer"],
+        tapThreshold: 15, // This is an example of a potential different setting.
+      });
+
+      navButtons.init();
+    }
+
 
     // Get TOC elements here.
     const tocContainer = document.getElementById("toc-container");
@@ -92,8 +127,41 @@ if (!window.isInitialized) {
       return;
     }
 
-  document.addEventListener("click", (event) => {
-    console.log("!!!link listener");
+
+document.addEventListener("click", (event) => {
+  // First, check if we're clicking on a navigation element or button
+  if (event.target.closest("#nav-buttons") || 
+      event.target.closest("#logoContainer") || 
+      event.target.closest("#topRightContainer")) {
+    console.log("Click on navigation element, allowing normal behavior");
+    return; // Let the navigation buttons handle their own clicks
+  }
+  
+  // Check if any container is active (not just source-container)
+  const activeContainer = window.uiState?.activeContainer || window.activeContainer;
+  
+  console.log("Active container:", activeContainer);
+  
+  if (activeContainer && activeContainer !== "main-content") {
+    console.log(`${activeContainer} is active; skipping link handling`);
+    
+    // Only stop propagation for clicks outside the active container
+    // This allows clicks inside the container to work normally
+    const containerElement = document.getElementById(activeContainer);
+    if (containerElement && !event.target.closest(`#${activeContainer}`)) {
+      console.log("Click outside active container, preventing default");
+      // Don't prevent default here, as it might interfere with other click handlers
+      // Just return early to skip the link handling
+      return;
+    }
+    
+    // If we're here, the click was inside the active container
+    // Let it proceed normally
+    return;
+  }
+
+  // If we get here, no container is active, so proceed with link handling
+  console.log("No active container, checking for links");
   const link = event.target.closest("a");
   if (!link || !link.hash) return; // No hash? No custom handling.
 
@@ -109,9 +177,10 @@ if (!window.isInitialized) {
     return;
   }
 
-  // For links that don't start with "#", let them be resolved normally or
-  // handle them as needed.
+  // For links that don't start with "#", let them be resolved normally
 });
+
+
 
 
 

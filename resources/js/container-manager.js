@@ -18,6 +18,14 @@ export class ContainerManager {
       document.getElementById(id)
     );
 
+    // Track the original visibility state of navigation elements
+     this.navElementsState = {
+    navButtons: true,
+    logoContainer: true,
+    topRightContainer: true,
+    userContainer: true  // Add this line
+    };
+
     // Set up overlay click handler
     if (this.overlay) {
       this.overlay.addEventListener("click", (e) => {
@@ -33,6 +41,7 @@ export class ContainerManager {
     if (this.button) {
       this.button.addEventListener("click", (e) => {
         e.stopPropagation();
+        e.preventDefault(); // Add this to prevent default action
         this.toggleContainer();
       });
     }
@@ -62,123 +71,218 @@ export class ContainerManager {
     }
   }
 
-  updateState() {
-    if (this.isOpen) {
-      console.log(`Opening ${this.container.id} container...`);
-      this.container.classList.add("open");
-      this.overlay.classList.add("active");
-
-      // Freeze all background elements specified
-      this.frozenElements.forEach((el) => this.freezeElement(el));
-
-      // If we're opening the TOC, hide nav-buttons and logoContainer
-      if (this.container.id === "toc-container") {
-        const navButtons = document.getElementById("nav-buttons");
-        const logoContainer = document.getElementById("logoContainer");
-
-        if (navButtons) {
-          navButtons.classList.add("hidden-nav");
-        }
-        if (logoContainer) {
-          logoContainer.classList.add("hidden-nav");
-        }
-      }
+  // Save the current visibility state of navigation elements
+ saveNavElementsState() {
+  const navButtons = document.getElementById("nav-buttons");
+  const logoContainer = document.getElementById("logoContainer");
+  const topRightContainer = document.getElementById("topRightContainer");
+  const userContainer = document.getElementById("userContainer"); // Add this line
+  
+  if (navButtons) {
+    this.navElementsState.navButtons = !navButtons.classList.contains("hidden-nav");
+  }
+  
+  if (logoContainer) {
+    this.navElementsState.logoContainer = !logoContainer.classList.contains("hidden-nav");
+  }
+  
+  if (topRightContainer) {
+    this.navElementsState.topRightContainer = !topRightContainer.classList.contains("hidden-nav");
+  }
+  
+  // Add this block
+  if (userContainer) {
+    this.navElementsState.userContainer = !userContainer.classList.contains("hidden-nav");
+  }
+  
+  console.log("Saved nav elements state:", this.navElementsState);
+}
+  
+  // Restore navigation elements to their saved state
+  restoreNavElementsState() {
+  const navButtons = document.getElementById("nav-buttons");
+  const logoContainer = document.getElementById("logoContainer");
+  const topRightContainer = document.getElementById("topRightContainer");
+  const userContainer = document.getElementById("userContainer"); // Add this line
+  
+  if (navButtons) {
+    if (this.navElementsState.navButtons) {
+      navButtons.classList.remove("hidden-nav");
     } else {
-      console.log(`Closing ${this.container.id} container...`);
-      this.container.classList.remove("open");
-      this.overlay.classList.remove("active");
-
-      // Unfreeze background elements when closing
-      this.frozenElements.forEach((el) => this.unfreezeElement(el));
-
-      // If we're closing the TOC, remove the hidden class on nav-buttons and logoContainer
-      if (this.container.id === "toc-container") {
-        const navButtons = document.getElementById("nav-buttons");
-        const logoContainer = document.getElementById("logoContainer");
-
-        if (navButtons) {
-          navButtons.classList.remove("hidden-nav");
-        }
-        if (logoContainer) {
-          logoContainer.classList.remove("hidden-nav");
-        }
-      }
+      navButtons.classList.add("hidden-nav");
     }
   }
+  
+  if (logoContainer) {
+    if (this.navElementsState.logoContainer) {
+      logoContainer.classList.remove("hidden-nav");
+    } else {
+      logoContainer.classList.add("hidden-nav");
+    }
+  }
+  
+  if (topRightContainer) {
+    if (this.navElementsState.topRightContainer) {
+      topRightContainer.classList.remove("hidden-nav");
+    } else {
+      topRightContainer.classList.add("hidden-nav");
+    }
+  }
+  
+  // Add this block
+  if (userContainer) {
+    if (this.navElementsState.userContainer) {
+      userContainer.classList.remove("hidden-nav");
+    } else {
+      userContainer.classList.add("hidden-nav");
+    }
+  }
+  
+  console.log("Restored nav elements state:", this.navElementsState);
+}
+
+  updateState() {
+  console.log("updateState: isOpen =", this.isOpen, 
+            "container.id =", this.container.id);
+  if (this.isOpen) {
+    console.log(`Opening ${this.container.id} container...`);
+    this.container.classList.add("open");
+    this.overlay.classList.add("active");
+
+    // Freeze all background elements specified
+    this.frozenElements.forEach((el) => this.freezeElement(el));
+
+    // If we're opening the TOC or Source, hide nav-buttons, logoContainer, and topRightContainer
+    if (this.container.id === "toc-container" || 
+        this.container.id === "source-container") {
+      // Save the current state before modifying
+      this.saveNavElementsState();
+      
+      const navButtons = document.getElementById("nav-buttons");
+      const logoContainer = document.getElementById("logoContainer");
+      const topRightContainer = document.getElementById("topRightContainer");
+      const userContainer = document.getElementById("userContainer"); // Add this line
+
+      if (navButtons) {
+        navButtons.classList.add("hidden-nav");
+      }
+      if (logoContainer) {
+        logoContainer.classList.add("hidden-nav");
+      }
+      if (topRightContainer) {
+        topRightContainer.classList.add("hidden-nav");
+      }
+      if (userContainer) { // Add this block
+        userContainer.classList.add("hidden-nav");
+      }
+    }
+  } else {
+    console.log(`Closing ${this.container.id} container...`);
+    this.container.classList.remove("open");
+    this.overlay.classList.remove("active");
+
+    // Unfreeze background elements when closing
+    this.frozenElements.forEach((el) => this.unfreezeElement(el));
+
+    // If we're closing the TOC or Source, restore the navigation elements to their original state
+    if (this.container.id === "toc-container" || 
+        this.container.id === "source-container") {
+      this.restoreNavElementsState();
+    }
+  }
+}
+
 
   /**
    * Opens the container.
    * @param {string|null} content - The inner HTML content to set.
    * @param {string|null} highlightId - (Optional) The highlight ID in case this is a highlight container.
    */
-  openContainer(content = null, highlightId = null) {
-    if (content && this.container) {
-      console.log(`Opening container ${this.container.id} with content:`, content);
-      this.container.innerHTML = content;
-    } else if (this.initialContent && this.container) {
-      // Restore the initial content if no new content is provided
-      this.container.innerHTML = this.initialContent;
-    }
-    // If a highlightId is provided, store it.
-    if (highlightId) {
-      this.highlightId = highlightId;
-    }
-    // Ensure the container is visible.
-    this.container.classList.remove("hidden");
-    this.container.classList.add("open");
+  // In ContainerManager class, modify the openContainer method:
+openContainer(content = null, highlightId = null) {
+  console.log("Current active container:", window.activeContainer);
 
-    this.isOpen = true;
-    window.activeContainer = this.container.id;
-    this.updateState();
-
-    // Optionally focus the container.
-    this.container.focus();
+  if (content && this.container) {
+    console.log(`Opening container ${this.container.id} with content:`, content);
+    this.container.innerHTML = content;
+  } else if (this.initialContent && this.container) {
+    // Restore the initial content if no new content is provided
+    this.container.innerHTML = this.initialContent;
   }
-
-  /**
-   * Closes the container and, if it's the highlight-container, forces a save.
-   */
-  closeContainer() {
-    // If this is the highlight container and a highlightId exists, force-save
-    if (this.container.id === "highlight-container" && this.highlightId) {
-      // Get the editable annotation element and force blur.
-      const annotationEl = this.container.querySelector(".annotation");
-      if (annotationEl) {
-        annotationEl.blur();
-      }
-      // Instead of reading innerHTML, rely on the stored value.
-      const annotationHTML = this.container.dataset.lastAnnotation || "";
-      console.log("Forcing save on close. Stored annotation HTML:", annotationHTML);
-
-      // Use requestAnimationFrame to force the next frame delay.
-      requestAnimationFrame(() => {
-        saveAnnotationToIndexedDB(this.highlightId, annotationHTML)
-          .then(() => {
-            console.log("Annotation saved on close for highlightId:", this.highlightId);
-          })
-          .catch((err) => {
-            console.error("Error saving annotation on close:", err);
-          });
-      });
-    }
-
-    // Hide the container by setting CSS visibility,
-    // so the DOM remains intact for the save call.
-    this.container.style.visibility = "hidden";
-
-    this.isOpen = false;
-    this.updateState();
-
-    // Remove classes as before.
-    this.container.classList.remove("open");
-    this.container.classList.add("hidden");
-
-    // Reset visibility for next time.
-    this.container.style.visibility = "";
-
-    // Reset the active container.
-    window.activeContainer = "main-content";
+  
+  // If a highlightId is provided, store it.
+  if (highlightId) {
+    this.highlightId = highlightId;
   }
+  
+  // Ensure the container is visible.
+  this.container.classList.remove("hidden");
+  this.container.classList.add("open");
+
+  this.isOpen = true;
+  window.activeContainer = this.container.id;
+  
+  // Directly hide navigation elements if this is TOC container
+  if (this.container.id === "toc-container") {
+    const navButtons = document.getElementById("nav-buttons");
+    const logoContainer = document.getElementById("logoContainer");
+    const topRightContainer = document.getElementById("topRightContainer");
+    const userContainer = document.getElementById("userContainer"); 
+    
+    // Save state before hiding
+    this.saveNavElementsState();
+    
+    if (navButtons) navButtons.classList.add("hidden-nav");
+    if (logoContainer) logoContainer.classList.add("hidden-nav");
+    if (topRightContainer) topRightContainer.classList.add("hidden-nav");
+    if (userContainer) userContainer.classList.add("hidden-nav"); 
+  }
+  
+  // Update state after making changes
+  this.updateState();
+
+  // Optionally focus the container.
+  this.container.focus();
+}
+
+// Similarly, modify the closeContainer method:
+closeContainer() {
+  console.log("Current active container:", window.activeContainer);
+  // If this is the highlight container and a highlightId exists, force-save
+  if (this.container.id === "highlight-container" && this.highlightId) {
+    // ... existing highlight saving code ...
+  } 
+
+  // Hide the container by setting CSS visibility
+  this.container.style.visibility = "hidden";
+
+  this.isOpen = false;
+  window.activeContainer = "main-content";
+  
+  // Directly show navigation elements if this is TOC container
+  if (this.container.id === "toc-container") {
+    const navButtons = document.getElementById("nav-buttons");
+    const logoContainer = document.getElementById("logoContainer");
+    const topRightContainer = document.getElementById("topRightContainer");
+    const userContainer = document.getElementById("userContainer");
+    
+    if (navButtons) navButtons.classList.remove("hidden-nav");
+    if (logoContainer) logoContainer.classList.remove("hidden-nav");
+    if (topRightContainer) topRightContainer.classList.remove("hidden-nav");
+    if (userContainer) userContainer.classList.remove("hidden-nav");
+  }
+  
+  // Update state
+  this.updateState();
+
+  // Remove classes as before.
+  this.container.classList.remove("open");
+  this.container.classList.add("hidden");
+
+  // Reset visibility for next time.
+  this.container.style.visibility = "";
+}
+
 
   toggleContainer() {
     if (this.isOpen) {

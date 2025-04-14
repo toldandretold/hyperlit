@@ -8,8 +8,8 @@ black #221F20;
 
 
 #toc-toggle-button {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   background-color: #221F20; /* Button background color */
   border: none; 
   position: relative;
@@ -17,42 +17,62 @@ black #221F20;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+
 }
 
-#toc-toggle-button::before,
-#toc-toggle-button::after,
-#toc-toggle-button span {
-  content: "";
-  position: absolute;
-  width: 20px;
-  height: 4px;
-  background-color: #CBCCCC;
-  border-radius: 2px;
-}
 
-#toc-toggle-button::before {
-  top: 12px;
-}
-
-#toc-toggle-button::after {
-  bottom: 12px;
-}
-
-#toc-toggle-button span {
-  top: 50%;
-  transform: translateY(-50%);
-}
 
 
 #editButton {
-width: 36px; /* Matching width */
-  height: 36px; /* Matching height */
+width: 28px; /* Matching width */
+  height: 28px; /* Matching height */
   background: #221F20;
   border: none;
   cursor: pointer;
   padding: 4px;
   stroke: #CBCCCC;
 }
+
+
+
+.open {
+  background-color: #221F20;
+  border: none;
+  color: #CBCCCC;
+  font-size: 24px; /* Adjust this value as needed */
+  line-height: 36px; /* Match this to the height of the toc-toggle-button */
+  width: 36px; /* Optional: Set width to match toc-toggle-button */
+  height: 36px; /* Optional: Set height to match toc-toggle-button */
+  display: flex; /* Use flexbox for centering */
+  align-items: center; /* Center vertically */
+  justify-content: center; /* Center horizontally */
+  cursor: pointer;
+}
+
+
+/* hyperlit colors: 
+orange #EF8D34; 
+pink #EE4A95; 
+aqua #4EACAE; 
+black #221F20; 
+"white" #CBCCCC*/
+
+ #cloudRef {
+    width: 28px;
+    height: 28px;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    background: none; /* Ensure no background */
+    transition: transform 0.3s ease-in-out;
+  }
+
+  #cloudRef:hover .cloud-inner-space {
+    fill: url(#gradient); /* Inner space becomes gradient on hover */
+  }
+  
+
+ 
 
 
 .inverted svg {
@@ -147,6 +167,7 @@ width: 36px; /* Matching width */
   height: 100%;
   width: 100%;
 }
+
 #logoContainer {
   position: absolute;
   top: 10px;
@@ -156,6 +177,38 @@ width: 36px; /* Matching width */
   z-index: 1000;
   transition: opacity 0.3s ease;
 }
+
+#userLogo {
+  height: 20px;
+  width: 20px;
+  fill: #CBCCCC;
+}
+
+#userContainer {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  height: 40px;
+  width: 40px;
+  z-index: 1000;
+  transition: opacity 0.3s ease;
+}
+
+
+#topRightContainer {
+  position: fixed;
+  top: 10px;
+  right: 10px; /* This value is updated dynamically */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  transition: opacity 0.3s ease, right 0.3s ease;
+}
+
+
+
+
 
 #nav-buttons {
   position: fixed;

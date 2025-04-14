@@ -20,6 +20,7 @@ if ("serviceWorker" in navigator) {
 
 export const book = document.querySelector('.main-content').id;
 
+
 export const markdownContent = ""; // Store Markdown globally
 
 
