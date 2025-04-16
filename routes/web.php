@@ -63,6 +63,10 @@ MD;
 Route::get('/', function () {
     return view('home');
 });
+
+Route::get('/home', function () {
+    return view('home');
+});
  
 // Dashboard route with middleware
 Route::get('/dashboard', function () {

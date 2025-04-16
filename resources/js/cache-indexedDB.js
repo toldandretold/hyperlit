@@ -1,6 +1,6 @@
 import { book } from "./app.js";
 
-export const DB_VERSION = 9;
+export const DB_VERSION = 10;
 
 /**
  * Opens (or creates) the IndexedDB database.
@@ -20,31 +20,34 @@ export async function openDatabase() {
 
       const storeConfigs = [
         {
-          // For nodeChunks, we use a composite primary key [book, startLine]
           name: "nodeChunks",
           keyPath: ["book", "startLine"],
           indices: ["chunk_id", "book"],
         },
         {
-          // For footnotes, we now use just "book" as the key
           name: "footnotes",
-          keyPath: "book"
+          keyPath: "book",
         },
         {
-          // The remaining stores remain unchanged;
-          // update these later if you plan to remove url/container there as well.
           name: "markdownStore",
-          keyPath: ["url", "book"]
+          keyPath: ["url", "book"],
         },
         {
           name: "hyperlights",
           keyPath: ["book", "hyperlight_id"],
-          indices: ["hyperlight_id"]
+          indices: ["hyperlight_id"],
         },
         {
           name: "hypercites",
           keyPath: ["book", "hyperciteId"],
-          indices: ["hyperciteId"]
+          indices: ["hyperciteId"],
+        },
+        // <<< NEW: Library store >>>
+        {
+          name: "library",
+          keyPath: ["book", "citationID"],
+          // Optionally define indices if needed; here we leave it empty
+          indices: ["citationID"],
         }
       ];
 
