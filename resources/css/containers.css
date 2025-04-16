@@ -28,11 +28,109 @@ black #221F20;
     transition: transform 0.3s ease-in-out;
 }
 
-#source-container, 
-#newbook-container {
+#source-container {
     transition: transform 0.3s ease-in-out;
     border-radius: 1em 1em;
+    overflow-y: auto;           /* Enable vertical scrolling for the container */
+    overflow-x: hidden;
+    padding-left: 1em;
+    padding-right: 2em;
+    position: fixed;
+    top: 16px;
+    right: 16px;
+     width: 80%;
+    height: 90%;
+    background-color: #221F20;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    border-radius: 1em 1em;
+}   
+
+
+
+/* When the container is in button view (open state) */
+/* Closed state: container is hidden */
+#newbook-container.closed {
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
 }
+
+/* Button view: container is open and laid out for buttons */
+#newbook-container.button-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  width: 200px;  /* Final desired width */
+  height: auto;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+
+
+#newbook-container button {
+  width: 80%;
+  padding: 12px;
+  border: none;
+  border-radius: 5px;
+  background-color: #4a4a4a;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+#newbook-container button:hover {
+  background-color: #666;
+}
+
+#importCitation-container {
+  display: none;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+#importCitation-container form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#importCitation-container label {
+  margin-top: 10px;
+  color: #ddd;
+}
+
+#importCitation-container input,
+#importCitation-container textarea {
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background-color: #333;
+  color: white;
+}
+
+#importCitation-container button {
+  margin-top: 15px;
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+  background-color: #4a4a4a;
+  color: white;
+  cursor: pointer;
+}
+
+#importCitation-container button:hover {
+  background-color: #666;
+}
+
+
+
 
 .scroll-container {
   height: calc(100vh - 60px); /* Full height minus space for buttons */
