@@ -162,6 +162,7 @@ Route::get('/php-info', function () {
 // Cite Creator routes
 Route::get('/cite-creator', [CiteCreator::class, 'create'])->name('createCite');
 Route::post('/cite-creator', [CiteCreator::class, 'store'])->name('processCite');
+Route::post('/create-main-text-md', [CiteCreator::class, 'createNewMarkdown']);
 
 // MarkdownITController routes
 Route::post('/{book}/saveMarkdown', [MarkdownITController::class, 'saveMarkdown'])->name('markdownIT.save');
@@ -179,7 +180,13 @@ Route::get('/{book}/main-text-footnotes.json', function ($book) {
     return response()->file($filePath, ['Content-Type' => 'application/json']);
 })->where('book', '[a-zA-Z0-9\-]+');
 
+
+// exact match /{book}/edit
+Route::get('/{book}/edit', [TextController::class, 'show'])
+     ->where('book', '[A-Za-z0-9_-]+')
+     ->name('book.edit');
+     
 // General book route (should be last to avoid conflict with more specific routes)
 Route::get('/{book}', [TextController::class, 'show'])
-    ->where('book', '[a-zA-Z0-9\-]+') // Adjust regex as needed
+    ->where('book', '[A-Za-z0-9_-]+') // Adjust regex as needed
     ->name('book.show');

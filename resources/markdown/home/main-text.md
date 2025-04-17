@@ -1,5 +1,11 @@
-# Open *books open locally*
+# Open 
 
-# Recent *most recently read books*
+*books open locally*
 
-# Top  day | week | month | year | all time  
+# Recent 
+
+*most recently read books*
+
+# Top  
+
+day | week | month | year | all time  
