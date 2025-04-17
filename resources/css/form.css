@@ -1,0 +1,99 @@
+/* hyperlit colors: 
+orange #EF8D34; 
+pink #EE4A95; 
+aqua #4EACAE; 
+black #221F20; 
+"white" #CBCCCC*/
+
+
+/* Overall form styling */
+#cite-form {
+  background-color: #221F20;
+  color: #CBCCCC;
+  padding: 20px;
+}
+
+/* Remove default input styles and have a transparent background */
+#cite-form input[type="text"],
+#cite-form input[type="number"],
+#cite-form input[type="file"],
+#cite-form textarea {
+  background-color: transparent;
+  color: #CBCCCC;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Style textarea to mimic a notepad look */
+#cite-form textarea {
+  resize: none;
+  min-height: 26px;
+}
+
+/* Remove default styles for labels and radio buttons */
+#cite-form label {
+  display: block;
+  margin-bottom: 5px;
+  cursor: text;
+  font-weight: normal;
+}
+
+#cite-form input[type="radio"] {
+  margin-right: 5px;
+}
+
+/* Hide buttons' form-like appearance */
+#cite-form .formButton {
+  border: none;
+  color: #CBCCCC;
+  cursor: pointer;
+  padding: 5px 10px;
+  font-family: inherit;
+}
+
+#cite-form .formButton:hover {
+  background-color: #4EACAE;
+  border: none;
+  color: #221F20;
+  cursor: pointer;
+  padding: 5px 10px;
+  font-family: inherit;
+}
+
+input[type="file"]::-webkit-file-upload-button {
+  margin-right: 10px; /* Increase spacing between button and text */
+}
+
+ input[type="radio"] {
+    accent-color: #EF8D34;
+  }
+
+.form-actions {
+  text-align: center;
+}
+
+
+
+/* Optional: Add a subtle bottom border to simulate notebook paper lines */
+#cite-form input[type="text"],
+#cite-form input[type="number"],
+#cite-form textarea {
+  border-bottom: 1px solid rgba(203, 204, 204, 0.2);
+  margin-bottom: 15px;
+}
+
+/* Remove outlines on focus to keep the notepad look */
+#cite-form input:focus,
+#cite-form textarea:focus {
+  outline: none;
+  border-bottom-color: rgba(203, 204, 204, 0.5);
+}
+
+
+form b {
+  color: #CBCCCC;
+}
