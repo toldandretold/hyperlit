@@ -17,6 +17,38 @@ class CiteCreator extends Controller
         return view('CiteCreator'); // Ensure this view exists: resources/views/CiteCreator.blade.php
     }
 
+    public function createMainTextMarkdown(Request $request)
+    {
+        $citation_id = $request->input('citation_id');
+        $title = $request->input('title');
+
+        if (!$citation_id || !$title) {
+            return response()->json([
+                'error' => 'citation_id and title are required.'
+            ], 400);
+        }
+
+        $path = resource_path("markdown/{$citation_id}");
+
+        // Create the directory if it doesn't exist
+        if (!File::exists($path)) {
+            File::makeDirectory($path, 0755, true);
+        }
+
+        // Prepare the markdown content
+        $markdownContent = "# {$title}\n";
+
+        // Write to main-text.md
+        File::put("{$path}/main-text.md", $markdownContent);
+
+        return response()->json([
+            'success' => true,
+            'message' => "main-text.md created for citation_id {$citation_id}",
+            'path' => "{$path}/main-text.md"
+        ]);
+    }
+
+
     public function store(Request $request)
 {
 
@@ -223,5 +255,31 @@ private function runPythonScripts(string $path)
     }
 }
 
+ public function createNewMarkdown(Request $request)
+    {
+        $citation_id = $request->input('citation_id');
+        $title       = $request->input('title');
+
+        if (! $citation_id || ! $title) {
+            return response()->json([
+                'error' => 'citation_id and title are required.'
+            ], 400);
+        }
+
+        $path = resource_path("markdown/{$citation_id}");
+
+        if (! File::exists($path)) {
+            File::makeDirectory($path, 0755, true);
+        }
+
+        // Write the markdown file
+        File::put("{$path}/main-text.md", "# {$title}\n");
+
+        return response()->json([
+            'success' => true,
+            'message' => "main-text.md created for {$citation_id}",
+            'path'    => "{$path}/main-text.md"
+        ]);
+    }
 
 }

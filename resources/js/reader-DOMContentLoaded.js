@@ -54,6 +54,24 @@ window.uiState = {
   }
 };
 
+
+
+
+// Or, if you prefer the data‐attribute approach:
+const editMode = document.body.dataset.editMode === '1';
+
+if (editMode) {
+  // 1) Activate your “Edit” button UI
+  document.getElementById('edit-button')?.classList.add('active');
+
+  // 2) Turn on contentEditable for whatever divs you want
+  document.querySelectorAll('.editable').forEach(el => {
+    el.contentEditable = 'true';
+  });
+
+  // 3) Any other JS you need to run in edit mode…
+}
+
 if (!window.isInitialized) {
   window.isInitialized = true;
 

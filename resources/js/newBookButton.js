@@ -1,5 +1,6 @@
 import { ContainerManager } from "./container-manager.js";
 import { openDatabase } from "./cache-indexedDB.js";
+import { createNewBook } from "./createNewBook.js";
 
 
 // Listen for clicks on the button with id="newBook"
@@ -12,6 +13,7 @@ if (pageType === "home") {
 
   document.getElementById("newBook").addEventListener("click", async () => {
     console.log("newBOok BUTTONNNN");
+
 
   });
 }
@@ -53,37 +55,39 @@ export class NewBookContainerManager extends ContainerManager {
 
   setupButtonListeners() {
     // Add event listeners for the buttons inside the container
-    document.getElementById("createNewBook")?.addEventListener("click", () => {
-      console.log("Create new book clicked");
-      // Add your create book logic here
-      this.closeContainer();
-    });
-
-    // In your NewBookContainerManager class, update the importBook event listener:
-
-  document.getElementById("importBook")?.addEventListener("click", () => {
-    console.log("Import book clicked");
-    // Save the original content if not already saved
-    if (!this.originalContent) {
-      this.originalContent = this.container.innerHTML;
-    }
-
-    // Replace content with the form and expand the container
-    this.showImportForm();
-    
-    // Dynamically import the module and set up the form submission handler
-    import("./newBookForm.js")
-      .then(module => {
-        // Call the initialization function from the imported module
-        module.initializeCitationFormListeners();
+      document.getElementById("createNewBook")?.addEventListener("click", () => {
+        console.log("Create new book clicked");
         
-        // Set up the form submission handler
-        module.setupFormSubmissionHandler();
-      })
-      .catch(error => {
-        console.error("Error importing citation form module:", error);
+        createNewBook();
+
+        this.closeContainer();
       });
-  });
+
+      // In your NewBookContainerManager class, update the importBook event listener:
+
+    document.getElementById("importBook")?.addEventListener("click", () => {
+      console.log("Import book clicked");
+      // Save the original content if not already saved
+      if (!this.originalContent) {
+        this.originalContent = this.container.innerHTML;
+      }
+
+      // Replace content with the form and expand the container
+      this.showImportForm();
+      
+      // Dynamically import the module and set up the form submission handler
+      import("./newBookForm.js")
+        .then(module => {
+          // Call the initialization function from the imported module
+          module.initializeCitationFormListeners();
+          
+          // Set up the form submission handler
+          module.setupFormSubmissionHandler();
+        })
+        .catch(error => {
+          console.error("Error importing citation form module:", error);
+        });
+    });
 
   }
 

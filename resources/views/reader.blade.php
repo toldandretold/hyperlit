@@ -6,14 +6,17 @@
     @endsection
 @section('content')
 
-<body data-page="reader">
+<body 
+data-page="reader"
+data-edit-mode="{{ $editMode ? '1' : '0' }}"
+>
 
 <!-- this could be wrong -->
 <base href="{{ url('markdown/' . $book . '/epub_original/') }}">
 
 
 <!-- Load the content of the main-text.md file -->
-<div id="{{ $book }}" class="main-content"> 
+<div id="{{ $book }}" class="main-content" contenteditable="{{ $editMode ? 'true' : 'false' }}"> 
     </div>
 
 <!-- Buttons for hyper-lighting -->
@@ -148,6 +151,7 @@
 
 @endsection
 
+
 @section('scripts')
 
 <script src="{{ asset('js/crypto-js.min.js') }}"></script>
@@ -155,12 +159,12 @@
 <script src="{{ asset('js/rangy-classapplier.min.js') }}"></script>
 <script src="{{ asset('js/rangy-highlighter.min.js') }}"></script>
 
+<script>
+    window.editMode = @json($editMode);
+  </script>
 
- 
-@vite([
-    'resources/js/reader-DOMContentLoaded.js'
-])
-
-
-    
+  {{-- Now load your reader‑specific JS via Vite --}}
+  @vite('resources/js/reader-DOMContentLoaded.js')
 @endsection
+    
+

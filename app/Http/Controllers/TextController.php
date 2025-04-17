@@ -10,70 +10,63 @@ use League\CommonMark\CommonMarkConverter;
 
 class TextController extends Controller
 {
-    // Show the main text or its HTML version for a specific book
-    public function show($book)
+
+
+     public function show(Request $request, $book)
     {
-        // Define paths to the markdown and HTML files based on the folder name
+        // true if ?edit=1 OR if this route was named book.edit
+    $editMode = $request->boolean('edit')
+             || $request->routeIs('book.edit');
+
+        // 2) Locate your MD / HTML files
         $markdownPath = resource_path("markdown/{$book}/main-text.md");
-        $htmlPath = resource_path("markdown/{$book}/main-text.html");
+        $htmlPath     = resource_path("markdown/{$book}/main-text.html");
 
-        // Check if both files exist
         $markdownExists = File::exists($markdownPath);
-        $htmlExists = File::exists($htmlPath);
+        $htmlExists     = File::exists($htmlPath);
 
-        // If neither file exists, abort with an error
-        if (!$markdownExists && !$htmlExists) {
+        if (! $markdownExists && ! $htmlExists) {
             abort(404, "Book not found");
         }
 
-        // Determine if we need to convert markdown to HTML
+        // 3) Decide whether to convert MD → HTML
         $convertToHtml = false;
-
         if ($markdownExists) {
-            if (!$htmlExists) {
-                // HTML does not exist, need to convert
+            if (! $htmlExists) {
                 $convertToHtml = true;
             } else {
-                // Both files exist, compare modification times
                 $markdownModified = File::lastModified($markdownPath);
-                $htmlModified = File::lastModified($htmlPath);
-
+                $htmlModified     = File::lastModified($htmlPath);
                 if ($markdownModified > $htmlModified) {
-                    // Markdown is newer, need to convert
                     $convertToHtml = true;
                 }
             }
         }
 
+        // 4) Perform conversion if needed
         if ($convertToHtml) {
-            // Load the main text markdown file
             $markdown = File::get($markdownPath);
-
-            // Preprocess the markdown to handle soft line breaks
             $markdown = $this->normalizeMarkdown($markdown);
 
-            // Use ConversionController to convert markdown to HTML
+            // Assuming your ConversionController takes ($book) in ctor
             $conversionController = new ConversionController($book);
 
-            // Save the preprocessed markdown back to the file before conversion
+            // overwrite the normalized markdown before converting
             File::put($markdownPath, $markdown);
 
-            // Convert the markdown content to HTML
             $html = $conversionController->markdownToHtml();
-
-            // The markdownToHtml() method saves the HTML file, so we can proceed
         } else {
-            // Load the existing HTML file
             $html = File::get($htmlPath);
         }
 
-        // Pass the HTML (either from file or generated) to the view
+        // 5) Return the view, passing HTML, book ID, and editMode
         return view('reader', [
-            'html' => $html,
-            'book' => $book,
+            'html'     => $html,
+            'book'     => $book,
+            'editMode' => $editMode,
         ]);
-    }
 
+    }
     // Preprocess the markdown to handle soft line breaks
     private function normalizeMarkdown($markdown)
     {
