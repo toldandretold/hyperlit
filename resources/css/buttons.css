@@ -225,3 +225,16 @@ black #221F20;
   transition: opacity 0.3s ease !important;
 }
 
+
+/* Default state: No rotation */
+.icon {
+  display: inline-block; /* Enables transform */
+  transform: rotate(0deg);
+  transition: transform 0.3s ease-out;
+}
+
+/* Open state: Tilted 45 degrees */
+.icon.tilted {
+  transform: rotate(45deg);
+  transition: transform 0.3s ease-out;
+}

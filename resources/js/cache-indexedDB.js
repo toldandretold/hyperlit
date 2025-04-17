@@ -1,6 +1,6 @@
 import { book } from "./app.js";
 
-export const DB_VERSION = 10;
+export const DB_VERSION = 13;
 
 /**
  * Opens (or creates) the IndexedDB database.
@@ -45,9 +45,8 @@ export async function openDatabase() {
         // <<< NEW: Library store >>>
         {
           name: "library",
-          keyPath: ["book", "citationID"],
-          // Optionally define indices if needed; here we leave it empty
-          indices: ["citationID"],
+          keyPath: "citationID",
+    
         }
       ];
 

@@ -24,9 +24,6 @@ black #221F20;
   border-radius: 1em 1em;
 }
 
-#topRightContainer {
-    transition: transform 0.3s ease-in-out;
-}
 
 #source-container {
     transition: transform 0.3s ease-in-out;
@@ -55,7 +52,9 @@ black #221F20;
   height: 0;
   opacity: 0;
   pointer-events: none;
+
 }
+
 
 /* Button view: container is open and laid out for buttons */
 #newbook-container.button-view {
@@ -86,8 +85,12 @@ black #221F20;
 }
 
 #newbook-container button:hover {
-  background-color: #666;
+  background-color: #4EACAE;
+  color: #221F20;
+  cursor: pointer;
 }
+
+
 
 #importCitation-container {
   display: none;
