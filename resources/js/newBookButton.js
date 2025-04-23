@@ -35,23 +35,26 @@ export class NewBookContainerManager extends ContainerManager {
     this.originalContent = null; // Store the original content
   }
 
-  setupNewBookContainerStyles() {
+ setupNewBookContainerStyles() {
     const container = this.container;
     if (!container) return;
 
-    // Set initial styles for the container when closed
-    container.style.position = "fixed";
-    container.style.overflow = "hidden";
-    container.style.transition = "width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, padding 0.3s ease-out";
+    // CLOSED state only:
+    container.style.position = "fixed";       // so we can animate from 0→XYZ
+    container.style.transition =
+      "width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, padding 0.3s ease-out";
     container.style.zIndex = "1000";
     container.style.backgroundColor = "#221F20";
     container.style.boxShadow = "0 0 15px rgba(0, 0, 0, 0.2)";
     container.style.borderRadius = "0.75em";
+
+    // start hidden/collapsed:
     container.style.opacity = "0";
     container.style.padding = "12px";
     container.style.width = "0";
     container.style.height = "0";
   }
+
 
   setupButtonListeners() {
     // Add event listeners for the buttons inside the container
@@ -104,6 +107,7 @@ export class NewBookContainerManager extends ContainerManager {
 
   // The form HTML content with the processed route:
   const formHTML = `
+      <div class="scroller">
       <form id="cite-form" action="${processCiteRoute}" method="POST" enctype="multipart/form-data">
         <h2 style="color: #EF8D34;">.md, .docx or .epub:</h2>
         <input type="hidden" name="_token" value="${csrfToken}" id="submitFile">
@@ -163,6 +167,9 @@ export class NewBookContainerManager extends ContainerManager {
           <button type="button" id="clearButton" class="formButton">Clear</button>
         </div>
       </form>
+      </div>
+     <div class="mask-top"></div>
+    <div class="mask-bottom"></div>
   `;
 
     // Replace the container content
@@ -176,7 +183,6 @@ export class NewBookContainerManager extends ContainerManager {
     // You might try auto-height or a high fixed height.
     this.container.style.width = "500px";
     this.container.style.height = "80vh";
-    this.container.style.overflow = "auto";
     this.container.style.padding = "20px";
     this.container.style.display = "block";
 
@@ -269,78 +275,81 @@ export class NewBookContainerManager extends ContainerManager {
     }
   }
 
-  openContainer(content = null, highlightId = null) {
-    if (this.isAnimating) return;
-    this.isAnimating = true;
+  openContainer(mode = "buttons") {
+  if (this.isAnimating) return;
+  this.isAnimating = true;
 
-    
-    const icon = this.button.querySelector(".icon");
-    if (icon) {
-      icon.classList.add("tilted");
-    }
+  // icon tilt
+  this.button.querySelector(".icon")?.classList.add("tilted");
 
-    // Position the container relative to the button
-    if (this.button) {
-      const buttonRect = this.button.getBoundingClientRect();
-      this.buttonPosition = buttonRect;
-      this.container.style.top = `${buttonRect.bottom + 8}px`;
-      this.container.style.right = `${
-        window.innerWidth - buttonRect.right
-      }px`;
-    }
+  // position on screen
+  const rect = this.button.getBoundingClientRect();
+  this.container.style.top = `${rect.bottom + 8}px`;
+  this.container.style.right = `${
+    window.innerWidth - rect.right
+  }px`;
 
-    // Make container visible
-    this.container.classList.remove("hidden");
-    this.container.style.visibility = "visible";
-    this.container.style.display = "block";
+  // make it visible
+  this.container.classList.remove("hidden");
+  this.container.style.visibility = "visible";
 
-    // Set up a flex container for button view (if needed)
-    // Use flex only for the button options view.
+  // clear any previous layout
+  this.container.style.display = "";
+  this.container.style.flexDirection = "";
+  this.container.style.justifyContent = "";
+  this.container.style.alignItems = "";
+  this.container.style.gap = "";
+
+  // decide layout by mode:
+  let targetWidth, targetHeight;
+  if (mode === "buttons") {
+    // the “+ New Book / Import” buttons view
     this.container.style.display = "flex";
     this.container.style.flexDirection = "column";
     this.container.style.justifyContent = "center";
     this.container.style.alignItems = "center";
     this.container.style.gap = "10px";
-    // Also add some padding to the container
     this.container.style.padding = "20px";
 
-    // For button view, set dimensions that fit the buttons nicely.
-    const targetWidth = "200px";
-    const targetHeight = "auto"; // 'auto' lets the content determine the height
-
-    // Start the open animation
-    requestAnimationFrame(() => {
-      this.container.style.width = targetWidth;
-      this.container.style.height = targetHeight;
-      this.container.style.opacity = "1";
-
-      // Activate overlay if available
-      if (this.overlay) {
-        console.log("Activating overlay");
-        this.overlay.classList.add("active");
-        this.overlay.style.display = "block";
-        this.overlay.style.opacity = "0.5";
-      }
-
-      // Set container state accordingly
-      this.isOpen = true;
-      if (window.uiState) {
-        window.uiState.setActiveContainer(this.container.id);
-      } else {
-        window.activeContainer = this.container.id;
-      }
-
-      // Wait for the transition to complete before finishing...
-      this.container.addEventListener(
-        "transitionend",
-        () => {
-          this.isAnimating = false;
-          console.log("New book container open animation complete");
-        },
-        { once: true }
-      );
-    });
+    targetWidth = "200px";
+    targetHeight = "auto";
+  } else if (mode === "form") {
+    // the big import form view
+    this.container.style.display = "block";
+    // scrolling + fade‐masks come from your CSS on .scroller/.mask‐*
+    targetWidth = "500px";
+    targetHeight = "80vh";
+    // keep the padding tight so .scroller fills edge‑to‑edge
+    this.container.style.padding = "0";
   }
+
+  requestAnimationFrame(() => {
+    this.container.style.width = targetWidth;
+    this.container.style.height = targetHeight;
+    this.container.style.opacity = "1";
+
+    // overlay:
+    if (this.overlay) {
+      this.overlay.classList.add("active");
+      this.overlay.style.display = "block";
+      this.overlay.style.opacity = "0.5";
+    }
+
+    this.isOpen = true;
+    window.uiState
+      ? window.uiState.setActiveContainer(this.container.id)
+      : (window.activeContainer = this.container.id);
+
+    this.container.addEventListener(
+      "transitionend",
+      () => {
+        this.isAnimating = false;
+      },
+      { once: true }
+    );
+  });
+}
+
 
   closeContainer() {
   if (this.isAnimating) return;

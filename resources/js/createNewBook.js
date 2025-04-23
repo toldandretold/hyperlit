@@ -1,5 +1,6 @@
 // createNewBook.js
 import { openDatabase } from "./cache-indexedDB.js";
+import { buildBibtexEntry } from "./bibtexProcessor.js";
 
 // your existing helper (you could move this to utils.js)
 function generateUUID() {
@@ -36,6 +37,8 @@ export async function createNewBook() {
       timestamp: new Date().toISOString(),
     };
 
+    newLibraryRecord.bibtex = buildBibtexEntry(newLibraryRecord);
+    
     store.put(newLibraryRecord);
 
     return new Promise((resolve, reject) => {

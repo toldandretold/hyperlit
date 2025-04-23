@@ -4,7 +4,7 @@
  * @returns {string} - The formatted citation.
  */
 export function formatBibtexToCitation(bibtex) {
-  // Helper function to parse BibTeX fields
+  // Helper to pull out all key = { value } or "value" pairs
   const parseBibtex = (bibtex) => {
     const fields = {};
     const fieldRegex = /(\w+)\s*=\s*[{"]([^"}]+)[}"]/g;
@@ -15,11 +15,23 @@ export function formatBibtexToCitation(bibtex) {
     return fields;
   };
 
-  // Parse the BibTeX string
+  // Pull out all fields
   const fields = parseBibtex(bibtex);
+  const rawAuthor = fields.author || "";
+  const myId = localStorage.getItem("authorId");
 
-  // Extract relevant fields
-  const author = fields.author || "Unknown Author";
+  // Decide what to show for author
+  let author;
+  if (rawAuthor === myId) {
+    author = "Me";
+  } else if (/^[0-9a-fA-F-]{36}$/.test(rawAuthor)) {
+    // Looks like a UUID but not me
+    author = "Anon";
+  } else {
+    author = rawAuthor || "Unknown Author";
+  }
+
+  // Grab the rest of your fields with defaults
   const title = fields.title || "Untitled";
   const journal = fields.journal || null;
   const publisher = fields.publisher || null;
@@ -27,34 +39,33 @@ export function formatBibtexToCitation(bibtex) {
   const pages = fields.pages || null;
   const url = fields.url || null;
 
-  // Determine if it's an article or a book
-  const isArticle = !!journal;
+  // Article vs. book
+  const isArticle = Boolean(journal);
 
-  // Format the title
+  // Title formatting (quotes for articles, italics for books)
   let formattedTitle = isArticle ? `"${title}"` : `<i>${title}</i>`;
   if (url) {
     formattedTitle = `<a href="${url}" target="_blank">${formattedTitle}</a>`;
   }
 
-  // Format the publisher
+  // Publisher italics for articles
   let formattedPublisher = publisher;
   if (isArticle && publisher) {
     formattedPublisher = `<i>${publisher}</i>`;
   }
 
-  // Format the citation
+  // Build the final citation
   let citation = `${author}, ${formattedTitle}`;
   if (isArticle) {
     citation += `, ${journal}`;
   } else if (formattedPublisher) {
     citation += ` (${formattedPublisher}`;
-    if (year) {
-      citation += `, ${year}`;
-    }
+    if (year) citation += `, ${year}`;
     citation += `)`;
   } else if (year) {
     citation += ` (${year})`;
   }
+
   if (pages) {
     citation += `, ${pages}`;
   }
@@ -116,4 +127,13 @@ export function generateBibtexFromForm(data) {
   const generatedBibtex = bibtexLines.join('\n');
   console.log("Generated BibTeX:", generatedBibtex);
   return generatedBibtex;
+}
+
+export function buildBibtexEntry({ citationID, title, author }) {
+  // Here we store the *raw* author ID field in the bibtex.
+  return `@book{${citationID},
+  author = {${author}},
+  title  = {${title}},
+  year   = {${new Date().getFullYear()}},
+}`;
 }

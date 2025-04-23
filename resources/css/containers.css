@@ -90,6 +90,51 @@ black #221F20;
   cursor: pointer;
 }
 
+/* ---------------------------------------------------
+   SCROLLER (exact same as toc/highlight/ref/hypercite)
+   --------------------------------------------------- */
+#newbook-container .scroller {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: auto;
+  padding: 0 1em 1em 1em; /* no top padding */
+  border-radius: 1em 1em;
+}
+
+/* ---------------------------------------------------
+   FADE OUT AT TOP
+   --------------------------------------------------- */
+#newbook-container .mask-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1em; /* matches scroller’s top padding */
+  pointer-events: none;
+  background-color: #221F20;
+  z-index: 10;
+  box-shadow: inset 0px -4px 4px -4px #221F20;
+  border-radius: 1em 1em 0 0;
+}
+
+/* ---------------------------------------------------
+   FADE OUT AT BOTTOM
+   --------------------------------------------------- */
+#newbook-container .mask-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1em; /* matches scroller’s bottom padding */
+  pointer-events: none;
+  background-color: #221F20;
+  z‑index: 10;
+  box-shadow: inset 0px 4px 4px -4px #221F20;
+  border-radius: 0 0 1em 1em;
+}
 
 
 #importCitation-container {
@@ -239,8 +284,6 @@ black #221F20;
   padding-right: 2em;
   border-radius: 1em 1em;
 }
-
-
 
 
 

@@ -1,6 +1,8 @@
 import { book } from "./app.js";
 import { updateIndexedDBRecord, deleteIndexedDBRecord, getNodeChunksFromIndexedDB } from "./cache-indexedDB.js";
 import { showSpinner, showTick } from "./editIndicator.js";
+import { openDatabase } from "./cache-indexedDB.js";
+import { buildBibtexEntry } from "./bibtexProcessor.js";
 
 // Global observer variable
 let observer;
@@ -581,11 +583,6 @@ function getCurrentChunk() {
 // Start observing only inside the current chunk container.
 export function startObserving(editableDiv) {
   console.log("🤓 startObserving function called");
-  // Only start observing if we are in edit mode:
-  if (!window.isEditing) {
-    console.log("Not in edit mode; observer will not start.");
-    return;
-  }
 
   // Stop any existing observer first
   stopObserving();
@@ -598,43 +595,84 @@ export function startObserving(editableDiv) {
   currentObservedChunk = currentChunk;
   console.log("Observing changes in chunk:", currentChunk);
 
-  observer = new MutationObserver((mutations) => {
-    // Guard: only process mutations if editing is active.
-    if (!window.isEditing) return;
-    
-    documentChanged = true;
-    
-    mutations.forEach((mutation) => {
-      if (mutation.type === "childList") {
-        mutation.addedNodes.forEach((node) => {
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            ensureNodeHasValidId(node);
-            updateIndexedDBRecord({
-              id: node.id,
-              html: node.outerHTML,
-              action: "add",
-            });
-          }
-        });
-        mutation.removedNodes.forEach((node) => {
-          if (node.nodeType === Node.ELEMENT_NODE && node.id) {
-            deleteIndexedDBRecord(node.id);
-          }
-        });
-      } else if (mutation.type === "characterData") {
-        const parent = mutation.target.parentElement;
-        if (parent && parent.id) {
-          updateIndexedDBRecord({
-            id: parent.id,
-            html: parent.outerHTML,
-            action: "update",
-          });
-        }
+    observer = new MutationObserver((mutations) => {
+  showSpinner();
+  documentChanged = true;
+
+  mutations.forEach((mutation) => {
+    // 1) Title‑sync logic for H1#1
+    const h1 = document.getElementById("1");
+    if (h1) {
+      // characterData inside H1
+      if (
+        mutation.type === "characterData" &&
+        mutation.target.parentNode?.closest('h1[id="1"]')
+      ) {
+        const newTitle = h1.innerText.trim();
+        updateLibraryTitle(book, newTitle).catch(console.error);
+        // also update the H1 node in nodeChunks
+        updateIndexedDBRecord({
+          id: h1.id,
+          html: h1.outerHTML,
+          action: "update"
+        }).catch(console.error);
       }
-    });
-    
-    debouncedNormalize(currentChunk);
+      // childList under H1 (e.g. paste)
+      if (
+        mutation.type === "childList" &&
+        Array.from(mutation.addedNodes).some((n) =>
+          n.closest && n.closest('h1[id="1"]')
+        )
+      ) {
+        const newTitle = h1.innerText.trim();
+        updateLibraryTitle(book, newTitle).catch(console.error);
+        updateIndexedDBRecord({
+          id: h1.id,
+          html: h1.outerHTML,
+          action: "update"
+        }).catch(console.error);
+      }
+    }
+
+    // 2) Original logic: additions
+    if (mutation.type === "childList") {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          // generate ID etc...
+          ensureNodeHasValidId(node);
+          updateIndexedDBRecord({
+            id: node.id,
+            html: node.outerHTML,
+            action: "add"
+          }).catch(console.error);
+          addedNodes.add(node);
+        }
+      });
+      // deletions
+      mutation.removedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE && node.id) {
+          deleteIndexedDBRecord(node.id);
+          removedNodeIds.add(node.id);
+        }
+      });
+    }
+    // 3) Original logic: characterData updates
+    else if (mutation.type === "characterData") {
+      const parent = mutation.target.parentNode;
+      if (parent && parent.id) {
+        updateIndexedDBRecord({
+          id: parent.id,
+          html: parent.outerHTML,
+          action: "update"
+        }).catch(console.error);
+        modifiedNodes.add(parent.id);
+      }
+    }
   });
+
+  debouncedNormalize(currentObservedChunk);
+});
+
 
   observer.observe(currentChunk, {
     childList: true,
@@ -647,6 +685,7 @@ export function startObserving(editableDiv) {
     normalizeNodeIds(currentChunk);
   }, 1000);
 }
+
 
 // Function to stop the MutationObserver.
 export function stopObserving() {
@@ -1143,4 +1182,156 @@ export function addPasteListener(editableDiv) {
       }
     }
   });
+}
+
+
+
+/**
+ * Ensure there's a library record for this book. If it doesn't exist,
+ * create a minimal one (you can expand this with author/timestamp/bibtex).
+ */
+/** Ensure there’s a library record for this book (or create a stub). */
+async function ensureLibraryRecord(bookId) {
+  const db = await openDatabase();
+
+  // FIRST: read‑only to check existence
+  {
+    const tx = db.transaction("library", "readonly");
+    const store = tx.objectStore("library");
+    const rec = await new Promise((res, rej) => {
+      const req = store.get(bookId);
+      req.onsuccess  = () => res(req.result);
+      req.onerror    = () => rej(req.error);
+    });
+    await tx.complete;  // make sure the readonly tx closes
+    if (rec) {
+      return rec;      // already there—no open tx left dangling
+    }
+  }
+
+  // SECOND: read‑write to create
+  {
+    const tx = db.transaction("library", "readwrite");
+    const store = tx.objectStore("library");
+    const newRec = {
+      citationID: bookId,
+      title: "",
+      author: localStorage.getItem("authorId") || "anon",
+      type: "book",
+      timestamp: new Date().toISOString(),
+    };
+    store.put(newRec);
+    await tx.complete;
+    return newRec;
+  }
+}
+
+
+
+/** Update only the title field (and regenerate bibtex) in the library record. */
+export async function updateLibraryTitle(bookId, newTitle) {
+  const db = await openDatabase();
+  const tx = db.transaction("library", "readwrite");
+  const store = tx.objectStore("library");
+
+  return new Promise((resolve, reject) => {
+    const req = store.get(bookId);
+    req.onsuccess = (e) => {
+      const rec = e.target.result;
+      if (!rec) return reject(new Error("Library record missing"));
+
+      // 1) Update title
+      rec.title = newTitle;
+
+      // 2) Regenerate the bibtex string so it stays in sync
+      rec.bibtex = buildBibtexEntry(rec);
+
+      // 3) Write back the record
+      const putReq = store.put(rec);
+      putReq.onsuccess = () => resolve(rec);
+      putReq.onerror   = (e) => reject(e.target.error);
+    };
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+
+/** Simple debounce helper */
+function debounce(fn, wait = 500) {
+  let tid;
+  return (...args) => {
+    clearTimeout(tid);
+    tid = setTimeout(() => fn(...args), wait);
+  };
+}
+
+/**
+ * Call this in edit mode to:
+ *   1) make sure library[bookId] exists
+ *   2) watch <h1 id="1"> inside the div#bookId
+ *   3) sync its text into library.title
+ */
+export async function initTitleSync(bookId) {
+  console.log("⏱ initTitleSync()", { bookId });
+  const editableContainer = document.getElementById(bookId);
+  if (!editableContainer) {
+    console.warn(`initTitleSync: no div#${bookId}`);
+    return;
+  }
+
+  await ensureLibraryRecord(bookId);
+
+  const titleNode = editableContainer.querySelector('h1[id="1"]');
+  if (!titleNode) {
+    console.warn("initTitleSync: no <h1 id=\"1\"> found");
+    return;
+  }
+  console.log("initTitleSync: found titleNode", titleNode);
+
+  // Debounced writer, with logging
+  const writeTitle = debounce(async () => {
+    const newTitle = titleNode.innerText.trim();
+    console.log("🖉 [title-sync] writeTitle firing, newTitle=", newTitle);
+    try {
+      await updateLibraryTitle(bookId, newTitle);
+      console.log("✔ [title-sync] updated library.title=", newTitle);
+    } catch (err) {
+      console.error("✖ [title-sync] failed to update:", err);
+    }
+  }, 500);
+
+  // direct listener on the h1
+  titleNode.addEventListener("input", (e) => {
+    console.log("🖉 [title-sync] input event on H1", e);
+    writeTitle();
+  });
+
+  // fallback: capture any input in the container and see if it's the H1
+  editableContainer.addEventListener("input", (e) => {
+    if (e.target === titleNode || titleNode.contains(e.target)) {
+      console.log("🖉 [title-sync] container catch of input on H1", e);
+      writeTitle();
+    }
+  });
+
+  // also observe mutations just in case execCommand or paste bypasses input
+    new MutationObserver((muts) => {
+    muts.forEach((m) => {
+      if (m.type === "characterData") {
+        // m.target could be a Text node
+        const parent = m.target.parentNode;
+        if (
+          parent &&
+          parent.nodeType === Node.ELEMENT_NODE &&
+          parent.closest('h1[id="1"]')
+        ) {
+          console.log("🖉 [title-sync] mutation detect", m);
+          writeTitle();
+        }
+      }
+    });
+  }).observe(titleNode, { characterData: true, subtree: true });
+
+
+  console.log("🛠 Title‑sync initialized for book:", bookId);
 }
