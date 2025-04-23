@@ -29,11 +29,25 @@ width: 28px; /* Matching width */
   background: #221F20;
   border: none;
   cursor: pointer;
-  padding: 4px;
+  padding: 0px;
   stroke: #CBCCCC;
+  box-sizing: border-box;
+
+  /* center the <svg> */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 
+#editButton.inverted {
+  background: #CBCCCC;
+  stroke: #221F20;
+  width: 28px; /* Matching width */
+  height: 28px;
+  border-radius: 4px;
+  border: none;
+}
 
 .open {
   background-color: #221F20;
@@ -75,12 +89,6 @@ black #221F20;
  
 
 
-.inverted svg {
-  background: #CBCCCC;
-  stroke: #221F20;
-  border-radius: 4px;
-  padding: 4px;
-}
 
 
 
