@@ -1,7 +1,17 @@
 import { ContainerManager } from "./container-manager.js";
-import { openDatabase } from "./cache-indexedDB.js";
+import { openDatabase, getNodeChunksFromIndexedDB } from "./cache-indexedDB.js";
 import { formatBibtexToCitation } from "./bibtexProcessor.js";
+import { book } from "./app.js";
 
+function getRecord(db, storeName, key) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readonly");
+    const store = tx.objectStore(storeName);
+    const req = store.get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
 /**
  * Build the inner-HTML for the source container:
  *  - fetch bibtex from IndexedDB
@@ -10,13 +20,12 @@ import { formatBibtexToCitation } from "./bibtexProcessor.js";
  */
 async function buildSourceHtml(currentBookId) {
   const db = await openDatabase();
-  const tx = db.transaction("library", "readonly");
-  const store = tx.objectStore("library");
-  const record = await store.get(currentBookId);
-  await tx.complete;
+  const record = await getRecord(db, "library", book);
+
+  console.log("buildSourceHtml got:", { book, record });
 
   const bibtex = record?.bibtex || "";
-  const citation = formatBibtexToCitation(bibtex);
+  const citation = formatBibtexToCitation(bibtex).trim();
 
   return `
     <div class="scroller">
@@ -133,10 +142,11 @@ export class SourceContainerManager extends ContainerManager {
     const mdBtn = this.container.querySelector("#download-md");
     const docxBtn = this.container.querySelector("#download-docx");
     if (mdBtn) {
-      mdBtn.addEventListener("click", () => {
+      mdBtn.addEventListener("click", async () => {
         // TODO: implement markdown download
         console.log("Download .md clicked");
-      });
+        exportBookAsMarkdown(book);
+        });
     }
     if (docxBtn) {
       docxBtn.addEventListener("click", () => {
@@ -252,3 +262,67 @@ const sourceManager = new SourceContainerManager(
   ["main-content"]
 );
 export default sourceManager;
+
+
+
+let _TurndownService = null;
+
+async function loadTurndown() {
+  if (_TurndownService) return _TurndownService;
+  // Skypack will auto-optimize to an ES module
+  const mod = await import('https://cdn.skypack.dev/turndown');
+  // turndown’s default export is the constructor
+  _TurndownService = mod.default;
+  return _TurndownService;
+}
+
+/**
+ * Fetches all nodeChunks for a book, converts to markdown,
+ * and returns a single string.
+ */
+async function buildMarkdownForBook(bookId = book || 'latest') {
+  // 1) get raw chunks
+  const chunks = await getNodeChunksFromIndexedDB(bookId);
+  // 2) sort by chunk_id
+  chunks.sort((a,b) => a.chunk_id - b.chunk_id);
+  // 3) load converter
+  const Turndown = await loadTurndown();
+  const turndownService = new Turndown();
+  // 4) convert each chunk.html (or chunk.content) → md
+  const mdParts = chunks.map(chunk =>
+    turndownService.turndown(chunk.content || chunk.html)
+  );
+  // 5) join with double newlines
+  return mdParts.join('\n\n');
+}
+
+/**
+ * Triggers a download in the browser of the given text as a .md file.
+ */
+function downloadMarkdown(filename, text) {
+  const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Public helper: build + download in one go.
+ */
+async function exportBookAsMarkdown(bookId = book || 'latest') {
+  try {
+    const md = await buildMarkdownForBook(bookId);
+    const filename = `book-${bookId}.md`;
+    downloadMarkdown(filename, md);
+    console.log(`✅ Markdown exported to ${filename}`);
+  } catch (err) {
+    console.error('❌ Failed to export markdown:', err);
+  }
+}
+
+
