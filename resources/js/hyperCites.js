@@ -446,7 +446,8 @@ export async function UpdateUnderlinePoly(event) {
       // If your hyperciteData contains a citedIN array, we build the container's content based on that.
       let linksHTML = "";
       if (Array.isArray(hyperciteData.citedIN) && hyperciteData.citedIN.length > 0) {
-        linksHTML = await Promise.all(
+        linksHTML = (
+          await Promise.all(
           hyperciteData.citedIN.map(async (citationID) => {
             // Extract the book/citation ID from the URL
             const bookID = citationID.split("#")[0].replace("/", "");
@@ -480,7 +481,8 @@ export async function UpdateUnderlinePoly(event) {
               };
             });
           })
-        ).then((results) => results.join("<br>"));
+        )
+           ).join("");  // ← join with the empty string
       } else {
         linksHTML = "<p>No citations available.</p>";
       }
