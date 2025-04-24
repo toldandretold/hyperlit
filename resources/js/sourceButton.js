@@ -2,6 +2,16 @@ import { ContainerManager } from "./container-manager.js";
 import { openDatabase, getNodeChunksFromIndexedDB } from "./cache-indexedDB.js";
 import { formatBibtexToCitation } from "./bibtexProcessor.js";
 import { book } from "./app.js";
+import { htmlToText } 
+  from 'https://cdn.skypack.dev/html-to-text';
+  import {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  HeadingLevel,
+  ExternalHyperlink
+} from 'https://cdn.skypack.dev/docx@8.3.0';
 
 function getRecord(db, storeName, key) {
   return new Promise((resolve, reject) => {
@@ -150,8 +160,8 @@ export class SourceContainerManager extends ContainerManager {
     }
     if (docxBtn) {
       docxBtn.addEventListener("click", () => {
-        // TODO: implement docx generation
         console.log("Download .docx clicked");
+        exportBookAsDocxStyled(book);
       });
     }
 
@@ -266,7 +276,6 @@ export default sourceManager;
 
 
 let _TurndownService = null;
-
 async function loadTurndown() {
   if (_TurndownService) return _TurndownService;
   // Skypack will auto-optimize to an ES module
@@ -274,6 +283,16 @@ async function loadTurndown() {
   // turndown’s default export is the constructor
   _TurndownService = mod.default;
   return _TurndownService;
+}
+
+let _Docx = null;
+async function loadDocxLib() {
+  if (_Docx) return _Docx;
+  // Skypack serves this as a proper ES module with CORS headers
+  const mod = await import('https://cdn.skypack.dev/docx@8.3.0');
+  // The module exports Document, Packer, Paragraph, etc.
+  _Docx = mod;
+  return _Docx;
 }
 
 /**
@@ -296,6 +315,80 @@ async function buildMarkdownForBook(bookId = book || 'latest') {
   return mdParts.join('\n\n');
 }
 
+async function buildHtmlForBook(bookId = book || 'latest') {
+  const chunks = await getNodeChunksFromIndexedDB(bookId);
+  chunks.sort((a, b) => a.chunk_id - b.chunk_id);
+  // assume chunk.content contains valid inner-HTML of each <div>
+  const body = chunks.map(c => c.content || c.html).join('\n');
+  // wrap in minimal docx‐friendly HTML
+  return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Book ${bookId}</title>
+  </head>
+  <body>
+    ${body}
+  </body>
+</html>`;
+}
+
+async function buildDocxBuffer(bookId = book || 'latest') {
+  const { Document, Packer, Paragraph, TextRun } = await loadDocxLib();
+  const chunks = await getNodeChunksFromIndexedDB(bookId);
+  chunks.sort((a, b) => a.chunk_id - b.chunk_id);
+
+  // Flatten all HTML → plaintext (you can also parse tags more richly)
+  const paragraphs = chunks.map(chunk => {
+    const plaintext = htmlToText(chunk.content || chunk.html, {
+      wordwrap: false,
+      selectors: [{ selector: 'a', options: { ignoreHref: true } }],
+    });
+    return new Paragraph({
+      children: [new TextRun(plaintext)],
+    });
+  });
+
+  const doc = new Document({
+    sections: [{ properties: {}, children: paragraphs }],
+  });
+
+  // Packer.toBlob returns a Blob suitable for download
+  return Packer.toBlob(doc);
+}
+
+/**
+ * Public helper: build + download in one go.
+ */
+async function exportBookAsMarkdown(bookId = book || 'latest') {
+  try {
+    const md = await buildMarkdownForBook(bookId);
+    const filename = `book-${bookId}.md`;
+    downloadMarkdown(filename, md);
+    console.log(`✅ Markdown exported to ${filename}`);
+  } catch (err) {
+    console.error('❌ Failed to export markdown:', err);
+  }
+}
+
+async function exportBookAsDocx(bookId = book || 'latest') {
+  try {
+    const blob = await buildDocxBuffer(bookId);
+    const filename = `book-${bookId}.docx`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    console.log(`✅ DOCX exported to ${filename}`);
+  } catch (err) {
+    console.error('❌ Failed to export .docx:', err);
+  }
+}
+
 /**
  * Triggers a download in the browser of the given text as a .md file.
  */
@@ -311,17 +404,195 @@ function downloadMarkdown(filename, text) {
   URL.revokeObjectURL(url);
 }
 
-/**
- * Public helper: build + download in one go.
- */
-async function exportBookAsMarkdown(bookId = book || 'latest') {
+//
+
+
+// Walk a DOM node and return either Paragraphs or Runs.
+// Runs of type TextRun must be created with their styling flags upfront.
+function htmlElementToDocx(node) {
+  const out = [];
+
+  node.childNodes.forEach(child => {
+    if (child.nodeType === Node.TEXT_NODE) {
+      // plain text
+      out.push(
+        new TextRun({
+          text: child.textContent,
+        })
+      );
+    }
+    else if (child.nodeType === Node.ELEMENT_NODE) {
+      const tag = child.tagName.toLowerCase();
+
+      switch (tag) {
+        case 'h1':
+        case 'h2':
+        case 'h3':
+        case 'h4':
+        case 'h5':
+        case 'h6': {
+          const level = {
+            h1: HeadingLevel.HEADING_1,
+            h2: HeadingLevel.HEADING_2,
+            h3: HeadingLevel.HEADING_3,
+            h4: HeadingLevel.HEADING_4,
+            h5: HeadingLevel.HEADING_5,
+            h6: HeadingLevel.HEADING_6,
+          }[tag];
+          out.push(
+            new Paragraph({
+              text: child.textContent,
+              heading: level,
+            })
+          );
+          break;
+        }
+
+        case 'strong':
+        case 'b': {
+          // Bold: each text node under here becomes a bold run
+          child.childNodes.forEach(n => {
+            if (n.nodeType === Node.TEXT_NODE) {
+              out.push(
+                new TextRun({
+                  text: n.textContent,
+                  bold: true,
+                })
+              );
+            } else {
+              // nested tags: recurse and mark bold on each run
+              htmlElementToDocx(n).forEach(run => {
+                if (run instanceof TextRun) {
+                  out.push(
+                    new TextRun({
+                      text: run.text,
+                      bold: true,
+                      italics: run.italics,
+                    })
+                  );
+                } else {
+                  out.push(run);
+                }
+              });
+            }
+          });
+          break;
+        }
+
+        case 'em':
+        case 'i': {
+          child.childNodes.forEach(n => {
+            if (n.nodeType === Node.TEXT_NODE) {
+              out.push(
+                new TextRun({
+                  text: n.textContent,
+                  italics: true,
+                })
+              );
+            } else {
+              htmlElementToDocx(n).forEach(run => {
+                if (run instanceof TextRun) {
+                  out.push(
+                    new TextRun({
+                      text: run.text,
+                      italics: true,
+                      bold: run.bold,
+                    })
+                  );
+                } else {
+                  out.push(run);
+                }
+              });
+            }
+          });
+          break;
+        }
+
+        case 'a': {
+          const url = child.getAttribute('href') || '';
+          const text = child.textContent;
+          out.push(
+            new ExternalHyperlink({
+              link: url,
+              children: [
+                new TextRun({
+                  text,
+                  style: 'Hyperlink',
+                }),
+              ],
+            })
+          );
+          break;
+        }
+
+        case 'br': {
+          out.push(new TextRun({ text: '\n' }));
+          break;
+        }
+
+        default:
+          // everything else: recurse inline
+          htmlElementToDocx(child).forEach(item => out.push(item));
+      }
+    }
+  });
+
+  return out;
+}
+
+// Build the docx with styled runs/headings/links
+async function buildDocxWithStyles(bookId = book || 'latest') {
+  const chunks = await getNodeChunksFromIndexedDB(bookId);
+  chunks.sort((a,b) => a.chunk_id - b.chunk_id);
+
+  const parser = new DOMParser();
+  const children = [];
+
+  for (const chunk of chunks) {
+    const frag = parser.parseFromString(
+      `<div>${chunk.content||chunk.html}</div>`,
+      'text/html'
+    ).body.firstChild;
+
+    // collect Runs and Paragraphs
+    const runsAndParas = htmlElementToDocx(frag);
+
+    // group Runs into Paragraphs
+    let buf = [];
+    runsAndParas.forEach(item => {
+      if (item instanceof Paragraph) {
+        if (buf.length) {
+          children.push(new Paragraph({ children: buf }));
+          buf = [];
+        }
+        children.push(item);
+      } else {
+        buf.push(item);
+      }
+    });
+    if (buf.length) {
+      children.push(new Paragraph({ children: buf }));
+    }
+  }
+
+  const doc = new Document({
+    sections: [{ properties: {}, children }],
+  });
+  return Packer.toBlob(doc);
+}
+
+async function exportBookAsDocxStyled(bookId = book || 'latest') {
   try {
-    const md = await buildMarkdownForBook(bookId);
-    const filename = `book-${bookId}.md`;
-    downloadMarkdown(filename, md);
-    console.log(`✅ Markdown exported to ${filename}`);
-  } catch (err) {
-    console.error('❌ Failed to export markdown:', err);
+    const blob = await buildDocxWithStyles(bookId);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `book-${bookId}.docx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    console.log('✅ Styled DOCX exported');
+  } catch (e) {
+    console.error('❌ export styled docx failed', e);
   }
 }
 
