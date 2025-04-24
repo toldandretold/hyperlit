@@ -22,26 +22,15 @@ black #221F20;
   padding-left: 1em;
   padding-right: 2em;
   border-radius: 1em 1em;
+
 }
 
+#source-container .scroller {
+  padding: 1em;
+  overflow-y: auto;  /* if you want vertical scroll */
+  max-height: 100%;   /* prevents overflow beyond the container */
+}
 
-#source-container {
-    transition: transform 0.3s ease-in-out;
-    border-radius: 1em 1em;
-    overflow-y: auto;           /* Enable vertical scrolling for the container */
-    overflow-x: hidden;
-    padding-left: 1em;
-    padding-right: 2em;
-    position: fixed;
-    top: 16px;
-    right: 16px;
-     width: 80%;
-    height: 90%;
-    background-color: #221F20;
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
-    border-radius: 1em 1em;
-}   
 
 
 

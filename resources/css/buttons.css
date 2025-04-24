@@ -246,3 +246,41 @@ black #221F20;
   transform: rotate(45deg);
   transition: transform 0.3s ease-out;
 }
+
+.download-icon {
+  /* kill these: they interfere with flex centering */
+  /* background-color: #221F20; */
+  /* padding: 4px; */
+  display: block;
+}
+
+.download-icon path {
+  fill: #CBCCCC !important;
+}
+
+.icon-wrapper {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#download-md .download-icon {
+  width: 100%;
+  height: 100%;
+}
+
+#download-docx .download-icon {
+  width: 80%;
+  height: 100%;
+}
+
+.download-btn {
+  background:     #221F20;
+  color:          #CBCCCC;
+  border:         none;
+  padding:        0.5em;
+  border-radius:  0.25em;
+  cursor:         pointer;
+}

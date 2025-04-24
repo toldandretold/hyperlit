@@ -1,91 +1,189 @@
 import { ContainerManager } from "./container-manager.js";
+import { openDatabase } from "./cache-indexedDB.js";
+import { formatBibtexToCitation } from "./bibtexProcessor.js";
+
+/**
+ * Build the inner-HTML for the source container:
+ *  - fetch bibtex from IndexedDB
+ *  - format it to a citation
+ *  - append a Download section with two buttons
+ */
+async function buildSourceHtml(currentBookId) {
+  const db = await openDatabase();
+  const tx = db.transaction("library", "readonly");
+  const store = tx.objectStore("library");
+  const record = await store.get(currentBookId);
+  await tx.complete;
+
+  const bibtex = record?.bibtex || "";
+  const citation = formatBibtexToCitation(bibtex);
+
+  return `
+    <div class="scroller">
+    <div class="citation">${citation}</div>
+    
+    <button id="download-md" class="download-btn">
+  <div class="icon-wrapper">
+    <svg
+      class="download-icon"
+      viewBox="0 0 24 24"
+      preserveAspectRatio="xMidYMid meet"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+        <!-- no <rect> or white box here; just the two paths -->
+        <path
+          fill="currentColor"
+          d="M14.481 14.015c-.238 0-.393.021-.483.042v3.089c.091.021.237.021.371.021.966.007 1.597-.525 1.597-1.653.007-.981-.568-1.499-1.485-1.499z"
+        />
+        <path
+          fill="currentColor"
+          d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-2.934 15.951-.07-1.807a53.142 53.142 0 0 1-.042-1.94h-.021a26.098 26.098 0 0 1-.525 1.828l-.574 1.842H9l-.504-1.828a21.996 21.996 0 0 1-.428-1.842h-.013c-.028.638-.049 1.366-.084 1.954l-.084 1.793h-.988L7.2 13.23h1.422l.462 1.576c.147.546.295 1.135.399 1.688h.021a39.87 39.87 0 0 1 .448-1.694l.504-1.569h1.394l.26 4.721h-1.044zm5.25-.56c-.498.413-1.253.609-2.178.609a9.27 9.27 0 0 1-1.212-.07v-4.636a9.535 9.535 0 0 1 1.443-.099c.896 0 1.478.161 1.933.505.49.364.799.945.799 1.778 0 .904-.33 1.528-.785 1.913zM14 9h-1V4l5 5h-4z"
+        />
+      </svg>
+      </div>
+    </button>
+
+    
+    <button id="download-docx" class="download-btn">
+  <div class="icon-wrapper">
+    <svg
+      class="download-icon"
+      viewBox="0 0 31.004 31.004"
+      preserveAspectRatio="xMidYMid meet"  
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <g fill="currentColor">
+        <!-- Remove inline style="fill:#030104;" -->
+        <path d="M22.399,31.004V26.49c0-0.938,0.758-1.699,1.697-1.699l3.498-0.1L22.399,31.004z"/>
+        <path d="M25.898,0H5.109C4.168,0,3.41,0.76,3.41,1.695v27.611c0,0.938,0.759,1.697,1.699,1.697h15.602v-6.02
+          c0-0.936,0.762-1.697,1.699-1.697h5.185V1.695C27.594,0.76,26.837,0,25.898,0z
+          M24.757,14.51c0,0.266-0.293,0.484-0.656,0.484H6.566c-0.363,0-0.658-0.219-0.658-0.484v-0.807
+          c0-0.268,0.295-0.484,0.658-0.484h17.535c0.363,0,0.656,0.217,0.656,0.484L24.757,14.51z
+          M24.757,17.988c0,0.27-0.293,0.484-0.656,0.484H6.566c-0.363,0-0.658-0.215-0.658-0.484v-0.805
+          c0-0.268,0.295-0.486,0.658-0.486h17.535c0.363,0,0.656,0.219,0.656,0.486L24.757,17.988z
+          M24.757,21.539c0,0.268-0.293,0.484-0.656,0.484H6.566c-0.363,0-0.658-0.217-0.658-0.484v-0.807
+          c0-0.268,0.295-0.486,0.658-0.486h17.535c0.363,0,0.656,0.219,0.656,0.486L24.757,21.539z
+          M15.84,25.055c0,0.266-0.155,0.48-0.347,0.48H6.255c-0.192,0-0.348-0.215-0.348-0.48v-0.809
+          c0-0.266,0.155-0.484,0.348-0.484h9.238c0.191,0,0.347,0.219,0.347,0.484V25.055z
+          M12.364,11.391L10.68,5.416l-1.906,5.975H8.087c0,0-2.551-7.621-2.759-7.902
+          C5.194,3.295,4.99,3.158,4.719,3.076V2.742h3.783v0.334c-0.257,0-0.434,0.041-0.529,0.125
+          s-0.144,0.18-0.144,0.287c0,0.102,1.354,4.193,1.354,4.193l1.058-3.279c0,0-0.379-0.947-0.499-1.072
+          C9.621,3.209,9.434,3.123,9.182,3.076V2.742h3.84v0.334c-0.301,0.018-0.489,0.065-0.569,0.137
+          c-0.08,0.076-0.12,0.182-0.12,0.32c0,0.131,1.291,4.148,1.291,4.148s1.171-3.74,1.171-3.896
+          c0-0.234-0.051-0.404-0.153-0.514c-0.101-0.107-0.299-0.172-0.592-0.195V2.742h2.22v0.334
+          c-0.245,0.035-0.442,0.133-0.585,0.291c-0.146,0.158-2.662,8.023-2.662,8.023h-0.66V11.391z
+          M24.933,4.67c0,0.266-0.131,0.482-0.293,0.482h-7.79c-0.162,0-0.293-0.217-0.293-0.482V3.861
+          c0-0.266,0.131-0.482,0.293-0.482h7.79c0.162,0,0.293,0.217,0.293,0.482V4.67z
+          M24.997,10.662c0,0.268-0.131,0.48-0.292,0.48h-7.791c-0.164,0-0.293-0.213-0.293-0.48V9.854
+          c0-0.266,0.129-0.484,0.293-0.484h7.791c0.161,0,0.292,0.219,0.292,0.484V10.662z
+          M24.965,7.676c0,0.268-0.129,0.482-0.293,0.482h-7.79c-0.162,0-0.293-0.215-0.293-0.482
+          V6.869c0-0.268,0.131-0.484,0.293-0.484h7.79c0.164,0,0.293,0.217,0.293,0.484V7.676z"
+        />
+      </g>
+    </svg>
+    </div>
+  </button>
+
+    </div>
+  `;
+}
 
 export class SourceContainerManager extends ContainerManager {
   constructor(containerId, overlayId, buttonId, frozenContainerIds = []) {
     super(containerId, overlayId, buttonId, frozenContainerIds);
-    
     this.setupSourceContainerStyles();
     this.isAnimating = false;
   }
-  
+
   setupSourceContainerStyles() {
-    const container = this.container;
-    if (!container) return;
-    
-    // Set initial styles for the container when closed
-    container.style.position = "fixed";
-    container.style.top = "16px";
-    container.style.right = "16px";
-    container.style.width = "0";
-    container.style.height = "0";
-    container.style.overflow = "hidden";
-    container.style.transition = "width 0.4s ease-out, height 0.4s ease-out";
-    container.style.zIndex = "1000";
-    container.style.backgroundColor = "#221F20";
-    container.style.boxShadow = "0 0 15px rgba(0, 0, 0, 0.2)";
-    container.style.borderRadius = "1em 1em";
+    const c = this.container;
+    if (!c) return;
+    Object.assign(c.style, {
+      position: "fixed",
+      top: "16px",
+      right: "16px",
+      width: "0",
+      height: "0",
+      overflow: "hidden",
+      transition: "width 0.4s ease-out, height 0.4s ease-out",
+      zIndex: "1000",
+      backgroundColor: "#221F20",
+      boxShadow: "0 0 15px rgba(0, 0, 0, 0.2)",
+      borderRadius: "1em",
+      maxWidth: "400px",
+      maxHeight: "400px",
+    });
   }
-  
-  openContainer(content = null, highlightId = null) {
+
+  async openContainer(content = null, highlightId = null) {
     if (this.isAnimating) return;
     this.isAnimating = true;
-    
-    console.log("Opening source container");
-    
-    // Set content if provided or use initial content
-    if (content && this.container) {
-      this.container.innerHTML = content;
-    } else if (this.initialContent && this.container) {
-      this.container.innerHTML = this.initialContent;
+
+    // 1) build or accept HTML
+    let html = content;
+    if (!html) {
+      const bookId = window.currentBookId || "default-id";
+      html = await buildSourceHtml(bookId);
     }
-    
-    // Make container visible but with 0 dimensions
+
+    // 2) inject into container
+    this.container.innerHTML = html;
+
+    // 3) wire download buttons *once*
+    const mdBtn = this.container.querySelector("#download-md");
+    const docxBtn = this.container.querySelector("#download-docx");
+    if (mdBtn) {
+      mdBtn.addEventListener("click", () => {
+        // TODO: implement markdown download
+        console.log("Download .md clicked");
+      });
+    }
+    if (docxBtn) {
+      docxBtn.addEventListener("click", () => {
+        // TODO: implement docx generation
+        console.log("Download .docx clicked");
+      });
+    }
+
+    // 4) make container visible
     this.container.classList.remove("hidden");
     this.container.style.visibility = "visible";
     this.container.style.display = "block";
-    
-    // Get viewport dimensions
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    
-    // Calculate target dimensions
-    const targetWidth = viewportWidth * 0.8;
-    const targetHeight = viewportHeight * 0.9;
-    
-    // Start the animation
+
+    // 5) compute target size
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const w = Math.min(vw * 0.8, 600);
+    const h = Math.min(vh * 0.9, 800);
+
+    // 6) animate open
     requestAnimationFrame(() => {
-      this.container.style.width = `${targetWidth}px`;
-      this.container.style.height = `${targetHeight}px`;
-      
-      // Freeze background elements
+      this.container.style.width = `${w}px`;
+      this.container.style.height = `${h}px`;
+
+      // freeze background
       this.frozenElements.forEach((el) => this.freezeElement(el));
-      
-      // Activate overlay - IMPORTANT: Make sure it's visible
+
+      // activate overlay
       if (this.overlay) {
-        console.log("Activating overlay");
         this.overlay.classList.add("active");
         this.overlay.style.display = "block";
         this.overlay.style.opacity = "1";
       }
-      
-      // Hide navigation elements
-      const navButtons = document.getElementById("nav-buttons");
-      const logoContainer = document.getElementById("logoContainer");
-      const topRightContainer = document.getElementById("topRightContainer");
-      
-      if (navButtons) navButtons.classList.add("hidden-nav");
-      if (logoContainer) logoContainer.classList.add("hidden-nav");
-      if (topRightContainer) topRightContainer.classList.add("hidden-nav");
-      
-      // CORRECTED: Set state properly when opening
+
+      // hide nav
+      ["nav-buttons", "logoContainer", "topRightContainer"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add("hidden-nav");
+      });
+
       this.isOpen = true;
       if (window.uiState) {
         window.uiState.setActiveContainer(this.container.id);
       } else {
         window.activeContainer = this.container.id;
       }
-      
-      // Complete animation
+
       this.container.addEventListener(
         "transitionend",
         () => {
@@ -100,82 +198,57 @@ export class SourceContainerManager extends ContainerManager {
   closeContainer() {
     if (this.isAnimating) return;
     this.isAnimating = true;
-    
-    console.log("Closing source container");
-    
-    // Start the closing animation
+
+    // animate close
     this.container.style.width = "0";
     this.container.style.height = "0";
-    
-    // Unfreeze background elements
+
+    // unfreeze background
     this.frozenElements.forEach((el) => this.unfreezeElement(el));
-    
-    // Deactivate overlay - IMPORTANT: Make sure it's hidden
+
+    // hide overlay
     if (this.overlay) {
-      console.log("Deactivating overlay");
       this.overlay.classList.remove("active");
-      // Force overlay to be hidden with inline styles
       this.overlay.style.display = "none";
       this.overlay.style.opacity = "0";
     }
-    
-    // Show navigation elements
-    const navButtons = document.getElementById("nav-buttons");
-    const logoContainer = document.getElementById("logoContainer");
-    const topRightContainer = document.getElementById("topRightContainer");
-    
-    if (navButtons) navButtons.classList.remove("hidden-nav");
-    if (logoContainer) logoContainer.classList.remove("hidden-nav");
-    if (topRightContainer) topRightContainer.classList.remove("hidden-nav");
-    
-    // Set state
+
+    // show nav
+    ["nav-buttons", "logoContainer", "topRightContainer"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove("hidden-nav");
+    });
+
     this.isOpen = false;
     if (window.uiState) {
       window.uiState.setActiveContainer("main-content");
     } else {
       window.activeContainer = "main-content";
     }
-    
-    // Complete animation
+
     this.container.addEventListener(
       "transitionend",
       () => {
-        // Additional cleanup after animation completes
         this.container.classList.add("hidden");
         this.isAnimating = false;
         console.log("Source container close animation complete");
-        
-        // Double-check overlay is hidden
-        if (this.overlay) {
-          this.overlay.style.display = "none";
-        }
+        if (this.overlay) this.overlay.style.display = "none";
       },
       { once: true }
     );
   }
-  
+
   toggleContainer() {
-    console.log("Toggle container called, isOpen:", this.isOpen);
-    if (this.isAnimating) {
-      console.log("Animation in progress, ignoring toggle");
-      return;
-    }
-    
-    if (this.isOpen) {
-      this.closeContainer();
-    } else {
-      this.openContainer();
-    }
+    if (this.isAnimating) return;
+    this.isOpen ? this.closeContainer() : this.openContainer();
   }
 }
 
-// Initialize the source container manager
+// initialize and export
 const sourceManager = new SourceContainerManager(
   "source-container",
   "ref-overlay",
   "cloudRef",
   ["main-content"]
 );
-
-// Export the manager instance for use in other files if needed
 export default sourceManager;
