@@ -32,6 +32,7 @@ function debounce(func, wait) {
   };
 }
 
+
 function observeEditableDiv(editableDiv) {
   const originalContent = new Map();
   editableDiv.querySelectorAll("[id]").forEach((node) => {
@@ -1256,14 +1257,7 @@ export async function updateLibraryTitle(bookId, newTitle) {
 }
 
 
-/** Simple debounce helper */
-function debounce(fn, wait = 500) {
-  let tid;
-  return (...args) => {
-    clearTimeout(tid);
-    tid = setTimeout(() => fn(...args), wait);
-  };
-}
+
 
 /**
  * Call this in edit mode to:

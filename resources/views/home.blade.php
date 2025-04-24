@@ -224,7 +224,8 @@
 
  
 @vite([
-    'resources/js/reader-DOMContentLoaded.js'
+    'resources/js/reader-DOMContentLoaded.js',
+    'resources/js/renderOpenBooks.js'
 ])
 
 

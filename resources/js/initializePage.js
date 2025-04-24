@@ -183,6 +183,9 @@ export async function loadMarkdownFile() {
     }
     
     console.log("✅ Content loading complete");
+
+    // notify everyone that we’re done
+    document.dispatchEvent(new Event('pageReady'));
     
   } catch (error) {
     console.error("❌ Error loading content:", error);
