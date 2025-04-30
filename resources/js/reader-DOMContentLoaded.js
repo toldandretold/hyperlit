@@ -119,7 +119,7 @@ if (!window.isInitialized) {
     if (pageType === "reader") {
       const navButtons = new NavButtons({
         elementIds: ["nav-buttons", "logoContainer", "topRightContainer"],
-        tapThreshold: 10,
+        tapThreshold: 15,
       });
 
       navButtons.init();

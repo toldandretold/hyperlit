@@ -3,7 +3,7 @@ import { fetchLatestUpdateInfo, handleTimestampComparison } from "./updateCheck.
 import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from "./lazyLoaderFactory.js";
 import { ContainerManager } from "./container-manager.js";
 import { navigateToInternalId } from "./scrolling.js";
-import { openDatabase } from "./cache-indexedDB.js";
+import { openDatabase, parseNodeId, createNodeChunksKey } from "./cache-indexedDB.js";
 import { attachAnnotationListener } from "./annotation-saver.js";
 
 
@@ -330,7 +330,7 @@ async function addToHighlightsTable(highlightData) {
       startLine: highlightData.startLine
     };
 
-    const addRequest = store.add(highlightEntry);
+    const addRequest = store.put(highlightEntry);
 
     addRequest.onsuccess = () => {
       console.log("✅ Successfully added highlight to hyperlights table");
@@ -451,54 +451,46 @@ addTouchAndClickListener(
 
     // Find all nodes that contain marks with this highlightId
     const affectedMarks = document.querySelectorAll(`mark.${highlightId}`);
-    const affectedNodes = new Set();
-
-    // Collect all unique container nodes that have our highlight
+    const affectedIds = new Set();
     affectedMarks.forEach(mark => {
-      // Only look for specific container elements, not any element with an ID
-      const container = mark.closest("p, h1, h2, h3, h4, h5, h6, blockquote, table");
+      const container = mark.closest(
+        "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id]"
+      );
       if (container && container.id) {
-        affectedNodes.add(container);
+        affectedIds.add(container.id);    // keep "1.1" intact
       }
     });
-    
-    console.log("All affected nodes:", Array.from(affectedNodes).map(node => node.id));
+    console.log("Will update chunks:", Array.from(affectedIds));
     
     // Update all affected nodes in IndexedDB
-    for (const node of affectedNodes) {
-      const nodeId = parseInt(node.getAttribute("id"), 10);
-      if (isNaN(nodeId)) continue;
-      
-      // Determine if this is start, middle, or end node
-      let startOffset = 0;
-      let endOffset = node.textContent.length;
-      
-      if (node === startContainer) {
-        startOffset = trueStartOffset;
-      }
-      
-      if (node === endContainer) {
-        endOffset = trueEndOffset;
-      }
-      
-      await updateNodeHighlight(node, startOffset, endOffset, highlightId);
-      console.log(`Updated node ${node.id} with offsets:`, { start: startOffset, end: endOffset });
+    // 2) call updateNodeHighlight by ID string
+    for (const chunkId of affectedIds) {
+      const isStart = chunkId === startContainer.id;
+      const isEnd   = chunkId === endContainer.id;
+      const textElem = document.getElementById(chunkId);
+      const len = textElem ? textElem.textContent.length : 0;
+      const startOffset = isStart ? trueStartOffset : 0;
+      const endOffset   = isEnd   ? trueEndOffset   : len;
+
+      await updateNodeHighlight(
+        chunkId,       // PASS the string "1.1"
+        startOffset,
+        endOffset,
+        highlightId
+      );
+      console.log(`Updated chunk ${chunkId}`);
     }
 
-    try {
+     try {
+      // 3) in the hyperlights table, also keep startLine as string
       await addToHighlightsTable({
-        highlightId: highlightId,
+        highlightId,
         text: selectedText,
         startChar: trueStartOffset,
         endChar: trueEndOffset,
-        startLine: parseInt(startContainer.getAttribute("id"), 10)
+        startLine: startContainer.id   // keep "1.1"
       });
-      console.log("Added to highlights table with data:", {
-        highlightId: highlightId,
-        text: selectedText,
-        startChar: trueStartOffset,
-        endChar: trueEndOffset
-      });
+      console.log("Added to highlights table");
     } catch (error) {
       console.error("❌ Error saving highlight metadata:", error);
     }
@@ -507,80 +499,74 @@ addTouchAndClickListener(
   }
 );
 
-async function updateNodeHighlight(containerNode, highlightStartOffset, highlightEndOffset, highlightId) {
+// new signature — takes chunkId as a string (e.g. "1.1")
+async function updateNodeHighlight(
+  chunkId,
+  highlightStartOffset,
+  highlightEndOffset,
+  highlightId
+) {
   const db = await openDatabase();
-
   return new Promise((resolve, reject) => {
     const tx = db.transaction("nodeChunks", "readwrite");
     const store = tx.objectStore("nodeChunks");
-    const startLine = parseInt(containerNode.getAttribute("id"), 10);
 
-    if (isNaN(startLine)) {
-      console.error("❌ Invalid node line id on", containerNode);
-      reject(null);
-      return;
-    }
-
-    // Use the compound key [book, startLine] to access the node
-    const getRequest = store.get([book, startLine]);
+    // Use the helper to create a consistent key
+    const key = createNodeChunksKey(book, chunkId);
+    console.log("Looking up with key:", key);
+    
+    const getRequest = store.get(key);
 
     getRequest.onsuccess = () => {
       const node = getRequest.result;
       if (!node) {
-        console.warn(`Could not find node in IDB for book: ${book}, startLine: ${startLine}`);
-        resolve(null);
+        console.warn(`No nodeChunks record for key [${book}, ${chunkId}]`);
+        
+        // Create a new node if it doesn't exist
+        const newNode = {
+          book: book,
+          startLine: parseNodeId(chunkId),  // Store as number
+          chunk_id: parseNodeId(chunkId),
+          content: document.getElementById(chunkId)?.innerHTML || "",
+          hyperlights: [{
+            highlightID: highlightId,
+            charStart: highlightStartOffset,
+            charEnd: highlightEndOffset
+          }]
+        };
+        
+        const putReq = store.put(newNode);
+        putReq.onsuccess = () => {
+          console.log(`Created new node for [${book}, ${chunkId}]`);
+          resolve();
+        };
+        putReq.onerror = e => reject(e.target.error);
         return;
       }
-
-      // Add the highlight info to the node
-      if (!node.hyperlights) {
-        node.hyperlights = [];
-      }
-
-      const existingHighlight = node.hyperlights.find(
-        highlight => highlight.highlightID === highlightId
-      );
-
-      if (!existingHighlight) {
+      
+      node.hyperlights = node.hyperlights || [];
+      // Add your highlight if missing
+      if (!node.hyperlights.find(h => h.highlightID === highlightId)) {
         node.hyperlights.push({
           highlightID: highlightId,
           charStart: highlightStartOffset,
           charEnd: highlightEndOffset
         });
       }
-
-      console.log(
-        `Highlight added to IndexedDB for book: ${book}, node with id: ${node.startLine}`
-      );
       
-      // Update IDB with the updated node (using compound key):
-      const putRequest = store.put(node);
-
-      putRequest.onsuccess = () => {
-        console.log(
-          `✅ Updated IndexedDB with hyperlight for book: ${book}, node with id: ${node.startLine}`
-        );
+      const putReq = store.put(node);
+      putReq.onsuccess = () => {
+        console.log(`Updated node [${book}, ${chunkId}] with highlight`);
         resolve();
       };
-      
-      putRequest.onerror = event => {
-        console.error(
-          `❌ Error updating IndexedDB with hyperlight for book: ${book}, node with id: ${node.startLine}`,
-          event.target.error
-        );
-        reject(event.target.error);
-      };
-    };
-    
-    getRequest.onerror = (event) => {
-      console.error(`Error getting Node from IndexedDB for book: ${book}, startLine: ${startLine}`, event.target.error);
-      reject(getRequest.error);
+      putReq.onerror = e => reject(e.target.error);
     };
 
-    tx.oncomplete = () => console.log("Transaction Complete");
-    tx.onerror = error => console.warn("Transaction Error", error);
+    getRequest.onerror = e => reject(e.target.error);
   });
 }
+
+
 
 
 // Simplified delete highlight function

@@ -1,5 +1,11 @@
 import { book } from "./app.js";
-import { updateIndexedDBRecord, deleteIndexedDBRecord, getNodeChunksFromIndexedDB } from "./cache-indexedDB.js";
+import { 
+  updateIndexedDBRecord, 
+  deleteIndexedDBRecord, 
+  getNodeChunksFromIndexedDB,
+  parseNodeId,
+  createNodeChunksKey 
+} from "./cache-indexedDB.js";
 import { showSpinner, showTick } from "./editIndicator.js";
 import { openDatabase } from "./cache-indexedDB.js";
 import { buildBibtexEntry } from "./bibtexProcessor.js";
@@ -585,6 +591,9 @@ function getCurrentChunk() {
 export function startObserving(editableDiv) {
   console.log("🤓 startObserving function called");
 
+  // Tell the browser "Enter key ⇒ <p>" instead of <div>
+  document.execCommand('defaultParagraphSeparator', false, 'p');
+
   // Stop any existing observer first
   stopObserving();
   
@@ -596,84 +605,83 @@ export function startObserving(editableDiv) {
   currentObservedChunk = currentChunk;
   console.log("Observing changes in chunk:", currentChunk);
 
-    observer = new MutationObserver((mutations) => {
-  showSpinner();
-  documentChanged = true;
+  observer = new MutationObserver((mutations) => {
+    showSpinner();
+    documentChanged = true;
 
-  mutations.forEach((mutation) => {
-    // 1) Title‑sync logic for H1#1
-    const h1 = document.getElementById("1");
-    if (h1) {
-      // characterData inside H1
-      if (
-        mutation.type === "characterData" &&
-        mutation.target.parentNode?.closest('h1[id="1"]')
-      ) {
-        const newTitle = h1.innerText.trim();
-        updateLibraryTitle(book, newTitle).catch(console.error);
-        // also update the H1 node in nodeChunks
-        updateIndexedDBRecord({
-          id: h1.id,
-          html: h1.outerHTML,
-          action: "update"
-        }).catch(console.error);
-      }
-      // childList under H1 (e.g. paste)
-      if (
-        mutation.type === "childList" &&
-        Array.from(mutation.addedNodes).some((n) =>
-          n.closest && n.closest('h1[id="1"]')
-        )
-      ) {
-        const newTitle = h1.innerText.trim();
-        updateLibraryTitle(book, newTitle).catch(console.error);
-        updateIndexedDBRecord({
-          id: h1.id,
-          html: h1.outerHTML,
-          action: "update"
-        }).catch(console.error);
-      }
-    }
-
-    // 2) Original logic: additions
-    if (mutation.type === "childList") {
-      mutation.addedNodes.forEach((node) => {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          // generate ID etc...
-          ensureNodeHasValidId(node);
+    mutations.forEach((mutation) => {
+      // 1) Title‑sync logic for H1#1
+      const h1 = document.getElementById("1");
+      if (h1) {
+        // characterData inside H1
+        if (
+          mutation.type === "characterData" &&
+          mutation.target.parentNode?.closest('h1[id="1"]')
+        ) {
+          const newTitle = h1.innerText.trim();
+          updateLibraryTitle(book, newTitle).catch(console.error);
+          // also update the H1 node in nodeChunks
           updateIndexedDBRecord({
-            id: node.id,
-            html: node.outerHTML,
-            action: "add"
+            id: h1.id,
+            html: h1.outerHTML,
+            action: "update"
           }).catch(console.error);
-          addedNodes.add(node);
         }
-      });
-      // deletions
-      mutation.removedNodes.forEach((node) => {
-        if (node.nodeType === Node.ELEMENT_NODE && node.id) {
-          deleteIndexedDBRecord(node.id);
-          removedNodeIds.add(node.id);
+        // childList under H1 (e.g. paste)
+        if (
+          mutation.type === "childList" &&
+          Array.from(mutation.addedNodes).some((n) =>
+            n.closest && n.closest('h1[id="1"]')
+          )
+        ) {
+          const newTitle = h1.innerText.trim();
+          updateLibraryTitle(book, newTitle).catch(console.error);
+          updateIndexedDBRecord({
+            id: h1.id,
+            html: h1.outerHTML,
+            action: "update"
+          }).catch(console.error);
         }
-      });
-    }
-    // 3) Original logic: characterData updates
-    else if (mutation.type === "characterData") {
-      const parent = mutation.target.parentNode;
-      if (parent && parent.id) {
-        updateIndexedDBRecord({
-          id: parent.id,
-          html: parent.outerHTML,
-          action: "update"
-        }).catch(console.error);
-        modifiedNodes.add(parent.id);
       }
-    }
+
+      // 2) Original logic: additions
+      if (mutation.type === "childList") {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // generate ID etc...
+            ensureNodeHasValidId(node);
+            updateIndexedDBRecord({
+              id: node.id,
+              html: node.outerHTML,
+              action: "add"
+            }).catch(console.error);
+            addedNodes.add(node);
+          }
+        });
+        // deletions
+        mutation.removedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE && node.id) {
+            deleteIndexedDBRecord(node.id);
+            removedNodeIds.add(node.id);
+          }
+        });
+      }
+      // 3) Original logic: characterData updates
+      else if (mutation.type === "characterData") {
+        const parent = mutation.target.parentNode;
+        if (parent && parent.id) {
+          updateIndexedDBRecord({
+            id: parent.id,
+            html: parent.outerHTML,
+            action: "update"
+          }).catch(console.error);
+          modifiedNodes.add(parent.id);
+        }
+      }
+    });
+
+    debouncedNormalize(currentObservedChunk);
   });
-
-  debouncedNormalize(currentObservedChunk);
-});
-
 
   observer.observe(currentChunk, {
     childList: true,
@@ -686,6 +694,7 @@ export function startObserving(editableDiv) {
     normalizeNodeIds(currentChunk);
   }, 1000);
 }
+
 
 
 // Function to stop the MutationObserver.
@@ -758,10 +767,11 @@ function parseHtml(htmlString) {
 // Helper function to update a specific nodeChunk in IndexedDB
 async function updateNodeChunkInIndexedDB(book, startLine, updatedRecord) {
   return new Promise((resolve, reject) => {
-    const dbName = "MarkdownDB"; // Correct database name
-    const storeName = "nodeChunks"; // Correct object store name
+    const dbName = "MarkdownDB";
+    const storeName = "nodeChunks";
     
-    console.log(`Updating in DB: ${dbName}, store: ${storeName}, key: [${book}, ${startLine}]`);
+    console.log(`Attempting to update nodeChunk: book=${book}, startLine=${startLine}`);
+    console.log("startLine type:", typeof startLine, "value:", startLine);
     
     const request = indexedDB.open(dbName);
     
@@ -770,55 +780,76 @@ async function updateNodeChunkInIndexedDB(book, startLine, updatedRecord) {
       resolve(false);
     };
     
-    request.onsuccess = (event) => {
+    request.onsuccess = async (event) => {
       const db = event.target.result;
       
       try {
-        const transaction = db.transaction([storeName], "readwrite");
-        const objectStore = transaction.objectStore(storeName);
+        // First try to find the record using various formats
+        const transaction = db.transaction([storeName], "readonly");
+        const objectStore = transaction.objectStore("nodeChunks");
+        const index = objectStore.index("book");
         
-        // Create the composite key [book, startLine]
-        const key = [book, parseInt(startLine, 10)];
+        // Get all records for this book
+        const bookRecords = await new Promise((resolve) => {
+          const request = index.getAll(book);
+          request.onsuccess = () => resolve(request.result);
+        });
         
-        // Get the record using the composite key
-        const getRequest = objectStore.get(key);
+        console.log(`Found ${bookRecords.length} records for book ${book}`);
         
-        getRequest.onsuccess = (event) => {
-          const existingRecord = event.target.result;
-          
-          if (!existingRecord) {
-            console.error(`Record not found for key: [${book}, ${startLine}]`);
-            resolve(false);
-            return;
+        // Try different formats of startLine
+        const possibleStartLines = [
+          startLine,                                  // Original
+          typeof startLine === 'string' ? parseFloat(startLine) : startLine,  // As float
+          typeof startLine === 'string' ? parseInt(startLine, 10) : startLine, // As int
+          String(startLine)                           // As string
+        ];
+        
+        let matchingRecord = null;
+        for (const record of bookRecords) {
+          if (possibleStartLines.includes(record.startLine)) {
+            matchingRecord = record;
+            console.log(`Found matching record with startLine=${record.startLine}`);
+            break;
           }
-          
-          console.log("Found existing record:", existingRecord);
-          
-          // Update the hypercites array in the existing record
-          if (updatedRecord.hypercites) {
-            existingRecord.hypercites = updatedRecord.hypercites;
-          }
-          
-          // Put the updated record back
-          const updateRequest = objectStore.put(existingRecord);
-          
-          updateRequest.onsuccess = () => {
-            console.log(`Successfully updated record for key: [${book}, ${startLine}]`);
-            resolve(true);
-          };
-          
-          updateRequest.onerror = (event) => {
-            console.error(`Error updating record:`, event.target.error);
-            resolve(false);
-          };
+        }
+        
+        await transaction.complete;
+        
+        if (!matchingRecord) {
+          console.error(`No matching record found for startLine=${startLine} in book ${book}`);
+          console.log("Available startLines:", bookRecords.map(r => r.startLine));
+          resolve(false);
+          return;
+        }
+        
+        // Now update the record
+        const writeTx = db.transaction([storeName], "readwrite");
+        const writeStore = writeTx.objectStore(storeName);
+        
+        // Create the key using the exact format from the matching record
+        const key = [book, matchingRecord.startLine];
+        console.log("Using key for update:", key);
+        
+        // Update the hypercites array
+        if (updatedRecord.hypercites) {
+          matchingRecord.hypercites = updatedRecord.hypercites;
+        }
+        
+        // Put the updated record back
+        const updateRequest = writeStore.put(matchingRecord);
+        
+        updateRequest.onsuccess = () => {
+          console.log(`Successfully updated record for key:`, key);
+          resolve(true);
         };
         
-        getRequest.onerror = (event) => {
-          console.error(`Error getting record:`, event.target.error);
+        updateRequest.onerror = (event) => {
+          console.error(`Error updating record:`, event.target.error);
           resolve(false);
         };
         
-        transaction.oncomplete = () => {
+        writeTx.oncomplete = () => {
           db.close();
         };
       } catch (error) {
@@ -828,6 +859,7 @@ async function updateNodeChunkInIndexedDB(book, startLine, updatedRecord) {
     };
   });
 }
+
 
 
 // Update the nodeChunks record to track citation and relationship

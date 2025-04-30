@@ -40,6 +40,8 @@ async function buildSourceHtml(currentBookId) {
   return `
     <div class="scroller">
     <div class="citation">${citation}</div>
+
+    <br/>
     
     <button id="download-md" class="download-btn">
   <div class="icon-wrapper">

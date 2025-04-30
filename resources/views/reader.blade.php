@@ -64,7 +64,7 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
     </div>
 
 <div id="topRightContainer">
-    <button type="button" id="cloudRef" class="open">
+    <button type="button" id="cloudRef">
         <svg 
         id="Layer_1" 
         data-name="Layer 1" 
