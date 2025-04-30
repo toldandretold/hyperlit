@@ -86,15 +86,19 @@ export async function openDatabase() {
  *
  * The composite key for nodeChunks is [book, startLine].
  */
+// For saving nodeChunks
 export async function saveNodeChunksToIndexedDB(nodeChunks, bookId = "latest") {
   const db = await openDatabase();
   const tx = db.transaction("nodeChunks", "readwrite");
   const store = tx.objectStore("nodeChunks");
 
   nodeChunks.forEach((record) => {
-    // Tag the record with the proper book identifier.
+    // Tag the record with the proper book identifier
     record.book = bookId;
-    // record.chunk_id and record.startLine must be set by the parser.
+    
+    // Convert startLine to the appropriate numeric format
+    record.startLine = parseNodeId(record.startLine);
+    
     store.put(record);
   });
 
@@ -110,11 +114,33 @@ export async function saveNodeChunksToIndexedDB(nodeChunks, bookId = "latest") {
   });
 }
 
+// Helper function to convert a string ID to the appropriate numeric format
+export function parseNodeId(id) {
+  
+  if (typeof id === 'number') return id;
+  
+  // Handle string IDs like "1" or "1.1"
+  if (id.includes('.')) {
+    // For decimal IDs like "1.1", parse as float
+    return parseFloat(id);
+  } else {
+    // For integer IDs like "1", parse as integer
+    return parseInt(id, 10);
+  }
+}
+
+// Helper function to ensure consistent key format for nodeChunks
+export function createNodeChunksKey(bookId, startLine) {
+
+  return [bookId, parseNodeId(startLine)];
+}
+
 /**
  * Retrieves nodeChunks for a specified book from IndexedDB.
  * 
  * The returned array is sorted by chunk_id.
  */
+// For retrieving nodeChunks
 export async function getNodeChunksFromIndexedDB(bookId = "latest") {
   console.log("Fetching nodeChunks for book:", bookId);
 
@@ -477,20 +503,28 @@ export async function updateIndexedDBRecord(record) {
     
     const db = await openDatabase();
     const tx = db.transaction(["nodeChunks", "hyperlights", "hypercites"], "readwrite");
+    
+    // Set transaction event handlers INSIDE the transaction context
+    tx.oncomplete = () => console.log(`✅ TX complete for node ${nodeId}`);
+    tx.onerror = (e) => console.error(`❌ TX error for node ${nodeId}:`, e.target.error);
+    
     const nodeChunksStore = tx.objectStore("nodeChunks");
     const hyperlightsStore = tx.objectStore("hyperlights");
     const hypercitesStore = tx.objectStore("hypercites");
     
-    const newStartLine = parseFloat(nodeId);
-    const baseNumber = parseFloat(nodeId.match(/^(\d+)/)[1]);
+    // Convert nodeId to numeric format for database operations
+    const numericNodeId = parseNodeId(nodeId);
     
     // Track which hyperlights and hypercites need updating
     let hyperlightsToUpdate = [];
     let hypercitesToUpdate = [];
     
     if (record.action !== "normalize") {
-      const baseKey = [bookId, baseNumber];
-      const baseRequest = nodeChunksStore.get(baseKey);
+      // Create the proper key for database operations
+      const key = createNodeChunksKey(bookId, nodeId);
+      console.log("Using database key:", key);
+      
+      const baseRequest = nodeChunksStore.get(key);
       
       baseRequest.onsuccess = () => {
         let inheritedChunkId = null;
@@ -501,7 +535,8 @@ export async function updateIndexedDBRecord(record) {
           inheritedChunkId = 0;
         }
         
-        const getRequest = nodeChunksStore.get([bookId, newStartLine]);
+        // Use the same key for the main lookup
+        const getRequest = nodeChunksStore.get(key);
         getRequest.onsuccess = () => {
           const existingRecord = getRequest.result;
           
@@ -529,7 +564,7 @@ export async function updateIndexedDBRecord(record) {
                     id: newHyperlight.highlightID,
                     startChar: newHyperlight.charStart,
                     endChar: newHyperlight.charEnd,
-                    startLine: newStartLine,
+                    startLine: numericNodeId, // Use numeric value
                     highlightedText: newHyperlight.highlightedText,
                     highlightedHTML: newHyperlight.highlightedHTML
                   });
@@ -541,7 +576,7 @@ export async function updateIndexedDBRecord(record) {
                     id: newHyperlight.highlightID,
                     startChar: newHyperlight.charStart,
                     endChar: newHyperlight.charEnd,
-                    startLine: newStartLine,
+                    startLine: numericNodeId, // Use numeric value
                     highlightedText: newHyperlight.highlightedText,
                     highlightedHTML: newHyperlight.highlightedHTML
                   });
@@ -588,7 +623,7 @@ export async function updateIndexedDBRecord(record) {
           } else {
             nodeRecord = {
               book: bookId,
-              startLine: newStartLine,
+              startLine: numericNodeId, // Store as numeric value
               chunk_id: inheritedChunkId,
               content: processedContent ? processedContent.content : record.html,
               hyperlights: processedContent ? processedContent.hyperlights : [],
@@ -602,7 +637,7 @@ export async function updateIndexedDBRecord(record) {
                   id: hyperlight.highlightID,
                   startChar: hyperlight.charStart,
                   endChar: hyperlight.charEnd,
-                  startLine: newStartLine,
+                  startLine: numericNodeId, // Use numeric value
                   highlightedText: hyperlight.highlightedText,
                   highlightedHTML: hyperlight.highlightedHTML
                 });
@@ -634,14 +669,17 @@ export async function updateIndexedDBRecord(record) {
       };
     } else {
       // Normalization branch
-      const oldKey = [bookId, parseFloat(record.oldId)];
+      // Create the proper key for old record lookup
+      const oldKey = createNodeChunksKey(bookId, record.oldId);
+      console.log("Looking up old record with key:", oldKey);
+      
       const getRequest = nodeChunksStore.get(oldKey);
       getRequest.onsuccess = () => {
         const oldRecord = getRequest.result;
         if (oldRecord) {
           const newRecord = {
             ...oldRecord,
-            startLine: newStartLine,
+            startLine: numericNodeId, // Store as numeric value
             content: processedContent ? processedContent.content : record.html
           };
           // Update hyperlights during normalization if needed
@@ -659,7 +697,7 @@ export async function updateIndexedDBRecord(record) {
                   id: newHyperlight.highlightID,
                   startChar: newHyperlight.charStart,
                   endChar: newHyperlight.charEnd,
-                  startLine: newStartLine,
+                  startLine: numericNodeId, // Use numeric value
                   highlightedText: newHyperlight.highlightedText,
                   highlightedHTML: newHyperlight.highlightedHTML
                 });
@@ -671,7 +709,7 @@ export async function updateIndexedDBRecord(record) {
                   id: newHyperlight.highlightID,
                   startChar: newHyperlight.charStart,
                   endChar: newHyperlight.charEnd,
-                  startLine: newStartLine,
+                  startLine: numericNodeId, // Use numeric value
                   highlightedText: newHyperlight.highlightedText,
                   highlightedHTML: newHyperlight.highlightedHTML
                 });
@@ -729,8 +767,8 @@ export async function updateIndexedDBRecord(record) {
           console.log(`No record found with ID ${record.oldId} for normalization`);
           const newRecord = {
             book: bookId,
-            startLine: newStartLine,
-            chunk_id: parseInt(baseNumber, 10),
+            startLine: numericNodeId, // Store as numeric value
+            chunk_id: parseNodeId(baseNumber), // Parse to numeric value
             content: processedContent ? processedContent.content : record.html,
             hyperlights: processedContent ? processedContent.hyperlights : [],
             hypercites: processedContent ? processedContent.hypercites : []
@@ -743,7 +781,7 @@ export async function updateIndexedDBRecord(record) {
                 id: hyperlight.highlightID,
                 startChar: hyperlight.charStart,
                 endChar: hyperlight.charEnd,
-                startLine: newStartLine,
+                startLine: numericNodeId, // Use numeric value
                 highlightedText: hyperlight.highlightedText,
                 highlightedHTML: hyperlight.highlightedHTML
               });
@@ -786,6 +824,7 @@ export async function updateIndexedDBRecord(record) {
     console.error("Error in updateIndexedDBRecord:", error);
   }
 }
+
 
 // Helper function to update hyperlights store
 function updateHyperlightsStore(store, bookId, hyperlightsToUpdate) {
@@ -907,11 +946,14 @@ export async function deleteIndexedDBRecord(id) {
     const tx = db.transaction("nodeChunks", "readwrite");
     const store = tx.objectStore("nodeChunks");
     
-    // Convert id to a number for the composite key.
-    const numericId = parseFloat(id);
+
+    // Create the proper key for deletion
+  const key = createNodeChunksKey(bookId, id);
+  console.log("Deleting with key:", key);
+
+
+  const deleteRequest = store.delete(key);
     
-    // Delete the record using the composite key [book, numericId].
-    const deleteRequest = store.delete([bookId, numericId]);
     
     deleteRequest.onsuccess = () => {
       console.log(`Successfully deleted record for node ${id}`);

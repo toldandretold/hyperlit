@@ -84,7 +84,7 @@ function getNodeChunkByKey(book, startLine) {
       const db = event.target.result;
       const transaction = db.transaction([storeName], "readonly");
       const objectStore = transaction.objectStore(storeName);
-      const key = [book, parseInt(startLine, 10)];
+      const key = [book, startLine];
       const getRequest = objectStore.get(key);
 
       getRequest.onerror = (event) => {

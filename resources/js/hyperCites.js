@@ -1,6 +1,6 @@
 import { book } from "./app.js";
 import { navigateToInternalId } from "./scrolling.js";
-import { openDatabase } from "./cache-indexedDB.js";
+import { openDatabase, parseNodeId, createNodeChunksKey  } from "./cache-indexedDB.js";
 import { ContainerManager } from "./container-manager.js";
 import { formatBibtexToCitation } from "./bibtexProcessor.js";
 
@@ -44,33 +44,36 @@ document.addEventListener("copy", (event) => {
 
 function wrapSelectedTextInDOM(hyperciteId, book) {
   const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) {
-    console.error("No valid selection found for hypercite.");
-    return;
-  }
+  if (!selection.rangeCount) return console.error("No selection");
   const range = selection.getRangeAt(0);
-  let parent = range.startContainer.parentElement;
-  while (parent && !parent.hasAttribute("id")) {
-    parent = parent.parentElement; // Traverse up to find a parent with an ID
-  }
-  if (!parent || isNaN(parseInt(parent.id, 10))) {
-    console.error("No valid parent with numerical ID found.");
+
+  // Find the nearest ancestor that has any ID at all:
+  let parent = range.startContainer.nodeType === 3
+    ? range.startContainer.parentElement
+    : range.startContainer;
+  parent = parent.closest("[id]");
+  if (!parent) {
+    console.error("No parent with an ID found for hypercite wrapping.");
     return;
   }
+
+  // Now parent.id will be "1.2" or "2.1" etc—no parseInt, no drop!
   const wrapper = document.createElement("u");
-  wrapper.setAttribute("id", hyperciteId);
-  wrapper.setAttribute("class", "single");
+  wrapper.id = hyperciteId;
+  wrapper.className = "single";
   try {
     range.surroundContents(wrapper);
   } catch (e) {
     console.error("Error wrapping selected text:", e);
     return;
   }
-  // Build blocks data: here we calculate the character offsets
+
   const blocks = collectHyperciteData(hyperciteId, wrapper);
   NewHyperciteIndexedDB(book, hyperciteId, blocks);
+
   setTimeout(() => selection.removeAllRanges(), 50);
 }
+
 
 async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
   // Open the IndexedDB database
@@ -121,12 +124,12 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
 
     console.log("Hypercite record to add:", hyperciteEntry);
 
-    const addRequest = hypercitesStore.add(hyperciteEntry);
-    addRequest.onerror = (event) => {
-      console.error("❌ Error adding hypercite record:", event.target.error);
+    const putRequest = hypercitesStore.put(hyperciteEntry);
+    putRequest.onerror = (event) => {
+      console.error("❌ Error upserting hypercite record:", event.target.error);
     };
-    addRequest.onsuccess = () => {
-      console.log("✅ Successfully added hypercite record.");
+    putRequest.onsuccess = () => {
+      console.log("✅ Successfully upserted hypercite record.");
     };
 
     // --- Update nodeChunks for each affected block ---
@@ -138,12 +141,22 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
         console.error("Block missing startLine:", block);
         continue;
       }
-      // Retrieve the current record from nodeChunks using key [book, block.startLine].
-      const getRequest = nodeChunksStore.get([book, block.startLine]);
+      
+      // Convert startLine to numeric format for database key
+      const numericStartLine = parseNodeId(block.startLine);
+      
+      // Create the proper key for nodeChunks lookup
+      const key = createNodeChunksKey(book, block.startLine);
+      console.log("Looking up nodeChunk with key:", key);
+      
+      // Retrieve the current record from nodeChunks using the proper key
+      const getRequest = nodeChunksStore.get(key);
+      
       const nodeChunkRecord = await new Promise((resolve, reject) => {
         getRequest.onsuccess = (e) => resolve(e.target.result);
         getRequest.onerror = (e) => reject(e.target.error);
       });
+      
       let updatedRecord;
       if (nodeChunkRecord) {
         if (!Array.isArray(nodeChunkRecord.hypercites)) {
@@ -161,7 +174,8 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
       } else {
         updatedRecord = {
           book: book,
-          startLine: block.startLine,
+          startLine: numericStartLine, // Store as numeric value
+          chunk_id: numericStartLine,  // Also store as numeric value
           hypercites: [
             {
               hyperciteId: hyperciteId,
@@ -172,13 +186,14 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
             }
           ]
         };
+        console.log("Creating new nodeChunk record with startLine:", numericStartLine);
       }
+      
       const putRequest = nodeChunksStore.put(updatedRecord);
       await new Promise((resolve, reject) => {
         putRequest.onsuccess = () => {
-          console.log(
-            `✅ Updated nodeChunk [${book}, ${block.startLine}] with hypercite info.`
-          );
+          console.log(`✅ Updated nodeChunk [${book}, ${block.startLine}] with hypercite info.`);
+
           resolve();
         };
         putRequest.onerror = (e) => {
@@ -198,6 +213,7 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
     console.error("❌ Error in NewHyperciteIndexedDB:", error);
   }
 }
+
 
 
 /**
@@ -222,7 +238,7 @@ function collectHyperciteData(hyperciteId, wrapper) {
     return [];
   }
 
-  const parentId = parseInt(parentElement.id, 10);
+  const parentId = parentElement.id; // Keep as string here
   const parentText = parentElement.innerText;
 
   // The hypercited text is the text of our <u> element.
@@ -240,7 +256,7 @@ function collectHyperciteData(hyperciteId, wrapper) {
 
   return [
     {
-      startLine: parentId,
+      startLine: parentId, // Keep as string; conversion happens in NewHyperciteIndexedDB
       charStart: charStart,
       charEnd: charEnd,
       html: parentElement.outerHTML,
@@ -249,6 +265,7 @@ function collectHyperciteData(hyperciteId, wrapper) {
     },
   ];
 }
+
 
 // Function to generate a unique hypercite ID
 function generateHyperciteID() {
@@ -270,12 +287,14 @@ function fallbackCopyText(text) {
   document.body.removeChild(textArea);
 }
 
-// Find the nearest ancestor with a numerical ID
+
+// Strictly match only “digits” or “digits.digits”
 function findParentWithNumericalId(element) {
   let current = element;
   while (current) {
-    if (current.hasAttribute("id") && !isNaN(parseInt(current.id, 10))) {
-      return current; // Return the element
+    const id = current.getAttribute("id");
+    if (id && /^\d+(?:\.\d+)?$/.test(id)) {
+      return current;
     }
     current = current.parentElement;
   }
@@ -284,6 +303,9 @@ function findParentWithNumericalId(element) {
 
 
 
+
+
+// Function to get hypercite data from IndexedDB
 // Function to get hypercite data from IndexedDB
 async function getHyperciteData(book, startLine) {
   try {
@@ -291,8 +313,12 @@ async function getHyperciteData(book, startLine) {
     const tx = db.transaction("nodeChunks", "readonly");
     const store = tx.objectStore("nodeChunks");
     
-    // Use the composite key [book, startLine]
-    const request = store.get([book, startLine]);
+    // Create the proper key for lookup
+    const key = createNodeChunksKey(book, startLine);
+    console.log("Looking up hypercite data with key:", key);
+    
+    // Use the composite key [book, numericStartLine]
+    const request = store.get(key);
     
     return new Promise((resolve, reject) => {
       request.onsuccess = () => {
@@ -307,6 +333,7 @@ async function getHyperciteData(book, startLine) {
     throw error;
   }
 }
+
 
 // Assume getHyperciteData and book are imported from elsewhere, as in the original
 
@@ -324,10 +351,11 @@ async function UpdateUnderlineCouple(uElement) {
   }
   console.log("Parent element found:", parent);
 
-  const startLine = parseFloat(parent.id); // Convert ID to number for IndexedDB
+  const startLine = parent.id; // Keep as string for now
   const bookId = book || "latest"; // Use the imported book variable
 
   try {
+    // getHyperciteData will handle the conversion to numeric format
     const nodeChunk = await getHyperciteData(bookId, startLine);
     if (!nodeChunk) {
       console.error(
@@ -491,7 +519,7 @@ export async function UpdateUnderlinePoly(event) {
         <div class="scroller">
           <h1> Cited By: </h1>
           <p class="hypercite-text">
-            ${hyperciteData.highlightedHTML || ""}
+            ${hyperciteData.hypercitedHTML || ""}
           </p>
           <div class="citation-links">
             ${linksHTML}
@@ -521,6 +549,7 @@ export async function UpdateUnderlinePoly(event) {
     getRequest.onerror = (event) => {
       console.error("❌ Error fetching hypercite data:", event.target.error);
     };
+    
   } catch (error) {
     console.error("❌ Error accessing IndexedDB:", error);
   }
