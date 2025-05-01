@@ -26,6 +26,9 @@ let documentChanged = false;
 let isTyping = false;
 let typingTimer;
 
+// hypercite paste handling
+let hypercitePasteInProgress = false;
+
 // ----------------------------------------------------------------
 // Debounce function for delayed operations
 // ----------------------------------------------------------------
@@ -588,6 +591,7 @@ function getCurrentChunk() {
 }
 
 // Start observing only inside the current chunk container.
+// Start observing only inside the current chunk container.
 export function startObserving(editableDiv) {
   console.log("🤓 startObserving function called");
 
@@ -606,6 +610,12 @@ export function startObserving(editableDiv) {
   console.log("Observing changes in chunk:", currentChunk);
 
   observer = new MutationObserver((mutations) => {
+    // Skip processing if a hypercite paste is in progress
+    if (hypercitePasteInProgress) {
+      console.log("Skipping mutations during hypercite paste");
+      return;
+    }
+    
     showSpinner();
     documentChanged = true;
 
@@ -694,6 +704,7 @@ export function startObserving(editableDiv) {
     normalizeNodeIds(currentChunk);
   }, 1000);
 }
+
 
 
 
@@ -936,29 +947,31 @@ async function updateHyperciteInIndexedDB(book, hyperciteId, updatedFields) {
 }
 
 // Modified function to update both nodeChunks and hypercites
+// Modified function to update both nodeChunks and hypercites
 async function updateCitationForExistingHypercite(
   booka,
   hyperciteIDa,
-  citationIDb
+  citationIDb,
+  insertContent = true // Default to true for backward compatibility
 ) {
-  event.preventDefault();
-
-  // Retrieve the HTML from the clipboard.
-  const clipboardHtml = event.clipboardData.getData("text/html");
-
-  if (clipboardHtml) {
-    // Insert the HTML directly into the contenteditable element.
-    document.execCommand("insertHTML", false, clipboardHtml);
-  } else {
-    // Fallback: if no HTML data is available, fallback to plain text.
-    const clipboardText = event.clipboardData.getData("text/plain");
-    document.execCommand("insertText", false, clipboardText);
+  // Only insert content if explicitly requested
+  if (insertContent) {
+    const clipboardHtml = event.clipboardData.getData("text/html");
+    if (clipboardHtml) {
+      document.execCommand("insertHTML", false, clipboardHtml);
+    } else {
+      const clipboardText = event.clipboardData.getData("text/plain");
+      document.execCommand("insertText", false, clipboardText);
+    }
   }
 
   try {
     console.log(
       `Updating citation: book=${booka}, hyperciteID=${hyperciteIDa}, citationIDb=${citationIDb}`
     );
+
+    // Check if this is an internal paste (same book)
+    const isInternalPaste = booka === book;
 
     // Retrieve nodeChunks for booka.
     const nodeChunks = await getNodeChunksFromIndexedDB(booka);
@@ -1026,6 +1039,15 @@ async function updateCitationForExistingHypercite(
           );
           foundAndUpdated = true;
           broadcastToOpenTabs(booka, startLine);
+          
+          // Update the DOM to reflect the new relationship status for internal pastes
+          if (isInternalPaste) {
+            const originalUnderline = document.getElementById(hyperciteIDa);
+            if (originalUnderline) {
+              originalUnderline.className = updatedRelationshipStatus;
+              console.log(`Updated original underline class to ${updatedRelationshipStatus}`);
+            }
+          }
         } else {
           console.error(
             `Failed to update nodeChunk with startLine=${startLine} in book ${booka}`
@@ -1086,6 +1108,7 @@ async function updateCitationForExistingHypercite(
     return false;
   }
 }
+
 
 // Helper function to get a hypercite from IndexedDB
 async function getHyperciteFromIndexedDB(book, hyperciteId) {
@@ -1166,6 +1189,7 @@ function parseHyperciteHref(href) {
 
 
 // Add paste event listener to handle hypercites
+// Add paste event listener to handle hypercites
 export function addPasteListener(editableDiv) {
   console.log("Adding paste listener for hypercite updates");
   
@@ -1180,6 +1204,9 @@ export function addPasteListener(editableDiv) {
     
     // Check if this is a hypercite link
     if (citeLink && citeLink.innerText.trim() === "[:]") {
+      // Prevent default paste behavior
+      event.preventDefault();
+      
       console.log("Detected a hypercite in pasted content");
       
       const originalHref = citeLink.getAttribute("href");
@@ -1193,19 +1220,50 @@ export function addPasteListener(editableDiv) {
       const hyperciteIDb = "hypercite_" + Math.random().toString(36).substr(2, 8);
       
       // Get current book (where paste is happening)
-      const bookb = book; // Assuming 'book' is a global variable
+      const bookb = book;
       
       // Create the citation ID for this new instance
       const citationIDb = `/${bookb}#${hyperciteIDb}`;
       
-      // Assign ID to the pasted link (don't change href)
-      citeLink.id = hyperciteIDb;
+      // Get the text content that was quoted
+      const quotedText = pasteWrapper.textContent.replace(/^"(.+?)".*$/, "$1");
+      
+      // Create the reference HTML
+      const referenceHtml = `"${quotedText}"<a href="${originalHref}" id="${hyperciteIDb}">[:]</a>`;
+      
+      // Set the flag to prevent MutationObserver from processing this paste
+      hypercitePasteInProgress = true;
+      console.log("Setting hypercitePasteInProgress flag to true");
+      
+      // Insert the content
+      document.execCommand("insertHTML", false, referenceHtml);
+      
+      // Get the current paragraph to manually save it
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        let currentParagraph = range.startContainer;
+        while (currentParagraph && currentParagraph.nodeName !== 'P') {
+          currentParagraph = currentParagraph.parentNode;
+        }
+        
+        if (currentParagraph && currentParagraph.id) {
+          console.log("Manually saving paragraph:", currentParagraph.id);
+          // Manually save the paragraph to IndexedDB
+          updateIndexedDBRecord({
+            id: currentParagraph.id,
+            html: currentParagraph.outerHTML,
+            action: "update"
+          }).catch(console.error);
+        }
+      }
       
       // Update the original hypercite's citedIN array
       const updated = await updateCitationForExistingHypercite(
         booka, 
         hyperciteIDa, 
-        citationIDb
+        citationIDb,
+        false // Don't insert content, just update the database
       );
       
       if (updated) {
@@ -1213,9 +1271,18 @@ export function addPasteListener(editableDiv) {
       } else {
         console.warn(`Failed to update citation for ${citationIDa}`);
       }
+      
+      // Clear the flag after a short delay to allow DOM to settle
+      setTimeout(() => {
+        hypercitePasteInProgress = false;
+        console.log("Cleared hypercitePasteInProgress flag");
+      }, 100);
     }
   });
 }
+
+
+
 
 
 
