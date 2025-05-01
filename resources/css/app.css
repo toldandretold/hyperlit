@@ -14,6 +14,11 @@ body {
     font-size: 25px;
 }
 
+ul {
+    margin-block-start: .2em;
+    margin-block-end: 2em;
+}
+
 
 p {
     margin-bottom: .8em;
@@ -143,6 +148,14 @@ sup {
     color: #EE4A95;
     font-size: 14px;
 }
+
+
+
+sup.open-icon {
+    color: #4EACAE;
+    font-size: 14px;
+}
+
 
 .footnote-ref {
     color: #EE4A95;
