@@ -619,8 +619,31 @@ export function startObserving(editableDiv) {
     showSpinner();
     documentChanged = true;
 
-    mutations.forEach((mutation) => {
-      // 1) Title‑sync logic for H1#1
+    for (const mutation of mutations) {
+      // --- NEW GUARD: skip any childList where all added nodes are arrow‐icons ---
+      if (mutation.type === "childList") {
+        const allAreIcons = Array.from(mutation.addedNodes).every((n) => {
+          if (n.nodeType !== Node.ELEMENT_NODE) return false;
+          const el = /** @type {HTMLElement} */ (n);
+          // span.open-icon itself
+          if (el.classList.contains("open-icon")) return true;
+          // or an <a> whose only child is that span
+          if (
+            el.tagName === "A" &&
+            el.children.length === 1 &&
+            el.firstElementChild.classList.contains("open-icon")
+          ) {
+            return true;
+          }
+          return false;
+        });
+        if (allAreIcons) {
+          // console.log("Skipping pure-icon mutation");
+          continue;
+        }
+      }
+
+      // 1) Title-sync logic for H1#1
       const h1 = document.getElementById("1");
       if (h1) {
         // characterData inside H1
@@ -630,7 +653,6 @@ export function startObserving(editableDiv) {
         ) {
           const newTitle = h1.innerText.trim();
           updateLibraryTitle(book, newTitle).catch(console.error);
-          // also update the H1 node in nodeChunks
           updateIndexedDBRecord({
             id: h1.id,
             html: h1.outerHTML,
@@ -654,11 +676,10 @@ export function startObserving(editableDiv) {
         }
       }
 
-      // 2) Original logic: additions
+      // 2) Original logic: additions / deletions
       if (mutation.type === "childList") {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
-            // generate ID etc...
             ensureNodeHasValidId(node);
             updateIndexedDBRecord({
               id: node.id,
@@ -668,7 +689,6 @@ export function startObserving(editableDiv) {
             addedNodes.add(node);
           }
         });
-        // deletions
         mutation.removedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE && node.id) {
             deleteIndexedDBRecord(node.id);
@@ -688,7 +708,7 @@ export function startObserving(editableDiv) {
           modifiedNodes.add(parent.id);
         }
       }
-    });
+    }
 
     debouncedNormalize(currentObservedChunk);
   });
@@ -704,6 +724,7 @@ export function startObserving(editableDiv) {
     normalizeNodeIds(currentChunk);
   }, 1000);
 }
+
 
 
 
@@ -955,7 +976,7 @@ async function updateCitationForExistingHypercite(
   insertContent = true // Default to true for backward compatibility
 ) {
   // Only insert content if explicitly requested
-  if (insertContent) {
+  /* if (insertContent) {
     const clipboardHtml = event.clipboardData.getData("text/html");
     if (clipboardHtml) {
       document.execCommand("insertHTML", false, clipboardHtml);
@@ -963,7 +984,7 @@ async function updateCitationForExistingHypercite(
       const clipboardText = event.clipboardData.getData("text/plain");
       document.execCommand("insertText", false, clipboardText);
     }
-  }
+  } */
 
   try {
     console.log(
@@ -1189,7 +1210,6 @@ function parseHyperciteHref(href) {
 
 
 // Add paste event listener to handle hypercites
-// Add paste event listener to handle hypercites
 export function addPasteListener(editableDiv) {
   console.log("Adding paste listener for hypercite updates");
   
@@ -1200,10 +1220,17 @@ export function addPasteListener(editableDiv) {
     // Parse clipboard HTML
     const pasteWrapper = document.createElement("div");
     pasteWrapper.innerHTML = clipboardHtml;
-    const citeLink = pasteWrapper.querySelector("a");
     
-    // Check if this is a hypercite link
-    if (citeLink && citeLink.innerText.trim() === "[:]") {
+    // Look for either the link directly or a link inside a sup with class "open-icon"
+    const citeLink = pasteWrapper.querySelector(
+      'a[id^="hypercite_"] > span.open-icon'
+    )?.parentElement;
+    
+    // Check if this is a hypercite link by examining the structure and href
+    if (citeLink && 
+        (citeLink.innerText.trim() === "↗" || 
+         (citeLink.closest("span") && citeLink.closest("span").classList.contains("open-icon")))) {
+      
       // Prevent default paste behavior
       event.preventDefault();
       
@@ -1225,11 +1252,26 @@ export function addPasteListener(editableDiv) {
       // Create the citation ID for this new instance
       const citationIDb = `/${bookb}#${hyperciteIDb}`;
       
-      // Get the text content that was quoted
-      const quotedText = pasteWrapper.textContent.replace(/^"(.+?)".*$/, "$1");
+      // Get the text content that was quoted - look for the quoted text pattern
+      let quotedText = "";
+      const fullText = pasteWrapper.textContent;
+      const quoteMatch = fullText.match(/^"(.+?)"/);
       
-      // Create the reference HTML
-      const referenceHtml = `"${quotedText}"<a href="${originalHref}" id="${hyperciteIDb}">[:]</a>`;
+      if (quoteMatch && quoteMatch[1]) {
+        quotedText = quoteMatch[1];
+      } else {
+        // Fallback to just using text before the citation
+        const textNodes = Array.from(pasteWrapper.childNodes)
+          .filter(node => node.nodeType === Node.TEXT_NODE);
+        if (textNodes.length > 0) {
+          quotedText = textNodes[0].textContent.replace(/^"(.+)"$/, "$1");
+        }
+      }
+      
+      // Create the reference HTML with a cleaner structure
+      const referenceHtml = `"${quotedText}"<a href="${originalHref}" id="${hyperciteIDb}">
+      <span class="open-icon">↗</span>
+      </a>`;
       
       // Set the flag to prevent MutationObserver from processing this paste
       hypercitePasteInProgress = true;
@@ -1280,6 +1322,7 @@ export function addPasteListener(editableDiv) {
     }
   });
 }
+
 
 
 
