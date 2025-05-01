@@ -1268,10 +1268,9 @@ export function addPasteListener(editableDiv) {
         }
       }
       
-      // Create the reference HTML with a cleaner structure
-      const referenceHtml = `"${quotedText}"<a href="${originalHref}" id="${hyperciteIDb}">
-      <span class="open-icon">↗</span>
-      </a>`;
+      // Create the reference HTML with no space between text and sup
+     const referenceHtml = `${quotedText}<a href="${originalHref}" id="${hyperciteIDb}">\u200B<sup class="open-icon">↗</sup></a>`;
+
       
       // Set the flag to prevent MutationObserver from processing this paste
       hypercitePasteInProgress = true;
@@ -1322,6 +1321,7 @@ export function addPasteListener(editableDiv) {
     }
   });
 }
+
 
 
 

@@ -31,8 +31,8 @@ document.addEventListener("copy", (event) => {
 
   // Create the HTML and plain text for the clipboard, including the full URL
   // Make sure this structure matches what we're checking for in the paste event
-  const clipboardHtml = `"${selectedText}"<a href="${hrefA}" id="${hyperciteId}"><span class="open-icon">↗</span></a>`;
-  const clipboardText = `"${selectedText}" [↗](${hrefA})`;
+  const clipboardHtml = `'${selectedText}'<a href="${hrefA}" id="${hyperciteId}"><span class="open-icon">↗</span></a>`;
+  const clipboardText = `'${selectedText}' [↗](${hrefA})`;
 
   // Set clipboard data
   event.clipboardData.setData("text/html", clipboardHtml);
