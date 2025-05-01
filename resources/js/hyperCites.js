@@ -518,9 +518,7 @@ export async function UpdateUnderlinePoly(event) {
       const containerContent = `
         <div class="scroller">
           <h1> Cited By: </h1>
-          <p class="hypercite-text">
-            ${hyperciteData.hypercitedHTML || ""}
-          </p>
+          <p></p>
           <div class="citation-links">
             ${linksHTML}
           </div>
