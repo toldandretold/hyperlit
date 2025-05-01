@@ -30,8 +30,9 @@ document.addEventListener("copy", (event) => {
   const selectedText = selection.toString().trim(); // Plain text version of selected content
 
   // Create the HTML and plain text for the clipboard, including the full URL
-  const clipboardHtml = `"${selectedText}"<a href="${hrefA}">[:]</a>`;
-  const clipboardText = `"${selectedText}" [[:]](${hrefA})`;
+  // Make sure this structure matches what we're checking for in the paste event
+  const clipboardHtml = `"${selectedText}"<a href="${hrefA}" id="${hyperciteId}"><span class="open-icon">↗</span></a>`;
+  const clipboardText = `"${selectedText}" [↗](${hrefA})`;
 
   // Set clipboard data
   event.clipboardData.setData("text/html", clipboardHtml);
@@ -41,6 +42,7 @@ document.addEventListener("copy", (event) => {
   // Wrap the selected text in the DOM and update IndexedDB
   wrapSelectedTextInDOM(hyperciteId, citationIdA);
 });
+
 
 function wrapSelectedTextInDOM(hyperciteId, book) {
   const selection = window.getSelection();
@@ -495,7 +497,7 @@ export async function UpdateUnderlinePoly(event) {
 
                   // Return the formatted citation with the clickable link
                   resolve(
-                    `<p>${formattedCitation} <a href="${citationID}" class="citation-link">[:]</a></p>`
+                    `<p>${formattedCitation} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></p>`
                   );
                 } else {
                   // If no record exists, return the default link
@@ -576,11 +578,6 @@ export function closeHyperciteContainer() {
 
 
 
-
-// Future implementation for <u class="poly">
-// export async function UpdateUnderlinePoly(uElement) {
-//   // Do something different for .poly class underlines...
-// }
 
 
 
