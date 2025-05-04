@@ -29,6 +29,8 @@ let typingTimer;
 // hypercite paste handling
 let hypercitePasteInProgress = false;
 
+
+
 // ----------------------------------------------------------------
 // Debounce function for delayed operations
 // ----------------------------------------------------------------
@@ -400,16 +402,21 @@ async function normalizeNodeIds(container) {
 async function updateIndexedDBRecordForNormalization(oldId, newId, html) {
   console.log(`Normalizing record in IndexedDB: ${oldId} -> ${newId}`);
   try {
+    // First, add the new record
     await updateIndexedDBRecord({
       id: newId,
-      oldId: oldId,
       html: html,
-      action: "normalize"
+      action: "add" // Use "add" instead of "normalize" if your updateIndexedDBRecord doesn't handle "normalize"
     });
+    
+    // Then, after ensuring the new record is added, delete the old one
     await deleteIndexedDBRecord(oldId);
+    
     console.log(`Successfully normalized record: ${oldId} -> ${newId}`);
+    return true;
   } catch (error) {
     console.error(`Error normalizing record ${oldId} -> ${newId}:`, error);
+    return false;
   }
 }
 
@@ -620,6 +627,18 @@ export function startObserving(editableDiv) {
     documentChanged = true;
 
     for (const mutation of mutations) {
+
+      // Process removals first to ensure they're not missed
+      if (mutation.type === "childList" && mutation.removedNodes.length > 0) {
+        mutation.removedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE && node.id) {
+            console.log(`Node removed: ${node.id}`, node);
+            deleteIndexedDBRecord(node.id);
+            removedNodeIds.add(node.id);
+          }
+        });
+      }
+
       // --- NEW GUARD: skip any childList where all added nodes are arrow‐icons ---
       if (mutation.type === "childList") {
         const allAreIcons = Array.from(mutation.addedNodes).every((n) => {
@@ -724,7 +743,6 @@ export function startObserving(editableDiv) {
     normalizeNodeIds(currentChunk);
   }, 1000);
 }
-
 
 
 
