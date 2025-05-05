@@ -113,8 +113,8 @@ instance.saveScrollPosition = () => {
   if (topVisible) {
     // Use the element's id
     const detectedId = topVisible.id;
-    // Only save if it is purely numerical.
-    if (/^\d+$/.test(detectedId)) {
+    // Modified regex to accept decimal numbers
+    if (/^\d+(\.\d+)?$/.test(detectedId)) {
       const scrollData = {
         elementId: detectedId,
       };
@@ -133,6 +133,7 @@ instance.saveScrollPosition = () => {
     }
   }
 };
+
 
   container.addEventListener("scroll", throttle(instance.saveScrollPosition, 200));
 
