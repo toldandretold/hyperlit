@@ -1,4 +1,5 @@
 import { book } from "./app.js";
+import { broadcastToOpenTabs } from "./divEditor.js";
 
 export const DB_VERSION = 13;
 
@@ -825,6 +826,28 @@ export async function updateIndexedDBRecord(record) {
   }
 }
 
+// Function to update IndexedDB when normalizing IDs
+export async function updateIndexedDBRecordForNormalization(oldId, newId, html) {
+  console.log(`Normalizing record in IndexedDB: ${oldId} -> ${newId}`);
+  try {
+    // First, add the new record
+    await updateIndexedDBRecord({
+      id: newId,
+      html: html,
+      action: "add" // Use "add" instead of "normalize" if your updateIndexedDBRecord doesn't handle "normalize"
+    });
+    
+    // Then, after ensuring the new record is added, delete the old one
+    await deleteIndexedDBRecord(oldId);
+    
+    console.log(`Successfully normalized record: ${oldId} -> ${newId}`);
+    return true;
+  } catch (error) {
+    console.error(`Error normalizing record ${oldId} -> ${newId}:`, error);
+    return false;
+  }
+}
+
 
 // Helper function to update hyperlights store
 function updateHyperlightsStore(store, bookId, hyperlightsToUpdate) {
@@ -970,4 +993,385 @@ export async function deleteIndexedDBRecord(id) {
     console.error("Error in deleteIndexedDBRecord:", error);
   }
 }
+
+
+
+// Helper function to update a specific nodeChunk in IndexedDB
+async function updateNodeChunkInIndexedDB(book, startLine, updatedRecord) {
+  return new Promise((resolve, reject) => {
+    const dbName = "MarkdownDB";
+    const storeName = "nodeChunks";
+    
+    console.log(`Attempting to update nodeChunk: book=${book}, startLine=${startLine}`);
+    console.log("startLine type:", typeof startLine, "value:", startLine);
+    
+    const request = indexedDB.open(dbName);
+    
+    request.onerror = (event) => {
+      console.error(`IndexedDB error: ${event.target.errorCode}`);
+      resolve(false);
+    };
+    
+    request.onsuccess = async (event) => {
+      const db = event.target.result;
+      
+      try {
+        // First try to find the record using various formats
+        const transaction = db.transaction([storeName], "readonly");
+        const objectStore = transaction.objectStore("nodeChunks");
+        const index = objectStore.index("book");
+        
+        // Get all records for this book
+        const bookRecords = await new Promise((resolve) => {
+          const request = index.getAll(book);
+          request.onsuccess = () => resolve(request.result);
+        });
+        
+        console.log(`Found ${bookRecords.length} records for book ${book}`);
+        
+        // Try different formats of startLine
+        const possibleStartLines = [
+          startLine,                                  // Original
+          typeof startLine === 'string' ? parseFloat(startLine) : startLine,  // As float
+          typeof startLine === 'string' ? parseInt(startLine, 10) : startLine, // As int
+          String(startLine)                           // As string
+        ];
+        
+        let matchingRecord = null;
+        for (const record of bookRecords) {
+          if (possibleStartLines.includes(record.startLine)) {
+            matchingRecord = record;
+            console.log(`Found matching record with startLine=${record.startLine}`);
+            break;
+          }
+        }
+        
+        await transaction.complete;
+        
+        if (!matchingRecord) {
+          console.error(`No matching record found for startLine=${startLine} in book ${book}`);
+          console.log("Available startLines:", bookRecords.map(r => r.startLine));
+          resolve(false);
+          return;
+        }
+        
+        // Now update the record
+        const writeTx = db.transaction([storeName], "readwrite");
+        const writeStore = writeTx.objectStore(storeName);
+        
+        // Create the key using the exact format from the matching record
+        const key = [book, matchingRecord.startLine];
+        console.log("Using key for update:", key);
+        
+        // Update the hypercites array
+        if (updatedRecord.hypercites) {
+          matchingRecord.hypercites = updatedRecord.hypercites;
+        }
+        
+        // Put the updated record back
+        const updateRequest = writeStore.put(matchingRecord);
+        
+        updateRequest.onsuccess = () => {
+          console.log(`Successfully updated record for key:`, key);
+          resolve(true);
+        };
+        
+        updateRequest.onerror = (event) => {
+          console.error(`Error updating record:`, event.target.error);
+          resolve(false);
+        };
+        
+        writeTx.oncomplete = () => {
+          db.close();
+        };
+      } catch (error) {
+        console.error("Transaction error:", error);
+        resolve(false);
+      }
+    };
+  });
+}
+
+
+// Helper function to update a specific hypercite in IndexedDB
+export async function updateHyperciteInIndexedDB(book, hyperciteId, updatedFields) {
+  return new Promise((resolve, reject) => {
+    const dbName = "MarkdownDB";
+    const storeName = "hypercites";
+    
+    console.log(`Updating in hypercites store: ${dbName}, key: [${book}, ${hyperciteId}]`);
+    
+    const request = indexedDB.open(dbName);
+    
+    request.onerror = (event) => {
+      console.error(`IndexedDB error: ${event.target.errorCode}`);
+      resolve(false);
+    };
+    
+    request.onsuccess = (event) => {
+      const db = event.target.result;
+      
+      try {
+        const transaction = db.transaction([storeName], "readwrite");
+        const objectStore = transaction.objectStore(storeName);
+        
+        // Create the composite key [book, hyperciteId]
+        const key = [book, hyperciteId];
+        
+        // Get the record using the composite key
+        const getRequest = objectStore.get(key);
+        
+        getRequest.onsuccess = (event) => {
+          const existingRecord = event.target.result;
+          
+          if (!existingRecord) {
+            console.error(`Hypercite record not found for key: [${book}, ${hyperciteId}]`);
+            resolve(false);
+            return;
+          }
+          
+          console.log("Found existing hypercite record:", existingRecord);
+          
+          // Update the fields in the existing record
+          Object.assign(existingRecord, updatedFields);
+          
+          // Put the updated record back
+          const updateRequest = objectStore.put(existingRecord);
+          
+          updateRequest.onsuccess = () => {
+            console.log(`Successfully updated hypercite for key: [${book}, ${hyperciteId}]`);
+            resolve(true);
+          };
+          
+          updateRequest.onerror = (event) => {
+            console.error(`Error updating hypercite record:`, event.target.error);
+            resolve(false);
+          };
+        };
+        
+        getRequest.onerror = (event) => {
+          console.error(`Error getting hypercite record:`, event.target.error);
+          resolve(false);
+        };
+        
+        transaction.oncomplete = () => {
+          db.close();
+        };
+      } catch (error) {
+        console.error("Transaction error:", error);
+        resolve(false);
+      }
+    };
+  });
+}
+
+// Modified function to update both nodeChunks and hypercites
+export async function updateCitationForExistingHypercite(
+  booka,
+  hyperciteIDa,
+  citationIDb,
+  insertContent = true // Default to true for backward compatibility
+) {
+  // Only insert content if explicitly requested
+  /* if (insertContent) {
+    const clipboardHtml = event.clipboardData.getData("text/html");
+    if (clipboardHtml) {
+      document.execCommand("insertHTML", false, clipboardHtml);
+    } else {
+      const clipboardText = event.clipboardData.getData("text/plain");
+      document.execCommand("insertText", false, clipboardText);
+    }
+  } */
+
+  try {
+    console.log(
+      `Updating citation: book=${booka}, hyperciteID=${hyperciteIDa}, citationIDb=${citationIDb}`
+    );
+
+    // Check if this is an internal paste (same book)
+    const isInternalPaste = booka === book;
+
+    // Retrieve nodeChunks for booka.
+    const nodeChunks = await getNodeChunksFromIndexedDB(booka);
+    if (!nodeChunks || nodeChunks.length === 0) {
+      console.warn(`No nodeChunks found for book ${booka}`);
+      return false;
+    }
+
+    let foundAndUpdated = false;
+    let updatedRelationshipStatus = "single";
+
+    // Search through all nodeChunks for the matching hypercite.
+    for (let i = 0; i < nodeChunks.length; i++) {
+      const record = nodeChunks[i];
+      if (!record.hypercites || !Array.isArray(record.hypercites)) continue;
+
+      // Find the index of the hypercite with a matching ID.
+      const hyperciteIndex = record.hypercites.findIndex(
+        (hc) => hc.hyperciteId === hyperciteIDa
+      );
+
+      if (hyperciteIndex !== -1) {
+        const startLine = record.startLine;
+        console.log(
+          `Found matching hypercite in record with startLine=${startLine}`
+        );
+
+        // Get a reference to the hypercite.
+        const hypercite = record.hypercites[hyperciteIndex];
+
+        // Initialize the citedIN array if it doesn't exist.
+        if (!hypercite.citedIN) {
+          hypercite.citedIN = [];
+        }
+
+        // Add the citation if it isn't already present.
+        if (!hypercite.citedIN.includes(citationIDb)) {
+          hypercite.citedIN.push(citationIDb);
+          console.log(`Added citation ${citationIDb} to hypercite`);
+        } else {
+          console.log(`Citation ${citationIDb} already exists in hypercite`);
+        }
+
+        // Update relationshipStatus based on the count of citations.
+        if (hypercite.citedIN.length === 1) {
+          // First citation: update to "couple".
+          hypercite.relationshipStatus = "couple";
+        } else if (hypercite.citedIN.length >= 2) {
+          // Two or more citations: update to "poly".
+          hypercite.relationshipStatus = "poly";
+        }
+        
+        updatedRelationshipStatus = hypercite.relationshipStatus;
+
+        // Update the record in IndexedDB using the composite key.
+        const success = await updateNodeChunkInIndexedDB(
+          booka,
+          startLine,
+          record
+        );
+        
+        if (success) {
+          console.log(
+            `Successfully updated nodeChunk with startLine=${startLine} in book ${booka}`
+          );
+          foundAndUpdated = true;
+          broadcastToOpenTabs(booka, startLine);
+          
+          // Update the DOM to reflect the new relationship status for internal pastes
+          if (isInternalPaste) {
+            const originalUnderline = document.getElementById(hyperciteIDa);
+            if (originalUnderline) {
+              originalUnderline.className = updatedRelationshipStatus;
+              console.log(`Updated original underline class to ${updatedRelationshipStatus}`);
+            }
+          }
+        } else {
+          console.error(
+            `Failed to update nodeChunk with startLine=${startLine} in book ${booka}`
+          );
+        }
+      }
+    }
+
+    // Now update the corresponding hypercite in the hypercites object store
+    if (foundAndUpdated) {
+      // Prepare the fields to update in the hypercites store
+      const hyperciteUpdates = {
+        relationshipStatus: updatedRelationshipStatus
+      };
+      
+      // Get the existing hypercite to update its citedIN array
+      const hyperciteRecord = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
+      
+      if (hyperciteRecord) {
+        // Initialize citedIN array if it doesn't exist
+        if (!hyperciteRecord.citedIN) {
+          hyperciteRecord.citedIN = [];
+        }
+        
+        // Add the citation if it isn't already present
+        if (!hyperciteRecord.citedIN.includes(citationIDb)) {
+          hyperciteRecord.citedIN.push(citationIDb);
+        }
+        
+        hyperciteUpdates.citedIN = hyperciteRecord.citedIN;
+        
+        // Update the hypercite in IndexedDB
+        const hyperciteSuccess = await updateHyperciteInIndexedDB(
+          booka,
+          hyperciteIDa,
+          hyperciteUpdates
+        );
+        
+        if (hyperciteSuccess) {
+          console.log(`Successfully updated hypercite ${hyperciteIDa} in book ${booka}`);
+          return true;
+        } else {
+          console.error(`Failed to update hypercite ${hyperciteIDa} in book ${booka}`);
+          return false;
+        }
+      } else {
+        console.error(`Hypercite ${hyperciteIDa} not found in book ${booka}`);
+        return false;
+      }
+    }
+
+    console.log(
+      `No matching hypercite found in book ${booka} with ID ${hyperciteIDa}`
+    );
+    return false;
+  } catch (error) {
+    console.error("Error updating citation:", error);
+    return false;
+  }
+}
+
+
+async function getHyperciteFromIndexedDB(book, hyperciteId) {
+  return new Promise((resolve, reject) => {
+    const dbName = "MarkdownDB";
+    const storeName = "hypercites";
+    
+    const request = indexedDB.open(dbName);
+    
+    request.onerror = (event) => {
+      console.error(`IndexedDB error: ${event.target.errorCode}`);
+      resolve(null);
+    };
+    
+    request.onsuccess = (event) => {
+      const db = event.target.result;
+      
+      try {
+        const transaction = db.transaction([storeName], "readonly");
+        const objectStore = transaction.objectStore(storeName);
+        
+        // Create the composite key [book, hyperciteId]
+        const key = [book, hyperciteId];
+        
+        // Get the record using the composite key
+        const getRequest = objectStore.get(key);
+        
+        getRequest.onsuccess = (event) => {
+          const record = event.target.result;
+          resolve(record);
+        };
+        
+        getRequest.onerror = (event) => {
+          console.error(`Error getting hypercite:`, event.target.error);
+          resolve(null);
+        };
+        
+        transaction.oncomplete = () => {
+          db.close();
+        };
+      } catch (error) {
+        console.error("Transaction error:", error);
+        resolve(null);
+      }
+    };
+  });
+} 
+
 
