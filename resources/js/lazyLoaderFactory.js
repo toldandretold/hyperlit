@@ -156,7 +156,8 @@ instance.saveScrollPosition = () => {
     if (!(scrollData && scrollData.elementId)) return;
 
     // First, try to find the element in the already loaded DOM.
-    let targetElement = container.querySelector(`#${scrollData.elementId}`);
+    // Use CSS.escape to properly escape the ID:
+    let targetElement = container.querySelector(`#${CSS.escape(scrollData.elementId)}`);
     if (targetElement) {
       console.log(
         "Restoring scroll position to already loaded element:",
