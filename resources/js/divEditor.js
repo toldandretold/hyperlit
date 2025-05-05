@@ -30,8 +30,6 @@ let observer;
 let currentObservedChunk = null;
 // Track document changes for debounced normalization
 let documentChanged = false;
-let isTyping = false;
-let typingTimer;
 // hypercite paste handling
 let hypercitePasteInProgress = false;
 
@@ -198,8 +196,6 @@ export function stopObserving() {
   addedNodes.clear();
   removedNodeIds.clear();
   documentChanged = false;
-  isTyping = false;
-  clearTimeout(typingTimer);
   
   // Remove any lingering spinner
   const existingSpinner = document.getElementById("status-icon");
@@ -594,7 +590,7 @@ function debounce(func, wait) {
 
 // Debounced normalization function for editable div, including saving cues
 const debouncedNormalize = debounce(async (container) => {
-  if (documentChanged && !isTyping) {
+    if (documentChanged){
     console.log("User stopped typing; normalizing and saving...");
     // show spinner at the beginning of save process
     showSpinner();
