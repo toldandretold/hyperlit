@@ -1,12 +1,21 @@
 import { book } from "./app.js";
 import { 
   updateIndexedDBRecord, 
-  deleteIndexedDBRecord, 
   getNodeChunksFromIndexedDB,
   parseNodeId,
-  createNodeChunksKey 
+  createNodeChunksKey, 
+  deleteIndexedDBRecordWithRetry,
+  deleteIndexedDBRecord
           } from "./cache-indexedDB.js";
-import { showSpinner, showTick } from "./editIndicator.js";
+import { showTick } from "./editIndicator.js";
+import { 
+  getPendingOperations, 
+  getUnloadWarningActive,
+  setUnloadWarningActive,
+  incrementPendingOperations,
+  decrementPendingOperations,
+  withPending
+} from './operationState.js';
 import { openDatabase,
          updateCitationForExistingHypercite,
          updateHyperciteInIndexedDB,
@@ -18,6 +27,9 @@ import { generateUniqueId,
          normalizeNodeIds,
          generateInsertedNodeId,
           } from "./IDfunctions.js";
+import {
+  broadcastToOpenTabs
+} from './BroadcastListener.js'
 
 // Tracking sets
 const modifiedNodes = new Set(); // Track element IDs whose content was modified.
@@ -32,6 +44,8 @@ let currentObservedChunk = null;
 let documentChanged = false;
 // hypercite paste handling
 let hypercitePasteInProgress = false;
+
+
 
 
 
@@ -53,27 +67,67 @@ export function startObserving(editableDiv) {
   currentObservedChunk = currentChunk;
   console.log("Observing changes in chunk:", currentChunk);
 
-  observer = new MutationObserver((mutations) => {
+  // Modify the MutationObserver callback in startObserving function
+  observer = new MutationObserver(async (mutations) => {
     // Skip processing if a hypercite paste is in progress
     if (hypercitePasteInProgress) {
       console.log("Skipping mutations during hypercite paste");
       return;
     }
+
+    // Skip mutations related to status icons
+    if (mutations.some(mutation => 
+        mutation.target.id === "status-icon" || 
+        (mutation.target.parentNode && mutation.target.parentNode.id === "status-icon") ||
+        mutation.addedNodes.length && Array.from(mutation.addedNodes).some(node => 
+          node.id === "status-icon" || (node.parentNode && node.parentNode.id === "status-icon")
+        )
+      )) {
+      console.log("Skipping mutations related to status icons");
+      return;
+    }
+
     
-    showSpinner();
-    documentChanged = true;
+    // Track parent nodes that need updates
+    const parentsToUpdate = new Set();
 
     for (const mutation of mutations) {
-
       // Process removals first to ensure they're not missed
       if (mutation.type === "childList" && mutation.removedNodes.length > 0) {
-        mutation.removedNodes.forEach((node) => {
-          if (node.nodeType === Node.ELEMENT_NODE && node.id) {
-            console.log(`Node removed: ${node.id}`, node);
-            deleteIndexedDBRecord(node.id);
-            removedNodeIds.add(node.id);
+        let shouldUpdateParent = false;
+        let parentNode = null;
+        
+        for (const node of mutation.removedNodes) {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // Check if this is a top-level paragraph/heading being removed
+            if (node.id && node.id.match(/^\d+(\.\d+)?$/)) {
+              console.log(`Top-level node removed: ${node.id}`, node);
+              await deleteIndexedDBRecordWithRetry(node.id);
+              removedNodeIds.add(node.id);
+            } 
+            // Check if this is a child element (like a hypercite) being removed
+            else if (node.id && node.id.startsWith("hypercite_")) {
+              // Instead of deleting, mark the parent for update
+              parentNode = mutation.target;
+              shouldUpdateParent = true;
+              console.log(`Hypercite removed from parent: ${parentNode.id}`, node);
+            }
           }
-        });
+        }
+         
+        
+        // If we found a parent that needs updating, add it to our set
+        if (shouldUpdateParent && parentNode) {
+          // Find the closest parent with a numeric ID
+          let closestParent = parentNode;
+          while (closestParent && (!closestParent.id || !closestParent.id.match(/^\d+(\.\d+)?$/))) {
+            closestParent = closestParent.parentElement;
+          }
+          
+          if (closestParent && closestParent.id) {
+            parentsToUpdate.add(closestParent);
+          }
+        }
       }
 
       // --- NEW GUARD: skip any childList where all added nodes are arrow‐icons ---
@@ -145,12 +199,9 @@ export function startObserving(editableDiv) {
             addedNodes.add(node);
           }
         });
-        mutation.removedNodes.forEach((node) => {
-          if (node.nodeType === Node.ELEMENT_NODE && node.id) {
-            deleteIndexedDBRecord(node.id);
-            removedNodeIds.add(node.id);
-          }
-        });
+        
+        // We're handling removals differently now, so this part is modified
+        // to only handle top-level node removals
       }
       // 3) Original logic: characterData updates
       else if (mutation.type === "characterData") {
@@ -165,9 +216,21 @@ export function startObserving(editableDiv) {
         }
       }
     }
+    
+    // Process all parent nodes that need updates
+    parentsToUpdate.forEach(parent => {
+      console.log(`Updating parent node after child removal: ${parent.id}`);
+      updateIndexedDBRecord({
+        id: parent.id,
+        html: parent.outerHTML,
+        action: "update"
+      }).catch(console.error);
+      modifiedNodes.add(parent.id);
+    });
 
     debouncedNormalize(currentObservedChunk);
   });
+
 
   observer.observe(currentChunk, {
     childList: true,
@@ -306,6 +369,7 @@ export function addPasteListener(editableDiv) {
         }
         
         if (currentParagraph && currentParagraph.id) {
+
           console.log("Manually saving paragraph:", currentParagraph.id);
           // Manually save the paragraph to IndexedDB
           updateIndexedDBRecord({
@@ -344,9 +408,6 @@ document.addEventListener("keydown", function handleTypingActivity() {
   // Only show spinner if in edit mode
   if (!window.isEditing) return;
   
-  // Immediately show the spinner when a key is pressed.
-  showSpinner();
-  documentChanged = true;
   
     if (currentObservedChunk) {
       debouncedNormalize(currentObservedChunk);
@@ -390,20 +451,6 @@ document.addEventListener("keydown", function handleENTERpress(event) {
 });
 
 
-
-
-
-
-export function broadcastToOpenTabs(booka, startLine) {
-  const channel = new BroadcastChannel("node-updates");
-  console.log(
-    `Broadcasting update: book=${booka}, startLine=${startLine}`
-  );
-  channel.postMessage({
-    book: booka,
-    startLine,
-  });
-}
 
 
 
@@ -589,23 +636,20 @@ function debounce(func, wait) {
 }
 
 // Debounced normalization function for editable div, including saving cues
-const debouncedNormalize = debounce(async (container) => {
-    if (documentChanged){
-    console.log("User stopped typing; normalizing and saving...");
-    // show spinner at the beginning of save process
-    showSpinner();
+const debouncedNormalize = debounce((container) => {
+  if (!documentChanged) return;
+  console.log("User stopped typing; normalizing and saving…");
+  // this wrapper will increment before running, and decrement when done
+  withPending(async () => {
     const changes = await normalizeNodeIds(container);
-    // Optionally, update IndexedDB for any change outside of normalization
     if (changes) {
-      console.log("Normalization complete with changes");
+      console.log("Normalization made changes");
     } else {
-      console.log("Normalization complete - no changes needed");
+      console.log("Normalization complete—no changes needed");
     }
-    // After save is complete, show tick:
-    showTick();
     documentChanged = false;
-  }
-}, 500); // 1 second delay
+  }).catch(console.error);
+}, 500);
 
 // ----------------------------------------------------------------
 // Utility: Get the chunk element where the cursor is currently located.
@@ -702,3 +746,123 @@ function ensureNodeHasValidId(node, options = {}) {
   documentChanged = true;
 }
 
+// Add this to your existing code
+document.addEventListener("keydown", function(event) {
+  if (event.key === "Enter" && window.isEditing) {
+    // Prevent the default behavior
+    event.preventDefault();
+    
+    // Get the current selection
+    const selection = document.getSelection();
+    if (selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    
+    // Find the current block element
+    let currentNode = range.startContainer;
+    if (currentNode.nodeType !== Node.ELEMENT_NODE) {
+      currentNode = currentNode.parentElement;
+    }
+    
+    // Find the parent block element
+    let blockElement = currentNode;
+    while (blockElement && 
+           !['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI'].includes(blockElement.tagName)) {
+      blockElement = blockElement.parentElement;
+    }
+    
+    if (!blockElement) return;
+    
+    // Split the content at cursor position
+    const cursorOffset = range.startOffset;
+    const isAtEnd = (range.startContainer.nodeType === Node.TEXT_NODE && 
+                     cursorOffset === range.startContainer.length);
+    
+    // Create a new paragraph with plain text
+    const newParagraph = document.createElement('p');
+    
+    if (isAtEnd) {
+      // If cursor is at the end, just create an empty paragraph
+      newParagraph.innerHTML = '<br>'; // Empty paragraph needs <br> to be visible
+    } else {
+      // Extract content after cursor
+      const rangeToExtract = document.createRange();
+      rangeToExtract.setStart(range.startContainer, cursorOffset);
+      rangeToExtract.setEndAfter(blockElement);
+      
+      // Extract the content as plain text
+      const extractedText = rangeToExtract.toString();
+      
+      // Delete the extracted content
+      rangeToExtract.deleteContents();
+      
+      // Set the extracted text as plain text
+      newParagraph.textContent = extractedText || '';
+      if (!extractedText) {
+        newParagraph.innerHTML = '<br>';
+      }
+    }
+    
+    // Insert the new paragraph after the current one
+    blockElement.parentNode.insertBefore(newParagraph, blockElement.nextSibling);
+    
+    // Move cursor to the beginning of the new paragraph
+    const newRange = document.createRange();
+    newRange.setStart(newParagraph, 0);
+    newRange.collapse(true);
+    
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+    
+    // Your existing code will handle ID assignment via MutationObserver
+  }
+});
+
+// Function to update page state based on pending operations
+function updatePageState() {
+  if (getPendingOperations() > 0) {
+    // There are pending operations
+    activateUnloadWarning();
+  } else {
+    // All operations completed
+    showTick();
+    deactivateUnloadWarning();
+  }
+}
+
+// Function to activate the unload warning
+function activateUnloadWarning() {
+  if (!getUnloadWarningActive()) {
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    setUnloadWarningActive(true);
+  }
+}
+
+// Function to deactivate the unload warning
+function deactivateUnloadWarning() {
+  if (getUnloadWarningActive()) {
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+    setUnloadWarningActive(false);
+  }
+}
+
+// Handler for beforeunload event
+function handleBeforeUnload(event) {
+  if (getPendingOperations() > 0) {
+    const message = "Changes are still being saved. If you leave now, some changes may be lost.";
+    event.preventDefault();
+    event.returnValue = message;
+    return message;
+  }
+}
+
+// Instead of checking every 100ms
+let lastOperationCount = 0;
+setInterval(() => {
+  const currentCount = getPendingOperations();
+  // Only update if the count has changed
+  if (currentCount !== lastOperationCount) {
+    lastOperationCount = currentCount;
+    updatePageState();
+  }
+}, 500); // Check less frequently

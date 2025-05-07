@@ -102,3 +102,14 @@ function getNodeChunkByKey(book, startLine) {
     };
   });
 }
+
+export function broadcastToOpenTabs(booka, startLine) {
+  const channel = new BroadcastChannel("node-updates");
+  console.log(
+    `Broadcasting update: book=${booka}, startLine=${startLine}`
+  );
+  channel.postMessage({
+    book: booka,
+    startLine,
+  });
+}

@@ -1,7 +1,12 @@
 import { book } from "./app.js";
-import { broadcastToOpenTabs } from "./divEditor.js";
+import {
+  broadcastToOpenTabs
+} from './BroadcastListener.js';
+import { withPending } from "./operationState.js"
 
 export const DB_VERSION = 13;
+
+
 
 /**
  * Opens (or creates) the IndexedDB database.
@@ -89,46 +94,43 @@ export async function openDatabase() {
  */
 // For saving nodeChunks
 export async function saveNodeChunksToIndexedDB(nodeChunks, bookId = "latest") {
-  const db = await openDatabase();
-  const tx = db.transaction("nodeChunks", "readwrite");
-  const store = tx.objectStore("nodeChunks");
+  return withPending(async () => {
+    const db = await openDatabase();
+    const tx = db.transaction("nodeChunks", "readwrite");
+    const store = tx.objectStore("nodeChunks");
 
-  nodeChunks.forEach((record) => {
-    // Tag the record with the proper book identifier
-    record.book = bookId;
-    
-    // Convert startLine to the appropriate numeric format
-    record.startLine = parseNodeId(record.startLine);
-    
-    store.put(record);
-  });
+    nodeChunks.forEach((record) => {
+      // Tag the record with the proper book identifier
+      record.book = bookId;
+      
+      // Convert startLine to the appropriate numeric format
+      record.startLine = parseNodeId(record.startLine);
+      
+      store.put(record);
+    });
 
-  return new Promise((resolve, reject) => {
-    tx.oncomplete = () => {
-      console.log("✅ nodeChunks successfully saved for book:", bookId);
-      resolve();
-    };
-    tx.onerror = () => {
-      console.error("❌ Error saving nodeChunks to IndexedDB");
-      reject();
-    };
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => {
+        console.log("✅ nodeChunks successfully saved for book:", bookId);
+        resolve();
+      };
+      tx.onerror = () => {
+        console.error("❌ Error saving nodeChunks to IndexedDB");
+        reject();
+      };
+    });
   });
 }
 
 // Helper function to convert a string ID to the appropriate numeric format
 export function parseNodeId(id) {
-  
+  // If already a number, return it directly
   if (typeof id === 'number') return id;
   
-  // Handle string IDs like "1" or "1.1"
-  if (id.includes('.')) {
-    // For decimal IDs like "1.1", parse as float
-    return parseFloat(id);
-  } else {
-    // For integer IDs like "1", parse as integer
-    return parseInt(id, 10);
-  }
+  // Otherwise, convert string to float (works for both "1" and "1.1")
+  return parseFloat(id);
 }
+
 
 // Helper function to ensure consistent key format for nodeChunks
 export function createNodeChunksKey(bookId, startLine) {
@@ -150,15 +152,13 @@ export async function getNodeChunksFromIndexedDB(bookId = "latest") {
   const store = tx.objectStore("nodeChunks");
   
   return new Promise((resolve, reject) => {
-    // Get all records and filter manually
-    const request = store.getAll();
+    // Use the book index for more efficient lookup
+    const index = store.index("book");
+    const request = index.getAll(bookId);
     
     request.onsuccess = () => {
       let results = request.result || [];
       
-      // Filter by book ID directly
-      results = results.filter((record) => record.book === bookId);
-
       // Sort the results by chunk_id for proper lazy loading order
       results.sort((a, b) => a.chunk_id - b.chunk_id);
 
@@ -171,6 +171,7 @@ export async function getNodeChunksFromIndexedDB(bookId = "latest") {
     };
   });
 }
+
 
 
 
@@ -469,472 +470,157 @@ function processNodeContentHighlightsAndCites(node) {
 
 
 
-
-export async function updateIndexedDBRecord(record) {
-  try {
+export function updateIndexedDBRecord(record) {
+  return withPending(async () => {
     const bookId = book || "latest";
-    
-    // Find the parent node with a numeric ID if we're dealing with a mark tag
+
+    // find a numeric parent ID
     let nodeId = record.id;
-    let node = document.getElementById(record.id);
-    
-    if (node && !nodeId.match(/^\d+(\.\d+)?$/)) {
-      // Traverse up until we find a parent with a numeric ID
-      while (node && node.parentElement) {
-        node = node.parentElement;
-        if (node.id && node.id.match(/^\d+(\.\d+)?$/)) {
-          nodeId = node.id;
-          break;
-        }
-      }
+    let node   = document.getElementById(nodeId);
+    while (node && !/^\d+(\.\d+)?$/.test(nodeId)) {
+      node = node.parentElement;
+      if (node?.id) nodeId = node.id;
     }
-    
-    if (!nodeId.match(/^\d+(\.\d+)?$/)) {
-      console.log(`Skipping IndexedDB update - no valid parent node ID found for: ${record.id}`);
+
+    if (!/^\d+(\.\d+)?$/.test(nodeId)) {
+      console.log(
+        `Skipping IndexedDB update – no valid parent node ID for ${record.id}`
+      );
       return;
     }
-    
-    console.log(`Updating IndexedDB record for node ${nodeId}, action: ${record.action}`);
-    
-    // Process content and hyperlights if we have a node
-    let processedContent = null;
-    if (node) {
-      processedContent = processNodeContentHighlightsAndCites(node);
-    }
-    
-    const db = await openDatabase();
-    const tx = db.transaction(["nodeChunks", "hyperlights", "hypercites"], "readwrite");
-    
-    // Set transaction event handlers INSIDE the transaction context
-    tx.oncomplete = () => console.log(`✅ TX complete for node ${nodeId}`);
-    tx.onerror = (e) => console.error(`❌ TX error for node ${nodeId}:`, e.target.error);
-    
-    const nodeChunksStore = tx.objectStore("nodeChunks");
-    const hyperlightsStore = tx.objectStore("hyperlights");
-    const hypercitesStore = tx.objectStore("hypercites");
-    
-    // Convert nodeId to numeric format for database operations
+
     const numericNodeId = parseNodeId(nodeId);
-    
-    // Track which hyperlights and hypercites need updating
-    let hyperlightsToUpdate = [];
-    let hypercitesToUpdate = [];
-    
-    if (record.action !== "normalize") {
-      // Create the proper key for database operations
-      const key = createNodeChunksKey(bookId, nodeId);
-      console.log("Using database key:", key);
-      
-      const baseRequest = nodeChunksStore.get(key);
-      
-      baseRequest.onsuccess = () => {
-        let inheritedChunkId = null;
-        const baseRecord = baseRequest.result;
-        if (baseRecord && baseRecord.chunk_id !== undefined) {
-          inheritedChunkId = baseRecord.chunk_id;
-        } else {
-          inheritedChunkId = 0;
-        }
-        
-        // Use the same key for the main lookup
-        const getRequest = nodeChunksStore.get(key);
-        getRequest.onsuccess = () => {
-          const existingRecord = getRequest.result;
-          
-          let nodeRecord;
-          if (existingRecord) {
-            nodeRecord = {
-              ...existingRecord,
-              content: processedContent ? processedContent.content : record.html
-            };
-            
-            // For hyperlights: update only the position fields.
-            if (processedContent && processedContent.hyperlights.length > 0) {
-              const updatedHyperlights = existingRecord.hyperlights || [];
-              processedContent.hyperlights.forEach(newHyperlight => {
-                const index = updatedHyperlights.findIndex(
-                  h => h.highlightID === newHyperlight.highlightID
-                );
-                if (index !== -1) {
-                  // Update only the changed position fields
-                  updatedHyperlights[index].charStart = newHyperlight.charStart;
-                  updatedHyperlights[index].charEnd = newHyperlight.charEnd;
-                  
-                  // Add to list of hyperlights that need updating in the hyperlights store
-                  hyperlightsToUpdate.push({
-                    id: newHyperlight.highlightID,
-                    startChar: newHyperlight.charStart,
-                    endChar: newHyperlight.charEnd,
-                    startLine: numericNodeId, // Use numeric value
-                    highlightedText: newHyperlight.highlightedText,
-                    highlightedHTML: newHyperlight.highlightedHTML
-                  });
-                } else {
-                  updatedHyperlights.push(newHyperlight);
-                  
-                  // Add new hyperlight to update list
-                  hyperlightsToUpdate.push({
-                    id: newHyperlight.highlightID,
-                    startChar: newHyperlight.charStart,
-                    endChar: newHyperlight.charEnd,
-                    startLine: numericNodeId, // Use numeric value
-                    highlightedText: newHyperlight.highlightedText,
-                    highlightedHTML: newHyperlight.highlightedHTML
-                  });
-                }
-              });
-              nodeRecord.hyperlights = updatedHyperlights;
-            }
-            
-            // For hypercites: update only the position fields.
-            if (processedContent && processedContent.hypercites.length > 0) {
-              const updatedHypercites = existingRecord.hypercites || [];
-              processedContent.hypercites.forEach(newHypercite => {
-                const index = updatedHypercites.findIndex(
-                  h => h.hyperciteId === newHypercite.hyperciteId
-                );
-                if (index !== -1) {
-                  // Update only the positional fields.
-                  updatedHypercites[index].charStart = newHypercite.charStart;
-                  updatedHypercites[index].charEnd = newHypercite.charEnd;
-                  
-                  // Add to list of hypercites that need updating in the hypercites store
-                  hypercitesToUpdate.push({
-                    id: newHypercite.hyperciteId,
-                    startChar: newHypercite.charStart,
-                    endChar: newHypercite.charEnd,
-                    hypercitedText: newHypercite.hypercitedText,
-                    hypercitedHTML: newHypercite.hypercitedHTML
-                  });
-                } else {
-                  updatedHypercites.push(newHypercite);
-                  
-                  // Add new hypercite to update list
-                  hypercitesToUpdate.push({
-                    id: newHypercite.hyperciteId,
-                    startChar: newHypercite.charStart,
-                    endChar: newHypercite.charEnd,
-                    hypercitedText: newHypercite.hypercitedText,
-                    hypercitedHTML: newHypercite.hypercitedHTML
-                  });
-                }
-              });
-              nodeRecord.hypercites = updatedHypercites;
-            }
-          } else {
-            nodeRecord = {
-              book: bookId,
-              startLine: numericNodeId, // Store as numeric value
-              chunk_id: inheritedChunkId,
-              content: processedContent ? processedContent.content : record.html,
-              hyperlights: processedContent ? processedContent.hyperlights : [],
-              hypercites: processedContent ? processedContent.hypercites : []
-            };
-            
-            // Add all hyperlights and hypercites to update lists
-            if (processedContent) {
-              processedContent.hyperlights.forEach(hyperlight => {
-                hyperlightsToUpdate.push({
-                  id: hyperlight.highlightID,
-                  startChar: hyperlight.charStart,
-                  endChar: hyperlight.charEnd,
-                  startLine: numericNodeId, // Use numeric value
-                  highlightedText: hyperlight.highlightedText,
-                  highlightedHTML: hyperlight.highlightedHTML
-                });
-              });
-              
-              processedContent.hypercites.forEach(hypercite => {
-                hypercitesToUpdate.push({
-                  id: hypercite.hyperciteId,
-                  startChar: hypercite.charStart,
-                  endChar: hypercite.charEnd,
-                  hypercitedText: hypercite.hypercitedText,
-                  hypercitedHTML: hypercite.hypercitedHTML
-                });
-              });
-            }
-          }
+    console.log(
+      `Updating IndexedDB record for node ${nodeId} (numeric: ${numericNodeId})`
+    );
 
-          const putRequest = nodeChunksStore.put(nodeRecord);
-          putRequest.onsuccess = () => {
-            console.log(`Successfully ${record.action === "add" ? "added" : "updated"} record for node ${nodeId}`);
-            
-            // Update hyperlights store
-            updateHyperlightsStore(hyperlightsStore, bookId, hyperlightsToUpdate);
-            
-            // Update hypercites store
-            updateHypercitesStore(hypercitesStore, bookId, hypercitesToUpdate);
-          };
+    const processed = node
+      ? processNodeContentHighlightsAndCites(node)
+      : null;
+
+    const db = await openDatabase();
+    const tx = db.transaction(
+      ["nodeChunks", "hyperlights", "hypercites"],
+      "readwrite"
+    );
+    const chunksStore    = tx.objectStore("nodeChunks");
+    const lightsStore    = tx.objectStore("hyperlights");
+    const citesStore     = tx.objectStore("hypercites");
+    const compositeKey   = [bookId, numericNodeId];
+
+    // fetch the existing chunk (if any)
+    const getReq = chunksStore.get(compositeKey);
+    getReq.onsuccess = () => {
+      const existing = getReq.result;
+      let toSave;
+
+      if (existing) {
+        toSave = {
+          ...existing,
+          content: processed?.content ?? record.html,
+          hyperlights: processed?.hyperlights ?? existing.hyperlights,
+          hypercites: processed?.hypercites  ?? existing.hypercites,
         };
-      };
-    } else {
-      // Normalization branch
-      // Create the proper key for old record lookup
-      const oldKey = createNodeChunksKey(bookId, record.oldId);
-      console.log("Looking up old record with key:", oldKey);
-      
-      const getRequest = nodeChunksStore.get(oldKey);
-      getRequest.onsuccess = () => {
-        const oldRecord = getRequest.result;
-        if (oldRecord) {
-          const newRecord = {
-            ...oldRecord,
-            startLine: numericNodeId, // Store as numeric value
-            content: processedContent ? processedContent.content : record.html
-          };
-          // Update hyperlights during normalization if needed
-          if (processedContent && processedContent.hyperlights.length > 0) {
-            const updatedHyperlights = oldRecord.hyperlights || [];
-            processedContent.hyperlights.forEach(newHyperlight => {
-              const existingIndex = updatedHyperlights.findIndex(
-                h => h.highlightID === newHyperlight.highlightID
-              );
-              if (existingIndex !== -1) {
-                updatedHyperlights[existingIndex] = newHyperlight;
-                
-                // Add to list of hyperlights that need updating
-                hyperlightsToUpdate.push({
-                  id: newHyperlight.highlightID,
-                  startChar: newHyperlight.charStart,
-                  endChar: newHyperlight.charEnd,
-                  startLine: numericNodeId, // Use numeric value
-                  highlightedText: newHyperlight.highlightedText,
-                  highlightedHTML: newHyperlight.highlightedHTML
-                });
-              } else {
-                updatedHyperlights.push(newHyperlight);
-                
-                // Add new hyperlight to update list
-                hyperlightsToUpdate.push({
-                  id: newHyperlight.highlightID,
-                  startChar: newHyperlight.charStart,
-                  endChar: newHyperlight.charEnd,
-                  startLine: numericNodeId, // Use numeric value
-                  highlightedText: newHyperlight.highlightedText,
-                  highlightedHTML: newHyperlight.highlightedHTML
-                });
-              }
-            });
-            newRecord.hyperlights = updatedHyperlights;
-          }
-          
-          // Update hypercites during normalization if needed
-          if (processedContent && processedContent.hypercites.length > 0) {
-            const updatedHypercites = oldRecord.hypercites || [];
-            processedContent.hypercites.forEach(newHypercite => {
-              const existingIndex = updatedHypercites.findIndex(
-                h => h.hyperciteId === newHypercite.hyperciteId
-              );
-              if (existingIndex !== -1) {
-                updatedHypercites[existingIndex] = newHypercite;
-                
-                // Add to list of hypercites that need updating
-                hypercitesToUpdate.push({
-                  id: newHypercite.hyperciteId,
-                  startChar: newHypercite.charStart,
-                  endChar: newHypercite.charEnd,
-                  hypercitedText: newHypercite.hypercitedText,
-                  hypercitedHTML: newHypercite.hypercitedHTML
-                });
-              } else {
-                updatedHypercites.push(newHypercite);
-                
-                // Add new hypercite to update list
-                hypercitesToUpdate.push({
-                  id: newHypercite.hyperciteId,
-                  startChar: newHypercite.charStart,
-                  endChar: newHypercite.charEnd,
-                  hypercitedText: newHypercite.hypercitedText,
-                  hypercitedHTML: newHypercite.hypercitedHTML
-                });
-              }
-            });
-            newRecord.hypercites = updatedHypercites;
-          }
-          
-          const putRequest = nodeChunksStore.put(newRecord);
-          putRequest.onsuccess = () => {
-            nodeChunksStore.delete(oldKey);
-            console.log(`Normalized record from ID ${record.oldId} to ${nodeId}`);
-            
-            // Update hyperlights store
-            updateHyperlightsStore(hyperlightsStore, bookId, hyperlightsToUpdate);
-            
-            // Update hypercites store
-            updateHypercitesStore(hypercitesStore, bookId, hypercitesToUpdate);
-          };
-        } else {
-          console.log(`No record found with ID ${record.oldId} for normalization`);
-          const newRecord = {
-            book: bookId,
-            startLine: numericNodeId, // Store as numeric value
-            chunk_id: parseNodeId(baseNumber), // Parse to numeric value
-            content: processedContent ? processedContent.content : record.html,
-            hyperlights: processedContent ? processedContent.hyperlights : [],
-            hypercites: processedContent ? processedContent.hypercites : []
-          };
-          
-          // Add all hyperlights and hypercites to update lists
-          if (processedContent) {
-            processedContent.hyperlights.forEach(hyperlight => {
-              hyperlightsToUpdate.push({
-                id: hyperlight.highlightID,
-                startChar: hyperlight.charStart,
-                endChar: hyperlight.charEnd,
-                startLine: numericNodeId, // Use numeric value
-                highlightedText: hyperlight.highlightedText,
-                highlightedHTML: hyperlight.highlightedHTML
-              });
-            });
-            
-            processedContent.hypercites.forEach(hypercite => {
-              hypercitesToUpdate.push({
-                id: hypercite.hyperciteId,
-                startChar: hypercite.charStart,
-                endChar: hypercite.charEnd,
-                hypercitedText: hypercite.hypercitedText,
-                hypercitedHTML: hypercite.hypercitedHTML
-              });
-            });
-          }
-          
-          const putRequest = nodeChunksStore.put(newRecord);
-          putRequest.onsuccess = () => {
-            console.log(`Created new record for normalized node ${nodeId}`);
-            
-            // Update hyperlights store
-            updateHyperlightsStore(hyperlightsStore, bookId, hyperlightsToUpdate);
-            
-            // Update hypercites store
-            updateHypercitesStore(hypercitesStore, bookId, hypercitesToUpdate);
-          };
-        }
-      };
-    }
-    
+      } else {
+        toSave = {
+          book: bookId,
+          startLine: numericNodeId,
+          chunk_id: 0,
+          content: processed?.content ?? record.html,
+          hyperlights: processed?.hyperlights ?? [],
+          hypercites: processed?.hypercites ?? [],
+        };
+      }
+
+      // write the node chunk
+      chunksStore.put(toSave);
+
+      // update the hyperlights/hypercites stores
+      for (const h of toSave.hyperlights) {
+        updateHyperlightInStore(lightsStore, bookId, h, numericNodeId);
+      }
+      for (const c of toSave.hypercites) {
+        updateHyperciteInStore(citesStore, bookId, c);
+      }
+    };
+
+    getReq.onerror = (e) => {
+      console.error("Error fetching nodeChunk:", e.target.error);
+      // let tx.onerror handle the rejection
+    };
+
+    // return a promise that resolves/rejects with the transaction
     return new Promise((resolve, reject) => {
-      tx.oncomplete = resolve;
-      tx.onerror = (event) => {
-        console.error("Transaction error:", event.target.error);
-        reject(event.target.error);
+      tx.oncomplete = () => {
+        console.log("✅ IndexedDB record update complete");
+        resolve();
+      };
+      tx.onerror = (e) => {
+        console.error("Transaction failed:", e.target.error);
+        reject(e.target.error);
+      };
+      tx.onabort = (e) => {
+        console.warn("Transaction aborted:", e);
+        reject(new Error("Transaction aborted"));
       };
     });
-    
-  } catch (error) {
-    console.error("Error in updateIndexedDBRecord:", error);
-  }
-}
-
-// Function to update IndexedDB when normalizing IDs
-export async function updateIndexedDBRecordForNormalization(oldId, newId, html) {
-  console.log(`Normalizing record in IndexedDB: ${oldId} -> ${newId}`);
-  try {
-    // First, add the new record
-    await updateIndexedDBRecord({
-      id: newId,
-      html: html,
-      action: "add" // Use "add" instead of "normalize" if your updateIndexedDBRecord doesn't handle "normalize"
-    });
-    
-    // Then, after ensuring the new record is added, delete the old one
-    await deleteIndexedDBRecord(oldId);
-    
-    console.log(`Successfully normalized record: ${oldId} -> ${newId}`);
-    return true;
-  } catch (error) {
-    console.error(`Error normalizing record ${oldId} -> ${newId}:`, error);
-    return false;
-  }
+  });
 }
 
 
-// Helper function to update hyperlights store
-function updateHyperlightsStore(store, bookId, hyperlightsToUpdate) {
-  if (!hyperlightsToUpdate.length) return;
-  
-  hyperlightsToUpdate.forEach(hyperlight => {
-    const key = [bookId, hyperlight.id];
+// Helper functions for updating hyperlights and hypercites
+function updateHyperlightInStore(store, bookId, hyperlight, numericNodeId) {
+    const key = [bookId, hyperlight.highlightID];
     const getRequest = store.get(key);
     
     getRequest.onsuccess = () => {
       const existingRecord = getRequest.result;
       
       if (existingRecord) {
-        // Update only the position fields and text content
-        const updatedRecord = {
-          ...existingRecord,
-          startChar: hyperlight.startChar,
-          endChar: hyperlight.endChar,
-          startLine: hyperlight.startLine
-        };
+        // Update existing record
+        existingRecord.startChar = hyperlight.charStart;
+        existingRecord.endChar = hyperlight.charEnd;
+        existingRecord.startLine = numericNodeId;
         
-        // Only update text content if it's provided
-        if (hyperlight.highlightedText) {
-          updatedRecord.highlightedText = hyperlight.highlightedText;
-        }
-        if (hyperlight.highlightedHTML) {
-          updatedRecord.highlightedHTML = hyperlight.highlightedHTML;
-        }
-        
-        store.put(updatedRecord);
-        console.log(`Updated hyperlight record for ID: ${hyperlight.id}`);
+        store.put(existingRecord);
       } else {
-        // Create a new record if it doesn't exist
+        // Create new record
         const newRecord = {
           book: bookId,
-          hyperlight_id: hyperlight.id,
-          startChar: hyperlight.startChar,
-          endChar: hyperlight.endChar,
-          startLine: hyperlight.startLine,
+          hyperlight_id: hyperlight.highlightID,
+          startChar: hyperlight.charStart,
+          endChar: hyperlight.charEnd,
+          startLine: numericNodeId,
           highlightedText: hyperlight.highlightedText || "",
           highlightedHTML: hyperlight.highlightedHTML || "",
           annotation: ""
         };
         
         store.put(newRecord);
-        console.log(`Created new hyperlight record for ID: ${hyperlight.id}`);
       }
     };
-  });
 }
 
-// Helper function to update hypercites store
-function updateHypercitesStore(store, bookId, hypercitesToUpdate) {
-  if (!hypercitesToUpdate.length) return;
-  
-  hypercitesToUpdate.forEach(hypercite => {
-    const key = [bookId, hypercite.id];
+function updateHyperciteInStore(store, bookId, hypercite) {
+    const key = [bookId, hypercite.hyperciteId];
     const getRequest = store.get(key);
     
     getRequest.onsuccess = () => {
       const existingRecord = getRequest.result;
       
       if (existingRecord) {
-        // Update only the position fields and text content
-        const updatedRecord = {
-          ...existingRecord,
-          startChar: hypercite.startChar,
-          endChar: hypercite.endChar
-        };
+        // Update existing record
+        existingRecord.startChar = hypercite.charStart;
+        existingRecord.endChar = hypercite.charEnd;
         
-        // Only update text content if it's provided
-        if (hypercite.hypercitedText) {
-          updatedRecord.hypercitedText = hypercite.hypercitedText;
-        }
-        if (hypercite.hypercitedHTML) {
-          updatedRecord.hypercitedHTML = hypercite.hypercitedHTML;
-        }
-        
-        store.put(updatedRecord);
-        console.log(`Updated hypercite record for ID: ${hypercite.id}`);
+        store.put(existingRecord);
       } else {
-        // Create a new record if it doesn't exist
+        // Create new record
         const newRecord = {
           book: bookId,
-          hyperciteId: hypercite.id,
-          startChar: hypercite.startChar,
-          endChar: hypercite.endChar,
+          hyperciteId: hypercite.hyperciteId,
+          startChar: hypercite.charStart,
+          endChar: hypercite.charEnd,
           hypercitedText: hypercite.hypercitedText || "",
           hypercitedHTML: hypercite.hypercitedHTML || "",
           citedIN: [],
@@ -942,68 +628,23 @@ function updateHypercitesStore(store, bookId, hypercitesToUpdate) {
         };
         
         store.put(newRecord);
-        console.log(`Created new hypercite record for ID: ${hypercite.id}`);
       }
     };
-  });
 }
 
-
-
-
-export async function deleteIndexedDBRecord(id) {
-  try {
-    const bookId = book || "latest";
-    
-    const node = document.getElementById(id);
-    
-    // Updated regex to accept decimal IDs.
-    if (!id.match(/^\d+(\.\d+)?$/)) {
-      console.log(`Skipping IndexedDB delete for node with non-standard ID: ${id}`);
-      return;
-    }
-    
-    console.log(`Deleting node with ID ${id} from IndexedDB`);
-    
-    const db = await openDatabase();
-    const tx = db.transaction("nodeChunks", "readwrite");
-    const store = tx.objectStore("nodeChunks");
-    
-
-    // Create the proper key for deletion
-  const key = createNodeChunksKey(bookId, id);
-  console.log("Deleting with key:", key);
-
-
-  const deleteRequest = store.delete(key);
-    
-    
-    deleteRequest.onsuccess = () => {
-      console.log(`Successfully deleted record for node ${id}`);
-    };
-    
-    return new Promise((resolve, reject) => {
-      tx.oncomplete = resolve;
-      tx.onerror = (event) => {
-        console.error("Transaction error:", event.target.error);
-        reject(event.target.error);
-      };
-    });
-  } catch (error) {
-    console.error("Error in deleteIndexedDBRecord:", error);
-  }
-}
 
 
 
 // Helper function to update a specific nodeChunk in IndexedDB
-async function updateNodeChunkInIndexedDB(book, startLine, updatedRecord) {
+async function updateNodeChunkInIndexedDB(book, startLine, updatedFields) {
   return new Promise((resolve, reject) => {
     const dbName = "MarkdownDB";
     const storeName = "nodeChunks";
     
-    console.log(`Attempting to update nodeChunk: book=${book}, startLine=${startLine}`);
-    console.log("startLine type:", typeof startLine, "value:", startLine);
+    // Always convert startLine to float
+    const numericStartLine = parseNodeId(startLine);
+    
+    console.log(`Updating nodeChunk: book=${book}, startLine=${numericStartLine}`);
     
     const request = indexedDB.open(dbName);
     
@@ -1012,76 +653,52 @@ async function updateNodeChunkInIndexedDB(book, startLine, updatedRecord) {
       resolve(false);
     };
     
-    request.onsuccess = async (event) => {
+    request.onsuccess = (event) => {
       const db = event.target.result;
       
       try {
-        // First try to find the record using various formats
-        const transaction = db.transaction([storeName], "readonly");
-        const objectStore = transaction.objectStore("nodeChunks");
-        const index = objectStore.index("book");
+        const transaction = db.transaction([storeName], "readwrite");
+        const objectStore = transaction.objectStore(storeName);
         
-        // Get all records for this book
-        const bookRecords = await new Promise((resolve) => {
-          const request = index.getAll(book);
-          request.onsuccess = () => resolve(request.result);
-        });
-        
-        console.log(`Found ${bookRecords.length} records for book ${book}`);
-        
-        // Try different formats of startLine
-        const possibleStartLines = [
-          startLine,                                  // Original
-          typeof startLine === 'string' ? parseFloat(startLine) : startLine,  // As float
-          typeof startLine === 'string' ? parseInt(startLine, 10) : startLine, // As int
-          String(startLine)                           // As string
-        ];
-        
-        let matchingRecord = null;
-        for (const record of bookRecords) {
-          if (possibleStartLines.includes(record.startLine)) {
-            matchingRecord = record;
-            console.log(`Found matching record with startLine=${record.startLine}`);
-            break;
-          }
-        }
-        
-        await transaction.complete;
-        
-        if (!matchingRecord) {
-          console.error(`No matching record found for startLine=${startLine} in book ${book}`);
-          console.log("Available startLines:", bookRecords.map(r => r.startLine));
-          resolve(false);
-          return;
-        }
-        
-        // Now update the record
-        const writeTx = db.transaction([storeName], "readwrite");
-        const writeStore = writeTx.objectStore(storeName);
-        
-        // Create the key using the exact format from the matching record
-        const key = [book, matchingRecord.startLine];
+        // Create the key using the numeric startLine
+        const key = [book, numericStartLine];
         console.log("Using key for update:", key);
         
-        // Update the hypercites array
-        if (updatedRecord.hypercites) {
-          matchingRecord.hypercites = updatedRecord.hypercites;
-        }
+        // Get the existing record
+        const getRequest = objectStore.get(key);
         
-        // Put the updated record back
-        const updateRequest = writeStore.put(matchingRecord);
-        
-        updateRequest.onsuccess = () => {
-          console.log(`Successfully updated record for key:`, key);
-          resolve(true);
+        getRequest.onsuccess = (event) => {
+          const existingRecord = event.target.result;
+          
+          if (!existingRecord) {
+            console.error(`Record not found for key: [${book}, ${numericStartLine}]`);
+            resolve(false);
+            return;
+          }
+          
+          // Update the fields in the existing record
+          Object.assign(existingRecord, updatedFields);
+          
+          // Put the updated record back
+          const updateRequest = objectStore.put(existingRecord);
+          
+          updateRequest.onsuccess = () => {
+            console.log(`Successfully updated record for key: [${book}, ${numericStartLine}]`);
+            resolve(true);
+          };
+          
+          updateRequest.onerror = (event) => {
+            console.error(`Error updating record:`, event.target.error);
+            resolve(false);
+          };
         };
         
-        updateRequest.onerror = (event) => {
-          console.error(`Error updating record:`, event.target.error);
+        getRequest.onerror = (event) => {
+          console.error(`Error getting record:`, event.target.error);
           resolve(false);
         };
         
-        writeTx.oncomplete = () => {
+        transaction.oncomplete = () => {
           db.close();
         };
       } catch (error) {
@@ -1091,6 +708,7 @@ async function updateNodeChunkInIndexedDB(book, startLine, updatedRecord) {
     };
   });
 }
+
 
 
 // Helper function to update a specific hypercite in IndexedDB
@@ -1165,35 +783,22 @@ export async function updateHyperciteInIndexedDB(book, hyperciteId, updatedField
   });
 }
 
-// Modified function to update both nodeChunks and hypercites
-export async function updateCitationForExistingHypercite(
+export function updateCitationForExistingHypercite(
   booka,
   hyperciteIDa,
   citationIDb,
-  insertContent = true // Default to true for backward compatibility
+  insertContent = true
 ) {
-  // Only insert content if explicitly requested
-  /* if (insertContent) {
-    const clipboardHtml = event.clipboardData.getData("text/html");
-    if (clipboardHtml) {
-      document.execCommand("insertHTML", false, clipboardHtml);
-    } else {
-      const clipboardText = event.clipboardData.getData("text/plain");
-      document.execCommand("insertText", false, clipboardText);
-    }
-  } */
-
-  try {
+  return withPending(async () => {
     console.log(
       `Updating citation: book=${booka}, hyperciteID=${hyperciteIDa}, citationIDb=${citationIDb}`
     );
 
-    // Check if this is an internal paste (same book)
     const isInternalPaste = booka === book;
 
-    // Retrieve nodeChunks for booka.
+    // Load all nodeChunks for this book
     const nodeChunks = await getNodeChunksFromIndexedDB(booka);
-    if (!nodeChunks || nodeChunks.length === 0) {
+    if (!nodeChunks?.length) {
       console.warn(`No nodeChunks found for book ${booka}`);
       return false;
     }
@@ -1201,132 +806,95 @@ export async function updateCitationForExistingHypercite(
     let foundAndUpdated = false;
     let updatedRelationshipStatus = "single";
 
-    // Search through all nodeChunks for the matching hypercite.
-    for (let i = 0; i < nodeChunks.length; i++) {
-      const record = nodeChunks[i];
-      if (!record.hypercites || !Array.isArray(record.hypercites)) continue;
+    // 1) Update the nodeChunks store
+    for (const record of nodeChunks) {
+      const hcList = record.hypercites;
+      if (!Array.isArray(hcList)) continue;
 
-      // Find the index of the hypercite with a matching ID.
-      const hyperciteIndex = record.hypercites.findIndex(
-        (hc) => hc.hyperciteId === hyperciteIDa
+      const idx = hcList.findIndex(hc => hc.hyperciteId === hyperciteIDa);
+      if (idx === -1) continue;
+
+      const startLine = record.startLine;
+      const hypercite = hcList[idx];
+
+      // ensure citedIN array
+      hypercite.citedIN ||= [];
+
+      if (!hypercite.citedIN.includes(citationIDb)) {
+        hypercite.citedIN.push(citationIDb);
+        console.log(`Added citation ${citationIDb} to hypercite`);
+      }
+
+      // relationshipStatus logic
+      const count = hypercite.citedIN.length;
+      hypercite.relationshipStatus =
+        count === 1 ? "couple" : count >= 2 ? "poly" : "single";
+      updatedRelationshipStatus = hypercite.relationshipStatus;
+
+      const success = await updateNodeChunkInIndexedDB(
+        booka,
+        startLine,
+        record
       );
 
-      if (hyperciteIndex !== -1) {
-        const startLine = record.startLine;
-        console.log(
-          `Found matching hypercite in record with startLine=${startLine}`
-        );
+      if (success) {
+        foundAndUpdated = true;
+        broadcastToOpenTabs(booka, startLine);
 
-        // Get a reference to the hypercite.
-        const hypercite = record.hypercites[hyperciteIndex];
-
-        // Initialize the citedIN array if it doesn't exist.
-        if (!hypercite.citedIN) {
-          hypercite.citedIN = [];
-        }
-
-        // Add the citation if it isn't already present.
-        if (!hypercite.citedIN.includes(citationIDb)) {
-          hypercite.citedIN.push(citationIDb);
-          console.log(`Added citation ${citationIDb} to hypercite`);
-        } else {
-          console.log(`Citation ${citationIDb} already exists in hypercite`);
-        }
-
-        // Update relationshipStatus based on the count of citations.
-        if (hypercite.citedIN.length === 1) {
-          // First citation: update to "couple".
-          hypercite.relationshipStatus = "couple";
-        } else if (hypercite.citedIN.length >= 2) {
-          // Two or more citations: update to "poly".
-          hypercite.relationshipStatus = "poly";
-        }
-        
-        updatedRelationshipStatus = hypercite.relationshipStatus;
-
-        // Update the record in IndexedDB using the composite key.
-        const success = await updateNodeChunkInIndexedDB(
-          booka,
-          startLine,
-          record
-        );
-        
-        if (success) {
-          console.log(
-            `Successfully updated nodeChunk with startLine=${startLine} in book ${booka}`
-          );
-          foundAndUpdated = true;
-          broadcastToOpenTabs(booka, startLine);
-          
-          // Update the DOM to reflect the new relationship status for internal pastes
-          if (isInternalPaste) {
-            const originalUnderline = document.getElementById(hyperciteIDa);
-            if (originalUnderline) {
-              originalUnderline.className = updatedRelationshipStatus;
-              console.log(`Updated original underline class to ${updatedRelationshipStatus}`);
-            }
+        if (isInternalPaste) {
+          const elem = document.getElementById(hyperciteIDa);
+          if (elem) {
+            elem.className = updatedRelationshipStatus;
           }
-        } else {
-          console.error(
-            `Failed to update nodeChunk with startLine=${startLine} in book ${booka}`
-          );
         }
+      } else {
+        console.error(
+          `Failed to update nodeChunk ${startLine} in book ${booka}`
+        );
       }
     }
 
-    // Now update the corresponding hypercite in the hypercites object store
-    if (foundAndUpdated) {
-      // Prepare the fields to update in the hypercites store
-      const hyperciteUpdates = {
+    if (!foundAndUpdated) {
+      console.log(
+        `No matching hypercite found in book ${booka} with ID ${hyperciteIDa}`
+      );
+      return false;
+    }
+
+    // 2) Update the hypercites object store itself
+    //    (to persist citedIN array + relationshipStatus)
+    const existing = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
+    if (!existing) {
+      console.error(`Hypercite ${hyperciteIDa} not found in book ${booka}`);
+      return false;
+    }
+
+    existing.citedIN ||= [];
+    if (!existing.citedIN.includes(citationIDb)) {
+      existing.citedIN.push(citationIDb);
+    }
+    existing.relationshipStatus = updatedRelationshipStatus;
+
+    const hyperciteSuccess = await updateHyperciteInIndexedDB(
+      booka,
+      hyperciteIDa,
+      {
+        citedIN: existing.citedIN,
         relationshipStatus: updatedRelationshipStatus
-      };
-      
-      // Get the existing hypercite to update its citedIN array
-      const hyperciteRecord = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
-      
-      if (hyperciteRecord) {
-        // Initialize citedIN array if it doesn't exist
-        if (!hyperciteRecord.citedIN) {
-          hyperciteRecord.citedIN = [];
-        }
-        
-        // Add the citation if it isn't already present
-        if (!hyperciteRecord.citedIN.includes(citationIDb)) {
-          hyperciteRecord.citedIN.push(citationIDb);
-        }
-        
-        hyperciteUpdates.citedIN = hyperciteRecord.citedIN;
-        
-        // Update the hypercite in IndexedDB
-        const hyperciteSuccess = await updateHyperciteInIndexedDB(
-          booka,
-          hyperciteIDa,
-          hyperciteUpdates
-        );
-        
-        if (hyperciteSuccess) {
-          console.log(`Successfully updated hypercite ${hyperciteIDa} in book ${booka}`);
-          return true;
-        } else {
-          console.error(`Failed to update hypercite ${hyperciteIDa} in book ${booka}`);
-          return false;
-        }
-      } else {
-        console.error(`Hypercite ${hyperciteIDa} not found in book ${booka}`);
-        return false;
       }
+    );
+
+    if (!hyperciteSuccess) {
+      console.error(`Failed to update hypercite ${hyperciteIDa}`);
+      return false;
     }
 
     console.log(
-      `No matching hypercite found in book ${booka} with ID ${hyperciteIDa}`
+      `Successfully updated hypercite ${hyperciteIDa} in book ${booka}`
     );
-    return false;
-  } catch (error) {
-    console.error("Error updating citation:", error);
-    return false;
-  }
+    return true;
+  });
 }
-
 
 async function getHyperciteFromIndexedDB(book, hyperciteId) {
   return new Promise((resolve, reject) => {
@@ -1373,5 +941,173 @@ async function getHyperciteFromIndexedDB(book, hyperciteId) {
     };
   });
 } 
+
+
+
+export async function deleteIndexedDBRecord(id) {
+  return withPending(async () => {
+    // Only process numeric IDs
+    if (!id || !id.match(/^\d+(\.\d+)?$/)) {
+      console.log(`Skipping deletion for non-numeric ID: ${id}`);
+      return false;
+    }
+
+    const bookId = book || "latest";
+    const numericId = parseNodeId(id);
+    console.log(
+      `Deleting node with ID ${id} (numeric: ${numericId}) from IndexedDB`
+    );
+
+    const db = await openDatabase();
+    const tx = db.transaction("nodeChunks", "readwrite");
+    const store = tx.objectStore("nodeChunks");
+    const key = [bookId, numericId];
+
+    // optional transaction timeout
+    const TRANSACTION_TIMEOUT = 10000;
+    const timeoutId = setTimeout(() => tx.abort(), TRANSACTION_TIMEOUT);
+
+    store.delete(key);
+
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => {
+        clearTimeout(timeoutId);
+        console.log(`Successfully deleted record with key: ${key}`);
+        resolve(true);
+      };
+      tx.onerror = (event) => {
+        clearTimeout(timeoutId);
+        console.error("Transaction error:", event.target.error);
+        reject(event.target.error);
+      };
+      tx.onabort = (event) => {
+        clearTimeout(timeoutId);
+        console.warn("Transaction aborted:", event);
+        reject(new Error("Transaction aborted"));
+      };
+    });
+  });
+}
+
+
+
+export async function updateIndexedDBRecordForNormalization(
+  oldId, newId, html
+) {
+  return withPending(async () => {
+    console.log(`Normalizing record in IndexedDB: ${oldId} -> ${newId}`);
+
+    // Only numeric IDs allowed
+    const numericOldId = parseNodeId(oldId);
+    const numericNewId = parseNodeId(newId);
+    const bookId = book || "latest";
+
+    const db = await openDatabase();
+    const tx = db.transaction("nodeChunks", "readwrite");
+    const store = tx.objectStore("nodeChunks");
+
+    // Optional timeout/abort
+    const TRANSACTION_TIMEOUT = 15_000;
+    const timeoutId = setTimeout(() => tx.abort(), TRANSACTION_TIMEOUT);
+
+    // Kick off the get/put/delete sequence
+    const oldKey = [bookId, numericOldId];
+    const getOld = store.get(oldKey);
+
+    getOld.onsuccess = () => {
+      const oldRecord = getOld.result;
+      if (oldRecord) console.log("Found old record:", oldRecord);
+
+      // Build new record
+      const newRecord = oldRecord
+        ? { ...oldRecord,
+            book: bookId,
+            startLine: numericNewId,
+            content: html || oldRecord.content }
+        : { book: bookId,
+            startLine: numericNewId,
+            chunk_id: 0,
+            content: html,
+            hyperlights: [],
+            hypercites: [] };
+
+      const newKey = [bookId, numericNewId];
+      const putReq = store.put(newRecord);
+
+      putReq.onerror = (e) => {
+        console.error("Error adding new record:", e.target.error);
+        // Let the tx.onerror handler reject
+      };
+
+      // If we had an old record, delete it
+      if (oldRecord) {
+        const delReq = store.delete(oldKey);
+        delReq.onerror = (e) => {
+          console.error("Error deleting old record:", e.target.error);
+        };
+      }
+    };
+
+    getOld.onerror = (e) => {
+      console.error("Error getting old record:", e.target.error);
+      // Let the tx.onerror handler reject
+    };
+
+    // Now wait for the transaction to finish
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => {
+        clearTimeout(timeoutId);
+        console.log(`Successfully normalized record: ${oldId} -> ${newId}`);
+        resolve(true);
+      };
+      tx.onerror = (e) => {
+        clearTimeout(timeoutId);
+        console.error("Transaction error during normalization:", e.target.error);
+        reject(e.target.error);
+      };
+      tx.onabort = (e) => {
+        clearTimeout(timeoutId);
+        console.warn("Transaction aborted:", e);
+        reject(new Error("Transaction aborted"));
+      };
+    });
+  });
+}
+
+
+// Generic retry function for IndexedDB operations
+export async function retryOperation(operation, maxRetries = 3, delay = 1000) {
+  let lastError;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      console.warn(`Operation failed (attempt ${attempt}/${maxRetries}):`, error);
+      lastError = error;
+      
+      if (attempt < maxRetries) {
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, delay));
+        // Increase delay for next attempt (exponential backoff)
+        delay *= 1.5;
+      }
+    }
+  }
+  
+  // If we get here, all retries failed
+  console.error(`Operation failed after ${maxRetries} attempts:`, lastError);
+  throw lastError;
+}
+
+// Example usage with the delete function
+export async function deleteIndexedDBRecordWithRetry(id) {
+  return retryOperation(() => deleteIndexedDBRecord(id));
+}
+
+// Example usage with the normalization function
+export async function normalizeIndexedDBRecordWithRetry(oldId, newId, html) {
+  return retryOperation(() => updateIndexedDBRecordForNormalization(oldId, newId, html));
+}
 
 
