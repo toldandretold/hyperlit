@@ -13,6 +13,7 @@ import {
 import { openDatabase,
          updateCitationForExistingHypercite,
          updateHyperciteInIndexedDB,
+         saveFootnotesToIndexedDB
           } from "./cache-indexedDB.js";
 import { buildBibtexEntry } from "./bibtexProcessor.js";
 import { generateUniqueId, 
@@ -25,6 +26,8 @@ import {
   broadcastToOpenTabs
 } from './BroadcastListener.js';
 
+import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from './convert-markdown.js';
+import { processFootnotes } from './footnotes.js';
 
 
 // Tracking sets
@@ -299,6 +302,13 @@ export function addPasteListener(editableDiv) {
     const pasteWrapper = document.createElement("div");
     pasteWrapper.innerHTML = clipboardHtml;
     
+    pasteWrapper.querySelectorAll('p[id]').forEach(el => {
+      // only clear numeric IDs
+      if (/^\d+(\.\d+)?$/.test(el.id)) {
+        el.removeAttribute('id');
+      }
+    });
+
     // Look for either the link directly or a link inside a sup with class "open-icon"
     const citeLink = pasteWrapper.querySelector(
       'a[id^="hypercite_"] > span.open-icon'
@@ -411,6 +421,77 @@ document.addEventListener("keydown", function handleTypingActivity() {
       debouncedNormalize(currentObservedChunk);
     }
 });
+
+function handlePaste(event) {
+  const text = event.clipboardData.getData('text/plain');
+  const html = event.clipboardData.getData('text/html');
+  if (!text || html) return;  // only handle pure-text
+
+  event.preventDefault();
+
+  // 1) find the insertion point
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  let ref = sel.getRangeAt(0).startContainer;
+  while (ref && !ref.id) ref = ref.parentElement;
+  if (!ref) return;
+  const parent = ref.parentNode;
+
+  // 2) process footnotes & convert markdown
+  const footData = processFootnotes(text);
+  saveFootnotesToIndexedDB(
+    footData.pairs.map(p => ({ id: p.reference.id, content: p.definition.content })),
+    book
+  );
+  const rendered = convertMarkdownToHtml(text);
+
+  // 3) build nodes and strip any IDs
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = rendered;
+  wrapper.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+
+  // 4) insert after ref
+  let insertAfter = ref;
+  Array.from(wrapper.childNodes).forEach(node => {
+    parent.insertBefore(node, insertAfter.nextSibling);
+    insertAfter = node;
+  });
+
+  // 5) remove empty <p>
+  let node = ref.nextSibling;
+  while (node && !node.id) {
+    const nxt = node.nextSibling;
+    if (
+      node.tagName === 'P' &&
+      node.textContent.trim() === ''
+    ) {
+      parent.removeChild(node);
+    }
+    node = nxt;
+  }
+
+  // 6) assign decimal IDs
+  const baseMatch = ref.id.match(/^(\d+)(?:\.\d+)?$/);
+  if (!baseMatch) return;
+  const base = baseMatch[1];
+
+  node = ref.nextSibling;
+  const toId = [];
+  while (node && !node.id) {
+    if (['P','H1','H2','H3','H4','BLOCKQUOTE'].includes(node.tagName)) {
+      toId.push(node);
+    }
+    node = node.nextSibling;
+  }
+
+  toId.forEach(el => {
+    el.id = getNextDecimalForBase(base);
+  });
+}
+// lookup the element
+const editableDiv = document.getElementById(book);
+// attach the listener
+editableDiv.addEventListener("paste", handlePaste);
 
 
 // ----------------------------------------------------------------
