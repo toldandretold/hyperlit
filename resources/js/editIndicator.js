@@ -1,70 +1,74 @@
-/**
- * Removes any status icon (spinner or tick) from the global area.
- */
+// editIndicator.js
+
+let spinnerActive = false;
+let updateInProgress = false;
+
 export function removeStatusIcon() {
-  const icon = document.querySelector("#status-icon");
+  const icon = document.getElementById("status-icon");
   if (icon) {
-    icon.parentNode.removeChild(icon);
+    icon.remove();
   }
+  // Reset both flags so next showSpinner or showTick can run
+  spinnerActive    = false;
+  updateInProgress = false;
 }
 
-/**
- * Add a spinner icon fixed at the top-right of the screen.
- * @param {HTMLElement} container - Ignored in this global approach.
- */
 export function showSpinner() {
-  // Only show spinner if in edit mode
   if (!window.isEditing) {
     console.log("Attempted to show spinner while not in edit mode");
     return;
   }
-  
+  // Only one spinner at a time
+  if (spinnerActive) return;
+  // Remove any leftover tick or spinner
   removeStatusIcon();
-  
+
   const spinner = document.createElement("span");
   spinner.id = "status-icon";
   spinner.classList.add("spinner");
-  spinner.innerHTML = "&#8635;"; // Unicode for spinner
-  
-  spinner.style.position = "fixed";
-  spinner.style.top = "5px";
-  spinner.style.right = "5px";
-  spinner.style.fontSize = "16px";
-  spinner.style.zIndex = "10000";
-  spinner.style.pointerEvents = "none";
-  
+  spinner.innerHTML = "&#8635;"; // 🔄
+  Object.assign(spinner.style, {
+    position:      "fixed",
+    top:           "5px",
+    right:         "5px",
+    fontSize:      "16px",
+    zIndex:        "10000",
+    pointerEvents: "none",
+    animation:     "spin 1s linear infinite"
+  });
   document.body.appendChild(spinner);
-  console.log("Spinner appended:", spinner);
+
+  spinnerActive = true;
+  console.log("Spinner appended");
 }
 
-
-/**
- * Replace the spinner with a tick icon, fixed at the top-right of the screen.
- * @param {HTMLElement} container - Ignored in this global approach.
- */
 export function showTick() {
+  // Prevent overlapping animations
+  if (updateInProgress) return;
+  updateInProgress = true;
+
+  // Remove the spinner (and clear its flag)
   removeStatusIcon();
+
   const tick = document.createElement("span");
   tick.id = "status-icon";
   tick.classList.add("tick");
-  tick.innerHTML = "&#10004;"; // Unicode checkmark
-
-  // For a global tick, we attach it to document.body with a fixed position.
-  tick.style.position = "fixed";
-  tick.style.top = "5px";
-  tick.style.right = "5px";
-  tick.style.fontSize = "16px";
-  tick.style.zIndex = "10000";
-  tick.style.pointerEvents = "none";
-
+  tick.innerHTML = "&#10004;"; // ✔
+  Object.assign(tick.style, {
+    position:      "fixed",
+    top:           "5px",
+    right:         "5px",
+    fontSize:      "16px",
+    zIndex:        "10000",
+    pointerEvents: "none"
+  });
   document.body.appendChild(tick);
-  console.log("Tick appended:", tick);
+  console.log("Tick appended");
 
-  // After 1 second, remove the tick.
   setTimeout(() => {
-    if (tick.parentNode) {
-      tick.parentNode.removeChild(tick);
-      console.log("Tick removed after 1 second");
-    }
+    if (tick.parentNode) tick.remove();
+    console.log("Tick removed");
+    // Allow next showSpinner/showTick
+    updateInProgress = false;
   }, 1000);
 }
