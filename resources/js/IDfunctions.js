@@ -155,26 +155,53 @@ export async function normalizeNodeIds(container) {
 // as a number with one decimal place. It will scan all elements whose ID, when parsed
 // as a float, is between base and base+1. For example, if "17" exists (i.e. 17.0)
 // and the highest duplicate is 17.2, it returns "17.3".
-export function getNextDecimalForBase(baseId) {
-  const baseNumber = parseFloat(baseId);
-  if (isNaN(baseNumber)) return baseId; // fallback
+// IDfunctions.js
 
-  const allNodes = Array.from(document.querySelectorAll("[id]"));
+/**
+ * Given a base like "1" or "66", returns the next ascending
+ * decimal‐string ID under that base:
+ *   1 → 1.1
+ *   1.1 → 1.2 … 1.8 → 1.9 → 1.91 → 1.92 … 1.99 → 1.991 …
+ */
+export function getNextDecimalForBase(base) {
+  // match only IDs of the form "base.<digits>"
+  const re = new RegExp(`^${base}\\.(\\d+)$`);
+  let maxSuffix = "";
 
-  // Start with the base number (i.e. 17.0) and look for duplicates in the range [17, 18)
-  let maxVal = baseNumber; // if only "17" exists, think of it as 17.0
-  for (const node of allNodes) {
-    const parsed = parseFloat(node.id);
-    // only consider IDs that parse as numbers in the range [baseNumber, baseNumber+1)
-    if (!isNaN(parsed) && parsed >= baseNumber && parsed < baseNumber + 1) {
-      if (parsed > maxVal) {
-        maxVal = parsed;
+  // scan the DOM for the largest suffix
+  document.querySelectorAll("[id]").forEach(el => {
+    const m = el.id.match(re);
+    if (m) {
+      const s = m[1];
+      // choose the longest, or lexically greatest if same length
+      if (
+        s.length > maxSuffix.length ||
+        (s.length === maxSuffix.length && s > maxSuffix)
+      ) {
+        maxSuffix = s;
       }
     }
+  });
+
+  // no existing children → start at "base.1"
+  if (maxSuffix === "") {
+    return `${base}.1`;
   }
-  // Increment by 0.1 using one decimal precision
-  const nextVal = (maxVal + 0.1).toFixed(1);
-  return nextVal;
+
+  // bump the suffix:
+  const last = maxSuffix.slice(-1);
+  let nextSuffix;
+  if (/[0-8]/.test(last)) {
+    // increment last digit, e.g. "1.8"→"1.9" or "1.42"→"1.43"
+    nextSuffix =
+      maxSuffix.slice(0, -1) +
+      String.fromCharCode(last.charCodeAt(0) + 1);
+  } else {
+    // last==="9": append "1", e.g. "1.9"→"1.91", "1.99"→"1.991"
+    nextSuffix = maxSuffix + "1";
+  }
+
+  return `${base}.${nextSuffix}`;
 }
 
 
