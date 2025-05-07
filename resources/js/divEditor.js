@@ -7,13 +7,7 @@ import {
   deleteIndexedDBRecordWithRetry,
   deleteIndexedDBRecord
           } from "./cache-indexedDB.js";
-import { showTick } from "./editIndicator.js";
 import { 
-  getPendingOperations, 
-  getUnloadWarningActive,
-  setUnloadWarningActive,
-  incrementPendingOperations,
-  decrementPendingOperations,
   withPending
 } from './operationState.js';
 import { openDatabase,
@@ -29,7 +23,9 @@ import { generateUniqueId,
           } from "./IDfunctions.js";
 import {
   broadcastToOpenTabs
-} from './BroadcastListener.js'
+} from './BroadcastListener.js';
+
+
 
 // Tracking sets
 const modifiedNodes = new Set(); // Track element IDs whose content was modified.
@@ -44,6 +40,8 @@ let currentObservedChunk = null;
 let documentChanged = false;
 // hypercite paste handling
 let hypercitePasteInProgress = false;
+// track user activity
+let debounceTimer = null;
 
 
 
@@ -818,51 +816,5 @@ document.addEventListener("keydown", function(event) {
   }
 });
 
-// Function to update page state based on pending operations
-function updatePageState() {
-  if (getPendingOperations() > 0) {
-    // There are pending operations
-    activateUnloadWarning();
-  } else {
-    // All operations completed
-    showTick();
-    deactivateUnloadWarning();
-  }
-}
 
-// Function to activate the unload warning
-function activateUnloadWarning() {
-  if (!getUnloadWarningActive()) {
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    setUnloadWarningActive(true);
-  }
-}
 
-// Function to deactivate the unload warning
-function deactivateUnloadWarning() {
-  if (getUnloadWarningActive()) {
-    window.removeEventListener('beforeunload', handleBeforeUnload);
-    setUnloadWarningActive(false);
-  }
-}
-
-// Handler for beforeunload event
-function handleBeforeUnload(event) {
-  if (getPendingOperations() > 0) {
-    const message = "Changes are still being saved. If you leave now, some changes may be lost.";
-    event.preventDefault();
-    event.returnValue = message;
-    return message;
-  }
-}
-
-// Instead of checking every 100ms
-let lastOperationCount = 0;
-setInterval(() => {
-  const currentCount = getPendingOperations();
-  // Only update if the count has changed
-  if (currentCount !== lastOperationCount) {
-    lastOperationCount = currentCount;
-    updatePageState();
-  }
-}, 500); // Check less frequently

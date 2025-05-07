@@ -147,6 +147,7 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
 <div id="toc-overlay"></div>
 <div id="ref-overlay"></div>
 
+
 </body>
 
 @endsection

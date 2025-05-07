@@ -7,6 +7,9 @@ import {
   initTitleSync,
 } from "./divEditor.js";
 import { book } from "./app.js";
+import { incrementPendingOperations, decrementPendingOperations } from './operationState.js';
+
+
 
 const editBtn     = document.getElementById("editButton");
 const editableDiv = document.getElementById(book);
@@ -28,6 +31,11 @@ async function enableEditMode() {
     console.error(`no #${book} div`);
     return;
   }
+
+    // As soon as you enter edit mode:
+  incrementPendingOperations();
+  // Immediately clear it so no spinner remains:
+  decrementPendingOperations();
 
   window.isEditing = true;
   editBtn.classList.add("inverted");

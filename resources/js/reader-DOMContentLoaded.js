@@ -39,6 +39,7 @@ import "./hyperCites.js";
 import {attachUnderlineClickListeners} from "./hyperCites.js";
 import { initializeBroadcastListener } from "./BroadcastListener.js";
 
+
 window.uiState = {
   activeContainer: "main-content",
   isNavigating: false,
@@ -102,6 +103,7 @@ if (!window.isInitialized) {
     initializeBroadcastListener();
   
 
+    
 
     // Now that DOM is ready, the TOC elements exist.
     // Generate the Table of Contents.
