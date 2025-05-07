@@ -14,10 +14,7 @@ export function removeStatusIcon() {
 }
 
 export function showSpinner() {
-  if (!window.isEditing) {
-    console.log("Attempted to show spinner while not in edit mode");
-    return;
-  }
+
   // Only one spinner at a time
   if (spinnerActive) return;
   // Remove any leftover tick or spinner
