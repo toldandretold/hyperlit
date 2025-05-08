@@ -1,20 +1,15 @@
 import { book } from "./app.js";
 import { 
   updateIndexedDBRecord, 
-  getNodeChunksFromIndexedDB,
-  parseNodeId,
-  createNodeChunksKey, 
   deleteIndexedDBRecordWithRetry,
-  deleteIndexedDBRecord
+  renumberChunkAndSave,
+  openDatabase,
+  updateCitationForExistingHypercite
           } from "./cache-indexedDB.js";
 import { 
   withPending
 } from './operationState.js';
-import { openDatabase,
-         updateCitationForExistingHypercite,
-         updateHyperciteInIndexedDB,
-         saveFootnotesToIndexedDB
-          } from "./cache-indexedDB.js";
+
 import { buildBibtexEntry } from "./bibtexProcessor.js";
 import { generateUniqueId, 
          isDuplicateId, 
@@ -68,6 +63,8 @@ export function startObserving(editableDiv) {
   currentObservedChunk = currentChunk;
   console.log("Observing changes in chunk:", currentChunk);
 
+  const BULK_THRESHOLD = 20;
+
   // Modify the MutationObserver callback in startObserving function
   observer = new MutationObserver(async (mutations) => {
     // Skip processing if a hypercite paste is in progress
@@ -91,6 +88,8 @@ export function startObserving(editableDiv) {
     
     // Track parent nodes that need updates
     const parentsToUpdate = new Set();
+    let addedCount = 0;
+    const newNodes = [];
 
     for (const mutation of mutations) {
       // Process removals first to ensure they're not missed
@@ -192,12 +191,8 @@ export function startObserving(editableDiv) {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
             ensureNodeHasValidId(node);
-            updateIndexedDBRecord({
-              id: node.id,
-              html: node.outerHTML,
-              action: "add"
-            }).catch(console.error);
             addedNodes.add(node);
+            addedCount++;
           }
         });
         
@@ -229,7 +224,29 @@ export function startObserving(editableDiv) {
       modifiedNodes.add(parent.id);
     });
 
+    // Now decide small vs bulk
+    if (addedCount > 0) {
+      if (addedCount < BULK_THRESHOLD) {
+        // small: update each individually
+        await Promise.all(
+          newNodes.map(node =>
+            updateIndexedDBRecord({
+              id: node.id,
+              html: node.outerHTML,
+              action: "add"
+            }).catch(console.error)
+          )
+        );
+      } else {
+        // bulk: renumber the whole chunk & save in one pass
+        console.log(`Bulk insert of ${addedCount} nodes—doing batch save`);
+        await renumberChunkAndSave(currentObservedChunk);
+      }
+    }
+
+    // then your existing debounced normalize
     debouncedNormalize(currentObservedChunk);
+
   });
 
 
@@ -423,13 +440,11 @@ document.addEventListener("keydown", function handleTypingActivity() {
 });
 
 function handlePaste(event) {
-  const text = event.clipboardData.getData('text/plain');
-  const html = event.clipboardData.getData('text/html');
-  if (!text || html) return;  // only handle pure-text
-
+  const markdown = event.clipboardData.getData("text/plain");
+  if (!markdown.trim()) return;
   event.preventDefault();
 
-  // 1) find the insertion point
+  // 1) find ref node under cursor
   const sel = window.getSelection();
   if (!sel.rangeCount) return;
   let ref = sel.getRangeAt(0).startContainer;
@@ -437,57 +452,40 @@ function handlePaste(event) {
   if (!ref) return;
   const parent = ref.parentNode;
 
-  // 2) process footnotes & convert markdown
-  const footData = processFootnotes(text);
-  saveFootnotesToIndexedDB(
-    footData.pairs.map(p => ({ id: p.reference.id, content: p.definition.content })),
-    book
-  );
-  const rendered = convertMarkdownToHtml(text);
+  // 2) parse into chunk‐objects
+  const blocks = parseMarkdownIntoChunksInitial(markdown);
 
-  // 3) build nodes and strip any IDs
-  const wrapper = document.createElement('div');
-  wrapper.innerHTML = rendered;
-  wrapper.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
-
-  // 4) insert after ref
+  // 3) build fragment and insert
+  const frag = document.createDocumentFragment();
+  blocks.forEach(block => {
+    // block.content is something like '<p data‐original‐line=…>…</p>'
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = block.content;
+    const el = wrapper.firstElementChild;
+    // remove any old id so it doesn't collide
+    el.removeAttribute("id");
+    frag.appendChild(el);
+  });
+  // insert them all
   let insertAfter = ref;
-  Array.from(wrapper.childNodes).forEach(node => {
+  Array.from(frag.childNodes).forEach(node => {
     parent.insertBefore(node, insertAfter.nextSibling);
     insertAfter = node;
   });
 
-  // 5) remove empty <p>
+  // 4) assign decimal IDs under ref.id’s base
+  const base = (ref.id.match(/^(\d+)/) || [])[1];
+  if (!base) return;
   let node = ref.nextSibling;
   while (node && !node.id) {
-    const nxt = node.nextSibling;
-    if (
-      node.tagName === 'P' &&
-      node.textContent.trim() === ''
-    ) {
-      parent.removeChild(node);
-    }
-    node = nxt;
-  }
-
-  // 6) assign decimal IDs
-  const baseMatch = ref.id.match(/^(\d+)(?:\.\d+)?$/);
-  if (!baseMatch) return;
-  const base = baseMatch[1];
-
-  node = ref.nextSibling;
-  const toId = [];
-  while (node && !node.id) {
-    if (['P','H1','H2','H3','H4','BLOCKQUOTE'].includes(node.tagName)) {
-      toId.push(node);
+    if (node.nodeType === 1) {
+      node.id = getNextDecimalForBase(base);
     }
     node = node.nextSibling;
   }
-
-  toId.forEach(el => {
-    el.id = getNextDecimalForBase(base);
-  });
 }
+
+
 // lookup the element
 const editableDiv = document.getElementById(book);
 // attach the listener

@@ -1110,4 +1110,68 @@ export async function normalizeIndexedDBRecordWithRetry(oldId, newId, html) {
   return retryOperation(() => updateIndexedDBRecordForNormalization(oldId, newId, html));
 }
 
+export async function renumberChunkAndSave(chunkEl) {
+  // 1) Collect block‐level children
+  const blocks = Array.from(chunkEl.children)
+    .filter(el => el.nodeType === 1); // narrow if you like
+
+  // 2) Renumber in DOM and save each
+  for (let i = 0; i < blocks.length; i++) {
+    const el = blocks[i];
+    const newLine = i + 1;
+    el.id = String(newLine);
+    el.setAttribute("data-block-id", String(newLine));
+
+    // Persist via your existing routine
+    await updateIndexedDBRecord({
+      id: el.id,
+      html: el.outerHTML,
+      action: "update"
+    });
+  }
+
+  // 3) Re‐chunk the entire book
+  await rechunkAllNodeChunks();
+}
+
+async function rechunkAllNodeChunks() {
+  const db = await openDatabase();
+  const tx = db.transaction("nodeChunks", "readwrite");
+  const store = tx.objectStore("nodeChunks");
+
+  // 1) Load all entries for this book
+  const all = [];
+  await new Promise((resolve, reject) => {
+    const req = store.openCursor();
+    req.onsuccess = (e) => {
+      const cursor = e.target.result;
+      if (!cursor) return resolve();
+      const rec = cursor.value;
+      if (rec.book === book) {
+        all.push(rec);
+      }
+      cursor.continue();
+    };
+    req.onerror = (e) => reject(e.target.error);
+  });
+
+  // 2) Sort by startLine (numeric)
+  all.sort((a, b) => parseFloat(a.startLine) - parseFloat(b.startLine));
+
+  // 3) Re-assign chunk_id and put back
+  all.forEach((rec, idx) => {
+    const newChunk = Math.floor(idx / 100);
+    if (rec.chunk_id !== newChunk) {
+      rec.chunk_id = newChunk;
+      store.put(rec);
+    }
+  });
+
+  // 4) Wait for the transaction to finish
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror    = (e) => reject(e.target.error);
+    tx.onabort    = () => reject(new Error("rechunk aborted"));
+  });
+}
 
