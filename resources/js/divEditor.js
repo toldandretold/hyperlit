@@ -92,6 +92,7 @@ export function startObserving(editableDiv) {
     const newNodes = [];
 
     for (const mutation of mutations) {
+      
       // Process removals first to ensure they're not missed
       if (mutation.type === "childList" && mutation.removedNodes.length > 0) {
         let shouldUpdateParent = false;
@@ -852,14 +853,22 @@ document.addEventListener("keydown", function(event) {
     
     // Split the content at cursor position
     const cursorOffset = range.startOffset;
-    const isAtEnd = (range.startContainer.nodeType === Node.TEXT_NODE && 
-                     cursorOffset === range.startContainer.length);
     
-    // Create a new paragraph with plain text
+    // Create a new paragraph
     const newParagraph = document.createElement('p');
     
-    if (isAtEnd) {
-      // If cursor is at the end, just create an empty paragraph
+    // Check if cursor is at the end of the text content
+    let isAtEnd = false;
+    if (range.startContainer.nodeType === Node.TEXT_NODE) {
+      isAtEnd = cursorOffset === range.startContainer.length;
+    } else if (range.startContainer.nodeType === Node.ELEMENT_NODE) {
+      // If we're in an element, check if we're at its end
+      isAtEnd = cursorOffset === range.startContainer.childNodes.length;
+    }
+    
+    if (isAtEnd && range.startContainer === blockElement.lastChild || 
+        range.startContainer === blockElement && blockElement.textContent.trim() === '') {
+      // If cursor is at the end or in an empty block, create an empty paragraph
       newParagraph.innerHTML = '<br>'; // Empty paragraph needs <br> to be visible
     } else {
       // Extract content after cursor
@@ -867,16 +876,27 @@ document.addEventListener("keydown", function(event) {
       rangeToExtract.setStart(range.startContainer, cursorOffset);
       rangeToExtract.setEndAfter(blockElement);
       
-      // Extract the content as plain text
-      const extractedText = rangeToExtract.toString();
+      // Clone the content to check if it's empty after trimming
+      const clonedContent = rangeToExtract.cloneContents();
+      const tempDiv = document.createElement('div');
+      tempDiv.appendChild(clonedContent);
+      const extractedText = tempDiv.textContent.trim();
       
       // Delete the extracted content
       rangeToExtract.deleteContents();
       
-      // Set the extracted text as plain text
-      newParagraph.textContent = extractedText || '';
-      if (!extractedText) {
+      // Set the extracted content or <br> if empty
+      if (extractedText === '') {
         newParagraph.innerHTML = '<br>';
+      } else {
+        // Create a document fragment with the extracted content
+        const fragment = rangeToExtract.cloneContents();
+        newParagraph.appendChild(fragment);
+        
+        // If the paragraph is still empty after appending, add a <br>
+        if (newParagraph.innerHTML === '' || newParagraph.textContent.trim() === '') {
+          newParagraph.innerHTML = '<br>';
+        }
       }
     }
     
@@ -890,10 +910,9 @@ document.addEventListener("keydown", function(event) {
     
     selection.removeAllRanges();
     selection.addRange(newRange);
-    
-    // Your existing code will handle ID assignment via MutationObserver
   }
 });
+
 
 
 
