@@ -43,8 +43,6 @@ let debounceTimer = null;
 
 
 
-
-
 // Start observing only inside the current chunk container.
 export function startObserving(editableDiv) {
   console.log("🤓 startObserving function called");
@@ -92,7 +90,7 @@ export function startObserving(editableDiv) {
     const newNodes = [];
 
     for (const mutation of mutations) {
-      
+
       // Process removals first to ensure they're not missed
       if (mutation.type === "childList" && mutation.removedNodes.length > 0) {
         let shouldUpdateParent = false;
