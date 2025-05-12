@@ -67,188 +67,219 @@ export function startObserving(editableDiv) {
 
   // Modify the MutationObserver callback in startObserving function
   observer = new MutationObserver(async (mutations) => {
-    // Skip processing if a hypercite paste is in progress
-    if (hypercitePasteInProgress) {
-      console.log("Skipping mutations during hypercite paste");
-      return;
+  // Skip processing if a hypercite paste is in progress
+  if (hypercitePasteInProgress) {
+    console.log("Skipping mutations during hypercite paste");
+    return;
+  }
+
+  // Skip mutations related to status icons
+  if (mutations.some(mutation => 
+      mutation.target.id === "status-icon" || 
+      (mutation.target.parentNode && mutation.target.parentNode.id === "status-icon") ||
+      mutation.addedNodes.length && Array.from(mutation.addedNodes).some(node => 
+        node.id === "status-icon" || (node.parentNode && node.parentNode.id === "status-icon")
+      )
+    )) {
+    console.log("Skipping mutations related to status icons");
+    return;
+  }
+
+  // Track parent nodes that need updates
+  const parentsToUpdate = new Set();
+  let addedCount = 0;
+  const newNodes = []; // This will collect all new nodes for saving
+  let pasteDetected = false;
+
+  // Check if this might be a paste operation (multiple nodes added at once)
+  if (mutations.some(m => m.type === "childList" && m.addedNodes.length > 1)) {
+    pasteDetected = true;
+    console.log("Possible paste operation detected");
+  }
+
+  for (const mutation of mutations) {
+    // Process removals first to ensure they're not missed
+    if (mutation.type === "childList" && mutation.removedNodes.length > 0) {
+      let shouldUpdateParent = false;
+      let parentNode = null;
+      
+      for (const node of mutation.removedNodes) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          // Check if this is a top-level paragraph/heading being removed
+          if (node.id && node.id.match(/^\d+(\.\d+)?$/)) {
+            console.log(`Top-level node removed: ${node.id}`, node);
+            await deleteIndexedDBRecordWithRetry(node.id);
+            removedNodeIds.add(node.id);
+          } 
+          // Check if this is a child element (like a hypercite) being removed
+          else if (node.id && node.id.startsWith("hypercite_")) {
+            // Instead of deleting, mark the parent for update
+            parentNode = mutation.target;
+            shouldUpdateParent = true;
+            console.log(`Hypercite removed from parent: ${parentNode.id}`, node);
+          }
+        }
+      }
+       
+      // If we found a parent that needs updating, add it to our set
+      if (shouldUpdateParent && parentNode) {
+        // Find the closest parent with a numeric ID
+        let closestParent = parentNode;
+        while (closestParent && (!closestParent.id || !closestParent.id.match(/^\d+(\.\d+)?$/))) {
+          closestParent = closestParent.parentElement;
+        }
+        
+        if (closestParent && closestParent.id) {
+          parentsToUpdate.add(closestParent);
+        }
+      }
     }
 
-    // Skip mutations related to status icons
-    if (mutations.some(mutation => 
-        mutation.target.id === "status-icon" || 
-        (mutation.target.parentNode && mutation.target.parentNode.id === "status-icon") ||
-        mutation.addedNodes.length && Array.from(mutation.addedNodes).some(node => 
-          node.id === "status-icon" || (node.parentNode && node.parentNode.id === "status-icon")
+    // --- NEW GUARD: skip any childList where all added nodes are arrow‐icons ---
+    if (mutation.type === "childList") {
+      const allAreIcons = Array.from(mutation.addedNodes).every((n) => {
+        if (n.nodeType !== Node.ELEMENT_NODE) return false;
+        const el = /** @type {HTMLElement} */ (n);
+        // span.open-icon itself
+        if (el.classList.contains("open-icon")) return true;
+        // or an <a> whose only child is that span
+        if (
+          el.tagName === "A" &&
+          el.children.length === 1 &&
+          el.firstElementChild.classList.contains("open-icon")
+        ) {
+          return true;
+        }
+        return false;
+      });
+      if (allAreIcons) {
+        // console.log("Skipping pure-icon mutation");
+        continue;
+      }
+    }
+
+    // 1) Title-sync logic for H1#1
+    const h1 = document.getElementById("1");
+    if (h1) {
+      // characterData inside H1
+      if (
+        mutation.type === "characterData" &&
+        mutation.target.parentNode?.closest('h1[id="1"]')
+      ) {
+        const newTitle = h1.innerText.trim();
+        updateLibraryTitle(book, newTitle).catch(console.error);
+        updateIndexedDBRecord({
+          id: h1.id,
+          html: h1.outerHTML,
+          action: "update"
+        }).catch(console.error);
+      }
+      // childList under H1 (e.g. paste)
+      if (
+        mutation.type === "childList" &&
+        Array.from(mutation.addedNodes).some((n) =>
+          n.closest && n.closest('h1[id="1"]')
         )
-      )) {
-      console.log("Skipping mutations related to status icons");
-      return;
+      ) {
+        const newTitle = h1.innerText.trim();
+        updateLibraryTitle(book, newTitle).catch(console.error);
+        updateIndexedDBRecord({
+          id: h1.id,
+          html: h1.outerHTML,
+          action: "update"
+        }).catch(console.error);
+      }
     }
 
-    
-    // Track parent nodes that need updates
-    const parentsToUpdate = new Set();
-    let addedCount = 0;
-    const newNodes = [];
-
-    for (const mutation of mutations) {
-
-      // Process removals first to ensure they're not missed
-      if (mutation.type === "childList" && mutation.removedNodes.length > 0) {
-        let shouldUpdateParent = false;
-        let parentNode = null;
-        
-        for (const node of mutation.removedNodes) {
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            // Check if this is a top-level paragraph/heading being removed
-            if (node.id && node.id.match(/^\d+(\.\d+)?$/)) {
-              console.log(`Top-level node removed: ${node.id}`, node);
-              await deleteIndexedDBRecordWithRetry(node.id);
-              removedNodeIds.add(node.id);
-            } 
-            // Check if this is a child element (like a hypercite) being removed
-            else if (node.id && node.id.startsWith("hypercite_")) {
-              // Instead of deleting, mark the parent for update
-              parentNode = mutation.target;
-              shouldUpdateParent = true;
-              console.log(`Hypercite removed from parent: ${parentNode.id}`, node);
-            }
-          }
-        }
-         
-        
-        // If we found a parent that needs updating, add it to our set
-        if (shouldUpdateParent && parentNode) {
-          // Find the closest parent with a numeric ID
-          let closestParent = parentNode;
-          while (closestParent && (!closestParent.id || !closestParent.id.match(/^\d+(\.\d+)?$/))) {
-            closestParent = closestParent.parentElement;
-          }
+    // 2) Process added nodes
+    if (mutation.type === "childList") {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          ensureNodeHasValidId(node);
+          addedNodes.add(node);
+          addedCount++;
+          newNodes.push(node); // Add to newNodes array for saving later
           
-          if (closestParent && closestParent.id) {
-            parentsToUpdate.add(closestParent);
-          }
-        }
-      }
-
-      // --- NEW GUARD: skip any childList where all added nodes are arrow‐icons ---
-      if (mutation.type === "childList") {
-        const allAreIcons = Array.from(mutation.addedNodes).every((n) => {
-          if (n.nodeType !== Node.ELEMENT_NODE) return false;
-          const el = /** @type {HTMLElement} */ (n);
-          // span.open-icon itself
-          if (el.classList.contains("open-icon")) return true;
-          // or an <a> whose only child is that span
-          if (
-            el.tagName === "A" &&
-            el.children.length === 1 &&
-            el.firstElementChild.classList.contains("open-icon")
-          ) {
-            return true;
-          }
-          return false;
-        });
-        if (allAreIcons) {
-          // console.log("Skipping pure-icon mutation");
-          continue;
-        }
-      }
-
-      // 1) Title-sync logic for H1#1
-      const h1 = document.getElementById("1");
-      if (h1) {
-        // characterData inside H1
-        if (
-          mutation.type === "characterData" &&
-          mutation.target.parentNode?.closest('h1[id="1"]')
-        ) {
-          const newTitle = h1.innerText.trim();
-          updateLibraryTitle(book, newTitle).catch(console.error);
-          updateIndexedDBRecord({
-            id: h1.id,
-            html: h1.outerHTML,
-            action: "update"
-          }).catch(console.error);
-        }
-        // childList under H1 (e.g. paste)
-        if (
-          mutation.type === "childList" &&
-          Array.from(mutation.addedNodes).some((n) =>
-            n.closest && n.closest('h1[id="1"]')
-          )
-        ) {
-          const newTitle = h1.innerText.trim();
-          updateLibraryTitle(book, newTitle).catch(console.error);
-          updateIndexedDBRecord({
-            id: h1.id,
-            html: h1.outerHTML,
-            action: "update"
-          }).catch(console.error);
-        }
-      }
-
-      // 2) Original logic: additions / deletions
-      if (mutation.type === "childList") {
-        mutation.addedNodes.forEach((node) => {
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            ensureNodeHasValidId(node);
-            addedNodes.add(node);
-            addedCount++;
-          }
-        });
-        
-        // We're handling removals differently now, so this part is modified
-        // to only handle top-level node removals
-      }
-      // 3) Original logic: characterData updates
-      else if (mutation.type === "characterData") {
-        const parent = mutation.target.parentNode;
-        if (parent && parent.id) {
-          updateIndexedDBRecord({
-            id: parent.id,
-            html: parent.outerHTML,
-            action: "update"
-          }).catch(console.error);
-          modifiedNodes.add(parent.id);
-        }
-      }
-    }
-    
-    // Process all parent nodes that need updates
-    parentsToUpdate.forEach(parent => {
-      console.log(`Updating parent node after child removal: ${parent.id}`);
-      updateIndexedDBRecord({
-        id: parent.id,
-        html: parent.outerHTML,
-        action: "update"
-      }).catch(console.error);
-      modifiedNodes.add(parent.id);
-    });
-
-    // Now decide small vs bulk
-    if (addedCount > 0) {
-      if (addedCount < BULK_THRESHOLD) {
-        // small: update each individually
-        await Promise.all(
-          newNodes.map(node =>
+          // If this might be a paste, explicitly save this node
+          if (pasteDetected && node.id) {
+            console.log(`Saving potentially pasted node: ${node.id}`);
             updateIndexedDBRecord({
               id: node.id,
               html: node.outerHTML,
-              action: "add"
-            }).catch(console.error)
-          )
-        );
+              action: "update"
+            }).catch(console.error);
+          }
+        }
+      });
+    }
+    // 3) Process text changes
+    else if (mutation.type === "characterData") {
+      let parent = mutation.target.parentNode;
+      
+      // Find the closest parent with an ID (typically a paragraph)
+      while (parent && !parent.id) {
+        parent = parent.parentNode;
+      }
+      
+      if (parent && parent.id) {
+        console.log(`Saving characterData change in parent: ${parent.id}`);
+        updateIndexedDBRecord({
+          id: parent.id,
+          html: parent.outerHTML,
+          action: "update"
+        }).catch(console.error);
+        modifiedNodes.add(parent.id);
       } else {
-        // bulk: renumber the whole chunk & save in one pass
-        console.log(`Bulk insert of ${addedCount} nodes—doing batch save`);
-        await renumberChunkAndSave(currentObservedChunk);
+        console.warn("characterData change detected but couldn't find parent with ID");
       }
     }
-
-    // then your existing debounced normalize
-    debouncedNormalize(currentObservedChunk);
-
+  }
+  
+  // Process all parent nodes that need updates
+  parentsToUpdate.forEach(parent => {
+    console.log(`Updating parent node after child removal: ${parent.id}`);
+    updateIndexedDBRecord({
+      id: parent.id,
+      html: parent.outerHTML,
+      action: "update"
+    }).catch(console.error);
+    modifiedNodes.add(parent.id);
   });
+
+  // If we detected a paste operation with multiple nodes, save the whole chunk
+  if (pasteDetected && addedCount > 1) {
+    console.log(`Paste operation detected with ${addedCount} nodes - saving entire chunk`);
+    await renumberChunkAndSave(currentObservedChunk);
+  }
+  // Otherwise, save individual nodes if there aren't too many
+  else if (addedCount > 0) {
+    if (addedCount < BULK_THRESHOLD) {
+      // small: update each individually
+      console.log(`Saving ${newNodes.length} new nodes individually`);
+      await Promise.all(
+        newNodes.map(node => {
+          if (node.id) {
+            console.log(`Saving new node: ${node.id}`);
+            return updateIndexedDBRecord({
+              id: node.id,
+              html: node.outerHTML,
+              action: "add"
+            }).catch(console.error);
+          }
+          return Promise.resolve();
+        })
+      );
+    } else {
+      // bulk: renumber the whole chunk & save in one pass
+      console.log(`Bulk insert of ${addedCount} nodes—doing batch save`);
+      await renumberChunkAndSave(currentObservedChunk);
+    }
+  }
+
+  // then your existing debounced normalize
+  debouncedNormalize(currentObservedChunk);
+});
+
 
 
   observer.observe(currentChunk, {
@@ -709,41 +740,86 @@ document.addEventListener("keydown", function(event) {
     if (!chunkContainer) return;
     
     // Special handling for blockquote and pre (code blocks)
-    if (blockElement.tagName === 'BLOCKQUOTE' || blockElement.tagName === 'PRE') {
-      event.preventDefault(); // Prevent default Enter behavior
+    // Special handling for blockquote and pre (code blocks)
+// Special handling for blockquote and pre (code blocks)
+// Special handling for blockquote and pre (code blocks)
+if (blockElement.tagName === 'BLOCKQUOTE' || blockElement.tagName === 'PRE') {
+  event.preventDefault(); // Prevent default Enter behavior
+  
+  // If this is the third consecutive Enter press, escape the block
+  if (enterCount >= 3) {
+    // For code blocks, we need to look inside the CODE element
+    let targetElement = blockElement;
+    if (blockElement.tagName === 'PRE' && blockElement.querySelector('code')) {
+      targetElement = blockElement.querySelector('code');
+    }
+    
+    // Clean up the last two BR elements and any zero-width spaces
+    const childNodes = Array.from(targetElement.childNodes);
+    let brRemoved = 0;
+    
+    // Start from the end and work backwards
+    for (let i = childNodes.length - 1; i >= 0 && brRemoved < 2; i--) {
+      const node = childNodes[i];
       
-      // If this is the third consecutive Enter press, escape the block
-      if (enterCount >= 3) {
-        // Create a new paragraph
-        const newParagraph = document.createElement('p');
-        newParagraph.innerHTML = '<br>';
-        
-        // Generate an ID for the new paragraph
-        if (blockElement.id) {
-          const baseMatch = blockElement.id.match(/^(\d+)/);
-          if (baseMatch) {
-            const baseId = baseMatch[1];
-            newParagraph.id = getNextDecimalForBase(baseId);
-          }
+      // Remove text nodes that are just zero-width spaces
+      if (node.nodeType === Node.TEXT_NODE && node.textContent === '\u200B') {
+        targetElement.removeChild(node);
+      }
+      // Remove BR elements
+      else if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'BR') {
+        targetElement.removeChild(node);
+        brRemoved++;
+      }
+    }
+    
+    // Create a new paragraph
+    const newParagraph = document.createElement('p');
+    newParagraph.innerHTML = '<br>';
+    
+    // Generate an ID for the new paragraph
+    if (blockElement.id) {
+      const baseMatch = blockElement.id.match(/^(\d+)/);
+      if (baseMatch) {
+        const baseId = baseMatch[1];
+        newParagraph.id = getNextDecimalForBase(baseId);
+      }
+    }
+    
+    // Insert after the blockquote/pre
+    if (blockElement.nextSibling) {
+      chunkContainer.insertBefore(newParagraph, blockElement.nextSibling);
+    } else {
+      chunkContainer.appendChild(newParagraph);
+    }
+    
+    // Move cursor to the new paragraph
+    const newRange = document.createRange();
+    newRange.setStart(newParagraph, 0);
+    newRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+    
+    // Reset enter count
+    enterCount = 0;
+  } else {
+    // For code blocks, we need to insert the BR inside the CODE element
+    let targetElement = range.startContainer;
+    if (blockElement.tagName === 'PRE') {
+      // Find the CODE element
+      let codeElement = null;
+      if (targetElement.nodeType === Node.TEXT_NODE) {
+        // If we're in a text node, look at its parent
+        if (targetElement.parentElement.tagName === 'CODE') {
+          codeElement = targetElement.parentElement;
         }
-        
-        // Insert after the blockquote/pre
-        if (blockElement.nextSibling) {
-          chunkContainer.insertBefore(newParagraph, blockElement.nextSibling);
-        } else {
-          chunkContainer.appendChild(newParagraph);
-        }
-        
-        // Move cursor to the new paragraph
-        const newRange = document.createRange();
-        newRange.setStart(newParagraph, 0);
-        newRange.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(newRange);
-        
-        // Reset enter count
-        enterCount = 0;
+      } else if (targetElement.tagName === 'CODE') {
+        codeElement = targetElement;
       } else {
+        codeElement = targetElement.querySelector('code') || targetElement.closest('code');
+      }
+      
+      if (codeElement) {
         // Insert a <br> at the cursor position
         const br = document.createElement('br');
         range.insertNode(br);
@@ -759,9 +835,27 @@ document.addEventListener("keydown", function(event) {
         selection.removeAllRanges();
         selection.addRange(range);
       }
+    } else {
+      // For blockquotes, proceed as before
+      const br = document.createElement('br');
+      range.insertNode(br);
       
-      return;
+      const textNode = document.createTextNode('\u200B');
+      range.setStartAfter(br);
+      range.insertNode(textNode);
+      
+      range.setStart(textNode, 0);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
     }
+  }
+  
+  return;
+}
+
+
+
     
     // For all other elements, proceed with normal paragraph creation
     event.preventDefault();
@@ -857,18 +951,33 @@ document.addEventListener("keydown", function(event) {
 
 
 
-
 /**
  * Main paste event handler that delegates to specialized handlers
  * based on the content type
  */
-export function handlePaste(event) {
+/**
+ * Main paste event handler that cleans up pasted content and delegates to specialized handlers
+ */
+function handlePaste(event) {
   // Prevent double-handling
   if (pasteHandled) return;
   pasteHandled = true;
   
   // Reset the flag after the event cycle
   setTimeout(() => { pasteHandled = false; }, 0);
+  
+  // Log detailed paste information
+  const plainText = event.clipboardData.getData('text/plain');
+  const htmlContent = event.clipboardData.getData('text/html');
+  
+  console.log('PASTE EVENT DETECTED:', {
+    plainTextLength: plainText.length,
+    plainTextPreview: plainText.substring(0, 50) + (plainText.length > 50 ? '...' : ''),
+    hasHTML: !!htmlContent,
+    target: event.target,
+    targetId: event.target.id || 'no-id',
+    targetNodeName: event.target.nodeName
+  });
   
   // Try to handle as hypercite first
   if (handleHypercitePaste(event)) {
@@ -880,9 +989,143 @@ export function handlePaste(event) {
     return; // Handled as markdown
   }
   
-  // If we get here, it's a regular paste - let the browser handle it
-  console.log("Regular paste - using browser default behavior");
+  // For regular pastes, we'll handle them ourselves to ensure clean content
+  event.preventDefault(); // Prevent default paste behavior
+  
+  // Get the current chunk and selection
+  const chunk = getCurrentChunk();
+  if (!chunk) {
+    console.warn("No active chunk found for paste operation");
+    return;
+  }
+  
+  const selection = window.getSelection();
+  if (!selection.rangeCount) {
+    console.warn("No selection found for paste operation");
+    return;
+  }
+  
+  // Find the current paragraph
+  const range = selection.getRangeAt(0);
+  let currentNode = range.startContainer;
+  if (currentNode.nodeType !== Node.ELEMENT_NODE) {
+    currentNode = currentNode.parentElement;
+  }
+  
+  // Find the closest paragraph or block element
+  let paragraph = currentNode.closest('p, div, h1, h2, h3, h4, h5, h6, li');
+  if (!paragraph) {
+    console.warn("Could not find paragraph for paste");
+    // Create a new paragraph if none exists
+    paragraph = document.createElement('p');
+    paragraph.id = generateUniqueId();
+    range.insertNode(paragraph);
+  }
+  
+  console.log("Pasting into paragraph:", paragraph.id);
+  
+  // Get a snapshot of existing IDs before paste
+  const existingIds = new Set();
+  chunk.querySelectorAll('[id]').forEach(el => {
+    existingIds.add(el.id);
+  });
+  
+  // Clean the content - convert to plain paragraphs without spans or inline styles
+  let cleanContent;
+  
+  if (plainText.includes('\n')) {
+    // Text with line breaks - convert to paragraphs
+    cleanContent = plainText.split('\n')
+      .filter(line => line.trim() !== '')
+      .map(line => `<p>${line}</p>`)
+      .join('');
+  } else {
+    // Single line text - insert directly
+    cleanContent = plainText;
+  }
+  
+  // Insert the clean content
+  if (cleanContent.startsWith('<p>')) {
+    // If we're inserting multiple paragraphs, replace the current paragraph
+    // with the first paragraph and insert the rest after
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = cleanContent;
+    
+    // Replace current paragraph content with first paragraph content
+    const firstP = tempDiv.querySelector('p');
+    if (firstP && paragraph.id) {
+      paragraph.innerHTML = firstP.innerHTML;
+      
+      // Insert remaining paragraphs after the current one
+      let insertAfter = paragraph;
+      Array.from(tempDiv.children).forEach((el, index) => {
+        if (index > 0) { // Skip the first one as we already used its content
+          const newP = document.createElement('p');
+          newP.innerHTML = el.innerHTML;
+          newP.id = getNextDecimalForBase(paragraph.id.split('.')[0]);
+          
+          // Insert after the previous paragraph
+          if (insertAfter.nextSibling) {
+            chunk.insertBefore(newP, insertAfter.nextSibling);
+          } else {
+            chunk.appendChild(newP);
+          }
+          insertAfter = newP;
+        }
+      });
+    }
+  } else {
+    // Single line - just insert at cursor
+    document.execCommand('insertText', false, plainText);
+  }
+  
+  // After the paste completes, find and save new elements
+  setTimeout(() => {
+    // Find all elements with IDs in the chunk
+    const currentElements = chunk.querySelectorAll('[id]');
+    const newElements = [];
+    
+    // Check for new elements that weren't there before
+    currentElements.forEach(el => {
+      if (!existingIds.has(el.id)) {
+        newElements.push(el);
+        console.log(`New element detected after paste: ${el.id}`);
+      }
+    });
+    
+    // Save all new elements
+    if (newElements.length > 0) {
+      console.log(`Found ${newElements.length} new elements after paste`);
+      
+      // Save each new element
+      newElements.forEach(el => {
+        console.log(`Saving new element: ${el.id}`);
+        updateIndexedDBRecord({
+          id: el.id,
+          html: el.outerHTML,
+          action: "add"
+        }).catch(console.error);
+      });
+    }
+    
+    // Always save the current paragraph
+    if (paragraph && paragraph.id) {
+      console.log(`Saving current paragraph after paste: ${paragraph.id}`);
+      updateIndexedDBRecord({
+        id: paragraph.id,
+        html: paragraph.outerHTML,
+        action: "update"
+      }).catch(console.error);
+    }
+    
+    // Log the final state
+    console.log('DOM AFTER PASTE PROCESSING:', {
+      newElements: newElements.length,
+      currentParagraph: paragraph.id
+    });
+  }, 100);
 }
+
 
 /**
  * Handle pasting of hypercites
