@@ -61,7 +61,7 @@ export default class NavButtons {
 
   /**
    * Remove event listeners.
-   */
+   */ 
   destroy() {
     if (this.isTouchDevice) {
       if (window.PointerEvent) {

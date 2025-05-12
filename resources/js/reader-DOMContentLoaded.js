@@ -38,6 +38,7 @@ import "./editButton.js";
 import "./hyperCites.js";
 import {attachUnderlineClickListeners} from "./hyperCites.js";
 import { initializeBroadcastListener } from "./BroadcastListener.js";
+import { initEditToolbar } from "./editToolbar.js";
 
 
 window.uiState = {
@@ -136,6 +137,9 @@ if (!window.isInitialized) {
       navButtons.init();
     }
 
+
+    // Initialize the toolbar
+    initEditToolbar();
 
     // Get TOC elements here.
     const tocContainer = document.getElementById("toc-container");
