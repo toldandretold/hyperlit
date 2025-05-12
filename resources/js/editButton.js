@@ -11,6 +11,9 @@ import { incrementPendingOperations, decrementPendingOperations } from './operat
 
 
 
+
+
+
 const editBtn     = document.getElementById("editButton");
 const editableDiv = document.getElementById(book);
 
@@ -48,6 +51,8 @@ async function enableEditMode() {
 
   // Wire up title sync
   initTitleSync(book);
+
+
 
   console.log("Edit mode enabled");
 }

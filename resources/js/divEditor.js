@@ -40,6 +40,8 @@ let documentChanged = false;
 let hypercitePasteInProgress = false;
 // track user activity
 let debounceTimer = null;
+// Flag to prevent double-handling
+let pasteHandled = false;
 
 
 
@@ -306,126 +308,7 @@ document.addEventListener("selectionchange", () => {
   }
 });
 
-// Add paste event listener to handle hypercites
-export function addPasteListener(editableDiv) {
-  console.log("Adding paste listener for hypercite updates");
-  
-  editableDiv.addEventListener("paste", async (event) => {
-    const clipboardHtml = event.clipboardData.getData("text/html");
-    if (!clipboardHtml) return;
-    
-    // Parse clipboard HTML
-    const pasteWrapper = document.createElement("div");
-    pasteWrapper.innerHTML = clipboardHtml;
-    
-    pasteWrapper.querySelectorAll('p[id]').forEach(el => {
-      // only clear numeric IDs
-      if (/^\d+(\.\d+)?$/.test(el.id)) {
-        el.removeAttribute('id');
-      }
-    });
 
-    // Look for either the link directly or a link inside a sup with class "open-icon"
-    const citeLink = pasteWrapper.querySelector(
-      'a[id^="hypercite_"] > span.open-icon'
-    )?.parentElement;
-    
-    // Check if this is a hypercite link by examining the structure and href
-    if (citeLink && 
-        (citeLink.innerText.trim() === "↗" || 
-         (citeLink.closest("span") && citeLink.closest("span").classList.contains("open-icon")))) {
-      
-      // Prevent default paste behavior
-      event.preventDefault();
-      
-      console.log("Detected a hypercite in pasted content");
-      
-      const originalHref = citeLink.getAttribute("href");
-      const parsed = parseHyperciteHref(originalHref);
-      if (!parsed) return;
-      
-      const { booka, hyperciteIDa, citationIDa } = parsed;
-      console.log("Parsed citation info:", { booka, hyperciteIDa, citationIDa });
-      
-      // Generate new hypercite ID for this instance
-      const hyperciteIDb = "hypercite_" + Math.random().toString(36).substr(2, 8);
-      
-      // Get current book (where paste is happening)
-      const bookb = book;
-      
-      // Create the citation ID for this new instance
-      const citationIDb = `/${bookb}#${hyperciteIDb}`;
-      
-      // Get the text content that was quoted - look for the quoted text pattern
-      let quotedText = "";
-      const fullText = pasteWrapper.textContent;
-      const quoteMatch = fullText.match(/^"(.+?)"/);
-      
-      if (quoteMatch && quoteMatch[1]) {
-        quotedText = quoteMatch[1];
-      } else {
-        // Fallback to just using text before the citation
-        const textNodes = Array.from(pasteWrapper.childNodes)
-          .filter(node => node.nodeType === Node.TEXT_NODE);
-        if (textNodes.length > 0) {
-          quotedText = textNodes[0].textContent.replace(/^"(.+)"$/, "$1");
-        }
-      }
-      
-      // Create the reference HTML with no space between text and sup
-     const referenceHtml = `${quotedText}<a href="${originalHref}" id="${hyperciteIDb}">\u200B<sup class="open-icon">↗</sup></a>`;
-
-      
-      // Set the flag to prevent MutationObserver from processing this paste
-      hypercitePasteInProgress = true;
-      console.log("Setting hypercitePasteInProgress flag to true");
-      
-      // Insert the content
-      document.execCommand("insertHTML", false, referenceHtml);
-      
-      // Get the current paragraph to manually save it
-      const selection = window.getSelection();
-      if (selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        let currentParagraph = range.startContainer;
-        while (currentParagraph && currentParagraph.nodeName !== 'P') {
-          currentParagraph = currentParagraph.parentNode;
-        }
-        
-        if (currentParagraph && currentParagraph.id) {
-
-          console.log("Manually saving paragraph:", currentParagraph.id);
-          // Manually save the paragraph to IndexedDB
-          updateIndexedDBRecord({
-            id: currentParagraph.id,
-            html: currentParagraph.outerHTML,
-            action: "update"
-          }).catch(console.error);
-        }
-      }
-      
-      // Update the original hypercite's citedIN array
-      const updated = await updateCitationForExistingHypercite(
-        booka, 
-        hyperciteIDa, 
-        citationIDb,
-        false // Don't insert content, just update the database
-      );
-      
-      if (updated) {
-        console.log(`Successfully linked: ${citationIDa} cited in ${citationIDb}`);
-      } else {
-        console.warn(`Failed to update citation for ${citationIDa}`);
-      }
-      
-      // Clear the flag after a short delay to allow DOM to settle
-      setTimeout(() => {
-        hypercitePasteInProgress = false;
-        console.log("Cleared hypercitePasteInProgress flag");
-      }, 100);
-    }
-  });
-}
 
 // Track typing activity
 document.addEventListener("keydown", function handleTypingActivity() {
@@ -438,57 +321,7 @@ document.addEventListener("keydown", function handleTypingActivity() {
     }
 });
 
-function handlePaste(event) {
-  const markdown = event.clipboardData.getData("text/plain");
-  if (!markdown.trim()) return;
-  event.preventDefault();
 
-  // 1) find ref node under cursor
-  const sel = window.getSelection();
-  if (!sel.rangeCount) return;
-  let ref = sel.getRangeAt(0).startContainer;
-  while (ref && !ref.id) ref = ref.parentElement;
-  if (!ref) return;
-  const parent = ref.parentNode;
-
-  // 2) parse into chunk‐objects
-  const blocks = parseMarkdownIntoChunksInitial(markdown);
-
-  // 3) build fragment and insert
-  const frag = document.createDocumentFragment();
-  blocks.forEach(block => {
-    // block.content is something like '<p data‐original‐line=…>…</p>'
-    const wrapper = document.createElement("div");
-    wrapper.innerHTML = block.content;
-    const el = wrapper.firstElementChild;
-    // remove any old id so it doesn't collide
-    el.removeAttribute("id");
-    frag.appendChild(el);
-  });
-  // insert them all
-  let insertAfter = ref;
-  Array.from(frag.childNodes).forEach(node => {
-    parent.insertBefore(node, insertAfter.nextSibling);
-    insertAfter = node;
-  });
-
-  // 4) assign decimal IDs under ref.id’s base
-  const base = (ref.id.match(/^(\d+)/) || [])[1];
-  if (!base) return;
-  let node = ref.nextSibling;
-  while (node && !node.id) {
-    if (node.nodeType === 1) {
-      node.id = getNextDecimalForBase(base);
-    }
-    node = node.nextSibling;
-  }
-}
-
-
-// lookup the element
-const editableDiv = document.getElementById(book);
-// attach the listener
-editableDiv.addEventListener("paste", handlePaste);
 
 
 // ----------------------------------------------------------------
@@ -822,19 +655,41 @@ function ensureNodeHasValidId(node, options = {}) {
   documentChanged = true;
 }
 
-// Add this to your existing code
+// Track consecutive Enter presses
+let lastKeyWasEnter = false;
+let enterCount = 0;
+let lastEnterTime = 0;
+
 document.addEventListener("keydown", function(event) {
-  if (event.key === "Enter" && window.isEditing) {
-    // Prevent the default behavior
-    event.preventDefault();
-    
+  // Reset enter count if any other key is pressed
+  if (event.key !== "Enter") {
+    lastKeyWasEnter = false;
+    enterCount = 0;
+    return;
+  }
+  
+  // Check if this is a consecutive Enter press (within 2 seconds)
+  const now = Date.now();
+  if (lastKeyWasEnter && (now - lastEnterTime < 2000)) {
+    enterCount++;
+  } else {
+    enterCount = 1;
+  }
+  
+  lastKeyWasEnter = true;
+  lastEnterTime = now;
+  
+  // Debug
+  console.log("Enter count:", enterCount);
+  
+  if (window.isEditing) {
     // Get the current selection
     const selection = document.getSelection();
     if (selection.rangeCount === 0) return;
     
     const range = selection.getRangeAt(0);
     
-    // Find the current block element
+    // Find the current node and its parent block element
     let currentNode = range.startContainer;
     if (currentNode.nodeType !== Node.ELEMENT_NODE) {
       currentNode = currentNode.parentElement;
@@ -843,73 +698,396 @@ document.addEventListener("keydown", function(event) {
     // Find the parent block element
     let blockElement = currentNode;
     while (blockElement && 
-           !['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI'].includes(blockElement.tagName)) {
+           !['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'PRE'].includes(blockElement.tagName)) {
       blockElement = blockElement.parentElement;
     }
     
     if (!blockElement) return;
     
-    // Split the content at cursor position
-    const cursorOffset = range.startOffset;
+    // Find the chunk container
+    const chunkContainer = blockElement.closest('.chunk');
+    if (!chunkContainer) return;
+    
+    // Special handling for blockquote and pre (code blocks)
+    if (blockElement.tagName === 'BLOCKQUOTE' || blockElement.tagName === 'PRE') {
+      event.preventDefault(); // Prevent default Enter behavior
+      
+      // If this is the third consecutive Enter press, escape the block
+      if (enterCount >= 3) {
+        // Create a new paragraph
+        const newParagraph = document.createElement('p');
+        newParagraph.innerHTML = '<br>';
+        
+        // Generate an ID for the new paragraph
+        if (blockElement.id) {
+          const baseMatch = blockElement.id.match(/^(\d+)/);
+          if (baseMatch) {
+            const baseId = baseMatch[1];
+            newParagraph.id = getNextDecimalForBase(baseId);
+          }
+        }
+        
+        // Insert after the blockquote/pre
+        if (blockElement.nextSibling) {
+          chunkContainer.insertBefore(newParagraph, blockElement.nextSibling);
+        } else {
+          chunkContainer.appendChild(newParagraph);
+        }
+        
+        // Move cursor to the new paragraph
+        const newRange = document.createRange();
+        newRange.setStart(newParagraph, 0);
+        newRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+        
+        // Reset enter count
+        enterCount = 0;
+      } else {
+        // Insert a <br> at the cursor position
+        const br = document.createElement('br');
+        range.insertNode(br);
+        
+        // Insert a text node after the <br> to position the cursor on the next line
+        const textNode = document.createTextNode('\u200B'); // Zero-width space
+        range.setStartAfter(br);
+        range.insertNode(textNode);
+        
+        // Move the cursor to the text node (which is now after the <br>)
+        range.setStart(textNode, 0);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      
+      return;
+    }
+    
+    // For all other elements, proceed with normal paragraph creation
+    event.preventDefault();
     
     // Create a new paragraph
     const newParagraph = document.createElement('p');
+    
+    // Split the content at cursor position
+    const cursorOffset = range.startOffset;
     
     // Check if cursor is at the end of the text content
     let isAtEnd = false;
     if (range.startContainer.nodeType === Node.TEXT_NODE) {
       isAtEnd = cursorOffset === range.startContainer.length;
     } else if (range.startContainer.nodeType === Node.ELEMENT_NODE) {
-      // If we're in an element, check if we're at its end
       isAtEnd = cursorOffset === range.startContainer.childNodes.length;
     }
     
     if (isAtEnd && range.startContainer === blockElement.lastChild || 
         range.startContainer === blockElement && blockElement.textContent.trim() === '') {
-      // If cursor is at the end or in an empty block, create an empty paragraph
-      newParagraph.innerHTML = '<br>'; // Empty paragraph needs <br> to be visible
+      newParagraph.innerHTML = '<br>';
     } else {
-      // Extract content after cursor
       const rangeToExtract = document.createRange();
       rangeToExtract.setStart(range.startContainer, cursorOffset);
       rangeToExtract.setEndAfter(blockElement);
       
-      // Clone the content to check if it's empty after trimming
       const clonedContent = rangeToExtract.cloneContents();
       const tempDiv = document.createElement('div');
       tempDiv.appendChild(clonedContent);
       const extractedText = tempDiv.textContent.trim();
       
-      // Delete the extracted content
-      rangeToExtract.deleteContents();
+      // Store the content to move to the new paragraph
+      const fragment = rangeToExtract.extractContents();
       
-      // Set the extracted content or <br> if empty
+      // If the current block is now empty, add a <br>
+      if (blockElement.innerHTML === '' || blockElement.textContent.trim() === '') {
+        blockElement.innerHTML = '<br>';
+      }
+      
       if (extractedText === '') {
         newParagraph.innerHTML = '<br>';
       } else {
-        // Create a document fragment with the extracted content
-        const fragment = rangeToExtract.cloneContents();
         newParagraph.appendChild(fragment);
         
-        // If the paragraph is still empty after appending, add a <br>
         if (newParagraph.innerHTML === '' || newParagraph.textContent.trim() === '') {
           newParagraph.innerHTML = '<br>';
         }
       }
     }
     
+    // Generate an ID for the new paragraph
+    if (blockElement.id) {
+      const baseMatch = blockElement.id.match(/^(\d+)/);
+      if (baseMatch) {
+        const baseId = baseMatch[1];
+        newParagraph.id = getNextDecimalForBase(baseId);
+      }
+    }
+    
     // Insert the new paragraph after the current one
-    blockElement.parentNode.insertBefore(newParagraph, blockElement.nextSibling);
+    if (blockElement.nextSibling) {
+      chunkContainer.insertBefore(newParagraph, blockElement.nextSibling);
+    } else {
+      chunkContainer.appendChild(newParagraph);
+    }
     
     // Move cursor to the beginning of the new paragraph
     const newRange = document.createRange();
-    newRange.setStart(newParagraph, 0);
-    newRange.collapse(true);
     
+    // If the new paragraph has content, place cursor at the beginning
+    if (newParagraph.firstChild && newParagraph.firstChild.nodeType === Node.TEXT_NODE) {
+      newRange.setStart(newParagraph.firstChild, 0);
+    } else {
+      newRange.setStart(newParagraph, 0);
+    }
+    
+    newRange.collapse(true);
     selection.removeAllRanges();
     selection.addRange(newRange);
+    
+    // Reset enter count after creating a new paragraph
+    enterCount = 0;
   }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+/**
+ * Main paste event handler that delegates to specialized handlers
+ * based on the content type
+ */
+export function handlePaste(event) {
+  // Prevent double-handling
+  if (pasteHandled) return;
+  pasteHandled = true;
+  
+  // Reset the flag after the event cycle
+  setTimeout(() => { pasteHandled = false; }, 0);
+  
+  // Try to handle as hypercite first
+  if (handleHypercitePaste(event)) {
+    return; // Handled as hypercite
+  }
+  
+  // Then try to handle as markdown
+  if (handleMarkdownPaste(event)) {
+    return; // Handled as markdown
+  }
+  
+  // If we get here, it's a regular paste - let the browser handle it
+  console.log("Regular paste - using browser default behavior");
+}
+
+/**
+ * Handle pasting of hypercites
+ * @returns {boolean} true if handled as hypercite, false otherwise
+ */
+function handleHypercitePaste(event) {
+  const clipboardHtml = event.clipboardData.getData("text/html");
+  if (!clipboardHtml) return false;
+  
+  // Parse clipboard HTML
+  const pasteWrapper = document.createElement("div");
+  pasteWrapper.innerHTML = clipboardHtml;
+  
+  // Clear any numeric IDs to prevent conflicts
+  pasteWrapper.querySelectorAll('p[id]').forEach(el => {
+    if (/^\d+(\.\d+)?$/.test(el.id)) {
+      el.removeAttribute('id');
+    }
+  });
+  
+  // Look for hypercite link
+  const citeLink = pasteWrapper.querySelector(
+    'a[id^="hypercite_"] > span.open-icon'
+  )?.parentElement;
+  
+  // Check if this is a hypercite link
+  if (!(citeLink && 
+      (citeLink.innerText.trim() === "↗" || 
+       (citeLink.closest("span") && citeLink.closest("span").classList.contains("open-icon"))))) {
+    return false; // Not a hypercite
+  }
+  
+  // Prevent default paste behavior
+  event.preventDefault();
+  
+  console.log("Detected a hypercite in pasted content");
+  
+  const originalHref = citeLink.getAttribute("href");
+  const parsed = parseHyperciteHref(originalHref);
+  if (!parsed) return false;
+  
+  const { booka, hyperciteIDa, citationIDa } = parsed;
+  console.log("Parsed citation info:", { booka, hyperciteIDa, citationIDa });
+  
+  // Generate new hypercite ID for this instance
+  const hyperciteIDb = "hypercite_" + Math.random().toString(36).substr(2, 8);
+  
+  // Get current book (where paste is happening)
+  const bookb = book;
+  
+  // Create the citation ID for this new instance
+  const citationIDb = `/${bookb}#${hyperciteIDb}`;
+  
+  // Extract quoted text
+  const quotedText = extractQuotedText(pasteWrapper);
+  
+  // Create the reference HTML with no space between text and sup
+  const referenceHtml = `${quotedText}<a href="${originalHref}" id="${hyperciteIDb}">\u200B<sup class="open-icon">↗</sup></a>`;
+  
+  // Set the flag to prevent MutationObserver from processing this paste
+  hypercitePasteInProgress = true;
+  console.log("Setting hypercitePasteInProgress flag to true");
+  
+  // Insert the content
+  document.execCommand("insertHTML", false, referenceHtml);
+  
+  // Get the current paragraph to manually save it
+  saveCurrentParagraph();
+  
+  // Update the original hypercite's citedIN array
+  updateCitationForExistingHypercite(
+    booka, 
+    hyperciteIDa, 
+    citationIDb,
+    false // Don't insert content, just update the database
+  ).then(updated => {
+    if (updated) {
+      console.log(`Successfully linked: ${citationIDa} cited in ${citationIDb}`);
+    } else {
+      console.warn(`Failed to update citation for ${citationIDa}`);
+    }
+    
+    // Clear the flag after a short delay
+    setTimeout(() => {
+      hypercitePasteInProgress = false;
+      console.log("Cleared hypercitePasteInProgress flag");
+    }, 100);
+  });
+  
+  return true; // Successfully handled as hypercite
+}
+
+/**
+ * Extract quoted text from a paste wrapper element
+ */
+function extractQuotedText(pasteWrapper) {
+  let quotedText = "";
+  const fullText = pasteWrapper.textContent;
+  const quoteMatch = fullText.match(/^"(.+?)"/);
+  
+  if (quoteMatch && quoteMatch[1]) {
+    quotedText = quoteMatch[1];
+  } else {
+    // Fallback to just using text before the citation
+    const textNodes = Array.from(pasteWrapper.childNodes)
+      .filter(node => node.nodeType === Node.TEXT_NODE);
+    if (textNodes.length > 0) {
+      quotedText = textNodes[0].textContent.replace(/^"(.+)"$/, "$1");
+    }
+  }
+  
+  return quotedText;
+}
+
+/**
+ * Save the current paragraph after a paste operation
+ */
+function saveCurrentParagraph() {
+  const selection = window.getSelection();
+  if (selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    let currentParagraph = range.startContainer;
+    while (currentParagraph && currentParagraph.nodeName !== 'P') {
+      currentParagraph = currentParagraph.parentNode;
+    }
+    
+    if (currentParagraph && currentParagraph.id) {
+      console.log("Manually saving paragraph:", currentParagraph.id);
+      // Manually save the paragraph to IndexedDB
+      updateIndexedDBRecord({
+        id: currentParagraph.id,
+        html: currentParagraph.outerHTML,
+        action: "update"
+      }).catch(console.error);
+    }
+  }
+}
+
+/**
+ * Handle pasting of markdown content
+ * @returns {boolean} true if handled as markdown, false otherwise
+ */
+function handleMarkdownPaste(event) {
+  const markdown = event.clipboardData.getData("text/plain");
+  if (!markdown.trim()) return false;
+  
+  // Check if this looks like markdown (has headings, lists, etc.)
+  // This is optional - you can remove this check if you want to handle all plain text as markdown
+  const hasMarkdownSyntax = /^#+\s|\n#+\s|^\s*[-*+]\s|\n\s*[-*+]\s|^\s*\d+\.\s|\n\s*\d+\.\s|`|_\w+_|\*\w+\*/.test(markdown);
+  if (!hasMarkdownSyntax) return false;
+  
+  event.preventDefault();
+
+  // 1) find ref node under cursor
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return false;
+  let ref = sel.getRangeAt(0).startContainer;
+  while (ref && !ref.id) ref = ref.parentElement;
+  if (!ref) return false;
+  const parent = ref.parentNode;
+
+  // 2) parse into chunk‐objects
+  const blocks = parseMarkdownIntoChunksInitial(markdown);
+
+  // 3) build fragment and insert
+  const frag = document.createDocumentFragment();
+  blocks.forEach(block => {
+    // block.content is something like '<p data‐original‐line=…>…</p>'
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = block.content;
+    const el = wrapper.firstElementChild;
+    // remove any old id so it doesn't collide
+    el.removeAttribute("id");
+    frag.appendChild(el);
+  });
+  
+  // insert them all
+  let insertAfter = ref;
+  Array.from(frag.childNodes).forEach(node => {
+    parent.insertBefore(node, insertAfter.nextSibling);
+    insertAfter = node;
+  });
+
+  // 4) assign decimal IDs under ref.id's base
+  const base = (ref.id.match(/^(\d+)/) || [])[1];
+  if (!base) return false;
+  let node = ref.nextSibling;
+  while (node && !node.id) {
+    if (node.nodeType === 1) {
+      node.id = getNextDecimalForBase(base);
+    }
+    node = node.nextSibling;
+  }
+  
+  return true; // Successfully handled as markdown
+}
+
+/**
+ * Add paste event listener to the editable div
+ */
+export function addPasteListener(editableDiv) {
+  console.log("Adding modular paste listener");
+  editableDiv.addEventListener("paste", handlePaste);
+}
+
 
 
 
