@@ -743,8 +743,21 @@ document.addEventListener("keydown", function(event) {
     // Special handling for blockquote and pre (code blocks)
 // Special handling for blockquote and pre (code blocks)
 // Special handling for blockquote and pre (code blocks)
+// Special handling for blockquote and pre (code blocks)
 if (blockElement.tagName === 'BLOCKQUOTE' || blockElement.tagName === 'PRE') {
   event.preventDefault(); // Prevent default Enter behavior
+  
+  // Check if we're inside a hypercite
+  let insideHypercite = false;
+  let hyperciteElement = null;
+  let currentElement = range.startContainer;
+  if (currentElement.nodeType !== Node.ELEMENT_NODE) {
+    currentElement = currentElement.parentElement;
+  }
+  
+  // Check if we're inside a hypercite (u tag)
+  hyperciteElement = currentElement.closest('u[id^="hypercite_"]');
+  insideHypercite = !!hyperciteElement;
   
   // If this is the third consecutive Enter press, escape the block
   if (enterCount >= 3) {
@@ -752,6 +765,17 @@ if (blockElement.tagName === 'BLOCKQUOTE' || blockElement.tagName === 'PRE') {
     let targetElement = blockElement;
     if (blockElement.tagName === 'PRE' && blockElement.querySelector('code')) {
       targetElement = blockElement.querySelector('code');
+    }
+    
+    // First, if we're inside a hypercite, move any BR elements outside of it
+    if (insideHypercite) {
+      const brElements = hyperciteElement.querySelectorAll('br');
+      if (brElements.length > 0) {
+        // Move BR elements after the hypercite
+        Array.from(brElements).forEach(br => {
+          hyperciteElement.parentNode.insertBefore(br, hyperciteElement.nextSibling);
+        });
+      }
     }
     
     // Clean up the last two BR elements and any zero-width spaces
@@ -771,6 +795,16 @@ if (blockElement.tagName === 'BLOCKQUOTE' || blockElement.tagName === 'PRE') {
         targetElement.removeChild(node);
         brRemoved++;
       }
+    }
+
+    // Add this: Save the modified blockElement to IndexedDB
+    if (blockElement.id) {
+      console.log("Saving modified block element after BR cleanup:", blockElement.id);
+      updateIndexedDBRecord({
+        id: blockElement.id,
+        html: blockElement.outerHTML,
+        action: "update"
+      }).catch(console.error);
     }
     
     // Create a new paragraph
@@ -836,23 +870,48 @@ if (blockElement.tagName === 'BLOCKQUOTE' || blockElement.tagName === 'PRE') {
         selection.addRange(range);
       }
     } else {
-      // For blockquotes, proceed as before
-      const br = document.createElement('br');
-      range.insertNode(br);
-      
-      const textNode = document.createTextNode('\u200B');
-      range.setStartAfter(br);
-      range.insertNode(textNode);
-      
-      range.setStart(textNode, 0);
-      range.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(range);
+      // For blockquotes, we need to handle hypercites specially
+      if (insideHypercite) {
+        // If we're inside a hypercite, insert the BR after the hypercite
+        const br = document.createElement('br');
+        
+        // Insert after the hypercite
+        if (hyperciteElement.nextSibling) {
+          blockElement.insertBefore(br, hyperciteElement.nextSibling);
+        } else {
+          blockElement.appendChild(br);
+        }
+        
+        // Insert a text node after the <br> to position the cursor on the next line
+        const textNode = document.createTextNode('\u200B');
+        blockElement.insertBefore(textNode, br.nextSibling);
+        
+        // Move the cursor to the text node
+        const newRange = document.createRange();
+        newRange.setStart(textNode, 0);
+        newRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+      } else {
+        // Normal blockquote handling
+        const br = document.createElement('br');
+        range.insertNode(br);
+        
+        const textNode = document.createTextNode('\u200B');
+        range.setStartAfter(br);
+        range.insertNode(textNode);
+        
+        range.setStart(textNode, 0);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
     }
   }
   
   return;
 }
+
 
 
 
