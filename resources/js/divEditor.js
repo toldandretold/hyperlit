@@ -1260,7 +1260,7 @@ function handleHypercitePaste(event) {
   quotedText = quotedText.replace(/^['"]|['"]$/g, ''); // Remove quotes
   
   // Create the reference HTML with no space between text and sup
-  const referenceHtml = `${quotedText}<a href="${originalHref}" id="${hyperciteIDb}">\u200B<sup class="open-icon">↗</sup></a>`;
+  const referenceHtml = `'${quotedText}'<a href="${originalHref}" id="${hyperciteIDb}">\u200B<sup class="open-icon">↗</sup></a>`;
   
   // Set the flag to prevent MutationObserver from processing this paste
   hypercitePasteInProgress = true;
