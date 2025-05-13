@@ -40,9 +40,25 @@ function updateDomNode(startLine) {
         const node = document.getElementById(startLine);
         if (node) {
           console.log(`Updating node id=${startLine} with processed content.`);
-          node.innerHTML = newContent;
+          
+          // Create a temporary div to parse the content
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = newContent;
+          
+          // Find the root element in the parsed content
+          const rootElement = tempDiv.firstElementChild;
+          
+          if (rootElement && rootElement.tagName === node.tagName) {
+            // If the root element in newContent matches the node's tag,
+            // just use the inner HTML to avoid nesting
+            console.log(`Detected matching tags (${node.tagName}), using inner content only`);
+            node.innerHTML = rootElement.innerHTML;
+          } else {
+            // If tags don't match or there's no root element, use the whole content
+            node.innerHTML = newContent;
+          }
+          
           attachUnderlineClickListeners();
-
         } else {
           console.warn(`No DOM element found with id=${startLine}`);
         }
@@ -52,6 +68,7 @@ function updateDomNode(startLine) {
     })
     .catch((error) => console.error("Error updating DOM node:", error));
 }
+
 
 
 function sanitizeContent(html) {

@@ -1140,7 +1140,7 @@ function handleHypercitePaste(event) {
   pasteWrapper.innerHTML = clipboardHtml;
   
   // Clear any numeric IDs to prevent conflicts
-  pasteWrapper.querySelectorAll('p[id]').forEach(el => {
+  pasteWrapper.querySelectorAll('[id]').forEach(el => {
     if (/^\d+(\.\d+)?$/.test(el.id)) {
       el.removeAttribute('id');
     }
@@ -1179,8 +1179,26 @@ function handleHypercitePaste(event) {
   // Create the citation ID for this new instance
   const citationIDb = `/${bookb}#${hyperciteIDb}`;
   
-  // Extract quoted text
-  const quotedText = extractQuotedText(pasteWrapper);
+  // Extract quoted text - IMPROVED VERSION
+  let quotedText = "";
+  
+  // First try to find the text directly before the citation link
+  let textNode = citeLink.previousSibling;
+  while (textNode) {
+    if (textNode.nodeType === Node.TEXT_NODE) {
+      quotedText = textNode.textContent.trim() + quotedText;
+      break;
+    }
+    textNode = textNode.previousSibling;
+  }
+  
+  // If that didn't work, try the fallback method
+  if (!quotedText) {
+    quotedText = extractQuotedText(pasteWrapper);
+  }
+  
+  // Remove any blockquote tags or other structural elements from the quoted text
+  quotedText = quotedText.replace(/^['"]|['"]$/g, ''); // Remove quotes
   
   // Create the reference HTML with no space between text and sup
   const referenceHtml = `${quotedText}<a href="${originalHref}" id="${hyperciteIDb}">\u200B<sup class="open-icon">↗</sup></a>`;
@@ -1189,8 +1207,33 @@ function handleHypercitePaste(event) {
   hypercitePasteInProgress = true;
   console.log("Setting hypercitePasteInProgress flag to true");
   
-  // Insert the content
-  document.execCommand("insertHTML", false, referenceHtml);
+  // Insert the content - use a more controlled approach
+  const selection = window.getSelection();
+  if (selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    
+    // Create a document fragment with just the text and link
+    const fragment = document.createDocumentFragment();
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = referenceHtml;
+    
+    // Move all nodes from tempDiv to fragment
+    while (tempDiv.firstChild) {
+      fragment.appendChild(tempDiv.firstChild);
+    }
+    
+    // Clear the range and insert our clean fragment
+    range.deleteContents();
+    range.insertNode(fragment);
+    
+    // Move cursor to end of insertion
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  } else {
+    // Fallback to execCommand if selection isn't available
+    document.execCommand("insertHTML", false, referenceHtml);
+  }
   
   // Get the current paragraph to manually save it
   saveCurrentParagraph();
@@ -1217,6 +1260,7 @@ function handleHypercitePaste(event) {
   
   return true; // Successfully handled as hypercite
 }
+
 
 /**
  * Extract quoted text from a paste wrapper element
