@@ -23,50 +23,89 @@ export function initializeBroadcastListener() {
  * processing functions, and then updates the corresponding DOM node.
  */
 function updateDomNode(startLine) {
+  console.group(`updateDomNode(${startLine})`);
+  console.log(`Starting update for node ID: ${startLine}`);
+  
   getNodeChunkByKey(book, startLine)
     .then((record) => {
+      console.log(`Retrieved record from IndexedDB:`, record);
+      
       if (record) {
-        // Assume record.content holds your raw HTML.
+        // Log the original content from IndexedDB
+        console.log(`Original content from DB:`, record.content);
+        
+        // Process content
         let newContent = record.content || "";
+        console.log(`Initial content (or empty string):`, newContent);
+        
         newContent = sanitizeContent(newContent);
+        console.log(`After sanitizeContent():`, newContent);
+        
         if (record.hypercites && record.hypercites.length > 0) {
+          console.log(`Applying hypercites:`, record.hypercites);
           newContent = applyHypercites(newContent, record.hypercites);
+          console.log(`After applyHypercites():`, newContent);
+        } else {
+          console.log(`No hypercites to apply`);
         }
+        
         if (record.highlights && record.highlights.length > 0) {
+          console.log(`Applying highlights:`, record.highlights);
           newContent = applyHighlights(newContent, record.highlights);
+          console.log(`After applyHighlights():`, newContent);
+        } else {
+          console.log(`No highlights to apply`);
         }
 
-        // Locate the DOM node with id equal to startLine.
+        // Locate the DOM node
         const node = document.getElementById(startLine);
+        
         if (node) {
-          console.log(`Updating node id=${startLine} with processed content.`);
+          console.log(`Found DOM node:`, node);
+          console.log(`Current node HTML before update:`, node.outerHTML);
           
           // Create a temporary div to parse the content
           const tempDiv = document.createElement('div');
           tempDiv.innerHTML = newContent;
           
+          console.log(`Parsed content in tempDiv:`, tempDiv.innerHTML);
+          
           // Find the root element in the parsed content
           const rootElement = tempDiv.firstElementChild;
+          console.log(`Root element from parsed content:`, rootElement);
           
           if (rootElement && rootElement.tagName === node.tagName) {
-            // If the root element in newContent matches the node's tag,
-            // just use the inner HTML to avoid nesting
-            console.log(`Detected matching tags (${node.tagName}), using inner content only`);
+            console.log(`Tags match: ${rootElement.tagName} = ${node.tagName}`);
+            console.log(`Using innerHTML from root element:`, rootElement.innerHTML);
             node.innerHTML = rootElement.innerHTML;
           } else {
-            // If tags don't match or there's no root element, use the whole content
+            if (rootElement) {
+              console.log(`Tags don't match: ${rootElement.tagName} ≠ ${node.tagName}`);
+            } else {
+              console.log(`No root element found in parsed content`);
+            }
+            console.log(`Using entire newContent:`, newContent);
             node.innerHTML = newContent;
           }
           
+          console.log(`Node HTML after update:`, node.outerHTML);
+          
           attachUnderlineClickListeners();
+          console.log(`Attached underline click listeners`);
         } else {
-          console.warn(`No DOM element found with id=${startLine}`);
+          console.warn(`⚠️ No DOM element found with id=${startLine}`);
         }
       } else {
-        console.warn(`No record returned for key [${book}, ${startLine}]`);
+        console.warn(`⚠️ No record returned for key [${book}, ${startLine}]`);
       }
     })
-    .catch((error) => console.error("Error updating DOM node:", error));
+    .catch((error) => {
+      console.error("❌ Error updating DOM node:", error);
+      console.error("Error stack:", error.stack);
+    })
+    .finally(() => {
+      console.groupEnd();
+    });
 }
 
 
