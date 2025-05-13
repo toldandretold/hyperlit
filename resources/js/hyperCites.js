@@ -64,7 +64,9 @@ function wrapSelectedTextInDOM(hyperciteId, book) {
   wrapper.id = hyperciteId;
   wrapper.className = "single";
   try {
-    range.surroundContents(wrapper);
+    const fragment = range.extractContents();
+    wrapper.appendChild(fragment);
+    range.insertNode(wrapper);
   } catch (e) {
     console.error("Error wrapping selected text:", e);
     return;
@@ -256,17 +258,20 @@ function collectHyperciteData(hyperciteId, wrapper) {
   }
   const charEnd = charStart + hyperciteText.length;
 
+  // Don't store the entire outerHTML, just the necessary information
   return [
     {
-      startLine: parentId, // Keep as string; conversion happens in NewHyperciteIndexedDB
+      startLine: parentId,
       charStart: charStart,
       charEnd: charEnd,
-      html: parentElement.outerHTML,
+      // Don't include the full HTML, just the ID and type
+      elementType: parentElement.tagName.toLowerCase(),
       hypercite_id: hyperciteId,
       id: parentElement.id,
     },
   ];
 }
+
 
 
 // Function to generate a unique hypercite ID
