@@ -16,6 +16,7 @@ import { generateUniqueId,
          getNextDecimalForBase,
          normalizeNodeIds,
          generateInsertedNodeId,
+         generateIdBetween
           } from "./IDfunctions.js";
 import {
   broadcastToOpenTabs
@@ -23,6 +24,7 @@ import {
 
 import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from './convert-markdown.js';
 import { processFootnotes } from './footnotes.js';
+import { NodeIdManager } from './IDmanager.js';
 
 
 // Tracking sets
@@ -195,7 +197,108 @@ export function startObserving(editableDiv) {
     if (mutation.type === "childList") {
       mutation.addedNodes.forEach((node) => {
         if (node.nodeType === Node.ELEMENT_NODE) {
-          ensureNodeHasValidId(node);
+          // INTEGRATION POINT: Use NodeIdManager if available, otherwise fall back to ensureNodeHasValidId
+          if (window.NodeIdManager && typeof NodeIdManager.exists === 'function') {
+            // If node already has an ID
+            if (node.id) {
+              // Check if it's a duplicate
+              if (NodeIdManager.exists(node.id) && document.getElementById(node.id) !== node) {
+                console.log(`Duplicate ID detected: ${node.id}`);
+                
+                // Find reference nodes for context-aware ID generation
+                const parent = node.parentElement;
+                if (parent) {
+                  const siblings = Array.from(parent.children);
+                  const index = siblings.indexOf(node);
+                  
+                  let newId;
+                  if (index > 0) {
+                    const prevSibling = siblings[index - 1];
+                    if (index < siblings.length - 1) {
+                      const nextSibling = siblings[index + 1];
+                      if (prevSibling.id && nextSibling.id) {
+                        newId = NodeIdManager.getIntermediateId(prevSibling.id, nextSibling.id);
+                      } else if (prevSibling.id) {
+                        newId = NodeIdManager.getNextId(prevSibling.id);
+                      } else if (nextSibling.id) {
+                        newId = NodeIdManager.getIdBefore(nextSibling.id);
+                      } else {
+                        newId = NodeIdManager.generateUniqueId();
+                      }
+                    } else {
+                      // Last child
+                      if (prevSibling.id) {
+                        newId = NodeIdManager.getNextId(prevSibling.id);
+                      } else {
+                        newId = NodeIdManager.generateUniqueId();
+                      }
+                    }
+                  } else {
+                    // First child
+                    if (index < siblings.length - 1) {
+                      const nextSibling = siblings[index + 1];
+                      if (nextSibling.id) {
+                        newId = NodeIdManager.getIdBefore(nextSibling.id);
+                      } else {
+                        newId = NodeIdManager.generateUniqueId();
+                      }
+                    } else {
+                      // Only child
+                      newId = NodeIdManager.generateUniqueId();
+                    }
+                  }
+                  
+                  console.log(`Changing duplicate ID from ${node.id} to ${newId}`);
+                  node.id = newId;
+                } else {
+                  // No parent, generate a completely unique ID
+                  const oldId = node.id;
+                  node.id = NodeIdManager.generateUniqueId();
+                  console.log(`Changed orphaned duplicate ID from ${oldId} to ${node.id}`);
+                }
+              } else {
+                // ID exists but is not a duplicate, register it
+                NodeIdManager.register(node.id);
+              }
+            } else {
+              // Node has no ID, generate one based on context
+              const parent = node.parentElement;
+              if (parent) {
+                const siblings = Array.from(parent.children);
+                const index = siblings.indexOf(node);
+                
+                let newId;
+                if (index > 0) {
+                  const prevSibling = siblings[index - 1];
+                  if (prevSibling.id && /^\d+(\.\d+)?$/.test(prevSibling.id)) {
+                    newId = NodeIdManager.getNextId(prevSibling.id);
+                  } else {
+                    newId = NodeIdManager.generateUniqueId();
+                  }
+                } else if (index < siblings.length - 1) {
+                  const nextSibling = siblings[index + 1];
+                  if (nextSibling.id && /^\d+(\.\d+)?$/.test(nextSibling.id)) {
+                    newId = NodeIdManager.getIdBefore(nextSibling.id);
+                  } else {
+                    newId = NodeIdManager.generateUniqueId();
+                  }
+                } else {
+                  newId = NodeIdManager.generateUniqueId();
+                }
+                
+                console.log(`Assigned new ID to node: ${newId}`);
+                node.id = newId;
+              } else {
+                // No parent, generate a completely unique ID
+                node.id = NodeIdManager.generateUniqueId();
+                console.log(`Assigned unique ID to orphaned node: ${node.id}`);
+              }
+            }
+          } else {
+            // Fall back to original method if NodeIdManager is not available
+            ensureNodeHasValidId(node);
+          }
+          
           addedNodes.add(node);
           addedCount++;
           newNodes.push(node); // Add to newNodes array for saving later
@@ -353,53 +456,6 @@ document.addEventListener("keydown", function handleTypingActivity() {
 });
 
 
-
-
-// ----------------------------------------------------------------
-// Track cursor position when Enter is pressed
-// ----------------------------------------------------------------
-document.addEventListener("keydown", function handleENTERpress(event) {
-  if (event.key === "Enter") {
-    const selection = document.getSelection();
-    if (selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      let currentNode = range.startContainer;
-      if (currentNode.nodeType !== Node.ELEMENT_NODE) {
-        currentNode = currentNode.parentElement;
-      }
-      while (currentNode && (!currentNode.id || 
-             !['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI'].includes(currentNode.tagName))) {
-        currentNode = currentNode.parentElement;
-      }
-      if (currentNode && currentNode.id) {
-        let cursorPosition = "middle";
-        if (range.startOffset === 0) {
-          cursorPosition = "start";
-        } else if (range.startContainer.nodeType === Node.TEXT_NODE && 
-                  range.startOffset === range.startContainer.length) {
-          cursorPosition = "end";
-        }
-        window.__enterKeyInfo = {
-          nodeId: currentNode.id,
-          cursorPosition: cursorPosition,
-          timestamp: Date.now()
-        };
-        console.log("Enter pressed in node:", currentNode.id, "at position:", cursorPosition);
-      }
-    }
-setTimeout(() => {
-      const chunk = getCurrentChunk();
-      if (chunk) {
-        console.log("🔄 Running normalization after Enter key");
-        normalizeNodeIds(chunk).then(changed => {
-          if (changed) {
-            console.log("✅ Normalization fixed node order after Enter key");
-          }
-        });
-      }
-    }, 500);
-  }
-});
 
 
 
@@ -696,11 +752,99 @@ function ensureNodeHasValidId(node, options = {}) {
   
   documentChanged = true;
 }
-
 // Track consecutive Enter presses
 let lastKeyWasEnter = false;
 let enterCount = 0;
 let lastEnterTime = 0;
+
+// Common function for creating and inserting a new paragraph
+// Common function for creating and inserting a new paragraph
+// Common function for creating and inserting a new paragraph
+function createAndInsertParagraph(blockElement, chunkContainer, content, selection) {
+  // 1. Create the new paragraph
+  const newParagraph = document.createElement('p');
+  
+  // Set the content
+  if (content) {
+    newParagraph.appendChild(content);
+  } else {
+    newParagraph.innerHTML = '<br>';
+  }
+  
+  // 2. Find the next sibling with an ID
+  let nextSibling = blockElement.nextElementSibling;
+  while (nextSibling && !nextSibling.id) {
+    nextSibling = nextSibling.nextElementSibling;
+  }
+
+  // 3. Generate an ID between the current element and the next sibling
+  if (blockElement.id) {
+    newParagraph.id = generateIdBetween(
+      blockElement.id,
+      nextSibling ? nextSibling.id : null
+    );
+    console.log(`Generated new ID: ${newParagraph.id}`);
+  }
+  
+  // 4. Insert the paragraph into the DOM
+  if (blockElement.nextSibling) {
+    chunkContainer.insertBefore(newParagraph, blockElement.nextSibling);
+  } else {
+    chunkContainer.appendChild(newParagraph);
+  }
+  
+  // 5. Save the new paragraph to IndexedDB
+  if (newParagraph.id) {
+    console.log(`Saving new paragraph to IndexedDB: ${newParagraph.id}`);
+    updateIndexedDBRecord({
+      id: newParagraph.id,
+      html: newParagraph.outerHTML,
+      action: "add"
+    }).catch(console.error);
+  }
+  
+  // 6. Move cursor to the new paragraph
+  const newRange = document.createRange();
+  if (newParagraph.firstChild && newParagraph.firstChild.nodeType === Node.TEXT_NODE) {
+    newRange.setStart(newParagraph.firstChild, 0);
+  } else {
+    newRange.setStart(newParagraph, 0);
+  }
+  newRange.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(newRange);
+  
+  // 7. Run normalization after insertion and save all normalized paragraphs
+  setTimeout(() => {
+    if (chunkContainer) {
+      console.log("Running normalization after paragraph creation");
+      const changes = NodeIdManager.normalizeContainer(chunkContainer);
+      
+      // If normalization made changes, save all paragraphs in the chunk
+      if (changes > 0) {
+        console.log(`Normalization made ${changes} changes, saving all paragraphs`);
+        // Get all paragraphs in the chunk
+        const paragraphs = chunkContainer.querySelectorAll('p, h1, h2, h3, h4, h5, h6');
+        
+        // Save each paragraph to IndexedDB
+        paragraphs.forEach(p => {
+          if (p.id) {
+            console.log(`Saving normalized paragraph: ${p.id}`);
+            updateIndexedDBRecord({
+              id: p.id,
+              html: p.outerHTML,
+              action: "update"
+            }).catch(console.error);
+          }
+        });
+      }
+    }
+  }, 100);
+  
+  return newParagraph;
+}
+
+
 
 document.addEventListener("keydown", function(event) {
   // Reset enter count if any other key is pressed
@@ -750,188 +894,157 @@ document.addEventListener("keydown", function(event) {
     const chunkContainer = blockElement.closest('.chunk');
     if (!chunkContainer) return;
     
-    // Special handling for blockquote and pre (code blocks)
-    // Special handling for blockquote and pre (code blocks)
-// Special handling for blockquote and pre (code blocks)
-// Special handling for blockquote and pre (code blocks)
-// Special handling for blockquote and pre (code blocks)
-if (blockElement.tagName === 'BLOCKQUOTE' || blockElement.tagName === 'PRE') {
-  event.preventDefault(); // Prevent default Enter behavior
-  
-  // Check if we're inside a hypercite
-  let insideHypercite = false;
-  let hyperciteElement = null;
-  let currentElement = range.startContainer;
-  if (currentElement.nodeType !== Node.ELEMENT_NODE) {
-    currentElement = currentElement.parentElement;
-  }
-  
-  // Check if we're inside a hypercite (u tag)
-  hyperciteElement = currentElement.closest('u[id^="hypercite_"]');
-  insideHypercite = !!hyperciteElement;
-  
-  // If this is the third consecutive Enter press, escape the block
-  if (enterCount >= 3) {
-    // For code blocks, we need to look inside the CODE element
-    let targetElement = blockElement;
-    if (blockElement.tagName === 'PRE' && blockElement.querySelector('code')) {
-      targetElement = blockElement.querySelector('code');
-    }
-    
-    // First, if we're inside a hypercite, move any BR elements outside of it
-    if (insideHypercite) {
-      const brElements = hyperciteElement.querySelectorAll('br');
-      if (brElements.length > 0) {
-        // Move BR elements after the hypercite
-        Array.from(brElements).forEach(br => {
-          hyperciteElement.parentNode.insertBefore(br, hyperciteElement.nextSibling);
-        });
-      }
-    }
-    
-    // Clean up the last two BR elements and any zero-width spaces
-    const childNodes = Array.from(targetElement.childNodes);
-    let brRemoved = 0;
-    
-    // Start from the end and work backwards
-    for (let i = childNodes.length - 1; i >= 0 && brRemoved < 2; i--) {
-      const node = childNodes[i];
+    //==========================================================================
+    // SECTION 1: Special handling for blockquote and pre (code blocks)
+    //==========================================================================
+    if (blockElement.tagName === 'BLOCKQUOTE' || blockElement.tagName === 'PRE') {
+      event.preventDefault(); // Prevent default Enter behavior
       
-      // Remove text nodes that are just zero-width spaces
-      if (node.nodeType === Node.TEXT_NODE && node.textContent === '\u200B') {
-        targetElement.removeChild(node);
+      // Check if we're inside a hypercite
+      let insideHypercite = false;
+      let hyperciteElement = null;
+      let currentElement = range.startContainer;
+      if (currentElement.nodeType !== Node.ELEMENT_NODE) {
+        currentElement = currentElement.parentElement;
       }
-      // Remove BR elements
-      else if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'BR') {
-        targetElement.removeChild(node);
-        brRemoved++;
-      }
-    }
-
-    // Add this: Save the modified blockElement to IndexedDB
-    if (blockElement.id) {
-      console.log("Saving modified block element after BR cleanup:", blockElement.id);
-      updateIndexedDBRecord({
-        id: blockElement.id,
-        html: blockElement.outerHTML,
-        action: "update"
-      }).catch(console.error);
-    }
-    
-    // Create a new paragraph
-    const newParagraph = document.createElement('p');
-    newParagraph.innerHTML = '<br>';
-    
-    // Generate an ID for the new paragraph
-    if (blockElement.id) {
-      const baseMatch = blockElement.id.match(/^(\d+)/);
-      if (baseMatch) {
-        const baseId = baseMatch[1];
-        newParagraph.id = getNextDecimalForBase(baseId);
-      }
-    }
-    
-    // Insert after the blockquote/pre
-    if (blockElement.nextSibling) {
-      chunkContainer.insertBefore(newParagraph, blockElement.nextSibling);
-    } else {
-      chunkContainer.appendChild(newParagraph);
-    }
-    
-    // Move cursor to the new paragraph
-    const newRange = document.createRange();
-    newRange.setStart(newParagraph, 0);
-    newRange.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(newRange);
-    
-    // Reset enter count
-    enterCount = 0;
-  } else {
-    // For code blocks, we need to insert the BR inside the CODE element
-    let targetElement = range.startContainer;
-    if (blockElement.tagName === 'PRE') {
-      // Find the CODE element
-      let codeElement = null;
-      if (targetElement.nodeType === Node.TEXT_NODE) {
-        // If we're in a text node, look at its parent
-        if (targetElement.parentElement.tagName === 'CODE') {
-          codeElement = targetElement.parentElement;
+      
+      // Check if we're inside a hypercite (u tag)
+      hyperciteElement = currentElement.closest('u[id^="hypercite_"]');
+      insideHypercite = !!hyperciteElement;
+      
+      // If this is the third consecutive Enter press, escape the block
+      if (enterCount >= 3) {
+        // For code blocks, we need to look inside the CODE element
+        let targetElement = blockElement;
+        if (blockElement.tagName === 'PRE' && blockElement.querySelector('code')) {
+          targetElement = blockElement.querySelector('code');
         }
-      } else if (targetElement.tagName === 'CODE') {
-        codeElement = targetElement;
+        
+        // First, if we're inside a hypercite, move any BR elements outside of it
+        if (insideHypercite) {
+          const brElements = hyperciteElement.querySelectorAll('br');
+          if (brElements.length > 0) {
+            // Move BR elements after the hypercite
+            Array.from(brElements).forEach(br => {
+              hyperciteElement.parentNode.insertBefore(br, hyperciteElement.nextSibling);
+            });
+          }
+        }
+        
+        // Clean up the last two BR elements and any zero-width spaces
+        const childNodes = Array.from(targetElement.childNodes);
+        let brRemoved = 0;
+        
+        // Start from the end and work backwards
+        for (let i = childNodes.length - 1; i >= 0 && brRemoved < 2; i--) {
+          const node = childNodes[i];
+          
+          // Remove text nodes that are just zero-width spaces
+          if (node.nodeType === Node.TEXT_NODE && node.textContent === '\u200B') {
+            targetElement.removeChild(node);
+          }
+          // Remove BR elements
+          else if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'BR') {
+            targetElement.removeChild(node);
+            brRemoved++;
+          }
+        }
+
+        // Save the modified blockElement to IndexedDB
+        if (blockElement.id) {
+          console.log("Saving modified block element after BR cleanup:", blockElement.id);
+          updateIndexedDBRecord({
+            id: blockElement.id,
+            html: blockElement.outerHTML,
+            action: "update"
+          }).catch(console.error);
+        }
+        
+        // Create and insert new paragraph
+        createAndInsertParagraph(blockElement, chunkContainer, null, selection);
+        
+        // Reset enter count
+        enterCount = 0;
       } else {
-        codeElement = targetElement.querySelector('code') || targetElement.closest('code');
-      }
-      
-      if (codeElement) {
-        // Insert a <br> at the cursor position
-        const br = document.createElement('br');
-        range.insertNode(br);
-        
-        // Insert a text node after the <br> to position the cursor on the next line
-        const textNode = document.createTextNode('\u200B'); // Zero-width space
-        range.setStartAfter(br);
-        range.insertNode(textNode);
-        
-        // Move the cursor to the text node (which is now after the <br>)
-        range.setStart(textNode, 0);
-        range.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(range);
-      }
-    } else {
-      // For blockquotes, we need to handle hypercites specially
-      if (insideHypercite) {
-        // If we're inside a hypercite, insert the BR after the hypercite
-        const br = document.createElement('br');
-        
-        // Insert after the hypercite
-        if (hyperciteElement.nextSibling) {
-          blockElement.insertBefore(br, hyperciteElement.nextSibling);
+        // For code blocks, we need to insert the BR inside the CODE element
+        let targetElement = range.startContainer;
+        if (blockElement.tagName === 'PRE') {
+          // Find the CODE element
+          let codeElement = null;
+          if (targetElement.nodeType === Node.TEXT_NODE) {
+            // If we're in a text node, look at its parent
+            if (targetElement.parentElement.tagName === 'CODE') {
+              codeElement = targetElement.parentElement;
+            }
+          } else if (targetElement.tagName === 'CODE') {
+            codeElement = targetElement;
+          } else {
+            codeElement = targetElement.querySelector('code') || targetElement.closest('code');
+          }
+          
+          if (codeElement) {
+            // Insert a <br> at the cursor position
+            const br = document.createElement('br');
+            range.insertNode(br);
+            
+            // Insert a text node after the <br> to position the cursor on the next line
+            const textNode = document.createTextNode('\u200B'); // Zero-width space
+            range.setStartAfter(br);
+            range.insertNode(textNode);
+            
+            // Move the cursor to the text node (which is now after the <br>)
+            range.setStart(textNode, 0);
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
         } else {
-          blockElement.appendChild(br);
+          // For blockquotes, we need to handle hypercites specially
+          if (insideHypercite) {
+            // If we're inside a hypercite, insert the BR after the hypercite
+            const br = document.createElement('br');
+            
+            // Insert after the hypercite
+            if (hyperciteElement.nextSibling) {
+              blockElement.insertBefore(br, hyperciteElement.nextSibling);
+            } else {
+              blockElement.appendChild(br);
+            }
+            
+            // Insert a text node after the <br> to position the cursor on the next line
+            const textNode = document.createTextNode('\u200B');
+            blockElement.insertBefore(textNode, br.nextSibling);
+            
+            // Move the cursor to the text node
+            const newRange = document.createRange();
+            newRange.setStart(textNode, 0);
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+          } else {
+            // Normal blockquote handling
+            const br = document.createElement('br');
+            range.insertNode(br);
+            
+            const textNode = document.createTextNode('\u200B');
+            range.setStartAfter(br);
+            range.insertNode(textNode);
+            
+            range.setStart(textNode, 0);
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
         }
-        
-        // Insert a text node after the <br> to position the cursor on the next line
-        const textNode = document.createTextNode('\u200B');
-        blockElement.insertBefore(textNode, br.nextSibling);
-        
-        // Move the cursor to the text node
-        const newRange = document.createRange();
-        newRange.setStart(textNode, 0);
-        newRange.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(newRange);
-      } else {
-        // Normal blockquote handling
-        const br = document.createElement('br');
-        range.insertNode(br);
-        
-        const textNode = document.createTextNode('\u200B');
-        range.setStartAfter(br);
-        range.insertNode(textNode);
-        
-        range.setStart(textNode, 0);
-        range.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(range);
       }
+      
+      return;
     }
-  }
-  
-  return;
-}
 
-
-
-
-    
-    // For all other elements, proceed with normal paragraph creation
+    //==========================================================================
+    // SECTION 2: For all other elements, proceed with normal paragraph creation
+    //==========================================================================
     event.preventDefault();
-    
-    // Create a new paragraph
-    const newParagraph = document.createElement('p');
     
     // Split the content at cursor position
     const cursorOffset = range.startOffset;
@@ -944,10 +1057,10 @@ if (blockElement.tagName === 'BLOCKQUOTE' || blockElement.tagName === 'PRE') {
       isAtEnd = cursorOffset === range.startContainer.childNodes.length;
     }
     
-    if (isAtEnd && range.startContainer === blockElement.lastChild || 
-        range.startContainer === blockElement && blockElement.textContent.trim() === '') {
-      newParagraph.innerHTML = '<br>';
-    } else {
+    // Prepare content for the new paragraph
+    let content = null;
+    if (!(isAtEnd && range.startContainer === blockElement.lastChild || 
+          range.startContainer === blockElement && blockElement.textContent.trim() === '')) {
       const rangeToExtract = document.createRange();
       rangeToExtract.setStart(range.startContainer, cursorOffset);
       rangeToExtract.setEndAfter(blockElement);
@@ -958,7 +1071,7 @@ if (blockElement.tagName === 'BLOCKQUOTE' || blockElement.tagName === 'PRE') {
       const extractedText = tempDiv.textContent.trim();
       
       // Store the content to move to the new paragraph
-      const fragment = rangeToExtract.extractContents();
+      content = rangeToExtract.extractContents();
       
       // If the current block is now empty, add a <br>
       if (blockElement.innerHTML === '' || blockElement.textContent.trim() === '') {
@@ -966,52 +1079,17 @@ if (blockElement.tagName === 'BLOCKQUOTE' || blockElement.tagName === 'PRE') {
       }
       
       if (extractedText === '') {
-        newParagraph.innerHTML = '<br>';
-      } else {
-        newParagraph.appendChild(fragment);
-        
-        if (newParagraph.innerHTML === '' || newParagraph.textContent.trim() === '') {
-          newParagraph.innerHTML = '<br>';
-        }
+        content = null;
       }
     }
     
-    // Generate an ID for the new paragraph
-    if (blockElement.id) {
-      const baseMatch = blockElement.id.match(/^(\d+)/);
-      if (baseMatch) {
-        const baseId = baseMatch[1];
-        newParagraph.id = getNextDecimalForBase(baseId);
-      }
-    }
-    
-    // Insert the new paragraph after the current one
-    if (blockElement.nextSibling) {
-      chunkContainer.insertBefore(newParagraph, blockElement.nextSibling);
-    } else {
-      chunkContainer.appendChild(newParagraph);
-    }
-    
-    // Move cursor to the beginning of the new paragraph
-    const newRange = document.createRange();
-    
-    // If the new paragraph has content, place cursor at the beginning
-    if (newParagraph.firstChild && newParagraph.firstChild.nodeType === Node.TEXT_NODE) {
-      newRange.setStart(newParagraph.firstChild, 0);
-    } else {
-      newRange.setStart(newParagraph, 0);
-    }
-    
-    newRange.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(newRange);
+    // Create and insert new paragraph
+    createAndInsertParagraph(blockElement, chunkContainer, content, selection);
     
     // Reset enter count after creating a new paragraph
     enterCount = 0;
   }
 });
-
-
 
 
 
