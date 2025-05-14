@@ -6,7 +6,8 @@ import {
   getNodeChunksFromIndexedDB,
   saveFootnotesToIndexedDB,
   getFootnotesFromIndexedDB,
-  getLocalStorageKey
+  getLocalStorageKey,
+  getHyperciteFromIndexedDB
 } from "./cache-indexedDB.js";
 import { attachUnderlineClickListeners } from "./hyperCites.js";
 
@@ -363,77 +364,109 @@ function createChunkElement(nodes) {
   return chunkWrapper;
 }
 
-/**
- * Utility: Apply hypercite markings to rendered HTML.
- * 
- * @param {string} html - The HTML for a block.
- * @param {Array} hypercites - An array of hypercite objects with properties:
- *    - hyperciteId
- *    - charStart
- *    - charEnd
- * 
- * @returns {string} - The modified HTML with <u> tags inserted.
- */
 export function applyHypercites(html, hypercites) {
   if (!hypercites || hypercites.length === 0) return html;
-
-  // Sort hypercites so that those later in the text (or longer ones) are applied first.
-  hypercites.sort((a, b) => {
-    if (a.charStart === b.charStart) {
-      return (b.charEnd - b.charStart) - (a.charEnd - a.charStart);
-    }
-    return b.charStart - a.charStart;
-  });
-
-  const tempElement = document.createElement("div");
-  tempElement.innerHTML = html;
-
+  
+  console.log("Applying hypercites:", hypercites);
+  
+  // Extract the text content without any HTML tags
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  const plainText = tempDiv.textContent;
+  
+  console.log("Plain text content:", plainText);
+  console.log("Plain text length:", plainText.length);
+  
+  // Create an array of markers for where we need to insert tags
+  const markers = [];
+  
   for (const hypercite of hypercites) {
-    const {
-      hyperciteId,
-      charStart,
-      charEnd,
-      relationshipStatus
-    } = hypercite;
-    if (
-      !hyperciteId ||
-      charStart === undefined ||
-      charEnd === undefined
-    ) {
-      console.warn("Invalid hypercite data:", hypercite);
+    const id = hypercite.hyperciteId;
+    const start = hypercite.charStart;
+    const end = hypercite.charEnd;
+    const status = hypercite.relationshipStatus || 'single';
+    
+    console.log(`Adding markers for hypercite ${id} from ${start} to ${end}`);
+    
+    // Verify the text being hypercited
+    const hypercitedText = plainText.substring(start, end);
+    console.log(`Text to be hypercited: "${hypercitedText}"`);
+    
+    // Add opening and closing markers
+    markers.push({
+      position: start,
+      isOpening: true,
+      id: id,
+      status: status,
+      priority: 1 // Opening tags have higher priority
+    });
+    
+    markers.push({
+      position: end,
+      isOpening: false,
+      id: id,
+      status: status,
+      priority: 0 // Closing tags have lower priority
+    });
+  }
+  
+  // Sort markers by position and priority
+  // This ensures that at the same position, closing tags come before opening tags
+  markers.sort((a, b) => {
+    if (a.position === b.position) {
+      return a.priority - b.priority;
+    }
+    return a.position - b.position;
+  });
+  
+  console.log("Sorted markers:", markers);
+  
+  // Now rebuild the HTML by walking through the original HTML and inserting tags at marker positions
+  let result = '';
+  let textIndex = 0;
+  let htmlIndex = 0;
+  
+  while (htmlIndex < html.length) {
+    // Check if we're at a tag in the original HTML
+    if (html[htmlIndex] === '<') {
+      // Skip over the tag
+      const tagEndIndex = html.indexOf('>', htmlIndex);
+      if (tagEndIndex === -1) break; // Malformed HTML
+      
+      result += html.substring(htmlIndex, tagEndIndex + 1);
+      htmlIndex = tagEndIndex + 1;
+      
+      // If this was a closing tag that affects text index, update textIndex
+      const isClosingTag = html.substring(htmlIndex - 2, htmlIndex) === '/>';
+      if (isClosingTag) {
+        // We need to find what tag this was and adjust textIndex accordingly
+        // This is complex and depends on your HTML structure
+      }
+      
       continue;
     }
-
-    console.log(
-      `Applying hypercite ${hyperciteId} from ${charStart} to ${charEnd}`
-    );
-
-    // Determine class name based on relationshipStatus
-    // Allowed values: "single", "couple", "poly"
-    const classValue = relationshipStatus ? relationshipStatus : "single";
-
-    const positions = findPositionsInDOM(tempElement, charStart, charEnd);
-    if (positions) {
-      const uElement = document.createElement("u");
-      uElement.id = hyperciteId;
-      uElement.className = classValue;
-      // class copied means the hypercite hasn't been connected to its paste-nodes...
-      //     this will be altered in the event that it is connected, to: "connectedA", and later "connectedB"
-      wrapRangeWithElement(
-        positions.startNode,
-        positions.startOffset,
-        positions.endNode,
-        positions.endOffset,
-        uElement
-      );
-    } else {
-      console.warn(
-        `Could not find positions for hypercite range ${charStart}-${charEnd}`
-      );
+    
+    // Check if we're at a marker position in the text
+    const currentMarkers = markers.filter(m => m.position === textIndex);
+    
+    for (const marker of currentMarkers) {
+      if (marker.isOpening) {
+        result += `<u id="${marker.id}" class="${marker.status}">`;
+      } else {
+        result += `</u>`;
+      }
     }
+    
+    // Add the current character
+    result += html[htmlIndex];
+    htmlIndex++;
+    textIndex++;
   }
-  return tempElement.innerHTML;
+  
+  return result;
 }
+
+
 
 
 /**
@@ -447,7 +480,6 @@ export function applyHighlights(html, highlights) {
 
   // Debug the actual structure of the highlights data
   console.log("Highlight data structure:", JSON.stringify(highlights[0]));
-
   console.log("Applying highlights:", highlights);
 
   // Sort highlights so that longer ones or ones with the same start are processed first.
@@ -458,8 +490,21 @@ export function applyHighlights(html, highlights) {
     return b.charStart - a.charStart;
   });
 
+
+
   const tempElement = document.createElement("div");
   tempElement.innerHTML = html;
+  
+  // Debug the text content of the element
+  console.log("Text content of element:", tempElement.textContent);
+  console.log("Text content length:", tempElement.textContent.length);
+  
+  // Log character by character to see where counting might be off
+  const textContent = tempElement.textContent;
+  console.log("Character by character:");
+  for (let i = 0; i < Math.min(textContent.length, 100); i++) { // Limit to first 100 chars
+    console.log(`Position ${i}: "${textContent[i]}" (charCode: ${textContent.charCodeAt(i)})`);
+  }
 
   for (const highlight of highlights) {
     // Make sure we have the correct property names
@@ -473,8 +518,13 @@ export function applyHighlights(html, highlights) {
     }
 
     console.log(`Applying highlight ${highlightID} from ${charStart} to ${charEnd}`);
+    console.log(`Characters at these positions: "${textContent.substring(charStart, charEnd)}"`);
     
     const positions = findPositionsInDOM(tempElement, charStart, charEnd);
+    
+    // Debug the positions returned
+    console.log("Positions found:", positions);
+    
     if (positions) {
       const markElement = document.createElement("mark");
       markElement.id = highlightID;
@@ -493,6 +543,7 @@ export function applyHighlights(html, highlights) {
 
   return tempElement.innerHTML;
 }
+
 
 
 function findPositionsInDOM(rootElement, startChar, endChar) {

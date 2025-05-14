@@ -201,12 +201,12 @@ export const NodeIdManager = {
   },
   
   // Normalize all IDs in a container to ensure proper sequence
-  normalizeContainer(container) {
+ normalizeContainer(container) {
     if (!container) return 0;
     
-    // Get all elements with numeric IDs
+    // Get all elements with IDs
     const elements = Array.from(container.querySelectorAll('[id]'))
-      .filter(el => /^\d+(\.\d+)?$/.test(el.id));
+      .filter(el => !isNaN(parseFloat(el.id)));
     
     // Sort by DOM position
     elements.sort((a, b) => {
@@ -214,45 +214,27 @@ export const NodeIdManager = {
       return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
     });
     
-    // Group by base
-    const baseGroups = {};
-    elements.forEach(el => {
-      const base = el.id.split('.')[0];
-      if (!baseGroups[base]) baseGroups[base] = [];
-      baseGroups[base].push(el);
-    });
-    
     let changesCount = 0;
     
-    // Process each base group
-    Object.entries(baseGroups).forEach(([base, group]) => {
-      // First element should have the base ID
-      if (group[0].id !== base) {
-        const oldId = group[0].id;
-        group[0].id = base;
-        this.register(base);
+    // Assign sequential decimal IDs
+    for (let i = 0; i < elements.length; i++) {
+      const expectedId = (i + 1).toString();
+      if (elements[i].id !== expectedId) {
+        const oldId = elements[i].id;
+        elements[i].id = expectedId;
+        // Update your registry and IndexedDB here
+        this.register(expectedId);
         this.unregister(oldId);
-        updateIndexedDBRecordForNormalization(oldId, base, group[0].outerHTML);
+        updateIndexedDBRecordForNormalization(oldId, expectedId, elements[i].outerHTML);
         changesCount++;
       }
-      
-      // Rest should have sequential decimals
-      for (let i = 1; i < group.length; i++) {
-        const expectedId = `${base}.${i}`;
-        if (group[i].id !== expectedId) {
-          const oldId = group[i].id;
-          group[i].id = expectedId;
-          this.register(expectedId);
-          this.unregister(oldId);
-          updateIndexedDBRecordForNormalization(oldId, expectedId, group[i].outerHTML);
-          changesCount++;
-        }
-      }
-    });
+    }
     
     console.log(`Normalized ${changesCount} IDs in container`);
     return changesCount;
-  }
+  },
+
+
 };
 
 
