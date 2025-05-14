@@ -387,6 +387,17 @@ document.addEventListener("keydown", function handleENTERpress(event) {
         console.log("Enter pressed in node:", currentNode.id, "at position:", cursorPosition);
       }
     }
+setTimeout(() => {
+      const chunk = getCurrentChunk();
+      if (chunk) {
+        console.log("🔄 Running normalization after Enter key");
+        normalizeNodeIds(chunk).then(changed => {
+          if (changed) {
+            console.log("✅ Normalization fixed node order after Enter key");
+          }
+        });
+      }
+    }, 500);
   }
 });
 
@@ -395,7 +406,7 @@ document.addEventListener("keydown", function handleENTERpress(event) {
 
 
 // Helper: Parse hypercite URL to extract components
-function parseHyperciteHref(href) {
+export function parseHyperciteHref(href) {
   try {
     const url = new URL(href, window.location.origin);
     const booka = url.pathname.replace(/^\//, ""); // e.g., "booka"
@@ -1324,7 +1335,7 @@ function handleHypercitePaste(event) {
 /**
  * Extract quoted text from a paste wrapper element
  */
-function extractQuotedText(pasteWrapper) {
+export function extractQuotedText(pasteWrapper) {
   let quotedText = "";
   const fullText = pasteWrapper.textContent;
   const quoteMatch = fullText.match(/^"(.+?)"/);

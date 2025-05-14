@@ -178,7 +178,7 @@ instance.saveScrollPosition = () => {
         }
         // Look for the chunk where startLine matches the saved element id.
         // Note: saved element id is a string; if needed, parse it as an integer.
-        const savedStartLine = parseInt(scrollData.elementId, 10);
+        const savedStartLine = parseFloat(scrollData.elementId);
         const matchingChunk = nodeChunksData.find((chunk) => {
           // Assuming each chunk object contains a startLine property.
           return parseInt(chunk.startLine, 10) === savedStartLine;
@@ -268,7 +268,7 @@ instance.saveScrollPosition = () => {
       if (entry.target.id === topSentinel.id) {
         const firstChunkEl = container.querySelector("[data-chunk-id]");
         if (firstChunkEl) {
-          const firstChunkId = parseInt(firstChunkEl.getAttribute("data-chunk-id"), 10);
+          const firstChunkId = parseFloat(firstChunkEl.getAttribute("data-chunk-id"));
           if (firstChunkId > 0 && !instance.currentlyLoadedChunks.has(firstChunkId - 1)) {
             console.log(
               `Top sentinel triggered; loading previous chunk ${firstChunkId - 1}`
@@ -571,7 +571,7 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
     return;
   }
   const prevNodes = instance.nodeChunks.filter(
-    (node) => node.chunk_id === previousChunkId
+  (node) => node.chunk_id === previousChunkId
   );
   if (!prevNodes || prevNodes.length === 0) {
     console.warn(`No data found for chunk ${previousChunkId}.`);
@@ -668,10 +668,10 @@ function repositionFixedSentinelsForBlockInternal(instance, attachMarkers) {
     return;
   }
   allChunks.sort(
-    (a, b) =>
-      parseInt(a.getAttribute("data-chunk-id"), 10) -
-      parseInt(b.getAttribute("data-chunk-id"), 10)
-  );
+  (a, b) =>
+    parseFloat(a.getAttribute("data-chunk-id")) -
+    parseFloat(b.getAttribute("data-chunk-id"))
+);
   if (instance.observer) instance.observer.disconnect();
   if (instance.topSentinel) instance.topSentinel.remove();
   if (instance.bottomSentinel) instance.bottomSentinel.remove();
@@ -703,10 +703,10 @@ function insertChunkInOrderInternal(newChunk, instance) {
   const container = instance.container;
   const existingChunks = Array.from(container.querySelectorAll("[data-chunk-id]"));
   let inserted = false;
-  const newChunkId = parseInt(newChunk.getAttribute("data-chunk-id"), 10);
+  const newChunkId = parseFloat(newChunk.getAttribute("data-chunk-id"));
 
   for (let i = 0; i < existingChunks.length; i++) {
-    const existingId = parseInt(existingChunks[i].getAttribute("data-chunk-id"), 10);
+    const existingId = parseFloat(existingChunks[i].getAttribute("data-chunk-id"));
     if (newChunkId < existingId) {
       container.insertBefore(newChunk, existingChunks[i]);
       inserted = true;
@@ -723,7 +723,7 @@ function insertChunkInOrderInternal(newChunk, instance) {
 export function getLastChunkId(instance) {
   const chunks = instance.container.querySelectorAll("[data-chunk-id]");
   if (chunks.length === 0) return null;
-  return parseInt(chunks[chunks.length - 1].getAttribute("data-chunk-id"), 10);
+  return parseFloat(chunks[chunks.length - 1].getAttribute("data-chunk-id"));
 }
 
 export { repositionFixedSentinelsForBlockInternal as repositionSentinels };

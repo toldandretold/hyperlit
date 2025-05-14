@@ -5,6 +5,8 @@ import { ContainerManager } from "./container-manager.js";
 import { navigateToInternalId } from "./scrolling.js";
 import { openDatabase, parseNodeId, createNodeChunksKey } from "./cache-indexedDB.js";
 import { attachAnnotationListener } from "./annotation-saver.js";
+import { addPasteListener } from "./divEditor.js";
+import { addHighlightContainerPasteListener } from "./hyperLightsListener.js";
 
 
 let highlightId; 
@@ -115,6 +117,9 @@ export async function handleMarkClick(event) {
 
       // After the container is open/unhidden, attach the annotation listener:
       attachAnnotationListener(highlightId);
+
+      // Find the annotation div and add the paste listener to it
+      addHighlightContainerPasteListener(highlightId);
 
       // Double check that the container exists and has content
       const highlightContainer = document.getElementById("highlight-container");
