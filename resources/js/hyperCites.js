@@ -84,8 +84,8 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
   const db = await openDatabase();
 
   try {
-    console.log("Attempting to add hypercite with book:", book);
-    console.log("Hypercite ID:", hyperciteId);
+    console.log("Attempting to add NEW hypercite with book:", book);
+    console.log("NEW Hypercite ID:", hyperciteId);
     if (!book || !hyperciteId) {
       throw new Error("Missing key properties: book or hyperciteId is undefined.");
     }
@@ -109,98 +109,117 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
       uTag.parentNode.replaceChild(textNode, uTag);
     });
 
+    // --- Define hypercitedHTML and hypercitedText AFTER extracting from DOM ---
     const hypercitedHTML = tempDiv.innerHTML;
     const hypercitedText = uElement.textContent;
     const overallStartChar = blocks.length > 0 ? blocks[0].charStart : 0;
     const overallEndChar = blocks.length > 0 ? blocks[blocks.length - 1].charEnd : 0;
 
-    // Build the hypercite record with two additional fields:
+    // Build the initial hypercite record for the main hypercites store
     const hyperciteEntry = {
-      book: book,                     // Key field 1
-      hyperciteId: hyperciteId,      // Key field 2 (must exactly match the store keyPath)
-      hypercitedText: hypercitedText,
-      hypercitedHTML: hypercitedHTML,
+      book: book,
+      hyperciteId: hyperciteId,
+      hypercitedText: hypercitedText, // <-- Now hypercitedText is defined
+      hypercitedHTML: hypercitedHTML, // <-- Now hypercitedHTML is defined
       startChar: overallStartChar,
       endChar: overallEndChar,
-      relationshipStatus: "single",   // New field, initially "single"
-      citedIN: []                 // New field, an empty array initially
+      relationshipStatus: "single",
+      citedIN: []
     };
 
-    console.log("Hypercite record to add:", hyperciteEntry);
+    console.log("Hypercite record to add (main store):", hyperciteEntry);
 
-    const putRequest = hypercitesStore.put(hyperciteEntry);
-    putRequest.onerror = (event) => {
-      console.error("❌ Error upserting hypercite record:", event.target.error);
+    const putRequestHypercites = hypercitesStore.put(hyperciteEntry);
+    putRequestHypercites.onerror = (event) => {
+      console.error("❌ Error upserting hypercite record in main store:", event.target.error);
     };
-    putRequest.onsuccess = () => {
-      console.log("✅ Successfully upserted hypercite record.");
+    putRequestHypercites.onsuccess = () => {
+      console.log("✅ Successfully upserted hypercite record in main store.");
     };
 
     // --- Update nodeChunks for each affected block ---
     const nodeChunksStore = tx.objectStore("nodeChunks");
 
     for (const block of blocks) {
-      console.log("Processing block:", block);
+      console.log("Processing block for NEW hypercite:", block);
       if (block.startLine === undefined || block.startLine === null) {
         console.error("Block missing startLine:", block);
         continue;
       }
-      
-      // Convert startLine to numeric format for database key
+
       const numericStartLine = parseNodeId(block.startLine);
-      
-      // Create the proper key for nodeChunks lookup
       const key = createNodeChunksKey(book, block.startLine);
-      console.log("Looking up nodeChunk with key:", key);
-      
-      // Retrieve the current record from nodeChunks using the proper key
+      console.log("Looking up nodeChunk for NEW hypercite with key:", key);
+
       const getRequest = nodeChunksStore.get(key);
-      
+
       const nodeChunkRecord = await new Promise((resolve, reject) => {
         getRequest.onsuccess = (e) => resolve(e.target.result);
         getRequest.onerror = (e) => reject(e.target.error);
       });
-      
-      let updatedRecord;
+
+      let updatedNodeChunkRecord;
+
       if (nodeChunkRecord) {
+        console.log("Existing nodeChunk record found:", JSON.stringify(nodeChunkRecord));
+
         if (!Array.isArray(nodeChunkRecord.hypercites)) {
           nodeChunkRecord.hypercites = [];
+          console.log("⚠️ Created empty hypercites array in existing nodeChunk");
         }
-        // Add the hypercite object to the nodeChunk hypercites array.
-        nodeChunkRecord.hypercites.push({
-          hyperciteId: hyperciteId,
-          charStart: block.charStart,
-          charEnd: block.charEnd,
-          relationshipStatus: "single",  // New field in the nodeChunk as well
-          citedIN: []                // New field; can later be updated with file paths (e.g. "/book#hyperciteID")
-        });
-        updatedRecord = nodeChunkRecord;
+
+        const existingHyperciteIndex = nodeChunkRecord.hypercites.findIndex(
+          (hc) => hc.hyperciteId === hyperciteId
+        );
+
+        if (existingHyperciteIndex !== -1) {
+          console.log(`Hypercite ${hyperciteId} already exists in nodeChunk, updating position.`);
+          nodeChunkRecord.hypercites[existingHyperciteIndex].charStart = block.charStart;
+          nodeChunkRecord.hypercites[existingHyperciteIndex].charEnd = block.charEnd;
+          // Preserve existing citedIN and relationshipStatus
+        } else {
+          console.log(`Adding new hypercite ${hyperciteId} to existing nodeChunk.`);
+          nodeChunkRecord.hypercites.push({
+            hyperciteId: hyperciteId,
+            charStart: block.charStart,
+            charEnd: block.charEnd,
+            relationshipStatus: "single",
+            citedIN: []
+          });
+        }
+
+        updatedNodeChunkRecord = nodeChunkRecord;
+
       } else {
-        updatedRecord = {
+        // Case: No existing record for this block, create a new one
+        console.log("No existing nodeChunk record, creating new one with startLine:", numericStartLine);
+        updatedNodeChunkRecord = {
           book: book,
-          startLine: numericStartLine, // Store as numeric value
-          chunk_id: numericStartLine,  // Also store as numeric value
+          startLine: numericStartLine,
+          chunk_id: numericStartLine, // Adjust if chunk_id logic is different
           hypercites: [
             {
               hyperciteId: hyperciteId,
               charStart: block.charStart,
               charEnd: block.charEnd,
               relationshipStatus: "single",
-              pastedNodes: []
+              citedIN: []
             }
           ]
+          // Consider adding 'content' and 'hyperlights' here if this is
+          // the primary function for creating nodeChunks.
         };
-        console.log("Creating new nodeChunk record with startLine:", numericStartLine);
       }
-      
-      const putRequest = nodeChunksStore.put(updatedRecord);
-      await new Promise((resolve, reject) => {
-        putRequest.onsuccess = () => {
-          console.log(`✅ Updated nodeChunk [${book}, ${block.startLine}] with hypercite info.`);
 
+      console.log("NodeChunk record to put:", JSON.stringify(updatedNodeChunkRecord));
+
+      const putRequestNodeChunk = nodeChunksStore.put(updatedNodeChunkRecord);
+      await new Promise((resolve, reject) => {
+        putRequestNodeChunk.onsuccess = () => {
+          console.log(`✅ Updated nodeChunk [${book}, ${block.startLine}] with NEW hypercite info.`);
           resolve();
         };
-        putRequest.onerror = (e) => {
+        putRequestNodeChunk.onerror = (e) => {
           console.error("❌ Error updating nodeChunk:", e.target.error);
           reject(e.target.error);
         };
@@ -212,11 +231,13 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
       tx.onerror = (e) => reject(e.target.error);
     });
 
-    console.log("✅ Hypercite records and nodeChunks updated.");
+    console.log("✅ NEW Hypercite and affected nodeChunks updated.");
   } catch (error) {
     console.error("❌ Error in NewHyperciteIndexedDB:", error);
   }
 }
+
+
 
 
 

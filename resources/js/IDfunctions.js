@@ -319,52 +319,58 @@ export function generateIntermediateId(container, beforeElement, afterElement) {
 
 
 
-// Function to generate a new ID between two existing IDs
 export function generateIdBetween(beforeId, afterId) {
-  // If no afterId, just increment the beforeId
-  if (!afterId) {
-    const match = beforeId.match(/^(\d+)(?:\.(\d+))?$/);
-    if (!match) return "node_" + Date.now();
-    
-    const base = match[1];
-    const suffix = match[2] ? parseInt(match[2], 10) : 0;
-    return suffix === 0 ? `${base}.1` : `${base}.${suffix + 1}`;
+  // Convert ID to a decimal number
+  function parseDecimal(id) {
+    if (!id) return null;
+    // Parse as a decimal number
+    const num = parseFloat(id);
+    return isNaN(num) ? null : num;
   }
   
-  // If no beforeId, use something before afterId
+  // If no beforeId, use "1" or something before afterId
   if (!beforeId) {
-    const match = afterId.match(/^(\d+)(?:\.(\d+))?$/);
-    if (!match) return "node_" + Date.now();
+    if (!afterId) return "1";
+    const afterNum = parseDecimal(afterId);
+    return afterNum !== null ? `${Math.max(1, afterNum - 1)}` : "1";
+  }
+  
+  // If no afterId, increment the beforeId
+  if (!afterId) {
+    const beforeNum = parseDecimal(beforeId);
+    if (beforeNum === null) return `${beforeId}_1`;
     
-    const base = match[1];
-    const suffix = match[2] ? parseInt(match[2], 10) : 0;
-    return suffix > 1 ? `${base}.${suffix - 1}` : base;
+    // If it's a whole number or ends with .9, go to the next whole number
+    if (Number.isInteger(beforeNum) || beforeId.endsWith('.9')) {
+      return `${Math.floor(beforeNum) + 1}`;
+    }
+    
+    // Otherwise increment by 0.1
+    return `${(Math.round(beforeNum * 10) / 10 + 0.1).toFixed(1)}`;
   }
   
-  // Parse both IDs
-  const beforeMatch = beforeId.match(/^(\d+)(?:\.(\d+))?$/);
-  const afterMatch = afterId.match(/^(\d+)(?:\.(\d+))?$/);
+  // If we have both beforeId and afterId
+  const beforeNum = parseDecimal(beforeId);
+  const afterNum = parseDecimal(afterId);
   
-  // If either doesn't match the pattern, use fallback
-  if (!beforeMatch || !afterMatch) return "node_" + Date.now();
-  
-  const beforeBase = beforeMatch[1];
-  const afterBase = afterMatch[1];
-  
-  // If bases don't match, just increment the beforeId
-  if (beforeBase !== afterBase) {
-    const suffix = beforeMatch[2] ? parseInt(beforeMatch[2], 10) : 0;
-    return suffix === 0 ? `${beforeBase}.1` : `${beforeBase}.${suffix + 1}`;
+  if (beforeNum !== null && afterNum !== null) {
+    // Ensure they're in the right order
+    if (beforeNum >= afterNum) {
+      console.warn(`IDs out of order: ${beforeId} should be less than ${afterId}`);
+      return `${beforeNum + 0.1}`;
+    }
+    
+    // If they're consecutive whole numbers (like 1 and 2)
+    if (Number.isInteger(beforeNum) && Number.isInteger(afterNum) && 
+        afterNum - beforeNum === 1) {
+      return `${beforeNum}.5`;
+    }
+    
+    // Find a number between them
+    return `${(beforeNum + afterNum) / 2}`;
   }
   
-  const beforeSuffix = beforeMatch[2] ? parseInt(beforeMatch[2], 10) : 0;
-  const afterSuffix = afterMatch[2] ? parseInt(afterMatch[2], 10) : 0;
-  
-  // If there's room between the suffixes, use the middle
-  if (afterSuffix - beforeSuffix > 1) {
-    return `${beforeBase}.${Math.floor((beforeSuffix + afterSuffix) / 2)}`;
-  }
-  
-  // Otherwise, use a decimal
-  return `${beforeBase}.${beforeSuffix}5`;
+  // Default fallback
+  return `${beforeId}_next`;
 }
+
