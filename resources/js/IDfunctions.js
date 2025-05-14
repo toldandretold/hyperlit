@@ -80,191 +80,39 @@ export function generateInsertedNodeId(referenceNode, insertAfter = true) {
   return newId;
 }
 
-// Function to get the next decimal ID for a base
-export function getNextDecimalForBase(base, referenceElement = null, insertAfter = true) {
-  console.log(`🔢 getNextDecimalForBase: Called with base "${base}", referenceElement:`, 
-    referenceElement ? `#${referenceElement.id}` : 'null', 
-    `insertAfter: ${insertAfter}`);
-  
-  // IMPORTANT: Find the current node's position in the DOM
-  if (window.__enterKeyInfo && Date.now() - window.__enterKeyInfo.timestamp < 500) {
-    const { nodeId } = window.__enterKeyInfo;
-    const referenceNode = document.getElementById(nodeId);
-    
-    if (referenceNode) {
-      console.log(`🔍 getNextDecimalForBase: Using Enter key reference node #${nodeId}`);
-      
-      // Get the parent container
-      const container = referenceNode.parentElement;
-      if (container) {
-        // Get all siblings with numeric IDs
-        const siblings = Array.from(container.children).filter(el => 
-          el.id && /^\d+(\.\d+)?$/.test(el.id)
-        );
-        
-        // Sort siblings by DOM order
-        const domOrderedSiblings = siblings.slice().sort((a, b) => {
-          const position = a.compareDocumentPosition(b);
-          return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
-        });
-        
-        console.log(`🔍 getNextDecimalForBase: DOM-ordered siblings:`, 
-          domOrderedSiblings.map(s => s.id).join(', '));
-        
-        // Find the reference node's position
-        const refIndex = domOrderedSiblings.indexOf(referenceNode);
-        
-        if (refIndex !== -1) {
-          // For Enter at end, we want to insert AFTER the reference node
-          // Get the next node in DOM order (if any)
-          if (refIndex < domOrderedSiblings.length - 1) {
-            const nextNode = domOrderedSiblings[refIndex + 1];
-            console.log(`🔍 getNextDecimalForBase: Next node in DOM is #${nextNode.id}`);
-            
-            // Parse the IDs as floats for comparison
-            const refId = parseFloat(referenceNode.id);
-            const nextId = parseFloat(nextNode.id);
-            
-            // Generate an ID between the reference and next node
-            if (nextId > refId) {
-              // Simple case: next ID is already higher
-              const newId = `${base}.${Math.floor((refId * 10 + nextId * 10) / 20)}`;
-              console.log(`✅ getNextDecimalForBase: Generated ID between ${referenceNode.id} and ${nextNode.id}: ${newId}`);
-              return newId;
-            }
-          }
-          
-          // If we're at the end or next node has lower ID, just increment
-          const baseMatch = referenceNode.id.match(/^(\d+)(?:\.(\d+))?$/);
-          if (baseMatch) {
-            const refBase = parseInt(baseMatch[1], 10);
-            const refSuffix = baseMatch[2] ? parseInt(baseMatch[2], 10) : 0;
-            
-            if (refBase.toString() === base) {
-              const newId = `${base}.${refSuffix + 1}`;
-              console.log(`✅ getNextDecimalForBase: Incrementing from reference: ${newId}`);
-              return newId;
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  // If we have a reference element and know where we're inserting
-  if (referenceElement && referenceElement.id && referenceElement.id.startsWith(base + '.')) {
-    // Your existing code for reference element...
-  }
-  
-  // IMPORTANT CHANGE: Consider DOM order when finding the next available ID
-  console.log(`🔍 getNextDecimalForBase: Using DOM-aware method to find next ID for base "${base}"`);
-  
-  // Get the current chunk
+
+
+export function getNextDecimalForBase(base) {
+  // Get all elements with this base in the current chunk
   const chunk = document.querySelector('.chunk');
-  if (chunk) {
-    // Get all elements with this base in the chunk
-    const baseElements = Array.from(chunk.querySelectorAll(`[id^="${base}."]`));
-    
-    // Sort by DOM order
-    baseElements.sort((a, b) => {
-      const position = a.compareDocumentPosition(b);
-      return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
-    });
-    
-    console.log(`🔍 getNextDecimalForBase: Found ${baseElements.length} elements with base ${base} in DOM order:`, 
-      baseElements.map(el => el.id).join(', '));
-    
-    // If we have the Enter key info, find where to insert
-    if (window.__enterKeyInfo && Date.now() - window.__enterKeyInfo.timestamp < 500) {
-      const { nodeId, cursorPosition } = window.__enterKeyInfo;
-      const referenceNode = document.getElementById(nodeId);
-      
-      if (referenceNode) {
-        const refIndex = baseElements.indexOf(referenceNode);
-        
-        if (refIndex !== -1) {
-          // If cursor at end, insert after this node
-          if (cursorPosition === "end") {
-            if (refIndex < baseElements.length - 1) {
-              // There's a node after this one
-              const nextNode = baseElements[refIndex + 1];
-              const refId = parseFloat(referenceNode.id);
-              const nextId = parseFloat(nextNode.id);
-              
-              // Generate ID between them
-              const newId = `${base}.${Math.floor((refId * 10 + nextId * 10) / 20)}`;
-              console.log(`✅ getNextDecimalForBase: Generated ID between ${referenceNode.id} and ${nextNode.id}: ${newId}`);
-              return newId;
-            } else {
-              // This is the last node with this base
-              const match = referenceNode.id.match(/^(\d+)\.(\d+)$/);
-              if (match) {
-                const suffix = parseInt(match[2], 10);
-                const newId = `${base}.${suffix + 1}`;
-                console.log(`✅ getNextDecimalForBase: Last node, incrementing suffix: ${newId}`);
-                return newId;
-              }
-            }
-          }
-          // If cursor at start, insert before this node
-          else if (cursorPosition === "start") {
-            if (refIndex > 0) {
-              // There's a node before this one
-              const prevNode = baseElements[refIndex - 1];
-              const prevId = parseFloat(prevNode.id);
-              const refId = parseFloat(referenceNode.id);
-              
-              // Generate ID between them
-              const newId = `${base}.${Math.floor((prevId * 10 + refId * 10) / 20)}`;
-              console.log(`✅ getNextDecimalForBase: Generated ID between ${prevNode.id} and ${referenceNode.id}: ${newId}`);
-              return newId;
-            } else {
-              // This is the first node with this base
-              const match = referenceNode.id.match(/^(\d+)\.(\d+)$/);
-              if (match) {
-                const suffix = parseInt(match[2], 10);
-                const newId = suffix > 1 ? `${base}.${Math.floor(suffix/2)}` : `${base}.1`;
-                console.log(`✅ getNextDecimalForBase: First node, creating lower suffix: ${newId}`);
-                return newId;
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+  if (!chunk) return `${base}.1`;
   
-  // Fallback to the original method if we can't determine context
-  console.log(`🔍 getNextDecimalForBase: Using fallback method to find next available suffix for base "${base}"`);
+  const baseElements = Array.from(chunk.querySelectorAll(`[id^="${base}."], [id="${base}"]`));
   
-  // IMPORTANT: Sort the IDs numerically, not just find the max
-  const re = new RegExp(`^${base}\\.(\\d+)$`);
-  const suffixes = [];
+  // If no elements with this base exist, start with .1
+  if (baseElements.length === 0) return `${base}.1`;
   
-  document.querySelectorAll("[id]").forEach(el => {
-    const m = el.id.match(re);
-    if (m) {
-      const suffix = parseInt(m[1], 10);
-      suffixes.push(suffix);
-    }
+  // Sort by DOM order (visual order)
+  baseElements.sort((a, b) => {
+    const position = a.compareDocumentPosition(b);
+    return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
   });
   
-  // Sort suffixes numerically
-  suffixes.sort((a, b) => a - b);
+  // Find the last element in DOM order
+  const lastElement = baseElements[baseElements.length - 1];
   
-  // Find the first gap or add to the end
-  let newSuffix = 1;
-  for (let i = 0; i < suffixes.length; i++) {
-    if (suffixes[i] !== i + 1) {
-      newSuffix = i + 1;
-      break;
-    }
-    newSuffix = i + 2; // One more than the last suffix
+  // If the last element is the base itself (no decimal), use .1
+  if (lastElement.id === base) return `${base}.1`;
+  
+  // Otherwise, increment the last decimal
+  const match = lastElement.id.match(/^(\d+)\.(\d+)$/);
+  if (match) {
+    const lastSuffix = parseInt(match[2], 10);
+    return `${base}.${lastSuffix + 1}`;
   }
   
-  const newId = `${base}.${newSuffix}`;
-  console.log(`✅ getNextDecimalForBase: Generated new ID using gaps or end: ${newId}`);
-  return newId;
+  // Fallback
+  return `${base}.1`;
 }
 
 
@@ -467,4 +315,56 @@ export function generateIntermediateId(container, beforeElement, afterElement) {
   // Fallback: generate a unique ID
   console.warn(`⚠️ generateIntermediateId: Could not determine intermediate ID, falling back to unique ID`);
   return generateUniqueId();
+}
+
+
+
+// Function to generate a new ID between two existing IDs
+export function generateIdBetween(beforeId, afterId) {
+  // If no afterId, just increment the beforeId
+  if (!afterId) {
+    const match = beforeId.match(/^(\d+)(?:\.(\d+))?$/);
+    if (!match) return "node_" + Date.now();
+    
+    const base = match[1];
+    const suffix = match[2] ? parseInt(match[2], 10) : 0;
+    return suffix === 0 ? `${base}.1` : `${base}.${suffix + 1}`;
+  }
+  
+  // If no beforeId, use something before afterId
+  if (!beforeId) {
+    const match = afterId.match(/^(\d+)(?:\.(\d+))?$/);
+    if (!match) return "node_" + Date.now();
+    
+    const base = match[1];
+    const suffix = match[2] ? parseInt(match[2], 10) : 0;
+    return suffix > 1 ? `${base}.${suffix - 1}` : base;
+  }
+  
+  // Parse both IDs
+  const beforeMatch = beforeId.match(/^(\d+)(?:\.(\d+))?$/);
+  const afterMatch = afterId.match(/^(\d+)(?:\.(\d+))?$/);
+  
+  // If either doesn't match the pattern, use fallback
+  if (!beforeMatch || !afterMatch) return "node_" + Date.now();
+  
+  const beforeBase = beforeMatch[1];
+  const afterBase = afterMatch[1];
+  
+  // If bases don't match, just increment the beforeId
+  if (beforeBase !== afterBase) {
+    const suffix = beforeMatch[2] ? parseInt(beforeMatch[2], 10) : 0;
+    return suffix === 0 ? `${beforeBase}.1` : `${beforeBase}.${suffix + 1}`;
+  }
+  
+  const beforeSuffix = beforeMatch[2] ? parseInt(beforeMatch[2], 10) : 0;
+  const afterSuffix = afterMatch[2] ? parseInt(afterMatch[2], 10) : 0;
+  
+  // If there's room between the suffixes, use the middle
+  if (afterSuffix - beforeSuffix > 1) {
+    return `${beforeBase}.${Math.floor((beforeSuffix + afterSuffix) / 2)}`;
+  }
+  
+  // Otherwise, use a decimal
+  return `${beforeBase}.${beforeSuffix}5`;
 }
