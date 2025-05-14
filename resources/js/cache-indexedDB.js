@@ -333,137 +333,113 @@ export function getLocalStorageKey(baseKey, bookId = "latest") {
 }
 
 
-// Helper function to process node content and highlights
-// Helper function to process node content, highlights (<mark>) and citations (<u>)
-// Helper function to process node content for highlights (<mark>) and citations (<u>)
 function processNodeContentHighlightsAndCites(node) {
-  // Clone the node to work on a copy of its content.
-  const contentClone = node.cloneNode(true);
   const hyperlights = [];
   const hypercites = [];
-
+  
   console.log("Processing node:", node.outerHTML);
-
-  // --- Process <mark> tags for hyperlights ---
+  
+  // Create a text representation of the node to calculate positions
+  const textContent = node.textContent;
+  
+  // Function to find the text position of an element within its parent
+  function findElementPosition(element, parent) {
+    // Create a TreeWalker to walk through all text nodes
+    const walker = document.createTreeWalker(
+      parent,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false
+    );
+    
+    let position = 0;
+    let currentNode;
+    
+    // Walk through all text nodes until we find one that's inside our target element
+    while ((currentNode = walker.nextNode())) {
+      // If this text node is inside our target element, we've found the start
+      if (element.contains(currentNode) || element === currentNode) {
+        return position;
+      }
+      
+      // Otherwise, add this text node's length to our position counter
+      position += currentNode.textContent.length;
+    }
+    
+    return -1; // Element not found
+  }
+  
+  // Process <mark> tags for hyperlights
   const markTags = node.getElementsByTagName("mark");
   Array.from(markTags).forEach((mark) => {
-    // Get text content up to the <mark>'s start position.
-    let currentNode = node.firstChild;
-    let startPos = 0;
-    let foundMark = false;
-
-    while (currentNode && !foundMark) {
-      if (currentNode === mark) {
-        foundMark = true;
-      } else if (currentNode.nodeType === Node.TEXT_NODE) {
-        startPos += currentNode.length;
-      } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
-        if (currentNode.contains(mark)) {
-          // Traverse the children until we find the mark.
-          let child = currentNode.firstChild;
-          while (child && child !== mark) {
-            if (child.nodeType === Node.TEXT_NODE) {
-              startPos += child.length;
-            }
-            child = child.nextSibling;
-          }
-          foundMark = true;
-        } else {
-          startPos += currentNode.textContent.length;
-        }
-      }
-      if (!foundMark) {
-        currentNode = currentNode.nextSibling;
-      }
-    }
-
+    const startPos = findElementPosition(mark, node);
     const highlightLength = mark.textContent.length;
-    hyperlights.push({
-      highlightID: mark.id,
-      charStart: startPos,
-      charEnd: startPos + highlightLength,
-    });
-
-    console.log("Calculated hyperlight positions:", {
-      id: mark.id,
-      text: mark.textContent,
-      startPos,
-      endPos: startPos + highlightLength,
-      totalNodeLength: node.textContent.length,
-    });
+    
+    if (startPos >= 0) {
+      hyperlights.push({
+        highlightID: mark.id,
+        charStart: startPos,
+        charEnd: startPos + highlightLength,
+      });
+      
+      console.log("Calculated hyperlight positions:", {
+        id: mark.id,
+        text: mark.textContent,
+        startPos,
+        endPos: startPos + highlightLength,
+        totalNodeLength: textContent.length,
+      });
+    }
   });
-
-  // --- Process <u> tags for hypercites ---
+  
+  // Process <u> tags for hypercites
   const uTags = node.getElementsByTagName("u");
   Array.from(uTags).forEach((uTag) => {
-    // Get text content up to the <u>'s start position.
-    let currentNode = node.firstChild;
-    let startPos = 0;
-    let foundU = false;
-
-    while (currentNode && !foundU) {
-      if (currentNode === uTag) {
-        foundU = true;
-      } else if (currentNode.nodeType === Node.TEXT_NODE) {
-        startPos += currentNode.length;
-      } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
-        if (currentNode.contains(uTag)) {
-          // Traverse the children until we find the u tag.
-          let child = currentNode.firstChild;
-          while (child && child !== uTag) {
-            if (child.nodeType === Node.TEXT_NODE) {
-              startPos += child.length;
-            }
-            child = child.nextSibling;
-          }
-          foundU = true;
-        } else {
-          startPos += currentNode.textContent.length;
-        }
-      }
-      if (!foundU) {
-        currentNode = currentNode.nextSibling;
-      }
-    }
-
+    const startPos = findElementPosition(uTag, node);
     const uLength = uTag.textContent.length;
-    hypercites.push({
-      hyperciteId: uTag.id,
-      charStart: startPos,
-      charEnd: startPos + uLength,
-    });
-
-    console.log("Calculated hypercite positions:", {
-      id: uTag.id,
-      text: uTag.textContent,
-      startPos,
-      endPos: startPos + uLength,
-      totalNodeLength: node.textContent.length,
-    });
+    
+    if (startPos >= 0) {
+      hypercites.push({
+        hyperciteId: uTag.id,
+        charStart: startPos,
+        charEnd: startPos + uLength,
+      });
+      
+      console.log("Calculated hypercite positions:", {
+        id: uTag.id,
+        text: uTag.textContent,
+        startPos,
+        endPos: startPos + uLength,
+        totalNodeLength: textContent.length,
+      });
+    }
   });
-
-  // --- Remove all <mark> tags from the cloned content while preserving their text content ---
+  
+  // Create a clone to remove the mark and u tags
+  const contentClone = node.cloneNode(true);
+  
+  // Remove all <mark> tags from the cloned content while preserving their text content
   const clonedMarkTags = contentClone.getElementsByTagName("mark");
   while (clonedMarkTags.length > 0) {
     const markTag = clonedMarkTags[0];
     const textContent = markTag.textContent;
     markTag.parentNode.replaceChild(document.createTextNode(textContent), markTag);
   }
-
-  // --- Remove all <u> tags from the cloned content while preserving their text content ---
+  
+  // Remove all <u> tags from the cloned content while preserving their text content
   const clonedUTags = contentClone.getElementsByTagName("u");
   while (clonedUTags.length > 0) {
     const uTag = clonedUTags[0];
     const textContent = uTag.textContent;
     uTag.parentNode.replaceChild(document.createTextNode(textContent), uTag);
   }
-
+  
   const result = {
     content: contentClone.outerHTML,
     hyperlights,
     hypercites,
   };
-
+  
   console.log("Processed result:", result);
   return result;
 }
