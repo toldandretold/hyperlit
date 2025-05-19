@@ -332,8 +332,6 @@ function findParentWithNumericalId(element) {
 
 
 
-
-// Function to get hypercite data from IndexedDB
 // Function to get hypercite data from IndexedDB
 async function getHyperciteData(book, startLine) {
   try {
@@ -369,7 +367,7 @@ async function getHyperciteData(book, startLine) {
  * Function to handle the click on <u class="couple"> tags.
  * @param {HTMLElement} uElement - The <u class="couple"> element that was clicked.
  */
-async function UpdateUnderlineCouple(uElement) {
+async function CoupleClick(uElement) {
   console.log("u.couple element clicked:", uElement);
 
   const parent = uElement.parentElement;
@@ -439,9 +437,9 @@ async function UpdateUnderlineCouple(uElement) {
 async function handleUnderlineClick(uElement, event) {
   // Check the class of the underlined element
   if (uElement.classList.contains("couple")) {
-    await UpdateUnderlineCouple(uElement);
+    await CoupleClick(uElement);
   } else if (uElement.classList.contains("poly")) {
-    await UpdateUnderlinePoly(event);
+    await PolyClick(event);
   } else {
     console.log("Clicked on an underlined element with no special handling");
   }
@@ -468,7 +466,7 @@ export function attachUnderlineClickListeners() {
 }
 
 
-export async function UpdateUnderlinePoly(event) {
+export async function PolyClick(event) {
   // Prevent default click action if needed
   event.preventDefault();
 
@@ -504,41 +502,72 @@ export async function UpdateUnderlinePoly(event) {
       if (Array.isArray(hyperciteData.citedIN) && hyperciteData.citedIN.length > 0) {
         linksHTML = (
           await Promise.all(
-          hyperciteData.citedIN.map(async (citationID) => {
-            // Extract the book/citation ID from the URL
-            const bookID = citationID.split("#")[0].replace("/", "");
-
-            // Check if the book exists in the library object store
-            const libraryTx = db.transaction("library", "readonly");
-            const libraryStore = libraryTx.objectStore("library");
-            const libraryRequest = libraryStore.get(bookID);
-
-            return new Promise((resolve) => {
-              libraryRequest.onsuccess = () => {
-                const libraryData = libraryRequest.result;
-
-                if (libraryData && libraryData.bibtex) {
-                  // Format the BibTeX data into an academic citation
-                  const formattedCitation = formatBibtexToCitation(libraryData.bibtex);
-
-                  // Return the formatted citation with the clickable link
-                  resolve(
-                    `<p>${formattedCitation} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></p>`
-                  );
-                } else {
-                  // If no record exists, return the default link
-                  resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
+            hyperciteData.citedIN.map(async (citationID) => {
+              // Extract the book/citation ID from the URL with improved handling
+              let bookID;
+              const citationParts = citationID.split("#");
+              const urlPart = citationParts[0];
+              
+              // Check if this is a hyperlight URL (contains /HL_)
+              const isHyperlightURL = urlPart.includes("/HL_");
+              
+              if (isHyperlightURL) {
+                // For URLs like "/nicholls2019moment/HL_1747630135510#hypercite_5k2bmvr6"
+                // Extract the book ID from the path before the /HL_ part
+                const pathParts = urlPart.split("/");
+                // Find the part before the HL_ segment
+                for (let i = 0; i < pathParts.length; i++) {
+                  if (pathParts[i].startsWith("HL_") && i > 0) {
+                    bookID = pathParts[i-1];
+                    break;
+                  }
                 }
-              };
+                
+                // If we couldn't find it with the above method, fall back to taking the first non-empty path segment
+                if (!bookID) {
+                  bookID = pathParts.filter(part => part && !part.startsWith("HL_"))[0] || "";
+                }
+              } else {
+                // Original simple case: url.com/book#id
+                bookID = urlPart.replace("/", "");
+              }
 
-              libraryRequest.onerror = () => {
-                console.error(`❌ Error fetching library data for book ID: ${bookID}`);
-                resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
-              };
-            });
-          })
-        )
-           ).join("");  // ← join with the empty string
+              // Check if the book exists in the library object store
+              const libraryTx = db.transaction("library", "readonly");
+              const libraryStore = libraryTx.objectStore("library");
+              const libraryRequest = libraryStore.get(bookID);
+
+              return new Promise((resolve) => {
+                libraryRequest.onsuccess = () => {
+                  const libraryData = libraryRequest.result;
+
+                  if (libraryData && libraryData.bibtex) {
+                    // Format the BibTeX data into an academic citation
+                    const formattedCitation = formatBibtexToCitation(libraryData.bibtex);
+                    
+                    // Customize the citation display based on URL type
+                    const citationText = isHyperlightURL 
+                      ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}` 
+                      : formattedCitation;
+
+                    // Return the formatted citation with the clickable link
+                    resolve(
+                      `<p>${citationText} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></p>`
+                    );
+                  } else {
+                    // If no record exists, return the default link
+                    resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
+                  }
+                };
+
+                libraryRequest.onerror = () => {
+                  console.error(`❌ Error fetching library data for book ID: ${bookID}`);
+                  resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
+                };
+              });
+            })
+          )
+        ).join("");  // ← join with the empty string
       } else {
         linksHTML = "<p>No citations available.</p>";
       }
