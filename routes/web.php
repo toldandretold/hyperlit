@@ -186,7 +186,9 @@ Route::get('/{book}/edit', [TextController::class, 'show'])
      ->where('book', '[A-Za-z0-9_-]+')
      ->name('book.edit');
      
-// General book route (should be last to avoid conflict with more specific routes)
-Route::get('/{book}', [TextController::class, 'show'])
-    ->where('book', '[A-Za-z0-9_-]+') // Adjust regex as needed
-    ->name('book.show');
+Route::get('/{book}/{hl?}', [TextController::class, 'show'])
+     ->where([
+       'book' => '[A-Za-z0-9_-]+',
+       'hl'   => 'HL_[A-Za-z0-9_-]+'
+     ])
+     ->name('book.show');

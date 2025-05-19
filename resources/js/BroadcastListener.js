@@ -110,6 +110,7 @@ async function updateDomNode(startLine) {
 
 
 
+
 function sanitizeContent(html) {
   const tempDiv = document.createElement("div");
   tempDiv.innerHTML = html;

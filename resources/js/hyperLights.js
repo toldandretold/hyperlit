@@ -70,9 +70,9 @@ export function attachMarkListeners() {
     console.log(`Mark listeners refreshed for ${markTags.length} <mark> tags`);
 }
 
+// First, refactor handleMarkClick to use a shared function
 export async function handleMarkClick(event) {
   event.preventDefault();
-
   const highlightId = event.target.className;
   
   if (!highlightId) {
@@ -81,6 +81,17 @@ export async function handleMarkClick(event) {
   }
 
   console.log(`Mark clicked: ${highlightId}`);
+  openHighlightById(highlightId);
+}
+
+// New function that contains the core logic
+export async function openHighlightById(highlightId) {
+  if (!highlightId) {
+    console.error("❌ No highlight ID provided");
+    return;
+  }
+
+  console.log(`Opening highlight: ${highlightId}`);
 
   try {
     const db = await openDatabase();
@@ -133,6 +144,45 @@ export async function handleMarkClick(event) {
         content: highlightContainer.innerHTML,
         isVisible: highlightContainer.classList.contains("open")
       });
+      
+      // Check if there's a hash in the URL that might be an internal ID
+      const urlHash = window.location.hash.substring(1);
+      if (urlHash && urlHash !== highlightId) {
+        console.log(`Found URL hash: ${urlHash}, checking if it's an internal ID within the highlight`);
+        
+        // Wait a moment for the highlight container to fully render
+        setTimeout(() => {
+          // Look for an element with this ID inside the highlight container
+          const internalElement = highlightContainer.querySelector(`#${CSS.escape(urlHash)}`);
+          
+          if (internalElement) {
+            console.log(`Found internal element with ID ${urlHash}, scrolling to it`);
+            
+            // Get the scroller element inside the highlight container
+            const scroller = highlightContainer.querySelector('.scroller');
+            if (scroller) {
+              // Calculate position of the element relative to the scroller
+              const elementRect = internalElement.getBoundingClientRect();
+              const scrollerRect = scroller.getBoundingClientRect();
+              const relativeTop = elementRect.top - scrollerRect.top + scroller.scrollTop;
+              
+              // Scroll to the element with some offset
+              scroller.scrollTo({
+                top: relativeTop - 50, // 50px offset from the top
+                behavior: 'smooth'
+              });
+              
+              // Highlight the element temporarily
+              internalElement.classList.add('highlight-target');
+              setTimeout(() => {
+                internalElement.classList.remove('highlight-target');
+              }, 3000);
+            }
+          } else {
+            console.log(`No element with ID ${urlHash} found inside the highlight container`);
+          }
+        }, 300);
+      }
     };
 
     getRequest.onerror = (event) => {
@@ -143,6 +193,8 @@ export async function handleMarkClick(event) {
     console.error("❌ Error accessing IndexedDB:", error);
   }
 }
+
+
 
 function getRelativeOffsetTop(element, container) {
   let offsetTop = 0;
@@ -278,9 +330,9 @@ function addTouchAndClickListener(element, handler) {
 
 
 function generateHighlightID() {
-    let userName = document.getElementById('user-name')?.textContent || 'unknown-user';
+    let hyperLightFlag = 'HL';
     let timestamp = Date.now();
-    return `${userName}_${timestamp}`;
+    return `${hyperLightFlag}_${timestamp}`;
 }
 
 function modifyNewMarks(highlightId) {

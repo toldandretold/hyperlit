@@ -320,57 +320,71 @@ export function generateIntermediateId(container, beforeElement, afterElement) {
 
 
 export function generateIdBetween(beforeId, afterId) {
-  // Convert ID to a decimal number
-  function parseDecimal(id) {
-    if (!id) return null;
-    // Parse as a decimal number
-    const num = parseFloat(id);
-    return isNaN(num) ? null : num;
-  }
+  console.log("Generating ID between:", {
+    beforeId: beforeId,
+    afterId: afterId
+  });
   
   // If no beforeId, use "1" or something before afterId
   if (!beforeId) {
     if (!afterId) return "1";
-    const afterNum = parseDecimal(afterId);
-    return afterNum !== null ? `${Math.max(1, afterNum - 1)}` : "1";
+    const afterNum = parseFloat(afterId);
+    return isNaN(afterNum) ? "1" : Math.max(1, Math.floor(afterNum) - 1).toString();
   }
   
-  // If no afterId, increment the beforeId
+  // If no afterId, increment the beforeId in the pattern you described
   if (!afterId) {
-    const beforeNum = parseDecimal(beforeId);
-    if (beforeNum === null) return `${beforeId}_1`;
+    const beforeNum = parseFloat(beforeId);
+    if (isNaN(beforeNum)) return `${beforeId}_1`;
     
-    // If it's a whole number or ends with .9, go to the next whole number
-    if (Number.isInteger(beforeNum) || beforeId.endsWith('.9')) {
-      return `${Math.floor(beforeNum) + 1}`;
+    // If it's a whole number, add .1
+    if (Number.isInteger(beforeNum)) {
+      return `${beforeNum}.1`;
     }
     
-    // Otherwise increment by 0.1
-    return `${(Math.round(beforeNum * 10) / 10 + 0.1).toFixed(1)}`;
+    // Get the decimal part as a string
+    const parts = beforeId.split('.');
+    const intPart = parts[0];
+    const decPart = parts[1] || '';
+    
+    // Check if the last digit is 9
+    if (decPart.charAt(decPart.length - 1) === '9') {
+      // Add a new digit
+      return `${intPart}.${decPart}1`;
+    } else {
+      // Increment the last digit
+      const lastDigit = parseInt(decPart.charAt(decPart.length - 1), 10);
+      return `${intPart}.${decPart.substring(0, decPart.length - 1)}${lastDigit + 1}`;
+    }
   }
   
   // If we have both beforeId and afterId
-  const beforeNum = parseDecimal(beforeId);
-  const afterNum = parseDecimal(afterId);
+  const beforeNum = parseFloat(beforeId);
+  const afterNum = parseFloat(afterId);
   
-  if (beforeNum !== null && afterNum !== null) {
+  if (!isNaN(beforeNum) && !isNaN(afterNum)) {
     // Ensure they're in the right order
     if (beforeNum >= afterNum) {
       console.warn(`IDs out of order: ${beforeId} should be less than ${afterId}`);
-      return `${beforeNum + 0.1}`;
+      // Use the pattern for incrementing
+      return generateIdBetween(beforeId, null);
     }
     
-    // If they're consecutive whole numbers (like 1 and 2)
-    if (Number.isInteger(beforeNum) && Number.isInteger(afterNum) && 
-        afterNum - beforeNum === 1) {
-      return `${beforeNum}.5`;
+    // If they're consecutive integers (like 1 and 2)
+    if (Number.isInteger(beforeNum) && Number.isInteger(afterNum) && afterNum - beforeNum === 1) {
+      // Start with .1 after the lower number
+      return `${beforeNum}.1`;
     }
     
-    // Find a number between them
-    return `${(beforeNum + afterNum) / 2}`;
+    // Otherwise, just increment the beforeId using our pattern
+    return generateIdBetween(beforeId, null);
   }
   
   // Default fallback
   return `${beforeId}_next`;
 }
+
+
+
+
 

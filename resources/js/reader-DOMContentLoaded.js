@@ -41,6 +41,7 @@ import { initializeBroadcastListener } from "./BroadcastListener.js";
 import { initEditToolbar } from "./editToolbar.js";
 
 
+
 window.uiState = {
   activeContainer: "main-content",
   isNavigating: false,
@@ -92,6 +93,7 @@ if (!window.isInitialized) {
     window.db = await openDatabase();
     console.log("✅ IndexedDB initialized.");
 
+
     // Load the Markdown file.
     await loadMarkdownFile();
 
@@ -103,17 +105,9 @@ if (!window.isInitialized) {
 
     initializeBroadcastListener();
   
-
-    
-
-    // Now that DOM is ready, the TOC elements exist.
-    // Generate the Table of Contents.
-    // (Note: If your generateTableOfContents() function expects IDs,
-    // make sure that function internally queries for those elements.)
     generateTableOfContents("toc-container", "toc-toggle-button");
 
     // Initialize Navigation Buttons.
-    
 
     // Get the data-page attribute from the <body> tag
     const pageType = document.body.getAttribute("data-page");
@@ -187,17 +181,56 @@ document.addEventListener("click", (event) => {
   // If we get here, no container is active, so proceed with link handling
   console.log("No active container, checking for links");
   const link = event.target.closest("a");
-  if (!link || !link.hash) return; // No hash? No custom handling.
-
-  // Only override internal (hash-only) links.
-  if (link.getAttribute("href").trim().startsWith("#")) {
+  if (!link) return; // Not a link click
+  
+  const href = link.getAttribute("href").trim();
+  
+  // Handle hash-only links (internal navigation)
+  if (href.startsWith("#")) {
     event.preventDefault();
     const targetId = link.hash.substring(1);
-    // Now you can perform your custom navigation without resolution issues.
     navigateToInternalId(targetId, currentLazyLoader);
     console.log(
       `Navigating internally to ${targetId} in container: ${currentLazyLoader.container.id}`
     );
+    return;
+  }
+  
+  // Handle links to highlights within the same book
+  // Check if the link is to the current book and contains a highlight ID
+  const currentPath = window.location.pathname;
+  const currentBook = currentPath.split('/').filter(Boolean)[0]; // Get the book name from the URL
+  
+  // Parse the href to check if it's a link to a highlight in the same book
+  const hrefParts = href.split('/');
+  const isInternalBookLink = href.includes(currentBook);
+  
+  // Check for highlight ID pattern in the URL (HL_followed by numbers)
+  const highlightMatch = href.match(/\/HL_\d+/);
+  
+  if (isInternalBookLink && highlightMatch) {
+    event.preventDefault();
+    
+    // Extract the highlight ID
+    const highlightId = highlightMatch[0].substring(1); // Remove the leading slash
+    console.log(`Detected internal highlight link to: ${highlightId}`);
+    
+    // Check if there's a hash for an internal element within the highlight
+    const internalId = link.hash ? link.hash.substring(1) : null;
+    
+    // If there's an internal ID, store it in the URL hash
+    if (internalId) {
+      // Update the URL hash without triggering a page reload
+      window.history.pushState(null, '', `#${internalId}`);
+      console.log(`Setting internal ID in hash: ${internalId}`);
+    } else {
+      // Clear the hash if there's no internal ID
+      window.history.pushState(null, '', window.location.pathname);
+    }
+    
+    // Navigate to the highlight
+    navigateToInternalId(highlightId, currentLazyLoader);
+    
     return;
   }
 

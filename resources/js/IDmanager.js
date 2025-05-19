@@ -201,38 +201,68 @@ export const NodeIdManager = {
   },
   
   // Normalize all IDs in a container to ensure proper sequence
- normalizeContainer(container) {
-    if (!container) return 0;
+ normalizeContainer(container, startingElement = null) {
+  console.log("Starting normalization with:", {
+    container,
+    startingElement,
+    startingElementId: startingElement ? startingElement.id : null
+  });
+  
+  if (!container) return 0;
+  
+  // Get all elements with IDs
+  const elements = Array.from(container.querySelectorAll('[id]'))
+    .filter(el => !isNaN(parseFloat(el.id)));
+  
+  // Sort by DOM position
+  elements.sort((a, b) => {
+    const position = a.compareDocumentPosition(b);
+    return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+  });
+  
+  let changesCount = 0;
+  let startIndex = 0;
+  let nextId;
+  
+  // If a starting element is provided, find its index and determine the next ID
+  if (startingElement) {
+    startIndex = elements.findIndex(el => el === startingElement || 
+                                     el.compareDocumentPosition(startingElement) & 
+                                     Node.DOCUMENT_POSITION_CONTAINS);
     
-    // Get all elements with IDs
-    const elements = Array.from(container.querySelectorAll('[id]'))
-      .filter(el => !isNaN(parseFloat(el.id)));
-    
-    // Sort by DOM position
-    elements.sort((a, b) => {
-      const position = a.compareDocumentPosition(b);
-      return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
-    });
-    
-    let changesCount = 0;
-    
-    // Assign sequential decimal IDs
-    for (let i = 0; i < elements.length; i++) {
-      const expectedId = (i + 1).toString();
-      if (elements[i].id !== expectedId) {
-        const oldId = elements[i].id;
-        elements[i].id = expectedId;
-        // Update your registry and IndexedDB here
-        this.register(expectedId);
-        this.unregister(oldId);
-        updateIndexedDBRecordForNormalization(oldId, expectedId, elements[i].outerHTML);
-        changesCount++;
-      }
+    if (startIndex > 0) {
+      // Get the ID of the element before the starting point
+      const prevId = parseFloat(elements[startIndex - 1].id);
+      nextId = prevId + 1;
+    } else {
+      startIndex = 0;
+      nextId = 1; // If starting from the beginning, start with ID 1
     }
-    
-    console.log(`Normalized ${changesCount} IDs in container`);
-    return changesCount;
-  },
+  } else {
+    // If no starting element, find the highest existing ID and continue from there
+    const highestId = elements.reduce((max, el) => 
+      Math.max(max, parseFloat(el.id)), 0);
+    nextId = highestId + 1;
+  }
+  
+  // Assign sequential IDs only from the starting point
+  for (let i = startIndex; i < elements.length; i++) {
+    const expectedId = nextId.toString();
+    if (elements[i].id !== expectedId) {
+      const oldId = elements[i].id;
+      elements[i].id = expectedId;
+      // Update your registry and IndexedDB here
+      this.register(expectedId);
+      this.unregister(oldId);
+      updateIndexedDBRecordForNormalization(oldId, expectedId, elements[i].outerHTML);
+      changesCount++;
+    }
+    nextId++;
+  }
+  
+  console.log(`Normalized ${changesCount} IDs in container from index ${startIndex}`);
+  return changesCount;
+},
 
 
 };

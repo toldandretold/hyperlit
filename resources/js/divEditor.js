@@ -757,53 +757,91 @@ let lastKeyWasEnter = false;
 let enterCount = 0;
 let lastEnterTime = 0;
 
-// Common function for creating and inserting a new paragraph
-// Common function for creating and inserting a new paragraph
-// Common function for creating and inserting a new paragraph
 function createAndInsertParagraph(blockElement, chunkContainer, content, selection) {
   // 1. Create the new paragraph
   const newParagraph = document.createElement('p');
   
-  // Set the content
+  // 2. Handle content - unwrap any nested paragraphs to avoid browser auto-correction
   if (content) {
-    newParagraph.appendChild(content);
+    // Check if content is a DocumentFragment or has child nodes
+    const nodes = content.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? 
+                  Array.from(content.childNodes) : 
+                  [content];
+    
+    nodes.forEach(node => {
+      if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'P') {
+        // Unwrap paragraphs - move their children instead
+        Array.from(node.childNodes).forEach(child => {
+          newParagraph.appendChild(child.cloneNode(true));
+        });
+      } else {
+        newParagraph.appendChild(node.cloneNode(true));
+      }
+    });
   } else {
     newParagraph.innerHTML = '<br>';
   }
   
-  // 2. Find the next sibling with an ID
+  // 3. Find the next sibling with an ID (keeping your original logic)
   let nextSibling = blockElement.nextElementSibling;
   while (nextSibling && !nextSibling.id) {
     nextSibling = nextSibling.nextElementSibling;
   }
 
-  // 3. Generate an ID between the current element and the next sibling
+  // 4. Generate an ID for the new paragraph (keeping your original logic)
   if (blockElement.id) {
-    newParagraph.id = generateIdBetween(
-      blockElement.id,
-      nextSibling ? nextSibling.id : null
-    );
+    // Check if we're inserting between nodes or adding to the end
+    if (nextSibling && nextSibling.id) {
+      // We're inserting between nodes - use generateIdBetween
+      newParagraph.id = generateIdBetween(
+        blockElement.id,
+        nextSibling.id
+      );
+    } else {
+      // We're adding to the end - just increment to the next integer
+      const blockId = parseFloat(blockElement.id);
+      if (!isNaN(blockId)) {
+        if (Number.isInteger(blockId)) {
+          // If it's a whole number, just add 1
+          newParagraph.id = (blockId + 1).toString();
+        } else {
+          // If it has a decimal part, round up to the next integer
+          newParagraph.id = Math.ceil(blockId).toString();
+        }
+      } else {
+        // Fallback if ID isn't numeric
+        newParagraph.id = generateIdBetween(blockElement.id, null);
+      }
+    }
     console.log(`Generated new ID: ${newParagraph.id}`);
   }
   
-  // 4. Insert the paragraph into the DOM
+  // 5. Insert the paragraph into the DOM - IMPORTANT CHANGE: use blockElement.parentNode
+  //    This ensures we insert alongside the blockElement, not potentially inside it
+  const parent = blockElement.parentNode;
   if (blockElement.nextSibling) {
-    chunkContainer.insertBefore(newParagraph, blockElement.nextSibling);
+    parent.insertBefore(newParagraph, blockElement.nextSibling);
   } else {
-    chunkContainer.appendChild(newParagraph);
+    parent.appendChild(newParagraph);
   }
   
-  // 5. Save the new paragraph to IndexedDB
-  if (newParagraph.id) {
-    console.log(`Saving new paragraph to IndexedDB: ${newParagraph.id}`);
-    updateIndexedDBRecord({
-      id: newParagraph.id,
-      html: newParagraph.outerHTML,
-      action: "add"
-    }).catch(console.error);
-  }
+  // 6. Run normalization to ensure IDs are unique and in order
+  //    This is crucial to fix any potential duplicate IDs
+  setTimeout(() => {
+    normalizeNodeIds(chunkContainer);
+    
+    // After normalization, save the new paragraph with its potentially updated ID
+    if (newParagraph.id) {
+      console.log(`Saving normalized paragraph to IndexedDB: ${newParagraph.id}`);
+      updateIndexedDBRecord({
+        id: newParagraph.id,
+        html: newParagraph.outerHTML,
+        action: "update" // Changed from "add" since it might have been renumbered
+      }).catch(console.error);
+    }
+  }, 0);
   
-  // 6. Move cursor to the new paragraph
+  // 7. Move cursor to the new paragraph
   const newRange = document.createRange();
   if (newParagraph.firstChild && newParagraph.firstChild.nodeType === Node.TEXT_NODE) {
     newRange.setStart(newParagraph.firstChild, 0);
@@ -814,35 +852,9 @@ function createAndInsertParagraph(blockElement, chunkContainer, content, selecti
   selection.removeAllRanges();
   selection.addRange(newRange);
   
-  // 7. Run normalization after insertion and save all normalized paragraphs
-  setTimeout(() => {
-    if (chunkContainer) {
-      console.log("Running normalization after paragraph creation");
-      const changes = NodeIdManager.normalizeContainer(chunkContainer);
-      
-      // If normalization made changes, save all paragraphs in the chunk
-      if (changes > 0) {
-        console.log(`Normalization made ${changes} changes, saving all paragraphs`);
-        // Get all paragraphs in the chunk
-        const paragraphs = chunkContainer.querySelectorAll('p, h1, h2, h3, h4, h5, h6');
-        
-        // Save each paragraph to IndexedDB
-        paragraphs.forEach(p => {
-          if (p.id) {
-            console.log(`Saving normalized paragraph: ${p.id}`);
-            updateIndexedDBRecord({
-              id: p.id,
-              html: p.outerHTML,
-              action: "update"
-            }).catch(console.error);
-          }
-        });
-      }
-    }
-  }, 100);
-  
   return newParagraph;
 }
+
 
 
 
@@ -959,7 +971,7 @@ document.addEventListener("keydown", function(event) {
             action: "update"
           }).catch(console.error);
         }
-        
+        console.log("blockElement:", blockElement);
         // Create and insert new paragraph
         createAndInsertParagraph(blockElement, chunkContainer, null, selection);
         
@@ -1082,7 +1094,7 @@ document.addEventListener("keydown", function(event) {
         content = null;
       }
     }
-    
+    console.log("blockElement:", blockElement);
     // Create and insert new paragraph
     createAndInsertParagraph(blockElement, chunkContainer, content, selection);
     
@@ -1439,22 +1451,26 @@ function saveCurrentParagraph() {
   const selection = window.getSelection();
   if (selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
-    let currentParagraph = range.startContainer;
-    while (currentParagraph && currentParagraph.nodeName !== 'P') {
-      currentParagraph = currentParagraph.parentNode;
+    let currentElement = range.startContainer;
+    if (currentElement.nodeType !== Node.ELEMENT_NODE) {
+      currentElement = currentElement.parentElement;
     }
     
-    if (currentParagraph && currentParagraph.id) {
-      console.log("Manually saving paragraph:", currentParagraph.id);
-      // Manually save the paragraph to IndexedDB
+    // Find the closest block element (paragraph, pre, blockquote, etc.)
+    let blockElement = currentElement.closest('p, pre, blockquote, h1, h2, h3, h4, h5, h6');
+    
+    if (blockElement && blockElement.id) {
+      console.log("Manually saving block element:", blockElement.id, blockElement.tagName);
+      // Manually save the element to IndexedDB
       updateIndexedDBRecord({
-        id: currentParagraph.id,
-        html: currentParagraph.outerHTML,
+        id: blockElement.id,
+        html: blockElement.outerHTML,
         action: "update"
       }).catch(console.error);
     }
   }
 }
+
 
 /**
  * Handle pasting of markdown content
