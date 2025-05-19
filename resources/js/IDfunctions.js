@@ -370,6 +370,22 @@ export function generateIdBetween(beforeId, afterId) {
       return generateIdBetween(beforeId, null);
     }
     
+    // Check if they differ only by the last digit
+    const beforeParts = beforeId.split('.');
+    const afterParts = afterId.split('.');
+    
+    // If they have the same integer part and their decimal parts differ by only 0.1
+    // or if they have the same decimal part except for the last digit
+    if (beforeParts[0] === afterParts[0] && afterParts[1] && beforeParts[1]) {
+      // Check if they differ only by the last digit
+      if (afterParts[1].length === beforeParts[1].length && 
+          afterNum - beforeNum <= 0.1 && 
+          afterNum - beforeNum > 0) {
+        // Add a new digit to beforeId instead of incrementing
+        return `${beforeId}1`;
+      }
+    }
+    
     // If they're consecutive integers (like 1 and 2)
     if (Number.isInteger(beforeNum) && Number.isInteger(afterNum) && afterNum - beforeNum === 1) {
       // Start with .1 after the lower number
@@ -383,6 +399,7 @@ export function generateIdBetween(beforeId, afterId) {
   // Default fallback
   return `${beforeId}_next`;
 }
+
 
 
 

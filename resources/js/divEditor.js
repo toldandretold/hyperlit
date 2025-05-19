@@ -392,9 +392,7 @@ export function startObserving(editableDiv) {
   });
   console.log("Observer started in chunk:", currentChunk);
   
-  setTimeout(() => {
-    normalizeNodeIds(currentChunk);
-  }, 1000);
+  
 }
 
 
@@ -647,15 +645,7 @@ const debouncedNormalize = debounce((container) => {
   if (!documentChanged) return;
   console.log("User stopped typing; normalizing and saving…");
   // this wrapper will increment before running, and decrement when done
-  withPending(async () => {
-    const changes = await normalizeNodeIds(container);
-    if (changes) {
-      console.log("Normalization made changes");
-    } else {
-      console.log("Normalization complete—no changes needed");
-    }
-    documentChanged = false;
-  }).catch(console.error);
+  
 }, 500);
 
 // ----------------------------------------------------------------
@@ -828,7 +818,6 @@ function createAndInsertParagraph(blockElement, chunkContainer, content, selecti
   // 6. Run normalization to ensure IDs are unique and in order
   //    This is crucial to fix any potential duplicate IDs
   setTimeout(() => {
-    normalizeNodeIds(chunkContainer);
     
     // After normalization, save the new paragraph with its potentially updated ID
     if (newParagraph.id) {
