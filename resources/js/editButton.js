@@ -75,7 +75,8 @@ async function enableEditMode() {
     
     // Run an initial normalization on each chunk
     document.querySelectorAll('.chunk').forEach(chunk => {
-      NodeIdManager.normalizeContainer(chunk);
+      // Only fix duplicates, don't renumber everything
+      NodeIdManager.fixDuplicates(chunk);
     });
     
     console.log("Edit mode enabled with NodeIdManager initialized");

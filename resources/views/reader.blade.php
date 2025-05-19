@@ -11,8 +11,7 @@ data-page="reader"
 data-edit-mode="{{ $editMode ? '1' : '0' }}"
 >
 
-<!-- this could be wrong -->
-<base href="{{ url('markdown/' . $book . '/epub_original/') }}">
+
 
 
 <!-- Load the content of the main-text.md file -->

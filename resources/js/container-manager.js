@@ -1,4 +1,6 @@
 import { saveAnnotationToIndexedDB } from "./annotation-saver.js";
+import { navigateToInternalId } from "./scrolling.js"; // Import this if needed
+import { currentLazyLoader } from "./initializePage.js";
 
 export class ContainerManager {
   constructor(containerId, overlayId, buttonId = null, frozenContainerIds = []) {
@@ -45,7 +47,70 @@ export class ContainerManager {
         this.toggleContainer();
       });
     }
-  }
+
+      // Add a new event listener for link clicks within the container
+      if (this.container) {
+        this.container.addEventListener("click", (e) => {
+          const link = e.target.closest("a");
+          if (!link) return; // Not a link click
+          
+          const href = link.getAttribute("href");
+          if (!href) return; // No href attribute
+          
+          // Check if this is an internal link (same domain)
+          const isSameDomain = href.startsWith("/") || 
+                              href.startsWith("#") || 
+                              href.startsWith(window.location.origin) ||
+                              !href.includes("://");
+          
+          if (isSameDomain) {
+            e.preventDefault(); // Prevent default navigation
+            
+            // Parse the URL to determine if it's a highlight link
+            const isHighlightLink = href.includes("/HL_");
+            const highlightMatch = href.match(/\/HL_\d+/);
+            const highlightId = highlightMatch ? highlightMatch[0].substring(1) : null;
+            
+            // Get any hash for internal navigation
+            const hash = link.hash ? link.hash.substring(1) : null;
+            
+            console.log(`Container link clicked: ${href}`);
+            console.log(`Parsed as: highlightId=${highlightId}, hash=${hash}`);
+            
+            // Close the current container
+            this.closeContainer();
+            
+            // Wait a moment for the container to close
+            setTimeout(() => {
+              if (isHighlightLink && highlightId) {
+                // If it's a highlight link, navigate to the highlight
+                console.log(`Navigating to highlight: ${highlightId}`);
+                
+                // Update URL hash if needed
+                if (hash) {
+                  window.history.pushState(null, '', `#${hash}`);
+                } else {
+                  window.history.pushState(null, '', window.location.pathname);
+                }
+                
+                // Use your navigation function
+                navigateToInternalId(highlightId, currentLazyLoader);
+              } else if (hash) {
+                // If it's just a hash link, navigate to that element
+                console.log(`Navigating to hash: #${hash}`);
+                navigateToInternalId(hash, currentLazyLoader);
+              } else {
+                // For other internal links, just navigate normally
+                console.log(`Navigating to: ${href}`);
+                window.location.href = href;
+              }
+            }, 300); // Wait for container animation to complete
+          }
+          // If it's an external link, let the default behavior happen
+        });
+      }
+    }
+  
 
   // Helper method to freeze an element:
   freezeElement(el) {
@@ -281,7 +346,40 @@ closeContainer() {
 
   // Reset visibility for next time.
   this.container.style.visibility = "";
+  this.cleanupURL();
 }
+
+  // New method to clean up the URL
+  cleanupURL() {
+    console.log("cleanupURL called");
+    
+    // Get the current URL parts
+    const currentPath = window.location.pathname;
+    const currentURL = window.location.href;
+    
+    console.log("Current URL:", currentURL);
+    console.log("Current path:", currentPath);
+    
+    // Extract just the book name from the path
+    // Assuming URL structure is like: /book/suffix1/suffix2
+    const pathParts = currentPath.split('/').filter(part => part.length > 0);
+    
+    if (pathParts.length > 0) {
+      // The first part should be the book name
+      const bookName = pathParts[0];
+      const newPath = '/' + bookName;
+      
+      console.log("Book name:", bookName);
+      console.log("New path will be:", newPath);
+      
+      // Update the URL to just /book (removing all suffixes and hash)
+      window.history.pushState({}, document.title, newPath);
+      console.log(`URL cleaned up: ${newPath}`);
+    } else {
+      console.log("Could not determine book name from path:", currentPath);
+    }
+  }
+
 
 
   toggleContainer() {
@@ -292,3 +390,5 @@ closeContainer() {
     }
   }
 }
+
+

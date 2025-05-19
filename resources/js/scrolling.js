@@ -1,6 +1,7 @@
 // In scrolling.js
 
-import { book } from "./app.js";
+import { book, OpenHyperlightID } from "./app.js";
+import { openHighlightById } from './hyperLights.js';
 import {
   getNodeChunksFromIndexedDB,
   getLocalStorageKey
@@ -260,6 +261,13 @@ export async function restoreScrollPosition() {
     currentLazyLoader.bookId
   );
 
+  // If we're navigating to an internal ID (like a highlight), prioritize that
+  if (currentLazyLoader.isNavigatingToInternalId && OpenHyperlightID) {
+    console.log(`🔍 Prioritizing navigation to highlight: ${OpenHyperlightID}`);
+    navigateToInternalId(OpenHyperlightID, currentLazyLoader);
+    return; // Exit early, don't proceed with normal scroll restoration
+  }
+
   // Read target id from URL hash first.
   let targetId = window.location.hash.substring(1);
 
@@ -372,7 +380,17 @@ function _navigateToInternalId(targetId, lazyLoader) {
   if (existingElement) {
     // Already available: scroll and highlight.
     scrollElementIntoContainer(existingElement, lazyLoader.container, 50);
-    existingElement.classList.add("active");
+    
+    // Check if this is a highlight ID (starts with HL_)
+    if (targetId.startsWith('HL_')) {
+      // Wait a moment for the scroll to complete, then open the highlight
+      setTimeout(() => {
+        console.log(`Opening highlight after navigation: ${targetId}`);
+        openHighlightById(targetId);
+      }, 800);
+    }
+
+
     setTimeout(() => {
       if (typeof lazyLoader.attachMarkListeners === "function") {
         lazyLoader.attachMarkListeners(lazyLoader.container);
@@ -443,40 +461,47 @@ function _navigateToInternalId(targetId, lazyLoader) {
       });
     }
   );
-
   Promise.all(loadedChunksPromises)
-    .then(() => {
-      // Optionally inject footnotes for each node.
-      for (let i = startIndex; i <= endIndex; i++) {
-        const node = lazyLoader.nodeChunks[i];
-        injectFootnotesForChunk(node.chunk_id, book);
-      }
-      lazyLoader.repositionSentinels();
-      // Delay a bit to let DOM updates settle.
-      setTimeout(() => {
-        let finalTarget = lazyLoader.container.querySelector(
-          `#${CSS.escape(targetId)}`
+  .then(() => {
+    // Optionally inject footnotes for each node.
+    for (let i = startIndex; i <= endIndex; i++) {
+      const node = lazyLoader.nodeChunks[i];
+      injectFootnotesForChunk(node.chunk_id, book);
+    }
+    lazyLoader.repositionSentinels();
+    // Delay a bit to let DOM updates settle.
+    setTimeout(() => {
+      let finalTarget = lazyLoader.container.querySelector(
+        `#${CSS.escape(targetId)}`
+      );
+      if (finalTarget) {
+        scrollElementIntoContainer(finalTarget, lazyLoader.container, 50);
+              
+        // Check if this is a highlight ID (starts with HL_)
+        if (targetId.startsWith('HL_')) {
+          // Wait a moment for the scroll to complete, then open the highlight
+          setTimeout(() => {
+            console.log(`Opening highlight after navigation: ${targetId}`);
+            openHighlightById(targetId);
+          }, 800);
+        }
+      } else {
+        console.warn(
+          `Target element ${targetId} not found after loading chunks. ` +
+            "Using fallback scroll position."
         );
-        if (finalTarget) {
-          scrollElementIntoContainer(finalTarget, lazyLoader.container, 50);
-          finalTarget.classList.add("active");
-        } else {
-          console.warn(
-            `Target element ${targetId} not found after loading chunks. ` +
-              "Using fallback scroll position."
-          );
-          fallbackScrollPosition(lazyLoader);
-        }
-        if (typeof lazyLoader.attachMarkListeners === "function") {
-          lazyLoader.attachMarkListeners(lazyLoader.container);
-        }
-        lazyLoader.isNavigatingToInternalId = false;
-      }, 400);
-    })
-    .catch(error => {
-      console.error("Error while loading chunks:", error);
+        fallbackScrollPosition(lazyLoader);
+      }
+      if (typeof lazyLoader.attachMarkListeners === "function") {
+        lazyLoader.attachMarkListeners(lazyLoader.container);
+      }
       lazyLoader.isNavigatingToInternalId = false;
-    });
+    }, 400);
+  })
+  .catch(error => {
+    console.error("Error while loading chunks:", error);
+    lazyLoader.isNavigatingToInternalId = false;
+  });
 }
 
 // Utility: wait for an element and then scroll to it.

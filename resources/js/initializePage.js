@@ -1,4 +1,4 @@
-import { book } from './app.js';
+import { book, OpenHyperlightID } from './app.js';
 
 import {
   createLazyLoader,
@@ -156,41 +156,74 @@ export function initializeMainLazyLoader() {
   return currentLazyLoader;
 }
 
-// Main Entry Point - Simplified
+
+
+// In your loadMarkdownFile function
 export async function loadMarkdownFile() {
   console.log(`📖 Opening: ${book}`);
+  
+  // Check if OpenHyperlightID exists
+  const openHyperlightID = OpenHyperlightID || null;
+  if (openHyperlightID) {
+    console.log(`🔍 Found OpenHyperlightID to navigate to: ${openHyperlightID}`);
+  }
+  
   try {
-    // 1. Check if nodeChunks exist in IndexedDB
+    // 1. Check for cached nodeChunks
     console.log("🔍 Checking for cached nodeChunks in IndexedDB...");
-    const cachedNodeChunks = await getNodeChunksFromIndexedDB(book);
-    
-    if (cachedNodeChunks && cachedNodeChunks.length > 0) {
-      // Use cached nodeChunks
-      console.log(`✅ Found ${cachedNodeChunks.length} cached nodeChunks in IndexedDB`);
-      window.nodeChunks = cachedNodeChunks;
+    const cached = await getNodeChunksFromIndexedDB(book);
+    if (cached && cached.length) {
+      console.log(`✅ Found ${cached.length} cached nodeChunks`);
+      window.nodeChunks = cached;
     } else {
-      // Generate new nodeChunks from markdown
-      console.log("🆕 No cached nodeChunks found. Generating from markdown...");
-      window.nodeChunks = await  generateNodeChunksFromMarkdown(true);
-      
-
+      console.log("🆕 No cache – generating from markdown");
+      window.nodeChunks = await generateNodeChunksFromMarkdown(true);
     }
-    
-    
-    // 3. Initialize lazy loader
+
+    // 2. Initialize lazy loader with the navigation flag if needed
     if (!currentLazyLoader) {
-      initializeMainLazyLoader();
+      currentLazyLoader = createLazyLoader({
+        nodeChunks: window.nodeChunks,
+        loadNextChunk: loadNextChunkFixed,
+        loadPreviousChunk: loadPreviousChunkFixed,
+        attachMarkListeners,
+        bookId: book,
+        isNavigatingToInternalId: !!openHyperlightID  // Set flag if we have an ID
+      });
+      
+      // If we have a highlight ID, navigate to it after initialization
+      if (openHyperlightID) {
+        // Add a method to navigate to the highlight
+        setTimeout(() => {
+          navigateToElement(openHyperlightID);
+        }, 300);
+      }
     }
-    
-    console.log("✅ Content loading complete");
 
-    // notify everyone that we’re done
-    document.dispatchEvent(new Event('pageReady'));
-    
-  } catch (error) {
-    console.error("❌ Error loading content:", error);
+    console.log("✅ Content loading complete");
+    document.dispatchEvent(new Event("pageReady"));
+
+  } catch (err) {
+    console.error("❌ Error loading content:", err);
   }
 }
+
+// Simple function to navigate to an element by ID
+function navigateToElement(elementId) {
+  const element = document.getElementById(elementId);
+  if (element) {
+    console.log(`Navigating to element: ${elementId}`);
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else {
+    console.log(`Element not found: ${elementId}, will try loading more content`);
+    // You might need additional logic here to load more chunks
+  }
+}
+
+
+
+
+
 
 // Navigation helper functions
 export function loadContentAroundLine(lineNumber) {
@@ -253,7 +286,7 @@ export function loadContentAroundId(elementId) {
     }
     
     const chunk = window.nodeChunks[currentChunkIndex];
-    currentLazyLoader.loadChunkById(chunk.chunkId);
+    currentLazyLoader.loadChunk(chunk.chunkId);
     
     setTimeout(() => {
       const element = document.getElementById(elementId);
