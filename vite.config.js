@@ -81,7 +81,7 @@ export default defineConfig({
         'resources/js/renderOpenBooks.js',
         'resources/js/editToolbar.js',
         'resources/js/IDmanager.js',
-        'resources/js/highlightNavigation.js',
+        'resources/js/chunkManager.js',
         'resources/sass/app.scss',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.

@@ -501,6 +501,12 @@ export function updateIndexedDBRecord(record) {
         // Update content based on processed result or record.html
         toSave.content = processed?.content ?? record.html;
 
+        // Add the chunk_ID update here
+        if (record.chunk_id !== undefined) {
+          toSave.chunk_id = record.chunk_id;
+          console.log(`Updated chunk_id to ${record.chunk_id} for node ${nodeId}`);
+        }
+
         // Update hyperlights (assuming simple replacement based on DOM is acceptable)
         toSave.hyperlights = processed ? (processed.hyperlights ?? []) : existing.hyperlights;
 
@@ -586,7 +592,7 @@ export function updateIndexedDBRecord(record) {
         toSave = {
           book: bookId,
           startLine: numericNodeId,
-          chunk_id: 0, // Determine chunk_id based on your logic if needed
+          chunk_id: record.chunk_id !== undefined ? record.chunk_id : 0, // Use provided chunk_ID if available
           content: processed?.content ?? record.html,
           hyperlights: processed?.hyperlights ?? [],
           // For a new record, initialize hypercites with initial values if found in DOM
@@ -712,82 +718,6 @@ function updateHyperciteInStore(store, bookId, hypercite) {
     };
 }
 
-
-
-
-// Helper function to update a specific nodeChunk in IndexedDB
-async function updateNodeChunkInIndexedDB(book, startLine, updatedFields) {
-  return new Promise((resolve, reject) => {
-    const dbName = "MarkdownDB";
-    const storeName = "nodeChunks";
-    
-    // Always convert startLine to float
-    const numericStartLine = parseNodeId(startLine);
-    
-    console.log(`Updating nodeChunk: book=${book}, startLine=${numericStartLine}`);
-    
-    const request = indexedDB.open(dbName);
-    
-    request.onerror = (event) => {
-      console.error(`IndexedDB error: ${event.target.errorCode}`);
-      resolve(false);
-    };
-    
-    request.onsuccess = (event) => {
-      const db = event.target.result;
-      
-      try {
-        const transaction = db.transaction([storeName], "readwrite");
-        const objectStore = transaction.objectStore(storeName);
-        
-        // Create the key using the numeric startLine
-        const key = [book, numericStartLine];
-        console.log("Using key for update:", key);
-        
-        // Get the existing record
-        const getRequest = objectStore.get(key);
-        
-        getRequest.onsuccess = (event) => {
-          const existingRecord = event.target.result;
-          
-          if (!existingRecord) {
-            console.error(`Record not found for key: [${book}, ${numericStartLine}]`);
-            resolve(false);
-            return;
-          }
-          
-          // Update the fields in the existing record
-          Object.assign(existingRecord, updatedFields);
-          
-          // Put the updated record back
-          const updateRequest = objectStore.put(existingRecord);
-          
-          updateRequest.onsuccess = () => {
-            console.log(`Successfully updated record for key: [${book}, ${numericStartLine}]`);
-            resolve(true);
-          };
-          
-          updateRequest.onerror = (event) => {
-            console.error(`Error updating record:`, event.target.error);
-            resolve(false);
-          };
-        };
-        
-        getRequest.onerror = (event) => {
-          console.error(`Error getting record:`, event.target.error);
-          resolve(false);
-        };
-        
-        transaction.oncomplete = () => {
-          db.close();
-        };
-      } catch (error) {
-        console.error("Transaction error:", error);
-        resolve(false);
-      }
-    };
-  });
-}
 
 
 
