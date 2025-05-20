@@ -25,7 +25,12 @@ import {
 import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from './convert-markdown.js';
 import { processFootnotes } from './footnotes.js';
 import { NodeIdManager } from './IDmanager.js';
-
+import { 
+  trackChunkNodeCount, 
+  handleChunkOverflow, 
+  NODE_LIMIT, 
+  chunkNodeCounts 
+} from './chunkManager.js';
 
 // Tracking sets
 const modifiedNodes = new Set(); // Track element IDs whose content was modified.
@@ -48,6 +53,7 @@ let pasteHandled = false;
 
 
 // Start observing only inside the current chunk container.
+// Start observing only inside the current chunk container.
 export function startObserving(editableDiv) {
   console.log("🤓 startObserving function called");
 
@@ -65,147 +71,223 @@ export function startObserving(editableDiv) {
   currentObservedChunk = currentChunk;
   console.log("Observing changes in chunk:", currentChunk);
 
+  // Initialize node count for this chunk (establish what the count is before mutations)
+  trackChunkNodeCount(currentChunk);
+
+  // not sure about this, think to do with the faulty paste handler... 
   const BULK_THRESHOLD = 20;
 
   // Modify the MutationObserver callback in startObserving function
   observer = new MutationObserver(async (mutations) => {
-  // Skip processing if a hypercite paste is in progress
-  if (hypercitePasteInProgress) {
-    console.log("Skipping mutations during hypercite paste");
-    return;
-  }
+    // Skip processing if a hypercite paste is in progress
+    if (hypercitePasteInProgress) {
+      console.log("Skipping mutations during hypercite paste");
+      return;
+    }
 
-  // Skip mutations related to status icons
-  if (mutations.some(mutation => 
-      mutation.target.id === "status-icon" || 
-      (mutation.target.parentNode && mutation.target.parentNode.id === "status-icon") ||
-      mutation.addedNodes.length && Array.from(mutation.addedNodes).some(node => 
-        node.id === "status-icon" || (node.parentNode && node.parentNode.id === "status-icon")
-      )
-    )) {
-    console.log("Skipping mutations related to status icons");
-    return;
-  }
+    // Skip mutations related to status icons
+    if (mutations.some(mutation => 
+        mutation.target.id === "status-icon" || 
+        (mutation.target.parentNode && mutation.target.parentNode.id === "status-icon") ||
+        mutation.addedNodes.length && Array.from(mutation.addedNodes).some(node => 
+          node.id === "status-icon" || (node.parentNode && node.parentNode.id === "status-icon")
+        )
+      )) {
+      console.log("Skipping mutations related to status icons");
+      return;
+    }
 
-  // Track parent nodes that need updates
-  const parentsToUpdate = new Set();
-  let addedCount = 0;
-  const newNodes = []; // This will collect all new nodes for saving
-  let pasteDetected = false;
+    // Track node count CHANGES after mutations 
+    trackChunkNodeCount(currentObservedChunk, mutations);
 
-  // Check if this might be a paste operation (multiple nodes added at once)
-  if (mutations.some(m => m.type === "childList" && m.addedNodes.length > 1)) {
-    pasteDetected = true;
-    console.log("Possible paste operation detected");
-  }
+    // Check if current chunk has reached the limit
+    const chunkId = currentObservedChunk.getAttribute('data-chunk-id');
+    const currentNodeCount = chunkNodeCounts[chunkId] || 0;
+    
+    // If we're at the limit and adding new nodes, we need to handle chunk overflow
+    if (currentNodeCount > NODE_LIMIT && mutations.some(m => m.type === "childList" && m.addedNodes.length > 0)) {
+      console.log(`Chunk ${chunkId} has reached limit (${currentNodeCount}/${NODE_LIMIT}). Managing overflow...`);
+      await handleChunkOverflow(currentObservedChunk, mutations);
+      return; // Exit early as the overflow handler will take care of saving
+    }
 
-  for (const mutation of mutations) {
-    // Process removals first to ensure they're not missed
-    if (mutation.type === "childList" && mutation.removedNodes.length > 0) {
-      let shouldUpdateParent = false;
-      let parentNode = null;
-      
-      for (const node of mutation.removedNodes) {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          // Check if this is a top-level paragraph/heading being removed
-          if (node.id && node.id.match(/^\d+(\.\d+)?$/)) {
-            console.log(`Top-level node removed: ${node.id}`, node);
-            await deleteIndexedDBRecordWithRetry(node.id);
-            removedNodeIds.add(node.id);
-          } 
-          // Check if this is a child element (like a hypercite) being removed
-          else if (node.id && node.id.startsWith("hypercite_")) {
-            // Instead of deleting, mark the parent for update
-            parentNode = mutation.target;
-            shouldUpdateParent = true;
-            console.log(`Hypercite removed from parent: ${parentNode.id}`, node);
+    // Track parent nodes that need updates
+    const parentsToUpdate = new Set();
+    let addedCount = 0;
+    const newNodes = []; // This will collect all new nodes for saving
+    let pasteDetected = false;
+
+    // Check if this might be a paste operation (multiple nodes added at once)
+    if (mutations.some(m => m.type === "childList" && m.addedNodes.length > 1)) {
+      pasteDetected = true;
+      console.log("Possible paste operation detected");
+    }
+
+    for (const mutation of mutations) {
+      // Process removals first to ensure they're not missed
+      if (mutation.type === "childList" && mutation.removedNodes.length > 0) {
+        let shouldUpdateParent = false;
+        let parentNode = null;
+        
+        for (const node of mutation.removedNodes) {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // Check if this is a top-level paragraph/heading being removed
+            if (node.id && node.id.match(/^\d+(\.\d+)?$/)) {
+              console.log(`Top-level node removed: ${node.id}`, node);
+              await deleteIndexedDBRecordWithRetry(node.id);
+              removedNodeIds.add(node.id);
+            } 
+            // Check if this is a child element (like a hypercite) being removed
+            else if (node.id && node.id.startsWith("hypercite_")) {
+              // Instead of deleting, mark the parent for update
+              parentNode = mutation.target;
+              shouldUpdateParent = true;
+              console.log(`Hypercite removed from parent: ${parentNode.id}`, node);
+            }
+          }
+        }
+         
+        // If we found a parent that needs updating, add it to our set
+        if (shouldUpdateParent && parentNode) {
+          // Find the closest parent with a numeric ID
+          let closestParent = parentNode;
+          while (closestParent && (!closestParent.id || !closestParent.id.match(/^\d+(\.\d+)?$/))) {
+            closestParent = closestParent.parentElement;
+          }
+          
+          if (closestParent && closestParent.id) {
+            parentsToUpdate.add(closestParent);
           }
         }
       }
-       
-      // If we found a parent that needs updating, add it to our set
-      if (shouldUpdateParent && parentNode) {
-        // Find the closest parent with a numeric ID
-        let closestParent = parentNode;
-        while (closestParent && (!closestParent.id || !closestParent.id.match(/^\d+(\.\d+)?$/))) {
-          closestParent = closestParent.parentElement;
-        }
-        
-        if (closestParent && closestParent.id) {
-          parentsToUpdate.add(closestParent);
-        }
-      }
-    }
 
-    // --- NEW GUARD: skip any childList where all added nodes are arrow‐icons ---
-    if (mutation.type === "childList") {
-      const allAreIcons = Array.from(mutation.addedNodes).every((n) => {
-        if (n.nodeType !== Node.ELEMENT_NODE) return false;
-        const el = /** @type {HTMLElement} */ (n);
-        // span.open-icon itself
-        if (el.classList.contains("open-icon")) return true;
-        // or an <a> whose only child is that span
+      // --- NEW GUARD: skip any childList where all added nodes are arrow‐icons ---
+      
+      if (mutation.type === "childList") {
+        const allAreIcons = Array.from(mutation.addedNodes).every((n) => {
+          if (n.nodeType !== Node.ELEMENT_NODE) return false;
+          const el = /** @type {HTMLElement} */ (n);
+          // span.open-icon itself
+          if (el.classList.contains("open-icon")) return true;
+          // or an <a> whose only child is that span
+          if (
+            el.tagName === "A" &&
+            el.children.length === 1 &&
+            el.firstElementChild.classList.contains("open-icon")
+          ) {
+            return true;
+          }
+          return false;
+        });
+        if (allAreIcons) {
+          // console.log("Skipping pure-icon mutation");
+          continue;
+        }
+      } 
+
+      // 1) Title-sync logic for H1#1
+      const h1 = document.getElementById("1");
+      if (h1) {
+        // characterData inside H1
         if (
-          el.tagName === "A" &&
-          el.children.length === 1 &&
-          el.firstElementChild.classList.contains("open-icon")
+          mutation.type === "characterData" &&
+          mutation.target.parentNode?.closest('h1[id="1"]')
         ) {
-          return true;
+          const newTitle = h1.innerText.trim();
+          updateLibraryTitle(book, newTitle).catch(console.error);
+          updateIndexedDBRecord({
+            id: h1.id,
+            html: h1.outerHTML,
+            chunk_id: getNodeChunkId(h1),
+            action: "update"
+          }).catch(console.error);
         }
-        return false;
-      });
-      if (allAreIcons) {
-        // console.log("Skipping pure-icon mutation");
-        continue;
+        // childList under H1 (e.g. paste)
+        if (
+          mutation.type === "childList" &&
+          Array.from(mutation.addedNodes).some((n) =>
+            n.closest && n.closest('h1[id="1"]')
+          )
+        ) {
+          const newTitle = h1.innerText.trim();
+          updateLibraryTitle(book, newTitle).catch(console.error);
+          updateIndexedDBRecord({
+            id: h1.id,
+            html: h1.outerHTML,
+            chunk_id: getNodeChunkId(h1),
+            action: "update"
+          }).catch(console.error);
+        }
       }
-    }
 
-    // 1) Title-sync logic for H1#1
-    const h1 = document.getElementById("1");
-    if (h1) {
-      // characterData inside H1
-      if (
-        mutation.type === "characterData" &&
-        mutation.target.parentNode?.closest('h1[id="1"]')
-      ) {
-        const newTitle = h1.innerText.trim();
-        updateLibraryTitle(book, newTitle).catch(console.error);
-        updateIndexedDBRecord({
-          id: h1.id,
-          html: h1.outerHTML,
-          action: "update"
-        }).catch(console.error);
-      }
-      // childList under H1 (e.g. paste)
-      if (
-        mutation.type === "childList" &&
-        Array.from(mutation.addedNodes).some((n) =>
-          n.closest && n.closest('h1[id="1"]')
-        )
-      ) {
-        const newTitle = h1.innerText.trim();
-        updateLibraryTitle(book, newTitle).catch(console.error);
-        updateIndexedDBRecord({
-          id: h1.id,
-          html: h1.outerHTML,
-          action: "update"
-        }).catch(console.error);
-      }
-    }
-
-    // 2) Process added nodes
-    if (mutation.type === "childList") {
-      mutation.addedNodes.forEach((node) => {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          // INTEGRATION POINT: Use NodeIdManager if available, otherwise fall back to ensureNodeHasValidId
-          if (window.NodeIdManager && typeof NodeIdManager.exists === 'function') {
-            // If node already has an ID
-            if (node.id) {
-              // Check if it's a duplicate
-              if (NodeIdManager.exists(node.id) && document.getElementById(node.id) !== node) {
-                console.log(`Duplicate ID detected: ${node.id}`);
-                
-                // Find reference nodes for context-aware ID generation
+      // 2) Process added nodes
+      if (mutation.type === "childList") {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            if (window.NodeIdManager && typeof NodeIdManager.exists === 'function') {
+              // If node already has an ID
+              if (node.id) {
+                // Check if it's a duplicate
+                if (NodeIdManager.exists(node.id) && document.getElementById(node.id) !== node) {
+                  console.log(`Duplicate ID detected: ${node.id}`);
+                  
+                  // Find reference nodes for context-aware ID generation
+                  const parent = node.parentElement;
+                  if (parent) {
+                    const siblings = Array.from(parent.children);
+                    const index = siblings.indexOf(node);
+                    
+                    let newId;
+                    if (index > 0) {
+                      const prevSibling = siblings[index - 1];
+                      if (index < siblings.length - 1) {
+                        const nextSibling = siblings[index + 1];
+                        if (prevSibling.id && nextSibling.id) {
+                          newId = NodeIdManager.getIntermediateId(prevSibling.id, nextSibling.id);
+                        } else if (prevSibling.id) {
+                          newId = NodeIdManager.getNextId(prevSibling.id);
+                        } else if (nextSibling.id) {
+                          newId = NodeIdManager.getIdBefore(nextSibling.id);
+                        } else {
+                          newId = NodeIdManager.generateUniqueId();
+                        }
+                      } else {
+                        // Last child
+                        if (prevSibling.id) {
+                          newId = NodeIdManager.getNextId(prevSibling.id);
+                        } else {
+                          newId = NodeIdManager.generateUniqueId();
+                        }
+                      }
+                    } else {
+                      // First child
+                      if (index < siblings.length - 1) {
+                        const nextSibling = siblings[index + 1];
+                        if (nextSibling.id) {
+                          newId = NodeIdManager.getIdBefore(nextSibling.id);
+                        } else {
+                          newId = NodeIdManager.generateUniqueId();
+                        }
+                      } else {
+                        // Only child
+                        newId = NodeIdManager.generateUniqueId();
+                      }
+                    }
+                    
+                    console.log(`Changing duplicate ID from ${node.id} to ${newId}`);
+                    node.id = newId;
+                  } else {
+                    // No parent, generate a completely unique ID
+                    const oldId = node.id;
+                    node.id = NodeIdManager.generateUniqueId();
+                    console.log(`Changed orphaned duplicate ID from ${oldId} to ${node.id}`);
+                  }
+                } else {
+                  // ID exists but is not a duplicate, register it
+                  NodeIdManager.register(node.id);
+                }
+              } else {
+                // Node has no ID, generate one based on context
                 const parent = node.parentElement;
                 if (parent) {
                   const siblings = Array.from(parent.children);
@@ -214,176 +296,122 @@ export function startObserving(editableDiv) {
                   let newId;
                   if (index > 0) {
                     const prevSibling = siblings[index - 1];
-                    if (index < siblings.length - 1) {
-                      const nextSibling = siblings[index + 1];
-                      if (prevSibling.id && nextSibling.id) {
-                        newId = NodeIdManager.getIntermediateId(prevSibling.id, nextSibling.id);
-                      } else if (prevSibling.id) {
-                        newId = NodeIdManager.getNextId(prevSibling.id);
-                      } else if (nextSibling.id) {
-                        newId = NodeIdManager.getIdBefore(nextSibling.id);
-                      } else {
-                        newId = NodeIdManager.generateUniqueId();
-                      }
+                    if (prevSibling.id && /^\d+(\.\d+)?$/.test(prevSibling.id)) {
+                      newId = NodeIdManager.getNextId(prevSibling.id);
                     } else {
-                      // Last child
-                      if (prevSibling.id) {
-                        newId = NodeIdManager.getNextId(prevSibling.id);
-                      } else {
-                        newId = NodeIdManager.generateUniqueId();
-                      }
-                    }
-                  } else {
-                    // First child
-                    if (index < siblings.length - 1) {
-                      const nextSibling = siblings[index + 1];
-                      if (nextSibling.id) {
-                        newId = NodeIdManager.getIdBefore(nextSibling.id);
-                      } else {
-                        newId = NodeIdManager.generateUniqueId();
-                      }
-                    } else {
-                      // Only child
                       newId = NodeIdManager.generateUniqueId();
                     }
+                  } else if (index < siblings.length - 1) {
+                    const nextSibling = siblings[index + 1];
+                    if (nextSibling.id && /^\d+(\.\d+)?$/.test(nextSibling.id)) {
+                      newId = NodeIdManager.getIdBefore(nextSibling.id);
+                    } else {
+                      newId = NodeIdManager.generateUniqueId();
+                    }
+                  } else {
+                    newId = NodeIdManager.generateUniqueId();
                   }
                   
-                  console.log(`Changing duplicate ID from ${node.id} to ${newId}`);
+                  console.log(`Assigned new ID to node: ${newId}`);
                   node.id = newId;
                 } else {
                   // No parent, generate a completely unique ID
-                  const oldId = node.id;
                   node.id = NodeIdManager.generateUniqueId();
-                  console.log(`Changed orphaned duplicate ID from ${oldId} to ${node.id}`);
+                  console.log(`Assigned unique ID to orphaned node: ${node.id}`);
                 }
-              } else {
-                // ID exists but is not a duplicate, register it
-                NodeIdManager.register(node.id);
               }
             } else {
-              // Node has no ID, generate one based on context
-              const parent = node.parentElement;
-              if (parent) {
-                const siblings = Array.from(parent.children);
-                const index = siblings.indexOf(node);
-                
-                let newId;
-                if (index > 0) {
-                  const prevSibling = siblings[index - 1];
-                  if (prevSibling.id && /^\d+(\.\d+)?$/.test(prevSibling.id)) {
-                    newId = NodeIdManager.getNextId(prevSibling.id);
-                  } else {
-                    newId = NodeIdManager.generateUniqueId();
-                  }
-                } else if (index < siblings.length - 1) {
-                  const nextSibling = siblings[index + 1];
-                  if (nextSibling.id && /^\d+(\.\d+)?$/.test(nextSibling.id)) {
-                    newId = NodeIdManager.getIdBefore(nextSibling.id);
-                  } else {
-                    newId = NodeIdManager.generateUniqueId();
-                  }
-                } else {
-                  newId = NodeIdManager.generateUniqueId();
-                }
-                
-                console.log(`Assigned new ID to node: ${newId}`);
-                node.id = newId;
-              } else {
-                // No parent, generate a completely unique ID
-                node.id = NodeIdManager.generateUniqueId();
-                console.log(`Assigned unique ID to orphaned node: ${node.id}`);
-              }
+              // Fall back to original method if NodeIdManager is not available
+              ensureNodeHasValidId(node);
             }
-          } else {
-            // Fall back to original method if NodeIdManager is not available
-            ensureNodeHasValidId(node);
+            
+            addedNodes.add(node);
+            addedCount++;
+            newNodes.push(node); // Add to newNodes array for saving later
+            
+            // If this might be a paste, explicitly save this node
+            if (pasteDetected && node.id) {
+              console.log(`Saving potentially pasted node: ${node.id}`);
+              updateIndexedDBRecord({
+                id: node.id,
+                html: node.outerHTML,
+                chunk_id: getNodeChunkId(node),
+                action: "update"
+              }).catch(console.error);
+            }
           }
-          
-          addedNodes.add(node);
-          addedCount++;
-          newNodes.push(node); // Add to newNodes array for saving later
-          
-          // If this might be a paste, explicitly save this node
-          if (pasteDetected && node.id) {
-            console.log(`Saving potentially pasted node: ${node.id}`);
-            updateIndexedDBRecord({
-              id: node.id,
-              html: node.outerHTML,
-              action: "update"
-            }).catch(console.error);
-          }
+        });
+      }
+      // 3) Process text changes
+      else if (mutation.type === "characterData") {
+        let parent = mutation.target.parentNode;
+        
+        // Find the closest parent with an ID (typically a paragraph)
+        while (parent && !parent.id) {
+          parent = parent.parentNode;
         }
-      });
-    }
-    // 3) Process text changes
-    else if (mutation.type === "characterData") {
-      let parent = mutation.target.parentNode;
-      
-      // Find the closest parent with an ID (typically a paragraph)
-      while (parent && !parent.id) {
-        parent = parent.parentNode;
-      }
-      
-      if (parent && parent.id) {
-        console.log(`Saving characterData change in parent: ${parent.id}`);
-        updateIndexedDBRecord({
-          id: parent.id,
-          html: parent.outerHTML,
-          action: "update"
-        }).catch(console.error);
-        modifiedNodes.add(parent.id);
-      } else {
-        console.warn("characterData change detected but couldn't find parent with ID");
+        
+        if (parent && parent.id) {
+          console.log(`Saving characterData change in parent: ${parent.id}`);
+          updateIndexedDBRecord({
+            id: parent.id,
+            html: parent.outerHTML,
+            chunk_id: getNodeChunkId(parent),
+            action: "update"
+          }).catch(console.error);
+          modifiedNodes.add(parent.id);
+        } else {
+          console.warn("characterData change detected but couldn't find parent with ID");
+        }
       }
     }
-  }
-  
-  // Process all parent nodes that need updates
-  parentsToUpdate.forEach(parent => {
-    console.log(`Updating parent node after child removal: ${parent.id}`);
-    updateIndexedDBRecord({
-      id: parent.id,
-      html: parent.outerHTML,
-      action: "update"
-    }).catch(console.error);
-    modifiedNodes.add(parent.id);
-  });
+    
+    // Process all parent nodes that need updates
+    parentsToUpdate.forEach(parent => {
+      console.log(`Updating parent node after child removal: ${parent.id}`);
+      updateIndexedDBRecord({
+        id: parent.id,
+        html: parent.outerHTML,
+        chunk_id: getNodeChunkId(parent),
+        action: "update"
+      }).catch(console.error);
+      modifiedNodes.add(parent.id);
+    });
 
-  // If we detected a paste operation with multiple nodes, save the whole chunk
-  if (pasteDetected && addedCount > 1) {
-    console.log(`Paste operation detected with ${addedCount} nodes - saving entire chunk`);
-    await renumberChunkAndSave(currentObservedChunk);
-  }
-  // Otherwise, save individual nodes if there aren't too many
-  else if (addedCount > 0) {
-    if (addedCount < BULK_THRESHOLD) {
-      // small: update each individually
-      console.log(`Saving ${newNodes.length} new nodes individually`);
-      await Promise.all(
-        newNodes.map(node => {
-          if (node.id) {
-            console.log(`Saving new node: ${node.id}`);
-            return updateIndexedDBRecord({
-              id: node.id,
-              html: node.outerHTML,
-              action: "add"
-            }).catch(console.error);
-          }
-          return Promise.resolve();
-        })
-      );
-    } else {
-      // bulk: renumber the whole chunk & save in one pass
-      console.log(`Bulk insert of ${addedCount} nodes—doing batch save`);
+    // If we detected a paste operation with multiple nodes, save the whole chunk
+    if (pasteDetected && addedCount > 1) {
+      console.log(`Paste operation detected with ${addedCount} nodes - saving entire chunk`);
       await renumberChunkAndSave(currentObservedChunk);
     }
-  }
+    // Otherwise, save individual nodes if there aren't too many
+    else if (addedCount > 0) {
+      if (addedCount < BULK_THRESHOLD) {
+        // small: update each individually
+        console.log(`Saving ${newNodes.length} new nodes individually`);
+        await Promise.all(
+          newNodes.map(node => {
+            if (node.id) {
+              console.log(`Saving new node: ${node.id}`);
+              return updateIndexedDBRecord({
+                id: node.id,
+                html: node.outerHTML,
+                chunk_id: getNodeChunkId(node),
+                action: "add"
+              }).catch(console.error);
+            }
+            return Promise.resolve();
+          })
+        );
+      } else {
+        // bulk: renumber the whole chunk & save in one pass
+        console.log(`Bulk insert of ${addedCount} nodes—doing batch save`);
+        await renumberChunkAndSave(currentObservedChunk);
+      }
+    }
 
-  // then your existing debounced normalize
-  debouncedNormalize(currentObservedChunk);
-});
-
-
+    // then your existing debounced normalize
+    debouncedNormalize(currentObservedChunk);
+  });
 
   observer.observe(currentChunk, {
     childList: true,
@@ -391,9 +419,8 @@ export function startObserving(editableDiv) {
     characterData: true,
   });
   console.log("Observer started in chunk:", currentChunk);
-  
-  
 }
+
 
 
 // Function to stop the MutationObserver.
@@ -410,6 +437,14 @@ export function stopObserving() {
   addedNodes.clear();
   removedNodeIds.clear();
   documentChanged = false;
+
+  // Clear chunk node counts for the current chunk
+  if (currentObservedChunk) {
+    const chunkId = currentObservedChunk.getAttribute('data-chunk-id');
+    if (chunkId && chunkNodeCounts[chunkId]) {
+      delete chunkNodeCounts[chunkId];
+    }
+  }
   
   // Remove any lingering spinner
   const existingSpinner = document.getElementById("status-icon");
@@ -663,6 +698,56 @@ function getCurrentChunk() {
   return null;
 }
 
+// Helper function to get chunk_id for a node as a float
+// Helper function to get chunk_id for a node as a float
+// Enhanced helper function to get chunk_id for a node as a float
+function getNodeChunkId(node) {
+  // Make sure we have a valid node
+  if (!node) {
+    console.warn("getNodeChunkId called with null/undefined node");
+    return 0;
+  }
+  
+  // Find the closest parent with a data-chunk-id attribute
+  const parentChunk = node.closest('[data-chunk-id]');
+  
+  if (parentChunk) {
+    const chunkIdStr = parentChunk.getAttribute('data-chunk-id');
+    console.log(`Found chunk_id ${chunkIdStr} for node ${node.id || 'unknown'}`);
+    return parseFloat(chunkIdStr);
+  } 
+  
+  // FALLBACK 1: If node is not attached to a chunk, check if it's in currentObservedChunk
+  if (currentObservedChunk && currentObservedChunk.contains(node)) {
+    const observedChunkId = currentObservedChunk.getAttribute('data-chunk-id');
+    console.log(`Node ${node.id || 'unknown'} is in currentObservedChunk with ID ${observedChunkId}`);
+    return parseFloat(observedChunkId);
+  }
+  
+  // FALLBACK 2: Look for any chunk in the document that contains this node
+  const allChunks = document.querySelectorAll('[data-chunk-id]');
+  for (const chunk of allChunks) {
+    if (chunk.contains(node)) {
+      const foundChunkId = chunk.getAttribute('data-chunk-id');
+      console.log(`Found node ${node.id || 'unknown'} in chunk ${foundChunkId} by document search`);
+      return parseFloat(foundChunkId);
+    }
+  }
+  
+  // FALLBACK 3: If we still can't find a chunk, use the current active chunk ID
+  if (currentObservedChunk) {
+    const defaultChunkId = currentObservedChunk.getAttribute('data-chunk-id');
+    console.warn(`No parent chunk found for node ${node.id || 'unknown'}, using current active chunk ${defaultChunkId}`);
+    return parseFloat(defaultChunkId);
+  }
+  
+  // Last resort fallback
+  console.warn(`No chunk context found for node ${node.id || 'unknown'}, using default chunk_id 0`);
+  return 0;
+}
+
+
+
 // Replace original ensureNodeHasValidId with enhanced version using decimal logic.
 function ensureNodeHasValidId(node, options = {}) {
   const { referenceNode, insertAfter } = options;
@@ -825,6 +910,7 @@ function createAndInsertParagraph(blockElement, chunkContainer, content, selecti
       updateIndexedDBRecord({
         id: newParagraph.id,
         html: newParagraph.outerHTML,
+        chunk_id: getNodeChunkId(newParagraph),
         action: "update" // Changed from "add" since it might have been renumbered
       }).catch(console.error);
     }
