@@ -1,4 +1,5 @@
 import { updateIndexedDBRecord } from './cache-indexedDB.js';
+import { generateIdBetween } from './IDfunctions.js';
 
 // Object to store node counts for each chunk
 export const chunkNodeCounts = {};
@@ -74,65 +75,7 @@ export function trackChunkNodeCount(chunk, mutations = null) {
   }
 }
 
-/**
- * Get the next chunk after the current one
- * @param {HTMLElement} currentChunk - The current chunk
- * @returns {HTMLElement|null} - The next chunk or null if none exists
- */
-export function getNextChunk(currentChunk) {
-  // Find all chunks in the document
-  const allChunks = document.querySelectorAll('[data-chunk-id]');
-  const chunks = Array.from(allChunks);
-  
-  // Find the index of the current chunk
-  const currentIndex = chunks.indexOf(currentChunk);
-  
-  // Return the next chunk if it exists
-  if (currentIndex >= 0 && currentIndex < chunks.length - 1) {
-    return chunks[currentIndex + 1];
-  }
-  
-  return null;
-}
 
-/**
- * Create a new chunk after the specified chunk
- * @param {HTMLElement} afterChunk - The chunk to insert after
- * @returns {HTMLElement} - The newly created chunk
- */
-export function createNewChunk(afterChunk) {
-  // Find all chunks in the document
-  const existingChunks = document.querySelectorAll('[data-chunk-id]');
-  
-  // Extract numeric chunk IDs
-  const chunkIds = Array.from(existingChunks).map(chunk => {
-    const id = chunk.getAttribute('data-chunk-id');
-    // Handle both formats: "chunk-1" and "1"
-    return parseInt(id.includes('chunk-') ? id.replace('chunk-', '') : id, 10);
-  }).filter(id => !isNaN(id)); // Filter out any NaN values
-  
-  // Find the next available chunk ID
-  const maxId = chunkIds.length > 0 ? Math.max(...chunkIds) : -1;
-  const newChunkId = String(maxId + 1); // Just use the number as a string
-  
-  // Create the new chunk element
-  const newChunk = document.createElement('div');
-  newChunk.setAttribute('data-chunk-id', newChunkId);
-  newChunk.className = 'chunk';
-  
-  // Insert after the specified chunk
-  if (afterChunk.nextSibling) {
-    afterChunk.parentNode.insertBefore(newChunk, afterChunk.nextSibling);
-  } else {
-    afterChunk.parentNode.appendChild(newChunk);
-  }
-  
-  // Initialize the node count for this chunk
-  chunkNodeCounts[newChunkId] = 0;
-  
-  console.log(`Created new chunk with ID: ${newChunkId}`);
-  return newChunk;
-}
 
 
 /**
@@ -170,34 +113,108 @@ export async function handleChunkOverflow(currentChunk, mutations) {
   
   if (overflowNodes.length === 0) return;
   
+  // Find the first and last overflow node
+  const firstOverflowNode = overflowNodes[0];
+  const lastOverflowNode = overflowNodes[overflowNodes.length - 1];
+  
+  // Check if there's a next chunk and if it has room
+  const nextChunk = currentChunk.nextElementSibling;
+  const nextChunkIsChunk = nextChunk && nextChunk.classList.contains('chunk');
+  
+  let targetChunk;
+  let newChunkId;
+  
+  if (nextChunkIsChunk) {
+    // Get the next chunk ID
+    const nextChunkId = nextChunk.getAttribute('data-chunk-id');
+    
+    // Check if the next chunk has room using our tracking system
+    const nextChunkNodeCount = chunkNodeCounts[nextChunkId] || 0;
+    
+    // If the next chunk has room, use it instead of creating a new one
+    if (nextChunkNodeCount + overflowNodes.length <= NODE_LIMIT) {
+      console.log(`Using existing chunk ${nextChunkId} for overflow nodes (current count: ${nextChunkNodeCount})`);
+      targetChunk = nextChunk;
+      newChunkId = nextChunkId;
+      
+      // Move the next chunk div to be positioned right after the current chunk's kept nodes
+      const range = document.createRange();
+      range.setStartBefore(firstOverflowNode);
+      range.setEndAfter(lastOverflowNode);
+      
+      // Extract the overflow nodes
+      const overflowFragment = range.extractContents();
+      
+      // Insert the next chunk div before the first overflow node's original position
+      currentChunk.parentNode.insertBefore(targetChunk, currentChunk.nextSibling);
+      
+      // Insert the overflow nodes at the beginning of the next chunk
+      if (targetChunk.firstChild) {
+        targetChunk.insertBefore(overflowFragment, targetChunk.firstChild);
+      } else {
+        targetChunk.appendChild(overflowFragment);
+      }
+    } else {
+      // Next chunk doesn't have room, create a new one
+      targetChunk = document.createElement('div');
+      targetChunk.className = 'chunk';
+      // Use generateIdBetween to create an ID between current and next chunks
+      newChunkId = generateIdBetween(currentChunkId, nextChunkId);
+      targetChunk.setAttribute('data-chunk-id', newChunkId);
+      
+      // Use Range to extract the overflow nodes and place them in the new chunk
+      const range = document.createRange();
+      range.setStartBefore(firstOverflowNode);
+      range.setEndAfter(lastOverflowNode);
+      
+      // Insert the new chunk after the current chunk but before the next chunk
+      currentChunk.parentNode.insertBefore(targetChunk, nextChunk);
+      
+      // Move the range contents into the new chunk
+      targetChunk.appendChild(range.extractContents());
+    }
+  } else {
+    // No next chunk, create a new one
+    targetChunk = document.createElement('div');
+    targetChunk.className = 'chunk';
+    
+    // Parse the current chunk ID
+    const currentId = parseFloat(currentChunkId);
+    
+    // If it's a valid number, increment it appropriately
+    if (!isNaN(currentId)) {
+      if (Number.isInteger(currentId)) {
+        // If it's a whole number, just add 1
+        newChunkId = (currentId + 1).toString();
+      } else {
+        // If it has a decimal part, round up to the next integer
+        newChunkId = Math.ceil(currentId).toString();
+      }
+    } else {
+      // Fallback if ID isn't numeric
+      newChunkId = generateIdBetween(currentChunkId, null);
+    }
+    
+    targetChunk.setAttribute('data-chunk-id', newChunkId);
+    
+    // Use Range to extract the overflow nodes and place them in the new chunk
+    const range = document.createRange();
+    range.setStartBefore(firstOverflowNode);
+    range.setEndAfter(lastOverflowNode);
+    
+    // Insert the new chunk after the current chunk
+    currentChunk.parentNode.insertBefore(targetChunk, currentChunk.nextSibling);
+    
+    // Move the range contents into the new chunk
+    targetChunk.appendChild(range.extractContents());
+  }
+
+  
   // Store the IDs and HTML of nodes that will be moved
   const overflowNodeData = overflowNodes.map(node => ({
     id: node.id,
     html: node.outerHTML
   }));
-  
-  // Find the first and last overflow node
-  const firstOverflowNode = overflowNodes[0];
-  const lastOverflowNode = overflowNodes[overflowNodes.length - 1];
-  
-  // Generate new chunk ID
-  const newChunkId = generateNextChunkId(currentChunkId);
-  
-  // Create a new chunk by splitting the DOM at the right position
-  const newChunk = document.createElement('div');
-  newChunk.className = 'chunk';
-  newChunk.setAttribute('data-chunk-id', newChunkId);
-  
-  // Use Range to extract the overflow nodes and place them in the new chunk
-  const range = document.createRange();
-  range.setStartBefore(firstOverflowNode);
-  range.setEndAfter(lastOverflowNode);
-  
-  // Insert the new chunk after the current chunk
-  currentChunk.parentNode.insertBefore(newChunk, currentChunk.nextSibling);
-  
-  // Move the range contents into the new chunk
-  newChunk.appendChild(range.extractContents());
   
   // Wait a short time to allow the mutation observer to process the removals
   // and delete the nodes from IndexedDB
@@ -208,7 +225,7 @@ export async function handleChunkOverflow(currentChunk, mutations) {
   
   overflowNodeData.forEach(({ id, html }) => {
     // Find the node in its new location to get the current HTML
-    const movedNode = newChunk.querySelector(`#${CSS.escape(id)}`);
+    const movedNode = targetChunk.querySelector(`#${CSS.escape(id)}`);
     const currentHtml = movedNode ? movedNode.outerHTML : html;
     
     console.log(`Re-creating node ${id} in IndexedDB with chunk_id ${newChunkId}`);
@@ -226,13 +243,23 @@ export async function handleChunkOverflow(currentChunk, mutations) {
   
   // Update node counts for both chunks
   chunkNodeCounts[currentChunkId] = NODE_LIMIT;
-  chunkNodeCounts[newChunkId] = overflowNodeData.length;
+  
+  if (nextChunkIsChunk && targetChunk === nextChunk) {
+    // If we used an existing chunk, add to its count
+    chunkNodeCounts[newChunkId] += overflowNodes.length;
+  } else {
+    // If we created a new chunk, set its count
+    chunkNodeCounts[newChunkId] = overflowNodes.length;
+  }
+  
+  // Re-count nodes in both chunks to ensure accuracy
+  trackChunkNodeCount(currentChunk);
+  trackChunkNodeCount(targetChunk);
   
   // Wait for all saves to complete
   await Promise.all(savePromises);
-  console.log(`Re-created ${overflowNodeData.length} nodes in new chunk ${newChunkId}`);
+  console.log(`Re-created ${overflowNodeData.length} nodes in chunk ${newChunkId}`);
 }
-
 
 
 // Add this helper function if you don't already have it
