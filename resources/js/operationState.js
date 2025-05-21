@@ -85,3 +85,17 @@ export async function withPending(fn) {
     decrementPendingOperations();
   }
 }
+
+export let currentObservedChunk = null;
+export let chunkOverflowInProgress = false;
+
+// Function to update the currentObservedChunk
+export function setCurrentObservedChunk(chunk) {
+  currentObservedChunk = chunk;
+  return chunk;
+}
+// Function to update the flag
+export function setChunkOverflowInProgress(value) {
+  chunkOverflowInProgress = value;
+  return value;
+}

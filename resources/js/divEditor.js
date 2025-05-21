@@ -7,8 +7,12 @@ import {
   updateCitationForExistingHypercite
           } from "./cache-indexedDB.js";
 import { 
-  withPending
+  withPending,
+  chunkOverflowInProgress,
+  currentObservedChunk,
+  setCurrentObservedChunk
 } from './operationState.js';
+
 
 import { buildBibtexEntry } from "./bibtexProcessor.js";
 import { generateUniqueId, 
@@ -40,7 +44,6 @@ const removedNodeIds = new Set(); // Track IDs of removed nodes.
 // Global observer variable
 let observer;
 // Global variable to track the currently observed chunk.
-let currentObservedChunk = null;
 // Track document changes for debounced normalization
 let documentChanged = false;
 // hypercite paste handling
@@ -49,6 +52,7 @@ let hypercitePasteInProgress = false;
 let debounceTimer = null;
 // Flag to prevent double-handling
 let pasteHandled = false;
+
 
 
 
@@ -68,7 +72,7 @@ export function startObserving(editableDiv) {
     console.warn("No active chunk found; observer not attached.");
     return;
   }
-  currentObservedChunk = currentChunk;
+  setCurrentObservedChunk(currentChunk);
   console.log("Observing changes in chunk:", currentChunk);
 
   // Initialize node count for this chunk (establish what the count is before mutations)
@@ -432,7 +436,6 @@ export function stopObserving() {
   }
   
   // Reset all state variables
-  currentObservedChunk = null;
   modifiedNodes.clear();
   addedNodes.clear();
   removedNodeIds.clear();
@@ -469,7 +472,7 @@ document.addEventListener("selectionchange", () => {
     if (newChunk) {
       startObserving(newChunk);
     } else {
-      currentObservedChunk = null;
+      setCurrentObservedChunk(null);
       console.warn("Lost focus on any chunk.");
     }
   }
@@ -951,6 +954,14 @@ function createAndInsertParagraph(
 
 
 document.addEventListener("keydown", function(event) {
+
+  // Skip paragraph creation if chunk overflow is in progress
+  if (event.key === "Enter" && chunkOverflowInProgress) {
+    event.preventDefault();
+    console.log("Enter key ignored during chunk overflow processing");
+    return;
+  }
+
   // Reset enter count if any other key is pressed
   if (event.key !== "Enter") {
     lastKeyWasEnter = false;
