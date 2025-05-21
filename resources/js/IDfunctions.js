@@ -331,66 +331,44 @@ export function generateIdBetween(beforeId, afterId) {
       : Math.max(1, Math.floor(afterNum) - 1).toString();
   }
 
-  // If no afterId, increment the beforeId in the pattern you described
+  // If no afterId, increment the beforeId
   if (!afterId) {
     const beforeNum = parseFloat(beforeId);
     if (isNaN(beforeNum)) return `${beforeId}_1`;
-
-    // If it's a whole number, add .1
     if (Number.isInteger(beforeNum)) {
       return `${beforeNum}.1`;
     }
-
-    // Get the decimal part as a string
-    const parts = beforeId.split(".");
-    const intPart = parts[0];
-    const decPart = parts[1] || "";
-
-    // Check if the last digit is 9
-    if (decPart.charAt(decPart.length - 1) === "9") {
-      // Add a new digit
+    const [intPart, decPart = ""] = beforeId.split(".");
+    if (decPart.endsWith("9")) {
       return `${intPart}.${decPart}1`;
     } else {
-      // Increment the last digit
-      const lastDigit = parseInt(decPart.charAt(decPart.length - 1), 10);
-      return `${intPart}.${decPart.slice(0, -1)}${lastDigit + 1}`;
+      const last = parseInt(decPart.slice(-1), 10);
+      return `${intPart}.${decPart.slice(0, -1)}${last + 1}`;
     }
   }
 
-  // If we have both beforeId and afterId
+  // Both beforeId and afterId exist
   const beforeNum = parseFloat(beforeId);
   const afterNum = parseFloat(afterId);
-
   if (!isNaN(beforeNum) && !isNaN(afterNum)) {
-    // Ensure they're in the right order
     if (beforeNum >= afterNum) {
-      console.warn(
-        `IDs out of order: ${beforeId} should be less than ${afterId}`
-      );
-      // Fallback to just incrementing beforeId
+      console.warn(`IDs out of order: ${beforeId} ≥ ${afterId}`);
       return generateIdBetween(beforeId, null);
     }
 
-    // Split into integer and decimal parts
     const beforeParts = beforeId.split(".");
     const afterParts = afterId.split(".");
+    const gap = afterNum - beforeNum;
+    const lenB = beforeParts[1]?.length || 0;
+    const lenA = afterParts[1]?.length || 0;
 
-    // If they share the same integer part and both have decimals
-    if (
-      beforeParts[0] === afterParts[0] &&
-      beforeParts[1] &&
-      afterParts[1]
-    ) {
-      const gap = afterNum - beforeNum;
-      const lenB = beforeParts[1].length;
-      const lenA = afterParts[1].length;
-
-      // Case A: same # of decimal digits, small positive gap
+    // 1) Same integer part, both have decimals
+    if (beforeParts[0] === afterParts[0] && lenB > 0 && lenA > 0) {
+      // Case A: same decimal length
       if (lenA === lenB && gap > 0 && gap <= 0.1) {
         return `${beforeId}1`;
       }
-
-      // Case B+: afterId has MORE decimal digits, small positive gap
+      // Case B+: afterId has more decimals
       if (lenA > lenB && gap > 0 && gap <= 0.1) {
         const extra = lenA - lenB;
         const suffix = "0".repeat(extra) + "1";
@@ -398,35 +376,46 @@ export function generateIdBetween(beforeId, afterId) {
       }
     }
 
-    // If they're consecutive integers (like 1 and 2)
+    // 2) before is integer, after has decimal (e.g. 100 vs 100.1)
+    if (
+      beforeParts.length === 1 &&
+      afterParts.length === 2 &&
+      beforeParts[0] === afterParts[0] &&
+      gap > 0 &&
+      gap <= 0.1
+    ) {
+      // put "0...01" after the dot
+      const suffix = "0".repeat(lenA) + "1"; 
+      return `${beforeParts[0]}.${suffix}`;
+    }
+
+    // 3) consecutive integers (1 and 2)
     if (
       Number.isInteger(beforeNum) &&
       Number.isInteger(afterNum) &&
       afterNum - beforeNum === 1
     ) {
-      // Start with .1 after the lower number
       return `${beforeNum}.1`;
     }
 
-    // If beforeId has a decimal and afterId is a whole number
+    // 4) before has decimal, after is whole
     if (!Number.isInteger(beforeNum) && Number.isInteger(afterNum)) {
       const beforeInt = Math.floor(beforeNum);
       if (afterNum - beforeInt <= 1) {
-        // Increment the decimal part
         return generateIdBetween(beforeId, null);
       } else {
-        // There's room for a whole number in between
         return (beforeInt + 1).toString();
       }
     }
 
-    // Otherwise, just increment the beforeId
+    // Fallback: increment beforeId
     return generateIdBetween(beforeId, null);
   }
 
   // Default fallback
   return `${beforeId}_next`;
 }
+
 
 
 
