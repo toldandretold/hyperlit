@@ -182,7 +182,7 @@ instance.saveScrollPosition = () => {
         const savedStartLine = parseFloat(scrollData.elementId);
         const matchingChunk = nodeChunksData.find((chunk) => {
           // Assuming each chunk object contains a startLine property.
-          return parseInt(chunk.startLine, 10) === savedStartLine;
+          return parseFloat(chunk.startLine, 10) === savedStartLine;
         });
 
         if (matchingChunk) {
@@ -283,7 +283,7 @@ instance.saveScrollPosition = () => {
       if (entry.target.id === bottomSentinel.id) {
         const lastChunkEl = getLastChunkElement();
         if (lastChunkEl) {
-          const lastChunkId = parseInt(lastChunkEl.getAttribute("data-chunk-id"), 10);
+          const lastChunkId = parseFloat(lastChunkEl.getAttribute("data-chunk-id"), 10);
           console.log(`Bottom sentinel triggered, last chunk ID: ${lastChunkId}`);
           loadNextChunkFixed(lastChunkId, instance);
         }
@@ -612,68 +612,117 @@ function getTextNodes(element) {
  * Loads the previous chunk into the container.
  */
 export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
-  const previousChunkId = currentFirstChunkId - 1;
-  if (previousChunkId < 0) {
-    console.warn("No previous chunks to load.");
-    return;
-  }
-  if (instance.container.querySelector(`[data-chunk-id="${previousChunkId}"]`)) {
-    console.log(`Previous chunk ${previousChunkId} already loaded.`);
-    return;
-  }
-  const prevNodes = instance.nodeChunks.filter(
-  (node) => node.chunk_id === previousChunkId
-  );
-  if (!prevNodes || prevNodes.length === 0) {
-    console.warn(`No data found for chunk ${previousChunkId}.`);
-    return;
-  }
-  console.log(`Loading previous chunk: ${previousChunkId}`);
-  const container = instance.container;
-  const prevScrollTop = container.scrollTop;
-  const chunkElement = createChunkElement(prevNodes);
-  container.insertBefore(chunkElement, container.firstElementChild);
-  instance.currentlyLoadedChunks.add(previousChunkId);
-  const newHeight = chunkElement.getBoundingClientRect().height;
-  container.scrollTop = prevScrollTop + newHeight;
-  // Reposition top sentinel.
-  if (instance.topSentinel) {
-    instance.topSentinel.remove();
-    container.prepend(instance.topSentinel);
-  }
-  attachUnderlineClickListeners();
-  injectFootnotesForChunk(previousChunkId, instance.bookId);
+  // Convert to float to ensure proper numeric comparison
+  const currentId = parseFloat(currentFirstChunkId);
   
+  // Find the previous chunk ID (largest ID less than current)
+  let prevChunkId = null;
+  let prevNodes = [];
+  
+  for (const node of instance.nodeChunks) {
+    const nodeChunkId = parseFloat(node.chunk_id);
+    
+    // If this node's chunk_id is less than current and either we haven't found a prev chunk yet
+    // or this one is larger than the one we've found (meaning it's closer to current)
+    if (nodeChunkId < currentId && (prevChunkId === null || nodeChunkId > prevChunkId)) {
+      prevChunkId = nodeChunkId;
+    }
+  }
+  
+  // If we found a previous chunk ID
+  if (prevChunkId !== null) {
+    // Check if already loaded
+    if (instance.container.querySelector(`[data-chunk-id="${prevChunkId}"]`)) {
+      console.log(`Previous chunk ${prevChunkId} already loaded.`);
+      return;
+    }
+    
+    // Get all nodes for this chunk
+    prevNodes = instance.nodeChunks.filter(node => parseFloat(node.chunk_id) === prevChunkId);
+    
+    if (prevNodes.length === 0) {
+      console.warn(`No data found for chunk ${prevChunkId}.`);
+      return;
+    }
+    
+    console.log(`Loading previous chunk: ${prevChunkId}`);
+    const container = instance.container;
+    const prevScrollTop = container.scrollTop;
+    const chunkElement = createChunkElement(prevNodes);
+    container.insertBefore(chunkElement, container.firstElementChild);
+    instance.currentlyLoadedChunks.add(prevChunkId);
+    const newHeight = chunkElement.getBoundingClientRect().height;
+    container.scrollTop = prevScrollTop + newHeight;
+    
+    // Reposition top sentinel.
+    if (instance.topSentinel) {
+      instance.topSentinel.remove();
+      container.prepend(instance.topSentinel);
+    }
+    
+    attachUnderlineClickListeners();
+    injectFootnotesForChunk(prevChunkId, instance.bookId);
+  } else {
+    console.log("No previous chunk available.");
+  }
 }
+
 
 /**
  * Loads the next chunk into the container.
  */
 export function loadNextChunkFixed(currentLastChunkId, instance) {
-  const nextChunkId = currentLastChunkId + 1;
-  if (instance.container.querySelector(`[data-chunk-id="${nextChunkId}"]`)) {
-    console.log(`Next chunk ${nextChunkId} already loaded.`);
-    return;
+  // Convert to float to ensure proper numeric comparison
+  const currentId = parseFloat(currentLastChunkId);
+  
+  // Find the next chunk ID (smallest ID greater than current)
+  let nextChunkId = null;
+  let nextNodes = [];
+  
+  for (const node of instance.nodeChunks) {
+    const nodeChunkId = parseFloat(node.chunk_id);
+    
+    // If this node's chunk_id is greater than current and either we haven't found a next chunk yet
+    // or this one is smaller than the one we've found (meaning it's closer to current)
+    if (nodeChunkId > currentId && (nextChunkId === null || nodeChunkId < nextChunkId)) {
+      nextChunkId = nodeChunkId;
+    }
   }
-  const nextNodes = instance.nodeChunks.filter(
-    (node) => node.chunk_id === nextChunkId
-  );
-  if (!nextNodes || nextNodes.length === 0) {
-    console.warn(`No data found for chunk ${nextChunkId}.`);
-    return;
+  
+  // If we found a next chunk ID
+  if (nextChunkId !== null) {
+    // Check if already loaded
+    if (instance.container.querySelector(`[data-chunk-id="${nextChunkId}"]`)) {
+      console.log(`Next chunk ${nextChunkId} already loaded.`);
+      return;
+    }
+    
+    // Get all nodes for this chunk
+    nextNodes = instance.nodeChunks.filter(node => parseFloat(node.chunk_id) === nextChunkId);
+    
+    if (nextNodes.length === 0) {
+      console.warn(`No data found for chunk ${nextChunkId}.`);
+      return;
+    }
+    
+    console.log(`Loading next chunk: ${nextChunkId}`);
+    const container = instance.container;
+    const chunkElement = createChunkElement(nextNodes);
+    container.appendChild(chunkElement);
+    instance.currentlyLoadedChunks.add(nextChunkId);
+    
+    if (instance.bottomSentinel) {
+      instance.bottomSentinel.remove();
+      container.appendChild(instance.bottomSentinel);
+    }
+    
+    attachUnderlineClickListeners();
+    injectFootnotesForChunk(nextChunkId, instance.bookId);
+  } else {
+    console.log("No next chunk available.");
   }
-  console.log(`Loading next chunk: ${nextChunkId}`);
-  const container = instance.container;
-  const chunkElement = createChunkElement(nextNodes);
-  container.appendChild(chunkElement);
-  instance.currentlyLoadedChunks.add(nextChunkId);
-  if (instance.bottomSentinel) {
-    instance.bottomSentinel.remove();
-    container.appendChild(instance.bottomSentinel);
-  }
-  attachUnderlineClickListeners();
-  injectFootnotesForChunk(nextChunkId, instance.bookId);
 }
+
 
 /**
  * Loads a chunk based on its chunk id in the specified direction.
@@ -743,7 +792,7 @@ function repositionFixedSentinelsForBlockInternal(instance, attachMarkers) {
     console.log("Sentinels repositioned and observer reattached.");
   }
   instance.currentlyLoadedChunks = new Set(
-    allChunks.map((chunk) => parseInt(chunk.getAttribute("data-chunk-id"), 10))
+    allChunks.map((chunk) => parseFloat(chunk.getAttribute("data-chunk-id"), 10))
   );
 }
 
