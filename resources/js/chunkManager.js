@@ -140,56 +140,47 @@ export function createNewChunk(afterChunk) {
  * @param {HTMLElement} currentChunk - The current chunk that's full
  * @param {MutationRecord[]} mutations - The mutations that triggered the overflow
  */
+
 export async function handleChunkOverflow(currentChunk, mutations) {
-  // Find newly added nodes from mutations
-  const addedNodes = [];
-  mutations.forEach(mutation => {
-    if (mutation.type === "childList") {
-      mutation.addedNodes.forEach(node => {
-        if (
-          node.nodeType === Node.ELEMENT_NODE &&
-          node.id &&
-          /^\d+(\.\d+)?$/.test(node.id)
-        ) {
-          addedNodes.push(node);
-        }
-      });
-    }
-  });
-  
-  if (addedNodes.length === 0) return;
-  
   // Get the current chunk ID
   const currentChunkId = currentChunk.getAttribute('data-chunk-id');
   
-  // Check if we need to create a new chunk
-  const currentChunkNodeCount = chunkNodeCounts[currentChunkId] || 0;
-  const newTotalCount = currentChunkNodeCount + addedNodes.length;
+  // Get all nodes in the current chunk with numeric IDs
+  const allNodesInChunk = Array.from(currentChunk.querySelectorAll('[id]')).filter(node => 
+    /^\d+(\.\d+)?$/.test(node.id)
+  );
   
-  if (newTotalCount <= NODE_LIMIT) {
-    // No overflow, just update the node count
-    chunkNodeCounts[currentChunkId] = newTotalCount;
+  // Sort nodes by their ID numerically to ensure we're moving the last nodes
+  allNodesInChunk.sort((a, b) => {
+    const idA = parseFloat(a.id);
+    const idB = parseFloat(b.id);
+    return idA - idB;
+  });
+  
+  // If we don't have enough nodes to overflow, exit early
+  if (allNodesInChunk.length <= NODE_LIMIT) {
     return;
   }
   
-  // Calculate how many nodes need to be in a new chunk
-  const nodesForCurrentChunk = NODE_LIMIT - currentChunkNodeCount;
-  const overflowNodes = addedNodes.slice(nodesForCurrentChunk);
+  // Determine which nodes need to be moved (always the last ones)
+  const nodesToKeep = allNodesInChunk.slice(0, NODE_LIMIT);
+  const overflowNodes = allNodesInChunk.slice(NODE_LIMIT);
+  
+  console.log(`Chunk ${currentChunkId} has ${allNodesInChunk.length} nodes. Moving ${overflowNodes.length} nodes to a new chunk.`);
   
   if (overflowNodes.length === 0) return;
   
-  // Sort overflow nodes by their position in the DOM
-  overflowNodes.sort((a, b) => {
-    const position = a.compareDocumentPosition(b);
-    return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
-  });
+  // Store the IDs and HTML of nodes that will be moved
+  const overflowNodeData = overflowNodes.map(node => ({
+    id: node.id,
+    html: node.outerHTML
+  }));
   
   // Find the first and last overflow node
   const firstOverflowNode = overflowNodes[0];
   const lastOverflowNode = overflowNodes[overflowNodes.length - 1];
   
-  // Generate new chunk ID - fix this part
-  // Either use an existing function or create a new one
+  // Generate new chunk ID
   const newChunkId = generateNextChunkId(currentChunkId);
   
   // Create a new chunk by splitting the DOM at the right position
@@ -208,30 +199,41 @@ export async function handleChunkOverflow(currentChunk, mutations) {
   // Move the range contents into the new chunk
   newChunk.appendChild(range.extractContents());
   
-  // Update the chunk_id in IndexedDB for overflow nodes
+  // Wait a short time to allow the mutation observer to process the removals
+  // and delete the nodes from IndexedDB
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
+  // Now re-create the nodes in IndexedDB with the new chunk_id
   const savePromises = [];
   
-  overflowNodes.forEach(node => {
-    console.log(`Updating node ${node.id} to belong to chunk ${newChunkId}`);
+  overflowNodeData.forEach(({ id, html }) => {
+    // Find the node in its new location to get the current HTML
+    const movedNode = newChunk.querySelector(`#${CSS.escape(id)}`);
+    const currentHtml = movedNode ? movedNode.outerHTML : html;
     
-    // Update the node in IndexedDB with the new chunk_id
+    console.log(`Re-creating node ${id} in IndexedDB with chunk_id ${newChunkId}`);
+    
+    // Create a new record in IndexedDB with the new chunk_id
     savePromises.push(
       updateIndexedDBRecord({
-        id: node.id,
+        id: id,
+        html: currentHtml,
         chunk_id: parseFloat(newChunkId),
-        action: "update"
-      }).catch(error => console.error(`Error updating node ${node.id}:`, error))
+        action: "add" // Use "add" instead of "update" to create a new record
+      }).catch(error => console.error(`Error creating node ${id}:`, error))
     );
   });
   
   // Update node counts for both chunks
   chunkNodeCounts[currentChunkId] = NODE_LIMIT;
-  chunkNodeCounts[newChunkId] = overflowNodes.length;
+  chunkNodeCounts[newChunkId] = overflowNodeData.length;
   
   // Wait for all saves to complete
   await Promise.all(savePromises);
-  console.log(`Updated ${overflowNodes.length} nodes to new chunk ${newChunkId}`);
+  console.log(`Re-created ${overflowNodeData.length} nodes in new chunk ${newChunkId}`);
 }
+
+
 
 // Add this helper function if you don't already have it
 function generateNextChunkId(currentId) {
