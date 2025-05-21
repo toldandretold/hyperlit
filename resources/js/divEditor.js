@@ -100,12 +100,11 @@ export function startObserving(editableDiv) {
     // Track node count CHANGES after mutations 
     trackChunkNodeCount(currentObservedChunk, mutations);
 
-    // Check if current chunk has reached the limit
     const chunkId = currentObservedChunk.getAttribute('data-chunk-id');
     const currentNodeCount = chunkNodeCounts[chunkId] || 0;
-    
-    // If we're at the limit and adding new nodes, we need to handle chunk overflow
-    if (currentNodeCount > NODE_LIMIT && mutations.some(m => m.type === "childList" && m.addedNodes.length > 0)) {
+
+    // If we're over the limit, we need to handle chunk overflow
+    if (currentNodeCount > NODE_LIMIT) {
       console.log(`Chunk ${chunkId} has reached limit (${currentNodeCount}/${NODE_LIMIT}). Managing overflow...`);
       await handleChunkOverflow(currentObservedChunk, mutations);
       return; // Exit early as the overflow handler will take care of saving
