@@ -112,7 +112,7 @@ export async function openHighlightById(highlightId) {
 
       const containerContent = `
         <div class="scroller">
-        <blockquote class="highlight-text">
+        <blockquote class="highlight-text" contenteditable="true">
           "${highlightData.highlightedText }"
         </blockquote>
         <div class="annotation" contenteditable="true">
