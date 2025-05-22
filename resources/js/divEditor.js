@@ -62,7 +62,7 @@ export function startObserving(editableDiv) {
   console.log("🤓 startObserving function called");
 
   // Tell the browser "Enter key ⇒ <p>" instead of <div>
-  document.execCommand('defaultParagraphSeparator', false, 'p');
+  //document.execCommand('defaultParagraphSeparator', false, 'p');
 
   // Stop any existing observer first
   stopObserving();
@@ -108,13 +108,14 @@ export function startObserving(editableDiv) {
     const chunkId = currentObservedChunk.getAttribute('data-chunk-id');
     const currentNodeCount = chunkNodeCounts[chunkId] || 0;
     
+    
     // If we're at the limit and adding new nodes, we need to handle chunk overflow
     if (currentNodeCount > NODE_LIMIT && mutations.some(m => m.type === "childList" && m.addedNodes.length > 0)) {
       console.log(`Chunk ${chunkId} has reached limit (${currentNodeCount}/${NODE_LIMIT}). Managing overflow...`);
       await handleChunkOverflow(currentObservedChunk, mutations);
       return; // Exit early as the overflow handler will take care of saving
     }
-
+    
     // Track parent nodes that need updates
     const parentsToUpdate = new Set();
     let addedCount = 0;
@@ -856,7 +857,13 @@ function createAndInsertParagraph(blockElement, chunkContainer, content, selecti
       }
     });
   } else {
-    newParagraph.innerHTML = '<br>';
+    const br = document.createElement('br');
+    newParagraph.appendChild(br);
+
+    // Insert a zero-width space so there's a text node
+    const nbsp = document.createTextNode('\u00A0');
+    newParagraph.appendChild(nbsp);
+
   }
 
   // 3. Generate an ID for the new paragraph
@@ -899,26 +906,74 @@ function createAndInsertParagraph(blockElement, chunkContainer, content, selecti
   }
 
   // 5. Move cursor to the new paragraph
-  const newRange = document.createRange();
-  if (newParagraph.firstChild && newParagraph.firstChild.nodeType === Node.TEXT_NODE) {
-    newRange.setStart(newParagraph.firstChild, 0);
-  } else {
-    newRange.setStart(newParagraph, 0);
-  }
-  newRange.collapse(true);
-  selection.removeAllRanges();
-  selection.addRange(newRange);
-
+  const target = newParagraph.firstChild?.nodeType === Node.TEXT_NODE
+    ? newParagraph.firstChild
+    : newParagraph;
+  moveCaretTo(target, 0);
+  // 2) Immediately scroll the new paragraph into view:
+  // Then scroll after a tiny delay to let the DOM settle
+    setTimeout(() => {
+    const rect = newParagraph.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    
+    // Only scroll if needed
+    if (rect.top < 0 || rect.bottom > viewportHeight) {
+      // Position the element 20% from the top of the viewport
+      const scrollTarget = window.scrollY + rect.top - (viewportHeight * 0.2);
+      window.scrollTo(0, scrollTarget);
+    }
+  }, 10);
   return newParagraph;
 }
 
 
 
+/** 
+ * Collapse the caret at the start of an element, preferring its first Text child 
+ * Returns a new Range ready to be `selection.addRange`d.
+ */
+function collapseAtStart(el) {
+  const r = document.createRange();
+  const first = el.firstChild;
+  if (first && first.nodeType === Node.TEXT_NODE) {
+    console.log("collapseAtStart → text node");
+    r.setStart(first, 0);
+  } else {
+    console.log("collapseAtStart → element");
+    r.setStart(el, 0);
+  }
+  r.collapse(true);
+  return r;
+}
+
+/**
+ * Move the caret to (node, offset), then scroll it into view.
+ */
+function moveCaretTo(node, offset = 0) {
+  const sel = document.getSelection();
+  const r = document.createRange();
+  r.setStart(node, offset);
+  r.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(r);
+  scrollCaretIntoView();
+}
+
+
+// Helper function to check if element is in viewport
+function isElementInViewport(el) {
+  const rect = el.getBoundingClientRect();
+  return (
+    rect.top >= 0 &&
+    rect.left >= 0 &&
+    rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+    rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+  );
+}
 
 
 
 document.addEventListener("keydown", function(event) {
-
   // Skip paragraph creation if chunk overflow is in progress
   if (event.key === "Enter" && chunkOverflowInProgress) {
     event.preventDefault();
@@ -1013,20 +1068,33 @@ document.addEventListener("keydown", function(event) {
         blockElement.id = generateIdBetween(null, null);
         newParagraph.id = generateIdBetween(null, blockElement.id);
       }
-      
-      // Insert the paragraph before the heading
+          // 2. Remember the current scroll position BEFORE we modify the DOM
       blockElement.parentNode.insertBefore(newParagraph, blockElement);
       
-      // Move cursor to the new paragraph
-      const newRange = document.createRange();
-      newRange.setStart(newParagraph, 0);
-      newRange.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(newRange);
+      // Position cursor at start of heading
+      const target = blockElement.firstChild?.nodeType === Node.TEXT_NODE
+        ? blockElement.firstChild
+        : blockElement;
       
-      // No need to call updateIndexedDBRecord - MutationObserver will handle it
+      const sel = document.getSelection();
+      const r = document.createRange();
+      r.setStart(target, 0);
+      r.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(r);
       
-      // Reset enter count
+      // Ensure the heading is visible by scrolling it into view
+      // Use a small delay to let the DOM settle
+      setTimeout(() => {
+        // Just make sure the heading is visible
+        if (!isElementInViewport(blockElement)) {
+          blockElement.scrollIntoView({
+            behavior: 'auto',
+            block: 'end'  // Position in center of viewport
+          });
+        }
+      }, 0);
+      
       enterCount = 0;
       return;
     }
@@ -1098,8 +1166,18 @@ document.addEventListener("keydown", function(event) {
           }).catch(console.error);
         }
         console.log("blockElement:", blockElement);
+        
         // Create and insert new paragraph
-        createAndInsertParagraph(blockElement, chunkContainer, null, selection);
+        const newParagraph = createAndInsertParagraph(blockElement, chunkContainer, null, selection);
+        
+        // Scroll the new paragraph into view
+        // Then scroll after a tiny delay to let the DOM settle
+        setTimeout(() => {
+          newParagraph.scrollIntoView({
+            behavior: 'auto',  // or keep 'smooth' if you prefer
+            block: 'nearest'
+          });
+        }, 10);
         
         // Reset enter count
         enterCount = 0;
@@ -1131,10 +1209,13 @@ document.addEventListener("keydown", function(event) {
             range.insertNode(textNode);
             
             // Move the cursor to the text node (which is now after the <br>)
-            range.setStart(textNode, 0);
-            range.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(range);
+            moveCaretTo(textNode, 0);
+            
+            // Scroll the code element into view
+            codeElement.scrollIntoView({
+              behavior: 'smooth',
+              block: 'nearest'
+            });
           }
         } else {
           // For blockquotes, we need to handle hypercites specially
@@ -1154,11 +1235,13 @@ document.addEventListener("keydown", function(event) {
             blockElement.insertBefore(textNode, br.nextSibling);
             
             // Move the cursor to the text node
-            const newRange = document.createRange();
-            newRange.setStart(textNode, 0);
-            newRange.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
+            moveCaretTo(textNode, 0);
+            
+            // Scroll the blockquote into view
+            blockElement.scrollIntoView({
+              behavior: 'smooth',
+              block: 'nearest'
+            });
           } else {
             // Normal blockquote handling
             const br = document.createElement('br');
@@ -1168,10 +1251,13 @@ document.addEventListener("keydown", function(event) {
             range.setStartAfter(br);
             range.insertNode(textNode);
             
-            range.setStart(textNode, 0);
-            range.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(range);
+            moveCaretTo(textNode, 0);
+            
+            // Scroll the blockquote into view
+            blockElement.scrollIntoView({
+              behavior: 'smooth',
+              block: 'nearest'
+            });
           }
         }
       }
@@ -1221,8 +1307,18 @@ document.addEventListener("keydown", function(event) {
       }
     }
     console.log("blockElement:", blockElement);
+    
     // Create and insert new paragraph
-    createAndInsertParagraph(blockElement, chunkContainer, content, selection);
+    const newParagraph = createAndInsertParagraph(blockElement, chunkContainer, content, selection);
+    
+    // Scroll the new paragraph into view
+    // Then scroll after a tiny delay to let the DOM settle
+    setTimeout(() => {
+      newParagraph.scrollIntoView({
+        behavior: 'auto',  // or keep 'smooth' if you prefer
+        block: 'nearest'
+      });
+    }, 10);
     
     // Reset enter count after creating a new paragraph
     enterCount = 0;
@@ -1231,6 +1327,45 @@ document.addEventListener("keydown", function(event) {
 
 
 
+function scrollCaretIntoView() {
+  console.log("→ scrollCaretIntoView start");
+  const sel = document.getSelection();
+  if (!sel.rangeCount) {
+    console.log("  no selection range → abort");
+    return;
+  }
+
+  const range = sel.getRangeAt(0);
+  const clientRects = range.getClientRects();
+  const rect = clientRects.length
+    ? clientRects[0]
+    : range.getBoundingClientRect();
+
+  console.log(
+    "  caret rect:",
+    `top=${Math.round(rect.top)}`,
+    `bottom=${Math.round(rect.bottom)}`,
+    `height=${Math.round(rect.height)}`
+  );
+
+  const padding = 20;
+  const vh = window.innerHeight || document.documentElement.clientHeight;
+
+  if (rect.height > 0) {
+    // Normal: scroll to keep caret visible
+    if (rect.bottom > vh - padding) {
+      const delta = rect.bottom - (vh - padding);
+      console.log(`  scrolling down by ${delta}px`);
+      window.scrollBy({ top: delta, behavior: "smooth" });
+    } else if (rect.top < padding) {
+      const delta = rect.top - padding;
+      console.log(`  scrolling up by ${delta}px`);
+      window.scrollBy({ top: delta, behavior: "smooth" });
+    } else {
+      console.log("  caret in view, no scroll");
+    }
+  } 
+}
 
 
 
