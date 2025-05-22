@@ -193,7 +193,7 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
 
 <!-- toggle hidden containers -->
 <div id="toc-container" class="hidden"></div>
-<div id="highlight-container" class="hidden" contenteditable="true"></div>
+<div id="highlight-container" class="hidden"></div>
 <div id="hypercite-container" class="hidden"></div>
 <div id="ref-container" class="hidden"></div>
 <div id="source-container" class="hidden"></div>

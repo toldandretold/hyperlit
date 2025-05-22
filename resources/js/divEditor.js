@@ -835,26 +835,19 @@ let lastKeyWasEnter = false;
 let enterCount = 0;
 let lastEnterTime = 0;
 
-function createAndInsertParagraph(
-  blockElement,
-  chunkContainer,
-  content,
-  selection
-) {
+function createAndInsertParagraph(blockElement, chunkContainer, content, selection) {
   // 1. Create the new paragraph
   const newParagraph = document.createElement('p');
 
-  // 2. Handle content - unwrap any nested paragraphs to avoid browser auto-correction
+  // 2. Handle content
   if (content) {
-    // Check if content is a DocumentFragment or has child nodes
-    const nodes =
-      content.nodeType === Node.DOCUMENT_FRAGMENT_NODE
-        ? Array.from(content.childNodes)
-        : [content];
+    // Unwrap any nested paragraphs
+    const nodes = content.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+      ? Array.from(content.childNodes)
+      : [content];
 
     nodes.forEach(node => {
       if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'P') {
-        // Unwrap paragraphs - move their children instead
         Array.from(node.childNodes).forEach(child => {
           newParagraph.appendChild(child.cloneNode(true));
         });
@@ -866,76 +859,46 @@ function createAndInsertParagraph(
     newParagraph.innerHTML = '<br>';
   }
 
-  // 3. Find the next element in document order with a numeric ID
-  const walker = document.createTreeWalker(
-    document.body,
-    NodeFilter.SHOW_ELEMENT,
-    null,
-    false
-  );
-  walker.currentNode = blockElement;
-  let nextSibling = null;
-  const numIdRe = /^\d+(\.\d+)?$/;
-  while (walker.nextNode()) {
-    const el = walker.currentNode;
-    if (el.id && numIdRe.test(el.id)) {
-      nextSibling = el;
-      break;
-    }
-  }
-
-  // 4. Generate an ID for the new paragraph (keeping your original logic)
+  // 3. Generate an ID for the new paragraph
   if (blockElement.id) {
-    // Check if we're inserting between nodes or adding to the end
-    if (nextSibling && nextSibling.id) {
-      // We're inserting between nodes - use generateIdBetween
-      newParagraph.id = generateIdBetween(blockElement.id, nextSibling.id);
+    // Find the correct container to insert into
+    const container = blockElement.closest('.chunk') || blockElement.parentNode;
+    
+    // Find the next element with a numeric ID (if any)
+    let nextElement = blockElement.nextElementSibling;
+    while (nextElement && (!nextElement.id || !/^\d+(\.\d+)?$/.test(nextElement.id))) {
+      nextElement = nextElement.nextElementSibling;
+    }
+    
+    if (nextElement && nextElement.id) {
+      // Generate ID between current and next
+      newParagraph.id = generateIdBetween(blockElement.id, nextElement.id);
     } else {
-      // We're adding to the end - just increment to the next integer
+      // Generate ID after current
       const blockId = parseFloat(blockElement.id);
       if (!isNaN(blockId)) {
         if (Number.isInteger(blockId)) {
-          // If it's a whole number, just add 1
           newParagraph.id = (blockId + 1).toString();
         } else {
-          // If it has a decimal part, round up to the next integer
           newParagraph.id = Math.ceil(blockId).toString();
         }
       } else {
-        // Fallback if ID isn't numeric
         newParagraph.id = generateIdBetween(blockElement.id, null);
       }
     }
-    console.log(`Generated new ID: ${newParagraph.id}`);
-  }
-
-  // 5. Insert the paragraph into the DOM - IMPORTANT CHANGE:
-  //    use blockElement.parentNode to ensure correct placement
-  const parent = blockElement.parentNode;
-  if (blockElement.nextSibling) {
-    parent.insertBefore(newParagraph, blockElement.nextSibling);
-  } else {
-    parent.appendChild(newParagraph);
-  }
-
-  // 6. Run normalization to ensure IDs are unique and in order
-  setTimeout(() => {
-    // After normalization, save the new paragraph with its potentially
-    // updated ID
-    if (newParagraph.id) {
-      console.log(
-        `Saving normalized paragraph to IndexedDB: ${newParagraph.id}`
-      );
-      updateIndexedDBRecord({
-        id: newParagraph.id,
-        html: newParagraph.outerHTML,
-        chunk_id: getNodeChunkId(newParagraph),
-        action: 'update' // Changed from "add" since it might have been renumbered
-      }).catch(console.error);
+    
+    // 4. Insert the paragraph at the correct position in the DOM
+    // IMPORTANT: Insert as a sibling, not a child
+    if (blockElement.nextSibling) {
+      container.insertBefore(newParagraph, blockElement.nextSibling);
+    } else {
+      container.appendChild(newParagraph);
     }
-  }, 0);
+    
+    console.log(`Created new paragraph with ID ${newParagraph.id} after ${blockElement.id}`);
+  }
 
-  // 7. Move cursor to the new paragraph
+  // 5. Move cursor to the new paragraph
   const newRange = document.createRange();
   if (newParagraph.firstChild && newParagraph.firstChild.nodeType === Node.TEXT_NODE) {
     newRange.setStart(newParagraph.firstChild, 0);
@@ -948,6 +911,7 @@ function createAndInsertParagraph(
 
   return newParagraph;
 }
+
 
 
 
@@ -1008,6 +972,65 @@ document.addEventListener("keydown", function(event) {
     // Find the chunk container
     const chunkContainer = blockElement.closest('.chunk');
     if (!chunkContainer) return;
+
+    // Check if we're at the beginning of a heading
+    const isHeading = /^H[1-6]$/.test(blockElement.tagName);
+    let isAtStart = false;
+
+    // Determine if cursor is at the start
+    if (range.startContainer.nodeType === Node.TEXT_NODE) {
+      isAtStart = range.startOffset === 0 && 
+                  (range.startContainer === blockElement.firstChild || 
+                   range.startContainer.parentNode === blockElement.firstChild);
+    } else if (range.startContainer === blockElement) {
+      isAtStart = range.startOffset === 0;
+    }
+
+    if (isHeading && isAtStart) {
+      event.preventDefault();
+      
+      // Create a new paragraph to insert BEFORE the heading
+      const newParagraph = document.createElement('p');
+      newParagraph.innerHTML = '<br>';
+      
+      // Generate ID for the new paragraph
+      if (blockElement.id) {
+        // Find previous element with numeric ID
+        let prevElement = blockElement.previousElementSibling;
+        while (prevElement && (!prevElement.id || !/^\d+(\.\d+)?$/.test(prevElement.id))) {
+          prevElement = prevElement.previousElementSibling;
+        }
+        
+        if (prevElement && prevElement.id) {
+          // Generate ID between previous and current
+          newParagraph.id = generateIdBetween(prevElement.id, blockElement.id);
+        } else {
+          // Generate ID before current
+          newParagraph.id = generateIdBetween(null, blockElement.id);
+        }
+      } else {
+        // If heading has no ID, generate one first
+        blockElement.id = generateIdBetween(null, null);
+        newParagraph.id = generateIdBetween(null, blockElement.id);
+      }
+      
+      // Insert the paragraph before the heading
+      blockElement.parentNode.insertBefore(newParagraph, blockElement);
+      
+      // Move cursor to the new paragraph
+      const newRange = document.createRange();
+      newRange.setStart(newParagraph, 0);
+      newRange.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+      
+      // No need to call updateIndexedDBRecord - MutationObserver will handle it
+      
+      // Reset enter count
+      enterCount = 0;
+      return;
+    }
+
     
     //==========================================================================
     // SECTION 1: Special handling for blockquote and pre (code blocks)
