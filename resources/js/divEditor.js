@@ -1044,11 +1044,11 @@ document.addEventListener("keydown", function(event) {
     if (isHeading && isAtStart) {
       event.preventDefault();
       
-      // Create a new paragraph to insert BEFORE the heading
+      // 1. Create a new paragraph to insert BEFORE the heading
       const newParagraph = document.createElement('p');
       newParagraph.innerHTML = '<br>';
       
-      // Generate ID for the new paragraph
+      // 2. Generate ID for the new paragraph
       if (blockElement.id) {
         // Find previous element with numeric ID
         let prevElement = blockElement.previousElementSibling;
@@ -1056,48 +1056,47 @@ document.addEventListener("keydown", function(event) {
           prevElement = prevElement.previousElementSibling;
         }
         
-        if (prevElement && prevElement.id) {
+        // Special case: if heading is ID "1" and no previous element, use "0" as beforeId
+        if (!prevElement && blockElement.id === "1") {
+          newParagraph.id = generateIdBetween("0", "1");
+        } else if (prevElement && prevElement.id) {
           // Generate ID between previous and current
           newParagraph.id = generateIdBetween(prevElement.id, blockElement.id);
         } else {
           // Generate ID before current
           newParagraph.id = generateIdBetween(null, blockElement.id);
         }
-      } else {
-        // If heading has no ID, generate one first
-        blockElement.id = generateIdBetween(null, null);
-        newParagraph.id = generateIdBetween(null, blockElement.id);
+        
+        // 3. Insert the new paragraph before the heading
+        blockElement.parentNode.insertBefore(newParagraph, blockElement);
+        
+        // 4. Save the current scroll position
+        const scrollYBefore = window.scrollY;
+        
+        // 5. Position cursor at start of heading (where it already is)
+        // No need to move the cursor as it's already at the start of the heading
+        
+        // 6. Ensure the heading stays visible by restoring scroll position
+        setTimeout(() => {
+          // Restore scroll position to keep heading in view
+          window.scrollTo(0, scrollYBefore);
+          
+          // If heading is still not visible, scroll it into view
+          if (!isElementInViewport(blockElement)) {
+            blockElement.scrollIntoView({
+              behavior: 'auto',
+              block: 'nearest'
+            });
+          }
+        }, 0);
       }
-          // 2. Remember the current scroll position BEFORE we modify the DOM
-      blockElement.parentNode.insertBefore(newParagraph, blockElement);
       
-      // Position cursor at start of heading
-      const target = blockElement.firstChild?.nodeType === Node.TEXT_NODE
-        ? blockElement.firstChild
-        : blockElement;
-      
-      const sel = document.getSelection();
-      const r = document.createRange();
-      r.setStart(target, 0);
-      r.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(r);
-      
-      // Ensure the heading is visible by scrolling it into view
-      // Use a small delay to let the DOM settle
-      setTimeout(() => {
-        // Just make sure the heading is visible
-        if (!isElementInViewport(blockElement)) {
-          blockElement.scrollIntoView({
-            behavior: 'auto',
-            block: 'end'  // Position in center of viewport
-          });
-        }
-      }, 0);
+      // The MutationObserver will handle saving both elements
       
       enterCount = 0;
       return;
     }
+
 
     
     //==========================================================================
