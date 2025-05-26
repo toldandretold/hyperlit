@@ -1398,10 +1398,16 @@ function handlePaste(event) {
     targetId: event.target.id || 'no-id',
     targetNodeName: event.target.nodeName
   });
+
   
   // Try to handle as hypercite first
   if (handleHypercitePaste(event)) {
     return; // Handled as hypercite
+  }
+  
+  // Try to handle as code block paste first
+  if (handleCodeBlockPaste(event, chunk)) {
+    return; // Handled as code block paste
   }
   
   // Then try to handle as markdown
@@ -1797,8 +1803,60 @@ function handleMarkdownPaste(event) {
 export function addPasteListener(editableDiv) {
   console.log("Adding modular paste listener");
   editableDiv.addEventListener("paste", handlePaste);
+  
 }
 
+
+
+function isCompleteHTML(text) {
+  // Basic check if the text appears to be complete HTML
+  const trimmed = text.trim();
+  return (
+    trimmed.startsWith("<") &&
+    trimmed.endsWith(">") &&
+    (trimmed.includes("</") || trimmed.match(/<\s*[a-z]+[^>]*\/>/i))
+  );
+}
+
+function handleCodeBlockPaste(event, chunk) {
+  const plainText = event.clipboardData.getData("text/plain");
+  const htmlContent = event.clipboardData.getData("text/html");
+
+  // Get the current selection and find if we're in a code block
+  const selection = window.getSelection();
+  if (!selection.rangeCount) return false;
+
+  const range = selection.getRangeAt(0);
+  let currentNode = range.startContainer;
+  if (currentNode.nodeType !== Node.ELEMENT_NODE) {
+    currentNode = currentNode.parentElement;
+  }
+
+  // Check if we're in a code block
+  const codeBlock = currentNode.closest("pre");
+  if (!codeBlock) return false;
+
+  // If we have HTML content and it appears to be complete HTML
+  if (htmlContent && isCompleteHTML(plainText)) {
+    event.preventDefault();
+
+    // Just insert the plain text directly
+    range.deleteContents();
+    const textNode = document.createTextNode(plainText);
+    range.insertNode(textNode);
+
+    // Update the code block in IndexedDB
+    updateIndexedDBRecord({
+      id: codeBlock.id,
+      html: codeBlock.outerHTML,
+      action: "update",
+    }).catch(console.error);
+
+    return true;
+  }
+
+  return false;
+}
 
 
 
