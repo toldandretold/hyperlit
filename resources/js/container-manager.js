@@ -49,6 +49,7 @@ export class ContainerManager {
     }
 
       // Add a new event listener for link clicks within the container
+      // Add a new event listener for link clicks within the container
       if (this.container) {
         this.container.addEventListener("click", (e) => {
           const link = e.target.closest("a");
@@ -56,59 +57,81 @@ export class ContainerManager {
           
           const href = link.getAttribute("href");
           if (!href) return; // No href attribute
+
+          // Check if this is a citation link (has hypercite in the hash)
+          const isCitationLink = href.includes("#hypercite_");
           
-          // Check if this is an internal link (same domain)
-          const isSameDomain = href.startsWith("/") || 
-                              href.startsWith("#") || 
-                              href.startsWith(window.location.origin) ||
-                              !href.includes("://");
-          
-          if (isSameDomain) {
+          if (isCitationLink) {
             e.preventDefault(); // Prevent default navigation
-            
-            // Parse the URL to determine if it's a highlight link
-            const isHighlightLink = href.includes("/HL_");
-            const highlightMatch = href.match(/\/HL_\d+/);
-            const highlightId = highlightMatch ? highlightMatch[0].substring(1) : null;
-            
-            // Get any hash for internal navigation
-            const hash = link.hash ? link.hash.substring(1) : null;
-            
-            console.log(`Container link clicked: ${href}`);
-            console.log(`Parsed as: highlightId=${highlightId}, hash=${hash}`);
             
             // Close the current container
             this.closeContainer();
             
-            // Wait a moment for the container to close
+            // Navigate to the citation after a short delay
+            setTimeout(() => {
+              // If it's an absolute URL, use it directly
+              if (href.startsWith("http")) {
+                window.location.href = href;
+              } else {
+                // For relative URLs, resolve against current origin
+                const resolvedUrl = new URL(href, window.location.origin).href;
+                window.location.href = resolvedUrl;
+              }
+            }, 300); // Wait for container animation
+            
+            return;
+          }
+          
+          // Create URL objects for comparison
+          const currentUrl = new URL(window.location.href);
+          let targetUrl;
+          try {
+            targetUrl = new URL(href, window.location.origin);
+          } catch (e) {
+            console.error("Invalid URL:", href);
+            return;
+          }
+          
+          // Check if this is actually an internal navigation
+          const isInternalNavigation = 
+            targetUrl.pathname === currentUrl.pathname || 
+            href.startsWith('#') ||
+            href.startsWith('/HL_');
+          
+          if (isInternalNavigation) {
+            e.preventDefault();
+            
+            const isHighlightLink = href.includes("/HL_");
+            const highlightMatch = href.match(/\/HL_\d+/);
+            const highlightId = highlightMatch ? highlightMatch[0].substring(1) : null;
+            
+            const hash = targetUrl.hash ? targetUrl.hash.substring(1) : null;
+            
+            this.closeContainer();
+            
             setTimeout(() => {
               if (isHighlightLink && highlightId) {
-                // If it's a highlight link, navigate to the highlight
-                console.log(`Navigating to highlight: ${highlightId}`);
-                
-                // Update URL hash if needed
                 if (hash) {
                   window.history.pushState(null, '', `#${hash}`);
                 } else {
                   window.history.pushState(null, '', window.location.pathname);
                 }
-                
-                // Use your navigation function
                 navigateToInternalId(highlightId, currentLazyLoader);
               } else if (hash) {
-                // If it's just a hash link, navigate to that element
-                console.log(`Navigating to hash: #${hash}`);
                 navigateToInternalId(hash, currentLazyLoader);
               } else {
-                // For other internal links, just navigate normally
-                console.log(`Navigating to: ${href}`);
                 window.location.href = href;
               }
-            }, 300); // Wait for container animation to complete
+            }, 300);
+          } else {
+            // For external links, let them open in a new tab
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
           }
-          // If it's an external link, let the default behavior happen
         });
       }
+
+
     }
   
 

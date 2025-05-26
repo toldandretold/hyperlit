@@ -89,7 +89,7 @@ Route::post('/{book}/update-annotations', [HighlightController::class, 'updateAn
 Route::post('/{book}/mark-as-deleted', [HighlightController::class, 'markHighlightsAsDeleted'])->name('highlight.mark-as-deleted');
 
 // new 
-Route::post('/highlight/custom-markdown', [HighlightMdController::class, 'store'])->name('highlight.store');    
+//Route::post('/highlight/custom-markdown', [HighlightMdController::class, 'store'])->name('highlight.store');    
 
 Route::post('/highlight/custom-markdown-delete', [HighlightMdController::class, 'deleteHighlight'])->name('highlight.md.delete'); 
 
