@@ -135,7 +135,8 @@ instance.saveScrollPosition = () => {
   }
 };
 
-
+  document.dispatchEvent(new Event("pageReady"));
+  
   container.addEventListener("scroll", throttle(instance.saveScrollPosition, 200));
 
   instance.restoreScrollPosition = async () => {

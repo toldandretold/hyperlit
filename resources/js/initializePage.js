@@ -154,11 +154,12 @@ export async function loadMarkdownFile() {
       console.log(`✅ Found ${cached.length} cached nodeChunks`);
       window.nodeChunks = cached;
       initializeLazyLoader(openHyperlightID); // ADD THIS
+      
       return; // ADD THIS - Don't continue to database!
     }
 
     // 2. Try Database
-    console.log("🔍 Not in IndexedDB, trying database...");
+    console.log("🔍 Trying to load chunks from database...");
     const dbResult = await syncBookDataFromDatabase(book);
     if (dbResult && dbResult.success) {
       const dbChunks = await getNodeChunksFromIndexedDB(book);
@@ -166,6 +167,7 @@ export async function loadMarkdownFile() {
         console.log(`✅ Loaded ${dbChunks.length} nodeChunks from database`);
         window.nodeChunks = dbChunks;
         initializeLazyLoader(openHyperlightID); // ADD THIS
+
         return; // ADD THIS
       }
     }
@@ -176,7 +178,8 @@ export async function loadMarkdownFile() {
     initializeLazyLoader(openHyperlightID); // ADD THIS
 
     console.log("✅ Content loading complete");
-    document.dispatchEvent(new Event("pageReady"));
+    
+    return; // ADD THIS
 
   } catch (err) {
     console.error("❌ Error loading content:", err);

@@ -18,7 +18,7 @@ class DbLibraryController extends Controller
             ['book', 'author', 'bibtex', 'citationID', 'fileName', 'fileType',
              'journal', 'note', 'pages', 'publisher', 'school', 'timestamp',
              'title', 'type', 'url', 'year'],
-            false // single object
+            true // single object
         );
     }
 }
