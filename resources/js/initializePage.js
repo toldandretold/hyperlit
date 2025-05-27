@@ -19,6 +19,8 @@ import {
 
 import { parseMarkdownIntoChunksInitial } from "./convert-markdown.js";
 
+import { syncBookDataFromDatabase } from "./postgreSQL.js";
+
 // Helper function: Cache buster for forced reloads
 function buildUrl(path, forceReload = false) {
   return forceReload ? `${path}?v=${Date.now()}` : path;
@@ -99,31 +101,7 @@ if (totalFootnotes > 0) {
   return nodeChunks;
 }
 
-// Trigger backend update (optional, can be removed if not needed)
-async function triggerBackendUpdate() {
-  try {
-    const backendResponse = await fetch(`/update-markdown/${book}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content,
-      },
-    });
-    
-    if (!backendResponse.ok) {
-      throw new Error(`Failed to trigger backend update: ${backendResponse.statusText}`);
-    }
-    
-    const result = await backendResponse.json();
-    if (result.success) {
-      console.log("✅ Backend update successful:", result.message);
-    } else {
-      console.error("❌ Backend update failed:", result.message);
-    }
-  } catch (error) {
-    console.error("❌ Error during backend update:", error);
-  }
-}
+
 
 // Lazy Loader Initialization
 export let currentLazyLoader = null;
@@ -161,8 +139,8 @@ export function initializeMainLazyLoader() {
 // In your loadMarkdownFile function
 export async function loadMarkdownFile() {
   console.log(`📖 Opening: ${book}`);
+  console.log("📝 Book variable:", book, "Type:", typeof book); // Move this to the top
   
-  // Check if OpenHyperlightID exists
   const openHyperlightID = OpenHyperlightID || null;
   if (openHyperlightID) {
     console.log(`🔍 Found OpenHyperlightID to navigate to: ${openHyperlightID}`);
@@ -170,35 +148,32 @@ export async function loadMarkdownFile() {
   
   try {
     // 1. Check for cached nodeChunks
-    console.log("🔍 Checking for cached nodeChunks in IndexedDB...");
+    console.log("🔍 Checking if nodeChunks are in IndexedDB...");
     const cached = await getNodeChunksFromIndexedDB(book);
     if (cached && cached.length) {
       console.log(`✅ Found ${cached.length} cached nodeChunks`);
       window.nodeChunks = cached;
-    } else {
-      console.log("🆕 No cache – generating from markdown");
-      window.nodeChunks = await generateNodeChunksFromMarkdown(true);
+      initializeLazyLoader(openHyperlightID); // ADD THIS
+      return; // ADD THIS - Don't continue to database!
     }
 
-    // 2. Initialize lazy loader with the navigation flag if needed
-    if (!currentLazyLoader) {
-      currentLazyLoader = createLazyLoader({
-        nodeChunks: window.nodeChunks,
-        loadNextChunk: loadNextChunkFixed,
-        loadPreviousChunk: loadPreviousChunkFixed,
-        attachMarkListeners,
-        bookId: book,
-        isNavigatingToInternalId: !!openHyperlightID  // Set flag if we have an ID
-      });
-      
-      // If we have a highlight ID, navigate to it after initialization
-      if (openHyperlightID) {
-        // Add a method to navigate to the highlight
-        setTimeout(() => {
-          navigateToElement(openHyperlightID);
-        }, 300);
+    // 2. Try Database
+    console.log("🔍 Not in IndexedDB, trying database...");
+    const dbResult = await syncBookDataFromDatabase(book);
+    if (dbResult && dbResult.success) {
+      const dbChunks = await getNodeChunksFromIndexedDB(book);
+      if (dbChunks && dbChunks.length) {
+        console.log(`✅ Loaded ${dbChunks.length} nodeChunks from database`);
+        window.nodeChunks = dbChunks;
+        initializeLazyLoader(openHyperlightID); // ADD THIS
+        return; // ADD THIS
       }
     }
+
+    // 3. Generate from markdown
+    console.log("🆕 Not in database or indexedDB – generating from markdown");
+    window.nodeChunks = await generateNodeChunksFromMarkdown(true);
+    initializeLazyLoader(openHyperlightID); // ADD THIS
 
     console.log("✅ Content loading complete");
     document.dispatchEvent(new Event("pageReady"));
@@ -207,6 +182,27 @@ export async function loadMarkdownFile() {
     console.error("❌ Error loading content:", err);
   }
 }
+
+// Helper function
+function initializeLazyLoader(openHyperlightID) {
+  if (!currentLazyLoader) {
+    currentLazyLoader = createLazyLoader({
+      nodeChunks: window.nodeChunks,
+      loadNextChunk: loadNextChunkFixed,
+      loadPreviousChunk: loadPreviousChunkFixed,
+      attachMarkListeners,
+      bookId: book,
+      isNavigatingToInternalId: !!openHyperlightID
+    });
+    
+    if (openHyperlightID) {
+      setTimeout(() => {
+        navigateToElement(openHyperlightID);
+      }, 300);
+    }
+  }
+}
+
 
 // Simple function to navigate to an element by ID
 function navigateToElement(elementId) {
@@ -225,79 +221,3 @@ function navigateToElement(elementId) {
 
 
 
-// Navigation helper functions
-export function loadContentAroundLine(lineNumber) {
-  if (!window.nodeChunks || !currentLazyLoader) {
-    console.error("❌ Cannot navigate: nodeChunks or lazyLoader not initialized");
-    return;
-  }
-  
-  console.log(`🔍 Navigating to line: ${lineNumber}`);
-  
-  // Find the chunk containing this line
-  const targetChunk = window.nodeChunks.find(
-    chunk => lineNumber >= chunk.startLine && lineNumber <= chunk.endLine
-  );
-  
-  if (!targetChunk) {
-    console.warn(`❌ No chunk found containing line ${lineNumber}`);
-    return;
-  }
-  
-  // Load the chunk and scroll to the element
-  currentLazyLoader.loadChunkById(targetChunk.chunkId);
-  
-  // Wait for DOM to update, then scroll
-  setTimeout(() => {
-    const targetElement = document.getElementById(lineNumber.toString());
-    if (targetElement) {
-      targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
-    } else {
-      console.error(`❌ Element with ID "${lineNumber}" not found after loading chunk`);
-    }
-  }, 100);
-}
-
-export function loadContentAroundId(elementId) {
-  if (!window.nodeChunks || !currentLazyLoader) {
-    console.error("❌ Cannot navigate: nodeChunks or lazyLoader not initialized");
-    return;
-  }
-  
-  console.log(`🔍 Navigating to element ID: ${elementId}`);
-  
-  // First try to find the element directly (it might already be loaded)
-  const element = document.getElementById(elementId);
-  if (element) {
-    element.scrollIntoView({ behavior: "smooth", block: "center" });
-    return;
-  }
-  
-  // If not found, we need to search through nodeChunks
-  // This assumes you have a way to map element IDs to line numbers
-  // For now, we'll just load chunks sequentially until we find it
-  
-  let currentChunkIndex = 0;
-  
-  function loadNextChunkAndCheck() {
-    if (currentChunkIndex >= window.nodeChunks.length) {
-      console.error(`❌ Element with ID "${elementId}" not found in any chunk`);
-      return;
-    }
-    
-    const chunk = window.nodeChunks[currentChunkIndex];
-    currentLazyLoader.loadChunk(chunk.chunkId);
-    
-    setTimeout(() => {
-      const element = document.getElementById(elementId);
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
-      } else {
-        currentChunkIndex++;
-        loadNextChunkAndCheck();
-      }
-    }, 100);
-  }
-  
-  loadNextChunkAndCheck();
-}
