@@ -47,9 +47,9 @@ class DatabaseToIndexedDBController extends Controller
                 'metadata' => [
                     'book_id' => $bookId,
                     'total_chunks' => count($nodeChunks),
-                    'total_footnotes' => count($footnotes),
-                    'total_hyperlights' => count($hyperlights),
-                    'total_hypercites' => count($hypercites),
+                    'total_footnotes' => $footnotes ? count($footnotes) : 0,  // ✅ Handle null
+                    'total_hyperlights' => count($hyperlights ?? []),         // ✅ Handle null
+                    'total_hypercites' => count($hypercites ?? []),
                     'generated_at' => now()->toISOString(),
                 ]
             ];

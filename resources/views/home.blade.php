@@ -21,6 +21,7 @@
         <div id="imageContainer" class="top-content">
             <img src="http://127.0.0.1:8000/images/titleLogo.png" id="top" alt="Title Logo">
         </div>
+        
         <div id="home" class="main-content">
             <!-- Your content here -->
         </div>
