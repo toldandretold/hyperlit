@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\NodeChunk;
+use App\Models\PgNodeChunk;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;

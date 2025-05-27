@@ -33,6 +33,17 @@ export default defineConfig({
         secure: false,
         rewrite: (path) => path,
       },
+      // ✅ ADD THIS for API calls
+      '/api': {
+        target: process.env.VITE_APP_URL || 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/markdown': {
+        target: process.env.VITE_APP_URL || 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   plugins: [
@@ -81,7 +92,10 @@ export default defineConfig({
         'resources/js/renderOpenBooks.js',
         'resources/js/editToolbar.js',
         'resources/js/IDmanager.js',
+        'resources/js/lazyLoaderFactory.js',
+        'resources/js/initializePage.js',
         'resources/js/chunkManager.js',
+        'resources/js/postgreSQL.js',
         'resources/sass/app.scss',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.

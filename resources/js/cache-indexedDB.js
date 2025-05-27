@@ -4,7 +4,7 @@ import {
 } from './BroadcastListener.js';
 import { withPending } from "./operationState.js"
 
-export const DB_VERSION = 13;
+export const DB_VERSION = 15;
 
 
 
@@ -41,20 +41,19 @@ export async function openDatabase() {
         {
           name: "hyperlights",
           keyPath: ["book", "hyperlight_id"],
-          indices: ["hyperlight_id"],
+          indices: ["hyperlight_id", "book"], // ✅ ADD "book" here
         },
         {
           name: "hypercites",
           keyPath: ["book", "hyperciteId"],
-          indices: ["hyperciteId"],
+          indices: ["hyperciteId", "book"], // ✅ ADD "book" here
         },
-        // <<< NEW: Library store >>>
         {
           name: "library",
-          keyPath: "citationID",
-    
+          keyPath: "book",
         }
       ];
+
 
       storeConfigs.forEach(({ name, keyPath, indices }) => {
         if (db.objectStoreNames.contains(name)) {
