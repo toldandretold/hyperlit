@@ -18,9 +18,9 @@ import { buildBibtexEntry } from "./bibtexProcessor.js";
 import { generateUniqueId, 
          isDuplicateId, 
          getNextDecimalForBase,
-         normalizeNodeIds,
          generateInsertedNodeId,
-         generateIdBetween
+         generateIdBetween,
+         isNumericalId
           } from "./IDfunctions.js";
 import {
   broadcastToOpenTabs
@@ -28,13 +28,15 @@ import {
 
 import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from './convert-markdown.js';
 import { processFootnotes } from './footnotes.js';
-import { NodeIdManager } from './IDmanager.js';
+//import { NodeIdManager } from './IDmanager.js';
 import { 
   trackChunkNodeCount, 
   handleChunkOverflow, 
   NODE_LIMIT, 
   chunkNodeCounts 
 } from './chunkManager.js';
+import { isChunkLoadingInProgress, getLoadingChunkId } from './chunkLoadingState.js';
+import { SelectionDeletionHandler } from './selectionDelete.js';
 
 // Tracking sets
 const modifiedNodes = new Set(); // Track element IDs whose content was modified.
@@ -53,35 +55,30 @@ let debounceTimer = null;
 // Flag to prevent double-handling
 let pasteHandled = false;
 
+// Global state for tracking observed chunks
+let observedChunks = new Map(); // chunkId -> chunk element
+
+let deletionHandler = null;
 
 
-
-// Start observing only inside the current chunk container.
-// Start observing only inside the current chunk container.
+// Modified startObserving function. 
+// Note: editable div = <div class="main-content" id="book" contenteditable="true">
 export function startObserving(editableDiv) {
-  console.log("🤓 startObserving function called");
 
-  // Tell the browser "Enter key ⇒ <p>" instead of <div>
-  //document.execCommand('defaultParagraphSeparator', false, 'p');
+  console.log("🤓 startObserving function called - multi-chunk mode");
 
   // Stop any existing observer first
   stopObserving();
-  
-  const currentChunk = editableDiv || getCurrentChunk();
-  if (!currentChunk) {
-    console.warn("No active chunk found; observer not attached.");
+                     
+  if (!editableDiv) {
+    console.warn("No .main-content container found; observer not attached.");
     return;
   }
-  setCurrentObservedChunk(currentChunk);
-  console.log("Observing changes in chunk:", currentChunk);
 
-  // Initialize node count for this chunk (establish what the count is before mutations)
-  trackChunkNodeCount(currentChunk);
+  // Initialize tracking for all current chunks
+  initializeCurrentChunks(editableDiv);
 
-  // not sure about this, think to do with the faulty paste handler... 
-  const BULK_THRESHOLD = 20;
-
-  // Modify the MutationObserver callback in startObserving function
+  // Create observer for the main-content container
   observer = new MutationObserver(async (mutations) => {
     // Skip processing if a hypercite paste is in progress
     if (hypercitePasteInProgress) {
@@ -89,39 +86,316 @@ export function startObserving(editableDiv) {
       return;
     }
 
+    // 🚨 NEW: Skip processing if chunk loading is in progress
+    if (isChunkLoadingInProgress()) {
+      console.log(`Skipping mutations during chunk loading for chunk ${getLoadingChunkId()}`);
+      return;
+    }
+
     // Skip mutations related to status icons
-    if (mutations.some(mutation => 
-        mutation.target.id === "status-icon" || 
-        (mutation.target.parentNode && mutation.target.parentNode.id === "status-icon") ||
-        mutation.addedNodes.length && Array.from(mutation.addedNodes).some(node => 
-          node.id === "status-icon" || (node.parentNode && node.parentNode.id === "status-icon")
-        )
-      )) {
+    if (shouldSkipMutation(mutations)) {
       console.log("Skipping mutations related to status icons");
       return;
     }
 
-    // Track node count CHANGES after mutations 
-    trackChunkNodeCount(currentObservedChunk, mutations);
+    // Filter mutations to only those within chunks (ignore sentinels)
+    const chunkMutations = filterChunkMutations(mutations);
+    
+    if (chunkMutations.length > 0) {
+      await processMutationsByChunk(chunkMutations);
+    }
+  });
 
-    // Check if current chunk has reached the limit
-    const chunkId = currentObservedChunk.getAttribute('data-chunk-id');
-    const currentNodeCount = chunkNodeCounts[chunkId] || 0;
+  // Initialize deletion handler with callbacks
+  // In your startObserving function
+    deletionHandler = new SelectionDeletionHandler(editableDiv, {
+      onDeleted: (nodeId) => {
+        console.log(`Selection deletion handler wants to delete: ${nodeId}`);
+        // Just delete from IndexedDB - the DOM removal is handled by the class
+        deleteIndexedDBRecordWithRetry(nodeId);
+      }
+    });
+
+
+  // Observe the main-content container
+  observer.observe(editableDiv, {
+    childList: true,
+    subtree: true, // Observe all descendants
+    attributes: true,
+    attributeOldValue: true,
+    characterData: true,
+    characterDataOldValue: true
+  });
+
+  console.log(`Multi-chunk observer attached to .main-content`);
+}
+
+// Initialize tracking for all chunks currently in the DOM
+function initializeCurrentChunks(editableDiv) {
+  const chunks = editableDiv.querySelectorAll('.chunk');
+
+  
+  observedChunks.clear(); // Start fresh
+  
+  chunks.forEach(chunk => {
+    const chunkId = chunk.getAttribute('data-chunk-id');
+    if (chunkId) {
+      observedChunks.set(chunkId, chunk);
+      trackChunkNodeCount(chunk);
+      
+      console.log(`📦 Initialized tracking for chunk ${chunkId}`);
+    } else {
+      console.warn("Found chunk without data-chunk-id:", chunk);
+    }
+  });
+  
+  console.log(`Now tracking ${observedChunks.size} chunks`);
+}
+
+// Filter mutations to only include those within .chunk elements
+function filterChunkMutations(mutations) {
+  const filteredMutations = [];
+  
+  mutations.forEach(mutation => {
+    // Check if mutation target is within a chunk (not a sentinel)
+    const chunk = findContainingChunk(mutation.target);
     
-    
-    // If we're at the limit and adding new nodes, we need to handle chunk overflow
-    if (currentNodeCount > NODE_LIMIT && mutations.some(m => m.type === "childList" && m.addedNodes.length > 0)) {
-      console.log(`Chunk ${chunkId} has reached limit (${currentNodeCount}/${NODE_LIMIT}). Managing overflow...`);
-      await handleChunkOverflow(currentObservedChunk, mutations);
-      return; // Exit early as the overflow handler will take care of saving
+    // If we found a chunk, include the mutation
+    if (chunk !== null) {
+      filteredMutations.push(mutation);
+      return;
     }
     
-    // Track parent nodes that need updates
-    const parentsToUpdate = new Set();
-    let addedCount = 0;
-    const newNodes = []; // This will collect all new nodes for saving
-    let pasteDetected = false;
+    // Special case: Check for deletion of chunks
+    if (mutation.type === 'childList' && mutation.removedNodes.length > 0) {
+      const chunkDeletions = Array.from(mutation.removedNodes).filter(node => 
+        node.nodeType === Node.ELEMENT_NODE && node.classList?.contains('chunk')
+      );
+      
+      if (chunkDeletions.length > 0) {
+        console.log('Detected chunk deletion(s):', chunkDeletions);
+        
+        // For each deleted chunk, handle deletion of numerical ID nodes directly
+        chunkDeletions.forEach(deletedChunk => {
+          const numericalIdNodes = findNumericalIdNodesInChunk(deletedChunk);
+          
+          if (numericalIdNodes.length > 0) {
+            console.log('Deleting numerical ID nodes from IndexedDB:', numericalIdNodes);
+            
+            // Directly delete each numerical ID node from IndexedDB
+            numericalIdNodes.forEach(node => {
+              console.log(`Deleting node ${node.id} from IndexedDB due to chunk deletion`);
+              deleteIndexedDBRecordWithRetry(node.id);
+            });
+          }
+        });
+        
+        // Include the original chunk deletion mutation for any other processing
+        filteredMutations.push(mutation);
+      } else {
+        // Check for other numerical ID deletions (your original case)
+        const hasNumericalIdDeletion = Array.from(mutation.removedNodes).some(node => 
+          isNumericalIdDeletion(node, mutation.target)
+        );
+        
+        if (hasNumericalIdDeletion) {
+          filteredMutations.push(mutation);
+        }
+      }
+    }
+  });
+  
+  return filteredMutations;
+}
 
+// Check if a removed node meets the numerical id criteria (for non-chunk deletions)
+function isNumericalIdDeletion(removedNode, mutationTarget) {
+  // Only check element nodes
+  if (removedNode.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+  
+  // Check if the node has a numerical id
+  const nodeId = removedNode.id;
+  if (!nodeId || !isNumericalId(nodeId)) {
+    return false;
+  }
+  
+  // Check if mutation target is within .main-content but not within .chunk
+  const parentChunk = findContainingChunk(mutationTarget);
+  const isWithinMainContent = isNodeWithinMainContent(mutationTarget);
+  
+  return parentChunk === null && isWithinMainContent;
+}
+
+// Find the .chunk element that contains the given node
+function findContainingChunk(node) {
+  if (!node) return null;
+  
+  // Handle text nodes
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    node = node.parentElement;
+  }
+  
+  // Walk up until we find a .chunk or reach .main-content
+  while (node && !node.classList?.contains('main-content')) {
+    if (node.classList?.contains('chunk')) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  
+  return null;
+}
+
+// Find all nodes with numerical IDs within a chunk
+function findNumericalIdNodesInChunk(chunkNode) {
+  const numericalIdNodes = [];
+  
+  // Use querySelectorAll to find elements with numerical IDs
+  const elementsWithIds = chunkNode.querySelectorAll('[id]');
+  
+  elementsWithIds.forEach(element => {
+    if (isNumericalId(element.id)) {
+      numericalIdNodes.push(element);
+    }
+  });
+  
+  return numericalIdNodes;
+}
+
+// Lightweight check if node is within .main-content
+function isNodeWithinMainContent(node) {
+  if (!node) return false;
+  
+  // Handle text nodes
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    node = node.parentElement;
+  }
+  
+  // Walk up until we find .main-content or reach the top
+  while (node) {
+    if (node.classList?.contains('main-content')) {
+      return true;
+    }
+    node = node.parentElement;
+  }
+  
+  return false;
+}
+
+
+
+
+
+// Check if mutations should be skipped (existing logic)
+function shouldSkipMutation(mutations) {
+  return mutations.some(mutation => 
+    mutation.target.id === "status-icon" || 
+    (mutation.target.parentNode && mutation.target.parentNode.id === "status-icon") ||
+    mutation.addedNodes.length && Array.from(mutation.addedNodes).some(node => 
+      node.id === "status-icon" || (node.parentNode && node.parentNode.id === "status-icon")
+    )
+  );
+}
+
+
+
+// Process mutations grouped by their containing chunk
+async function processMutationsByChunk(mutations) {
+  const mutationsByChunk = new Map(); // chunkId -> mutations[]
+  const newChunksFound = new Set();
+  
+  // Group mutations by chunk
+  for (const mutation of mutations) {
+    const chunk = findContainingChunk(mutation.target);
+    
+    if (chunk) {
+      const chunkId = chunk.getAttribute('data-chunk-id');
+      
+      if (!chunkId) {
+        console.warn("Found chunk without data-chunk-id:", chunk);
+        continue;
+      }
+      
+      // Handle new chunks being added via lazy loading
+      if (!observedChunks.has(chunkId)) {
+        handleNewChunk(chunk);
+        newChunksFound.add(chunkId);
+      }
+      
+      if (!mutationsByChunk.has(chunkId)) {
+        mutationsByChunk.set(chunkId, []);
+      }
+      mutationsByChunk.get(chunkId).push(mutation);
+    }
+  }
+  
+  if (newChunksFound.size > 0) {
+    console.log(`📦 Found ${newChunksFound.size} new chunks:`, Array.from(newChunksFound));
+  }
+  
+  // Process mutations for each chunk
+  for (const [chunkId, chunkMutations] of mutationsByChunk) {
+    const chunk = observedChunks.get(chunkId);
+    if (chunk && document.contains(chunk)) { // Ensure chunk is still in DOM
+      await processChunkMutations(chunk, chunkMutations);
+    } else if (chunk) {
+  // Chunk was removed, clean up - but delay it to let any pending transactions finish
+  console.log(`🗑️ Chunk ${chunkId} removed from DOM, scheduling cleanup...`);
+  
+  setTimeout(() => {
+    observedChunks.delete(chunkId);
+    delete chunkNodeCounts[chunkId];
+    console.log(`✅ Chunk ${chunkId} cleanup completed`);
+  }, 300); // Give enough time for the deletion transaction to complete
+}
+  }
+}
+
+// Handle a new chunk being discovered
+function handleNewChunk(chunk) {
+  const chunkId = chunk.getAttribute('data-chunk-id');
+  
+  if (!chunkId) {
+    console.warn("Found chunk without data-chunk-id:", chunk);
+    return;
+  }
+  
+  console.log(`📦 New chunk loaded: ${chunkId}`);
+  
+  observedChunks.set(chunkId, chunk);
+  trackChunkNodeCount(chunk);
+  NodeIdManager.fixDuplicates(chunk);
+}
+
+// Process mutations for a specific chunk (adapted from your existing logic)
+async function processChunkMutations(chunk, mutations) {
+  const chunkId = chunk.getAttribute('data-chunk-id');
+  
+  console.log(`🔄 Processing ${mutations.length} mutations for chunk ${chunkId}`);
+  
+  // Track node count CHANGES after mutations 
+  trackChunkNodeCount(chunk, mutations);
+  
+  // Check if current chunk has reached the limit
+  const currentNodeCount = chunkNodeCounts[chunkId] || 0;
+  
+  // If we're at the limit and adding new nodes, handle overflow
+  if (currentNodeCount > NODE_LIMIT && 
+      mutations.some(m => m.type === "childList" && m.addedNodes.length > 0)) {
+    console.log(`Chunk ${chunkId} has reached limit (${currentNodeCount}/${NODE_LIMIT}). Managing overflow...`);
+    await handleChunkOverflow(chunk, mutations);
+    return;
+  }
+  
+  // Track parent nodes that need updates
+  const parentsToUpdate = new Set();
+  let addedCount = 0;
+  const newNodes = [];
+  let pasteDetected = false;
+  
+  
     // Check if this might be a paste operation (multiple nodes added at once)
     if (mutations.some(m => m.type === "childList" && m.addedNodes.length > 1)) {
       pasteDetected = true;
@@ -138,11 +412,38 @@ export function startObserving(editableDiv) {
           if (node.nodeType === Node.ELEMENT_NODE) {
             // Check if this is a top-level paragraph/heading being removed
             if (node.id && node.id.match(/^\d+(\.\d+)?$/)) {
-              console.log(`Top-level node removed: ${node.id}`, node);
-              await deleteIndexedDBRecordWithRetry(node.id);
-              removedNodeIds.add(node.id);
+              console.log(`🗑️ Attempting to delete node ${node.id} from IndexedDB`);
+
+              // 🚨 NEW: Check if this is the last node in the chunk
+              const remainingNodes = chunk.querySelectorAll('[id]').length;
+              console.log(`Chunk ${chunkId} has ${remainingNodes} remaining nodes after this deletion`);
+              
+              if (remainingNodes === 0) {
+                // This is the last node - handle it specially
+                console.log(`🚨 Last node ${node.id} being deleted from chunk ${chunkId}`);
+                
+                try {
+                  await deleteIndexedDBRecordWithRetry(node.id);
+                  console.log(`✅ Successfully deleted last node ${node.id} from IndexedDB`);
+                } catch (error) {
+                  console.error(`❌ Failed to delete last node ${node.id}:`, error);
+                }
+                removedNodeIds.add(node.id);
+                
+                // Exit early to avoid further processing since chunk will disappear
+                return;
+              } else {
+                // Normal deletion for non-last nodes
+                try {
+                  await deleteIndexedDBRecordWithRetry(node.id);
+                  console.log(`✅ Successfully deleted node ${node.id} from IndexedDB`);
+                } catch (error) {
+                  console.error(`❌ Failed to delete node ${node.id}:`, error);
+                }
+                removedNodeIds.add(node.id);
+              }
             } 
-            // Check if this is a child element (like a hypercite) being removed
+            // 🚨 ADD THIS MISSING 'else if' for hypercites
             else if (node.id && node.id.startsWith("hypercite_")) {
               // Instead of deleting, mark the parent for update
               parentNode = mutation.target;
@@ -151,8 +452,8 @@ export function startObserving(editableDiv) {
             }
           }
         }
-         
-        // If we found a parent that needs updating, add it to our set
+        
+        // 🚨 ADD THIS: Handle parent updates after processing all removed nodes
         if (shouldUpdateParent && parentNode) {
           // Find the closest parent with a numeric ID
           let closestParent = parentNode;
@@ -390,6 +691,8 @@ export function startObserving(editableDiv) {
     }
     // Otherwise, save individual nodes if there aren't too many
     else if (addedCount > 0) {
+      // 🚨 ADD MISSING CONSTANT
+      const BULK_THRESHOLD = 20;
       if (addedCount < BULK_THRESHOLD) {
         // small: update each individually
         console.log(`Saving ${newNodes.length} new nodes individually`);
@@ -416,15 +719,21 @@ export function startObserving(editableDiv) {
 
     // then your existing debounced normalize
     debouncedNormalize(currentObservedChunk);
-  });
-
-  observer.observe(currentChunk, {
-    childList: true,
-    subtree: true,
-    characterData: true,
-  });
-  console.log("Observer started in chunk:", currentChunk);
+  
 }
+
+
+// Utility function to get current chunks (for other parts of your code)
+export function getCurrentChunks() {
+  return Array.from(observedChunks.values());
+}
+
+// Utility function to get a specific chunk
+export function getChunkById(chunkId) {
+  return observedChunks.get(chunkId);
+}
+
+
 
 
 
@@ -433,8 +742,10 @@ export function stopObserving() {
   if (observer) {
     observer.disconnect();
     observer = null;
-    console.log("Observer disconnected");
   }
+  
+  observedChunks.clear();
+  console.log("Multi-chunk observer stopped and tracking cleared");
   
   // Reset all state variables
   modifiedNodes.clear();
@@ -442,13 +753,6 @@ export function stopObserving() {
   removedNodeIds.clear();
   documentChanged = false;
 
-  // Clear chunk node counts for the current chunk
-  if (currentObservedChunk) {
-    const chunkId = currentObservedChunk.getAttribute('data-chunk-id');
-    if (chunkId && chunkNodeCounts[chunkId]) {
-      delete chunkNodeCounts[chunkId];
-    }
-  }
   
   // Remove any lingering spinner
   const existingSpinner = document.getElementById("status-icon");
@@ -460,7 +764,7 @@ export function stopObserving() {
   console.log("Observer and related state fully reset");
 }
 
-
+/*
 // Listen for selection changes and restart observing if the current chunk has changed.
 document.addEventListener("selectionchange", () => {
   // Only perform chunk-observer restarts in edit mode.
@@ -477,7 +781,7 @@ document.addEventListener("selectionchange", () => {
       console.warn("Lost focus on any chunk.");
     }
   }
-});
+}); */
 
 
 

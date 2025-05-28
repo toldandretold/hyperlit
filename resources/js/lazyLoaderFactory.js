@@ -10,6 +10,11 @@ import {
   getHyperciteFromIndexedDB
 } from "./cache-indexedDB.js";
 import { attachUnderlineClickListeners } from "./hyperCites.js";
+import { 
+  setChunkLoadingInProgress, 
+  clearChunkLoadingInProgress, 
+  scheduleAutoClear 
+} from './chunkLoadingState.js';
 
 // --- A simple throttle helper to limit scroll firing
 function throttle(fn, delay) {
@@ -609,96 +614,28 @@ function getTextNodes(element) {
   return textNodes;
 }
 
-/**
- * Loads the previous chunk into the container.
- */
-export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
-  // Convert to float to ensure proper numeric comparison
-  const currentId = parseFloat(currentFirstChunkId);
-  
-  // Find the previous chunk ID (largest ID less than current)
-  let prevChunkId = null;
-  let prevNodes = [];
-  
-  for (const node of instance.nodeChunks) {
-    const nodeChunkId = parseFloat(node.chunk_id);
-    
-    // If this node's chunk_id is less than current and either we haven't found a prev chunk yet
-    // or this one is larger than the one we've found (meaning it's closer to current)
-    if (nodeChunkId < currentId && (prevChunkId === null || nodeChunkId > prevChunkId)) {
-      prevChunkId = nodeChunkId;
-    }
-  }
-  
-  // If we found a previous chunk ID
-  if (prevChunkId !== null) {
-    // Check if already loaded
-    if (instance.container.querySelector(`[data-chunk-id="${prevChunkId}"]`)) {
-      console.log(`Previous chunk ${prevChunkId} already loaded.`);
-      return;
-    }
-    
-    // Get all nodes for this chunk
-    prevNodes = instance.nodeChunks.filter(node => parseFloat(node.chunk_id) === prevChunkId);
-    
-    if (prevNodes.length === 0) {
-      console.warn(`No data found for chunk ${prevChunkId}.`);
-      return;
-    }
-    
-    console.log(`Loading previous chunk: ${prevChunkId}`);
-    const container = instance.container;
-    const prevScrollTop = container.scrollTop;
-    const chunkElement = createChunkElement(prevNodes);
-    container.insertBefore(chunkElement, container.firstElementChild);
-    instance.currentlyLoadedChunks.add(prevChunkId);
-    const newHeight = chunkElement.getBoundingClientRect().height;
-    container.scrollTop = prevScrollTop + newHeight;
-    
-    // Reposition top sentinel.
-    if (instance.topSentinel) {
-      instance.topSentinel.remove();
-      container.prepend(instance.topSentinel);
-    }
-    
-    attachUnderlineClickListeners();
-    injectFootnotesForChunk(prevChunkId, instance.bookId);
-  } else {
-    console.log("No previous chunk available.");
-  }
-}
 
-
-/**
- * Loads the next chunk into the container.
- */
+// Update loadNextChunkFixed
 export function loadNextChunkFixed(currentLastChunkId, instance) {
-  // Convert to float to ensure proper numeric comparison
   const currentId = parseFloat(currentLastChunkId);
   
-  // Find the next chunk ID (smallest ID greater than current)
   let nextChunkId = null;
   let nextNodes = [];
   
   for (const node of instance.nodeChunks) {
     const nodeChunkId = parseFloat(node.chunk_id);
     
-    // If this node's chunk_id is greater than current and either we haven't found a next chunk yet
-    // or this one is smaller than the one we've found (meaning it's closer to current)
     if (nodeChunkId > currentId && (nextChunkId === null || nodeChunkId < nextChunkId)) {
       nextChunkId = nodeChunkId;
     }
   }
   
-  // If we found a next chunk ID
   if (nextChunkId !== null) {
-    // Check if already loaded
     if (instance.container.querySelector(`[data-chunk-id="${nextChunkId}"]`)) {
       console.log(`Next chunk ${nextChunkId} already loaded.`);
       return;
     }
     
-    // Get all nodes for this chunk
     nextNodes = instance.nodeChunks.filter(node => parseFloat(node.chunk_id) === nextChunkId);
     
     if (nextNodes.length === 0) {
@@ -707,6 +644,11 @@ export function loadNextChunkFixed(currentLastChunkId, instance) {
     }
     
     console.log(`Loading next chunk: ${nextChunkId}`);
+    
+    // 🚨 SET LOADING STATE BEFORE DOM CHANGES
+    setChunkLoadingInProgress(nextChunkId);
+    scheduleAutoClear(nextChunkId, 1000); // Auto-clear after 1 second
+    
     const container = instance.container;
     const chunkElement = createChunkElement(nextNodes);
     container.appendChild(chunkElement);
@@ -719,43 +661,125 @@ export function loadNextChunkFixed(currentLastChunkId, instance) {
     
     attachUnderlineClickListeners();
     injectFootnotesForChunk(nextChunkId, instance.bookId);
+    
+    // 🚨 CLEAR LOADING STATE AFTER DOM CHANGES
+    // Use a small delay to ensure all mutations are processed
+    setTimeout(() => {
+      clearChunkLoadingInProgress(nextChunkId);
+    }, 100);
+    
   } else {
     console.log("No next chunk available.");
   }
 }
 
+// Update loadPreviousChunkFixed similarly
+export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
+  const currentId = parseFloat(currentFirstChunkId);
+  
+  let prevChunkId = null;
+  let prevNodes = [];
+  
+  for (const node of instance.nodeChunks) {
+    const nodeChunkId = parseFloat(node.chunk_id);
+    
+    if (nodeChunkId < currentId && (prevChunkId === null || nodeChunkId > prevChunkId)) {
+      prevChunkId = nodeChunkId;
+    }
+  }
+  
+  if (prevChunkId !== null) {
+    if (instance.container.querySelector(`[data-chunk-id="${prevChunkId}"]`)) {
+      console.log(`Previous chunk ${prevChunkId} already loaded.`);
+      return;
+    }
+    
+    prevNodes = instance.nodeChunks.filter(node => parseFloat(node.chunk_id) === prevChunkId);
+    
+    if (prevNodes.length === 0) {
+      console.warn(`No data found for chunk ${prevChunkId}.`);
+      return;
+    }
+    
+    console.log(`Loading previous chunk: ${prevChunkId}`);
+    
+    // 🚨 SET LOADING STATE BEFORE DOM CHANGES
+    setChunkLoadingInProgress(prevChunkId);
+    scheduleAutoClear(prevChunkId, 1000);
+    
+    const container = instance.container;
+    const prevScrollTop = container.scrollTop;
+    const chunkElement = createChunkElement(prevNodes);
+    container.insertBefore(chunkElement, container.firstElementChild);
+    instance.currentlyLoadedChunks.add(prevChunkId);
+    const newHeight = chunkElement.getBoundingClientRect().height;
+    container.scrollTop = prevScrollTop + newHeight;
+    
+    if (instance.topSentinel) {
+      instance.topSentinel.remove();
+      container.prepend(instance.topSentinel);
+    }
+    
+    attachUnderlineClickListeners();
+    injectFootnotesForChunk(prevChunkId, instance.bookId);
+    
+    // 🚨 CLEAR LOADING STATE AFTER DOM CHANGES
+    setTimeout(() => {
+      clearChunkLoadingInProgress(prevChunkId);
+    }, 100);
+    
+  } else {
+    console.log("No previous chunk available.");
+  }
+}
 
-/**
- * Loads a chunk based on its chunk id in the specified direction.
- */
+// Update loadChunkInternal similarly
 function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   console.log(`Loading chunk ${chunkId} in direction: ${direction}`);
+  
   if (instance.currentlyLoadedChunks.has(chunkId)) {
     console.log(`Chunk ${chunkId} already loaded; skipping.`);
     return;
   }
+  
   const nextNodes = instance.nodeChunks.filter(
     (node) => node.chunk_id === chunkId
   );
+  
   if (!nextNodes || nextNodes.length === 0) {
     console.warn(`No data found for chunk ${chunkId}.`);
     return;
   }
+  
+  // 🚨 SET LOADING STATE BEFORE DOM CHANGES
+  setChunkLoadingInProgress(chunkId);
+  scheduleAutoClear(chunkId, 1000);
+  
   const element = createChunkElement(nextNodes);
   if (direction === "up") {
     instance.container.insertBefore(element, instance.container.firstChild);
   } else {
     instance.container.appendChild(element);
   }
+  
   instance.currentlyLoadedChunks.add(chunkId);
   attachMarkers(instance.container);
+  
   if (chunkId === 0) {
     repositionFixedSentinelsForBlockInternal(instance, attachMarkers);
   }
+  
   attachUnderlineClickListeners();
   injectFootnotesForChunk(chunkId, instance.bookId);
+  
+  // 🚨 CLEAR LOADING STATE AFTER DOM CHANGES
+  setTimeout(() => {
+    clearChunkLoadingInProgress(chunkId);
+  }, 100);
+  
   console.log(`Chunk ${chunkId} loaded.`);
 }
+
 
 /**
  * Repositions the sentinels around loaded chunks.
