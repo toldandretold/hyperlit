@@ -8,9 +8,9 @@ import {
 } from "./divEditor.js";
 import { book } from "./app.js";
 import { incrementPendingOperations, decrementPendingOperations } from './operationState.js';
-import { NodeIdManager } from './IDmanager.js';
+//import { NodeIdManager } from './IDmanager.js';
 
-window.NodeIdManager = NodeIdManager;
+//window.NodeIdManager = NodeIdManager;
 
 
 
@@ -26,7 +26,7 @@ const shouldAutoEdit = isEditQ || isEditP;
 // State flags
 window.isEditing = false;
 
-// Turn on all edit functionality
+
 // Turn on all edit functionality
 async function enableEditMode() {
   console.log("🔔 enableEditMode() called, shouldAutoEdit=", shouldAutoEdit);
@@ -42,7 +42,7 @@ async function enableEditMode() {
   try {
     // Initialize the ID manager first, before making content editable
     console.log("Initializing NodeIdManager...");
-    try {
+    /*try {
       NodeIdManager.init();
       console.log("NodeIdManager initialized with", NodeIdManager.usedIds.size, "IDs");
       
@@ -52,13 +52,13 @@ async function enableEditMode() {
       }
     } catch (error) {
       console.error("Error initializing NodeIdManager:", error);
-    }
+    } */
     
     // Check for and fix any duplicate IDs before starting edit mode
-    const duplicatesFixed = NodeIdManager.fixDuplicates();
-    if (duplicatesFixed > 0) {
-      console.log(`Fixed ${duplicatesFixed} duplicate IDs during initialization`);
-    }
+    //const duplicatesFixed = NodeIdManager.fixDuplicates();
+    //if (duplicatesFixed > 0) {
+    //  console.log(`Fixed ${duplicatesFixed} duplicate IDs during initialization`);
+    //}
     
     // Now make the content editable
     window.isEditing = true;
@@ -74,12 +74,12 @@ async function enableEditMode() {
     initTitleSync(book);
     
     // Run an initial normalization on each chunk
-    document.querySelectorAll('.chunk').forEach(chunk => {
+    //document.querySelectorAll('.chunk').forEach(chunk => {
       // Only fix duplicates, don't renumber everything
-      NodeIdManager.fixDuplicates(chunk);
-    });
+      //NodeIdManager.fixDuplicates(chunk);
+    //});
     
-    console.log("Edit mode enabled with NodeIdManager initialized");
+    console.log("Edit mode enabled");
   } catch (error) {
     console.error("Error enabling edit mode:", error);
   } finally {

@@ -1,4 +1,4 @@
-import { updateIndexedDBRecordForNormalization, updateIndexedDBRecord } from './cache-indexedDB.js';
+/* import { updateIndexedDBRecordForNormalization, updateIndexedDBRecord } from './cache-indexedDB.js';
 
 // Create a singleton ID manager
 export const NodeIdManager = {
@@ -267,4 +267,4 @@ export const NodeIdManager = {
 
 };
 
-
+*/
