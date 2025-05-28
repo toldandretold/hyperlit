@@ -1,5 +1,5 @@
 // createNewBook.js
-import { openDatabase } from "./cache-indexedDB.js";
+import { openDatabase, addNodeChunkToIndexedDB } from "./cache-indexedDB.js";
 import { buildBibtexEntry } from "./bibtexProcessor.js";
 
 // your existing helper (you could move this to utils.js)
@@ -26,53 +26,60 @@ export async function createNewBook() {
 
   try {
     const db = await openDatabase();
-    const tx = db.transaction("library", "readwrite");
-    const store = tx.objectStore("library");
-
+    
+    // Generate a unique book identifier
+    const bookId = "book_" + Date.now();
+    
+    // Create the library record
     const newLibraryRecord = {
-      citationID: "book_" + Date.now(), // unchanged
+      book: bookId, // This matches the keyPath for library store
+      citationID: bookId, // Keep this for compatibility if needed elsewhere
       title: "Update Title",
-      author: authorId,                 // always the same
+      author: authorId,
       type: "book",
       timestamp: new Date().toISOString(),
     };
 
     newLibraryRecord.bibtex = buildBibtexEntry(newLibraryRecord);
-    
-    store.put(newLibraryRecord);
+
+    // Start transaction for library store only
+    const tx = db.transaction(["library"], "readwrite");
+    const libraryStore = tx.objectStore("library");
+
+    // Add library record
+    libraryStore.put(newLibraryRecord);
 
     return new Promise((resolve, reject) => {
       tx.oncomplete = async () => {
         console.log("New book created:", newLibraryRecord);
+        
         try {
-          const res = await fetch("/create-main-text-md", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-CSRF-TOKEN": document
-                .querySelector('meta[name="csrf-token"]')
-                ?.getAttribute("content"),
-            },
-            body: JSON.stringify({
-              citation_id: newLibraryRecord.citationID,
-              title: newLibraryRecord.title,
-            }),
-          });
-          const result = await res.json();
-          if (res.ok && result.success) {
-            window.location.href = `/${newLibraryRecord.citationID}/edit`;
-            resolve(newLibraryRecord);
-          } else {
-            reject(result.error || "Backend error");
-          }
+          // Create the two initial nodeChunks using the new function
+          console.log("Creating first nodeChunk...");
+          await addNodeChunkToIndexedDB(bookId, 1, '<h1 id="1">Untitled</h1>', 0);
+          
+          console.log("Creating second nodeChunk...");
+          await addNodeChunkToIndexedDB(bookId, 2, '<p id="2"><br/></p>', 0);
+          
+          console.log("Initial nodes created successfully");
+          
+          // Navigate to edit page
+          window.location.href = `/${bookId}/edit`;
+          resolve(newLibraryRecord);
+          
         } catch (err) {
+          console.error("Failed to create initial nodes:", err);
           reject(err);
         }
       };
-      tx.onerror = (e) => reject(e.target.error);
+      
+      tx.onerror = (e) => {
+        console.error("Transaction failed:", e.target.error);
+        reject(e.target.error);
+      };
     });
   } catch (err) {
-    console.error(err);
+    console.error("Failed to create new book:", err);
     throw err;
   }
 }

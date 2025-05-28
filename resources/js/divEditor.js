@@ -366,7 +366,6 @@ function handleNewChunk(chunk) {
   
   observedChunks.set(chunkId, chunk);
   trackChunkNodeCount(chunk);
-  NodeIdManager.fixDuplicates(chunk);
 }
 
 // Process mutations for a specific chunk (adapted from your existing logic)
