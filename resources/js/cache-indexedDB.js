@@ -81,6 +81,65 @@ export async function openDatabase() {
   });
 }
 
+
+
+
+/**
+ * Adds a new nodeChunk record directly to IndexedDB without DOM processing.
+ * Used for creating initial book structure or adding nodes programmatically.
+ * 
+ * @param {string} bookId - The book identifier
+ * @param {number} startLine - The line number (will be converted to numeric)
+ * @param {string} content - The HTML content for the node
+ * @param {number} chunkId - The chunk ID (defaults to 0)
+ * @returns {Promise<boolean>} - Success status
+ */
+export async function addNodeChunkToIndexedDB(bookId, startLine, content, chunkId = 0) {
+  return withPending(async () => {
+    console.log(`Adding nodeChunk: book=${bookId}, startLine=${startLine}, chunkId=${chunkId}`);
+
+    try {
+      const db = await openDatabase();
+      const tx = db.transaction("nodeChunks", "readwrite");
+      const store = tx.objectStore("nodeChunks");
+
+      const numericStartLine = parseNodeId(startLine);
+      
+      const nodeChunkRecord = {
+        book: bookId,
+        startLine: numericStartLine,
+        chunk_id: chunkId,
+        content: content,
+        hyperlights: [],
+        hypercites: []
+      };
+
+      console.log("Creating nodeChunk record:", nodeChunkRecord);
+      store.put(nodeChunkRecord);
+
+      return new Promise((resolve, reject) => {
+        tx.oncomplete = () => {
+          console.log(`✅ Successfully added nodeChunk [${bookId}, ${numericStartLine}]`);
+          resolve(true);
+        };
+        
+        tx.onerror = (e) => {
+          console.error("❌ Error adding nodeChunk:", e.target.error);
+          reject(e.target.error);
+        };
+        
+        tx.onabort = (e) => {
+          console.warn("❌ Transaction aborted:", e);
+          reject(new Error("Transaction aborted"));
+        };
+      });
+    } catch (err) {
+      console.error("❌ Failed to add nodeChunk:", err);
+      throw err;
+    }
+  });
+}
+
 /**
  * Saves nodeChunks (an array of chunk records) into IndexedDB.
  * 
