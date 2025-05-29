@@ -241,9 +241,14 @@ CREATE TABLE public.library (
     url character varying(255),
     year character varying(255),
     raw_json jsonb NOT NULL,
+    recent integer,
+    most_viewed integer,
+    most_cited integer,
+    most_highlighted integer,
     created_at timestamp(0) without time zone,
     updated_at timestamp(0) without time zone
 );
+
 
 
 --

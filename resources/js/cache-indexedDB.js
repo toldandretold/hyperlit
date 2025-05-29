@@ -7,7 +7,7 @@ import { withPending } from "./operationState.js"
 export const DB_VERSION = 15;
 
 
-
+ 
 /**
  * Opens (or creates) the IndexedDB database.
  * 

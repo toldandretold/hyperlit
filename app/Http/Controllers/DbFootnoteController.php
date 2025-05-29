@@ -13,16 +13,88 @@ class DbFootnoteController extends Controller
 
     public function bulkCreate(Request $request)
     {
+        // Log the entire request for debugging
+        Log::info('Footnote request received:', [
+            'book' => $request->input('book'),
+            'has_data' => $request->has('data'),
+            'data_type' => gettype($request->input('data')),
+            'raw_content' => $request->getContent()
+        ]);
+
+        // Validate the request
+        $validated = $request->validate([
+            'book' => 'required|string',
+            'data' => 'required'  // Add more specific validation rules if needed
+        ]);
+
+        // Safe logging of data sample
+        $data = $request->input('data');
+        $dataSample = is_array($data) ? array_slice($data, 0, 2) : $data;
+        
         Log::info('Footnote data received:', [
             'book' => $request->input('book'),
-            'data_sample' => array_slice($request->input('data'), 0, 2) // Log first 2 items as sample
+            'data_sample' => $dataSample
         ]);
 
         return $this->handleDatabaseSync(
             $request,
             PgFootnote::class,
             ['book', 'data'],
-            false // Change to false since we want to store the entire array as one JSON object
+            false
         );
+    }
+
+    // Add this new upsert method
+    public function upsert(Request $request)
+    {
+        try {
+            // Log the request
+            Log::info('Footnote upsert request received:', [
+                'book' => $request->input('book'),
+                'has_data' => $request->has('data'),
+                'data_type' => gettype($request->input('data'))
+            ]);
+
+            // Validate the request
+            $validated = $request->validate([
+                'book' => 'required|string',
+                'data' => 'required'
+            ]);
+
+            $book = $validated['book'];
+            $data = $validated['data'];
+
+            // Use updateOrCreate since 'book' is the primary key for footnotes
+            $footnote = PgFootnote::updateOrCreate(
+                ['book' => $book],
+                [
+                    'data' => $data,
+                    'updated_at' => now(),
+                ]
+            );
+
+            Log::info('Footnote upserted successfully', [
+                'book' => $book,
+                'footnote_id' => $footnote->book
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Footnotes synced successfully',
+                'book' => $book
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Footnote upsert error:', [
+                'error' => $e->getMessage(),
+                'book' => $request->input('book')
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to sync footnotes',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }
