@@ -28,11 +28,19 @@ class PgLibrary extends Model
         'type',
         'url',
         'year',
-        'raw_json'
+        'raw_json',
+        'recent',
+        'total_views',
+        'total_citations',
+        'total_highlights'
     ];
 
     protected $casts = [
         'raw_json' => 'array',
-        'timestamp' => 'datetime'
+        'timestamp' => 'datetime',
+        'recent' => 'integer',
+        'total_views' => 'integer',
+        'total_citations' => 'integer',
+        'total_highlights' => 'integer'
     ];
 }

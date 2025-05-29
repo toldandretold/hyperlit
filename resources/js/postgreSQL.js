@@ -1,124 +1,156 @@
 import { openDatabase, parseNodeId } from "./cache-indexedDB.js";
 
-async function syncBookDataToServer(bookName, objectStoreName) {
-    // Configuration for different object stores
+async function syncBookDataToServer(bookName, objectStoreName, method = 'upsert') {
     const storeConfig = {
         nodeChunks: {
-            endpoint: '/api/db/node-chunks/bulk-create',
+            endpoint: `/api/db/node-chunks/${method}`, // ← Dynamic endpoint
             keyRange: IDBKeyRange.bound([bookName, 0], [bookName, Number.MAX_VALUE]),
             useCompositeKey: true
         },
         hyperlights: {
-            endpoint: '/api/db/hyperlights/bulk-create',
+            endpoint: `/api/db/hyperlights/${method}`, // ← Dynamic endpoint
             keyRange: IDBKeyRange.bound([bookName, ''], [bookName, '\uffff']),
             useCompositeKey: true
         },
         hypercites: {
-            endpoint: '/api/db/hypercites/bulk-create',
+            endpoint: `/api/db/hypercites/${method}`, // ← Dynamic endpoint
             keyRange: IDBKeyRange.bound([bookName, ''], [bookName, '\uffff']),
             useCompositeKey: true
         },
         library: {
-            endpoint: '/api/db/library/bulk-create',
+            endpoint: `/api/db/library/${method}`, // ← Dynamic endpoint
             keyRange: IDBKeyRange.only(bookName),
             useCompositeKey: false
         },
         footnotes: {
-            endpoint: '/api/db/footnotes/bulk-create',
+            endpoint: `/api/db/footnotes/${method}`, // ← Dynamic endpoint
             keyRange: IDBKeyRange.only(bookName),
             useCompositeKey: false
         }
     };
 
-    // Validate object store name
-    if (!storeConfig[objectStoreName]) {
-        throw new Error(`Invalid object store name: ${objectStoreName}`);
-    }
 
-    const config = storeConfig[objectStoreName];
-
+    console.log(`🔄 Sync attempt for ${objectStoreName} from window/tab ${window.name || 'unnamed'}`);
+    
     try {
-        // Open database
         const db = await new Promise((resolve, reject) => {
-            const request = indexedDB.open("MarkdownDB", 13);
+            const request = indexedDB.open("MarkdownDB", 15);
             request.onerror = () => reject(request.error);
             request.onsuccess = () => resolve(request.result);
         });
 
-        // Get data from IndexedDB
-        const data = await new Promise((resolve, reject) => {
-            const transaction = db.transaction([objectStoreName], "readonly");
-            const store = transaction.objectStore(objectStoreName);
-            const request = config.useCompositeKey ? 
-                store.getAll(config.keyRange) : 
-                store.get(config.keyRange);
-
-            request.onerror = () => reject(request.error);
+        const tx = db.transaction([objectStoreName], "readonly");
+        const store = tx.objectStore(objectStoreName);
+        
+        // Get all data first
+        const allData = await new Promise((resolve) => {
+            const request = store.getAll();
             request.onsuccess = () => resolve(request.result);
         });
 
-        // Log what we found
-        console.log(`Found data in ${objectStoreName} for book: ${bookName}`, data);
+        console.log(`📊 ${objectStoreName} total records:`, allData.length);
+        
+        // Try both book ID formats
+        const bookNameWithoutSlash = bookName.replace('/', '');
+        const bookNameWithSlash = bookName.startsWith('/') ? bookName : `/${bookName}`;
+        
+        // Filter for this book (checking both formats)
+        let bookData;
+        if (objectStoreName === 'library' || objectStoreName === 'footnotes') {
+            // For stores where book is the key, try both formats
+            bookData = await new Promise((resolve) => {
+                const request = store.get(bookNameWithoutSlash);
+                request.onsuccess = () => {
+                    if (request.result) {
+                        resolve(request.result);
+                    } else {
+                        // Try with slash if first attempt failed
+                        const request2 = store.get(bookNameWithSlash);
+                        request2.onsuccess = () => resolve(request2.result);
+                    }
+                };
+            });
+        } else {
+            // For stores with composite keys, filter with both formats
+            bookData = allData.filter(item => 
+                item.book === bookNameWithoutSlash || 
+                item.book === bookNameWithSlash
+            );
+        }
+
+        console.log(`📚 ${objectStoreName} data found:`, bookData);
+
+        // If no data, return early
+        if (!bookData || (Array.isArray(bookData) && bookData.length === 0)) {
+            console.log(`ℹ️ No ${objectStoreName} data found for ${bookName}`);
+            return {
+                status: 'success',
+                message: `No ${objectStoreName} data to sync`
+            };
+        }
+
+        // Normalize the book ID format for sending to server
+        const normalizedBookName = bookNameWithoutSlash;
+        
+        // Prepare the request body
+        const requestBody = {
+            book: normalizedBookName,
+            data: bookData
+        };
+
+        console.log(`📤 Sending ${objectStoreName} data:`, requestBody);
 
         // Send to server
-        const response = await fetch(config.endpoint, {
+        const response = await fetch(storeConfig[objectStoreName].endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
             },
-            body: JSON.stringify({
-                book: bookName,
-                data: data
-            })
+            body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
             const errorText = await response.text();
-            try {
-                const errorJson = JSON.parse(errorText);
-                throw new Error(JSON.stringify(errorJson));
-            } catch(e) {
-                throw new Error(errorText);
-            }
+            console.error(`❌ Server error for ${objectStoreName}:`, errorText);
+            throw new Error(errorText);
         }
 
         const result = await response.json();
-        console.log(`Success syncing ${objectStoreName}:`, result);
+        console.log(`✅ Success syncing ${objectStoreName}:`, result);
         return result;
 
     } catch (error) {
-        console.error(`Error syncing ${objectStoreName}:`, error);
+        console.error(`❌ Error syncing ${objectStoreName}:`, error);
         throw error;
     }
 }
 
-// Usage examples:
-async function syncAllBookData(bookName) {
-    try {
-        const results = await Promise.all([
-            syncBookDataToServer(bookName, 'nodeChunks'),
-            syncBookDataToServer(bookName, 'hyperlights'),
-            syncBookDataToServer(bookName, 'hypercites'),
-            syncBookDataToServer(bookName, 'library'),
-            syncBookDataToServer(bookName, 'footnotes')
-        ]);
-        console.log('All syncs completed:', results);
-    } catch (error) {
-        console.error('Sync failed:', error);
-    }
+
+
+function copyTheseToConsoleLog (doNotActuallyCallThis) {
+// Sync everything with upsert
+syncAllBookData("book_1748495788845", "upsert");
+
+// Individual syncs with upsert
+syncBookDataToServer("book_1748495788845", "hyperlights", "upsert");
+syncBookDataToServer("book_1748495788845", "hypercites", "upsert");
+syncBookDataToServer("book_1748495788845", "nodeChunks", "upsert");
+syncBookDataToServer("book_1748495788845", "library", "upsert");
+syncBookDataToServer("book_1748495788845", "footnotes", "upsert");
+
+
+// Sync everything with bulk-create
+syncAllBookData("book_1748495788845", "bulk-create");
+
+// Individual syncs with bulk-create
+syncBookDataToServer("book_1748495788845", "hyperlights", "bulk-create");
+syncBookDataToServer("book_1748495788845", "hypercites", "bulk-create");
+syncBookDataToServer("book_1748495788845", "nodeChunks", "bulk-create");
+syncBookDataToServer("book_1748495788845", "library", "bulk-create");
+syncBookDataToServer("book_1748495788845", "footnotes", "bulk-create");
+
 }
-
-/* Or sync everything:
-
-syncAllBookData("book_1748221302973");
-
-// Use either individual sync:
-
-syncBookDataToServer("Marx1867Capital", "footnotes");
-
-*/
-
 
 
 /**

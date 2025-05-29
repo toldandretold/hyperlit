@@ -3,21 +3,95 @@
 namespace App\Http\Controllers;
 
 use App\Models\PgHyperlight;
-use App\Traits\HandlesDatabaseSync;
 use Illuminate\Http\Request;
 
 class DbHyperlightController extends Controller
 {
-    use HandlesDatabaseSync;
-
     public function bulkCreate(Request $request)
     {
-        return $this->handleDatabaseSync(
-            $request,
-            PgHyperlight::class,
-            ['book', 'hyperlight_id', 'annotation', 'endChar', 'highlightedHTML',
-             'highlightedText', 'startChar', 'startLine'],
-             true // array of objects
-        );
+        try {
+            $data = $request->all();
+            
+            if (isset($data['data']) && is_array($data['data'])) {
+                $records = [];
+                
+                foreach ($data['data'] as $item) {
+                    $record = [
+                        'book' => $item['book'] ?? null,
+                        'hyperlight_id' => $item['hyperlight_id'] ?? null,
+                        'highlightedText' => $item['highlightedText'] ?? null,
+                        'highlightedHTML' => $item['highlightedHTML'] ?? null,
+                        'annotation' => $item['annotation'] ?? null,
+                        'startChar' => $item['startChar'] ?? null,
+                        'endChar' => $item['endChar'] ?? null,
+                        'startLine' => $item['startLine'] ?? null,
+                        'raw_json' => json_encode($item),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                    
+                    $records[] = $record;
+                }
+                
+                PgHyperlight::insert($records);
+                
+                return response()->json(['success' => true]);
+            }
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid data format'
+            ], 400);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to sync data',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // Add this new upsert method
+    public function upsert(Request $request)
+    {
+        try {
+            $data = $request->all();
+            
+            if (isset($data['data']) && is_array($data['data'])) {
+                foreach ($data['data'] as $item) {
+                    PgHyperlight::updateOrCreate(
+                        [
+                            'book' => $item['book'] ?? null,
+                            'hyperlight_id' => $item['hyperlight_id'] ?? null,
+                        ],
+                        [
+                            'highlightedText' => $item['highlightedText'] ?? null,
+                            'highlightedHTML' => $item['highlightedHTML'] ?? null,
+                            'annotation' => $item['annotation'] ?? null,
+                            'startChar' => $item['startChar'] ?? null,
+                            'endChar' => $item['endChar'] ?? null,
+                            'startLine' => $item['startLine'] ?? null,
+                            'raw_json' => json_encode($item),
+                            'updated_at' => now(),
+                        ]
+                    );
+                }
+                
+                return response()->json(['success' => true, 'message' => 'Hyperlights synced successfully']);
+            }
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid data format'
+            ], 400);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to sync data',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }
