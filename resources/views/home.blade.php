@@ -16,16 +16,31 @@
 
 <!-- resources/markdown/home/main-text.md is loaded below a hyperlit logo,  -->
 <div class="content-wrapper" style="max-width: 60ch; margin: 0 auto;">
-    <div class="scroll-container">
-        <!-- Image Container -->
-        <div id="imageContainer" class="top-content">
-            <img src="http://127.0.0.1:8000/images/titleLogo.png" id="top" alt="Title Logo">
-        </div>
+    <div class="fixed-header">
+      <div id="imageContainer" class="top-content">
+        <img src="http://127.0.0.1:8000/images/titleLogo.png" id="top" alt="Title Logo">
+      </div>
+      <!-- Add your buttons here -->
+      <div class="arranger-buttons-container">
         
-        <div id="home" class="main-content">
-            <!-- Your content here -->
-        </div>
+        <button class="arranger-button active" data-content="most-recent">Most Recent</button>
+          <button class="arranger-button" data-content="most-connected">Most Connected</button>
+          <button class="arranger-button" data-content="most-lit">Most Lit</button>
+
+        <!-- Your buttons will go here -->
+      </div>
     </div>
+        
+            <!-- Multiple content containers -->
+      <div id="most-recent" class="main-content active-content">
+        <!-- Most Recent content -->
+      </div>
+      <div id="most-connected" class="main-content hidden-content">
+        <!-- Most Connected content -->
+      </div>
+      <div id="most-lit" class="main-content hidden-content">
+        <!-- Most Lit content -->
+      </div>
 </div>
 
 <!-- Buttons for hyper-lighting -->
@@ -226,7 +241,7 @@
  
 @vite([
     'resources/js/reader-DOMContentLoaded.js',
-    'resources/js/renderOpenBooks.js'
+    'resources/js/homepageDisplayUnit.js'
 ])
 
 

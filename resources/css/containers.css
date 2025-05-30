@@ -168,91 +168,67 @@ black #221F20;
 
 
 
-
-.scroll-container {
-  height: calc(100vh - 60px); /* Full height minus space for buttons */
-  overflow-y: auto;           /* Enable vertical scrolling for the container */
-  overflow-x: hidden;         /* Prevent horizontal scrolling */
-  background-color: #221F20;  /* Dark background color */
+.content-wrapper {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #221F20;
   color: #CBCCCC;
 }
 
-.scroll-container .main-content {
-     height: calc(100vh - 60px); /* Full height minus space for buttons */
-  border: none;               /* Remove border */
-  outline: none;              /* Remove default focus outline */
-  padding-left: 40px;
-  padding-right: 40px;
-  padding-bottom: 10px;       /* Add padding for text */
-  box-sizing: border-box;     /* Include padding in total width */
-  line-height: 1.6;
-  background-color: #221F20;  /* Dark background color */
-  color: #CBCCCC;       
-  visibility: visible !important;
-  opacity: 1 !important;
-  margin-top: 0;
-
-  /* Set maximum width so that the text area stays approx. 70ch wide */
-  max-width: 60ch;
-  margin: 0 auto; /* Center the content when viewport is wider */
-}
-
-/* lazy loading */
-.main-content {
-  height: calc(100vh - 60px); /* Full height minus space for buttons */
-  border: none;               /* Remove border */
-  outline: none;              /* Remove default focus outline */
-  padding-left: 40px;
-  padding-right: 40px;
-  padding-bottom: 10px;       /* Add padding for text */
-  box-sizing: border-box;     /* Include padding in total width */
-  line-height: 1.6;
-  background-color: #221F20;  /* Dark background color */
-  color: #CBCCCC;       
-  visibility: visible !important;
-  opacity: 1 !important;
-  margin-top: 0;
-  overflow-y: auto;           /* Enable vertical scrolling for the container */
-  overflow-x: hidden;
-  /* Set maximum width so that the text area stays approx. 70ch wide */
-  max-width: 60ch;
-  margin: 0 auto; /* Center the content when viewport is wider */
-}
-
-/* lazy loading */
-/* Ensure both divs have the same styling */
-/* Update these styles in your CSS */
-.top-content {
+.fixed-header {
+  flex-shrink: 0; /* Prevent shrinking */
   width: 100%;
-  max-width: 60ch; /* Match the main-content max-width */
+  max-width: 60ch;
   margin: 0 auto;
   padding-left: 40px;
   padding-right: 40px;
+  padding-bottom: 0px;
   box-sizing: border-box;
   background-color: #221F20;
-  text-align: center; /* Center the image */
-  overflow: hidden; /* Prevent any overflow issues */
+  z-index: 10; /* Ensure it stays on top */
+}
+
+.top-content {
+  width: 100%;
+  text-align: left; /* Changed from center to left */
+  padding: 0px 0;
 }
 
 #top {
-    width: 50%;
-}
-
-#imageContainer {
-  margin-bottom: 20px;
-  text-align: left; /* Align container content to the left */
-   height: auto;
-  margin-bottom: 0;
-}
-
-#imageContainer img {
+  width: 50%;
   max-width: 100%;
   height: auto;
   display: block;
-  margin: 0; /* Remove auto margins */
+  margin: 0; /* Remove auto margins to prevent centering */
   margin-right: auto; /* This keeps space on the right side */
 }
 
+.button-container {
+  /* Style your buttons container here */
+  padding: 10px 0;
+  text-align: center;
+}
+
+.main-content {
+  flex: 1; /* Take remaining space */
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-left: 40px;
+  padding-right: 40px;
+  padding-bottom: 10px;
+  box-sizing: border-box;
+  line-height: 1.6;
+  background-color: #221F20;
+  color: #CBCCCC;
+  max-width: 60ch;
+  margin: 0 auto;
+}
+
+
+#imageContainer {
+  margin-bottom: 0;
+}
 
 #ref-container,
 #highlight-container,
@@ -435,4 +411,10 @@ black #221F20;
     color: #A8A8A8;
 }
 
+.hidden-content {
+  display: none;
+}
 
+.active-content {
+  display: block;
+}

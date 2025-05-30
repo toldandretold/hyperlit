@@ -126,6 +126,27 @@ async function syncBookDataToServer(bookName, objectStoreName, method = 'upsert'
     }
 }
 
+// Usage remains the same
+async function syncAllBookData(bookName) {
+    console.log(`🔄 Starting sync for ${bookName}`);
+    
+    try {
+        const results = await Promise.all([
+            syncBookDataToServer(bookName, 'nodeChunks'),
+            syncBookDataToServer(bookName, 'hyperlights'),
+            syncBookDataToServer(bookName, 'hypercites'),
+            syncBookDataToServer(bookName, 'library'),
+            syncBookDataToServer(bookName, 'footnotes')
+        ]);
+        
+        console.log('✅ All syncs completed:', results);
+        return results;
+    } catch (error) {
+        console.error('❌ Sync failed:', error);
+        throw error;
+    }
+}
+
 
 
 function copyTheseToConsoleLog (doNotActuallyCallThis) {
@@ -151,6 +172,7 @@ syncBookDataToServer("book_1748495788845", "library", "bulk-create");
 syncBookDataToServer("book_1748495788845", "footnotes", "bulk-create");
 
 }
+
 
 
 /**
@@ -296,10 +318,15 @@ async function loadNodeChunksToIndexedDB(db, nodeChunks) {
   const store = tx.objectStore('nodeChunks');
   
   for (const chunk of nodeChunks) {
-    // ✅ Convert startLine to proper numeric format (just like you do elsewhere)
+    // ✅ Convert startLine AND parse JSON fields
     const processedChunk = {
       ...chunk,
-      startLine: parseNodeId(chunk.startLine)  // This handles both "1.5" and 1.5
+      startLine: parseNodeId(chunk.startLine),
+      // Parse JSON strings back to objects/arrays
+      footnotes: typeof chunk.footnotes === 'string' ? JSON.parse(chunk.footnotes) : chunk.footnotes,
+      hypercites: typeof chunk.hypercites === 'string' ? JSON.parse(chunk.hypercites) : chunk.hypercites,
+      hyperlights: typeof chunk.hyperlights === 'string' ? JSON.parse(chunk.hyperlights) : chunk.hyperlights,
+      raw_json: typeof chunk.raw_json === 'string' ? JSON.parse(chunk.raw_json) : chunk.raw_json
     };
     
     await new Promise((resolve, reject) => {
@@ -379,15 +406,26 @@ async function loadHypercitesToIndexedDB(db, hypercites) {
   const store = tx.objectStore('hypercites');
   
   for (const hypercite of hypercites) {
+    // Parse JSON strings back to objects/arrays
+    const processedHypercite = {
+      ...hypercite,
+      citedIN: typeof hypercite.citedIN === 'string' ? JSON.parse(hypercite.citedIN) : hypercite.citedIN,
+      raw_json: typeof hypercite.raw_json === 'string' ? JSON.parse(hypercite.raw_json) : hypercite.raw_json
+    };
+    
     await new Promise((resolve, reject) => {
-      const request = store.put(hypercite);
+      const request = store.put(processedHypercite);
       request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+      request.onerror = () => {
+        console.error("❌ Failed to store hypercite:", processedHypercite, request.error);
+        reject(request.error);
+      };
     });
   }
   
   console.log(`✅ Loaded ${hypercites.length} hypercites`);
 }
+
 
 /**
  * Load library data into IndexedDB

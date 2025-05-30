@@ -76,18 +76,6 @@ export function formatBibtexToCitation(bibtex) {
 
 
 
-// Example usage
-const bibtexExample = `@article{nicholls2024non,
-  title={Non-aligned common front: strategic imaginaries of the new international economic order (NIEO)},
-  author={Nicholls, Sam},
-  journal={Development in Practice},
-  pages={1--11},
-  year={2024},
-  publisher={Taylor \\& Francis}
-}`;
-
-console.log(formatBibtexToCitation(bibtexExample));
-
 export function generateBibtexFromForm(data) {
   // Use the citation ID or generate a unique key
   const citationID = data.citation_id && data.citation_id.trim() !== ''
