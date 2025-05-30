@@ -15,9 +15,9 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-// Serve to homepage
-Route::get('/homepage/books', [HomePageServerController::class, 'getHomePageBooks']);
-// Update stats for a specific book
+
+Route::post('/homepage/books/update', [HomePageServerController::class, 'updateHomePageBooks']);
+
 Route::post('/library/{book}/update-stats', [DbLibraryController::class, 'updateBookStats']);
 // Update stats for all books
 Route::post('/library/update-all-stats', [DbLibraryController::class, 'updateAllLibraryStats']);

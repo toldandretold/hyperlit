@@ -12,75 +12,72 @@ class TextController extends Controller
 {
 
 
-     public function show(Request $request, $book)
-        {
-            // true if ?edit=1 OR if this route was named book.edit
-            $editMode = $request->boolean('edit')
-                     || $request->routeIs('book.edit');
+    public function show(Request $request, $book)
+    {
+        // true if ?edit=1 OR if this route was named book.edit
+        $editMode = $request->boolean('edit')
+            || $request->routeIs('book.edit');
 
-            // 2) Locate your MD / HTML files
-            $markdownPath = resource_path("markdown/{$book}/main-text.md");
-            $htmlPath     = resource_path("markdown/{$book}/main-text.html");
+        // 1) First check if book exists in database
+        $bookExistsInDB = DB::table('node_chunks')
+            ->where('book', $book)
+            ->exists();
 
-            $markdownExists = File::exists($markdownPath);
-            $htmlExists     = File::exists($htmlPath);
+        // 2) Locate your MD / HTML files
+        $markdownPath = resource_path("markdown/{$book}/main-text.md");
+        $htmlPath     = resource_path("markdown/{$book}/main-text.html");
 
-            // NEW: Check if this is an IndexedDB-only book
-            if (! $markdownExists && ! $htmlExists) {
-                // Instead of immediately aborting, check if it might be an IndexedDB book
-                // You can identify IndexedDB books by their naming pattern
-                if (str_starts_with($book, 'book_') && is_numeric(substr($book, 5))) {
-                    // This looks like an IndexedDB book (book_timestamp format)
-                    return view('reader', [
-                        'html'     => '', // Empty HTML - will be loaded by JS
-                        'book'     => $book,
-                        'editMode' => $editMode,
-                        'dataSource' => 'indexedDB', // Flag for frontend
-                    ]);
-                }
-                
-                // If it doesn't match IndexedDB pattern, it's truly not found
-                abort(404, "Book not found");
-            }
+        $markdownExists = File::exists($markdownPath);
+        $htmlExists     = File::exists($htmlPath);
 
-            // 3) Decide whether to convert MD → HTML (existing logic)
-            $convertToHtml = false;
-            if ($markdownExists) {
-                if (! $htmlExists) {
-                    $convertToHtml = true;
-                } else {
-                    $markdownModified = File::lastModified($markdownPath);
-                    $htmlModified     = File::lastModified($htmlPath);
-                    if ($markdownModified > $htmlModified) {
-                        $convertToHtml = true;
-                    }
-                }
-            }
+        // 3) Check if book exists either in files OR database
+        if (!$markdownExists && !$htmlExists && !$bookExistsInDB) {
+            abort(404, "Book '$book' not found in files or database");
+        }
 
-            // 4) Perform conversion if needed (existing logic)
-            if ($convertToHtml) {
-                $markdown = File::get($markdownPath);
-                $markdown = $this->normalizeMarkdown($markdown);
-
-                // Assuming your ConversionController takes ($book) in ctor
-                $conversionController = new ConversionController($book);
-
-                // overwrite the normalized markdown before converting
-                File::put($markdownPath, $markdown);
-
-                $html = $conversionController->markdownToHtml();
-            } else {
-                $html = File::get($htmlPath);
-            }
-
-            // 5) Return the view, passing HTML, book ID, and editMode
+        // 4) If book exists in DB but no files, serve empty HTML (JS will load from DB)
+        if ($bookExistsInDB && !$markdownExists && !$htmlExists) {
             return view('reader', [
-                'html'     => $html,
+                'html'     => '', // Empty HTML - will be loaded by JS from DB
                 'book'     => $book,
                 'editMode' => $editMode,
-                'dataSource' => 'backend', // Flag for frontend
+                'dataSource' => 'database', // Flag for frontend
             ]);
         }
+
+        // 5) Rest of your existing file-based logic...
+        $convertToHtml = false;
+        if ($markdownExists) {
+            if (! $htmlExists) {
+                $convertToHtml = true;
+            } else {
+                $markdownModified = File::lastModified($markdownPath);
+                $htmlModified     = File::lastModified($htmlPath);
+                if ($markdownModified > $htmlModified) {
+                    $convertToHtml = true;
+                }
+            }
+        }
+
+        if ($convertToHtml) {
+            $markdown = File::get($markdownPath);
+            $markdown = $this->normalizeMarkdown($markdown);
+
+            $conversionController = new ConversionController($book);
+            File::put($markdownPath, $markdown);
+            $html = $conversionController->markdownToHtml();
+        } else {
+            $html = File::get($htmlPath);
+        }
+
+        return view('reader', [
+            'html'     => $html,
+            'book'     => $book,
+            'editMode' => $editMode,
+            'dataSource' => 'backend', // Flag for frontend
+        ]);
+    }
+
 
     // Preprocess the markdown to handle soft line breaks
     private function normalizeMarkdown($markdown)

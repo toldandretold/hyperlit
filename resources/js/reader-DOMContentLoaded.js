@@ -57,21 +57,14 @@ window.uiState = {
   }
 };
 
-
-
-
-// Or, if you prefer the data‐attribute approach:
 const editMode = document.body.dataset.editMode === '1';
-
 if (editMode) {
   // 1) Activate your “Edit” button UI
   document.getElementById('edit-button')?.classList.add('active');
-
   // 2) Turn on contentEditable for whatever divs you want
   document.querySelectorAll('.editable').forEach(el => {
     el.contentEditable = 'true';
   });
-
   // 3) Any other JS you need to run in edit mode…
 }
 
@@ -83,32 +76,28 @@ if (!window.isInitialized) {
     window.getFreshUrl = function (url, lastModified) {
       return `${url}?v=${lastModified}`;
     };
+
     window.mdFilePath = `/markdown/book/main-text.md`; // Path to raw MD file
-
     window.isNavigatingToInternalId = false;
-
     console.log("✅ DOM is ready. Loading Markdown file...");
 
     // Initialize IndexedDB.
     window.db = await openDatabase();
     console.log("✅ IndexedDB initialized.");
 
-
     // Load the Markdown file.
     await loadMarkdownFile();
 
-    // Get scroll position from session storage.
     restoreScrollPosition();
 
-    // Attach mark listeners.
     attachMarkListeners();
 
     initializeBroadcastListener();
   
     generateTableOfContents("toc-container", "toc-toggle-button");
 
-    // Initialize Navigation Buttons.
 
+    // Initialize Navigation Buttons.
     // Get the data-page attribute from the <body> tag
     const pageType = document.body.getAttribute("data-page");
 
@@ -121,15 +110,19 @@ if (!window.isInitialized) {
 
       navButtons.init();
     } else if (pageType === "home") {
-      // Initialize differently for the home page.
-      // You can change any properties or call a different method.
-      const navButtons = new NavButtons({
-        elementIds: ["nav-buttons", "userContainer", "topRightContainer"],
-        tapThreshold: 15, // This is an example of a potential different setting.
-      });
+  const navButtons = new NavButtons({
+    elementIds: ["nav-buttons", "userContainer", "topRightContainer"],
+    tapThreshold: 15,
+  });
 
-      navButtons.init();
-    }
+  navButtons.init();
+
+  import('./homepageDisplayUnit.js').then(module => {
+    module.initializeHomepageButtons();
+  }).catch(error => {
+    console.error('Failed to load homepage display unit:', error);
+  });
+}
 
 
     // Initialize the toolbar
