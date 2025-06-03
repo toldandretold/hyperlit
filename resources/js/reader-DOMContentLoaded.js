@@ -17,7 +17,7 @@ import {
   openDatabase,
   getNodeChunksFromIndexedDB
 } from "./cache-indexedDB.js";
-import { loadMarkdownFile } from "./initializePage.js";
+import { loadHyperText } from "./initializePage.js";
 import {
   attachMarkListeners,
   handleMarkClick,
@@ -86,7 +86,7 @@ if (!window.isInitialized) {
     console.log("✅ IndexedDB initialized.");
 
     // Load the Markdown file.
-    await loadMarkdownFile();
+    await loadHyperText();
 
     restoreScrollPosition();
 
@@ -109,24 +109,24 @@ if (!window.isInitialized) {
       });
 
       navButtons.init();
+      initEditToolbar();
     } else if (pageType === "home") {
-  const navButtons = new NavButtons({
-    elementIds: ["nav-buttons", "userContainer", "topRightContainer"],
-    tapThreshold: 15,
-  });
+      const navButtons = new NavButtons({
+        elementIds: ["nav-buttons", "userContainer", "topRightContainer"],
+        tapThreshold: 15,
+      });
 
-  navButtons.init();
+      navButtons.init();
 
-  import('./homepageDisplayUnit.js').then(module => {
-    module.initializeHomepageButtons();
-  }).catch(error => {
-    console.error('Failed to load homepage display unit:', error);
-  });
-}
+      import('./homepageDisplayUnit.js').then(module => {
+        module.initializeHomepageButtons();
+      }).catch(error => {
+        console.error('Failed to load homepage display unit:', error);
+      });
+    }
 
 
-    // Initialize the toolbar
-    initEditToolbar();
+    
 
     // Get TOC elements here.
     const tocContainer = document.getElementById("toc-container");

@@ -19,7 +19,8 @@ import {
 
 import { parseMarkdownIntoChunksInitial } from "./convert-markdown.js";
 
-import { syncBookDataFromDatabase } from "./postgreSQL.js";
+import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
+
 
 // Helper function: Cache buster for forced reloads
 function buildUrl(path, forceReload = false) {
@@ -93,6 +94,7 @@ async function generateNodeChunksFromMarkdown(bookId, forceReload = false) {
   
   // Save to IndexedDB
   await saveNodeChunksToIndexedDB(nodeChunks, bookId);
+
   
   return nodeChunks;
 }
@@ -230,7 +232,7 @@ export async function initializeLazyLoaderForContainer(bookId) {
 }
 
 // Your existing function - unchanged for backward compatibility
-export async function loadMarkdownFile() {
+export async function loadHyperText() {
   console.log(`📖 Opening: ${book}`);
   console.log("📝 Book variable:", book, "Type:", typeof book);
 
@@ -240,13 +242,17 @@ export async function loadMarkdownFile() {
   }
   
   try {
-    // 1. Check for cached nodeChunks
+    // 1. Check for node chunks in indexedDB
     console.log("🔍 Checking if nodeChunks are in IndexedDB...");
     const cached = await getNodeChunksFromIndexedDB(book);
     if (cached && cached.length) {
       console.log(`✅ Found ${cached.length} cached nodeChunks`);
       window.nodeChunks = cached;
       initializeLazyLoader(openHyperlightID);
+
+      // Start async timestamp check (don't await)
+      checkAndUpdateIfNeeded(book);
+
       return;
     }
 
@@ -305,4 +311,142 @@ function navigateToElement(elementId) {
   } else {
     console.log(`Element not found: ${elementId}, will try loading more content`);
   }
+}
+
+// New async function to check timestamps and update if needed
+async function checkAndUpdateIfNeeded(bookId) {
+  try {
+    console.log("🕐 Starting async timestamp check...");
+    
+    // Get both records in parallel
+    const [serverRecord, localRecord] = await Promise.all([
+      getLibraryRecordFromServer(bookId),
+      getLibraryRecordFromIndexedDB(bookId)
+    ]);
+
+    if (!serverRecord || !localRecord) {
+      console.log("⚠️ Missing server or local library record for timestamp comparison");
+      console.log("Server record:", serverRecord);
+      console.log("Local record:", localRecord);
+      return;
+    }
+
+    // Debug the timestamp values
+    console.log("🔍 Raw timestamps:", {
+      server: serverRecord.timestamp,
+      local: localRecord.timestamp
+    });
+
+    // Get timestamp values
+    const serverTimestampValue = serverRecord.timestamp;
+    const localTimestampValue = localRecord.timestamp;
+
+    // Validate timestamp values exist
+    if (!serverTimestampValue || !localTimestampValue) {
+      console.log("⚠️ Missing timestamp values:");
+      console.log("Server timestamp:", serverTimestampValue);
+      console.log("Local timestamp:", localTimestampValue);
+      return;
+    }
+
+    // Create Date objects with validation
+    const serverTimestamp = new Date(serverTimestampValue);
+    const localTimestamp = new Date(localTimestampValue);
+
+    // Check if dates are valid
+    if (isNaN(serverTimestamp.getTime()) || isNaN(localTimestamp.getTime())) {
+      console.error("❌ Invalid timestamp format:");
+      console.log("Server timestamp:", serverTimestampValue, "→", serverTimestamp);
+      console.log("Local timestamp:", localTimestampValue, "→", localTimestamp);
+      return;
+    }
+
+    console.log(`🕐 Server timestamp: ${serverTimestamp.toISOString()}`);
+    console.log(`🕐 Local timestamp: ${localTimestamp.toISOString()}`);
+
+    if (serverTimestamp > localTimestamp) {
+      console.log("🔄 Server version is newer - updating from database...");
+      
+      // Update from server
+      const dbResult = await syncBookDataFromDatabase(bookId);
+      if (dbResult && dbResult.success) {
+        // Reload the nodeChunks
+        const updatedChunks = await getNodeChunksFromIndexedDB(bookId);
+        if (updatedChunks && updatedChunks.length) {
+          console.log(`🔄 Updated to ${updatedChunks.length} newer nodeChunks`);
+          window.nodeChunks = updatedChunks;
+          
+          // Optionally trigger a re-render or notification
+          notifyContentUpdated();
+        }
+      }
+    } else {
+      console.log("✅ Local version is up to date");
+    }
+    
+  } catch (err) {
+    console.error("❌ Error during timestamp check:", err);
+    console.error("Error stack:", err.stack);
+  }
+}
+// Helper function to get library record from server
+// Helper function to get library record from server
+async function getLibraryRecordFromServer(bookId) {
+  try {
+    const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/library`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Server responded with ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log("🔍 Full server response:", data);
+    console.log("🔍 Library data:", data.library);
+    console.log("🔍 Timestamp in library:", data.library?.timestamp);
+    
+    return data.success ? data.library : null;
+  } catch (err) {
+    console.error("❌ Error fetching library record from server:", err);
+    return null;
+  }
+}
+
+// Helper function to get library record from IndexedDB
+async function getLibraryRecordFromIndexedDB(bookId) {
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction("library", "readonly");
+    const store = tx.objectStore("library");
+    
+    return new Promise((resolve, reject) => {
+      const request = store.get(bookId);
+      
+      request.onsuccess = () => {
+        resolve(request.result || null);
+      };
+      
+      request.onerror = () => {
+        reject("❌ Error loading library record from IndexedDB");
+      };
+    });
+  } catch (err) {
+    console.error("❌ Error accessing library record in IndexedDB:", err);
+    return null;
+  }
+}
+
+// Optional: Function to notify UI that content was updated
+function notifyContentUpdated() {
+  // You could dispatch a custom event, show a toast notification, etc.
+  console.log("📢 Content has been updated in the background");
+  
+  // Example: dispatch custom event
+  window.dispatchEvent(new CustomEvent('contentUpdated', {
+    detail: { bookId: book }
+  }));
 }

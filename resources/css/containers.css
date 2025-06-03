@@ -182,11 +182,11 @@ black #221F20;
   max-width: 60ch;
   margin: 0 auto;
   padding-left: 40px;
-  padding-right: 40px;
+  padding-right: 20px;
   padding-bottom: 0px;
   box-sizing: border-box;
   background-color: #221F20;
-  z-index: 10; /* Ensure it stays on top */
+  z-index: 5; /* Ensure it stays on top */
 }
 
 .top-content {
@@ -211,20 +211,20 @@ black #221F20;
 }
 
 .main-content {
-  flex: 1; /* Take remaining space */
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-left: 40px;
-  padding-right: 40px;
-  padding-bottom: 10px;
-  box-sizing: border-box;
-  line-height: 1.6;
-  background-color: #221F20;
-  color: #CBCCCC;
-  max-width: 60ch;
-  margin: 0 auto;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-left: 40px;
+    padding-right: 40px;
+    padding-bottom: 10px;
+    box-sizing: border-box;
+    line-height: 1.6;
+    background-color: #221F20;
+    color: #CBCCCC;
+    width: 100%;
+    max-width: 60ch;
+    /* Remove margin: 0 auto since parent centers it */
 }
-
 
 #imageContainer {
   margin-bottom: 0;
@@ -332,7 +332,10 @@ black #221F20;
 
 
 
-
+#topRightContainer {
+  position: relative; /* or absolute/fixed if needed */
+  z-index: 1000; /* Higher than your containers */
+}
 
 
 #toc-container.open {

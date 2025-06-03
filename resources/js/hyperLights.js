@@ -3,11 +3,11 @@ import { fetchLatestUpdateInfo, handleTimestampComparison } from "./updateCheck.
 import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from "./lazyLoaderFactory.js";
 import { ContainerManager } from "./container-manager.js";
 import { navigateToInternalId } from "./scrolling.js";
-import { openDatabase, parseNodeId, createNodeChunksKey } from "./cache-indexedDB.js";
+import { openDatabase, parseNodeId, createNodeChunksKey, updateBookTimestamp } from "./cache-indexedDB.js";
 import { attachAnnotationListener } from "./annotation-saver.js";
 import { addPasteListener } from "./divEditor.js";
 import { addHighlightContainerPasteListener } from "./hyperLightsListener.js";
-
+import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 
 let highlightId; 
 let highlightLazyLoader;
@@ -390,7 +390,8 @@ async function addToHighlightsTable(highlightData) {
     const addRequest = store.put(highlightEntry);
 
     addRequest.onsuccess = () => {
-      console.log("✅ Successfully added highlight to hyperlights table");
+      console.log("✅ Successfully added highlight to hyperlights table"); 
+
       resolve();
     };
 
@@ -548,6 +549,8 @@ addTouchAndClickListener(
         startLine: startContainer.id   // keep "1.1"
       });
       console.log("Added to highlights table");
+      await updateBookTimestamp(book);
+      await syncIndexedDBtoPostgreSQL(book);
     } catch (error) {
       console.error("❌ Error saving highlight metadata:", error);
     }
@@ -674,6 +677,8 @@ addTouchAndClickListener(document.getElementById("delete-hyperlight"),
       try {
         await removeHighlightFromNodeChunks(highlightId);
         await removeHighlightFromHyperlights(highlightId);
+        await updateBookTimestamp(book);
+        await syncIndexedDBtoPostgreSQL(book);
       } catch (error) {
         console.error(
           `Error removing highlight ${highlightId} from IndexedDB:`,
@@ -713,6 +718,7 @@ async function removeHighlightFromNodeChunks(highlightId) {
           }
         }
         cursor.continue();
+        
       } else {
         resolve();
       }

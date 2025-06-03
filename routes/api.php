@@ -14,7 +14,7 @@ use App\Http\Controllers\HomePageServerController;
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
-
+ 
 
 Route::post('/homepage/books/update', [HomePageServerController::class, 'updateHomePageBooks']);
 
@@ -31,10 +31,12 @@ Route::post('/db/footnotes/bulk-create', [DbFootnoteController::class, 'bulkCrea
 
 // Upsert routes (FIXED - removed extra 's' from controller names)
 Route::post('/db/node-chunks/upsert', [DbNodeChunkController::class, 'upsert']);
+Route::post('db/node-chunks/targeted-upsert', [DbNodeChunkController::class, 'targetedUpsert']);
 Route::post('/db/hyperlights/upsert', [DbHyperlightController::class, 'upsert']);
 Route::post('/db/hypercites/upsert', [DbHyperciteController::class, 'upsert']);
 Route::post('/db/library/upsert', [DbLibraryController::class, 'upsert']);
 Route::post('/db/footnotes/upsert', [DbFootnoteController::class, 'upsert']);
+
 
 
 
@@ -51,4 +53,8 @@ Route::prefix('database-to-indexeddb')->group(function () {
     // Get just metadata (for checking if update needed)
     Route::get('books/{bookId}/metadata', [DatabaseToIndexedDBController::class, 'getBookMetadata'])
         ->name('api.database-to-indexeddb.book-metadata');
+    
+    // Get just library data for a specific book
+    Route::get('books/{bookId}/library', [DatabaseToIndexedDBController::class, 'getBookLibrary'])
+        ->name('api.database-to-indexeddb.book-library');
 });

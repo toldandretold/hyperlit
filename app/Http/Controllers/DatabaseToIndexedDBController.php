@@ -173,7 +173,10 @@ class DatabaseToIndexedDBController extends Controller
         return $hypercites;
     }
 
-    /**
+        /**
+         * Get library data for a book
+         */
+        /**
      * Get library data for a book
      */
     private function getLibrary(string $bookId): ?array
@@ -185,6 +188,14 @@ class DatabaseToIndexedDBController extends Controller
         if (!$library) {
             return null;
         }
+
+        // Debug log to see what's in the database
+        Log::info('Library record from database', [
+            'book_id' => $bookId,
+            'timestamp' => $library->timestamp,
+            'timestamp_type' => gettype($library->timestamp),
+            'full_record' => (array) $library
+        ]);
 
         return [
             'book' => $library->book,
@@ -207,6 +218,49 @@ class DatabaseToIndexedDBController extends Controller
         ];
     }
 
+
+      
+        /**
+     * Get just library data for a specific book
+     */
+    public function getBookLibrary(Request $request, string $bookId): JsonResponse
+    {
+        try {
+            $library = $this->getLibrary($bookId);
+            
+            if (!$library) {
+                return response()->json([
+                    'error' => 'Library record not found for book',
+                    'book_id' => $bookId
+                ], 404);
+            }
+
+            // Debug what we're about to return
+            Log::info('Returning library data to client', [
+                'book_id' => $bookId,
+                'timestamp_in_response' => $library['timestamp'] ?? 'NOT_SET',
+                'full_library_array' => $library
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'library' => $library,
+                'book_id' => $bookId
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching library data', [
+                'book_id' => $bookId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Internal server error',
+                'message' => 'Failed to fetch library data'
+            ], 500);
+        }
+    }
     /**
      * Get just metadata for cache validation
      */

@@ -12,47 +12,37 @@ class TextController extends Controller
 {
 
 
-    public function show(Request $request, $book)
-    {
-        // true if ?edit=1 OR if this route was named book.edit
-        $editMode = $request->boolean('edit')
-            || $request->routeIs('book.edit');
+   public function show(Request $request, $book)
+{
+    $editMode = $request->boolean('edit') || $request->routeIs('book.edit');
 
-        // 1) First check if book exists in database
-        $bookExistsInDB = DB::table('node_chunks')
-            ->where('book', $book)
-            ->exists();
+    // Check all possible data sources
+    $bookExistsInDB = DB::table('node_chunks')->where('book', $book)->exists();
+    $markdownPath = resource_path("markdown/{$book}/main-text.md");
+    $htmlPath = resource_path("markdown/{$book}/main-text.html");
+    $markdownExists = File::exists($markdownPath);
+    $htmlExists = File::exists($htmlPath);
 
-        // 2) Locate your MD / HTML files
-        $markdownPath = resource_path("markdown/{$book}/main-text.md");
-        $htmlPath     = resource_path("markdown/{$book}/main-text.html");
-
-        $markdownExists = File::exists($markdownPath);
-        $htmlExists     = File::exists($htmlPath);
-
-        // 3) Check if book exists either in files OR database
-        if (!$markdownExists && !$htmlExists && !$bookExistsInDB) {
-            abort(404, "Book '$book' not found in files or database");
-        }
-
-        // 4) If book exists in DB but no files, serve empty HTML (JS will load from DB)
-        if ($bookExistsInDB && !$markdownExists && !$htmlExists) {
-            return view('reader', [
-                'html'     => '', // Empty HTML - will be loaded by JS from DB
-                'book'     => $book,
-                'editMode' => $editMode,
-                'dataSource' => 'database', // Flag for frontend
-            ]);
-        }
-
-        // 5) Rest of your existing file-based logic...
+    // Determine data source priority and handle accordingly
+    if ($bookExistsInDB) {
+        // PostgreSQL has the data - serve empty HTML, let JS load from DB
+        return view('reader', [
+            'html' => '',
+            'book' => $book,
+            'editMode' => $editMode,
+            'dataSource' => 'database',
+        ]);
+    }
+    
+    if ($markdownExists || $htmlExists) {
+        // File system has the data - process files as before
         $convertToHtml = false;
         if ($markdownExists) {
-            if (! $htmlExists) {
+            if (!$htmlExists) {
                 $convertToHtml = true;
             } else {
                 $markdownModified = File::lastModified($markdownPath);
-                $htmlModified     = File::lastModified($htmlPath);
+                $htmlModified = File::lastModified($htmlPath);
                 if ($markdownModified > $htmlModified) {
                     $convertToHtml = true;
                 }
@@ -62,7 +52,6 @@ class TextController extends Controller
         if ($convertToHtml) {
             $markdown = File::get($markdownPath);
             $markdown = $this->normalizeMarkdown($markdown);
-
             $conversionController = new ConversionController($book);
             File::put($markdownPath, $markdown);
             $html = $conversionController->markdownToHtml();
@@ -71,12 +60,22 @@ class TextController extends Controller
         }
 
         return view('reader', [
-            'html'     => $html,
-            'book'     => $book,
+            'html' => $html,
+            'book' => $book,
             'editMode' => $editMode,
-            'dataSource' => 'backend', // Flag for frontend
+            'dataSource' => 'filesystem',
         ]);
     }
+
+    // Neither PostgreSQL nor filesystem has it - assume it might be in IndexedDB
+    // Always serve the reader view and let frontend JS check IndexedDB
+    return view('reader', [
+        'html' => '',
+        'book' => $book,
+        'editMode' => $editMode,
+        'dataSource' => 'indexeddb', // Frontend will check IndexedDB
+    ]);
+}
 
 
     // Preprocess the markdown to handle soft line breaks

@@ -126,6 +126,21 @@ async function syncBookDataToServer(bookName, objectStoreName, method = 'upsert'
     }
 }
 
+
+
+// get data from indexedDB, and send to backend for update
+export async function syncIndexedDBtoPostgreSQL(bookName) {
+  try {
+    const results = await syncAllBookData(bookName); // Fixed parameter
+    console.log("Sync succeeded:", results);
+    return results;
+  } catch (error) {
+    console.error("Sync failed completely:", error);
+    throw error; // Propagate error
+  }
+}
+
+
 // Usage remains the same
 async function syncAllBookData(bookName) {
     console.log(`🔄 Starting sync for ${bookName}`);
@@ -147,11 +162,145 @@ async function syncAllBookData(bookName) {
     }
 }
 
+async function syncAllBooksInLibrary(method = 'upsert') {
+    console.log(`🔄 Starting sync for all books in library with method: ${method}`);
+    
+    try {
+        // Open the database
+        const db = await new Promise((resolve, reject) => {
+            const request = indexedDB.open("MarkdownDB", 15);
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => resolve(request.result);
+        });
+
+        // Get all books from the library object store
+        const tx = db.transaction(['library'], "readonly");
+        const store = tx.objectStore('library');
+        
+        const allBooks = await new Promise((resolve, reject) => {
+            const request = store.getAll();
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => resolve(request.result);
+        });
+
+        console.log(`📚 Found ${allBooks.length} books in library:`, allBooks);
+
+        if (allBooks.length === 0) {
+            console.log('ℹ️ No books found in library');
+            return { status: 'success', message: 'No books to sync' };
+        }
+
+        // Extract book names from the 'book' property
+        const bookNames = allBooks.map(book => book.book).filter(Boolean);
+
+        console.log(`📋 Book names to sync:`, bookNames);
+
+        // Sync each book sequentially (to avoid overwhelming the server)
+        const results = [];
+        for (const bookName of bookNames) {
+            try {
+                console.log(`🔄 Syncing book: ${bookName}`);
+                const result = await syncAllBookData(bookName, method);
+                results.push({ bookName, status: 'success', result });
+                console.log(`✅ Successfully synced book: ${bookName}`);
+            } catch (error) {
+                console.error(`❌ Failed to sync book: ${bookName}`, error);
+                results.push({ bookName, status: 'error', error: error.message });
+            }
+        }
+
+        console.log('🎉 All books sync completed:', results);
+        return results;
+
+    } catch (error) {
+        console.error('❌ Error getting books from library:', error);
+        throw error;
+    }
+}
+
+// Parallel version with the fix
+async function syncAllBooksInLibraryParallel(method = 'upsert') {
+    console.log(`🔄 Starting parallel sync for all books with method: ${method}`);
+    
+    try {
+        const db = await new Promise((resolve, reject) => {
+            const request = indexedDB.open("MarkdownDB", 15);
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => resolve(request.result);
+        });
+
+        const tx = db.transaction(['library'], "readonly");
+        const store = tx.objectStore('library');
+        
+        const allBooks = await new Promise((resolve, reject) => {
+            const request = store.getAll();
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => resolve(request.result);
+        });
+
+        if (allBooks.length === 0) {
+            return { status: 'success', message: 'No books to sync' };
+        }
+
+        // Fixed: use book.book instead of book.id
+        const bookNames = allBooks.map(book => book.book).filter(Boolean);
+
+        console.log(`📋 Book names to sync:`, bookNames);
+
+        // Sync all books in parallel
+        const syncPromises = bookNames.map(async (bookName) => {
+            try {
+                const result = await syncAllBookData(bookName, method);
+                return { bookName, status: 'success', result };
+            } catch (error) {
+                return { bookName, status: 'error', error: error.message };
+            }
+        });
+
+        const results = await Promise.all(syncPromises);
+        console.log('🎉 All books parallel sync completed:', results);
+        return results;
+
+    } catch (error) {
+        console.error('❌ Error in parallel sync:', error);
+        throw error;
+    }
+}
+
+// Updated helper function
+async function getAllBookNamesFromLibrary() {
+    try {
+        const db = await new Promise((resolve, reject) => {
+            const request = indexedDB.open("MarkdownDB", 15);
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => resolve(request.result);
+        });
+
+        const tx = db.transaction(['library'], "readonly");
+        const store = tx.objectStore('library');
+        
+        const allBooks = await new Promise((resolve, reject) => {
+            const request = store.getAll();
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => resolve(request.result);
+        });
+
+        // Fixed: use book.book property
+        const bookNames = allBooks.map(book => book.book).filter(Boolean);
+
+        console.log('📚 All book names in library:', bookNames);
+        return bookNames;
+
+    } catch (error) {
+        console.error('❌ Error getting book names:', error);
+        throw error;
+    }
+}
 
 
 function copyTheseToConsoleLog (doNotActuallyCallThis) {
 // Sync everything with upsert
-syncAllBookData("book_1748495788845", "upsert");
+syncAllBookData("book_1748646769736", "upsert");
 
 // Individual syncs with upsert
 syncBookDataToServer("book_1748495788845", "hyperlights", "upsert");

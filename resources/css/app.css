@@ -7,11 +7,29 @@ black #221F20;
 
 @import url('/public/fonts/inter/inter.css');
 
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Prevent body from scrolling */
+}
+
 body {
     font-family: 'Inter', sans-serif;
     background-color: #221F20;
     color: #fff;
     font-size: 25px;
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1;
+    align-items: center; /* Center the main-content horizontally */
 }
 
 ul {
