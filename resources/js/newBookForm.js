@@ -506,7 +506,7 @@ export function setupFormSubmissionHandler() {
 
     // Create the library record
     const libraryRecord = {
-      citationID: citationID,
+      book: citationID,
       bibtex: citationData.bibtex || null,
       title: citationData.title || null,
       author: citationData.author || null,

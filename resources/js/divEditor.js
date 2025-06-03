@@ -1163,10 +1163,6 @@ function createAndInsertParagraph(blockElement, chunkContainer, content, selecti
     const br = document.createElement('br');
     newParagraph.appendChild(br);
 
-    // Insert a zero-width space so there's a text node
-    const nbsp = document.createTextNode('\u00A0');
-    newParagraph.appendChild(nbsp);
-
   }
 
   // 3. Generate an ID for the new paragraph

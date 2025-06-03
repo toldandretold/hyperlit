@@ -1,6 +1,7 @@
 // createNewBook.js
 import { openDatabase, addNodeChunkToIndexedDB } from "./cache-indexedDB.js";
 import { buildBibtexEntry } from "./bibtexProcessor.js";
+import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 
 // your existing helper (you could move this to utils.js)
 function generateUUID() {
@@ -62,9 +63,14 @@ export async function createNewBook() {
           await addNodeChunkToIndexedDB(bookId, 2, '<p id="2"><br/></p>', 0);
           
           console.log("Initial nodes created successfully");
+
+          await syncIndexedDBtoPostgreSQL(bookId);
           
           // Navigate to edit page
           window.location.href = `/${bookId}/edit`;
+
+          
+
           resolve(newLibraryRecord);
           
         } catch (err) {

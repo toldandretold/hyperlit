@@ -2,7 +2,8 @@ import { book } from "./app.js";
 import {
   broadcastToOpenTabs
 } from './BroadcastListener.js';
-import { withPending } from "./operationState.js"
+import { withPending } from "./operationState.js";
+import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 
 export const DB_VERSION = 15;
 
@@ -118,8 +119,12 @@ export async function addNodeChunkToIndexedDB(bookId, startLine, content, chunkI
       store.put(nodeChunkRecord);
 
       return new Promise((resolve, reject) => {
-        tx.oncomplete = () => {
+        tx.oncomplete = async() => {
           console.log(`✅ Successfully added nodeChunk [${bookId}, ${numericStartLine}]`);
+
+          // Update the book timestamp after successful addition
+          await updateBookTimestamp(bookId);
+
           resolve(true);
         };
         
@@ -168,8 +173,10 @@ export async function saveNodeChunksToIndexedDB(nodeChunks, bookId = "latest") {
     });
 
     return new Promise((resolve, reject) => {
-      tx.oncomplete = () => {
+      tx.oncomplete = async() => {
         console.log("✅ nodeChunks successfully saved for book:", bookId);
+          await updateBookTimestamp(bookId);
+          await syncIndexedDBtoPostgreSQL(bookId);
         resolve();
       };
       tx.onerror = () => {
@@ -334,8 +341,10 @@ export async function saveFootnotesToIndexedDB(footnotesData, bookId = "latest")
       const request = store.put(dataToSave);
 
       // Handle success
-      request.onsuccess = () => {
+      request.onsuccess = async() => {
         console.log("✅ Successfully saved footnotes to IndexedDB.");
+          await updateBookTimestamp(bookId);
+          await syncIndexedDBtoPostgreSQL(bookId);
         resolve();
       };
 
@@ -694,8 +703,13 @@ export function updateIndexedDBRecord(record) {
 
     // return a promise that resolves/rejects with the transaction
     return new Promise((resolve, reject) => {
-      tx.oncomplete = () => {
+      tx.oncomplete = async() => {
         console.log("✅ IndexedDB record update complete");
+
+        // Update the book timestamp after successful update
+        await updateBookTimestamp(bookId);
+        await syncIndexedDBtoPostgreSQL(bookId);
+
         resolve();
       };
       tx.onerror = (e) => {
@@ -824,8 +838,9 @@ export async function updateHyperciteInIndexedDB(book, hyperciteId, updatedField
           // Put the updated record back
           const updateRequest = objectStore.put(existingRecord);
           
-          updateRequest.onsuccess = () => {
+          updateRequest.onsuccess = async() => {
             console.log(`Successfully updated hypercite for key: [${book}, ${hyperciteId}]`);
+            await updateBookTimestamp(book);
             resolve(true);
           };
           
@@ -948,6 +963,8 @@ export function updateCitationForExistingHypercite(
     console.log(
       `Successfully updated hypercite ${hyperciteIDa} in book ${booka}`
     );
+      await updateBookTimestamp(bookId);
+      await syncIndexedDBtoPostgreSQL(bookId);
     return true;
   });
 }
@@ -1029,8 +1046,9 @@ async function addCitationToHypercite(book, startLine, hyperciteId, newCitation)
           // Put the *entire* updated record back
           const updateRequest = objectStore.put(record);
           
-          updateRequest.onsuccess = () => {
+          updateRequest.onsuccess = async() => {
             console.log(`✅ Successfully updated nodeChunk [${book}, ${numericStartLine}] with citation for hypercite ${hyperciteId}`);
+            await updateBookTimestamp(book);
             resolve({
               success: true,
               relationshipStatus: hyperciteToUpdate.relationshipStatus // Return the updated status
@@ -1175,8 +1193,9 @@ async function updateHyperciteInNodeChunk(book, startLine, hyperciteId, updates)
           // Put the updated record back
           const updateRequest = objectStore.put(existingRecord);
           
-          updateRequest.onsuccess = () => {
+          updateRequest.onsuccess = async() => {
             console.log(`✅ Successfully updated hypercite ${hyperciteId} in nodeChunk [${book}, ${numericStartLine}]`);
+            await updateBookTimestamp(bookId);
             resolve(true);
           };
           
@@ -1279,9 +1298,11 @@ export async function deleteIndexedDBRecord(id) {
     store.delete(key);
 
     return new Promise((resolve, reject) => {
-      tx.oncomplete = () => {
+      tx.oncomplete = async() => {
         clearTimeout(timeoutId);
         console.log(`Successfully deleted record with key: ${key}`);
+          await updateBookTimestamp(bookId);
+          await syncIndexedDBtoPostgreSQL(bookId);
         resolve(true);
       };
       tx.onerror = (event) => {
@@ -1364,9 +1385,11 @@ export async function updateIndexedDBRecordForNormalization(
 
     // Now wait for the transaction to finish
     return new Promise((resolve, reject) => {
-      tx.oncomplete = () => {
+      tx.oncomplete = async() => {
         clearTimeout(timeoutId);
         console.log(`Successfully normalized record: ${oldId} -> ${newId}`);
+        await updateBookTimestamp(bookId);
+        await syncIndexedDBtoPostgreSQL(bookId);
         resolve(true);
       };
       tx.onerror = (e) => {
@@ -1478,9 +1501,118 @@ async function rechunkAllNodeChunks() {
 
   // 4) Wait for the transaction to finish
   return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve();
+    tx.oncomplete = async() => 
+    {
+    await updateBookTimestamp(bookId);
+    resolve();
+    }
     tx.onerror    = (e) => reject(e.target.error);
     tx.onabort    = () => reject(new Error("rechunk aborted"));
   });
 }
 
+
+/**
+ * Updates the timestamp for a book in the library object store to the current time.
+ * Call this after successful IndexedDB operations to track when the book was last modified.
+ * 
+ * @param {string} bookId - The book identifier (defaults to current book)
+ * @returns {Promise<boolean>} - Success status
+ */
+export async function updateBookTimestamp(bookId = book || "latest") {
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction("library", "readwrite");
+    const store = tx.objectStore("library");
+    
+    // Get the existing library record for this book
+    const getRequest = store.get(bookId);
+    
+    return new Promise((resolve, reject) => {
+      getRequest.onsuccess = () => {
+        const existingRecord = getRequest.result;
+        
+        if (existingRecord) {
+          // Update the timestamp in the existing record
+          existingRecord.timestamp = Date.now();
+          
+          console.log(`Updating timestamp for book "${bookId}" to ${existingRecord.timestamp}`);
+          
+          // Put the updated record back
+          const putRequest = store.put(existingRecord);
+          
+          putRequest.onsuccess = () => {
+            console.log(`✅ Successfully updated timestamp for book: ${bookId}`);
+            resolve(true);
+          };
+          
+          putRequest.onerror = (e) => {
+            console.error(`❌ Error updating timestamp for book ${bookId}:`, e.target.error);
+            resolve(false);
+          };
+        } else {
+          // If no library record exists, create one with just the timestamp
+          const newRecord = {
+            book: bookId,
+            timestamp: Date.now(),
+            // Add other default fields if needed
+            title: bookId,
+            description: "",
+            tags: []
+          };
+          
+          console.log(`Creating new library record for book "${bookId}" with timestamp ${newRecord.timestamp}`);
+          
+          const putRequest = store.put(newRecord);
+          
+          putRequest.onsuccess = () => {
+            console.log(`✅ Successfully created library record with timestamp for book: ${bookId}`);
+            resolve(true);
+          };
+          
+          putRequest.onerror = (e) => {
+            console.error(`❌ Error creating library record for book ${bookId}:`, e.target.error);
+            resolve(false);
+          };
+        }
+      };
+      
+      getRequest.onerror = (e) => {
+        console.error(`❌ Error getting library record for book ${bookId}:`, e.target.error);
+        resolve(false);
+      };
+      
+      tx.onerror = (e) => {
+        console.error(`❌ Transaction error updating timestamp:`, e.target.error);
+        resolve(false);
+      };
+    });
+  } catch (error) {
+    console.error("❌ Failed to update book timestamp:", error);
+    return false;
+  }
+}
+
+
+// Helper function to get library object from IndexedDB
+export async function getLibraryObjectFromIndexedDB(book) {
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction(["library"], "readonly");
+    const libraryStore = tx.objectStore("library");
+    
+    const getRequest = libraryStore.get(book);
+    
+    const libraryObject = await new Promise((resolve, reject) => {
+      getRequest.onsuccess = (e) => resolve(e.target.result);
+      getRequest.onerror = (e) => reject(e.target.error);
+    });
+
+    console.log("📚 Retrieved library object for book:", book, libraryObject);
+    return libraryObject;
+    
+  } catch (error) {
+    console.error("❌ Error getting library object from IndexedDB:", error);
+    return null;
+  }
+}

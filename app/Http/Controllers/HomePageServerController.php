@@ -42,7 +42,12 @@ class HomePageServerController extends Controller
                 'total_citations',
                 'total_views',
                 'created_at',
-                'bibtex'
+                'bibtex',
+                'title',
+                'author',
+                'year',
+                'publisher',
+                'journal'
             ])
             ->get();
 
@@ -56,6 +61,9 @@ class HomePageServerController extends Controller
             'most-lit'
         ])->delete();
 
+        // Clear/create library entries for our special books
+        $this->createLibraryEntries();
+
         // Create entries for each special book
         $this->createNodeChunksForBook('most-recent', $libraryRecords, 'recent');
         $this->createNodeChunksForBook('most-connected', $libraryRecords, $rankings['mostConnected']);
@@ -67,6 +75,35 @@ class HomePageServerController extends Controller
             'books_processed' => $libraryRecords->count(),
             'timestamp' => Carbon::now()
         ]);
+    }
+
+      private function createLibraryEntries()
+    {
+        $currentTime = Carbon::now();
+        $specialBooks = ['most-recent', 'most-connected', 'most-lit'];
+
+        // Delete existing entries for special books
+        DB::table('library')->whereIn('book', $specialBooks)->delete();
+
+        // Create new entries
+        $libraryEntries = [];
+        foreach ($specialBooks as $bookId) {
+            $libraryEntries[] = [
+                'book' => $bookId,
+                'author' => 'hyperlit',
+                'raw_json' => json_encode([
+                    'type' => 'generated',
+                    'purpose' => 'homepage_ranking',
+                    'book_id' => $bookId
+                ]),
+                'timestamp' => round(microtime(true) * 1000), // ← Fixed: add field name and remove $
+                'created_at' => $currentTime,
+                'updated_at' => $currentTime
+            ];
+        }
+
+        // Insert all library entries
+        DB::table('library')->insert($libraryEntries);
     }
 
     private function createNodeChunksForBook($bookName, $libraryRecords, $positionData)
@@ -90,8 +127,8 @@ class HomePageServerController extends Controller
             $chunkId = floor(($positionId - 1) / 100);
 
             // Generate content with citation
-            $citationHtml = $this->parseBibtexToHtml($record->bibtex);
-            $content = '<p class="libraryCard" id="' . $positionId . '">' . $citationHtml . '</p>';
+            $citationHtml = $this->generateCitationHtml($record);
+            $content = '<p class="libraryCard" id="' . $positionId . '">' . $citationHtml . '<a href="/' . $record->book . '"><span class="open-icon">↗</span>' . '</p>';
 
             // Create the chunk entry
             $chunks[] = [
@@ -99,7 +136,10 @@ class HomePageServerController extends Controller
                     'original_book' => $record->book,
                     'position_type' => $bookName,
                     'position_id' => $positionId,
-                    'bibtex' => $record->bibtex
+                    'bibtex' => $record->bibtex,
+                    'title' => $record->title ?? null,
+                    'author' => $record->author ?? null,
+                    'year' => $record->year ?? null
                 ]),
                 'book' => $bookName,
                 'chunk_id' => $chunkId,
@@ -119,6 +159,82 @@ class HomePageServerController extends Controller
         if (!empty($chunks)) {
             DB::table('node_chunks')->insert($chunks);
         }
+    }
+
+    private function generateCitationHtml($record)
+    {
+        // First try to parse bibtex if it exists
+        if (!empty($record->bibtex)) {
+            $citationHtml = $this->parseBibtexToHtml($record->bibtex);
+            if (!empty($citationHtml)) {
+                return $citationHtml;
+            }
+        }
+
+        // Fallback to using individual fields
+        return $this->generateFallbackCitation($record);
+    }
+
+    private function generateFallbackCitation($record)
+    {
+        $html = '';
+
+        // Check if we have any meaningful data
+        $hasTitle = !empty($record->title);
+        $hasAuthor = !empty($record->author);
+        $hasYear = !empty($record->year);
+        $hasPublisher = !empty($record->publisher);
+        $hasJournal = !empty($record->journal);
+
+        // If we have no meaningful citation data, use default
+        if (!$hasTitle && !$hasAuthor && !$hasYear && !$hasPublisher && !$hasJournal) {
+            return 'Anon., <em>Unreferenced</em>';
+        }
+
+        // Author
+        if ($hasAuthor) {
+            $author = $this->anonymizeIfNeeded($record->author);
+            $html .= "<strong>{$author}</strong>. ";
+        } else {
+            $html .= "<strong>Anon.</strong> ";
+        }
+
+        // Title
+        if ($hasTitle) {
+            // Determine if it should be italicized (assume book if no journal)
+            if ($hasJournal) {
+                $html .= "\"{$record->title}.\" ";
+            } else {
+                $html .= "<em>{$record->title}</em>. ";
+            }
+        } else {
+            $html .= "<em>Unreferenced</em>. ";
+        }
+
+        // Journal
+        if ($hasJournal) {
+            $html .= "<em>{$record->journal}</em>. ";
+        }
+
+        // Publisher
+        if ($hasPublisher && !$hasJournal) {
+            $html .= "{$record->publisher}. ";
+        }
+
+        // Year
+        if ($hasYear) {
+            $html .= "{$record->year}";
+        }
+
+        // Clean up extra spaces and add final period if needed
+        $html = preg_replace('/\s+/', ' ', $html);
+        $html = trim($html);
+        
+        if (!empty($html) && !in_array(substr($html, -1), ['.', '!', '?'])) {
+            $html .= '.';
+        }
+
+        return $html;
     }
 
     private function parseBibtexToHtml($bibtex)
@@ -182,11 +298,12 @@ class HomePageServerController extends Controller
 
         $html = '';
 
-        // Author
+        // Author with anonymization check
         if ($author = $get('author')) {
+            // Check if author should be anonymized
+            $author = $this->anonymizeIfNeeded($author);
             $html .= "<strong>{$author}</strong>. ";
         }
-
         // Title
         if ($title = $get('title')) {
             if (in_array($type, ['book', 'inbook', 'incollection'])) {
@@ -303,6 +420,31 @@ class HomePageServerController extends Controller
         }
 
         return $html;
+    }
+
+    private function anonymizeIfNeeded($author)
+    {
+        // Define criteria for anonymization
+        $shouldAnonymize = false;
+        
+        // Check if it's too long (adjust threshold as needed)
+        if (strlen($author) > 50) {
+            $shouldAnonymize = true;
+        }
+        
+        // Check if it looks like a UUID
+        if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $author)) {
+            $shouldAnonymize = true;
+        }
+        
+        // Check if it contains suspicious patterns
+        if (preg_match('/^[0-9a-f]{32,}$/i', $author) || // Long hex strings
+            preg_match('/^[A-Za-z0-9+\/]{20,}={0,2}$/', $author) || // Base64-like
+            strlen($author) > 30 && !preg_match('/\s/', $author)) { // Long string without spaces
+            $shouldAnonymize = true;
+        }
+        
+        return $shouldAnonymize ? 'Anon.' : $author;
     }
 
     private function calculateRankings($libraryRecords)

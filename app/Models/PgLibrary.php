@@ -37,7 +37,7 @@ class PgLibrary extends Model
 
     protected $casts = [
         'raw_json' => 'array',
-        'timestamp' => 'datetime',
+        'timestamp' => 'integer',
         'recent' => 'integer',
         'total_views' => 'integer',
         'total_citations' => 'integer',

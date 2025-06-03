@@ -1,6 +1,10 @@
 import { book } from "./app.js";
 import { navigateToInternalId } from "./scrolling.js";
-import { openDatabase, parseNodeId, createNodeChunksKey  } from "./cache-indexedDB.js";
+import { openDatabase, 
+         parseNodeId, 
+         createNodeChunksKey, 
+         getLibraryObjectFromIndexedDB,
+         updateBookTimestamp  } from "./cache-indexedDB.js";
 import { ContainerManager } from "./container-manager.js";
 import { formatBibtexToCitation } from "./bibtexProcessor.js";
 
@@ -119,8 +123,8 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
     const hyperciteEntry = {
       book: book,
       hyperciteId: hyperciteId,
-      hypercitedText: hypercitedText, // <-- Now hypercitedText is defined
-      hypercitedHTML: hypercitedHTML, // <-- Now hypercitedHTML is defined
+      hypercitedText: hypercitedText,
+      hypercitedHTML: hypercitedHTML,
       startChar: overallStartChar,
       endChar: overallEndChar,
       relationshipStatus: "single",
@@ -139,6 +143,7 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
 
     // --- Update nodeChunks for each affected block ---
     const nodeChunksStore = tx.objectStore("nodeChunks");
+    const updatedNodeChunks = []; // 👈 ADD THIS: Array to collect updated node chunks
 
     for (const block of blocks) {
       console.log("Processing block for NEW hypercite:", block);
@@ -176,7 +181,6 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
           console.log(`Hypercite ${hyperciteId} already exists in nodeChunk, updating position.`);
           nodeChunkRecord.hypercites[existingHyperciteIndex].charStart = block.charStart;
           nodeChunkRecord.hypercites[existingHyperciteIndex].charEnd = block.charEnd;
-          // Preserve existing citedIN and relationshipStatus
         } else {
           console.log(`Adding new hypercite ${hyperciteId} to existing nodeChunk.`);
           nodeChunkRecord.hypercites.push({
@@ -191,12 +195,11 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
         updatedNodeChunkRecord = nodeChunkRecord;
 
       } else {
-        // Case: No existing record for this block, create a new one
         console.log("No existing nodeChunk record, creating new one with startLine:", numericStartLine);
         updatedNodeChunkRecord = {
           book: book,
           startLine: numericStartLine,
-          chunk_id: numericStartLine, // Adjust if chunk_id logic is different
+          chunk_id: numericStartLine,
           hypercites: [
             {
               hyperciteId: hyperciteId,
@@ -206,12 +209,13 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
               citedIN: []
             }
           ]
-          // Consider adding 'content' and 'hyperlights' here if this is
-          // the primary function for creating nodeChunks.
         };
       }
 
       console.log("NodeChunk record to put:", JSON.stringify(updatedNodeChunkRecord));
+
+      // 👈 ADD THIS: Store the updated record for API sync
+      updatedNodeChunks.push(updatedNodeChunkRecord);
 
       const putRequestNodeChunk = nodeChunksStore.put(updatedNodeChunkRecord);
       await new Promise((resolve, reject) => {
@@ -232,12 +236,98 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
     });
 
     console.log("✅ NEW Hypercite and affected nodeChunks updated.");
+
+    await updateBookTimestamp(book);
+    await syncHyperciteWithPostgreSQL(hyperciteEntry, updatedNodeChunks);
+
   } catch (error) {
     console.error("❌ Error in NewHyperciteIndexedDB:", error);
   }
 }
 
+// Helper function to sync data with PostgreSQL
+async function syncHyperciteWithPostgreSQL(hyperciteEntry, nodeChunks) {
+  try {
+    console.log("🔄 Starting PostgreSQL sync...");
 
+    // Get the library object from IndexedDB for the book
+    const libraryObject = await getLibraryObjectFromIndexedDB(hyperciteEntry.book);
+    
+    if (!libraryObject) {
+      console.warn("⚠️ No library object found for book:", hyperciteEntry.book);
+    }
+
+    // Sync hypercite using your actual endpoint
+    const hyperciteResponse = await fetch("/api/db/hypercites/upsert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN": document
+          .querySelector('meta[name="csrf-token"]')
+          ?.getAttribute("content"),
+      },
+      body: JSON.stringify({
+        data: [hyperciteEntry]
+      }),
+    });
+
+    if (!hyperciteResponse.ok) {
+      throw new Error(`Hypercite sync failed: ${hyperciteResponse.statusText}`);
+    }
+
+    console.log("✅ Hypercite synced with PostgreSQL");
+
+    // Sync node chunks using your targeted endpoint
+    const nodeChunkResponse = await fetch("/api/db/node-chunks/targeted-upsert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN": document
+          .querySelector('meta[name="csrf-token"]')
+          ?.getAttribute("content"),
+      },
+      body: JSON.stringify({
+        data: nodeChunks
+      }),
+    });
+
+    if (!nodeChunkResponse.ok) {
+      throw new Error(
+        `NodeChunk sync failed: ${nodeChunkResponse.statusText}`
+      );
+    }
+
+    console.log("✅ NodeChunks synced with PostgreSQL (targeted)");
+
+    // Sync library object if it exists
+    if (libraryObject) {
+      const libraryResponse = await fetch("/api/db/library/upsert", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN": document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content"),
+        },
+        body: JSON.stringify({
+          data: libraryObject
+        }),
+      });
+
+      if (!libraryResponse.ok) {
+        throw new Error(
+          `Library sync failed: ${libraryResponse.statusText}`
+        );
+      }
+
+      console.log("✅ Library object synced with PostgreSQL");
+    }
+
+    console.log("🎉 All data successfully synced with PostgreSQL");
+  } catch (error) {
+    console.error("❌ Error syncing with PostgreSQL:", error);
+  }
+}
 
 
 
