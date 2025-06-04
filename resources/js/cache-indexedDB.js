@@ -95,7 +95,7 @@ export async function openDatabase() {
  * @param {number} chunkId - The chunk ID (defaults to 0)
  * @returns {Promise<boolean>} - Success status
  */
-export async function addNodeChunkToIndexedDB(bookId, startLine, content, chunkId = 0) {
+export async function addNewBookToIndexedDB(bookId, startLine, content, chunkId = 0) {
   return withPending(async () => {
     console.log(`Adding nodeChunk: book=${bookId}, startLine=${startLine}, chunkId=${chunkId}`);
 
@@ -122,9 +122,6 @@ export async function addNodeChunkToIndexedDB(bookId, startLine, content, chunkI
         tx.oncomplete = async() => {
           console.log(`✅ Successfully added nodeChunk [${bookId}, ${numericStartLine}]`);
 
-          // Update the book timestamp after successful addition
-          await updateBookTimestamp(bookId);
-
           resolve(true);
         };
         
@@ -145,18 +142,8 @@ export async function addNodeChunkToIndexedDB(bookId, startLine, content, chunkI
   });
 }
 
-/**
- * Saves nodeChunks (an array of chunk records) into IndexedDB.
- * 
- * Each record must have:
- *   - book,
- *   - chunk_id,
- *   - startLine (unique within the book).
- *
- * The composite key for nodeChunks is [book, startLine].
- */
-// For saving nodeChunks
-export async function saveNodeChunksToIndexedDB(nodeChunks, bookId = "latest") {
+
+export async function saveAllNodeChunksToIndexedDB(nodeChunks, bookId = "latest") {
   return withPending(async () => {
     const db = await openDatabase();
     const tx = db.transaction("nodeChunks", "readwrite");
@@ -197,18 +184,12 @@ export function parseNodeId(id) {
 }
 
 
-// Helper function to ensure consistent key format for nodeChunks
 export function createNodeChunksKey(bookId, startLine) {
 
   return [bookId, parseNodeId(startLine)];
 }
 
-/**
- * Retrieves nodeChunks for a specified book from IndexedDB.
- * 
- * The returned array is sorted by chunk_id.
- */
-// For retrieving nodeChunks
+
 export async function getNodeChunksFromIndexedDB(bookId = "latest") {
   console.log("Fetching nodeChunks for book:", bookId);
 
@@ -236,9 +217,6 @@ export async function getNodeChunksFromIndexedDB(bookId = "latest") {
     };
   });
 }
-
-
-
 
 
 /**
@@ -708,7 +686,7 @@ export function updateIndexedDBRecord(record) {
 
         // Update the book timestamp after successful update
         await updateBookTimestamp(bookId);
-        await syncIndexedDBtoPostgreSQL(bookId);
+        
 
         resolve();
       };

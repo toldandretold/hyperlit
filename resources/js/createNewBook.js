@@ -1,5 +1,5 @@
 // createNewBook.js
-import { openDatabase, addNodeChunkToIndexedDB } from "./cache-indexedDB.js";
+import { openDatabase, updateBookTimestamp, addNewBookToIndexedDB } from "./cache-indexedDB.js";
 import { buildBibtexEntry } from "./bibtexProcessor.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 
@@ -57,12 +57,15 @@ export async function createNewBook() {
         try {
           // Create the two initial nodeChunks using the new function
           console.log("Creating first nodeChunk...");
-          await addNodeChunkToIndexedDB(bookId, 1, '<h1 id="1">Untitled</h1>', 0);
+          await addNewBookToIndexedDB(bookId, 1, '<h1 id="1">Untitled</h1>', 0);
           
           console.log("Creating second nodeChunk...");
-          await addNodeChunkToIndexedDB(bookId, 2, '<p id="2"><br/></p>', 0);
+          await addNewBookToIndexedDB(bookId, 2, '<p id="2"><br/></p>', 0);
           
           console.log("Initial nodes created successfully");
+
+          // Update the book timestamp after successful addition
+          await updateBookTimestamp(bookId);
 
           await syncIndexedDBtoPostgreSQL(bookId);
           

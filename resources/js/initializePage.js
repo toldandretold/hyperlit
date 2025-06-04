@@ -9,7 +9,7 @@ import {
 import {
   openDatabase,
   getNodeChunksFromIndexedDB,
-  saveNodeChunksToIndexedDB,
+  saveAllNodeChunksToIndexedDB,
   saveFootnotesToIndexedDB
 } from "./cache-indexedDB.js";
 
@@ -93,7 +93,7 @@ async function generateNodeChunksFromMarkdown(bookId, forceReload = false) {
   }
   
   // Save to IndexedDB
-  await saveNodeChunksToIndexedDB(nodeChunks, bookId);
+  await saveAllNodeChunksToIndexedDB(nodeChunks, bookId);
 
   
   return nodeChunks;

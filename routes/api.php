@@ -33,6 +33,7 @@ Route::post('/db/footnotes/bulk-create', [DbFootnoteController::class, 'bulkCrea
 Route::post('/db/node-chunks/upsert', [DbNodeChunkController::class, 'upsert']);
 Route::post('db/node-chunks/targeted-upsert', [DbNodeChunkController::class, 'targetedUpsert']);
 Route::post('/db/hyperlights/upsert', [DbHyperlightController::class, 'upsert']);
+Route::post('/db/hyperlights/delete', [DbHyperlightController::class, 'delete']);
 Route::post('/db/hypercites/upsert', [DbHyperciteController::class, 'upsert']);
 Route::post('/db/library/upsert', [DbLibraryController::class, 'upsert']);
 Route::post('/db/footnotes/upsert', [DbFootnoteController::class, 'upsert']);
