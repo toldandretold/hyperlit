@@ -725,7 +725,7 @@ function updateHyperciteRecords(hypercites, store, bookId, syncArray, node) {
   });
 }
 
-
+// WE NEED TO ALSO SYNC THE LIBRARY RECORD...
 // 👈 KEEP: Your existing sync function
 async function syncNodeUpdateWithPostgreSQL(bookId, nodeChunk, hyperlights, hypercites) {
   try {
@@ -904,6 +904,7 @@ export function updateCitationForExistingHypercite(
 
     let foundAndUpdated = false;
     let updatedRelationshipStatus = "single";
+    const updatedNodeChunks = []; // 🆕 Track updated nodeChunks for PostgreSQL sync
 
     // 1) Update the nodeChunks store
     for (const record of nodeChunks) {
@@ -926,6 +927,12 @@ export function updateCitationForExistingHypercite(
       if (result.success) {
         foundAndUpdated = true;
         updatedRelationshipStatus = result.relationshipStatus;
+        
+        // 🆕 Get the updated nodeChunk for PostgreSQL sync
+        const updatedNodeChunk = await getNodeChunkFromIndexedDB(booka, startLine);
+        if (updatedNodeChunk) {
+          updatedNodeChunks.push(updatedNodeChunk);
+        }
         
         broadcastToOpenTabs(booka, startLine);
 
@@ -976,13 +983,125 @@ export function updateCitationForExistingHypercite(
       return false;
     }
 
+    // 🆕 3) Sync to PostgreSQL
+    try {
+      console.log(`🔄 Syncing ${updatedNodeChunks.length} nodeChunks to PostgreSQL...`);
+      
+      // Sync updated nodeChunks
+      if (updatedNodeChunks.length > 0) {
+        const nodeChunkSyncResult = await syncNodeChunksToPostgreSQL(updatedNodeChunks);
+        if (!nodeChunkSyncResult.success) {
+          console.error('❌ Failed to sync nodeChunks to PostgreSQL:', nodeChunkSyncResult.message);
+        } else {
+          console.log('✅ Successfully synced nodeChunks to PostgreSQL');
+        }
+      }
+
+      // Sync updated hypercite
+      console.log(`🔄 Syncing hypercite ${hyperciteIDa} to PostgreSQL...`);
+      const hyperciteSyncResult = await syncHyperciteToPostgreSQL(existing);
+      if (!hyperciteSyncResult.success) {
+        console.error('❌ Failed to sync hypercite to PostgreSQL:', hyperciteSyncResult.message);
+      } else {
+        console.log('✅ Successfully synced hypercite to PostgreSQL');
+      }
+
+      // Update library timestamp
+      await updateBookTimestamp(booka);
+      
+    } catch (error) {
+      console.error('❌ Error during PostgreSQL sync:', error);
+      // Don't fail the entire operation if sync fails
+    }
+
     console.log(
       `Successfully updated hypercite ${hyperciteIDa} in book ${booka}`
     );
-      await updateBookTimestamp(bookId);
-      await syncIndexedDBtoPostgreSQL(bookId);
+      
     return true;
   });
+}
+
+// 🆕 Helper function to get a single nodeChunk from IndexedDB
+async function getNodeChunkFromIndexedDB(book, startLine) {
+  return new Promise((resolve, reject) => {
+    const dbName = "MarkdownDB";
+    const storeName = "nodeChunks";
+    
+    const numericStartLine = parseNodeId(startLine);
+    const request = indexedDB.open(dbName);
+    
+    request.onsuccess = (event) => {
+      const db = event.target.result;
+      const transaction = db.transaction([storeName], "readonly");
+      const objectStore = transaction.objectStore(storeName);
+      
+      const key = [book, numericStartLine];
+      const getRequest = objectStore.get(key);
+      
+      getRequest.onsuccess = (event) => {
+        resolve(event.target.result);
+      };
+      
+      getRequest.onerror = (event) => {
+        console.error('Error getting nodeChunk:', event.target.error);
+        resolve(null);
+      };
+      
+      transaction.oncomplete = () => {
+        db.close();
+      };
+    };
+    
+    request.onerror = (event) => {
+      console.error('IndexedDB error:', event.target.error);
+      resolve(null);
+    };
+  });
+}
+
+// 🆕 Function to sync nodeChunks to PostgreSQL
+async function syncNodeChunksToPostgreSQL(nodeChunks) {
+  try {
+    const response = await fetch('/api/db/node-chunks/targeted-upsert', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+      },
+      body: JSON.stringify({
+        data: nodeChunks
+      })
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error syncing nodeChunks to PostgreSQL:', error);
+    return { success: false, message: error.message };
+  }
+}
+
+// 🆕 Function to sync hypercite to PostgreSQL
+async function syncHyperciteToPostgreSQL(hypercite) {
+  try {
+    const response = await fetch('/api/db/hypercites/upsert', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+      },
+      body: JSON.stringify({
+        data: [hypercite] // Wrap in array if the endpoint expects an array
+      })
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error syncing hypercite to PostgreSQL:', error);
+    return { success: false, message: error.message };
+  }
 }
 
 
