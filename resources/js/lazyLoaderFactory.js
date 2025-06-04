@@ -2,7 +2,7 @@ import { renderBlockToHtml } from "./convert-markdown.js";
 import { attachMarkListeners } from "./hyperLights.js";
 import { injectFootnotesForChunk } from "./footnotes.js";
 import {
-  saveNodeChunksToIndexedDB,
+  //saveNodeChunksToIndexedDB,
   getNodeChunksFromIndexedDB,
   saveFootnotesToIndexedDB,
   getFootnotesFromIndexedDB,
@@ -93,9 +93,9 @@ export function createLazyLoader(config) {
   console.log("Unique ID for this container:", uniqueId);
 
   // Wrap caching methods so the instance passes only bookId.
-  instance.saveNodeChunks = (chunks) => {
-    return saveNodeChunksToIndexedDB(chunks, instance.bookId);
-  };
+  //instance.saveNodeChunks = (chunks) => {
+    //return saveNodeChunksToIndexedDB(chunks, instance.bookId);
+  //};
   instance.getNodeChunks = () => {
     return getNodeChunksFromIndexedDB(instance.bookId);
   };

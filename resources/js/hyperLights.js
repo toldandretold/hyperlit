@@ -3,7 +3,11 @@ import { fetchLatestUpdateInfo, handleTimestampComparison } from "./updateCheck.
 import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from "./lazyLoaderFactory.js";
 import { ContainerManager } from "./container-manager.js";
 import { navigateToInternalId } from "./scrolling.js";
-import { openDatabase, parseNodeId, createNodeChunksKey, updateBookTimestamp } from "./cache-indexedDB.js";
+import { openDatabase, 
+         parseNodeId, 
+         createNodeChunksKey, 
+         updateBookTimestamp,
+         getLibraryObjectFromIndexedDB } from "./cache-indexedDB.js";
 import { attachAnnotationListener } from "./annotation-saver.js";
 import { addPasteListener } from "./divEditor.js";
 import { addHighlightContainerPasteListener } from "./hyperLightsListener.js";
@@ -510,18 +514,19 @@ addTouchAndClickListener(
     // Find all nodes that contain marks with this highlightId
     const affectedMarks = document.querySelectorAll(`mark.${highlightId}`);
     const affectedIds = new Set();
+    const updatedNodeChunks = []; // 👈 ADD: Collect updated node chunks
+
     affectedMarks.forEach(mark => {
       const container = mark.closest(
         "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id]"
       );
       if (container && container.id) {
-        affectedIds.add(container.id);    // keep "1.1" intact
+        affectedIds.add(container.id);
       }
     });
     console.log("Will update chunks:", Array.from(affectedIds));
     
     // Update all affected nodes in IndexedDB
-    // 2) call updateNodeHighlight by ID string
     for (const chunkId of affectedIds) {
       const isStart = chunkId === startContainer.id;
       const isEnd   = chunkId === endContainer.id;
@@ -530,27 +535,49 @@ addTouchAndClickListener(
       const startOffset = isStart ? trueStartOffset : 0;
       const endOffset   = isEnd   ? trueEndOffset   : len;
 
-      await updateNodeHighlight(
-        chunkId,       // PASS the string "1.1"
+      // 👈 MODIFY: Capture the updated node chunk
+      const updatedNodeChunk = await updateNodeHighlight(
+        chunkId,
         startOffset,
         endOffset,
         highlightId
       );
+      
+      if (updatedNodeChunk) {
+        updatedNodeChunks.push(updatedNodeChunk);
+      }
+      
       console.log(`Updated chunk ${chunkId}`);
     }
 
-     try {
-      // 3) in the hyperlights table, also keep startLine as string
+    try {
+      // Create hyperlight entry for the main hyperlights table
+      const hyperlightEntry = {
+        book: book, // Make sure 'book' variable is available in scope
+        hyperlight_id: highlightId,
+        highlightedText: selectedText,
+        highlightedHTML: selectedText, // You might want to get actual HTML
+        startChar: trueStartOffset,
+        endChar: trueEndOffset,
+        startLine: startContainer.id,
+        annotation: null // Add if you have annotations
+      };
+
+      // Add to IndexedDB hyperlights table
       await addToHighlightsTable({
         highlightId,
         text: selectedText,
         startChar: trueStartOffset,
         endChar: trueEndOffset,
-        startLine: startContainer.id   // keep "1.1"
+        startLine: startContainer.id
       });
+      
       console.log("Added to highlights table");
       await updateBookTimestamp(book);
-      await syncIndexedDBtoPostgreSQL(book);
+      
+      // 👈 ADD: Sync with PostgreSQL
+      await syncHyperlightWithPostgreSQL(hyperlightEntry, updatedNodeChunks);
+      
     } catch (error) {
       console.error("❌ Error saving highlight metadata:", error);
     }
@@ -558,6 +585,90 @@ addTouchAndClickListener(
     attachMarkListeners();
   }
 );
+
+// Helper function to sync hyperlight data with PostgreSQL
+async function syncHyperlightWithPostgreSQL(hyperlightEntry, nodeChunks) {
+  try {
+    console.log("🔄 Starting Hyperlight PostgreSQL sync...");
+
+    // Get the library object from IndexedDB for the book
+    const libraryObject = await getLibraryObjectFromIndexedDB(hyperlightEntry.book);
+    
+    if (!libraryObject) {
+      console.warn("⚠️ No library object found for book:", hyperlightEntry.book);
+    }
+
+    // Sync hyperlight using your existing endpoint
+    const hyperlightResponse = await fetch("/api/db/hyperlights/upsert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN": document
+          .querySelector('meta[name="csrf-token"]')
+          ?.getAttribute("content"),
+      },
+      body: JSON.stringify({
+        data: [hyperlightEntry]
+      }),
+    });
+
+    if (!hyperlightResponse.ok) {
+      throw new Error(`Hyperlight sync failed: ${hyperlightResponse.statusText}`);
+    }
+
+    console.log("✅ Hyperlight synced with PostgreSQL");
+
+    // Sync node chunks using your targeted endpoint
+    const nodeChunkResponse = await fetch("/api/db/node-chunks/targeted-upsert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN": document
+          .querySelector('meta[name="csrf-token"]')
+          ?.getAttribute("content"),
+      },
+      body: JSON.stringify({
+        data: nodeChunks
+      }),
+    });
+
+    if (!nodeChunkResponse.ok) {
+      throw new Error(
+        `NodeChunk sync failed: ${nodeChunkResponse.statusText}`
+      );
+    }
+
+    console.log("✅ NodeChunks synced with PostgreSQL (targeted)");
+
+    // Sync library object if it exists
+    if (libraryObject) {
+      const libraryResponse = await fetch("/api/db/library/upsert", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN": document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content"),
+        },
+        body: JSON.stringify({
+          data: libraryObject
+        }),
+      });
+
+      if (!libraryResponse.ok) {
+        throw new Error(
+          `Library sync failed: ${libraryResponse.statusText}`
+        );
+      }
+
+      console.log("✅ Library object synced with PostgreSQL");
+    }
+
+    console.log("🎉 All hyperlight data successfully synced with PostgreSQL");
+  } catch (error) {
+    console.error("❌ Error syncing hyperlight with PostgreSQL:", error);
+  }
+}
 
 // new signature — takes chunkId as a string (e.g. "1.1")
 async function updateNodeHighlight(
@@ -579,11 +690,13 @@ async function updateNodeHighlight(
 
     getRequest.onsuccess = () => {
       const node = getRequest.result;
+      let updatedNode; // 👈 ADD: Variable to track the updated node
+      
       if (!node) {
         console.warn(`No nodeChunks record for key [${book}, ${chunkId}]`);
         
         // Create a new node if it doesn't exist
-        const newNode = {
+        updatedNode = {
           book: book,
           startLine: parseNodeId(chunkId),  // Store as number
           chunk_id: parseNodeId(chunkId),
@@ -595,10 +708,10 @@ async function updateNodeHighlight(
           }]
         };
         
-        const putReq = store.put(newNode);
+        const putReq = store.put(updatedNode);
         putReq.onsuccess = () => {
           console.log(`Created new node for [${book}, ${chunkId}]`);
-          resolve();
+          resolve(updatedNode); // 👈 RETURN the new node
         };
         putReq.onerror = e => reject(e.target.error);
         return;
@@ -614,10 +727,12 @@ async function updateNodeHighlight(
         });
       }
       
-      const putReq = store.put(node);
+      updatedNode = node; // 👈 SET: The updated node
+      
+      const putReq = store.put(updatedNode);
       putReq.onsuccess = () => {
         console.log(`Updated node [${book}, ${chunkId}] with highlight`);
-        resolve();
+        resolve(updatedNode); // 👈 RETURN the updated node
       };
       putReq.onerror = e => reject(e.target.error);
     };
@@ -647,13 +762,12 @@ addTouchAndClickListener(document.getElementById("delete-hyperlight"),
     // Find all <mark> tags in the document.
     const marks = document.querySelectorAll("mark");
     let highlightIdsToRemove = [];
+    const affectedNodeChunks = new Set(); // 👈 ADD: Track affected node chunks
 
     marks.forEach((mark) => {
       // If the text content of the mark is part of the selected text …
       if (selectedText.indexOf(mark.textContent.trim()) !== -1) {
         // Get the unique highlight id from the mark's classes.
-        // (Assumes that one class is the generated highlightID while 
-        //  the default "highlight" is omitted.)
         let highlightId = Array.from(mark.classList).find(
           (cls) => cls !== "highlight"
         );
@@ -661,6 +775,14 @@ addTouchAndClickListener(document.getElementById("delete-hyperlight"),
         if (highlightId) {
           highlightIdsToRemove.push(highlightId);
           console.log("Removing highlight for:", highlightId);
+          
+          // 👈 ADD: Track which node chunk this mark belongs to
+          const container = mark.closest(
+            "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id]"
+          );
+          if (container && container.id) {
+            affectedNodeChunks.add(container.id);
+          }
         }
 
         // Remove the mark element and replace it with plain text.
@@ -672,13 +794,25 @@ addTouchAndClickListener(document.getElementById("delete-hyperlight"),
       }
     });
 
+    // 👈 ADD: Collect updated node chunks and deleted hyperlights
+    const updatedNodeChunks = [];
+    const deletedHyperlights = [];
+
     // Now remove the corresponding records from IndexedDB (if any)
     for (const highlightId of highlightIdsToRemove) {
       try {
-        await removeHighlightFromNodeChunks(highlightId);
-        await removeHighlightFromHyperlights(highlightId);
-        await updateBookTimestamp(book);
-        await syncIndexedDBtoPostgreSQL(book);
+        // 👈 MODIFY: Capture updated node chunks from removal
+        const affectedNodes = await removeHighlightFromNodeChunks(highlightId);
+        if (affectedNodes && affectedNodes.length > 0) {
+          updatedNodeChunks.push(...affectedNodes);
+        }
+        
+        // 👈 MODIFY: Capture the deleted hyperlight info
+        const deletedHyperlight = await removeHighlightFromHyperlights(highlightId);
+        if (deletedHyperlight) {
+          deletedHyperlights.push(deletedHyperlight);
+        }
+        
       } catch (error) {
         console.error(
           `Error removing highlight ${highlightId} from IndexedDB:`,
@@ -687,9 +821,107 @@ addTouchAndClickListener(document.getElementById("delete-hyperlight"),
       }
     }
 
+    if (highlightIdsToRemove.length > 0) {
+      await updateBookTimestamp(book);
+      
+      // 👈 ADD: Sync deletions with PostgreSQL
+      await syncHyperlightDeletionsWithPostgreSQL(
+        deletedHyperlights, 
+        updatedNodeChunks
+      );
+    }
+
     console.log("Removed highlight IDs:", highlightIdsToRemove);
   }
 );
+
+// Helper function to sync hyperlight deletions with PostgreSQL
+async function syncHyperlightDeletionsWithPostgreSQL(deletedHyperlights, updatedNodeChunks) {
+  try {
+    console.log("🔄 Starting Hyperlight deletion PostgreSQL sync...");
+
+    // Get the library object from IndexedDB for the book
+    const libraryObject = await getLibraryObjectFromIndexedDB(book);
+    
+    if (!libraryObject) {
+      console.warn("⚠️ No library object found for book:", book);
+    }
+
+    // Sync deleted hyperlights (they'll be removed from PostgreSQL)
+    if (deletedHyperlights.length > 0) {
+      const hyperlightResponse = await fetch("/api/db/hyperlights/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN": document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content"),
+        },
+        body: JSON.stringify({
+          data: deletedHyperlights
+        }),
+      });
+
+      if (!hyperlightResponse.ok) {
+        throw new Error(`Hyperlight deletion sync failed: ${hyperlightResponse.statusText}`);
+      }
+
+      console.log("✅ Hyperlights deleted from PostgreSQL");
+    }
+
+    // Sync updated node chunks (with hyperlights removed)
+    if (updatedNodeChunks.length > 0) {
+      const nodeChunkResponse = await fetch("/api/db/node-chunks/targeted-upsert", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN": document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content"),
+        },
+        body: JSON.stringify({
+          data: updatedNodeChunks
+        }),
+      });
+
+      if (!nodeChunkResponse.ok) {
+        throw new Error(
+          `NodeChunk sync failed: ${nodeChunkResponse.statusText}`
+        );
+      }
+
+      console.log("✅ NodeChunks synced with PostgreSQL (targeted)");
+    }
+
+    // Sync library object if it exists
+    if (libraryObject) {
+      const libraryResponse = await fetch("/api/db/library/upsert", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN": document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content"),
+        },
+        body: JSON.stringify({
+          data: libraryObject
+        }),
+      });
+
+      if (!libraryResponse.ok) {
+        throw new Error(
+          `Library sync failed: ${libraryResponse.statusText}`
+        );
+      }
+
+      console.log("✅ Library object synced with PostgreSQL");
+    }
+
+    console.log("🎉 All hyperlight deletion data successfully synced with PostgreSQL");
+  } catch (error) {
+    console.error("❌ Error syncing hyperlight deletions with PostgreSQL:", error);
+  }
+}
 
 // IndexedDB helper to remove highlight from the "nodeChunks" table.
 async function removeHighlightFromNodeChunks(highlightId) {
@@ -698,6 +930,7 @@ async function removeHighlightFromNodeChunks(highlightId) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("nodeChunks", "readwrite");
     const store = tx.objectStore("nodeChunks");
+    const updatedNodes = []; // 👈 ADD: Track updated nodes
 
     // Iterate over all nodes using a cursor.
     const request = store.openCursor();
@@ -715,12 +948,17 @@ async function removeHighlightFromNodeChunks(highlightId) {
           if (node.hyperlights.length !== originalCount) {
             // Update record in IndexedDB if a change was made.
             cursor.update(node);
+            // 👈 ADD: Store the updated node for API sync
+            updatedNodes.push(node);
+            console.log(`Removed highlight ${highlightId} from node [${node.book}, ${node.startLine}]`);
           }
         }
         cursor.continue();
-        
+
       } else {
-        resolve();
+        // 👈 CHANGE: Resolve with the updated nodes array
+        console.log(`Highlight ${highlightId} removal complete. Updated ${updatedNodes.length} nodes.`);
+        resolve(updatedNodes);
       }
     };
 
@@ -744,6 +982,8 @@ async function removeHighlightFromHyperlights(highlightId) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("hyperlights", "readwrite");
     const store = tx.objectStore("hyperlights");
+    let deletedHyperlight = null; // 👈 ADD: Track deleted hyperlight
+    
     // Use the index to get the primary key from the hyperlight_id field.
     const index = store.index("hyperlight_id");
     const getKeyRequest = index.getKey(highlightId);
@@ -752,19 +992,31 @@ async function removeHighlightFromHyperlights(highlightId) {
       const primaryKey = e.target.result;
       if (primaryKey === undefined) {
         console.warn(`No record found for highlight ${highlightId}`);
-        resolve();
+        resolve(null); // 👈 CHANGE: Return null instead of undefined
         return;
       }
 
-      // Now delete the record using its primary key.
-      const deleteRequest = store.delete(primaryKey);
-      deleteRequest.onsuccess = () => {
-        console.log(`Highlight ${highlightId} removed from hyperlights store.`);
-        resolve();
+      // 👈 ADD: Get the full record before deleting it
+      const getRecordRequest = store.get(primaryKey);
+      getRecordRequest.onsuccess = (event) => {
+        deletedHyperlight = event.target.result;
+        
+        // Now delete the record using its primary key.
+        const deleteRequest = store.delete(primaryKey);
+        deleteRequest.onsuccess = () => {
+          console.log(`Highlight ${highlightId} removed from hyperlights store.`);
+          // 👈 CHANGE: Resolve with the deleted hyperlight data
+          resolve(deletedHyperlight);
+        };
+
+        deleteRequest.onerror = (error) => {
+          console.error("Error deleting record from hyperlights:", error);
+          reject(error);
+        };
       };
 
-      deleteRequest.onerror = (error) => {
-        console.error("Error deleting record from hyperlights:", error);
+      getRecordRequest.onerror = (error) => {
+        console.error("Error getting record before deletion:", error);
         reject(error);
       };
     };
@@ -783,9 +1035,6 @@ async function removeHighlightFromHyperlights(highlightId) {
       console.error("Transaction error in hyperlights removal:", error);
   });
 }
-
-
-
 
 
 
