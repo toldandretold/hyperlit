@@ -600,8 +600,11 @@ export function updateIndexedDBRecord(record) {
       tx.oncomplete = async() => {
         console.log("✅ IndexedDB record update complete");
 
-        // Update the book timestamp after successful update
+        // 🆕 Update the book timestamp FIRST (before sync)
         await updateBookTimestamp(bookId);
+        
+        // 🆕 Get updated library record for sync
+        const libraryRecord = await getLibraryObjectFromIndexedDB(bookId);
         
         // 🔥 SYNC EVERYTHING THAT WAS ACTUALLY SAVED
         try {
@@ -609,7 +612,8 @@ export function updateIndexedDBRecord(record) {
             bookId, 
             savedNodeChunk, 
             savedHyperlights, 
-            savedHypercites
+            savedHypercites,
+            libraryRecord // 🆕 Pass library record
           );
         } catch (syncError) {
           console.error("❌ PostgreSQL sync failed:", syncError);
@@ -726,8 +730,9 @@ function updateHyperciteRecords(hypercites, store, bookId, syncArray, node) {
 }
 
 // WE NEED TO ALSO SYNC THE LIBRARY RECORD...
-// 👈 KEEP: Your existing sync function
-async function syncNodeUpdateWithPostgreSQL(bookId, nodeChunk, hyperlights, hypercites) {
+// 🆕 UPDATED: Sync function now includes library record
+// 🆕 UPDATED: Sync function now includes library record
+async function syncNodeUpdateWithPostgreSQL(bookId, nodeChunk, hyperlights, hypercites, libraryRecord) {
   try {
     console.log("🔄 Starting PostgreSQL sync for node update...");
 
@@ -801,13 +806,34 @@ async function syncNodeUpdateWithPostgreSQL(bookId, nodeChunk, hyperlights, hype
       console.log(`✅ ${hypercites.length} Hypercites synced with PostgreSQL`);
     }
 
+    // 🔥 FIXED: Sync library record as single object (not array)
+    if (libraryRecord) {
+      const libraryResponse = await fetch("/api/db/library/upsert", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN": document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content"),
+        },
+        body: JSON.stringify({
+          data: libraryRecord // 🔥 Send as single object, not array
+        }),
+      });
+
+      if (!libraryResponse.ok) {
+        throw new Error(`Library sync failed: ${libraryResponse.statusText}`);
+      }
+
+      console.log("✅ Library record synced with PostgreSQL");
+    }
+
     console.log("🎉 Node update successfully synced with PostgreSQL");
   } catch (error) {
     console.error("❌ Error syncing node update with PostgreSQL:", error);
     throw error;
   }
 }
-
 
 // Helper function to update a specific hypercite in IndexedDB
 export async function updateHyperciteInIndexedDB(book, hyperciteId, updatedFields) {
@@ -904,7 +930,15 @@ export function updateCitationForExistingHypercite(
 
     let foundAndUpdated = false;
     let updatedRelationshipStatus = "single";
-    const updatedNodeChunks = []; // 🆕 Track updated nodeChunks for PostgreSQL sync
+    const updatedNodeChunks = []; // Track updated nodeChunks for PostgreSQL sync
+    const affectedBooks = new Set([booka]); // 🆕 Track all affected books
+
+    // 🆕 If this is a cross-book citation, track the target book too
+    if (citationIDb && citationIDb !== hyperciteIDa) {
+      // Extract book from citationIDb if it's a cross-book reference
+      // This assumes citationIDb format includes book info - adjust as needed
+      affectedBooks.add(book || "latest"); // Add current book
+    }
 
     // 1) Update the nodeChunks store
     for (const record of nodeChunks) {
@@ -928,7 +962,7 @@ export function updateCitationForExistingHypercite(
         foundAndUpdated = true;
         updatedRelationshipStatus = result.relationshipStatus;
         
-        // 🆕 Get the updated nodeChunk for PostgreSQL sync
+        // Get the updated nodeChunk for PostgreSQL sync
         const updatedNodeChunk = await getNodeChunkFromIndexedDB(booka, startLine);
         if (updatedNodeChunk) {
           updatedNodeChunks.push(updatedNodeChunk);
@@ -983,7 +1017,17 @@ export function updateCitationForExistingHypercite(
       return false;
     }
 
-    // 🆕 3) Sync to PostgreSQL
+    // 🆕 3) Update timestamps for all affected books
+    const libraryRecords = [];
+    for (const bookId of affectedBooks) {
+      await updateBookTimestamp(bookId);
+      const libraryRecord = await getLibraryObjectFromIndexedDB(bookId);
+      if (libraryRecord) {
+        libraryRecords.push(libraryRecord);
+      }
+    }
+
+    // 🆕 4) Sync to PostgreSQL
     try {
       console.log(`🔄 Syncing ${updatedNodeChunks.length} nodeChunks to PostgreSQL...`);
       
@@ -1006,8 +1050,32 @@ export function updateCitationForExistingHypercite(
         console.log('✅ Successfully synced hypercite to PostgreSQL');
       }
 
-      // Update library timestamp
-      await updateBookTimestamp(booka);
+      // 🔥 FIXED: Sync library records individually
+      if (libraryRecords.length > 0) {
+        console.log(`🔄 Syncing ${libraryRecords.length} library records to PostgreSQL...`);
+        
+        // Send each library record individually
+        for (const libraryRecord of libraryRecords) {
+          const libraryResponse = await fetch("/api/db/library/upsert", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-TOKEN": document
+                .querySelector('meta[name="csrf-token"]')
+                ?.getAttribute("content"),
+            },
+            body: JSON.stringify({
+              data: libraryRecord // 🔥 Send as single object
+            }),
+          });
+
+          if (!libraryResponse.ok) {
+            console.error(`❌ Failed to sync library record for book ${libraryRecord.book}`);
+          } else {
+            console.log(`✅ Successfully synced library record for book ${libraryRecord.book}`);
+          }
+        }
+      }
       
     } catch (error) {
       console.error('❌ Error during PostgreSQL sync:', error);
@@ -1213,7 +1281,7 @@ async function addCitationToHypercite(book, startLine, hyperciteId, newCitation)
   });
 }
 
-
+/*
 async function updateHyperciteInNodeChunk(book, startLine, hyperciteId, updates) {
   return new Promise((resolve, reject) => {
     const dbName = "MarkdownDB";
@@ -1356,7 +1424,7 @@ async function updateHyperciteInNodeChunk(book, startLine, hyperciteId, updates)
   });
 }
 
-
+*/
 
 
 export async function getHyperciteFromIndexedDB(book, hyperciteId) {
@@ -1426,25 +1494,61 @@ export async function deleteIndexedDBRecord(id) {
     const store = tx.objectStore("nodeChunks");
     const key = [bookId, numericId];
 
-    // optional transaction timeout
-    const TRANSACTION_TIMEOUT = 10000;
-    const timeoutId = setTimeout(() => tx.abort(), TRANSACTION_TIMEOUT);
-
-    store.delete(key);
-
+    // Get the record before deleting it (for PostgreSQL sync)
+    let recordToDelete = null;
+    const getRequest = store.get(key);
+    
     return new Promise((resolve, reject) => {
+      const TRANSACTION_TIMEOUT = 10000;
+      const timeoutId = setTimeout(() => tx.abort(), TRANSACTION_TIMEOUT);
+
+      getRequest.onsuccess = () => {
+        recordToDelete = getRequest.result;
+        
+        if (recordToDelete) {
+          console.log("Found record to delete:", recordToDelete);
+        } else {
+          console.log(`No record found for key: ${key}`);
+        }
+
+        // Delete the record from IndexedDB
+        store.delete(key);
+      };
+
+      getRequest.onerror = (event) => {
+        clearTimeout(timeoutId);
+        console.error("Error getting record for deletion:", event.target.error);
+        reject(event.target.error);
+      };
+
       tx.oncomplete = async() => {
         clearTimeout(timeoutId);
         console.log(`Successfully deleted record with key: ${key}`);
+        
+        try {
+          // Update the book timestamp
           await updateBookTimestamp(bookId);
-          await syncIndexedDBtoPostgreSQL(bookId);
-        resolve(true);
+          
+          // Get updated library record for sync
+          const libraryRecord = await getLibraryObjectFromIndexedDB(bookId);
+          
+          // Sync deletion to PostgreSQL
+          await syncDeletionToPostgreSQL(bookId, numericId, libraryRecord);
+          
+          resolve(true);
+        } catch (syncError) {
+          console.error("❌ PostgreSQL sync failed:", syncError);
+          // Don't reject - IndexedDB deletion was successful
+          resolve(true);
+        }
       };
+
       tx.onerror = (event) => {
         clearTimeout(timeoutId);
         console.error("Transaction error:", event.target.error);
         reject(event.target.error);
       };
+
       tx.onabort = (event) => {
         clearTimeout(timeoutId);
         console.warn("Transaction aborted:", event);
@@ -1452,6 +1556,69 @@ export async function deleteIndexedDBRecord(id) {
       };
     });
   });
+}
+
+// 🆕 Function to sync deletion to PostgreSQL
+async function syncDeletionToPostgreSQL(bookId, startLine, libraryRecord) {
+  try {
+    console.log(`🔄 Syncing deletion to PostgreSQL: book=${bookId}, startLine=${startLine}`);
+
+    // Create a deletion record for the targeted-upsert endpoint
+    const deletionRecord = {
+      book: bookId,
+      startLine: startLine,
+      _action: "delete" // Flag to indicate this is a deletion
+    };
+
+    // Sync the deletion to PostgreSQL
+    const nodeChunkResponse = await fetch("/api/db/node-chunks/targeted-upsert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN": document
+          .querySelector('meta[name="csrf-token"]')
+          ?.getAttribute("content"),
+      },
+      body: JSON.stringify({
+        data: [deletionRecord]
+      }),
+    });
+
+    if (!nodeChunkResponse.ok) {
+      throw new Error(
+        `NodeChunk deletion sync failed: ${nodeChunkResponse.statusText}`
+      );
+    }
+
+    console.log("✅ NodeChunk deletion synced with PostgreSQL");
+
+    // Sync updated library record if it exists
+    if (libraryRecord) {
+      const libraryResponse = await fetch("/api/db/library/upsert", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN": document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content"),
+        },
+        body: JSON.stringify({
+          data: libraryRecord
+        }),
+      });
+
+      if (!libraryResponse.ok) {
+        throw new Error(`Library sync failed: ${libraryResponse.statusText}`);
+      }
+
+      console.log("✅ Library record synced with PostgreSQL");
+    }
+
+    console.log("🎉 Deletion successfully synced with PostgreSQL");
+  } catch (error) {
+    console.error("❌ Error syncing deletion with PostgreSQL:", error);
+    throw error;
+  }
 }
 
 
