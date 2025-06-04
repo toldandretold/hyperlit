@@ -94,4 +94,33 @@ class DbHyperlightController extends Controller
             ], 500);
         }
     }
+
+    public function delete(Request $request)
+    {
+        try {
+            $data = $request->all();
+            
+            if (isset($data['data']) && is_array($data['data'])) {
+                foreach ($data['data'] as $item) {
+                    PgHyperlight::where('book', $item['book'] ?? null)
+                               ->where('hyperlight_id', $item['hyperlight_id'] ?? null)
+                               ->delete();
+                }
+                
+                return response()->json(['success' => true, 'message' => 'Hyperlights deleted successfully']);
+            }
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid data format'
+            ], 400);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete data',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

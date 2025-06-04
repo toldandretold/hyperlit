@@ -490,7 +490,6 @@ function processNodeContentHighlightsAndCites(node) {
 }
 
 
-
 export function updateIndexedDBRecord(record) {
   return withPending(async () => {
     const bookId = book || "latest";
@@ -515,11 +514,6 @@ export function updateIndexedDBRecord(record) {
       `Updating IndexedDB record for node ${nodeId} (numeric: ${numericNodeId})`
     );
 
-    // Process the current state of the DOM node to get updated content, hyperlights, and hypercites
-    const processed = node
-      ? processNodeContentHighlightsAndCites(node)
-      : null;
-
     const db = await openDatabase();
     const tx = db.transaction(
       ["nodeChunks", "hyperlights", "hypercites"],
@@ -529,6 +523,14 @@ export function updateIndexedDBRecord(record) {
     const lightsStore = tx.objectStore("hyperlights");
     const citesStore = tx.objectStore("hypercites");
     const compositeKey = [bookId, numericNodeId];
+
+    // Arrays to collect what we actually save for sync
+    let savedNodeChunk = null;
+    const savedHyperlights = [];
+    const savedHypercites = [];
+
+    // 🔥 USE YOUR EXISTING FUNCTION TO PROPERLY PROCESS THE NODE
+    const processedData = node ? processNodeContentHighlightsAndCites(node) : null;
 
     // Fetch the existing chunk record
     const getReq = chunksStore.get(compositeKey);
@@ -543,8 +545,16 @@ export function updateIndexedDBRecord(record) {
         // Start with a copy of the existing record to preserve its structure
         toSave = { ...existing };
 
-        // Update content based on processed result or record.html
-        toSave.content = processed?.content ?? record.html;
+        // 🔥 USE PROCESSED CONTENT (WITHOUT MARK/U TAGS)
+        if (processedData) {
+          toSave.content = processedData.content;
+          // Update hyperlights and hypercites arrays in the node chunk
+          toSave.hyperlights = processedData.hyperlights;
+          toSave.hypercites = processedData.hypercites;
+        } else {
+          // Fallback to record.html if no DOM node available
+          toSave.content = record.html;
+        }
 
         // Add the chunk_ID update here
         if (record.chunk_id !== undefined) {
@@ -552,131 +562,37 @@ export function updateIndexedDBRecord(record) {
           console.log(`Updated chunk_id to ${record.chunk_id} for node ${nodeId}`);
         }
 
-        // Update hyperlights (assuming simple replacement based on DOM is acceptable)
-        toSave.hyperlights = processed ? (processed.hyperlights ?? []) : existing.hyperlights;
-
-
-        // --- MERGE HYPERCITES INTELLIGENTLY ---
-        // This is the core part to prevent data loss
-        if (processed?.hypercites) {
-          // Ensure toSave has a hypercites array to merge into
-          if (!Array.isArray(toSave.hypercites)) {
-            toSave.hypercites = [];
-            console.log("Initialized empty hypercites array in toSave.");
-          }
-
-          // Create a map of existing hypercites by ID for easy lookup
-          const existingHypercitesMap = new Map(toSave.hypercites.map(hc => [hc.hyperciteId, hc]));
-          console.log("Existing hypercites map:", existingHypercitesMap);
-
-          // Create a new array for the merged hypercites
-          const mergedHypercites = [];
-
-          // Iterate through the hypercites extracted from the *current DOM state*
-          processed.hypercites.forEach(processedHypercite => {
-            const existingHypercite = existingHypercitesMap.get(processedHypercite.hyperciteId);
-
-            if (existingHypercite) {
-              // If the hypercite with this ID already exists in the database record:
-              // Update its position (charStart, charEnd) based on the current DOM.
-              // PRESERVE its existing citedIN and relationshipStatus.
-              console.log(`Merging existing hypercite ${processedHypercite.hyperciteId}: Updating position, preserving citedIN/status.`);
-              mergedHypercites.push({
-                ...existingHypercite, // Start with the existing hypercite's full data
-                charStart: processedHypercite.charStart, // Override position from DOM
-                charEnd: processedHypercite.charEnd,     // Override position from DOM
-                // citedIN and relationshipStatus are implicitly preserved from existingHypercite
-              });
-              // Remove from map so we know which existing ones were matched
-              existingHypercitesMap.delete(processedHypercite.hyperciteId);
-            } else {
-              // If this hypercite is found in the DOM but *not* in the existing database record:
-              // This is likely a newly created hypercite in the DOM.
-              // Add it to the merged list with initial citedIN and relationshipStatus.
-              console.log(`Adding new hypercite from DOM ${processedHypercite.hyperciteId} to merged list.`);
-              mergedHypercites.push({
-                 ...processedHypercite, // Includes hyperciteId, charStart, charEnd from DOM
-                 citedIN: [], // Initialize as empty
-                 relationshipStatus: "single" // Initialize as single
-              });
-            }
-          });
-
-          // After iterating through processed.hypercites, mergedHypercites contains:
-          // 1. Updated versions of hypercites found in both DOM and DB (position updated, status/citedIN preserved).
-          // 2. New hypercites found only in the DOM (added with initial status/citedIN).
-
-          // Existing hypercites that are still in existingHypercitesMap were *not* found in the processed.hypercites.
-          // This means they were likely removed from the DOM. Filter them out from the final list.
-          // (Assuming if an <u> tag is removed from the DOM, you want to remove the hypercite from the nodeChunk).
-          // If you wanted to keep them (e.g., as historical data), you would add them back from the map here.
-          console.log("Existing hypercites not found in current DOM:", existingHypercitesMap.keys());
-          // The current implementation of the loop already only added those found in the DOM,
-          // so no need to filter 'mergedHypercites'. The check below handles the case
-          // where processed.hypercites was empty.
-
-          toSave.hypercites = mergedHypercites;
-
-        } else if (processed) {
-           // If processNodeContentHighlightsAndCites ran but returned an empty array (no <u> tags found),
-           // it means all hypercites were removed from the DOM.
-           // In this case, clear the hypercites array in the database record.
-           console.log("No hypercites found in processed result, clearing hypercites in record.");
-           toSave.hypercites = [];
-        } else {
-            // If processed is null (node not found for some reason), keep existing hypercites
-            console.log("Processed result is null, keeping existing hypercites.");
-            toSave.hypercites = existing.hypercites ?? [];
-        }
-        // --- END MERGE HYPERCITES ---
-
-
       } else {
         // Case: No existing record, create a new one
         console.log("No existing nodeChunk record, creating new one.");
         toSave = {
           book: bookId,
           startLine: numericNodeId,
-          chunk_id: record.chunk_id !== undefined ? record.chunk_id : 0, // Use provided chunk_ID if available
-          content: processed?.content ?? record.html,
-          hyperlights: processed?.hyperlights ?? [],
-          // For a new record, initialize hypercites with initial values if found in DOM
-          hypercites: processed?.hypercites?.map(hc => ({
-             ...hc, // Includes hyperciteId, charStart, charEnd from DOM
-             citedIN: [], // Initialize as empty
-             relationshipStatus: "single" // Initialize as single
-          })) ?? [], // If processed.hypercites is null or empty, initialize as empty array
+          chunk_id: record.chunk_id !== undefined ? record.chunk_id : 0,
+          content: processedData ? processedData.content : record.html,
+          hyperlights: processedData ? processedData.hyperlights : [],
+          hypercites: processedData ? processedData.hypercites : []
         };
         console.log("New nodeChunk record to create:", JSON.stringify(toSave));
       }
 
       console.log("Final nodeChunk record to put:", JSON.stringify(toSave));
 
+      // Store for sync
+      savedNodeChunk = toSave;
+
       // write the node chunk
       chunksStore.put(toSave);
 
-      // update the hyperlights/hypercites stores (master records)
-      // These stores hold the *master* record for each hyperlight/hypercite.
-      // The nodeChunk record just stores their positions and relationship to the node.
-      if (toSave.hyperlights) {
-        for (const h of toSave.hyperlights) {
-            // updateHyperlightInStore needs to be separate and smart enough not to
-            // overwrite annotation or other master properties.
-            updateHyperlightInStore(lightsStore, bookId, h, numericNodeId);
-        }
-      }
-      if (toSave.hypercites) {
-        for (const c of toSave.hypercites) {
-            // updateHyperciteInStore needs to be separate and smart enough to NOT overwrite
-            // citedIN and relationshipStatus if it finds an existing master record.
-            updateHyperciteInStore(citesStore, bookId, c);
-        }
+      // 🔥 UPDATE INDIVIDUAL HYPERLIGHT/HYPERCITE RECORDS USING PROCESSED DATA
+      if (processedData) {
+        updateHyperlightRecords(processedData.hyperlights, lightsStore, bookId, numericNodeId, savedHyperlights, node);
+        updateHyperciteRecords(processedData.hypercites, citesStore, bookId, savedHypercites, node);
       }
     };
 
     getReq.onerror = (e) => {
       console.error("Error fetching nodeChunk for update:", e.target.error);
-      // let tx.onerror handle the rejection
     };
 
     // return a promise that resolves/rejects with the transaction
@@ -687,6 +603,18 @@ export function updateIndexedDBRecord(record) {
         // Update the book timestamp after successful update
         await updateBookTimestamp(bookId);
         
+        // 🔥 SYNC EVERYTHING THAT WAS ACTUALLY SAVED
+        try {
+          await syncNodeUpdateWithPostgreSQL(
+            bookId, 
+            savedNodeChunk, 
+            savedHyperlights, 
+            savedHypercites
+          );
+        } catch (syncError) {
+          console.error("❌ PostgreSQL sync failed:", syncError);
+          // Don't reject - IndexedDB update was successful
+        }
 
         resolve();
       };
@@ -702,23 +630,32 @@ export function updateIndexedDBRecord(record) {
   });
 }
 
-
-
-// Helper functions for updating hyperlights and hypercites
-function updateHyperlightInStore(store, bookId, hyperlight, numericNodeId) {
+// 🔥 UPDATED: Function to update hyperlight records using processed data
+function updateHyperlightRecords(hyperlights, store, bookId, numericNodeId, syncArray, node) {
+  hyperlights.forEach((hyperlight) => {
     const key = [bookId, hyperlight.highlightID];
     const getRequest = store.get(key);
     
     getRequest.onsuccess = () => {
       const existingRecord = getRequest.result;
       
+      // Find the actual mark element to get text content
+      const markElement = node.querySelector(`#${hyperlight.highlightID}`);
+      const highlightedText = markElement ? markElement.textContent : "";
+      const highlightedHTML = markElement ? markElement.outerHTML : "";
+      
       if (existingRecord) {
-        // Update existing record
+        // Update existing record with new positions
         existingRecord.startChar = hyperlight.charStart;
         existingRecord.endChar = hyperlight.charEnd;
         existingRecord.startLine = numericNodeId;
+        existingRecord.highlightedText = highlightedText;
+        existingRecord.highlightedHTML = highlightedHTML;
         
         store.put(existingRecord);
+        syncArray.push(existingRecord);
+        
+        console.log(`Updated hyperlight ${hyperlight.highlightID} positions: ${hyperlight.charStart}-${hyperlight.charEnd}`);
       } else {
         // Create new record
         const newRecord = {
@@ -727,29 +664,45 @@ function updateHyperlightInStore(store, bookId, hyperlight, numericNodeId) {
           startChar: hyperlight.charStart,
           endChar: hyperlight.charEnd,
           startLine: numericNodeId,
-          highlightedText: hyperlight.highlightedText || "",
-          highlightedHTML: hyperlight.highlightedHTML || "",
+          highlightedText: highlightedText,
+          highlightedHTML: highlightedHTML,
           annotation: ""
         };
         
         store.put(newRecord);
+        syncArray.push(newRecord);
+        
+        console.log(`Created new hyperlight ${hyperlight.highlightID} with positions: ${hyperlight.charStart}-${hyperlight.charEnd}`);
       }
     };
+  });
 }
 
-function updateHyperciteInStore(store, bookId, hypercite) {
+// 🔥 UPDATED: Function to update hypercite records using processed data
+function updateHyperciteRecords(hypercites, store, bookId, syncArray, node) {
+  hypercites.forEach((hypercite) => {
     const key = [bookId, hypercite.hyperciteId];
     const getRequest = store.get(key);
     
     getRequest.onsuccess = () => {
       const existingRecord = getRequest.result;
       
+      // Find the actual u element to get text content
+      const uElement = node.querySelector(`#${hypercite.hyperciteId}`);
+      const hypercitedText = uElement ? uElement.textContent : "";
+      const hypercitedHTML = uElement ? uElement.outerHTML : "";
+      
       if (existingRecord) {
-        // Update existing record
+        // Update existing record with new positions
         existingRecord.startChar = hypercite.charStart;
         existingRecord.endChar = hypercite.charEnd;
+        existingRecord.hypercitedText = hypercitedText;
+        existingRecord.hypercitedHTML = hypercitedHTML;
         
         store.put(existingRecord);
+        syncArray.push(existingRecord);
+        
+        console.log(`Updated hypercite ${hypercite.hyperciteId} positions: ${hypercite.charStart}-${hypercite.charEnd}`);
       } else {
         // Create new record
         const newRecord = {
@@ -757,18 +710,103 @@ function updateHyperciteInStore(store, bookId, hypercite) {
           hyperciteId: hypercite.hyperciteId,
           startChar: hypercite.charStart,
           endChar: hypercite.charEnd,
-          hypercitedText: hypercite.hypercitedText || "",
-          hypercitedHTML: hypercite.hypercitedHTML || "",
+          hypercitedText: hypercitedText,
+          hypercitedHTML: hypercitedHTML,
           citedIN: [],
           relationshipStatus: "single"
         };
         
         store.put(newRecord);
+        syncArray.push(newRecord);
+        
+        console.log(`Created new hypercite ${hypercite.hyperciteId} with positions: ${hypercite.charStart}-${hypercite.charEnd}`);
       }
     };
+  });
 }
 
 
+// 👈 KEEP: Your existing sync function
+async function syncNodeUpdateWithPostgreSQL(bookId, nodeChunk, hyperlights, hypercites) {
+  try {
+    console.log("🔄 Starting PostgreSQL sync for node update...");
+
+    // Sync node chunk if it exists
+    if (nodeChunk) {
+      const nodeChunkResponse = await fetch("/api/db/node-chunks/targeted-upsert", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN": document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content"),
+        },
+        body: JSON.stringify({
+          data: [nodeChunk]
+        }),
+      });
+
+      if (!nodeChunkResponse.ok) {
+        throw new Error(
+          `NodeChunk sync failed: ${nodeChunkResponse.statusText}`
+        );
+      }
+
+      console.log("✅ NodeChunk synced with PostgreSQL");
+    }
+
+    // Sync hyperlights if any exist
+    if (hyperlights.length > 0) {
+      const hyperlightResponse = await fetch("/api/db/hyperlights/upsert", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN": document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content"),
+        },
+        body: JSON.stringify({
+          data: hyperlights
+        }),
+      });
+
+      if (!hyperlightResponse.ok) {
+        throw new Error(
+          `Hyperlight sync failed: ${hyperlightResponse.statusText}`
+        );
+      }
+
+      console.log(`✅ ${hyperlights.length} Hyperlights synced with PostgreSQL`);
+    }
+
+    // Sync hypercites if any exist
+    if (hypercites.length > 0) {
+      const hyperciteResponse = await fetch("/api/db/hypercites/upsert", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN": document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content"),
+        },
+        body: JSON.stringify({
+          data: hypercites
+        }),
+      });
+
+      if (!hyperciteResponse.ok) {
+        throw new Error(`Hypercite sync failed: ${hyperciteResponse.statusText}`);
+      }
+
+      console.log(`✅ ${hypercites.length} Hypercites synced with PostgreSQL`);
+    }
+
+    console.log("🎉 Node update successfully synced with PostgreSQL");
+  } catch (error) {
+    console.error("❌ Error syncing node update with PostgreSQL:", error);
+    throw error;
+  }
+}
 
 
 // Helper function to update a specific hypercite in IndexedDB
