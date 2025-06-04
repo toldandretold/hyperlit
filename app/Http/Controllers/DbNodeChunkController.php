@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PgNodeChunk;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class DbNodeChunkController extends Controller
 {
@@ -114,13 +115,24 @@ class DbNodeChunkController extends Controller
         }
     }
 
-    public function targetedUpsert(Request $request)
+ public function targetedUpsert(Request $request)
     {
         try {
             $data = $request->all();
             
             if (isset($data['data']) && is_array($data['data'])) {
                 foreach ($data['data'] as $item) {
+                    // 🆕 Handle deletion requests
+                    if (isset($item['_action']) && $item['_action'] === 'delete') {
+                        $deleted = PgNodeChunk::where('book', $item['book'])
+                            ->where('startLine', $item['startLine'])
+                            ->delete();
+                        
+                        Log::info("Deleted nodeChunk: book={$item['book']}, startLine={$item['startLine']}, count={$deleted}");
+                        continue; // Skip to next item
+                    }
+                    
+                    // Existing upsert logic for regular updates/inserts
                     PgNodeChunk::updateOrCreate(
                         [
                             'book' => $item['book'] ?? null,
