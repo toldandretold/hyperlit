@@ -215,6 +215,30 @@ export function generateIdBetween(beforeId, afterId) {
   return `${beforeId}_next`;
 }
 
+// Helper function to find the ID of the previous element with a numerical ID
+export function findPreviousElementId(node) {
+  let prev = node.previousElementSibling;
+  while (prev) {
+    if (prev.id && /^\d+(\.\d+)?$/.test(prev.id)) {
+      return prev.id;
+    }
+    prev = prev.previousElementSibling;
+  }
+  return null;
+}
+
+// Helper function to find the ID of the next element with a numerical ID
+export function findNextElementId(node) {
+  let next = node.nextElementSibling;
+  while (next) {
+    if (next.id && /^\d+(\.\d+)?$/.test(next.id)) {
+      return next.id;
+    }
+    next = next.nextElementSibling;
+  }
+  return null;
+}
+
 // Check if an id is numerical (integer or decimal)
 export function isNumericalId(id) {
   // Remove any whitespace and check if it's a valid number
