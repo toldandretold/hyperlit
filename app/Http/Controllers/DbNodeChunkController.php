@@ -13,10 +13,19 @@ class DbNodeChunkController extends Controller
         try {
             $data = $request->all();
             
+            // Log incoming request data
+            Log::info('DbNodeChunkController::bulkCreate - Received data', [
+                'request_data' => $data,
+                'data_count' => isset($data['data']) ? count($data['data']) : 0,
+                'request_size' => strlen(json_encode($data))
+            ]);
+            
             if (isset($data['data']) && is_array($data['data'])) {
                 $records = [];
                 
-                foreach ($data['data'] as $item) {
+                foreach ($data['data'] as $index => $item) {
+                    Log::debug("Processing item {$index}", ['item' => $item]);
+                    
                     $record = [
                         'book' => $item['book'] ?? null,
                         'chunk_id' => $item['chunk_id'] ?? 0,
@@ -36,10 +45,17 @@ class DbNodeChunkController extends Controller
                 }
                 
                 PgNodeChunk::insert($records);
-
+                
+                Log::info('DbNodeChunkController::bulkCreate - Success', [
+                    'records_inserted' => count($records)
+                ]);
                 
                 return response()->json(['success' => true]);
             }
+            
+            Log::warning('DbNodeChunkController::bulkCreate - Invalid data format', [
+                'received_data' => $data
+            ]);
             
             return response()->json([
                 'success' => false,
@@ -47,6 +63,12 @@ class DbNodeChunkController extends Controller
             ], 400);
             
         } catch (\Exception $e) {
+            Log::error('DbNodeChunkController::bulkCreate - Exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to sync data',
@@ -60,18 +82,33 @@ class DbNodeChunkController extends Controller
         try {
             $data = $request->all();
             
+            // Log incoming request data
+            Log::info('DbNodeChunkController::upsert - Received data', [
+                'request_data' => $data,
+                'book' => $data['book'] ?? 'not_specified',
+                'data_count' => isset($data['data']) ? count($data['data']) : 0,
+                'request_size' => strlen(json_encode($data))
+            ]);
+            
             if (isset($data['data']) && is_array($data['data'])) {
                 // Get the book name from the request body
                 $book = $data['book'] ?? null;
                 
                 if ($book) {
+                    Log::info("Clearing existing data for book: {$book}");
+                    
                     // Clear existing data only for this specific book
+                    $deletedCount = PgNodeChunk::where('book', $book)->count();
                     PgNodeChunk::where('book', $book)->delete();
                     
+                    Log::info("Deleted {$deletedCount} existing records for book: {$book}");
+                    
                     $records = [];
-                    foreach ($data['data'] as $item) {
+                    foreach ($data['data'] as $index => $item) {
+                        Log::debug("Processing upsert item {$index}", ['item' => $item]);
+                        
                         $records[] = [
-                            'book' => $item['book'] ?? $book, // Use book from request if item doesn't have it
+                            'book' => $item['book'] ?? $book,
                             'chunk_id' => $item['chunk_id'] ?? 0,
                             'startLine' => $item['startLine'] ?? null,
                             'content' => $item['content'] ?? null,
@@ -89,11 +126,21 @@ class DbNodeChunkController extends Controller
                     // Bulk insert all records at once
                     PgNodeChunk::insert($records);
                     
+                    Log::info('DbNodeChunkController::upsert - Success', [
+                        'book' => $book,
+                        'records_inserted' => count($records),
+                        'records_deleted' => $deletedCount
+                    ]);
+                    
                     return response()->json([
                         'success' => true, 
                         'message' => "Node chunks synced successfully for book: {$book}"
                     ]);
                 } else {
+                    Log::warning('DbNodeChunkController::upsert - Book name missing', [
+                        'request_data' => $data
+                    ]);
+                    
                     return response()->json([
                         'success' => false,
                         'message' => 'Book name is required'
@@ -101,12 +148,22 @@ class DbNodeChunkController extends Controller
                 }
             }
             
+            Log::warning('DbNodeChunkController::upsert - Invalid data format', [
+                'received_data' => $data
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid data format'
             ], 400);
             
         } catch (\Exception $e) {
+            Log::error('DbNodeChunkController::upsert - Exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to sync data',
@@ -115,25 +172,46 @@ class DbNodeChunkController extends Controller
         }
     }
 
- public function targetedUpsert(Request $request)
+    public function targetedUpsert(Request $request)
     {
         try {
             $data = $request->all();
             
+            // Log incoming request data
+            Log::info('DbNodeChunkController::targetedUpsert - Received data', [
+                'request_data' => $data,
+                'data_count' => isset($data['data']) ? count($data['data']) : 0,
+                'request_size' => strlen(json_encode($data))
+            ]);
+            
             if (isset($data['data']) && is_array($data['data'])) {
-                foreach ($data['data'] as $item) {
-                    // 🆕 Handle deletion requests
+                $processedCount = 0;
+                $deletedCount = 0;
+                $upsertedCount = 0;
+                
+                foreach ($data['data'] as $index => $item) {
+                    Log::debug("Processing targeted upsert item {$index}", ['item' => $item]);
+                    
+                    // Handle deletion requests
                     if (isset($item['_action']) && $item['_action'] === 'delete') {
                         $deleted = PgNodeChunk::where('book', $item['book'])
                             ->where('startLine', $item['startLine'])
                             ->delete();
                         
-                        Log::info("Deleted nodeChunk: book={$item['book']}, startLine={$item['startLine']}, count={$deleted}");
-                        continue; // Skip to next item
+                        $deletedCount += $deleted;
+                        Log::info("Deleted nodeChunk", [
+                            'book' => $item['book'],
+                            'startLine' => $item['startLine'],
+                            'deleted_count' => $deleted,
+                            'item_data' => $item
+                        ]);
+                        
+                        $processedCount++;
+                        continue;
                     }
                     
                     // Existing upsert logic for regular updates/inserts
-                    PgNodeChunk::updateOrCreate(
+                    $result = PgNodeChunk::updateOrCreate(
                         [
                             'book' => $item['book'] ?? null,
                             'startLine' => $item['startLine'] ?? null,
@@ -150,7 +228,23 @@ class DbNodeChunkController extends Controller
                             'updated_at' => now(),
                         ]
                     );
+                    
+                    $upsertedCount++;
+                    Log::debug("Upserted nodeChunk", [
+                        'book' => $item['book'],
+                        'startLine' => $item['startLine'],
+                        'was_recently_created' => $result->wasRecentlyCreated,
+                        'item_data' => $item
+                    ]);
+                    
+                    $processedCount++;
                 }
+                
+                Log::info('DbNodeChunkController::targetedUpsert - Success', [
+                    'total_processed' => $processedCount,
+                    'deleted_count' => $deletedCount,
+                    'upserted_count' => $upsertedCount
+                ]);
                 
                 return response()->json([
                     'success' => true, 
@@ -158,12 +252,22 @@ class DbNodeChunkController extends Controller
                 ]);
             }
             
+            Log::warning('DbNodeChunkController::targetedUpsert - Invalid data format', [
+                'received_data' => $data
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid data format'
             ], 400);
             
         } catch (\Exception $e) {
+            Log::error('DbNodeChunkController::targetedUpsert - Exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to sync data (targeted)',
@@ -171,6 +275,4 @@ class DbNodeChunkController extends Controller
             ], 500);
         }
     }
-
-
 }
