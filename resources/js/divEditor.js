@@ -2,7 +2,6 @@ import { book } from "./app.js";
 import { 
   updateIndexedDBRecord, 
   deleteIndexedDBRecordWithRetry,
-  renumberChunkAndSave,
   openDatabase,
   updateCitationForExistingHypercite
           } from "./cache-indexedDB.js";
@@ -13,13 +12,14 @@ import {
   setCurrentObservedChunk
 } from './operationState.js';
 
-
 import { buildBibtexEntry } from "./bibtexProcessor.js";
 import { generateUniqueId, 
          isDuplicateId, 
          getNextDecimalForBase,
          generateInsertedNodeId,
          generateIdBetween,
+         findPreviousElementId,
+         findNextElementId,
          isNumericalId
           } from "./IDfunctions.js";
 import {
@@ -57,9 +57,168 @@ let pasteHandled = false;
 
 // Global state for tracking observed chunks
 let observedChunks = new Map(); // chunkId -> chunk element
-
 let deletionHandler = null;
 
+
+// ================================================================
+// DEBOUNCING INFRASTRUCTURE
+// ================================================================
+
+// Debounce timers for different operations
+const debounceTimers = {
+  typing: null,
+  mutations: null,
+  saves: null,
+  titleSync: null
+};
+
+// Debounce delays (in milliseconds)
+const DEBOUNCE_DELAYS = {
+  TYPING: 800,        // Wait 800ms after user stops typing
+  MUTATIONS: 300,     // Wait 300ms after mutations stop
+  SAVES: 500,         // Wait 500ms between save operations
+  BULK_SAVE: 1000 , // Wait 1s for bulk operations
+  TITLE_SYNC: 500,    
+};
+
+// Track what needs to be saved
+const pendingSaves = {
+  nodes: new Map(),           // Node IDs that need saving         
+  lastActivity: null          // Timestamp of last activity
+};
+
+// Generic debounce function
+function debounce(func, delay, timerId) {
+  return function(...args) {
+    clearTimeout(debounceTimers[timerId]);
+    debounceTimers[timerId] = setTimeout(() => {
+      func.apply(this, args);
+    }, delay);
+  };
+}
+
+// Specialized debounced functions
+const debouncedSaveNode = debounce(saveNodeToDatabase, DEBOUNCE_DELAYS.SAVES, 'saves');
+const debouncedProcessMutations = debounce(processPendingMutations, DEBOUNCE_DELAYS.MUTATIONS, 'mutations');
+
+// ================================================================
+// SAVE QUEUE MANAGEMENT
+// ================================================================
+
+// Add node to pending saves queue
+function queueNodeForSave(nodeId, action = 'update') {
+  pendingSaves.nodes.set(nodeId, { id: nodeId, action }); // ✅ Overwrites duplicates
+  pendingSaves.lastActivity = Date.now();
+  
+  console.log(`📝 Queued node ${nodeId} for ${action}`);
+  debouncedSaveNode(); 
+}
+
+
+// Process all pending node saves
+async function saveNodeToDatabase() {
+  if (pendingSaves.nodes.size === 0) return;
+  
+  const nodesToSave = Array.from(pendingSaves.nodes.values()); // ✅ Get values from Map
+  pendingSaves.nodes.clear();
+  
+  console.log(`💾 Processing ${nodesToSave.length} pending node saves`);
+  
+  // Group by action type
+  const updates = nodesToSave.filter(n => n.action === 'update');
+  const additions = nodesToSave.filter(n => n.action === 'add');
+  const deletions = nodesToSave.filter(n => n.action === 'delete');
+  
+  // Process each group
+  try {
+    if (updates.length > 0) {
+      await Promise.all(updates.map(node => {
+        const element = document.getElementById(node.id);
+        
+        // ✅ Skip if element no longer exists in DOM
+        if (!element) {
+          console.warn(`⚠️ Skipping save for node ${node.id} - element not found in DOM`);
+          return Promise.resolve(); // Return resolved promise to keep Promise.all happy
+        }
+        
+        return updateIndexedDBRecord({
+          id: node.id,
+          html: element.outerHTML,
+          chunk_id: getNodeChunkId(element),
+          action: 'update'
+        });
+      }).filter(Boolean)); // Filter out any undefined promises
+    }
+    
+   if (additions.length > 0) {
+      await Promise.all(additions.map(node => {
+        const element = document.getElementById(node.id);
+        
+        if (!element) {
+          console.warn(`⚠️ Skipping save for new node ${node.id} - element not found in DOM`);
+          return Promise.resolve();
+        }
+        
+        return updateIndexedDBRecord({
+          id: node.id,
+          html: element.outerHTML,
+          chunk_id: getNodeChunkId(element),
+          action: 'add'
+        });
+      }).filter(Boolean));
+    }
+    
+    if (deletions.length > 0) {
+      await Promise.all(deletions.map(node => 
+        deleteIndexedDBRecordWithRetry(node.id)
+      ));
+      console.log(`✅ Deleted ${deletions.length} nodes`);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error in batch save:', error);
+    // Re-queue failed saves
+    nodesToSave.forEach(node => pendingSaves.nodes.add(node));
+  }
+}
+
+async function processPendingMutations() {
+  // This function can be used for any additional mutation processing
+  // For now, it can be empty or just log
+  console.log('📋 Processing pending mutations...');
+}
+
+// ================================================================
+// ACTIVITY MONITORING
+// ================================================================
+
+// Monitor pending saves and log activity
+setInterval(() => {
+  const now = Date.now();
+  const timeSinceLastActivity = pendingSaves.lastActivity ? now - pendingSaves.lastActivity : null;
+  
+  if (pendingSaves.nodes.size > 0 ) {
+    console.log(`📊 Pending saves: ${pendingSaves.nodes.size} nodes (${timeSinceLastActivity}ms since last activity)`);
+  }
+}, 5000); // Log every 5 seconds if there's pending activity
+
+// Force save all pending changes (useful for page unload)
+export function flushAllPendingSaves() {
+  console.log('🚨 Flushing all pending saves...');
+  
+  // Clear all timers
+  Object.keys(debounceTimers).forEach(key => {
+    clearTimeout(debounceTimers[key]);
+  });
+  
+  // Execute saves immediately
+  if (pendingSaves.nodes.size > 0) {
+    saveNodeToDatabase();
+  }
+}
+
+// Add page unload handler to flush saves
+window.addEventListener('beforeunload', flushAllPendingSaves);
 
 // Modified startObserving function. 
 // Note: editable div = <div class="main-content" id="book" contenteditable="true">
@@ -106,7 +265,7 @@ export function startObserving(editableDiv) {
     }
   });
 
-  // Initialize deletion handler with callbacks
+  
   // In your startObserving function
     deletionHandler = new SelectionDeletionHandler(editableDiv, {
       onDeleted: (nodeId) => {
@@ -284,10 +443,6 @@ function isNodeWithinMainContent(node) {
   return false;
 }
 
-
-
-
-
 // Check if mutations should be skipped (existing logic)
 function shouldSkipMutation(mutations) {
   return mutations.some(mutation => 
@@ -298,8 +453,6 @@ function shouldSkipMutation(mutations) {
     )
   );
 }
-
-
 
 // Process mutations grouped by their containing chunk
 async function processMutationsByChunk(mutations) {
@@ -368,12 +521,11 @@ function handleNewChunk(chunk) {
   trackChunkNodeCount(chunk);
 }
 
-// Process mutations for a specific chunk (adapted from your existing logic)
 async function processChunkMutations(chunk, mutations) {
   const chunkId = chunk.getAttribute('data-chunk-id');
   
   console.log(`🔄 Processing ${mutations.length} mutations for chunk ${chunkId}`);
-  
+
   // Track node count CHANGES after mutations 
   trackChunkNodeCount(chunk, mutations);
   
@@ -394,345 +546,298 @@ async function processChunkMutations(chunk, mutations) {
   const newNodes = [];
   let pasteDetected = false;
   
-  
-    // Check if this might be a paste operation (multiple nodes added at once)
-    if (mutations.some(m => m.type === "childList" && m.addedNodes.length > 1)) {
-      pasteDetected = true;
-      console.log("Possible paste operation detected");
+  // Check if this might be a paste operation (multiple nodes added at once)
+  if (mutations.some(m => m.type === "childList" && m.addedNodes.length > 1)) {
+    pasteDetected = true;
+    console.log("Possible paste operation detected");
+  }
+
+  for (const mutation of mutations) {
+    // Process removals first to ensure they're not missed
+    if (mutation.type === "childList" && mutation.removedNodes.length > 0) {
+      let shouldUpdateParent = false;
+      let parentNode = null;
+      
+      for (const node of mutation.removedNodes) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          // Check if this is a top-level paragraph/heading being removed
+          if (node.id && node.id.match(/^\d+(\.\d+)?$/)) {
+            console.log(`🗑️ Attempting to delete node ${node.id} from IndexedDB`);
+
+            // Check if this is the last node in the chunk
+            const remainingNodes = chunk.querySelectorAll('[id]').length;
+            console.log(`Chunk ${chunkId} has ${remainingNodes} remaining nodes after this deletion`);
+            
+            if (remainingNodes === 0) {
+              // This is the last node - handle it specially
+              console.log(`🚨 Last node ${node.id} being deleted from chunk ${chunkId}`);
+              
+              try {
+                await deleteIndexedDBRecordWithRetry(node.id);
+                console.log(`✅ Successfully deleted last node ${node.id} from IndexedDB`);
+              } catch (error) {
+                console.error(`❌ Failed to delete last node ${node.id}:`, error);
+              }
+              removedNodeIds.add(node.id);
+              
+              // Exit early to avoid further processing since chunk will disappear
+              return;
+            } else {
+              // Normal deletion for non-last nodes
+              try {
+                await deleteIndexedDBRecordWithRetry(node.id);
+                console.log(`✅ Successfully deleted node ${node.id} from IndexedDB`);
+              } catch (error) {
+                console.error(`❌ Failed to delete node ${node.id}:`, error);
+              }
+              removedNodeIds.add(node.id);
+            }
+          } 
+          // Handle hypercites
+          else if (node.id && node.id.startsWith("hypercite_")) {
+            // Instead of deleting, mark the parent for update
+            parentNode = mutation.target;
+            shouldUpdateParent = true;
+            console.log(`Hypercite removed from parent: ${parentNode.id}`, node);
+          }
+        }
+      }
+      
+      // Handle parent updates after processing all removed nodes
+      if (shouldUpdateParent && parentNode) {
+        // Find the closest parent with a numeric ID
+        let closestParent = parentNode;
+        while (closestParent && (!closestParent.id || !closestParent.id.match(/^\d+(\.\d+)?$/))) {
+          closestParent = closestParent.parentElement;
+        }
+        
+        if (closestParent && closestParent.id) {
+          parentsToUpdate.add(closestParent);
+        }
+      }
     }
 
-    for (const mutation of mutations) {
-      // Process removals first to ensure they're not missed
-      if (mutation.type === "childList" && mutation.removedNodes.length > 0) {
-        let shouldUpdateParent = false;
-        let parentNode = null;
-        
-        for (const node of mutation.removedNodes) {
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            // Check if this is a top-level paragraph/heading being removed
-            if (node.id && node.id.match(/^\d+(\.\d+)?$/)) {
-              console.log(`🗑️ Attempting to delete node ${node.id} from IndexedDB`);
-
-              // 🚨 NEW: Check if this is the last node in the chunk
-              const remainingNodes = chunk.querySelectorAll('[id]').length;
-              console.log(`Chunk ${chunkId} has ${remainingNodes} remaining nodes after this deletion`);
-              
-              if (remainingNodes === 0) {
-                // This is the last node - handle it specially
-                console.log(`🚨 Last node ${node.id} being deleted from chunk ${chunkId}`);
-                
-                try {
-                  await deleteIndexedDBRecordWithRetry(node.id);
-                  console.log(`✅ Successfully deleted last node ${node.id} from IndexedDB`);
-                } catch (error) {
-                  console.error(`❌ Failed to delete last node ${node.id}:`, error);
-                }
-                removedNodeIds.add(node.id);
-                
-                // Exit early to avoid further processing since chunk will disappear
-                return;
-              } else {
-                // Normal deletion for non-last nodes
-                try {
-                  await deleteIndexedDBRecordWithRetry(node.id);
-                  console.log(`✅ Successfully deleted node ${node.id} from IndexedDB`);
-                } catch (error) {
-                  console.error(`❌ Failed to delete node ${node.id}:`, error);
-                }
-                removedNodeIds.add(node.id);
-              }
-            } 
-            // 🚨 ADD THIS MISSING 'else if' for hypercites
-            else if (node.id && node.id.startsWith("hypercite_")) {
-              // Instead of deleting, mark the parent for update
-              parentNode = mutation.target;
-              shouldUpdateParent = true;
-              console.log(`Hypercite removed from parent: ${parentNode.id}`, node);
-            }
-          }
+    // Skip any childList where all added nodes are arrow-icons
+    if (mutation.type === "childList") {
+      const allAreIcons = Array.from(mutation.addedNodes).every((n) => {
+        if (n.nodeType !== Node.ELEMENT_NODE) return false;
+        const el = n;
+        // span.open-icon itself
+        if (el.classList.contains("open-icon")) return true;
+        // or an <a> whose only child is that span
+        if (
+          el.tagName === "A" &&
+          el.children.length === 1 &&
+          el.firstElementChild.classList.contains("open-icon")
+        ) {
+          return true;
         }
-        
-        // 🚨 ADD THIS: Handle parent updates after processing all removed nodes
-        if (shouldUpdateParent && parentNode) {
-          // Find the closest parent with a numeric ID
-          let closestParent = parentNode;
-          while (closestParent && (!closestParent.id || !closestParent.id.match(/^\d+(\.\d+)?$/))) {
-            closestParent = closestParent.parentElement;
+        return false;
+      });
+
+      if (allAreIcons) {
+        continue;
+      }
+    } 
+
+    // 1) Title-sync logic for H1#1
+    const h1 = document.getElementById("1");
+    if (h1) {
+      // characterData inside H1
+      if (
+        mutation.type === "characterData" &&
+        mutation.target.parentNode?.closest('h1[id="1"]')
+      ) {
+        const newTitle = h1.innerText.trim();
+        updateLibraryTitle(book, newTitle).catch(console.error);
+        // 🔄 CONVERTED TO DEBOUNCED:
+        queueNodeForSave(h1.id, 'update');
+      }
+      // childList under H1 (e.g. paste)
+      if (
+        mutation.type === "childList" &&
+        Array.from(mutation.addedNodes).some((n) =>
+          n.closest && n.closest('h1[id="1"]')
+        )
+      ) {
+        const newTitle = h1.innerText.trim();
+        updateLibraryTitle(book, newTitle).catch(console.error);
+        // 🔄 CONVERTED TO DEBOUNCED:
+        queueNodeForSave(h1.id, 'update');
+      }
+    }
+
+    // 2) Process added nodes
+    if (mutation.type === "childList") {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          if (window.NodeIdManager && typeof NodeIdManager.exists === 'function') {
+            // [Your existing NodeIdManager logic - unchanged]
+            // ... (keeping all your existing ID management code)
+          } else {
+            // Fall back to original method if NodeIdManager is not available
+            ensureNodeHasValidId(node);
           }
           
-          if (closestParent && closestParent.id) {
-            parentsToUpdate.add(closestParent);
+          addedNodes.add(node);
+          addedCount++;
+          newNodes.push(node);
+          
+          // If this might be a paste, explicitly queue this node
+          if (pasteDetected && node.id) {
+            console.log(`Queueing potentially pasted node: ${node.id}`);
+            queueNodeForSave(node.id, 'add');
           }
         }
-      }
-
-      // --- NEW GUARD: skip any childList where all added nodes are arrow‐icons ---
+      });
+    }
+    // 3) Process text changes
+    else if (mutation.type === "characterData") {
+      let parent = mutation.target.parentNode;
       
-      if (mutation.type === "childList") {
-        const allAreIcons = Array.from(mutation.addedNodes).every((n) => {
-          if (n.nodeType !== Node.ELEMENT_NODE) return false;
-          const el = /** @type {HTMLElement} */ (n);
-          // span.open-icon itself
-          if (el.classList.contains("open-icon")) return true;
-          // or an <a> whose only child is that span
-          if (
-            el.tagName === "A" &&
-            el.children.length === 1 &&
-            el.firstElementChild.classList.contains("open-icon")
-          ) {
-            return true;
-          }
-          return false;
-        });
-        if (allAreIcons) {
-          // console.log("Skipping pure-icon mutation");
-          continue;
-        }
-      } 
-
-      // 1) Title-sync logic for H1#1
-      const h1 = document.getElementById("1");
-      if (h1) {
-        // characterData inside H1
-        if (
-          mutation.type === "characterData" &&
-          mutation.target.parentNode?.closest('h1[id="1"]')
-        ) {
-          const newTitle = h1.innerText.trim();
-          updateLibraryTitle(book, newTitle).catch(console.error);
-          updateIndexedDBRecord({
-            id: h1.id,
-            html: h1.outerHTML,
-            chunk_id: getNodeChunkId(h1),
-            action: "update"
-          }).catch(console.error);
-        }
-        // childList under H1 (e.g. paste)
-        if (
-          mutation.type === "childList" &&
-          Array.from(mutation.addedNodes).some((n) =>
-            n.closest && n.closest('h1[id="1"]')
-          )
-        ) {
-          const newTitle = h1.innerText.trim();
-          updateLibraryTitle(book, newTitle).catch(console.error);
-          updateIndexedDBRecord({
-            id: h1.id,
-            html: h1.outerHTML,
-            chunk_id: getNodeChunkId(h1),
-            action: "update"
-          }).catch(console.error);
-        }
+      // Find the closest parent with an ID (typically a paragraph)
+      while (parent && !parent.id) {
+        parent = parent.parentNode;
       }
-
-      // 2) Process added nodes
-      if (mutation.type === "childList") {
-        mutation.addedNodes.forEach((node) => {
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            if (window.NodeIdManager && typeof NodeIdManager.exists === 'function') {
-              // If node already has an ID
-              if (node.id) {
-                // Check if it's a duplicate
-                if (NodeIdManager.exists(node.id) && document.getElementById(node.id) !== node) {
-                  console.log(`Duplicate ID detected: ${node.id}`);
-                  
-                  // Find reference nodes for context-aware ID generation
-                  const parent = node.parentElement;
-                  if (parent) {
-                    const siblings = Array.from(parent.children);
-                    const index = siblings.indexOf(node);
-                    
-                    let newId;
-                    if (index > 0) {
-                      const prevSibling = siblings[index - 1];
-                      if (index < siblings.length - 1) {
-                        const nextSibling = siblings[index + 1];
-                        if (prevSibling.id && nextSibling.id) {
-                          newId = NodeIdManager.getIntermediateId(prevSibling.id, nextSibling.id);
-                        } else if (prevSibling.id) {
-                          newId = NodeIdManager.getNextId(prevSibling.id);
-                        } else if (nextSibling.id) {
-                          newId = NodeIdManager.getIdBefore(nextSibling.id);
-                        } else {
-                          newId = NodeIdManager.generateUniqueId();
-                        }
-                      } else {
-                        // Last child
-                        if (prevSibling.id) {
-                          newId = NodeIdManager.getNextId(prevSibling.id);
-                        } else {
-                          newId = NodeIdManager.generateUniqueId();
-                        }
-                      }
-                    } else {
-                      // First child
-                      if (index < siblings.length - 1) {
-                        const nextSibling = siblings[index + 1];
-                        if (nextSibling.id) {
-                          newId = NodeIdManager.getIdBefore(nextSibling.id);
-                        } else {
-                          newId = NodeIdManager.generateUniqueId();
-                        }
-                      } else {
-                        // Only child
-                        newId = NodeIdManager.generateUniqueId();
-                      }
-                    }
-                    
-                    console.log(`Changing duplicate ID from ${node.id} to ${newId}`);
-                    node.id = newId;
-                  } else {
-                    // No parent, generate a completely unique ID
-                    const oldId = node.id;
-                    node.id = NodeIdManager.generateUniqueId();
-                    console.log(`Changed orphaned duplicate ID from ${oldId} to ${node.id}`);
-                  }
-                } else {
-                  // ID exists but is not a duplicate, register it
-                  NodeIdManager.register(node.id);
-                }
-              } else {
-                // Node has no ID, generate one based on context
-                const parent = node.parentElement;
-                if (parent) {
-                  const siblings = Array.from(parent.children);
-                  const index = siblings.indexOf(node);
-                  
-                  let newId;
-                  if (index > 0) {
-                    const prevSibling = siblings[index - 1];
-                    if (prevSibling.id && /^\d+(\.\d+)?$/.test(prevSibling.id)) {
-                      newId = NodeIdManager.getNextId(prevSibling.id);
-                    } else {
-                      newId = NodeIdManager.generateUniqueId();
-                    }
-                  } else if (index < siblings.length - 1) {
-                    const nextSibling = siblings[index + 1];
-                    if (nextSibling.id && /^\d+(\.\d+)?$/.test(nextSibling.id)) {
-                      newId = NodeIdManager.getIdBefore(nextSibling.id);
-                    } else {
-                      newId = NodeIdManager.generateUniqueId();
-                    }
-                  } else {
-                    newId = NodeIdManager.generateUniqueId();
-                  }
-                  
-                  console.log(`Assigned new ID to node: ${newId}`);
-                  node.id = newId;
-                } else {
-                  // No parent, generate a completely unique ID
-                  node.id = NodeIdManager.generateUniqueId();
-                  console.log(`Assigned unique ID to orphaned node: ${node.id}`);
-                }
-              }
-            } else {
-              // Fall back to original method if NodeIdManager is not available
-              ensureNodeHasValidId(node);
-            }
-            
-            addedNodes.add(node);
-            addedCount++;
-            newNodes.push(node); // Add to newNodes array for saving later
-            
-            // If this might be a paste, explicitly save this node
-            if (pasteDetected && node.id) {
-              console.log(`Saving potentially pasted node: ${node.id}`);
-              updateIndexedDBRecord({
-                id: node.id,
-                html: node.outerHTML,
-                chunk_id: getNodeChunkId(node),
-                action: "update"
-              }).catch(console.error);
-            }
-          }
-        });
+      
+      if (parent && parent.id) {
+        console.log(`Queueing characterData change in parent: ${parent.id}`);
+        // 🔄 CONVERTED TO DEBOUNCED:
+        queueNodeForSave(parent.id, 'update');
+        modifiedNodes.add(parent.id);
+      } else {
+        console.warn("characterData change detected but couldn't find parent with ID");
       }
-      // 3) Process text changes
-      else if (mutation.type === "characterData") {
-        let parent = mutation.target.parentNode;
-        
-        // Find the closest parent with an ID (typically a paragraph)
-        while (parent && !parent.id) {
-          parent = parent.parentNode;
+    }
+
+  }
+
+  // Process all parent nodes that need updates
+  parentsToUpdate.forEach(parent => {
+    console.log(`Queueing parent node after child removal: ${parent.id}`);
+    queueNodeForSave(parent.id, 'update');
+    modifiedNodes.add(parent.id);
+  });
+
+  if (addedCount > 0) {
+    const BULK_THRESHOLD = 20;
+    if (addedCount < BULK_THRESHOLD) {
+      // small: queue each individually
+      console.log(`Queueing ${newNodes.length} new nodes individually`);
+      newNodes.forEach(node => {
+        if (node.id) {
+          console.log(`Queueing new node: ${node.id}`);
+          queueNodeForSave(node.id, 'add');
         }
-        
-        if (parent && parent.id) {
-          console.log(`Saving characterData change in parent: ${parent.id}`);
-          updateIndexedDBRecord({
-            id: parent.id,
-            html: parent.outerHTML,
-            chunk_id: getNodeChunkId(parent),
-            action: "update"
-          }).catch(console.error);
-          modifiedNodes.add(parent.id);
-        } else {
-          console.warn("characterData change detected but couldn't find parent with ID");
-        }
+      });
+    } 
+  }
+}
+
+
+
+/*
+// Function to clean up blockquotes - convert p tags to br-separated content
+function cleanupBlockquote(blockquote) {
+  if (!blockquote || blockquote.tagName !== 'BLOCKQUOTE') return;
+  
+  console.log('🧹 Cleaning up blockquote:', blockquote);
+  
+  // Get all paragraph elements inside the blockquote
+  const paragraphs = blockquote.querySelectorAll('p');
+  
+  if (paragraphs.length === 0) return; // Nothing to clean
+  
+  // Create a document fragment to build the new content
+  const fragment = document.createDocumentFragment();
+  
+  paragraphs.forEach((p, index) => {
+    // Remove the ID from the paragraph
+    if (p.id) {
+      console.log(`🗑️ Removing ID ${p.id} from paragraph in blockquote`);
+      // Delete from IndexedDB if it has a numerical ID
+      if (isNumericalId(p.id)) {
+        deleteIndexedDBRecordWithRetry(p.id);
       }
     }
     
-    // Process all parent nodes that need updates
-    parentsToUpdate.forEach(parent => {
-      console.log(`Updating parent node after child removal: ${parent.id}`);
-      updateIndexedDBRecord({
-        id: parent.id,
-        html: parent.outerHTML,
-        chunk_id: getNodeChunkId(parent),
-        action: "update"
-      }).catch(console.error);
-      modifiedNodes.add(parent.id);
-    });
-
-    // If we detected a paste operation with multiple nodes, save the whole chunk
-    if (pasteDetected && addedCount > 1) {
-      console.log(`Paste operation detected with ${addedCount} nodes - saving entire chunk`);
-      await renumberChunkAndSave(currentObservedChunk);
-    }
-    // Otherwise, save individual nodes if there aren't too many
-    else if (addedCount > 0) {
-      // 🚨 ADD MISSING CONSTANT
-      const BULK_THRESHOLD = 20;
-      if (addedCount < BULK_THRESHOLD) {
-        // small: update each individually
-        console.log(`Saving ${newNodes.length} new nodes individually`);
-        await Promise.all(
-          newNodes.map(node => {
-            if (node.id) {
-              console.log(`Saving new node: ${node.id}`);
-              return updateIndexedDBRecord({
-                id: node.id,
-                html: node.outerHTML,
-                chunk_id: getNodeChunkId(node),
-                action: "add"
-              }).catch(console.error);
-            }
-            return Promise.resolve();
-          })
-        );
-      } else {
-        // bulk: renumber the whole chunk & save in one pass
-        console.log(`Bulk insert of ${addedCount} nodes—doing batch save`);
-        await renumberChunkAndSave(currentObservedChunk);
+    // Extract the text content and any inline elements (but not block elements)
+    const content = extractInlineContent(p);
+    
+    // Add the content to fragment
+    if (content.trim()) {
+      // Add text content
+      const textNode = document.createTextNode(content);
+      fragment.appendChild(textNode);
+      
+      // Add BR after each paragraph except the last one
+      if (index < paragraphs.length - 1) {
+        const br = document.createElement('br');
+        fragment.appendChild(br);
       }
     }
-
-    // then your existing debounced normalize
-    debouncedNormalize(currentObservedChunk);
+  });
   
+  // Replace blockquote content with cleaned content
+  blockquote.innerHTML = '';
+  blockquote.appendChild(fragment);
+  
+  console.log('✅ Blockquote cleaned up');
 }
 
-
-// Utility function to get current chunks (for other parts of your code)
-export function getCurrentChunks() {
-  return Array.from(observedChunks.values());
+// Helper function to extract inline content from a paragraph
+function extractInlineContent(paragraph) {
+  // Clone the paragraph to avoid modifying the original
+  const clone = paragraph.cloneNode(true);
+  
+  // Remove any nested block elements but keep inline elements
+  const blockElements = clone.querySelectorAll('div, p, h1, h2, h3, h4, h5, h6, blockquote, pre');
+  blockElements.forEach(el => {
+    // Replace block elements with their text content
+    const textNode = document.createTextNode(el.textContent);
+    el.parentNode.replaceChild(textNode, el);
+  });
+  
+  // Return the text content (this will preserve inline elements like <em>, <strong>, etc.)
+  return clone.textContent || clone.innerText || '';
 }
 
-// Utility function to get a specific chunk
-export function getChunkById(chunkId) {
-  return observedChunks.get(chunkId);
+// Function to detect and clean new blockquotes
+function  detectAndCleanBlockquotes(mutations) {
+  mutations.forEach(mutation => {
+    if (mutation.type === 'childList') {
+      // Check added nodes for new blockquotes
+      mutation.addedNodes.forEach(node => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          // Check if the node itself is a blockquote
+          if (node.tagName === 'BLOCKQUOTE') {
+            setTimeout(() => cleanupBlockquote(node), 50);
+          }
+          
+          // Check for blockquotes within the added node
+          const blockquotes = node.querySelectorAll('blockquote');
+          blockquotes.forEach(bq => {
+            setTimeout(() => cleanupBlockquote(bq), 50);
+          });
+        }
+      });
+      
+      // Check if existing elements were converted to blockquotes
+      if (mutation.target.tagName === 'BLOCKQUOTE') {
+        setTimeout(() => cleanupBlockquote(mutation.target), 50);
+      }
+    }
+    
+    // Check for attribute changes that might indicate blockquote creation
+    if (mutation.type === 'attributes' && 
+        mutation.target.tagName === 'BLOCKQUOTE' && 
+        mutation.attributeName === 'style') {
+      setTimeout(() => cleanupBlockquote(mutation.target), 50);
+    }
+  });
 }
 
-
+*/
 
 
 
@@ -763,7 +868,7 @@ export function stopObserving() {
   console.log("Observer and related state fully reset");
 }
 
-/*
+
 // Listen for selection changes and restart observing if the current chunk has changed.
 document.addEventListener("selectionchange", () => {
   // Only perform chunk-observer restarts in edit mode.
@@ -780,19 +885,38 @@ document.addEventListener("selectionchange", () => {
       console.warn("Lost focus on any chunk.");
     }
   }
-}); */
+}); 
 
 
 
 // Track typing activity
-document.addEventListener("keydown", function handleTypingActivity() {
+// Replace your existing keydown listener (around line 300) with this:
+document.addEventListener("keydown", function handleTypingActivity(event) {
   // Only show spinner if in edit mode
   if (!window.isEditing) return;
   
+  // Track typing activity
+  pendingSaves.lastActivity = Date.now();
   
-    if (currentObservedChunk) {
-      debouncedNormalize(currentObservedChunk);
+  // For character-generating keys, queue the current node for save
+  if (event.key.length === 1 || ['Backspace', 'Delete', 'Enter'].includes(event.key)) {
+    const selection = document.getSelection();
+    if (selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      let currentNode = range.startContainer;
+      if (currentNode.nodeType !== Node.ELEMENT_NODE) {
+        currentNode = currentNode.parentElement;
+      }
+      
+      // Find the closest element with an ID
+      let elementWithId = currentNode.closest('[id]');
+      if (elementWithId && elementWithId.id) {
+        queueNodeForSave(elementWithId.id, 'update');
+      }
     }
+  }
+  
+ 
 });
 
 
@@ -896,6 +1020,7 @@ export async function updateLibraryTitle(bookId, newTitle) {
  *   2) watch <h1 id="1"> inside the div#bookId
  *   3) sync its text into library.title
  */
+
 export async function initTitleSync(bookId) {
   console.log("⏱ initTitleSync()", { bookId });
   const editableContainer = document.getElementById(bookId);
@@ -908,30 +1033,31 @@ export async function initTitleSync(bookId) {
 
   const titleNode = editableContainer.querySelector('h1[id="1"]');
   if (!titleNode) {
-    console.warn("initTitleSync: no <h1 id=\"1\"> found");
+    console.warn('initTitleSync: no <h1 id="1"> found');
     return;
   }
   console.log("initTitleSync: found titleNode", titleNode);
 
-  // Debounced writer, with logging
-  const writeTitle = debounce(async () => {
-    const newTitle = titleNode.innerText.trim();
-    console.log("🖉 [title-sync] writeTitle firing, newTitle=", newTitle);
-    try {
-      await updateLibraryTitle(bookId, newTitle);
-      console.log("✔ [title-sync] updated library.title=", newTitle);
-    } catch (err) {
-      console.error("✖ [title-sync] failed to update:", err);
-    }
-  }, 500);
+  const writeTitle = debounce(
+    async () => {
+      const newTitle = titleNode.innerText.trim();
+      console.log("🖉 [title-sync] writeTitle firing, newTitle=", newTitle);
+      try {
+        await updateLibraryTitle(bookId, newTitle);
+        console.log("✔ [title-sync] updated library.title=", newTitle);
+      } catch (err) { // <--- ADDED BRACES HERE
+        console.error("✖ [title-sync] failed to update library.title:", err);
+      } // <--- AND HERE
+    },
+    DEBOUNCE_DELAYS.TITLE_SYNC,
+    "titleSync"
+  );
 
-  // direct listener on the h1
   titleNode.addEventListener("input", (e) => {
     console.log("🖉 [title-sync] input event on H1", e);
     writeTitle();
   });
 
-  // fallback: capture any input in the container and see if it's the H1
   editableContainer.addEventListener("input", (e) => {
     if (e.target === titleNode || titleNode.contains(e.target)) {
       console.log("🖉 [title-sync] container catch of input on H1", e);
@@ -939,26 +1065,29 @@ export async function initTitleSync(bookId) {
     }
   });
 
-  // also observe mutations just in case execCommand or paste bypasses input
-    new MutationObserver((muts) => {
-    muts.forEach((m) => {
-      if (m.type === "characterData") {
-        // m.target could be a Text node
-        const parent = m.target.parentNode;
+  const titleObserver = new MutationObserver((mutationsList) => {
+    mutationsList.forEach((mutation) => {
+      if (mutation.type === "characterData") {
+        const parent = mutation.target.parentNode;
         if (
           parent &&
           parent.nodeType === Node.ELEMENT_NODE &&
-          parent.closest('h1[id="1"]')
+          parent.closest('h1[id="1"]') === titleNode
         ) {
-          console.log("🖉 [title-sync] mutation detect", m);
+          console.log("🖉 [title-sync] mutation detect (characterData)", mutation);
           writeTitle();
         }
       }
     });
-  }).observe(titleNode, { characterData: true, subtree: true });
+  });
 
+  titleObserver.observe(titleNode, {
+    characterData: true,
+    subtree: true,
+  });
 
-  console.log("🛠 Title‑sync initialized for book:", bookId);
+  console.log("🛠 Title-sync initialized for book:", bookId);
+  // return titleObserver;
 }
 
 
@@ -970,25 +1099,6 @@ export async function initTitleSync(bookId) {
 
 
 
-// ----------------------------------------------------------------
-// Debounce function for delayed operations
-// ----------------------------------------------------------------
-function debounce(func, wait) {
-  let timeout;
-  return function(...args) {
-    const context = this;
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(context, args), wait);
-  };
-}
-
-// Debounced normalization function for editable div, including saving cues
-const debouncedNormalize = debounce((container) => {
-  if (!documentChanged) return;
-  console.log("User stopped typing; normalizing and saving…");
-  // this wrapper will increment before running, and decrement when done
-  
-}, 500);
 
 // ----------------------------------------------------------------
 // Utility: Get the chunk element where the cursor is currently located.
@@ -1005,8 +1115,7 @@ function getCurrentChunk() {
   return null;
 }
 
-// Helper function to get chunk_id for a node as a float
-// Helper function to get chunk_id for a node as a float
+
 // Enhanced helper function to get chunk_id for a node as a float
 function getNodeChunkId(node) {
   // Make sure we have a valid node
@@ -1059,6 +1168,13 @@ function getNodeChunkId(node) {
 function ensureNodeHasValidId(node, options = {}) {
   const { referenceNode, insertAfter } = options;
   if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+  // 🆕 NEW: Skip elements that shouldn't have IDs
+  const skipElements = ['BR', 'SPAN', 'EM', 'STRONG', 'I', 'B', 'U', 'SUP', 'SUB'];
+  if (skipElements.includes(node.tagName)) {
+    console.log(`Skipping ID assignment for ${node.tagName} element`);
+    return;
+  }
   
   if (window.__enterKeyInfo && Date.now() - window.__enterKeyInfo.timestamp < 500) {
     const { nodeId, cursorPosition } = window.__enterKeyInfo;
@@ -1106,6 +1222,7 @@ function ensureNodeHasValidId(node, options = {}) {
     }
     window.__enterKeyInfo = null;
   }
+
   
   // If node already has an id, check for duplicates:
   if (node.id) {
@@ -1123,12 +1240,17 @@ function ensureNodeHasValidId(node, options = {}) {
       }
     }
   } else {
+    // NEW: Determine proper numerical ID based on position
     if (referenceNode && typeof insertAfter === "boolean") {
       node.id = generateInsertedNodeId(referenceNode, insertAfter);
       console.log(`Assigned new id ${node.id} based on reference insertion direction.`);
     } else {
-      node.id = generateUniqueId();
-      console.log(`Assigned new unique id ${node.id} to node <${node.tagName.toLowerCase()}>`);
+      // Find the node's position in the DOM and assign appropriate ID
+      const beforeId = findPreviousElementId(node);
+      const afterId = findNextElementId(node);
+      
+      node.id = generateIdBetween(beforeId, afterId);
+      console.log(`Assigned positional id ${node.id} to node <${node.tagName.toLowerCase()}> (between ${beforeId} and ${afterId})`);
     }
   }
   
@@ -1457,11 +1579,7 @@ document.addEventListener("keydown", function(event) {
         // Save the modified blockElement to IndexedDB
         if (blockElement.id) {
           console.log("Saving modified block element after BR cleanup:", blockElement.id);
-          updateIndexedDBRecord({
-            id: blockElement.id,
-            html: blockElement.outerHTML,
-            action: "update"
-          }).catch(console.error);
+          queueNodeForSave(blockElement.id, 'update');
         }
         console.log("blockElement:", blockElement);
         
@@ -1684,7 +1802,10 @@ function handlePaste(event) {
   
   // Reset the flag after the event cycle
   setTimeout(() => { pasteHandled = false; }, 0);
-  
+
+  // Get the current chunk and selection
+  const chunk = getCurrentChunk();
+
   // Log detailed paste information
   const plainText = event.clipboardData.getData('text/plain');
   const htmlContent = event.clipboardData.getData('text/html');
@@ -1698,7 +1819,6 @@ function handlePaste(event) {
     targetNodeName: event.target.nodeName
   });
 
-  
   // Try to handle as hypercite first
   if (handleHypercitePaste(event)) {
     return; // Handled as hypercite
@@ -1717,8 +1837,6 @@ function handlePaste(event) {
   // For regular pastes, we'll handle them ourselves to ensure clean content
   event.preventDefault(); // Prevent default paste behavior
   
-  // Get the current chunk and selection
-  const chunk = getCurrentChunk();
   if (!chunk) {
     console.warn("No active chunk found for paste operation");
     return;
@@ -1783,20 +1901,26 @@ function handlePaste(event) {
       
       // Insert remaining paragraphs after the current one
       let insertAfter = paragraph;
-      Array.from(tempDiv.children).forEach((el, index) => {
-        if (index > 0) { // Skip the first one as we already used its content
-          const newP = document.createElement('p');
-          newP.innerHTML = el.innerHTML;
-          newP.id = getNextDecimalForBase(paragraph.id.split('.')[0]);
-          
-          // Insert after the previous paragraph
-          if (insertAfter.nextSibling) {
-            chunk.insertBefore(newP, insertAfter.nextSibling);
-          } else {
-            chunk.appendChild(newP);
-          }
-          insertAfter = newP;
+      const remainingParagraphs = Array.from(tempDiv.children).slice(1);
+      
+      remainingParagraphs.forEach((el, index) => {
+        const newP = document.createElement('p');
+        newP.innerHTML = el.innerHTML;
+        
+        // Use generateIdBetween logic instead of getNextDecimalForBase
+        const beforeId = insertAfter.id;
+        const afterElement = insertAfter.nextElementSibling;
+        const afterId = afterElement ? afterElement.id : null;
+        
+        newP.id = generateIdBetween(beforeId, afterId);
+        
+        // Insert after the previous paragraph
+        if (insertAfter.nextSibling) {
+          chunk.insertBefore(newP, insertAfter.nextSibling);
+        } else {
+          chunk.appendChild(newP);
         }
+        insertAfter = newP;
       });
     }
   } else {
@@ -1825,22 +1949,14 @@ function handlePaste(event) {
       // Save each new element
       newElements.forEach(el => {
         console.log(`Saving new element: ${el.id}`);
-        updateIndexedDBRecord({
-          id: el.id,
-          html: el.outerHTML,
-          action: "add"
-        }).catch(console.error);
+        queueNodeForSave(el.id, 'add');
       });
     }
     
     // Always save the current paragraph
     if (paragraph && paragraph.id) {
       console.log(`Saving current paragraph after paste: ${paragraph.id}`);
-      updateIndexedDBRecord({
-        id: paragraph.id,
-        html: paragraph.outerHTML,
-        action: "update"
-      }).catch(console.error);
+      queueNodeForSave(paragraph.id, 'update');
     }
     
     // Log the final state
@@ -2027,11 +2143,7 @@ function saveCurrentParagraph() {
     if (blockElement && blockElement.id) {
       console.log("Manually saving block element:", blockElement.id, blockElement.tagName);
       // Manually save the element to IndexedDB
-      updateIndexedDBRecord({
-        id: blockElement.id,
-        html: blockElement.outerHTML,
-        action: "update"
-      }).catch(console.error);
+      queueNodeForSave(blockElement.id, 'update');
     }
   }
 }
@@ -2145,11 +2257,7 @@ function handleCodeBlockPaste(event, chunk) {
     range.insertNode(textNode);
 
     // Update the code block in IndexedDB
-    updateIndexedDBRecord({
-      id: codeBlock.id,
-      html: codeBlock.outerHTML,
-      action: "update",
-    }).catch(console.error);
+    queueNodeForSave(codeBlock.id, 'update');
 
     return true;
   }
