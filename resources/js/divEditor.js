@@ -178,7 +178,7 @@ async function saveNodeToDatabase() {
   } catch (error) {
     console.error('❌ Error in batch save:', error);
     // Re-queue failed saves
-    nodesToSave.forEach(node => pendingSaves.nodes.add(node));
+    nodesToSave.forEach(node => pendingSaves.nodes.set(node));
   }
 }
 
@@ -735,109 +735,6 @@ async function processChunkMutations(chunk, mutations) {
 }
 
 
-
-/*
-// Function to clean up blockquotes - convert p tags to br-separated content
-function cleanupBlockquote(blockquote) {
-  if (!blockquote || blockquote.tagName !== 'BLOCKQUOTE') return;
-  
-  console.log('🧹 Cleaning up blockquote:', blockquote);
-  
-  // Get all paragraph elements inside the blockquote
-  const paragraphs = blockquote.querySelectorAll('p');
-  
-  if (paragraphs.length === 0) return; // Nothing to clean
-  
-  // Create a document fragment to build the new content
-  const fragment = document.createDocumentFragment();
-  
-  paragraphs.forEach((p, index) => {
-    // Remove the ID from the paragraph
-    if (p.id) {
-      console.log(`🗑️ Removing ID ${p.id} from paragraph in blockquote`);
-      // Delete from IndexedDB if it has a numerical ID
-      if (isNumericalId(p.id)) {
-        deleteIndexedDBRecordWithRetry(p.id);
-      }
-    }
-    
-    // Extract the text content and any inline elements (but not block elements)
-    const content = extractInlineContent(p);
-    
-    // Add the content to fragment
-    if (content.trim()) {
-      // Add text content
-      const textNode = document.createTextNode(content);
-      fragment.appendChild(textNode);
-      
-      // Add BR after each paragraph except the last one
-      if (index < paragraphs.length - 1) {
-        const br = document.createElement('br');
-        fragment.appendChild(br);
-      }
-    }
-  });
-  
-  // Replace blockquote content with cleaned content
-  blockquote.innerHTML = '';
-  blockquote.appendChild(fragment);
-  
-  console.log('✅ Blockquote cleaned up');
-}
-
-// Helper function to extract inline content from a paragraph
-function extractInlineContent(paragraph) {
-  // Clone the paragraph to avoid modifying the original
-  const clone = paragraph.cloneNode(true);
-  
-  // Remove any nested block elements but keep inline elements
-  const blockElements = clone.querySelectorAll('div, p, h1, h2, h3, h4, h5, h6, blockquote, pre');
-  blockElements.forEach(el => {
-    // Replace block elements with their text content
-    const textNode = document.createTextNode(el.textContent);
-    el.parentNode.replaceChild(textNode, el);
-  });
-  
-  // Return the text content (this will preserve inline elements like <em>, <strong>, etc.)
-  return clone.textContent || clone.innerText || '';
-}
-
-// Function to detect and clean new blockquotes
-function  detectAndCleanBlockquotes(mutations) {
-  mutations.forEach(mutation => {
-    if (mutation.type === 'childList') {
-      // Check added nodes for new blockquotes
-      mutation.addedNodes.forEach(node => {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          // Check if the node itself is a blockquote
-          if (node.tagName === 'BLOCKQUOTE') {
-            setTimeout(() => cleanupBlockquote(node), 50);
-          }
-          
-          // Check for blockquotes within the added node
-          const blockquotes = node.querySelectorAll('blockquote');
-          blockquotes.forEach(bq => {
-            setTimeout(() => cleanupBlockquote(bq), 50);
-          });
-        }
-      });
-      
-      // Check if existing elements were converted to blockquotes
-      if (mutation.target.tagName === 'BLOCKQUOTE') {
-        setTimeout(() => cleanupBlockquote(mutation.target), 50);
-      }
-    }
-    
-    // Check for attribute changes that might indicate blockquote creation
-    if (mutation.type === 'attributes' && 
-        mutation.target.tagName === 'BLOCKQUOTE' && 
-        mutation.attributeName === 'style') {
-      setTimeout(() => cleanupBlockquote(mutation.target), 50);
-    }
-  });
-}
-
-*/
 
 
 
