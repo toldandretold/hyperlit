@@ -1416,167 +1416,197 @@ document.addEventListener("keydown", function(event) {
     }
 
 
-    
-    //==========================================================================
-    // SECTION 1: Special handling for blockquote and pre (code blocks)
-    //==========================================================================
-    if (blockElement.tagName === 'BLOCKQUOTE' || blockElement.tagName === 'PRE') {
-      event.preventDefault(); // Prevent default Enter behavior
-      
-      // Check if we're inside a hypercite
-      let insideHypercite = false;
-      let hyperciteElement = null;
-      let currentElement = range.startContainer;
-      if (currentElement.nodeType !== Node.ELEMENT_NODE) {
-        currentElement = currentElement.parentElement;
+//==========================================================================
+// SECTION 1: Special handling for blockquote and pre (code blocks)
+//==========================================================================
+if (
+  blockElement.tagName === "BLOCKQUOTE" ||
+  blockElement.tagName === "PRE"
+) {
+  event.preventDefault(); // Prevent default Enter behavior
+
+  // If this is the third consecutive Enter press, we either exit or split the block
+  if (enterCount >= 3) {
+    // Determine if the cursor is effectively at the end of the block.
+    const rangeToEnd = document.createRange();
+    rangeToEnd.setStart(range.endContainer, range.endOffset);
+    rangeToEnd.setEndAfter(blockElement);
+    const contentAfterCursor = rangeToEnd.cloneContents();
+    const isEffectivelyAtEnd =
+      contentAfterCursor.textContent.replace(/\u200B/g, "").trim() === "";
+
+    // --- PATH A: User is at the end of the block (Exit Logic) ---
+    if (isEffectivelyAtEnd) {
+      console.log("Exiting block from the end.");
+      let targetElement = blockElement;
+      if (
+        blockElement.tagName === "PRE" &&
+        blockElement.querySelector("code")
+      ) {
+        targetElement = blockElement.querySelector("code");
       }
-      
-      // Check if we're inside a hypercite (u tag)
-      hyperciteElement = currentElement.closest('u[id^="hypercite_"]');
-      insideHypercite = !!hyperciteElement;
-      
-      // If this is the third consecutive Enter press, escape the block
-      if (enterCount >= 3) {
-        // For code blocks, we need to look inside the CODE element
-        let targetElement = blockElement;
-        if (blockElement.tagName === 'PRE' && blockElement.querySelector('code')) {
-          targetElement = blockElement.querySelector('code');
+
+      while (targetElement.lastChild) {
+        const last = targetElement.lastChild;
+        if (last.nodeName === "BR") {
+          targetElement.removeChild(last);
+        } else if (
+          last.nodeType === Node.TEXT_NODE &&
+          last.textContent.replace(/\u200B/g, "").trim() === ""
+        ) {
+          targetElement.removeChild(last);
+        } else {
+          break;
         }
-        
-        // First, if we're inside a hypercite, move any BR elements outside of it
-        if (insideHypercite) {
-          const brElements = hyperciteElement.querySelectorAll('br');
-          if (brElements.length > 0) {
-            // Move BR elements after the hypercite
-            Array.from(brElements).forEach(br => {
-              hyperciteElement.parentNode.insertBefore(br, hyperciteElement.nextSibling);
-            });
-          }
+      }
+
+      if (targetElement.innerHTML.trim() === "") {
+        targetElement.innerHTML = "<br>";
+      }
+      if (blockElement.id) {
+        queueNodeForSave(blockElement.id, "update");
+      }
+      const newParagraph = createAndInsertParagraph(
+        blockElement,
+        chunkContainer,
+        null,
+        selection
+      );
+      setTimeout(() => {
+        newParagraph.scrollIntoView({ behavior: "auto", block: "nearest" });
+      }, 10);
+    } else {
+      // --- PATH B: User is in the middle of the block (Split Logic) ---
+      console.log("Splitting block from the middle.");
+
+      // 1. Extract content from cursor to end.
+      const contentToMove = rangeToEnd.extractContents();
+
+      // 2. Get the correct element to clean up (the <blockquote> or <code> tag)
+      let firstBlockTarget = blockElement;
+      if (
+        blockElement.tagName === "PRE" &&
+        blockElement.querySelector("code")
+      ) {
+        firstBlockTarget = blockElement.querySelector("code");
+      }
+
+      // 3. Robustly clean up ALL trailing <br>s and whitespace from the first block.
+      while (firstBlockTarget.lastChild) {
+        const last = firstBlockTarget.lastChild;
+        if (last.nodeName === "BR") {
+          firstBlockTarget.removeChild(last);
+        } else if (
+          last.nodeType === Node.TEXT_NODE &&
+          last.textContent.replace(/\u200B/g, "").trim() === ""
+        ) {
+          firstBlockTarget.removeChild(last);
+        } else {
+          break;
         }
-        
-        // Clean up the last two BR elements and any zero-width spaces
-        const childNodes = Array.from(targetElement.childNodes);
-        let brRemoved = 0;
-        
-        // Start from the end and work backwards
-        for (let i = childNodes.length - 1; i >= 0 && brRemoved < 2; i--) {
-          const node = childNodes[i];
-          
-          // Remove text nodes that are just zero-width spaces
-          if (node.nodeType === Node.TEXT_NODE && node.textContent === '\u200B') {
-            targetElement.removeChild(node);
-          }
-          // Remove BR elements
-          else if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'BR') {
-            targetElement.removeChild(node);
-            brRemoved++;
+      }
+      if (firstBlockTarget.innerHTML.trim() === "") {
+        firstBlockTarget.innerHTML = "<br>";
+      }
+      if (blockElement.id) {
+        queueNodeForSave(blockElement.id, "update");
+      }
+
+      // 4. Create the new paragraph and the new block for the split content
+      const newParagraph = document.createElement("p");
+      newParagraph.innerHTML = "<br>";
+      const newSplitBlock = document.createElement(blockElement.tagName);
+
+      // 5. Populate the new block, intelligently unwrapping the fragment.
+      let targetForMovedContent = newSplitBlock;
+      if (newSplitBlock.tagName === "PRE") {
+        const newCode = document.createElement("code");
+        newSplitBlock.appendChild(newCode);
+        targetForMovedContent = newCode;
+      }
+      let sourceOfNodes = contentToMove;
+      const wrapperNode = contentToMove.querySelector("blockquote, pre");
+      if (wrapperNode) {
+        if (wrapperNode.tagName === "PRE") {
+          sourceOfNodes = wrapperNode.querySelector("code") || wrapperNode;
+        } else {
+          sourceOfNodes = wrapperNode;
+        }
+      }
+      Array.from(sourceOfNodes.childNodes).forEach((child) => {
+        targetForMovedContent.appendChild(child);
+      });
+
+      // 6. ***REWRITTEN*** Robustly clean up all leading junk from the new block.
+      while (targetForMovedContent.firstChild) {
+        const first = targetForMovedContent.firstChild;
+
+        // If it's a <br>, remove it and check the next node.
+        if (first.nodeName === "BR") {
+          targetForMovedContent.removeChild(first);
+          continue;
+        }
+
+        // If it's a text node, check if it's effectively empty.
+        if (first.nodeType === Node.TEXT_NODE) {
+          // Check for emptiness (ZWS and whitespace)
+          if (first.nodeValue.replace(/\u200B/g, "").trim() === "") {
+            // This node is junk, remove it and check the next one.
+            targetForMovedContent.removeChild(first);
+            continue;
+          } else {
+            // This is the first REAL content. Trim leading whitespace from it.
+            first.nodeValue = first.nodeValue.replace(/^\s+/, "");
+            // We are done cleaning, so exit the loop.
+            break;
           }
         }
 
-        // Save the modified blockElement to IndexedDB
-        if (blockElement.id) {
-          console.log("Saving modified block element after BR cleanup:", blockElement.id);
-          queueNodeForSave(blockElement.id, 'update');
-        }
-        console.log("blockElement:", blockElement);
-        
-        // Create and insert new paragraph
-        const newParagraph = createAndInsertParagraph(blockElement, chunkContainer, null, selection);
-        
-        // Scroll the new paragraph into view
-        // Then scroll after a tiny delay to let the DOM settle
-        setTimeout(() => {
-          newParagraph.scrollIntoView({
-            behavior: 'auto',  // or keep 'smooth' if you prefer
-            block: 'nearest'
-          });
-        }, 10);
-        
-        // Reset enter count
-        enterCount = 0;
-      } else {
-        // For code blocks, we need to insert the BR inside the CODE element
-        let targetElement = range.startContainer;
-        if (blockElement.tagName === 'PRE') {
-          // Find the CODE element
-          let codeElement = null;
-          if (targetElement.nodeType === Node.TEXT_NODE) {
-            // If we're in a text node, look at its parent
-            if (targetElement.parentElement.tagName === 'CODE') {
-              codeElement = targetElement.parentElement;
-            }
-          } else if (targetElement.tagName === 'CODE') {
-            codeElement = targetElement;
-          } else {
-            codeElement = targetElement.querySelector('code') || targetElement.closest('code');
-          }
-          
-          if (codeElement) {
-            // Insert a <br> at the cursor position
-            const br = document.createElement('br');
-            range.insertNode(br);
-            
-            // Insert a text node after the <br> to position the cursor on the next line
-            const textNode = document.createTextNode('\u200B'); // Zero-width space
-            range.setStartAfter(br);
-            range.insertNode(textNode);
-            
-            // Move the cursor to the text node (which is now after the <br>)
-            moveCaretTo(textNode, 0);
-            
-            // Scroll the code element into view
-            codeElement.scrollIntoView({
-              behavior: 'smooth',
-              block: 'nearest'
-            });
-          }
-        } else {
-          // For blockquotes, we need to handle hypercites specially
-          if (insideHypercite) {
-            // If we're inside a hypercite, insert the BR after the hypercite
-            const br = document.createElement('br');
-            
-            // Insert after the hypercite
-            if (hyperciteElement.nextSibling) {
-              blockElement.insertBefore(br, hyperciteElement.nextSibling);
-            } else {
-              blockElement.appendChild(br);
-            }
-            
-            // Insert a text node after the <br> to position the cursor on the next line
-            const textNode = document.createTextNode('\u200B');
-            blockElement.insertBefore(textNode, br.nextSibling);
-            
-            // Move the cursor to the text node
-            moveCaretTo(textNode, 0);
-            
-            // Scroll the blockquote into view
-            blockElement.scrollIntoView({
-              behavior: 'smooth',
-              block: 'nearest'
-            });
-          } else {
-            // Normal blockquote handling
-            const br = document.createElement('br');
-            range.insertNode(br);
-            
-            const textNode = document.createTextNode('\u200B');
-            range.setStartAfter(br);
-            range.insertNode(textNode);
-            
-            moveCaretTo(textNode, 0);
-            
-            // Scroll the blockquote into view
-            blockElement.scrollIntoView({
-              behavior: 'smooth',
-              block: 'nearest'
-            });
-          }
-        }
+        // If we reach here, it's a non-text, non-BR element (e.g. <span>).
+        // This is content, so we stop cleaning.
+        break;
       }
-      
-      return;
+
+      // 7. Generate IDs and insert into the DOM
+      const nextSibling = blockElement.nextElementSibling;
+      const nextSiblingId = nextSibling ? nextSibling.id : null;
+      newParagraph.id = generateIdBetween(blockElement.id, nextSiblingId);
+      newSplitBlock.id = generateIdBetween(newParagraph.id, nextSiblingId);
+      blockElement.after(newParagraph, newSplitBlock);
+
+      // 8. Save new elements and position cursor
+      queueNodeForSave(newParagraph.id, "create");
+      queueNodeForSave(newSplitBlock.id, "create");
+      moveCaretTo(newParagraph, 0);
+      newParagraph.scrollIntoView({ behavior: "auto", block: "center" });
     }
+
+    enterCount = 0; // Reset enter count after action
+  } else {
+    // This is the original logic for 1st/2nd Enter press (inserting a <br>)
+    // It remains unchanged.
+    let targetElement = range.startContainer;
+    let insertTarget = blockElement;
+
+    if (blockElement.tagName === "PRE") {
+      const codeElement = blockElement.querySelector("code");
+      if (codeElement) {
+        insertTarget = codeElement;
+      }
+    }
+
+    const br = document.createElement("br");
+    range.insertNode(br);
+    const textNode = document.createTextNode("\u200B");
+    range.setStartAfter(br);
+    range.insertNode(textNode);
+    moveCaretTo(textNode, 0);
+    blockElement.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  return; // Stop further execution
+}
+      
 
     //==========================================================================
     // SECTION 2: For all other elements, proceed with normal paragraph creation
