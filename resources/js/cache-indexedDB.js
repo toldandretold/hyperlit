@@ -634,6 +634,192 @@ export function updateIndexedDBRecord(record) {
   });
 }
 
+
+// New batched function to replace individual updateIndexedDBRecord calls
+export async function batchUpdateIndexedDBRecords(recordsToProcess) {
+  return withPending(async () => {
+    const bookId = book || "latest";
+    
+    console.log(`🔄 Batch updating ${recordsToProcess.length} IndexedDB records`);
+    
+    const db = await openDatabase();
+    const tx = db.transaction(
+      ["nodeChunks", "hyperlights", "hypercites"],
+      "readwrite"
+    );
+    const chunksStore = tx.objectStore("nodeChunks");
+    const lightsStore = tx.objectStore("hyperlights");
+    const citesStore = tx.objectStore("hypercites");
+
+    // Collect all data for sync
+    const batchSyncData = {
+      nodeChunks: [],
+      hyperlights: [],
+      hypercites: []
+    };
+
+    // Process each record in the same transaction
+    const processPromises = recordsToProcess.map(async (record) => {
+      // Find the nearest ancestor with a numeric ID
+      let nodeId = record.id;
+      let node = document.getElementById(nodeId);
+      while (node && !/^\d+(\.\d+)?$/.test(nodeId)) {
+        node = node.parentElement;
+        if (node?.id) nodeId = node.id;
+      }
+
+      if (!/^\d+(\.\d+)?$/.test(nodeId)) {
+        console.log(`Skipping IndexedDB update – no valid parent node ID for ${record.id}`);
+        return;
+      }
+
+      const numericNodeId = parseNodeId(nodeId);
+      const compositeKey = [bookId, numericNodeId];
+      
+      // Process the node content
+      const processedData = node ? processNodeContentHighlightsAndCites(node) : null;
+
+      // Get existing record
+      return new Promise((resolve, reject) => {
+        const getReq = chunksStore.get(compositeKey);
+        
+        getReq.onsuccess = () => {
+          const existing = getReq.result;
+          let toSave;
+
+          if (existing) {
+            toSave = { ...existing };
+            if (processedData) {
+              toSave.content = processedData.content;
+              toSave.hyperlights = processedData.hyperlights;
+              toSave.hypercites = processedData.hypercites;
+            } else {
+              toSave.content = record.html;
+            }
+            if (record.chunk_id !== undefined) {
+              toSave.chunk_id = record.chunk_id;
+            }
+          } else {
+            toSave = {
+              book: bookId,
+              startLine: numericNodeId,
+              chunk_id: record.chunk_id !== undefined ? record.chunk_id : 0,
+              content: processedData ? processedData.content : record.html,
+              hyperlights: processedData ? processedData.hyperlights : [],
+              hypercites: processedData ? processedData.hypercites : []
+            };
+          }
+
+          // Store the chunk
+          chunksStore.put(toSave);
+          batchSyncData.nodeChunks.push(toSave);
+
+          // Update hyperlight/hypercite records
+          if (processedData) {
+            const savedHyperlights = [];
+            const savedHypercites = [];
+            
+            updateHyperlightRecords(processedData.hyperlights, lightsStore, bookId, numericNodeId, savedHyperlights, node);
+            updateHyperciteRecords(processedData.hypercites, citesStore, bookId, savedHypercites, node);
+            
+            batchSyncData.hyperlights.push(...savedHyperlights);
+            batchSyncData.hypercites.push(...savedHypercites);
+          }
+
+          resolve();
+        };
+
+        getReq.onerror = (e) => {
+          console.error("Error fetching nodeChunk for batch update:", e.target.error);
+          reject(e.target.error);
+        };
+      });
+    });
+
+    // Wait for all individual processing to complete
+    await Promise.all(processPromises);
+
+    // Return promise that resolves when transaction completes
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = async () => {
+        console.log("✅ Batch IndexedDB update complete");
+
+        // Single timestamp update
+        await updateBookTimestamp(bookId);
+        
+        // Single library record fetch
+        const libraryRecord = await getLibraryObjectFromIndexedDB(bookId);
+        
+        // Single batched sync
+        try {
+          await syncBatchUpdateWithPostgreSQL(
+            bookId, 
+            batchSyncData,
+            libraryRecord
+          );
+        } catch (syncError) {
+          console.error("❌ PostgreSQL batch sync failed:", syncError);
+        }
+
+        resolve();
+      };
+      
+      tx.onerror = (e) => {
+        console.error("Batch transaction failed:", e.target.error);
+        reject(e.target.error);
+      };
+      
+      tx.onabort = (e) => {
+        console.warn("Batch transaction aborted:", e);
+        reject(new Error("Batch transaction aborted"));
+      };
+    });
+  });
+}
+
+export async function syncBatchUpdateWithPostgreSQL(bookId, batchData, libraryRecord) {
+  const transformedData = batchData.nodeChunks.map(chunk => ({
+    book: chunk.book,
+    startLine: chunk.startLine,
+    chunk_id: chunk.chunk_id,
+    content: chunk.content,
+    hyperlights: chunk.hyperlights || [],
+    hypercites: chunk.hypercites || [],
+    footnotes: chunk.footnotes || [],
+    plainText: chunk.plainText || null,
+    type: chunk.type || null
+  }));
+
+  const url = `/api/db/node-chunks/targeted-upsert`;
+  console.log('🔍 Making request to:', url);
+  console.log('🔍 Transformed data count:', transformedData.length);
+  console.log('🔍 Sample data:', transformedData[0]);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+    },
+    body: JSON.stringify({
+      data: transformedData
+    })
+  });
+
+  console.log('🔍 Response status:', response.status);
+  console.log('🔍 Response URL:', response.url);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('🔍 Error response:', errorText);
+    throw new Error(`Batch sync failed: ${response.status}`);
+  }
+  
+  const result = await response.json();
+  console.log(`✅ Batch synced ${transformedData.length} chunks to PostgreSQL`, result);
+}
+
+
 // 🔥 UPDATED: Function to update hyperlight records using processed data
 function updateHyperlightRecords(hyperlights, store, bookId, numericNodeId, syncArray, node) {
   hyperlights.forEach((hyperlight) => {

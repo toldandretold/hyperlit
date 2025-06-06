@@ -36,54 +36,44 @@ async function enableEditMode() {
     return;
   }
 
-  // As soon as you enter edit mode:
   incrementPendingOperations();
   
   try {
-    // Initialize the ID manager first, before making content editable
-    console.log("Initializing NodeIdManager...");
-    /*try {
-      NodeIdManager.init();
-      console.log("NodeIdManager initialized with", NodeIdManager.usedIds.size, "IDs");
-      
-      // Log some sample IDs to verify it's working
-      if (NodeIdManager.usedIds.size > 0) {
-        console.log("Sample IDs:", Array.from(NodeIdManager.usedIds).slice(0, 5));
-      }
-    } catch (error) {
-      console.error("Error initializing NodeIdManager:", error);
-    } */
-    
-    // Check for and fix any duplicate IDs before starting edit mode
-    //const duplicatesFixed = NodeIdManager.fixDuplicates();
-    //if (duplicatesFixed > 0) {
-    //  console.log(`Fixed ${duplicatesFixed} duplicate IDs during initialization`);
-    //}
-    
-    // Now make the content editable
     window.isEditing = true;
     editBtn.classList.add("inverted");
     editableDiv.contentEditable = "true";
+    
+    // Check if there's already a selection
+    const selection = window.getSelection();
+    if (!selection.rangeCount || selection.isCollapsed) {
+      // Create a selection at the current scroll position
+      const range = document.createRange();
+      const walker = document.createTreeWalker(
+        editableDiv,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+      );
+      
+      let textNode = walker.nextNode();
+      if (textNode) {
+        range.setStart(textNode, 0);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    }
+    
     editableDiv.focus();
 
-    // Start your mutation observer and hypercite/paste hooks
     startObserving(editableDiv);
     addPasteListener(editableDiv);
-
-    // Wire up title sync
     initTitleSync(book);
-    
-    // Run an initial normalization on each chunk
-    //document.querySelectorAll('.chunk').forEach(chunk => {
-      // Only fix duplicates, don't renumber everything
-      //NodeIdManager.fixDuplicates(chunk);
-    //});
     
     console.log("Edit mode enabled");
   } catch (error) {
     console.error("Error enabling edit mode:", error);
   } finally {
-    // Always decrement the pending operations counter
     decrementPendingOperations();
   }
 }
