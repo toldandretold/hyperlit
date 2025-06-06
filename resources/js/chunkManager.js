@@ -345,8 +345,10 @@ export async function handleChunkOverflow(currentChunk, mutations) {
         
         // Also update the observer to watch the new chunk
         if (currentObservedChunk !== targetChunk) {
+          setChunkOverflowInProgress(true);
           stopObserving();
           startObserving(targetChunk);
+          setChunkOverflowInProgress(false);
         }
       }
     } else if (activeNodeWillMove) {

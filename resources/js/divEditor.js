@@ -3,7 +3,9 @@ import {
   updateIndexedDBRecord, 
   deleteIndexedDBRecordWithRetry,
   openDatabase,
-  updateCitationForExistingHypercite
+  updateCitationForExistingHypercite,
+  batchUpdateIndexedDBRecords,
+  syncBatchUpdateWithPostgreSQL
           } from "./cache-indexedDB.js";
 import { 
   withPending,
@@ -115,59 +117,37 @@ function queueNodeForSave(nodeId, action = 'update') {
 }
 
 
-// Process all pending node saves
+
+
 async function saveNodeToDatabase() {
   if (pendingSaves.nodes.size === 0) return;
   
-  const nodesToSave = Array.from(pendingSaves.nodes.values()); // ✅ Get values from Map
+  const nodesToSave = Array.from(pendingSaves.nodes.values());
   pendingSaves.nodes.clear();
   
   console.log(`💾 Processing ${nodesToSave.length} pending node saves`);
   
-  // Group by action type
+  // Separate by action type
   const updates = nodesToSave.filter(n => n.action === 'update');
   const additions = nodesToSave.filter(n => n.action === 'add');
   const deletions = nodesToSave.filter(n => n.action === 'delete');
   
-  // Process each group
   try {
-    if (updates.length > 0) {
-      await Promise.all(updates.map(node => {
-        const element = document.getElementById(node.id);
-        
-        // ✅ Skip if element no longer exists in DOM
-        if (!element) {
-          console.warn(`⚠️ Skipping save for node ${node.id} - element not found in DOM`);
-          return Promise.resolve(); // Return resolved promise to keep Promise.all happy
-        }
-        
-        return updateIndexedDBRecord({
-          id: node.id,
-          html: element.outerHTML,
-          chunk_id: getNodeChunkId(element),
-          action: 'update'
-        });
-      }).filter(Boolean)); // Filter out any undefined promises
+    // Batch process updates and additions together
+    const recordsToUpdate = [...updates, ...additions].filter(node => {
+      const element = document.getElementById(node.id);
+      if (!element) {
+        console.warn(`⚠️ Skipping save for node ${node.id} - element not found in DOM`);
+        return false;
+      }
+      return true;
+    });
+
+    if (recordsToUpdate.length > 0) {
+      await batchUpdateIndexedDBRecords(recordsToUpdate);
     }
     
-   if (additions.length > 0) {
-      await Promise.all(additions.map(node => {
-        const element = document.getElementById(node.id);
-        
-        if (!element) {
-          console.warn(`⚠️ Skipping save for new node ${node.id} - element not found in DOM`);
-          return Promise.resolve();
-        }
-        
-        return updateIndexedDBRecord({
-          id: node.id,
-          html: element.outerHTML,
-          chunk_id: getNodeChunkId(element),
-          action: 'add'
-        });
-      }).filter(Boolean));
-    }
-    
+    // Handle deletions separately (still individual for now)
     if (deletions.length > 0) {
       await Promise.all(deletions.map(node => 
         deleteIndexedDBRecordWithRetry(node.id)
@@ -178,7 +158,7 @@ async function saveNodeToDatabase() {
   } catch (error) {
     console.error('❌ Error in batch save:', error);
     // Re-queue failed saves
-    nodesToSave.forEach(node => pendingSaves.nodes.set(node));
+    nodesToSave.forEach(node => pendingSaves.nodes.set(node.id, node));
   }
 }
 
@@ -286,14 +266,22 @@ export function startObserving(editableDiv) {
     characterDataOldValue: true
   });
 
+  // NEW: Set the current observed chunk after everything is set up
+  const currentChunk = getCurrentChunk();
+  if (currentChunk && currentChunk.dataset) {
+    const chunkId = currentChunk.dataset.chunkId || currentChunk.id;
+    setCurrentObservedChunk(chunkId);
+    console.log(`📍 Set current observed chunk to: ${chunkId}`);
+  } else {
+    console.log(`📍 No valid chunk detected, leaving currentObservedChunk as null`);
+  }
+
   console.log(`Multi-chunk observer attached to .main-content`);
 }
-
 // Initialize tracking for all chunks currently in the DOM
 function initializeCurrentChunks(editableDiv) {
   const chunks = editableDiv.querySelectorAll('.chunk');
 
-  
   observedChunks.clear(); // Start fresh
   
   chunks.forEach(chunk => {
@@ -309,6 +297,9 @@ function initializeCurrentChunks(editableDiv) {
   });
   
   console.log(`Now tracking ${observedChunks.size} chunks`);
+  
+  // NEW: Return the chunks array
+  return chunks;
 }
 
 // Filter mutations to only include those within .chunk elements
@@ -738,7 +729,6 @@ async function processChunkMutations(chunk, mutations) {
 
 
 
-// Function to stop the MutationObserver.
 export function stopObserving() {
   if (observer) {
     observer.disconnect();
@@ -753,7 +743,9 @@ export function stopObserving() {
   addedNodes.clear();
   removedNodeIds.clear();
   documentChanged = false;
-
+  
+  // Reset current observed chunk
+  setCurrentObservedChunk(null);
   
   // Remove any lingering spinner
   const existingSpinner = document.getElementById("status-icon");
@@ -768,21 +760,24 @@ export function stopObserving() {
 
 // Listen for selection changes and restart observing if the current chunk has changed.
 document.addEventListener("selectionchange", () => {
-  // Only perform chunk-observer restarts in edit mode.
-  if (!window.isEditing) return;
+  if (!window.isEditing || chunkOverflowInProgress) return;
 
-  const newChunk = getCurrentChunk();
-  if (newChunk !== currentObservedChunk) {
-    console.log("Chunk change detected. Restarting observer...");
+  const newChunkId = getCurrentChunk();
+  const currentChunkId = currentObservedChunk ? 
+    (currentObservedChunk.id || currentObservedChunk.dataset.chunkId) : null;
+    
+  if (newChunkId !== currentChunkId) {
+    console.log(`Chunk change detected: ${currentChunkId} → ${newChunkId}`);
     stopObserving();
-    if (newChunk) {
-      startObserving(newChunk);
+    if (newChunkId) {
+      const chunkElement = document.querySelector(`[id="${newChunkId}"], [data-chunk-id="${newChunkId}"]`);
+      startObserving(chunkElement);
     } else {
       setCurrentObservedChunk(null);
       console.warn("Lost focus on any chunk.");
     }
   }
-}); 
+});
 
 
 
@@ -997,8 +992,6 @@ export async function initTitleSync(bookId) {
 
 
 
-// ----------------------------------------------------------------
-// Utility: Get the chunk element where the cursor is currently located.
 function getCurrentChunk() {
   const selection = document.getSelection();
   if (selection.rangeCount > 0) {
@@ -1007,7 +1000,8 @@ function getCurrentChunk() {
     if (node.nodeType !== Node.ELEMENT_NODE) {
       node = node.parentElement;
     }
-    return node.closest(".chunk");
+    const chunkElement = node.closest(".chunk");
+    return chunkElement ? chunkElement.id || chunkElement.dataset.chunkId : null;
   }
   return null;
 }
@@ -1416,196 +1410,196 @@ document.addEventListener("keydown", function(event) {
     }
 
 
-//==========================================================================
-// SECTION 1: Special handling for blockquote and pre (code blocks)
-//==========================================================================
-if (
-  blockElement.tagName === "BLOCKQUOTE" ||
-  blockElement.tagName === "PRE"
-) {
-  event.preventDefault(); // Prevent default Enter behavior
+    //==========================================================================
+    // SECTION 1: Special handling for blockquote and pre (code blocks)
+    //==========================================================================
+    if (
+      blockElement.tagName === "BLOCKQUOTE" ||
+      blockElement.tagName === "PRE"
+    ) {
+      event.preventDefault(); // Prevent default Enter behavior
 
-  // If this is the third consecutive Enter press, we either exit or split the block
-  if (enterCount >= 3) {
-    // Determine if the cursor is effectively at the end of the block.
-    const rangeToEnd = document.createRange();
-    rangeToEnd.setStart(range.endContainer, range.endOffset);
-    rangeToEnd.setEndAfter(blockElement);
-    const contentAfterCursor = rangeToEnd.cloneContents();
-    const isEffectivelyAtEnd =
-      contentAfterCursor.textContent.replace(/\u200B/g, "").trim() === "";
+      // If this is the third consecutive Enter press, we either exit or split the block
+      if (enterCount >= 3) {
+        // Determine if the cursor is effectively at the end of the block.
+        const rangeToEnd = document.createRange();
+        rangeToEnd.setStart(range.endContainer, range.endOffset);
+        rangeToEnd.setEndAfter(blockElement);
+        const contentAfterCursor = rangeToEnd.cloneContents();
+        const isEffectivelyAtEnd =
+          contentAfterCursor.textContent.replace(/\u200B/g, "").trim() === "";
 
-    // --- PATH A: User is at the end of the block (Exit Logic) ---
-    if (isEffectivelyAtEnd) {
-      console.log("Exiting block from the end.");
-      let targetElement = blockElement;
-      if (
-        blockElement.tagName === "PRE" &&
-        blockElement.querySelector("code")
-      ) {
-        targetElement = blockElement.querySelector("code");
-      }
+        // --- PATH A: User is at the end of the block (Exit Logic) ---
+        if (isEffectivelyAtEnd) {
+          console.log("Exiting block from the end.");
+          let targetElement = blockElement;
+          if (
+            blockElement.tagName === "PRE" &&
+            blockElement.querySelector("code")
+          ) {
+            targetElement = blockElement.querySelector("code");
+          }
 
-      while (targetElement.lastChild) {
-        const last = targetElement.lastChild;
-        if (last.nodeName === "BR") {
-          targetElement.removeChild(last);
-        } else if (
-          last.nodeType === Node.TEXT_NODE &&
-          last.textContent.replace(/\u200B/g, "").trim() === ""
-        ) {
-          targetElement.removeChild(last);
+          while (targetElement.lastChild) {
+            const last = targetElement.lastChild;
+            if (last.nodeName === "BR") {
+              targetElement.removeChild(last);
+            } else if (
+              last.nodeType === Node.TEXT_NODE &&
+              last.textContent.replace(/\u200B/g, "").trim() === ""
+            ) {
+              targetElement.removeChild(last);
+            } else {
+              break;
+            }
+          }
+
+          if (targetElement.innerHTML.trim() === "") {
+            targetElement.innerHTML = "<br>";
+          }
+          if (blockElement.id) {
+            queueNodeForSave(blockElement.id, "update");
+          }
+          const newParagraph = createAndInsertParagraph(
+            blockElement,
+            chunkContainer,
+            null,
+            selection
+          );
+          setTimeout(() => {
+            newParagraph.scrollIntoView({ behavior: "auto", block: "nearest" });
+          }, 10);
         } else {
-          break;
-        }
-      }
+          // --- PATH B: User is in the middle of the block (Split Logic) ---
+          console.log("Splitting block from the middle.");
 
-      if (targetElement.innerHTML.trim() === "") {
-        targetElement.innerHTML = "<br>";
-      }
-      if (blockElement.id) {
-        queueNodeForSave(blockElement.id, "update");
-      }
-      const newParagraph = createAndInsertParagraph(
-        blockElement,
-        chunkContainer,
-        null,
-        selection
-      );
-      setTimeout(() => {
-        newParagraph.scrollIntoView({ behavior: "auto", block: "nearest" });
-      }, 10);
-    } else {
-      // --- PATH B: User is in the middle of the block (Split Logic) ---
-      console.log("Splitting block from the middle.");
+          // 1. Extract content from cursor to end.
+          const contentToMove = rangeToEnd.extractContents();
 
-      // 1. Extract content from cursor to end.
-      const contentToMove = rangeToEnd.extractContents();
+          // 2. Get the correct element to clean up (the <blockquote> or <code> tag)
+          let firstBlockTarget = blockElement;
+          if (
+            blockElement.tagName === "PRE" &&
+            blockElement.querySelector("code")
+          ) {
+            firstBlockTarget = blockElement.querySelector("code");
+          }
 
-      // 2. Get the correct element to clean up (the <blockquote> or <code> tag)
-      let firstBlockTarget = blockElement;
-      if (
-        blockElement.tagName === "PRE" &&
-        blockElement.querySelector("code")
-      ) {
-        firstBlockTarget = blockElement.querySelector("code");
-      }
+          // 3. Robustly clean up ALL trailing <br>s and whitespace from the first block.
+          while (firstBlockTarget.lastChild) {
+            const last = firstBlockTarget.lastChild;
+            if (last.nodeName === "BR") {
+              firstBlockTarget.removeChild(last);
+            } else if (
+              last.nodeType === Node.TEXT_NODE &&
+              last.textContent.replace(/\u200B/g, "").trim() === ""
+            ) {
+              firstBlockTarget.removeChild(last);
+            } else {
+              break;
+            }
+          }
+          if (firstBlockTarget.innerHTML.trim() === "") {
+            firstBlockTarget.innerHTML = "<br>";
+          }
+          if (blockElement.id) {
+            queueNodeForSave(blockElement.id, "update");
+          }
 
-      // 3. Robustly clean up ALL trailing <br>s and whitespace from the first block.
-      while (firstBlockTarget.lastChild) {
-        const last = firstBlockTarget.lastChild;
-        if (last.nodeName === "BR") {
-          firstBlockTarget.removeChild(last);
-        } else if (
-          last.nodeType === Node.TEXT_NODE &&
-          last.textContent.replace(/\u200B/g, "").trim() === ""
-        ) {
-          firstBlockTarget.removeChild(last);
-        } else {
-          break;
-        }
-      }
-      if (firstBlockTarget.innerHTML.trim() === "") {
-        firstBlockTarget.innerHTML = "<br>";
-      }
-      if (blockElement.id) {
-        queueNodeForSave(blockElement.id, "update");
-      }
+          // 4. Create the new paragraph and the new block for the split content
+          const newParagraph = document.createElement("p");
+          newParagraph.innerHTML = "<br>";
+          const newSplitBlock = document.createElement(blockElement.tagName);
 
-      // 4. Create the new paragraph and the new block for the split content
-      const newParagraph = document.createElement("p");
-      newParagraph.innerHTML = "<br>";
-      const newSplitBlock = document.createElement(blockElement.tagName);
+          // 5. Populate the new block, intelligently unwrapping the fragment.
+          let targetForMovedContent = newSplitBlock;
+          if (newSplitBlock.tagName === "PRE") {
+            const newCode = document.createElement("code");
+            newSplitBlock.appendChild(newCode);
+            targetForMovedContent = newCode;
+          }
+          let sourceOfNodes = contentToMove;
+          const wrapperNode = contentToMove.querySelector("blockquote, pre");
+          if (wrapperNode) {
+            if (wrapperNode.tagName === "PRE") {
+              sourceOfNodes = wrapperNode.querySelector("code") || wrapperNode;
+            } else {
+              sourceOfNodes = wrapperNode;
+            }
+          }
+          Array.from(sourceOfNodes.childNodes).forEach((child) => {
+            targetForMovedContent.appendChild(child);
+          });
 
-      // 5. Populate the new block, intelligently unwrapping the fragment.
-      let targetForMovedContent = newSplitBlock;
-      if (newSplitBlock.tagName === "PRE") {
-        const newCode = document.createElement("code");
-        newSplitBlock.appendChild(newCode);
-        targetForMovedContent = newCode;
-      }
-      let sourceOfNodes = contentToMove;
-      const wrapperNode = contentToMove.querySelector("blockquote, pre");
-      if (wrapperNode) {
-        if (wrapperNode.tagName === "PRE") {
-          sourceOfNodes = wrapperNode.querySelector("code") || wrapperNode;
-        } else {
-          sourceOfNodes = wrapperNode;
-        }
-      }
-      Array.from(sourceOfNodes.childNodes).forEach((child) => {
-        targetForMovedContent.appendChild(child);
-      });
+          // 6. ***REWRITTEN*** Robustly clean up all leading junk from the new block.
+          while (targetForMovedContent.firstChild) {
+            const first = targetForMovedContent.firstChild;
 
-      // 6. ***REWRITTEN*** Robustly clean up all leading junk from the new block.
-      while (targetForMovedContent.firstChild) {
-        const first = targetForMovedContent.firstChild;
+            // If it's a <br>, remove it and check the next node.
+            if (first.nodeName === "BR") {
+              targetForMovedContent.removeChild(first);
+              continue;
+            }
 
-        // If it's a <br>, remove it and check the next node.
-        if (first.nodeName === "BR") {
-          targetForMovedContent.removeChild(first);
-          continue;
-        }
+            // If it's a text node, check if it's effectively empty.
+            if (first.nodeType === Node.TEXT_NODE) {
+              // Check for emptiness (ZWS and whitespace)
+              if (first.nodeValue.replace(/\u200B/g, "").trim() === "") {
+                // This node is junk, remove it and check the next one.
+                targetForMovedContent.removeChild(first);
+                continue;
+              } else {
+                // This is the first REAL content. Trim leading whitespace from it.
+                first.nodeValue = first.nodeValue.replace(/^\s+/, "");
+                // We are done cleaning, so exit the loop.
+                break;
+              }
+            }
 
-        // If it's a text node, check if it's effectively empty.
-        if (first.nodeType === Node.TEXT_NODE) {
-          // Check for emptiness (ZWS and whitespace)
-          if (first.nodeValue.replace(/\u200B/g, "").trim() === "") {
-            // This node is junk, remove it and check the next one.
-            targetForMovedContent.removeChild(first);
-            continue;
-          } else {
-            // This is the first REAL content. Trim leading whitespace from it.
-            first.nodeValue = first.nodeValue.replace(/^\s+/, "");
-            // We are done cleaning, so exit the loop.
+            // If we reach here, it's a non-text, non-BR element (e.g. <span>).
+            // This is content, so we stop cleaning.
             break;
+          }
+
+          // 7. Generate IDs and insert into the DOM
+          const nextSibling = blockElement.nextElementSibling;
+          const nextSiblingId = nextSibling ? nextSibling.id : null;
+          newParagraph.id = generateIdBetween(blockElement.id, nextSiblingId);
+          newSplitBlock.id = generateIdBetween(newParagraph.id, nextSiblingId);
+          blockElement.after(newParagraph, newSplitBlock);
+
+          // 8. Save new elements and position cursor
+          queueNodeForSave(newParagraph.id, "create");
+          queueNodeForSave(newSplitBlock.id, "create");
+          moveCaretTo(newParagraph, 0);
+          newParagraph.scrollIntoView({ behavior: "auto", block: "center" });
+        }
+
+        enterCount = 0; // Reset enter count after action
+      } else {
+        // This is the original logic for 1st/2nd Enter press (inserting a <br>)
+        // It remains unchanged.
+        let targetElement = range.startContainer;
+        let insertTarget = blockElement;
+
+        if (blockElement.tagName === "PRE") {
+          const codeElement = blockElement.querySelector("code");
+          if (codeElement) {
+            insertTarget = codeElement;
           }
         }
 
-        // If we reach here, it's a non-text, non-BR element (e.g. <span>).
-        // This is content, so we stop cleaning.
-        break;
+        const br = document.createElement("br");
+        range.insertNode(br);
+        const textNode = document.createTextNode("\u200B");
+        range.setStartAfter(br);
+        range.insertNode(textNode);
+        moveCaretTo(textNode, 0);
+        blockElement.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
 
-      // 7. Generate IDs and insert into the DOM
-      const nextSibling = blockElement.nextElementSibling;
-      const nextSiblingId = nextSibling ? nextSibling.id : null;
-      newParagraph.id = generateIdBetween(blockElement.id, nextSiblingId);
-      newSplitBlock.id = generateIdBetween(newParagraph.id, nextSiblingId);
-      blockElement.after(newParagraph, newSplitBlock);
-
-      // 8. Save new elements and position cursor
-      queueNodeForSave(newParagraph.id, "create");
-      queueNodeForSave(newSplitBlock.id, "create");
-      moveCaretTo(newParagraph, 0);
-      newParagraph.scrollIntoView({ behavior: "auto", block: "center" });
+      return; // Stop further execution
     }
-
-    enterCount = 0; // Reset enter count after action
-  } else {
-    // This is the original logic for 1st/2nd Enter press (inserting a <br>)
-    // It remains unchanged.
-    let targetElement = range.startContainer;
-    let insertTarget = blockElement;
-
-    if (blockElement.tagName === "PRE") {
-      const codeElement = blockElement.querySelector("code");
-      if (codeElement) {
-        insertTarget = codeElement;
-      }
-    }
-
-    const br = document.createElement("br");
-    range.insertNode(br);
-    const textNode = document.createTextNode("\u200B");
-    range.setStartAfter(br);
-    range.insertNode(textNode);
-    moveCaretTo(textNode, 0);
-    blockElement.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }
-
-  return; // Stop further execution
-}
       
 
     //==========================================================================
