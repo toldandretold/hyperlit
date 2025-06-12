@@ -5,7 +5,10 @@ import {
   openDatabase,
   updateCitationForExistingHypercite,
   batchUpdateIndexedDBRecords,
-  syncBatchUpdateWithPostgreSQL
+  syncBatchUpdateWithPostgreSQL,
+  getNodeChunksAfter,
+  deleteNodeChunksAfter,
+  writeNodeChunks
           } from "./cache-indexedDB.js";
 import { 
   withPending,
@@ -22,7 +25,9 @@ import { generateUniqueId,
          generateIdBetween,
          findPreviousElementId,
          findNextElementId,
-         isNumericalId
+         isNumericalId,
+         compareDecimalStrings,
+         getNextIntegerId
           } from "./IDfunctions.js";
 import {
   broadcastToOpenTabs
@@ -39,6 +44,7 @@ import {
 } from './chunkManager.js';
 import { isChunkLoadingInProgress, getLoadingChunkId } from './chunkLoadingState.js';
 import { SelectionDeletionHandler } from './selectionDelete.js';
+import { initializeMainLazyLoader } from './initializePage.js';
 
 // Tracking sets
 const modifiedNodes = new Set(); // Track element IDs whose content was modified.
@@ -730,6 +736,12 @@ async function processChunkMutations(chunk, mutations) {
 
 
 export function stopObserving() {
+  
+  if (window.selectionDeletionInProgress) {
+    console.log("Skipping observer reset during selection deletion");
+    return;
+  }
+
   if (observer) {
     observer.disconnect();
     observer = null;
@@ -1706,59 +1718,15 @@ function scrollCaretIntoView() {
 
 
 
-
-
-
 /**
- * Main paste event handler that delegates to specialized handlers
- * based on the content type
+ * Handle normal (non-mass) paste events
  */
-/**
- * Main paste event handler that cleans up pasted content and delegates to specialized handlers
- */
-function handlePaste(event) {
-  // Prevent double-handling
-  if (pasteHandled) return;
-  pasteHandled = true;
-  
-  // Reset the flag after the event cycle
-  setTimeout(() => { pasteHandled = false; }, 0);
-
-  // Get the current chunk and selection
-  const chunk = getCurrentChunk();
-
-  // Log detailed paste information
-  const plainText = event.clipboardData.getData('text/plain');
-  const htmlContent = event.clipboardData.getData('text/html');
-  
-  console.log('PASTE EVENT DETECTED:', {
-    plainTextLength: plainText.length,
-    plainTextPreview: plainText.substring(0, 50) + (plainText.length > 50 ? '...' : ''),
-    hasHTML: !!htmlContent,
-    target: event.target,
-    targetId: event.target.id || 'no-id',
-    targetNodeName: event.target.nodeName
-  });
-
-  // Try to handle as hypercite first
-  if (handleHypercitePaste(event)) {
-    return; // Handled as hypercite
-  }
-  
-  // Try to handle as code block paste first
-  if (handleCodeBlockPaste(event, chunk)) {
-    return; // Handled as code block paste
-  }
-  
-  // Then try to handle as markdown
-  if (handleMarkdownPaste(event)) {
-    return; // Handled as markdown
-  }
+function handleNormalPaste(event, chunkElement, plainText, htmlContent) {
   
   // For regular pastes, we'll handle them ourselves to ensure clean content
   event.preventDefault(); // Prevent default paste behavior
   
-  if (!chunk) {
+  if (!chunkElement) {
     console.warn("No active chunk found for paste operation");
     return;
   }
@@ -1888,6 +1856,386 @@ function handlePaste(event) {
   }, 100);
 }
 
+
+/**
+ * Main paste event handler that delegates to specialized handlers
+ * based on the content type
+ */
+/**
+ * Main paste event handler that cleans up pasted content and delegates to specialized handlers
+ */
+
+/**
+ * Updated main paste handler with mass paste detection
+ */
+async function handlePaste(event) {
+  // ——————————————————————————————————————————————
+  // 1) Prevent double-handling
+  if (pasteHandled) return;
+  pasteHandled = true;
+  setTimeout(() => { pasteHandled = false; }, 0);
+
+  // 2) Pull out plain-text, HTML, and your estimate
+  const plainText    = event.clipboardData.getData('text/plain');
+  const htmlContent  = event.clipboardData.getData('text/html');
+  
+  // 3) Pass the right content into your estimate
+  const estimatedNodes = estimatePasteNodeCount(
+    htmlContent && htmlContent.trim() ? htmlContent : plainText
+  );
+
+  console.log('PASTE EVENT:', {
+    length: plainText.length,
+    hasHTML: !!htmlContent,
+    estimatedNodes
+  });
+
+  // 3) Try hypercite paste
+  if (handleHypercitePaste(event)) {
+    return; // hypercite handled it
+  }
+
+  // 4) Try code-block paste
+  const chunk = getCurrentChunk();
+  const chunkElement = chunk
+    ? document.querySelector(`[data-chunk-id="${chunk}"],[id="${chunk}"]`)
+    : null;
+  if (handleCodeBlockPaste(event, chunkElement)) {
+    return; // code block handled it
+  }
+
+  // 5) SMALL-PASTE EARLY EXIT
+  //    If it’s small enough, let the browser do its native paste
+  const SMALL_NODE_LIMIT = 20;
+  let actualNodeCount = estimatedNodes;
+
+  if (htmlContent) {
+    // count real element nodes in the HTML
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlContent, 'text/html');
+    actualNodeCount = doc.body.querySelectorAll('*').length;
+  }
+
+  if (
+    (htmlContent  && actualNodeCount  <= SMALL_NODE_LIMIT) ||
+    (!htmlContent && estimatedNodes <= SMALL_NODE_LIMIT)
+  ) {
+    console.log(
+      `Small paste (≈${actualNodeCount} nodes); ` +
+      `deferring to native contentEditable paste.`
+    );
+    return; // no event.preventDefault() → browser handles it
+  }
+
+  // 6) HEAVY LIFTING FOR LARGE PASTE
+  //    Now we know it’s a “large” paste, so do your JSON/chunk logic.
+  const insertionPoint = getInsertionPoint(chunkElement);
+  await handleJsonPaste(event, insertionPoint, plainText);
+  const loader = initializeMainLazyLoader();
+  await loader.refresh();
+}
+
+
+function getInsertionPoint(chunkElement) {
+  console.log('=== getInsertionPoint START ===');
+  
+  const selection = window.getSelection();
+  const range = selection.getRangeAt(0);
+  const currentNode = range.startContainer;
+  
+  console.log('Selection details:', {
+    currentNode: currentNode,
+    nodeType: currentNode.nodeType,
+    textContent: currentNode.textContent?.substring(0, 50)
+  });
+  
+  // Find the current node element (handle text nodes)
+  let currentNodeElement = currentNode.nodeType === Node.TEXT_NODE 
+    ? currentNode.parentElement 
+    : currentNode;
+  
+  console.log('Initial currentNodeElement:', {
+    element: currentNodeElement,
+    id: currentNodeElement?.id,
+    tagName: currentNodeElement?.tagName
+  });
+  
+  // Traverse up to find parent with numerical ID (including decimals)
+  while (currentNodeElement && currentNodeElement !== chunkElement) {
+    const id = currentNodeElement.id;
+    console.log('Checking element:', {
+      element: currentNodeElement,
+      id: id,
+      tagName: currentNodeElement.tagName,
+      matchesRegex: id && /^\d+(\.\d+)*$/.test(id)
+    });
+    
+    // Check if ID exists and is numerical (including decimals)
+    if (id && /^\d+(\.\d+)*$/.test(id)) {
+      console.log('Found target element with numerical ID:', id);
+      break; // Found our target element
+    }
+    
+    // Move up to parent
+    currentNodeElement = currentNodeElement.parentElement;
+  }
+  
+  // If we didn't find a numerical ID, we might be at chunk level or need fallback
+  if (!currentNodeElement || !currentNodeElement.id || !/^\d+(\.\d+)*$/.test(currentNodeElement.id)) {
+    console.warn('Could not find parent element with numerical ID');
+    return null;
+  }
+  
+  const currentNodeId = currentNodeElement.id;
+  const chunkId = chunkElement.dataset.chunkId || chunkElement.id;
+  
+  console.log('Found current node:', {
+    currentNodeId,
+    chunkId,
+    element: currentNodeElement
+  });
+  
+  // Current node becomes the beforeNodeId (we're inserting after it)
+  const beforeNodeId = currentNodeId;
+  
+  // Find the next element with a numerical ID (this is the afterNodeId)
+  let afterElement = currentNodeElement.nextElementSibling;
+  console.log('Starting search for afterElement from:', afterElement);
+  
+  while (afterElement) {
+    console.log('Examining potential afterElement:', {
+      element: afterElement,
+      id: afterElement.id,
+      tagName: afterElement.tagName,
+      hasNumericalId: afterElement.id && /^\d+(\.\d+)*$/.test(afterElement.id)
+    });
+    
+    if (afterElement.id && /^\d+(\.\d+)*$/.test(afterElement.id)) {
+      console.log('Found afterElement with numerical ID:', afterElement.id);
+      break;
+    }
+    
+    afterElement = afterElement.nextElementSibling;
+  }
+  
+  const afterNodeId = afterElement?.id || null;
+  
+  console.log('Final before/after determination:', {
+    beforeNodeId,
+    afterNodeId,
+    afterElement: afterElement
+  });
+  
+  // Use existing chunk tracking
+  const currentChunkNodeCount = chunkNodeCounts[chunkId] || 0;
+  
+  const result = {
+    chunkId: chunkId,
+    currentNodeId: currentNodeId,
+    beforeNodeId: beforeNodeId,
+    afterNodeId: afterNodeId,
+    currentChunkNodeCount: currentChunkNodeCount,
+    insertionStartLine: parseInt(currentNodeId), // startLine = node ID
+    book: book // Available as const
+  };
+  
+  console.log('=== getInsertionPoint RESULT ===', result);
+  return result;
+}
+
+// (1) change convertToJsonObjects to return both the list
+//     and the final state it left off in
+
+function convertToJsonObjects(textBlocks, insertionPoint) {
+  console.log('=== convertToJsonObjects START ===');
+  const jsonObjects = [];
+
+  let currentChunkId       = insertionPoint.chunkId;
+  let nodesInCurrentChunk  = insertionPoint.currentChunkNodeCount;
+  let beforeId             = insertionPoint.beforeNodeId;
+  const afterId            = insertionPoint.afterNodeId;
+
+  textBlocks.forEach((block) => {
+    // rotate chunk?
+    if (nodesInCurrentChunk >= NODE_LIMIT) {
+      currentChunkId      = getNextIntegerId(currentChunkId);
+      nodesInCurrentChunk = 0;
+    }
+
+    // new node id
+    const newNodeId = getNextIntegerId(beforeId);
+
+    const trimmed     = block.trim();
+    const htmlContent = convertTextToHtml(trimmed, newNodeId);
+
+    const key = `${insertionPoint.book},${newNodeId}`;
+    jsonObjects.push({
+      [key]: {
+        content:   htmlContent,
+        startLine: parseFloat(newNodeId),
+        chunk_id:  parseFloat(currentChunkId)
+      }
+    });
+
+    // advance
+    beforeId            = newNodeId;
+    nodesInCurrentChunk++;
+  });
+
+  console.log('=== convertToJsonObjects END ===');
+  return {
+    jsonObjects,
+    state: {
+      currentChunkId,
+      nodesInCurrentChunk,
+      beforeId
+    }
+  };
+}
+
+
+
+function getNextChunkId(currentChunkId) {
+  console.log('Finding next chunk ID after:', currentChunkId);
+  
+  // Get all elements with data-chunk-id attribute
+  const elementsWithChunkId = document.querySelectorAll('[data-chunk-id]');
+  console.log('Found elements with data-chunk-id:', elementsWithChunkId.length);
+  
+  // Extract and filter numerical chunk IDs
+  const allChunkIds = Array.from(elementsWithChunkId)
+    .map(el => el.dataset.chunkId)
+    .filter(id => id && /^\d+(\.\d+)*$/.test(id)) // Only numerical chunk IDs
+    .filter((id, index, arr) => arr.indexOf(id) === index) // Remove duplicates
+    .sort((a, b) => parseFloat(a) - parseFloat(b)); // Sort numerically
+  
+  console.log('All existing chunk IDs:', allChunkIds);
+  
+  // Find the next chunk ID after currentChunkId
+  const currentNum = parseFloat(currentChunkId);
+  const nextChunk = allChunkIds.find(id => parseFloat(id) > currentNum);
+  
+  console.log('Next chunk ID found:', nextChunk || 'null');
+  return nextChunk || null;
+}
+
+
+function convertTextToHtml(text, nodeId) {
+  // Your existing conversion logic, but wrap in <p> with ID
+  const processedText = text; // Whatever processing you do
+  return `<p id="${nodeId}">${processedText}</p>`;
+}
+
+/**
+ * 1) Assumes you have this helper already defined:
+ *    async function getNodeChunksAfter(book, afterNodeId) { … }
+ *
+ * 2) Your convertToJsonObjects(textBlocks, insertionPoint) must
+ *    produce an array of objects like:
+ *      [ { "Book,2": { content, startLine: 2, chunk_id: 1 } }, … ]
+ *
+ * 3) This function merges them, renumbers the "tail", and logs the result.
+ */
+async function handleJsonPaste(event, insertionPoint, pastedText) {
+  event.preventDefault();
+  const { book, afterNodeId } = insertionPoint;
+
+  // split into text blocks
+  const textBlocks = pastedText
+    .split(/\n\s*\n/)
+    .filter((blk) => blk.trim());
+  if (!textBlocks.length) return [];
+
+  // run through convertToJsonObjects
+  const {
+    jsonObjects: newJsonObjects,
+    state: {
+      currentChunkId: startChunkId,
+      nodesInCurrentChunk: startNodeCount
+    }
+  } = convertToJsonObjects(textBlocks, insertionPoint);
+
+  // If there's no afterNodeId, we're at the end of the doc → just return the new ones
+  if (afterNodeId == null) {
+    console.log(
+      "📌 No afterNodeId — pasting at end; skipping tail renumbering."
+    );
+    console.log("✅ Final merged JSON objects:", newJsonObjects);
+    return newJsonObjects;
+  }
+
+  // find highest startLine so far
+  const newLines   = newJsonObjects.map((o) => {
+    const k = Object.keys(o)[0];
+    return o[k].startLine;
+  });
+  const maxNewLine = Math.max(...newLines);
+
+  // grab the existing chunks
+  const existingChunks = await getNodeChunksAfter(book, afterNodeId);
+
+  // renumber the tail, carrying on the same chunk logic
+  let currentChunkId      = startChunkId;
+  let nodesInCurrentChunk = startNodeCount;
+
+  const tailJsonObjects = existingChunks.map((chunk, idx) => {
+    // rotate chunk?
+    if (nodesInCurrentChunk >= NODE_LIMIT) {
+      currentChunkId      = getNextIntegerId(currentChunkId);
+      nodesInCurrentChunk = 0;
+    }
+
+    // we _do_ want to keep sequential node IDs
+    const newStart = maxNewLine + idx + 1;
+
+    // rewrite the HTML so its id= matches newStart
+    const updatedContent = chunk.content.replace(
+      /id="[^"]*"/,
+      `id="${newStart}"`
+    );
+
+    const key = `${book},${newStart}`;
+    const obj = {
+      [key]: {
+        content:   updatedContent,
+        startLine: newStart,
+        chunk_id:  parseFloat(currentChunkId)
+      }
+    };
+
+    nodesInCurrentChunk++;
+    return obj;
+  });
+
+  const merged = [...newJsonObjects, ...tailJsonObjects];
+  console.log("✅ Final merged JSON objects:", merged);
+
+  const tailKey = insertionPoint.afterNodeId;
+
+  // 1) delete old tail for this book only
+  if (tailKey != null) {
+    await deleteNodeChunksAfter(book, tailKey);
+  }
+
+  // 2) prepare a flat array for writeNodeChunks
+  const toWrite = merged.map((obj) => {
+    const key   = Object.keys(obj)[0];      // "book,57"
+    const [ , startLineStr ] = key.split(',');
+    const { content, chunk_id } = obj[key];
+    return {
+      book,
+      startLine: parseFloat(startLineStr),
+      chunk_id,
+      content
+    };
+  });
+
+  // 3) bulk‐write new + renumbered nodes
+  await writeNodeChunks(toWrite);
+
+  console.log("📦 IndexedDB has been updated!");
+  return merged;
+}
 
 /**
  * Handle pasting of hypercites
@@ -2070,64 +2418,7 @@ function saveCurrentParagraph() {
 }
 
 
-/**
- * Handle pasting of markdown content
- * @returns {boolean} true if handled as markdown, false otherwise
- */
-function handleMarkdownPaste(event) {
-  const markdown = event.clipboardData.getData("text/plain");
-  if (!markdown.trim()) return false;
-  
-  // Check if this looks like markdown (has headings, lists, etc.)
-  // This is optional - you can remove this check if you want to handle all plain text as markdown
-  const hasMarkdownSyntax = /^#+\s|\n#+\s|^\s*[-*+]\s|\n\s*[-*+]\s|^\s*\d+\.\s|\n\s*\d+\.\s|`|_\w+_|\*\w+\*/.test(markdown);
-  if (!hasMarkdownSyntax) return false;
-  
-  event.preventDefault();
 
-  // 1) find ref node under cursor
-  const sel = window.getSelection();
-  if (!sel.rangeCount) return false;
-  let ref = sel.getRangeAt(0).startContainer;
-  while (ref && !ref.id) ref = ref.parentElement;
-  if (!ref) return false;
-  const parent = ref.parentNode;
-
-  // 2) parse into chunk‐objects
-  const blocks = parseMarkdownIntoChunksInitial(markdown);
-
-  // 3) build fragment and insert
-  const frag = document.createDocumentFragment();
-  blocks.forEach(block => {
-    // block.content is something like '<p data‐original‐line=…>…</p>'
-    const wrapper = document.createElement("div");
-    wrapper.innerHTML = block.content;
-    const el = wrapper.firstElementChild;
-    // remove any old id so it doesn't collide
-    el.removeAttribute("id");
-    frag.appendChild(el);
-  });
-  
-  // insert them all
-  let insertAfter = ref;
-  Array.from(frag.childNodes).forEach(node => {
-    parent.insertBefore(node, insertAfter.nextSibling);
-    insertAfter = node;
-  });
-
-  // 4) assign decimal IDs under ref.id's base
-  const base = (ref.id.match(/^(\d+)/) || [])[1];
-  if (!base) return false;
-  let node = ref.nextSibling;
-  while (node && !node.id) {
-    if (node.nodeType === 1) {
-      node.id = getNextDecimalForBase(base);
-    }
-    node = node.nextSibling;
-  }
-  
-  return true; // Successfully handled as markdown
-}
 
 /**
  * Add paste event listener to the editable div
@@ -2187,5 +2478,68 @@ function handleCodeBlockPaste(event, chunk) {
 }
 
 
+
+
+/**
+ * Estimate how many nodes a paste operation will create
+ */
+/**
+ * Estimate how many nodes a paste operation will create
+ */
+function estimatePasteNodeCount(content) {
+  if (typeof content !== 'string') {
+    return 1
+  }
+
+  // Quick & dirty HTML detection
+  const isHTML = /<([a-z]+)(?:\s[^>]*)?>/i.test(content)
+
+  if (isHTML) {
+    const tempDiv = document.createElement('div')
+    tempDiv.innerHTML = content
+
+    let count = 0
+
+    // Count block-level elements
+    count +=
+      tempDiv.querySelectorAll(
+        'p, h1, h2, h3, h4, h5, h6, div, pre, blockquote, li'
+      ).length
+
+    // Count <br> as its own node
+    count += tempDiv.querySelectorAll('br').length
+
+    // Count top-level text fragments as paragraphs
+    tempDiv.childNodes.forEach(node => {
+      if (
+        node.nodeType === Node.TEXT_NODE &&
+        node.textContent.trim()
+      ) {
+        const paras = node.textContent
+          .split(/\n\s*\n/) // split on blank lines
+          .filter(p => p.trim())
+        count += paras.length
+      }
+    })
+
+    return Math.max(1, count)
+  } else {
+    // Plain text: first try splitting on blank lines
+    const paragraphs = content
+      .split(/\n\s*\n/)
+      .filter(p => p.trim())
+
+    if (paragraphs.length > 1) {
+      return paragraphs.length
+    }
+
+    // Fallback: split on every newline
+    const lines = content
+      .split('\n')
+      .filter(line => line.trim())
+
+    return Math.max(1, lines.length)
+  }
+}
 
 

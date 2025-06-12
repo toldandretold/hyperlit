@@ -21,6 +21,56 @@ import { parseMarkdownIntoChunksInitial } from "./convert-markdown.js";
 
 import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 
+// Your existing function - unchanged for backward compatibility
+export async function loadHyperText() {
+  console.log(`📖 Opening: ${book}`);
+  console.log("📝 Book variable:", book, "Type:", typeof book);
+
+  const openHyperlightID = OpenHyperlightID || null;
+  if (openHyperlightID) {
+    console.log(`🔍 Found OpenHyperlightID to navigate to: ${openHyperlightID}`);
+  }
+  
+  try {
+    // 1. Check for node chunks in indexedDB
+    console.log("🔍 Checking if nodeChunks are in IndexedDB...");
+    const cached = await getNodeChunksFromIndexedDB(book);
+    if (cached && cached.length) {
+      console.log(`✅ Found ${cached.length} cached nodeChunks`);
+      window.nodeChunks = cached;
+      initializeLazyLoader(openHyperlightID);
+
+      // Start async timestamp check (don't await)
+      checkAndUpdateIfNeeded(book);
+
+      return;
+    }
+
+    // 2. Try Database
+    console.log("🔍 Trying to load chunks from database...");
+    const dbResult = await syncBookDataFromDatabase(book);
+    if (dbResult && dbResult.success) {
+      const dbChunks = await getNodeChunksFromIndexedDB(book);
+      if (dbChunks && dbChunks.length) {
+        console.log(`✅ Loaded ${dbChunks.length} nodeChunks from database`);
+        window.nodeChunks = dbChunks;
+        initializeLazyLoader(openHyperlightID);
+        return;
+      }
+    }
+
+    // 3. Generate from markdown with notification
+    console.log("🆕 Not in database or indexedDB – generating from markdown");
+    
+    window.nodeChunks = await generateNodeChunksFromMarkdown(book);
+    console.log("✅ Content generated + saved; now initializing UI");
+    initializeLazyLoader(OpenHyperlightID || null);
+      console.log("✅ Content loading complete");
+    return;
+  } catch (err) {
+    console.error("❌ Error loading content:", err);
+  }
+}
 
 // Helper function: Cache buster for forced reloads
 function buildUrl(path, forceReload = false) {
@@ -38,7 +88,7 @@ async function fetchMainTextMarkdown(bookId, forceReload = false) {
 
 // Updated to accept bookId parameter
 async function generateNodeChunksFromMarkdown(bookId, forceReload = false) {
-  const markdown = await fetchMainTextMarkdown(bookId, forceReload);
+  const markdown = await fetchMainTextMarkdown(bookId);
   
   // Parse markdown into nodeChunks
   const nodeChunks = parseMarkdownIntoChunksInitial(markdown);
@@ -92,10 +142,8 @@ async function generateNodeChunksFromMarkdown(bookId, forceReload = false) {
     }
   }
   
-  // Save to IndexedDB
+  // Pass the callback to the save function
   await saveAllNodeChunksToIndexedDB(nodeChunks, bookId);
-
-  
   return nodeChunks;
 }
 
@@ -231,56 +279,7 @@ export async function initializeLazyLoaderForContainer(bookId) {
   }
 }
 
-// Your existing function - unchanged for backward compatibility
-export async function loadHyperText() {
-  console.log(`📖 Opening: ${book}`);
-  console.log("📝 Book variable:", book, "Type:", typeof book);
 
-  const openHyperlightID = OpenHyperlightID || null;
-  if (openHyperlightID) {
-    console.log(`🔍 Found OpenHyperlightID to navigate to: ${openHyperlightID}`);
-  }
-  
-  try {
-    // 1. Check for node chunks in indexedDB
-    console.log("🔍 Checking if nodeChunks are in IndexedDB...");
-    const cached = await getNodeChunksFromIndexedDB(book);
-    if (cached && cached.length) {
-      console.log(`✅ Found ${cached.length} cached nodeChunks`);
-      window.nodeChunks = cached;
-      initializeLazyLoader(openHyperlightID);
-
-      // Start async timestamp check (don't await)
-      checkAndUpdateIfNeeded(book);
-
-      return;
-    }
-
-    // 2. Try Database
-    console.log("🔍 Trying to load chunks from database...");
-    const dbResult = await syncBookDataFromDatabase(book);
-    if (dbResult && dbResult.success) {
-      const dbChunks = await getNodeChunksFromIndexedDB(book);
-      if (dbChunks && dbChunks.length) {
-        console.log(`✅ Loaded ${dbChunks.length} nodeChunks from database`);
-        window.nodeChunks = dbChunks;
-        initializeLazyLoader(openHyperlightID);
-        return;
-      }
-    }
-
-    // 3. Generate from markdown
-    console.log("🆕 Not in database or indexedDB – generating from markdown");
-    window.nodeChunks = await generateNodeChunksFromMarkdown(book, true);
-    initializeLazyLoader(openHyperlightID);
-
-    console.log("✅ Content loading complete");
-    return;
-
-  } catch (err) {
-    console.error("❌ Error loading content:", err);
-  }
-}
 
 // Your existing helper function - unchanged
 function initializeLazyLoader(openHyperlightID) {

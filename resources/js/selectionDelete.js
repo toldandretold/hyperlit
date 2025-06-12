@@ -1,3 +1,6 @@
+import { batchDeleteIndexedDBRecords } from "./cache-indexedDB.js";
+
+
 export class SelectionDeletionHandler {
   constructor(editorContainer, callbacks = {}) {
     this.editor = editorContainer;
@@ -37,20 +40,26 @@ export class SelectionDeletionHandler {
   }
   
   captureSelectionForDeletion() {
-    const selection = window.getSelection();
+  const selection = window.getSelection();
+  
+  if (!selection.isCollapsed && selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    const affectedElements = this.getAffectedElements(range);
     
-    if (!selection.isCollapsed && selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      
-      this.pendingDeletion = {
-        commonAncestor: range.commonAncestorContainer,
-        affectedElements: this.getAffectedElements(range),
-        timestamp: Date.now()
-      };
-      
-      console.log('Captured selection for deletion:', this.pendingDeletion);
-    }
+    // 🔥 CAPTURE IDs immediately while elements still exist
+    const affectedElementIds = affectedElements.map(el => el.id).filter(id => id);
+    
+    this.pendingDeletion = {
+      commonAncestor: range.commonAncestorContainer,
+      affectedElements: affectedElements,
+      affectedElementIds: affectedElementIds, // ✅ Add this line
+      timestamp: Date.now()
+    };
+    
+    console.log('Captured selection for deletion:', this.pendingDeletion);
+    console.log('🔍 Captured element IDs:', affectedElementIds);
   }
+}
   
   getAffectedElements(range) {
     const elements = [];
@@ -76,30 +85,63 @@ export class SelectionDeletionHandler {
     return elements;
   }
   
+  // In SelectionDeletionHandler
   handlePostDeletion() {
-    if (!this.pendingDeletion) return;
-    
-    console.log('Handling post-deletion cleanup');
-    
-    const nodesToDelete = [];
-    
-    // Check affected elements - collect nodes that should be deleted
-    this.pendingDeletion.affectedElements.forEach(element => {
-      if (this.isEffectivelyEmpty(element)) {
-        console.log('Found empty element to delete:', element.id);
-        nodesToDelete.push(element);
-      }
-    });
-    
-    // Clean up any other empty paragraphs in the area
-    const additionalEmptyNodes = this.findEmptyParagraphs(this.pendingDeletion.commonAncestor);
-    nodesToDelete.push(...additionalEmptyNodes);
-    
-    // Actually delete the nodes from DOM and IndexedDB
-    this.deleteNodes(nodesToDelete);
-    
-    this.pendingDeletion = null;
+  if (!this.pendingDeletion) {
+    console.log("❌ No pendingDeletion found");
+    return;
   }
+  
+  console.log('Handling post-deletion cleanup');
+  console.log('🔍 pendingDeletion:', this.pendingDeletion);
+  
+  // Check if we have the affectedElementIds
+  const nodeIdsToDelete = this.pendingDeletion.affectedElementIds || [];
+  console.log('🔍 nodeIdsToDelete:', nodeIdsToDelete);
+  
+  if (nodeIdsToDelete.length === 0) {
+    console.log("❌ No node IDs to delete - checking affectedElements");
+    
+    // Fallback: extract IDs from affectedElements
+    const fallbackIds = this.pendingDeletion.affectedElements
+      .map(el => el.id)
+      .filter(id => id);
+    
+    console.log('🔍 fallbackIds:', fallbackIds);
+    
+    if (fallbackIds.length > 0) {
+      console.log(`🗑️ Using fallback IDs: ${fallbackIds.length} elements`);
+      this.batchDeleteFromIndexedDB(fallbackIds);
+    }
+  } else {
+    console.log(`🗑️ Batch deleting ${nodeIdsToDelete.length} elements from IndexedDB`);
+    this.batchDeleteFromIndexedDB(nodeIdsToDelete);
+  }
+  
+  this.pendingDeletion = null;
+}
+
+batchDeleteFromIndexedDB(nodeIds) {
+  console.log('🔍 About to call batchDeleteIndexedDBRecords with:', nodeIds);
+  
+  // Import the function if not already imported
+  import('./cache-indexedDB.js').then(module => {
+    const { batchDeleteIndexedDBRecords } = module;
+    
+    return batchDeleteIndexedDBRecords(nodeIds);
+  }).then(() => {
+    console.log(`✅ Successfully batch deleted ${nodeIds.length} records`);
+  }).catch(error => {
+    console.error(`❌ Batch deletion failed:`, error);
+    
+    // Fallback to individual deletions
+    nodeIds.forEach(nodeId => {
+      console.log(`Fallback: deleting ${nodeId} individually`);
+      this.onDeleted(nodeId);
+    });
+  });
+}
+  
   
   isEffectivelyEmpty(element) {
     return !element.textContent.trim() && 
@@ -122,17 +164,32 @@ export class SelectionDeletionHandler {
   }
   
   deleteNodes(nodes) {
+    console.log(`🗑️ Force deleting ${nodes.length} nodes from both DOM and IndexedDB`);
+    
     nodes.forEach(node => {
       if (node.id) {
         console.log(`Deleting node ${node.id} from IndexedDB due to selection deletion`);
         
-        // Call the deletion callback
-        this.onDeleted(node.id);
+        // 🔥 FORCE the IndexedDB deletion
+        deleteIndexedDBRecordWithRetry(node.id).then(() => {
+          console.log(`✅ Successfully deleted ${node.id} from IndexedDB`);
+        }).catch(error => {
+          console.error(`❌ Failed to delete ${node.id} from IndexedDB:`, error);
+        });
         
         // Remove from DOM
         node.remove();
       }
     });
+    
+    // 🔥 ALSO manually trigger the save queue processing
+    if (typeof queueNodeForSave === 'function') {
+      nodes.forEach(node => {
+        if (node.id) {
+          queueNodeForSave(node.id, 'delete');
+        }
+      });
+    }
   }
   
   // Optional: cleanup method

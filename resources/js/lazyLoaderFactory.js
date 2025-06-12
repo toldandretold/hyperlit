@@ -317,6 +317,49 @@ instance.saveScrollPosition = () => {
   instance.loadChunk = (chunkId, direction = "down") =>
     loadChunkInternal(chunkId, direction, instance, attachMarkers);
 
+
+    instance.refresh = async () => {
+    console.log("🔄 Lazy-loader refresh starting…");
+    
+    // 1) re-read the fresh nodeChunks from IndexedDB
+    instance.nodeChunks = await instance.getNodeChunks();
+    
+    // 2) remove all rendered chunk-DIVs
+    instance.container
+      .querySelectorAll("[data-chunk-id]")
+      .forEach(el => el.remove());
+    
+    // 3) reset our “which chunks are in the DOM” set
+    instance.currentlyLoadedChunks.clear();
+    
+    // 4) ensure our sentinels are back in place
+    //    (they should already be there, but just in case)
+    if (!instance.container.contains(instance.topSentinel)) {
+      instance.container.prepend(instance.topSentinel);
+    }
+    if (!instance.container.contains(instance.bottomSentinel)) {
+      instance.container.appendChild(instance.bottomSentinel);
+    }
+    
+    // 5) fire the observer again on your sentinels
+    //    (usually they’re already being observed, but this
+    //     guarantees one immediate push)
+    instance.observer.observe(instance.topSentinel);
+    instance.observer.observe(instance.bottomSentinel);
+
+    // 6) load the very first chunk manually
+    //    (you could choose the lowest chunk_id, or the chunk
+    //     that contains the insertion point, etc.)
+    const allIds = Array.from(new Set(
+      instance.nodeChunks.map(n => parseFloat(n.chunk_id))
+    )).sort((a,b)=>a-b);
+    if (allIds.length) {
+      const firstId = allIds[0];
+      console.log("🔄 Refresh loading first chunk:", firstId);
+      loadChunkInternal(firstId, "down", instance, attachMarkers);
+    }
+  };
+
   return instance;
 }
 
