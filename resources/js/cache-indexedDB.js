@@ -143,28 +143,40 @@ export async function addNewBookToIndexedDB(bookId, startLine, content, chunkId 
 }
 
 
-export async function saveAllNodeChunksToIndexedDB(nodeChunks, bookId = "latest") {
+export async function saveAllNodeChunksToIndexedDB(
+  nodeChunks,
+  bookId = "latest",
+  onComplete
+) {
   return withPending(async () => {
     const db = await openDatabase();
     const tx = db.transaction("nodeChunks", "readwrite");
     const store = tx.objectStore("nodeChunks");
-
     nodeChunks.forEach((record) => {
-      // Tag the record with the proper book identifier
       record.book = bookId;
-      
-      // Convert startLine to the appropriate numeric format
       record.startLine = parseNodeId(record.startLine);
-      
       store.put(record);
     });
 
     return new Promise((resolve, reject) => {
-      tx.oncomplete = async() => {
+      tx.oncomplete = async () => {
         console.log("✅ nodeChunks successfully saved for book:", bookId);
+        try {
           await updateBookTimestamp(bookId);
           await syncIndexedDBtoPostgreSQL(bookId);
-        resolve();
+        } catch (err) {
+          console.warn(
+            "⚠️ post-save hook failed (timestamp/sync):",
+            err
+          );
+        } finally {
+          if (onComplete) {
+            try {
+              onComplete();
+            } catch (_) {}
+          }
+          resolve();
+        }
       };
       tx.onerror = () => {
         console.error("❌ Error saving nodeChunks to IndexedDB");
@@ -820,6 +832,222 @@ export async function syncBatchUpdateWithPostgreSQL(bookId, batchData, libraryRe
 }
 
 
+// New batched deletion function
+export async function batchDeleteIndexedDBRecords(nodeIds) {
+  return withPending(async () => {
+    const bookId = book || "latest";
+    
+    console.log(`🗑️ Batch deleting ${nodeIds.length} IndexedDB records`);
+    console.log(`🔍 First 10 IDs:`, nodeIds.slice(0, 10));
+    
+    try {
+      const db = await openDatabase();
+      console.log(`✅ Database opened successfully`);
+      
+      const tx = db.transaction(
+        ["nodeChunks", "hyperlights", "hypercites"],
+        "readwrite"
+      );
+      console.log(`✅ Transaction created`);
+      
+      const chunksStore = tx.objectStore("nodeChunks");
+      const lightsStore = tx.objectStore("hyperlights");
+      const citesStore = tx.objectStore("hypercites");
+
+      // Collect data for sync (what was deleted)
+      const deletedData = {
+        nodeChunks: [],
+        hyperlights: [],
+        hypercites: []
+      };
+
+      let processedCount = 0;
+      
+      // Process each node ID for deletion
+      const deletePromises = nodeIds.map(async (nodeId, index) => {
+        console.log(`🔍 Processing deletion ${index + 1}/${nodeIds.length}: ${nodeId}`);
+        
+        // Ensure we have a numeric ID
+        if (!/^\d+(\.\d+)?$/.test(nodeId)) {
+          console.log(`❌ Skipping deletion – invalid node ID: ${nodeId}`);
+          return;
+        }
+
+        const numericNodeId = parseNodeId(nodeId);
+        const compositeKey = [bookId, numericNodeId];
+        
+        console.log(`🔍 Deleting composite key:`, compositeKey);
+        
+        return new Promise((resolve, reject) => {
+          // Get the record before deleting (for sync purposes)
+          const getReq = chunksStore.get(compositeKey);
+          
+          getReq.onsuccess = () => {
+            const existing = getReq.result;
+            
+            if (existing) {
+              console.log(`✅ Found existing record for ${nodeId}, deleting...`);
+              
+              // Store what we're deleting for sync
+              deletedData.nodeChunks.push({
+                ...existing,
+                _deleted: true // Mark as deleted for sync
+              });
+              
+              // Delete the main record
+              const deleteReq = chunksStore.delete(compositeKey);
+              
+              deleteReq.onsuccess = () => {
+                processedCount++;
+                console.log(`✅ Deleted ${nodeId} (${processedCount}/${nodeIds.length})`);
+                resolve();
+              };
+              
+              deleteReq.onerror = (e) => {
+                console.error(`❌ Failed to delete ${nodeId}:`, e.target.error);
+                reject(e.target.error);
+              };
+              
+              // Delete associated hyperlights
+              try {
+                const lightIndex = lightsStore.index("book_startLine");
+                const lightRange = IDBKeyRange.only([bookId, numericNodeId]);
+                const lightReq = lightIndex.openCursor(lightRange);
+                
+                lightReq.onsuccess = (e) => {
+                  const cursor = e.target.result;
+                  if (cursor) {
+                    deletedData.hyperlights.push({
+                      ...cursor.value,
+                      _deleted: true
+                    });
+                    cursor.delete();
+                    cursor.continue();
+                  }
+                };
+              } catch (lightError) {
+                console.warn(`⚠️ Error deleting hyperlights for ${nodeId}:`, lightError);
+              }
+              
+              // Delete associated hypercites
+              try {
+                const citeIndex = citesStore.index("book_startLine");
+                const citeRange = IDBKeyRange.only([bookId, numericNodeId]);
+                const citeReq = citeIndex.openCursor(citeRange);
+                
+                citeReq.onsuccess = (e) => {
+                  const cursor = e.target.result;
+                  if (cursor) {
+                    deletedData.hypercites.push({
+                      ...cursor.value,
+                      _deleted: true
+                    });
+                    cursor.delete();
+                    cursor.continue();
+                  }
+                };
+              } catch (citeError) {
+                console.warn(`⚠️ Error deleting hypercites for ${nodeId}:`, citeError);
+              }
+            } else {
+              console.log(`⚠️ No existing record found for ${nodeId}`);
+              resolve();
+            }
+          };
+
+          getReq.onerror = (e) => {
+            console.error(`❌ Error fetching record for deletion ${nodeId}:`, e.target.error);
+            reject(e.target.error);
+          };
+        });
+      });
+
+      // Wait for all deletions to complete
+      console.log(`⏳ Waiting for ${deletePromises.length} deletion promises...`);
+      await Promise.all(deletePromises);
+      console.log(`✅ All deletion promises completed`);
+
+      // Return promise that resolves when transaction completes
+      return new Promise((resolve, reject) => {
+        tx.oncomplete = async () => {
+          console.log(`✅ Batch IndexedDB deletion transaction complete - deleted ${processedCount}/${nodeIds.length} records`);
+
+          try {
+            // Update timestamp
+            await updateBookTimestamp(bookId);
+            console.log(`✅ Updated book timestamp`);
+            
+            // Get library record
+            const libraryRecord = await getLibraryObjectFromIndexedDB(bookId);
+            console.log(`✅ Retrieved library record`);
+            
+            // Sync deletions with PostgreSQL
+            if (typeof syncBatchDeletionWithPostgreSQL === 'function') {
+              await syncBatchDeletionWithPostgreSQL(
+                bookId, 
+                deletedData,
+                libraryRecord
+              );
+              console.log(`✅ Synced deletions with PostgreSQL`);
+            } else {
+              console.log(`⚠️ PostgreSQL sync function not available`);
+            }
+          } catch (syncError) {
+            console.error("❌ Error in post-deletion operations:", syncError);
+          }
+
+          resolve();
+        };
+        
+        tx.onerror = (e) => {
+          console.error("❌ Batch deletion transaction failed:", e.target.error);
+          reject(e.target.error);
+        };
+        
+        tx.onabort = (e) => {
+          console.warn("⚠️ Batch deletion transaction aborted:", e);
+          reject(new Error("Batch deletion transaction aborted"));
+        };
+      });
+      
+    } catch (error) {
+      console.error("❌ Error in batchDeleteIndexedDBRecords:", error);
+      throw error;
+    }
+  });
+}
+
+// Sync batch deletions with PostgreSQL
+export async function syncBatchDeletionWithPostgreSQL(bookId, deletedData, libraryRecord) {
+  console.log(`🔍 Syncing batch deletion to PostgreSQL for book: ${bookId}`);
+  
+  try {
+    const response = await fetch("/api/db/node-chunks/batch-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        book: bookId,
+        deletedNodeChunks: deletedData.nodeChunks,
+        deletedHyperlights: deletedData.hyperlights,
+        deletedHypercites: deletedData.hypercites,
+        libraryRecord: libraryRecord
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    console.log(`✅ Batch deletion synced to PostgreSQL:`, result);
+    
+    return result;
+  } catch (error) {
+    console.error("❌ Failed to sync batch deletion to PostgreSQL:", error);
+    throw error;
+  }
+}
+
 // 🔥 UPDATED: Function to update hyperlight records using processed data
 function updateHyperlightRecords(hyperlights, store, bookId, numericNodeId, syncArray, node) {
   hyperlights.forEach((hyperlight) => {
@@ -1277,7 +1505,7 @@ export function updateCitationForExistingHypercite(
 }
 
 // 🆕 Helper function to get a single nodeChunk from IndexedDB
-async function getNodeChunkFromIndexedDB(book, startLine) {
+export async function getNodeChunkFromIndexedDB(book, startLine) {
   return new Promise((resolve, reject) => {
     const dbName = "MarkdownDB";
     const storeName = "nodeChunks";
@@ -1310,6 +1538,121 @@ async function getNodeChunkFromIndexedDB(book, startLine) {
     request.onerror = (event) => {
       console.error('IndexedDB error:', event.target.error);
       resolve(null);
+    };
+  });
+}
+
+export async function getNodeChunksAfter(book, afterNodeId) {
+  const numericAfter = parseNodeId(afterNodeId);
+  const dbName = "MarkdownDB";
+  const storeName = "nodeChunks";
+
+  return new Promise((resolve) => {
+    const openReq = indexedDB.open(dbName);
+    openReq.onerror = () => resolve([]);
+
+    openReq.onsuccess = (e) => {
+      const db = e.target.result;
+      const tx = db.transaction([storeName], "readonly");
+      const store = tx.objectStore(storeName);
+
+      // lower bound is ["book", afterLine]
+      const lower = [book, numericAfter];
+      // upper bound is ["book", +∞] -- Number.MAX_SAFE_INTEGER is usually enough
+      const upper = [book, Number.MAX_SAFE_INTEGER];
+      const range = IDBKeyRange.bound(lower, upper, /*lowerOpen=*/false, /*upperOpen=*/false);
+
+      const cursorReq = store.openCursor(range);
+      const results = [];
+
+      cursorReq.onsuccess = (evt) => {
+        const cur = evt.target.result;
+        if (!cur) return;          // done
+        results.push(cur.value);
+        cur.continue();
+      };
+
+      tx.oncomplete = () => {
+        db.close();
+        resolve(results);
+      };
+      tx.onerror = () => {
+        db.close();
+        resolve(results);
+      };
+    };
+  });
+}
+
+// 🆕 2) Delete all nodeChunks for `book` with startLine >= afterNodeId
+export async function deleteNodeChunksAfter(book, afterNodeId) {
+  const numericAfter = parseNodeId(afterNodeId);
+  const dbName = "MarkdownDB";
+  const storeName = "nodeChunks";
+  return new Promise((resolve) => {
+    const openReq = indexedDB.open(dbName);
+    openReq.onerror = () => resolve();
+    openReq.onsuccess = (e) => {
+      const db = e.target.result;
+      const tx = db.transaction([storeName], "readwrite");
+      const store = tx.objectStore(storeName);
+
+      // lower = [book, after], upper = [book, +∞]
+      const lower = [book, numericAfter];
+      const upper = [book, Number.MAX_SAFE_INTEGER];
+      const range = IDBKeyRange.bound(
+        lower,
+        upper,
+        /*lowerOpen=*/ false,
+        /*upperOpen=*/ false
+      );
+
+      const cursorReq = store.openCursor(range);
+      cursorReq.onsuccess = (evt) => {
+        const cur = evt.target.result;
+        if (!cur) return;      // done
+        store.delete(cur.primaryKey);
+        cur.continue();
+      };
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      tx.onerror = () => {
+        db.close();
+        resolve();
+      };
+    };
+  });
+}
+
+// 🆕 3) Bulk‐write an array of nodeChunk objects back into IndexedDB
+//    Each object must have at least { book, startLine, chunk_id, content }
+export async function writeNodeChunks(chunks) {
+  if (!chunks.length) return;
+  const dbName = "MarkdownDB";
+  const storeName = "nodeChunks";
+  return new Promise((resolve) => {
+    const openReq = indexedDB.open(dbName);
+    openReq.onerror = () => resolve();
+    openReq.onsuccess = (e) => {
+      const db = e.target.result;
+      const tx = db.transaction([storeName], "readwrite");
+      const store = tx.objectStore(storeName);
+
+      for (const chunk of chunks) {
+        // chunk must have the inline key fields (book, startLine) already on it
+        store.put(chunk);
+      }
+
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      tx.onerror = () => {
+        db.close();
+        resolve();
+      };
     };
   });
 }

@@ -24,7 +24,7 @@ class DbFootnoteController extends Controller
         // Validate the request
         $validated = $request->validate([
             'book' => 'required|string',
-            'data' => 'required'  // Add more specific validation rules if needed
+            'data' => 'nullable'  // Add more specific validation rules if needed
         ]);
 
         // Safe logging of data sample
@@ -58,7 +58,7 @@ class DbFootnoteController extends Controller
             // Validate the request
             $validated = $request->validate([
                 'book' => 'required|string',
-                'data' => 'required'
+                'data' => 'nullable'
             ]);
 
             $book = $validated['book'];
