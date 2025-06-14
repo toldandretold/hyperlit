@@ -3,14 +3,11 @@
 import {
   startObserving,
   stopObserving,
-  addPasteListener,
-  initTitleSync,
+  initTitleSync
 } from "./divEditor.js";
 import { book } from "./app.js";
 import { incrementPendingOperations, decrementPendingOperations } from './operationState.js';
-//import { NodeIdManager } from './IDmanager.js';
-
-//window.NodeIdManager = NodeIdManager;
+import { addPasteListener } from './paste.js';
 
 
 

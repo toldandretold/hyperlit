@@ -723,7 +723,19 @@ export function closeHyperciteContainer() {
 
 
 
-
+// Helper: Parse hypercite URL to extract components
+export function parseHyperciteHref(href) {
+  try {
+    const url = new URL(href, window.location.origin);
+    const booka = url.pathname.replace(/^\//, ""); // e.g., "booka"
+    const hyperciteIDa = url.hash.substr(1);       // e.g., "hyperciteIda"
+    const citationIDa = `/${booka}#${hyperciteIDa}`; // e.g., "/booka#hyperciteIda"
+    return { citationIDa, hyperciteIDa, booka };
+  } catch (error) {
+    console.error("Error parsing hypercite href:", href, error);
+    return null;
+  }
+}
 
 
 

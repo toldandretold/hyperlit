@@ -1,4 +1,5 @@
-import { parseHyperciteHref, extractQuotedText } from './divEditor.js';
+import { parseHyperciteHref } from './hyperCites.js';
+import { extractQuotedText } from './paste.js';
 // Import necessary functions from database and utility modules
 import { openDatabase, updateCitationForExistingHypercite } from './cache-indexedDB.js';
 import { parseMarkdownIntoChunksInitial } from './convert-markdown.js';

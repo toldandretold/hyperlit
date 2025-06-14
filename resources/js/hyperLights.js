@@ -9,7 +9,7 @@ import { openDatabase,
          updateBookTimestamp,
          getLibraryObjectFromIndexedDB } from "./cache-indexedDB.js";
 import { attachAnnotationListener } from "./annotation-saver.js";
-import { addPasteListener } from "./divEditor.js";
+import { addPasteListener } from "./paste.js";
 import { addHighlightContainerPasteListener } from "./hyperLightsListener.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 

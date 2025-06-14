@@ -4,6 +4,7 @@ import { showSpinner, showTick } from "./editIndicator.js";
 
 let pendingOperations = 0;
 let unloadWarningActive = false;
+export let hypercitePasteInProgress = false;
 
 /**
  * Returns the current number of pending operations.
@@ -25,6 +26,21 @@ export function getUnloadWarningActive() {
 export function setUnloadWarningActive(value) {
   unloadWarningActive = value;
   return unloadWarningActive;
+}
+
+/**
+ * Returns whether we're in a hypercite paste.
+ */
+export function getHandleHypercitePaste() {
+  return hypercitePasteInProgress;
+}
+
+/**
+ * Set (or clear) the hypercite-paste in-progress flag.
+ */
+export function setHandleHypercitePaste(value) {
+  hypercitePasteInProgress = value;
+  return hypercitePasteInProgress; 
 }
 
 /**
@@ -89,6 +105,7 @@ export async function withPending(fn) {
 export let currentObservedChunk = null;
 export let chunkOverflowInProgress = false;
 
+
 // Function to update the currentObservedChunk
 export function setCurrentObservedChunk(chunk) {
   currentObservedChunk = chunk;
@@ -99,3 +116,4 @@ export function setChunkOverflowInProgress(value) {
   chunkOverflowInProgress = value;
   return value;
 }
+
