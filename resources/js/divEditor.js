@@ -48,17 +48,10 @@ const modifiedNodes = new Set(); // Track element IDs whose content was modified
 const addedNodes = new Set(); // Track newly-added element nodes.
 const removedNodeIds = new Set(); // Track IDs of removed nodes.
 
-// Global observer variable
 let observer;
-// Global variable to track the currently observed chunk.
-// Track document changes for debounced normalization
 let documentChanged = false;
-
-// track user activity
 let debounceTimer = null;
 
-
-// Global state for tracking observed chunks
 let observedChunks = new Map(); // chunkId -> chunk element
 let deletionHandler = null;
 
@@ -102,7 +95,6 @@ function debounce(func, delay, timerId) {
 
 // Specialized debounced functions
 const debouncedSaveNode = debounce(saveNodeToDatabase, DEBOUNCE_DELAYS.SAVES, 'saves');
-const debouncedProcessMutations = debounce(processPendingMutations, DEBOUNCE_DELAYS.MUTATIONS, 'mutations');
 
 // ================================================================
 // SAVE QUEUE MANAGEMENT
@@ -116,9 +108,6 @@ export function queueNodeForSave(nodeId, action = 'update') {
   console.log(`📝 Queued node ${nodeId} for ${action}`);
   debouncedSaveNode(); 
 }
-
-
-
 
 async function saveNodeToDatabase() {
   if (pendingSaves.nodes.size === 0) return;
@@ -163,11 +152,6 @@ async function saveNodeToDatabase() {
   }
 }
 
-async function processPendingMutations() {
-  // This function can be used for any additional mutation processing
-  // For now, it can be empty or just log
-  console.log('📋 Processing pending mutations...');
-}
 
 // ================================================================
 // ACTIVITY MONITORING
@@ -220,25 +204,24 @@ export function startObserving(editableDiv) {
 
   // Create observer for the main-content container
   observer = new MutationObserver(async (mutations) => {
-    // Skip processing if a hypercite paste is in progress
+
+    // When to NOT observe:
     if (hypercitePasteInProgress) {
       console.log("Skipping mutations during hypercite paste");
       return;
     }
 
-    // 🚨 NEW: Skip processing if chunk loading is in progress
     if (isChunkLoadingInProgress()) {
       console.log(`Skipping mutations during chunk loading for chunk ${getLoadingChunkId()}`);
       return;
     }
 
-    // Skip mutations related to status icons
     if (shouldSkipMutation(mutations)) {
       console.log("Skipping mutations related to status icons");
       return;
     }
 
-    // Filter mutations to only those within chunks (ignore sentinels)
+    // Filter to ignore mutations outside of <div class="chunk">
     const chunkMutations = filterChunkMutations(mutations);
     
     if (chunkMutations.length > 0) {
@@ -248,16 +231,14 @@ export function startObserving(editableDiv) {
 
   
   // In your startObserving function
-    deletionHandler = new SelectionDeletionHandler(editableDiv, {
-      onDeleted: (nodeId) => {
-        console.log(`Selection deletion handler wants to delete: ${nodeId}`);
-        // Just delete from IndexedDB - the DOM removal is handled by the class
-        deleteIndexedDBRecordWithRetry(nodeId);
-      }
-    });
+  deletionHandler = new SelectionDeletionHandler(editableDiv, {
+    onDeleted: (nodeId) => {
+      console.log(`Selection deletion handler wants to delete: ${nodeId}`);
+      deleteIndexedDBRecordWithRetry(nodeId);
+    }
+  });
 
-
-  // Observe the main-content container
+  // Observe the main-content/editableDiv container
   observer.observe(editableDiv, {
     childList: true,
     subtree: true, // Observe all descendants
@@ -279,6 +260,7 @@ export function startObserving(editableDiv) {
 
   console.log(`Multi-chunk observer attached to .main-content`);
 }
+
 // Initialize tracking for all chunks currently in the DOM
 function initializeCurrentChunks(editableDiv) {
   const chunks = editableDiv.querySelectorAll('.chunk');
@@ -290,7 +272,6 @@ function initializeCurrentChunks(editableDiv) {
     if (chunkId) {
       observedChunks.set(chunkId, chunk);
       trackChunkNodeCount(chunk);
-      
       console.log(`📦 Initialized tracking for chunk ${chunkId}`);
     } else {
       console.warn("Found chunk without data-chunk-id:", chunk);
@@ -299,7 +280,6 @@ function initializeCurrentChunks(editableDiv) {
   
   console.log(`Now tracking ${observedChunks.size} chunks`);
   
-  // NEW: Return the chunks array
   return chunks;
 }
 
@@ -556,7 +536,7 @@ async function processChunkMutations(chunk, mutations) {
           if (node.id && node.id.match(/^\d+(\.\d+)?$/)) {
             console.log(`🗑️ Attempting to delete node ${node.id} from IndexedDB`);
 
-            // Check if this is the last node in the chunk
+            // Check if this is the last node in the chunk 
             const remainingNodes = chunk.querySelectorAll('[id]').length;
             console.log(`Chunk ${chunkId} has ${remainingNodes} remaining nodes after this deletion`);
             
@@ -571,7 +551,6 @@ async function processChunkMutations(chunk, mutations) {
                 console.error(`❌ Failed to delete last node ${node.id}:`, error);
               }
               removedNodeIds.add(node.id);
-              
               // Exit early to avoid further processing since chunk will disappear
               return;
             } else {
@@ -663,15 +642,8 @@ async function processChunkMutations(chunk, mutations) {
     if (mutation.type === "childList") {
       mutation.addedNodes.forEach((node) => {
         if (node.nodeType === Node.ELEMENT_NODE) {
-          if (window.NodeIdManager && typeof NodeIdManager.exists === 'function') {
-            // [Your existing NodeIdManager logic - unchanged]
-            // ... (keeping all your existing ID management code)
-          } else {
-            // Fall back to original method if NodeIdManager is not available
-            ensureNodeHasValidId(node);
-            documentChanged = true;
-          }
-          
+          ensureNodeHasValidId(node);
+          documentChanged = true;
           addedNodes.add(node);
           addedCount++;
           newNodes.push(node);
@@ -727,12 +699,7 @@ async function processChunkMutations(chunk, mutations) {
   }
 }
 
-
-
-
-
 export function stopObserving() {
-  
   if (window.selectionDeletionInProgress) {
     console.log("Skipping observer reset during selection deletion");
     return;
@@ -787,10 +754,7 @@ document.addEventListener("selectionchange", () => {
   }
 });
 
-
-
 // Track typing activity
-// Replace your existing keydown listener (around line 300) with this:
 document.addEventListener("keydown", function handleTypingActivity(event) {
   // Only show spinner if in edit mode
   if (!window.isEditing) return;
@@ -814,26 +778,9 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
         queueNodeForSave(elementWithId.id, 'update');
       }
     }
-  }
-  
- 
+  } 
 });
 
-
-
-
-
-
-
-
-
-
-
-
-/**
- * Ensure there's a library record for this book. If it doesn't exist,
- * create a minimal one (you can expand this with author/timestamp/bibtex).
- */
 /** Ensure there’s a library record for this book (or create a stub). */
 async function ensureLibraryRecord(bookId) {
   const db = await openDatabase();
@@ -870,8 +817,6 @@ async function ensureLibraryRecord(bookId) {
   }
 }
 
-
-
 /** Update only the title field (and regenerate bibtex) in the library record. */
 export async function updateLibraryTitle(bookId, newTitle) {
   const db = await openDatabase();
@@ -898,9 +843,6 @@ export async function updateLibraryTitle(bookId, newTitle) {
     req.onerror = (e) => reject(e.target.error);
   });
 }
-
-
-
 
 /**
  * Call this in edit mode to:
@@ -977,10 +919,6 @@ export async function initTitleSync(bookId) {
   console.log("🛠 Title-sync initialized for book:", bookId);
   // return titleObserver;
 }
-
-
-
-
 
 
 // Track consecutive Enter presses
@@ -1074,26 +1012,6 @@ function createAndInsertParagraph(blockElement, chunkContainer, content, selecti
   return newParagraph;
 }
 
-
-
-/** 
- * Collapse the caret at the start of an element, preferring its first Text child 
- * Returns a new Range ready to be `selection.addRange`d.
- */
-function collapseAtStart(el) {
-  const r = document.createRange();
-  const first = el.firstChild;
-  if (first && first.nodeType === Node.TEXT_NODE) {
-    console.log("collapseAtStart → text node");
-    r.setStart(first, 0);
-  } else {
-    console.log("collapseAtStart → element");
-    r.setStart(el, 0);
-  }
-  r.collapse(true);
-  return r;
-}
-
 /**
  * Move the caret to (node, offset), then scroll it into view.
  */
@@ -1107,7 +1025,6 @@ function moveCaretTo(node, offset = 0) {
   scrollCaretIntoView();
 }
 
-
 // Helper function to check if element is in viewport
 function isElementInViewport(el) {
   const rect = el.getBoundingClientRect();
@@ -1118,8 +1035,6 @@ function isElementInViewport(el) {
     rect.right <= (window.innerWidth || document.documentElement.clientWidth)
   );
 }
-
-
 
 document.addEventListener("keydown", function(event) {
   // Skip paragraph creation if chunk overflow is in progress
@@ -1245,9 +1160,100 @@ document.addEventListener("keydown", function(event) {
       return;
     }
 
+    // SECTION 1: Special handling for paragraph elements
+    //==========================================================================
+    if (blockElement.tagName === "P") {
+      event.preventDefault();
+      
+      if (enterCount === 1) {
+        // First Enter: Just insert <br> and position cursor after it
+        const br = document.createElement("br");
+        range.insertNode(br);
+        
+        // Store reference
+        blockElement._lastInsertedBr = br;
+        
+        // Force cursor after the br by inserting a zero-width space
+        const zwsp = document.createTextNode('\u200B'); // zero-width space
+        br.parentNode.insertBefore(zwsp, br.nextSibling);
+        
+        // Position cursor in the zero-width space
+        const newRange = document.createRange();
+        newRange.setStart(zwsp, 1);
+        newRange.collapse(true);
+        
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+        
+        console.log("First Enter: Added <br>");
+        return;
+      } else if (enterCount >= 2) {
+        // Second Enter: Remove the <br> we just created and split/create paragraph
+        
+        // Remove only the br we created on the first enter
+        if (blockElement._lastInsertedBr && blockElement._lastInsertedBr.parentNode === blockElement) {
+          blockElement._lastInsertedBr.remove();
+          delete blockElement._lastInsertedBr;
+        }
+        
+        // Split the content at cursor position
+        const cursorOffset = range.startOffset;
+        
+        // Check if cursor is at the end of the text content
+        let isAtEnd = false;
+        if (range.startContainer.nodeType === Node.TEXT_NODE) {
+          isAtEnd = cursorOffset === range.startContainer.textContent.length;
+        } else if (range.startContainer.nodeType === Node.ELEMENT_NODE) {
+          isAtEnd = cursorOffset === range.startContainer.childNodes.length;
+        }
+        
+        // Prepare content for the new paragraph
+        let content = null;
+        if (!(isAtEnd && range.startContainer === blockElement.lastChild || 
+              range.startContainer === blockElement && blockElement.textContent.trim() === '')) {
+          const rangeToExtract = document.createRange();
+          rangeToExtract.setStart(range.startContainer, cursorOffset);
+          rangeToExtract.setEndAfter(blockElement);
+          
+          const clonedContent = rangeToExtract.cloneContents();
+          const tempDiv = document.createElement('div');
+          tempDiv.appendChild(clonedContent);
+          const extractedText = tempDiv.textContent.trim();
+          
+          // Store the content to move to the new paragraph
+          content = rangeToExtract.extractContents();
+          
+          // If the current block is now empty, add a <br>
+          if (blockElement.innerHTML === '' || blockElement.textContent.trim() === '') {
+            blockElement.innerHTML = '<br>';
+          }
+          
+          if (extractedText === '') {
+            content = null;
+          }
+        }
+        
+        // Create and insert new paragraph
+        const newParagraph = createAndInsertParagraph(blockElement, chunkContainer, content, selection);
+        
+        // Scroll the new paragraph into view
+        setTimeout(() => {
+          newParagraph.scrollIntoView({
+            behavior: 'auto',
+            block: 'nearest'
+          });
+        }, 10);
+        
+        // Reset enter count after creating a new paragraph
+        enterCount = 0;
+        console.log("Second Enter: Split paragraph");
+        return;
+      }
+    }
+
 
     //==========================================================================
-    // SECTION 1: Special handling for blockquote and pre (code blocks)
+    // SECTION 2: Special handling for blockquote and pre (code blocks)
     //==========================================================================
     if (
       blockElement.tagName === "BLOCKQUOTE" ||
@@ -1437,9 +1443,8 @@ document.addEventListener("keydown", function(event) {
       return; // Stop further execution
     }
       
-
     //==========================================================================
-    // SECTION 2: For all other elements, proceed with normal paragraph creation
+    // SECTION 3: For all other elements, proceed with normal paragraph creation
     //==========================================================================
     event.preventDefault();
     
