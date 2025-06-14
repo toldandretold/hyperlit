@@ -1,4 +1,4 @@
-/* hyperlit colors: 
+/* hyperlit colors:  
 orange #EF8D34; 
 pink #EE4A95; 
 aqua #4EACAE; 
@@ -12,6 +12,10 @@ html, body {
     margin: 0;
     padding: 0;
     overflow: hidden; /* Prevent body from scrolling */
+}
+
+#conversion-message {
+    color: #221F20;
 }
 
 body {

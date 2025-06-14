@@ -353,9 +353,6 @@ export function getNextDecimalForBase(base) {
   return `${base}.1`;
 }
 
-
-
-
 export function getNextIntegerId(id) {
   const n = Math.floor(parseFloat(id));
   return String(n + 1);
@@ -363,3 +360,96 @@ export function getNextIntegerId(id) {
 
 
 
+
+
+// Replace original ensureNodeHasValidId with enhanced version using decimal logic.
+export function ensureNodeHasValidId(node, options = {}) {
+  const { referenceNode, insertAfter } = options;
+  if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+  // 🆕 NEW: Skip elements that shouldn't have IDs
+  const skipElements = ['BR', 'SPAN', 'EM', 'STRONG', 'I', 'B', 'U', 'SUP', 'SUB'];
+  if (skipElements.includes(node.tagName)) {
+    console.log(`Skipping ID assignment for ${node.tagName} element`);
+    return;
+  }
+  
+  if (window.__enterKeyInfo && Date.now() - window.__enterKeyInfo.timestamp < 500) {
+    const { nodeId, cursorPosition } = window.__enterKeyInfo;
+    const referenceNode = document.getElementById(nodeId);
+    if (referenceNode) {
+      if (cursorPosition === "start") {
+        const parent = referenceNode.parentElement;
+        if (parent) {
+          const siblings = Array.from(parent.children);
+          const refIndex = siblings.indexOf(referenceNode);
+          if (refIndex > 0) {
+            const nodeAbove = siblings[refIndex - 1];
+            if (nodeAbove.id) {
+              const baseMatch = nodeAbove.id.match(/^(\d+)/);
+              if (baseMatch) {
+                const baseId = baseMatch[1];
+                node.id = getNextDecimalForBase(baseId);
+                console.log(`Cursor at start: New node gets ID ${node.id} based on node above (${nodeAbove.id})`);
+                window.__enterKeyInfo = null;
+                return;
+              }
+            }
+          } else {
+            const baseMatch = referenceNode.id.match(/^(\d+)/);
+            if (baseMatch) {
+              const baseId = parseInt(baseMatch[1], 10);
+              const newBaseId = Math.max(1, baseId - 1).toString();
+              node.id = newBaseId;
+              console.log(`No node above; new node gets ID ${node.id} (one less than reference ${referenceNode.id})`);
+              window.__enterKeyInfo = null;
+              return;
+            }
+          }
+        }
+      } else {
+        const baseMatch = referenceNode.id.match(/^(\d+)/);
+        if (baseMatch) {
+          const baseId = baseMatch[1];
+          node.id = getNextDecimalForBase(baseId);
+          console.log(`Cursor at ${cursorPosition}: New node gets ${node.id}, reference node stays ${referenceNode.id}`);
+          window.__enterKeyInfo = null;
+          return;
+        }
+      }
+    }
+    window.__enterKeyInfo = null;
+  }
+
+  
+  // If node already has an id, check for duplicates:
+  if (node.id) {
+    if (isDuplicateId(node.id)) {
+      const match = node.id.match(/^(\d+)(\.\d+)?$/);
+      if (match) {
+        const baseId = match[1];
+        const newId = getNextDecimalForBase(baseId);
+        console.log(`ID conflict detected. Changing node id from ${node.id} to ${newId}`);
+        node.id = newId;
+      } else {
+        const oldId = node.id;
+        node.id = generateUniqueId();
+        console.log(`ID conflict detected (non-numeric). Changing node id from ${oldId} to ${node.id}`);
+      }
+    }
+  } else {
+    // NEW: Determine proper numerical ID based on position
+    if (referenceNode && typeof insertAfter === "boolean") {
+      node.id = generateInsertedNodeId(referenceNode, insertAfter);
+      console.log(`Assigned new id ${node.id} based on reference insertion direction.`);
+    } else {
+      // Find the node's position in the DOM and assign appropriate ID
+      const beforeId = findPreviousElementId(node);
+      const afterId = findNextElementId(node);
+      
+      node.id = generateIdBetween(beforeId, afterId);
+      console.log(`Assigned positional id ${node.id} to node <${node.tagName.toLowerCase()}> (between ${beforeId} and ${afterId})`);
+    }
+  }
+  
+}

@@ -39,7 +39,8 @@ import "./hyperCites.js";
 import {attachUnderlineClickListeners} from "./hyperCites.js";
 import { initializeBroadcastListener } from "./BroadcastListener.js";
 import { initEditToolbar } from "./editToolbar.js";
-
+// resources/js/app.js
+import DOMPurify from 'dompurify';
 
 
 window.uiState = {

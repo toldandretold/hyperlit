@@ -406,6 +406,19 @@ export async function handleChunkOverflow(currentChunk, mutations) {
 
 
 
+export function getCurrentChunk() {
+  const selection = document.getSelection();
+  if (selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    let node = range.startContainer;
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      node = node.parentElement;
+    }
+    const chunkElement = node.closest(".chunk");
+    return chunkElement ? chunkElement.id || chunkElement.dataset.chunkId : null;
+  }
+  return null;
+}
 
 
 

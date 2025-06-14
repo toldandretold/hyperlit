@@ -1,4 +1,5 @@
 
+
 console.log('App.js is loaded');
 
 if ("serviceWorker" in navigator) {
