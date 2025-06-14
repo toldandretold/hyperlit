@@ -387,7 +387,7 @@ function _navigateToInternalId(targetId, lazyLoader) {
       setTimeout(() => {
         console.log(`Opening highlight after navigation: ${targetId}`);
         openHighlightById(targetId);
-      }, 800);
+      }, 400);
     }
 
 

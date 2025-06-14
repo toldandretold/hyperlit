@@ -141,96 +141,81 @@ if (!window.isInitialized) {
 
 
 document.addEventListener("click", (event) => {
-  // First, check if we're clicking on a navigation element or button
-  if (event.target.closest("#nav-buttons") || 
-      event.target.closest("#logoContainer") || 
-      event.target.closest("#topRightContainer")) {
+  // 1) Nav/logo buttons – leave them alone
+  if (
+    event.target.closest("#nav-buttons") ||
+    event.target.closest("#logoContainer") ||
+    event.target.closest("#topRightContainer")
+  ) {
     console.log("Click on navigation element, allowing normal behavior");
-    return; // Let the navigation buttons handle their own clicks
+    return;
   }
-  
-  // Check if any container is active (not just source-container)
-  const activeContainer = window.uiState?.activeContainer || window.activeContainer;
-  
-  console.log("Active container:", activeContainer);
-  
+
+  // 2) If some popup/hyperlight is active *and* the click is *outside* of it, bail
+  const activeContainer =
+    window.uiState?.activeContainer || window.activeContainer;
   if (activeContainer && activeContainer !== "main-content") {
-    console.log(`${activeContainer} is active; skipping link handling`);
-    
-    // Only stop propagation for clicks outside the active container
-    // This allows clicks inside the container to work normally
-    const containerElement = document.getElementById(activeContainer);
-    if (containerElement && !event.target.closest(`#${activeContainer}`)) {
-      console.log("Click outside active container, preventing default");
-      // Don't prevent default here, as it might interfere with other click handlers
-      // Just return early to skip the link handling
+    console.log(`${activeContainer} is active; checking bounds`);
+    const containerEl = document.getElementById(activeContainer);
+    if (!containerEl) {
+      console.warn("No element for activeContainer, bailing");
       return;
     }
-    
-    // If we're here, the click was inside the active container
-    // Let it proceed normally
-    return;
+    // ONLY bail if click was *outside* the active container
+    if (!event.target.closest(`#${activeContainer}`)) {
+      console.log("Click outside active container, skipping link logic");
+      return;
+    }
+    // NOTE: **NO** return here if click was inside.
+    console.log("Click inside active container, proceeding to link logic");
   }
 
-  // If we get here, no container is active, so proceed with link handling
-  console.log("No active container, checking for links");
+  // 3) Now handle <a> clicks
   const link = event.target.closest("a");
-  if (!link) return; // Not a link click
-  
+  if (!link) return;
+
   const href = link.getAttribute("href").trim();
-  
-  // Handle hash-only links (internal navigation)
+
+  // 4) Pure-hash in-page links
   if (href.startsWith("#")) {
     event.preventDefault();
-    const targetId = link.hash.substring(1);
-    navigateToInternalId(targetId, currentLazyLoader);
-    console.log(
-      `Navigating internally to ${targetId} in container: ${currentLazyLoader.container.id}`
-    );
+    navigateToInternalId(href.slice(1), currentLazyLoader);
+    console.log(`Hash-only → nav to ${href}`);
     return;
   }
-  
-  // Handle links to highlights within the same book
-  // Check if the link is to the current book and contains a highlight ID
-  const currentPath = window.location.pathname;
-  const currentBook = currentPath.split('/').filter(Boolean)[0]; // Get the book name from the URL
-  
-  // Parse the href to check if it's a link to a highlight in the same book
-  const hrefParts = href.split('/');
-  const isInternalBookLink = href.includes(currentBook);
-  
-  // Check for highlight ID pattern in the URL (HL_followed by numbers)
-  const highlightMatch = href.match(/\/HL_\d+/);
-  
-  if (isInternalBookLink && highlightMatch) {
+
+  // 5) Same-book + HL_#### detection via the URL API
+  const url = new URL(link.href, window.location.origin);
+  // external?
+  if (url.origin !== window.location.origin) return;
+
+  // path → [“book”, “HL_1234”]
+  const [bookSegment, hlSegment] = url.pathname.split("/").filter(Boolean);
+  const currentBook = window.location.pathname
+    .split("/")
+    .filter(Boolean)[0];
+  const hlMatch = hlSegment && hlSegment.match(/^HL_(\d+)$/);
+
+  if (bookSegment === currentBook && hlMatch) {
+    // WE INTERCEPT HERE
     event.preventDefault();
-    
-    // Extract the highlight ID
-    const highlightId = highlightMatch[0].substring(1); // Remove the leading slash
-    console.log(`Detected internal highlight link to: ${highlightId}`);
-    
-    // Check if there's a hash for an internal element within the highlight
-    const internalId = link.hash ? link.hash.substring(1) : null;
-    
-    // If there's an internal ID, store it in the URL hash
-    if (internalId) {
-      // Update the URL hash without triggering a page reload
-      window.history.pushState(null, '', `#${internalId}`);
-      console.log(`Setting internal ID in hash: ${internalId}`);
-    } else {
-      // Clear the hash if there's no internal ID
-      window.history.pushState(null, '', window.location.pathname);
-    }
-    
-    // Navigate to the highlight
-    navigateToInternalId(highlightId, currentLazyLoader);
-    
+    event.stopImmediatePropagation();
+    const highlightId = hlMatch[0];
+    const internalId = url.hash ? url.hash.slice(1) : null;
+
+    // pushState to avoid reload
+    const newPath =
+      `/${currentBook}/${highlightId}` + (internalId ? `#${internalId}` : "");
+    window.history.pushState(null, "", newPath);
+
+    console.log(`Internal highlight link → ${highlightId}` +
+      (internalId ? `#${internalId}` : ""));
+    navigateToInternalId(highlightId, currentLazyLoader, internalId);
     return;
   }
 
-  // For links that don't start with "#", let them be resolved normally
+  // 6) otherwise, fall through and let the browser do the full navigation
 });
-
 
 
 

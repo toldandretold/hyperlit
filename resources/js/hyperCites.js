@@ -7,6 +7,7 @@ import { openDatabase,
          updateBookTimestamp  } from "./cache-indexedDB.js";
 import { ContainerManager } from "./container-manager.js";
 import { formatBibtexToCitation } from "./bibtexProcessor.js";
+import { currentLazyLoader } from './initializePage.js';
 
 
 
@@ -467,11 +468,10 @@ async function CoupleClick(uElement) {
   }
   console.log("Parent element found:", parent);
 
-  const startLine = parent.id; // Keep as string for now
-  const bookId = book || "latest"; // Use the imported book variable
+  const startLine = parent.id;
+  const bookId = book || "latest";
 
   try {
-    // getHyperciteData will handle the conversion to numeric format
     const nodeChunk = await getHyperciteData(bookId, startLine);
     if (!nodeChunk) {
       console.error(
@@ -481,12 +481,10 @@ async function CoupleClick(uElement) {
     }
     console.log("Retrieved nodeChunk:", nodeChunk);
 
-    // Get the hyperciteId from the clicked <u> tag
     const clickedHyperciteId = uElement.id;
     let link = null;
 
     if (nodeChunk.hypercites && nodeChunk.hypercites.length > 0) {
-      // Look for the hypercite that matches the clicked hyperciteId
       const matchingHypercite = nodeChunk.hypercites.find(
         (hyper) => hyper.hyperciteId === clickedHyperciteId
       );
@@ -506,7 +504,44 @@ async function CoupleClick(uElement) {
         link = window.location.origin + link;
       }
       console.log("Opening link:", link);
+
+      // Check if this is a same-book highlight link
+      const url = new URL(link, window.location.origin);
+      if (url.origin === window.location.origin) {
+        const [bookSegment, hlSegment] = url.pathname.split("/").filter(Boolean);
+        const currentBook = window.location.pathname.split("/").filter(Boolean)[0];
+        const hlMatch = hlSegment && hlSegment.match(/^HL_(.+)$/);
+        
+        if (bookSegment === currentBook && hlMatch) {
+          console.log("✅ Same-book highlight link detected in hypercite");
+          
+          const highlightId = hlMatch[0]; // "HL_1749896203081"
+          const internalId = url.hash ? url.hash.slice(1) : null;
+          
+          // Update URL
+          const newPath = `/${currentBook}/${highlightId}` + (internalId ? `#${internalId}` : "");
+          window.history.pushState(null, "", newPath);
+          
+          // Use navigateToInternalId for everything - it handles highlight opening AND scrolling
+          if (internalId) {
+            // If there's an internal ID, navigate to the highlight first, then to the internal ID
+            navigateToInternalId(highlightId, currentLazyLoader);
+            // Wait for highlight to open, then navigate to internal ID
+            setTimeout(() => {
+              navigateToInternalId(internalId, currentLazyLoader);
+            }, 1000); // Increased timeout to ensure highlight opens first
+          } else {
+            // Just navigate to the highlight
+            navigateToInternalId(highlightId, currentLazyLoader);
+          }
+          
+          return; // Don't do normal navigation
+        }
+      }
+      
+      // If not a same-book highlight, do normal navigation
       window.location.href = link;
+      
     } else {
       console.error(
         "No citedIN link found for clicked hyperciteId:",
@@ -518,7 +553,6 @@ async function CoupleClick(uElement) {
     console.error("Failed to retrieve hypercite data:", error);
   }
 }
-
 /**
  * Function to handle clicks on underlined elements based on their class
  * @param {HTMLElement} uElement - The underlined element that was clicked

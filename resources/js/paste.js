@@ -127,19 +127,17 @@ async function showProgressModal() {
  * Take raw clipboard HTML, sanitize it, turn inline‐style hints into
  * semantic tags (h1–h3, blockquote), remove all style/span wrappers,
  * and return the cleaned HTML string.
- */
-function assimilateHTML(rawHtml) {
-  // 1) Sanitize incoming HTML
+ */function assimilateHTML(rawHtml) {
+  // 1) sanitize
   const cleanHtml = DOMPurify.sanitize(rawHtml, {
     USE_PROFILES: { html: true }
   });
 
-  // 2) Parse into a document
-  const doc    = new DOMParser().parseFromString(cleanHtml, 'text/html');
-  const body   = doc.body;
+  // 2) parse
+  const doc = new DOMParser().parseFromString(cleanHtml, 'text/html');
+  const body = doc.body;
 
-
-  // 4) Rules: px size → heading level
+  // 3) heading rules
   const headingRules = [
     { minPx: 24, tag: 'h1' },
     { minPx: 20, tag: 'h2' },
@@ -161,7 +159,8 @@ function assimilateHTML(rawHtml) {
     el.remove();
   }
 
-  const walker = doc.createTreeWalker(body, NodeFilter.SHOW_ELEMENT, null);
+  // 4) walk & transform spans / headings / blockquotes
+  const walker = doc.createTreeWalker(body, NodeFilter.SHOW_ELEMENT);
   let node;
   while ((node = walker.nextNode())) {
     const style = node.getAttribute('style') || '';
@@ -172,13 +171,13 @@ function assimilateHTML(rawHtml) {
     });
     node.removeAttribute('style');
 
-    // 1) Unwrap spans everywhere
+    // unwrap spans
     if (node.tagName === 'SPAN') {
       unwrap(node);
       continue;
     }
 
-    // 2) <p> → heading?
+    // <p> → heading?
     if (node.tagName === 'P') {
       let px = null;
       if (styleMap['font-size']) {
@@ -191,23 +190,73 @@ function assimilateHTML(rawHtml) {
         const rule = headingRules.find(r => px >= r.minPx);
         if (rule) {
           node = replaceTag(node, rule.tag);
-          // unwrap any <b> inside this new heading
           Array.from(node.querySelectorAll('b')).forEach(unwrap);
-          continue;  // move on to next node
+          continue;
         }
       }
     }
 
-    // 3) blockquote for indent/italic
+    // blockquote for indent/italic
     const ml = parseInt(styleMap['margin-left'], 10) || 0;
     if (ml > 20 || styleMap['font-style'] === 'italic') {
-      node = replaceTag(node, 'blockquote');
+      replaceTag(node, 'blockquote');
       continue;
     }
-
-    
   }
 
+  // 5) normalize paragraphs (merge runs of non-empty <p>)
+  (function normalizeParas() {
+  const newKids = [];
+  let buffer = [];
+
+  function flushBuffer() {
+    if (buffer.length === 0) return;
+    const p = doc.createElement('p');
+    p.innerHTML = buffer
+      .map(n => n.innerHTML.trim())
+      .filter(s => s.length > 0)
+      .join('<br>');
+    newKids.push(p);
+    buffer = [];
+  }
+
+  body.childNodes.forEach(n => {
+    // 1) skip pure-whitespace text nodes entirely
+    if (n.nodeType === Node.TEXT_NODE) {
+      if (!n.textContent.trim()) return;
+      // if it’s real text, flush any <p> buffer, then keep the text
+      flushBuffer();
+      newKids.push(n.cloneNode());
+      return;
+    }
+
+    // 2) if it’s a <p>
+    if (n.nodeType === Node.ELEMENT_NODE && n.tagName === 'P') {
+      const txt = n.textContent.trim();
+      if (!txt) {
+        // empty paragraph ⇒ true paragraph break
+        flushBuffer();
+      } else {
+        // accumulate into our buffer
+        buffer.push(n);
+      }
+      return;
+    }
+
+    // 3) any other element ⇒ flush and then copy it
+    flushBuffer();
+    newKids.push(n.cloneNode(true));
+  });
+
+  // flush any remaining <p> buffer at the end
+  flushBuffer();
+
+  // replace body content with our new normalized tree
+  body.innerHTML = '';
+  newKids.forEach(node => body.appendChild(node));
+})();
+
+  // 6) drop any remaining inline styles
   body.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
 
   return body.innerHTML;
