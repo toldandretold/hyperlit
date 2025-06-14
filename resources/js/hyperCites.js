@@ -537,6 +537,18 @@ async function CoupleClick(uElement) {
           
           return; // Don't do normal navigation
         }
+
+        if (bookSegment === currentBook) {
+          console.log("✅ Same-book internal link detected");
+          const internalId = url.hash ? url.hash.slice(1) : null;
+          
+          if (internalId) {
+            // Update URL and navigate to internal ID
+            window.history.pushState(null, "", `/${currentBook}#${internalId}`);
+            navigateToInternalId(internalId, currentLazyLoader);
+            return;
+          }
+        }
       }
       
       // If not a same-book highlight, do normal navigation

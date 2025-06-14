@@ -62,25 +62,23 @@ export class ContainerManager {
           const isCitationLink = href.includes("#hypercite_");
           
           if (isCitationLink) {
-            e.preventDefault(); // Prevent default navigation
-            
-            // Close the current container
-            this.closeContainer();
-            
-            // Navigate to the citation after a short delay
-            setTimeout(() => {
-              // If it's an absolute URL, use it directly
-              if (href.startsWith("http")) {
-                window.location.href = href;
-              } else {
-                // For relative URLs, resolve against current origin
-                const resolvedUrl = new URL(href, window.location.origin).href;
-                window.location.href = resolvedUrl;
-              }
-            }, 300); // Wait for container animation
-            
-            return;
-          }
+              e.preventDefault();
+              
+              // Extract the hash part
+              const url = new URL(href, window.location.origin);
+              const hash = url.hash ? url.hash.substring(1) : null;
+              
+              // Close the current container
+              this.closeContainer();
+              
+              
+              if (hash) {
+                  navigateToInternalId(hash, currentLazyLoader);
+                }
+              
+              
+              return;
+            }
           
           // Create URL objects for comparison
           const currentUrl = new URL(window.location.href);
