@@ -27,8 +27,6 @@ import {
 import {
   generateTableOfContents,
   toggleTOC
-  // We no longer import tocContainer, tocOverlay, tocButton because
-  // we'll fetch them after DOM is ready.
 } from "./toc.js";
 import NavButtons from "./nav-buttons.js";
 import { currentLazyLoader } from "./initializePage.js";
@@ -171,50 +169,65 @@ document.addEventListener("click", (event) => {
   }
 
   // 3) Now handle <a> clicks
-  const link = event.target.closest("a");
-  if (!link) return;
+    const link = event.target.closest("a");
+    if (!link) return;
 
-  const href = link.getAttribute("href").trim();
+    const href = link.getAttribute("href").trim();
 
-  // 4) Pure-hash in-page links
-  if (href.startsWith("#")) {
-    event.preventDefault();
-    navigateToInternalId(href.slice(1), currentLazyLoader);
-    console.log(`Hash-only → nav to ${href}`);
-    return;
-  }
+    // 4) Pure-hash in-page links
+    if (href.startsWith("#")) {
+      event.preventDefault();
+      navigateToInternalId(href.slice(1), currentLazyLoader);
+      console.log(`Hash-only → nav to ${href}`);
+      return;
+    }
 
-  // 5) Same-book + HL_#### detection via the URL API
-  const url = new URL(link.href, window.location.origin);
-  // external?
-  if (url.origin !== window.location.origin) return;
+    // 5) Same-book + HL_#### detection via the URL API
+    const url = new URL(link.href, window.location.origin);
+    // external?
+    if (url.origin !== window.location.origin) return;
 
-  // path → [“book”, “HL_1234”]
-  const [bookSegment, hlSegment] = url.pathname.split("/").filter(Boolean);
-  const currentBook = window.location.pathname
-    .split("/")
-    .filter(Boolean)[0];
-  const hlMatch = hlSegment && hlSegment.match(/^HL_(\d+)$/);
+    // path → ["book", "HL_1234"]
+    const [bookSegment, hlSegment] = url.pathname.split("/").filter(Boolean);
+    const currentBook = window.location.pathname
+      .split("/")
+      .filter(Boolean)[0];
+    const hlMatch = hlSegment && hlSegment.match(/^HL_(\d+)$/);
 
-  if (bookSegment === currentBook && hlMatch) {
-    // WE INTERCEPT HERE
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    const highlightId = hlMatch[0];
-    const internalId = url.hash ? url.hash.slice(1) : null;
+    if (bookSegment === currentBook && hlMatch) {
+      // WE INTERCEPT HERE
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const highlightId = hlMatch[0];
+      const internalId = url.hash ? url.hash.slice(1) : null;
 
-    // pushState to avoid reload
-    const newPath =
-      `/${currentBook}/${highlightId}` + (internalId ? `#${internalId}` : "");
-    window.history.pushState(null, "", newPath);
+      // pushState to avoid reload
+      const newPath =
+        `/${currentBook}/${highlightId}` + (internalId ? `#${internalId}` : "");
+      window.history.pushState(null, "", newPath);
 
-    console.log(`Internal highlight link → ${highlightId}` +
-      (internalId ? `#${internalId}` : ""));
-    navigateToInternalId(highlightId, currentLazyLoader, internalId);
-    return;
-  }
+      console.log(`Internal highlight link → ${highlightId}` +
+        (internalId ? `#${internalId}` : ""));
+      navigateToInternalId(highlightId, currentLazyLoader, internalId);
+      return;
+    }
 
-  // 6) otherwise, fall through and let the browser do the full navigation
+    // 6) Same-book hypercite links (e.g., /book#hypercite_lxk9tha)
+    if (bookSegment === currentBook && url.hash) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const internalId = url.hash.slice(1); // Remove the #
+      
+      // pushState to update URL
+      window.history.pushState(null, "", `/${currentBook}#${internalId}`);
+      
+      console.log(`Same-book hypercite → nav to ${internalId}`);
+      navigateToInternalId(internalId, currentLazyLoader);
+      return;
+    }
+
+    // 7) otherwise, fall through and let the browser do the full navigation
+  
 });
 
 
