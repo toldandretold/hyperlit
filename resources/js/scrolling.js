@@ -382,13 +382,44 @@ function _navigateToInternalId(targetId, lazyLoader) {
     scrollElementIntoContainer(existingElement, lazyLoader.container, 50);
     
     // Check if this is a highlight ID (starts with HL_)
-    if (targetId.startsWith('HL_')) {
-      // Wait a moment for the scroll to complete, then open the highlight
-      setTimeout(() => {
-        console.log(`Opening highlight after navigation: ${targetId}`);
-        openHighlightById(targetId);
-      }, 400);
+   if (targetId.startsWith('HL_')) {
+    // Check if the highlight element is already visible
+    const highlightElement = lazyLoader.container.querySelector(`#${CSS.escape(targetId)}`);
+    
+    let delay = 100; // Default short delay
+    
+    if (highlightElement) {
+      // Check if element is in viewport
+      const rect = highlightElement.getBoundingClientRect();
+      const containerRect = lazyLoader.container.getBoundingClientRect();
+      
+      const isVisible = (
+        rect.top >= containerRect.top &&
+        rect.bottom <= containerRect.bottom &&
+        rect.left >= containerRect.left &&
+        rect.right <= containerRect.right
+      );
+      
+      if (!isVisible) {
+        // Element exists but not visible - needs scrolling
+        delay = 400;
+        console.log(`Highlight ${targetId} needs scrolling, using ${delay}ms delay`);
+      } else {
+        // Element is already visible - minimal delay
+        delay = 100;
+        console.log(`Highlight ${targetId} already visible, using ${delay}ms delay`);
+      }
+    } else {
+      // Element doesn't exist yet - will need loading and scrolling
+      delay = 800;
+      console.log(`Highlight ${targetId} not loaded yet, using ${delay}ms delay`);
     }
+    
+    setTimeout(() => {
+      console.log(`Opening highlight after navigation: ${targetId}`);
+      openHighlightById(targetId);
+    }, delay);
+  }
 
 
     setTimeout(() => {
