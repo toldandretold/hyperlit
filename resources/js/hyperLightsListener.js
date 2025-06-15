@@ -325,6 +325,7 @@ function saveHighlightAnnotation(highlightId, annotationHTML) {
       
       updateRequest.onsuccess = () => {
         console.log(`Successfully saved annotation for highlight ${highlightId}`);
+        updateAnnotationInPostgreSQL(highlightData);
       };
       
       updateRequest.onerror = (event) => {
@@ -338,6 +339,34 @@ function saveHighlightAnnotation(highlightId, annotationHTML) {
   }).catch(error => {
     console.error("Database error when saving annotation:", error);
   });
+}
+
+function updateAnnotationInPostgreSQL(highlightData){
+  fetch('/api/db/hyperlights/upsert', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+          },
+          body: JSON.stringify({
+            data: [{
+              book: highlightData.book,
+              hyperlight_id: highlightData.hyperlight_id,
+              annotation: highlightData.annotation
+            }]
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            console.log('Annotation synced to server successfully');
+          } else {
+            console.error('Failed to sync annotation to server:', data.message);
+          }
+        })
+        .catch(error => {
+          console.error('Error syncing annotation to server:', error);
+        });
 }
 
 /**

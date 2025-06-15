@@ -5,8 +5,6 @@ import { openDatabase } from './cache-indexedDB.js';
 // Debounce timer variable for the highlight container.
 let annotationDebounceTimer = null;
 
-
-
 /**
  * Extracts the current HTML content from within the annotation element.
  * Assumes .annotation is found inside the highlight container.
@@ -47,7 +45,6 @@ export const saveAnnotationToIndexedDB = (highlightId, annotationHTML) =>
       tx.onerror    = () => rej(tx.error);
     });
   });
-
 
 
 export function attachAnnotationListener(highlightId) {
@@ -93,6 +90,32 @@ export function attachAnnotationListener(highlightId) {
           tx.oncomplete = () => res();
           tx.onerror    = () => rej(tx.error);
         });
+
+        // Sync annotation to PostgreSQL
+        try {
+          const response = await fetch('/api/db/hyperlights/upsert', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+            },
+            body: JSON.stringify({
+              data: [{
+                book: record.book,
+                hyperlight_id: record.hyperlight_id,
+                annotation: html
+              }]
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to sync annotation: ${response.statusText}`);
+          }
+
+          console.log('Annotation synced to PostgreSQL');
+        } catch (error) {
+          console.error('Error syncing annotation to PostgreSQL:', error);
+        }
       }).catch(console.error);
     }, 1000);
   });
