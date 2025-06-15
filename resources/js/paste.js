@@ -991,10 +991,15 @@ async function handleJsonPaste(event, insertionPoint, pastedContent, isHtmlConte
 function handleHypercitePaste(event) {
   const clipboardHtml = event.clipboardData.getData("text/html");
   if (!clipboardHtml) return false;
+
+  console.log("🔍 DEBUG - Raw clipboard HTML:", clipboardHtml); // ADD THIS
   
   // Parse clipboard HTML
   const pasteWrapper = document.createElement("div");
   pasteWrapper.innerHTML = clipboardHtml;
+
+  console.log("🔍 DEBUG - Parsed wrapper innerHTML:", pasteWrapper.innerHTML); // ADD THIS
+  console.log("🔍 DEBUG - Wrapper structure:", pasteWrapper); // ADD THIS
   
   // Clear any numeric IDs to prevent conflicts
   pasteWrapper.querySelectorAll('[id]').forEach(el => {
@@ -1038,24 +1043,44 @@ function handleHypercitePaste(event) {
   
   // Extract quoted text - IMPROVED VERSION
   let quotedText = "";
-  
-  // First try to find the text directly before the citation link
-  let textNode = citeLink.previousSibling;
-  while (textNode) {
-    if (textNode.nodeType === Node.TEXT_NODE) {
-      quotedText = textNode.textContent.trim() + quotedText;
-      break;
-    }
-    textNode = textNode.previousSibling;
+
+  // Method 1: Try regex to extract quoted text from raw HTML
+  const quoteMatch = clipboardHtml.match(/'([^']*)'/);
+  if (quoteMatch) {
+    quotedText = quoteMatch[1];
+    console.log("🔍 Found quoted text via regex:", quotedText);
   }
-  
-  // If that didn't work, try the fallback method
+
+  // Method 2: If regex failed, try DOM parsing
+  if (!quotedText) {
+    // First try to find the text directly before the citation link
+    let textNode = citeLink.previousSibling;
+    while (textNode) {
+      if (textNode.nodeType === Node.TEXT_NODE) {
+        quotedText = textNode.textContent.trim() + quotedText;
+        break;
+      } else if (textNode.nodeType === Node.ELEMENT_NODE) {
+        // Check if it's a span or other element containing text
+        const textContent = textNode.textContent.trim();
+        if (textContent) {
+          quotedText = textContent + quotedText;
+          break;
+        }
+      }
+      textNode = textNode.previousSibling;
+    }
+    console.log("🔍 Found quoted text via DOM:", quotedText);
+  }
+
+  // Method 3: Fallback - extract all text before the link
   if (!quotedText) {
     quotedText = extractQuotedText(pasteWrapper);
+    console.log("🔍 Found quoted text via fallback:", quotedText);
   }
-  
-  // Remove any blockquote tags or other structural elements from the quoted text
+
+  // Clean up the quoted text
   quotedText = quotedText.replace(/^['"]|['"]$/g, ''); // Remove quotes
+  console.log("🔍 Final cleaned quoted text:", `"${quotedText}"`);
   
   // Create the reference HTML with no space between text and sup
   const referenceHtml = `'${quotedText}'<a href="${originalHref}" id="${hyperciteIDb}">\u200B<sup class="open-icon">↗</sup></a>`;
