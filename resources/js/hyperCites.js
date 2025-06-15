@@ -8,45 +8,67 @@ import { openDatabase,
 import { ContainerManager } from "./container-manager.js";
 import { formatBibtexToCitation } from "./bibtexProcessor.js";
 import { currentLazyLoader } from './initializePage.js';
+import { addTouchAndClickListener } from './hyperLights.js';
 
 
 
-// Event listener for copying text and creating a hypercite
-document.addEventListener("copy", (event) => {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) {
-    return; // Do nothing if no text is selected
+
+// Button does the EXACT same thing as the old copy event
+addTouchAndClickListener(
+  document.getElementById("copy-hypercite"),
+  async function(buttonEvent) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      return; // Do nothing if no text is selected
+    }
+
+    const hyperciteId = generateHyperciteID();
+
+    if (!book) {
+      console.error("Book identifier not found.");
+      return;
+    }
+
+    // Get the current site URL
+    const currentSiteUrl = `${window.location.origin}`; // E.g., "https://thissite.com"
+    const citationIdA = book; // Assign 'book' to 'citation_id_a'
+    const hypercitedText = selection.toString(); // The actual text being copied
+    const hrefA = `${currentSiteUrl}/${citationIdA}#${hyperciteId}`; // Construct href_a dynamically
+
+    // Extract plain text from the selection
+    const selectedText = selection.toString().trim(); // Plain text version of selected content
+
+    // Create the HTML and plain text for the clipboard, including the full URL
+    const clipboardHtml = `'${selectedText}'<a href="${hrefA}" id="${hyperciteId}"><span class="open-icon">↗</span></a>`;
+    const clipboardText = `'${selectedText}' [↗](${hrefA})`;
+
+    // 🔍 DEBUG LOGS - Let's see what we're actually copying
+    console.log("🔍 COPY EVENT DEBUG:");
+    console.log("Selected text:", `"${selectedText}"`);
+    console.log("Clipboard HTML:", clipboardHtml);
+    console.log("Clipboard Text:", clipboardText);
+
+    // Use the modern Clipboard API to set the EXACT same data
+    try {
+      const clipboardItem = new ClipboardItem({
+        'text/html': new Blob([clipboardHtml], { type: 'text/html' }),
+        'text/plain': new Blob([clipboardText], { type: 'text/plain' })
+      });
+      
+      await navigator.clipboard.write([clipboardItem]);
+      
+      // 🔍 DEBUG - Verify what was actually set (can't read back from Clipboard API, but we know what we sent)
+      console.log("Actually set HTML:", clipboardHtml);
+      console.log("Actually set Text:", clipboardText);
+      
+    } catch (error) {
+      console.error("❌ Clipboard write failed:", error);
+    }
+
+    // Wrap the selected text in the DOM and update IndexedDB
+    wrapSelectedTextInDOM(hyperciteId, citationIdA);
   }
-
-  const hyperciteId = generateHyperciteID();
-
-  if (!book) {
-    console.error("Book identifier not found.");
-    return;
-  }
-
-  // Get the current site URL
-  const currentSiteUrl = `${window.location.origin}`; // E.g., "https://thissite.com"
-  const citationIdA = book; // Assign 'book' to 'citation_id_a'
-  const hypercitedText = selection.toString(); // The actual text being copied
-  const hrefA = `${currentSiteUrl}/${citationIdA}#${hyperciteId}`; // Construct href_a dynamically
-
-  // Extract plain text from the selection
-  const selectedText = selection.toString().trim(); // Plain text version of selected content
-
-  // Create the HTML and plain text for the clipboard, including the full URL
-  // Make sure this structure matches what we're checking for in the paste event
-  const clipboardHtml = `'${selectedText}'<a href="${hrefA}" id="${hyperciteId}"><span class="open-icon">↗</span></a>`;
-  const clipboardText = `'${selectedText}' [↗](${hrefA})`;
-
-  // Set clipboard data
-  event.clipboardData.setData("text/html", clipboardHtml);
-  event.clipboardData.setData("text/plain", clipboardText);
-  event.preventDefault(); // Prevent default copy behavior
-
-  // Wrap the selected text in the DOM and update IndexedDB
-  wrapSelectedTextInDOM(hyperciteId, citationIdA);
-});
+);
 
 
 function wrapSelectedTextInDOM(hyperciteId, book) {

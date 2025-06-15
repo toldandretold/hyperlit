@@ -319,7 +319,7 @@ document.getElementById('hyperlight-buttons').addEventListener('click', function
 });
 
 // Helper function to bind click and touchstart events
-function addTouchAndClickListener(element, handler) {
+export function addTouchAndClickListener(element, handler) {
   element.addEventListener("mousedown", function (event) {
     event.preventDefault();
     event.stopPropagation();
@@ -395,7 +395,6 @@ async function addToHighlightsTable(highlightData) {
 
     addRequest.onsuccess = () => {
       console.log("✅ Successfully added highlight to hyperlights table"); 
-      syncHyperlightDataToPostgreSQL();
       resolve();
     };
 
@@ -406,29 +405,7 @@ async function addToHighlightsTable(highlightData) {
   });
 }
 
-function syncHyperlightDataToPostgreSQL(){
-      fetch('/api/db/hyperlights/upsert', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-        },
-        body: JSON.stringify({
-          data: [highlightEntry]
-        })
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          console.log('Highlight synced to server successfully');
-        } else {
-          console.error('Failed to sync highlight to server:', data.message);
-        }
-      })
-      .catch(error => {
-        console.error('Error syncing highlight to server:', error);
-      });
-}
+
 
 function calculateTrueCharacterOffset(container, textNode, offset) {
   // First, create a clone of the container to work with
