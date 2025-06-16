@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\HighlightController;
 use App\Http\Controllers\HighlightMdController;
 use App\Http\Controllers\HyperciteController;
@@ -15,9 +16,12 @@ use App\Http\Controllers\MainTextEditableMarkdownController;
 use App\Http\Controllers\DataController;
 use ParsedownExtra\ParsedownExtra;
 use App\Events\TestEvent;
-// In routes/web.php
+
 use App\Events\ProcessComplete;
 use App\Http\Controllers\FootnotesController;
+
+use Illuminate\Http\Request;
+use App\Models\User;
 
 Route::get('/test-broadcast', function () {
     broadcast(new ProcessComplete("citation_id_b complete"));
@@ -30,8 +34,32 @@ Route::get('/trigger-event', function () {
     return 'Event has been broadcasted!';
 });
 
+Route::post('/debug-login', function (Request $request) {
+    $credentials = $request->only('email', 'password');
+    
+    // Try manual authentication
+    if (Auth::attempt($credentials)) {
+        return response()->json([
+            'manual_auth' => 'success',
+            'user' => auth()->user(),
+            'session_id' => session()->getId(),
+            'auth_check' => auth()->check()
+        ]);
+    } else {
+        return response()->json([
+            'manual_auth' => 'failed',
+            'user_exists' => User::where('email', $request->email)->exists()
+        ]);
+    }
+});
 
 
+Route::get('/auth-check', function () {
+    return response()->json([
+        'authenticated' => auth()->check(),
+        'user' => auth()->user()
+    ]);
+});
 
 
 Route::get('/test-markdown', function () {
