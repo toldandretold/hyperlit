@@ -61,7 +61,42 @@ Route::get('/auth-check', function () {
     ]);
 });
 
-
+// web.php
+Route::get('/refresh-csrf', function (Request $request) {
+    \Log::info('CSRF refresh requested', [
+        'session_id' => $request->session()->getId(),
+        'has_session' => $request->hasSession(),
+        'csrf_token' => csrf_token(),
+        'user_agent' => $request->userAgent(),
+        'ip' => $request->ip()
+    ]);
+    
+    try {
+        // Ensure session is started
+        if (!$request->hasSession()) {
+            $request->session()->start();
+        }
+        
+        $newToken = csrf_token();
+        
+        return response()->json([
+            'csrf_token' => $newToken,
+            'session_id' => $request->session()->getId(),
+            'timestamp' => now()->toISOString()
+        ]);
+        
+    } catch (\Exception $e) {
+        \Log::error('CSRF refresh failed', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return response()->json([
+            'error' => 'Failed to refresh CSRF token',
+            'message' => $e->getMessage()
+        ], 500);
+    }
+});
 
 Route::get('/test-markdown', function () {
     $converter = new ParsedownExtra();
@@ -99,9 +134,9 @@ Route::get('/home', function () {
 });
  
 // Dashboard route with middleware
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+//Route::get('/dashboard', function () {
+    //return view('dashboard');
+//})->middleware(['auth', 'verified'])->name('dashboard');
 
 // Authenticated routes group
 Route::middleware('auth')->group(function () {
