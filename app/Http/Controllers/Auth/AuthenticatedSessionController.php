@@ -26,11 +26,13 @@ class AuthenticatedSessionController extends Controller
     public function store(LoginRequest $request): RedirectResponse|JsonResponse
         {
             $request->authenticate();
-
             $request->session()->regenerate();
 
-            // Check if request expects JSON (AJAX)
-            if ($request->expectsJson()) {
+            // Check multiple indicators for AJAX/JSON requests
+            if ($request->header('X-Requested-With') === 'XMLHttpRequest' ||
+                $request->header('Accept') === 'application/json' ||
+                str_contains($request->header('Accept', ''), 'application/json')) {
+                
                 return response()->json([
                     'success' => true,
                     'user' => auth()->user()
@@ -39,7 +41,6 @@ class AuthenticatedSessionController extends Controller
 
             return redirect()->intended(route('dashboard', absolute: false));
         }
-
     /**
      * Destroy an authenticated session.
      */
