@@ -11,6 +11,14 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
+
+Route::get('auth/check', function () {
+    return response()->json([
+        'authenticated' => auth()->check(),
+        'user' => auth()->user()
+    ]);
+});
+
 Route::middleware('guest')->group(function () {
     Route::get('register', [RegisteredUserController::class, 'create'])
                 ->name('register');

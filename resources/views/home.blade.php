@@ -1,6 +1,7 @@
 @extends('layout')
 
 @section('styles')
+   
 
     @vite(['resources/css/app.css', 'resources/css/reader.css', 'resources/css/highlight-div.css', 'resources/css/containers.css', 'resources/css/buttons.css', 'resources/css/form.css'])
 
