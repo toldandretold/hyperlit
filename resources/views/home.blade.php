@@ -83,7 +83,8 @@
 </div>
 
 <!-- buttons: clockwise from top-lept -->
-<div id="userContainer" onclick="window.location.href='{{ url('/') }}';">
+<div id="userButtonContainer">
+    <button type="button" class="open" id="userButton">
     <svg 
     id="userLogo" 
     xmlns="http://www.w3.org/2000/svg" 
@@ -95,6 +96,7 @@
         </g>
         <path d="M667.2,293.2H621v-27.3h46.2v-48.3h28.3v48.3h46.2v27.3 h-46.2v48.3h-28.3V293.2z"/>
         </svg>
+    </button>
 </div>
 
 <div id="topRightContainer">
@@ -152,6 +154,18 @@
 <div id="hypercite-container" class="hidden"></div>
 <div id="source-container" class="hidden"></div>
 <div id="ref-container" class="hidden"></div>
+<div id="user-container" class="hidden">
+  <div class="scroller">
+    <!-- Login/Register forms will go here -->
+    <div id="user-content">
+      <h2>User Login</h2>
+      <!-- Your login/register forms here -->
+    </div>
+  </div>
+  <div class="mask-bottom"></div>
+  <div class="mask-top"></div>
+</div>
+
 
 
 <div id="newbook-container" class="hidden">
@@ -222,6 +236,7 @@
 
 <div id="toc-overlay"></div>
 <div id="ref-overlay"></div>
+<div id="user-overlay"></div>
     
 
 

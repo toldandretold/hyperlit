@@ -25,7 +25,7 @@ export class ContainerManager {
     navButtons: true,
     logoContainer: true,
     topRightContainer: true,
-    userContainer: true  // Add this line
+    userButtonContainer: true  // Add this line
     };
 
     // Set up overlay click handler
@@ -48,7 +48,6 @@ export class ContainerManager {
       });
     }
 
-      // Add a new event listener for link clicks within the container
       // Add a new event listener for link clicks within the container
       if (this.container) {
         this.container.addEventListener("click", (e) => {
@@ -162,7 +161,7 @@ export class ContainerManager {
   const navButtons = document.getElementById("nav-buttons");
   const logoContainer = document.getElementById("logoContainer");
   const topRightContainer = document.getElementById("topRightContainer");
-  const userContainer = document.getElementById("userContainer"); // Add this line
+  const userButtonContainer = document.getElementById("userButtonContainer"); // Add this line
   
   if (navButtons) {
     this.navElementsState.navButtons = !navButtons.classList.contains("hidden-nav");
@@ -177,8 +176,8 @@ export class ContainerManager {
   }
   
   // Add this block
-  if (userContainer) {
-    this.navElementsState.userContainer = !userContainer.classList.contains("hidden-nav");
+  if (userButtonContainer) {
+    this.navElementsState.userButtonContainer = !userButtonContainer.classList.contains("hidden-nav");
   }
   
   console.log("Saved nav elements state:", this.navElementsState);
@@ -189,7 +188,7 @@ export class ContainerManager {
   const navButtons = document.getElementById("nav-buttons");
   const logoContainer = document.getElementById("logoContainer");
   const topRightContainer = document.getElementById("topRightContainer");
-  const userContainer = document.getElementById("userContainer"); // Add this line
+  const userButtonContainer = document.getElementById("userButtonContainer"); // Add this line
   
   if (navButtons) {
     if (this.navElementsState.navButtons) {
@@ -216,11 +215,11 @@ export class ContainerManager {
   }
   
   // Add this block
-  if (userContainer) {
-    if (this.navElementsState.userContainer) {
-      userContainer.classList.remove("hidden-nav");
+  if (userButtonContainer) {
+    if (this.navElementsState.userButtonContainer) {
+      userButtonContainer.classList.remove("hidden-nav");
     } else {
-      userContainer.classList.add("hidden-nav");
+      userButtonContainer.classList.add("hidden-nav");
     }
   }
   
@@ -247,7 +246,7 @@ export class ContainerManager {
       const navButtons = document.getElementById("nav-buttons");
       const logoContainer = document.getElementById("logoContainer");
       const topRightContainer = document.getElementById("topRightContainer");
-      const userContainer = document.getElementById("userContainer"); // Add this line
+      const userButtonContainer = document.getElementById("userButtonContainer"); // Add this line
 
       if (navButtons) {
         navButtons.classList.add("hidden-nav");
@@ -258,8 +257,8 @@ export class ContainerManager {
       if (topRightContainer) {
         topRightContainer.classList.add("hidden-nav");
       }
-      if (userContainer) { // Add this block
-        userContainer.classList.add("hidden-nav");
+      if (userButtonContainer) { // Add this block
+        userButtonContainer.classList.add("hidden-nav");
       }
     }
   } else {
@@ -313,7 +312,7 @@ openContainer(content = null, highlightId = null) {
     const navButtons = document.getElementById("nav-buttons");
     const logoContainer = document.getElementById("logoContainer");
     const topRightContainer = document.getElementById("topRightContainer");
-    const userContainer = document.getElementById("userContainer"); 
+    const userButtonContainer = document.getElementById("userButtonContainer"); 
     
     // Save state before hiding
     this.saveNavElementsState();
@@ -321,7 +320,7 @@ openContainer(content = null, highlightId = null) {
     if (navButtons) navButtons.classList.add("hidden-nav");
     if (logoContainer) logoContainer.classList.add("hidden-nav");
     if (topRightContainer) topRightContainer.classList.add("hidden-nav");
-    if (userContainer) userContainer.classList.add("hidden-nav"); 
+    if (userButtonContainer) userButtonContainer.classList.add("hidden-nav"); 
   }
   
   // Update state after making changes
@@ -350,12 +349,12 @@ closeContainer() {
     const navButtons = document.getElementById("nav-buttons");
     const logoContainer = document.getElementById("logoContainer");
     const topRightContainer = document.getElementById("topRightContainer");
-    const userContainer = document.getElementById("userContainer");
+    const userButtonContainer = document.getElementById("userButtonContainer");
     
     if (navButtons) navButtons.classList.remove("hidden-nav");
     if (logoContainer) logoContainer.classList.remove("hidden-nav");
     if (topRightContainer) topRightContainer.classList.remove("hidden-nav");
-    if (userContainer) userContainer.classList.remove("hidden-nav");
+    if (userButtonContainer) userButtonContainer.classList.remove("hidden-nav");
   }
   
   // Update state

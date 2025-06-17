@@ -81,26 +81,24 @@ export default class NavButtons {
    * Checks if an event should be ignored because it originates
    * from a sup.note or any interactive element.
    */
- 
 
-shouldIgnoreEvent(event) {
-  // Check if any container is active
-  const activeContainer = window.uiState?.activeContainer || window.activeContainer;
-  if (activeContainer && activeContainer !== "main-content") {
-    console.log(`NavButtons: Ignoring click because ${activeContainer} is active`);
-    return true;
+  shouldIgnoreEvent(event) {
+    // Check if any container is active
+    const activeContainer = window.uiState?.activeContainer || window.activeContainer;
+    if (activeContainer && activeContainer !== "main-content") {
+      console.log(`NavButtons: Ignoring click because ${activeContainer} is active`);
+      return true;
+    }
+    
+    // Also check if the event is from an interactive element
+    return (
+      event.target.closest("sup.note") ||
+      event.target.closest("button, a") ||
+      event.target.closest("mark") ||
+      event.target.closest(".open") ||
+      event.target.closest(".active")
+    );
   }
-  
-  // Also check if the event is from an interactive element
-  return (
-    event.target.closest("sup.note") ||
-    event.target.closest("button, a") ||
-    event.target.closest("mark") ||
-    event.target.closest(".open") ||
-    event.target.closest(".active")
-  );
-}
-
 
   /**
    * Record the starting pointer/touch coordinates.
@@ -179,7 +177,7 @@ shouldIgnoreEvent(event) {
         this.elements.forEach((element) => {
           if (element.id === "nav-buttons" || element.id === "topRightContainer") {
             element.style.right = `${newRight}px`;
-          } else if (element.id === "logoContainer") {
+          } else if (element.id === "logoContainer" || element.id === "userButtonContainer") {
             element.style.left = `${newLeft}px`;
           }
         });

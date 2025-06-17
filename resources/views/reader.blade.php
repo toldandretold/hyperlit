@@ -60,7 +60,7 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
 <!-- buttons: clockwise from top-lept -->
 <div id="logoContainer" onclick="window.location.href='{{ url('/') }}';">
     <img src="{{ asset('images/logoa.png') }}" id="logo" alt="Logo">
-    </div>
+    </div> 
 
 <div id="topRightContainer">
     <button type="button" id="cloudRef">
@@ -197,9 +197,11 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
 <div id="hypercite-container" class="hidden"></div>
 <div id="ref-container" class="hidden"></div>
 <div id="source-container" class="hidden"></div>
+
         
 <div id="toc-overlay"></div>
 <div id="ref-overlay"></div>
+<div id="user-overlay"></div>
 
 
 </body>
