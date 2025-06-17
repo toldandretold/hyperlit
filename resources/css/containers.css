@@ -428,21 +428,10 @@ black #221F20;
 
 
 #user-container {
-  transform: translateX(calc(-105%)); /* Off-screen, including the gap - SAME AS TOC */
-  transition: transform 0.3s ease-in-out; /* Use transform transition - SAME AS TOC */
-  position: fixed;
-  left: 1em; /* SAME AS TOC */
-  bottom: 1em; /* SAME AS TOC */
-  top: 1em; /* SAME AS TOC */
-  height: 90%; /* SAME AS TOC */
-  width: 60%; /* SAME AS TOC - or adjust as needed */
-  max-width: 30ch; /* SAME AS TOC - or adjust as needed */
   background-color: #221F20;
   z-index: 1000;
-  overflow: hidden; /* Ensure content doesn't overflow the container */
-  padding-left: 1em;
-  padding-right: 2em;
-  border-radius: 1em 1em;
+  border-radius: 0.75em;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
 }
 
 #user-container.open {
@@ -451,7 +440,7 @@ black #221F20;
 
 
 #user-container.hidden {
-  left: -105%; /* Ensure it's hidden when closed */
+  display: none;
 }
 
 
