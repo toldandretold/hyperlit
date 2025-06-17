@@ -60,6 +60,7 @@ export class UserContainerManager extends ContainerManager {
   }
 
   setupUserListeners() {
+    // Your existing click listeners...
     document.addEventListener('click', (e) => {
       if (e.target.id === 'loginSubmit') {
         e.preventDefault();
@@ -80,6 +81,11 @@ export class UserContainerManager extends ContainerManager {
       if (e.target.id === 'logout') {
         e.preventDefault();
         this.handleLogout();
+      }
+      
+      // Add overlay click handler
+      if (e.target.id === 'user-overlay' && this.isOpen) {
+        this.closeContainer();
       }
     });
   }
