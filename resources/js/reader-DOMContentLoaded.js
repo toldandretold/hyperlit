@@ -32,6 +32,7 @@ import NavButtons from "./nav-buttons.js";
 import { currentLazyLoader } from "./initializePage.js";
 import sourceManager from './sourceButton.js';
 import newBookManager from './newBookButton.js';
+//import "./userContainer.js";
 import "./editButton.js";
 import "./hyperCites.js";
 import {attachUnderlineClickListeners} from "./hyperCites.js";
@@ -110,8 +111,10 @@ if (!window.isInitialized) {
       navButtons.init();
       initEditToolbar();
     } else if (pageType === "home") {
+      import("./userContainer.js");
+
       const navButtons = new NavButtons({
-        elementIds: ["nav-buttons", "userContainer", "topRightContainer"],
+        elementIds: ["nav-buttons", "userButtonContainer", "topRightContainer"],
         tapThreshold: 15,
       });
 

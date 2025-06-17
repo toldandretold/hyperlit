@@ -32,8 +32,6 @@ black #221F20;
 }
 
 
-
-
 /* When the container is in button view (open state) */
 /* Closed state: container is hidden */
 #newbook-container.closed {
@@ -252,7 +250,8 @@ black #221F20;
 
 
 
-#toc-container .scroller {
+#toc-container .scroller,
+#user-container .scroller {
   position: absolute;
   top: 0;
   left: 0;
@@ -276,7 +275,8 @@ black #221F20;
   border-radius: 1em 1em;
 }
 
-#toc-container .mask-top {
+#toc-container .mask-top,
+#user-container .mask-top {
   position: absolute;
   top: 0;
   left: 0;
@@ -304,7 +304,8 @@ black #221F20;
   box-shadow: inset 0px 4px 4px -4px #221F20; /* Fades the text at the bottom */
 }
 
-#toc-container .mask-bottom {
+#toc-container .mask-bottom,
+#user-container .mask-bottom {
   position: absolute;
   bottom: 0;
   left: 0;
@@ -348,7 +349,8 @@ black #221F20;
   transform: translateX(0); /* Slide in to show the gap on the right */
 }
 
-#toc-overlay {
+#toc-overlay,
+#user-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -379,7 +381,8 @@ black #221F20;
 
 
 
-#toc-overlay.active {
+#toc-overlay.active,
+#user-overlay.active {
     opacity: 1;
     visibility: visible;
 }
@@ -421,3 +424,34 @@ black #221F20;
 .active-content {
   display: block;
 }
+
+
+
+#user-container {
+  transform: translateX(calc(-105%)); /* Off-screen, including the gap - SAME AS TOC */
+  transition: transform 0.3s ease-in-out; /* Use transform transition - SAME AS TOC */
+  position: fixed;
+  left: 1em; /* SAME AS TOC */
+  bottom: 1em; /* SAME AS TOC */
+  top: 1em; /* SAME AS TOC */
+  height: 90%; /* SAME AS TOC */
+  width: 60%; /* SAME AS TOC - or adjust as needed */
+  max-width: 30ch; /* SAME AS TOC - or adjust as needed */
+  background-color: #221F20;
+  z-index: 1000;
+  overflow: hidden; /* Ensure content doesn't overflow the container */
+  padding-left: 1em;
+  padding-right: 2em;
+  border-radius: 1em 1em;
+}
+
+#user-container.open {
+  transform: translateX(0); /* SAME AS TOC */
+}
+
+
+#user-container.hidden {
+  left: -105%; /* Ensure it's hidden when closed */
+}
+
+
