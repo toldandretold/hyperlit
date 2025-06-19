@@ -83,7 +83,7 @@ ALTER SEQUENCE public.failed_jobs_id_seq OWNED BY public.failed_jobs.id;
 CREATE TABLE public.footnotes (
     book character varying(255) NOT NULL,
     data jsonb NOT NULL,
-    raw_json jsonb NOT NULL,
+    raw_json json,
     created_at timestamp(0) without time zone,
     updated_at timestamp(0) without time zone
 );
@@ -235,20 +235,19 @@ CREATE TABLE public.library (
     pages character varying(255),
     publisher character varying(255),
     school character varying(255),
-    "timestamp" timestamp(0) without time zone,
+    "timestamp" bigint,
     title character varying(255),
     type character varying(255),
     url character varying(255),
     year character varying(255),
     raw_json jsonb NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
     recent integer,
     total_views integer,
     total_citations integer,
-    total_highlights integer,
-    created_at timestamp(0) without time zone,
-    updated_at timestamp(0) without time zone
+    total_highlights integer
 );
-
 
 
 --
@@ -334,6 +333,43 @@ CREATE TABLE public.password_reset_tokens (
 
 
 --
+-- Name: personal_access_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.personal_access_tokens (
+    id bigint NOT NULL,
+    tokenable_type character varying(255) NOT NULL,
+    tokenable_id bigint NOT NULL,
+    name character varying(255) NOT NULL,
+    token character varying(64) NOT NULL,
+    abilities text,
+    last_used_at timestamp(0) without time zone,
+    expires_at timestamp(0) without time zone,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone
+);
+
+
+--
+-- Name: personal_access_tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.personal_access_tokens_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: personal_access_tokens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.personal_access_tokens_id_seq OWNED BY public.personal_access_tokens.id;
+
+
+--
 -- Name: sessions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -359,7 +395,10 @@ CREATE TABLE public.users (
     password character varying(255) NOT NULL,
     remember_token character varying(100),
     created_at timestamp(0) without time zone,
-    updated_at timestamp(0) without time zone
+    updated_at timestamp(0) without time zone,
+    two_factor_secret text,
+    two_factor_recovery_codes text,
+    two_factor_confirmed_at timestamp(0) without time zone
 );
 
 
@@ -422,6 +461,13 @@ ALTER TABLE ONLY public.migrations ALTER COLUMN id SET DEFAULT nextval('public.m
 --
 
 ALTER TABLE ONLY public.node_chunks ALTER COLUMN id SET DEFAULT nextval('public.node_chunks_id_seq'::regclass);
+
+
+--
+-- Name: personal_access_tokens id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.personal_access_tokens ALTER COLUMN id SET DEFAULT nextval('public.personal_access_tokens_id_seq'::regclass);
 
 
 --
@@ -552,6 +598,22 @@ ALTER TABLE ONLY public.password_reset_tokens
 
 
 --
+-- Name: personal_access_tokens personal_access_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.personal_access_tokens
+    ADD CONSTRAINT personal_access_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: personal_access_tokens personal_access_tokens_token_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.personal_access_tokens
+    ADD CONSTRAINT personal_access_tokens_token_unique UNIQUE (token);
+
+
+--
 -- Name: sessions sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -580,6 +642,13 @@ ALTER TABLE ONLY public.users
 --
 
 CREATE INDEX jobs_queue_index ON public.jobs USING btree (queue);
+
+
+--
+-- Name: personal_access_tokens_tokenable_type_tokenable_id_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX personal_access_tokens_tokenable_type_tokenable_id_index ON public.personal_access_tokens USING btree (tokenable_type, tokenable_id);
 
 
 --
@@ -631,6 +700,12 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 6	2025_05_26_233455_create_hypercites_table	3
 7	2025_05_26_233455_create_hyperlights_table	3
 8	2025_05_26_233455_create_library_table	3
+9	2025_05_29_021856_add_metrics_columns_to_library_table	4
+10	2025_06_02_233045_change_timestamp_column_type_in_library_table	5
+11	2025_06_12_004740_make_footnotes_raw_json_nullable	6
+12	2025_06_15_104443_add_two_factor_columns_to_users_table	7
+13	2025_06_15_113048_create_personal_access_tokens_table	8
+14	2025_06_16_065611_add_two_factor_columns_to_users_table	7
 \.
 
 
@@ -638,7 +713,7 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 -- Name: migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.migrations_id_seq', 8, true);
+SELECT pg_catalog.setval('public.migrations_id_seq', 14, true);
 
 
 --
