@@ -44,31 +44,47 @@ export async function isLoggedIn() {
 
 
 
+function readAnonId() {
+  return localStorage.getItem('authorId');
+}
+
 export async function canUserEditBook(bookId) {
   try {
-    // Get current user
+    // 1) fetch the library record
+    const record = await getLibraryObjectFromIndexedDB(bookId);
+    if (!record) {
+      console.log('Book not found in IndexedDB');
+      return false;
+    }
+
+    // 2) check login state
     const user = await getCurrentUser();
-    if (!user) {
-      console.log("No user logged in");
-      return false;
+    if (user) {
+      const userId = user.name || user.username || user.email;
+      const ok    = record.creator === userId;
+      console.log('Logged in:', userId, 'creator:', record.creator, 'ok=', ok);
+      return ok;
     }
 
-    // Get book data from IndexedDB
-    const libraryRecord = await getLibraryObjectFromIndexedDB(bookId);
-    if (!libraryRecord) {
-      console.log("Book not found in IndexedDB");
-      return false;
-    }
+    // 3) anonymous path — read the stored UUID
+    const anonId = readAnonId();
+    console.log('Anon edit check:', anonId, record.creator_token);
+    return anonId !== null && record.creator_token === anonId;
 
-    // Check if user is the creator
-    const userIdentifier = user.name || user.username || user.email;
-    const canEdit = libraryRecord.creator === userIdentifier;
-    
-    console.log(`Edit permission check: user="${userIdentifier}", creator="${libraryRecord.creator}", canEdit=${canEdit}`);
-    
-    return canEdit;
-  } catch (error) {
-    console.error('Error checking edit permission:', error);
+  } catch (err) {
+    console.error('Error in canUserEditBook:', err);
     return false;
   }
+}
+
+export function getAuthorId() {
+  const KEY = 'authorId';
+  let id = localStorage.getItem(KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(KEY, id);
+  }
+  // also mirror it into a cookie (so Laravel can read it)
+  document.cookie = `anon_author=${id}; Path=/; Max-Age=${60*60*24*365}`;
+  return id;
 }

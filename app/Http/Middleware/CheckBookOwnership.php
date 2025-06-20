@@ -10,29 +10,40 @@ class CheckBookOwnership
 {
     public function handle(Request $request, Closure $next)
     {
-        $book = $request->route('book');
-        $user = auth()->user();
-        
-        // Check if user is authenticated
-        if (!$user) {
-            // For AJAX requests, return JSON error
-            if ($request->expectsJson()) {
-                return response()->json(['error' => 'Unauthorized'], 401);
-            }
-            // For regular requests, redirect to read-only view
-            return redirect("/{$book}")->with('error', 'Please log in to edit this book.');
+        $book    = $request->route('book');
+        $user    = $request->user();                     // null if not logged in
+        $anonTok = $request->cookie('anon_author');      // your anonymous‐ID cookie
+
+        // Fetch the book record (if any)
+        $record = DB::table('library')
+                    ->where('book', $book)
+                    ->first();
+
+        // If it doesn’t exist yet, allow creation
+        if (! $record) {
+            return $next($request);
         }
-        
-        // Get the book record and check ownership
-        $bookRecord = DB::table('library')->where('book', $book)->first();
-        
-        if (!$bookRecord || $bookRecord->creator !== $user->name) {
-            if ($request->expectsJson()) {
-                return response()->json(['error' => 'Forbidden'], 403);
-            }
-            return redirect("/{$book}")->with('error', 'You do not have permission to edit this book.');
+
+        // Case 1: Logged‐in owner
+        if ($user && $record->creator === $user->name) {
+            return $next($request);
         }
-        
-        return $next($request);
+
+        // Case 2: Anonymous owner by token
+        if (! $user
+            && $anonTok
+            && $record->creator_token
+            && hash_equals($record->creator_token, $anonTok)
+        ) {
+            return $next($request);
+        }
+
+        // Otherwise, block
+        if ($request->expectsJson()) {
+            return response()->json(['error' => 'Forbidden'], 403);
+        }
+
+        return redirect("/{$book}")
+                    ->with('error', 'You do not have permission to edit this book.');
     }
 }

@@ -2,7 +2,7 @@
 import { openDatabase, updateBookTimestamp, addNewBookToIndexedDB } from "./cache-indexedDB.js";
 import { buildBibtexEntry } from "./bibtexProcessor.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
-import { getCurrentUser } from "./auth.js";
+import { getCurrentUser, getAuthorId } from "./auth.js";
 
 // your existing helper (you could move this to utils.js)
 function generateUUID() {
@@ -34,66 +34,80 @@ async function getCreatorId() {
 
 export async function createNewBook() {
   try {
-    const creatorId = await getCreatorId();
-    console.log("Creating new book with creator:", creatorId);
+    // 1) who are we?
+    const user   = await getCurrentUser();
+    // if logged in → creator=username, token=null
+    // if anon      → creator=null,    token=UUID
+    const creator       = user
+      ? (user.name || user.username || user.email)
+      : null;
+    const creator_token = user ? null : getAuthorId();
 
-    const db = await openDatabase();
-    
-    // Generate a unique book identifier
+    console.log("Creating new book with", {
+      creator,
+      creator_token
+    });
+
+    // 2) open IndexedDB
+    const db     = await openDatabase();
     const bookId = "book_" + Date.now();
-    
-    // Create the library record
-    const newLibraryRecord = {
-      book: bookId,
-      citationID: bookId,
-      title: "Update Title",
-      author: null,
-      type: "book",
-      timestamp: new Date().toISOString(),
-      creator: creatorId, // Now uses either username or UUID
-    };
 
+    const newLibraryRecord = {
+      book:           bookId,
+      citationID:     bookId,
+      title:          "Untitled",
+      author:         null,
+      type:           "book",
+      timestamp:      new Date().toISOString(),
+      creator,
+      creator_token
+    };
     newLibraryRecord.bibtex = buildBibtexEntry(newLibraryRecord);
 
-    // Start transaction for library store only
+    // 3) write into IndexedDB
     const tx = db.transaction(["library"], "readwrite");
-    const libraryStore = tx.objectStore("library");
-
-    // Add library record
-    libraryStore.put(newLibraryRecord);
+    const store = tx.objectStore("library");
+    store.put(newLibraryRecord);
 
     return new Promise((resolve, reject) => {
       tx.oncomplete = async () => {
-        console.log("New book created:", newLibraryRecord);
-        
+        console.log("New book created in IndexedDB:", newLibraryRecord);
         try {
-          console.log("Creating first nodeChunk...");
-          await addNewBookToIndexedDB(bookId, 1, '<h1 id="1">Untitled</h1>', 0);
-          
-          console.log("Creating second nodeChunk...");
-          await addNewBookToIndexedDB(bookId, 2, '<p id="2"><br/></p>', 0);
-          
-          console.log("Initial nodes created successfully");
+          // seed initial nodes
+          await addNewBookToIndexedDB(
+            bookId,
+            1,
+            '<h1 id="1">Untitled</h1>',
+            0
+          );
+          await addNewBookToIndexedDB(
+            bookId,
+            2,
+            '<p id="2"><br/></p>',
+            0
+          );
+          console.log("Initial nodes created");
 
+          // sync up to server (will include creator_token)
           await updateBookTimestamp(bookId);
           await syncIndexedDBtoPostgreSQL(bookId);
-          
+
+          // go edit!
           window.location.href = `/${bookId}/edit`;
           resolve(newLibraryRecord);
-          
         } catch (err) {
-          console.error("Failed to create initial nodes:", err);
+          console.error("Failed post-indexedDB steps:", err);
           reject(err);
         }
       };
-      
-      tx.onerror = (e) => {
-        console.error("Transaction failed:", e.target.error);
+      tx.onerror = e => {
+        console.error("IndexedDB transaction failed:", e.target.error);
         reject(e.target.error);
       };
     });
   } catch (err) {
-    console.error("Failed to create new book:", err);
+    // catches any errors *before* the tx.promise is returned
+    console.error("createNewBook() failed:", err);
     throw err;
   }
 }
