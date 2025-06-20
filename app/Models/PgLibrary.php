@@ -33,7 +33,8 @@ class PgLibrary extends Model
         'total_views',
         'total_citations',
         'total_highlights',
-        'creator'
+        'creator',
+        'creator_token'
     ];
 
     protected $casts = [

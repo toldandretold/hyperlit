@@ -252,9 +252,11 @@ Route::get('/{book}/main-text-footnotes.json', function ($book) {
 
 
 // exact match /{book}/edit
+
 Route::get('/{book}/edit', [TextController::class, 'show'])
      ->where('book', '[A-Za-z0-9_-]+')
      ->name('book.edit');
+
      
 Route::get('/{book}/{hl?}', [TextController::class, 'show'])
      ->where([
