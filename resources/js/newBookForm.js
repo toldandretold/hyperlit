@@ -1,6 +1,35 @@
 import { openDatabase } from './cache-indexedDB.js';
 import './debugLog.js';
 import { generateBibtexFromForm } from './bibtexProcessor.js';
+import { getCurrentUser } from './auth.js'; // Add this import
+
+// Add the helper functions from createNewBook.js
+function generateUUID() {
+  return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(
+    /[018]/g,
+    (c) =>
+      (c ^ (crypto.getRandomValues(new Uint8Array(1))[0] &
+        (15 >> (c / 4)))).toString(16)
+  );
+}
+
+async function getCreatorId() {
+  const user = await getCurrentUser();
+  
+  if (user) {
+    // User is logged in, use their username or name
+    return user.name || user.username || user.email;
+  } else {
+    // User not logged in, use persistent UUID
+    const AUTHOR_KEY = "authorId";
+    let authorId = localStorage.getItem(AUTHOR_KEY);
+    if (!authorId) {
+      authorId = generateUUID();
+      localStorage.setItem(AUTHOR_KEY, authorId);
+    }
+    return authorId;
+  }
+}
 
 // Global functions that need to be accessible everywhere
 function showFieldsForType(type) {
@@ -290,6 +319,13 @@ async function saveToIndexedDBThenSync(libraryRecord, originalFormData, submitBu
     console.log("Opening IndexedDB using openDatabase function...");
     
     try {
+        // Get creator ID before saving
+        const creatorId = await getCreatorId();
+        console.log("Creating citation with creator:", creatorId);
+        
+        // Add creator to the library record
+        libraryRecord.creator = creatorId;
+        
         // Use your existing openDatabase function
         const db = await openDatabase();
         console.log("IndexedDB opened successfully");

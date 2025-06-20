@@ -5,24 +5,32 @@ export class UserContainerManager extends ContainerManager {
   constructor(containerId, overlayId, buttonId, frozenContainerIds = []) {
     super(containerId, overlayId, buttonId, frozenContainerIds);
     
-    // Add cycle tracking
-    this.loginCycleCount = parseInt(localStorage.getItem('loginCycleCount') || '0');
-    console.log('🔄 Login cycle count on init:', this.loginCycleCount);
-
     this.setupUserContainerStyles();
     this.isAnimating = false;
     this.button = document.getElementById(buttonId);
     this.setupUserListeners();
     this.user = null;
     
-    // Check auth status on initialization
-    this.checkAuthStatus();
+    // Initialize CSRF protection and then check auth
+    this.initializeSanctum().then(() => {
+      this.checkAuthStatus();
+    });
+  }
+
+  async initializeSanctum() {
+    try {
+      await fetch('/sanctum/csrf-cookie', {
+        credentials: 'include'
+      });
+    } catch (error) {
+      console.error('Failed to initialize Sanctum:', error);
+    }
   }
 
   async checkAuthStatus() {
     try {
       const response = await fetch('/auth-check', {
-        credentials: 'same-origin',
+        credentials: 'include',
         headers: {
           'Accept': 'application/json',
           'X-Requested-With': 'XMLHttpRequest'
@@ -32,39 +40,12 @@ export class UserContainerManager extends ContainerManager {
       if (response.ok) {
         const data = await response.json();
         this.user = data.authenticated ? data.user : null;
-        //this.updateButtonState();
       } else {
         this.user = null;
-        //this.updateButtonState();
       }
     } catch (error) {
       console.error('Auth check failed:', error);
       this.user = null;
-      //this.updateButtonState();
-    }
-  }
-
-  updateButtonState() {
-    if (this.user) {
-      this.button.textContent = this.user.name || 'Profile';
-      this.button.style.backgroundColor = '#4EACAE';
-    } else {
-      this.button.textContent = 'Login';
-      this.button.style.backgroundColor = '#EF8D34';
-    }
-  }
-
-  // Get current CSRF token
-  getCsrfToken() {
-    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-    return csrfMeta ? csrfMeta.getAttribute('content') : null;
-  }
-
-  // Update CSRF token
-  updateCsrfToken(newToken) {
-    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-    if (csrfMeta && newToken) {
-      csrfMeta.setAttribute('content', newToken);
     }
   }
 
@@ -87,8 +68,6 @@ export class UserContainerManager extends ContainerManager {
 
   setupUserListeners() {
     document.addEventListener('click', (e) => {
-      console.log('Click detected on:', e.target.id, e.target);
-      
       if (e.target.id === 'loginSubmit') {
         e.preventDefault();
         this.handleLogin();
@@ -110,10 +89,7 @@ export class UserContainerManager extends ContainerManager {
         this.handleLogout();
       }
       
-      // ADD DEBUGGING HERE
       if (e.target.id === 'user-overlay' && this.isOpen) {
-        console.log('Overlay clicked, isOpen:', this.isOpen);
-        console.log('Container state:', this.container.style.visibility);
         this.closeContainer();
       }
     });
@@ -140,15 +116,13 @@ export class UserContainerManager extends ContainerManager {
       </div>
     `;
     
-    // ONLY call openContainer if the container is not already open
-  if (!this.isOpen) {
-    this.container.innerHTML = loginHTML;
-    this.openContainer("login");
-  } else {
-    // Just update the content if already open
-    this.container.innerHTML = loginHTML;
+    if (!this.isOpen) {
+      this.container.innerHTML = loginHTML;
+      this.openContainer("login");
+    } else {
+      this.container.innerHTML = loginHTML;
+    }
   }
-}
 
   showRegisterForm() {
     const registerHTML = `
@@ -173,16 +147,13 @@ export class UserContainerManager extends ContainerManager {
       </div>
     `;
     
-    // ONLY call openContainer if the container is not already open
     if (!this.isOpen) {
       this.container.innerHTML = registerHTML;
       this.openContainer("register");
     } else {
-      // Just update the content if already open
       this.container.innerHTML = registerHTML;
     }
   }
-    
 
   showUserProfile() {
     const profileHTML = `
@@ -204,160 +175,104 @@ export class UserContainerManager extends ContainerManager {
         </div>
       </div>
     `;
-    // ONLY call openContainer if the container is not already open
-  if (!this.isOpen) {
-    this.container.innerHTML = profileHTML;
-    this.openContainer("profile");
-  } else {
-    // Just update the content if already open
-    this.container.innerHTML = profileHTML;
-  }
-}
     
+    if (!this.isOpen) {
+      this.container.innerHTML = profileHTML;
+      this.openContainer("profile");
+    } else {
+      this.container.innerHTML = profileHTML;
+    }
+  }
+
+  // Add this helper function to extract CSRF token from cookie
+  getCsrfTokenFromCookie() {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; XSRF-TOKEN=`);
+    if (parts.length === 2) {
+      return decodeURIComponent(parts.pop().split(';').shift());
+    }
+    return null;
+  }
 
   async handleLogin() {
-    // Increment and track cycle count
-    this.loginCycleCount++;
-    localStorage.setItem('loginCycleCount', this.loginCycleCount.toString());
-    console.log('🔄 Login attempt #', this.loginCycleCount);
-
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
     
-    const csrfToken = this.getCsrfToken();
-    
-    if (!csrfToken) {
-      this.showLoginError('CSRF token not found. Please refresh the page.');
-      return;
-    }
-    
     try {
+      // First, get the CSRF cookie
+      console.log('Getting CSRF cookie...');
+      await fetch('/sanctum/csrf-cookie', {
+        credentials: 'include'
+      });
+      
+      // Get the CSRF token from the cookie
+      const csrfToken = this.getCsrfTokenFromCookie();
+      console.log('CSRF token from cookie:', csrfToken);
+      
+      console.log('Making login request...');
       const response = await fetch('/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': csrfToken,
           'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-XSRF-TOKEN': csrfToken  // Add this header
         },
-        credentials: 'same-origin',
+        credentials: 'include',
         body: JSON.stringify({ email, password })
       });
 
-      console.log('📡 Login response #' + this.loginCycleCount + ' status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+      console.log('Response status:', response.status);
+      const data = await response.json();
+      console.log('Response data:', data);
       
-      // Check content type before parsing
-      const contentType = response.headers.get('content-type');
-      console.log('📄 Content-Type:', contentType);
-      
-      if (contentType && contentType.includes('application/json')) {
-        const data = await response.json();
-        console.log('📦 Login response #' + this.loginCycleCount + ' data:', data);
-        
-        // Update CSRF token if provided
-        if (data.csrf_token) {
-          this.updateCsrfToken(data.csrf_token);
-        }
-        
-        if (response.ok) {
-          // Handle JSON success response
-          if (data.two_factor === false || data.success) {
-            console.log('✅ Login successful via JSON response');
-            await this.checkAuthStatus();
-            
-            if (this.user) {
-              this.showUserProfile();
-            } else {
-              this.showLoginError('Login successful but could not retrieve user data');
-            }
-          } else {
-            this.showLoginError(data.message || 'Login failed');
-          }
-        } else if (response.status === 422) {
-          this.showLoginError(data.errors || data.message || 'Validation failed');
-        } else if (response.status === 419) {
-          this.showLoginError('Session expired. Please refresh the page.');
-        } else {
-          this.showLoginError(data.message || 'Login failed');
-        }
-        
+      if (response.ok && data.success) {
+        this.user = data.user;
+        this.showUserProfile();
       } else {
-        // Server returned HTML (probably a redirect)
-        const htmlText = await response.text();
-        console.log('📄 Received HTML instead of JSON:', htmlText.substring(0, 200) + '...');
-        
-        if (response.ok) {
-          // If status is 200 but we got HTML, login probably succeeded
-          // but Laravel is trying to redirect
-          console.log('✅ Login likely successful (got HTML redirect)');
-          await this.checkAuthStatus();
-          
-          if (this.user) {
-            this.showUserProfile();
-          } else {
-            this.showLoginError('Login may have succeeded but received unexpected response');
-          }
-        } else {
-          this.showLoginError('Server returned unexpected response format');
-        }
+        this.showLoginError(data.errors || data.message || 'Login failed');
       }
       
     } catch (error) {
-      console.error('💥 Login error #' + this.loginCycleCount + ':', error);
-      this.showLoginError('Network error occurred: ' + error.message);
+      console.error('Login error:', error);
+      this.showLoginError('Network error occurred');
     }
   }
 
+  // Update handleRegister similarly
   async handleRegister() {
     const name = document.getElementById('registerName').value;
     const email = document.getElementById('registerEmail').value;
     const password = document.getElementById('registerPassword').value;
     
-    const csrfToken = this.getCsrfToken();
-    
-    if (!csrfToken) {
-      this.showRegisterError('CSRF token not found. Please refresh the page.');
-      return;
-    }
-    
     try {
+      await fetch('/sanctum/csrf-cookie', {
+        credentials: 'include'
+      });
+      
+      const csrfToken = this.getCsrfTokenFromCookie();
+      
       const response = await fetch('/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': csrfToken,
           'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-XSRF-TOKEN': csrfToken  // Add this header
         },
-        credentials: 'same-origin',
-        body: JSON.stringify({ 
-          name, 
-          email, 
-          password, 
-          password_confirmation: password 
-        })
+        credentials: 'include',
+        body: JSON.stringify({ name, email, password })
       });
 
       const data = await response.json();
       
-      // Update CSRF token if provided
-      if (data.csrf_token) {
-        this.updateCsrfToken(data.csrf_token);
+      if (response.ok && data.success) {
+        this.user = data.user;
+        this.showUserProfile();
+      } else {
+        this.showRegisterError(data.errors || data.message || 'Registration failed');
       }
       
-      if (response.ok) {
-        // Registration successful
-        await this.checkAuthStatus();
-        
-        if (this.user) {
-          this.showUserProfile();
-        }
-      } else if (response.status === 422) {
-        this.showRegisterError(data.errors || data.message || 'Validation failed');
-      } else {
-        this.showRegisterError(data.message || 'Registration failed');
-      }
     } catch (error) {
       console.error('Register error:', error);
       this.showRegisterError('Network error occurred');
@@ -365,107 +280,42 @@ export class UserContainerManager extends ContainerManager {
   }
 
   async handleLogout() {
-    console.log('🚪 Logout for cycle #' + this.loginCycleCount);
-    
     try {
-      // Get current token
-      const csrfToken = this.getCsrfToken();
-      console.log('🔑 Using CSRF token for logout:', csrfToken);
+      // Get fresh CSRF token for logout
+      await fetch('/sanctum/csrf-cookie', {
+        credentials: 'include'
+      });
+      
+      const csrfToken = this.getCsrfTokenFromCookie();
+      console.log('Logout CSRF token:', csrfToken);
       
       const response = await fetch('/logout', {
         method: 'POST',
         headers: {
-          'X-CSRF-TOKEN': csrfToken,
           'Accept': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
-          'Content-Type': 'application/json'
+          'X-XSRF-TOKEN': csrfToken  // Add this header
         },
-        credentials: 'same-origin'
+        credentials: 'include'
       });
 
-      console.log('📡 Logout response status:', response.status);
+      console.log('Logout response status:', response.status);
       
       if (response.ok) {
-        console.log('✅ Logout successful');
-        const data = await response.json();
-        
-        // Update CSRF token if provided
-        if (data.csrf_token) {
-          console.log('🔄 Updating CSRF token after logout');
-          this.updateCsrfToken(data.csrf_token);
-        }
-        
-      } else if (response.status === 419) {
-        console.log('⚠️ CSRF token expired during logout (this is normal)');
-        // This is actually expected behavior - session was already invalid
+        this.user = null;
+        this.closeContainer();
       } else {
-        console.warn('⚠️ Logout returned status:', response.status);
+        console.error('Logout failed:', response.status);
+        // Still clear local state even if server logout failed
+        this.user = null;
+        this.closeContainer();
       }
       
     } catch (error) {
-      console.log('⚠️ Logout network error (might be normal):', error.message);
-    }
-    
-    // Always clear local state regardless of server response
-    console.log('🧹 Clearing local user state');
-    this.user = null;
-    //this.updateButtonState();
-    this.closeContainer();
-    
-    // Refresh CSRF token for future requests
-    console.log('🔄 Refreshing CSRF token after logout');
-    await this.refreshCsrfToken();
-    
-    console.log('✅ Logout process complete');
-  }
-
-  async refreshCsrfToken() {
-    console.log('🔄 Attempting to refresh CSRF token...');
-    console.log('Current CSRF token:', this.getCsrfToken());
-    
-    try {
-      const response = await fetch('/refresh-csrf', {
-        method: 'GET',
-        credentials: 'same-origin',
-        headers: {
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      });
-      
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
-      
-      if (response.ok) {
-        const contentType = response.headers.get('content-type');
-        console.log('📄 Content-Type:', contentType);
-        
-        if (contentType && contentType.includes('application/json')) {
-          const data = await response.json();
-          console.log('📦 Response data:', data);
-          
-          if (data.csrf_token) {
-            console.log('✅ New CSRF token received:', data.csrf_token);
-            this.updateCsrfToken(data.csrf_token);
-            console.log('✅ CSRF token updated in DOM');
-            return true;
-          } else {
-            console.error('❌ No csrf_token in response');
-          }
-        } else {
-          const text = await response.text();
-          console.error('❌ Expected JSON but got:', contentType);
-          console.error('❌ Response body:', text);
-        }
-      } else {
-        const errorText = await response.text();
-        console.error('❌ Request failed:', response.status, errorText);
-      }
-      
-      return false;
-    } catch (error) {
-      console.error('💥 Network error:', error);
-      return false;
+      console.error('Logout error:', error);
+      // Still clear local state
+      this.user = null;
+      this.closeContainer();
     }
   }
 
@@ -552,10 +402,9 @@ export class UserContainerManager extends ContainerManager {
       this.container.style.height = targetHeight;
       this.container.style.opacity = "1";
 
-      // ADD THIS: Set isOpen and call parent's updateState
       this.isOpen = true;
       window.activeContainer = this.container.id;
-      this.updateState(); // This activates the overlay and freezes elements
+      this.updateState();
 
       this.container.addEventListener("transitionend", () => {
         this.isAnimating = false;
@@ -572,10 +421,9 @@ export class UserContainerManager extends ContainerManager {
     this.container.style.height = "0";
     this.container.style.opacity = "0";
 
-    // ADD THIS: Set isOpen and call parent's updateState
     this.isOpen = false;
     window.activeContainer = "main-content";
-    this.updateState(); // This deactivates the overlay and unfreezes elements
+    this.updateState();
 
     this.container.addEventListener("transitionend", () => {
       this.container.classList.add("hidden");
@@ -585,7 +433,6 @@ export class UserContainerManager extends ContainerManager {
   }
 }
 
-// Initialize the user container manager
 const userManager = new UserContainerManager(
   "user-container",
   "user-overlay", 
