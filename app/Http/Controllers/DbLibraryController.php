@@ -36,6 +36,7 @@ class DbLibraryController extends Controller
                         'citationID' => $item['citationID'] ?? null,
                         'title' => $item['title'] ?? null,
                         'author' => $item['author'] ?? null,
+                        'creator' => $item['creator'] ?? null,
                         'type' => $item['type'] ?? null,
                         'timestamp' => $item['timestamp'] ?? null,
                         'bibtex' => $item['bibtex'] ?? null,
@@ -100,6 +101,8 @@ class DbLibraryController extends Controller
                 
                 if (isset($data['data']) && (is_object($data['data']) || is_array($data['data']))) {
                     $item = (array) $data['data'];
+                    Log::info('Received library data:', ['data' => $item]);
+                    Log::info('Creator value: ' . ($item['creator'] ?? 'NOT SET'));
                     
                     // Step 1: Perform upsert and ensure it's committed
                     $record = PgLibrary::updateOrCreate(
@@ -110,6 +113,7 @@ class DbLibraryController extends Controller
                         [
                             'title' => $item['title'] ?? null,
                             'author' => $item['author'] ?? null,
+                            'creator' => $item['creator'] ?? null,
                             'type' => $item['type'] ?? null,
                             'timestamp' => $item['timestamp'] ?? null,
                             'bibtex' => $item['bibtex'] ?? null,

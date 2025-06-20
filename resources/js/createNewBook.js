@@ -2,6 +2,7 @@
 import { openDatabase, updateBookTimestamp, addNewBookToIndexedDB } from "./cache-indexedDB.js";
 import { buildBibtexEntry } from "./bibtexProcessor.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
+import { getCurrentUser } from "./auth.js";
 
 // your existing helper (you could move this to utils.js)
 function generateUUID() {
@@ -13,19 +14,29 @@ function generateUUID() {
   );
 }
 
-// 1) ensure a single, persistent authorId
-const AUTHOR_KEY = "authorId";
-let authorId = localStorage.getItem(AUTHOR_KEY);
-if (!authorId) {
-  authorId = generateUUID();
-  localStorage.setItem(AUTHOR_KEY, authorId);
+async function getCreatorId() {
+  const user = await getCurrentUser();
+  
+  if (user) {
+    // User is logged in, use their username or name
+    return user.name || user.username || user.email;
+  } else {
+    // User not logged in, use persistent UUID
+    const AUTHOR_KEY = "authorId";
+    let authorId = localStorage.getItem(AUTHOR_KEY);
+    if (!authorId) {
+      authorId = generateUUID();
+      localStorage.setItem(AUTHOR_KEY, authorId);
+    }
+    return authorId;
+  }
 }
-console.log("Using authorId =", authorId);
 
 export async function createNewBook() {
-  console.log("Creating new book with authorId:", authorId);
-
   try {
+    const creatorId = await getCreatorId();
+    console.log("Creating new book with creator:", creatorId);
+
     const db = await openDatabase();
     
     // Generate a unique book identifier
@@ -33,12 +44,13 @@ export async function createNewBook() {
     
     // Create the library record
     const newLibraryRecord = {
-      book: bookId, // This matches the keyPath for library store
-      citationID: bookId, // Keep this for compatibility if needed elsewhere
+      book: bookId,
+      citationID: bookId,
       title: "Update Title",
-      author: authorId,
+      author: null,
       type: "book",
       timestamp: new Date().toISOString(),
+      creator: creatorId, // Now uses either username or UUID
     };
 
     newLibraryRecord.bibtex = buildBibtexEntry(newLibraryRecord);
@@ -55,7 +67,6 @@ export async function createNewBook() {
         console.log("New book created:", newLibraryRecord);
         
         try {
-          // Create the two initial nodeChunks using the new function
           console.log("Creating first nodeChunk...");
           await addNewBookToIndexedDB(bookId, 1, '<h1 id="1">Untitled</h1>', 0);
           
@@ -64,16 +75,10 @@ export async function createNewBook() {
           
           console.log("Initial nodes created successfully");
 
-          // Update the book timestamp after successful addition
           await updateBookTimestamp(bookId);
-
           await syncIndexedDBtoPostgreSQL(bookId);
           
-          // Navigate to edit page
           window.location.href = `/${bookId}/edit`;
-
-          
-
           resolve(newLibraryRecord);
           
         } catch (err) {

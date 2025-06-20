@@ -811,7 +811,9 @@ export async function syncBatchUpdateWithPostgreSQL(bookId, batchData, libraryRe
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+      'Accept': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
     },
     body: JSON.stringify({
       data: transformedData
@@ -1024,7 +1026,13 @@ export async function syncBatchDeletionWithPostgreSQL(bookId, deletedData, libra
   try {
     const response = await fetch("/api/db/node-chunks/batch-delete", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
+      },
+      credentials: 'same-origin',
       body: JSON.stringify({
         book: bookId,
         deletedNodeChunks: deletedData.nodeChunks,
@@ -1664,8 +1672,11 @@ async function syncNodeChunksToPostgreSQL(nodeChunks) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
       },
+      credentials: 'same-origin',
       body: JSON.stringify({
         data: nodeChunks
       })
@@ -1686,10 +1697,13 @@ async function syncHyperciteToPostgreSQL(hypercite) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
       },
+      credentials: 'same-origin',
       body: JSON.stringify({
-        data: [hypercite] // Wrap in array if the endpoint expects an array
+        data: [hypercite]
       })
     });
 

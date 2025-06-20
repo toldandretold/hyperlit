@@ -23,6 +23,8 @@ use App\Http\Controllers\FootnotesController;
 use Illuminate\Http\Request;
 use App\Models\User;
 
+require __DIR__.'/auth.php';
+
 Route::get('/test-broadcast', function () {
     broadcast(new ProcessComplete("citation_id_b complete"));
     return "Broadcast sent!";
@@ -34,6 +36,7 @@ Route::get('/trigger-event', function () {
     return 'Event has been broadcasted!';
 });
 
+/*
 Route::post('/debug-login', function (Request $request) {
     $credentials = $request->only('email', 'password');
     
@@ -59,7 +62,9 @@ Route::get('/auth-check', function () {
         'authenticated' => auth()->check(),
         'user' => auth()->user()
     ]);
-});
+}); 
+
+*/
 
 // web.php
 Route::get('/refresh-csrf', function (Request $request) {
