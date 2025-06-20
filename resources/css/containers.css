@@ -335,7 +335,7 @@ black #221F20;
 
 #topRightContainer {
   position: relative; /* or absolute/fixed if needed */
-  z-index: 1000; /* Higher than your containers */
+  z-index: 999; /* Higher than your containers */
 }
 
 
