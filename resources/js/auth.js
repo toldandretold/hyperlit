@@ -1,3 +1,5 @@
+import { getLibraryObjectFromIndexedDB } from './cache-indexedDB.js';
+
 // auth.js
 export async function getCurrentUser() {
   console.log("Checking authentication...");
@@ -38,4 +40,35 @@ export async function getCurrentUser() {
 export async function isLoggedIn() {
   const user = await getCurrentUser();
   return user !== null;
+}
+
+
+
+export async function canUserEditBook(bookId) {
+  try {
+    // Get current user
+    const user = await getCurrentUser();
+    if (!user) {
+      console.log("No user logged in");
+      return false;
+    }
+
+    // Get book data from IndexedDB
+    const libraryRecord = await getLibraryObjectFromIndexedDB(bookId);
+    if (!libraryRecord) {
+      console.log("Book not found in IndexedDB");
+      return false;
+    }
+
+    // Check if user is the creator
+    const userIdentifier = user.name || user.username || user.email;
+    const canEdit = libraryRecord.creator === userIdentifier;
+    
+    console.log(`Edit permission check: user="${userIdentifier}", creator="${libraryRecord.creator}", canEdit=${canEdit}`);
+    
+    return canEdit;
+  } catch (error) {
+    console.error('Error checking edit permission:', error);
+    return false;
+  }
 }

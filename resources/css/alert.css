@@ -1,0 +1,125 @@
+.custom-alert {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #221F20;
+  color: #CBCCCC;
+  padding: 25px;
+  border-radius: 0.75em;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+  font-family: inherit;
+  border: 1px solid #444;
+  
+  /* Auto-sizing properties */
+  width: auto;
+  min-width: 300px;
+  max-width: 90vw; /* Don't exceed 90% of viewport width */
+  max-height: 90vh; /* Don't exceed 90% of viewport height */
+  
+  /* Allow content to determine size */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  
+  /* Handle overflow if content is too large */
+  overflow-y: auto;
+}
+
+.custom-alert-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 9999;
+}
+
+.custom-alert h3 {
+  color: #EE4A95;
+  margin: 0 0 15px 0;
+  font-size: 18px;
+  text-align: center;
+  white-space: nowrap; /* Prevent title from wrapping unnecessarily */
+}
+
+.custom-alert p {
+  margin: 0 0 20px 0;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.alert-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap; /* Allow buttons to wrap on very small screens */
+}
+
+.alert-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  min-width: 80px;
+  white-space: nowrap; /* Prevent button text from wrapping */
+}
+
+.alert-button.primary {
+  background: #4EACAE;
+  color: #221F20;
+}
+
+.alert-button.primary:hover {
+  background: #5BBCBE;
+}
+
+.alert-button.secondary {
+  background: transparent;
+  color: #CBCCCC;
+  border: 1px solid #444;
+}
+
+.alert-button.secondary:hover {
+  background: #333;
+}
+
+.login-form {
+  width: 100%;
+  min-width: 280px; /* Ensure form has minimum width */
+}
+
+.login-form input {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background: #333;
+  color: white;
+  box-sizing: border-box;
+}
+
+.login-form input:last-of-type {
+  margin-bottom: 15px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .custom-alert {
+    margin: 20px;
+    max-width: calc(100vw - 40px);
+    padding: 20px;
+  }
+  
+  .alert-buttons {
+    flex-direction: column;
+  }
+  
+  .alert-button {
+    width: 100%;
+  }
+}
