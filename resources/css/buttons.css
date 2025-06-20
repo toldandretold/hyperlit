@@ -198,7 +198,7 @@ black #221F20;
   left: 10px;
   height: 40px;
   width: 40px;
-  z-index: 1000;
+  z-index: 999;
   transition: opacity 0.3s ease;
 }
 
