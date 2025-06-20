@@ -3,7 +3,7 @@
 @section('styles')
    
 
-    @vite(['resources/css/app.css', 'resources/css/reader.css', 'resources/css/highlight-div.css', 'resources/css/containers.css', 'resources/css/buttons.css', 'resources/css/form.css'])
+    @vite(['resources/css/app.css', 'resources/css/reader.css', 'resources/css/highlight-div.css', 'resources/css/containers.css', 'resources/css/buttons.css', 'resources/css/form.css'], 'resources/css/alert.css')
 
     <meta name="process-cite-route" content="{{ route('processCite') }}">
 

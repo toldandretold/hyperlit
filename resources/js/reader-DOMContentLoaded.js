@@ -41,7 +41,6 @@ import { initEditToolbar } from "./editToolbar.js";
 // resources/js/app.js
 import DOMPurify from 'dompurify';
 
-
 window.uiState = {
   activeContainer: "main-content",
   isNavigating: false,
@@ -126,7 +125,6 @@ if (!window.isInitialized) {
         console.error('Failed to load homepage display unit:', error);
       });
     }
-
 
     
 

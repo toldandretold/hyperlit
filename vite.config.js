@@ -78,6 +78,7 @@ export default defineConfig({
         'resources/css/containers.css',
         'resources/css/buttons.css',
         'resources/css/form.css',
+        'resources/css/alert.css',
         'resources/js/app.js',
         'resources/js/cache-indexedDB.js',
         'resources/js/convert-markdown.js',

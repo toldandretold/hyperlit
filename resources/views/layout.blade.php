@@ -15,5 +15,10 @@
 
     <!-- Additional page-specific scripts -->
     @yield('scripts')
+    @if(session('edit_permission_denied'))
+    <script>
+        window.editPermissionDenied = true;
+    </script>
+    @endif
 </body>
 </html>
