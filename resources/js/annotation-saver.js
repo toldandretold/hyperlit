@@ -46,25 +46,34 @@ export const saveAnnotationToIndexedDB = (highlightId, annotationHTML) =>
     });
   });
 
-
 export function attachAnnotationListener(highlightId) {
   const container = document.getElementById("highlight-container");
   if (!container || container.classList.contains("hidden")) return;
 
+  // Find the specific annotation element for this highlight ID
+  const annotationEl = container.querySelector(
+    `.annotation[data-highlight-id="${highlightId}"]`
+  );
+  if (!annotationEl) {
+    console.warn(`No .annotation found for highlight ID: ${highlightId}`);
+    return;
+  }
+
   let debounceTimer = null;
   let lastHTML = "";
 
-  // update lastHTML on keyup
-  container.addEventListener('keyup', () => {
-    lastHTML = container.querySelector('.annotation')?.innerHTML || '';
+  // Update lastHTML on keyup - scoped to this specific annotation element
+  annotationEl.addEventListener('keyup', () => {
+    lastHTML = annotationEl.innerHTML || '';
   });
 
-  container.addEventListener('input', () => {
-    // schedule save
+  // Input listener - scoped to this specific annotation element
+  annotationEl.addEventListener('input', () => {
+    // Schedule save
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       const html = lastHTML;
-      // wrap the entire save in withPending
+      // Wrap the entire save in withPending
       withPending(async () => {
         const db = await openDatabase();
         const tx = db.transaction('hyperlights','readwrite');
@@ -85,7 +94,7 @@ export function attachAnnotationListener(highlightId) {
           upd.onerror   = () => rej(upd.error);
         });
 
-        // wait for tx complete
+        // Wait for tx complete
         await new Promise((res, rej) => {
           tx.oncomplete = () => res();
           tx.onerror    = () => rej(tx.error);
@@ -112,12 +121,11 @@ export function attachAnnotationListener(highlightId) {
             throw new Error(`Failed to sync annotation: ${response.statusText}`);
           }
 
-          console.log('Annotation synced to PostgreSQL');
+          console.log(`Annotation synced to PostgreSQL for ${highlightId}`);
         } catch (error) {
-          console.error('Error syncing annotation to PostgreSQL:', error);
+          console.error(`Error syncing annotation to PostgreSQL for ${highlightId}:`, error);
         }
       }).catch(console.error);
     }, 1000);
   });
 }
-

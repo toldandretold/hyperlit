@@ -75,129 +75,186 @@ export function attachMarkListeners() {
 }
 
 // First, refactor handleMarkClick to use a shared function
+// ========= Mark Click Handler =========
 export async function handleMarkClick(event) {
   event.preventDefault();
-  const highlightId = event.target.className;
-  
-  if (!highlightId) {
-    console.error("❌ Could not determine highlight ID.");
+  // Grab all classes that look like HL_*
+  const highlightIds = Array.from(event.target.classList).filter((cls) =>
+    cls.startsWith("HL_")
+  );
+  if (highlightIds.length === 0) {
+    console.error("❌ No highlight IDs found on mark");
     return;
   }
-
-  console.log(`Mark clicked: ${highlightId}`);
-  openHighlightById(highlightId);
+  console.log(`Opening highlights: ${highlightIds.join(", ")}`);
+  // old code called openHighlightById(id), new overlaps pass an array
+  await openHighlightById(highlightIds);
 }
 
-// New function that contains the core logic
-export async function openHighlightById(highlightId) {
-  if (!highlightId) {
-    console.error("❌ No highlight ID provided");
+// ========= Single/Multi-ID Opener =========
+// Accepts either a single string or an array of strings.
+export async function openHighlightById(rawIds) {
+  // Normalize to array
+  const highlightIds = Array.isArray(rawIds) ? rawIds : [rawIds];
+  if (highlightIds.length === 0) {
+    console.error("❌ openHighlightById called with no IDs");
     return;
   }
 
-  console.log(`Opening highlight: ${highlightId}`);
+  // Multi-ID path
+  if (highlightIds.length > 1) {
+    console.log(`Opening multiple highlights: ${highlightIds.join(", ")}`);
+    let db;
+    try {
+      db = await openDatabase();
+    } catch (err) {
+      console.error("❌ Error opening DB:", err);
+      return;
+    }
+    const tx    = db.transaction("hyperlights", "readonly");
+    const store = tx.objectStore("hyperlights");
+    const idx   = store.index("hyperlight_id");
 
+    // Fetch all highlights in parallel
+    const reads = highlightIds.map((id) =>
+      new Promise((res, rej) => {
+        const req = idx.get(id);
+        req.onsuccess = () => res(req.result);
+        req.onerror   = () => rej(req.error);
+      })
+    );
+
+    let results;
+    try {
+      results = await Promise.all(reads);
+    } catch (err) {
+      console.error("❌ Error fetching highlights:", err);
+      return;
+    }
+
+    // Filter out any missing entries
+    results = results.filter((r) => r);
+    if (results.length === 0) {
+      console.error("❌ No highlight data found for any ID");
+      return;
+    }
+
+    // Build container HTML
+    let html = `<div class="scroller">\n`;
+    results.forEach((h) => {
+      html +=
+        `  <blockquote class="highlight-text" contenteditable="true" ` +
+        `data-highlight-id="${h.hyperlight_id}">\n` +
+        `    "${h.highlightedText}"\n` +
+        `  </blockquote>\n`;
+      html +=
+        `  <div class="annotation" contenteditable="true" ` +
+        `data-highlight-id="${h.hyperlight_id}">\n` +
+        `    ${h.annotation || ""}\n` +
+        `  </div>\n` +
+        `  <hr>\n`;  // <-- added horizontal rule here
+    });
+    html += `</div>\n<div class="mask-bottom"></div>\n<div class="mask-top"></div>`;
+
+    openHighlightContainer(html);
+
+    // Attach listeners per highlight
+    highlightIds.forEach((id) => attachAnnotationListener(id));
+    highlightIds.forEach((id) => addHighlightContainerPasteListener(id));
+
+    return;
+  }
+
+  // Single-ID path (original code unchanged)
+  const highlightId = highlightIds[0];
+  console.log(`Opening highlight: ${highlightId}`);
   try {
     const db = await openDatabase();
     const tx = db.transaction("hyperlights", "readonly");
     const store = tx.objectStore("hyperlights");
     const index = store.index("hyperlight_id");
-    
-    const getRequest = index.get(highlightId);
 
+    const getRequest = index.get(highlightId);
     getRequest.onsuccess = () => {
       const highlightData = getRequest.result;
       console.log("Found highlight data:", highlightData);
-      
       if (!highlightData) {
         console.error("❌ No highlight data found for ID:", highlightId);
         return;
       }
 
       const containerContent = `
-        <div class="scroller">
-        <blockquote class="highlight-text" contenteditable="true">
-          "${highlightData.highlightedText }"
-        </blockquote>
-        <div class="annotation" contenteditable="true">
-          ${highlightData.annotation || ""}
-        </div>
-        </div>
-         <div class="mask-bottom"></div>
-        <div class="mask-top"></div>
-      `;
+      <div class="scroller">
+      <blockquote class="highlight-text" contenteditable="true" data-highlight-id="${highlightData.hyperlight_id}">
+        "${highlightData.highlightedText }"
+      </blockquote>
+      <div class="annotation" contenteditable="true" data-highlight-id="${highlightData.hyperlight_id}">
+        ${highlightData.annotation || ""}
+      </div>
+      </div>
+       <div class="mask-bottom"></div>
+      <div class="mask-top"></div>
+    `;
 
-      // Open container with content directly
       openHighlightContainer(containerContent);
-
-      // After the container is open/unhidden, attach the annotation listener:
       attachAnnotationListener(highlightId);
-
-      // Find the annotation div and add the paste listener to it
       addHighlightContainerPasteListener(highlightId);
 
-      // Double check that the container exists and has content
-      const highlightContainer = document.getElementById("highlight-container");
+      const highlightContainer = document.getElementById(
+        "highlight-container"
+      );
       if (!highlightContainer) {
         console.error("❌ Highlight container element not found in DOM");
         return;
       }
-      
+
       console.log("Container state:", {
         exists: !!highlightContainer,
         content: highlightContainer.innerHTML,
-        isVisible: highlightContainer.classList.contains("open")
+        isVisible: highlightContainer.classList.contains("open"),
       });
-      
-      // Check if there's a hash in the URL that might be an internal ID
+
       const urlHash = window.location.hash.substring(1);
       if (urlHash && urlHash !== highlightId) {
-        console.log(`Found URL hash: ${urlHash}, checking if it's an internal ID within the highlight`);
-        
-        // Wait a moment for the highlight container to fully render
+        console.log(
+          `Found URL hash: ${urlHash}, checking if it's an internal ID`
+        );
         setTimeout(() => {
-          // Look for an element with this ID inside the highlight container
-          const internalElement = highlightContainer.querySelector(`#${CSS.escape(urlHash)}`);
-          
+          const internalElement = highlightContainer.querySelector(
+            `#${CSS.escape(urlHash)}`
+          );
           if (internalElement) {
-            console.log(`Found internal element with ID ${urlHash}, scrolling to it`);
-            
-            // Get the scroller element inside the highlight container
-            const scroller = highlightContainer.querySelector('.scroller');
+            console.log(`Found internal element with ID ${urlHash}`);
+            const scroller = highlightContainer.querySelector(".scroller");
             if (scroller) {
-              // Calculate position of the element relative to the scroller
-              const elementRect = internalElement.getBoundingClientRect();
+              const elementRect  = internalElement.getBoundingClientRect();
               const scrollerRect = scroller.getBoundingClientRect();
-              const relativeTop = elementRect.top - scrollerRect.top + scroller.scrollTop;
-              
-              // Scroll to the element with some offset
+              const relativeTop  =
+                elementRect.top - scrollerRect.top + scroller.scrollTop;
               scroller.scrollTo({
-                top: relativeTop - 50, // 50px offset from the top
-                behavior: 'smooth'
+                top: relativeTop - 50,
+                behavior: "smooth",
               });
-              
-              // Highlight the element temporarily
-              internalElement.classList.add('highlight-target');
+              internalElement.classList.add("highlight-target");
               setTimeout(() => {
-                internalElement.classList.remove('highlight-target');
+                internalElement.classList.remove("highlight-target");
               }, 3000);
             }
           } else {
-            console.log(`No element with ID ${urlHash} found inside the highlight container`);
+            console.log(
+              `No element with ID ${urlHash} found inside the container`
+            );
           }
         }, 300);
       }
     };
-
     getRequest.onerror = (event) => {
       console.error("❌ Error fetching highlight data:", event.target.error);
     };
-
   } catch (error) {
     console.error("❌ Error accessing IndexedDB:", error);
   }
 }
-
 
 
 function getRelativeOffsetTop(element, container) {
@@ -405,8 +462,39 @@ async function addToHighlightsTable(highlightData) {
   });
 }
 
+function calculateCleanTextOffset(container, textNode, offset) {
+  console.log("=== calculateCleanTextOffset Debug ===");
+  console.log("Target textNode:", textNode);
+  console.log("Target offset:", offset);
+  console.log("Target textNode content:", `"${textNode.textContent}"`);
+  
+  // Create a range from the start of container to the target position
+  const range = document.createRange();
+  range.setStart(container, 0);
+  range.setEnd(textNode, offset);
+  
+  // Get the text content of this range - this automatically strips HTML
+  const rangeText = range.toString();
+  console.log("Range text:", `"${rangeText}"`);
+  
+  // The clean offset is simply the length of the range text
+  const cleanOffset = rangeText.length;
+  
+  console.log(`Clean offset calculated: ${cleanOffset}`);
+  
+  // Verification: create clean container to double-check
+  const cleanContainer = container.cloneNode(true);
+  const marks = cleanContainer.querySelectorAll('mark');
+  marks.forEach(mark => {
+    mark.parentNode.replaceChild(document.createTextNode(mark.textContent), mark);
+  });
+  const cleanText = cleanContainer.textContent;
+  console.log(`Verification - clean text at offset: "${cleanText.substring(0, cleanOffset)}"`);
+  
+  return cleanOffset;
+}
 
-
+/*
 function calculateTrueCharacterOffset(container, textNode, offset) {
   // First, create a clone of the container to work with
   const containerClone = container.cloneNode(true);
@@ -451,12 +539,11 @@ function calculateTrueCharacterOffset(container, textNode, offset) {
   }
   
   return rawOffset;
-}
+} */
 
 addTouchAndClickListener(
   document.getElementById("copy-hyperlight"),
   async function() {
-    // Existing code for selection and range checking
     let selection = window.getSelection();
     let range;
     try {
@@ -473,37 +560,112 @@ addTouchAndClickListener(
       return;
     }
 
-    // Get containers before any modifications
+    // Get containers
+    // Get containers - TARGET NUMERICAL IDS ONLY
     let startContainer = range.startContainer.nodeType === 3
-      ? range.startContainer.parentElement.closest("p, blockquote, table, [id]")
-      : range.startContainer.closest("p, blockquote, table, [id]");
-    
+      ? range.startContainer.parentElement.closest("p, blockquote, table, h1, h2, h3, h4, h5, h6")
+      : range.startContainer.closest("p, blockquote, table, h1, h2, h3, h4, h5, h6");
+
+    // Then verify they have numerical IDs
+    if (startContainer && !isNumericalId(startContainer.id)) {
+      startContainer = startContainer.closest("p, blockquote, table, h1, h2, h3, h4, h5, h6");
+    }
+
     let endContainer = range.endContainer.nodeType === 3
-      ? range.endContainer.parentElement.closest("p, blockquote, table, [id]")
-      : range.endContainer.closest("p, blockquote, table, [id]");
+      ? range.endContainer.parentElement.closest("p, blockquote, table, h1, h2, h3, h4, h5, h6")
+      : range.endContainer.closest("p, blockquote, table, h1, h2, h3, h4, h5, h6");
+
+    if (endContainer && !isNumericalId(endContainer.id)) {
+      endContainer = endContainer.closest("p, blockquote, table, h1, h2, h3, h4, h5, h6");
+    }
+
+    // Helper function to check if an ID is numerical (including decimals)
+    function isNumericalId(id) {
+      if (!id) return false;
+      return /^\d+(\.\d+)?$/.test(id);
+    }
+
+      console.log("=== CONTAINER DEBUG ===");
+      console.log("range.startContainer:", range.startContainer);
+      console.log("range.startContainer.nodeType:", range.startContainer.nodeType);
+      console.log("range.startContainer.parentElement:", range.startContainer.parentElement);
+      console.log("startContainer:", startContainer);
+      console.log("startContainer.id:", startContainer?.id);
+
+      console.log("range.endContainer:", range.endContainer);
+      console.log("range.endContainer.nodeType:", range.endContainer.nodeType);
+      console.log("range.endContainer.parentElement:", range.endContainer.parentElement);
+      console.log("endContainer:", endContainer);
+      console.log("endContainer.id:", endContainer?.id);
+
+      console.log("startContainer === endContainer:", startContainer === endContainer);
 
     if (!startContainer || !endContainer) {
       console.error("❌ Could not determine start or end block.");
       return;
     }
     
-    console.log("Start container:", startContainer);
-    console.log("End container:", endContainer);
-    
-    // Calculate true character offsets before adding new marks
-    const trueStartOffset = calculateTrueCharacterOffset(
+    // Calculate offsets based on CLEAN text (without existing marks)
+    const cleanStartOffset = calculateCleanTextOffset(
       startContainer, 
       range.startContainer, 
       range.startOffset
     );
     
-    const trueEndOffset = calculateTrueCharacterOffset(
+    const cleanEndOffset = calculateCleanTextOffset(
       endContainer,
       range.endContainer,
       range.endOffset
     );
 
-    console.log("True offsets:", { start: trueStartOffset, end: trueEndOffset });
+    console.log("Clean text offsets:", { start: cleanStartOffset, end: cleanEndOffset });
+
+    // CALCULATE CLEAN LENGTHS BEFORE APPLYING HIGHLIGHTS
+    const startContainerCleanLength = (() => {
+      const cleanElem = startContainer.cloneNode(true);
+      const marks = cleanElem.querySelectorAll('mark');
+      marks.forEach(mark => {
+        mark.parentNode.replaceChild(document.createTextNode(mark.textContent), mark);
+      });
+      return cleanElem.textContent.length;
+    })();
+
+    const endContainerCleanLength = (() => {
+      const cleanElem = endContainer.cloneNode(true);
+      const marks = cleanElem.querySelectorAll('mark');
+      marks.forEach(mark => {
+        mark.parentNode.replaceChild(document.createTextNode(mark.textContent), mark);
+      });
+      return cleanElem.textContent.length;
+    })();
+
+    // VERIFICATION CODE
+    console.log("=== VERIFICATION ===");
+    const startCleanContainer = startContainer.cloneNode(true);
+    const startMarks = startCleanContainer.querySelectorAll('mark');
+    startMarks.forEach(mark => {
+      mark.parentNode.replaceChild(document.createTextNode(mark.textContent), mark);
+    });
+    const startCleanText = startCleanContainer.textContent;
+
+    const endCleanContainer = endContainer.cloneNode(true);
+    const endMarks = endCleanContainer.querySelectorAll('mark');
+    endMarks.forEach(mark => {
+      mark.parentNode.replaceChild(document.createTextNode(mark.textContent), mark);
+    });
+    const endCleanText = endCleanContainer.textContent;
+
+    console.log("Selected text:", `"${selectedText}"`);
+    console.log("Start container clean text:", `"${startCleanText}"`);
+    console.log("End container clean text:", `"${endCleanText}"`);
+    console.log("Calculated offsets:", { start: cleanStartOffset, end: cleanEndOffset });
+    console.log("Clean lengths:", { start: startContainerCleanLength, end: endContainerCleanLength });
+
+    if (startContainer === endContainer) {
+      const extractedText = startCleanText.substring(cleanStartOffset, cleanEndOffset);
+      console.log("Extracted text from offsets:", `"${extractedText}"`);
+      console.log("Matches selected text?", extractedText === selectedText);
+    }
 
     // Generate unique highlight ID
     const highlightId = generateHighlightID();
@@ -512,10 +674,10 @@ addTouchAndClickListener(
     highlighter.highlightSelection("highlight");
     modifyNewMarks(highlightId);
 
-    // Find all nodes that contain marks with this highlightId
+    // Find all affected nodes
     const affectedMarks = document.querySelectorAll(`mark.${highlightId}`);
     const affectedIds = new Set();
-    const updatedNodeChunks = []; // 👈 ADD: Collect updated node chunks
+    const updatedNodeChunks = [];
 
     affectedMarks.forEach(mark => {
       const container = mark.closest(
@@ -531,12 +693,29 @@ addTouchAndClickListener(
     for (const chunkId of affectedIds) {
       const isStart = chunkId === startContainer.id;
       const isEnd   = chunkId === endContainer.id;
-      const textElem = document.getElementById(chunkId);
-      const len = textElem ? textElem.textContent.length : 0;
-      const startOffset = isStart ? trueStartOffset : 0;
-      const endOffset   = isEnd   ? trueEndOffset   : len;
+      
+      const cleanLength = isStart ? startContainerCleanLength : 
+                         (isEnd ? endContainerCleanLength : 
+                          (() => {
+                            const textElem = document.getElementById(chunkId);
+                            const cleanElem = textElem.cloneNode(true);
+                            const marks = cleanElem.querySelectorAll('mark');
+                            marks.forEach(mark => {
+                              mark.parentNode.replaceChild(document.createTextNode(mark.textContent), mark);
+                            });
+                            return cleanElem.textContent.length;
+                          })()
+                         );
+      
+      const startOffset = isStart ? cleanStartOffset : 0;
+      const endOffset   = isEnd   ? cleanEndOffset   : cleanLength;
 
-      // 👈 MODIFY: Capture the updated node chunk
+      console.log(`=== BEFORE updateNodeHighlight ===`);
+      console.log(`Chunk ${chunkId}: isStart=${isStart}, isEnd=${isEnd}`);
+      console.log(`cleanStartOffset=${cleanStartOffset}, cleanEndOffset=${cleanEndOffset}`);
+      console.log(`startOffset=${startOffset}, endOffset=${endOffset}, cleanLength=${cleanLength}`);
+      console.log(`About to call updateNodeHighlight with: chunkId=${chunkId}, startOffset=${startOffset}, endOffset=${endOffset}, highlightId=${highlightId}`);
+
       const updatedNodeChunk = await updateNodeHighlight(
         chunkId,
         startOffset,
@@ -544,39 +723,46 @@ addTouchAndClickListener(
         highlightId
       );
       
+      console.log(`=== AFTER updateNodeHighlight ===`);
+      console.log(`Returned node chunk:`, updatedNodeChunk);
+      if (updatedNodeChunk && updatedNodeChunk.hyperlights) {
+        const thisHighlight = updatedNodeChunk.hyperlights.find(h => h.highlightID === highlightId);
+        console.log(`Saved highlight data:`, thisHighlight);
+      }
+      
       if (updatedNodeChunk) {
         updatedNodeChunks.push(updatedNodeChunk);
       }
       
-      console.log(`Updated chunk ${chunkId}`);
+      console.log(`Updated node ${chunkId}`);
     }
 
     try {
       // Create hyperlight entry for the main hyperlights table
       const hyperlightEntry = {
-        book: book, // Make sure 'book' variable is available in scope
+        book: book,
         hyperlight_id: highlightId,
         highlightedText: selectedText,
-        highlightedHTML: selectedText, // You might want to get actual HTML
-        startChar: trueStartOffset,
-        endChar: trueEndOffset,
+        highlightedHTML: selectedText,
+        startChar: cleanStartOffset,
+        endChar: cleanEndOffset,
         startLine: startContainer.id,
-        annotation: null // Add if you have annotations
+        annotation: null
       };
 
       // Add to IndexedDB hyperlights table
       await addToHighlightsTable({
         highlightId,
         text: selectedText,
-        startChar: trueStartOffset,
-        endChar: trueEndOffset,
+        startChar: cleanStartOffset,
+        endChar: cleanEndOffset,
         startLine: startContainer.id
       });
       
       console.log("Added to highlights table");
       await updateBookTimestamp(book);
       
-      // 👈 ADD: Sync with PostgreSQL
+      // Sync with PostgreSQL
       await syncHyperlightWithPostgreSQL(hyperlightEntry, updatedNodeChunks);
       
     } catch (error) {
@@ -589,7 +775,7 @@ addTouchAndClickListener(
 
 // Helper function to sync hyperlight data with PostgreSQL
 async function syncHyperlightWithPostgreSQL(hyperlightEntry, nodeChunks) {
-  try {
+  try { 
     console.log("🔄 Starting Hyperlight PostgreSQL sync...");
 
     // Get the library object from IndexedDB for the book
