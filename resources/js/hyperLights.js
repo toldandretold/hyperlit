@@ -402,7 +402,10 @@ function modifyNewMarks(highlightId) {
     const newMarks = document.querySelectorAll('mark.highlight');
     newMarks.forEach((mark, index) => {
         if (index === 0) mark.setAttribute('id', highlightId);
+        
+        // Add classes separately - this is the fix!
         mark.classList.add(highlightId);
+        mark.classList.add('user-highlight'); // Add user-highlight class for new highlights
         mark.classList.remove('highlight');
         
         // Add data-highlight-count (default to 1 for new highlights)
