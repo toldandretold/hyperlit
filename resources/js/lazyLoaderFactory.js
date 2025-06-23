@@ -15,6 +15,7 @@ import {
   clearChunkLoadingInProgress, 
   scheduleAutoClear 
 } from './chunkLoadingState.js';
+import { getUserHighlightCache } from "./userCache.js";
 
 // --- A simple throttle helper to limit scroll firing
 function throttle(fn, delay) {
@@ -366,14 +367,15 @@ instance.saveScrollPosition = () => {
 /**
  * Helper: Creates a chunk element given an array of node objects.
  */
-function createChunkElement(nodes) {
+// Keep createChunkElement function signature unchanged
+function createChunkElement(nodes, instance) { // Pass instance instead of bookId
   console.log("createChunkElement called with nodes:", nodes.length);
   if (!nodes || nodes.length === 0) {
     console.warn("No nodes provided to createChunkElement.");
     return null;
   }
 
-  const chunkId = nodes[0].chunk_id; // Assuming all nodes share the same chunk_id.
+  const chunkId = nodes[0].chunk_id;
   const chunkWrapper = document.createElement("div");
   chunkWrapper.setAttribute("data-chunk-id", chunkId);
   chunkWrapper.classList.add("chunk");
@@ -383,13 +385,13 @@ function createChunkElement(nodes) {
   nodes.forEach((node) => {
     let html = renderBlockToHtml(node);
 
-    // Apply highlights (if available) exactly as before.
+    // Apply highlights - use instance.bookId
     if (node.hyperlights && node.hyperlights.length > 0) {
       console.log(
         `Node ${node.id || node.startLine} hyperlights:`,
         node.hyperlights
       );
-      html = applyHighlights(html, node.hyperlights);
+      html = applyHighlights(html, node.hyperlights, instance.bookId); // Use instance.bookId
     }
 
     // Apply hypercites if available
@@ -404,7 +406,6 @@ function createChunkElement(nodes) {
     // Convert the modified HTML string back to a DOM node.
     const temp = document.createElement("div");
     temp.innerHTML = html;
-    // Append the first child (converted block) into the chunk wrapper.
     if (temp.firstChild) {
       chunkWrapper.appendChild(temp.firstChild);
     }
@@ -518,14 +519,12 @@ export function applyHypercites(html, hypercites) {
 
 
 
-/**
- * Utility: Apply highlight marks.
- */
-/**
- * Utility: Apply highlight marks.
- */
-export function applyHighlights(html, highlights) {
+// Update the applyHighlights function to accept bookId and use the cache
+export function applyHighlights(html, highlights, bookId) {
   if (!highlights || highlights.length === 0) return html;
+
+  // Get user's highlight IDs from cache (synchronous since cache is already built)
+  const userHighlightIds = getUserHighlightCache(bookId);
 
   const tempElement = document.createElement("div");
   tempElement.innerHTML = html;
@@ -549,12 +548,21 @@ export function applyHighlights(html, highlights) {
       const intensity = Math.min(segment.highlightIDs.length / 5, 1); // Cap at 5 highlights
       markElement.style.setProperty('--highlight-intensity', intensity);
       
+      // Check if any highlight in this segment belongs to current user
+      const hasUserHighlight = segment.highlightIDs.some(id => userHighlightIds.has(id));
+      
       if (segment.highlightIDs.length === 1) {
         markElement.id = segment.highlightIDs[0];
         markElement.className = segment.highlightIDs[0];
       } else {
         markElement.id = "HL_overlap";
         markElement.className = segment.highlightIDs.join(" ");
+      }
+      
+      // Add user-specific class for styling
+      if (hasUserHighlight) {
+        markElement.classList.add('user-highlight');
+        console.log(`🎨 Added user-highlight class to segment with IDs: ${segment.highlightIDs.join(', ')}`);
       }
       
       // Use surroundContents instead of extractContents
@@ -578,6 +586,7 @@ export function applyHighlights(html, highlights) {
 
   return tempElement.innerHTML;
 }
+
 
 function createHighlightSegments(highlights) {
   // Collect all boundary points
@@ -721,7 +730,7 @@ export function loadNextChunkFixed(currentLastChunkId, instance) {
     scheduleAutoClear(nextChunkId, 1000); // Auto-clear after 1 second
     
     const container = instance.container;
-    const chunkElement = createChunkElement(nextNodes);
+    const chunkElement = createChunkElement(nextNodes, instance);
     container.appendChild(chunkElement);
     instance.currentlyLoadedChunks.add(nextChunkId);
     
@@ -780,7 +789,7 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
     
     const container = instance.container;
     const prevScrollTop = container.scrollTop;
-    const chunkElement = createChunkElement(prevNodes);
+    const chunkElement = createChunkElement(prevNodes, instance);
     container.insertBefore(chunkElement, container.firstElementChild);
     instance.currentlyLoadedChunks.add(prevChunkId);
     const newHeight = chunkElement.getBoundingClientRect().height;
@@ -826,7 +835,7 @@ function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   setChunkLoadingInProgress(chunkId);
   scheduleAutoClear(chunkId, 1000);
   
-  const element = createChunkElement(nextNodes);
+  const element = createChunkElement(nextNodes, instance);
   if (direction === "up") {
     instance.container.insertBefore(element, instance.container.firstChild);
   } else {

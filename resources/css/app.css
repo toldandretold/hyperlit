@@ -284,8 +284,7 @@ pink #EE4A95;
 aqua #4EACAE; 
 black #221F20; 
 "white" #CBCCCC*/
-
-
+/* General mark styles first */
 mark[data-highlight-count] {
   position: relative;
   background-color: rgba(238, 74, 149, var(--highlight-intensity));
@@ -300,10 +299,28 @@ mark[data-highlight-count]::before {
   left: -6px;
   right: -6px;
   bottom: -6px;
-  background-color: rgba(238, 74, 149, calc(var(--highlight-intensity) * 0.7)); /* Higher opacity */
-  filter: blur(calc(var(--highlight-intensity) * 8px)); /* More blur */
+  background-color: rgba(238, 74, 149, calc(var(--highlight-intensity) * 0.7));
+  filter: blur(calc(var(--highlight-intensity) * 8px));
   z-index: -1;
   border-radius: 4px;
+}
+
+/* User-specific overrides (more specific, comes after) */
+mark[data-highlight-count].user-highlight {
+    background-color: #4EACAE;
+    color: #221F20;
+    text-decoration: none !important;
+}
+
+mark[data-highlight-count].user-highlight:hover {
+    background-color: rgba(78, 172, 174, calc(var(--highlight-intensity) * 0.7));
+    color: #CBCCCC;
+    text-decoration: none !important;
+}
+
+mark[data-highlight-count].user-highlight::before {
+    background-color: rgba(78, 172, 174, calc(var(--highlight-intensity) * 0.7));
+    text-decoration: none !important;
 }
 
 mark:hover

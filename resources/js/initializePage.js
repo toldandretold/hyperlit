@@ -20,6 +20,8 @@ import {
 import { parseMarkdownIntoChunksInitial } from "./convert-markdown.js";
 
 import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
+// Add to your imports at the top
+import { buildUserHighlightCache, clearUserHighlightCache } from "./userCache.js";
 
 // Your existing function - unchanged for backward compatibility
 export async function loadHyperText() {
@@ -38,6 +40,10 @@ export async function loadHyperText() {
     if (cached && cached.length) {
       console.log(`✅ Found ${cached.length} cached nodeChunks`);
       window.nodeChunks = cached;
+      
+      // 🚨 BUILD USER HIGHLIGHT CACHE HERE
+      await buildUserHighlightCache(book);
+      
       initializeLazyLoader(openHyperlightID);
 
       // Start async timestamp check (don't await)
@@ -54,6 +60,10 @@ export async function loadHyperText() {
       if (dbChunks && dbChunks.length) {
         console.log(`✅ Loaded ${dbChunks.length} nodeChunks from database`);
         window.nodeChunks = dbChunks;
+        
+        // 🚨 BUILD USER HIGHLIGHT CACHE HERE
+        await buildUserHighlightCache(book);
+        
         initializeLazyLoader(openHyperlightID);
         return;
       }
@@ -64,8 +74,12 @@ export async function loadHyperText() {
     
     window.nodeChunks = await generateNodeChunksFromMarkdown(book);
     console.log("✅ Content generated + saved; now initializing UI");
+    
+    // 🚨 BUILD USER HIGHLIGHT CACHE HERE
+    await buildUserHighlightCache(book);
+    
     initializeLazyLoader(OpenHyperlightID || null);
-      console.log("✅ Content loading complete");
+    console.log("✅ Content loading complete");
     return;
   } catch (err) {
     console.error("❌ Error loading content:", err);
