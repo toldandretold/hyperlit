@@ -38,7 +38,7 @@ function handleHighlightContainerPaste(event, highlightId) {
   }
   
   // Then try to handle as markdown
-  if (handleHighlightMarkdownPaste(event)) {
+  if (handleHighlightMarkdownPaste(event, highlightId)) {
     return; // Handled as markdown
   }
   
@@ -46,9 +46,11 @@ function handleHighlightContainerPaste(event, highlightId) {
   event.preventDefault(); // Prevent default paste behavior
   
   // Get the annotation div
-  const annotationDiv = document.querySelector('#highlight-container .annotation');
+  const annotationDiv = document.querySelector(
+    `#highlight-container .annotation[data-highlight-id="${highlightId}"]`
+  );
   if (!annotationDiv) {
-    console.warn("No annotation div found for paste operation");
+    console.warn(`No annotation div found for highlight ID: ${highlightId}`);
     return;
   }
   
@@ -246,7 +248,9 @@ function handleHighlightHypercitePaste(event, highlightId) {
   }
   
   // Save the annotation
-  const annotationDiv = document.querySelector('#highlight-container .annotation');
+  const annotationDiv = document.querySelector(
+    `#highlight-container .annotation[data-highlight-id="${highlightId}"]`
+  );
   if (annotationDiv) {
     saveHighlightAnnotation(highlightId, annotationDiv.innerHTML);
   }
@@ -277,7 +281,7 @@ function handleHighlightHypercitePaste(event, highlightId) {
 /**
  * Handle pasting of markdown content in the highlight container
  */
-function handleHighlightMarkdownPaste(event) {
+function handleHighlightMarkdownPaste(event, highlightId) {
   const markdown = event.clipboardData.getData("text/plain");
   if (!markdown.trim()) return false;
   
@@ -287,10 +291,12 @@ function handleHighlightMarkdownPaste(event) {
   
   event.preventDefault();
 
-  // Get the annotation div
-  const annotationDiv = document.querySelector('#highlight-container .annotation');
+  // Get the specific annotation div for this highlight ID
+  const annotationDiv = document.querySelector(
+    `#highlight-container .annotation[data-highlight-id="${highlightId}"]`
+  );
   if (!annotationDiv) {
-    console.warn("No annotation div found for markdown paste");
+    console.warn(`No annotation div found for markdown paste, highlight ID: ${highlightId}`);
     return false;
   }
 
@@ -409,14 +415,27 @@ function updateAnnotationInPostgreSQL(highlightData){
 /**
  * Add the highlight container paste listener
  */
+/**
+ * Add the highlight container paste listener
+ */
 export function addHighlightContainerPasteListener(highlightId) {
-  const annotationDiv = document.querySelector('#highlight-container .annotation');
+  const container = document.getElementById("highlight-container");
+  if (!container || container.classList.contains("hidden")) {
+    console.error("Cannot add paste listener: Container not found or hidden");
+    return;
+  }
+
+  // Find the specific annotation element for this highlight ID
+  const annotationDiv = container.querySelector(
+    `.annotation[data-highlight-id="${highlightId}"]`
+  );
+  
   if (!annotationDiv) {
-    console.error("Cannot add paste listener: Annotation div not found");
+    console.warn(`Cannot add paste listener: No annotation div found for highlight ID: ${highlightId}`);
     return;
   }
   
-  console.log(`Adding paste listener to highlight container for highlight ${highlightId}`);
+  console.log(`Adding paste listener to annotation for highlight ${highlightId}`);
   
   // Remove any existing paste listeners to avoid duplicates
   annotationDiv.removeEventListener("paste", annotationDiv._pasteHandler);

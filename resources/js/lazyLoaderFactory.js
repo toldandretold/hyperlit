@@ -527,70 +527,85 @@ export function applyHypercites(html, hypercites) {
 export function applyHighlights(html, highlights) {
   if (!highlights || highlights.length === 0) return html;
 
-  // Debug the actual structure of the highlights data
-  console.log("Highlight data structure:", JSON.stringify(highlights[0]));
-  console.log("Applying highlights:", highlights);
-
-  // Sort highlights so that longer ones or ones with the same start are processed first.
-  highlights.sort((a, b) => {
-    if (a.charStart === b.charStart) {
-      return (b.charEnd - b.charStart) - (a.charEnd - a.charStart);
-    }
-    return b.charStart - a.charStart;
-  });
-
-
-
   const tempElement = document.createElement("div");
   tempElement.innerHTML = html;
   
-  // Debug the text content of the element
-  console.log("Text content of element:", tempElement.textContent);
-  console.log("Text content length:", tempElement.textContent.length);
+  const segments = createHighlightSegments(highlights);
   
-  // Log character by character to see where counting might be off
-  const textContent = tempElement.textContent;
-  console.log("Character by character:");
-  for (let i = 0; i < Math.min(textContent.length, 100); i++) { // Limit to first 100 chars
-    console.log(`Position ${i}: "${textContent[i]}" (charCode: ${textContent.charCodeAt(i)})`);
-  }
+  // Keep reverse order but recalculate positions each time
+  segments.sort((a, b) => b.charStart - a.charStart);
 
-  for (const highlight of highlights) {
-    // Make sure we have the correct property names
-    const highlightID = highlight.highlightID;
-    const charStart = highlight.charStart;
-    const charEnd = highlight.charEnd;
+  for (const segment of segments) {
+    console.log(`Applying segment from ${segment.charStart} to ${segment.charEnd}`, segment);
     
-    if (!highlightID || charStart === undefined || charEnd === undefined) {
-      console.warn("Invalid highlight data:", highlight);
-      continue;
-    }
-
-    console.log(`Applying highlight ${highlightID} from ${charStart} to ${charEnd}`);
-    console.log(`Characters at these positions: "${textContent.substring(charStart, charEnd)}"`);
-    
-    const positions = findPositionsInDOM(tempElement, charStart, charEnd);
-    
-    // Debug the positions returned
-    console.log("Positions found:", positions);
+    // Recalculate positions based on current DOM state
+    const positions = findPositionsInDOM(tempElement, segment.charStart, segment.charEnd);
     
     if (positions) {
       const markElement = document.createElement("mark");
-      markElement.id = highlightID;
-      markElement.className = highlightID;
-      wrapRangeWithElement(
-        positions.startNode,
-        positions.startOffset,
-        positions.endNode,
-        positions.endOffset,
-        markElement
-      );
-    } else {
-      console.warn(`Could not find positions for highlight ${highlightID}`);
+      
+      if (segment.highlightIDs.length === 1) {
+        markElement.id = segment.highlightIDs[0];
+        markElement.className = segment.highlightIDs[0];
+      } else {
+        markElement.id = "HL_overlap";
+        markElement.className = segment.highlightIDs.join(" ");
+      }
+      
+      // Use surroundContents instead of extractContents
+      try {
+        const range = document.createRange();
+        range.setStart(positions.startNode, positions.startOffset);
+        range.setEnd(positions.endNode, positions.endOffset);
+        range.surroundContents(markElement);
+      } catch (error) {
+        console.error("Error with surroundContents, falling back:", error);
+        wrapRangeWithElement(
+          positions.startNode,
+          positions.startOffset,
+          positions.endNode,
+          positions.endOffset,
+          markElement
+        );
+      }
     }
   }
 
   return tempElement.innerHTML;
+}
+
+function createHighlightSegments(highlights) {
+  // Collect all boundary points
+  const boundaries = new Set();
+  
+  highlights.forEach(highlight => {
+    boundaries.add(highlight.charStart);
+    boundaries.add(highlight.charEnd);
+  });
+  
+  const sortedBoundaries = Array.from(boundaries).sort((a, b) => a - b);
+  const segments = [];
+  
+  // Create segments between each pair of boundaries
+  for (let i = 0; i < sortedBoundaries.length - 1; i++) {
+    const segmentStart = sortedBoundaries[i];
+    const segmentEnd = sortedBoundaries[i + 1];
+    
+    // Find which highlights cover this segment
+    const coveringHighlights = highlights.filter(highlight => 
+      highlight.charStart <= segmentStart && highlight.charEnd >= segmentEnd
+    );
+    
+    if (coveringHighlights.length > 0) {
+      segments.push({
+        charStart: segmentStart,
+        charEnd: segmentEnd,
+        highlightIDs: coveringHighlights.map(h => h.highlightID)
+      });
+    }
+  }
+  
+  return segments;
 }
 
 
@@ -637,11 +652,19 @@ function wrapRangeWithElement(startNode, startOffset, endNode, endOffset, wrapEl
     const range = document.createRange();
     range.setStart(startNode, startOffset);
     range.setEnd(endNode, endOffset);
-    const contents = range.extractContents();
-    wrapElement.appendChild(contents);
-    range.insertNode(wrapElement);
+    
+    // Instead of extractContents, surround the contents
+    range.surroundContents(wrapElement);
   } catch (error) {
     console.error("Error wrapping range with element:", error);
+    // Fallback to original method if surroundContents fails
+    try {
+      const contents = range.extractContents();
+      wrapElement.appendChild(contents);
+      range.insertNode(wrapElement);
+    } catch (fallbackError) {
+      console.error("Fallback wrapping also failed:", fallbackError);
+    }
   }
 }
 

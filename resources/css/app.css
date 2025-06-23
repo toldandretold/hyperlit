@@ -279,17 +279,31 @@ html, body, * {
 }
 
 mark {
-     text-decoration: none !important; /* Ensure no underline on hover */
+      /* Ensure no underline on hover */
   /* A radial gradient that fades from yellow to transparent */
   background: #EE4A95;
+  text-decoration: none !important;
   /* Optionally add some padding so the effect is visible */
 }
 
-mark:hover {
+mark#HL_overlap {
+    background: #e33283; /* Darker shade of the same color */
+    text-decoration: none !important;
+}
+
+mark:hover
+ {
     text-decoration: none !important; /* Ensure no underline on hover */
     cursor: pointer;
     background: #4EACAE;
     
+}
+
+mark#HL_overlap:hover
+{
+text-decoration: none !important; /* Ensure no underline on hover */
+    cursor: pointer;
+    background: #2c9496;
 }
 
 mark .active {
