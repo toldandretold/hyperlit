@@ -12,6 +12,8 @@ import { attachAnnotationListener } from "./annotation-saver.js";
 import { addPasteListener } from "./paste.js";
 import { addHighlightContainerPasteListener } from "./hyperLightsListener.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
+import { getCurrentUser, getAuthorId } from "./auth.js";
+import { getCurrentUserInfo } from './auth.js';
 
 let highlightId; 
 let highlightLazyLoader;
@@ -402,6 +404,14 @@ function modifyNewMarks(highlightId) {
         if (index === 0) mark.setAttribute('id', highlightId);
         mark.classList.add(highlightId);
         mark.classList.remove('highlight');
+        
+        // Add data-highlight-count (default to 1 for new highlights)
+        const highlightCount = 1;
+        mark.setAttribute('data-highlight-count', highlightCount);
+        
+        // Add highlight intensity (same calculation as in applyHighlights)
+        const intensity = Math.min(highlightCount / 5, 1);
+        mark.style.setProperty('--highlight-intensity', intensity);
     });
     console.log("✅ New highlight mark created with ID:", highlightId);
 }
@@ -445,7 +455,9 @@ async function addToHighlightsTable(highlightData) {
       annotation: "", // initial empty annotation
       startChar: highlightData.startChar,
       endChar: highlightData.endChar,
-      startLine: highlightData.startLine
+      startLine: highlightData.startLine,
+      creator: highlightData.creator || null,
+      creator_token: highlightData.creator_token || null
     };
 
     const addRequest = store.put(highlightEntry);
@@ -738,6 +750,18 @@ addTouchAndClickListener(
     }
 
     try {
+      // 1) Determine creator info (same pattern as createNewBook)
+      const user = await getCurrentUser();
+      const creator = user
+        ? (user.name || user.username || user.email)
+        : null;
+      const creator_token = user ? null : getAuthorId();
+
+      console.log("Creating hyperlight with", {
+        creator,
+        creator_token
+      });
+
       // Create hyperlight entry for the main hyperlights table
       const hyperlightEntry = {
         book: book,
@@ -747,16 +771,20 @@ addTouchAndClickListener(
         startChar: cleanStartOffset,
         endChar: cleanEndOffset,
         startLine: startContainer.id,
-        annotation: null
+        annotation: null,
+        creator,           // Add creator field
+        creator_token      // Add creator_token field
       };
 
-      // Add to IndexedDB hyperlights table
+      // Add to IndexedDB hyperlights table (update this function to accept creator info)
       await addToHighlightsTable({
         highlightId,
         text: selectedText,
         startChar: cleanStartOffset,
         endChar: cleanEndOffset,
-        startLine: startContainer.id
+        startLine: startContainer.id,
+        creator,           // Add creator field
+        creator_token      // Add creator_token field
       });
       
       console.log("Added to highlights table");

@@ -544,6 +544,11 @@ export function applyHighlights(html, highlights) {
     if (positions) {
       const markElement = document.createElement("mark");
       
+      // Always set data-highlight-count and intensity
+      markElement.setAttribute("data-highlight-count", segment.highlightIDs.length);
+      const intensity = Math.min(segment.highlightIDs.length / 5, 1); // Cap at 5 highlights
+      markElement.style.setProperty('--highlight-intensity', intensity);
+      
       if (segment.highlightIDs.length === 1) {
         markElement.id = segment.highlightIDs[0];
         markElement.className = segment.highlightIDs[0];

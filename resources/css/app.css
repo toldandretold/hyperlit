@@ -278,17 +278,32 @@ html, body, * {
   pointer-events: none;
 }
 
-mark {
-      /* Ensure no underline on hover */
-  /* A radial gradient that fades from yellow to transparent */
-  background: #EE4A95;
-  text-decoration: none !important;
-  /* Optionally add some padding so the effect is visible */
+/* hyperlit colors:  
+orange #EF8D34; 
+pink #EE4A95; 
+aqua #4EACAE; 
+black #221F20; 
+"white" #CBCCCC*/
+
+
+mark[data-highlight-count] {
+  position: relative;
+  background-color: rgba(238, 74, 149, var(--highlight-intensity));
+  border-width: calc(var(--highlight-intensity) * 3px);
+  color: #CBCCCC;
 }
 
-mark#HL_overlap {
-    background: #e33283; /* Darker shade of the same color */
-    text-decoration: none !important;
+mark[data-highlight-count]::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  right: -6px;
+  bottom: -6px;
+  background-color: rgba(238, 74, 149, calc(var(--highlight-intensity) * 0.7)); /* Higher opacity */
+  filter: blur(calc(var(--highlight-intensity) * 8px)); /* More blur */
+  z-index: -1;
+  border-radius: 4px;
 }
 
 mark:hover

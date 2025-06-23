@@ -17,6 +17,8 @@ class PgHyperlight extends Model
         'highlightedText',
         'startChar',
         'startLine',
+        'creator',
+        'creator_token',
         'raw_json'
     ];
 
