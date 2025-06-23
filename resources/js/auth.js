@@ -1,22 +1,6 @@
 import { getLibraryObjectFromIndexedDB } from './cache-indexedDB.js';
 
-// Add this to auth.js
-let currentUserInfo = null;
 
-// called in DOmContentloaded.js... 
-export async function initializeUserInfo() {
-  try {
-    const user = await getCurrentUser();
-    currentUserInfo = {
-      creator: user ? (user.name || user.username || user.email) : null,
-      creator_token: user ? null : getAuthorId()
-    };
-    console.log("Initialized user info:", currentUserInfo);
-  } catch (error) {
-    console.error("Error initializing user info:", error);
-    currentUserInfo = { creator: null, creator_token: getAuthorId() };
-  }
-}
 
 // Export a getter function
 export function getCurrentUserInfo() {
@@ -104,10 +88,17 @@ export async function canUserEditBook(bookId) {
 export function getAuthorId() {
   const KEY = 'authorId';
   let id = localStorage.getItem(KEY);
+  
+  console.log(`🔍 getAuthorId() - existing ID in localStorage: ${id}`);
+  
   if (!id) {
     id = crypto.randomUUID();
     localStorage.setItem(KEY, id);
+    console.log(`🆕 getAuthorId() - generated new ID: ${id}`);
+  } else {
+    console.log(`✅ getAuthorId() - using existing ID: ${id}`);
   }
+  
   // also mirror it into a cookie (so Laravel can read it)
   document.cookie = `anon_author=${id}; Path=/; Max-Age=${60*60*24*365}`;
   return id;
