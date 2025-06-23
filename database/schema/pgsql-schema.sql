@@ -144,7 +144,9 @@ CREATE TABLE public.hyperlights (
     "startLine" character varying(255),
     raw_json jsonb NOT NULL,
     created_at timestamp(0) without time zone,
-    updated_at timestamp(0) without time zone
+    updated_at timestamp(0) without time zone,
+    creator character varying(255),
+    creator_token uuid
 );
 
 
@@ -246,7 +248,9 @@ CREATE TABLE public.library (
     recent integer,
     total_views integer,
     total_citations integer,
-    total_highlights integer
+    total_highlights integer,
+    creator character varying(255),
+    creator_token uuid
 );
 
 
@@ -645,6 +649,13 @@ CREATE INDEX jobs_queue_index ON public.jobs USING btree (queue);
 
 
 --
+-- Name: library_creator_token_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX library_creator_token_index ON public.library USING btree (creator_token);
+
+
+--
 -- Name: personal_access_tokens_tokenable_type_tokenable_id_index; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -706,6 +717,10 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 12	2025_06_15_104443_add_two_factor_columns_to_users_table	7
 13	2025_06_15_113048_create_personal_access_tokens_table	8
 14	2025_06_16_065611_add_two_factor_columns_to_users_table	7
+15	2025_06_17_234740_add_creator_to_library_table	9
+16	2025_06_19_231127_create_personal_access_tokens_table	10
+17	2025_06_20_082428_add_creator_token_to_library_table	11
+18	2025_06_24_000000_add_hyperlights_creator_columns	12
 \.
 
 
@@ -713,7 +728,7 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 -- Name: migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.migrations_id_seq', 14, true);
+SELECT pg_catalog.setval('public.migrations_id_seq', 18, true);
 
 
 --

@@ -1,5 +1,29 @@
 import { getLibraryObjectFromIndexedDB } from './cache-indexedDB.js';
 
+// Add this to auth.js
+let currentUserInfo = null;
+
+// called in DOmContentloaded.js... 
+export async function initializeUserInfo() {
+  try {
+    const user = await getCurrentUser();
+    currentUserInfo = {
+      creator: user ? (user.name || user.username || user.email) : null,
+      creator_token: user ? null : getAuthorId()
+    };
+    console.log("Initialized user info:", currentUserInfo);
+  } catch (error) {
+    console.error("Error initializing user info:", error);
+    currentUserInfo = { creator: null, creator_token: getAuthorId() };
+  }
+}
+
+// Export a getter function
+export function getCurrentUserInfo() {
+  return currentUserInfo;
+}
+
+
 // auth.js
 export async function getCurrentUser() {
   console.log("Checking authentication...");
@@ -88,3 +112,4 @@ export function getAuthorId() {
   document.cookie = `anon_author=${id}; Path=/; Max-Age=${60*60*24*365}`;
   return id;
 }
+

@@ -25,6 +25,8 @@ class DbHyperlightController extends Controller
                         'startChar' => $item['startChar'] ?? null,
                         'endChar' => $item['endChar'] ?? null,
                         'startLine' => $item['startLine'] ?? null,
+                        'creator' => $item['creator'] ?? null,
+                        'creator_token' => $item['creator_token'] ?? null,
                         'raw_json' => json_encode($item),
                         'created_at' => now(),
                         'updated_at' => now(),
@@ -72,6 +74,8 @@ class DbHyperlightController extends Controller
                             'startChar' => $item['startChar'] ?? null,
                             'endChar' => $item['endChar'] ?? null,
                             'startLine' => $item['startLine'] ?? null,
+                            'creator' => $item['creator'] ?? null,
+                            'creator_token' => $item['creator_token'] ?? null,
                             'raw_json' => json_encode($item),
                             'updated_at' => now(),
                         ]
