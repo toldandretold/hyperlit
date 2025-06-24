@@ -155,10 +155,9 @@ export class SourceContainerManager extends ContainerManager {
     const docxBtn = this.container.querySelector("#download-docx");
     if (mdBtn) {
       mdBtn.addEventListener("click", async () => {
-        // TODO: implement markdown download
         console.log("Download .md clicked");
         exportBookAsMarkdown(book);
-        });
+      });
     }
     if (docxBtn) {
       docxBtn.addEventListener("click", () => {
@@ -200,6 +199,8 @@ export class SourceContainerManager extends ContainerManager {
       });
 
       this.isOpen = true;
+      
+      // FIX: Use window.uiState instead of direct assignment
       if (window.uiState) {
         window.uiState.setActiveContainer(this.container.id);
       } else {
@@ -228,11 +229,11 @@ export class SourceContainerManager extends ContainerManager {
     // unfreeze background
     this.frozenElements.forEach((el) => this.unfreezeElement(el));
 
-    // hide overlay
+    // hide overlay - FIX: Reset overlay state properly
     if (this.overlay) {
       this.overlay.classList.remove("active");
-      this.overlay.style.display = "none";
       this.overlay.style.opacity = "0";
+      // Don't immediately set display: none
     }
 
     // show nav
@@ -242,6 +243,8 @@ export class SourceContainerManager extends ContainerManager {
     });
 
     this.isOpen = false;
+    
+    // FIX: Use window.uiState consistently
     if (window.uiState) {
       window.uiState.setActiveContainer("main-content");
     } else {
@@ -254,11 +257,17 @@ export class SourceContainerManager extends ContainerManager {
         this.container.classList.add("hidden");
         this.isAnimating = false;
         console.log("Source container close animation complete");
-        if (this.overlay) this.overlay.style.display = "none";
+        
+        // FIX: Reset overlay completely after animation
+        if (this.overlay) {
+          this.overlay.style.display = "";
+          this.overlay.style.opacity = "";
+        }
       },
       { once: true }
     );
   }
+  
 
   toggleContainer() {
     if (this.isAnimating) return;

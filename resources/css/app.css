@@ -327,7 +327,7 @@ mark:hover
  {
     text-decoration: none !important; /* Ensure no underline on hover */
     cursor: pointer;
-    background: #4EACAE;
+    background: #EE4A95;
     
 }
 
@@ -335,7 +335,7 @@ mark#HL_overlap:hover
 {
 text-decoration: none !important; /* Ensure no underline on hover */
     cursor: pointer;
-    background: #2c9496;
+    background: #EE4A95;
 }
 
 mark .active {
