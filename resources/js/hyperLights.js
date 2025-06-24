@@ -270,7 +270,6 @@ function getRelativeOffsetTop(element, container) {
 
 export function handleMarkHover(event) {
     const highlightId = event.target.id;
-    event.target.style.textDecoration = "underline";
     console.log(`Mark over: ${highlightId}`);
 }
 
@@ -312,7 +311,10 @@ function handleSelection() {
 
   // Check if the highlighted text overlaps with any existing highlight
   highlights.forEach(function (highlight) {
-    if (selectedText.includes(highlight.textContent.trim())) {
+    if (
+      highlight.classList.contains("user-highlight") &&
+      selectedText.includes(highlight.textContent.trim())
+    ) {
       isOverlapping = true;
     }
   });
