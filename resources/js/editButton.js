@@ -6,15 +6,13 @@ import {
 import { book } from "./app.js";
 import { incrementPendingOperations, decrementPendingOperations } from './operationState.js';
 import { addPasteListener } from './paste.js';
-import { getCurrentUser, canUserEditBook } from './auth.js'; // Add this
-import { getLibraryObjectFromIndexedDB } from './cache-indexedDB.js'; // Add this
-
-
+import { getCurrentUser, canUserEditBook } from './auth.js';
+import { getLibraryObjectFromIndexedDB } from './cache-indexedDB.js';
 
 const editBtn     = document.getElementById("editButton");
 const editableDiv = document.getElementById(book);
 
-// Detect “edit” from URL
+// Detect "edit" from URL
 const params   = new URLSearchParams(location.search);
 const isEditQ  = params.get("edit") === "1";
 const isEditP  = location.pathname.endsWith("/edit");
@@ -25,6 +23,30 @@ window.isEditing = false;
 
 // Add this at the top with your other variables
 let editModeCheckInProgress = false;
+
+// Add this function to handle edit mode cancellation without reload
+function handleEditModeCancel() {
+  // Reset the edit mode check flag
+  editModeCheckInProgress = false;
+  
+  // If we're currently in edit mode, disable it
+  if (window.isEditing) {
+    disableEditMode();
+  }
+  
+  // Update URL without reload if we're on an /edit path
+  const currentUrl = window.location.pathname;
+  if (currentUrl.endsWith('/edit')) {
+    const readOnlyUrl = currentUrl.replace(/\/edit$/, '');
+    // Use pushState to change URL without reload
+    window.history.pushState({}, '', readOnlyUrl);
+  }
+  
+  // Update the edit button state to ensure it's not inverted
+  if (editBtn) {
+    editBtn.classList.remove("inverted");
+  }
+}
 
 // Update enableEditMode
 async function enableEditMode() {
@@ -66,13 +88,12 @@ async function enableEditMode() {
     
     showCustomAlert(
       "Access Denied", 
-      "You don't have permission to edit raw.",
+      "You don't have permission to edit this book.",
       {
         showReadButton: true,
         showLoginButton: true,
         onRead: () => {
-          editModeCheckInProgress = false;
-          window.location.href = `/${book}`;
+          // This will be handled by handleEditModeCancel now
         }
       }
     );
@@ -127,7 +148,6 @@ async function enableEditMode() {
   }
 }
 
-
 function disableEditMode() {
   if (!window.isEditing) return;
   window.isEditing = false;
@@ -172,17 +192,8 @@ export async function updateEditButtonVisibility(bookId) {
     return;
   }
 
-  const canEdit = await canUserEditBook(bookId);
-  
-  if (canEdit) {
-    editButton.style.display = 'block';
-    editButton.classList.remove('hidden');
-    console.log('Edit button shown - user can edit');
-  } else {
-    editButton.style.display = 'none';
-    editButton.classList.add('hidden');
-    console.log('Edit button hidden - user cannot edit');
-  }
+  editButton.style.display = 'block';
+  editButton.classList.remove('hidden');
 }
 
 updateEditButtonVisibility(book);
@@ -224,54 +235,41 @@ async function showCustomAlert(title, message, options = {}) {
   // Handle button clicks
   const readButton = document.getElementById('customAlertRead');
   const loginButton = document.getElementById('customAlertLogin');
-  
+
   function closeAlert() {
     document.body.removeChild(overlay);
     document.body.removeChild(alertBox);
   }
-  
+
   if (readButton) {
     readButton.addEventListener('click', () => {
       closeAlert();
+      handleEditModeCancel();
       if (options.onRead) options.onRead();
     });
   }
-  
+
   if (loginButton) {
     loginButton.addEventListener('click', () => {
       // Don't close the alert, show login form instead
       showLoginFormInAlert(alertBox);
     });
   }
-  
+
   // Close on overlay click (but not if login form is showing)
   overlay.addEventListener('click', (e) => {
     if (!alertBox.querySelector('.login-form')) {
       closeAlert();
-      
-      // Reset flag and redirect to read-only view (same as cancel)
-      editModeCheckInProgress = false;
-      
-      // Remove /edit from URL and redirect
-      const currentUrl = window.location.pathname;
-      const readOnlyUrl = currentUrl.replace(/\/edit$/, '');
-      window.location.href = readOnlyUrl;
+      handleEditModeCancel();
     }
   });
-  
+
   // Handle Escape key
   function handleEscape(e) {
     if (e.key === 'Escape' && !alertBox.querySelector('.login-form')) {
       closeAlert();
       document.removeEventListener('keydown', handleEscape);
-      
-      // Reset flag and redirect to read-only view (same as cancel)
-      editModeCheckInProgress = false;
-      
-      // Remove /edit from URL and redirect
-      const currentUrl = window.location.pathname;
-      const readOnlyUrl = currentUrl.replace(/\/edit$/, '');
-      window.location.href = readOnlyUrl;
+      handleEditModeCancel();
     }
   }
   document.addEventListener('keydown', handleEscape);
@@ -310,7 +308,7 @@ function showLoginFormInAlert(alertBox) {
     await handleAlertLogin();
   });
   
-    cancelButton.addEventListener('click', () => {
+  cancelButton.addEventListener('click', () => {
     // Close the entire alert
     const overlay = document.querySelector('.custom-alert-overlay');
     const alertBox = document.querySelector('.custom-alert');
@@ -319,19 +317,14 @@ function showLoginFormInAlert(alertBox) {
       document.body.removeChild(alertBox);
     }
     
-    // Reset flag and redirect to read-only view
-    editModeCheckInProgress = false;
-    
-    // Remove /edit from URL and redirect
-    const currentUrl = window.location.pathname;
-    const readOnlyUrl = currentUrl.replace(/\/edit$/, '');
-    window.location.href = readOnlyUrl;
+    handleEditModeCancel();
   });
   
   // Focus the email input
   document.getElementById('alertLoginEmail').focus();
 }
 
+// Handle login from the alert
 // Handle login from the alert
 async function handleAlertLogin() {
   const email = document.getElementById('alertLoginEmail').value;
@@ -360,7 +353,7 @@ async function handleAlertLogin() {
     const data = await response.json();
     
     if (response.ok && data.success) {
-      // Login successful - close alert and reload page
+      // Login successful - close alert
       const overlay = document.querySelector('.custom-alert-overlay');
       const alertBox = document.querySelector('.custom-alert');
       if (overlay && alertBox) {
@@ -368,8 +361,17 @@ async function handleAlertLogin() {
         document.body.removeChild(alertBox);
       }
       
-      // Reload page to update permissions
-      window.location.reload();
+      // Reset the edit mode check flag
+      editModeCheckInProgress = false;
+      
+      // Try to enable edit mode automatically
+      try {
+        await enableEditMode();
+      } catch (error) {
+        console.error('Error auto-enabling edit mode after login:', error);
+        // If auto-enable fails, just reload the page as fallback
+        window.location.reload();
+      }
     } else {
       showLoginError(data.errors || data.message || 'Login failed');
     }
@@ -425,4 +427,3 @@ function getCsrfTokenFromCookie() {
   }
   return null;
 }
-

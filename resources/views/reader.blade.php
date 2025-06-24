@@ -62,6 +62,8 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
     <img src="{{ asset('images/logoa.png') }}" id="logo" alt="Logo">
     </div> 
 
+    
+
 <div id="topRightContainer">
     <button type="button" id="cloudRef">
         <svg 
