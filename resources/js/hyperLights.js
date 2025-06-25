@@ -14,6 +14,7 @@ import { addHighlightContainerPasteListener } from "./hyperLightsListener.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 import { getCurrentUser, getAuthorId } from "./auth.js";
 import { getCurrentUserInfo } from './auth.js';
+import { getUserHighlightCache } from './userCache.js';
 
 let highlightId; 
 let highlightLazyLoader;
@@ -80,6 +81,7 @@ export function attachMarkListeners() {
 // ========= Mark Click Handler =========
 export async function handleMarkClick(event) {
   event.preventDefault();
+  
   // Grab all classes that look like HL_*
   const highlightIds = Array.from(event.target.classList).filter((cls) =>
     cls.startsWith("HL_")
@@ -88,20 +90,31 @@ export async function handleMarkClick(event) {
     console.error("❌ No highlight IDs found on mark");
     return;
   }
+  
+  // Check if this mark has user-highlight class
+  const hasUserHighlight = event.target.classList.contains("user-highlight");
+  console.log(`Mark has user-highlight class: ${hasUserHighlight}`);
   console.log(`Opening highlights: ${highlightIds.join(", ")}`);
-  // old code called openHighlightById(id), new overlaps pass an array
-  await openHighlightById(highlightIds);
+  
+  // Pass the user highlight status to the opener
+  await openHighlightById(highlightIds, hasUserHighlight);
 }
 
 // ========= Single/Multi-ID Opener =========
 // Accepts either a single string or an array of strings.
-export async function openHighlightById(rawIds) {
+// ========= Single/Multi-ID Opener =========
+// Accepts either a single string or an array of strings, plus user highlight status
+export async function openHighlightById(rawIds, hasUserHighlight = false) {
   // Normalize to array
   const highlightIds = Array.isArray(rawIds) ? rawIds : [rawIds];
   if (highlightIds.length === 0) {
     console.error("❌ openHighlightById called with no IDs");
     return;
   }
+
+  // Get user highlight cache for this book
+  const userHighlightCache = getUserHighlightCache(book);
+  console.log(`User highlight cache contains ${userHighlightCache.size} highlights`);
 
   // Multi-ID path
   if (highlightIds.length > 1) {
@@ -113,16 +126,16 @@ export async function openHighlightById(rawIds) {
       console.error("❌ Error opening DB:", err);
       return;
     }
-    const tx    = db.transaction("hyperlights", "readonly");
+    const tx = db.transaction("hyperlights", "readonly");
     const store = tx.objectStore("hyperlights");
-    const idx   = store.index("hyperlight_id");
+    const idx = store.index("hyperlight_id");
 
     // Fetch all highlights in parallel
     const reads = highlightIds.map((id) =>
       new Promise((res, rej) => {
         const req = idx.get(id);
         req.onsuccess = () => res(req.result);
-        req.onerror   = () => rej(req.error);
+        req.onerror = () => rej(req.error);
       })
     );
 
@@ -141,35 +154,75 @@ export async function openHighlightById(rawIds) {
       return;
     }
 
-    // Build container HTML
+    // Build container HTML with conditional contenteditable
     let html = `<div class="scroller">\n`;
+    let firstUserAnnotation = null; // Track first user annotation for cursor placement
+    
     results.forEach((h) => {
+      const isUserHighlight = userHighlightCache.has(h.hyperlight_id);
+      const isEditable = hasUserHighlight && isUserHighlight;
+      
+      console.log(`Highlight ${h.hyperlight_id}: isUserHighlight=${isUserHighlight}, isEditable=${isEditable}`);
+      
       html +=
-        `  <blockquote class="highlight-text" contenteditable="true" ` +
+        `  <blockquote class="highlight-text" contenteditable="${isEditable}" ` +
         `data-highlight-id="${h.hyperlight_id}">\n` +
         `    "${h.highlightedText}"\n` +
         `  </blockquote>\n`;
       html +=
-        `  <div class="annotation" contenteditable="true" ` +
+        `  <div class="annotation" contenteditable="${isEditable}" ` +
         `data-highlight-id="${h.hyperlight_id}">\n` +
         `    ${h.annotation || ""}\n` +
         `  </div>\n` +
-        `  <hr>\n`;  // <-- added horizontal rule here
+        `  <hr>\n`;
+      
+      // Track first user annotation for cursor placement
+      if (isEditable && !firstUserAnnotation) {
+        firstUserAnnotation = h.hyperlight_id;
+      }
     });
     html += `</div>\n<div class="mask-bottom"></div>\n<div class="mask-top"></div>`;
 
     openHighlightContainer(html);
 
-    // Attach listeners per highlight
-    highlightIds.forEach((id) => attachAnnotationListener(id));
-    highlightIds.forEach((id) => addHighlightContainerPasteListener(id));
+    // Attach listeners only for user highlights
+    highlightIds.forEach((id) => {
+      if (userHighlightCache.has(id)) {
+        attachAnnotationListener(id);
+        addHighlightContainerPasteListener(id);
+      }
+    });
+
+    // Place cursor in first user annotation if available
+    if (firstUserAnnotation) {
+      setTimeout(() => {
+        const annotationDiv = document.querySelector(
+          `.annotation[data-highlight-id="${firstUserAnnotation}"]`
+        );
+        if (annotationDiv) {
+          annotationDiv.focus();
+          // Place cursor at end of content
+          const range = document.createRange();
+          const selection = window.getSelection();
+          range.selectNodeContents(annotationDiv);
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      }, 100);
+    }
 
     return;
   }
 
-  // Single-ID path (original code unchanged)
+  // Single-ID path
   const highlightId = highlightIds[0];
-  console.log(`Opening highlight: ${highlightId}`);
+  const isUserHighlight = userHighlightCache.has(highlightId);
+  const isEditable = hasUserHighlight && isUserHighlight;
+  
+  console.log(`Opening single highlight: ${highlightId}`);
+  console.log(`Is user highlight: ${isUserHighlight}, Is editable: ${isEditable}`);
+  
   try {
     const db = await openDatabase();
     const tx = db.transaction("hyperlights", "readonly");
@@ -187,10 +240,10 @@ export async function openHighlightById(rawIds) {
 
       const containerContent = `
       <div class="scroller">
-      <blockquote class="highlight-text" contenteditable="true" data-highlight-id="${highlightData.hyperlight_id}">
-        "${highlightData.highlightedText }"
+      <blockquote class="highlight-text" contenteditable="${isEditable}" data-highlight-id="${highlightData.hyperlight_id}">
+        "${highlightData.highlightedText}"
       </blockquote>
-      <div class="annotation" contenteditable="true" data-highlight-id="${highlightData.hyperlight_id}">
+      <div class="annotation" contenteditable="${isEditable}" data-highlight-id="${highlightData.hyperlight_id}">
         ${highlightData.annotation || ""}
       </div>
       </div>
@@ -199,12 +252,32 @@ export async function openHighlightById(rawIds) {
     `;
 
       openHighlightContainer(containerContent);
-      attachAnnotationListener(highlightId);
-      addHighlightContainerPasteListener(highlightId);
+      
+      // Only attach listeners for user highlights
+      if (isEditable) {
+        attachAnnotationListener(highlightId);
+        addHighlightContainerPasteListener(highlightId);
+        
+        // Place cursor in annotation div
+        setTimeout(() => {
+          const annotationDiv = document.querySelector(
+            `.annotation[data-highlight-id="${highlightId}"]`
+          );
+          if (annotationDiv) {
+            annotationDiv.focus();
+            // Place cursor at end of content
+            const range = document.createRange();
+            const selection = window.getSelection();
+            range.selectNodeContents(annotationDiv);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        }, 100);
+      }
 
-      const highlightContainer = document.getElementById(
-        "highlight-container"
-      );
+      // Rest of the existing URL hash handling code...
+      const highlightContainer = document.getElementById("highlight-container");
       if (!highlightContainer) {
         console.error("❌ Highlight container element not found in DOM");
         return;
@@ -218,9 +291,7 @@ export async function openHighlightById(rawIds) {
 
       const urlHash = window.location.hash.substring(1);
       if (urlHash && urlHash !== highlightId) {
-        console.log(
-          `Found URL hash: ${urlHash}, checking if it's an internal ID`
-        );
+        console.log(`Found URL hash: ${urlHash}, checking if it's an internal ID`);
         setTimeout(() => {
           const internalElement = highlightContainer.querySelector(
             `#${CSS.escape(urlHash)}`
@@ -229,9 +300,9 @@ export async function openHighlightById(rawIds) {
             console.log(`Found internal element with ID ${urlHash}`);
             const scroller = highlightContainer.querySelector(".scroller");
             if (scroller) {
-              const elementRect  = internalElement.getBoundingClientRect();
+              const elementRect = internalElement.getBoundingClientRect();
               const scrollerRect = scroller.getBoundingClientRect();
-              const relativeTop  =
+              const relativeTop =
                 elementRect.top - scrollerRect.top + scroller.scrollTop;
               scroller.scrollTo({
                 top: relativeTop - 50,
@@ -243,9 +314,7 @@ export async function openHighlightById(rawIds) {
               }, 3000);
             }
           } else {
-            console.log(
-              `No element with ID ${urlHash} found inside the container`
-            );
+            console.log(`No element with ID ${urlHash} found inside the container`);
           }
         }, 300);
       }
@@ -257,7 +326,6 @@ export async function openHighlightById(rawIds) {
     console.error("❌ Error accessing IndexedDB:", error);
   }
 }
-
 
 function getRelativeOffsetTop(element, container) {
   let offsetTop = 0;
