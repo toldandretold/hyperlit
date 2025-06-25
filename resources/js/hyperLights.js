@@ -161,9 +161,14 @@ export async function openHighlightById(rawIds, hasUserHighlight = false) {
     results.forEach((h) => {
       const isUserHighlight = userHighlightCache.has(h.hyperlight_id);
       const isEditable = hasUserHighlight && isUserHighlight;
+      const authorName = h.creator || "Anon";
       
       console.log(`Highlight ${h.hyperlight_id}: isUserHighlight=${isUserHighlight}, isEditable=${isEditable}`);
       
+      html +=
+        `  <div class="author" id="${h.hyperlight_id}">\n` +
+        `    <b>${authorName}:</b>\n` +
+        `  </div>\n`;
       html +=
         `  <blockquote class="highlight-text" contenteditable="${isEditable}" ` +
         `data-highlight-id="${h.hyperlight_id}">\n` +
@@ -238,8 +243,13 @@ export async function openHighlightById(rawIds, hasUserHighlight = false) {
         return;
       }
 
+      const authorName = highlightData.creator || "Anon";
+
       const containerContent = `
       <div class="scroller">
+      <div class="author" id="${highlightData.hyperlight_id}">
+        <b>${authorName}:</b>
+      </div>
       <blockquote class="highlight-text" contenteditable="${isEditable}" data-highlight-id="${highlightData.hyperlight_id}">
         "${highlightData.highlightedText}"
       </blockquote>

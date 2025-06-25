@@ -194,8 +194,8 @@ export function initializeMainLazyLoader() {
   return currentLazyLoader;
 }
 
-// NEW: Function for homepage multi-book support
-// NEW: Function for homepage multi-book support
+
+// Function for homepage multi-book support
 export async function initializeLazyLoaderForContainer(bookId) {
   console.log(`🔄 Initializing lazy loader for book: ${bookId}`);
   
@@ -402,7 +402,7 @@ async function checkAndUpdateIfNeeded(bookId) {
     console.error("Error stack:", err.stack);
   }
 }
-// Helper function to get library record from server
+
 // Helper function to get library record from server
 async function getLibraryRecordFromServer(bookId) {
   try {

@@ -246,9 +246,17 @@ black #221F20;
   padding-left: 1em;
   padding-right: 2em;
   border-radius: 1em 1em;
+  font-size: 20px;
 }
 
+#ref-container blockquote,
+#highlight-container blockquote {
+  font-size: 18px;
+  padding-top: .25em;
+  padding-bottom: .2em;
 
+
+}
 
 #toc-container .scroller,
 #user-container .scroller {
@@ -271,7 +279,7 @@ black #221F20;
   right: 0;
   bottom: 0;
   overflow: auto;
-  padding: 0 1em 1em 1em; /* Remove top padding */
+  padding: 2em 1em 1em 1em; /* Increased top padding from 0 to 2em */
   border-radius: 1em 1em;
 }
 
