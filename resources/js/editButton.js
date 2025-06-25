@@ -44,14 +44,112 @@ function handleEditModeCancel() {
   
   // Update the edit button state to ensure it's not inverted
   if (editBtn) {
-    editBtn.classList.remove("inverted");
+    editBtn.addEventListener("click", () => {
+      console.log("Edit button clicked");
+      if (window.isEditing) {
+        disableEditMode();
+      } else {
+        enableEditMode(); // No target ID when manually clicking edit
+      }
+    });
+    console.log("Edit button event listener attached");
   }
 }
 
-// Update enableEditMode
-async function enableEditMode() {
+// Add this helper function to get the saved scroll position
+function getSavedScrollElementId(bookId) {
+  const storageKey = `scrollPosition_${bookId}`;
+  try {
+    const scrollData = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
+    if (scrollData) {
+      const parsed = JSON.parse(scrollData);
+      return parsed.elementId;
+    }
+  } catch (error) {
+    console.warn("Error parsing saved scroll position:", error);
+  }
+  return null;
+}
+
+// Add this helper function to place cursor at end of specific element
+// Add this helper function to place cursor at end of specific element
+function placeCursorAtEndOfElement(elementId) {
+  console.log(`Attempting to place cursor at element with id="${elementId}"`);
+  
+  const targetElement = document.getElementById(elementId);
+  console.log("Target element found:", targetElement);
+  console.log("Target element content:", targetElement?.textContent);
+  
+  if (!targetElement) {
+    console.warn(`Element with id="${elementId}" not found`);
+    return false;
+  }
+  
+  try {
+    // Focus the element first
+    targetElement.focus();
+    console.log("Element focused");
+    
+    // Create range and selection
+    const range = document.createRange();
+    const selection = window.getSelection();
+    
+    // Select all content in the element
+    range.selectNodeContents(targetElement);
+    // Collapse to end (cursor at end of content)
+    range.collapse(false);
+    
+    // Apply the selection
+    selection.removeAllRanges();
+    selection.addRange(range);
+    
+    console.log(`✅ Cursor placed at end of element with id="${elementId}"`);
+    console.log("Selection after placement:", selection.toString());
+    return true;
+  } catch (error) {
+    console.error(`❌ Error placing cursor in element ${elementId}:`, error);
+    return false;
+  }
+}
+// Add this helper function to find the first element with an ID
+function getFirstElementWithId(container) {
+  const elementsWithId = container.querySelectorAll("[id]");
+  if (elementsWithId.length > 0) {
+    return elementsWithId[0].id;
+  }
+  return null;
+}
+
+function doesContentExceedViewport(container) {
+  const containerRect = container.getBoundingClientRect();
+  const viewportHeight = window.innerHeight;
+  
+  // Check if container bottom is beyond viewport
+  return containerRect.bottom > viewportHeight;
+}
+
+// Add this helper function to find the last element with meaningful content
+function getLastContentElement(container) {
+  const elementsWithId = container.querySelectorAll("[id]");
+  if (elementsWithId.length === 0) return null;
+  
+  // Filter out elements that are likely empty or just structural
+  const contentElements = Array.from(elementsWithId).filter(el => {
+    const text = el.textContent?.trim();
+    return text && text.length > 0;
+  });
+  
+  if (contentElements.length === 0) return null;
+  
+  // Return the last element with content
+  return contentElements[contentElements.length - 1].id;
+}
+
+// Update your enableEditMode function
+async function enableEditMode(targetElementId = null) {
   console.log("🔔 enableEditMode() called from:", new Error().stack);
   console.log("🔔 enableEditMode() called, shouldAutoEdit=", shouldAutoEdit);
+  console.log("🔔 targetElementId:", targetElementId);
   
   if (window.isEditing || editModeCheckInProgress) {
     console.log("Edit mode already active or check in progress, returning");
@@ -111,24 +209,72 @@ async function enableEditMode() {
     if (editBtn) editBtn.classList.add("inverted");
     editableDiv.contentEditable = "true";
     
-    // Check if there's already a selection
-    const selection = window.getSelection();
-    if (!selection.rangeCount || selection.isCollapsed) {
-      // Create a selection at the current scroll position
-      const range = document.createRange();
-      const walker = document.createTreeWalker(
-        editableDiv,
-        NodeFilter.SHOW_TEXT,
-        null,
-        false
-      );
+    // Smart cursor placement logic
+    let cursorPlaced = false;
+    
+    // 1. Try to use provided targetElementId
+    if (targetElementId) {
+      cursorPlaced = placeCursorAtEndOfElement(targetElementId);
+    }
+    
+    // 2. If no targetElementId or it failed, try saved scroll position
+    if (!cursorPlaced) {
+      const savedElementId = getSavedScrollElementId(book);
+      if (savedElementId) {
+        console.log(`Trying to place cursor at saved scroll position: ${savedElementId}`);
+        cursorPlaced = placeCursorAtEndOfElement(savedElementId);
+      }
+    }
+    
+    // 3. Smart fallback based on content length
+    if (!cursorPlaced) {
+      const contentExceedsViewport = doesContentExceedViewport(editableDiv);
+      console.log(`Content exceeds viewport: ${contentExceedsViewport}`);
       
-      let textNode = walker.nextNode();
-      if (textNode) {
-        range.setStart(textNode, 0);
-        range.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(range);
+      if (contentExceedsViewport) {
+        // Long content - place cursor at first element (existing behavior)
+        const firstElementId = getFirstElementWithId(editableDiv);
+        if (firstElementId) {
+          console.log(`Long content: placing cursor at first element with ID: ${firstElementId}`);
+          cursorPlaced = placeCursorAtEndOfElement(firstElementId);
+        }
+      } else {
+        // Short content - place cursor at last content element
+        const lastContentElementId = getLastContentElement(editableDiv);
+        if (lastContentElementId) {
+          console.log(`Short content: placing cursor at last content element with ID: ${lastContentElementId}`);
+          cursorPlaced = placeCursorAtEndOfElement(lastContentElementId);
+        } else {
+          // Fallback to first element if no content elements found
+          const firstElementId = getFirstElementWithId(editableDiv);
+          if (firstElementId) {
+            console.log(`No content elements found: placing cursor at first element with ID: ${firstElementId}`);
+            cursorPlaced = placeCursorAtEndOfElement(firstElementId);
+          }
+        }
+      }
+    }
+    
+    // 4. Final fallback - original logic (unchanged)
+    if (!cursorPlaced) {
+      console.log("Using final fallback cursor placement");
+      const selection = window.getSelection();
+      if (!selection.rangeCount || selection.isCollapsed) {
+        const range = document.createRange();
+        const walker = document.createTreeWalker(
+          editableDiv,
+          NodeFilter.SHOW_TEXT,
+          null,
+          false
+        );
+        
+        let textNode = walker.nextNode();
+        if (textNode) {
+          range.setStart(textNode, 0);
+          range.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
       }
     }
     
@@ -178,10 +324,21 @@ if (editBtn) {
   console.log("Edit button event listener attached");
 }
 
-// Also check if auto-edit is working
 if (shouldAutoEdit) {
   console.log("Auto-edit detected, enabling edit mode");
-  enableEditMode();
+  
+  // Check for target element ID in URL params
+  const targetElementId = params.get("target");
+  console.log("Target element ID from URL:", targetElementId);
+  
+  // Add a small delay to ensure DOM is fully loaded for new books
+  if (targetElementId) {
+    setTimeout(() => {
+      enableEditMode(targetElementId);
+    }, 200); // Slightly longer delay for new books
+  } else {
+    enableEditMode();
+  }
 }
 
 export async function updateEditButtonVisibility(bookId) {

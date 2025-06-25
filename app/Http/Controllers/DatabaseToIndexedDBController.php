@@ -179,7 +179,7 @@ class DatabaseToIndexedDBController extends Controller
         /**
      * Get library data for a book
      */
-    private function getLibrary(string $bookId): ?array
+   private function getLibrary(string $bookId): ?array
     {
         $library = DB::table('library')
             ->where('book', $bookId)
@@ -194,6 +194,8 @@ class DatabaseToIndexedDBController extends Controller
             'book_id' => $bookId,
             'timestamp' => $library->timestamp,
             'timestamp_type' => gettype($library->timestamp),
+            'creator' => $library->creator,
+            'creator_token' => $library->creator_token,
             'full_record' => (array) $library
         ]);
 
@@ -214,10 +216,11 @@ class DatabaseToIndexedDBController extends Controller
             'type' => $library->type,
             'url' => $library->url,
             'year' => $library->year,
+            'creator' => $library->creator,           // ← Add this
+            'creator_token' => $library->creator_token, // ← Add this
             'raw_json' => json_decode($library->raw_json ?? '{}', true),
         ];
     }
-
 
       
         /**

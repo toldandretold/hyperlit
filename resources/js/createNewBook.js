@@ -80,12 +80,6 @@ export async function createNewBook() {
             '<h1 id="1">Untitled</h1>',
             0
           );
-          await addNewBookToIndexedDB(
-            bookId,
-            2,
-            '<p id="2"><br/></p>',
-            0
-          );
           console.log("Initial nodes created");
 
           // sync up to server (will include creator_token)
@@ -93,7 +87,7 @@ export async function createNewBook() {
           await syncIndexedDBtoPostgreSQL(bookId);
 
           // go edit!
-          window.location.href = `/${bookId}/edit`;
+          window.location.href = `/${bookId}/edit?target=1`;
           resolve(newLibraryRecord);
         } catch (err) {
           console.error("Failed post-indexedDB steps:", err);
