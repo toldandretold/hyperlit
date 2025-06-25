@@ -27,6 +27,7 @@ class DbHyperlightController extends Controller
                         'startLine' => $item['startLine'] ?? null,
                         'creator' => $item['creator'] ?? null,
                         'creator_token' => $item['creator_token'] ?? null,
+                        'time_since' => $item['time_since'] ?? floor(time()), // Add time_since support
                         'raw_json' => json_encode($item),
                         'created_at' => now(),
                         'updated_at' => now(),
@@ -76,6 +77,7 @@ class DbHyperlightController extends Controller
                             'startLine' => $item['startLine'] ?? null,
                             'creator' => $item['creator'] ?? null,
                             'creator_token' => $item['creator_token'] ?? null,
+                            'time_since' => $item['time_since'] ?? floor(time()), // Add time_since support
                             'raw_json' => json_encode($item),
                             'updated_at' => now(),
                         ]

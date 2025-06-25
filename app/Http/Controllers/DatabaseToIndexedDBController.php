@@ -123,29 +123,29 @@ class DatabaseToIndexedDBController extends Controller
      * Get hyperlights for a book
      */
     private function getHyperlights(string $bookId): array
-    {
-        $hyperlights = DB::table('hyperlights')
-            ->where('book', $bookId)
-            ->orderBy('hyperlight_id')
-            ->get()
-            ->map(function ($hyperlight) {
-                return [
-                    'book' => $hyperlight->book,
-                    'hyperlight_id' => $hyperlight->hyperlight_id,
-                    'annotation' => $hyperlight->annotation,
-                    'endChar' => $hyperlight->endChar,
-                    'highlightedHTML' => $hyperlight->highlightedHTML,
-                    'highlightedText' => $hyperlight->highlightedText,
-                    'startChar' => $hyperlight->startChar,
-                    'startLine' => $hyperlight->startLine,
-                    'raw_json' => json_decode($hyperlight->raw_json ?? '{}', true),
-                    'updated_at' => $hyperlight->updated_at,
-                ];
-            })
-            ->toArray();
+        {
+            $hyperlights = DB::table('hyperlights')
+                ->where('book', $bookId)
+                ->orderBy('hyperlight_id')
+                ->get()
+                ->map(function ($hyperlight) {
+                    return [
+                        'book' => $hyperlight->book,
+                        'hyperlight_id' => $hyperlight->hyperlight_id,
+                        'annotation' => $hyperlight->annotation,
+                        'endChar' => $hyperlight->endChar,
+                        'highlightedHTML' => $hyperlight->highlightedHTML,
+                        'highlightedText' => $hyperlight->highlightedText,
+                        'startChar' => $hyperlight->startChar,
+                        'startLine' => $hyperlight->startLine,
+                        'raw_json' => json_decode($hyperlight->raw_json ?? '{}', true),
+                        'time_since' => $hyperlight->time_since, // Add this line
+                    ];
+                })
+                ->toArray();
 
-        return $hyperlights;
-    }
+            return $hyperlights;
+        }
 
     /**
      * Get hypercites for a book
