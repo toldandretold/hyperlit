@@ -91,13 +91,18 @@ export async function handleMarkClick(event) {
     return;
   }
   
-  // Check if this mark has user-highlight class
+  // Check which highlights are newly created
+  const newHighlightIds = event.target.getAttribute('data-new-hl');
+  const newIds = newHighlightIds ? newHighlightIds.split(',') : [];
+  
   const hasUserHighlight = event.target.classList.contains("user-highlight");
+  
   console.log(`Mark has user-highlight class: ${hasUserHighlight}`);
+  console.log(`New highlight IDs: ${newIds.join(", ")}`);
   console.log(`Opening highlights: ${highlightIds.join(", ")}`);
   
-  // Pass the user highlight status to the opener
-  await openHighlightById(highlightIds, hasUserHighlight);
+  // Pass the new highlight IDs
+  await openHighlightById(highlightIds, hasUserHighlight, newIds);
 }
 
 // ========= Single/Multi-ID Opener =========
@@ -105,20 +110,20 @@ export async function handleMarkClick(event) {
 // ========= Single/Multi-ID Opener =========
 // Accepts either a single string or an array of strings, plus user highlight status
 // Helper function to format relative time
-function formatRelativeTime(updatedAt) {
-  if (!updatedAt) return '';
+function formatRelativeTime(timeSince) {
+  if (!timeSince) return '';
   
-  const now = new Date();
-  const updated = new Date(updatedAt);
-  const diffMs = now - updated;
+  const now = Math.floor(Date.now() / 1000); // Current Unix timestamp
+  const diffSeconds = now - timeSince;
   
-  const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffSeconds / 3600);
+  const diffDays = Math.floor(diffSeconds / 86400);
   const diffWeeks = Math.floor(diffDays / 7);
   const diffMonths = Math.floor(diffDays / 30);
   const diffYears = Math.floor(diffDays / 365);
   
+  if (diffMinutes < 1) return 'now';
   if (diffMinutes < 60) return `${diffMinutes}min`;
   if (diffHours < 24) return `${diffHours}hr`;
   if (diffDays < 7) return `${diffDays}d`;
@@ -127,9 +132,9 @@ function formatRelativeTime(updatedAt) {
   return `${diffYears}y`;
 }
 
-export async function openHighlightById(rawIds, hasUserHighlight = false) {
-  // Normalize to array
+export async function openHighlightById(rawIds, hasUserHighlight = false, newHighlightIds = []) {
   const highlightIds = Array.isArray(rawIds) ? rawIds : [rawIds];
+  const newIds = Array.isArray(newHighlightIds) ? newHighlightIds : [];
   if (highlightIds.length === 0) {
     console.error("❌ openHighlightById called with no IDs");
     return;
@@ -183,11 +188,12 @@ export async function openHighlightById(rawIds, hasUserHighlight = false) {
     
     results.forEach((h) => {
       const isUserHighlight = userHighlightCache.has(h.hyperlight_id);
-      const isEditable = hasUserHighlight && isUserHighlight;
+      const isNewlyCreated = newIds.includes(h.hyperlight_id);
+      const isEditable = hasUserHighlight || isNewlyCreated;
       const authorName = h.creator || "Anon";
-      const relativeTime = formatRelativeTime(h.updated_at);
+      const relativeTime = h.time_since ? formatRelativeTime(h.time_since) : "now";
       
-      console.log(`Highlight ${h.hyperlight_id}: isUserHighlight=${isUserHighlight}, isEditable=${isEditable}`);
+      console.log(`Highlight ${h.hyperlight_id}: isUserHighlight=${isUserHighlight}, isNewlyCreated=${isNewlyCreated}, isEditable=${isEditable}`);
       
       html +=
         `  <div class="author" id="${h.hyperlight_id}">\n` +
@@ -214,9 +220,10 @@ export async function openHighlightById(rawIds, hasUserHighlight = false) {
 
     openHighlightContainer(html);
 
-    // Attach listeners only for user highlights
+    // Attach listeners for user highlights (including newly created ones)
     highlightIds.forEach((id) => {
-      if (userHighlightCache.has(id)) {
+      const isNewlyCreated = newIds.includes(id);
+      if (userHighlightCache.has(id) || isNewlyCreated) {
         attachAnnotationListener(id);
         addHighlightContainerPasteListener(id);
       }
@@ -246,11 +253,11 @@ export async function openHighlightById(rawIds, hasUserHighlight = false) {
 
   // Single-ID path
   const highlightId = highlightIds[0];
-  const isUserHighlight = userHighlightCache.has(highlightId);
-  const isEditable = hasUserHighlight && isUserHighlight;
+  const isNewlyCreated = newIds.includes(highlightId);
+  const isEditable = hasUserHighlight || isNewlyCreated;
   
   console.log(`Opening single highlight: ${highlightId}`);
-  console.log(`Is user highlight: ${isUserHighlight}, Is editable: ${isEditable}`);
+  console.log(`Is newly created: ${isNewlyCreated}, Is editable: ${isEditable}`);
   
   try {
     const db = await openDatabase();
@@ -268,7 +275,7 @@ export async function openHighlightById(rawIds, hasUserHighlight = false) {
       }
 
       const authorName = highlightData.creator || "Anon";
-      const relativeTime = formatRelativeTime(highlightData.updated_at);
+      const relativeTime = highlightData.time_since ? formatRelativeTime(highlightData.time_since) : "now";
 
       const containerContent = `
       <div class="scroller">
@@ -513,6 +520,9 @@ function modifyNewMarks(highlightId) {
         mark.classList.add('user-highlight'); // Add user-highlight class for new highlights
         mark.classList.remove('highlight');
         
+        // Add data-new-hl attribute to identify this as a newly created highlight
+        mark.setAttribute('data-new-hl', highlightId);
+        
         // Add data-highlight-count (default to 1 for new highlights)
         const highlightCount = 1;
         mark.setAttribute('data-highlight-count', highlightCount);
@@ -565,7 +575,8 @@ async function addToHighlightsTable(highlightData) {
       endChar: highlightData.endChar,
       startLine: highlightData.startLine,
       creator: highlightData.creator || null,
-      creator_token: highlightData.creator_token || null
+      creator_token: highlightData.creator_token || null,
+      time_since: Math.floor(Date.now() / 1000)
     };
 
     const addRequest = store.put(highlightEntry);
@@ -680,7 +691,6 @@ addTouchAndClickListener(
       return;
     }
 
-    // Get containers
     // Get containers - TARGET NUMERICAL IDS ONLY
     let startContainer = range.startContainer.nodeType === 3
       ? range.startContainer.parentElement.closest("p, blockquote, table, h1, h2, h3, h4, h5, h6")
@@ -705,20 +715,20 @@ addTouchAndClickListener(
       return /^\d+(\.\d+)?$/.test(id);
     }
 
-      console.log("=== CONTAINER DEBUG ===");
-      console.log("range.startContainer:", range.startContainer);
-      console.log("range.startContainer.nodeType:", range.startContainer.nodeType);
-      console.log("range.startContainer.parentElement:", range.startContainer.parentElement);
-      console.log("startContainer:", startContainer);
-      console.log("startContainer.id:", startContainer?.id);
+    console.log("=== CONTAINER DEBUG ===");
+    console.log("range.startContainer:", range.startContainer);
+    console.log("range.startContainer.nodeType:", range.startContainer.nodeType);
+    console.log("range.startContainer.parentElement:", range.startContainer.parentElement);
+    console.log("startContainer:", startContainer);
+    console.log("startContainer.id:", startContainer?.id);
 
-      console.log("range.endContainer:", range.endContainer);
-      console.log("range.endContainer.nodeType:", range.endContainer.nodeType);
-      console.log("range.endContainer.parentElement:", range.endContainer.parentElement);
-      console.log("endContainer:", endContainer);
-      console.log("endContainer.id:", endContainer?.id);
+    console.log("range.endContainer:", range.endContainer);
+    console.log("range.endContainer.nodeType:", range.endContainer.nodeType);
+    console.log("range.endContainer.parentElement:", range.endContainer.parentElement);
+    console.log("endContainer:", endContainer);
+    console.log("endContainer.id:", endContainer?.id);
 
-      console.log("startContainer === endContainer:", startContainer === endContainer);
+    console.log("startContainer === endContainer:", startContainer === endContainer);
 
     if (!startContainer || !endContainer) {
       console.error("❌ Could not determine start or end block.");
@@ -906,6 +916,14 @@ addTouchAndClickListener(
     }
 
     attachMarkListeners();
+
+    // 👈 ADD: Clear selection and hide buttons
+    window.getSelection().removeAllRanges();
+    document.getElementById("hyperlight-buttons").style.display = "none";
+
+    // 👈 ADD: Open the newly created highlight in the container
+    console.log("🎯 Opening newly created highlight:", highlightId);
+    await openHighlightById(highlightId, true, [highlightId]);
   }
 );
 

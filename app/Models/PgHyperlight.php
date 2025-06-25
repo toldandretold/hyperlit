@@ -19,6 +19,7 @@ class PgHyperlight extends Model
         'startLine',
         'creator',
         'creator_token',
+        'time_since',
         'raw_json'
     ];
 
@@ -28,3 +29,4 @@ class PgHyperlight extends Model
         'startChar' => 'integer'
     ];
 }
+ 
