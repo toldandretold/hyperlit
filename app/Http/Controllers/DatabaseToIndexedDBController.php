@@ -139,6 +139,7 @@ class DatabaseToIndexedDBController extends Controller
                     'startChar' => $hyperlight->startChar,
                     'startLine' => $hyperlight->startLine,
                     'raw_json' => json_decode($hyperlight->raw_json ?? '{}', true),
+                    'updated_at' => $hyperlight->updated_at,
                 ];
             })
             ->toArray();

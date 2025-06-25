@@ -249,6 +249,10 @@ black #221F20;
   font-size: 20px;
 }
 
+.time {
+  font-size: 14px;
+}
+
 #ref-container blockquote,
 #highlight-container blockquote {
   font-size: 18px;

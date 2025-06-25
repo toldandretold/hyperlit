@@ -104,6 +104,29 @@ export async function handleMarkClick(event) {
 // Accepts either a single string or an array of strings.
 // ========= Single/Multi-ID Opener =========
 // Accepts either a single string or an array of strings, plus user highlight status
+// Helper function to format relative time
+function formatRelativeTime(updatedAt) {
+  if (!updatedAt) return '';
+  
+  const now = new Date();
+  const updated = new Date(updatedAt);
+  const diffMs = now - updated;
+  
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
+  const diffYears = Math.floor(diffDays / 365);
+  
+  if (diffMinutes < 60) return `${diffMinutes}min`;
+  if (diffHours < 24) return `${diffHours}hr`;
+  if (diffDays < 7) return `${diffDays}d`;
+  if (diffWeeks < 4) return `${diffWeeks}w`;
+  if (diffMonths < 12) return `${diffMonths}m`;
+  return `${diffYears}y`;
+}
+
 export async function openHighlightById(rawIds, hasUserHighlight = false) {
   // Normalize to array
   const highlightIds = Array.isArray(rawIds) ? rawIds : [rawIds];
@@ -162,12 +185,13 @@ export async function openHighlightById(rawIds, hasUserHighlight = false) {
       const isUserHighlight = userHighlightCache.has(h.hyperlight_id);
       const isEditable = hasUserHighlight && isUserHighlight;
       const authorName = h.creator || "Anon";
+      const relativeTime = formatRelativeTime(h.updated_at);
       
       console.log(`Highlight ${h.hyperlight_id}: isUserHighlight=${isUserHighlight}, isEditable=${isEditable}`);
       
       html +=
         `  <div class="author" id="${h.hyperlight_id}">\n` +
-        `    <b>${authorName}:</b>\n` +
+        `    <b>${authorName}</b><i class="time">・${relativeTime}</i>\n` +
         `  </div>\n`;
       html +=
         `  <blockquote class="highlight-text" contenteditable="${isEditable}" ` +
@@ -244,11 +268,12 @@ export async function openHighlightById(rawIds, hasUserHighlight = false) {
       }
 
       const authorName = highlightData.creator || "Anon";
+      const relativeTime = formatRelativeTime(highlightData.updated_at);
 
       const containerContent = `
       <div class="scroller">
       <div class="author" id="${highlightData.hyperlight_id}">
-        <b>${authorName}:</b>
+        <b>${authorName}</b><i class="time">・${relativeTime}</i>
       </div>
       <blockquote class="highlight-text" contenteditable="${isEditable}" data-highlight-id="${highlightData.hyperlight_id}">
         "${highlightData.highlightedText}"
