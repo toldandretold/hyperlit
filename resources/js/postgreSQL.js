@@ -329,7 +329,7 @@ syncBookDataToServer("book_1748495788845", "footnotes", "bulk-create");
  */
 export async function syncBookDataFromDatabase(bookId) {
   console.log(`🔄 Starting database sync for: ${bookId}`);
-  
+   
   try {
     // 1. Fetch data from Laravel API
     console.log("📡 Fetching from API...");
