@@ -36,35 +36,7 @@ Route::get('/trigger-event', function () {
     return 'Event has been broadcasted!';
 });
 
-/*
-Route::post('/debug-login', function (Request $request) {
-    $credentials = $request->only('email', 'password');
-    
-    // Try manual authentication
-    if (Auth::attempt($credentials)) {
-        return response()->json([
-            'manual_auth' => 'success',
-            'user' => auth()->user(),
-            'session_id' => session()->getId(),
-            'auth_check' => auth()->check()
-        ]);
-    } else {
-        return response()->json([
-            'manual_auth' => 'failed',
-            'user_exists' => User::where('email', $request->email)->exists()
-        ]);
-    }
-});
 
-
-Route::get('/auth-check', function () {
-    return response()->json([
-        'authenticated' => auth()->check(),
-        'user' => auth()->user()
-    ]);
-}); 
-
-*/
 
 // web.php
 Route::get('/refresh-csrf', function (Request $request) {

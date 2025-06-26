@@ -1024,7 +1024,7 @@ export async function syncBatchDeletionWithPostgreSQL(bookId, deletedData, libra
   console.log(`🔍 Syncing batch deletion to PostgreSQL for book: ${bookId}`);
   
   try {
-    const response = await fetch("/api/db/node-chunks/batch-delete", {
+    const response = await fetch("/api/db/node-chunks/targeted-upsert", {
       method: "POST",
       headers: { 
         "Content-Type": "application/json",
@@ -1034,11 +1034,11 @@ export async function syncBatchDeletionWithPostgreSQL(bookId, deletedData, libra
       },
       credentials: 'same-origin',
       body: JSON.stringify({
-        book: bookId,
-        deletedNodeChunks: deletedData.nodeChunks,
-        deletedHyperlights: deletedData.hyperlights,
-        deletedHypercites: deletedData.hypercites,
-        libraryRecord: libraryRecord
+        data: deletedData.nodeChunks.map(chunk => ({
+          book: bookId,
+          startLine: chunk.startLine,
+          _action: "delete"
+        }))
       })
     });
 

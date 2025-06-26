@@ -2,6 +2,7 @@ import { book } from "./app.js";
 import { 
   updateIndexedDBRecord, 
   deleteIndexedDBRecordWithRetry,
+  batchDeleteIndexedDBRecords,
   openDatabase,
   updateCitationForExistingHypercite,
   batchUpdateIndexedDBRecords,
@@ -56,6 +57,7 @@ let debounceTimer = null;
 let observedChunks = new Map(); // chunkId -> chunk element
 let deletionHandler = null;
 
+let isObserverRestarting = false;
 
 // ================================================================
 // DEBOUNCING INFRASTRUCTURE
@@ -80,8 +82,9 @@ const DEBOUNCE_DELAYS = {
 
 // Track what needs to be saved
 const pendingSaves = {
-  nodes: new Map(),           // Node IDs that need saving         
-  lastActivity: null          // Timestamp of last activity
+  nodes: new Map(),
+  deletions: new Set(),                   
+  lastActivity: null          
 };
 
 // Generic debounce function
@@ -96,10 +99,30 @@ function debounce(func, delay, timerId) {
 
 // Specialized debounced functions
 const debouncedSaveNode = debounce(saveNodeToDatabase, DEBOUNCE_DELAYS.SAVES, 'saves');
-
+const debouncedBatchDelete = debounce(processBatchDeletions, DEBOUNCE_DELAYS.SAVES, 'deletions');
 // ================================================================
 // SAVE QUEUE MANAGEMENT
 // ================================================================
+
+async function processBatchDeletions() {
+  if (pendingSaves.deletions.size === 0) return;
+  
+  const nodeIdsToDelete = Array.from(pendingSaves.deletions);
+  pendingSaves.deletions.clear();
+  
+  console.log(`🗑️ Batch deleting ${nodeIdsToDelete.length} nodes`);
+  
+  try {
+    // Batch delete from IndexedDB
+    await batchDeleteIndexedDBRecords(nodeIdsToDelete);
+    
+    console.log(`✅ Batch deleted ${nodeIdsToDelete.length} nodes`);
+  } catch (error) {
+    console.error('❌ Error in batch deletion:', error);
+    // Re-queue failed deletions
+    nodeIdsToDelete.forEach(id => pendingSaves.deletions.add(id));
+  }
+}
 
 // Add node to pending saves queue
 export function queueNodeForSave(nodeId, action = 'update') {
@@ -163,8 +186,8 @@ setInterval(() => {
   const now = Date.now();
   const timeSinceLastActivity = pendingSaves.lastActivity ? now - pendingSaves.lastActivity : null;
   
-  if (pendingSaves.nodes.size > 0 ) {
-    console.log(`📊 Pending saves: ${pendingSaves.nodes.size} nodes (${timeSinceLastActivity}ms since last activity)`);
+  if (pendingSaves.nodes.size > 0 || pendingSaves.deletions.size > 0 ) {
+    console.log(`📊 Pending saves: ${pendingSaves.nodes.size} nodes, ${pendingSaves.deletions.size} deletions (${timeSinceLastActivity}ms since last activity)`);
   }
 }, 5000); // Log every 5 seconds if there's pending activity
 
@@ -180,6 +203,11 @@ export function flushAllPendingSaves() {
   // Execute saves immediately
   if (pendingSaves.nodes.size > 0) {
     saveNodeToDatabase();
+  }
+
+  // ADD THIS: Execute deletions immediately
+  if (pendingSaves.deletions.size > 0) {
+    processBatchDeletions();
   }
 }
 
@@ -234,8 +262,9 @@ export function startObserving(editableDiv) {
   // In your startObserving function
   deletionHandler = new SelectionDeletionHandler(editableDiv, {
     onDeleted: (nodeId) => {
-      console.log(`Selection deletion handler wants to delete: ${nodeId}`);
-      deleteIndexedDBRecordWithRetry(nodeId);
+      console.log(`Selection deletion handler queueing: ${nodeId}`);
+      pendingSaves.deletions.add(nodeId);
+      debouncedBatchDelete();
     }
   });
 
@@ -320,9 +349,10 @@ function filterChunkMutations(mutations) {
             
             // Directly delete each numerical ID node from IndexedDB
             numericalIdNodes.forEach(node => {
-              console.log(`Deleting node ${node.id} from IndexedDB due to chunk deletion`);
-              deleteIndexedDBRecordWithRetry(node.id);
+              console.log(`Queueing node ${node.id} for batch deletion (chunk removal)`);
+              pendingSaves.deletions.add(node.id);
             });
+            debouncedBatchDelete();
           }
         });
         
@@ -549,24 +579,18 @@ async function processChunkMutations(chunk, mutations) {
               // This is the last node - handle it specially
               console.log(`🚨 Last node ${node.id} being deleted from chunk ${chunkId}`);
               
-              try {
-                await deleteIndexedDBRecordWithRetry(node.id);
-                console.log(`✅ Successfully deleted last node ${node.id} from IndexedDB`);
-              } catch (error) {
-                console.error(`❌ Failed to delete last node ${node.id}:`, error);
-              }
-              removedNodeIds.add(node.id);
+              console.log(`🗑️ Queueing node ${node.id} for batch deletion`);
+                pendingSaves.deletions.add(node.id);
+                removedNodeIds.add(node.id);
+                debouncedBatchDelete();
               // Exit early to avoid further processing since chunk will disappear
               return;
             } else {
               // Normal deletion for non-last nodes
-              try {
-                await deleteIndexedDBRecordWithRetry(node.id);
-                console.log(`✅ Successfully deleted node ${node.id} from IndexedDB`);
-              } catch (error) {
-                console.error(`❌ Failed to delete node ${node.id}:`, error);
-              }
+              console.log(`🗑️ Queueing node ${node.id} for batch deletion`);
+              pendingSaves.deletions.add(node.id);
               removedNodeIds.add(node.id);
+              debouncedBatchDelete();
             }
           } 
           // Handle hypercites
@@ -755,12 +779,12 @@ export function stopObserving() {
 }
 
 
-// Listen for selection changes and restart observing if the current chunk has changed.
-// Listen for selection changes and restart observing if the current chunk has changed.
-document.addEventListener("selectionchange", () => {
-  if (!window.isEditing || chunkOverflowInProgress) return;
 
-  // ADD THIS CHECK - Import getEditToolbar at the top of the file
+
+// Fix your selectionchange listener:
+document.addEventListener("selectionchange", () => {
+  if (!window.isEditing || chunkOverflowInProgress || isObserverRestarting) return;
+
   const toolbar = getEditToolbar();
   if (toolbar && toolbar.isFormatting) {
     console.log("Skipping chunk change detection during formatting");
@@ -773,14 +797,27 @@ document.addEventListener("selectionchange", () => {
     
   if (newChunkId !== currentChunkId) {
     console.log(`Chunk change detected: ${currentChunkId} → ${newChunkId}`);
+    
+    // Set guard flag
+    isObserverRestarting = true;
+    
     stopObserving();
+    
     if (newChunkId) {
-      const chunkElement = document.querySelector(`[id="${newChunkId}"], [data-chunk-id="${newChunkId}"]`);
-      startObserving(chunkElement);
+      // ✅ ALWAYS pass the main container, not individual chunks
+      const mainContainer = document.querySelector('.main-content');
+      if (mainContainer) {
+        startObserving(mainContainer);
+      }
     } else {
       setCurrentObservedChunk(null);
       console.warn("Lost focus on any chunk.");
     }
+    
+    // Clear guard flag after a short delay
+    setTimeout(() => {
+      isObserverRestarting = false;
+    }, 100);
   }
 });
 
