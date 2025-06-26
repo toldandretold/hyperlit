@@ -104,3 +104,14 @@ export function getAuthorId() {
   return id;
 }
 
+export async function getCurrentUserId() {
+  // First try to get logged-in user using the async function
+  const user = await getCurrentUser();
+  if (user) {
+    return user.name || user.username || user.email;
+  }
+  
+  // Fall back to anonymous ID
+  return getAuthorId();
+}
+
