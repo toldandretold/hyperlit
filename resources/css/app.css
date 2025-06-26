@@ -292,37 +292,6 @@ mark[data-highlight-count] {
   color: #CBCCCC;
 }
 
-mark[data-highlight-count]::before {
-  content: '';
-  position: absolute;
-  top: -6px;
-  left: -6px;
-  right: -6px;
-  bottom: -6px;
-  background-color: rgba(238, 74, 149, calc(var(--highlight-intensity) * 0.7));
-  filter: blur(calc(var(--highlight-intensity) * 8px));
-  z-index: -1;
-  border-radius: 4px;
-}
-
-/* User-specific overrides (more specific, comes after) */
-mark[data-highlight-count].user-highlight {
-    background-color: #4EACAE;
-    color: #221F20;
-    text-decoration: none !important;
-}
-
-mark[data-highlight-count].user-highlight:hover {
-    background-color: rgba(78, 172, 174, calc(var(--highlight-intensity) * 0.7));
-    color: #CBCCCC;
-    text-decoration: none !important;
-}
-
-mark[data-highlight-count].user-highlight::before {
-    background-color: rgba(78, 172, 174, calc(var(--highlight-intensity) * 0.7));
-    text-decoration: none !important;
-}
-
 mark:hover
  {
     text-decoration: none !important; /* Ensure no underline on hover */
@@ -331,17 +300,25 @@ mark:hover
     
 }
 
-mark#HL_overlap:hover
-{
-text-decoration: none !important; /* Ensure no underline on hover */
-    cursor: pointer;
-    background: #EE4A95;
+
+/* User-specific overrides (more specific, comes after) */
+mark[data-highlight-count].user-highlight {
+    background-color: rgba(78, 172, 174, calc(var(--highlight-intensity) * 1.8 ));
+    color: #CBCCCC;
+    text-decoration: none !important;
 }
 
-mark .active {
+mark[data-highlight-count].user-highlight:hover {
+    background-color: #4EACAE;
+
+    color: #221F20;
     text-decoration: none !important;
-    background: #4EACAE;
 }
+
+
+
+
+
 
 table {
     width: 100%; /* Full width of container */
