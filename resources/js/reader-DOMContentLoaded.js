@@ -103,7 +103,7 @@ if (!window.isInitialized) {
     // Initialize Navigation Buttons differently based on pageType
     if (pageType === "reader") {
       const navButtons = new NavButtons({
-        elementIds: ["nav-buttons", "logoContainer", "topRightContainer"],
+        elementIds: ["nav-buttons", "logoContainer", "topRightContainer", "edit-toolbar"],
         tapThreshold: 15,
       });
 

@@ -58,13 +58,13 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
 </div>
 
 <!-- buttons: clockwise from top-lept -->
-<div id="logoContainer" onclick="window.location.href='{{ url('/') }}';">
+<div id="logoContainer" onclick="window.location.href='{{ url('/') }}';" class="loading">
     <img src="{{ asset('images/logoa.png') }}" id="logo" alt="Logo">
     </div> 
 
     
 
-<div id="topRightContainer">
+<div id="topRightContainer" class="loading">
     <button type="button" id="cloudRef">
         <svg 
         id="Layer_1" 
@@ -96,7 +96,7 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
 
 
 
-<div id="nav-buttons"> <!-- bottom right buttons -->
+<div id="nav-buttons" class="loading"> <!-- bottom right buttons -->
     <button type="button" id="editButton">
         <svg 
         width="24" 
