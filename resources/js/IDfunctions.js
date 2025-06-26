@@ -168,21 +168,27 @@ export function generateIdBetween(beforeId, afterId) {
       afterParts.length === 2 &&
       beforeParts[0] === afterParts[0] &&
       gap > 0 &&
-      gap <= 0.1
+      gap <= 0.1 + Number.EPSILON
     ) {
       console.log("EXIT: Case 2 triggered");
       const suffix = "0".repeat(lenA) + "1";
       return `${beforeParts[0]}.${suffix}`;
     }
 
-    // CASE 3: consecutive integers (e.g. 1 and 2 → 1.1)
+    
+    // CASE 3: integers with gap (e.g. 1 and 2 → 1.1, or 3 and 5 → 4)
     console.log("Checking case 3...");
     if (
       Number.isInteger(beforeNum) &&
-      Number.isInteger(afterNum) &&
-      afterNum - beforeNum === 1
+      Number.isInteger(afterNum)
     ) {
-      return `${beforeNum}.1`;
+      if (afterNum - beforeNum === 1) {
+        // Consecutive integers, use decimal
+        return `${beforeNum}.1`;
+      } else if (afterNum - beforeNum > 1) {
+        // Gap between integers, use the next integer
+        return (beforeNum + 1).toString();
+      }
     }
 
     // CASE 4: before has decimal, after is integer
@@ -203,6 +209,7 @@ export function generateIdBetween(beforeId, afterId) {
   console.log("EXIT: Fallback");
   return `${beforeId}_next`;
 }
+
 // Helper function to find the ID of the previous element with a numerical ID
 export function findPreviousElementId(node) {
   let prev = node.previousElementSibling;

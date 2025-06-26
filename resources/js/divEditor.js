@@ -42,6 +42,7 @@ import {
 import { isChunkLoadingInProgress, getLoadingChunkId } from './chunkLoadingState.js';
 import { SelectionDeletionHandler } from './selectionDelete.js';
 import { initializeMainLazyLoader } from './initializePage.js';
+import { getEditToolbar } from './editToolbar.js';
 
 // Tracking sets
 const modifiedNodes = new Set(); // Track element IDs whose content was modified.
@@ -290,6 +291,10 @@ function filterChunkMutations(mutations) {
   mutations.forEach(mutation => {
     // Check if mutation target is within a chunk (not a sentinel)
     const chunk = findContainingChunk(mutation.target);
+
+    console.log("Mutation target:", mutation.target);
+    console.log("Found chunk:", chunk);
+    console.log("Mutation type:", mutation.type);
     
     // If we found a chunk, include the mutation
     if (chunk !== null) {
@@ -639,6 +644,7 @@ async function processChunkMutations(chunk, mutations) {
     }
 
     // 2) Process added nodes
+    // 2) Process added nodes
     if (mutation.type === "childList") {
       mutation.addedNodes.forEach((node) => {
         if (node.nodeType === Node.ELEMENT_NODE) {
@@ -652,6 +658,22 @@ async function processChunkMutations(chunk, mutations) {
           if (pasteDetected && node.id) {
             console.log(`Queueing potentially pasted node: ${node.id}`);
             queueNodeForSave(node.id, 'add');
+          }
+          
+          // NEW: Handle formatting elements (bold, italic, etc.)
+          if (['B', 'STRONG', 'I', 'EM', 'SPAN'].includes(node.tagName) && !node.id) {
+            // This is a formatting element without an ID
+            // Queue the parent element that has an ID for update
+            let parentWithId = node.parentElement;
+            while (parentWithId && !parentWithId.id) {
+              parentWithId = parentWithId.parentElement;
+            }
+            
+            if (parentWithId && parentWithId.id) {
+              console.log(`Queueing parent ${parentWithId.id} due to formatting change (${node.tagName})`);
+              queueNodeForSave(parentWithId.id, 'update');
+              modifiedNodes.add(parentWithId.id);
+            }
           }
         }
       });
@@ -734,8 +756,16 @@ export function stopObserving() {
 
 
 // Listen for selection changes and restart observing if the current chunk has changed.
+// Listen for selection changes and restart observing if the current chunk has changed.
 document.addEventListener("selectionchange", () => {
   if (!window.isEditing || chunkOverflowInProgress) return;
+
+  // ADD THIS CHECK - Import getEditToolbar at the top of the file
+  const toolbar = getEditToolbar();
+  if (toolbar && toolbar.isFormatting) {
+    console.log("Skipping chunk change detection during formatting");
+    return;
+  }
 
   const newChunkId = getCurrentChunk();
   const currentChunkId = currentObservedChunk ? 
