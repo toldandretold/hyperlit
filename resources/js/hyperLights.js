@@ -12,8 +12,7 @@ import { attachAnnotationListener } from "./annotation-saver.js";
 import { addPasteListener } from "./paste.js";
 import { addHighlightContainerPasteListener } from "./hyperLightsListener.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
-import { getCurrentUser, getAuthorId } from "./auth.js";
-import { getCurrentUserInfo } from './auth.js';
+import { getCurrentUser, getAuthorId, getCurrentUserId } from "./auth.js";
 import { getUserHighlightCache } from './userCache.js';
 
 let highlightId; 
@@ -110,8 +109,9 @@ export async function handleMarkClick(event) {
 // ========= Single/Multi-ID Opener =========
 // Accepts either a single string or an array of strings, plus user highlight status
 // Helper function to format relative time
+// Helper function to format relative time
 function formatRelativeTime(timeSince) {
-  if (!timeSince) return '';
+  if (!timeSince) return 'prehistoric'; // Changed from '' to 'prehistoric'
   
   const now = Math.floor(Date.now() / 1000); // Current Unix timestamp
   const diffSeconds = now - timeSince;
@@ -132,7 +132,11 @@ function formatRelativeTime(timeSince) {
   return `${diffYears}y`;
 }
 
-export async function openHighlightById(rawIds, hasUserHighlight = false, newHighlightIds = []) {
+export async function openHighlightById(
+  rawIds,
+  hasUserHighlight = false,
+  newHighlightIds = []
+) {
   const highlightIds = Array.isArray(rawIds) ? rawIds : [rawIds];
   const newIds = Array.isArray(newHighlightIds) ? newHighlightIds : [];
   if (highlightIds.length === 0) {
@@ -140,13 +144,14 @@ export async function openHighlightById(rawIds, hasUserHighlight = false, newHig
     return;
   }
 
-  // Get user highlight cache for this book
-  const userHighlightCache = getUserHighlightCache(book);
-  console.log(`User highlight cache contains ${userHighlightCache.size} highlights`);
-
   // Multi-ID path
   if (highlightIds.length > 1) {
     console.log(`Opening multiple highlights: ${highlightIds.join(", ")}`);
+    
+    // Get current user ID first
+    const currentUserId = await getCurrentUserId();
+    console.log("Current user ID:", currentUserId);
+    
     let db;
     try {
       db = await openDatabase();
@@ -185,16 +190,19 @@ export async function openHighlightById(rawIds, hasUserHighlight = false, newHig
     // Build container HTML with conditional contenteditable
     let html = `<div class="scroller">\n`;
     let firstUserAnnotation = null; // Track first user annotation for cursor placement
-    
+
     results.forEach((h) => {
-      const isUserHighlight = userHighlightCache.has(h.hyperlight_id);
+      // Check both creator and creator_token for anonymous users
+      const isUserHighlight = h.creator === currentUserId || h.creator_token === currentUserId;
       const isNewlyCreated = newIds.includes(h.hyperlight_id);
-      const isEditable = hasUserHighlight || isNewlyCreated;
+      const isEditable = isUserHighlight || isNewlyCreated;
       const authorName = h.creator || "Anon";
-      const relativeTime = h.time_since ? formatRelativeTime(h.time_since) : "now";
-      
-      console.log(`Highlight ${h.hyperlight_id}: isUserHighlight=${isUserHighlight}, isNewlyCreated=${isNewlyCreated}, isEditable=${isEditable}`);
-      
+      const relativeTime = formatRelativeTime(h.time_since);
+
+      console.log(
+        `Highlight ${h.hyperlight_id}: creator=${h.creator}, creator_token=${h.creator_token}, currentUserId=${currentUserId}, isUserHighlight=${isUserHighlight}, isNewlyCreated=${isNewlyCreated}, isEditable=${isEditable}`
+      );
+
       html +=
         `  <div class="author" id="${h.hyperlight_id}">\n` +
         `    <b>${authorName}</b><i class="time">・${relativeTime}</i>\n` +
@@ -210,7 +218,7 @@ export async function openHighlightById(rawIds, hasUserHighlight = false, newHig
         `    ${h.annotation || ""}\n` +
         `  </div>\n` +
         `  <hr>\n`;
-      
+
       // Track first user annotation for cursor placement
       if (isEditable && !firstUserAnnotation) {
         firstUserAnnotation = h.hyperlight_id;
@@ -220,12 +228,18 @@ export async function openHighlightById(rawIds, hasUserHighlight = false, newHig
 
     openHighlightContainer(html);
 
-    // Attach listeners for user highlights (including newly created ones)
+    // Attach listeners for editable highlights
     highlightIds.forEach((id) => {
-      const isNewlyCreated = newIds.includes(id);
-      if (userHighlightCache.has(id) || isNewlyCreated) {
-        attachAnnotationListener(id);
-        addHighlightContainerPasteListener(id);
+      const highlight = results.find((h) => h.hyperlight_id === id);
+      if (highlight) {
+        const isUserHighlight = highlight.creator === currentUserId || highlight.creator_token === currentUserId;
+        const isNewlyCreated = newIds.includes(id);
+        const isEditable = isUserHighlight || isNewlyCreated;
+
+        if (isEditable) {
+          attachAnnotationListener(id);
+          addHighlightContainerPasteListener(id);
+        }
       }
     });
 
@@ -254,11 +268,10 @@ export async function openHighlightById(rawIds, hasUserHighlight = false, newHig
   // Single-ID path
   const highlightId = highlightIds[0];
   const isNewlyCreated = newIds.includes(highlightId);
-  const isEditable = hasUserHighlight || isNewlyCreated;
-  
+
   console.log(`Opening single highlight: ${highlightId}`);
-  console.log(`Is newly created: ${isNewlyCreated}, Is editable: ${isEditable}`);
-  
+  console.log(`Is newly created: ${isNewlyCreated}`);
+
   try {
     const db = await openDatabase();
     const tx = db.transaction("hyperlights", "readonly");
@@ -266,7 +279,7 @@ export async function openHighlightById(rawIds, hasUserHighlight = false, newHig
     const index = store.index("hyperlight_id");
 
     const getRequest = index.get(highlightId);
-    getRequest.onsuccess = () => {
+    getRequest.onsuccess = async () => {
       const highlightData = getRequest.result;
       console.log("Found highlight data:", highlightData);
       if (!highlightData) {
@@ -274,8 +287,22 @@ export async function openHighlightById(rawIds, hasUserHighlight = false, newHig
         return;
       }
 
+      // Get current user ID inside the callback
+      const currentUserId = await getCurrentUserId();
+      console.log("Current user ID:", currentUserId);
+
+      // Check both creator and creator_token for anonymous users
+      const isUserHighlight = highlightData.creator === currentUserId || highlightData.creator_token === currentUserId;
+      const isEditable = isUserHighlight || isNewlyCreated;
+
+      console.log("Highlight creator:", highlightData.creator);
+      console.log("Highlight creator_token:", highlightData.creator_token);
+      console.log("Current user ID:", currentUserId);
+      console.log("Is user highlight:", isUserHighlight);
+      console.log("Is editable:", isEditable);
+
       const authorName = highlightData.creator || "Anon";
-      const relativeTime = highlightData.time_since ? formatRelativeTime(highlightData.time_since) : "now";
+      const relativeTime = formatRelativeTime(highlightData.time_since);
 
       const containerContent = `
       <div class="scroller">
@@ -294,12 +321,12 @@ export async function openHighlightById(rawIds, hasUserHighlight = false, newHig
     `;
 
       openHighlightContainer(containerContent);
-      
-      // Only attach listeners for user highlights
+
+      // Only attach listeners for editable highlights
       if (isEditable) {
         attachAnnotationListener(highlightId);
         addHighlightContainerPasteListener(highlightId);
-        
+
         // Place cursor in annotation div
         setTimeout(() => {
           const annotationDiv = document.querySelector(
@@ -333,7 +360,9 @@ export async function openHighlightById(rawIds, hasUserHighlight = false, newHig
 
       const urlHash = window.location.hash.substring(1);
       if (urlHash && urlHash !== highlightId) {
-        console.log(`Found URL hash: ${urlHash}, checking if it's an internal ID`);
+        console.log(
+          `Found URL hash: ${urlHash}, checking if it's an internal ID`
+        );
         setTimeout(() => {
           const internalElement = highlightContainer.querySelector(
             `#${CSS.escape(urlHash)}`
@@ -356,7 +385,9 @@ export async function openHighlightById(rawIds, hasUserHighlight = false, newHig
               }, 3000);
             }
           } else {
-            console.log(`No element with ID ${urlHash} found inside the container`);
+            console.log(
+              `No element with ID ${urlHash} found inside the container`
+            );
           }
         }, 300);
       }
