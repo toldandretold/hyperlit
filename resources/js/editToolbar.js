@@ -42,6 +42,8 @@ class EditToolbar {
     this.resizeDebounceTimeout = null;
     this.isVisible = false;
     this.currentSelection = null;
+
+    this.isFormatting = false;
   }
   
   /**
@@ -228,6 +230,9 @@ class EditToolbar {
    * Format the selected text with the specified style
    */
   formatText(type) {
+
+    this.isFormatting = true;
+  try {
     const editableContent = document.querySelector(this.editableSelector);
     if (!editableContent || !this.currentSelection) return;
     
@@ -243,6 +248,9 @@ class EditToolbar {
         if (isTextSelected) {
           // Text is selected - apply/remove formatting only to selection
           document.execCommand("bold", false, null);
+           const parentAfterBold = this.getSelectionParentElement();
+          console.log("Element after bold formatting:", parentAfterBold.outerHTML);
+          console.log("Element ID:", parentAfterBold.id);
         } else {
           // Cursor position only - get current offset before changes
           const currentOffset = this.getTextOffsetInElement(
@@ -358,12 +366,24 @@ class EditToolbar {
     
     // Update button states after formatting
     this.updateButtonStates();
+
+    } finally {
+    // RESET THE FLAG AFTER A SHORT DELAY
+    setTimeout(() => {
+      this.isFormatting = false;
+    }, 100);
   }
+}
+  
 
   /**
    * Format the current block with the specified style
    */
   formatBlock(type) {
+
+    this.isFormatting = true;
+  
+  try {
     const editableContent = document.querySelector(this.editableSelector);
     if (!editableContent || !this.currentSelection) return;
     
@@ -373,6 +393,12 @@ class EditToolbar {
     // Check if there's an actual text selection or just a cursor position
     const isTextSelected = !this.currentSelection.isCollapsed;
     const parentElement = this.getSelectionParentElement();
+
+    // NEW: Special handling for list items
+    const listItem = this.findClosestListItem(parentElement);
+    if (listItem) {
+      return this.convertListItemToBlock(listItem, type);
+    }
     
     // Track the ID of the element being modified for later DB update
     let modifiedElementId = null;
@@ -924,7 +950,14 @@ class EditToolbar {
         }
       }, 50);
     }
+
+   } finally {
+    // RESET THE FLAG AFTER A SHORT DELAY
+    setTimeout(() => {
+      this.isFormatting = false;
+    }, 100);
   }
+}
 
     getBlockElementsInRange(range) {
     const blockElements = [];
@@ -1227,6 +1260,201 @@ class EditToolbar {
     }
     
     return lastTextNode;
+  }
+
+  /**
+   * Find the closest list item parent
+   */
+  findClosestListItem(element) {
+    if (!element) return null;
+    
+    while (element && element !== document.body) {
+      if (element.tagName === 'LI') {
+        return element;
+      }
+      element = element.parentElement;
+    }
+    
+    return null;
+  }
+
+  /**
+   * Convert a list item to a block element (blockquote or code)
+   */
+  convertListItemToBlock(listItem, blockType) {
+    // Find the immediate parent list (even if it doesn't have an ID)
+    const immediateParentList = listItem.parentElement;
+    
+    if (!immediateParentList || !['UL', 'OL'].includes(immediateParentList.tagName)) {
+      console.warn("Cannot convert list item - not in a list");
+      return;
+    }
+    
+    // Walk up to find a list with an ID for positioning reference
+    let listWithId = immediateParentList;
+    while (listWithId && listWithId !== document.body) {
+      if ((listWithId.tagName === 'UL' || listWithId.tagName === 'OL') && listWithId.id) {
+        break;
+      }
+      listWithId = listWithId.parentElement;
+    }
+    
+    if (!listWithId) {
+      console.warn("Cannot convert list item - no parent list with ID found");
+      return;
+    }
+    
+    console.log(`Converting list item from list with ID: ${listWithId.id}`);
+    
+    // Create the new block element
+    const newBlock = blockType === 'blockquote' 
+      ? document.createElement('blockquote')
+      : document.createElement('pre');
+      
+    if (blockType === 'code') {
+      const codeElement = document.createElement('code');
+      newBlock.appendChild(codeElement);
+      // FIX: Only get the direct text content of the specific list item
+      codeElement.textContent = listItem.textContent.trim();
+    } else {
+      // For blockquote, only get the direct innerHTML of the specific list item
+      let content = listItem.innerHTML.trim();
+      if (content && !content.endsWith("<br>")) {
+        content += "<br>";
+      }
+      newBlock.innerHTML = content;
+    }
+        
+    // Generate ID based on the list with ID's position
+    const beforeId = findPreviousElementId(listWithId);
+    const afterId = findNextElementId(listWithId);
+    newBlock.id = generateIdBetween(beforeId, afterId);
+    
+    // Now split the immediate parent list at the target item
+    this.splitListAndInsertBlock(immediateParentList, listItem, newBlock, listWithId);
+    
+    // Position cursor and save
+    this.setCursorAtTextOffset(newBlock, 0);
+    this.saveToIndexedDB(newBlock.id, newBlock.outerHTML);
+    
+    return newBlock;
+  }
+
+  /**
+   * Split a list around a specific item and insert a block element
+   */
+  /**
+ * Split a list around a specific item and insert a block element
+ */
+  splitListAndInsertBlock(parentList, targetItem, newBlock, rootListWithId) {
+    const allItems = Array.from(parentList.children);
+    const targetIndex = allItems.indexOf(targetItem);
+    
+    if (targetIndex === -1) return;
+    
+    const itemsBefore = allItems.slice(0, targetIndex);
+    const itemsAfter = allItems.slice(targetIndex + 1);
+    
+    // STEP 1: Remove the target item first
+    targetItem.remove();
+    
+    // STEP 2: Handle the case where we need to split the immediate parent list
+    if (parentList === rootListWithId) {
+      // Simple case: we're splitting the root list directly
+      
+      // Insert the new block after the current list
+      rootListWithId.parentNode.insertBefore(newBlock, rootListWithId.nextSibling);
+      
+      // If there are items after, create a new list for them
+      if (itemsAfter.length > 0) {
+        const newList = document.createElement(parentList.tagName);
+        const afterBlockId = findNextElementId(newBlock);
+        newList.id = generateIdBetween(newBlock.id, afterBlockId);
+        
+        // Move remaining items to the new list
+        itemsAfter.forEach(item => newList.appendChild(item));
+        
+        // Insert the new list after the block
+        newBlock.parentNode.insertBefore(newList, newBlock.nextSibling);
+        this.saveToIndexedDB(newList.id, newList.outerHTML);
+      }
+      
+      // Update the original list (now only contains items before)
+      this.saveToIndexedDB(rootListWithId.id, rootListWithId.outerHTML);
+      
+    } else {
+      // Complex case: we're in a nested list, need to find the exact insertion point
+      
+      // Find the path from the nested list back to the root
+      const pathToRoot = [];
+      let currentElement = parentList;
+      
+      while (currentElement && currentElement !== rootListWithId) {
+        pathToRoot.unshift(currentElement);
+        currentElement = currentElement.parentElement;
+      }
+      
+      // Find the top-level item in the root list that contains our nested structure
+      let topLevelItem = parentList;
+      while (topLevelItem.parentElement !== rootListWithId) {
+        topLevelItem = topLevelItem.parentElement;
+      }
+      
+      // Get the position of this top-level item in the root list
+      const rootItems = Array.from(rootListWithId.children);
+      const topLevelIndex = rootItems.indexOf(topLevelItem);
+      
+      // Insert the new block after this top-level item
+      if (topLevelIndex !== -1) {
+        const insertAfter = rootItems[topLevelIndex];
+        rootListWithId.parentNode.insertBefore(newBlock, insertAfter.nextSibling);
+        
+        // If there are items after in the nested list, we need to restructure
+        if (itemsAfter.length > 0) {
+          // Create a new top-level item to hold the remaining nested items
+          const newTopLevelItem = document.createElement('li');
+          const newNestedList = document.createElement(parentList.tagName);
+          
+          itemsAfter.forEach(item => newNestedList.appendChild(item));
+          newTopLevelItem.appendChild(newNestedList);
+          
+          // Insert this new structure after our block
+          const newList = document.createElement(rootListWithId.tagName);
+          const afterBlockId = findNextElementId(newBlock);
+          newList.id = generateIdBetween(newBlock.id, afterBlockId);
+          
+          newList.appendChild(newTopLevelItem);
+          newBlock.parentNode.insertBefore(newList, newBlock.nextSibling);
+          this.saveToIndexedDB(newList.id, newList.outerHTML);
+        }
+      }
+      
+      // Clean up the original structure
+      this.cleanupAfterSplit(rootListWithId);
+    }
+  }
+
+
+  cleanupAfterSplit(rootList) {
+  // Remove empty nested lists
+    const emptyLists = rootList.querySelectorAll('ul:empty, ol:empty');
+    emptyLists.forEach(list => list.remove());
+    
+    // Remove list items that only contain empty lists or are empty
+    const listItems = rootList.querySelectorAll('li');
+    listItems.forEach(li => {
+      const hasContent = li.textContent.trim() !== '';
+      const hasNonEmptyChildren = Array.from(li.children).some(child => 
+        child.textContent.trim() !== '' || child.children.length > 0
+      );
+      
+      if (!hasContent && !hasNonEmptyChildren) {
+        li.remove();
+      }
+    });
+    
+    // Save the updated root list
+    this.saveToIndexedDB(rootList.id, rootList.outerHTML);
   }
 }
 
