@@ -276,6 +276,7 @@ html, body, * {
 .hidden-nav {
   opacity: 0;
   pointer-events: none;
+  transition: opacity 0.3s ease, right 0.3s ease;
 }
 
 /* hyperlit colors:  

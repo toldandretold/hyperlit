@@ -84,7 +84,7 @@
 </div>
 
 <!-- buttons: clockwise from top-lept -->
-<div id="userButtonContainer">
+<div id="userButtonContainer" class="loading">
     <button type="button" class="open" id="userButton">
     <svg 
     id="userLogo" 
@@ -102,11 +102,11 @@
     </button>
 </div>
 
-<div id="topRightContainer">
+<div id="topRightContainer" class="loading">
     <button type="button" id="newBook" class="open"><span class="icon">+</span></button>
 </div>
 
-<div id="nav-buttons"> <!-- bottom right buttons -->
+<div id="nav-buttons" class="loading"> <!-- bottom right buttons -->
     <button type="button" id="editButton">
         <svg 
         width="24" 
@@ -171,7 +171,7 @@
 
 
 
-<div id="newbook-container" class="hidden">
+<div id="newbook-container" class="hidden" class="loading">
   <button id="createNewBook" typ="button">new</button>
   <button id="importBook" typ="button">import</button>
 </div>
