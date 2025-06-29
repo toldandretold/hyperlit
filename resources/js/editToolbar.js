@@ -229,151 +229,212 @@ class EditToolbar {
   /**
    * Format the selected text with the specified style
    */
+  /**
+ * Format the selected text with the specified style
+ */
   formatText(type) {
-
     this.isFormatting = true;
-  try {
-    const editableContent = document.querySelector(this.editableSelector);
-    if (!editableContent || !this.currentSelection) return;
-    
-    // Focus the editable content to ensure commands work
-    editableContent.focus();
-    
-    // Check if there's an actual text selection or just a cursor position
-    const isTextSelected = !this.currentSelection.isCollapsed;
-    const parentElement = this.getSelectionParentElement();
-    
-    switch (type) {
-      case "bold":
-        if (isTextSelected) {
-          // Text is selected - apply/remove formatting only to selection
-          document.execCommand("bold", false, null);
-           const parentAfterBold = this.getSelectionParentElement();
-          console.log("Element after bold formatting:", parentAfterBold.outerHTML);
-          console.log("Element ID:", parentAfterBold.id);
-        } else {
-          // Cursor position only - get current offset before changes
-          const currentOffset = this.getTextOffsetInElement(
-            parentElement,
-            this.currentSelection.focusNode,
-            this.currentSelection.focusOffset
-          );
-          
-          if (this.hasParentWithTag(parentElement, "STRONG") || 
-              this.hasParentWithTag(parentElement, "B")) {
-            // Find the bold parent
-            const boldElement = this.findParentWithTag(parentElement, "STRONG") || 
-                                this.findParentWithTag(parentElement, "B");
-            if (boldElement) {
-              // Replace bold element with its text content
-              const newTextNode = document.createTextNode(boldElement.textContent);
-              const parentNode = boldElement.parentNode;
-              parentNode.replaceChild(newTextNode, boldElement);
-              
-              // Restore cursor position at the same text offset
-              this.setCursorAtTextOffset(parentNode, currentOffset);
+    try {
+      const editableContent = document.querySelector(this.editableSelector);
+      if (!editableContent || !this.currentSelection) return;
+      
+      // Focus the editable content to ensure commands work
+      editableContent.focus();
+      
+      // Check if there's an actual text selection or just a cursor position
+      const isTextSelected = !this.currentSelection.isCollapsed;
+      const parentElement = this.getSelectionParentElement();
+      
+      // Track the ID of the element being modified for later DB update
+      let modifiedElementId = null;
+      let newElement = null;
+      
+      switch (type) {
+        case "bold":
+          if (isTextSelected) {
+            // Text is selected - apply/remove formatting only to selection
+            document.execCommand("bold", false, null);
+            const parentAfterBold = this.getSelectionParentElement();
+            console.log("Element after bold formatting:", parentAfterBold.outerHTML);
+            console.log("Element ID:", parentAfterBold.id);
+            
+            // Find the block parent to save
+            const blockParent = this.findClosestBlockParent(parentAfterBold);
+            if (blockParent && blockParent.id) {
+              modifiedElementId = blockParent.id;
+              newElement = blockParent;
             }
           } else {
-            // Find the text node containing the cursor
-            let node = this.currentSelection.focusNode;
-            if (node.nodeType !== Node.TEXT_NODE) {
-              // If not a text node, find the first text node child
-              const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
-              node = walker.firstChild();
-            }
+            // Cursor position only - get current offset before changes
+            const currentOffset = this.getTextOffsetInElement(
+              parentElement,
+              this.currentSelection.focusNode,
+              this.currentSelection.focusOffset
+            );
             
-            if (node && node.nodeType === Node.TEXT_NODE) {
-              // Create a range that encompasses the entire text node
-              const range = document.createRange();
-              range.selectNodeContents(node);
+            if (this.hasParentWithTag(parentElement, "STRONG") || 
+                this.hasParentWithTag(parentElement, "B")) {
+              // Find the bold parent
+              const boldElement = this.findParentWithTag(parentElement, "STRONG") || 
+                                  this.findParentWithTag(parentElement, "B");
+              if (boldElement) {
+                // Replace bold element with its text content
+                const newTextNode = document.createTextNode(boldElement.textContent);
+                const parentNode = boldElement.parentNode;
+                parentNode.replaceChild(newTextNode, boldElement);
+                
+                // Restore cursor position at the same text offset
+                this.setCursorAtTextOffset(parentNode, currentOffset);
+                
+                // Find the block parent to save
+                const blockParent = this.findClosestBlockParent(parentNode);
+                if (blockParent && blockParent.id) {
+                  modifiedElementId = blockParent.id;
+                  newElement = blockParent;
+                }
+              }
+            } else {
+              // Find the text node containing the cursor
+              let node = this.currentSelection.focusNode;
+              if (node.nodeType !== Node.TEXT_NODE) {
+                // If not a text node, find the first text node child
+                const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+                node = walker.firstChild();
+              }
               
-              // Select the entire text node
-              this.currentSelection.removeAllRanges();
-              this.currentSelection.addRange(range);
-              
-              // Apply bold formatting
-              document.execCommand("bold", false, null);
-              
-              // Find the new bold element and restore cursor position
-              const newBoldNode = this.findParentWithTag(node.parentNode, "STRONG") || 
-                                 this.findParentWithTag(node.parentNode, "B");
-              if (newBoldNode) {
-                this.setCursorAtTextOffset(newBoldNode, currentOffset);
+              if (node && node.nodeType === Node.TEXT_NODE) {
+                // Create a range that encompasses the entire text node
+                const range = document.createRange();
+                range.selectNodeContents(node);
+                
+                // Select the entire text node
+                this.currentSelection.removeAllRanges();
+                this.currentSelection.addRange(range);
+                
+                // Apply bold formatting
+                document.execCommand("bold", false, null);
+                
+                // Find the new bold element and restore cursor position
+                const newBoldNode = this.findParentWithTag(node.parentNode, "STRONG") || 
+                                   this.findParentWithTag(node.parentNode, "B");
+                if (newBoldNode) {
+                  this.setCursorAtTextOffset(newBoldNode, currentOffset);
+                  
+                  // Find the block parent to save
+                  const blockParent = this.findClosestBlockParent(newBoldNode);
+                  if (blockParent && blockParent.id) {
+                    modifiedElementId = blockParent.id;
+                    newElement = blockParent;
+                  }
+                }
               }
             }
           }
-        }
-        break;
-        
-      case "italic":
-        if (isTextSelected) {
-          // Text is selected - apply/remove formatting only to selection
-          document.execCommand("italic", false, null);
-        } else {
-          // Cursor position only - get current offset before changes
-          const currentOffset = this.getTextOffsetInElement(
-            parentElement,
-            this.currentSelection.focusNode,
-            this.currentSelection.focusOffset
-          );
+          break;
           
-          if (this.hasParentWithTag(parentElement, "EM") || 
-              this.hasParentWithTag(parentElement, "I")) {
-            // Find the italic parent
-            const italicElement = this.findParentWithTag(parentElement, "EM") || 
-                                 this.findParentWithTag(parentElement, "I");
-            if (italicElement) {
-              // Replace italic element with its text content
-              const newTextNode = document.createTextNode(italicElement.textContent);
-              const parentNode = italicElement.parentNode;
-              parentNode.replaceChild(newTextNode, italicElement);
-              
-              // Restore cursor position at the same text offset
-              this.setCursorAtTextOffset(parentNode, currentOffset);
+        case "italic":
+          if (isTextSelected) {
+            // Text is selected - apply/remove formatting only to selection
+            document.execCommand("italic", false, null);
+            
+            // Find the block parent to save
+            const parentAfterItalic = this.getSelectionParentElement();
+            const blockParent = this.findClosestBlockParent(parentAfterItalic);
+            if (blockParent && blockParent.id) {
+              modifiedElementId = blockParent.id;
+              newElement = blockParent;
             }
           } else {
-            // Find the text node containing the cursor
-            let node = this.currentSelection.focusNode;
-            if (node.nodeType !== Node.TEXT_NODE) {
-              // If not a text node, find the first text node child
-              const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
-              node = walker.firstChild();
-            }
+            // Cursor position only - get current offset before changes
+            const currentOffset = this.getTextOffsetInElement(
+              parentElement,
+              this.currentSelection.focusNode,
+              this.currentSelection.focusOffset
+            );
             
-            if (node && node.nodeType === Node.TEXT_NODE) {
-              // Create a range that encompasses the entire text node
-              const range = document.createRange();
-              range.selectNodeContents(node);
+            if (this.hasParentWithTag(parentElement, "EM") || 
+                this.hasParentWithTag(parentElement, "I")) {
+              // Find the italic parent
+              const italicElement = this.findParentWithTag(parentElement, "EM") || 
+                                   this.findParentWithTag(parentElement, "I");
+              if (italicElement) {
+                // Replace italic element with its text content
+                const newTextNode = document.createTextNode(italicElement.textContent);
+                const parentNode = italicElement.parentNode;
+                parentNode.replaceChild(newTextNode, italicElement);
+                
+                // Restore cursor position at the same text offset
+                this.setCursorAtTextOffset(parentNode, currentOffset);
+                
+                // Find the block parent to save
+                const blockParent = this.findClosestBlockParent(parentNode);
+                if (blockParent && blockParent.id) {
+                  modifiedElementId = blockParent.id;
+                  newElement = blockParent;
+                }
+              }
+            } else {
+              // Find the text node containing the cursor
+              let node = this.currentSelection.focusNode;
+              if (node.nodeType !== Node.TEXT_NODE) {
+                // If not a text node, find the first text node child
+                const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+                node = walker.firstChild();
+              }
               
-              // Select the entire text node
-              this.currentSelection.removeAllRanges();
-              this.currentSelection.addRange(range);
-              
-              // Apply italic formatting
-              document.execCommand("italic", false, null);
-              
-              // Find the new italic element and restore cursor position
-              const newItalicNode = this.findParentWithTag(node.parentNode, "EM") || 
-                                   this.findParentWithTag(node.parentNode, "I");
-              if (newItalicNode) {
-                this.setCursorAtTextOffset(newItalicNode, currentOffset);
+              if (node && node.nodeType === Node.TEXT_NODE) {
+                // Create a range that encompasses the entire text node
+                const range = document.createRange();
+                range.selectNodeContents(node);
+                
+                // Select the entire text node
+                this.currentSelection.removeAllRanges();
+                this.currentSelection.addRange(range);
+                
+                // Apply italic formatting
+                document.execCommand("italic", false, null);
+                
+                // Find the new italic element and restore cursor position
+                const newItalicNode = this.findParentWithTag(node.parentNode, "EM") || 
+                                     this.findParentWithTag(node.parentNode, "I");
+                if (newItalicNode) {
+                  this.setCursorAtTextOffset(newItalicNode, currentOffset);
+                  
+                  // Find the block parent to save
+                  const blockParent = this.findClosestBlockParent(newItalicNode);
+                  if (blockParent && blockParent.id) {
+                    modifiedElementId = blockParent.id;
+                    newElement = blockParent;
+                  }
+                }
               }
             }
           }
-        }
-        break;
-    }
-    
-    // Update button states after formatting
-    this.updateButtonStates();
+          break;
+      }
+      
+      // Update button states after formatting
+      this.updateButtonStates();
+      
+      // Save to IndexedDB if we have a modified element
+      if (modifiedElementId && newElement) {
+        setTimeout(() => {
+          const updatedElement = document.getElementById(modifiedElementId);
+          if (updatedElement) {
+            this.saveToIndexedDB(modifiedElementId, updatedElement.outerHTML);
+          } else {
+            this.saveToIndexedDB(modifiedElementId, newElement.outerHTML);
+          }
+        }, 50);
+      }
 
     } finally {
-    // RESET THE FLAG AFTER A SHORT DELAY
-    setTimeout(() => {
-      this.isFormatting = false;
-    }, 100);
+      // RESET THE FLAG AFTER A SHORT DELAY
+      setTimeout(() => {
+        this.isFormatting = false;
+      }, 100);
+    }
   }
-}
   
 
   /**
