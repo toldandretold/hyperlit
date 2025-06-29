@@ -140,55 +140,191 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
         </svg>
     </button>
 </div>
-
 <!-- Add the new edit-toolbar div -->
 <div id="edit-toolbar">
-    <button type="button" id="boldButton">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <!-- Background rectangle -->
-            <rect width="24" height="24" fill="#221F20" />
-            <!-- Bold icon -->
-            <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" stroke="#CBCCCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-            <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" stroke="#CBCCCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-        </svg>
-    </button>
-    <button type="button" id="italicButton">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <!-- Background rectangle -->
-            <rect width="24" height="24" fill="#221F20" />
-            <!-- Italic icon -->
-            <line x1="19" y1="4" x2="10" y2="4" stroke="#CBCCCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></line>
-            <line x1="14" y1="20" x2="5" y2="20" stroke="#CBCCCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></line>
-            <line x1="15" y1="4" x2="9" y2="20" stroke="#CBCCCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></line>
-        </svg>
-    </button>
-    <button type="button" id="headingButton">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <!-- Background rectangle -->
-            <rect width="24" height="24" fill="#221F20" />
-            <!-- Heading icon -->
-            <path d="M6 12h12" stroke="#CBCCCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-            <path d="M6 4v16" stroke="#CBCCCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-            <path d="M18 4v16" stroke="#CBCCCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-        </svg>
-    </button>
-    <button type="button" id="blockquoteButton">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <!-- Background rectangle -->
-            <rect width="24" height="24" fill="#221F20" />
-            <!-- Blockquote icon -->
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="#CBCCCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-        </svg>
-    </button>
-    <button type="button" id="codeButton">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <!-- Background rectangle -->
-            <rect width="24" height="24" fill="#221F20" />
-            <!-- Code icon -->
-            <polyline points="16 18 22 12 16 6" stroke="#CBCCCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
-            <polyline points="8 6 2 12 8 18" stroke="#CBCCCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
-        </svg>
-    </button>
+  <button type="button" id="boldButton">
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <!-- Background rectangle -->
+      <rect width="24" height="24" fill="#221F20" />
+      <!-- Bold icon -->
+      <path
+        d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"
+        stroke="#CBCCCC"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"
+        stroke="#CBCCCC"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  </button>
+
+  <button type="button" id="italicButton">
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect width="24" height="24" fill="#221F20" />
+      <line
+        x1="19"
+        y1="4"
+        x2="10"
+        y2="4"
+        stroke="#CBCCCC"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <line
+        x1="14"
+        y1="20"
+        x2="5"
+        y2="20"
+        stroke="#CBCCCC"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <line
+        x1="15"
+        y1="4"
+        x2="9"
+        y2="20"
+        stroke="#CBCCCC"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  </button>
+
+  <button type="button" id="headingButton">
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect width="24" height="24" fill="#221F20" />
+      <path
+        d="M6 12h12"
+        stroke="#CBCCCC"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M6 4v16"
+        stroke="#CBCCCC"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M18 4v16"
+        stroke="#CBCCCC"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  </button>
+
+  <button type="button" id="blockquoteButton">
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <!-- Background rectangle -->
+    <rect width="24" height="24" fill="#221F20" />
+    <!-- Left margin bar -->
+    <line
+      x1="4"
+      y1="4"
+      x2="4"
+      y2="20"
+      stroke="#CBCCCC"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <!-- Text lines -->
+    <line
+      x1="8"
+      y1="6"
+      x2="20"
+      y2="6"
+      stroke="#CBCCCC"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <line
+      x1="8"
+      y1="12"
+      x2="20"
+      y2="12"
+      stroke="#CBCCCC"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <line
+      x1="8"
+      y1="18"
+      x2="20"
+      y2="18"
+      stroke="#CBCCCC"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
+</button>
+
+  <button type="button" id="codeButton">
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect width="24" height="24" fill="#221F20" />
+      <polyline
+        points="16 18 22 12 16 6"
+        stroke="#CBCCCC"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <polyline
+        points="8 6 2 12 8 18"
+        stroke="#CBCCCC"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  </button>
 </div>
 
 
