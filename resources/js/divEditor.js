@@ -44,6 +44,11 @@ import { isChunkLoadingInProgress, getLoadingChunkId } from './chunkLoadingState
 import { SelectionDeletionHandler } from './selectionDelete.js';
 import { initializeMainLazyLoader } from './initializePage.js';
 import { getEditToolbar } from './editToolbar.js';
+import { delinkHypercite, handleHyperciteDeletion } from './hyperCites.js';
+
+
+
+
 
 // Tracking sets
 const modifiedNodes = new Set(); // Track element IDs whose content was modified.
@@ -567,6 +572,10 @@ async function processChunkMutations(chunk, mutations) {
       
       for (const node of mutation.removedNodes) {
         if (node.nodeType === Node.ELEMENT_NODE) {
+
+          // 🆕 ADD THIS: Check for hypercite removals
+          await handleHyperciteRemoval(node);
+
           // Check if this is a top-level paragraph/heading being removed
           if (node.id && node.id.match(/^\d+(\.\d+)?$/)) {
             console.log(`🗑️ Attempting to delete node ${node.id} from IndexedDB`);
@@ -1617,7 +1626,60 @@ function scrollCaretIntoView() {
 
 
 
-
+/**
+ * Check if a removed node is a hypercite element and handle delinking
+ * @param {Node} removedNode - The node that was removed
+ */
+async function handleHyperciteRemoval(removedNode) {
+  // Check if the removed node is a hypercite element
+  if (removedNode.nodeType === Node.ELEMENT_NODE && 
+      removedNode.tagName === 'A' && 
+      removedNode.id && 
+      removedNode.id.startsWith('hypercite_') && 
+      removedNode.href) {
+    
+    console.log(`🔗 Hypercite element removed: ${removedNode.id}`);
+    console.log(`📍 Href: ${removedNode.href}`);
+    
+    // Import the delink function (assuming it's available globally or import it)
+    try {
+      // If you made the functions global for testing, use:
+      if (window.testDelinkHypercite) {
+        await window.testDelinkHypercite(removedNode.id, removedNode.href);
+      } else {
+        // Or import the function if modules are supported
+        const { delinkHypercite } = await import('./hyperCites.js');
+        await delinkHypercite(removedNode.id, removedNode.href);
+      }
+    } catch (error) {
+      console.error('❌ Error handling hypercite removal:', error);
+    }
+  }
+  
+  // Also check for hypercites within removed elements
+  if (removedNode.nodeType === Node.ELEMENT_NODE && removedNode.querySelectorAll) {
+    const hypercites = removedNode.querySelectorAll('a[id^="hypercite_"][href]');
+    
+    if (hypercites.length > 0) {
+      console.log(`🔗 Found ${hypercites.length} hypercites within removed element`);
+      
+      for (const hypercite of hypercites) {
+        console.log(`🔗 Processing nested hypercite: ${hypercite.id}`);
+        
+        try {
+          if (window.testDelinkHypercite) {
+            await window.testDelinkHypercite(hypercite.id, hypercite.href);
+          } else {
+            const { delinkHypercite } = await import('./hyperCites.js');
+            await delinkHypercite(hypercite.id, hypercite.href);
+          }
+        } catch (error) {
+          console.error('❌ Error handling nested hypercite removal:', error);
+        }
+      }
+    }
+  }
+}
 
 
 

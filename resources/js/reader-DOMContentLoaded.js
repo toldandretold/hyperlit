@@ -40,6 +40,7 @@ import { initializeBroadcastListener } from "./BroadcastListener.js";
 import { initEditToolbar } from "./editToolbar.js";
 // resources/js/app.js
 import DOMPurify from 'dompurify';
+//import "./drag.js";
 
 window.uiState = {
   activeContainer: "main-content",

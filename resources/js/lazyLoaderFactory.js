@@ -419,103 +419,116 @@ export function applyHypercites(html, hypercites) {
   
   console.log("Applying hypercites:", hypercites);
   
-  // Extract the text content without any HTML tags
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = html;
-  const plainText = tempDiv.textContent;
+  // Create segments (same logic as hyperlights)
+  const segments = createHyperciteSegments(hypercites);
   
-  console.log("Plain text content:", plainText);
-  console.log("Plain text length:", plainText.length);
+  const tempElement = document.createElement("div");
+  tempElement.innerHTML = html;
   
-  // Create an array of markers for where we need to insert tags
-  const markers = [];
-  
-  for (const hypercite of hypercites) {
-    const id = hypercite.hyperciteId;
-    const start = hypercite.charStart;
-    const end = hypercite.charEnd;
-    const status = hypercite.relationshipStatus || 'single';
+  // Apply segments in reverse order (same as hyperlights)
+  segments.sort((a, b) => b.charStart - a.charStart);
+
+  for (const segment of segments) {
+    console.log(`Applying hypercite segment from ${segment.charStart} to ${segment.charEnd}`, segment);
     
-    console.log(`Adding markers for hypercite ${id} from ${start} to ${end}`);
+    const positions = findPositionsInDOM(tempElement, segment.charStart, segment.charEnd);
     
-    // Verify the text being hypercited
-    const hypercitedText = plainText.substring(start, end);
-    console.log(`Text to be hypercited: "${hypercitedText}"`);
-    
-    // Add opening and closing markers
-    markers.push({
-      position: start,
-      isOpening: true,
-      id: id,
-      status: status,
-      priority: 1 // Opening tags have higher priority
-    });
-    
-    markers.push({
-      position: end,
-      isOpening: false,
-      id: id,
-      status: status,
-      priority: 0 // Closing tags have lower priority
-    });
-  }
-  
-  // Sort markers by position and priority
-  // This ensures that at the same position, closing tags come before opening tags
-  markers.sort((a, b) => {
-    if (a.position === b.position) {
-      return a.priority - b.priority;
-    }
-    return a.position - b.position;
-  });
-  
-  console.log("Sorted markers:", markers);
-  
-  // Now rebuild the HTML by walking through the original HTML and inserting tags at marker positions
-  let result = '';
-  let textIndex = 0;
-  let htmlIndex = 0;
-  
-  while (htmlIndex < html.length) {
-    // Check if we're at a tag in the original HTML
-    if (html[htmlIndex] === '<') {
-      // Skip over the tag
-      const tagEndIndex = html.indexOf('>', htmlIndex);
-      if (tagEndIndex === -1) break; // Malformed HTML
+    if (positions) {
+      const underlineElement = document.createElement("u");
       
-      result += html.substring(htmlIndex, tagEndIndex + 1);
-      htmlIndex = tagEndIndex + 1;
-      
-      // If this was a closing tag that affects text index, update textIndex
-      const isClosingTag = html.substring(htmlIndex - 2, htmlIndex) === '/>';
-      if (isClosingTag) {
-        // We need to find what tag this was and adjust textIndex accordingly
-        // This is complex and depends on your HTML structure
-      }
-      
-      continue;
-    }
-    
-    // Check if we're at a marker position in the text
-    const currentMarkers = markers.filter(m => m.position === textIndex);
-    
-    for (const marker of currentMarkers) {
-      if (marker.isOpening) {
-        result += `<u id="${marker.id}" class="${marker.status}">`;
+      // Handle single vs multiple hypercites in segment
+      if (segment.hyperciteIDs.length === 1) {
+        underlineElement.id = segment.hyperciteIDs[0];
+        underlineElement.className = segment.statuses[0] || 'single';
       } else {
-        result += `</u>`;
+      // Multiple hypercites overlapping
+      underlineElement.id = "hypercite_overlapping";
+      
+      // 🔍 DEBUG: Let's see what statuses we're working with
+      console.log("🔍 Overlapping segment debug:");
+      console.log("Hypercite IDs:", segment.hyperciteIDs);
+      console.log("Statuses array:", segment.statuses);
+      
+      // Determine class based on your requirement
+      let finalStatus = 'single';
+      const coupleCount = segment.statuses.filter(status => status === 'couple').length;
+      
+      console.log("Couple count:", coupleCount);
+      
+      if (segment.statuses.includes('poly')) {
+        finalStatus = 'poly';
+        console.log("Set to poly because includes poly");
+      } else if (coupleCount >= 2) {
+        // Multiple couples become poly
+        finalStatus = 'poly';
+        console.log("Set to poly because multiple couples:", coupleCount);
+      } else if (segment.statuses.includes('couple')) {
+        // Single couple stays couple
+        finalStatus = 'couple';
+        console.log("Set to couple because single couple");
+      }
+      
+      console.log("Final status:", finalStatus);
+      
+      underlineElement.className = finalStatus;
+      underlineElement.setAttribute("data-overlapping", segment.hyperciteIDs.join(","));
+    }
+      
+      try {
+        const range = document.createRange();
+        range.setStart(positions.startNode, positions.startOffset);
+        range.setEnd(positions.endNode, positions.endOffset);
+        range.surroundContents(underlineElement);
+      } catch (error) {
+        console.error("Error with surroundContents for hypercite:", error);
+        wrapRangeWithElement(
+          positions.startNode,
+          positions.startOffset,
+          positions.endNode,
+          positions.endOffset,
+          underlineElement
+        );
       }
     }
-    
-    // Add the current character
-    result += html[htmlIndex];
-    htmlIndex++;
-    textIndex++;
   }
-  
-  return result;
+
+  return tempElement.innerHTML;
 }
 
+function createHyperciteSegments(hypercites) {
+  // Collect all boundary points
+  const boundaries = new Set();
+  
+  hypercites.forEach(hypercite => {
+    boundaries.add(hypercite.charStart);
+    boundaries.add(hypercite.charEnd);
+  });
+  
+  const sortedBoundaries = Array.from(boundaries).sort((a, b) => a - b);
+  const segments = [];
+  
+  // Create segments between each pair of boundaries
+  for (let i = 0; i < sortedBoundaries.length - 1; i++) {
+    const segmentStart = sortedBoundaries[i];
+    const segmentEnd = sortedBoundaries[i + 1];
+    
+    // Find which hypercites cover this segment
+    const coveringHypercites = hypercites.filter(hypercite => 
+      hypercite.charStart <= segmentStart && hypercite.charEnd >= segmentEnd
+    );
+    
+    if (coveringHypercites.length > 0) {
+      segments.push({
+        charStart: segmentStart,
+        charEnd: segmentEnd,
+        hyperciteIDs: coveringHypercites.map(h => h.hyperciteId),
+        statuses: coveringHypercites.map(h => h.relationshipStatus || 'single')
+      });
+    }
+  }
+  
+  return segments;
+}
 
 
 

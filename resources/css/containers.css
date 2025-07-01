@@ -248,6 +248,9 @@ black #221F20;
   border-radius: 1em 1em;
   font-size: 20px;
 }
+.dragging {
+        cursor: grabbing;
+      }
 
 .time {
   font-size: 14px;

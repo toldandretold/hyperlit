@@ -13,7 +13,6 @@ import { addTouchAndClickListener } from './hyperLights.js';
 
 
 
-// Button does the EXACT same thing as the old copy event
 addTouchAndClickListener(
   document.getElementById("copy-hypercite"),
   async function(buttonEvent) {
@@ -29,26 +28,57 @@ addTouchAndClickListener(
       return;
     }
 
+    // 🔧 ROBUST APPROACH: Get clean text from parent context
+    const range = selection.getRangeAt(0);
+    let parent = range.commonAncestorContainer;
+    
+    // Navigate up to find an element node if we're on a text node
+    if (parent.nodeType === 3) {
+      parent = parent.parentElement;
+    }
+    
+    // Find the nearest parent with an ID
+    parent = parent.closest("[id]");
+    
+    let selectedText = "";
+    
+    if (parent) {
+      const parentText = parent.textContent;
+      const rangeText = range.toString();
+      
+      console.log("🔍 ROBUST COPY DEBUG:");
+      console.log("Parent element:", parent.tagName, "ID:", parent.id);
+      console.log("Parent full text:", parentText);
+      console.log("Range toString():", rangeText);
+      
+      // Find the selection in the parent's clean text
+      const startIndex = parentText.indexOf(rangeText);
+      
+      if (startIndex !== -1) {
+        selectedText = parentText.substring(startIndex, startIndex + rangeText.length).trim();
+        console.log("✅ Clean text from parent context:", selectedText);
+      } else {
+        console.warn("⚠️ Could not find range text in parent, falling back to range.toString()");
+        selectedText = rangeText.trim();
+      }
+    } else {
+      console.warn("⚠️ No parent with ID found, using selection.toString()");
+      selectedText = selection.toString().trim();
+    }
+
     // Get the current site URL
-    const currentSiteUrl = `${window.location.origin}`; // E.g., "https://thissite.com"
-    const citationIdA = book; // Assign 'book' to 'citation_id_a'
-    const hypercitedText = selection.toString(); // The actual text being copied
-    const hrefA = `${currentSiteUrl}/${citationIdA}#${hyperciteId}`; // Construct href_a dynamically
+    const currentSiteUrl = `${window.location.origin}`;
+    const citationIdA = book;
+    const hrefA = `${currentSiteUrl}/${citationIdA}#${hyperciteId}`;
 
-    // Extract plain text from the selection
-    const selectedText = selection.toString().trim(); // Plain text version of selected content
-
-    // Create the HTML and plain text for the clipboard, including the full URL
+    // Create the HTML and plain text for the clipboard with CLEAN text
     const clipboardHtml = `'${selectedText}'<a href="${hrefA}" id="${hyperciteId}"><span class="open-icon">↗</span></a>`;
     const clipboardText = `'${selectedText}' [↗](${hrefA})`;
 
-    // 🔍 DEBUG LOGS - Let's see what we're actually copying
-    console.log("🔍 COPY EVENT DEBUG:");
-    console.log("Selected text:", `"${selectedText}"`);
-    console.log("Clipboard HTML:", clipboardHtml);
-    console.log("Clipboard Text:", clipboardText);
+    console.log("Final clipboard HTML:", clipboardHtml);
+    console.log("Final clipboard Text:", clipboardText);
 
-    // Use the modern Clipboard API to set the EXACT same data
+    // Use the modern Clipboard API to set the data
     try {
       const clipboardItem = new ClipboardItem({
         'text/html': new Blob([clipboardHtml], { type: 'text/html' }),
@@ -57,9 +87,7 @@ addTouchAndClickListener(
       
       await navigator.clipboard.write([clipboardItem]);
       
-      // 🔍 DEBUG - Verify what was actually set (can't read back from Clipboard API, but we know what we sent)
-      console.log("Actually set HTML:", clipboardHtml);
-      console.log("Actually set Text:", clipboardText);
+      console.log("✅ Successfully copied to clipboard");
       
     } catch (error) {
       console.error("❌ Clipboard write failed:", error);
@@ -587,13 +615,20 @@ async function CoupleClick(uElement) {
     console.error("Failed to retrieve hypercite data:", error);
   }
 }
+
 /**
  * Function to handle clicks on underlined elements based on their class
  * @param {HTMLElement} uElement - The underlined element that was clicked
  * @param {Event} event - The click event
  */
 async function handleUnderlineClick(uElement, event) {
-  // Check the class of the underlined element
+  // Check if this is an overlapping hypercite
+  if (uElement.id === "hypercite_overlapping") {
+    await handleOverlappingHyperciteClick(uElement, event);
+    return;
+  }
+
+  // Handle non-overlapping hypercites (original logic)
   if (uElement.classList.contains("couple")) {
     await CoupleClick(uElement);
   } else if (uElement.classList.contains("poly")) {
@@ -602,6 +637,269 @@ async function handleUnderlineClick(uElement, event) {
     console.log("Clicked on an underlined element with no special handling");
   }
 }
+
+/**
+ * Function to handle clicks on overlapping hypercites
+ * @param {HTMLElement} uElement - The overlapping hypercite element
+ * @param {Event} event - The click event
+ */
+async function handleOverlappingHyperciteClick(uElement, event) {
+  console.log("Overlapping hypercite clicked:", uElement);
+
+  // Get the overlapping hypercite IDs from data-overlapping attribute
+  const overlappingData = uElement.getAttribute("data-overlapping");
+  if (!overlappingData) {
+    console.error("❌ No data-overlapping attribute found");
+    return;
+  }
+
+  const hyperciteIds = overlappingData.split(",").map(id => id.trim());
+  console.log("Overlapping hypercite IDs:", hyperciteIds);
+
+  const className = uElement.className;
+  
+  if (className === "couple") {
+    await handleOverlappingCouple(hyperciteIds);
+  } else if (className === "poly") {
+    await handleOverlappingPoly(hyperciteIds, event);
+  } else {
+    console.log("Overlapping hypercite with single class - no action needed");
+  }
+}
+
+/**
+ * Handle overlapping hypercites with couple class
+ * @param {Array} hyperciteIds - Array of overlapping hypercite IDs
+ */
+async function handleOverlappingCouple(hyperciteIds) {
+  try {
+    const db = await openDatabase();
+    
+    // Look up all hypercites to find which one has couple status
+    const hypercitePromises = hyperciteIds.map(id => getHyperciteById(db, id));
+    const hypercites = await Promise.all(hypercitePromises);
+    
+    // Find the hypercite with couple relationship status
+    const coupleHypercite = hypercites.find(hc => 
+      hc && hc.relationshipStatus === "couple"
+    );
+    
+    if (!coupleHypercite) {
+      console.error("❌ No hypercite with couple status found in overlapping set");
+      return;
+    }
+    
+    console.log("Found couple hypercite:", coupleHypercite);
+    
+    // Get the citedIN link (should be exactly one for couple status)
+    if (coupleHypercite.citedIN && coupleHypercite.citedIN.length > 0) {
+      const link = coupleHypercite.citedIN[0];
+      await navigateToHyperciteLink(link);
+    } else {
+      console.error("❌ No citedIN link found for couple hypercite:", coupleHypercite.hyperciteId);
+    }
+    
+  } catch (error) {
+    console.error("❌ Error handling overlapping couple:", error);
+  }
+}
+
+/**
+ * Handle overlapping hypercites with poly class
+ * @param {Array} hyperciteIds - Array of overlapping hypercite IDs
+ * @param {Event} event - The click event
+ */
+async function handleOverlappingPoly(hyperciteIds, event) {
+  try {
+    const db = await openDatabase();
+    
+    // Look up all hypercites
+    const hypercitePromises = hyperciteIds.map(id => getHyperciteById(db, id));
+    const hypercites = await Promise.all(hypercitePromises);
+    
+    // Filter out null results and collect all citedIN links
+    const validHypercites = hypercites.filter(hc => hc !== null);
+    const allCitedINLinks = [];
+    
+    validHypercites.forEach(hypercite => {
+      if (hypercite.citedIN && Array.isArray(hypercite.citedIN)) {
+        allCitedINLinks.push(...hypercite.citedIN);
+      }
+    });
+    
+    console.log("All citedIN links from overlapping hypercites:", allCitedINLinks);
+    
+    if (allCitedINLinks.length === 0) {
+      console.error("❌ No citedIN links found in any overlapping hypercites");
+      return;
+    }
+    
+    // Create the poly container content with all links
+    await createOverlappingPolyContainer(allCitedINLinks, validHypercites);
+    
+  } catch (error) {
+    console.error("❌ Error handling overlapping poly:", error);
+  }
+}
+
+/**
+ * Navigate to a hypercite link (extracted from CoupleClick logic)
+ * @param {string} link - The link to navigate to
+ */
+async function navigateToHyperciteLink(link) {
+  // If the link is relative, prepend the base URL
+  if (link.startsWith("/")) {
+    link = window.location.origin + link;
+  }
+  console.log("Opening link:", link);
+
+  // Check if this is a same-book highlight link
+  const url = new URL(link, window.location.origin);
+  if (url.origin === window.location.origin) {
+    const [bookSegment, hlSegment] = url.pathname.split("/").filter(Boolean);
+    const currentBook = window.location.pathname.split("/").filter(Boolean)[0];
+    const hlMatch = hlSegment && hlSegment.match(/^HL_(.+)$/);
+    
+    if (bookSegment === currentBook && hlMatch) {
+      console.log("✅ Same-book highlight link detected in hypercite");
+      
+      const highlightId = hlMatch[0]; // "HL_1749896203081"
+      const internalId = url.hash ? url.hash.slice(1) : null;
+      
+      // Update URL
+      const newPath = `/${currentBook}/${highlightId}` + (internalId ? `#${internalId}` : "");
+      window.history.pushState(null, "", newPath);
+      
+      // Use navigateToInternalId for everything - it handles highlight opening AND scrolling
+      if (internalId) {
+        // If there's an internal ID, navigate to the highlight first, then to the internal ID
+        navigateToInternalId(highlightId, currentLazyLoader);
+        // Wait for highlight to open, then navigate to internal ID
+        setTimeout(() => {
+          navigateToInternalId(internalId, currentLazyLoader);
+        }, 1000); // Increased timeout to ensure highlight opens first
+      } else {
+        // Just navigate to the highlight
+        navigateToInternalId(highlightId, currentLazyLoader);
+      }
+      
+      return; // Don't do normal navigation
+    }
+
+    if (bookSegment === currentBook) {
+      console.log("✅ Same-book internal link detected");
+      const internalId = url.hash ? url.hash.slice(1) : null;
+      
+      if (internalId) {
+        // Update URL and navigate to internal ID
+        window.history.pushState(null, "", `/${currentBook}#${internalId}`);
+        navigateToInternalId(internalId, currentLazyLoader);
+        return;
+      }
+    }
+  }
+  
+  // If not a same-book highlight, do normal navigation
+  window.location.href = link;
+}
+
+/**
+ * Create and open the poly container for overlapping hypercites
+ * @param {Array} allCitedINLinks - All citedIN links from overlapping hypercites
+ * @param {Array} validHypercites - All valid hypercite objects
+ */
+async function createOverlappingPolyContainer(allCitedINLinks, validHypercites) {
+  const db = await openDatabase();
+  
+  // Remove duplicates from citedIN links
+  const uniqueLinks = [...new Set(allCitedINLinks)];
+  
+  // Generate HTML for all links (reusing logic from PolyClick)
+  const linksHTML = (
+    await Promise.all(
+      uniqueLinks.map(async (citationID) => {
+        // Extract the book/citation ID from the URL with improved handling
+        let bookID;
+        const citationParts = citationID.split("#");
+        const urlPart = citationParts[0];
+        
+        // Check if this is a hyperlight URL (contains /HL_)
+        const isHyperlightURL = urlPart.includes("/HL_");
+        
+        if (isHyperlightURL) {
+          // For URLs like "/nicholls2019moment/HL_1747630135510#hypercite_5k2bmvr6"
+          // Extract the book ID from the path before the /HL_ part
+          const pathParts = urlPart.split("/");
+          // Find the part before the HL_ segment
+          for (let i = 0; i < pathParts.length; i++) {
+            if (pathParts[i].startsWith("HL_") && i > 0) {
+              bookID = pathParts[i-1];
+              break;
+            }
+          }
+          
+          // If we couldn't find it with the above method, fall back to taking the first non-empty path segment
+          if (!bookID) {
+            bookID = pathParts.filter(part => part && !part.startsWith("HL_"))[0] || "";
+          }
+        } else {
+          // Original simple case: url.com/book#id
+          bookID = urlPart.replace("/", "");
+        }
+
+        // Check if the book exists in the library object store
+        const libraryTx = db.transaction("library", "readonly");
+        const libraryStore = libraryTx.objectStore("library");
+        const libraryRequest = libraryStore.get(bookID);
+
+        return new Promise((resolve) => {
+          libraryRequest.onsuccess = () => {
+            const libraryData = libraryRequest.result;
+
+            if (libraryData && libraryData.bibtex) {
+              // Format the BibTeX data into an academic citation
+              const formattedCitation = formatBibtexToCitation(libraryData.bibtex);
+              
+              // Customize the citation display based on URL type
+              const citationText = isHyperlightURL 
+                ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}` 
+                : formattedCitation;
+
+              // Return the formatted citation with the clickable link
+              resolve(
+                `<p>${citationText} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></p>`
+              );
+            } else {
+              // If no record exists, return the default link
+              resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
+            }
+          };
+
+          libraryRequest.onerror = () => {
+            console.error(`❌ Error fetching library data for book ID: ${bookID}`);
+            resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
+          };
+        });
+      })
+    )
+  ).join("");
+
+  const containerContent = `
+    <div class="scroller">
+      <h1>Cited By (Overlapping Hypercites):</h1>
+      <p>Found ${validHypercites.length} overlapping hypercites with ${uniqueLinks.length} total citations.</p>
+      <div class="citation-links">
+        ${linksHTML}
+      </div>
+    </div>
+    <div class="mask-bottom"></div>
+    <div class="mask-top"></div>
+  `;
+
+  // Open the hypercite container with the generated content
+  openHyperciteContainer(containerContent);
+}
+
 
 /**
  * Function to attach click listeners to underlined citations
@@ -803,6 +1101,247 @@ export function parseHyperciteHref(href) {
     console.error("Error parsing hypercite href:", href, error);
     return null;
   }
+}
+
+
+// DELETE HYPERCITED QUOTE //
+
+/**
+ * Function to delink a hypercite when it's deleted
+ * @param {string} hyperciteElementId - The ID of the hypercite element being deleted (e.g., "hypercite_p0pdlbaj")
+ * @param {string} hrefUrl - The href URL of the hypercite element
+ */
+export async function delinkHypercite(hyperciteElementId, hrefUrl) {
+  try {
+    console.log("🔗 Starting delink process for:", hyperciteElementId);
+    console.log("📍 Href URL:", hrefUrl);
+
+    // Step 1: Extract the target hypercite ID from the href
+    const targetHyperciteId = extractHyperciteIdFromHref(hrefUrl);
+    if (!targetHyperciteId) {
+      console.error("❌ Could not extract hypercite ID from href:", hrefUrl);
+      return;
+    }
+
+    console.log("🎯 Target hypercite ID to delink from:", targetHyperciteId);
+
+    // Step 2: Look up the target hypercite in IndexedDB
+    const db = await openDatabase();
+    const targetHypercite = await getHyperciteById(db, targetHyperciteId);
+    
+    if (!targetHypercite) {
+      console.error("❌ Target hypercite not found in database:", targetHyperciteId);
+      return;
+    }
+
+    console.log("📋 Found target hypercite:", targetHypercite);
+
+    // Step 3: Remove the current hypercite from the target's citedIN array
+    const originalCitedIN = [...targetHypercite.citedIN];
+    const updatedCitedIN = removeCitedINEntry(targetHypercite.citedIN, hyperciteElementId);
+    
+    if (originalCitedIN.length === updatedCitedIN.length) {
+      console.warn("⚠️ No matching citedIN entry found to remove");
+      return;
+    }
+
+    console.log("✂️ Removed citedIN entry. New array:", updatedCitedIN);
+
+    // Step 4: Update the target hypercite's relationship status
+    const newRelationshipStatus = determineRelationshipStatus(updatedCitedIN.length);
+    
+    // Step 5: Update IndexedDB
+    const updatedHypercite = {
+      ...targetHypercite,
+      citedIN: updatedCitedIN,
+      relationshipStatus: newRelationshipStatus
+    };
+
+    await updateHyperciteInIndexedDB(db, updatedHypercite);
+    console.log("💾 Updated hypercite in IndexedDB");
+
+    // Step 6: Update the DOM element's class if it exists
+    updateDOMElementClass(targetHyperciteId, newRelationshipStatus);
+
+    // Step 7: Update book timestamp
+    await updateBookTimestamp(targetHypercite.book);
+
+    // Step 8: Sync with PostgreSQL
+    await syncDelinkWithPostgreSQL(updatedHypercite);
+
+    console.log("✅ Delink process completed successfully");
+
+  } catch (error) {
+    console.error("❌ Error in delinkHypercite:", error);
+  }
+}
+
+/**
+ * Extract hypercite ID from href URL
+ * @param {string} hrefUrl - The href URL
+ * @returns {string|null} - The hypercite ID or null if not found
+ */
+function extractHyperciteIdFromHref(hrefUrl) {
+  try {
+    const url = new URL(hrefUrl, window.location.origin);
+    const hash = url.hash;
+    
+    if (hash && hash.startsWith('#hypercite_')) {
+      return hash.substring(1); // Remove the # symbol
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Error parsing href URL:", hrefUrl, error);
+    return null;
+  }
+}
+
+/**
+ * Get hypercite by ID from IndexedDB
+ * @param {IDBDatabase} db - The IndexedDB database
+ * @param {string} hyperciteId - The hypercite ID to look up
+ * @returns {Promise<Object|null>} - The hypercite object or null
+ */
+async function getHyperciteById(db, hyperciteId) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("hypercites", "readonly");
+    const store = tx.objectStore("hypercites");
+    const index = store.index("hyperciteId");
+    const request = index.get(hyperciteId);
+
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+
+    request.onerror = () => {
+      reject(new Error(`Error retrieving hypercite: ${hyperciteId}`));
+    };
+  });
+}
+
+/**
+ * Remove a citedIN entry that matches the given hypercite element ID
+ * @param {Array} citedINArray - The current citedIN array
+ * @param {string} hyperciteElementId - The ID of the hypercite element to remove
+ * @returns {Array} - Updated citedIN array
+ */
+function removeCitedINEntry(citedINArray, hyperciteElementId) {
+  if (!Array.isArray(citedINArray)) {
+    return [];
+  }
+
+  return citedINArray.filter(citedINUrl => {
+    // Extract the hypercite ID from the citedIN URL
+    const urlParts = citedINUrl.split('#');
+    if (urlParts.length > 1) {
+      const citedHyperciteId = urlParts[1];
+      return citedHyperciteId !== hyperciteElementId;
+    }
+    return true; // Keep entries that don't match the expected format
+  });
+}
+
+/**
+ * Determine relationship status based on citedIN array length
+ * @param {number} citedINLength - Length of the citedIN array
+ * @returns {string} - The relationship status
+ */
+function determineRelationshipStatus(citedINLength) {
+  if (citedINLength === 0) {
+    return "single";
+  } else if (citedINLength === 1) {
+    return "couple";
+  } else {
+    return "poly";
+  }
+}
+
+/**
+ * Update hypercite in IndexedDB
+ * @param {IDBDatabase} db - The IndexedDB database
+ * @param {Object} hyperciteData - The updated hypercite data
+ */
+async function updateHyperciteInIndexedDB(db, hyperciteData) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("hypercites", "readwrite");
+    const store = tx.objectStore("hypercites");
+    const request = store.put(hyperciteData);
+
+    request.onsuccess = () => {
+      resolve();
+    };
+
+    request.onerror = () => {
+      reject(new Error("Error updating hypercite in IndexedDB"));
+    };
+  });
+}
+
+/**
+ * Update DOM element class based on relationship status
+ * @param {string} hyperciteId - The hypercite ID
+ * @param {string} relationshipStatus - The new relationship status
+ */
+function updateDOMElementClass(hyperciteId, relationshipStatus) {
+  const element = document.getElementById(hyperciteId);
+  if (element && element.tagName.toLowerCase() === 'u') {
+    // Remove existing relationship classes
+    element.classList.remove('single', 'couple', 'poly');
+    // Add new class
+    element.classList.add(relationshipStatus);
+    console.log(`🎨 Updated DOM element ${hyperciteId} class to: ${relationshipStatus}`);
+  }
+}
+
+/**
+ * Sync delink operation with PostgreSQL
+ * @param {Object} updatedHypercite - The updated hypercite data
+ */
+async function syncDelinkWithPostgreSQL(updatedHypercite) {
+  try {
+    console.log("🔄 Syncing delink with PostgreSQL...");
+
+    const response = await fetch("/api/db/hypercites/upsert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN": document
+          .querySelector('meta[name="csrf-token"]')
+          ?.getAttribute("content"),
+      },
+      body: JSON.stringify({
+        data: [updatedHypercite]
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`PostgreSQL sync failed: ${response.statusText}`);
+    }
+
+    console.log("✅ Delink synced with PostgreSQL");
+  } catch (error) {
+    console.error("❌ Error syncing delink with PostgreSQL:", error);
+  }
+}
+
+/**
+ * Helper function to handle hypercite deletion from DOM
+ * Call this when you detect a hypercite element is being deleted
+ * @param {HTMLElement} hyperciteElement - The hypercite element being deleted
+ */
+export async function handleHyperciteDeletion(hyperciteElement) {
+  if (!hyperciteElement || !hyperciteElement.href || !hyperciteElement.id) {
+    console.warn("⚠️ Invalid hypercite element for deletion");
+    return;
+  }
+
+  const hyperciteElementId = hyperciteElement.id;
+  const hrefUrl = hyperciteElement.href;
+
+  console.log("🗑️ Handling deletion of hypercite:", hyperciteElementId);
+  
+  await delinkHypercite(hyperciteElementId, hrefUrl);
 }
 
 
