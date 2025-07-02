@@ -1,5 +1,6 @@
 // userContainer.js
 import { ContainerManager } from "./container-manager.js";
+import { book } from "./app.js"
 
 export class UserContainerManager extends ContainerManager {
   constructor(containerId, overlayId, buttonId, frozenContainerIds = []) {
@@ -228,6 +229,9 @@ export class UserContainerManager extends ContainerManager {
       
       if (response.ok && data.success) {
         this.user = data.user;
+        
+        await this.handleAnonymousBookTransfer();
+
         this.showUserProfile();
       } else {
         this.showLoginError(data.errors || data.message || 'Login failed');
@@ -431,7 +435,221 @@ export class UserContainerManager extends ContainerManager {
       this.isAnimating = false;
     }, { once: true });
   }
-}
+
+  // Add this method to your UserContainerManager class
+  async handleAnonymousBookTransfer() {
+    if (!this.user) return;
+    
+    const anonId = localStorage.getItem('authorId');
+    if (!anonId) return;
+    
+    try {
+      // Get all books with this anonymous ID as creator_token
+      const anonymousBooks = await this.getAnonymousBooks(anonId);
+      
+      if (anonymousBooks.length > 0) {
+        // Show confirmation dialog to user
+        const shouldTransfer = await this.confirmBookTransfer(anonymousBooks);
+        
+        if (shouldTransfer) {
+          await this.transferBooksToUser(anonymousBooks, anonId);
+          // Clear the anonymous ID after successful transfer
+          localStorage.removeItem('authorId');
+        }
+      }
+    } catch (error) {
+      console.error('Error transferring anonymous books:', error);
+    }
+  }
+
+  async getAnonymousBooks(anonId) {
+    console.log('Looking for anonymous books with anonId:', anonId);
+    
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('MarkdownDB');
+      request.onsuccess = (event) => {
+        const db = event.target.result;
+        const transaction = db.transaction(['library'], 'readonly');
+        const store = transaction.objectStore('library');
+        const getAllRequest = store.getAll();
+        
+        getAllRequest.onsuccess = () => {
+          const allBooks = getAllRequest.result;
+          console.log('All books in database:', allBooks);
+          
+          const books = allBooks.filter(book => {
+            const hasMatchingToken = book.creator_token === anonId;
+            const hasNoCreator = !book.creator || book.creator === null;
+            console.log(`Book ${book.book}: creator_token=${book.creator_token}, creator=${book.creator}, matches=${hasMatchingToken && hasNoCreator}`);
+            return hasMatchingToken && hasNoCreator;
+          });
+          
+          console.log('Filtered anonymous books:', books);
+          resolve(books);
+        };
+        
+        getAllRequest.onerror = () => reject(getAllRequest.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async confirmBookTransfer(books) {
+    return new Promise((resolve) => {
+      // Use the 'book' property for the titles display
+      const bookTitles = books.map(book => book.title || 'Untitled').join(', ');
+      const message = `You have ${books.length} book(s) created while not logged in: ${bookTitles}. 
+      
+  Would you like to transfer ownership to your account?`;
+      
+      // Create a custom modal instead of using confirm()
+      this.showTransferConfirmation(message, resolve);
+    });
+  }
+  
+
+  showTransferConfirmation(message, callback) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.7); z-index: 2000; display: flex;
+      align-items: center; justify-content: center;
+    `;
+    
+    modal.innerHTML = `
+      <div style="background: #221F20; padding: 20px; border-radius: 8px; max-width: 400px; color: white;">
+        <h3 style="color: #EF8D34; margin-bottom: 15px;">Transfer Anonymous Books?</h3>
+        <p style="margin-bottom: 20px; line-height: 1.4;">${message}</p>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button id="cancelTransfer" style="padding: 8px 16px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer;">
+            Cancel
+          </button>
+          <button id="confirmTransfer" style="padding: 8px 16px; background: #4EACAE; color: #221F20; border: none; border-radius: 4px; cursor: pointer;">
+            Transfer Books
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    modal.querySelector('#confirmTransfer').onclick = () => {
+      document.body.removeChild(modal);
+      callback(true);
+    };
+    
+    modal.querySelector('#cancelTransfer').onclick = () => {
+      document.body.removeChild(modal);
+      callback(false);
+    };
+  }
+
+  async transferBooksToUser(books, anonId) {
+    const userName = this.user.name;  // Use username from logged-in user
+    console.log('Transferring books to username:', userName);
+    console.log('Books to transfer:', books);
+    
+    for (const bookRecord of books) {
+      try {
+        // Use the 'book' property as the ID (e.g., "book_1751354106780")
+        const bookId = bookRecord.book;
+        console.log('Book record:', bookRecord);
+        console.log('Extracted bookId:', bookId);
+        
+        if (!bookId) {
+          console.error('No valid ID found for book:', bookRecord);
+          continue;
+        }
+        
+        // Update local IndexedDB
+        await this.updateBookOwnership(bookId, userName);
+        
+        // Update backend
+        await this.updateBookOwnershipBackend(bookId, anonId);
+        
+      } catch (error) {
+        console.error(`Failed to transfer book:`, error);
+        console.error('Book record was:', bookRecord);
+      }
+    }
+  }
+
+ async updateBookOwnership(bookId, userName) {
+    console.log('updateBookOwnership called with:', { bookId, userName });
+    
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('MarkdownDB');
+      request.onsuccess = (event) => {
+        const db = event.target.result;
+        const transaction = db.transaction(['library'], 'readwrite');
+        const store = transaction.objectStore('library');
+        
+        if (!bookId) {
+          reject(new Error('Invalid book ID provided'));
+          return;
+        }
+        
+        const getRequest = store.get(bookId);
+        getRequest.onsuccess = () => {
+          const book = getRequest.result;
+          console.log('Retrieved book:', book);
+          
+          if (book) {
+            // Add the username as creator (keeping creator_token as is)
+            book.creator = userName;  // Store username in creator field
+            book.updated_at = new Date().toISOString();
+            
+            console.log('Updating book with new creator:', book);
+            
+            const putRequest = store.put(book);
+            putRequest.onsuccess = () => {
+              console.log('Book ownership updated successfully');
+              resolve();
+            };
+            putRequest.onerror = () => {
+              console.error('Error updating book:', putRequest.error);
+              reject(putRequest.error);
+            };
+          } else {
+            console.error('Book not found with ID:', bookId);
+            reject(new Error(`Book not found with ID: ${bookId}`));
+          }
+        };
+        getRequest.onerror = () => {
+          console.error('Error getting book:', getRequest.error);
+          reject(getRequest.error);
+        };
+      };
+      request.onerror = () => {
+        console.error('Error opening database:', request.error);
+        reject(request.error);
+      };
+    });
+  }
+  
+
+  async updateBookOwnershipBackend(bookId, anonId) {
+      const csrfToken = this.getCsrfTokenFromCookie();
+      
+      const response = await fetch(`/books/${bookId}/transfer-ownership`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-XSRF-TOKEN': csrfToken
+        },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          anonymous_token: anonId 
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Backend transfer failed: ${response.status}`);
+      }
+    }
+  }
 
 const userManager = new UserContainerManager(
   "user-container",

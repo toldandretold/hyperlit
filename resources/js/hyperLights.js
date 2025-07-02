@@ -224,7 +224,7 @@ export async function openHighlightById(
         firstUserAnnotation = h.hyperlight_id;
       }
     });
-    html += `</div>\n<div class="mask-bottom"></div>\n<div class="mask-top"></div>`;
+    html += `</div>\n<div class="mask-bottom"></div>\n<div class="mask-top"></div>\n<div class="container-controls">\n<div class="resize-handle resize-left" title="Resize width"></div>\n<div class="drag-handle" title="Drag to move container"></div>\n<div class="resize-handle resize-right" title="Resize width"></div>\n</div>`;
 
     openHighlightContainer(html);
 
@@ -318,6 +318,11 @@ export async function openHighlightById(
       </div>
        <div class="mask-bottom"></div>
       <div class="mask-top"></div>
+      <div class="container-controls">
+        <div class="resize-handle resize-left" title="Resize width"></div>
+        <div class="drag-handle" title="Drag to move container"></div>
+        <div class="resize-handle resize-right" title="Resize width"></div>
+      </div>
     `;
 
       openHighlightContainer(containerContent);

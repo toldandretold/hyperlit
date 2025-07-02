@@ -11,11 +11,7 @@ use App\Http\Controllers\DbFootnoteController;
 use App\Http\Controllers\DatabaseToIndexedDBController;
 use App\Http\Controllers\HomePageServerController;
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
-});
- 
- 
+
 Route::post('/homepage/books/update', [HomePageServerController::class, 'updateHomePageBooks']);
 
 Route::post('/library/{book}/update-stats', [DbLibraryController::class, 'updateBookStats']);

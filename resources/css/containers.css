@@ -457,5 +457,84 @@ black #221F20;
 #user-container.hidden {
   display: none;
 }
+/* Container Controls (drag + resize) */
+.container-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  display: flex;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 15;
+  border-radius: 0 0 1em 1em;
+  overflow: hidden;
+}
 
+/* Show controls on container hover */
+#highlight-container:hover .container-controls,
+#ref-container:hover .container-controls,
+#hypercite-container:hover .container-controls {
+  opacity: 1;
+}
 
+/* Drag Handle (center) - lighter */
+.drag-handle {
+  flex: 1;
+  background: linear-gradient(to bottom, transparent, rgba(203, 204, 204, 0.1));
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.drag-handle:active,
+.drag-handle.dragging {
+  cursor: grabbing;
+  background: linear-gradient(to bottom, transparent, rgba(203, 204, 204, 0.2));
+}
+
+/* Resize Handles (corners) - darker */
+.resize-handle {
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(to bottom, transparent, rgba(203, 204, 204, 0.2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  transition: background 0.2s ease;
+}
+
+.resize-left {
+  cursor: sw-resize;
+  border-radius: 0 0 0 1em;
+}
+
+.resize-right {
+  cursor: se-resize;
+  border-radius: 0 0 1em 0;
+}
+
+.resize-handle:hover {
+  background: linear-gradient(to bottom, transparent, rgba(203, 204, 204, 0.3));
+}
+
+.resize-handle:active,
+.resize-handle.resizing {
+  background: linear-gradient(to bottom, transparent, rgba(203, 204, 204, 0.4));
+}
+
+/* Prevent text selection during drag/resize */
+.container-dragging,
+.container-resizing {
+  user-select: none;
+  pointer-events: none;
+}
+
+.container-dragging .container-controls,
+.container-resizing .container-controls {
+  pointer-events: auto;
+}

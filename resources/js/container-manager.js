@@ -278,12 +278,11 @@ export class ContainerManager {
 }
 
 
-  /**
-   * Opens the container.
-   * @param {string|null} content - The inner HTML content to set.
-   * @param {string|null} highlightId - (Optional) The highlight ID in case this is a highlight container.
-   */
-  // In ContainerManager class, modify the openContainer method:
+/**
+ * Opens the container.
+ * @param {string|null} content - The inner HTML content to set.
+ * @param {string|null} highlightId - (Optional) The highlight ID in case this is a highlight container.
+ */
 openContainer(content = null, highlightId = null) {
   console.log("Current active container:", window.activeContainer);
 
@@ -298,6 +297,11 @@ openContainer(content = null, highlightId = null) {
   // If a highlightId is provided, store it.
   if (highlightId) {
     this.highlightId = highlightId;
+  }
+  
+  // Apply any saved customizations when opening
+  if (window.containerCustomizer) {
+    window.containerCustomizer.loadCustomizations();
   }
   
   // Ensure the container is visible.
@@ -333,6 +337,16 @@ openContainer(content = null, highlightId = null) {
 // Similarly, modify the closeContainer method:
 closeContainer() {
   console.log("Current active container:", window.activeContainer);
+
+  // CLEAR any drag positioning before closing animation
+  if (this.container) {
+    this.container.style.left = '';
+    this.container.style.top = '';
+    this.container.style.right = '';
+    this.container.style.bottom = '';
+    this.container.style.transform = '';
+  }
+  
   // If this is the highlight container and a highlightId exists, force-save
   if (this.container.id === "highlight-container" && this.highlightId) {
     // ... existing highlight saving code ...
