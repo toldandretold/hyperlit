@@ -1,34 +1,34 @@
 import { openDatabase, parseNodeId } from "./cache-indexedDB.js";
+import { getCurrentUser, getAuthorId } from "./auth.js";
 
 async function syncBookDataToServer(bookName, objectStoreName, method = 'upsert') {
     const storeConfig = {
         nodeChunks: {
-            endpoint: `/api/db/node-chunks/${method}`, // ← Dynamic endpoint
+            endpoint: `/api/db/node-chunks/${method}`,
             keyRange: IDBKeyRange.bound([bookName, 0], [bookName, Number.MAX_VALUE]),
             useCompositeKey: true
         },
         hyperlights: {
-            endpoint: `/api/db/hyperlights/${method}`, // ← Dynamic endpoint
+            endpoint: `/api/db/hyperlights/${method}`,
             keyRange: IDBKeyRange.bound([bookName, ''], [bookName, '\uffff']),
             useCompositeKey: true
         },
         hypercites: {
-            endpoint: `/api/db/hypercites/${method}`, // ← Dynamic endpoint
+            endpoint: `/api/db/hypercites/${method}`,
             keyRange: IDBKeyRange.bound([bookName, ''], [bookName, '\uffff']),
             useCompositeKey: true
         },
         library: {
-            endpoint: `/api/db/library/${method}`, // ← Dynamic endpoint
+            endpoint: `/api/db/library/${method}`,
             keyRange: IDBKeyRange.only(bookName),
             useCompositeKey: false
         },
         footnotes: {
-            endpoint: `/api/db/footnotes/${method}`, // ← Dynamic endpoint
+            endpoint: `/api/db/footnotes/${method}`,
             keyRange: IDBKeyRange.only(bookName),
             useCompositeKey: false
         }
     };
-
 
     console.log(`🔄 Sync attempt for ${objectStoreName} from window/tab ${window.name || 'unnamed'}`);
     
@@ -92,11 +92,26 @@ async function syncBookDataToServer(bookName, objectStoreName, method = 'upsert'
         // Normalize the book ID format for sending to server
         const normalizedBookName = bookNameWithoutSlash;
         
-        // Prepare the request body
+        // ✅ ADD AUTH DATA HERE
+        // Check if user is logged in
+        const user = await getCurrentUser();
+        
+        // Prepare the request body with auth data
         const requestBody = {
             book: normalizedBookName,
             data: bookData
         };
+
+        // Add auth data based on login status
+        if (user) {
+            // User is logged in - no need to add anonymous_token
+            console.log(`🔐 Syncing as logged-in user: ${user.name}`);
+        } else {
+            // User is anonymous - add the UUID
+            const anonId = getAuthorId();
+            requestBody.anonymous_token = anonId;
+            console.log(`🔐 Syncing as anonymous user: ${anonId}`);
+        }
 
         console.log(`📤 Sending ${objectStoreName} data:`, requestBody);
 
@@ -107,6 +122,7 @@ async function syncBookDataToServer(bookName, objectStoreName, method = 'upsert'
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
             },
+            credentials: 'same-origin',
             body: JSON.stringify(requestBody)
         });
 
@@ -141,25 +157,29 @@ export async function syncIndexedDBtoPostgreSQL(bookName) {
 }
 
 
-// Usage remains the same
 async function syncAllBookData(bookName) {
-    console.log(`🔄 Starting sync for ${bookName}`);
-    
-    try {
-        const results = await Promise.all([
-            syncBookDataToServer(bookName, 'nodeChunks'),
-            syncBookDataToServer(bookName, 'hyperlights'),
-            syncBookDataToServer(bookName, 'hypercites'),
-            syncBookDataToServer(bookName, 'library'),
-            syncBookDataToServer(bookName, 'footnotes')
-        ]);
-        
-        console.log('✅ All syncs completed:', results);
-        return results;
-    } catch (error) {
-        console.error('❌ Sync failed:', error);
-        throw error;
-    }
+  console.log(`🔄 Starting sync for ${bookName}`);
+
+  // 1) Upsert the library row first
+  const libResult = await syncBookDataToServer(bookName, 'library');
+
+  // 2) Once library exists, fire off the rest
+  const [nc, hl, hc, fn] = await Promise.all([
+    syncBookDataToServer(bookName, 'nodeChunks'),
+    syncBookDataToServer(bookName, 'hyperlights'),
+    syncBookDataToServer(bookName, 'hypercites'),
+    syncBookDataToServer(bookName, 'footnotes'),
+  ]);
+
+  console.log('✅ All syncs completed:', {
+    library: libResult,
+    nodeChunks: nc,
+    hyperlights: hl,
+    hypercites: hc,
+    footnotes: fn,
+  });
+
+  return { libResult, nc, hl, hc, fn };
 }
 
 async function syncAllBooksInLibrary(method = 'upsert') {

@@ -25,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->alias([
             'book.owner' => \App\Http\Middleware\CheckBookOwnership::class,
+            'author'     => \App\Http\Middleware\RequireAuthor::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
