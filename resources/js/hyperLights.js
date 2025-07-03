@@ -1236,10 +1236,15 @@ addTouchAndClickListener(document.getElementById("delete-hyperlight"),
 );
 
 // Helper function to sync hyperlight deletions with PostgreSQL
+// Helper function to sync hyperlight deletions with PostgreSQL
 async function syncHyperlightDeletionsWithPostgreSQL(deletedHyperlights, updatedNodeChunks) {
   try {
     console.log("🔄 Starting Hyperlight deletion PostgreSQL sync...");
 
+    // Get authentication details (same pattern as syncHyperlightWithPostgreSQL)
+    const anon = await getAnonymousToken();
+    const topLevelAuth = anon ? { anonymous_token: anon } : {};
+    
     // Get the library object from IndexedDB for the book
     const libraryObject = await getLibraryObjectFromIndexedDB(book);
     
@@ -1257,20 +1262,25 @@ async function syncHyperlightDeletionsWithPostgreSQL(deletedHyperlights, updated
             .querySelector('meta[name="csrf-token"]')
             ?.getAttribute("content"),
         },
+        credentials: "same-origin",
         body: JSON.stringify({
-          data: deletedHyperlights
+          book: book,
+          data: deletedHyperlights,
+          ...topLevelAuth
         }),
       });
 
       if (!hyperlightResponse.ok) {
-        throw new Error(`Hyperlight deletion sync failed: ${hyperlightResponse.statusText}`);
+        throw new Error(`Hyperlight deletion sync failed (${hyperlightResponse.status}): ${await hyperlightResponse.text()}`);
       }
 
       console.log("✅ Hyperlights deleted from PostgreSQL");
     }
 
-    // Sync updated node chunks (with hyperlights removed)
+    // Sync updated node chunks (with hyperlights removed) - public fields only
     if (updatedNodeChunks.length > 0) {
+      const publicChunks = updatedNodeChunks.map(toPublicChunk);
+      
       const nodeChunkResponse = await fetch("/api/db/node-chunks/targeted-upsert", {
         method: "POST",
         headers: {
@@ -1279,14 +1289,17 @@ async function syncHyperlightDeletionsWithPostgreSQL(deletedHyperlights, updated
             .querySelector('meta[name="csrf-token"]')
             ?.getAttribute("content"),
         },
+        credentials: "same-origin",
         body: JSON.stringify({
-          data: updatedNodeChunks
+          book: book,
+          data: publicChunks,
+          ...topLevelAuth
         }),
       });
 
       if (!nodeChunkResponse.ok) {
         throw new Error(
-          `NodeChunk sync failed: ${nodeChunkResponse.statusText}`
+          `NodeChunk sync failed (${nodeChunkResponse.status}): ${await nodeChunkResponse.text()}`
         );
       }
 
@@ -1303,14 +1316,17 @@ async function syncHyperlightDeletionsWithPostgreSQL(deletedHyperlights, updated
             .querySelector('meta[name="csrf-token"]')
             ?.getAttribute("content"),
         },
+        credentials: "same-origin",
         body: JSON.stringify({
-          data: libraryObject
+          book: libraryObject.book,
+          data: libraryObject,
+          ...topLevelAuth
         }),
       });
 
       if (!libraryResponse.ok) {
         throw new Error(
-          `Library sync failed: ${libraryResponse.statusText}`
+          `Library sync failed (${libraryResponse.status}): ${await libraryResponse.text()}`
         );
       }
 
