@@ -1,6 +1,7 @@
 // annotationSaver.js
 import { withPending } from './operationState.js';
 import { openDatabase } from './cache-indexedDB.js';
+import { getCurrentUser, getAuthorId, getAnonymousToken } from "./auth.js";
 
 // Debounce timer variable for the highlight container.
 let annotationDebounceTimer = null;
@@ -23,7 +24,7 @@ function getAnnotationHTML(container) {
  * @param {string} annotationHTML - The annotation HTML to be saved.
  */
 export const saveAnnotationToIndexedDB = (highlightId, annotationHTML) =>
-  withPending(async () => {
+  withPending(async () => { 
     const db = await openDatabase();
     const tx = db.transaction('hyperlights','readwrite');
     const store = tx.objectStore('hyperlights');
@@ -50,7 +51,6 @@ export function attachAnnotationListener(highlightId) {
   const container = document.getElementById("highlight-container");
   if (!container || container.classList.contains("hidden")) return;
 
-  // Find the specific annotation element for this highlight ID
   const annotationEl = container.querySelector(
     `.annotation[data-highlight-id="${highlightId}"]`
   );
@@ -62,69 +62,76 @@ export function attachAnnotationListener(highlightId) {
   let debounceTimer = null;
   let lastHTML = "";
 
-  // Update lastHTML on keyup - scoped to this specific annotation element
-  annotationEl.addEventListener('keyup', () => {
-    lastHTML = annotationEl.innerHTML || '';
+  /* ------------------------------------------------------------ */
+  /* track latest HTML on keyup                                   */
+  /* ------------------------------------------------------------ */
+  annotationEl.addEventListener("keyup", () => {
+    lastHTML = annotationEl.innerHTML || "";
   });
 
-  // Input listener - scoped to this specific annotation element
-  annotationEl.addEventListener('input', () => {
-    // Schedule save
+  /* ------------------------------------------------------------ */
+  /* save after 1 s of inactivity                                 */
+  /* ------------------------------------------------------------ */
+  annotationEl.addEventListener("input", () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       const html = lastHTML;
-      // Wrap the entire save in withPending
+
       withPending(async () => {
+        /* 1 — update IndexedDB ----------------------------------- */
         const db = await openDatabase();
-        const tx = db.transaction('hyperlights','readwrite');
-        const store = tx.objectStore('hyperlights');
-        const idx   = store.index('hyperlight_id');
-        const req   = idx.get(highlightId);
-
-        const record = await new Promise((res, rej) => {
-          req.onsuccess = () => res(req.result);
-          req.onerror   = () => rej(req.error);
+        const tx = db.transaction("hyperlights", "readwrite");
+        const store = tx.objectStore("hyperlights");
+        const idx = store.index("hyperlight_id");
+        const rec = await new Promise((res, rej) => {
+          const r = idx.get(highlightId);
+          r.onsuccess = () => res(r.result);
+          r.onerror = () => rej(r.error);
         });
-        if (!record) throw new Error('No highlight record');
+        if (!rec) throw new Error("No highlight record");
 
-        record.annotation = html;
+        rec.annotation = html;
         await new Promise((res, rej) => {
-          const upd = store.put(record);
-          upd.onsuccess = () => res();
-          upd.onerror   = () => rej(upd.error);
+          const u = store.put(rec);
+          u.onsuccess = () => res();
+          u.onerror = () => rej(u.error);
         });
-
-        // Wait for tx complete
         await new Promise((res, rej) => {
           tx.oncomplete = () => res();
-          tx.onerror    = () => rej(tx.error);
+          tx.onerror = () => rej(tx.error);
         });
 
-        // Sync annotation to PostgreSQL
-        try {
-          const response = await fetch('/api/db/hyperlights/upsert', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-            },
-            body: JSON.stringify({
-              data: [{
-                book: record.book,
-                hyperlight_id: record.hyperlight_id,
-                annotation: html
-              }]
-            })
-          });
+        /* 2 — sync to PostgreSQL --------------------------------- */
+        const anon = await getAnonymousToken();
+        const payload = {
+          book: rec.book,
+          data: [
+            {
+              book: rec.book,
+              hyperlight_id: rec.hyperlight_id,
+              annotation: html
+            }
+          ],
+          ...(anon ? { anonymous_token: anon } : {})
+        };
 
-          if (!response.ok) {
-            throw new Error(`Failed to sync annotation: ${response.statusText}`);
-          }
+        const response = await fetch("/api/db/hyperlights/upsert", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN":
+              document.querySelector('meta[name="csrf-token"]')?.content
+          },
+          credentials: "same-origin",
+          body: JSON.stringify(payload)
+        });
 
-          console.log(`Annotation synced to PostgreSQL for ${highlightId}`);
-        } catch (error) {
-          console.error(`Error syncing annotation to PostgreSQL for ${highlightId}:`, error);
+        if (!response.ok) {
+          throw new Error(
+            `Failed to sync annotation (${response.status}): ${await response.text()}`
+          );
         }
+        console.log(`✅ Annotation synced to PostgreSQL for ${highlightId}`);
       }).catch(console.error);
     }, 1000);
   });

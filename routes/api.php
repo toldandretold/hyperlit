@@ -12,30 +12,86 @@ use App\Http\Controllers\DatabaseToIndexedDBController;
 use App\Http\Controllers\HomePageServerController;
 
 
-Route::post('/homepage/books/update', [HomePageServerController::class, 'updateHomePageBooks']);
 
-Route::post('/library/{book}/update-stats', [DbLibraryController::class, 'updateBookStats']);
-// Update stats for all books
-Route::post('/library/update-all-stats', [DbLibraryController::class, 'updateAllLibraryStats']);
+Route::middleware(['author', 'throttle:30,1'])->group(function () {
+    /* ----------------  Homepage / library stats  ---------------- */
+    Route::post(
+        '/homepage/books/update',
+        [HomePageServerController::class, 'updateHomePageBooks']
+    );
 
-// Bulk Create 
-Route::post('/db/node-chunks/bulk-create', [DbNodeChunkController::class, 'bulkCreate']);
-Route::post('/db/hyperlights/bulk-create', [DbHyperlightController::class, 'bulkCreate']);
-Route::post('/db/hypercites/bulk-create', [DbHyperciteController::class, 'bulkCreate']);
-Route::post('/db/library/bulk-create', [DbLibraryController::class, 'bulkCreate']);
-Route::post('/db/footnotes/bulk-create', [DbFootnoteController::class, 'bulkCreate']);
+    Route::post(
+        '/library/{book}/update-stats',
+        [DbLibraryController::class, 'updateBookStats']
+    );
 
-// Upsert routes (FIXED - removed extra 's' from controller names)
-Route::post('/db/node-chunks/upsert', [DbNodeChunkController::class, 'upsert']);
-Route::post('db/node-chunks/targeted-upsert', [DbNodeChunkController::class, 'targetedUpsert']);
-Route::post('/db/hyperlights/upsert', [DbHyperlightController::class, 'upsert']);
-Route::post('/db/hyperlights/delete', [DbHyperlightController::class, 'delete']);
-Route::post('/db/hypercites/upsert', [DbHyperciteController::class, 'upsert']);
-Route::post('/db/library/upsert', [DbLibraryController::class, 'upsert']);
-Route::post('/db/footnotes/upsert', [DbFootnoteController::class, 'upsert']);
+    Route::post(
+        '/library/update-all-stats',
+        [DbLibraryController::class, 'updateAllLibraryStats']
+    );
 
+    /* ----------------  Bulk-create  ---------------- */
+    Route::post(
+        '/db/node-chunks/bulk-create',
+        [DbNodeChunkController::class, 'bulkCreate']
+    );
 
+    Route::post(
+        '/db/hyperlights/bulk-create',
+        [DbHyperlightController::class, 'bulkCreate']
+    );
 
+    Route::post(
+        '/db/hypercites/bulk-create',
+        [DbHyperciteController::class, 'bulkCreate']
+    );
+
+    Route::post(
+        '/db/library/bulk-create',
+        [DbLibraryController::class, 'bulkCreate']
+    );
+
+    Route::post(
+        '/db/footnotes/bulk-create',
+        [DbFootnoteController::class, 'bulkCreate']
+    );
+
+    /* ----------------  Upsert / targeted / delete  ---------------- */
+    Route::post(
+        '/db/node-chunks/upsert',
+        [DbNodeChunkController::class, 'upsert']
+    );
+
+    Route::post(
+        '/db/node-chunks/targeted-upsert',
+        [DbNodeChunkController::class, 'targetedUpsert']
+    );
+
+    Route::post(
+        '/db/hyperlights/upsert',
+        [DbHyperlightController::class, 'upsert']
+    );
+
+    Route::post(
+        '/db/hyperlights/delete',
+        [DbHyperlightController::class, 'delete']
+    );
+
+    Route::post(
+        '/db/hypercites/upsert',
+        [DbHyperciteController::class, 'upsert']
+    );
+
+    Route::post(
+        '/db/library/upsert',
+        [DbLibraryController::class, 'upsert']
+    );
+
+    Route::post(
+        '/db/footnotes/upsert',
+        [DbFootnoteController::class, 'upsert']
+    );
+});
 
 // API routes for transferring data from database to IndexedDB
 Route::prefix('database-to-indexeddb')->group(function () {

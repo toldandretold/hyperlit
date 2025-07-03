@@ -4,6 +4,7 @@ import {
 } from './BroadcastListener.js';
 import { withPending } from "./operationState.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
+import { getCurrentUser, getAuthorId } from './auth.js';   
 
 export const DB_VERSION = 15;
 
@@ -789,48 +790,71 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
   });
 }
 
-export async function syncBatchUpdateWithPostgreSQL(bookId, batchData, libraryRecord) {
+
+
+
+
+export async function syncBatchUpdateWithPostgreSQL(
+  bookId,
+  batchData,
+  libraryRecord      // ← still unused here but keep the signature
+) {
+  /* ------------------------------------------------------------- */
+  /* 1. build the payload                                          */
+  /* ------------------------------------------------------------- */
   const transformedData = batchData.nodeChunks.map(chunk => ({
-    book: chunk.book,
-    startLine: chunk.startLine,
-    chunk_id: chunk.chunk_id,
-    content: chunk.content,
-    hyperlights: chunk.hyperlights || [],
-    hypercites: chunk.hypercites || [],
-    footnotes: chunk.footnotes || [],
-    plainText: chunk.plainText || null,
-    type: chunk.type || null
+    book:        chunk.book,
+    startLine:   chunk.startLine,
+    chunk_id:    chunk.chunk_id,
+    content:     chunk.content,
+    hyperlights: chunk.hyperlights ?? [],
+    hypercites:  chunk.hypercites  ?? [],
+    footnotes:   chunk.footnotes   ?? [],
+    plainText:   chunk.plainText   ?? null,
+    type:        chunk.type        ?? null
   }));
 
-  const url = `/api/db/node-chunks/targeted-upsert`;
-  console.log('🔍 Making request to:', url);
-  console.log('🔍 Transformed data count:', transformedData.length);
-  console.log('🔍 Sample data:', transformedData[0]);
+  const anon = await getAnonymousToken();
+  const payload = {
+    book: bookId,
+    data: transformedData,
+    ...(anon ? { anonymous_token: anon } : {})
+  };
 
-  const response = await fetch(url, {
+  console.log('🔍 Making request to /api/db/node-chunks/targeted-upsert');
+  console.log('🔍 Payload rows:', transformedData.length);
+  console.log('🔍 Sample row:', transformedData[0]);
+
+  /* ------------------------------------------------------------- */
+  /* 2. send the request with cookies (credentials)                */
+  /* ------------------------------------------------------------- */
+  const response = await fetch('/api/db/node-chunks/targeted-upsert', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
+      'Content-Type':  'application/json',
+      'Accept':        'application/json',
       'X-Requested-With': 'XMLHttpRequest',
-      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
+      'X-CSRF-TOKEN':
+        document.querySelector('meta[name="csrf-token"]')?.content
     },
-    body: JSON.stringify({
-      data: transformedData
-    })
+    credentials: 'same-origin',        // ← makes the session cookie go along
+    body: JSON.stringify(payload)
   });
 
   console.log('🔍 Response status:', response.status);
-  console.log('🔍 Response URL:', response.url);
 
   if (!response.ok) {
     const errorText = await response.text();
     console.error('🔍 Error response:', errorText);
     throw new Error(`Batch sync failed: ${response.status}`);
   }
-  
+
   const result = await response.json();
-  console.log(`✅ Batch synced ${transformedData.length} chunks to PostgreSQL`, result);
+  console.log(
+    `✅ Batch-synced ${transformedData.length} nodeChunks to PostgreSQL`,
+    result
+  );
+  return result;
 }
 
 
@@ -1020,40 +1044,76 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
 }
 
 // Sync batch deletions with PostgreSQL
-export async function syncBatchDeletionWithPostgreSQL(bookId, deletedData, libraryRecord) {
-  console.log(`🔍 Syncing batch deletion to PostgreSQL for book: ${bookId}`);
-  
-  try {
-    const response = await fetch("/api/db/node-chunks/targeted-upsert", {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "X-Requested-With": "XMLHttpRequest",
-        "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
-      },
-      credentials: 'same-origin',
-      body: JSON.stringify({
-        data: deletedData.nodeChunks.map(chunk => ({
-          book: bookId,
-          startLine: chunk.startLine,
-          _action: "delete"
-        }))
-      })
-    });
+export async function syncBatchDeletionWithPostgreSQL(
+  bookId,
+  deletedData,
+  libraryRecord = null
+) {
+  const anon = await getAnonymousToken();
+  const payload = {
+    book: bookId,
+    data: deletedData.nodeChunks.map(c => ({
+      book: bookId,
+      startLine: c.startLine,
+      _action: "delete"
+    })),
+    ...(anon ? { anonymous_token: anon } : {})
+  };
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
+  console.log(
+    `🔄 Syncing batch deletion of ${payload.data.length} nodeChunks (book ${bookId})…`
+  );
 
-    const result = await response.json();
-    console.log(`✅ Batch deletion synced to PostgreSQL:`, result);
-    
-    return result;
-  } catch (error) {
-    console.error("❌ Failed to sync batch deletion to PostgreSQL:", error);
-    throw error;
+  const res = await fetch("/api/db/node-chunks/targeted-upsert", {
+    method: "POST",
+    headers: {
+      "Content-Type":    "application/json",
+      "Accept":          "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+      "X-CSRF-TOKEN":
+        document.querySelector('meta[name="csrf-token"]')?.content
+    },
+    credentials: "same-origin",
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    console.error("❌ Batch-deletion sync error:", txt);
+    throw new Error(txt);
   }
+  console.log("✅ Batch deletion synced");
+
+  /* optionally upsert the library record */
+  if (libraryRecord) {
+    await upsertLibraryRecord(libraryRecord, anon);
+  }
+}
+
+async function upsertLibraryRecord(libraryRecord, anon) {
+  const payload = {
+    book: libraryRecord.book,
+    data: libraryRecord,
+    ...(anon ? { anonymous_token: anon } : {})
+  };
+
+  const res = await fetch("/api/db/library/upsert", {
+    method: "POST",
+    headers: {
+      "Content-Type":    "application/json",
+      "X-CSRF-TOKEN":
+        document.querySelector('meta[name="csrf-token"]')?.content
+    },
+    credentials: "same-origin",
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    console.error("❌ Library sync error:", txt);
+    throw new Error(txt);
+  }
+  console.log("✅ Library record synced");
 }
 
 // 🔥 UPDATED: Function to update hyperlight records using processed data
@@ -1151,111 +1211,143 @@ function updateHyperciteRecords(hypercites, store, bookId, syncArray, node) {
   });
 }
 
-// WE NEED TO ALSO SYNC THE LIBRARY RECORD...
-// 🆕 UPDATED: Sync function now includes library record
-// 🆕 UPDATED: Sync function now includes library record
-async function syncNodeUpdateWithPostgreSQL(bookId, nodeChunk, hyperlights, hypercites, libraryRecord) {
-  try {
-    console.log("🔄 Starting PostgreSQL sync for node update...");
 
-    // Sync node chunk if it exists
-    if (nodeChunk) {
-      const nodeChunkResponse = await fetch("/api/db/node-chunks/targeted-upsert", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-TOKEN": document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute("content"),
-        },
-        body: JSON.stringify({
-          data: [nodeChunk]
-        }),
-      });
-
-      if (!nodeChunkResponse.ok) {
-        throw new Error(
-          `NodeChunk sync failed: ${nodeChunkResponse.statusText}`
-        );
-      }
-
-      console.log("✅ NodeChunk synced with PostgreSQL");
-    }
-
-    // Sync hyperlights if any exist
-    if (hyperlights.length > 0) {
-      const hyperlightResponse = await fetch("/api/db/hyperlights/upsert", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-TOKEN": document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute("content"),
-        },
-        body: JSON.stringify({
-          data: hyperlights
-        }),
-      });
-
-      if (!hyperlightResponse.ok) {
-        throw new Error(
-          `Hyperlight sync failed: ${hyperlightResponse.statusText}`
-        );
-      }
-
-      console.log(`✅ ${hyperlights.length} Hyperlights synced with PostgreSQL`);
-    }
-
-    // Sync hypercites if any exist
-    if (hypercites.length > 0) {
-      const hyperciteResponse = await fetch("/api/db/hypercites/upsert", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-TOKEN": document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute("content"),
-        },
-        body: JSON.stringify({
-          data: hypercites
-        }),
-      });
-
-      if (!hyperciteResponse.ok) {
-        throw new Error(`Hypercite sync failed: ${hyperciteResponse.statusText}`);
-      }
-
-      console.log(`✅ ${hypercites.length} Hypercites synced with PostgreSQL`);
-    }
-
-    // 🔥 FIXED: Sync library record as single object (not array)
-    if (libraryRecord) {
-      const libraryResponse = await fetch("/api/db/library/upsert", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-TOKEN": document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute("content"),
-        },
-        body: JSON.stringify({
-          data: libraryRecord // 🔥 Send as single object, not array
-        }),
-      });
-
-      if (!libraryResponse.ok) {
-        throw new Error(`Library sync failed: ${libraryResponse.statusText}`);
-      }
-
-      console.log("✅ Library record synced with PostgreSQL");
-    }
-
-    console.log("🎉 Node update successfully synced with PostgreSQL");
-  } catch (error) {
-    console.error("❌ Error syncing node update with PostgreSQL:", error);
-    throw error;
-  }
+async function getAnonymousToken () {
+  const user = await getCurrentUser();
+  return user ? null : getAuthorId();      // identical logic to the other module
 }
+
+async function syncNodeUpdateWithPostgreSQL (
+  bookId,
+  nodeChunk,
+  hyperlights,
+  hypercites,
+  libraryRecord
+) {
+    try {
+      console.log('🔄 Starting PostgreSQL sync for node update…');
+
+      const anonymousToken = getAnonymousToken();
+      const topLevelAuth   = anonymousToken ? { anonymous_token: anonymousToken } : {};
+
+      /* ------------------------------------------------------------------ */
+      /* 1. node-chunks /targeted-upsert                                    */
+      /* ------------------------------------------------------------------ */
+      if (nodeChunk) {
+        console.log('📝 Syncing node chunk:', {
+          book:          nodeChunk.book,
+          startLine:     nodeChunk.startLine,
+          hasHyperlights: !!nodeChunk.hyperlights,
+          hasHypercites:  !!nodeChunk.hypercites,
+          hasContent:     !!nodeChunk.content
+        });
+
+        const body = {
+          book: bookId,              //  ← add this (matches syncBookDataToServer)
+          data: [nodeChunk],
+          ...topLevelAuth            //  ← adds anonymous_token only if present
+        };
+
+        const res = await fetch('/api/db/node-chunks/targeted-upsert', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN':
+              document.querySelector('meta[name="csrf-token"]')?.content
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify(body)
+        });
+
+        if (!res.ok) {
+          throw new Error(
+            `NodeChunk sync failed: ${res.status} ${res.statusText}\n${await res.text()}`
+          );
+        }
+        console.log('✅ NodeChunk synced with PostgreSQL');
+      }
+
+      /* ------------------------------------------------------------------ */
+      /* 2. hyperlights                                                     */
+      /* ------------------------------------------------------------------ */
+      if (hyperlights.length) {
+        const body = { book: bookId, data: hyperlights, ...topLevelAuth };
+
+        const res = await fetch('/api/db/hyperlights/upsert', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN':
+              document.querySelector('meta[name="csrf-token"]')?.content
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify(body)
+        });
+
+        if (!res.ok) {
+          throw new Error(
+            `Hyperlight sync failed: ${res.status} ${res.statusText}\n${await res.text()}`
+          );
+        }
+        console.log(`✅ ${hyperlights.length} hyperlights synced`);
+      }
+
+      /* ------------------------------------------------------------------ */
+      /* 3. hypercites                                                      */
+      /* ------------------------------------------------------------------ */
+      if (hypercites.length) {
+        const body = { book: bookId, data: hypercites, ...topLevelAuth };
+
+        const res = await fetch('/api/db/hypercites/upsert', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN':
+              document.querySelector('meta[name="csrf-token"]')?.content
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify(body)
+        });
+
+        if (!res.ok) {
+          throw new Error(
+            `Hypercite sync failed: ${res.status} ${res.statusText}\n${await res.text()}`
+          );
+        }
+        console.log(`✅ ${hypercites.length} hypercites synced`);
+      }
+
+      /* ------------------------------------------------------------------ */
+      /* 4. library record                                                  */
+      /* ------------------------------------------------------------------ */
+      if (libraryRecord) {
+        const body = { book: bookId, data: libraryRecord, ...topLevelAuth };
+
+        const res = await fetch('/api/db/library/upsert', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN':
+              document.querySelector('meta[name="csrf-token"]')?.content
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify(body)
+        });
+
+        if (!res.ok) {
+          throw new Error(
+            `Library sync failed: ${res.status} ${res.statusText}\n${await res.text()}`
+          );
+        }
+        console.log('✅ Library record synced');
+      }
+
+      console.log('🎉 Node update successfully synced with PostgreSQL');
+    } catch (err) {
+      console.error('❌ Error syncing node update with PostgreSQL:', err);
+      throw err;
+    }
+  }
 
 // Helper function to update a specific hypercite in IndexedDB
 export async function updateHyperciteInIndexedDB(book, hyperciteId, updatedFields) {
@@ -1328,6 +1420,15 @@ export async function updateHyperciteInIndexedDB(book, hyperciteId, updatedField
       }
     };
   });
+}
+
+function toPublicChunk(chunk) {
+  return {
+    book:        chunk.book,
+    startLine:   chunk.startLine,
+    hyperlights: chunk.hyperlights ?? [],
+    hypercites:  chunk.hypercites  ?? []
+  };
 }
 
 export function updateCitationForExistingHypercite(
@@ -1455,7 +1556,8 @@ export function updateCitationForExistingHypercite(
       
       // Sync updated nodeChunks
       if (updatedNodeChunks.length > 0) {
-        const nodeChunkSyncResult = await syncNodeChunksToPostgreSQL(updatedNodeChunks);
+        const publicChunks = updatedNodeChunks.map(toPublicChunk);
+        const nodeChunkSyncResult = await syncNodeChunksToPostgreSQL(publicChunks);
         if (!nodeChunkSyncResult.success) {
           console.error('❌ Failed to sync nodeChunks to PostgreSQL:', nodeChunkSyncResult.message);
         } else {
@@ -1473,31 +1575,41 @@ export function updateCitationForExistingHypercite(
       }
 
       // 🔥 FIXED: Sync library records individually
-      if (libraryRecords.length > 0) {
-        console.log(`🔄 Syncing ${libraryRecords.length} library records to PostgreSQL...`);
-        
-        // Send each library record individually
-        for (const libraryRecord of libraryRecords) {
-          const libraryResponse = await fetch("/api/db/library/upsert", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-CSRF-TOKEN": document
-                .querySelector('meta[name="csrf-token"]')
-                ?.getAttribute("content"),
-            },
-            body: JSON.stringify({
-              data: libraryRecord // 🔥 Send as single object
-            }),
-          });
+      if (libraryRecords.length) {
+      console.log(
+        `🔄 Syncing ${libraryRecords.length} library records to PostgreSQL …`
+      );
 
-          if (!libraryResponse.ok) {
-            console.error(`❌ Failed to sync library record for book ${libraryRecord.book}`);
-          } else {
-            console.log(`✅ Successfully synced library record for book ${libraryRecord.book}`);
-          }
+      const anon = await getAnonymousToken();
+
+      for (const lr of libraryRecords) {
+        const payload = {
+          book: lr.book,
+          data: lr,
+          ...(anon ? { anonymous_token: anon } : {})
+        };
+
+        const res = await fetch("/api/db/library/upsert", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN":
+              document.querySelector('meta[name="csrf-token"]')?.content
+          },
+          credentials: "same-origin",               // ← sends cookies
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          console.error(
+            `❌ Failed to sync library record for book ${lr.book}:`,
+            await res.text()
+          );
+        } else {
+          console.log(`✅ Library record synced for book ${lr.book}`);
         }
       }
+    }
       
     } catch (error) {
       console.error('❌ Error during PostgreSQL sync:', error);
@@ -1666,53 +1778,81 @@ export async function writeNodeChunks(chunks) {
 }
 
 // 🆕 Function to sync nodeChunks to PostgreSQL
-async function syncNodeChunksToPostgreSQL(nodeChunks) {
-  try {
-    const response = await fetch('/api/db/node-chunks/targeted-upsert', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
-      },
-      credentials: 'same-origin',
-      body: JSON.stringify({
-        data: nodeChunks
-      })
-    });
-
-    const result = await response.json();
-    return result;
-  } catch (error) {
-    console.error('Error syncing nodeChunks to PostgreSQL:', error);
-    return { success: false, message: error.message };
+export async function syncNodeChunksToPostgreSQL(nodeChunks = []) {
+  if (!nodeChunks.length) {
+    console.log("ℹ️  syncNodeChunksToPostgreSQL: nothing to sync");
+    return { success: true };
   }
+
+  const bookId = nodeChunks[0].book;
+  const anon   = await getAnonymousToken();
+  const payload = {
+    book: bookId,
+    data: nodeChunks,
+    ...(anon ? { anonymous_token: anon } : {})
+  };
+
+  console.log(
+    `🔄 Syncing ${nodeChunks.length} nodeChunks for book ${bookId}…`
+  );
+
+  const res = await fetch("/api/db/node-chunks/targeted-upsert", {
+    method: "POST",
+    headers: {
+      "Content-Type":    "application/json",
+      "Accept":          "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+      "X-CSRF-TOKEN":
+        document.querySelector('meta[name="csrf-token"]')?.content
+    },
+    credentials: "same-origin",
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    console.error("❌ NodeChunk sync error:", txt);
+    return { success: false, message: txt };
+  }
+
+  const out = await res.json();
+  console.log("✅ nodeChunks synced:", out);
+  return out;
 }
 
 // 🆕 Function to sync hypercite to PostgreSQL
-async function syncHyperciteToPostgreSQL(hypercite) {
-  try {
-    const response = await fetch('/api/db/hypercites/upsert', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
-      },
-      credentials: 'same-origin',
-      body: JSON.stringify({
-        data: [hypercite]
-      })
-    });
+export async function syncHyperciteToPostgreSQL(hypercite) {
+  const anon = await getAnonymousToken();
+  const payload = {
+    book: hypercite.book,
+    data: [hypercite],
+    ...(anon ? { anonymous_token: anon } : {})
+  };
 
-    const result = await response.json();
-    return result;
-  } catch (error) {
-    console.error('Error syncing hypercite to PostgreSQL:', error);
-    return { success: false, message: error.message };
+  console.log(`🔄 Syncing hypercite ${hypercite.hyperciteId}…`);
+
+  const res = await fetch("/api/db/hypercites/upsert", {
+    method: "POST",
+    headers: {
+      "Content-Type":    "application/json",
+      "Accept":          "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+      "X-CSRF-TOKEN":
+        document.querySelector('meta[name="csrf-token"]')?.content
+    },
+    credentials: "same-origin",
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    console.error("❌ Hypercite sync error:", txt);
+    return { success: false, message: txt };
   }
+
+  const out = await res.json();
+  console.log("✅ Hypercite synced:", out);
+  return out;
 }
 
 
@@ -1824,150 +1964,7 @@ async function addCitationToHypercite(book, startLine, hyperciteId, newCitation)
   });
 }
 
-/*
-async function updateHyperciteInNodeChunk(book, startLine, hyperciteId, updates) {
-  return new Promise((resolve, reject) => {
-    const dbName = "MarkdownDB";
-    const storeName = "nodeChunks";
-    
-    // Always convert startLine to float
-    const numericStartLine = parseNodeId(startLine);
-    
-    console.log(`🔍 DEBUGGING: updateHyperciteInNodeChunk called with:`, {
-      book,
-      startLine,
-      numericStartLine,
-      hyperciteId,
-      updates: JSON.stringify(updates)
-    });
-    
-    const request = indexedDB.open(dbName);
-    
-    request.onerror = (event) => {
-      console.error(`❌ IndexedDB error: ${event.target.errorCode}`);
-      resolve(false);
-    };
-    
-    request.onsuccess = (event) => {
-      const db = event.target.result;
-      
-      try {
-        const transaction = db.transaction([storeName], "readwrite");
-        const objectStore = transaction.objectStore(storeName);
-        
-        // Create the key using the numeric startLine
-        const key = [book, numericStartLine];
-        console.log("🔑 Using key for update:", key);
-        
-        // Get the existing record
-        const getRequest = objectStore.get(key);
-        
-        getRequest.onsuccess = (event) => {
-          const existingRecord = event.target.result;
-          
-          if (!existingRecord) {
-            console.error(`❌ Record not found for key: [${book}, ${numericStartLine}]`);
-            resolve(false);
-            return;
-          }
-          
-          console.log("📄 BEFORE: Full nodeChunk record:", JSON.stringify(existingRecord));
-          console.log("🔍 BEFORE: All hypercites in this nodeChunk:", JSON.stringify(existingRecord.hypercites));
-          
-          // Ensure hypercites array exists
-          if (!existingRecord.hypercites) {
-            existingRecord.hypercites = [];
-            console.log("⚠️ Created empty hypercites array");
-          }
-          
-          // Find the specific hypercite to update
-          const hyperciteIndex = existingRecord.hypercites.findIndex(
-            h => h.hyperciteId === hyperciteId
-          );
-          
-          if (hyperciteIndex === -1) {
-            console.error(`❌ Hypercite ${hyperciteId} not found in nodeChunk [${book}, ${numericStartLine}]`);
-            resolve(false);
-            return;
-          }
-          
-          console.log(`🎯 Found hypercite at index ${hyperciteIndex}:`, 
-            JSON.stringify(existingRecord.hypercites[hyperciteIndex]));
-          
-          // IMPORTANT: Create a new array with all hypercites
-          const updatedHypercites = [...existingRecord.hypercites];
-          
-          // Update only the specific hypercite
-          const targetHypercite = {...updatedHypercites[hyperciteIndex]};
-          
-          // Special handling for citedIN array
-          if (updates.citedIN) {
-            console.log("🔄 Processing citedIN update");
-            
-            // Ensure targetHypercite has a citedIN array
-            targetHypercite.citedIN = targetHypercite.citedIN || [];
-            console.log("📋 Original citedIN:", JSON.stringify(targetHypercite.citedIN));
-            
-            // Add any new citations that don't already exist
-            updates.citedIN.forEach(citation => {
-              if (!targetHypercite.citedIN.includes(citation)) {
-                targetHypercite.citedIN.push(citation);
-                console.log(`➕ Added citation: ${citation}`);
-              } else {
-                console.log(`ℹ️ Citation already exists: ${citation}`);
-              }
-            });
-          }
-          
-          // Apply other updates
-          Object.keys(updates).forEach(key => {
-            if (key !== 'citedIN') {
-              targetHypercite[key] = updates[key];
-              console.log(`🔄 Updated ${key} to:`, updates[key]);
-            }
-          });
-          
-          // Replace the hypercite in our array copy
-          updatedHypercites[hyperciteIndex] = targetHypercite;
-          
-          // Replace the entire hypercites array in the record
-          existingRecord.hypercites = updatedHypercites;
-          
-          console.log("📄 AFTER: Updated hypercite:", JSON.stringify(targetHypercite));
-          console.log("🔍 AFTER: All hypercites in nodeChunk:", JSON.stringify(existingRecord.hypercites));
-          
-          // Put the updated record back
-          const updateRequest = objectStore.put(existingRecord);
-          
-          updateRequest.onsuccess = async() => {
-            console.log(`✅ Successfully updated hypercite ${hyperciteId} in nodeChunk [${book}, ${numericStartLine}]`);
-            await updateBookTimestamp(bookId);
-            resolve(true);
-          };
-          
-          updateRequest.onerror = (event) => {
-            console.error(`❌ Error updating record:`, event.target.error);
-            resolve(false);
-          };
-        };
-        
-        getRequest.onerror = (event) => {
-          console.error(`❌ Error getting record:`, event.target.error);
-          resolve(false);
-        };
-        
-        transaction.oncomplete = () => {
-          db.close();
-        };
-      } catch (error) {
-        console.error("❌ Transaction error:", error);
-        resolve(false);
-      }
-    };
-  });
-}
 
-*/
 
 
 export async function getHyperciteFromIndexedDB(book, hyperciteId) {
@@ -2102,65 +2099,43 @@ export async function deleteIndexedDBRecord(id) {
 }
 
 // 🆕 Function to sync deletion to PostgreSQL
-async function syncDeletionToPostgreSQL(bookId, startLine, libraryRecord) {
-  try {
-    console.log(`🔄 Syncing deletion to PostgreSQL: book=${bookId}, startLine=${startLine}`);
+export async function syncDeletionToPostgreSQL(
+  bookId,
+  startLine,
+  libraryRecord = null
+) {
+  const anon = await getAnonymousToken();
+  const payload = {
+    book: bookId,
+    data: [
+      { book: bookId, startLine, _action: "delete" }
+    ],
+    ...(anon ? { anonymous_token: anon } : {})
+  };
 
-    // Create a deletion record for the targeted-upsert endpoint
-    const deletionRecord = {
-      book: bookId,
-      startLine: startLine,
-      _action: "delete" // Flag to indicate this is a deletion
-    };
+  console.log(`🔄 Syncing deletion (book ${bookId}, startLine ${startLine})…`);
 
-    // Sync the deletion to PostgreSQL
-    const nodeChunkResponse = await fetch("/api/db/node-chunks/targeted-upsert", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-TOKEN": document
-          .querySelector('meta[name="csrf-token"]')
-          ?.getAttribute("content"),
-      },
-      body: JSON.stringify({
-        data: [deletionRecord]
-      }),
-    });
+  const res = await fetch("/api/db/node-chunks/targeted-upsert", {
+    method: "POST",
+    headers: {
+      "Content-Type":    "application/json",
+      "X-CSRF-TOKEN":
+        document.querySelector('meta[name="csrf-token"]')?.content
+    },
+    credentials: "same-origin",
+    body: JSON.stringify(payload)
+  });
 
-    if (!nodeChunkResponse.ok) {
-      throw new Error(
-        `NodeChunk deletion sync failed: ${nodeChunkResponse.statusText}`
-      );
-    }
+  if (!res.ok) {
+    const txt = await res.text();
+    console.error("❌ Deletion sync error:", txt);
+    throw new Error(txt);
+  }
+  console.log("✅ NodeChunk deletion synced");
 
-    console.log("✅ NodeChunk deletion synced with PostgreSQL");
-
-    // Sync updated library record if it exists
-    if (libraryRecord) {
-      const libraryResponse = await fetch("/api/db/library/upsert", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-TOKEN": document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute("content"),
-        },
-        body: JSON.stringify({
-          data: libraryRecord
-        }),
-      });
-
-      if (!libraryResponse.ok) {
-        throw new Error(`Library sync failed: ${libraryResponse.statusText}`);
-      }
-
-      console.log("✅ Library record synced with PostgreSQL");
-    }
-
-    console.log("🎉 Deletion successfully synced with PostgreSQL");
-  } catch (error) {
-    console.error("❌ Error syncing deletion with PostgreSQL:", error);
-    throw error;
+  /* optionally upsert the library record */
+  if (libraryRecord) {
+    await upsertLibraryRecord(libraryRecord, anon);
   }
 }
 

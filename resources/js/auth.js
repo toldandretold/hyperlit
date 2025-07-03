@@ -115,3 +115,7 @@ export async function getCurrentUserId() {
   return getAuthorId();
 }
 
+export async function getAnonymousToken() {
+  const user = await getCurrentUser();
+  return user ? null : getAuthorId();
+}

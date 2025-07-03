@@ -4,6 +4,7 @@ import { extractQuotedText } from './paste.js';
 import { openDatabase, updateCitationForExistingHypercite } from './cache-indexedDB.js';
 import { parseMarkdownIntoChunksInitial } from './convert-markdown.js';
 import { book } from './app.js';
+import { getCurrentUser, getAuthorId, getAnonymousToken } from "./auth.js";
 
 // Variables to control paste behavior
 let pasteHandled = false;
@@ -124,6 +125,8 @@ function handleHighlightContainerPaste(event, highlightId) {
   // Save the annotation after paste
   saveHighlightAnnotation(highlightId, annotationDiv.innerHTML);
 }
+
+
 
 /**
  * Handle pasting of hypercites in the highlight container
@@ -384,32 +387,46 @@ function saveHighlightAnnotation(highlightId, annotationHTML) {
   });
 }
 
-function updateAnnotationInPostgreSQL(highlightData){
-  fetch('/api/db/hyperlights/upsert', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-          },
-          body: JSON.stringify({
-            data: [{
-              book: highlightData.book,
-              hyperlight_id: highlightData.hyperlight_id,
-              annotation: highlightData.annotation
-            }]
-          })
-        })
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            console.log('Annotation synced to server successfully');
-          } else {
-            console.error('Failed to sync annotation to server:', data.message);
-          }
-        })
-        .catch(error => {
-          console.error('Error syncing annotation to server:', error);
-        });
+export async function updateAnnotationInPostgreSQL(highlightData) {
+  try {
+    const anon = await getAnonymousToken();
+
+    const payload = {
+      book: highlightData.book,
+      data: [
+        {
+          book:        highlightData.book,
+          hyperlight_id: highlightData.hyperlight_id,
+          annotation:    highlightData.annotation
+        }
+      ],
+      ...(anon ? { anonymous_token: anon } : {})
+    };
+
+    const res = await fetch("/api/db/hyperlights/upsert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN":
+          document.querySelector('meta[name="csrf-token"]')?.content
+      },
+      credentials: "same-origin",
+      body: JSON.stringify(payload)
+    });
+
+    const json = await res.json();
+
+    if (res.ok && json.success) {
+      console.log("✅ Annotation synced to server successfully");
+    } else {
+      console.error(
+        "❌ Failed to sync annotation to server:",
+        json.message || res.statusText
+      );
+    }
+  } catch (err) {
+    console.error("❌ Error syncing annotation to server:", err);
+  }
 }
 
 /**

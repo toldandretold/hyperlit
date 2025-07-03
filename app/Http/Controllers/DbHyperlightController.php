@@ -4,18 +4,88 @@ namespace App\Http\Controllers;
 
 use App\Models\PgHyperlight;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class DbHyperlightController extends Controller
 {
+    /**
+     * Check if user has permission to modify the hyperlight
+     */
+    private function checkHyperlightPermission(Request $request, $creator = null, $creatorToken = null)
+    {
+        $user = Auth::user();
+        
+        if ($user) {
+            // Logged in user - check they are the creator
+            if ($creator && $creator === $user->name) {
+                Log::info('Logged-in user hyperlight access granted', [
+                    'user' => $user->name,
+                    'creator' => $creator
+                ]);
+                return true;
+            }
+            
+            Log::warning('Logged-in user hyperlight access denied', [
+                'user' => $user->name,
+                'creator' => $creator,
+                'reason' => 'not_creator'
+            ]);
+            return false;
+            
+        } else {
+            // Anonymous user - check token matches
+            $anonymousToken = $request->input('anonymous_token');
+            
+            if (!$anonymousToken) {
+                Log::warning('Anonymous user missing token for hyperlight');
+                return false;
+            }
+            
+            if ($creatorToken && $creatorToken === $anonymousToken) {
+                Log::info('Anonymous user hyperlight access granted', [
+                    'token' => $anonymousToken,
+                    'creator_token' => $creatorToken
+                ]);
+                return true;
+            }
+            
+            Log::warning('Anonymous user hyperlight access denied', [
+                'token' => $anonymousToken,
+                'creator_token' => $creatorToken,
+                'reason' => 'token_mismatch'
+            ]);
+            return false;
+        }
+    }
+
     public function bulkCreate(Request $request)
     {
         try {
             $data = $request->all();
             
+            Log::info('DbHyperlightController::bulkCreate - Received data', [
+                'data_count' => isset($data['data']) ? count($data['data']) : 0,
+                'request_size' => strlen(json_encode($data))
+            ]);
+            
             if (isset($data['data']) && is_array($data['data'])) {
                 $records = [];
                 
-                foreach ($data['data'] as $item) {
+                foreach ($data['data'] as $index => $item) {
+                    // Check permission for each hyperlight
+                    if (!$this->checkHyperlightPermission(
+                        $request, 
+                        $item['creator'] ?? null, 
+                        $item['creator_token'] ?? null
+                    )) {
+                        Log::warning("Permission denied for hyperlight at index {$index}", [
+                            'creator' => $item['creator'] ?? null,
+                            'creator_token' => $item['creator_token'] ?? null
+                        ]);
+                        continue; // Skip this item
+                    }
+                    
                     $record = [
                         'book' => $item['book'] ?? null,
                         'hyperlight_id' => $item['hyperlight_id'] ?? null,
@@ -27,8 +97,8 @@ class DbHyperlightController extends Controller
                         'startLine' => $item['startLine'] ?? null,
                         'creator' => $item['creator'] ?? null,
                         'creator_token' => $item['creator_token'] ?? null,
-                        'time_since' => $item['time_since'] ?? floor(time()), // Add time_since support
-                        'raw_json' => json_encode($item),
+                        'time_since' => $item['time_since'] ?? floor(time()),
+                        'raw_json' => json_encode($this->cleanItemForStorage($item)),
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];
@@ -36,7 +106,18 @@ class DbHyperlightController extends Controller
                     $records[] = $record;
                 }
                 
+                if (empty($records)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No valid records to insert - access denied for all items'
+                    ], 403);
+                }
+                
                 PgHyperlight::insert($records);
+                
+                Log::info('DbHyperlightController::bulkCreate - Success', [
+                    'records_inserted' => count($records)
+                ]);
                 
                 return response()->json(['success' => true]);
             }
@@ -47,6 +128,11 @@ class DbHyperlightController extends Controller
             ], 400);
             
         } catch (\Exception $e) {
+            Log::error('DbHyperlightController::bulkCreate - Exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to sync data',
@@ -55,14 +141,54 @@ class DbHyperlightController extends Controller
         }
     }
 
-    // Add this new upsert method
     public function upsert(Request $request)
     {
         try {
             $data = $request->all();
             
+            Log::info('DbHyperlightController::upsert - Received data', [
+                'data_count' => isset($data['data']) ? count($data['data']) : 0,
+                'request_size' => strlen(json_encode($data))
+            ]);
+            
             if (isset($data['data']) && is_array($data['data'])) {
-                foreach ($data['data'] as $item) {
+                $processedCount = 0;
+                
+                foreach ($data['data'] as $index => $item) {
+                    // For upserts, we need to check if the record exists first
+                    $existingRecord = PgHyperlight::where('book', $item['book'] ?? null)
+                        ->where('hyperlight_id', $item['hyperlight_id'] ?? null)
+                        ->first();
+                    
+                    if ($existingRecord) {
+                        // Check permission against existing record
+                        if (!$this->checkHyperlightPermission(
+                            $request, 
+                            $existingRecord->creator, 
+                            $existingRecord->creator_token
+                        )) {
+                            Log::warning("Permission denied for existing hyperlight update at index {$index}", [
+                                'hyperlight_id' => $item['hyperlight_id'] ?? null,
+                                'existing_creator' => $existingRecord->creator,
+                                'existing_creator_token' => $existingRecord->creator_token
+                            ]);
+                            continue; // Skip this item
+                        }
+                    } else {
+                        // New record - check permission against provided data
+                        if (!$this->checkHyperlightPermission(
+                            $request, 
+                            $item['creator'] ?? null, 
+                            $item['creator_token'] ?? null
+                        )) {
+                            Log::warning("Permission denied for new hyperlight at index {$index}", [
+                                'creator' => $item['creator'] ?? null,
+                                'creator_token' => $item['creator_token'] ?? null
+                            ]);
+                            continue; // Skip this item
+                        }
+                    }
+                    
                     PgHyperlight::updateOrCreate(
                         [
                             'book' => $item['book'] ?? null,
@@ -77,14 +203,23 @@ class DbHyperlightController extends Controller
                             'startLine' => $item['startLine'] ?? null,
                             'creator' => $item['creator'] ?? null,
                             'creator_token' => $item['creator_token'] ?? null,
-                            'time_since' => $item['time_since'] ?? floor(time()), // Add time_since support
-                            'raw_json' => json_encode($item),
+                            'time_since' => $item['time_since'] ?? floor(time()),
+                            'raw_json' => json_encode($this->cleanItemForStorage($item)),
                             'updated_at' => now(),
                         ]
                     );
+                    
+                    $processedCount++;
                 }
                 
-                return response()->json(['success' => true, 'message' => 'Hyperlights synced successfully']);
+                Log::info('DbHyperlightController::upsert - Success', [
+                    'records_processed' => $processedCount
+                ]);
+                
+                return response()->json([
+                    'success' => true, 
+                    'message' => 'Hyperlights synced successfully'
+                ]);
             }
             
             return response()->json([
@@ -93,6 +228,11 @@ class DbHyperlightController extends Controller
             ], 400);
             
         } catch (\Exception $e) {
+            Log::error('DbHyperlightController::upsert - Exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to sync data',
@@ -106,14 +246,53 @@ class DbHyperlightController extends Controller
         try {
             $data = $request->all();
             
+            Log::info('DbHyperlightController::delete - Received data', [
+                'data_count' => isset($data['data']) ? count($data['data']) : 0
+            ]);
+            
             if (isset($data['data']) && is_array($data['data'])) {
-                foreach ($data['data'] as $item) {
-                    PgHyperlight::where('book', $item['book'] ?? null)
-                               ->where('hyperlight_id', $item['hyperlight_id'] ?? null)
-                               ->delete();
+                $deletedCount = 0;
+                
+                foreach ($data['data'] as $index => $item) {
+                    // Find the existing record to check permissions
+                    $existingRecord = PgHyperlight::where('book', $item['book'] ?? null)
+                        ->where('hyperlight_id', $item['hyperlight_id'] ?? null)
+                        ->first();
+                    
+                    if (!$existingRecord) {
+                        Log::warning("Hyperlight not found for deletion at index {$index}", [
+                            'book' => $item['book'] ?? null,
+                            'hyperlight_id' => $item['hyperlight_id'] ?? null
+                        ]);
+                        continue;
+                    }
+                    
+                    // Check permission
+                    if (!$this->checkHyperlightPermission(
+                        $request, 
+                        $existingRecord->creator, 
+                        $existingRecord->creator_token
+                    )) {
+                        Log::warning("Permission denied for hyperlight deletion at index {$index}", [
+                            'hyperlight_id' => $item['hyperlight_id'] ?? null,
+                            'creator' => $existingRecord->creator,
+                            'creator_token' => $existingRecord->creator_token
+                        ]);
+                        continue; // Skip this item
+                    }
+                    
+                    $existingRecord->delete();
+                    $deletedCount++;
                 }
                 
-                return response()->json(['success' => true, 'message' => 'Hyperlights deleted successfully']);
+                Log::info('DbHyperlightController::delete - Success', [
+                    'records_deleted' => $deletedCount
+                ]);
+                
+                return response()->json([
+                    'success' => true, 
+                    'message' => 'Hyperlights deleted successfully'
+                ]);
             }
             
             return response()->json([
@@ -122,11 +301,31 @@ class DbHyperlightController extends Controller
             ], 400);
             
         } catch (\Exception $e) {
+            Log::error('DbHyperlightController::delete - Exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete data',
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+    private function cleanItemForStorage($item)
+    {
+        // Create a copy to avoid modifying the original
+        $cleanItem = $item;
+        
+        // Remove the raw_json field to prevent recursive nesting
+        unset($cleanItem['raw_json']);
+        
+        // Also remove any other potentially problematic nested fields
+        if (isset($cleanItem['full_library_array'])) {
+            unset($cleanItem['full_library_array']);
+        }
+        
+        return $cleanItem;
     }
 }

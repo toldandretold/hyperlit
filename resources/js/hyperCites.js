@@ -9,6 +9,7 @@ import { ContainerManager } from "./container-manager.js";
 import { formatBibtexToCitation } from "./bibtexProcessor.js";
 import { currentLazyLoader } from './initializePage.js';
 import { addTouchAndClickListener } from './hyperLights.js';
+import { getCurrentUser, getAuthorId, getAnonymousToken } from "./auth.js";
 
 
 
@@ -297,86 +298,108 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
 }
 
 // Helper function to sync data with PostgreSQL
+/* keep only the public columns of a nodeChunk */
+function toPublicChunk(chunk) {
+  return {
+    book:        chunk.book,
+    startLine:   chunk.startLine,
+    hyperlights: chunk.hyperlights ?? [],
+    hypercites:  chunk.hypercites  ?? []
+  };
+}
+
 async function syncHyperciteWithPostgreSQL(hyperciteEntry, nodeChunks) {
   try {
-    console.log("🔄 Starting PostgreSQL sync...");
+    console.log("🔄 Starting PostgreSQL sync…");
 
-    // Get the library object from IndexedDB for the book
-    const libraryObject = await getLibraryObjectFromIndexedDB(hyperciteEntry.book);
-    
-    if (!libraryObject) {
-      console.warn("⚠️ No library object found for book:", hyperciteEntry.book);
-    }
+    const anon         = await getAnonymousToken();
+    const topLevelAuth = anon ? { anonymous_token: anon } : {};
+    const libraryObj   = await getLibraryObjectFromIndexedDB(hyperciteEntry.book);
 
-    // Sync hypercite using your actual endpoint
-    const hyperciteResponse = await fetch("/api/db/hypercites/upsert", {
+    /* ------------------------------------------------------------- */
+    /* 1. hypercites /upsert                                         */
+    /* ------------------------------------------------------------- */
+    const hyperRes = await fetch("/api/db/hypercites/upsert", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-CSRF-TOKEN": document
-          .querySelector('meta[name="csrf-token"]')
-          ?.getAttribute("content"),
+        "X-CSRF-TOKEN":
+          document.querySelector('meta[name="csrf-token"]')?.content
       },
+      credentials: "same-origin",
       body: JSON.stringify({
-        data: [hyperciteEntry]
-      }),
+        book: hyperciteEntry.book,
+        data: [hyperciteEntry],
+        ...topLevelAuth
+      })
     });
 
-    if (!hyperciteResponse.ok) {
-      throw new Error(`Hypercite sync failed: ${hyperciteResponse.statusText}`);
-    }
-
-    console.log("✅ Hypercite synced with PostgreSQL");
-
-    // Sync node chunks using your targeted endpoint
-    const nodeChunkResponse = await fetch("/api/db/node-chunks/targeted-upsert", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-TOKEN": document
-          .querySelector('meta[name="csrf-token"]')
-          ?.getAttribute("content"),
-      },
-      body: JSON.stringify({
-        data: nodeChunks
-      }),
-    });
-
-    if (!nodeChunkResponse.ok) {
+    if (!hyperRes.ok) {
       throw new Error(
-        `NodeChunk sync failed: ${nodeChunkResponse.statusText}`
+        `Hypercite sync failed (${hyperRes.status}): ${await hyperRes.text()}`
       );
     }
+    console.log("✅ Hypercite synced");
 
-    console.log("✅ NodeChunks synced with PostgreSQL (targeted)");
+    /* ------------------------------------------------------------- */
+    /* 2. node-chunks /targeted-upsert  (public fields only)         */
+    /* ------------------------------------------------------------- */
+    if (nodeChunks?.length) {
+      const publicChunks = nodeChunks.map(toPublicChunk);
 
-    // Sync library object if it exists
-    if (libraryObject) {
-      const libraryResponse = await fetch("/api/db/library/upsert", {
+      const chunkRes = await fetch("/api/db/node-chunks/targeted-upsert", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-CSRF-TOKEN": document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute("content"),
+          "X-CSRF-TOKEN":
+            document.querySelector('meta[name="csrf-token"]')?.content
         },
+        credentials: "same-origin",
         body: JSON.stringify({
-          data: libraryObject
-        }),
+          book: hyperciteEntry.book,
+          data: publicChunks,
+          ...topLevelAuth
+        })
       });
 
-      if (!libraryResponse.ok) {
+      if (!chunkRes.ok) {
         throw new Error(
-          `Library sync failed: ${libraryResponse.statusText}`
+          `NodeChunk sync failed (${chunkRes.status}): ${await chunkRes.text()}`
         );
       }
-
-      console.log("✅ Library object synced with PostgreSQL");
+      console.log("✅ NodeChunks (public columns) synced");
     }
 
-    console.log("🎉 All data successfully synced with PostgreSQL");
-  } catch (error) {
-    console.error("❌ Error syncing with PostgreSQL:", error);
+    /* ------------------------------------------------------------- */
+    /* 3. library /upsert  (optional)                                */
+    /* ------------------------------------------------------------- */
+    if (libraryObj) {
+      const libRes = await fetch("/api/db/library/upsert", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN":
+            document.querySelector('meta[name="csrf-token"]')?.content
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          book: libraryObj.book,
+          data: libraryObj,
+          ...topLevelAuth
+        })
+      });
+
+      if (!libRes.ok) {
+        throw new Error(
+          `Library sync failed (${libRes.status}): ${await libRes.text()}`
+        );
+      }
+      console.log("✅ Library object synced");
+    }
+
+    console.log("🎉 Hypercite workflow synced successfully");
+  } catch (err) {
+    console.error("❌ Error syncing with PostgreSQL:", err);
   }
 }
 
