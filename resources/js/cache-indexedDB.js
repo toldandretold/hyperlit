@@ -4,7 +4,7 @@ import {
 } from './BroadcastListener.js';
 import { withPending } from "./operationState.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
-import { getCurrentUser, getAuthorId } from './auth.js';   
+import { getCurrentUser } from './auth.js';   
 
 export const DB_VERSION = 15;
 
@@ -797,7 +797,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
 export async function syncBatchUpdateWithPostgreSQL(
   bookId,
   batchData,
-  libraryRecord      // ← still unused here but keep the signature
+  libraryRecord      
 ) {
   /* ------------------------------------------------------------- */
   /* 1. build the payload                                          */
@@ -814,11 +814,10 @@ export async function syncBatchUpdateWithPostgreSQL(
     type:        chunk.type        ?? null
   }));
 
-  const anon = await getAnonymousToken();
+  // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
   const payload = {
     book: bookId,
-    data: transformedData,
-    ...(anon ? { anonymous_token: anon } : {})
+    data: transformedData
   };
 
   console.log('🔍 Making request to /api/db/node-chunks/targeted-upsert');
@@ -837,7 +836,7 @@ export async function syncBatchUpdateWithPostgreSQL(
       'X-CSRF-TOKEN':
         document.querySelector('meta[name="csrf-token"]')?.content
     },
-    credentials: 'same-origin',        // ← makes the session cookie go along
+    credentials: 'include',        // ← ensures cookies are sent
     body: JSON.stringify(payload)
   });
 
@@ -1043,21 +1042,19 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
   });
 }
 
-// Sync batch deletions with PostgreSQL
 export async function syncBatchDeletionWithPostgreSQL(
   bookId,
   deletedData,
   libraryRecord = null
 ) {
-  const anon = await getAnonymousToken();
+  // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
   const payload = {
     book: bookId,
     data: deletedData.nodeChunks.map(c => ({
       book: bookId,
       startLine: c.startLine,
       _action: "delete"
-    })),
-    ...(anon ? { anonymous_token: anon } : {})
+    }))
   };
 
   console.log(
@@ -1073,7 +1070,7 @@ export async function syncBatchDeletionWithPostgreSQL(
       "X-CSRF-TOKEN":
         document.querySelector('meta[name="csrf-token"]')?.content
     },
-    credentials: "same-origin",
+    credentials: "include", // ← ensures cookies are sent
     body: JSON.stringify(payload)
   });
 
@@ -1086,15 +1083,15 @@ export async function syncBatchDeletionWithPostgreSQL(
 
   /* optionally upsert the library record */
   if (libraryRecord) {
-    await upsertLibraryRecord(libraryRecord, anon);
+    await upsertLibraryRecord(libraryRecord);
   }
 }
 
-async function upsertLibraryRecord(libraryRecord, anon) {
+async function upsertLibraryRecord(libraryRecord) {
+  // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
   const payload = {
     book: libraryRecord.book,
-    data: libraryRecord,
-    ...(anon ? { anonymous_token: anon } : {})
+    data: libraryRecord
   };
 
   const res = await fetch("/api/db/library/upsert", {
@@ -1104,7 +1101,7 @@ async function upsertLibraryRecord(libraryRecord, anon) {
       "X-CSRF-TOKEN":
         document.querySelector('meta[name="csrf-token"]')?.content
     },
-    credentials: "same-origin",
+    credentials: "include", // ← ensures cookies are sent
     body: JSON.stringify(payload)
   });
 
@@ -1212,10 +1209,7 @@ function updateHyperciteRecords(hypercites, store, bookId, syncArray, node) {
 }
 
 
-async function getAnonymousToken () {
-  const user = await getCurrentUser();
-  return user ? null : getAuthorId();      // identical logic to the other module
-}
+
 
 async function syncNodeUpdateWithPostgreSQL (
   bookId,
@@ -1226,9 +1220,6 @@ async function syncNodeUpdateWithPostgreSQL (
 ) {
     try {
       console.log('🔄 Starting PostgreSQL sync for node update…');
-
-      const anonymousToken = getAnonymousToken();
-      const topLevelAuth   = anonymousToken ? { anonymous_token: anonymousToken } : {};
 
       /* ------------------------------------------------------------------ */
       /* 1. node-chunks /targeted-upsert                                    */
@@ -1242,10 +1233,10 @@ async function syncNodeUpdateWithPostgreSQL (
           hasContent:     !!nodeChunk.content
         });
 
+        // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
         const body = {
-          book: bookId,              //  ← add this (matches syncBookDataToServer)
-          data: [nodeChunk],
-          ...topLevelAuth            //  ← adds anonymous_token only if present
+          book: bookId,
+          data: [nodeChunk]
         };
 
         const res = await fetch('/api/db/node-chunks/targeted-upsert', {
@@ -1255,7 +1246,7 @@ async function syncNodeUpdateWithPostgreSQL (
             'X-CSRF-TOKEN':
               document.querySelector('meta[name="csrf-token"]')?.content
           },
-          credentials: 'same-origin',
+          credentials: 'include', // ← ensures cookies are sent
           body: JSON.stringify(body)
         });
 
@@ -1271,7 +1262,7 @@ async function syncNodeUpdateWithPostgreSQL (
       /* 2. hyperlights                                                     */
       /* ------------------------------------------------------------------ */
       if (hyperlights.length) {
-        const body = { book: bookId, data: hyperlights, ...topLevelAuth };
+        const body = { book: bookId, data: hyperlights };
 
         const res = await fetch('/api/db/hyperlights/upsert', {
           method: 'POST',
@@ -1280,7 +1271,7 @@ async function syncNodeUpdateWithPostgreSQL (
             'X-CSRF-TOKEN':
               document.querySelector('meta[name="csrf-token"]')?.content
           },
-          credentials: 'same-origin',
+          credentials: 'include', // ← ensures cookies are sent
           body: JSON.stringify(body)
         });
 
@@ -1296,7 +1287,7 @@ async function syncNodeUpdateWithPostgreSQL (
       /* 3. hypercites                                                      */
       /* ------------------------------------------------------------------ */
       if (hypercites.length) {
-        const body = { book: bookId, data: hypercites, ...topLevelAuth };
+        const body = { book: bookId, data: hypercites };
 
         const res = await fetch('/api/db/hypercites/upsert', {
           method: 'POST',
@@ -1305,7 +1296,7 @@ async function syncNodeUpdateWithPostgreSQL (
             'X-CSRF-TOKEN':
               document.querySelector('meta[name="csrf-token"]')?.content
           },
-          credentials: 'same-origin',
+          credentials: 'include', // ← ensures cookies are sent
           body: JSON.stringify(body)
         });
 
@@ -1321,7 +1312,7 @@ async function syncNodeUpdateWithPostgreSQL (
       /* 4. library record                                                  */
       /* ------------------------------------------------------------------ */
       if (libraryRecord) {
-        const body = { book: bookId, data: libraryRecord, ...topLevelAuth };
+        const body = { book: bookId, data: libraryRecord };
 
         const res = await fetch('/api/db/library/upsert', {
           method: 'POST',
@@ -1330,7 +1321,7 @@ async function syncNodeUpdateWithPostgreSQL (
             'X-CSRF-TOKEN':
               document.querySelector('meta[name="csrf-token"]')?.content
           },
-          credentials: 'same-origin',
+          credentials: 'include', // ← ensures cookies are sent
           body: JSON.stringify(body)
         });
 
@@ -1574,39 +1565,36 @@ export function updateCitationForExistingHypercite(
         console.log('✅ Successfully synced hypercite to PostgreSQL');
       }
 
-      // 🔥 FIXED: Sync library records individually
-      if (libraryRecords.length) {
+    if (libraryRecords.length) {
       console.log(
-        `🔄 Syncing ${libraryRecords.length} library records to PostgreSQL …`
+        `🔄 Updating timestamps for ${libraryRecords.length} library records...`
       );
 
-      const anon = await getAnonymousToken();
-
       for (const lr of libraryRecords) {
+        // ✅ Only send book and timestamp, like hyperlights do
         const payload = {
           book: lr.book,
-          data: lr,
-          ...(anon ? { anonymous_token: anon } : {})
+          timestamp: lr.timestamp || Date.now()
         };
 
-        const res = await fetch("/api/db/library/upsert", {
+        const res = await fetch("/api/db/library/update-timestamp", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "X-CSRF-TOKEN":
               document.querySelector('meta[name="csrf-token"]')?.content
           },
-          credentials: "same-origin",               // ← sends cookies
+          credentials: "include",
           body: JSON.stringify(payload)
         });
 
         if (!res.ok) {
           console.error(
-            `❌ Failed to sync library record for book ${lr.book}:`,
+            `❌ Failed to update timestamp for book ${lr.book}:`,
             await res.text()
           );
         } else {
-          console.log(`✅ Library record synced for book ${lr.book}`);
+          console.log(`✅ Timestamp updated for book ${lr.book}`);
         }
       }
     }
@@ -1776,7 +1764,6 @@ export async function writeNodeChunks(chunks) {
     };
   });
 }
-
 // 🆕 Function to sync nodeChunks to PostgreSQL
 export async function syncNodeChunksToPostgreSQL(nodeChunks = []) {
   if (!nodeChunks.length) {
@@ -1785,11 +1772,11 @@ export async function syncNodeChunksToPostgreSQL(nodeChunks = []) {
   }
 
   const bookId = nodeChunks[0].book;
-  const anon   = await getAnonymousToken();
+  
+  // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
   const payload = {
     book: bookId,
-    data: nodeChunks,
-    ...(anon ? { anonymous_token: anon } : {})
+    data: nodeChunks
   };
 
   console.log(
@@ -1805,7 +1792,7 @@ export async function syncNodeChunksToPostgreSQL(nodeChunks = []) {
       "X-CSRF-TOKEN":
         document.querySelector('meta[name="csrf-token"]')?.content
     },
-    credentials: "same-origin",
+    credentials: "include", // ← ensures cookies are sent
     body: JSON.stringify(payload)
   });
 
@@ -1822,11 +1809,10 @@ export async function syncNodeChunksToPostgreSQL(nodeChunks = []) {
 
 // 🆕 Function to sync hypercite to PostgreSQL
 export async function syncHyperciteToPostgreSQL(hypercite) {
-  const anon = await getAnonymousToken();
+  // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
   const payload = {
     book: hypercite.book,
-    data: [hypercite],
-    ...(anon ? { anonymous_token: anon } : {})
+    data: [hypercite]
   };
 
   console.log(`🔄 Syncing hypercite ${hypercite.hyperciteId}…`);
@@ -1840,7 +1826,7 @@ export async function syncHyperciteToPostgreSQL(hypercite) {
       "X-CSRF-TOKEN":
         document.querySelector('meta[name="csrf-token"]')?.content
     },
-    credentials: "same-origin",
+    credentials: "include", // ← ensures cookies are sent
     body: JSON.stringify(payload)
   });
 
@@ -1854,8 +1840,6 @@ export async function syncHyperciteToPostgreSQL(hypercite) {
   console.log("✅ Hypercite synced:", out);
   return out;
 }
-
-
 
 async function addCitationToHypercite(book, startLine, hyperciteId, newCitation) {
   return new Promise((resolve, reject) => {
@@ -2104,13 +2088,12 @@ export async function syncDeletionToPostgreSQL(
   startLine,
   libraryRecord = null
 ) {
-  const anon = await getAnonymousToken();
+  // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
   const payload = {
     book: bookId,
     data: [
       { book: bookId, startLine, _action: "delete" }
-    ],
-    ...(anon ? { anonymous_token: anon } : {})
+    ]
   };
 
   console.log(`🔄 Syncing deletion (book ${bookId}, startLine ${startLine})…`);
@@ -2122,7 +2105,7 @@ export async function syncDeletionToPostgreSQL(
       "X-CSRF-TOKEN":
         document.querySelector('meta[name="csrf-token"]')?.content
     },
-    credentials: "same-origin",
+    credentials: "include", // ← ensures cookies are sent
     body: JSON.stringify(payload)
   });
 
@@ -2135,11 +2118,9 @@ export async function syncDeletionToPostgreSQL(
 
   /* optionally upsert the library record */
   if (libraryRecord) {
-    await upsertLibraryRecord(libraryRecord, anon);
+    await upsertLibraryRecord(libraryRecord); // ← removed anon parameter
   }
 }
-
-
 
 export async function updateIndexedDBRecordForNormalization(
   oldId, newId, html
@@ -2349,6 +2330,19 @@ export async function updateBookTimestamp(bookId = book || "latest") {
 // Helper function to get library object from IndexedDB
 export async function getLibraryObjectFromIndexedDB(book) {
   try {
+    // ✅ Validate the book parameter first
+    if (!book) {
+      console.warn("⚠️ No book ID provided to getLibraryObjectFromIndexedDB");
+      return null;
+    }
+
+    if (typeof book !== 'string' && typeof book !== 'number') {
+      console.warn("⚠️ Invalid book ID type:", typeof book, book);
+      return null;
+    }
+
+    console.log("🔍 Looking up library object for book:", book);
+
     const db = await openDatabase();
     const tx = db.transaction(["library"], "readonly");
     const libraryStore = tx.objectStore("library");
@@ -2356,15 +2350,28 @@ export async function getLibraryObjectFromIndexedDB(book) {
     const getRequest = libraryStore.get(book);
     
     const libraryObject = await new Promise((resolve, reject) => {
-      getRequest.onsuccess = (e) => resolve(e.target.result);
-      getRequest.onerror = (e) => reject(e.target.error);
+      getRequest.onsuccess = (e) => {
+        const result = e.target.result;
+        console.log("📚 IndexedDB lookup result for book:", book, result ? "found" : "not found");
+        resolve(result);
+      };
+      getRequest.onerror = (e) => {
+        console.error("❌ IndexedDB get request failed:", e.target.error);
+        reject(e.target.error);
+      };
     });
 
-    console.log("📚 Retrieved library object for book:", book, libraryObject);
+    if (libraryObject) {
+      console.log("📚 Retrieved library object for book:", book, libraryObject);
+    } else {
+      console.log("📚 No library object found for book:", book);
+    }
+    
     return libraryObject;
     
   } catch (error) {
     console.error("❌ Error getting library object from IndexedDB:", error);
+    console.error("❌ Book parameter was:", book, typeof book);
     return null;
   }
 }

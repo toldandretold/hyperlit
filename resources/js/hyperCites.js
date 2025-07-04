@@ -13,7 +13,7 @@ import { getCurrentUser, getAuthorId, getAnonymousToken } from "./auth.js";
 
 
 
-
+ 
 addTouchAndClickListener(
   document.getElementById("copy-hypercite"),
   async function(buttonEvent) {
@@ -326,7 +326,7 @@ async function syncHyperciteWithPostgreSQL(hyperciteEntry, nodeChunks) {
         "X-CSRF-TOKEN":
           document.querySelector('meta[name="csrf-token"]')?.content
       },
-      credentials: "same-origin",
+      credentials: "include", // ← Changed from "same-origin" to "include"
       body: JSON.stringify({
         book: hyperciteEntry.book,
         data: [hyperciteEntry],
@@ -354,7 +354,7 @@ async function syncHyperciteWithPostgreSQL(hyperciteEntry, nodeChunks) {
           "X-CSRF-TOKEN":
             document.querySelector('meta[name="csrf-token"]')?.content
         },
-        credentials: "same-origin",
+        credentials: "include", // ← Changed from "same-origin" to "include"
         body: JSON.stringify({
           book: hyperciteEntry.book,
           data: publicChunks,
@@ -371,30 +371,29 @@ async function syncHyperciteWithPostgreSQL(hyperciteEntry, nodeChunks) {
     }
 
     /* ------------------------------------------------------------- */
-    /* 3. library /upsert  (optional)                                */
+    /* 3. library/update-timestamp (SECURE - timestamp only)         */
     /* ------------------------------------------------------------- */
-    if (libraryObj) {
-      const libRes = await fetch("/api/db/library/upsert", {
+    if (libraryObj && libraryObj.timestamp) {
+      const timestampRes = await fetch("/api/db/library/update-timestamp", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-CSRF-TOKEN":
             document.querySelector('meta[name="csrf-token"]')?.content
         },
-        credentials: "same-origin",
+        credentials: "include",
         body: JSON.stringify({
           book: libraryObj.book,
-          data: libraryObj,
-          ...topLevelAuth
+          timestamp: libraryObj.timestamp
         })
       });
 
-      if (!libRes.ok) {
+      if (!timestampRes.ok) {
         throw new Error(
-          `Library sync failed (${libRes.status}): ${await libRes.text()}`
+          `Library timestamp update failed (${timestampRes.status}): ${await timestampRes.text()}`
         );
       }
-      console.log("✅ Library object synced");
+      console.log("✅ Library timestamp updated");
     }
 
     console.log("🎉 Hypercite workflow synced successfully");
@@ -1325,7 +1324,8 @@ async function syncDelinkWithPostgreSQL(updatedHypercite) {
   try {
     console.log("🔄 Syncing delink with PostgreSQL...");
 
-    const response = await fetch("/api/db/hypercites/upsert", {
+    // Sync the hypercite update
+    const hyperciteResponse = await fetch("/api/db/hypercites/upsert", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1333,16 +1333,44 @@ async function syncDelinkWithPostgreSQL(updatedHypercite) {
           .querySelector('meta[name="csrf-token"]')
           ?.getAttribute("content"),
       },
+      credentials: "include",
       body: JSON.stringify({
+        book: updatedHypercite.book,
         data: [updatedHypercite]
       }),
     });
 
-    if (!response.ok) {
-      throw new Error(`PostgreSQL sync failed: ${response.statusText}`);
+    if (!hyperciteResponse.ok) {
+      throw new Error(`Hypercite sync failed: ${hyperciteResponse.statusText}`);
     }
 
-    console.log("✅ Delink synced with PostgreSQL");
+    console.log("✅ Hypercite delink synced with PostgreSQL");
+
+    // Update library timestamp
+    const libraryObj = await getLibraryObjectFromIndexedDB(updatedHypercite.book);
+    if (libraryObj && libraryObj.timestamp) {
+      const timestampResponse = await fetch("/api/db/library/update-timestamp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN": document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content"),
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          book: libraryObj.book,
+          timestamp: libraryObj.timestamp
+        }),
+      });
+
+      if (!timestampResponse.ok) {
+        throw new Error(`Library timestamp update failed: ${timestampResponse.statusText}`);
+      }
+
+      console.log("✅ Library timestamp updated for delink");
+    }
+
   } catch (error) {
     console.error("❌ Error syncing delink with PostgreSQL:", error);
   }

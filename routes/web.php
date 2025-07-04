@@ -35,7 +35,10 @@ Route::get('/home', function () {
 });
  
 
-
+Route::get('/test-log', function () {
+    Log::info('Hello with blank line');
+    return 'Logged to storage/logs/laravel.log';
+});
 
 
 
