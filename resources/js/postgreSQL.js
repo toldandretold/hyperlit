@@ -57,21 +57,18 @@ async function syncBookDataToServer(bookName, objectStoreName, method = 'upsert'
         // Filter for this book (checking both formats)
         let bookData;
         if (objectStoreName === 'library' || objectStoreName === 'footnotes') {
-            // For stores where book is the key, try both formats
             bookData = await new Promise((resolve) => {
                 const request = store.get(bookNameWithoutSlash);
                 request.onsuccess = () => {
                     if (request.result) {
                         resolve(request.result);
                     } else {
-                        // Try with slash if first attempt failed
                         const request2 = store.get(bookNameWithSlash);
                         request2.onsuccess = () => resolve(request2.result);
                     }
                 };
             });
         } else {
-            // For stores with composite keys, filter with both formats
             bookData = allData.filter(item => 
                 item.book === bookNameWithoutSlash || 
                 item.book === bookNameWithSlash
@@ -92,37 +89,22 @@ async function syncBookDataToServer(bookName, objectStoreName, method = 'upsert'
         // Normalize the book ID format for sending to server
         const normalizedBookName = bookNameWithoutSlash;
         
-        // ✅ ADD AUTH DATA HERE
-        // Check if user is logged in
-        const user = await getCurrentUser();
-        
-        // Prepare the request body with auth data
+        // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
         const requestBody = {
             book: normalizedBookName,
             data: bookData
         };
 
-        // Add auth data based on login status
-        if (user) {
-            // User is logged in - no need to add anonymous_token
-            console.log(`🔐 Syncing as logged-in user: ${user.name}`);
-        } else {
-            // User is anonymous - add the UUID
-            const anonId = getAuthorId();
-            requestBody.anonymous_token = anonId;
-            console.log(`🔐 Syncing as anonymous user: ${anonId}`);
-        }
-
         console.log(`📤 Sending ${objectStoreName} data:`, requestBody);
 
-        // Send to server
+        // Send to server - credentials: 'include' ensures cookies are sent
         const response = await fetch(storeConfig[objectStoreName].endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
             },
-            credentials: 'same-origin',
+            credentials: 'include', // This sends the anon_token cookie
             body: JSON.stringify(requestBody)
         });
 
@@ -141,7 +123,6 @@ async function syncBookDataToServer(bookName, objectStoreName, method = 'upsert'
         throw error;
     }
 }
-
 
 
 // get data from indexedDB, and send to backend for update
