@@ -91,6 +91,11 @@ Route::middleware(['author', 'throttle:30,1'])->group(function () {
         '/db/footnotes/upsert',
         [DbFootnoteController::class, 'upsert']
     );
+
+    Route::post(
+        '/db/library/update-timestamp', 
+        [DbLibraryController::class, 'updateTimestamp']
+    );
 });
 
 // API routes for transferring data from database to IndexedDB

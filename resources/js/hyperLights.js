@@ -12,10 +12,10 @@ import { attachAnnotationListener } from "./annotation-saver.js";
 import { addPasteListener } from "./paste.js";
 import { addHighlightContainerPasteListener } from "./hyperLightsListener.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
-import { getCurrentUser, getAuthorId, getCurrentUserId, getAnonymousToken } from "./auth.js";
+import { getCurrentUser, getAuthorId, getCurrentUserId } from "./auth.js";
 import { getUserHighlightCache } from './userCache.js';
 
-let highlightId; 
+let highlightId;  
 let highlightLazyLoader;
 
 // Create a container manager for highlights using the same overlay if needed
@@ -707,7 +707,6 @@ function calculateTrueCharacterOffset(container, textNode, offset) {
   
   return rawOffset;
 } */
-
 addTouchAndClickListener(
   document.getElementById("copy-hyperlight"),
   async function() {
@@ -904,7 +903,7 @@ addTouchAndClickListener(
     }
 
     try {
-      // 1) Determine creator info (same pattern as createNewBook)
+      
       const user = await getCurrentUser();
       const creator = user
         ? (user.name || user.username || user.email)
@@ -930,7 +929,7 @@ addTouchAndClickListener(
         creator_token      // Add creator_token field
       };
 
-      // Add to IndexedDB hyperlights table (update this function to accept creator info)
+      // Add to IndexedDB hyperlights table
       await addToHighlightsTable({
         highlightId,
         text: selectedText,
@@ -944,7 +943,7 @@ addTouchAndClickListener(
       console.log("Added to highlights table");
       await updateBookTimestamp(book);
       
-      // Sync with PostgreSQL
+      // ✅ SIMPLIFIED: Sync with PostgreSQL (auth handled by middleware)
       await syncHyperlightWithPostgreSQL(hyperlightEntry, updatedNodeChunks);
       
     } catch (error) {
@@ -953,11 +952,11 @@ addTouchAndClickListener(
 
     attachMarkListeners();
 
-    // 👈 ADD: Clear selection and hide buttons
+    // Clear selection and hide buttons
     window.getSelection().removeAllRanges();
     document.getElementById("hyperlight-buttons").style.display = "none";
 
-    // 👈 ADD: Open the newly created highlight in the container
+    // Open the newly created highlight in the container
     console.log("🎯 Opening newly created highlight:", highlightId);
     await openHighlightById(highlightId, true, [highlightId]);
   }
@@ -979,9 +978,7 @@ async function syncHyperlightWithPostgreSQL(hyperlightEntry, nodeChunks) {
   try {
     console.log("🔄 Starting Hyperlight PostgreSQL sync…");
 
-    const anon         = await getAnonymousToken();
-    const topLevelAuth = anon ? { anonymous_token: anon } : {};
-    const libraryObj   = await getLibraryObjectFromIndexedDB(hyperlightEntry.book);
+    const libraryObj = await getLibraryObjectFromIndexedDB(hyperlightEntry.book);
 
     /* ---------------------------------------------------- */
     /* 1. hyperlights/upsert                                */
@@ -993,11 +990,10 @@ async function syncHyperlightWithPostgreSQL(hyperlightEntry, nodeChunks) {
         "X-CSRF-TOKEN":
           document.querySelector('meta[name="csrf-token"]')?.content
       },
-      credentials: "same-origin",
+      credentials: "include",
       body: JSON.stringify({
         book: hyperlightEntry.book,
-        data: [hyperlightEntry],
-        ...topLevelAuth
+        data: [hyperlightEntry]
       })
     });
 
@@ -1021,11 +1017,10 @@ async function syncHyperlightWithPostgreSQL(hyperlightEntry, nodeChunks) {
           "X-CSRF-TOKEN":
             document.querySelector('meta[name="csrf-token"]')?.content
         },
-        credentials: "same-origin",
+        credentials: "include",
         body: JSON.stringify({
           book: hyperlightEntry.book,
-          data: publicChunks,
-          ...topLevelAuth
+          data: publicChunks
         })
       });
 
@@ -1038,30 +1033,29 @@ async function syncHyperlightWithPostgreSQL(hyperlightEntry, nodeChunks) {
     }
 
     /* ---------------------------------------------------- */
-    /* 3. library/upsert  (optional)                        */
+    /* 3. library/update-timestamp (SECURE - timestamp only) */
     /* ---------------------------------------------------- */
-    if (libraryObj) {
-      const libRes = await fetch("/api/db/library/upsert", {
+    if (libraryObj && libraryObj.timestamp) {
+      const timestampRes = await fetch("/api/db/library/update-timestamp", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-CSRF-TOKEN":
             document.querySelector('meta[name="csrf-token"]')?.content
         },
-        credentials: "same-origin",
+        credentials: "include",
         body: JSON.stringify({
           book: libraryObj.book,
-          data: libraryObj,
-          ...topLevelAuth
+          timestamp: libraryObj.timestamp
         })
       });
 
-      if (!libRes.ok) {
+      if (!timestampRes.ok) {
         throw new Error(
-          `Library sync failed (${libRes.status}): ${await libRes.text()}`
+          `Library timestamp update failed (${timestampRes.status}): ${await timestampRes.text()}`
         );
       }
-      console.log("✅ Library object synced");
+      console.log("✅ Library timestamp updated");
     }
 
     console.log("🎉 Hyperlight + public nodeChunk data synced successfully");
@@ -1227,7 +1221,8 @@ addTouchAndClickListener(document.getElementById("delete-hyperlight"),
       // 👈 ADD: Sync deletions with PostgreSQL
       await syncHyperlightDeletionsWithPostgreSQL(
         deletedHyperlights, 
-        updatedNodeChunks
+        updatedNodeChunks,
+        book
       );
     }
 
@@ -1235,17 +1230,11 @@ addTouchAndClickListener(document.getElementById("delete-hyperlight"),
   }
 );
 
-// Helper function to sync hyperlight deletions with PostgreSQL
-// Helper function to sync hyperlight deletions with PostgreSQL
-async function syncHyperlightDeletionsWithPostgreSQL(deletedHyperlights, updatedNodeChunks) {
+async function syncHyperlightDeletionsWithPostgreSQL(deletedHyperlights, updatedNodeChunks, book) {
   try {
     console.log("🔄 Starting Hyperlight deletion PostgreSQL sync...");
 
-    // Get authentication details (same pattern as syncHyperlightWithPostgreSQL)
-    const anon = await getAnonymousToken();
-    const topLevelAuth = anon ? { anonymous_token: anon } : {};
-    
-    // Get the library object from IndexedDB for the book
+    // ✅ Get library object using the book parameter
     const libraryObject = await getLibraryObjectFromIndexedDB(book);
     
     if (!libraryObject) {
@@ -1262,11 +1251,10 @@ async function syncHyperlightDeletionsWithPostgreSQL(deletedHyperlights, updated
             .querySelector('meta[name="csrf-token"]')
             ?.getAttribute("content"),
         },
-        credentials: "same-origin",
+        credentials: "include",
         body: JSON.stringify({
           book: book,
-          data: deletedHyperlights,
-          ...topLevelAuth
+          data: deletedHyperlights
         }),
       });
 
@@ -1289,11 +1277,10 @@ async function syncHyperlightDeletionsWithPostgreSQL(deletedHyperlights, updated
             .querySelector('meta[name="csrf-token"]')
             ?.getAttribute("content"),
         },
-        credentials: "same-origin",
+        credentials: "include",
         body: JSON.stringify({
           book: book,
-          data: publicChunks,
-          ...topLevelAuth
+          data: publicChunks
         }),
       });
 
@@ -1306,9 +1293,9 @@ async function syncHyperlightDeletionsWithPostgreSQL(deletedHyperlights, updated
       console.log("✅ NodeChunks synced with PostgreSQL (targeted)");
     }
 
-    // Sync library object if it exists
-    if (libraryObject) {
-      const libraryResponse = await fetch("/api/db/library/upsert", {
+    // ✅ FIXED: Use secure timestamp-only update instead of full library upsert
+    if (libraryObject && libraryObject.timestamp) {
+      const timestampResponse = await fetch("/api/db/library/update-timestamp", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1316,21 +1303,20 @@ async function syncHyperlightDeletionsWithPostgreSQL(deletedHyperlights, updated
             .querySelector('meta[name="csrf-token"]')
             ?.getAttribute("content"),
         },
-        credentials: "same-origin",
+        credentials: "include",
         body: JSON.stringify({
           book: libraryObject.book,
-          data: libraryObject,
-          ...topLevelAuth
+          timestamp: libraryObject.timestamp
         }),
       });
 
-      if (!libraryResponse.ok) {
+      if (!timestampResponse.ok) {
         throw new Error(
-          `Library sync failed (${libraryResponse.status}): ${await libraryResponse.text()}`
+          `Library timestamp update failed (${timestampResponse.status}): ${await timestampResponse.text()}`
         );
       }
 
-      console.log("✅ Library object synced with PostgreSQL");
+      console.log("✅ Library timestamp updated in PostgreSQL");
     }
 
     console.log("🎉 All hyperlight deletion data successfully synced with PostgreSQL");

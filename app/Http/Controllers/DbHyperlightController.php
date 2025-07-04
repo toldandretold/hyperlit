@@ -3,12 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\PgHyperlight;
+use App\Models\AnonymousSession;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 
 class DbHyperlightController extends Controller
 {
+    private function isValidAnonymousToken($token)
+    {
+        return AnonymousSession::where('token', $token)
+            ->where('created_at', '>', now()->subDays(365))
+            ->exists();
+    }
+
     /**
      * Check if user has permission to modify the hyperlight
      */
@@ -34,15 +42,28 @@ class DbHyperlightController extends Controller
             return false;
             
         } else {
-            // Anonymous user - check token matches
-            $anonymousToken = $request->input('anonymous_token');
+            // Anonymous user - check server-managed token from cookie
+            $anonymousToken = $request->cookie('anon_token');
             
             if (!$anonymousToken) {
-                Log::warning('Anonymous user missing token for hyperlight');
+                Log::warning('Anonymous user missing cookie token for hyperlight');
+                return false;
+            }
+            
+            // Validate the token exists in our database
+            if (!$this->isValidAnonymousToken($anonymousToken)) {
+                Log::warning('Anonymous user invalid token for hyperlight', [
+                    'token' => $anonymousToken,
+                    'reason' => 'token_not_in_database'
+                ]);
                 return false;
             }
             
             if ($creatorToken && $creatorToken === $anonymousToken) {
+                // Update last used time for the anonymous session
+                AnonymousSession::where('token', $anonymousToken)
+                    ->update(['last_used_at' => now()]);
+                
                 Log::info('Anonymous user hyperlight access granted', [
                     'token' => $anonymousToken,
                     'creator_token' => $creatorToken
@@ -313,6 +334,7 @@ class DbHyperlightController extends Controller
             ], 500);
         }
     }
+
     private function cleanItemForStorage($item)
     {
         // Create a copy to avoid modifying the original
