@@ -1,6 +1,7 @@
 // userContainer.js
 import { ContainerManager } from "./container-manager.js";
 import { book } from "./app.js"
+import { setCurrentUser } from './auth.js';
 
 export class UserContainerManager extends ContainerManager {
   constructor(containerId, overlayId, buttonId, frozenContainerIds = []) {
@@ -231,7 +232,7 @@ export class UserContainerManager extends ContainerManager {
         this.user = data.user;
         
         await this.handleAnonymousBookTransfer();
-
+        setCurrentUser(data.user);
         this.showUserProfile();
       } else {
         this.showLoginError(data.errors || data.message || 'Login failed');
@@ -307,6 +308,7 @@ export class UserContainerManager extends ContainerManager {
       
       if (response.ok) {
         this.user = null;
+        clearCurrentUser();
         this.closeContainer();
       } else {
         console.error('Logout failed:', response.status);

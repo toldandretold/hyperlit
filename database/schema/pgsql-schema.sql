@@ -21,6 +21,39 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: anonymous_sessions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.anonymous_sessions (
+    id bigint NOT NULL,
+    token uuid NOT NULL,
+    created_at timestamp(0) without time zone NOT NULL,
+    last_used_at timestamp(0) without time zone NOT NULL,
+    ip_address inet,
+    user_agent text
+);
+
+
+--
+-- Name: anonymous_sessions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.anonymous_sessions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: anonymous_sessions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.anonymous_sessions_id_seq OWNED BY public.anonymous_sessions.id;
+
+
+--
 -- Name: cache; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -105,7 +138,9 @@ CREATE TABLE public.hypercites (
     "startChar" integer,
     raw_json jsonb NOT NULL,
     created_at timestamp(0) without time zone,
-    updated_at timestamp(0) without time zone
+    updated_at timestamp(0) without time zone,
+    creator character varying(255),
+    creator_token uuid
 );
 
 
@@ -146,7 +181,8 @@ CREATE TABLE public.hyperlights (
     created_at timestamp(0) without time zone,
     updated_at timestamp(0) without time zone,
     creator character varying(255),
-    creator_token uuid
+    creator_token uuid,
+    time_since bigint
 );
 
 
@@ -426,6 +462,13 @@ ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
 
 --
+-- Name: anonymous_sessions id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.anonymous_sessions ALTER COLUMN id SET DEFAULT nextval('public.anonymous_sessions_id_seq'::regclass);
+
+
+--
 -- Name: failed_jobs id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -479,6 +522,22 @@ ALTER TABLE ONLY public.personal_access_tokens ALTER COLUMN id SET DEFAULT nextv
 --
 
 ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
+
+
+--
+-- Name: anonymous_sessions anonymous_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.anonymous_sessions
+    ADD CONSTRAINT anonymous_sessions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: anonymous_sessions anonymous_sessions_token_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.anonymous_sessions
+    ADD CONSTRAINT anonymous_sessions_token_unique UNIQUE (token);
 
 
 --
@@ -642,6 +701,27 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: anonymous_sessions_last_used_at_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX anonymous_sessions_last_used_at_index ON public.anonymous_sessions USING btree (last_used_at);
+
+
+--
+-- Name: anonymous_sessions_token_created_at_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX anonymous_sessions_token_created_at_index ON public.anonymous_sessions USING btree (token, created_at);
+
+
+--
+-- Name: hypercites_creator_token_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX hypercites_creator_token_index ON public.hypercites USING btree (creator_token);
+
+
+--
 -- Name: jobs_queue_index; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -721,6 +801,9 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 16	2025_06_19_231127_create_personal_access_tokens_table	10
 17	2025_06_20_082428_add_creator_token_to_library_table	11
 18	2025_06_24_000000_add_hyperlights_creator_columns	12
+19	2025_06_25_070106_add_time_since_to_hyperlights_table	13
+20	2025_07_03_223443_create_anonymous_sessions_table	14
+21	2025_07_03_223759_add_creator_columns_to_hypercites_table	15
 \.
 
 
@@ -728,7 +811,7 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 -- Name: migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.migrations_id_seq', 18, true);
+SELECT pg_catalog.setval('public.migrations_id_seq', 21, true);
 
 
 --

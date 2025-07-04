@@ -18,15 +18,75 @@ use App\Models\PgHyperlight;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class DbLibraryController extends Controller
 {
+    /**
+     * Validate anonymous token against database
+     */
+    private function isValidAnonymousToken($token)
+    {
+        return DB::table('anonymous_sessions')
+            ->where('token', $token)
+            ->where('created_at', '>', now()->subDays(365))
+            ->exists();
+    }
+
+    /**
+     * Get creator info based on auth state
+     */
+    private function getCreatorInfo(Request $request)
+    {
+        $user = Auth::user();
+        
+        if ($user) {
+            // Authenticated user
+            return [
+                'creator' => $user->name,
+                'creator_token' => null,
+                'valid' => true
+            ];
+        } else {
+            // Anonymous user - validate server token
+            $anonToken = $request->cookie('anon_token');
+            
+            if (!$anonToken || !$this->isValidAnonymousToken($anonToken)) {
+                return [
+                    'creator' => null,
+                    'creator_token' => null,
+                    'valid' => false
+                ];
+            }
+            
+            // Update last used time for the anonymous session
+            DB::table('anonymous_sessions')
+                ->where('token', $anonToken)
+                ->update(['last_used_at' => now()]);
+            
+            return [
+                'creator' => null,
+                'creator_token' => $anonToken,
+                'valid' => true
+            ];
+        }
+    }
+
     public function bulkCreate(Request $request)
     {
         // Use database transaction to ensure atomicity
         return DB::transaction(function () use ($request) {
             try {
                 $data = $request->all();
+                
+                // Get creator info based on auth state
+                $creatorInfo = $this->getCreatorInfo($request);
+                if (!$creatorInfo['valid']) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Invalid session'
+                    ], 401);
+                }
                 
                 if (isset($data['data']) && is_object($data['data'])) {
                     $item = $data['data'];
@@ -36,8 +96,8 @@ class DbLibraryController extends Controller
                         'citationID' => $item['citationID'] ?? null,
                         'title' => $item['title'] ?? null,
                         'author' => $item['author'] ?? null,
-                        'creator' => $item['creator'] ?? null,
-                        'creator_token' => $item['creator_token'] ?? null,
+                        'creator' => $creatorInfo['creator'], // Use server-determined creator
+                        'creator_token' => $creatorInfo['creator_token'], // Use server-determined token
                         'type' => $item['type'] ?? null,
                         'timestamp' => $item['timestamp'] ?? null,
                         'bibtex' => $item['bibtex'] ?? null,
@@ -58,6 +118,13 @@ class DbLibraryController extends Controller
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];
+                    
+                    Log::info('Creating library record with auth info', [
+                        'book' => $record['book'],
+                        'creator' => $record['creator'],
+                        'creator_token' => $record['creator_token'] ? 'present' : 'null',
+                        'auth_user' => Auth::user() ? Auth::user()->name : 'anonymous'
+                    ]);
                     
                     // Step 1: Create the record and ensure it's committed
                     $createdRecord = PgLibrary::create($record);
@@ -100,22 +167,76 @@ class DbLibraryController extends Controller
             try {
                 $data = $request->all();
                 
+                // Get creator info based on auth state
+                $creatorInfo = $this->getCreatorInfo($request);
+                if (!$creatorInfo['valid']) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Invalid session'
+                    ], 401);
+                }
+                
                 if (isset($data['data']) && (is_object($data['data']) || is_array($data['data']))) {
                     $item = (array) $data['data'];
-                    Log::info('Received library data:', ['data' => $item]);
-                    Log::info('Creator value: ' . ($item['creator'] ?? 'NOT SET'));
+                    
+                    Log::info('Received library data with auth info:', [
+                        'book' => $item['book'] ?? 'not_set',
+                        'creator_from_server' => $creatorInfo['creator'],
+                        'creator_token_from_server' => $creatorInfo['creator_token'] ? 'present' : 'null',
+                        'auth_user' => Auth::user() ? Auth::user()->name : 'anonymous'
+                    ]);
+                    
+                    // For upsert, we need to handle existing records carefully
+                    $bookId = $item['book'] ?? null;
+                    $citationId = $item['citationID'] ?? null;
+                    
+                    if (!$bookId) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Book ID is required'
+                        ], 400);
+                    }
+                    
+                    // Check if record already exists and if user has permission to update it
+                    $existingRecord = PgLibrary::where('book', $bookId)
+                        ->where('citationID', $citationId)
+                        ->first();
+                    
+                    if ($existingRecord) {
+                        // Check if user can modify this existing record
+                        $user = Auth::user();
+                        $canModify = false;
+                        
+                        if ($user && $existingRecord->creator === $user->name) {
+                            // Authenticated user owns the record
+                            $canModify = true;
+                        } elseif (!$user && $existingRecord->creator_token === $creatorInfo['creator_token']) {
+                            // Anonymous user owns the record
+                            $canModify = true;
+                        } elseif (!$existingRecord->creator && !$existingRecord->creator_token) {
+                            // Orphaned record, can be claimed
+                            $canModify = true;
+                        }
+                        
+                        if (!$canModify) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Access denied: Cannot modify this library record'
+                            ], 403);
+                        }
+                    }
                     
                     // Step 1: Perform upsert and ensure it's committed
                     $record = PgLibrary::updateOrCreate(
                         [
-                            'book' => $item['book'] ?? null,
-                            'citationID' => $item['citationID'] ?? null,
+                            'book' => $bookId,
+                            'citationID' => $citationId,
                         ],
                         [
                             'title' => $item['title'] ?? null,
                             'author' => $item['author'] ?? null,
-                            'creator' => $item['creator'] ?? null,
-                            'creator_token' => $item['creator_token'] ?? null,
+                            'creator' => $creatorInfo['creator'], // Use server-determined creator
+                            'creator_token' => $creatorInfo['creator_token'], // Use server-determined token
                             'type' => $item['type'] ?? null,
                             'timestamp' => $item['timestamp'] ?? null,
                             'bibtex' => $item['bibtex'] ?? null,
@@ -225,9 +346,7 @@ class DbLibraryController extends Controller
         return $results;
     }
 
-    /**
-     * Internal version of updateRecentColumn that returns structured result
-     */
+    // ... rest of your internal methods stay the same ...
     private function updateRecentColumnInternal()
     {
         try {
@@ -250,9 +369,6 @@ class DbLibraryController extends Controller
         }
     }
 
-    /**
-     * Internal version of updateTotalCitesColumn that returns structured result
-     */
     private function updateTotalCitesColumnInternal()
     {
         try {
@@ -294,9 +410,6 @@ class DbLibraryController extends Controller
         }
     }
 
-    /**
-     * Internal version of updateTotalHighlightsColumn that returns structured result
-     */
     private function updateTotalHighlightsColumnInternal()
     {
         try {

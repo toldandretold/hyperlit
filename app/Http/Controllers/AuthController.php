@@ -8,9 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Http\JsonResponse;
-use App\Models\PgLibrary;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -58,25 +56,25 @@ class AuthController extends Controller
     }
 
     public function logout(Request $request)
-        {
-            try {
-                // For session-based auth, just invalidate the session
-                $request->session()->invalidate();
-                $request->session()->regenerateToken();
+    {
+        try {
+            // For session-based auth, just invalidate the session
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
 
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Logout successful'
-                ]);
-            } catch (\Exception $e) {
-                \Log::error('Logout error: ' . $e->getMessage());
-                
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Logout failed: ' . $e->getMessage()
-                ], 500);
-            }
+            return response()->json([
+                'success' => true,
+                'message' => 'Logout successful'
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Logout error: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Logout failed: ' . $e->getMessage()
+            ], 500);
         }
+    }
 
     public function user(Request $request)
     {
@@ -86,105 +84,81 @@ class AuthController extends Controller
         ]);
     }
 
-    // Add this method to your AuthController class
-    public function transferBookOwnership(Request $request, string $bookId): JsonResponse
+    // NEW: Anonymous session methods
+    public function createAnonymousSession(Request $request)
     {
-        try {
-            Log::info('Transfer ownership request started', [
-                'book_id' => $bookId,
-                'request_data' => $request->all()
-            ]);
-
-            $request->validate([
-                'anonymous_token' => 'required|string'
-            ]);
-
-            $anonymousToken = $request->input('anonymous_token');
-            $user = Auth::user();
-            
-            if (!$user) {
-                Log::warning('User not authenticated for transfer');
-                return response()->json([
-                    'success' => false,
-                    'message' => 'User not authenticated'
-                ], 401);
-            }
-
-            Log::info('Attempting to transfer book', [
-                'book_id' => $bookId,
-                'anonymous_token' => $anonymousToken,
-                'user_id' => $user->id,
-                'user_name' => $user->name
-            ]);
-
-            // Find the book using the PgLibrary model
-            $book = PgLibrary::where('book', $bookId)
-                ->where('creator_token', $anonymousToken)
-                ->whereNull('creator')  // Only transfer if no creator assigned
-                ->first();
-
-            Log::info('Book lookup result', [
-                'book_found' => $book ? 'yes' : 'no',
-                'book_data' => $book ? $book->toArray() : null
-            ]);
-
-            if (!$book) {
-                // Check if book exists at all
-                $existingBook = PgLibrary::where('book', $bookId)->first();
-                if (!$existingBook) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Book not found with ID: ' . $bookId
-                    ], 404);
-                } else {
-                    Log::warning('Book not eligible for transfer', [
-                        'book_creator_token' => $existingBook->creator_token,
-                        'requested_token' => $anonymousToken,
-                        'book_creator' => $existingBook->creator
-                    ]);
-
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Book not eligible for transfer'
-                    ], 400);
-                }
-            }
-
-            // Update the book ownership
-            $book->creator = $user->name;
-            $book->updated_at = now();
-            $saved = $book->save();
-
-            Log::info('Update result', [
-                'saved' => $saved,
-                'book_creator' => $book->creator
-            ]);
-
-            if ($saved) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Book ownership transferred successfully',
-                    'book_id' => $bookId,
-                    'new_owner' => $user->name
-                ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to save book ownership'
-                ], 500);
-            }
-
-        } catch (\Exception $e) {
-            Log::error('Error transferring book ownership', [
-                'book_id' => $bookId,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
+        // Check if user already has a valid anonymous session
+        $existingToken = $request->cookie('anon_token');
+        
+        if ($existingToken && $this->isValidAnonymousToken($existingToken)) {
+            // Update last used time
+            DB::table('anonymous_sessions')
+                ->where('token', $existingToken)
+                ->update(['last_used_at' => now()]);
+                
             return response()->json([
-                'success' => false,
-                'message' => 'An error occurred: ' . $e->getMessage()
-            ], 500);
+                'token' => $existingToken,
+                'type' => 'existing'
+            ]);
         }
+        
+        // Generate new anonymous session
+        $token = Str::uuid()->toString();
+        
+        // Store in database for validation
+        DB::table('anonymous_sessions')->insert([
+            'token' => $token,
+            'created_at' => now(),
+            'last_used_at' => now(),
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+        
+        return response()->json([
+            'token' => $token,
+            'type' => 'new'
+        ])->cookie('anon_token', $token, 60 * 24 * 365); // 1 year
+    }
+
+    public function checkAuth(Request $request)
+    {
+        if (Auth::check()) {
+            return response()->json([
+                'authenticated' => true,
+                'user' => Auth::user(),
+                'anonymous_token' => null
+            ]);
+        }
+        
+        // Check for valid anonymous session
+        $anonToken = $request->cookie('anon_token');
+        if ($anonToken && $this->isValidAnonymousToken($anonToken)) {
+            // Update last used
+            DB::table('anonymous_sessions')
+                ->where('token', $anonToken)
+                ->update(['last_used_at' => now()]);
+                
+            return response()->json([
+                'authenticated' => false,
+                'user' => null,
+                'anonymous_token' => $anonToken
+            ]);
+        }
+        
+        // Instead of returning 401, return that no session exists
+        // The frontend will then call /anonymous-session to create one
+        return response()->json([
+            'authenticated' => false,
+            'user' => null,
+            'anonymous_token' => null
+        ], 200); // Changed from 401 to 200
+    }
+
+    private function isValidAnonymousToken($token)
+    {
+        return DB::table('anonymous_sessions')
+            ->where('token', $token)
+            ->where('created_at', '>', now()->subDays(365)) // Token expires after 1 year
+            ->exists();
     }
 }

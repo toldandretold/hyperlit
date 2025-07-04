@@ -7,9 +7,18 @@ use App\Models\PgLibrary;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use App\Models\AnonymousSession;
 
 class DbNodeChunkController extends Controller
 {
+
+
+    private function isValidAnonymousToken($token)
+    {
+        return AnonymousSession::where('token', $token)
+            ->where('created_at', '>', now()->subDays(365))
+            ->exists();
+    }
     /**
      * Check if user has permission to modify the book
      */
@@ -39,14 +48,25 @@ class DbNodeChunkController extends Controller
             return true;
             
         } else {
-            // Anonymous user - check UUID matches
-            $anonymousToken = $request->input('anonymous_token');
+            // Anonymous user - check server-managed token from cookie
+            $anonymousToken = $request->cookie('anon_token');
             
             if (!$anonymousToken) {
-                Log::warning('Anonymous user missing token', ['book' => $bookId]);
+                Log::warning('Anonymous user missing cookie token', ['book' => $bookId]);
                 return false;
             }
             
+            // Validate the token exists in our database
+            if (!$this->isValidAnonymousToken($anonymousToken)) {
+                Log::warning('Anonymous user invalid token', [
+                    'token' => $anonymousToken,
+                    'book' => $bookId,
+                    'reason' => 'token_not_in_database'
+                ]);
+                return false;
+            }
+            
+            // Check if book belongs to this anonymous token
             $book = PgLibrary::where('book', $bookId)
                 ->where('creator_token', $anonymousToken)
                 ->whereNull('creator') // Make sure it's not owned by a logged-in user
@@ -60,6 +80,10 @@ class DbNodeChunkController extends Controller
                 ]);
                 return false;
             }
+            
+            // Update last used time for the anonymous session
+            AnonymousSession::where('token', $anonymousToken)
+              ->update(['last_used_at' => now()]);
             
             Log::info('Anonymous user access granted', [
                 'token' => $anonymousToken,
