@@ -2,7 +2,7 @@
 import { openDatabase, updateBookTimestamp, addNewBookToIndexedDB } from "./cache-indexedDB.js";
 import { buildBibtexEntry } from "./bibtexProcessor.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
-import { getCurrentUser, getAuthorId } from "./auth.js";
+import { getCurrentUser, getAnonymousToken } from "./auth.js"; // Changed import
 
 // your existing helper (you could move this to utils.js)
 function generateUUID() {
@@ -14,51 +14,42 @@ function generateUUID() {
   );
 }
 
-async function getCreatorId() {
-  const user = await getCurrentUser();
-  
-  if (user) {
-    // User is logged in, use their username or name
-    return user.name || user.username || user.email;
-  } else {
-    // User not logged in, use persistent UUID
-    const AUTHOR_KEY = "authorId";
-    let authorId = localStorage.getItem(AUTHOR_KEY);
-    if (!authorId) {
-      authorId = generateUUID();
-      localStorage.setItem(AUTHOR_KEY, authorId);
-    }
-    return authorId;
-  }
-}
+// REMOVED: getCreatorId() function - no longer needed
 
 export async function createNewBook() {
   try {
-    // 1) who are we?
-    const user   = await getCurrentUser();
-    // if logged in → creator=username, token=null
-    // if anon      → creator=null,    token=UUID
-    const creator       = user
+    // 1) Get auth info using new system
+    const user = await getCurrentUser();
+    const anonymousToken = await getAnonymousToken(); // This handles auth initialization
+    
+    // Determine creator info
+    const creator = user
       ? (user.name || user.username || user.email)
       : null;
-    const creator_token = user ? null : getAuthorId();
+    const creator_token = user ? null : anonymousToken;
 
     console.log("Creating new book with", {
       creator,
-      creator_token
+      creator_token: creator_token ? 'present' : 'null',
+      user_authenticated: !!user
     });
 
+    // Validate that we have some form of auth
+    if (!creator && !creator_token) {
+      throw new Error('No valid authentication - cannot create book');
+    }
+
     // 2) open IndexedDB
-    const db     = await openDatabase();
+    const db = await openDatabase();
     const bookId = "book_" + Date.now();
 
     const newLibraryRecord = {
-      book:           bookId,
-      citationID:     bookId,
-      title:          "Untitled",
-      author:         null,
-      type:           "book",
-      timestamp:      new Date().toISOString(),
+      book: bookId,
+      citationID: bookId,
+      title: "Untitled",
+      author: null,
+      type: "book",
+      timestamp: new Date().toISOString(),
       creator,
       creator_token
     };
@@ -82,7 +73,7 @@ export async function createNewBook() {
           );
           console.log("Initial nodes created");
 
-          // sync up to server (will include creator_token)
+          // sync up to server (backend will use cookie-based auth)
           await updateBookTimestamp(bookId);
           await syncIndexedDBtoPostgreSQL(bookId);
 

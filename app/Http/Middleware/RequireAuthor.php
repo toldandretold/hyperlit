@@ -4,7 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
+use App\Models\AnonymousSession;
 
 class RequireAuthor
 {
@@ -15,12 +15,30 @@ class RequireAuthor
             return $next($request);
         }
 
-        // Otherwise a valid UUID must be present
-        $token = $request->input('anonymous_token');
-        if ($token && Str::isUuid($token)) {
+        // Check for valid anonymous session
+        $anonymousToken = $request->cookie('anon_token');
+        
+        if ($anonymousToken && $this->isValidAnonymousToken($anonymousToken)) {
+            // Only update usage periodically to reduce DB load
+            $this->updateTokenUsageIfNeeded($anonymousToken);
             return $next($request);
         }
 
         return response()->json(['error' => 'Unauthenticated'], 401);
+    }
+
+    private function isValidAnonymousToken($token)
+    {
+        return AnonymousSession::where('token', $token)
+            ->where('created_at', '>', now()->subDays(365))
+            ->exists();
+    }
+
+    private function updateTokenUsageIfNeeded($token)
+    {
+        // Only update if last_used_at is more than 1 hour old
+        AnonymousSession::where('token', $token)
+            ->where('last_used_at', '<', now()->subHour())
+            ->update(['last_used_at' => now()]);
     }
 }
