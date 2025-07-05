@@ -212,7 +212,7 @@ export class UserContainerManager extends ContainerManager {
       console.log('CSRF token from cookie:', csrfToken);
       
       console.log('Making login request...');
-      const response = await fetch('/login', {
+      const response = await fetch('/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -257,7 +257,7 @@ export class UserContainerManager extends ContainerManager {
       
       const csrfToken = this.getCsrfTokenFromCookie();
       
-      const response = await fetch('/register', {
+      const response = await fetch('/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
