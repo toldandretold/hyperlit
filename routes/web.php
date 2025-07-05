@@ -4,24 +4,15 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\HighlightController;
-use App\Http\Controllers\HighlightMdController;
-use App\Http\Controllers\HyperciteController;
 use App\Http\Controllers\TextController;
 use App\Http\Controllers\CiteCreator;
-use App\Http\Controllers\MarkdownITController; // Added back
-use App\Http\Controllers\ConversionController;  // In case you need it
-use App\Http\Controllers\MainTextEditableDivController;
-use App\Http\Controllers\MainTextEditableMarkdownController;
-use App\Http\Controllers\DataController;
-use ParsedownExtra\ParsedownExtra;
-use App\Events\TestEvent;
+use Illuminate\Http\Request;
+use App\Models\User;
 
 use App\Events\ProcessComplete;
 use App\Http\Controllers\FootnotesController;
 
-use Illuminate\Http\Request;
-use App\Models\User;
+
 
 require __DIR__.'/auth.php';
 
