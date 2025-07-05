@@ -31,7 +31,7 @@ export class UserContainerManager extends ContainerManager {
 
   async checkAuthStatus() {
     try {
-      const response = await fetch('/auth-check', {
+      const response = await fetch('/api/auth-check', {
         credentials: 'include',
         headers: {
           'Accept': 'application/json',
