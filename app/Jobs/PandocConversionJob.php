@@ -36,7 +36,6 @@ class PandocConversionJob implements ShouldQueue
             Log::error('Pandoc conversion failed:', ['error' => $process->getErrorOutput()]);
             return;
         }
-        Log::info('Pandoc conversion successful.');
 
         // Step 2: Cleanup
         if (file_exists($this->outputPath)) {
@@ -57,7 +56,7 @@ class PandocConversionJob implements ShouldQueue
             return;
         }
 
-        Log::info('Footnote extraction successful:', ['output' => $process->getOutput()]);
+        Log::info('Pandoc conversion completed successfully');
     }
 
 
@@ -66,8 +65,6 @@ class PandocConversionJob implements ShouldQueue
      */
     protected function cleanMarkdownFile($outputPath)
     {
-        Log::info("Attempting markdown file cleanup at path: {$outputPath}");
-
         if (!file_exists($outputPath)) {
             Log::error("Markdown file does not exist: {$outputPath}");
             return;
@@ -84,23 +81,16 @@ class PandocConversionJob implements ShouldQueue
             return;
         }
 
-        Log::info("Successfully read the markdown file. Starting combined cleanup...");
-
         // Step 1: Perform both line break and attribute cleanup
         $cleanedContent = $this->performCombinedCleanup($content);
 
         // Check if content was modified
         if ($cleanedContent !== $content) {
-            Log::info("Content has been modified, writing cleaned content back to file.");
             $writeSuccess = file_put_contents($outputPath, $cleanedContent);
 
             if ($writeSuccess === false) {
                 Log::error("Failed to write cleaned content back to the file: {$outputPath}");
-            } else {
-                Log::info("Markdown file cleaned successfully: {$outputPath}");
             }
-        } else {
-            Log::info("No changes made to the content, skipping file write.");
         }
     }
 
@@ -109,8 +99,6 @@ class PandocConversionJob implements ShouldQueue
      */
     protected function performCombinedCleanup($content)
     {
-        Log::info("Starting combined cleanup process...");
-
         // Step 1: Remove unnecessary line breaks
         $lines = explode("\n", $content);
         $cleanedLines = [];
@@ -174,16 +162,13 @@ class PandocConversionJob implements ShouldQueue
         $cleanedContent = implode("\n", $cleanedLines);
 
         // Step 2: Remove unwanted attributes (like {dir="rtl"})
-        Log::info("Removing unwanted Pandoc artifacts...");
         $cleanedContent = preg_replace('/\{dir="rtl"\}/', '', $cleanedContent);
 
         // Step 3: Remove square brackets around quotes
-        Log::info("Removing square brackets around quotes...");
-        $cleanedContent = preg_replace('/\[\’\]/', '’', $cleanedContent); // For single quotes
-        $cleanedContent = preg_replace('/\[\“\]/', '“', $cleanedContent); // For double quotes
+        $cleanedContent = preg_replace('/\[\'\]/', ''', $cleanedContent); // For single quotes
+        $cleanedContent = preg_replace('/\[\"\]/', '"', $cleanedContent); // For double quotes
 
         // Step 4: Indent footnotes
-        Log::info("Indenting footnotes...");
         $pattern = '/(\[\^[0-9]+\]:\s*)(.*?)(?=\n\[\^|\z)/s';  // Match footnotes until the next footnote or end of content
         $cleanedContent = preg_replace_callback($pattern, function ($matches) {
             // Split the footnote content into paragraphs
@@ -200,7 +185,6 @@ class PandocConversionJob implements ShouldQueue
         }, $cleanedContent);
 
         // Step 5: Convert the first stand-alone line to H1 if it's a stand-alone line
-        Log::info("Checking for stand-alone first sentence to convert to H1...");
         $lines = explode("\n", $cleanedContent);
     
         // Check the first non-empty line and convert it to H1
@@ -213,7 +197,6 @@ class PandocConversionJob implements ShouldQueue
         }
 
         // Step 6: Convert stand-alone lines to H2 (title case, acronym, or bold) unless indented
-        Log::info("Checking for stand-alone lines to convert to H2...");
         foreach ($lines as $index => $line) {
             $trimmedLine = trim($line);
 
@@ -240,7 +223,6 @@ class PandocConversionJob implements ShouldQueue
         // Update the cleaned content after modifications
         $cleanedContent = implode("\n", $lines);
 
-        Log::info("Combined cleanup completed.");
         return $cleanedContent;
     }
 }

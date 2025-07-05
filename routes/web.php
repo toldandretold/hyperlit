@@ -40,10 +40,16 @@ Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML']
 
 // Cite Creator routes
 Route::get('/cite-creator', [CiteCreator::class, 'create'])->name('createCite');
-Route::post('/cite-creator', [CiteCreator::class, 'store'])->name('processCite');
-Route::post('/create-main-text-md', [CiteCreator::class, 'createNewMarkdown']);
 
 
+
+Route::middleware(['author', 'throttle:30,1'])->group(function () {
+
+    Route::post('/cite-creator', [CiteCreator::class, 'store'])->name('processCite');
+
+    Route::post('/create-main-text-md', [CiteCreator::class, 'createNewMarkdown']);
+
+ });
 
 
 // jason book route
