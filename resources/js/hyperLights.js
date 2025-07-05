@@ -15,7 +15,7 @@ import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 import { getCurrentUser, getAuthorId, getCurrentUserId } from "./auth.js";
 import { getUserHighlightCache } from './userCache.js';
 
-let highlightId;  
+let highlightId; 
 let highlightLazyLoader;
 
 // Create a container manager for highlights using the same overlay if needed

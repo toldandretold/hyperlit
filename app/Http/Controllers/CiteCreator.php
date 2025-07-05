@@ -1,4 +1,4 @@
-<?php
+<?php 
 
 namespace App\Http\Controllers;
 
@@ -14,7 +14,7 @@ class CiteCreator extends Controller
 {
     public function create()
     {
-        return view('CiteCreator'); // Ensure this view exists: resources/views/CiteCreator.blade.php
+        return view('CiteCreator');
     }
 
     public function createMainTextMarkdown(Request $request)
@@ -26,6 +26,13 @@ class CiteCreator extends Controller
             return response()->json([
                 'error' => 'citation_id and title are required.'
             ], 400);
+        }
+
+        // Sanitize citation_id
+        $citation_id = preg_replace('/[^a-zA-Z0-9_-]/', '', $citation_id);
+        
+        if (empty($citation_id)) {
+            return response()->json(['error' => 'Invalid citation ID format.'], 400);
         }
 
         $path = resource_path("markdown/{$citation_id}");
@@ -41,6 +48,11 @@ class CiteCreator extends Controller
         // Write to main-text.md
         File::put("{$path}/main-text.md", $markdownContent);
 
+        Log::info('Basic markdown file created', [
+            'citation_id' => $citation_id,
+            'method' => 'createMainTextMarkdown'
+        ]);
+
         return response()->json([
             'success' => true,
             'message' => "main-text.md created for citation_id {$citation_id}",
@@ -48,161 +60,477 @@ class CiteCreator extends Controller
         ]);
     }
 
-
-
-
     public function store(Request $request)
     {
-        Log::info('Form submission received', [
-            'hasFile' => $request->hasFile('markdown_file'),
-            'allInput' => $request->all()
+        // Simplified initial logging
+        Log::info('File upload started', [
+            'citation_id' => $request->input('citation_id'),
+            'has_file' => $request->hasFile('markdown_file'),
+            'file_size' => $request->hasFile('markdown_file') ? $request->file('markdown_file')->getSize() : null,
+            'file_extension' => $request->hasFile('markdown_file') ? $request->file('markdown_file')->getClientOriginalExtension() : null
         ]);
 
-        // Define the folder path based on citation_id
+        // Validate the request
+        $request->validate([
+            'citation_id' => 'required|string|regex:/^[a-zA-Z0-9_-]+$/',
+            'title' => 'required|string|max:255',
+            'author' => 'nullable|string|max:255',
+            'year' => 'nullable|integer|min:1000|max:' . (date('Y') + 10),
+            'markdown_file' => 'nullable|file|max:50000|mimes:md,doc,docx,epub'
+        ]);
+
         $citation_id = $request->input('citation_id');
+
+        // Sanitize citation_id to prevent path traversal
+        $citation_id = preg_replace('/[^a-zA-Z0-9_-]/', '', $citation_id);
+        
+        if (empty($citation_id)) {
+            return redirect()->back()->with('error', 'Invalid citation ID format.');
+        }
+
         $path = resource_path("markdown/{$citation_id}");
 
-        // Always create the directory if it doesn't exist
+        // Ensure the path is within the expected directory
+        $realPath = realpath(dirname($path));
+        $expectedPath = realpath(resource_path('markdown'));
+        
+        if (!$realPath || !str_starts_with($realPath, $expectedPath)) {
+            return redirect()->back()->with('error', 'Invalid path detected.');
+        }
+
+        // Create the directory if it doesn't exist
         if (!File::exists($path)) {
             File::makeDirectory($path, 0755, true);
         }
 
-        Log::info("Checking if a file was uploaded.");
-        
         // Check if a file was uploaded
         if ($request->hasFile('markdown_file')) {
             $file = $request->file('markdown_file');
-            $extension = $file->getClientOriginalExtension();
+            
+            // Enhanced file validation
+            if (!$this->validateUploadedFile($file)) {
+                Log::warning('File validation failed', [
+                    'citation_id' => $citation_id,
+                    'file_size' => $file->getSize(),
+                    'mime_type' => $file->getMimeType()
+                ]);
+                return redirect()->back()->with('error', 'Invalid file format or content.');
+            }
 
-            Log::info("File extension detected: {$extension}");
-
-            // Move the uploaded file to the target folder as "original.[file_extension]"
+            $extension = strtolower($file->getClientOriginalExtension());
             $originalFilename = "original.{$extension}";
             $originalFilePath = "{$path}/{$originalFilename}";
+            
+            // Move file securely
             $file->move($path, $originalFilename);
+            
+            // Set proper file permissions
+            chmod($originalFilePath, 0644);
 
+            Log::info('File processing started', [
+                'citation_id' => $citation_id,
+                'extension' => $extension,
+                'file_size' => filesize($originalFilePath)
+            ]);
+
+            // Process the file based on its extension
             if ($extension === 'md') {
-                // For markdown, rename the file to main-text.md
+                $this->sanitizeMarkdownFile($originalFilePath);
                 File::move($originalFilePath, "{$path}/main-text.md");
-            } elseif (in_array($extension, ['epub', 'doc', 'docx'])) {
-                if ($extension === 'epub') {
-                    // Handle EPUB file by unzipping
-                    $epubPath = "{$path}/epub_original";
-                    
-                    if (!File::exists($epubPath)) {
-                        File::makeDirectory($epubPath, 0755, true);
-                    }
+                Log::info('Markdown file processed', ['citation_id' => $citation_id]);
+            } elseif ($extension === 'epub') {
+                $this->processEpubFile($originalFilePath, $path);
+            } elseif (in_array($extension, ['doc', 'docx'])) {
+                $filename = 'main-text.md';
+                $markdownPath = "{$path}/{$filename}";
 
-                    // Unzip and run Python scripts
-                    $zip = new \ZipArchive();
-                    if ($zip->open($originalFilePath) === TRUE) {
-                        $zip->extractTo($epubPath);
-                        $zip->close();
-                        Log::info("EPUB file unzipped successfully");
-
-                        // Run the Python scripts after EPUB decompression
-                        $this->runPythonScripts($path);
-                    } else {
-                        Log::error("Failed to unzip the EPUB file");
-                        return redirect()->back()->with('error', 'Failed to unzip the EPUB file.');
-                    }
-                } else {
-                    // Handle DOC or DOCX using Pandoc Job
-                    $filename = 'main-text.md';
-                    $markdownPath = "{$path}/{$filename}";
-
-                    Log::info("Dispatching Pandoc job with input: {$originalFilePath} and output: {$markdownPath}");
-                    
-                    // Dispatch the job to run Pandoc in the background
-                    PandocConversionJob::dispatch($originalFilePath, $markdownPath);
-                }
+                Log::info('Pandoc job dispatched', [
+                    'citation_id' => $citation_id,
+                    'input_file' => basename($originalFilePath),
+                    'output_file' => $filename
+                ]);
+                
+                PandocConversionJob::dispatch($originalFilePath, $markdownPath);
             }
         } else {
-            Log::info("No file uploaded - creating basic markdown file");
-            
-            // Create a basic markdown file with citation info
-            $title = $request->input('title') ?? 'Untitled';
-            $markdownContent = "# {$title}\n\n";
-            $markdownContent .= "**Author:** " . ($request->input('author') ?? 'Unknown') . "\n";
-            $markdownContent .= "**Year:** " . ($request->input('year') ?? 'Unknown') . "\n";
-            
-            File::put("{$path}/main-text.md", $markdownContent);
+            Log::debug('Creating basic markdown file', ['citation_id' => $citation_id]);
+            $this->createBasicMarkdown($request, $path);
         }
 
         // Wait for main-text.md to be created (for async jobs)
         $mainTextPath = "{$path}/main-text.md";
         $attempts = 0;
         while (!File::exists($mainTextPath) && $attempts < 5) {
-            Log::info("Waiting for main-text.md to be created (attempt {$attempts})...");
+            Log::debug('Waiting for file creation', [
+                'citation_id' => $citation_id,
+                'attempt' => $attempts + 1
+            ]);
             sleep(1);
             $attempts++;
         }
 
         // Redirect to the citation page
         if (File::exists($mainTextPath)) {
-            Log::info("main-text.md created successfully, redirecting to /{$citation_id}");
+            Log::info('File processing completed successfully', [
+                'citation_id' => $citation_id,
+                'processing_time' => $attempts . ' seconds'
+            ]);
             return redirect("/{$citation_id}")->with('success', 'File processed successfully!');
         }
 
-        Log::error("Failed to create main-text.md after 5 attempts.");
+        Log::error('File processing failed', [
+            'citation_id' => $citation_id,
+            'attempts' => $attempts,
+            'expected_path' => $mainTextPath
+        ]);
         return redirect()->back()->with('error', 'Failed to process file. Please try again.');
     }
 
-    // Keep the Python script runner
-    private function runPythonScripts(string $path)
+    private function runPythonScripts(string $path): void
     {
+        // Validate the path is within expected bounds
+        $realPath = realpath($path);
+        $expectedBasePath = realpath(resource_path('markdown'));
+        
+        if (!$realPath || !str_starts_with($realPath, $expectedBasePath)) {
+            throw new \InvalidArgumentException('Invalid path for Python script execution');
+        }
+
+        $epubPath = "{$path}/epub_original";
+        
+        // Ensure the epub_original directory exists and is within bounds
+        if (!is_dir($epubPath) || !str_starts_with(realpath($epubPath), $expectedBasePath)) {
+            throw new \InvalidArgumentException('Invalid EPUB path');
+        }
+
         try {
-            // Run clean.py script
-            $cleanProcess = new Process(['python3', base_path('app/python/clean.py'), "{$path}/epub_original"]);
+            $cleanScriptPath = base_path('app/python/clean.py');
+            $combineScriptPath = base_path('app/python/combine.py');
+            
+            // Verify script files exist
+            if (!file_exists($cleanScriptPath) || !file_exists($combineScriptPath)) {
+                throw new \RuntimeException('Python scripts not found');
+            }
+
+            Log::info('Python scripts execution started', [
+                'epub_path' => basename($epubPath)
+            ]);
+
+            // Run clean.py with timeout and proper error handling
+            $cleanProcess = new Process([
+                'python3', 
+                $cleanScriptPath, 
+                $epubPath
+            ]);
+            $cleanProcess->setTimeout(300);
             $cleanProcess->run();
 
             if (!$cleanProcess->isSuccessful()) {
-                Log::error('Clean.py error output: ' . $cleanProcess->getErrorOutput());
+                Log::error('Clean.py script failed', [
+                    'exit_code' => $cleanProcess->getExitCode(),
+                    'error_output' => $cleanProcess->getErrorOutput()
+                ]);
                 throw new ProcessFailedException($cleanProcess);
             }
-            Log::info("clean.py executed successfully.");
 
-            // Run combine.py script
-            $combineProcess = new Process(['python3', base_path('app/python/combine.py'), "{$path}/epub_original"]);
+            // Run combine.py
+            $combineProcess = new Process([
+                'python3', 
+                $combineScriptPath, 
+                $epubPath
+            ]);
+            $combineProcess->setTimeout(300);
             $combineProcess->run();
 
             if (!$combineProcess->isSuccessful()) {
-                Log::error('Combine.py error output: ' . $combineProcess->getErrorOutput());
+                Log::error('Combine.py script failed', [
+                    'exit_code' => $combineProcess->getExitCode(),
+                    'error_output' => $combineProcess->getErrorOutput()
+                ]);
                 throw new ProcessFailedException($combineProcess);
             }
-            Log::info("combine.py executed successfully.");
+
+            Log::info('Python scripts completed successfully');
 
         } catch (ProcessFailedException $e) {
-            Log::error("Python script execution failed: " . $e->getMessage());
+            Log::error('Python script execution failed', [
+                'error' => $e->getMessage(),
+                'path' => basename($path)
+            ]);
             throw $e;
         }
     }
 
- public function createNewMarkdown(Request $request)
+    public function createNewMarkdown(Request $request)
     {
         $citation_id = $request->input('citation_id');
-        $title       = $request->input('title');
+        $title = $request->input('title');
 
-        if (! $citation_id || ! $title) {
+        if (!$citation_id || !$title) {
             return response()->json([
                 'error' => 'citation_id and title are required.'
             ], 400);
         }
 
+        // Sanitize citation_id
+        $citation_id = preg_replace('/[^a-zA-Z0-9_-]/', '', $citation_id);
+        
+        if (empty($citation_id)) {
+            return response()->json(['error' => 'Invalid citation ID format.'], 400);
+        }
+
         $path = resource_path("markdown/{$citation_id}");
 
-        if (! File::exists($path)) {
+        if (!File::exists($path)) {
             File::makeDirectory($path, 0755, true);
         }
 
-        // Write the markdown file
         File::put("{$path}/main-text.md", "# {$title}\n");
+
+        Log::info('New markdown file created', [
+            'citation_id' => $citation_id,
+            'method' => 'createNewMarkdown'
+        ]);
 
         return response()->json([
             'success' => true,
             'message' => "main-text.md created for {$citation_id}",
-            'path'    => "{$path}/main-text.md"
+            'path' => "{$path}/main-text.md"
         ]);
     }
 
+    private function validateUploadedFile($file): bool
+    {
+        // Check file size (50MB max)
+        if ($file->getSize() > 50 * 1024 * 1024) {
+            Log::debug('File validation failed: size too large', [
+                'size' => $file->getSize(),
+                'max_size' => 50 * 1024 * 1024
+            ]);
+            return false;
+        }
+
+        // Validate MIME type
+        $allowedMimes = [
+            'text/markdown',
+            'text/plain',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/epub+zip'
+        ];
+
+        if (!in_array($file->getMimeType(), $allowedMimes)) {
+            Log::debug('File validation failed: invalid MIME type', [
+                'mime_type' => $file->getMimeType(),
+                'allowed_mimes' => $allowedMimes
+            ]);
+            return false;
+        }
+
+        // Additional content validation for specific file types
+        $extension = strtolower($file->getClientOriginalExtension());
+        
+        switch ($extension) {
+            case 'epub':
+                return $this->validateEpubFile($file);
+            case 'docx':
+            case 'doc':
+                return $this->validateDocFile($file);
+            case 'md':
+                return $this->validateMarkdownFile($file);
+        }
+
+        return true;
+    }
+
+    private function validateEpubFile($file): bool
+    {
+        $zip = new \ZipArchive();
+        $result = $zip->open($file->getPathname());
+        
+        if ($result !== TRUE) {
+            Log::debug('EPUB validation failed: cannot open as ZIP', [
+                'zip_error_code' => $result
+            ]);
+            return false;
+        }
+
+        $hasContainer = $zip->locateName('META-INF/container.xml') !== false;
+        $hasMimetype = $zip->locateName('mimetype') !== false;
+        
+        $zip->close();
+        
+        if (!$hasContainer || !$hasMimetype) {
+            Log::debug('EPUB validation failed: missing required files', [
+                'has_container' => $hasContainer,
+                'has_mimetype' => $hasMimetype
+            ]);
+        }
+        
+        return $hasContainer && $hasMimetype;
+    }
+
+    private function validateDocFile($file): bool
+    {
+        if (strtolower($file->getClientOriginalExtension()) === 'docx') {
+            $zip = new \ZipArchive();
+            $result = $zip->open($file->getPathname());
+            
+            if ($result !== TRUE) {
+                Log::debug('DOCX validation failed: cannot open as ZIP');
+                return false;
+            }
+            
+            $hasWordDoc = $zip->locateName('word/document.xml') !== false;
+            $zip->close();
+            
+            if (!$hasWordDoc) {
+                Log::debug('DOCX validation failed: missing word/document.xml');
+            }
+            
+            return $hasWordDoc;
+        }
+        
+        return true; // For .doc files, basic MIME check is sufficient
+    }
+
+    private function validateMarkdownFile($file): bool
+    {
+        $handle = fopen($file->getPathname(), 'r');
+        $content = fread($handle, 1024);
+        fclose($handle);
+        
+        $suspiciousPatterns = [
+            '/<script/i',
+            '/javascript:/i',
+            '/vbscript:/i',
+            '/onload=/i',
+            '/onerror=/i'
+        ];
+        
+        foreach ($suspiciousPatterns as $pattern) {
+            if (preg_match($pattern, $content)) {
+                Log::warning('Markdown validation failed: suspicious content detected', [
+                    'pattern_matched' => $pattern
+                ]);
+                return false;
+            }
+        }
+        
+        return true;
+    }
+
+    private function sanitizeMarkdownFile(string $filePath): void
+    {
+        $content = File::get($filePath);
+        
+        // Remove potentially dangerous HTML tags and attributes
+        $content = strip_tags($content, '<h1><h2><h3><h4><h5><h6><p><br><strong><em><ul><ol><li><a><img><blockquote><code><pre>');
+        
+        // Remove javascript: and data: URLs
+        $content = preg_replace('/(?:javascript|data|vbscript):[^"\'\s>]*/i', '', $content);
+        
+        File::put($filePath, $content);
+        
+        Log::debug('Markdown file sanitized', [
+            'file_path' => basename($filePath)
+        ]);
+    }
+
+    private function processEpubFile(string $originalFilePath, string $path): void
+    {
+        $epubPath = "{$path}/epub_original";
+        
+        if (!File::exists($epubPath)) {
+            File::makeDirectory($epubPath, 0755, true);
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($originalFilePath) === TRUE) {
+            $skippedFiles = 0;
+            
+            // Extract with size limits to prevent zip bombs
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $stat = $zip->statIndex($i);
+                
+                // Skip files that are too large (prevent zip bombs)
+                if ($stat['size'] > 10 * 1024 * 1024) { // 10MB per file
+                    Log::warning('Skipping large file in EPUB', [
+                        'filename' => $stat['name'],
+                        'size' => $stat['size']
+                    ]);
+                    $skippedFiles++;
+                    continue;
+                }
+                
+                // Skip files with suspicious paths
+                if (strpos($stat['name'], '..') !== false || strpos($stat['name'], '/') === 0) {
+                    Log::warning('Skipping suspicious file path in EPUB', [
+                        'filename' => $stat['name']
+                    ]);
+                    $skippedFiles++;
+                    continue;
+                }
+            }
+            
+            $zip->extractTo($epubPath);
+            $zip->close();
+            
+            $this->setSecurePermissions($epubPath);
+            
+            Log::info('EPUB extraction completed', [
+                'total_files' => $zip->numFiles,
+                'skipped_files' => $skippedFiles,
+                'extracted_to' => basename($epubPath)
+            ]);
+            
+            $this->runPythonScripts($path);
+        } else {
+            Log::error('Failed to open EPUB file', [
+                'file_path' => basename($originalFilePath)
+            ]);
+            throw new \RuntimeException("Failed to extract EPUB file");
+        }
+    }
+
+    private function setSecurePermissions(string $directory): void
+    {
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($directory)
+        );
+        
+        $fileCount = 0;
+        $dirCount = 0;
+        
+        foreach ($iterator as $file) {
+            if ($file->isFile()) {
+                chmod($file->getPathname(), 0644);
+                $fileCount++;
+            } elseif ($file->isDir()) {
+                chmod($file->getPathname(), 0755);
+                $dirCount++;
+            }
+        }
+        
+        Log::debug('File permissions set', [
+            'directory' => basename($directory),
+            'files_processed' => $fileCount,
+            'directories_processed' => $dirCount
+        ]);
+    }
+
+    private function createBasicMarkdown(Request $request, string $path): void
+    {
+        $title = $request->input('title') ?? 'Untitled';
+        $markdownContent = "# {$title}\n\n";
+        $markdownContent .= "**Author:** " . ($request->input('author') ?? 'Unknown') . "\n";
+        $markdownContent .= "**Year:** " . ($request->input('year') ?? 'Unknown') . "\n";
+        
+        File::put("{$path}/main-text.md", $markdownContent);
+        
+        Log::debug('Basic markdown file created', [
+            'title' => $title,
+            'path' => basename($path)
+        ]);
+    }
 }

@@ -7,20 +7,12 @@ use App\Models\PgLibrary;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
-use App\Models\AnonymousSession;
 
 class DbNodeChunkController extends Controller
 {
-
-
-    private function isValidAnonymousToken($token)
-    {
-        return AnonymousSession::where('token', $token)
-            ->where('created_at', '>', now()->subDays(365))
-            ->exists();
-    }
     /**
      * Check if user has permission to modify the book
+     * (Authorization only - Authentication is handled by middleware)
      */
     private function checkBookPermission(Request $request, $bookId)
     {
@@ -33,60 +25,40 @@ class DbNodeChunkController extends Controller
                 ->first();
                 
             if (!$book) {
-                Log::warning('Logged-in user access denied', [
-                    'user' => $user->name,
+                Log::warning('Book access denied for logged-in user', [
                     'book' => $bookId,
+                    'user' => $user->name,
                     'reason' => 'book_not_owned'
                 ]);
                 return false;
             }
             
-            Log::info('Logged-in user access granted', [
-                'user' => $user->name,
-                'book' => $bookId
+            Log::debug('Book access granted for logged-in user', [
+                'book' => $bookId,
+                'user' => $user->name
             ]);
             return true;
             
         } else {
-            // Anonymous user - check server-managed token from cookie
+            // Anonymous user - middleware already validated the token
+            // Just check if book belongs to this anonymous token
             $anonymousToken = $request->cookie('anon_token');
             
-            if (!$anonymousToken) {
-                Log::warning('Anonymous user missing cookie token', ['book' => $bookId]);
-                return false;
-            }
-            
-            // Validate the token exists in our database
-            if (!$this->isValidAnonymousToken($anonymousToken)) {
-                Log::warning('Anonymous user invalid token', [
-                    'token' => $anonymousToken,
-                    'book' => $bookId,
-                    'reason' => 'token_not_in_database'
-                ]);
-                return false;
-            }
-            
-            // Check if book belongs to this anonymous token
+            // Token existence already validated by middleware, so we can trust it
             $book = PgLibrary::where('book', $bookId)
                 ->where('creator_token', $anonymousToken)
                 ->whereNull('creator') // Make sure it's not owned by a logged-in user
                 ->first();
                 
             if (!$book) {
-                Log::warning('Anonymous user access denied', [
-                    'token' => $anonymousToken,
+                Log::warning('Book access denied for anonymous user', [
                     'book' => $bookId,
-                    'reason' => 'token_mismatch_or_book_owned'
+                    'reason' => 'book_not_owned_by_token'
                 ]);
                 return false;
             }
             
-            // Update last used time for the anonymous session
-            AnonymousSession::where('token', $anonymousToken)
-              ->update(['last_used_at' => now()]);
-            
-            Log::info('Anonymous user access granted', [
-                'token' => $anonymousToken,
+            Log::debug('Book access granted for anonymous user', [
                 'book' => $bookId
             ]);
             return true;
@@ -106,12 +78,6 @@ class DbNodeChunkController extends Controller
             return !str_starts_with($key, '_');
         });
         
-        Log::debug('Checking if public fields only', [
-            'item_keys' => $itemKeys,
-            'public_fields' => $publicFields,
-            'non_public_fields_with_values' => []
-        ]);
-        
         $nonPublicFieldsWithValues = [];
         
         // Check if all fields are either public fields or null/empty
@@ -123,9 +89,9 @@ class DbNodeChunkController extends Controller
         
         $isPublicOnly = empty($nonPublicFieldsWithValues);
         
-        Log::debug('Public fields check result', [
+        Log::debug('Public fields check', [
             'is_public_only' => $isPublicOnly,
-            'non_public_fields_with_values' => $nonPublicFieldsWithValues
+            'non_public_fields' => array_keys($nonPublicFieldsWithValues)
         ]);
         
         return $isPublicOnly;
@@ -136,14 +102,11 @@ class DbNodeChunkController extends Controller
         try {
             $data = $request->all();
             
-            // Log incoming request data
-            Log::info('DbNodeChunkController::bulkCreate - Received data', [
-                'request_data' => $data,
+            Log::info('Bulk create started', [
                 'data_count' => isset($data['data']) ? count($data['data']) : 0,
                 'request_size' => strlen(json_encode($data))
             ]);
             
-            // Get book ID and check permissions
             $bookId = $data['book'] ?? null;
             if (!$bookId) {
                 return response()->json([
@@ -152,7 +115,7 @@ class DbNodeChunkController extends Controller
                 ], 400);
             }
             
-            // Check permissions
+            // Check book ownership permissions
             if (!$this->checkBookPermission($request, $bookId)) {
                 return response()->json([
                     'success' => false,
@@ -163,10 +126,8 @@ class DbNodeChunkController extends Controller
             if (isset($data['data']) && is_array($data['data'])) {
                 $records = [];
                 
-                foreach ($data['data'] as $index => $item) {
-                    Log::debug("Processing item {$index}", ['item' => $item]);
-                    
-                    $record = [
+                foreach ($data['data'] as $item) {
+                    $records[] = [
                         'book' => $item['book'] ?? null,
                         'chunk_id' => $item['chunk_id'] ?? 0,
                         'startLine' => $item['startLine'] ?? null,
@@ -180,22 +141,17 @@ class DbNodeChunkController extends Controller
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];
-                    
-                    $records[] = $record;
                 }
                 
                 PgNodeChunk::insert($records);
                 
-                Log::info('DbNodeChunkController::bulkCreate - Success', [
+                Log::info('Bulk create completed', [
+                    'book' => $bookId,
                     'records_inserted' => count($records)
                 ]);
                 
                 return response()->json(['success' => true]);
             }
-            
-            Log::warning('DbNodeChunkController::bulkCreate - Invalid data format', [
-                'received_data' => $data
-            ]);
             
             return response()->json([
                 'success' => false,
@@ -203,10 +159,9 @@ class DbNodeChunkController extends Controller
             ], 400);
             
         } catch (\Exception $e) {
-            Log::error('DbNodeChunkController::bulkCreate - Exception', [
+            Log::error('Bulk create failed', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'request_data' => $request->all()
+                'book' => $data['book'] ?? 'unknown'
             ]);
             
             return response()->json([
@@ -222,15 +177,12 @@ class DbNodeChunkController extends Controller
         try {
             $data = $request->all();
             
-            // Log incoming request data
-            Log::info('DbNodeChunkController::upsert - Received data', [
-                'request_data' => $data,
+            Log::info('Upsert started', [
                 'book' => $data['book'] ?? 'not_specified',
                 'data_count' => isset($data['data']) ? count($data['data']) : 0,
                 'request_size' => strlen(json_encode($data))
             ]);
             
-            // Get book ID and check permissions
             $book = $data['book'] ?? null;
             if (!$book) {
                 return response()->json([
@@ -239,7 +191,7 @@ class DbNodeChunkController extends Controller
                 ], 400);
             }
             
-            // Check permissions
+            // Check book ownership permissions
             if (!$this->checkBookPermission($request, $book)) {
                 return response()->json([
                     'success' => false,
@@ -248,18 +200,12 @@ class DbNodeChunkController extends Controller
             }
             
             if (isset($data['data']) && is_array($data['data'])) {
-                Log::info("Clearing existing data for book: {$book}");
-                
                 // Clear existing data only for this specific book
                 $deletedCount = PgNodeChunk::where('book', $book)->count();
                 PgNodeChunk::where('book', $book)->delete();
                 
-                Log::info("Deleted {$deletedCount} existing records for book: {$book}");
-                
                 $records = [];
-                foreach ($data['data'] as $index => $item) {
-                    Log::debug("Processing upsert item {$index}", ['item' => $item]);
-                    
+                foreach ($data['data'] as $item) {
                     $records[] = [
                         'book' => $item['book'] ?? $book,
                         'chunk_id' => $item['chunk_id'] ?? 0,
@@ -279,7 +225,7 @@ class DbNodeChunkController extends Controller
                 // Bulk insert all records at once
                 PgNodeChunk::insert($records);
                 
-                Log::info('DbNodeChunkController::upsert - Success', [
+                Log::info('Upsert completed', [
                     'book' => $book,
                     'records_inserted' => count($records),
                     'records_deleted' => $deletedCount
@@ -291,20 +237,15 @@ class DbNodeChunkController extends Controller
                 ]);
             }
             
-            Log::warning('DbNodeChunkController::upsert - Invalid data format', [
-                'received_data' => $data
-            ]);
-            
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid data format'
             ], 400);
             
         } catch (\Exception $e) {
-            Log::error('DbNodeChunkController::upsert - Exception', [
+            Log::error('Upsert failed', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'request_data' => $request->all()
+                'book' => $data['book'] ?? 'unknown'
             ]);
             
             return response()->json([
@@ -319,32 +260,12 @@ class DbNodeChunkController extends Controller
     {
         try {
             $data = $request->all();
-
-             // Add this debugging
-            Log::info('DbNodeChunkController::targetedUpsert - DEBUG START', [
-                'has_data' => isset($data['data']),
-                'data_count' => isset($data['data']) ? count($data['data']) : 0,
-                'anonymous_token' => $request->input('anonymous_token'),
-                'auth_user' => Auth::user() ? Auth::user()->name : 'not_logged_in',
-                'first_item_sample' => isset($data['data'][0]) ? [
-                    'book' => $data['data'][0]['book'] ?? 'missing',
-                    'startLine' => $data['data'][0]['startLine'] ?? 'missing',
-                    'has_hyperlights' => isset($data['data'][0]['hyperlights']),
-                    'has_hypercites' => isset($data['data'][0]['hypercites']),
-                    'has_content' => isset($data['data'][0]['content']),
-                    'all_keys' => array_keys($data['data'][0])
-                ] : 'no_data'
-            ]);
             
-            // Log incoming request data
-            Log::info('DbNodeChunkController::targetedUpsert - Received data', [
-                'request_data' => $data,
+            Log::info('Targeted upsert started', [
                 'data_count' => isset($data['data']) ? count($data['data']) : 0,
                 'request_size' => strlen(json_encode($data))
             ]);
             
-            // For targeted upsert, we need to check the book from the first item
-            // since each item might be for the same book
             if (!isset($data['data']) || !is_array($data['data']) || empty($data['data'])) {
                 return response()->json([
                     'success' => false,
@@ -380,10 +301,10 @@ class DbNodeChunkController extends Controller
                 ], 403);
             }
             
-            Log::info('Permission check result', [
+            Log::info('Targeted upsert permissions', [
                 'book' => $bookId,
                 'is_public_update' => $isPublicUpdate,
-                'permission_required' => !$isPublicUpdate
+                'permission_check_required' => !$isPublicUpdate
             ]);
             
             $processedCount = 0;
@@ -391,8 +312,6 @@ class DbNodeChunkController extends Controller
             $upsertedCount = 0;
             
             foreach ($data['data'] as $index => $item) {
-                Log::debug("Processing targeted upsert item {$index}", ['item' => $item]);
-                
                 // Verify each item is for the same book (security check)
                 if (($item['book'] ?? null) !== $bookId) {
                     Log::warning('Book mismatch in targeted upsert', [
@@ -410,13 +329,6 @@ class DbNodeChunkController extends Controller
                         ->delete();
                     
                     $deletedCount += $deleted;
-                    Log::info("Deleted nodeChunk", [
-                        'book' => $item['book'],
-                        'startLine' => $item['startLine'],
-                        'deleted_count' => $deleted,
-                        'item_data' => $item
-                    ]);
-                    
                     $processedCount++;
                     continue;
                 }
@@ -444,8 +356,8 @@ class DbNodeChunkController extends Controller
                     ];
                 }
                 
-                // Existing upsert logic for regular updates/inserts
-                $result = PgNodeChunk::updateOrCreate(
+                // Upsert the record
+                PgNodeChunk::updateOrCreate(
                     [
                         'book' => $item['book'] ?? null,
                         'startLine' => $item['startLine'] ?? null,
@@ -454,42 +366,26 @@ class DbNodeChunkController extends Controller
                 );
                 
                 $upsertedCount++;
-                Log::debug("Upserted nodeChunk", [
-                    'book' => $item['book'],
-                    'startLine' => $item['startLine'],
-                    'was_recently_created' => $result->wasRecentlyCreated,
-                    'is_public_update' => $isPublicUpdate,
-                    'item_data' => $item
-                ]);
-                
                 $processedCount++;
             }
             
-            Log::info('DbNodeChunkController::targetedUpsert - Success', [
+            Log::info('Targeted upsert completed', [
+                'book' => $bookId,
                 'total_processed' => $processedCount,
                 'deleted_count' => $deletedCount,
                 'upserted_count' => $upsertedCount,
                 'is_public_update' => $isPublicUpdate
             ]);
-
-             Log::info('Permission check details', [
-            'book' => $bookId,
-            'is_public_update' => $isPublicUpdate,
-            'permission_check_result' => !$isPublicUpdate ? $this->checkBookPermission($request, $bookId) : 'skipped_for_public',
-            'will_proceed' => $isPublicUpdate || $this->checkBookPermission($request, $bookId)
-        ]);
             
             return response()->json([
                 'success' => true, 
                 'message' => "Node chunks updated successfully (targeted)"
             ]);
-            
 
         } catch (\Exception $e) {
-            Log::error('DbNodeChunkController::targetedUpsert - Exception', [
+            Log::error('Targeted upsert failed', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'request_data' => $request->all()
+                'book' => $data['data'][0]['book'] ?? 'unknown'
             ]);
             
             return response()->json([
@@ -501,18 +397,18 @@ class DbNodeChunkController extends Controller
     }
 
     private function cleanItemForStorage($item)
-        {
-            // Create a copy to avoid modifying the original
-            $cleanItem = $item;
-            
-            // Remove the raw_json field to prevent recursive nesting
-            unset($cleanItem['raw_json']);
-            
-            // Also remove any other potentially problematic nested fields
-            if (isset($cleanItem['full_library_array'])) {
-                unset($cleanItem['full_library_array']);
-            }
-            
-            return $cleanItem;
+    {
+        // Create a copy to avoid modifying the original
+        $cleanItem = $item;
+        
+        // Remove the raw_json field to prevent recursive nesting
+        unset($cleanItem['raw_json']);
+        
+        // Also remove any other potentially problematic nested fields
+        if (isset($cleanItem['full_library_array'])) {
+            unset($cleanItem['full_library_array']);
         }
+        
+        return $cleanItem;
+    }
 }
