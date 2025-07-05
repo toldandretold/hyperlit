@@ -11,7 +11,15 @@ use App\Http\Controllers\DbFootnoteController;
 use App\Http\Controllers\DatabaseToIndexedDBController;
 use App\Http\Controllers\HomePageServerController;
 
+use App\Http\Controllers\AuthController;
 
+// Public routes
+Route::post('/login', [AuthController::class, 'login'])->name('login');
+Route::post('/register', [AuthController::class, 'register']);
+
+Route::post('/anonymous-session', [AuthController::class, 'createAnonymousSession']);
+// Auth check (works for both authenticated and guest)
+Route::get('/auth-check', [AuthController::class, 'checkAuth']);
 
 Route::middleware(['author', 'throttle:30,1'])->group(function () {
     /* ----------------  Homepage / library stats  ---------------- */

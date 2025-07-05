@@ -26,7 +26,7 @@ async function initializeAuth() {
     });
 
     // Then check if user is logged in or has existing anonymous session
-    const authResponse = await fetch('/auth-check', {
+    const authResponse = await fetch('/api/auth-check', {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -59,7 +59,7 @@ async function initializeAuth() {
     // Get CSRF token from cookie for the POST request
     const csrfToken = getCsrfTokenFromCookie();
     
-    const anonResponse = await fetch('/anonymous-session', {
+    const anonResponse = await fetch('/api/anonymous-session', {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
