@@ -6,20 +6,24 @@ use Illuminate\Database\Eloquent\Model;
 
 class AnonymousSession extends Model
 {
-    protected $table = 'anonymous_sessions';
-    
-    // Disable automatic timestamp management since we only have created_at and last_used_at
-    public $timestamps = false;
-    
     protected $fillable = [
         'token',
-        'last_used_at',
         'ip_address',
-        'user_agent',
+        'user_agent', 
+        'last_used_at'
     ];
-    
+
     protected $casts = [
+        'token' => 'string',        // Force string casting
         'created_at' => 'datetime',
         'last_used_at' => 'datetime',
     ];
+
+    const UPDATED_AT = null;
+
+    // Override to ensure token is always treated as string
+    public function setTokenAttribute($value)
+    {
+        $this->attributes['token'] = (string) $value;
+    }
 }
