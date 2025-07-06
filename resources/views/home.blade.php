@@ -19,7 +19,11 @@
 <div class="content-wrapper" style="max-width: 60ch; margin: 0 auto;">
     <div class="fixed-header">
       <div id="imageContainer" class="top-content">
-        <img src="http://127.0.0.1:8000/images/titleLogo.png" id="top" alt="Title Logo">
+        <img 
+          src="{{ asset('images/titleLogo.png') }}" 
+          id="top" 
+          alt="Title Logo"
+        >
       </div>
       <!-- Add your buttons here -->
       <div class="arranger-buttons-container">
