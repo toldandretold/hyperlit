@@ -79,97 +79,26 @@ addTouchAndClickListener(
     console.log("Final clipboard HTML:", clipboardHtml);
     console.log("Final clipboard Text:", clipboardText);
 
-    // 📱 MOBILE-FRIENDLY CLIPBOARD HANDLING
-    let copySuccess = false;
-    
+    // Use the modern Clipboard API to set the data
     try {
-      // First, try the modern API with both HTML and text (works on desktop)
-      if (navigator.clipboard && navigator.clipboard.write && typeof ClipboardItem !== 'undefined') {
-        const clipboardItem = new ClipboardItem({
-          'text/html': new Blob([clipboardHtml], { type: 'text/html' }),
-          'text/plain': new Blob([clipboardText], { type: 'text/plain' })
-        });
-        
-        await navigator.clipboard.write([clipboardItem]);
-        console.log("✅ Successfully copied HTML + text to clipboard");
-        copySuccess = true;
-      }
+      const clipboardItem = new ClipboardItem({
+        'text/html': new Blob([clipboardHtml], { type: 'text/html' }),
+        'text/plain': new Blob([clipboardText], { type: 'text/plain' })
+      });
+      
+      await navigator.clipboard.write([clipboardItem]);
+      
+      console.log("✅ Successfully copied to clipboard");
+      
     } catch (error) {
-      console.log("❌ HTML clipboard failed, trying text-only:", error);
-    }
-
-    // If HTML approach failed, try text-only (better mobile support)
-    if (!copySuccess) {
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(clipboardText);
-          console.log("✅ Successfully copied text to clipboard");
-          copySuccess = true;
-        }
-      } catch (error) {
-        console.log("❌ Text clipboard API failed, trying fallback:", error);
-      }
-    }
-
-    // Ultimate fallback using the old execCommand method
-    if (!copySuccess) {
-      try {
-        const textArea = document.createElement("textarea");
-        textArea.value = clipboardText;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        
-        const successful = document.execCommand('copy');
-        document.body.removeChild(textArea);
-        
-        if (successful) {
-          console.log("✅ Successfully copied using fallback method");
-          copySuccess = true;
-        }
-      } catch (fallbackError) {
-        console.error("❌ All clipboard methods failed:", fallbackError);
-      }
-    }
-
-    // 🎉 VISUAL FEEDBACK FOR USER
-    const button = document.getElementById("copy-hypercite");
-    if (copySuccess && button) {
-      const originalText = button.textContent || button.innerHTML;
-      const originalBg = button.style.backgroundColor;
-      
-      button.textContent = "Copied!";
-      button.style.backgroundColor = "#4CAF50";
-      button.style.color = "white";
-      
-      setTimeout(() => {
-        button.innerHTML = originalText;
-        button.style.backgroundColor = originalBg;
-        button.style.color = "";
-      }, 2000);
-    } else if (!copySuccess && button) {
-      // Show error feedback
-      const originalText = button.textContent || button.innerHTML;
-      const originalBg = button.style.backgroundColor;
-      
-      button.textContent = "Copy failed";
-      button.style.backgroundColor = "#f44336";
-      button.style.color = "white";
-      
-      setTimeout(() => {
-        button.innerHTML = originalText;
-        button.style.backgroundColor = originalBg;
-        button.style.color = "";
-      }, 2000);
+      console.error("❌ Clipboard write failed:", error);
     }
 
     // Wrap the selected text in the DOM and update IndexedDB
     wrapSelectedTextInDOM(hyperciteId, citationIdA);
   }
 );
+
 
 function wrapSelectedTextInDOM(hyperciteId, book) {
   const selection = window.getSelection();
