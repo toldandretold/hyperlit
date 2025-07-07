@@ -74,13 +74,14 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
 
 <div id="topRightContainer" class="loading">
     <button type="button" id="cloudRef">
-        <svg 
-        id="Layer_1" 
-        data-name="Layer 1" 
-        xmlns="http://www.w3.org/2000/svg" 
-        viewBox="0 0 503.23 309.68" 
-        width="36" 
-        height="36"
+        <svg
+          id="Layer_1"
+          data-name="Layer 1"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 503.23 309.68"
+          width="36"
+          height="36"
+          preserveAspectRatio="xMidYMid meet"
         >
         <defs>
         <style>
