@@ -14,7 +14,7 @@ import { getCurrentUser, getAuthorId, getAnonymousToken } from "./auth.js";
 
 let lastEventTime = 0;
 
-async function handleCopyEvent(event) {
+function handleCopyEvent(event) {
   event.preventDefault();
   event.stopPropagation();
   
@@ -36,16 +36,14 @@ async function handleCopyEvent(event) {
 
   const hyperciteId = generateHyperciteID();
 
-  // 🔧 ROBUST APPROACH: Get clean text from parent context (ORIGINAL LOGIC)
+  // Get clean text (your existing logic)
   const range = selection.getRangeAt(0);
   let parent = range.commonAncestorContainer;
   
-  // Navigate up to find an element node if we're on a text node
   if (parent.nodeType === 3) {
     parent = parent.parentElement;
   }
   
-  // Find the nearest parent with an ID
   parent = parent.closest("[id]");
   
   let selectedText = "";
@@ -54,104 +52,120 @@ async function handleCopyEvent(event) {
     const parentText = parent.textContent;
     const rangeText = range.toString();
     
-    console.log("🔍 ROBUST COPY DEBUG:");
-    console.log("Parent element:", parent.tagName, "ID:", parent.id);
-    console.log("Parent full text:", parentText);
-    console.log("Range toString():", rangeText);
-    
-    // Find the selection in the parent's clean text
     const startIndex = parentText.indexOf(rangeText);
     
     if (startIndex !== -1) {
       selectedText = parentText.substring(startIndex, startIndex + rangeText.length).trim();
       console.log("✅ Clean text from parent context:", selectedText);
     } else {
-      console.warn("⚠️ Could not find range text in parent, falling back to range.toString()");
       selectedText = rangeText.trim();
     }
   } else {
-    console.warn("⚠️ No parent with ID found, using selection.toString()");
     selectedText = selection.toString().trim();
   }
 
-  // Get the current site URL
   const currentSiteUrl = `${window.location.origin}`;
   const citationIdA = book;
   const hrefA = `${currentSiteUrl}/${citationIdA}#${hyperciteId}`;
 
-  // Create the HTML and plain text for the clipboard with CLEAN text
   const clipboardHtml = `'${selectedText}'<a href="${hrefA}" id="${hyperciteId}"><span class="open-icon">↗</span></a>`;
   const clipboardText = `'${selectedText}' [↗](${hrefA})`;
 
   console.log("Final clipboard HTML:", clipboardHtml);
   console.log("Final clipboard Text:", clipboardText);
 
-  // SAVE the original selection before clipboard operations
+  // SAVE the original selection
   const originalRange = selection.getRangeAt(0).cloneRange();
 
-  // Try clipboard methods in order
   let success = false;
 
-  // Method 1: Modern API (desktop with HTML support)
-  if (navigator.clipboard && window.ClipboardItem) {
+  // Method 1: HTML via contentEditable div (most reliable for HTML on mobile)
+  try {
+    const tempDiv = document.createElement('div');
+    tempDiv.contentEditable = true;
+    tempDiv.innerHTML = clipboardHtml;
+    tempDiv.style.cssText = 'position:absolute;left:-9999px;top:0;opacity:0;pointer-events:none;';
+    
+    document.body.appendChild(tempDiv);
+    
+    // Focus the div
+    tempDiv.focus();
+    
+    // Select all content in the div
+    const range = document.createRange();
+    range.selectNodeContents(tempDiv);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    
+    // Copy immediately while in user gesture context
+    success = document.execCommand('copy');
+    
+    // Clean up
+    document.body.removeChild(tempDiv);
+    
+    if (success) {
+      console.log("✅ HTML copy via contentEditable success");
+    }
+  } catch (error) {
+    console.warn("contentEditable copy failed:", error);
+  }
+
+  // Method 2: Modern API fallback (fire and forget)
+  if (!success && navigator.clipboard && window.ClipboardItem) {
     try {
       const clipboardItem = new ClipboardItem({
         'text/html': new Blob([clipboardHtml], { type: 'text/html' }),
         'text/plain': new Blob([clipboardText], { type: 'text/plain' })
       });
       
-      await navigator.clipboard.write([clipboardItem]);
-      success = true;
-      console.log("✅ ClipboardItem success");
+      // Fire and forget - don't await to stay synchronous
+      navigator.clipboard.write([clipboardItem]).then(() => {
+        console.log("✅ Modern API HTML success");
+      }).catch(error => {
+        console.warn("Modern API failed:", error);
+      });
+      
+      success = true; // Assume success since we can't wait
     } catch (error) {
-      console.warn("ClipboardItem failed:", error);
+      console.warn("Modern API setup failed:", error);
     }
   }
 
-  // Method 2: Simple writeText fallback
-  if (!success && navigator.clipboard && navigator.clipboard.writeText) {
-    try {
-      await navigator.clipboard.writeText(clipboardText);
-      success = true;
-      console.log("✅ writeText success");
-    } catch (error) {
-      console.warn("writeText failed:", error);
-    }
-  }
-
-  // Method 3: execCommand fallback
+  // Method 3: Plain text fallback
   if (!success) {
     try {
-      const textarea = document.createElement('textarea');
-      textarea.value = clipboardText;
-      textarea.style.position = 'fixed';
-      textarea.style.left = '-9999px';
-      document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
+      const tempInput = document.createElement('input');
+      tempInput.type = 'text';
+      tempInput.value = clipboardText;
+      tempInput.style.cssText = 'position:absolute;left:-9999px;top:0;';
+      
+      document.body.appendChild(tempInput);
+      tempInput.focus();
+      tempInput.select();
       
       success = document.execCommand('copy');
-      document.body.removeChild(textarea);
+      document.body.removeChild(tempInput);
       
       if (success) {
-        console.log("✅ execCommand success");
+        console.log("✅ Plain text fallback success");
       }
     } catch (error) {
-      console.warn("execCommand failed:", error);
+      console.warn("Plain text fallback failed:", error);
     }
   }
 
   if (success) {
-    console.log("✅ Successfully copied to clipboard");
+    console.log("✅ Clipboard operation completed");
   } else {
     console.error("❌ All clipboard methods failed");
   }
 
-  // RESTORE the original selection before calling wrapSelectedTextInDOM
+  // RESTORE the original selection
   selection.removeAllRanges();
   selection.addRange(originalRange);
 
-  // Wrap the selected text in the DOM and update IndexedDB
+  // Wrap the selected text in the DOM
   try {
     wrapSelectedTextInDOM(hyperciteId, citationIdA);
   } catch (error) {
@@ -159,9 +173,21 @@ async function handleCopyEvent(event) {
   }
 }
 
-// Add both listeners
-document.getElementById("copy-hypercite").addEventListener('touchstart', handleCopyEvent);
-document.getElementById("copy-hypercite").addEventListener('click', handleCopyEvent);
+// Set up event listeners
+const copyButton = document.getElementById("copy-hypercite");
+
+// Remove existing listeners
+copyButton.removeEventListener('click', handleCopyEvent);
+copyButton.removeEventListener('touchend', handleCopyEvent);
+
+// Add listeners with proper options
+copyButton.addEventListener('click', handleCopyEvent, { passive: false });
+copyButton.addEventListener('touchend', handleCopyEvent, { passive: false });
+
+// Ensure button is optimized for mobile
+copyButton.style.touchAction = 'manipulation';
+copyButton.style.userSelect = 'none';
+
 // Keep your existing wrapSelectedTextInDOM function unchanged
 function wrapSelectedTextInDOM(hyperciteId, book) {
   const selection = window.getSelection();
