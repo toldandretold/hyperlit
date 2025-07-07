@@ -12,11 +12,16 @@ import { addTouchAndClickListener } from './hyperLights.js';
 import { getCurrentUser, getAuthorId, getAnonymousToken } from "./auth.js";
 
 
+let lastEventTime = 0;
 
- 
-document.getElementById("copy-hypercite").addEventListener('click', async function(event) {
+async function handleCopyEvent(event) {
   event.preventDefault();
   event.stopPropagation();
+  
+  // Prevent double-firing within 300ms
+  const now = Date.now();
+  if (now - lastEventTime < 300) return;
+  lastEventTime = now;
   
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) {
@@ -152,8 +157,11 @@ document.getElementById("copy-hypercite").addEventListener('click', async functi
   } catch (error) {
     console.error("Error wrapping text in DOM:", error);
   }
-});
+}
 
+// Add both listeners
+document.getElementById("copy-hypercite").addEventListener('touchstart', handleCopyEvent);
+document.getElementById("copy-hypercite").addEventListener('click', handleCopyEvent);
 // Keep your existing wrapSelectedTextInDOM function unchanged
 function wrapSelectedTextInDOM(hyperciteId, book) {
   const selection = window.getSelection();
