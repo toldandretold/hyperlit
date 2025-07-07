@@ -141,6 +141,7 @@ blockquote {
     padding-left: 1rem;
     overflow: auto; /* or display: flow-root; */
     font-style: normal;
+    font-size: 14px;
   }
 }
 
