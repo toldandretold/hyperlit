@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 28.33 85">
+  <defs>
+    <linearGradient id="New_Gradient_Swatch_copy_2" data-name="New Gradient Swatch copy 2" x1="6809.18" y1="439.48" x2="6809.18" y2="411.15" gradientTransform="translate(6823.35 439.48) rotate(-180)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ee4b96"/>
+      <stop offset="1" stop-color="#00afaf"/>
+    </linearGradient>
+    <linearGradient id="New_Gradient_Swatch_copy" data-name="New Gradient Swatch copy" x1="14.17" y1="85" x2="14.17" y2="56.67" gradientTransform="translate(28.33 141.67) rotate(-180)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff8700"/>
+      <stop offset="1" stop-color="#00afaf"/>
+    </linearGradient>
+  </defs>
+  <rect width="28.33" height="28.33" fill="url(#New_Gradient_Swatch_copy_2)"/>
+  <rect y="56.67" width="28.33" height="28.33" transform="translate(28.33 141.67) rotate(180)" fill="url(#New_Gradient_Swatch_copy)"/>
+</svg>

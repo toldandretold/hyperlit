@@ -152,43 +152,65 @@ black #221F20;
 
 
 
-
-
-#logo {
-  height: 100%;
-  width: 100%;
-  display: block;
-}
-
-#logoContainer:hover #logo {
-  opacity: 0;
-}
-
-#logoContainer:hover {
-  cursor: pointer;
-}
-
-
-
-
-#logoContainer:hover::after {
-  content: "";
-  background: url('http://127.0.0.1:8000/images/logob.png')no-repeat center / contain;
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 100%;
-}
-
 #logoContainer {
   position: absolute;
   top: 10px;
   left: 10px;
-  height: 40px;
-  width: 40px;
-  z-index: 1000;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
   transition: opacity 0.3s ease;
+  /* remove native button chrome */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  /* container must be relative for ::after */
+  position: absolute;
+}
+
+#logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transition: opacity 0.3s ease;
+}
+
+/* hover for desktop */
+#logoContainer:hover #logo,
+#logoContainer:focus #logo {
+  opacity: 0;
+}
+
+#logoContainer:hover::after,
+#logoContainer:focus::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: url('http://127.0.0.1:8000/images/logob.svg')
+              no-repeat center/contain;
+}
+
+/* :active for mobile touch feedback */
+#logoContainer:active #logo {
+  opacity: 0;
+}
+
+#logoContainer:active::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: url('http://127.0.0.1:8000/images/logob.svg')
+              no-repeat center/contain;
 }
 
 #userLogo {

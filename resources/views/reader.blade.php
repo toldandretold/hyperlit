@@ -57,10 +57,18 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
     </button>
 </div>
 
-<!-- buttons: clockwise from top-lept -->
-<div id="logoContainer" onclick="window.location.href='{{ url('/') }}';" class="loading">
-    <img src="{{ asset('images/logoa.png') }}" id="logo" alt="Logo">
-    </div> 
+<!-- buttons: clockwise from top-left -->
+<button
+  id="logoContainer"
+  type="button"
+  onclick="window.location.href='{{ url('/') }}'"
+>
+  <img
+    src="{{ asset('images/logoa.svg') }}"
+    id="logo"
+    alt="Logo"
+  >
+</button> 
 
     
 

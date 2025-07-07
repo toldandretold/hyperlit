@@ -20,7 +20,7 @@
     <div class="fixed-header">
       <div id="imageContainer" class="top-content">
         <img 
-          src="{{ asset('images/titleLogo.png') }}" 
+          src="{{ asset('images/titleLogo.svg') }}" 
           id="top" 
           alt="Title Logo"
         >
