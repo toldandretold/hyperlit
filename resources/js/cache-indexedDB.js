@@ -1472,8 +1472,19 @@ export function updateCitationForExistingHypercite(
         citationIDb
       );
 
+      console.log('🔍 addCitationToHypercite result:', result);
+
       if (result.success) {
-        foundAndUpdated = true;
+
+         // IMMEDIATELY verify the update worked
+          const verifyChunk = await getNodeChunkFromIndexedDB(booka, startLine);
+          const verifyHypercite = verifyChunk?.hypercites?.find(hc => hc.hyperciteId === hyperciteIDa);
+          
+          console.log('🔍 VERIFICATION - Updated nodeChunk hypercite:', verifyHypercite);
+          console.log('🔍 VERIFICATION - citedIN array:', verifyHypercite?.citedIN);
+          
+          foundAndUpdated = true;
+        
         updatedRelationshipStatus = result.relationshipStatus;
         
         // Get the updated nodeChunk for PostgreSQL sync
@@ -1917,11 +1928,21 @@ async function addCitationToHypercite(book, startLine, hyperciteId, newCitation)
           const updateRequest = objectStore.put(record);
           
           updateRequest.onsuccess = async() => {
-            console.log(`✅ Successfully updated nodeChunk [${book}, ${numericStartLine}] with citation for hypercite ${hyperciteId}`);
+            console.log(`✅ Successfully updated nodeChunk [${book}, ${numericStartLine}]`);
+            
+            // IMMEDIATE verification within the same function
+            const immediateVerify = objectStore.get(key);
+            immediateVerify.onsuccess = (e) => {
+              const verifyRecord = e.target.result;
+              const verifyHypercite = verifyRecord?.hypercites?.find(h => h.hyperciteId === hyperciteId);
+              console.log('🔍 IMMEDIATE VERIFY - hypercite after put:', verifyHypercite);
+              console.log('🔍 IMMEDIATE VERIFY - citedIN:', verifyHypercite?.citedIN);
+            };
+            
             await updateBookTimestamp(book);
             resolve({
               success: true,
-              relationshipStatus: hyperciteToUpdate.relationshipStatus // Return the updated status
+              relationshipStatus: hyperciteToUpdate.relationshipStatus
             });
           };
           
