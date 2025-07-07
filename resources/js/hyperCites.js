@@ -22,100 +22,26 @@ addTouchAndClickListener(
       return; // Do nothing if no text is selected
     }
 
+    const hyperciteId = generateHyperciteID();
+
     if (!book) {
       console.error("Book identifier not found.");
       return;
     }
 
-    // 📱 MOBILE FIX: Do clipboard operation IMMEDIATELY while user gesture is fresh
-    const hyperciteId = generateHyperciteID();
-    const currentSiteUrl = `${window.location.origin}`;
-    const citationIdA = book;
-    const hrefA = `${currentSiteUrl}/${citationIdA}#${hyperciteId}`;
-    
-    // Get the selected text quickly (simple approach first)
-    const quickSelectedText = selection.toString().trim();
-    const quickClipboardText = `'${quickSelectedText}' [↗](${hrefA})`;
-    
-    // 🚀 COPY IMMEDIATELY - before any other processing
-    let copySuccess = false;
-    
-    try {
-      // Try text-only first (best mobile support)
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(quickClipboardText);
-        console.log("✅ Quick copy successful");
-        copySuccess = true;
-      }
-    } catch (error) {
-      console.log("❌ Quick copy failed, trying fallback:", error);
-      
-      // Immediate fallback
-      try {
-        const textArea = document.createElement("textarea");
-        textArea.value = quickClipboardText;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        textArea.readOnly = true; // Prevent keyboard on mobile
-        document.body.appendChild(textArea);
-        
-        // For mobile, we need to select differently
-        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-          textArea.setSelectionRange(0, 99999);
-        } else {
-          textArea.select();
-        }
-        
-        const successful = document.execCommand('copy');
-        document.body.removeChild(textArea);
-        
-        if (successful) {
-          console.log("✅ Fallback copy successful");
-          copySuccess = true;
-        }
-      } catch (fallbackError) {
-        console.error("❌ All copy methods failed:", fallbackError);
-      }
-    }
-
-    // 🎉 IMMEDIATE VISUAL FEEDBACK
-    const button = document.getElementById("copy-hypercite");
-    if (copySuccess && button) {
-      const originalContent = button.innerHTML;
-      button.innerHTML = "Copied!";
-      button.style.backgroundColor = "#4CAF50";
-      button.style.color = "white";
-      
-      setTimeout(() => {
-        button.innerHTML = originalContent;
-        button.style.backgroundColor = "";
-        button.style.color = "";
-      }, 2000);
-    } else if (button) {
-      const originalContent = button.innerHTML;
-      button.innerHTML = "Copy failed";
-      button.style.backgroundColor = "#f44336";
-      button.style.color = "white";
-      
-      setTimeout(() => {
-        button.innerHTML = originalContent;
-        button.style.backgroundColor = "";
-        button.style.color = "";
-      }, 2000);
-    }
-
-    // Now do the slower processing for clean text (this doesn't affect clipboard)
+    // 🔧 ROBUST APPROACH: Get clean text from parent context
     const range = selection.getRangeAt(0);
     let parent = range.commonAncestorContainer;
     
+    // Navigate up to find an element node if we're on a text node
     if (parent.nodeType === 3) {
       parent = parent.parentElement;
     }
     
+    // Find the nearest parent with an ID
     parent = parent.closest("[id]");
     
-    let selectedText = quickSelectedText; // Default to what we already copied
+    let selectedText = "";
     
     if (parent) {
       const parentText = parent.textContent;
@@ -126,20 +52,119 @@ addTouchAndClickListener(
       console.log("Parent full text:", parentText);
       console.log("Range toString():", rangeText);
       
+      // Find the selection in the parent's clean text
       const startIndex = parentText.indexOf(rangeText);
       
       if (startIndex !== -1) {
         selectedText = parentText.substring(startIndex, startIndex + rangeText.length).trim();
         console.log("✅ Clean text from parent context:", selectedText);
+      } else {
+        console.warn("⚠️ Could not find range text in parent, falling back to range.toString()");
+        selectedText = rangeText.trim();
       }
+    } else {
+      console.warn("⚠️ No parent with ID found, using selection.toString()");
+      selectedText = selection.toString().trim();
     }
 
-    // Create final clipboard content (for logging, the copy already happened above)
+    // Get the current site URL
+    const currentSiteUrl = `${window.location.origin}`;
+    const citationIdA = book;
+    const hrefA = `${currentSiteUrl}/${citationIdA}#${hyperciteId}`;
+
+    // Create the HTML and plain text for the clipboard with CLEAN text
     const clipboardHtml = `'${selectedText}'<a href="${hrefA}" id="${hyperciteId}"><span class="open-icon">↗</span></a>`;
     const clipboardText = `'${selectedText}' [↗](${hrefA})`;
 
     console.log("Final clipboard HTML:", clipboardHtml);
     console.log("Final clipboard Text:", clipboardText);
+
+    // 📱 MOBILE-FRIENDLY CLIPBOARD HANDLING
+    let copySuccess = false;
+    
+    try {
+      // First, try the modern API with both HTML and text (works on desktop)
+      if (navigator.clipboard && navigator.clipboard.write && typeof ClipboardItem !== 'undefined') {
+        const clipboardItem = new ClipboardItem({
+          'text/html': new Blob([clipboardHtml], { type: 'text/html' }),
+          'text/plain': new Blob([clipboardText], { type: 'text/plain' })
+        });
+        
+        await navigator.clipboard.write([clipboardItem]);
+        console.log("✅ Successfully copied HTML + text to clipboard");
+        copySuccess = true;
+      }
+    } catch (error) {
+      console.log("❌ HTML clipboard failed, trying text-only:", error);
+    }
+
+    // If HTML approach failed, try text-only (better mobile support)
+    if (!copySuccess) {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(clipboardText);
+          console.log("✅ Successfully copied text to clipboard");
+          copySuccess = true;
+        }
+      } catch (error) {
+        console.log("❌ Text clipboard API failed, trying fallback:", error);
+      }
+    }
+
+    // Ultimate fallback using the old execCommand method
+    if (!copySuccess) {
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = clipboardText;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        if (successful) {
+          console.log("✅ Successfully copied using fallback method");
+          copySuccess = true;
+        }
+      } catch (fallbackError) {
+        console.error("❌ All clipboard methods failed:", fallbackError);
+      }
+    }
+
+    // 🎉 VISUAL FEEDBACK FOR USER
+    const button = document.getElementById("copy-hypercite");
+    if (copySuccess && button) {
+      const originalText = button.textContent || button.innerHTML;
+      const originalBg = button.style.backgroundColor;
+      
+      button.textContent = "Copied!";
+      button.style.backgroundColor = "#4CAF50";
+      button.style.color = "white";
+      
+      setTimeout(() => {
+        button.innerHTML = originalText;
+        button.style.backgroundColor = originalBg;
+        button.style.color = "";
+      }, 2000);
+    } else if (!copySuccess && button) {
+      // Show error feedback
+      const originalText = button.textContent || button.innerHTML;
+      const originalBg = button.style.backgroundColor;
+      
+      button.textContent = "Copy failed";
+      button.style.backgroundColor = "#f44336";
+      button.style.color = "white";
+      
+      setTimeout(() => {
+        button.innerHTML = originalText;
+        button.style.backgroundColor = originalBg;
+        button.style.color = "";
+      }, 2000);
+    }
 
     // Wrap the selected text in the DOM and update IndexedDB
     wrapSelectedTextInDOM(hyperciteId, citationIdA);
