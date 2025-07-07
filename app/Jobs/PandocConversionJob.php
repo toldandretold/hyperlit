@@ -165,7 +165,8 @@ class PandocConversionJob implements ShouldQueue
         $cleanedContent = preg_replace('/\{dir="rtl"\}/', '', $cleanedContent);
 
         // Step 3: Remove square brackets around quotes
-        $cleanedContent = preg_replace('/\[\'\]/', ''', $cleanedContent); // For single quotes
+        // Step 3: Remove square brackets around quotes
+        $cleanedContent = preg_replace('/\[\'\]/', "'", $cleanedContent); // For single quotes
         $cleanedContent = preg_replace('/\[\"\]/', '"', $cleanedContent); // For double quotes
 
         // Step 4: Indent footnotes
