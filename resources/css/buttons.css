@@ -26,8 +26,6 @@ black #221F20;
 }
 
 
-
-
 #editButton {
 width: 28px; /* Matching width */
   height: 28px; /* Matching height */
@@ -77,21 +75,37 @@ black #221F20;
 "white" #CBCCCC*/
 
  #cloudRef {
-    width: 28px;
-    height: 28px;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    background: none; /* Ensure no background */
-    transition: transform 0.3s ease-in-out;
-  }
+  border: none;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
 
-  #cloudRef:hover .cloud-inner-space {
-    fill: url(#gradient); /* Inner space becomes gradient on hover */
-  }
-  
+/* force the svg to be 24px wide, height follows its natural ratio */
+#cloudRef svg {
+  display: block;          /* removes tiny whitespace */
+  width: 28px !important;  /* override inline width */
+  height: auto !important; /* preserve aspect ratio */
+}
+
+/* your gradient-on-hover rule */
+#cloudRef:hover .cls-1,
+#cloudRef:hover .cls-2 {
+  fill: url(#gradient);
+}
+
+
 
  
+@media only screen and (max-width: 500px) {
+
+  #cloudRef svg {
+  width: 22px !important;  /* override inline width */
+  }
+  
+  
+  
+}
 
 
 
