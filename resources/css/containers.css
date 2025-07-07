@@ -225,7 +225,9 @@ black #221F20;
 }
 
 #imageContainer {
-  margin-bottom: 0;
+  margin-bottom: 1em;
+  margin-top: 1em;
+
 }
 
 #ref-container,
