@@ -143,15 +143,29 @@ blockquote {
     font-style: normal;
     font-size: 14px;
   }
+
+   body {
+    font-size: 18px; /* Reduced from 25px */
+  }
+  
+  /* You may also want to adjust other elements proportionally */
+  h1 {
+    font-size: 1.3em; /* Slightly smaller than 1.5em */
+  }
+  
+  code {
+    font-size: 16px; /* Reduced from 20px */
+  }
+  
+  sup {
+    font-size: 12px; /* Reduced from 14px */
+  }
+  
+  sup.open-icon {
+    font-size: 12px; /* Reduced from 14px */
+  }
 }
 
-blockquote p:first-child {
-  margin-top: 0;
-}
-
-blockquote p:last-child {
-  margin-bottom: 0;
-}  
 
 ins {
     text-decoration: underline;
