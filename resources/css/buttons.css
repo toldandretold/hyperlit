@@ -100,9 +100,9 @@ black #221F20;
 @media only screen and (max-width: 500px) {
 
   #cloudRef svg {
-  width: 22px !important;  /* override inline width */
+  width: 24px !important;  /* override inline width */
   }
-  
+
   
   
 }
