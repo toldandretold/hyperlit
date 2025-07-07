@@ -17,147 +17,118 @@ addTouchAndClickListener(
   async function(buttonEvent) {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) {
-      return; // Do nothing if no text is selected
+      return;
     }
-
-    const hyperciteId = generateHyperciteID();
 
     if (!book) {
       console.error("Book identifier not found.");
       return;
     }
 
-    // 🔧 ROBUST APPROACH: Get clean text from parent context
+    // 1. PREPARE EVERYTHING FIRST (all sync operations)
+    const hyperciteId = generateHyperciteID(); // Make sure this is sync
+    
     const range = selection.getRangeAt(0);
     let parent = range.commonAncestorContainer;
     
-    // Navigate up to find an element node if we're on a text node
     if (parent.nodeType === 3) {
       parent = parent.parentElement;
     }
     
-    // Find the nearest parent with an ID
     parent = parent.closest("[id]");
-    
     let selectedText = "";
     
     if (parent) {
       const parentText = parent.textContent;
       const rangeText = range.toString();
-      
-      console.log("🔍 ROBUST COPY DEBUG:");
-      console.log("Parent element:", parent.tagName, "ID:", parent.id);
-      console.log("Parent full text:", parentText);
-      console.log("Range toString():", rangeText);
-      
-      // Find the selection in the parent's clean text
       const startIndex = parentText.indexOf(rangeText);
       
       if (startIndex !== -1) {
         selectedText = parentText.substring(startIndex, startIndex + rangeText.length).trim();
-        console.log("✅ Clean text from parent context:", selectedText);
       } else {
-        console.warn("⚠️ Could not find range text in parent, falling back to range.toString()");
         selectedText = rangeText.trim();
       }
     } else {
-      console.warn("⚠️ No parent with ID found, using selection.toString()");
       selectedText = selection.toString().trim();
     }
 
-    // Get the current site URL
     const currentSiteUrl = `${window.location.origin}`;
     const citationIdA = book;
     const hrefA = `${currentSiteUrl}/${citationIdA}#${hyperciteId}`;
-
-    // Create the HTML and plain text for the clipboard with CLEAN text
+    
     const clipboardHtml = `'${selectedText}'<a href="${hrefA}" id="${hyperciteId}"><span class="open-icon">↗</span></a>`;
     const clipboardText = `'${selectedText}' [↗](${hrefA})`;
 
     console.log("Final clipboard HTML:", clipboardHtml);
     console.log("Final clipboard Text:", clipboardText);
 
-    // Smart clipboard handling - preserve desktop functionality, fix mobile
-    await smartClipboardCopy(clipboardHtml, clipboardText);
+    // 2. COPY IMMEDIATELY (while user gesture is active)
+    let success = false;
+    
+    // Try modern API first (desktop)
+    if (navigator.clipboard && window.ClipboardItem) {
+      try {
+        const clipboardItem = new ClipboardItem({
+          'text/html': new Blob([clipboardHtml], { type: 'text/html' }),
+          'text/plain': new Blob([clipboardText], { type: 'text/plain' })
+        });
+        
+        await navigator.clipboard.write([clipboardItem]);
+        success = true;
+        console.log("✅ ClipboardItem success");
+      } catch (error) {
+        console.warn("ClipboardItem failed:", error);
+      }
+    }
 
-    // Wrap the selected text in the DOM and update IndexedDB
-    wrapSelectedTextInDOM(hyperciteId, citationIdA);
+    // Fallback to writeText
+    if (!success && navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(clipboardText);
+        success = true;
+        console.log("✅ writeText success");
+      } catch (error) {
+        console.warn("writeText failed:", error);
+      }
+    }
+
+    // Final fallback to execCommand
+    if (!success) {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = clipboardText;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        
+        success = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        
+        if (success) {
+          console.log("✅ execCommand success");
+        }
+      } catch (error) {
+        console.warn("execCommand failed:", error);
+      }
+    }
+
+    if (success) {
+      console.log("✅ Successfully copied to clipboard");
+    } else {
+      console.error("❌ All clipboard methods failed");
+    }
+
+    // 3. DO ASYNC OPERATIONS AFTER CLIPBOARD (these can be async)
+    try {
+      await wrapSelectedTextInDOM(hyperciteId, citationIdA);
+    } catch (error) {
+      console.error("Error wrapping text in DOM:", error);
+    }
   }
 );
 
-function isMobile() {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-         (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
-}
-
-async function smartClipboardCopy(htmlContent, textContent) {
-  const mobile = isMobile();
-  
-  if (!mobile) {
-    // Desktop: Use your original method (ClipboardItem with HTML + text)
-    try {
-      const clipboardItem = new ClipboardItem({
-        'text/html': new Blob([htmlContent], { type: 'text/html' }),
-        'text/plain': new Blob([textContent], { type: 'text/plain' })
-      });
-      
-      await navigator.clipboard.write([clipboardItem]);
-      console.log("✅ Desktop: Successfully copied with ClipboardItem");
-      return;
-    } catch (error) {
-      console.warn("Desktop ClipboardItem failed:", error);
-      // Fall through to mobile methods
-    }
-  }
-  
-  // Mobile or desktop fallback: Use writeText
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    try {
-      await navigator.clipboard.writeText(textContent);
-      console.log("✅ Successfully copied with writeText");
-      return;
-    } catch (error) {
-      console.warn("writeText failed:", error);
-    }
-  }
-
-  // Final fallback: execCommand
-  try {
-    const tempElement = document.createElement('textarea');
-    tempElement.value = textContent;
-    tempElement.style.position = 'fixed';
-    tempElement.style.left = '-999999px';
-    tempElement.style.top = '-999999px';
-    document.body.appendChild(tempElement);
-    
-    if (mobile && /iPad|iPhone|iPod/.test(navigator.userAgent)) {
-      // iOS specific handling
-      tempElement.contentEditable = true;
-      tempElement.readOnly = false;
-      const range = document.createRange();
-      range.selectNodeContents(tempElement);
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-      tempElement.setSelectionRange(0, 999999);
-    } else {
-      tempElement.focus();
-      tempElement.select();
-    }
-    
-    const successful = document.execCommand('copy');
-    document.body.removeChild(tempElement);
-    
-    if (successful) {
-      console.log("✅ Successfully copied with execCommand");
-      return;
-    }
-  } catch (error) {
-    console.warn("execCommand failed:", error);
-  }
-
-  console.error("❌ All clipboard methods failed");
-}
 function wrapSelectedTextInDOM(hyperciteId, book) {
   const selection = window.getSelection();
   if (!selection.rangeCount) return console.error("No selection");
