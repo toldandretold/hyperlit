@@ -1,135 +1,134 @@
 import { saveAnnotationToIndexedDB } from "./annotation-saver.js";
 import { navigateToInternalId } from "./scrolling.js"; // Import this if needed
 import { currentLazyLoader } from "./initializePage.js";
+import { isProcessing, isComplete } from './editIndicator.js'
 
 export class ContainerManager {
   constructor(containerId, overlayId, buttonId = null, frozenContainerIds = []) {
-    this.container = document.getElementById(containerId);
-    this.overlay = document.getElementById(overlayId);
-    this.button = buttonId ? document.getElementById(buttonId) : null;
-    this.isOpen = false;
+  this.container = document.getElementById(containerId);
+  this.overlay = document.getElementById(overlayId);
+  this.button = buttonId ? document.getElementById(buttonId) : null;
+  this.isOpen = false;
 
-    // Store the initial content of the container (e.g., TOC content)
-    this.initialContent = this.container ? this.container.innerHTML : null;
+  // Store the initial content of the container (e.g., TOC content)
+  this.initialContent = this.container ? this.container.innerHTML : null;
 
-    // In case this is a highlight container, store the current highlightId.
-    this.highlightId = null;
+  // In case this is a highlight container, store the current highlightId.
+  this.highlightId = null;
 
-    // Get background elements (like main-content and nav-buttons) to freeze when open.
-    this.frozenElements = frozenContainerIds.map((id) =>
-      document.getElementById(id)
-    );
+  // Get background elements (like main-content and nav-buttons) to freeze when open.
+  this.frozenElements = frozenContainerIds.map((id) =>
+    document.getElementById(id)
+  );
 
-    // Track the original visibility state of navigation elements
-     this.navElementsState = {
+  // Track the original visibility state of navigation elements
+  this.navElementsState = {
     navButtons: true,
     logoContainer: true,
     topRightContainer: true,
-    userButtonContainer: true  // Add this line
-    };
+    userButtonContainer: true
+  };
 
-    // Set up overlay click handler
-    if (this.overlay) {
-      this.overlay.addEventListener("click", (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        if (this.isOpen) {
+  // Set up overlay click handler
+  if (this.overlay) {
+    this.overlay.addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (this.isOpen) {
+        this.closeContainer();
+      }
+    });
+  }
+
+  // Set up button click handler if a button was provided
+  if (this.button) {
+    this.button.addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      this.toggleContainer();
+    });
+  }
+
+  // Add a new event listener for link clicks within the container
+  if (this.container) {
+    this.container.addEventListener("click", (e) => {
+      const link = e.target.closest("a");
+      if (!link) return; // Not a link click
+      
+      const href = link.getAttribute("href");
+      if (!href) return; // No href attribute
+
+      // Check if this is a citation link (has hypercite in the hash)
+      const isCitationLink = href.includes("#hypercite_");
+      
+      if (isCitationLink) {
+          e.preventDefault();
+          
+          // Extract the hash part
+          const url = new URL(href, window.location.origin);
+          const hash = url.hash ? url.hash.substring(1) : null;
+          
+          // Close the current container
           this.closeContainer();
-        }
-      });
-    }
-
-    // Set up button click handler if a button was provided
-    if (this.button) {
-      this.button.addEventListener("click", (e) => {
-        e.stopPropagation();
-        e.preventDefault(); // Add this to prevent default action
-        this.toggleContainer();
-      });
-    }
-
-      // Add a new event listener for link clicks within the container
-      if (this.container) {
-        this.container.addEventListener("click", (e) => {
-          const link = e.target.closest("a");
-          if (!link) return; // Not a link click
           
-          const href = link.getAttribute("href");
-          if (!href) return; // No href attribute
-
-          // Check if this is a citation link (has hypercite in the hash)
-          const isCitationLink = href.includes("#hypercite_");
           
-          if (isCitationLink) {
-              e.preventDefault();
-              
-              // Extract the hash part
-              const url = new URL(href, window.location.origin);
-              const hash = url.hash ? url.hash.substring(1) : null;
-              
-              // Close the current container
-              this.closeContainer();
-              
-              
-              if (hash) {
-                  navigateToInternalId(hash, currentLazyLoader);
-                }
-              
-              
-              return;
+          if (hash) {
+              navigateToInternalId(hash, currentLazyLoader);
             }
           
-          // Create URL objects for comparison
-          const currentUrl = new URL(window.location.href);
-          let targetUrl;
-          try {
-            targetUrl = new URL(href, window.location.origin);
-          } catch (e) {
-            console.error("Invalid URL:", href);
-            return;
-          }
           
-          // Check if this is actually an internal navigation
-          const isInternalNavigation = 
-            targetUrl.pathname === currentUrl.pathname || 
-            href.startsWith('#') ||
-            href.startsWith('/HL_');
-          
-          if (isInternalNavigation) {
-            e.preventDefault();
-            
-            const isHighlightLink = href.includes("/HL_");
-            const highlightMatch = href.match(/\/HL_\d+/);
-            const highlightId = highlightMatch ? highlightMatch[0].substring(1) : null;
-            
-            const hash = targetUrl.hash ? targetUrl.hash.substring(1) : null;
-            
-            this.closeContainer();
-            
-            setTimeout(() => {
-              if (isHighlightLink && highlightId) {
-                if (hash) {
-                  window.history.pushState(null, '', `#${hash}`);
-                } else {
-                  window.history.pushState(null, '', window.location.pathname);
-                }
-                navigateToInternalId(highlightId, currentLazyLoader);
-              } else if (hash) {
-                navigateToInternalId(hash, currentLazyLoader);
-              } else {
-                window.location.href = href;
-              }
-            }, 300);
-          } else {
-            // For external links, let them open in a new tab
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-          }
-        });
+          return;
+        }
+      
+      // Create URL objects for comparison
+      const currentUrl = new URL(window.location.href);
+      let targetUrl;
+      try {
+        targetUrl = new URL(href, window.location.origin);
+      } catch (e) {
+        console.error("Invalid URL:", href);
+        return;
       }
-
-
-    }
+      
+      // Check if this is actually an internal navigation
+      const isInternalNavigation = 
+        targetUrl.pathname === currentUrl.pathname || 
+        href.startsWith('#') ||
+        href.startsWith('/HL_');
+      
+      if (isInternalNavigation) {
+        e.preventDefault();
+        
+        const isHighlightLink = href.includes("/HL_");
+        const highlightMatch = href.match(/\/HL_\d+/);
+        const highlightId = highlightMatch ? highlightMatch[0].substring(1) : null;
+        
+        const hash = targetUrl.hash ? targetUrl.hash.substring(1) : null;
+        
+        this.closeContainer();
+        
+        setTimeout(() => {
+          if (isHighlightLink && highlightId) {
+            if (hash) {
+              window.history.pushState(null, '', `#${hash}`);
+            } else {
+              window.history.pushState(null, '', window.location.pathname);
+            }
+            navigateToInternalId(highlightId, currentLazyLoader);
+          } else if (hash) {
+            navigateToInternalId(hash, currentLazyLoader);
+          } else {
+            window.location.href = href;
+          }
+        }, 300);
+      } else {
+        // For external links, let them open in a new tab
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+      }
+    });
+  }
+} // <-- Constructor ends here
   
 
   // Helper method to freeze an element:
@@ -184,11 +183,11 @@ export class ContainerManager {
 }
   
   // Restore navigation elements to their saved state
-  restoreNavElementsState() {
+  // Restore navigation elements to their saved state
+restoreNavElementsState() {
   const navButtons = document.getElementById("nav-buttons");
   const logoContainer = document.getElementById("logoContainer");
-  const topRightContainer = document.getElementById("topRightContainer");
-  const userButtonContainer = document.getElementById("userButtonContainer"); // Add this line
+  const userButtonContainer = document.getElementById("userButtonContainer");
   
   if (navButtons) {
     if (this.navElementsState.navButtons) {
@@ -206,15 +205,8 @@ export class ContainerManager {
     }
   }
   
-  if (topRightContainer) {
-    if (this.navElementsState.topRightContainer) {
-      topRightContainer.classList.remove("hidden-nav");
-    } else {
-      topRightContainer.classList.add("hidden-nav");
-    }
-  }
+  // REMOVED: topRightContainer logic - let event listener handle it
   
-  // Add this block
   if (userButtonContainer) {
     if (this.navElementsState.userButtonContainer) {
       userButtonContainer.classList.remove("hidden-nav");
@@ -225,6 +217,32 @@ export class ContainerManager {
   
   console.log("Restored nav elements state:", this.navElementsState);
 }
+
+
+  
+
+  // factor out your topRight‐hiding logic so it can be re-used:
+  _applyTopRightVisibility() {
+    const topRight = document.getElementById("topRightContainer");
+    if (!topRight) return;
+
+    // only hide if this is TOC/source container **and** it was meant to be hidden
+    if (
+      this.isOpen &&
+      (this.container.id === "toc-container" ||
+       this.container.id === "source-container")
+    ) {
+      // refer to your saved navElementsState
+      if (!this.navElementsState.topRightContainer) {
+        topRight.classList.add("hidden-nav");
+      } else {
+        topRight.classList.remove("hidden-nav");
+      }
+    } else {
+      // container closed or not a TOC/source → always show
+      topRight.classList.remove("hidden-nav");
+    }
+  }
 
   updateState() {
   console.log("updateState: isOpen =", this.isOpen, 
@@ -237,7 +255,7 @@ export class ContainerManager {
     // Freeze all background elements specified
     this.frozenElements.forEach((el) => this.freezeElement(el));
 
-    // If we're opening the TOC or Source, hide nav-buttons, logoContainer, and topRightContainer
+    // If we're opening the TOC or Source, hide nav-buttons, logoContainer, and userButtonContainer
     if (this.container.id === "toc-container" || 
         this.container.id === "source-container") {
       // Save the current state before modifying
@@ -245,8 +263,7 @@ export class ContainerManager {
       
       const navButtons = document.getElementById("nav-buttons");
       const logoContainer = document.getElementById("logoContainer");
-      const topRightContainer = document.getElementById("topRightContainer");
-      const userButtonContainer = document.getElementById("userButtonContainer"); // Add this line
+      const userButtonContainer = document.getElementById("userButtonContainer");
 
       if (navButtons) {
         navButtons.classList.add("hidden-nav");
@@ -254,10 +271,8 @@ export class ContainerManager {
       if (logoContainer) {
         logoContainer.classList.add("hidden-nav");
       }
-      if (topRightContainer) {
-        topRightContainer.classList.add("hidden-nav");
-      }
-      if (userButtonContainer) { // Add this block
+      // REMOVE the topRightContainer logic from here - let the event listener handle it
+      if (userButtonContainer) {
         userButtonContainer.classList.add("hidden-nav");
       }
     }
@@ -290,32 +305,27 @@ openContainer(content = null, highlightId = null) {
     console.log(`Opening container ${this.container.id} with content:`, content);
     this.container.innerHTML = content;
   } else if (this.initialContent && this.container) {
-    // Restore the initial content if no new content is provided
     this.container.innerHTML = this.initialContent;
   }
   
-  // If a highlightId is provided, store it.
   if (highlightId) {
     this.highlightId = highlightId;
   }
   
-  // Apply any saved customizations when opening
   if (window.containerCustomizer) {
     window.containerCustomizer.loadCustomizations();
   }
   
-  // Ensure the container is visible.
   this.container.classList.remove("hidden");
   this.container.classList.add("open");
 
   this.isOpen = true;
   window.activeContainer = this.container.id;
   
-  // Directly hide navigation elements if this is TOC container
+  // Hide navigation elements if this is TOC container - BUT NOT topRightContainer
   if (this.container.id === "toc-container") {
     const navButtons = document.getElementById("nav-buttons");
     const logoContainer = document.getElementById("logoContainer");
-    const topRightContainer = document.getElementById("topRightContainer");
     const userButtonContainer = document.getElementById("userButtonContainer"); 
     
     // Save state before hiding
@@ -323,14 +333,11 @@ openContainer(content = null, highlightId = null) {
     
     if (navButtons) navButtons.classList.add("hidden-nav");
     if (logoContainer) logoContainer.classList.add("hidden-nav");
-    if (topRightContainer) topRightContainer.classList.add("hidden-nav");
+    // REMOVED: if (topRightContainer) topRightContainer.classList.add("hidden-nav");
     if (userButtonContainer) userButtonContainer.classList.add("hidden-nav"); 
   }
   
-  // Update state after making changes
   this.updateState();
-
-  // Optionally focus the container.
   this.container.focus();
 }
 
@@ -358,16 +365,15 @@ closeContainer() {
   this.isOpen = false;
   window.activeContainer = "main-content";
   
-  // Directly show navigation elements if this is TOC container
+  // Show navigation elements if this is TOC container - BUT NOT topRightContainer
   if (this.container.id === "toc-container") {
     const navButtons = document.getElementById("nav-buttons");
     const logoContainer = document.getElementById("logoContainer");
-    const topRightContainer = document.getElementById("topRightContainer");
     const userButtonContainer = document.getElementById("userButtonContainer");
     
     if (navButtons) navButtons.classList.remove("hidden-nav");
     if (logoContainer) logoContainer.classList.remove("hidden-nav");
-    if (topRightContainer) topRightContainer.classList.remove("hidden-nav");
+    // REMOVED: if (topRightContainer) topRightContainer.classList.remove("hidden-nav");
     if (userButtonContainer) userButtonContainer.classList.remove("hidden-nav");
   }
   
