@@ -19,7 +19,7 @@ import {
   hypercitePasteInProgress
 } from './operationState.js';
 
-import { showSpinner, showTick } from './editIndicator.js';
+import { showSpinner, showTick, isProcessing } from './editIndicator.js';
 
 import { buildBibtexEntry } from "./bibtexProcessor.js";
 import { generateIdBetween,
@@ -540,6 +540,10 @@ async function processChunkMutations(chunk, mutations) {
   
   console.log(`🔄 Processing ${mutations.length} mutations for chunk ${chunkId}`);
 
+  // Only show spinner if we're not already processing
+  if (!isProcessing) {  // ← ADD THIS CHECK
+    showSpinner();
+  }
   // Track node count CHANGES after mutations 
   trackChunkNodeCount(chunk, mutations);
   
@@ -837,7 +841,6 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
   // Only show spinner if in edit mode
   if (!window.isEditing) return;
 
-  showSpinner();
   
   // Track typing activity
   pendingSaves.lastActivity = Date.now();
