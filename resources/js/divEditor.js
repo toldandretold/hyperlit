@@ -19,7 +19,7 @@ import {
   hypercitePasteInProgress
 } from './operationState.js';
 
-
+import { showSpinner, showTick } from './editIndicator.js';
 
 import { buildBibtexEntry } from "./bibtexProcessor.js";
 import { generateIdBetween,
@@ -179,6 +179,8 @@ async function saveNodeToDatabase() {
     // Re-queue failed saves
     nodesToSave.forEach(node => pendingSaves.nodes.set(node.id, node));
   }
+
+  showTick();
 }
 
 
@@ -834,6 +836,8 @@ document.addEventListener("selectionchange", () => {
 document.addEventListener("keydown", function handleTypingActivity(event) {
   // Only show spinner if in edit mode
   if (!window.isEditing) return;
+
+  showSpinner();
   
   // Track typing activity
   pendingSaves.lastActivity = Date.now();
