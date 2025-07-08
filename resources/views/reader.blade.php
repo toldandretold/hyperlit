@@ -108,8 +108,6 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
 <div id="nav-buttons" class="loading"> <!-- bottom right buttons -->
     <button type="button" id="editButton">
         <svg 
-        width="24" 
-        height="24" 
         viewBox="0 0 24 24" 
         fill="none" 
         stroke-width="2" 
@@ -153,8 +151,6 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
 <div id="edit-toolbar">
   <button type="button" id="boldButton">
     <svg
-      width="24"
-      height="24"
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -181,8 +177,6 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
 
   <button type="button" id="italicButton">
     <svg
-      width="24"
-      height="24"
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -223,8 +217,6 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
 
   <button type="button" id="headingButton">
     <svg
-      width="24"
-      height="24"
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -256,8 +248,6 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
 
   <button type="button" id="blockquoteButton">
   <svg
-    width="24"
-    height="24"
     viewBox="0 0 24 24"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
@@ -311,8 +301,6 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
 
   <button type="button" id="codeButton">
     <svg
-      width="24"
-      height="24"
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
