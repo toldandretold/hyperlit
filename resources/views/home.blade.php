@@ -110,50 +110,7 @@
     <button type="button" id="newBook" class="open"><span class="icon">+</span></button>
 </div>
 
-<div id="nav-buttons" class="loading"> <!-- bottom right buttons -->
-    <button type="button" id="editButton">
-        <svg 
-        width="24" 
-        height="24" 
-        viewBox="0 0 24 24" 
-        fill="none" 
-        stroke-width="2" 
-        stroke-linecap="round" 
-        stroke-linejoin="round"
-            >
-        <path d="M12 20h9" />
-        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-            </svg>
-        </button>
-    
-    <button type="button" id="toc-toggle-button">
-        <svg
-        width="36px"
-        height="36px"
-        viewBox="0 0 24.75 24.75"
-        version="1.1"
-        xmlns="http://www.w3.org/2000/svg"
-        xmlns:xlink="http://www.w3.org/1999/xlink"
-            >
-        <!-- Background rectangle -->
-        <rect width="24.75" height="24.75" fill="#221F20" />
-        <g fill="#CBCCCC">
-        <path
-        d="M0,3.875c0-1.104,0.896-2,2-2h20.75c1.104,0,2,0.896,2,2s-0.896,2-2,2H2
-       C0.896,5.875,0,4.979,0,3.875z"
-        />
-        <path
-        d="M22.75,10.375H2c-1.104,0-2,0.896-2,2c0,1.104,0.896,2,2,2h20.75c1.104,0,2-0.896,2-2
-       C24.75,11.271,23.855,10.375,22.75,10.375z"
-            />
-        <path
-        d="M22.75,18.875H2c-1.104,0-2,0.896-2,2s0.896,2,2,2h20.75c1.104,0,2-0.896,2-2
-       S23.855,18.875,22.75,18.875z"
-        />
-        </g>
-        </svg>
-    </button>
-</div>
+
 
 <!-- toggle hidden containers -->
 <div id="toc-container" class="hidden"></div>
