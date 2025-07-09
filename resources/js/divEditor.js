@@ -122,6 +122,10 @@ async function processBatchDeletions() {
     await batchDeleteIndexedDBRecords(nodeIdsToDelete);
     
     console.log(`✅ Batch deleted ${nodeIdsToDelete.length} nodes`);
+
+    setTimeout(() => {
+      ensureMinimumDocumentStructure();
+    }, 100);
   } catch (error) {
     console.error('❌ Error in batch deletion:', error);
     // Re-queue failed deletions
@@ -234,6 +238,8 @@ export function startObserving(editableDiv) {
     console.warn("No .main-content container found; observer not attached.");
     return;
   }
+
+  ensureMinimumDocumentStructure();
 
   // Initialize tracking for all current chunks
   initializeCurrentChunks(editableDiv);
@@ -591,16 +597,15 @@ async function processChunkMutations(chunk, mutations) {
             console.log(`Chunk ${chunkId} has ${remainingNodes} remaining nodes after this deletion`);
             
             if (remainingNodes === 0) {
-              // This is the last node - handle it specially
-              console.log(`🚨 Last node ${node.id} being deleted from chunk ${chunkId}`);
-              
-              console.log(`🗑️ Queueing node ${node.id} for batch deletion`);
-                pendingSaves.deletions.add(node.id);
-                removedNodeIds.add(node.id);
-                debouncedBatchDelete();
-              // Exit early to avoid further processing since chunk will disappear
-              return;
-            } else {
+                console.log(`🚨 Last node ${node.id} being deleted from chunk ${chunkId}`);
+                
+                // Delete immediately and restore structure
+                deleteIndexedDBRecordWithRetry(node.id).then(() => {
+                  ensureMinimumDocumentStructure();
+                });
+                
+                return;
+              } else {
               // Normal deletion for non-last nodes
               console.log(`🗑️ Queueing node ${node.id} for batch deletion`);
               pendingSaves.deletions.add(node.id);
@@ -836,16 +841,61 @@ document.addEventListener("selectionchange", () => {
   }
 });
 
-// Track typing activity
 document.addEventListener("keydown", function handleTypingActivity(event) {
-  // Only show spinner if in edit mode
   if (!window.isEditing) return;
 
-  
-  // Track typing activity
+  // 🆕 SIMPLIFIED: Go back to the working Safari version
+  if (['Backspace', 'Delete'].includes(event.key)) {
+    const selection = document.getSelection();
+    if (selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      
+      // Check if we're about to delete the last content
+      if (checkForImminentEmptyState()) {
+        // Check if this deletion would leave us empty
+        let willBeEmpty = false;
+        
+        // Get the element that would be affected
+        let targetElement = range.startContainer;
+        if (targetElement.nodeType !== Node.ELEMENT_NODE) {
+          targetElement = targetElement.parentElement;
+        }
+        
+        // Find the closest element with an ID
+        let elementWithId = targetElement.closest('[id]');
+        
+        if (elementWithId && isNumericalId(elementWithId.id)) {
+          // SIMPLIFIED: Back to the original working conditions
+          const textContent = elementWithId.textContent || '';
+          const isSelectingAll = !range.collapsed && 
+            range.toString().trim() === textContent.trim();
+          const isAtStartAndEmpty = range.collapsed && 
+            range.startOffset === 0 && 
+            textContent.trim().length <= 1; // Back to original condition
+          
+          if (isSelectingAll || isAtStartAndEmpty) {
+            willBeEmpty = true;
+          }
+        }
+        
+        if (willBeEmpty) {
+          console.log('🚨 About to delete last content - preparing new structure');
+          
+          // Prevent the deletion
+          event.preventDefault();
+          
+          // Use the ORIGINAL working restoration method
+          ensureMinimumDocumentStructure();
+          
+          return;
+        }
+      }
+    }
+  }
+
+  // Rest of your existing keydown logic (unchanged)
   pendingSaves.lastActivity = Date.now();
   
-  // For character-generating keys, queue the current node for save
   if (event.key.length === 1 || ['Backspace', 'Delete', 'Enter'].includes(event.key)) {
     const selection = document.getSelection();
     if (selection.rangeCount > 0) {
@@ -855,7 +905,6 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
         currentNode = currentNode.parentElement;
       }
       
-      // Find the closest element with an ID
       let elementWithId = currentNode.closest('[id]');
       if (elementWithId && elementWithId.id) {
         queueNodeForSave(elementWithId.id, 'update');
@@ -1690,5 +1739,238 @@ async function handleHyperciteRemoval(removedNode) {
 
 
 
+// Add this helper function near the top of your file
+function findAllNumericalIdNodesInChunks(container) {
+  const numericalIdNodes = [];
+  const elementsWithIds = container.querySelectorAll('[id]');
+  
+  elementsWithIds.forEach(element => {
+    if (isNumericalId(element.id)) {
+      numericalIdNodes.push(element);
+    }
+  });
+  
+  return numericalIdNodes;
+}
 
+export function ensureMinimumDocumentStructure() {
+  const mainContent = document.querySelector('.main-content');
+  if (!mainContent) return;
+  
+  console.log('🔍 Checking document structure...');
+  
+  const bookId = book;
+  
+  // Check for sentinels
+  const topSentinelId = `${bookId}-top-sentinel`;
+  const bottomSentinelId = `${bookId}-bottom-sentinel`;
+  const hasTopSentinel = document.getElementById(topSentinelId);
+  const hasBottomSentinel = document.getElementById(bottomSentinelId);
+  
+  // Check for chunks
+  const chunks = mainContent.querySelectorAll('.chunk');
+  
+  // Check for numerical ID nodes
+  const numericalIdNodes = findAllNumericalIdNodesInChunks(mainContent);
+  const nonSentinelNodes = numericalIdNodes.filter(node => 
+    !node.id.includes('-sentinel')
+  );
+  
+  console.log(`Found: ${chunks.length} chunks, ${numericalIdNodes.length} numerical nodes (${nonSentinelNodes.length} non-sentinel)`);
+  
+  // 🆕 COLLECT ORPHANED CONTENT FIRST, before any structure changes
+  const orphanedContent = [];
+  Array.from(mainContent.childNodes).forEach(node => {
+    if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+      orphanedContent.push(node);
+    } else if (node.nodeType === Node.ELEMENT_NODE && 
+               !node.classList.contains('chunk') && 
+               !node.classList.contains('sentinel')) {
+      orphanedContent.push(node);
+    }
+  });
+  
+  if (orphanedContent.length > 0) {
+    console.log(`🧹 Found ${orphanedContent.length} orphaned content nodes to preserve`);
+  }
+  
+  // CASE 1: Create missing sentinels
+  if (!hasTopSentinel) {
+    console.log('📍 Creating top sentinel...');
+    const topSentinel = document.createElement('div');
+    topSentinel.id = topSentinelId;
+    topSentinel.className = 'sentinel';
+    
+    mainContent.insertBefore(topSentinel, mainContent.firstChild);
+    queueNodeForSave(topSentinelId, 'add');
+    console.log(`✅ Created top sentinel: ${topSentinelId}`);
+  }
+  
+  if (!hasBottomSentinel) {
+    console.log('📍 Creating bottom sentinel...');
+    const bottomSentinel = document.createElement('div');
+    bottomSentinel.id = bottomSentinelId;
+    bottomSentinel.className = 'sentinel';
+    
+    mainContent.appendChild(bottomSentinel);
+    queueNodeForSave(bottomSentinelId, 'add');
+    console.log(`✅ Created bottom sentinel: ${bottomSentinelId}`);
+  }
+  
+  // CASE 2: No chunks OR no content nodes - create default structure
+  if (chunks.length === 0 || nonSentinelNodes.length === 0) {
+    console.log('📦 Creating default document structure...');
+    
+    // 🆕 PRESERVE orphaned content by temporarily removing it from DOM
+    const preservedContent = orphanedContent.map(node => {
+      const clone = node.cloneNode(true);
+      node.remove(); // Remove from DOM but keep the clone
+      return clone;
+    });
+    
+    // Clear any remaining content (except sentinels)
+    Array.from(mainContent.children).forEach(child => {
+      if (!child.classList.contains('sentinel')) {
+        child.remove();
+      }
+    });
+    
+    // Create chunk between sentinels
+    const chunk = document.createElement('div');
+    chunk.className = 'chunk';
+    chunk.setAttribute('data-chunk-id', '0');
+    
+    // Create default h1
+    const h1 = document.createElement('h1');
+    h1.id = '1';
+    
+    // 🆕 ADD PRESERVED CONTENT TO THE NEW H1
+    if (preservedContent.length > 0) {
+      console.log('📝 Restoring preserved content to new h1');
+      preservedContent.forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          h1.appendChild(node);
+        } else {
+          // For element nodes, move their content
+          while (node.firstChild) {
+            h1.appendChild(node.firstChild);
+          }
+        }
+      });
+    } else {
+      h1.innerHTML = '<br>'; // Empty but editable
+    }
+    
+    // Assemble structure
+    chunk.appendChild(h1);
+    
+    // Insert before bottom sentinel
+    const bottomSentinel = document.getElementById(bottomSentinelId);
+    if (bottomSentinel) {
+      mainContent.insertBefore(chunk, bottomSentinel);
+    } else {
+      mainContent.appendChild(chunk);
+    }
+    
+    // Save to database
+    queueNodeForSave('1', 'add');
+    
+    // Initialize chunk tracking
+    if (window.trackChunkNodeCount) {
+      trackChunkNodeCount(chunk);
+    }
+    
+    console.log('✅ Created default structure with preserved content');
+    
+    // Position cursor in the new h1
+    setTimeout(() => {
+      const range = document.createRange();
+      const selection = document.getSelection();
+      range.selectNodeContents(h1);
+      range.collapse(false); // Collapse to end
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }, 0);
+    
+    return;
+  }
+  
+  // CASE 3: Has chunks but they're empty - add content to first chunk
+  if (chunks.length > 0 && nonSentinelNodes.length === 0) {
+    console.log('📝 Adding content to existing empty chunk...');
+    
+    const firstChunk = chunks[0];
+    const h1 = document.createElement('h1');
+    h1.id = '1';
+    
+    // 🆕 ADD ORPHANED CONTENT TO THE NEW H1
+    if (orphanedContent.length > 0) {
+      console.log('📝 Adding orphaned content to new h1 in existing chunk');
+      orphanedContent.forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          h1.appendChild(node);
+        } else {
+          while (node.firstChild) {
+            h1.appendChild(node.firstChild);
+          }
+          node.remove();
+        }
+      });
+    } else {
+      h1.innerHTML = '<br>';
+    }
+    
+    firstChunk.appendChild(h1);
+    queueNodeForSave('1', 'add');
+    
+    console.log('✅ Added h1#1 to existing chunk with content');
+    return;
+  }
+  
+  // CASE 4: Normal case - just handle orphaned content if any exists
+  if (orphanedContent.length > 0) {
+    console.log('📝 Moving orphaned content to existing structure...');
+    
+    let targetChunk = mainContent.querySelector('.chunk');
+    let targetElement = targetChunk?.querySelector('[id]:not([id*="-sentinel"])');
+    
+    if (!targetElement) {
+      // This shouldn't happen in normal case, but just in case
+      targetElement = document.createElement('p');
+      targetElement.id = '1';
+      if (targetChunk) {
+        targetChunk.appendChild(targetElement);
+      }
+    }
+    
+    // Move orphaned content to the target element
+    orphanedContent.forEach(node => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        targetElement.appendChild(node);
+      } else {
+        while (node.firstChild) {
+          targetElement.appendChild(node.firstChild);
+        }
+        node.remove();
+      }
+    });
+    
+    queueNodeForSave(targetElement.id, 'update');
+    console.log('✅ Moved orphaned content to existing element');
+  }
+  
+  console.log('✅ Document structure is adequate');
+}
 
+function checkForImminentEmptyState() {
+  const mainContent = document.querySelector('.main-content');
+  if (!mainContent) return false;
+  
+  const numericalIdNodes = findAllNumericalIdNodesInChunks(mainContent);
+  const nonSentinelNodes = numericalIdNodes.filter(node => 
+    !node.id.includes('-sentinel')
+  );
+  
+  // If we're down to 1 node, we're about to be empty
+  return nonSentinelNodes.length <= 1;
+}

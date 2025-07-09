@@ -208,6 +208,9 @@ async function enableEditMode(targetElementId = null) {
     window.isEditing = true;
     if (editBtn) editBtn.classList.add("inverted");
     editableDiv.contentEditable = "true";
+
+    const { ensureMinimumDocumentStructure } = await import('./divEditor.js');
+    ensureMinimumDocumentStructure();
     
     // Smart cursor placement logic
     let cursorPlaced = false;
