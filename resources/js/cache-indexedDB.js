@@ -1790,6 +1790,11 @@ export async function syncNodeChunksToPostgreSQL(nodeChunks = []) {
     data: nodeChunks
   };
 
+  // 🆕 DEBUG LOGGING
+  console.log("🔍 DEBUG - Raw nodeChunk from IndexedDB:", JSON.stringify(nodeChunks[0], null, 2));
+  console.log("🔍 DEBUG - Transformed payload:", JSON.stringify(payload, null, 2));
+  console.log("🔍 DEBUG - First hypercite in payload:", JSON.stringify(payload.data[0]?.hypercites?.[0], null, 2));
+
   console.log(
     `🔄 Syncing ${nodeChunks.length} nodeChunks for book ${bookId}…`
   );

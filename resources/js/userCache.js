@@ -1,4 +1,4 @@
-import { getCurrentUser, getAuthorId } from './auth.js';
+import { getCurrentUser, getCurrentUserId } from './auth.js';
 import { openDatabase } from './cache-indexedDB';
 
 // User highlight cache
@@ -19,7 +19,7 @@ export async function buildUserHighlightCache(bookId) {
       request.onerror = () => reject(request.error);
     });
     
-    // Get current user ID
+    // ✅ FIXED: Use the existing getCurrentUserId from auth.js
     const currentUserId = await getCurrentUserId();
     
     if (!currentUserId) {
@@ -34,11 +34,10 @@ export async function buildUserHighlightCache(bookId) {
     
     // Filter highlights for current user
     // Check both creator and creator_token fields to handle both logged-in and anonymous users
-    // Use correct field names: 'book' instead of 'bookId', 'hyperlight_id' instead of 'highlightID'
     const userHighlights = new Set(
       allHighlights
         .filter(h => {
-          const matchesBook = h.book === bookId; // Changed from h.bookId to h.book
+          const matchesBook = h.book === bookId;
           const matchesUser = h.creator === currentUserId || h.creator_token === currentUserId;
           
           console.log(`🔍 Checking highlight: book="${h.book}", creator="${h.creator}", creator_token="${h.creator_token}"`);
@@ -50,7 +49,7 @@ export async function buildUserHighlightCache(bookId) {
           
           return matchesBook && matchesUser;
         })
-        .map(h => h.hyperlight_id) // Changed from h.highlightID to h.hyperlight_id
+        .map(h => h.hyperlight_id)
     );
     
     // Store in cache
@@ -81,32 +80,6 @@ export function clearUserHighlightCache(bookId = null) {
     console.log(`🧹 Cleared all user highlight caches`);
   }
 }
-async function getCurrentUserId() {
-  try {
-    console.log('🔍 getCurrentUserId() starting...');
-    
-    // Check if user is logged in
-    const user = await getCurrentUser();
-    console.log('🔍 getCurrentUser() result:', user);
-    
-    if (user) {
-      // If logged in, use their identifier (name, username, or email)
-      const userId = user.name || user.username || user.email;
-      console.log(`🔍 Found logged-in user: ${userId}`);
-      return userId;
-    }
-    
-    // If not logged in, use anonymous author ID (UUID)
-    const anonId = getAuthorId();
-    console.log(`🔍 getAuthorId() returned: ${anonId}`);
-    console.log(`🔍 localStorage authorId: ${localStorage.getItem('authorId')}`);
-    return anonId;
-    
-  } catch (error) {
-    console.error('❌ Error getting current user ID:', error);
-    // Fallback to anonymous ID
-    const anonId = getAuthorId();
-    console.log(`🔍 Fallback to anonymous author ID: ${anonId}`);
-    return anonId;
-  }
-}
+
+// ❌ REMOVED: Duplicate getCurrentUserId function
+// The auth.js already has this function and should be the single source of truth
