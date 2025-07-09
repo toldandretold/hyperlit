@@ -1,7 +1,6 @@
 // annotationSaver.js
 import { withPending } from './operationState.js';
 import { openDatabase } from './cache-indexedDB.js';
-import { getCurrentUser, getAuthorId, getAnonymousToken } from "./auth.js";
 
 // Debounce timer variable for the highlight container.
 let annotationDebounceTimer = null;
@@ -78,7 +77,7 @@ export function attachAnnotationListener(highlightId) {
       const html = lastHTML;
 
       withPending(async () => {
-        /* 1 — update IndexedDB ----------------------------------- */
+        /* 1 — update IndexedDB ----------------------------------- */
         const db = await openDatabase();
         const tx = db.transaction("hyperlights", "readwrite");
         const store = tx.objectStore("hyperlights");
@@ -101,8 +100,8 @@ export function attachAnnotationListener(highlightId) {
           tx.onerror = () => rej(tx.error);
         });
 
-        /* 2 — sync to PostgreSQL --------------------------------- */
-        const anon = await getAnonymousToken();
+        /* 2 — sync to PostgreSQL --------------------------------- */
+        // ✅ FIXED: Use backend-managed auth system
         const payload = {
           book: rec.book,
           data: [
@@ -111,8 +110,8 @@ export function attachAnnotationListener(highlightId) {
               hyperlight_id: rec.hyperlight_id,
               annotation: html
             }
-          ],
-          ...(anon ? { anonymous_token: anon } : {})
+          ]
+          // ❌ REMOVED: anonymous_token - backend handles this via cookies
         };
 
         const response = await fetch("/api/db/hyperlights/upsert", {
@@ -122,7 +121,7 @@ export function attachAnnotationListener(highlightId) {
             "X-CSRF-TOKEN":
               document.querySelector('meta[name="csrf-token"]')?.content
           },
-          credentials: "same-origin",
+          credentials: "include", // ✅ FIXED: Changed from "same-origin" to "include"
           body: JSON.stringify(payload)
         });
 

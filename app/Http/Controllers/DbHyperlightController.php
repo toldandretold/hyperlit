@@ -19,6 +19,7 @@ class DbHyperlightController extends Controller
 
     /**
      * Check if user has permission to modify the hyperlight
+     * Uses backend-managed auth but keeps individual highlight permission logic
      */
     private function checkHyperlightPermission(Request $request, $creator = null, $creatorToken = null)
     {
@@ -59,6 +60,21 @@ class DbHyperlightController extends Controller
                 return false;
             }
             
+            // FIXED: Handle legacy records with null creator_token
+            if ($creatorToken === null) {
+                // For legacy records without creator_token, allow any valid anonymous user
+                // Update last used time for the anonymous session
+                AnonymousSession::where('token', $anonymousToken)
+                    ->update(['last_used_at' => now()]);
+                
+                Log::info('Anonymous user hyperlight access granted for legacy record', [
+                    'token' => $anonymousToken,
+                    'creator_token' => 'null (legacy)',
+                    'reason' => 'legacy_record_access'
+                ]);
+                return true;
+            }
+            
             if ($creatorToken && $creatorToken === $anonymousToken) {
                 // Update last used time for the anonymous session
                 AnonymousSession::where('token', $anonymousToken)
@@ -92,17 +108,23 @@ class DbHyperlightController extends Controller
             
             if (isset($data['data']) && is_array($data['data'])) {
                 $records = [];
+                $user = Auth::user();
+                $anonymousToken = $user ? null : $request->cookie('anon_token');
                 
                 foreach ($data['data'] as $index => $item) {
-                    // Check permission for each hyperlight
+                    // Backend sets the creator fields based on auth state
+                    $creator = $user ? $user->name : null;
+                    $creator_token = $user ? null : $anonymousToken;
+                    
+                    // Check permission using backend-generated auth
                     if (!$this->checkHyperlightPermission(
                         $request, 
-                        $item['creator'] ?? null, 
-                        $item['creator_token'] ?? null
+                        $creator, 
+                        $creator_token
                     )) {
                         Log::warning("Permission denied for hyperlight at index {$index}", [
-                            'creator' => $item['creator'] ?? null,
-                            'creator_token' => $item['creator_token'] ?? null
+                            'creator' => $creator,
+                            'creator_token' => $creator_token
                         ]);
                         continue; // Skip this item
                     }
@@ -116,8 +138,8 @@ class DbHyperlightController extends Controller
                         'startChar' => $item['startChar'] ?? null,
                         'endChar' => $item['endChar'] ?? null,
                         'startLine' => $item['startLine'] ?? null,
-                        'creator' => $item['creator'] ?? null,
-                        'creator_token' => $item['creator_token'] ?? null,
+                        'creator' => $creator,
+                        'creator_token' => $creator_token,
                         'time_since' => $item['time_since'] ?? floor(time()),
                         'raw_json' => json_encode($this->cleanItemForStorage($item)),
                         'created_at' => now(),
@@ -174,6 +196,8 @@ class DbHyperlightController extends Controller
             
             if (isset($data['data']) && is_array($data['data'])) {
                 $processedCount = 0;
+                $user = Auth::user();
+                $anonymousToken = $user ? null : $request->cookie('anon_token');
                 
                 foreach ($data['data'] as $index => $item) {
                     // For upserts, we need to check if the record exists first
@@ -195,16 +219,24 @@ class DbHyperlightController extends Controller
                             ]);
                             continue; // Skip this item
                         }
+                        
+                        // For existing records, keep the original creator info
+                        $creator = $existingRecord->creator;
+                        $creator_token = $existingRecord->creator_token;
                     } else {
-                        // New record - check permission against provided data
+                        // New record - use backend-generated auth
+                        $creator = $user ? $user->name : null;
+                        $creator_token = $user ? null : $anonymousToken;
+                        
+                        // Check permission for new record
                         if (!$this->checkHyperlightPermission(
                             $request, 
-                            $item['creator'] ?? null, 
-                            $item['creator_token'] ?? null
+                            $creator, 
+                            $creator_token
                         )) {
                             Log::warning("Permission denied for new hyperlight at index {$index}", [
-                                'creator' => $item['creator'] ?? null,
-                                'creator_token' => $item['creator_token'] ?? null
+                                'creator' => $creator,
+                                'creator_token' => $creator_token
                             ]);
                             continue; // Skip this item
                         }
@@ -222,8 +254,8 @@ class DbHyperlightController extends Controller
                             'startChar' => $item['startChar'] ?? null,
                             'endChar' => $item['endChar'] ?? null,
                             'startLine' => $item['startLine'] ?? null,
-                            'creator' => $item['creator'] ?? null,
-                            'creator_token' => $item['creator_token'] ?? null,
+                            'creator' => $creator,
+                            'creator_token' => $creator_token,
                             'time_since' => $item['time_since'] ?? floor(time()),
                             'raw_json' => json_encode($this->cleanItemForStorage($item)),
                             'updated_at' => now(),
@@ -288,7 +320,7 @@ class DbHyperlightController extends Controller
                         continue;
                     }
                     
-                    // Check permission
+                    // Check permission using existing record's creator info
                     if (!$this->checkHyperlightPermission(
                         $request, 
                         $existingRecord->creator, 

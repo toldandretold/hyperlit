@@ -12,7 +12,7 @@ import { attachAnnotationListener } from "./annotation-saver.js";
 import { addPasteListener } from "./paste.js";
 import { addHighlightContainerPasteListener } from "./hyperLightsListener.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
-import { getCurrentUser, getAuthorId, getCurrentUserId } from "./auth.js";
+import { getCurrentUser, getCurrentUserId } from "./auth.js";
 import { getUserHighlightCache } from './userCache.js';
 
 let highlightId; 
@@ -573,9 +573,18 @@ function modifyNewMarks(highlightId) {
 async function addToHighlightsTable(highlightData) {
   const db = await openDatabase();
   
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     const tx = db.transaction("hyperlights", "readwrite");
     const store = tx.objectStore("hyperlights");
+    
+    // ✅ FIXED: Get current user info for IndexedDB storage
+    const user = await getCurrentUser();
+    const currentUserId = await getCurrentUserId();
+    
+    const creator = user ? (user.name || user.username || user.email) : null;
+    const creator_token = user ? null : currentUserId; // For anon users, currentUserId IS the token
+    
+    console.log("💾 Saving to IndexedDB with auth:", { creator, creator_token, currentUserId });
     
     // Create a document fragment to hold the highlighted content
     const fragment = document.createDocumentFragment();
@@ -610,10 +619,12 @@ async function addToHighlightsTable(highlightData) {
       startChar: highlightData.startChar,
       endChar: highlightData.endChar,
       startLine: highlightData.startLine,
-      creator: highlightData.creator || null,
-      creator_token: highlightData.creator_token || null,
+      creator: creator,        // ✅ FIXED: Set proper creator
+      creator_token: creator_token, // ✅ FIXED: Set proper creator_token
       time_since: Math.floor(Date.now() / 1000)
     };
+
+    console.log("💾 Final highlight entry for IndexedDB:", highlightEntry);
 
     const addRequest = store.put(highlightEntry);
 
@@ -903,16 +914,17 @@ addTouchAndClickListener(
     }
 
     try {
-      
+      // ✅ NEW WAY: Let backend handle all authorization
       const user = await getCurrentUser();
-      const creator = user
-        ? (user.name || user.username || user.email)
-        : null;
-      const creator_token = user ? null : getAuthorId();
+      
+      // Only set creator for logged-in users
+      // For anonymous users, leave both null - backend will handle it
+      const creator = user ? (user.name || user.username || user.email) : null;
+      const creator_token = null; // Backend will set this from cookie
 
       console.log("Creating hyperlight with", {
         creator,
-        creator_token
+        user_type: user ? 'logged_in' : 'anonymous'
       });
 
       // Create hyperlight entry for the main hyperlights table
@@ -936,8 +948,6 @@ addTouchAndClickListener(
         startChar: cleanStartOffset,
         endChar: cleanEndOffset,
         startLine: startContainer.id,
-        creator,           // Add creator field
-        creator_token      // Add creator_token field
       });
       
       console.log("Added to highlights table");
@@ -973,7 +983,7 @@ function toPublicChunk(chunk) {
     hypercites:  chunk.hypercites  ?? []
   };
 }
-
+ 
 async function syncHyperlightWithPostgreSQL(hyperlightEntry, nodeChunks) {
   try {
     console.log("🔄 Starting Hyperlight PostgreSQL sync…");

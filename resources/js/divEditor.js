@@ -156,7 +156,7 @@ async function saveNodeToDatabase() {
   const deletions = nodesToSave.filter(n => n.action === 'delete');
   
   try {
-    // Batch process updates and additions together
+    // 🆕 FIX: Pass the full record objects, not just IDs
     const recordsToUpdate = [...updates, ...additions].filter(node => {
       const element = document.getElementById(node.id);
       if (!element) {
@@ -167,7 +167,10 @@ async function saveNodeToDatabase() {
     });
 
     if (recordsToUpdate.length > 0) {
+      // 🆕 Pass the full record objects with { id, action }
       await batchUpdateIndexedDBRecords(recordsToUpdate);
+    } else {
+      console.log("ℹ️ No valid nodes to batch update, skipping");
     }
     
     // Handle deletions separately (still individual for now)
