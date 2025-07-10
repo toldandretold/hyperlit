@@ -229,8 +229,6 @@ black #221F20;
   position: absolute;
   top: 50%;           /* 🆕 Center the active image */
   left: 50%;          /* 🆕 Center the active image */
-  width: 20px;        /* 🆕 Same size as original */
-  height: 20px;       /* 🆕 Same size as original */
   transform: translate(-50%, -50%); /* 🆕 Perfect centering */
   background: url('http://127.0.0.1:8000/images/logob.svg')
               no-repeat center/contain;
