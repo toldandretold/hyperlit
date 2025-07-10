@@ -168,22 +168,38 @@ export default class NavButtons {
   /**
    * On pointer/touch up, check if the movement is small enough to be considered a tap.
    */
+    /**
+   * On pointer/touch up, check if the movement is small enough to be considered a tap.
+   */
   handlePointerUp(event) {
     const mainContent = document.querySelector(".main-content");
     if (!mainContent || mainContent.offsetParent === null) {
       return;
     }
+    
+    // 🆕 ADD DEBUGGING FOR TOUCH
+    console.log('Touch event target:', event.target);
+    console.log('Touch event target closest button:', event.target.closest('button'));
+    console.log('Touch event target closest logoContainer:', event.target.closest('#logoContainer'));
+    
     if (this.shouldIgnoreEvent(event)) {
+      console.log('Touch event ignored by shouldIgnoreEvent');
       return;
     }
+    
     const deltaX = Math.abs(event.clientX - this.startX);
     const deltaY = Math.abs(event.clientY - this.startY);
+    
+    console.log(`Touch delta: X=${deltaX}, Y=${deltaY}, threshold=${this.tapThreshold}`);
+    
     if (deltaX < this.tapThreshold && deltaY < this.tapThreshold) {
       console.log('NavButtons: Toggling navigation (touch)');
       this.elements.forEach((element) => {
         element.classList.toggle("hidden-nav");
         console.log(`- Toggled ${element.id}, hidden-nav: ${element.classList.contains("hidden-nav")}`);
       });
+    } else {
+      console.log('Touch movement too large, not toggling');
     }
   }
 
