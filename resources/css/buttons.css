@@ -35,8 +35,8 @@ black #221F20;
 }
 
 #editButton {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   background: #221F20;
   border: none;
   cursor: pointer;
@@ -51,8 +51,8 @@ black #221F20;
 #editButton.inverted {
   background: #CBCCCC;
   stroke: #221F20;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 4px;
   border: none;
 }
@@ -207,7 +207,7 @@ black #221F20;
   right: 10px;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
   gap: 8px;
   transition: opacity 0.3s ease, right 0.3s ease;
 }
