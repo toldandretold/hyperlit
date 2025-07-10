@@ -428,9 +428,13 @@ black #221F20;
     height: 26px;
   }
 
-  /* 🚨 REMOVED: This was breaking your layout */
-  /* #logo {
-    width: 18px;
-    height: 18px;
-  } */
+  
+
+  #logoContainer img {
+  display: block;
+  width: 18px !important;
+  height: 18px !important;
+  transition: none;
+}
+
 }
