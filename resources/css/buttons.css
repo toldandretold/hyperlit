@@ -175,7 +175,7 @@ black #221F20;
   left: 10px;
   width: 50px;        /* Larger clickable area */
   height: 50px;       /* Larger clickable area */
-  padding: 0;
+  padding: 3px;
   margin: 0;
   border: none;
   background: transparent;
@@ -227,8 +227,8 @@ black #221F20;
 #logoContainer:active::after {
   content: "";
   position: absolute;
-  top: 50%;           /* 🆕 Center the active image */
-  left: 50%;          /* 🆕 Center the active image */
+  top: 50px;           /* 🆕 Center the active image */
+  left: 50px;          /* 🆕 Center the active image */
   transform: translate(-50%, -50%); /* 🆕 Perfect centering */
   background: url('http://127.0.0.1:8000/images/logob.svg')
               no-repeat center/contain;
