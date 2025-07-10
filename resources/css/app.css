@@ -188,9 +188,12 @@ sup {
 
 
 
+/* Increase touch target size for sup elements */
 sup.open-icon {
-    color: #4EACAE;
-    font-size: 14px;
+    padding: 8px; /* Add padding to increase clickable area */
+    margin: -8px; /* Offset padding to maintain visual position */
+    position: relative; /* Enable z-index */
+    z-index: 2; /* Ensure it's above other elements */
 }
 
 
@@ -217,9 +220,10 @@ a {
   overflow: hidden;     /* Disable scrolling */
 }
 
-sup.note {
-  position: relative;
-  cursor: pointer;
+/* Adjust the pseudo-element to not interfere with clicks */
+sup.note::before {
+    pointer-events: none; /* Prevent interference */
+    z-index: 1;
 }
 
 sup.note::before {
@@ -267,9 +271,7 @@ hr {
     border-color: #EE4A95;
 }
 
-#html-editor div.annotation {
-   
-}
+
 
 /* change cursor behaviour for links in editable div */
 #html-editor a {
@@ -279,9 +281,18 @@ hr {
 
 /* Disable iOS long-press text selection menu */
 html, body, * {
-    -webkit-touch-callout: none; /* Disable the iOS touch callout */
-    -webkit-user-select: none;   /* Disable text selection */
-    user-select: none;           /* Disable text selection (for other browsers) */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Enable interaction for annotation links */
+.annotation a, 
+.annotation sup.open-icon {
+    -webkit-touch-callout: default;
+    -webkit-user-select: text;
+    user-select: text;
+    pointer-events: auto;
 }
 
 
@@ -453,3 +464,9 @@ div::-webkit-scrollbar {
     color: #EE4A95;
 }
 
+/* Ensure annotation container allows interaction */
+.annotation {
+    pointer-events: auto;
+    position: relative;
+    z-index: 1;
+}
