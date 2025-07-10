@@ -126,20 +126,20 @@ export default class NavButtons {
         return true;
       }
       
-      // 🆕 REFINED FILTERING - Only ignore specific interactive elements
-      // Don't ignore clicks on the navigation elements themselves
-      if (event.target.closest('#nav-buttons, #logoContainer, #topRightContainer, #userButtonContainer')) {
-        console.log('NavButtons: Click on nav element itself, allowing toggle');
-        return false; // Allow the toggle
+      // 🆕 SPECIFIC BUTTON HANDLING
+      // These nav buttons should do their action, NOT toggle
+      if (event.target.closest('#logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button')) {
+        console.log('NavButtons: Ignoring click on specific nav button - let it do its action');
+        return true;
       }
       
-      // Don't toggle if clicking on buttons/links OUTSIDE of nav elements
+      // Don't toggle if clicking on other interactive elements
       if (event.target.matches('button, a, input, select, textarea, [role="button"]')) {
         console.log('NavButtons: Ignoring click on interactive element:', event.target.tagName);
         return true;
       }
       
-      // Don't toggle if clicking inside specific containers (but not all containers)
+      // Don't toggle if clicking inside specific containers
       if (event.target.closest('.hidden, .overlay, #toc-container, #highlight-container, #ref-container')) {
         console.log('NavButtons: Ignoring click inside modal container');
         return true;
