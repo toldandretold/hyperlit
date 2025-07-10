@@ -173,11 +173,8 @@ black #221F20;
   position: absolute;
   top: 10px;
   left: 10px;
-  width: 50px;        /* Larger clickable area */
-  height: 50px;       /* Larger clickable area */
-  padding: 10px;
-  min-width: 44px; /* Apple's recommended minimum */
-  min-height: 44px;
+  width: 40px;        /* Larger clickable area */
+  height: 40px;       /* Larger clickable area */
   margin: 0;
   border: none;
   background: transparent;
