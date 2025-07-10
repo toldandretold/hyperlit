@@ -78,6 +78,8 @@ u.couple, u.poly {
     padding-bottom: 3px; /* Space for the underline */
 }
 
+
+
 .main-content.loading::before {
     content: "Loading...";
     display: block;

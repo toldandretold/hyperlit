@@ -84,9 +84,9 @@ black #221F20;
   height: auto !important;
 }
 
-#cloudRef:hover .cls-1,
-#cloudRef:hover .cls-2 {
-  fill: url(#gradient);
+#cloudRef:hover .cls-1 {
+  fill: #221F20;
+
 }
 
 /* Container for both buttons */

@@ -161,7 +161,7 @@ export default class NavButtons {
   // If logo is hidden (has hidden-nav class), no exclusion zone - allow toggling
   
   // SPECIFIC BUTTON HANDLING
-  if (event.target.closest('#logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button')) {
+  if (event.target.closest('#logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button, #cloudRef')) {
     console.log('NavButtons: Ignoring click on specific nav button - let it do its action');
     return true;
   }
