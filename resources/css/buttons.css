@@ -164,83 +164,64 @@ black #221F20;
   justify-content: center;
 }
 
-
-
-
-
-
+/* ───────────────────────────────────────────────────────────────────── */
+/* LOGO BUTTON */
 #logoContainer {
   position: absolute;
   top: 10px;
   left: 10px;
-  width: 40px;        /* Larger clickable area */
-  height: 40px;       /* Larger clickable area */
+  width: 40px;
+  height: 40px;
   margin: 0;
-  border: none;
   background: transparent;
+  border: none;
   cursor: pointer;
-  transition: opacity 0.3s ease;
-  /* remove native button chrome */
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  /* Center the image inside the larger button */
   display: flex;
   align-items: center;
   justify-content: center;
+
+  /* remove native grey flash on tap */
+  -webkit-tap-highlight-color: transparent;
+
+  /* now animates scale & brightness instead of opacity */
+  transition: transform 0.1s ease,
+              filter    0.1s ease,
+              opacity   0.3s ease; /* keep if you still want fade elsewhere */
+  appearance: none;
 }
 
-/* 🆕 FIXED: Override the width/height for the actual image */
+/* force the actual <img> size */
 #logoContainer img,
 #logo {
   display: block;
-  width: 20px !important;   /* 🆕 Force smaller size with !important */
-  height: 20px !important;  /* 🆕 Force smaller size with !important */
+  width: 20px !important;
+  height: 20px !important;
   transition: opacity 0.3s ease;
 }
 
-/* hover for desktop */
-#logoContainer:hover #logo,
-#logoContainer:focus #logo {
-  opacity: 0;
-}
-
+/* ─ remove your old ‘vanish’ rules ─ */
+/*#logoContainer:hover #logo,
+#logoContainer:focus #logo { opacity: 0; }
 #logoContainer:hover::after,
-#logoContainer:focus::after {
-  content: "";
-  position: absolute;
-  top: 50%;           /* 🆕 Center the hover image */
-  left: 50%;          /* 🆕 Center the hover image */
-  width: 20px;        /* 🆕 Same size as original */
-  height: 20px;       /* 🆕 Same size as original */
-  transform: translate(-50%, -50%); /* 🆕 Perfect centering */
-  background: url('http://127.0.0.1:8000/images/logob.svg')
-              no-repeat center/contain;
+#logoContainer:focus::after { … }*/
+
+/* ───────────────────────────────────────────────────────────────────── */
+/* PRESSED / ACTIVE STATE */
+#logoContainer:active {
+  /* slightly shrink down */
+  transform: scale(0.95);
+
+  /* darken everything inside */
+  filter: brightness(0.7);
 }
 
-/* :active for mobile touch feedback */
-#logoContainer:active #logo {
-  opacity: 0;
-}
-
+/* if you still need to override any pseudo-after swap on active */
 #logoContainer:active::after {
-  content: "";
-  position: absolute;
-  top: 50%;            /* ✅ Changed from 50px to 50% */
-  left: 50%;           /* ✅ Changed from 50px to 50% */
-  width: 20px;         /* ✅ Add width */
-  height: 20px;        /* ✅ Add height */
-  transform: translate(-50%, -50%);
-  background: url('http://127.0.0.1:8000/images/logob.svg')
-              no-repeat center/contain;
+  /* ensure the hover-image stays visible & darkened too */
+  display: block;
+  filter: brightness(0.7);
+  transform: scale(0.95) translate(-50%, -50%);
 }
-
-#userLogo {
-  height: 20px;
-  width: 20px;
-  fill: #CBCCCC;
-}
-
 #userButtonContainer {
   position: absolute;
   top: 10px;
