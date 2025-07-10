@@ -119,40 +119,62 @@ export default class NavButtons {
      * from a sup.note or any interactive element.
      */
     shouldIgnoreEvent(event) {
-      // Check if any container is active
-      const activeContainer = window.uiState?.activeContainer || window.activeContainer;
-      if (activeContainer && activeContainer !== "main-content") {
-        console.log(`NavButtons: Ignoring click because ${activeContainer} is active`);
-        return true;
-      }
-      
-      // 🆕 SPECIFIC BUTTON HANDLING
-      // These nav buttons should do their action, NOT toggle
-      if (event.target.closest('#logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button')) {
-        console.log('NavButtons: Ignoring click on specific nav button - let it do its action');
-        return true;
-      }
-      
-      // Don't toggle if clicking on other interactive elements
-      if (event.target.matches('button, a, input, select, textarea, [role="button"]')) {
-        console.log('NavButtons: Ignoring click on interactive element:', event.target.tagName);
-        return true;
-      }
-      
-      // Don't toggle if clicking inside specific containers
-      if (event.target.closest('.hidden, .overlay, #toc-container, #highlight-container, #ref-container')) {
-        console.log('NavButtons: Ignoring click inside modal container');
-        return true;
-      }
-      
-      // Keep your existing checks
-      return (
-        event.target.closest("sup.note") ||
-        event.target.closest("mark") ||
-        event.target.closest(".open") ||
-        event.target.closest(".active")
-      );
+  // Check if any container is active
+  const activeContainer = window.uiState?.activeContainer || window.activeContainer;
+  if (activeContainer && activeContainer !== "main-content") {
+    console.log(`NavButtons: Ignoring click because ${activeContainer} is active`);
+    return true;
+  }
+  
+  // 🆕 LOGO EXCLUSION ZONE - but only when logo is VISIBLE
+  const logoContainer = document.getElementById('logoContainer');
+  if (logoContainer && !logoContainer.classList.contains('hidden-nav')) {
+    // Logo is visible, so create exclusion zone
+    const logoRect = logoContainer.getBoundingClientRect();
+    const exclusionZone = {
+      left: 0,
+      top: 0,
+      right: logoRect.right + 20, // Add 20px buffer
+      bottom: logoRect.bottom + 20 // Add 20px buffer
+    };
+    
+    const clickX = event.clientX;
+    const clickY = event.clientY;
+    
+    if (clickX >= exclusionZone.left && 
+        clickX <= exclusionZone.right && 
+        clickY >= exclusionZone.top && 
+        clickY <= exclusionZone.bottom) {
+      console.log('NavButtons: Ignoring click in logo exclusion zone (logo visible)');
+      return true;
     }
+  }
+  // If logo is hidden (has hidden-nav class), no exclusion zone - allow toggling
+  
+  // SPECIFIC BUTTON HANDLING
+  if (event.target.closest('#logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button')) {
+    console.log('NavButtons: Ignoring click on specific nav button - let it do its action');
+    return true;
+  }
+  
+  // Rest of your existing code...
+  if (event.target.matches('button, a, input, select, textarea, [role="button"]')) {
+    console.log('NavButtons: Ignoring click on interactive element:', event.target.tagName);
+    return true;
+  }
+  
+  if (event.target.closest('.hidden, .overlay, #toc-container, #highlight-container, #ref-container')) {
+    console.log('NavButtons: Ignoring click inside modal container');
+    return true;
+  }
+  
+  return (
+    event.target.closest("sup.note") ||
+    event.target.closest("mark") ||
+    event.target.closest(".open") ||
+    event.target.closest(".active")
+  );
+}
 
   /**
    * Record the starting pointer/touch coordinates.
