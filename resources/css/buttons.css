@@ -450,5 +450,22 @@ black #221F20;
     height: 32px;
   }
 
-
+  #edit-toolbar {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    background: rgba(34, 31, 32, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 12px;
+    border-top: 1px solid #444;
+    gap: 16px;
+  }
+  
+  #edit-toolbar button {
+    flex-shrink: 0;
+  }
 }
