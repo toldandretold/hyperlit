@@ -219,12 +219,9 @@ black #221F20;
               no-repeat center/contain;
 }
 
-/* :active for mobile touch feedback */
-#logoContainer:active #logo {
-  opacity: 0;
-}
 
-#logoContainer:active::after {
+
+#logoContainer:after {
   content: "";
   position: absolute;
   top: 50px;           /* 🆕 Center the active image */
