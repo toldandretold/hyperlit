@@ -305,6 +305,12 @@ black #221F20;
   transition: transform 0.2s ease;
 }
 
+#edit-toolbar button svg {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+
 #edit-toolbar button:hover {
   transform: scale(1.1);
 }
@@ -443,5 +449,6 @@ black #221F20;
     width: 32px; /* Optional: reduce container size */
     height: 32px;
   }
+
 
 }
