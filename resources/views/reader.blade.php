@@ -58,6 +58,7 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
 </div>
 
 <!-- buttons: clockwise from top-left -->
+
 <button
   id="logoContainer"
   type="button"
