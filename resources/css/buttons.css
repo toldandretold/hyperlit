@@ -5,18 +5,14 @@ aqua #4EACAE;
 black #221F20; 
 "white" #CBCCCC*/
 
-
 /* edit toolbar */
-
 #boldButton,
 #italicButton,
 #headingButton,
 #blockquoteButton,
 #codeButton {
-
   width: 28px;
   height: 28px;
-
 }
 
 #nav-buttons.loading,
@@ -29,38 +25,33 @@ black #221F20;
 #toc-toggle-button {
   width: 26px;
   height: 26px;
-  background-color: #221F20; /* Button background color */
+  background-color: #221F20;
   border: none; 
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-
 }
 
-
 #editButton {
-width: 24px; /* Matching width */
-  height: 24px; /* Matching height */
+  width: 24px;
+  height: 24px;
   background: #221F20;
   border: none;
   cursor: pointer;
   padding: 0px;
   stroke: #CBCCCC;
   box-sizing: border-box;
-
-  /* center the <svg> */
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-
 #editButton.inverted {
   background: #CBCCCC;
   stroke: #221F20;
-  width: 24px; /* Matching width */
+  width: 24px;
   height: 24px;
   border-radius: 4px;
   border: none;
@@ -70,56 +61,38 @@ width: 24px; /* Matching width */
   background-color: #221F20;
   border: none;
   color: #CBCCCC;
-  font-size: 24px; /* Adjust this value as needed */
-  line-height: 36px; /* Match this to the height of the toc-toggle-button */
-  width: 36px; /* Optional: Set width to match toc-toggle-button */
-  height: 36px; /* Optional: Set height to match toc-toggle-button */
-  display: flex; /* Use flexbox for centering */
-  align-items: center; /* Center vertically */
-  justify-content: center; /* Center horizontally */
+  font-size: 24px;
+  line-height: 36px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
 }
 
-
-/* hyperlit colors: 
-orange #EF8D34; 
-pink #EE4A95; 
-aqua #4EACAE; 
-black #221F20; 
-"white" #CBCCCC*/
-
- #cloudRef {
+#cloudRef {
   border: none;
   padding: 0;
   background: none;
   cursor: pointer;
 }
 
-/* force the svg to be 24px wide, height follows its natural ratio */
 #cloudRef svg {
-  display: block;          /* removes tiny whitespace */
-  width: 28px !important;  /* override inline width */
-  height: auto !important; /* preserve aspect ratio */
+  display: block;
+  width: 28px !important;
+  height: auto !important;
 }
 
-/* your gradient-on-hover rule */
 #cloudRef:hover .cls-1,
 #cloudRef:hover .cls-2 {
   fill: url(#gradient);
 }
 
-
-
- 
-
-
-
-
-
 /* Container for both buttons */
 #hyperlight-buttons {
   position: absolute;
-  display: flex; /* This only applies when the div is not hidden */
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
@@ -129,7 +102,6 @@ black #221F20;
   background: #221f20;
 }
 
-/* Style for the copy button */
 #copy-hyperlight {
   width: 16px;
   height: 16px;
@@ -144,7 +116,7 @@ black #221F20;
 #copy-hypercite {
   width: 16px;
   height: 16px;
- background: none;
+  background: none;
   border: none;
   padding: 0;
   display: flex;
@@ -152,7 +124,6 @@ black #221F20;
   justify-content: center;
 }
 
-/* Style for the delete/trash button */
 #delete-hyperlight {
   font-size: 15px;
   background: none;
@@ -165,7 +136,7 @@ black #221F20;
 }
 
 /* ───────────────────────────────────────────────────────────────────── */
-/* LOGO BUTTON */
+/* SITE LOGO BUTTON */
 #logoContainer {
   position: absolute;
   top: 10px;
@@ -173,55 +144,42 @@ black #221F20;
   width: 40px;
   height: 40px;
   margin: 0;
+  padding: 0;
   background: transparent;
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-
-  /* remove native grey flash on tap */
   -webkit-tap-highlight-color: transparent;
-
-  /* now animates scale & brightness instead of opacity */
-  transition: transform 0.1s ease,
-              filter    0.1s ease,
-              opacity   0.3s ease; /* keep if you still want fade elsewhere */
+  transition: transform 0.1s ease, filter 0.1s ease;
   appearance: none;
 }
 
-/* force the actual <img> size */
-#logoContainer img,
-#logo {
+#logoContainer img {
   display: block;
   width: 20px !important;
   height: 20px !important;
-  transition: opacity 0.3s ease;
+  transition: none;
 }
 
-/* ─ remove your old ‘vanish’ rules ─ */
-/*#logoContainer:hover #logo,
-#logoContainer:focus #logo { opacity: 0; }
-#logoContainer:hover::after,
-#logoContainer:focus::after { … }*/
-
-/* ───────────────────────────────────────────────────────────────────── */
-/* PRESSED / ACTIVE STATE */
 #logoContainer:active {
-  /* slightly shrink down */
   transform: scale(0.95);
-
-  /* darken everything inside */
   filter: brightness(0.7);
 }
 
-/* if you still need to override any pseudo-after swap on active */
-#logoContainer:active::after {
-  /* ensure the hover-image stays visible & darkened too */
-  display: block;
-  filter: brightness(0.7);
-  transform: scale(0.95) translate(-50%, -50%);
+#logoContainer:hover::after,
+#logoContainer:focus::after {
+  display: none;
 }
+
+/* USER BUTTON */
+#userLogo {
+  height: 20px;
+  width: 20px;
+  fill: #CBCCCC;
+}
+
 #userButtonContainer {
   position: absolute;
   top: 10px;
@@ -232,11 +190,10 @@ black #221F20;
   transition: opacity 0.3s ease;
 }
 
-
 #topRightContainer {
   position: fixed;
   top: 10px;
-  right: 10px; /* This value is updated dynamically */
+  right: 10px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -244,14 +201,10 @@ black #221F20;
   transition: opacity 0.3s ease, right 0.3s ease;
 }
 
-
- 
-
-
 #nav-buttons {
   position: fixed;
   bottom: 40px;
-  right: 10px; /* This value is updated dynamically */
+  right: 10px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -263,24 +216,18 @@ black #221F20;
   transition: opacity 0.3s ease !important;
 }
 
-
-/* Default state: No rotation */
 .icon {
-  display: inline-block; /* Enables transform */
+  display: inline-block;
   transform: rotate(0deg);
   transition: transform 0.3s ease-out;
 }
 
-/* Open state: Tilted 45 degrees */
 .icon.tilted {
   transform: rotate(45deg);
   transition: transform 0.3s ease-out;
 }
 
 .download-icon {
-  /* kill these: they interfere with flex centering */
-  /* background-color: #221F20; */
-  /* padding: 4px; */
   display: block;
 }
 
@@ -307,40 +254,20 @@ black #221F20;
 }
 
 .download-btn {
-  background:     #221F20;
-  color:          #CBCCCC;
-  border:         none;
-  padding:        0.5em;
-  border-radius:  0.25em;
-  cursor:         pointer;
+  background: #221F20;
+  color: #CBCCCC;
+  border: none;
+  padding: 0.5em;
+  border-radius: 0.25em;
+  cursor: pointer;
 }
-
-
-/* hyperlit colors: 
-orange #EF8D34; 
-pink #EE4A95; 
-aqua #4EACAE; 
-black #221F20; 
-"white" #CBCCCC*/
-
-#topRightContainer {
-  position: fixed;
-  top: 10px;
-  right: 10px; /* This value is updated dynamically */
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-  transition: opacity 0.3s ease, right 0.3s ease;
-}
-
 
 /* Edit toolbar container */
 #edit-toolbar {
   position: fixed;
-  top: calc(10px + var(--top-container-height, 60px) + 8px); /* Positioned below topRightContainer */
-  right: 10px; /* This will be updated dynamically */
-  transform: none; /* Remove the translateY transform */
+  top: calc(10px + var(--top-container-height, 60px) + 8px);
+  right: 10px;
+  transform: none;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -366,7 +293,6 @@ black #221F20;
   transition: opacity 0.3s ease;
 }
 
-/* Button styling */
 #edit-toolbar button {
   background: transparent;
   border: none;
@@ -383,7 +309,6 @@ black #221F20;
   transform: scale(1.1);
 }
 
-/* Invert colors on hover */
 #edit-toolbar button:hover svg rect {
   fill: #CBCCCC;
 }
@@ -394,7 +319,6 @@ black #221F20;
   stroke: #221F20;
 }
 
-/* Active state - when the formatting is active */
 #edit-toolbar button.active svg rect {
   fill: #CBCCCC;
 }
@@ -404,7 +328,6 @@ black #221F20;
 #edit-toolbar button.active svg polyline {
   stroke: #221F20;
 }
-
 
 .arranger-button-container {
   padding: 0px 0;
@@ -442,15 +365,13 @@ black #221F20;
 }
 
 @media only screen and (max-width: 500px) {
-
   #cloudRef svg {
-  width: 24px !important;  /* override inline width */
+    width: 24px !important;
   }
 
   #userLogo {
     height: 16px;
     width: 16px;
-    
   }
 
   #userButtonContainer {
@@ -466,38 +387,33 @@ black #221F20;
   #toc-toggle-button {
     width: 24px;
     height: 24px;
-    background-color: #221F20; /* Button background color */
+    background-color: #221F20;
     border: none; 
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-
   }
 
-
   #editButton {
-  width: 22px; /* Matching width */
-    height: 22px; /* Matching height */
+    width: 22px;
+    height: 22px;
     background: #221F20;
     border: none;
     cursor: pointer;
     padding: 0px;
     stroke: #CBCCCC;
     box-sizing: border-box;
-
-    /* center the <svg> */
     display: flex;
     align-items: center;
     justify-content: center;
   }
 
-
   #editButton.inverted {
     background: #CBCCCC;
     stroke: #221F20;
-    width: 22px; /* Matching width */
+    width: 22px;
     height: 22px;
     border-radius: 4px;
     border: none;
@@ -508,26 +424,13 @@ black #221F20;
   #headingButton,
   #blockquoteButton,
   #codeButton {
-
     width: 26px;
     height: 26px;
-
   }
 
-
-  #logoContainer {
-
+  /* 🚨 REMOVED: This was breaking your layout */
+  /* #logo {
     width: 18px;
     height: 18px;
-
-  }
-  
+  } */
 }
-
-
-/* hyperlit colors: 
-orange #EF8D34; 
-pink #EE4A95; 
-aqua #4EACAE; 
-black #221F20; 
-"white" #CBCCCC*/
