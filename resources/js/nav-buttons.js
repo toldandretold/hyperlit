@@ -110,6 +110,10 @@ export default class NavButtons {
    * Checks if an event should be ignored because it originates
    * from a sup.note or any interactive element.
    */
+  /**
+ * Checks if an event should be ignored because it originates
+ * from a sup.note or any interactive element.
+ */
   shouldIgnoreEvent(event) {
     // Check if any container is active
     const activeContainer = window.uiState?.activeContainer || window.activeContainer;
@@ -118,10 +122,21 @@ export default class NavButtons {
       return true;
     }
     
-    // Also check if the event is from an interactive element
+    // 🆕 ENHANCED FILTERING - Don't toggle if clicking on interactive elements
+    if (event.target.matches('button, a, input, select, textarea, [role="button"]')) {
+      console.log('NavButtons: Ignoring click on interactive element:', event.target.tagName);
+      return true;
+    }
+    
+    // 🆕 Don't toggle if clicking inside interactive containers
+    if (event.target.closest('nav, .toolbar, .controls, .container, .overlay')) {
+      console.log('NavButtons: Ignoring click inside interactive container');
+      return true;
+    }
+    
+    // Keep your existing checks
     return (
       event.target.closest("sup.note") ||
-      event.target.closest("button, a") ||
       event.target.closest("mark") ||
       event.target.closest(".open") ||
       event.target.closest(".active")
