@@ -32,17 +32,23 @@ class EditToolbar {
     this.blockquoteButton = document.getElementById("blockquoteButton");
     this.codeButton = document.getElementById("codeButton");
     
+    // Mobile keyboard detection properties
+    this.initialViewportHeight = window.innerHeight;
+    this.isKeyboardOpen = false;
+    this.isMobile = window.innerWidth <= 768;
+    
     // Bind event handlers
     this.handleSelectionChange = this.handleSelectionChange.bind(this);
     this.handleEditableChange = this.handleEditableChange.bind(this);
     this.updatePosition = this.updatePosition.bind(this);
     this.handleResize = this.handleResize.bind(this);
+    this.handleViewportChange = this.handleViewportChange.bind(this);
+    this.handleVisualViewportChange = this.handleVisualViewportChange.bind(this);
     this.attachButtonHandlers = this.attachButtonHandlers.bind(this);
     
     this.resizeDebounceTimeout = null;
     this.isVisible = false;
     this.currentSelection = null;
-
     this.isFormatting = false;
   }
   
@@ -65,6 +71,9 @@ class EditToolbar {
     // Update position on window resize
     window.addEventListener("resize", this.handleResize);
     
+    // Setup mobile keyboard detection
+    this.setupMobileKeyboardDetection();
+    
     // Attach button click handlers
     this.attachButtonHandlers();
     
@@ -73,6 +82,78 @@ class EditToolbar {
     
     // Initial position update
     this.updatePosition();
+  }
+  
+  /**
+   * Setup mobile keyboard detection
+   */
+  setupMobileKeyboardDetection() {
+    // Listen for viewport changes
+    window.addEventListener('resize', this.handleViewportChange);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => {
+        this.initialViewportHeight = window.innerHeight;
+        this.handleViewportChange();
+      }, 500);
+    });
+    
+    // Visual Viewport API for better detection (modern browsers)
+    if ('visualViewport' in window) {
+      window.visualViewport.addEventListener('resize', this.handleVisualViewportChange);
+    }
+  }
+  
+  /**
+   * Handle viewport changes for keyboard detection
+   */
+  handleViewportChange() {
+    const currentHeight = window.innerHeight;
+    const heightDifference = this.initialViewportHeight - currentHeight;
+    this.isMobile = window.innerWidth <= 768;
+    
+    if (this.isMobile && heightDifference > 150) {
+      // Keyboard is likely open
+      this.isKeyboardOpen = true;
+      this.toolbar.style.bottom = '0px';
+      this.toolbar.style.position = 'fixed';
+      this.toolbar.classList.add('keyboard-open');
+      console.log('Keyboard detected as open');
+    } else if (this.isMobile) {
+      // Keyboard is closed
+      this.isKeyboardOpen = false;
+      this.toolbar.style.bottom = '0px';
+      this.toolbar.style.position = 'fixed';
+      this.toolbar.classList.remove('keyboard-open');
+      console.log('Keyboard detected as closed');
+    }
+    
+    // Update initial height on small changes (orientation, etc.)
+    if (Math.abs(heightDifference) < 50) {
+      this.initialViewportHeight = currentHeight;
+    }
+  }
+  
+  /**
+   * Handle Visual Viewport API changes (better keyboard detection)
+   */
+  handleVisualViewportChange() {
+    if (this.isMobile) {
+      const keyboardHeight = window.innerHeight - window.visualViewport.height;
+      
+      if (keyboardHeight > 150) {
+        // Keyboard is open - position above it
+        this.isKeyboardOpen = true;
+        this.toolbar.style.bottom = `${keyboardHeight}px`;
+        this.toolbar.classList.add('keyboard-open');
+        console.log(`Keyboard open, positioning toolbar ${keyboardHeight}px from bottom`);
+      } else {
+        // Keyboard is closed
+        this.isKeyboardOpen = false;
+        this.toolbar.style.bottom = '0px';
+        this.toolbar.classList.remove('keyboard-open');
+        console.log('Keyboard closed via Visual Viewport API');
+      }
+    }
   }
   
   /**
@@ -229,9 +310,6 @@ class EditToolbar {
   /**
    * Format the selected text with the specified style
    */
-  /**
- * Format the selected text with the specified style
- */
   formatText(type) {
     this.isFormatting = true;
     try {
@@ -1177,6 +1255,11 @@ class EditToolbar {
    * Update the position of the toolbar
    */
   updatePosition() {
+    // Skip position updates on mobile when keyboard is open
+    if (this.isMobile && this.isKeyboardOpen) {
+      return;
+    }
+    
     window.requestAnimationFrame(() => {
       const mainContent = document.querySelector(".main-content");
       if (!mainContent) {
@@ -1196,7 +1279,10 @@ class EditToolbar {
         newRight = margin / 2;
       }
       
-      this.toolbar.style.right = `${newRight}px`;
+      // Only update right position on desktop
+      if (!this.isMobile) {
+        this.toolbar.style.right = `${newRight}px`;
+      }
     });
   }
   
@@ -1204,13 +1290,19 @@ class EditToolbar {
    * Handle resize event
    */
   handleResize() {
-    this.toolbar.classList.add("disable-right-transition");
-    this.updatePosition();
+    // Update mobile detection
+    this.isMobile = window.innerWidth <= 768;
     
-    clearTimeout(this.resizeDebounceTimeout);
-    this.resizeDebounceTimeout = setTimeout(() => {
-      this.toolbar.classList.remove("disable-right-transition");
-    }, 100);
+    if (!this.isMobile) {
+      // Desktop resize handling
+      this.toolbar.classList.add("disable-right-transition");
+      this.updatePosition();
+      
+      clearTimeout(this.resizeDebounceTimeout);
+      this.resizeDebounceTimeout = setTimeout(() => {
+        this.toolbar.classList.remove("disable-right-transition");
+      }, 100);
+    }
   }
   
   /**
@@ -1219,6 +1311,11 @@ class EditToolbar {
   destroy() {
     document.removeEventListener("selectionchange", this.handleSelectionChange);
     window.removeEventListener("resize", this.handleResize);
+    window.removeEventListener("resize", this.handleViewportChange);
+    
+    if ('visualViewport' in window) {
+      window.visualViewport.removeEventListener('resize', this.handleVisualViewportChange);
+    }
   }
 
   /**
@@ -1404,9 +1501,6 @@ class EditToolbar {
   /**
    * Split a list around a specific item and insert a block element
    */
-  /**
- * Split a list around a specific item and insert a block element
- */
   splitListAndInsertBlock(parentList, targetItem, newBlock, rootListWithId) {
     const allItems = Array.from(parentList.children);
     const targetIndex = allItems.indexOf(targetItem);
@@ -1495,9 +1589,8 @@ class EditToolbar {
     }
   }
 
-
   cleanupAfterSplit(rootList) {
-  // Remove empty nested lists
+    // Remove empty nested lists
     const emptyLists = rootList.querySelectorAll('ul:empty, ol:empty');
     emptyLists.forEach(list => list.remove());
     
@@ -1546,42 +1639,3 @@ export function destroyEditToolbar() {
     editToolbarInstance = null;
   }
 }
-
-
-// Mobile keyboard detection and toolbar positioning
-let initialViewportHeight = window.innerHeight;
-let isKeyboardOpen = false;
-
-function handleViewportChange() {
-  const currentHeight = window.innerHeight;
-  const heightDifference = initialViewportHeight - currentHeight;
-  const toolbar = document.getElementById('edit-toolbar');
-  
-  if (!toolbar) return;
-  
-  // Detect if we're on mobile
-  const isMobile = window.innerWidth <= 768;
-  
-  if (isMobile && heightDifference > 150) {
-    // Keyboard is likely open
-    isKeyboardOpen = true;
-    toolbar.style.bottom = '0px';
-    toolbar.style.position = 'fixed';
-  } else if (isMobile) {
-    // Keyboard is closed
-    isKeyboardOpen = false;
-    toolbar.style.bottom = '0px';
-    toolbar.style.position = 'fixed';
-  }
-}
-
-// Listen for viewport changes
-window.addEventListener('resize', handleViewportChange);
-window.addEventListener('orientationchange', () => {
-  setTimeout(handleViewportChange, 500);
-});
-
-// Initial setup
-document.addEventListener('DOMContentLoaded', () => {
-  initialViewportHeight = window.innerHeight;
-});
