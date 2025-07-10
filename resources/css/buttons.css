@@ -226,9 +226,11 @@ black #221F20;
 #logoContainer:active::after {
   content: "";
   position: absolute;
-  top: 50px;           /* 🆕 Center the active image */
-  left: 50px;          /* 🆕 Center the active image */
-  transform: translate(-50%, -50%); /* 🆕 Perfect centering */
+  top: 50%;            /* ✅ Changed from 50px to 50% */
+  left: 50%;           /* ✅ Changed from 50px to 50% */
+  width: 20px;         /* ✅ Add width */
+  height: 20px;        /* ✅ Add height */
+  transform: translate(-50%, -50%);
   background: url('http://127.0.0.1:8000/images/logob.svg')
               no-repeat center/contain;
 }
