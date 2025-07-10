@@ -127,7 +127,7 @@ export default class NavButtons {
   }
 
   // Allow clicks on annotation links
-  if (event.target.closest('.annotation a') || 
+  if (event.target.closest('a') || 
       event.target.closest('sup.open-icon') ||
       event.target.closest('u.couple') ||    // Add this
       event.target.closest('u.poly')) {      // Add this
