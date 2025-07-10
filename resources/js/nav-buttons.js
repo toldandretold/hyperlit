@@ -119,6 +119,12 @@ export default class NavButtons {
      * from a sup.note or any interactive element.
      */
     shouldIgnoreEvent(event) {
+
+      // First, check if we're in edit mode
+  if (window.isEditing) {
+    console.log('NavButtons: Ignoring click because edit mode is active');
+    return true;
+  }
   // Check if any container is active
   const activeContainer = window.uiState?.activeContainer || window.activeContainer;
   if (activeContainer && activeContainer !== "main-content") {
