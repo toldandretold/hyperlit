@@ -1546,3 +1546,42 @@ export function destroyEditToolbar() {
     editToolbarInstance = null;
   }
 }
+
+
+// Mobile keyboard detection and toolbar positioning
+let initialViewportHeight = window.innerHeight;
+let isKeyboardOpen = false;
+
+function handleViewportChange() {
+  const currentHeight = window.innerHeight;
+  const heightDifference = initialViewportHeight - currentHeight;
+  const toolbar = document.getElementById('edit-toolbar');
+  
+  if (!toolbar) return;
+  
+  // Detect if we're on mobile
+  const isMobile = window.innerWidth <= 768;
+  
+  if (isMobile && heightDifference > 150) {
+    // Keyboard is likely open
+    isKeyboardOpen = true;
+    toolbar.style.bottom = '0px';
+    toolbar.style.position = 'fixed';
+  } else if (isMobile) {
+    // Keyboard is closed
+    isKeyboardOpen = false;
+    toolbar.style.bottom = '0px';
+    toolbar.style.position = 'fixed';
+  }
+}
+
+// Listen for viewport changes
+window.addEventListener('resize', handleViewportChange);
+window.addEventListener('orientationchange', () => {
+  setTimeout(handleViewportChange, 500);
+});
+
+// Initial setup
+document.addEventListener('DOMContentLoaded', () => {
+  initialViewportHeight = window.innerHeight;
+});
