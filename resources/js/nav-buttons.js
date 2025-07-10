@@ -125,6 +125,12 @@ export default class NavButtons {
     console.log(`NavButtons: Ignoring click because ${activeContainer} is active`);
     return true;
   }
+
+  // Allow clicks on annotation links
+  if (event.target.closest('.annotation a') || 
+      event.target.closest('sup.open-icon')) {
+    return true;
+  }
   
   // 🆕 LOGO EXCLUSION ZONE - but only when logo is VISIBLE
   const logoContainer = document.getElementById('logoContainer');
