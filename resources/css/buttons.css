@@ -175,7 +175,9 @@ black #221F20;
   left: 10px;
   width: 50px;        /* Larger clickable area */
   height: 50px;       /* Larger clickable area */
-  padding: 3px;
+  padding: 10px;
+  min-width: 44px; /* Apple's recommended minimum */
+  min-height: 44px;
   margin: 0;
   border: none;
   background: transparent;
@@ -219,9 +221,12 @@ black #221F20;
               no-repeat center/contain;
 }
 
+/* :active for mobile touch feedback */
+#logoContainer:active #logo {
+  opacity: 0;
+}
 
-
-#logoContainer:after {
+#logoContainer:active::after {
   content: "";
   position: absolute;
   top: 50px;           /* 🆕 Center the active image */
