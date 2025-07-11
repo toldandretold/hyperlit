@@ -55,10 +55,15 @@ class KeyboardManager {
     }
   }
   
+
+    
+
+
   adjustLayout(keyboardOffset, keyboardOpen) {
   const body = document.body;
   const mainContent = document.querySelector('.main-content');
   const editToolbar = document.querySelector('#edit-toolbar');
+  const navButtons = document.querySelector('#nav-buttons'); // Add this
   
   if (keyboardOpen && keyboardOffset > 0) {
     console.log(`🔧 KeyboardManager: Keyboard OPEN - adjusting layout`);
@@ -67,7 +72,8 @@ class KeyboardManager {
     
     // Calculate available space
     const availableHeight = window.visualViewport.height;
-    const toolbarHeight = 60;
+    const toolbarActualHeight = editToolbar ? editToolbar.getBoundingClientRect().height : 60;
+    const toolbarHeight = toolbarActualHeight;
     const contentHeight = availableHeight - toolbarHeight - 10;
     
     console.log(`📱 KeyboardManager: Available: ${availableHeight}px, Content: ${contentHeight}px`);
@@ -77,15 +83,12 @@ class KeyboardManager {
     console.log('  - body classes:', body.className);
     console.log('  - mainContent exists:', !!mainContent);
     console.log('  - editToolbar exists:', !!editToolbar);
+    console.log('  - navButtons exists:', !!navButtons);
     if (mainContent) {
       console.log('  - mainContent current height:', mainContent.style.height || 'not set');
       console.log('  - mainContent computed height:', getComputedStyle(mainContent).height);
+      console.log('  - mainContent computed width:', getComputedStyle(mainContent).width);
       console.log('  - mainContent position:', getComputedStyle(mainContent).position);
-    }
-    if (editToolbar) {
-      console.log('  - editToolbar current top:', editToolbar.style.top || 'not set');
-      console.log('  - editToolbar computed top:', getComputedStyle(editToolbar).top);
-      console.log('  - editToolbar position:', getComputedStyle(editToolbar).position);
     }
     
     // Add keyboard-open class to body
@@ -98,45 +101,57 @@ class KeyboardManager {
     console.log(`📱 Visual viewport offset: top=${visualTop}, left=${visualLeft}`);
     console.log(`📱 Visual viewport size: ${window.visualViewport.width}x${window.visualViewport.height}`);
     
-    // 1. Position main-content
+    // 1. Position main-content - PRESERVE ORIGINAL WIDTH CONSTRAINTS
     if (mainContent) {
       mainContent.style.setProperty('height', `${contentHeight}px`, 'important');
       mainContent.style.setProperty('max-height', `${contentHeight}px`, 'important');
       mainContent.style.setProperty('position', 'fixed', 'important');
       mainContent.style.setProperty('top', `${visualTop}px`, 'important');
-      mainContent.style.setProperty('left', `${visualLeft}px`, 'important');
-      mainContent.style.setProperty('width', `${window.visualViewport.width}px`, 'important');
+      mainContent.style.setProperty('left', '50%', 'important'); // Center horizontally
+      mainContent.style.setProperty('transform', 'translateX(-50%)', 'important'); // Center horizontally
+      // 🆕 DON'T override width - let it keep max-width: 60ch
+      // mainContent.style.setProperty('width', `${window.visualViewport.width}px`, 'important'); // REMOVE THIS
       mainContent.style.setProperty('overflow-y', 'auto', 'important');
       mainContent.style.setProperty('z-index', '1000', 'important');
-      mainContent.style.setProperty('padding-left', '20px', 'important');
-      mainContent.style.setProperty('padding-right', '20px', 'important');
-      mainContent.style.setProperty('padding-bottom', '70px', 'important'); // Space for toolbar
+      mainContent.style.setProperty('padding-bottom', '90px', 'important'); // Space for toolbar
       mainContent.style.setProperty('box-sizing', 'border-box', 'important');
       
       console.log('🔧 Applied styles to main-content:');
-      console.log(`   - position: fixed, top: ${visualTop}px, left: ${visualLeft}px`);
-      console.log(`   - size: ${window.visualViewport.width}px x ${contentHeight}px`);
+      console.log(`   - position: fixed, top: ${visualTop}px, centered horizontally`);
+      console.log(`   - height: ${contentHeight}px, preserving original width constraints`);
     }
     
     // 2. 🆕 POSITION EDIT TOOLBAR RELATIVE TO VISUAL VIEWPORT
     if (editToolbar) {
-      const toolbarBottom = visualTop + availableHeight - toolbarHeight;
+      const toolbarTop = visualTop + availableHeight - toolbarHeight;
       editToolbar.style.setProperty('position', 'fixed', 'important');
-      editToolbar.style.setProperty('top', `${toolbarBottom}px`, 'important'); // Position at bottom of visual viewport
-      editToolbar.style.setProperty('left', `${visualLeft}px`, 'important');
-      editToolbar.style.setProperty('width', `${window.visualViewport.width}px`, 'important');
+      editToolbar.style.setProperty('top', `${toolbarTop}px`, 'important');
+      editToolbar.style.setProperty('left', '0px', 'important');
+      editToolbar.style.setProperty('right', '0px', 'important');
       editToolbar.style.setProperty('z-index', '999999', 'important');
       editToolbar.style.setProperty('background', 'rgba(34, 31, 32, 1)', 'important');
       
-      console.log(`🔧 Positioned toolbar at top: ${toolbarBottom}px (visual viewport bottom)`);
-      console.log(`   - calculation: ${visualTop} + ${availableHeight} - ${toolbarHeight} = ${toolbarBottom}`);
+      console.log(`🔧 Positioned toolbar at top: ${toolbarTop}px (visual viewport bottom)`);
+      console.log(`   - calculation: ${visualTop} + ${availableHeight} - ${toolbarHeight} = ${toolbarTop}`);
     }
     
-    // 3. Hide navigation elements (they're outside visual viewport anyway)
-    document.querySelectorAll('#nav-buttons, #logoContainer, #topRightContainer, #userButtonContainer').forEach(el => {
+    // 3. 🆕 MOVE NAV BUTTONS UP (instead of hiding them)
+    if (navButtons) {
+      // Position nav buttons in the available space above the toolbar
+      const navButtonsTop = visualTop + availableHeight - toolbarHeight - 200; // 200px above toolbar
+      navButtons.style.setProperty('position', 'fixed', 'important');
+      navButtons.style.setProperty('top', `${navButtonsTop}px`, 'important');
+      navButtons.style.setProperty('right', '10px', 'important'); // Keep original right positioning
+      navButtons.style.setProperty('z-index', '999998', 'important');
+      
+      console.log(`🔧 Positioned nav buttons at top: ${navButtonsTop}px`);
+    }
+    
+    // 4. Hide only the elements that would interfere (keep nav-buttons visible)
+    document.querySelectorAll('#logoContainer, #topRightContainer, #userButtonContainer').forEach(el => {
       if (el) el.style.setProperty('display', 'none', 'important');
     });
-    console.log('🔧 Hidden navigation elements');
+    console.log('🔧 Hidden interfering navigation elements (kept nav-buttons visible)');
     
     // 🆕 DEBUG: Check state AFTER changes
     setTimeout(() => {
@@ -147,6 +162,7 @@ class KeyboardManager {
         const computedStyle = getComputedStyle(mainContent);
         console.log('  - mainContent.style.height:', mainContent.style.height);
         console.log('  - mainContent computed height:', computedStyle.height);
+        console.log('  - mainContent computed width:', computedStyle.width);
         console.log('  - mainContent computed position:', computedStyle.position);
         console.log('  - mainContent computed top:', computedStyle.top);
         console.log('  - mainContent getBoundingClientRect():', mainContent.getBoundingClientRect());
@@ -156,8 +172,14 @@ class KeyboardManager {
         const computedStyle = getComputedStyle(editToolbar);
         console.log('  - editToolbar.style.top:', editToolbar.style.top);
         console.log('  - editToolbar computed top:', computedStyle.top);
-        console.log('  - editToolbar computed position:', computedStyle.position);
         console.log('  - editToolbar getBoundingClientRect():', editToolbar.getBoundingClientRect());
+      }
+      
+      if (navButtons) {
+        const computedStyle = getComputedStyle(navButtons);
+        console.log('  - navButtons.style.top:', navButtons.style.top);
+        console.log('  - navButtons computed top:', computedStyle.top);
+        console.log('  - navButtons getBoundingClientRect():', navButtons.getBoundingClientRect());
       }
       
       setKeyboardLayoutInProgress(false);
@@ -176,7 +198,7 @@ class KeyboardManager {
     // 🆕 RESET ALL ELEMENTS
     if (mainContent) {
       // Remove all forced styles from main-content
-      ['height', 'max-height', 'position', 'top', 'left', 'width', 'overflow-y', 'z-index', 'padding-left', 'padding-right', 'padding-bottom', 'box-sizing'].forEach(prop => {
+      ['height', 'max-height', 'position', 'top', 'left', 'transform', 'overflow-y', 'z-index', 'padding-bottom', 'box-sizing'].forEach(prop => {
         mainContent.style.removeProperty(prop);
       });
       console.log('🔧 Removed forced styles from main-content');
@@ -184,14 +206,22 @@ class KeyboardManager {
     
     if (editToolbar) {
       // Remove all forced styles from toolbar
-      ['position', 'top', 'left', 'width', 'z-index', 'background'].forEach(prop => {
+      ['position', 'top', 'left', 'right', 'z-index', 'background'].forEach(prop => {
         editToolbar.style.removeProperty(prop);
       });
       console.log('🔧 Removed forced styles from edit-toolbar');
     }
     
+    if (navButtons) {
+      // Remove all forced styles from nav buttons
+      ['position', 'top', 'right', 'z-index'].forEach(prop => {
+        navButtons.style.removeProperty(prop);
+      });
+      console.log('🔧 Removed forced styles from nav-buttons');
+    }
+    
     // Show navigation elements
-    document.querySelectorAll('#nav-buttons, #logoContainer, #topRightContainer, #userButtonContainer').forEach(el => {
+    document.querySelectorAll('#logoContainer, #topRightContainer, #userButtonContainer').forEach(el => {
       if (el) el.style.removeProperty('display');
     });
     console.log('🔧 Restored navigation elements');
@@ -202,7 +232,6 @@ class KeyboardManager {
     }, 100);
   }
 }
-  
   scrollToFocusedElement() {
     const activeElement = document.activeElement;
     if (!activeElement || activeElement === document.body) return;
