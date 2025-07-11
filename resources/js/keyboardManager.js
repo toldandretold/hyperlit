@@ -205,13 +205,6 @@ class KeyboardManager {
       console.log('🔧 Removed keyboard-open class from body');
       
       if (mainContent) {
-        // 🔧 CAPTURE ORIGINAL WIDTH BEFORE CHANGING POSITION
-        const originalComputedStyle = getComputedStyle(mainContent);
-        const originalWidth = originalComputedStyle.width;
-        const originalMaxWidth = originalComputedStyle.maxWidth;
-        
-        console.log(`🔧 Capturing original dimensions: width=${originalWidth}, maxWidth=${originalMaxWidth}`);
-        
         mainContent.style.setProperty('height', `${contentHeight}px`, 'important');
         mainContent.style.setProperty('max-height', `${contentHeight}px`, 'important');
         mainContent.style.setProperty('position', 'fixed', 'important');
@@ -219,11 +212,9 @@ class KeyboardManager {
         mainContent.style.setProperty('left', '50%', 'important');
         mainContent.style.setProperty('transform', 'translateX(-50%)', 'important');
         
-        // 🔧 SET WIDTH TO FULL VIEWPORT WIDTH BUT RESPECT MAX-WIDTH
-        mainContent.style.setProperty('width', `${window.visualViewport.width}px`, 'important');
-        if (originalMaxWidth && originalMaxWidth !== 'none') {
-          mainContent.style.setProperty('max-width', originalMaxWidth, 'important');
-        }
+        // 🔧 Let CSS handle width constraints, just ensure it's not overridden
+        mainContent.style.setProperty('width', '100%', 'important');
+        mainContent.style.setProperty('max-width', '60ch', 'important');
         
         mainContent.style.setProperty('overflow-y', 'auto', 'important');
         mainContent.style.setProperty('z-index', '1000', 'important');
@@ -232,9 +223,10 @@ class KeyboardManager {
         
         console.log('🔧 Applied styles to main-content:');
         console.log(`   - position: fixed, top: ${visualTop}px, centered horizontally`);
-        console.log(`   - width: ${window.visualViewport.width}px, maxWidth: ${originalMaxWidth}`);
+        console.log(`   - width: 100%, max-width: 60ch (preserving original constraints)`);
         console.log(`   - height: ${contentHeight}px`);
       }
+
       
       // Rest of reset logic remains the same...
       if (editToolbar) {
