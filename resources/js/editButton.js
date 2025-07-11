@@ -8,6 +8,7 @@ import { incrementPendingOperations, decrementPendingOperations } from './operat
 import { addPasteListener } from './paste.js';
 import { getCurrentUser, canUserEditBook } from './auth.js';
 import { getLibraryObjectFromIndexedDB } from './cache-indexedDB.js';
+import { initEditToolbar, getEditToolbar } from './editToolbar.js';
 
 const editBtn     = document.getElementById("editButton");
 const editableDiv = document.getElementById(book);
@@ -17,6 +18,7 @@ const params   = new URLSearchParams(location.search);
 const isEditQ  = params.get("edit") === "1";
 const isEditP  = location.pathname.endsWith("/edit");
 const shouldAutoEdit = isEditQ || isEditP;
+
 
 // State flags
 window.isEditing = false;
@@ -209,6 +211,14 @@ async function enableEditMode(targetElementId = null) {
     if (editBtn) editBtn.classList.add("inverted");
     editableDiv.contentEditable = "true";
 
+    // Get the existing toolbar instance and show it:
+    const toolbar = getEditToolbar();
+    if (toolbar) {
+      toolbar.setEditMode(true);
+    } else {
+      console.warn("Toolbar not found - make sure it's initialized");
+    }
+
     const { ensureMinimumDocumentStructure } = await import('./divEditor.js');
     ensureMinimumDocumentStructure();
     
@@ -302,6 +312,15 @@ function disableEditMode() {
   window.isEditing = false;
   editBtn.classList.remove("inverted");
   editableDiv.contentEditable = "false";
+
+
+
+  // Get the existing toolbar instance and hide it:
+  const toolbar = getEditToolbar();
+  if (toolbar) {
+    toolbar.setEditMode(false);
+  }
+  
   stopObserving();
   
   // Safely clear NodeIdManager if it exists
