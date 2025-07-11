@@ -144,34 +144,35 @@ class KeyboardManager {
     
     console.log('🔧 Handling bottom focus scenario');
     
-    // Get the safe scrollable area (above the toolbar)
+    // Get toolbar position
     const toolbarRect = editToolbar.getBoundingClientRect();
     const mainContentRect = mainContent.getBoundingClientRect();
     
-    // Calculate the safe viewing area (from top of main-content to toolbar with padding)
-    const safeViewingHeight = toolbarRect.top - mainContentRect.top - 40; // 40px padding
+    // Calculate where we want the focused element to appear (above toolbar with padding)
+    const desiredElementBottom = toolbarRect.top - 30; // 30px above toolbar
+    const desiredElementTop = desiredElementBottom - this.state.focusedElementHeight;
     
-    // We want to position the focused element in the middle of the safe viewing area
-    const targetPositionFromTop = safeViewingHeight / 2;
+    // Calculate the required scroll position
+    // Element's current position in viewport = elementOffsetFromContentTop - scrollTop + mainContentTop
+    // We want: elementOffsetFromContentTop - newScrollTop + mainContentTop = desiredElementTop
+    // So: newScrollTop = elementOffsetFromContentTop + mainContentTop - desiredElementTop
+    const newScrollTop = this.state.elementOffsetFromContentTop + mainContentRect.top - desiredElementTop;
     
-    // Calculate what scroll position would put the element at this target position
-    const desiredScrollTop = this.state.elementOffsetFromContentTop - targetPositionFromTop;
+    // Apply the scroll - don't constrain it, let it scroll as high as needed
+    const finalScrollTop = Math.max(0, newScrollTop);
     
-    // Ensure we don't scroll beyond the content bounds
-    const maxScrollTop = mainContent.scrollHeight - safeViewingHeight;
-    const newScrollTop = Math.max(0, Math.min(desiredScrollTop, maxScrollTop));
-    
-    console.log('📜 Safe scroll calculation', {
-      safeViewingHeight,
-      targetPositionFromTop,
+    console.log('📜 Bottom focus scroll calculation', {
+      toolbarTop: toolbarRect.top,
+      desiredElementTop,
+      desiredElementBottom,
       elementOffsetFromContentTop: this.state.elementOffsetFromContentTop,
-      desiredScrollTop,
-      maxScrollTop,
+      mainContentTop: mainContentRect.top,
       newScrollTop,
+      finalScrollTop,
       currentScrollTop: mainContent.scrollTop
     });
     
-    mainContent.scrollTop = newScrollTop;
+    mainContent.scrollTop = finalScrollTop;
     this.state.needsBottomFocusHandling = false;
   }
 
@@ -300,7 +301,7 @@ class KeyboardManager {
   }
 
   moveToolbarAboveKeyboard(toolbar, navButtons, mainContent) {
-  if (!toolbar) return;
+    if (!toolbar) return;
     
     const toolbarHeight = toolbar.getBoundingClientRect().height;
     const top = this.state.keyboardTop - toolbarHeight;
@@ -320,13 +321,14 @@ class KeyboardManager {
       const vv = window.visualViewport;
       const mainContentRect = mainContent.getBoundingClientRect();
       
-      // Calculate the exact safe scrollable height
-      const safeHeight = top - mainContentRect.top - 20; // 20px buffer
+      // Don't constrain max-height - let content scroll freely
+      // Instead, we'll handle the dangerous scroll area differently
       
-      // Set the height constraint more precisely
+      // Set bottom padding to create space above the toolbar
+      const paddingBottom = toolbarHeight + 40; // Extra space above toolbar
       mainContent.style.setProperty(
-        'max-height',
-        `${safeHeight}px`,
+        'padding-bottom', 
+        `${paddingBottom}px`, 
         'important'
       );
       
@@ -334,17 +336,10 @@ class KeyboardManager {
       mainContent.style.setProperty('overflow-y', 'auto', 'important');
       mainContent.style.setProperty('overscroll-behavior-y', 'contain', 'important');
       
-      // Add bottom padding to ensure content doesn't get cut off
-      mainContent.style.setProperty(
-        'padding-bottom', 
-        `20px`, 
-        'important'
-      );
-      
       console.log('📐 Content constraints set', {
         toolbarTop: top,
         mainContentTop: mainContentRect.top,
-        safeHeight,
+        paddingBottom,
         scrollHeight: mainContent.scrollHeight
       });
     }
