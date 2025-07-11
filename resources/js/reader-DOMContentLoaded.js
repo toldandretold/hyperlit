@@ -42,6 +42,7 @@ import { initEditToolbar } from "./editToolbar.js";
 import DOMPurify from 'dompurify';
 import "./containerCustomization.js";
 import "./drag.js";
+import { KeyboardManager } from "./keyboardManager.js";
 
 
 window.uiState = {
@@ -89,6 +90,13 @@ if (!window.isInitialized) {
 
     // Load the Markdown file.
     await loadHyperText();
+
+    window.keyboardManager = new KeyboardManager();
+        window.addEventListener('beforeunload', () => {
+      if (window.keyboardManager) {
+        window.keyboardManager.destroy();
+      }
+    });
 
     restoreScrollPosition();
 
