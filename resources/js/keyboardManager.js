@@ -302,61 +302,73 @@ class KeyboardManager {
   }
 
   moveToolbarAboveKeyboard(toolbar, navButtons, mainContent) {
-    if (!toolbar) return;
+  if (!toolbar) return;
+  
+  const toolbarHeight = toolbar.getBoundingClientRect().height;
+  const top = this.state.keyboardTop - toolbarHeight;
+
+  toolbar.style.setProperty('position', 'fixed', 'important');
+  toolbar.style.setProperty('top', `${top}px`, 'important');
+  toolbar.style.setProperty('left', '0', 'important');
+  toolbar.style.setProperty('right', '0', 'important');
+  toolbar.style.setProperty('z-index', '999999', 'important');
+  toolbar.style.setProperty('touch-action', 'none', 'important');
+  toolbar.style.setProperty('pointer-events', 'auto', 'important');
+
+  toolbar.addEventListener('touchstart', this.preventToolbarScroll, { passive: false });
+  toolbar.addEventListener('touchmove', this.preventToolbarScroll, { passive: false });
+
+  if (mainContent) {
+    const vv = window.visualViewport;
+    const mainContentRect = mainContent.getBoundingClientRect();
     
-    const toolbarHeight = toolbar.getBoundingClientRect().height;
-    const top = this.state.keyboardTop - toolbarHeight;
-
-    toolbar.style.setProperty('position', 'fixed', 'important');
-    toolbar.style.setProperty('top', `${top}px`, 'important');
-    toolbar.style.setProperty('left', '0', 'important');
-    toolbar.style.setProperty('right', '0', 'important');
-    toolbar.style.setProperty('z-index', '999999', 'important');
-    toolbar.style.setProperty('touch-action', 'none', 'important');
-    toolbar.style.setProperty('pointer-events', 'auto', 'important');
-
-    toolbar.addEventListener('touchstart', this.preventToolbarScroll, { passive: false });
-    toolbar.addEventListener('touchmove', this.preventToolbarScroll, { passive: false });
-
-    // ALWAYS apply bottom padding when keyboard is open - not conditionally
-    if (mainContent) {
-      const vv = window.visualViewport;
-      const mainContentRect = mainContent.getBoundingClientRect();
-      
-      // Always create generous padding to account for toolbar + extra space
-      // This ensures user can always scroll to see bottom content
-      const paddingBottom = toolbarHeight + 80;
-      mainContent.style.setProperty(
-        'padding-bottom', 
-        `${paddingBottom}px`, 
-        'important'
-      );
-      
-      // Ensure proper scrolling behavior
-      mainContent.style.setProperty('overflow-y', 'auto', 'important');
-      mainContent.style.setProperty('overscroll-behavior-y', 'contain', 'important');
-      
-      console.log('📐 Content constraints set (always applied)', {
-        toolbarTop: top,
-        toolbarHeight,
-        mainContentTop: mainContentRect.top,
-        paddingBottom,
-        scrollHeight: mainContent.scrollHeight
-      });
-    }
-
-    if (navButtons) {
-      navButtons.style.setProperty('position', 'fixed', 'important');
-      navButtons.style.setProperty('top', `${top - 60}px`, 'important');
-      navButtons.style.setProperty('right', '5px', 'important');
-      navButtons.style.setProperty('z-index', '999998', 'important');
-      navButtons.style.setProperty('touch-action', 'none', 'important');
-      navButtons.style.setProperty('pointer-events', 'auto', 'important');
-      
-      navButtons.addEventListener('touchstart', this.preventToolbarScroll, { passive: false });
-      navButtons.addEventListener('touchmove', this.preventToolbarScroll, { passive: false });
-    }
+    // Calculate the safe scrollable height (from main-content top to toolbar)
+    const safeScrollableHeight = top - mainContentRect.top - 10; // 10px buffer
+    
+    // Set max-height to prevent dangerous scrolling, but allow content to scroll
+    // The key is to set max-height on the container, not restrict the scroll range
+    mainContent.style.setProperty(
+      'max-height',
+      `${safeScrollableHeight}px`,
+      'important'
+    );
+    
+    // But add bottom margin to the last element to ensure it can scroll above toolbar
+    // We'll do this by adding bottom padding, but constrained by max-height
+    const bottomClearance = Math.min(80, safeScrollableHeight * 0.3); // Max 30% of safe height
+    mainContent.style.setProperty(
+      'padding-bottom', 
+      `${bottomClearance}px`, 
+      'important'
+    );
+    
+    // Ensure proper scrolling behavior
+    mainContent.style.setProperty('overflow-y', 'auto', 'important');
+    mainContent.style.setProperty('overscroll-behavior-y', 'contain', 'important');
+    
+    console.log('📐 Balanced content constraints', {
+      toolbarTop: top,
+      toolbarHeight,
+      mainContentTop: mainContentRect.top,
+      safeScrollableHeight,
+      bottomClearance,
+      scrollHeight: mainContent.scrollHeight,
+      maxHeight: safeScrollableHeight
+    });
   }
+
+  if (navButtons) {
+    navButtons.style.setProperty('position', 'fixed', 'important');
+    navButtons.style.setProperty('top', `${top - 60}px`, 'important');
+    navButtons.style.setProperty('right', '5px', 'important');
+    navButtons.style.setProperty('z-index', '999998', 'important');
+    navButtons.style.setProperty('touch-action', 'none', 'important');
+    navButtons.style.setProperty('pointer-events', 'auto', 'important');
+    
+    navButtons.addEventListener('touchstart', this.preventToolbarScroll, { passive: false });
+    navButtons.addEventListener('touchmove', this.preventToolbarScroll, { passive: false });
+  }
+}
 
   resetInlineStyles(...elements) {
     const props = [
