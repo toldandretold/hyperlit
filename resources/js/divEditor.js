@@ -16,7 +16,8 @@ import {
   chunkOverflowInProgress,
   currentObservedChunk,
   setCurrentObservedChunk,
-  hypercitePasteInProgress
+  hypercitePasteInProgress,
+  keyboardLayoutInProgress
 } from './operationState.js';
 
 import { showSpinner, showTick, isProcessing } from './editIndicator.js';
@@ -267,6 +268,12 @@ export function startObserving(editableDiv) {
       return;
     }
 
+
+     if (keyboardLayoutInProgress) {
+      console.log("Skipping mutations during keyboard layout adjustment");
+      return;
+    }
+  
     if (shouldSkipMutation(mutations)) {
       console.log("Skipping mutations related to status icons");
       return;
