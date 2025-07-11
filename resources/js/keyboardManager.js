@@ -12,7 +12,10 @@ class KeyboardManager {
       originalMainContentPaddingBottom: null,
       keyboardTop: null,
       focusedElement: null,
-      preKeyboardScrollTop: null
+      preKeyboardScrollTop: null,
+      elementOffsetFromContentTop: null,
+      focusedElementHeight: null,
+      needsBottomFocusHandling: false
     };
 
     this.handleViewportChange = this.handleViewportChange.bind(this);
@@ -63,11 +66,19 @@ class KeyboardManager {
     
     // If keyboard is not open yet, this focus will trigger it
     if (!this.isKeyboardOpen) {
-      // Store current scroll position and element position
+      // Store current scroll position
       this.state.preKeyboardScrollTop = mainContent.scrollTop;
       
+      // Get element position relative to the scrollable content
       const elementRect = e.target.getBoundingClientRect();
       const mainContentRect = mainContent.getBoundingClientRect();
+      
+      // Calculate where the element is within the scrollable content
+      this.state.elementOffsetFromContentTop = 
+        elementRect.top - mainContentRect.top + mainContent.scrollTop;
+      
+      // Store element height for better positioning
+      this.state.focusedElementHeight = elementRect.height;
       
       // Check if focused element is near the bottom of visible area
       const elementBottomRelativeToContent = elementRect.bottom - mainContentRect.top;
@@ -78,6 +89,13 @@ class KeyboardManager {
         console.log('🎯 Focus on bottom element detected, preparing for keyboard');
         this.state.needsBottomFocusHandling = true;
       }
+      
+      console.log('🎯 Focus captured', {
+        elementOffsetFromContentTop: this.state.elementOffsetFromContentTop,
+        elementHeight: this.state.focusedElementHeight,
+        preKeyboardScrollTop: this.state.preKeyboardScrollTop,
+        needsBottomFocusHandling: this.state.needsBottomFocusHandling
+      });
     }
   }
 
@@ -126,21 +144,31 @@ class KeyboardManager {
     
     console.log('🔧 Handling bottom focus scenario');
     
-    // Reset scroll to pre-keyboard position
-    if (this.state.preKeyboardScrollTop !== null) {
-      mainContent.scrollTop = this.state.preKeyboardScrollTop;
-    }
-    
-    // Now scroll just enough to bring the focused element above the toolbar
-    const elementRect = this.state.focusedElement.getBoundingClientRect();
+    // Calculate where we want the focused element to be positioned
     const toolbarRect = editToolbar.getBoundingClientRect();
+    const mainContentRect = mainContent.getBoundingClientRect();
     
-    if (elementRect.bottom > toolbarRect.top - 20) {
-      const scrollNeeded = elementRect.bottom - (toolbarRect.top - 20);
-      mainContent.scrollTop += scrollNeeded;
-      console.log('📜 Scrolled content by:', scrollNeeded);
-    }
+    // We want the focused element to be visible above the toolbar with some padding
+    const desiredElementBottom = toolbarRect.top - 20; // 20px padding above toolbar
+    const desiredElementTop = desiredElementBottom - this.state.focusedElementHeight;
     
+    // Calculate what scroll position would put the element at the desired position
+    const elementCurrentTop = this.state.elementOffsetFromContentTop - mainContent.scrollTop + mainContentRect.top;
+    const scrollAdjustment = elementCurrentTop - desiredElementTop;
+    
+    // Apply the scroll adjustment
+    const newScrollTop = mainContent.scrollTop + scrollAdjustment;
+    
+    console.log('📜 Scroll calculation', {
+      toolbarTop: toolbarRect.top,
+      desiredElementTop,
+      elementCurrentTop,
+      scrollAdjustment,
+      newScrollTop,
+      currentScrollTop: mainContent.scrollTop
+    });
+    
+    mainContent.scrollTop = Math.max(0, newScrollTop);
     this.state.needsBottomFocusHandling = false;
   }
 
@@ -233,6 +261,8 @@ class KeyboardManager {
     this.state.initialLeft = this.state.initialRight = null;
     this.state.originalMainContentPaddingBottom = null;
     this.state.keyboardTop = null;
+    this.state.elementOffsetFromContentTop = null;
+    this.state.focusedElementHeight = null;
     this.state.needsBottomFocusHandling = false;
   }
 
@@ -344,6 +374,7 @@ class KeyboardManager {
   }
 
   scrollToFocusedElement() { /* unchanged */ }
+  
   destroy() { 
     const editToolbar = document.querySelector('#edit-toolbar');
     const navButtons = document.querySelector('#nav-buttons');
