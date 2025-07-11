@@ -148,8 +148,9 @@ class KeyboardManager {
     const toolbarRect = editToolbar.getBoundingClientRect();
     const mainContentRect = mainContent.getBoundingClientRect();
     
-    // Position the element ABOVE the edit-toolbar (not just above keyboard)
-    const desiredElementBottom = toolbarRect.top - 20; // 20px above the edit-toolbar
+    // Position the element well ABOVE the edit-toolbar with generous spacing
+    const clearanceAboveToolbar = 50; // Increased from 20px to 50px
+    const desiredElementBottom = toolbarRect.top - clearanceAboveToolbar;
     const desiredElementTop = desiredElementBottom - this.state.focusedElementHeight;
     
     // Calculate the required scroll position
@@ -161,6 +162,7 @@ class KeyboardManager {
     console.log('📜 Bottom focus scroll calculation', {
       toolbarTop: toolbarRect.top,
       toolbarHeight: toolbarRect.height,
+      clearanceAboveToolbar,
       desiredElementTop,
       desiredElementBottom,
       elementOffsetFromContentTop: this.state.elementOffsetFromContentTop,
@@ -320,8 +322,8 @@ class KeyboardManager {
       const vv = window.visualViewport;
       const mainContentRect = mainContent.getBoundingClientRect();
       
-      // Create enough padding to account for toolbar + extra space
-      const paddingBottom = toolbarHeight + 60; // Toolbar height + 60px extra space
+      // Create generous padding to account for toolbar + extra space
+      const paddingBottom = toolbarHeight + 80; // Increased from 60px to 80px
       mainContent.style.setProperty(
         'padding-bottom', 
         `${paddingBottom}px`, 
