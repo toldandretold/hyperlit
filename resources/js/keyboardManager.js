@@ -3,25 +3,25 @@ import { setKeyboardLayoutInProgress } from './operationState.js';
 
 class KeyboardManager {
   constructor() {
-    this.isIOS = /iPhone|iPad|iPod/.test(window.navigator.userAgent);
+    this.isIOS               = /iPhone|iPad|iPod/.test(navigator.userAgent);
     this.initialVisualHeight = null;
-    this.isKeyboardOpen = false;
-    this.state = { initialLeft: null, initialRight: null };
+    this.isKeyboardOpen      = false;
+    this.state               = { initialLeft: null, initialRight: null };
 
+    /* keep the same function reference for add/removeEventListener */
     this.handleViewportChange = this.handleViewportChange.bind(this);
 
     this.init();
 
-    // instant snap-back on focus loss
     window.addEventListener(
       'focusout',
       () => {
         if (this.isKeyboardOpen) {
-          this.isKeyboardOpen = false;
-          this.adjustLayout(0, false);
+          this.isKeyboardOpen = false;          // update flag first
+          this.adjustLayout(0, false);          // snap back immediately
         }
       },
-      true
+      true                                     // capture phase catches all bubbles
     );
   }
 
@@ -46,10 +46,10 @@ class KeyboardManager {
 
   /* ---------------- viewport → keyboard logic ---------------- */
   handleViewportChange() {
-    const vv = window.visualViewport;
-    const reference = this.isIOS ? this.initialVisualHeight : vv.height;
+    const vv             = window.visualViewport;
+    const reference      = this.isIOS ? this.initialVisualHeight : vv.height;
     const keyboardOffset = reference - vv.height;
-    const keyboardOpen = keyboardOffset > 50; // threshold
+    const keyboardOpen   = keyboardOffset > 50;
 
     console.log('📱 KeyboardManager: viewport change', {
       referenceHeight: reference,
@@ -61,27 +61,28 @@ class KeyboardManager {
 
     if (keyboardOpen !== this.isKeyboardOpen) {
       this.isKeyboardOpen = keyboardOpen;
+      /* ← now it IS a real method */
       this.adjustLayout(keyboardOffset, keyboardOpen);
     }
   }
 
   /* ---------------- actual layout work ---------------- */
   adjustLayout(keyboardOffset, keyboardOpen) {
-    const mainContent = document.querySelector('.main-content');
-    const logoContainer = document.querySelector('#logoContainer');
+    const mainContent       = document.querySelector('.main-content');
+    const logoContainer     = document.querySelector('#logoContainer');
     const topRightContainer = document.querySelector('#topRightContainer');
-    const editToolbar = document.querySelector('#edit-toolbar');
-    const navButtons = document.querySelector('#nav-buttons');
+    const editToolbar       = document.querySelector('#edit-toolbar');
+    const navButtons        = document.querySelector('#nav-buttons');
 
     /* KEYBOARD OPEN ------------------------------------------------ */
     if (keyboardOpen && keyboardOffset > 0) {
       if (this.state.initialLeft === null) {
-        const r = mainContent.getBoundingClientRect();
-        this.state.initialLeft = r.left;
+        const r              = mainContent.getBoundingClientRect();
+        this.state.initialLeft  = r.left;
         this.state.initialRight = window.innerWidth - r.right;
       }
 
-      this.pinToTop(logoContainer, 10, 5);
+      this.pinToTop(logoContainer,     10, 5);
       this.pinToTop(topRightContainer, 10, null);
 
       mainContent.style.setProperty(
@@ -133,20 +134,20 @@ class KeyboardManager {
     element.style.setProperty('z-index', '999997', 'important');
   }
 
-  // OPTION A – use bottom: 0 (no scrolling drift)
   moveToolbarAboveKeyboard(toolbar, navButtons) {
     if (!toolbar) return;
+    const vv  = window.visualViewport;
+    const top = vv.offsetTop + vv.height - toolbar.getBoundingClientRect().height;
 
     toolbar.style.setProperty('position', 'fixed', 'important');
-    toolbar.style.setProperty('top', 'auto', 'important');    // clear any top
-    toolbar.style.setProperty('bottom', '0', 'important');    // pin to edge
+    toolbar.style.setProperty('top', `${top}px`, 'important');
     toolbar.style.setProperty('left', '0', 'important');
     toolbar.style.setProperty('right', '0', 'important');
     toolbar.style.setProperty('z-index', '999999', 'important');
 
     if (navButtons) {
       navButtons.style.setProperty('position', 'fixed', 'important');
-      navButtons.style.setProperty('bottom', '60px', 'important'); // 60 px above bar
+      navButtons.style.setProperty('top', `${top - 60}px`, 'important');
       navButtons.style.setProperty('right', '5px', 'important');
       navButtons.style.setProperty('z-index', '999998', 'important');
     }
@@ -156,7 +157,6 @@ class KeyboardManager {
     const props = [
       'position',
       'top',
-      'bottom',          // ← added
       'left',
       'right',
       'z-index',
