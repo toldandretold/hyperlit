@@ -63,33 +63,58 @@ adjustLayout(keyboardOffset, keyboardOpen) {
   const mainContent = document.querySelector('.main-content');
   const editToolbar = document.querySelector('#edit-toolbar');
   const navButtons = document.querySelector('#nav-buttons');
+  const logoContainer = document.querySelector('#logoContainer');
+  const topRightContainer = document.querySelector('#topRightContainer');
   
   if (keyboardOpen && keyboardOffset > 0) {
     console.log(`🔧 KeyboardManager: Keyboard OPEN - adjusting layout`);
     
     setKeyboardLayoutInProgress(true);
     
+    // 🔍 DEBUG: Check what's happening to the elements BEFORE we do anything
+    console.log('🔍 BEFORE keyboard adjustments:');
+    if (logoContainer) {
+      const logoStyle = getComputedStyle(logoContainer);
+      console.log(`  - logoContainer display: ${logoStyle.display}, visibility: ${logoStyle.visibility}`);
+      console.log(`  - logoContainer classes: ${logoContainer.className}`);
+      console.log(`  - logoContainer style.display: ${logoContainer.style.display}`);
+    }
+    if (topRightContainer) {
+      const topRightStyle = getComputedStyle(topRightContainer);
+      console.log(`  - topRightContainer display: ${topRightStyle.display}, visibility: ${topRightStyle.visibility}`);
+      console.log(`  - topRightContainer classes: ${topRightContainer.className}`);
+      console.log(`  - topRightContainer style.display: ${topRightContainer.style.display}`);
+    }
+    
     // Calculate available space
     const availableHeight = window.visualViewport.height;
     const toolbarActualHeight = editToolbar ? editToolbar.getBoundingClientRect().height : 60;
     const contentHeight = availableHeight - toolbarActualHeight - 10;
+    const visualTop = window.visualViewport.offsetTop || 0;
     
     console.log(`📱 KeyboardManager: Available: ${availableHeight}px, Content: ${contentHeight}px`);
     
     // Add keyboard-open class to body
     body.classList.add('keyboard-open');
     
-    // Set CSS custom properties
-    const visualTop = window.visualViewport.offsetTop || 0;
+    // 🔍 DEBUG: Check what happens AFTER adding the class
+    setTimeout(() => {
+      console.log('🔍 AFTER adding keyboard-open class:');
+      if (logoContainer) {
+        const logoStyle = getComputedStyle(logoContainer);
+        console.log(`  - logoContainer display: ${logoStyle.display}, visibility: ${logoStyle.visibility}`);
+      }
+      if (topRightContainer) {
+        const topRightStyle = getComputedStyle(topRightContainer);
+        console.log(`  - topRightContainer display: ${topRightStyle.display}, visibility: ${topRightStyle.visibility}`);
+      }
+    }, 10);
     
+    // Set CSS custom properties for main content
     document.documentElement.style.setProperty('--keyboard-visual-top', `${visualTop}px`);
     document.documentElement.style.setProperty('--keyboard-content-height', `${contentHeight}px`);
-    document.documentElement.style.setProperty('--keyboard-available-height', `${availableHeight}px`);
-    document.documentElement.style.setProperty('--keyboard-toolbar-height', `${toolbarActualHeight}px`);
     
-    console.log(`🔧 Set CSS variables: top=${visualTop}px, height=${contentHeight}px`);
-    
-    // Position toolbar at bottom of visible area
+    // Position toolbar
     if (editToolbar) {
       const toolbarTop = visualTop + availableHeight - toolbarActualHeight;
       editToolbar.style.setProperty('position', 'fixed', 'important');
@@ -102,25 +127,21 @@ adjustLayout(keyboardOffset, keyboardOpen) {
       console.log(`🔧 Positioned toolbar at top: ${toolbarTop}px`);
     }
     
-    // 🔧 ONLY move nav-buttons if they're at the bottom and would be covered
+    // Only move nav buttons if they would be covered
     if (navButtons) {
       const navRect = navButtons.getBoundingClientRect();
       const keyboardTop = visualTop + availableHeight;
       
-      // Only reposition if nav buttons would be covered by keyboard
       if (navRect.bottom > keyboardTop) {
-        const navButtonsTop = visualTop + availableHeight - toolbarActualHeight - 60; // Above toolbar
+        const navButtonsTop = visualTop + availableHeight - toolbarActualHeight - 60;
         navButtons.style.setProperty('position', 'fixed', 'important');
         navButtons.style.setProperty('top', `${navButtonsTop}px`, 'important');
         navButtons.style.setProperty('right', '5px', 'important');
         navButtons.style.setProperty('z-index', '999998', 'important');
         
-        console.log(`🔧 Repositioned nav buttons from bottom to: ${navButtonsTop}px`);
+        console.log(`🔧 Repositioned nav buttons to: ${navButtonsTop}px`);
       }
     }
-    
-    // 🔧 DON'T TOUCH logoContainer, topRightContainer, userButtonContainer
-    // They should stay in their original positions at the top
     
     setTimeout(() => {
       setKeyboardLayoutInProgress(false);
@@ -128,27 +149,23 @@ adjustLayout(keyboardOffset, keyboardOpen) {
     }, 100);
     
   } else {
+    // Reset code remains the same...
     console.log(`🔧 KeyboardManager: Keyboard CLOSED - resetting layout`);
     
     setKeyboardLayoutInProgress(true);
-    
-    // Remove keyboard-open class
     body.classList.remove('keyboard-open');
     
     // Clear CSS custom properties
     document.documentElement.style.removeProperty('--keyboard-visual-top');
     document.documentElement.style.removeProperty('--keyboard-content-height');
-    document.documentElement.style.removeProperty('--keyboard-available-height');
-    document.documentElement.style.removeProperty('--keyboard-toolbar-height');
     
-    // Reset toolbar
+    // Reset elements
     if (editToolbar) {
       ['position', 'top', 'left', 'right', 'z-index', 'background'].forEach(prop => {
         editToolbar.style.removeProperty(prop);
       });
     }
     
-    // Reset nav buttons (only element we might have moved)
     if (navButtons) {
       ['position', 'top', 'right', 'z-index'].forEach(prop => {
         navButtons.style.removeProperty(prop);
