@@ -10,12 +10,17 @@ class KeyboardManager {
       initialLeft: null, 
       initialRight: null,
       originalMainContentPaddingBottom: null,
-      keyboardTop: null
+      keyboardTop: null,
+      focusedElement: null
     };
 
     this.handleViewportChange = this.handleViewportChange.bind(this);
     this.preventToolbarScroll = this.preventToolbarScroll.bind(this);
+    this.handleFocusIn = this.handleFocusIn.bind(this);
     this.init();
+
+    // Listen for focus events to track focused elements
+    window.addEventListener('focusin', this.handleFocusIn, true);
 
     window.addEventListener(
       'focusout',
@@ -24,6 +29,7 @@ class KeyboardManager {
           this.isKeyboardOpen = false;
           this.adjustLayout(0, false);
         }
+        this.state.focusedElement = null;
       },
       true
     );
@@ -47,8 +53,44 @@ class KeyboardManager {
     });
   }
 
+  handleFocusIn(e) {
+    this.state.focusedElement = e.target;
+    
+    // If keyboard is already open, ensure focused element is visible
+    if (this.isKeyboardOpen) {
+      setTimeout(() => this.ensureFocusedElementVisible(), 100);
+    }
+  }
+
+  ensureFocusedElementVisible() {
+    if (!this.state.focusedElement) return;
+    
+    const mainContent = document.querySelector('.main-content');
+    const editToolbar = document.querySelector('#edit-toolbar');
+    
+    if (!mainContent || !editToolbar) return;
+    
+    const focusedRect = this.state.focusedElement.getBoundingClientRect();
+    const mainContentRect = mainContent.getBoundingClientRect();
+    const toolbarRect = editToolbar.getBoundingClientRect();
+    
+    // Calculate available space above toolbar
+    const availableBottom = toolbarRect.top - 20; // 20px buffer
+    
+    // If focused element is below the available space, scroll it into view
+    if (focusedRect.bottom > availableBottom) {
+      const scrollAmount = focusedRect.bottom - availableBottom;
+      mainContent.scrollTop += scrollAmount;
+    }
+    
+    // If focused element is above the visible area, scroll it into view
+    if (focusedRect.top < mainContentRect.top) {
+      const scrollAmount = mainContentRect.top - focusedRect.top;
+      mainContent.scrollTop -= scrollAmount;
+    }
+  }
+
   preventToolbarScroll(e) {
-    // Prevent scrolling when touch starts on toolbar or nav buttons
     e.preventDefault();
     e.stopPropagation();
     return false;
@@ -71,8 +113,15 @@ class KeyboardManager {
     if (keyboardOpen !== this.isKeyboardOpen) {
       this.isKeyboardOpen = keyboardOpen;
       this.adjustLayout(keyboardOffset, keyboardOpen);
+      
+      // After layout adjustment, ensure focused element is visible
+      if (keyboardOpen) {
+        setTimeout(() => this.ensureFocusedElementVisible(), 150);
+      }
     } else if (keyboardOpen && this.isKeyboardOpen) {
       this.updateToolbarPosition();
+      // Re-check focused element visibility after position update
+      setTimeout(() => this.ensureFocusedElementVisible(), 50);
     }
   }
 
@@ -214,6 +263,9 @@ class KeyboardManager {
       );
       mainContent.style.setProperty('overflow-y', 'auto', 'important');
       mainContent.style.setProperty('overscroll-behavior', 'contain', 'important');
+      
+      // Prevent browser's automatic scroll-into-view behavior
+      mainContent.style.setProperty('scroll-behavior', 'auto', 'important');
     }
 
     if (navButtons) {
@@ -222,7 +274,6 @@ class KeyboardManager {
       navButtons.style.setProperty('right', '5px', 'important');
       navButtons.style.setProperty('z-index', '999998', 'important');
       
-      // Prevent nav buttons from being scrollable too
       navButtons.style.setProperty('touch-action', 'none', 'important');
       navButtons.style.setProperty('pointer-events', 'auto', 'important');
       
@@ -251,7 +302,8 @@ class KeyboardManager {
       'overflow-y',
       'overscroll-behavior',
       'touch-action',
-      'pointer-events'
+      'pointer-events',
+      'scroll-behavior'
     ];
     elements.forEach(el => {
       if (!el) return;
@@ -273,6 +325,8 @@ class KeyboardManager {
       navButtons.removeEventListener('touchstart', this.preventToolbarScroll);
       navButtons.removeEventListener('touchmove', this.preventToolbarScroll);
     }
+    
+    window.removeEventListener('focusin', this.handleFocusIn, true);
     
     if (window.visualViewport) {
       window.visualViewport.removeEventListener(
