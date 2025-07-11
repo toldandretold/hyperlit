@@ -44,18 +44,6 @@ function handleEditModeCancel() {
     window.history.pushState({}, '', readOnlyUrl);
   }
   
-  // Update the edit button state to ensure it's not inverted
-  if (editBtn) {
-    editBtn.addEventListener("click", () => {
-      console.log("Edit button clicked");
-      if (window.isEditing) {
-        disableEditMode();
-      } else {
-        enableEditMode(); // No target ID when manually clicking edit
-      }
-    });
-    console.log("Edit button event listener attached");
-  }
 }
 
 // Add this helper function to get the saved scroll position
@@ -301,8 +289,12 @@ async function enableEditMode(targetElementId = null) {
     editModeCheckInProgress = false; // Reset flag on success
   } catch (error) {
     console.error("Error enabling edit mode:", error);
-    editModeCheckInProgress = false; // Reset flag on error
+    // Make sure to reset editing state on error
+    window.isEditing = false;
+    if (editBtn) editBtn.classList.remove("inverted");
+    editableDiv.contentEditable = "false";
   } finally {
+    editModeCheckInProgress = false; // Always reset this flag
     decrementPendingOperations();
   }
 }
@@ -320,7 +312,7 @@ function disableEditMode() {
   if (toolbar) {
     toolbar.setEditMode(false);
   }
-  
+
   stopObserving();
   
   // Safely clear NodeIdManager if it exists
@@ -335,8 +327,21 @@ function disableEditMode() {
 // Add this at the end of reader-edit.js to verify the edit button is working
 console.log("Edit button element:", editBtn);
 if (editBtn) {
-  editBtn.addEventListener("click", () => {
-    console.log("Edit button clicked");
+  editBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log("Edit button clicked, current state:", {
+      isEditing: window.isEditing,
+      checkInProgress: editModeCheckInProgress
+    });
+    
+    // Don't allow clicks while check is in progress
+    if (editModeCheckInProgress) {
+      console.log("Edit mode check in progress, ignoring click");
+      return;
+    }
+    
     if (window.isEditing) {
       disableEditMode();
     } else {
@@ -345,6 +350,7 @@ if (editBtn) {
   });
   console.log("Edit button event listener attached");
 }
+
 
 if (shouldAutoEdit) {
   console.log("Auto-edit detected, enabling edit mode");
