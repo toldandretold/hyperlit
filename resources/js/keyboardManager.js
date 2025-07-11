@@ -56,7 +56,6 @@ class KeyboardManager {
   }
   
 
-    
 adjustLayout(keyboardOffset, keyboardOpen) {
   const body = document.body;
   const mainContent = document.querySelector('.main-content');
@@ -82,7 +81,7 @@ adjustLayout(keyboardOffset, keyboardOpen) {
     if (logoContainer) {
       logoContainer.classList.remove('hidden-nav');
       logoContainer.style.setProperty('position', 'fixed', 'important');
-      logoContainer.style.setProperty('top', `${visualTop + 10}px`, 'important'); // 10px from visual top
+      logoContainer.style.setProperty('top', `${visualTop + 10}px`, 'important');
       logoContainer.style.setProperty('left', '5px', 'important');
       logoContainer.style.setProperty('z-index', '999997', 'important');
       logoContainer.style.setProperty('display', 'flex', 'important');
@@ -95,7 +94,7 @@ adjustLayout(keyboardOffset, keyboardOpen) {
     if (topRightContainer) {
       topRightContainer.classList.remove('hidden-nav');
       topRightContainer.style.setProperty('position', 'fixed', 'important');
-      topRightContainer.style.setProperty('top', `${visualTop + 10}px`, 'important'); // 10px from visual top
+      topRightContainer.style.setProperty('top', `${visualTop + 10}px`, 'important');
       topRightContainer.style.setProperty('right', '5px', 'important');
       topRightContainer.style.setProperty('z-index', '999997', 'important');
       topRightContainer.style.setProperty('display', 'flex', 'important');
@@ -103,6 +102,20 @@ adjustLayout(keyboardOffset, keyboardOpen) {
       topRightContainer.style.setProperty('visibility', 'visible', 'important');
       
       console.log(`🔧 Repositioned topRightContainer to visual top: ${visualTop + 10}px`);
+    }
+    
+    // 🔧 ADJUST MAIN CONTENT TO PREVENT OVERLAP
+    if (mainContent) {
+      // Get the width of the logo container to calculate proper margins
+      const logoWidth = logoContainer ? logoContainer.getBoundingClientRect().width + 10 : 50; // 10px buffer
+      const topRightWidth = topRightContainer ? topRightContainer.getBoundingClientRect().width + 10 : 50; // 10px buffer
+      
+      mainContent.style.setProperty('margin-left', `${logoWidth}px`, 'important');
+      mainContent.style.setProperty('margin-right', `${topRightWidth}px`, 'important');
+      mainContent.style.setProperty('width', `calc(100% - ${logoWidth + topRightWidth}px)`, 'important');
+      mainContent.style.setProperty('box-sizing', 'border-box', 'important');
+      
+      console.log(`🔧 Adjusted main-content margins: left=${logoWidth}px, right=${topRightWidth}px`);
     }
     
     // Add keyboard-open class to body
@@ -164,10 +177,10 @@ adjustLayout(keyboardOffset, keyboardOpen) {
     document.documentElement.style.removeProperty('--keyboard-visual-top');
     document.documentElement.style.removeProperty('--keyboard-content-height');
     
-    // Reset all elements
-    [editToolbar, navButtons, logoContainer, topRightContainer].forEach(element => {
+    // Reset all elements including main content
+    [editToolbar, navButtons, logoContainer, topRightContainer, mainContent].forEach(element => {
       if (element) {
-        ['position', 'top', 'left', 'right', 'z-index', 'background', 'display', 'opacity', 'visibility'].forEach(prop => {
+        ['position', 'top', 'left', 'right', 'z-index', 'background', 'display', 'opacity', 'visibility', 'margin-left', 'margin-right', 'width', 'box-sizing'].forEach(prop => {
           element.style.removeProperty(prop);
         });
       }
@@ -179,7 +192,6 @@ adjustLayout(keyboardOffset, keyboardOpen) {
     }, 100);
   }
 }
-
 
 
 
