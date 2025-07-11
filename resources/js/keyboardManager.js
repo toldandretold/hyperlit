@@ -6,26 +6,27 @@ class KeyboardManager {
     this.isIOS               = /iPhone|iPad|iPod/.test(navigator.userAgent);
     this.initialVisualHeight = null;
     this.isKeyboardOpen      = false;
-    this.state               = { initialLeft: null, initialRight: null };
+    this.state               = { 
+      initialLeft: null, 
+      initialRight: null,
+      originalMainContentPaddingBottom: null
+    };
 
-    /* keep the same function reference for add/removeEventListener */
     this.handleViewportChange = this.handleViewportChange.bind(this);
-
     this.init();
 
     window.addEventListener(
       'focusout',
       () => {
         if (this.isKeyboardOpen) {
-          this.isKeyboardOpen = false;          // update flag first
-          this.adjustLayout(0, false);          // snap back immediately
+          this.isKeyboardOpen = false;
+          this.adjustLayout(0, false);
         }
       },
-      true                                     // capture phase catches all bubbles
+      true
     );
   }
 
-  /* -------------------- bootstrap -------------------- */
   init() {
     if (!window.visualViewport) {
       console.warn('Visual Viewport API not supported');
@@ -44,7 +45,6 @@ class KeyboardManager {
     });
   }
 
-  /* ---------------- viewport → keyboard logic ---------------- */
   handleViewportChange() {
     const vv             = window.visualViewport;
     const reference      = this.isIOS ? this.initialVisualHeight : vv.height;
@@ -61,12 +61,10 @@ class KeyboardManager {
 
     if (keyboardOpen !== this.isKeyboardOpen) {
       this.isKeyboardOpen = keyboardOpen;
-      /* ← now it IS a real method */
       this.adjustLayout(keyboardOffset, keyboardOpen);
     }
   }
 
-  /* ---------------- actual layout work ---------------- */
   adjustLayout(keyboardOffset, keyboardOpen) {
     const mainContent       = document.querySelector('.main-content');
     const logoContainer     = document.querySelector('#logoContainer');
@@ -74,8 +72,13 @@ class KeyboardManager {
     const editToolbar       = document.querySelector('#edit-toolbar');
     const navButtons        = document.querySelector('#nav-buttons');
 
-    /* KEYBOARD OPEN ------------------------------------------------ */
     if (keyboardOpen && keyboardOffset > 0) {
+      // Store original padding-bottom if not already stored
+      if (this.state.originalMainContentPaddingBottom === null && mainContent) {
+        const computedStyle = window.getComputedStyle(mainContent);
+        this.state.originalMainContentPaddingBottom = computedStyle.paddingBottom;
+      }
+
       if (this.state.initialLeft === null) {
         const r              = mainContent.getBoundingClientRect();
         this.state.initialLeft  = r.left;
@@ -104,11 +107,11 @@ class KeyboardManager {
       );
       mainContent.style.setProperty('box-sizing', 'border-box', 'important');
 
-      this.moveToolbarAboveKeyboard(editToolbar, navButtons);
+      this.moveToolbarAboveKeyboard(editToolbar, navButtons, mainContent);
       return;
     }
 
-    /* KEYBOARD CLOSED --------------------------------------------- */
+    // KEYBOARD CLOSED
     this.resetInlineStyles(
       logoContainer,
       topRightContainer,
@@ -117,9 +120,9 @@ class KeyboardManager {
       navButtons
     );
     this.state.initialLeft = this.state.initialRight = null;
+    this.state.originalMainContentPaddingBottom = null;
   }
 
-  /* ------------- helpers (now also methods) --------------------- */
   pinToTop(element, topPx, horizontalPx) {
     if (!element) return;
     element.style.setProperty('position', 'fixed', 'important');
@@ -134,17 +137,40 @@ class KeyboardManager {
     element.style.setProperty('z-index', '999997', 'important');
   }
 
-  moveToolbarAboveKeyboard(toolbar, navButtons) {
+  moveToolbarAboveKeyboard(toolbar, navButtons, mainContent) {
     if (!toolbar) return;
-    const vv  = window.visualViewport;
-    const top = vv.offsetTop + vv.height - toolbar.getBoundingClientRect().height;
+    
+    const vv = window.visualViewport;
+    const toolbarHeight = toolbar.getBoundingClientRect().height;
+    const top = vv.offsetTop + vv.height - toolbarHeight;
 
+    // Position the toolbar
     toolbar.style.setProperty('position', 'fixed', 'important');
     toolbar.style.setProperty('top', `${top}px`, 'important');
     toolbar.style.setProperty('left', '0', 'important');
     toolbar.style.setProperty('right', '0', 'important');
     toolbar.style.setProperty('z-index', '999999', 'important');
 
+    // Add padding-bottom to main content so content doesn't go behind toolbar
+    if (mainContent) {
+      const additionalPadding = toolbarHeight + 10; // 10px extra spacing
+      mainContent.style.setProperty(
+        'padding-bottom', 
+        `${additionalPadding}px`, 
+        'important'
+      );
+      
+      // Ensure the main content height accounts for the toolbar
+      const availableHeight = vv.height - toolbarHeight;
+      mainContent.style.setProperty(
+        'max-height',
+        `${availableHeight}px`,
+        'important'
+      );
+      mainContent.style.setProperty('overflow-y', 'auto', 'important');
+    }
+
+    // Position nav buttons
     if (navButtons) {
       navButtons.style.setProperty('position', 'fixed', 'important');
       navButtons.style.setProperty('top', `${top - 60}px`, 'important');
@@ -167,7 +193,10 @@ class KeyboardManager {
       'opacity',
       'visibility',
       'background',
-      'box-sizing'
+      'box-sizing',
+      'padding-bottom',
+      'max-height',
+      'overflow-y'
     ];
     elements.forEach(el => {
       if (!el) return;
@@ -175,9 +204,15 @@ class KeyboardManager {
     });
   }
 
-  /* ---------------- extra methods you already had --------------- */
   scrollToFocusedElement() { /* unchanged */ }
-  destroy()               { /* unchanged */ }
+  destroy() { 
+    if (window.visualViewport) {
+      window.visualViewport.removeEventListener(
+        'resize',
+        this.handleViewportChange
+      );
+    }
+  }
 }
 
 export { KeyboardManager };
