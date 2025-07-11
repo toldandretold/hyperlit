@@ -71,20 +71,15 @@ adjustLayout(keyboardOffset, keyboardOpen) {
     
     setKeyboardLayoutInProgress(true);
     
-    // 🔍 DEBUG: Check what's happening to the elements BEFORE we do anything
-    console.log('🔍 BEFORE keyboard adjustments:');
-    if (logoContainer) {
-      const logoStyle = getComputedStyle(logoContainer);
-      console.log(`  - logoContainer display: ${logoStyle.display}, visibility: ${logoStyle.visibility}`);
-      console.log(`  - logoContainer classes: ${logoContainer.className}`);
-      console.log(`  - logoContainer style.display: ${logoContainer.style.display}`);
-    }
-    if (topRightContainer) {
-      const topRightStyle = getComputedStyle(topRightContainer);
-      console.log(`  - topRightContainer display: ${topRightStyle.display}, visibility: ${topRightStyle.visibility}`);
-      console.log(`  - topRightContainer classes: ${topRightContainer.className}`);
-      console.log(`  - topRightContainer style.display: ${topRightContainer.style.display}`);
-    }
+    // 🔧 FORCE NAVIGATION ELEMENTS TO BE VISIBLE during keyboard mode
+    [logoContainer, topRightContainer, navButtons].forEach(element => {
+      if (element) {
+        element.classList.remove('hidden-nav');
+        element.style.setProperty('opacity', '1', 'important');
+        element.style.setProperty('pointer-events', 'auto', 'important');
+        console.log(`🔧 Forced ${element.id} to be visible during keyboard mode`);
+      }
+    });
     
     // Calculate available space
     const availableHeight = window.visualViewport.height;
@@ -97,20 +92,7 @@ adjustLayout(keyboardOffset, keyboardOpen) {
     // Add keyboard-open class to body
     body.classList.add('keyboard-open');
     
-    // 🔍 DEBUG: Check what happens AFTER adding the class
-    setTimeout(() => {
-      console.log('🔍 AFTER adding keyboard-open class:');
-      if (logoContainer) {
-        const logoStyle = getComputedStyle(logoContainer);
-        console.log(`  - logoContainer display: ${logoStyle.display}, visibility: ${logoStyle.visibility}`);
-      }
-      if (topRightContainer) {
-        const topRightStyle = getComputedStyle(topRightContainer);
-        console.log(`  - topRightContainer display: ${topRightStyle.display}, visibility: ${topRightStyle.visibility}`);
-      }
-    }, 10);
-    
-    // Set CSS custom properties for main content
+    // Set CSS custom properties
     document.documentElement.style.setProperty('--keyboard-visual-top', `${visualTop}px`);
     document.documentElement.style.setProperty('--keyboard-content-height', `${contentHeight}px`);
     
@@ -127,7 +109,7 @@ adjustLayout(keyboardOffset, keyboardOpen) {
       console.log(`🔧 Positioned toolbar at top: ${toolbarTop}px`);
     }
     
-    // Only move nav buttons if they would be covered
+    // Only move nav buttons if they would be covered (but keep them visible)
     if (navButtons) {
       const navRect = navButtons.getBoundingClientRect();
       const keyboardTop = visualTop + availableHeight;
@@ -149,7 +131,6 @@ adjustLayout(keyboardOffset, keyboardOpen) {
     }, 100);
     
   } else {
-    // Reset code remains the same...
     console.log(`🔧 KeyboardManager: Keyboard CLOSED - resetting layout`);
     
     setKeyboardLayoutInProgress(true);
@@ -159,18 +140,28 @@ adjustLayout(keyboardOffset, keyboardOpen) {
     document.documentElement.style.removeProperty('--keyboard-visual-top');
     document.documentElement.style.removeProperty('--keyboard-content-height');
     
-    // Reset elements
+    // Reset toolbar
     if (editToolbar) {
       ['position', 'top', 'left', 'right', 'z-index', 'background'].forEach(prop => {
         editToolbar.style.removeProperty(prop);
       });
     }
     
+    // Reset nav buttons
     if (navButtons) {
       ['position', 'top', 'right', 'z-index'].forEach(prop => {
         navButtons.style.removeProperty(prop);
       });
     }
+    
+    // 🔧 RESET navigation visibility overrides
+    [logoContainer, topRightContainer, navButtons].forEach(element => {
+      if (element) {
+        element.style.removeProperty('opacity');
+        element.style.removeProperty('pointer-events');
+        console.log(`🔧 Reset visibility overrides for ${element.id}`);
+      }
+    });
     
     setTimeout(() => {
       setKeyboardLayoutInProgress(false);
