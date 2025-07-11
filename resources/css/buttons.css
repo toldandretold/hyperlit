@@ -489,15 +489,14 @@ black #221F20;
     /* Appearance */
     background: rgba(34, 31, 32, 0.98) !important;
     backdrop-filter: blur(10px);
-    border-top: 1px solid #444;
     
     /* Prevent any transforms or transitions */
     transform: none !important;
     transition: none !important;
     
     /* Ensure consistent sizing */
-    min-height: 60px;
-    max-height: 80px;
+    min-height: 40px;
+    max-height: 40px;
     box-sizing: border-box;
     
     /* Prevent any browser interference */
@@ -516,7 +515,7 @@ black #221F20;
 
   /* Content padding when toolbar is visible */
   .main-content.toolbar-visible {
-    padding-bottom: 80px !important;
+    padding-bottom: 40px !important;
     margin-bottom: 0;
   }
   
