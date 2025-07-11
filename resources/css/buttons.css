@@ -491,4 +491,18 @@ black #221F20;
     /* Override any JavaScript positioning */
     transform: none !important;
   }
+
+    #edit-toolbar.visible {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* Ensure buttons don't interfere with text selection */
+  #edit-toolbar button:focus {
+    outline: none;
+  }
+
+  #edit-toolbar button:active {
+    transform: scale(0.95);
+  }
 }
