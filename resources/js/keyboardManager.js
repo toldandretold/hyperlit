@@ -58,6 +58,7 @@ class KeyboardManager {
   adjustLayout(keyboardOffset, keyboardOpen) {
   const body = document.body;
   const mainContent = document.querySelector('.main-content');
+  const editToolbar = document.querySelector('#edit-toolbar');
   
   if (keyboardOpen && keyboardOffset > 0) {
     console.log(`🔧 KeyboardManager: Keyboard OPEN - adjusting layout`);
@@ -75,61 +76,72 @@ class KeyboardManager {
     console.log('🔍 BEFORE changes:');
     console.log('  - body classes:', body.className);
     console.log('  - mainContent exists:', !!mainContent);
+    console.log('  - editToolbar exists:', !!editToolbar);
     if (mainContent) {
       console.log('  - mainContent current height:', mainContent.style.height || 'not set');
       console.log('  - mainContent computed height:', getComputedStyle(mainContent).height);
       console.log('  - mainContent position:', getComputedStyle(mainContent).position);
     }
+    if (editToolbar) {
+      console.log('  - editToolbar current top:', editToolbar.style.top || 'not set');
+      console.log('  - editToolbar computed top:', getComputedStyle(editToolbar).top);
+      console.log('  - editToolbar position:', getComputedStyle(editToolbar).position);
+    }
     
     // Add keyboard-open class to body
     body.classList.add('keyboard-open');
     
-    // Set CSS custom properties
-    document.documentElement.style.setProperty('--keyboard-offset', `${keyboardOffset}px`);
-    document.documentElement.style.setProperty('--available-height', `${availableHeight}px`);
-    document.documentElement.style.setProperty('--content-height', `${contentHeight}px`);
+    // 🆕 POSITION EVERYTHING RELATIVE TO VISUAL VIEWPORT
+    const visualTop = window.visualViewport.offsetTop || 0;
+    const visualLeft = window.visualViewport.offsetLeft || 0;
     
-    // 🆕 FORCE the main-content styles directly with maximum priority
+    console.log(`📱 Visual viewport offset: top=${visualTop}, left=${visualLeft}`);
+    console.log(`📱 Visual viewport size: ${window.visualViewport.width}x${window.visualViewport.height}`);
+    
+    // 1. Position main-content
     if (mainContent) {
-      // Store original styles first
-      if (!mainContent._keyboardOriginalStyles) {
-        mainContent._keyboardOriginalStyles = {
-          height: mainContent.style.height,
-          maxHeight: mainContent.style.maxHeight,
-          position: mainContent.style.position,
-          top: mainContent.style.top,
-          left: mainContent.style.left,
-          right: mainContent.style.right,
-          overflowY: mainContent.style.overflowY,
-          zIndex: mainContent.style.zIndex,
-          paddingLeft: mainContent.style.paddingLeft,
-          paddingRight: mainContent.style.paddingRight,
-          paddingBottom: mainContent.style.paddingBottom
-        };
-      }
-      
-      // Apply styles with maximum force
       mainContent.style.setProperty('height', `${contentHeight}px`, 'important');
       mainContent.style.setProperty('max-height', `${contentHeight}px`, 'important');
       mainContent.style.setProperty('position', 'fixed', 'important');
-      mainContent.style.setProperty('top', '0px', 'important');
-      mainContent.style.setProperty('left', '0px', 'important');
-      mainContent.style.setProperty('right', '0px', 'important');
+      mainContent.style.setProperty('top', `${visualTop}px`, 'important');
+      mainContent.style.setProperty('left', `${visualLeft}px`, 'important');
+      mainContent.style.setProperty('width', `${window.visualViewport.width}px`, 'important');
       mainContent.style.setProperty('overflow-y', 'auto', 'important');
       mainContent.style.setProperty('z-index', '1000', 'important');
       mainContent.style.setProperty('padding-left', '20px', 'important');
       mainContent.style.setProperty('padding-right', '20px', 'important');
-      mainContent.style.setProperty('padding-bottom', '80px', 'important');
+      mainContent.style.setProperty('padding-bottom', '70px', 'important'); // Space for toolbar
       mainContent.style.setProperty('box-sizing', 'border-box', 'important');
       
-      console.log('🔧 Applied direct styles with !important to main-content');
+      console.log('🔧 Applied styles to main-content:');
+      console.log(`   - position: fixed, top: ${visualTop}px, left: ${visualLeft}px`);
+      console.log(`   - size: ${window.visualViewport.width}px x ${contentHeight}px`);
     }
+    
+    // 2. 🆕 POSITION EDIT TOOLBAR RELATIVE TO VISUAL VIEWPORT
+    if (editToolbar) {
+      const toolbarBottom = visualTop + availableHeight - toolbarHeight;
+      editToolbar.style.setProperty('position', 'fixed', 'important');
+      editToolbar.style.setProperty('top', `${toolbarBottom}px`, 'important'); // Position at bottom of visual viewport
+      editToolbar.style.setProperty('left', `${visualLeft}px`, 'important');
+      editToolbar.style.setProperty('width', `${window.visualViewport.width}px`, 'important');
+      editToolbar.style.setProperty('z-index', '999999', 'important');
+      editToolbar.style.setProperty('background', 'rgba(34, 31, 32, 1)', 'important');
+      
+      console.log(`🔧 Positioned toolbar at top: ${toolbarBottom}px (visual viewport bottom)`);
+      console.log(`   - calculation: ${visualTop} + ${availableHeight} - ${toolbarHeight} = ${toolbarBottom}`);
+    }
+    
+    // 3. Hide navigation elements (they're outside visual viewport anyway)
+    document.querySelectorAll('#nav-buttons, #logoContainer, #topRightContainer, #userButtonContainer').forEach(el => {
+      if (el) el.style.setProperty('display', 'none', 'important');
+    });
+    console.log('🔧 Hidden navigation elements');
     
     // 🆕 DEBUG: Check state AFTER changes
     setTimeout(() => {
       console.log('🔍 AFTER changes:');
       console.log('  - body classes:', body.className);
-      console.log('  - CSS --content-height:', getComputedStyle(document.documentElement).getPropertyValue('--content-height'));
       
       if (mainContent) {
         const computedStyle = getComputedStyle(mainContent);
@@ -138,12 +150,14 @@ class KeyboardManager {
         console.log('  - mainContent computed position:', computedStyle.position);
         console.log('  - mainContent computed top:', computedStyle.top);
         console.log('  - mainContent getBoundingClientRect():', mainContent.getBoundingClientRect());
-        
-        // 🆕 EXTRA AGGRESSIVE: Try to force a reflow
-        mainContent.offsetHeight; // Force reflow
-        mainContent.style.display = 'block';
-        
-        console.log('  - After forced reflow, computed height:', getComputedStyle(mainContent).height);
+      }
+      
+      if (editToolbar) {
+        const computedStyle = getComputedStyle(editToolbar);
+        console.log('  - editToolbar.style.top:', editToolbar.style.top);
+        console.log('  - editToolbar computed top:', computedStyle.top);
+        console.log('  - editToolbar computed position:', computedStyle.position);
+        console.log('  - editToolbar getBoundingClientRect():', editToolbar.getBoundingClientRect());
       }
       
       setKeyboardLayoutInProgress(false);
@@ -157,43 +171,34 @@ class KeyboardManager {
     
     // Remove keyboard-open class
     body.classList.remove('keyboard-open');
+    console.log('🔧 Removed keyboard-open class from body');
     
-    // Remove CSS custom properties
-    document.documentElement.style.removeProperty('--keyboard-offset');
-    document.documentElement.style.removeProperty('--available-height');
-    document.documentElement.style.removeProperty('--content-height');
-    
-    // 🆕 RESTORE original styles
-    if (mainContent && mainContent._keyboardOriginalStyles) {
-      const original = mainContent._keyboardOriginalStyles;
-      
-      // Remove all the forced styles
-      mainContent.style.removeProperty('height');
-      mainContent.style.removeProperty('max-height');
-      mainContent.style.removeProperty('position');
-      mainContent.style.removeProperty('top');
-      mainContent.style.removeProperty('left');
-      mainContent.style.removeProperty('right');
-      mainContent.style.removeProperty('overflow-y');
-      mainContent.style.removeProperty('z-index');
-      mainContent.style.removeProperty('padding-left');
-      mainContent.style.removeProperty('padding-right');
-      mainContent.style.removeProperty('padding-bottom');
-      mainContent.style.removeProperty('box-sizing');
-      
-      // Restore original values if they existed
-      Object.keys(original).forEach(prop => {
-        if (original[prop]) {
-          mainContent.style[prop] = original[prop];
-        }
+    // 🆕 RESET ALL ELEMENTS
+    if (mainContent) {
+      // Remove all forced styles from main-content
+      ['height', 'max-height', 'position', 'top', 'left', 'width', 'overflow-y', 'z-index', 'padding-left', 'padding-right', 'padding-bottom', 'box-sizing'].forEach(prop => {
+        mainContent.style.removeProperty(prop);
       });
-      
-      delete mainContent._keyboardOriginalStyles;
-      console.log('🔧 Restored original styles to main-content');
+      console.log('🔧 Removed forced styles from main-content');
     }
+    
+    if (editToolbar) {
+      // Remove all forced styles from toolbar
+      ['position', 'top', 'left', 'width', 'z-index', 'background'].forEach(prop => {
+        editToolbar.style.removeProperty(prop);
+      });
+      console.log('🔧 Removed forced styles from edit-toolbar');
+    }
+    
+    // Show navigation elements
+    document.querySelectorAll('#nav-buttons, #logoContainer, #topRightContainer, #userButtonContainer').forEach(el => {
+      if (el) el.style.removeProperty('display');
+    });
+    console.log('🔧 Restored navigation elements');
     
     setTimeout(() => {
       setKeyboardLayoutInProgress(false);
+      console.log('🔧 KeyboardManager: Cleanup complete, mutations re-enabled');
     }, 100);
   }
 }
