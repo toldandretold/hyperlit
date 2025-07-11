@@ -318,12 +318,14 @@ class KeyboardManager {
     toolbar.addEventListener('touchstart', this.preventToolbarScroll, { passive: false });
     toolbar.addEventListener('touchmove', this.preventToolbarScroll, { passive: false });
 
+    // ALWAYS apply bottom padding when keyboard is open - not conditionally
     if (mainContent) {
       const vv = window.visualViewport;
       const mainContentRect = mainContent.getBoundingClientRect();
       
-      // Create generous padding to account for toolbar + extra space
-      const paddingBottom = toolbarHeight + 80; // Increased from 60px to 80px
+      // Always create generous padding to account for toolbar + extra space
+      // This ensures user can always scroll to see bottom content
+      const paddingBottom = toolbarHeight + 80;
       mainContent.style.setProperty(
         'padding-bottom', 
         `${paddingBottom}px`, 
@@ -334,7 +336,7 @@ class KeyboardManager {
       mainContent.style.setProperty('overflow-y', 'auto', 'important');
       mainContent.style.setProperty('overscroll-behavior-y', 'contain', 'important');
       
-      console.log('📐 Content constraints set', {
+      console.log('📐 Content constraints set (always applied)', {
         toolbarTop: top,
         toolbarHeight,
         mainContentTop: mainContentRect.top,
