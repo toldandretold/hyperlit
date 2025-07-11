@@ -276,6 +276,12 @@ black #221F20;
   z-index: 1000;
   opacity: 0;
   visibility: hidden;
+
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  pointer-events: auto;
 }
 
 #edit-toolbar.visible.hidden-nav {
@@ -303,6 +309,9 @@ black #221F20;
   align-items: center;
   justify-content: center;
   transition: transform 0.2s ease;
+  user-select: none;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #edit-toolbar button svg {
@@ -450,6 +459,8 @@ black #221F20;
     height: 32px;
   }
 
+  /* Mobile horizontal toolbar */
+
   #edit-toolbar {
     bottom: 0;
     left: 0;
@@ -463,11 +474,21 @@ black #221F20;
     padding: 12px;
     border-top: 1px solid #444;
     gap: 16px;
-
-    
+    /* Remove transitions on mobile to prevent floating */
+    transition: none;
+    /* Ensure it stays put */
+    position: fixed !important;
   }
   
   #edit-toolbar button {
     flex-shrink: 0;
+  }
+  
+  /* When keyboard is open, ensure toolbar stays at bottom */
+  #edit-toolbar.keyboard-open {
+    position: fixed !important;
+    bottom: 0 !important;
+    /* Override any JavaScript positioning */
+    transform: none !important;
   }
 }
