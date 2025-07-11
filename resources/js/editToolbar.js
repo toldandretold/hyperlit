@@ -95,55 +95,61 @@ class EditToolbar {
   /**
    * Handle viewport changes for keyboard detection
    */
+  
+
   handleViewportChange() {
-    const currentHeight = window.innerHeight;
-    const heightDifference = this.initialViewportHeight - currentHeight;
-    this.isMobile = window.innerWidth <= 768;
-    
-    if (this.isMobile && heightDifference > 150) {
-      // Keyboard is likely open
-      this.isKeyboardOpen = true;
-      this.toolbar.style.bottom = '0px';
-      this.toolbar.style.position = 'fixed';
-      this.toolbar.classList.add('keyboard-open');
-      console.log('Keyboard detected as open');
-    } else if (this.isMobile) {
-      // Keyboard is closed
-      this.isKeyboardOpen = false;
-      this.toolbar.style.bottom = '0px';
-      this.toolbar.style.position = 'fixed';
-      this.toolbar.classList.remove('keyboard-open');
-      console.log('Keyboard detected as closed');
-    }
-    
-    // Update initial height on small changes (orientation, etc.)
-    if (Math.abs(heightDifference) < 50) {
-      this.initialViewportHeight = currentHeight;
-    }
+  const currentHeight = window.innerHeight;
+  const heightDifference = this.initialViewportHeight - currentHeight;
+  this.isMobile = window.innerWidth <= 768;
+  
+  if (this.isMobile && heightDifference > 150) {
+    // Keyboard is likely open - keep toolbar at bottom
+    this.isKeyboardOpen = true;
+    this.toolbar.style.bottom = '0px';
+    this.toolbar.style.position = 'fixed';
+    this.toolbar.style.transform = 'none'; // Prevent any transforms
+    this.toolbar.classList.add('keyboard-open');
+    console.log('Keyboard detected as open');
+  } else if (this.isMobile) {
+    // Keyboard is closed
+    this.isKeyboardOpen = false;
+    this.toolbar.style.bottom = '0px';
+    this.toolbar.style.position = 'fixed';
+    this.toolbar.style.transform = 'none';
+    this.toolbar.classList.remove('keyboard-open');
+    console.log('Keyboard detected as closed');
   }
+  
+  // Update initial height on small changes (orientation, etc.)
+  if (Math.abs(heightDifference) < 50) {
+    this.initialViewportHeight = currentHeight;
+  }
+}
   
   /**
    * Handle Visual Viewport API changes (better keyboard detection)
    */
   handleVisualViewportChange() {
-    if (this.isMobile) {
-      const keyboardHeight = window.innerHeight - window.visualViewport.height;
-      
-      if (keyboardHeight > 150) {
-        // Keyboard is open - position above it
-        this.isKeyboardOpen = true;
-        this.toolbar.style.bottom = `${keyboardHeight}px`;
-        this.toolbar.classList.add('keyboard-open');
-        console.log(`Keyboard open, positioning toolbar ${keyboardHeight}px from bottom`);
-      } else {
-        // Keyboard is closed
-        this.isKeyboardOpen = false;
-        this.toolbar.style.bottom = '0px';
-        this.toolbar.classList.remove('keyboard-open');
-        console.log('Keyboard closed via Visual Viewport API');
-      }
+  if (this.isMobile) {
+    const keyboardHeight = window.innerHeight - window.visualViewport.height;
+    
+    if (keyboardHeight > 150) {
+      // Keyboard is open - keep toolbar at bottom, don't move it up
+      this.isKeyboardOpen = true;
+      this.toolbar.style.bottom = '0px'; // Keep at bottom, not above keyboard
+      this.toolbar.style.position = 'fixed';
+      this.toolbar.classList.add('keyboard-open');
+      console.log(`Keyboard open, keeping toolbar at bottom`);
+    } else {
+      // Keyboard is closed
+      this.isKeyboardOpen = false;
+      this.toolbar.style.bottom = '0px';
+      this.toolbar.style.position = 'fixed';
+      this.toolbar.classList.remove('keyboard-open');
+      console.log('Keyboard closed via Visual Viewport API');
     }
   }
+}
   
   /**
    * Attach click handlers to formatting buttons
@@ -612,7 +618,7 @@ class EditToolbar {
     if (listItem) {
       return this.convertListItemToBlock(listItem, type);
     }
-    
+
     // Track the ID of the element being modified for later DB update
     let modifiedElementId = null;
     let newElement = null;
