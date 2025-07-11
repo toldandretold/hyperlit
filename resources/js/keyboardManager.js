@@ -144,28 +144,27 @@ class KeyboardManager {
     
     console.log('🔧 Handling bottom focus scenario');
     
-    // Get toolbar position
+    // Get toolbar position and dimensions
     const toolbarRect = editToolbar.getBoundingClientRect();
     const mainContentRect = mainContent.getBoundingClientRect();
     
-    // Calculate where we want the focused element to appear (above toolbar with padding)
-    const desiredElementBottom = toolbarRect.top - 30; // 30px above toolbar
+    // Position the element ABOVE the edit-toolbar (not just above keyboard)
+    const desiredElementBottom = toolbarRect.top - 20; // 20px above the edit-toolbar
     const desiredElementTop = desiredElementBottom - this.state.focusedElementHeight;
     
     // Calculate the required scroll position
-    // Element's current position in viewport = elementOffsetFromContentTop - scrollTop + mainContentTop
-    // We want: elementOffsetFromContentTop - newScrollTop + mainContentTop = desiredElementTop
-    // So: newScrollTop = elementOffsetFromContentTop + mainContentTop - desiredElementTop
     const newScrollTop = this.state.elementOffsetFromContentTop + mainContentRect.top - desiredElementTop;
     
-    // Apply the scroll - don't constrain it, let it scroll as high as needed
+    // Apply the scroll
     const finalScrollTop = Math.max(0, newScrollTop);
     
     console.log('📜 Bottom focus scroll calculation', {
       toolbarTop: toolbarRect.top,
+      toolbarHeight: toolbarRect.height,
       desiredElementTop,
       desiredElementBottom,
       elementOffsetFromContentTop: this.state.elementOffsetFromContentTop,
+      elementHeight: this.state.focusedElementHeight,
       mainContentTop: mainContentRect.top,
       newScrollTop,
       finalScrollTop,
@@ -321,11 +320,8 @@ class KeyboardManager {
       const vv = window.visualViewport;
       const mainContentRect = mainContent.getBoundingClientRect();
       
-      // Don't constrain max-height - let content scroll freely
-      // Instead, we'll handle the dangerous scroll area differently
-      
-      // Set bottom padding to create space above the toolbar
-      const paddingBottom = toolbarHeight + 40; // Extra space above toolbar
+      // Create enough padding to account for toolbar + extra space
+      const paddingBottom = toolbarHeight + 60; // Toolbar height + 60px extra space
       mainContent.style.setProperty(
         'padding-bottom', 
         `${paddingBottom}px`, 
@@ -338,6 +334,7 @@ class KeyboardManager {
       
       console.log('📐 Content constraints set', {
         toolbarTop: top,
+        toolbarHeight,
         mainContentTop: mainContentRect.top,
         paddingBottom,
         scrollHeight: mainContent.scrollHeight
