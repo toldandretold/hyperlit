@@ -12,6 +12,17 @@ class KeyboardManager {
     this.handleViewportChange = this.handleViewportChange.bind(this);
 
     this.init();
+
+    window.addEventListener(
+      'focusout',
+      () => {
+        if (this.isKeyboardOpen) {
+          this.isKeyboardOpen = false;          // update flag first
+          this.adjustLayout(0, false);          // snap back immediately
+        }
+      },
+      true                                     // capture phase catches all bubbles
+    );
   }
 
   /* -------------------- bootstrap -------------------- */
@@ -38,7 +49,7 @@ class KeyboardManager {
     const vv             = window.visualViewport;
     const reference      = this.isIOS ? this.initialVisualHeight : vv.height;
     const keyboardOffset = reference - vv.height;
-    const keyboardOpen   = keyboardOffset > 5;
+    const keyboardOpen   = keyboardOffset > 50;
 
     console.log('📱 KeyboardManager: viewport change', {
       referenceHeight: reference,
