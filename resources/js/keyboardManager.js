@@ -10,10 +10,11 @@ class KeyboardManager {
       initialLeft: null, 
       initialRight: null,
       originalMainContentPaddingBottom: null,
-      keyboardTop: null // Store the fixed keyboard position
+      keyboardTop: null
     };
 
     this.handleViewportChange = this.handleViewportChange.bind(this);
+    this.preventToolbarScroll = this.preventToolbarScroll.bind(this);
     this.init();
 
     window.addEventListener(
@@ -46,6 +47,13 @@ class KeyboardManager {
     });
   }
 
+  preventToolbarScroll(e) {
+    // Prevent scrolling when touch starts on toolbar or nav buttons
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+  }
+
   handleViewportChange() {
     const vv             = window.visualViewport;
     const reference      = this.isIOS ? this.initialVisualHeight : vv.height;
@@ -64,8 +72,6 @@ class KeyboardManager {
       this.isKeyboardOpen = keyboardOpen;
       this.adjustLayout(keyboardOffset, keyboardOpen);
     } else if (keyboardOpen && this.isKeyboardOpen) {
-      // Keyboard is open and stays open, but viewport might have shifted
-      // Keep toolbar position fixed relative to screen, not viewport
       this.updateToolbarPosition();
     }
   }
@@ -78,7 +84,6 @@ class KeyboardManager {
     const navButtons        = document.querySelector('#nav-buttons');
 
     if (keyboardOpen && keyboardOffset > 0) {
-      // Store original padding-bottom if not already stored
       if (this.state.originalMainContentPaddingBottom === null && mainContent) {
         const computedStyle = window.getComputedStyle(mainContent);
         this.state.originalMainContentPaddingBottom = computedStyle.paddingBottom;
@@ -90,7 +95,6 @@ class KeyboardManager {
         this.state.initialRight = window.innerWidth - r.right;
       }
 
-      // Calculate and store the fixed keyboard top position
       const vv = window.visualViewport;
       this.state.keyboardTop = vv.offsetTop + vv.height;
 
@@ -120,7 +124,16 @@ class KeyboardManager {
       return;
     }
 
-    // KEYBOARD CLOSED
+    // KEYBOARD CLOSED - Remove event listeners
+    if (editToolbar) {
+      editToolbar.removeEventListener('touchstart', this.preventToolbarScroll, { passive: false });
+      editToolbar.removeEventListener('touchmove', this.preventToolbarScroll, { passive: false });
+    }
+    if (navButtons) {
+      navButtons.removeEventListener('touchstart', this.preventToolbarScroll, { passive: false });
+      navButtons.removeEventListener('touchmove', this.preventToolbarScroll, { passive: false });
+    }
+
     this.resetInlineStyles(
       logoContainer,
       topRightContainer,
@@ -134,7 +147,6 @@ class KeyboardManager {
   }
 
   updateToolbarPosition() {
-    // Update toolbar position when viewport shifts but keyboard stays open
     const editToolbar = document.querySelector('#edit-toolbar');
     const navButtons = document.querySelector('#nav-buttons');
     
@@ -176,17 +188,23 @@ class KeyboardManager {
     toolbar.style.setProperty('left', '0', 'important');
     toolbar.style.setProperty('right', '0', 'important');
     toolbar.style.setProperty('z-index', '999999', 'important');
+    
+    // Prevent toolbar from being scrollable
+    toolbar.style.setProperty('touch-action', 'none', 'important');
+    toolbar.style.setProperty('pointer-events', 'auto', 'important');
 
-    // Add padding-bottom to main content so content doesn't go behind toolbar
+    // Add event listeners to prevent scrolling when touching toolbar
+    toolbar.addEventListener('touchstart', this.preventToolbarScroll, { passive: false });
+    toolbar.addEventListener('touchmove', this.preventToolbarScroll, { passive: false });
+
     if (mainContent) {
-      const additionalPadding = toolbarHeight + 10; // 10px extra spacing
+      const additionalPadding = toolbarHeight + 10;
       mainContent.style.setProperty(
         'padding-bottom', 
         `${additionalPadding}px`, 
         'important'
       );
       
-      // Ensure the main content height accounts for the toolbar
       const vv = window.visualViewport;
       const availableHeight = vv.height - toolbarHeight;
       mainContent.style.setProperty(
@@ -195,17 +213,21 @@ class KeyboardManager {
         'important'
       );
       mainContent.style.setProperty('overflow-y', 'auto', 'important');
-      
-      // Prevent over-scrolling past the content
       mainContent.style.setProperty('overscroll-behavior', 'contain', 'important');
     }
 
-    // Position nav buttons
     if (navButtons) {
       navButtons.style.setProperty('position', 'fixed', 'important');
       navButtons.style.setProperty('top', `${top - 60}px`, 'important');
       navButtons.style.setProperty('right', '5px', 'important');
       navButtons.style.setProperty('z-index', '999998', 'important');
+      
+      // Prevent nav buttons from being scrollable too
+      navButtons.style.setProperty('touch-action', 'none', 'important');
+      navButtons.style.setProperty('pointer-events', 'auto', 'important');
+      
+      navButtons.addEventListener('touchstart', this.preventToolbarScroll, { passive: false });
+      navButtons.addEventListener('touchmove', this.preventToolbarScroll, { passive: false });
     }
   }
 
@@ -227,7 +249,9 @@ class KeyboardManager {
       'padding-bottom',
       'max-height',
       'overflow-y',
-      'overscroll-behavior'
+      'overscroll-behavior',
+      'touch-action',
+      'pointer-events'
     ];
     elements.forEach(el => {
       if (!el) return;
@@ -237,6 +261,19 @@ class KeyboardManager {
 
   scrollToFocusedElement() { /* unchanged */ }
   destroy() { 
+    const editToolbar = document.querySelector('#edit-toolbar');
+    const navButtons = document.querySelector('#nav-buttons');
+    
+    // Clean up event listeners
+    if (editToolbar) {
+      editToolbar.removeEventListener('touchstart', this.preventToolbarScroll);
+      editToolbar.removeEventListener('touchmove', this.preventToolbarScroll);
+    }
+    if (navButtons) {
+      navButtons.removeEventListener('touchstart', this.preventToolbarScroll);
+      navButtons.removeEventListener('touchmove', this.preventToolbarScroll);
+    }
+    
     if (window.visualViewport) {
       window.visualViewport.removeEventListener(
         'resize',
