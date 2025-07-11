@@ -12,8 +12,7 @@ class KeyboardManager {
       originalMainContentPaddingBottom: null,
       keyboardTop: null,
       focusedElement: null,
-      isAdjusting: false,
-      needsScrollAdjustment: false
+      preKeyboardScrollTop: null
     };
 
     this.handleViewportChange = this.handleViewportChange.bind(this);
@@ -21,6 +20,7 @@ class KeyboardManager {
     this.handleFocusIn = this.handleFocusIn.bind(this);
     this.init();
 
+    // Capture focus BEFORE keyboard opens
     window.addEventListener('focusin', this.handleFocusIn, true);
 
     window.addEventListener(
@@ -31,7 +31,7 @@ class KeyboardManager {
           this.adjustLayout(0, false);
         }
         this.state.focusedElement = null;
-        this.state.needsScrollAdjustment = false;
+        this.state.preKeyboardScrollTop = null;
       },
       true
     );
@@ -56,49 +56,29 @@ class KeyboardManager {
   }
 
   handleFocusIn(e) {
+    const mainContent = document.querySelector('.main-content');
+    if (!mainContent) return;
+
     this.state.focusedElement = e.target;
     
-    // If keyboard is opening or already open, we'll need to scroll the element into view
-    // within our constrained area after layout is complete
-    if (this.isKeyboardOpen) {
-      this.state.needsScrollAdjustment = true;
-      // Allow a moment for any browser scrolling, then take control
-      setTimeout(() => this.handleScrollIntoView(), 100);
+    // If keyboard is not open yet, this focus will trigger it
+    if (!this.isKeyboardOpen) {
+      // Store current scroll position and element position
+      this.state.preKeyboardScrollTop = mainContent.scrollTop;
+      
+      const elementRect = e.target.getBoundingClientRect();
+      const mainContentRect = mainContent.getBoundingClientRect();
+      
+      // Check if focused element is near the bottom of visible area
+      const elementBottomRelativeToContent = elementRect.bottom - mainContentRect.top;
+      const contentVisibleHeight = mainContentRect.height;
+      
+      // If element is in bottom 30% of visible area, we'll need special handling
+      if (elementBottomRelativeToContent > contentVisibleHeight * 0.7) {
+        console.log('🎯 Focus on bottom element detected, preparing for keyboard');
+        this.state.needsBottomFocusHandling = true;
+      }
     }
-  }
-
-  handleScrollIntoView() {
-    if (!this.state.focusedElement || !this.state.needsScrollAdjustment) return;
-    
-    const mainContent = document.querySelector('.main-content');
-    const editToolbar = document.querySelector('#edit-toolbar');
-    
-    if (!mainContent || !editToolbar) return;
-    
-    // Let the browser do its initial scroll, then adjust within our container
-    const focusedRect = this.state.focusedElement.getBoundingClientRect();
-    const toolbarRect = editToolbar.getBoundingClientRect();
-    const mainContentRect = mainContent.getBoundingClientRect();
-    
-    // Calculate if the focused element is below our toolbar
-    const toolbarTop = toolbarRect.top;
-    const elementBottom = focusedRect.bottom;
-    const elementTop = focusedRect.top;
-    
-    // If element is behind/below toolbar, scroll it up within the content area
-    if (elementBottom > toolbarTop - 20) { // 20px buffer
-      const overlapAmount = elementBottom - (toolbarTop - 20);
-      mainContent.scrollTop += overlapAmount;
-      console.log('📜 Scrolling content up by:', overlapAmount);
-    }
-    // If element is above visible area, scroll it down
-    else if (elementTop < mainContentRect.top + 20) {
-      const aboveAmount = (mainContentRect.top + 20) - elementTop;
-      mainContent.scrollTop -= aboveAmount;
-      console.log('📜 Scrolling content down by:', aboveAmount);
-    }
-    
-    this.state.needsScrollAdjustment = false;
   }
 
   preventToolbarScroll(e) {
@@ -108,8 +88,6 @@ class KeyboardManager {
   }
 
   handleViewportChange() {
-    if (this.state.isAdjusting) return;
-
     const vv             = window.visualViewport;
     const reference      = this.isIOS ? this.initialVisualHeight : vv.height;
     const keyboardOffset = reference - vv.height;
@@ -121,45 +99,72 @@ class KeyboardManager {
       keyboardOffset,
       keyboardOpen,
       isIOS: this.isIOS,
-      isAdjusting: this.state.isAdjusting
+      needsBottomFocusHandling: this.state.needsBottomFocusHandling
     });
 
     if (keyboardOpen !== this.isKeyboardOpen) {
       this.isKeyboardOpen = keyboardOpen;
       this.adjustLayout(keyboardOffset, keyboardOpen);
       
-      // After layout, handle any pending scroll adjustments
-      if (keyboardOpen && this.state.focusedElement) {
-        this.state.needsScrollAdjustment = true;
-        setTimeout(() => this.handleScrollIntoView(), 150);
+      // Handle bottom focus scenario after layout
+      if (keyboardOpen && this.state.needsBottomFocusHandling) {
+        setTimeout(() => this.handleBottomFocusScenario(), 100);
       }
-    } else if (keyboardOpen && this.isKeyboardOpen && this.state.keyboardTop) {
-      // Check if viewport changed significantly (browser interference)
-      const currentKeyboardTop = vv.offsetTop + vv.height;
-      const storedKeyboardTop = this.state.keyboardTop;
-      const difference = Math.abs(currentKeyboardTop - storedKeyboardTop);
+    } else if (keyboardOpen && this.isKeyboardOpen) {
+      // Keyboard is open and viewport changed - likely browser scroll interference
+      this.correctLayoutDrift();
+    }
+  }
+
+  handleBottomFocusScenario() {
+    if (!this.state.needsBottomFocusHandling) return;
+    
+    const mainContent = document.querySelector('.main-content');
+    const editToolbar = document.querySelector('#edit-toolbar');
+    
+    if (!mainContent || !editToolbar || !this.state.focusedElement) return;
+    
+    console.log('🔧 Handling bottom focus scenario');
+    
+    // Reset scroll to pre-keyboard position
+    if (this.state.preKeyboardScrollTop !== null) {
+      mainContent.scrollTop = this.state.preKeyboardScrollTop;
+    }
+    
+    // Now scroll just enough to bring the focused element above the toolbar
+    const elementRect = this.state.focusedElement.getBoundingClientRect();
+    const toolbarRect = editToolbar.getBoundingClientRect();
+    
+    if (elementRect.bottom > toolbarRect.top - 20) {
+      const scrollNeeded = elementRect.bottom - (toolbarRect.top - 20);
+      mainContent.scrollTop += scrollNeeded;
+      console.log('📜 Scrolled content by:', scrollNeeded);
+    }
+    
+    this.state.needsBottomFocusHandling = false;
+  }
+
+  correctLayoutDrift() {
+    const editToolbar = document.querySelector('#edit-toolbar');
+    const navButtons = document.querySelector('#nav-buttons');
+    
+    if (!editToolbar || !this.state.keyboardTop) return;
+    
+    const currentTop = parseInt(editToolbar.style.top);
+    const expectedTop = this.state.keyboardTop - editToolbar.getBoundingClientRect().height;
+    
+    if (Math.abs(currentTop - expectedTop) > 10) {
+      console.log('🔧 Correcting layout drift', { current: currentTop, expected: expectedTop });
       
-      if (difference > 20) {
-        console.log('🔧 Viewport shifted, maintaining toolbar position', {
-          current: currentKeyboardTop,
-          stored: storedKeyboardTop,
-          difference: difference
-        });
-        
-        // Don't update our stored position - keep toolbar where we want it
-        this.updateToolbarPosition();
-        
-        // The content might need re-scrolling after browser interference
-        if (this.state.focusedElement) {
-          setTimeout(() => this.handleScrollIntoView(), 50);
-        }
+      editToolbar.style.setProperty('top', `${expectedTop}px`, 'important');
+      
+      if (navButtons) {
+        navButtons.style.setProperty('top', `${expectedTop - 60}px`, 'important');
       }
     }
   }
 
   adjustLayout(keyboardOffset, keyboardOpen) {
-    if (this.state.isAdjusting) return;
-    
     const mainContent       = document.querySelector('.main-content');
     const logoContainer     = document.querySelector('#logoContainer');
     const topRightContainer = document.querySelector('#topRightContainer');
@@ -167,8 +172,6 @@ class KeyboardManager {
     const navButtons        = document.querySelector('#nav-buttons');
 
     if (keyboardOpen && keyboardOffset > 0) {
-      this.state.isAdjusting = true;
-
       if (this.state.originalMainContentPaddingBottom === null && mainContent) {
         const computedStyle = window.getComputedStyle(mainContent);
         this.state.originalMainContentPaddingBottom = computedStyle.paddingBottom;
@@ -180,12 +183,9 @@ class KeyboardManager {
         this.state.initialRight = window.innerWidth - r.right;
       }
 
-      // Set keyboard position once and stick to it
-      if (!this.state.keyboardTop) {
-        const vv = window.visualViewport;
-        this.state.keyboardTop = vv.offsetTop + vv.height;
-        console.log('🔧 Setting fixed keyboard top:', this.state.keyboardTop);
-      }
+      // Use a consistent method for keyboard position
+      const vv = window.visualViewport;
+      this.state.keyboardTop = vv.offsetTop + vv.height;
 
       this.pinToTop(logoContainer,     10, 5);
       this.pinToTop(topRightContainer, 10, null);
@@ -210,14 +210,10 @@ class KeyboardManager {
       mainContent.style.setProperty('box-sizing', 'border-box', 'important');
 
       this.moveToolbarAboveKeyboard(editToolbar, navButtons, mainContent);
-      
-      this.state.isAdjusting = false;
       return;
     }
 
     // KEYBOARD CLOSED
-    this.state.isAdjusting = true;
-    
     if (editToolbar) {
       editToolbar.removeEventListener('touchstart', this.preventToolbarScroll, { passive: false });
       editToolbar.removeEventListener('touchmove', this.preventToolbarScroll, { passive: false });
@@ -237,12 +233,10 @@ class KeyboardManager {
     this.state.initialLeft = this.state.initialRight = null;
     this.state.originalMainContentPaddingBottom = null;
     this.state.keyboardTop = null;
-    this.state.isAdjusting = false;
+    this.state.needsBottomFocusHandling = false;
   }
 
   updateToolbarPosition() {
-    if (this.state.isAdjusting) return;
-    
     const editToolbar = document.querySelector('#edit-toolbar');
     const navButtons = document.querySelector('#nav-buttons');
     
@@ -306,7 +300,6 @@ class KeyboardManager {
       );
       mainContent.style.setProperty('overflow-y', 'auto', 'important');
       mainContent.style.setProperty('overscroll-behavior', 'contain', 'important');
-      mainContent.style.setProperty('scroll-behavior', 'smooth', 'important'); // Allow smooth scrolling within container
     }
 
     if (navButtons) {
@@ -342,8 +335,7 @@ class KeyboardManager {
       'overflow-y',
       'overscroll-behavior',
       'touch-action',
-      'pointer-events',
-      'scroll-behavior'
+      'pointer-events'
     ];
     elements.forEach(el => {
       if (!el) return;
