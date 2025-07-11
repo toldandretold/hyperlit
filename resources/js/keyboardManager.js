@@ -95,27 +95,20 @@ class KeyboardManager {
     }
   }
 
-  // In keyboardManager.js
+  handleBottomFocusScenario() {
+    if (!this.state.needsBottomFocusHandling) return;
+    const mainContent = document.querySelector(".main-content");
+    if (!mainContent || !this.state.focusedElement) return;
 
-/**
- * An alternative, potentially smoother way to handle auto-scrolling.
- * This uses the browser's native scrollIntoView for a less "jolty" feel.
- */
-handleBottomFocusScenario() {
-  if (!this.state.needsBottomFocusHandling || !this.state.focusedElement) {
-    return;
+    const mainContentRect = mainContent.getBoundingClientRect();
+    const visibleHeight = mainContentRect.height;
+    const desiredTopOffset = visibleHeight * 0.4;
+    const newScrollTop =
+      this.state.elementOffsetFromContentTop - desiredTopOffset;
+
+    mainContent.scrollTop = Math.max(0, newScrollTop);
+    this.state.needsBottomFocusHandling = false;
   }
-
-  console.log("🔧 Handling bottom focus scenario (seamless attempt)");
-
-  // This is the new, simpler logic
-  this.state.focusedElement.scrollIntoView({
-    behavior: "smooth", // Makes the scroll animated instead of an instant jump
-    block: "nearest", // IMPORTANT: Only scrolls if the element isn't fully visible.
-  });
-
-  this.state.needsBottomFocusHandling = false;
-}
 
   /**
    * CORRECTED VERSION: This now targets #app-container, which exists in your HTML.
