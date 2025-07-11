@@ -461,7 +461,7 @@ black #221F20;
 
   /* Mobile horizontal toolbar */
 
-  #edit-toolbar {
+   #edit-toolbar {
     bottom: 0;
     left: 0;
     right: 0;
@@ -474,10 +474,29 @@ black #221F20;
     padding: 12px;
     border-top: 1px solid #444;
     gap: 16px;
-    /* Remove transitions on mobile to prevent floating */
     transition: none;
-    /* Ensure it stays put */
     position: fixed !important;
+    /* Ensure it's always on top */
+    z-index: 99999;
+    /* Prevent any browser-specific transforms */
+    transform: none !important;
+    /* Ensure consistent height */
+    min-height: 60px;
+    box-sizing: border-box;
+  }
+
+  @supports (-webkit-touch-callout: none) {
+    #edit-toolbar {
+      /* Safari-specific positioning */
+      bottom: env(safe-area-inset-bottom, 0px);
+      position: fixed !important;
+    }
+  }
+
+  /* Content padding when toolbar is visible */
+  .main-content.toolbar-visible {
+    padding-bottom: 80px !important;
+    margin-bottom: 0;
   }
   
   #edit-toolbar button {
@@ -504,5 +523,14 @@ black #221F20;
 
   #edit-toolbar button:active {
     transform: scale(0.95);
+  }
+
+  .main-content[contenteditable="true"] {
+    padding-bottom: 80px; /* Space for toolbar */
+    transition: padding-bottom 0.3s ease;
+  }
+  
+  .main-content[contenteditable="true"].toolbar-visible {
+    padding-bottom: 80px;
   }
 }
