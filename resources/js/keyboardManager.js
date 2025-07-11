@@ -76,10 +76,10 @@ adjustLayout(keyboardOffset, keyboardOpen) {
     
     console.log(`📱 KeyboardManager: Available: ${availableHeight}px, Content: ${contentHeight}px`);
     
-    // Add keyboard-open class to body (let CSS handle most of the styling)
+    // Add keyboard-open class to body
     body.classList.add('keyboard-open');
     
-    // 🔧 SIMPLE APPROACH: Just set CSS custom properties and let CSS do the work
+    // Set CSS custom properties
     const visualTop = window.visualViewport.offsetTop || 0;
     
     document.documentElement.style.setProperty('--keyboard-visual-top', `${visualTop}px`);
@@ -89,7 +89,7 @@ adjustLayout(keyboardOffset, keyboardOpen) {
     
     console.log(`🔧 Set CSS variables: top=${visualTop}px, height=${contentHeight}px`);
     
-    // Only handle toolbar positioning in JS (since it needs precise calculation)
+    // Position toolbar at bottom of visible area
     if (editToolbar) {
       const toolbarTop = visualTop + availableHeight - toolbarActualHeight;
       editToolbar.style.setProperty('position', 'fixed', 'important');
@@ -102,10 +102,25 @@ adjustLayout(keyboardOffset, keyboardOpen) {
       console.log(`🔧 Positioned toolbar at top: ${toolbarTop}px`);
     }
     
-    // Hide interfering elements
-    document.querySelectorAll('#logoContainer, #topRightContainer, #userButtonContainer').forEach(el => {
-      if (el) el.style.setProperty('display', 'none', 'important');
-    });
+    // 🔧 ONLY move nav-buttons if they're at the bottom and would be covered
+    if (navButtons) {
+      const navRect = navButtons.getBoundingClientRect();
+      const keyboardTop = visualTop + availableHeight;
+      
+      // Only reposition if nav buttons would be covered by keyboard
+      if (navRect.bottom > keyboardTop) {
+        const navButtonsTop = visualTop + availableHeight - toolbarActualHeight - 60; // Above toolbar
+        navButtons.style.setProperty('position', 'fixed', 'important');
+        navButtons.style.setProperty('top', `${navButtonsTop}px`, 'important');
+        navButtons.style.setProperty('right', '5px', 'important');
+        navButtons.style.setProperty('z-index', '999998', 'important');
+        
+        console.log(`🔧 Repositioned nav buttons from bottom to: ${navButtonsTop}px`);
+      }
+    }
+    
+    // 🔧 DON'T TOUCH logoContainer, topRightContainer, userButtonContainer
+    // They should stay in their original positions at the top
     
     setTimeout(() => {
       setKeyboardLayoutInProgress(false);
@@ -133,10 +148,12 @@ adjustLayout(keyboardOffset, keyboardOpen) {
       });
     }
     
-    // Show navigation elements
-    document.querySelectorAll('#logoContainer, #topRightContainer, #userButtonContainer').forEach(el => {
-      if (el) el.style.removeProperty('display');
-    });
+    // Reset nav buttons (only element we might have moved)
+    if (navButtons) {
+      ['position', 'top', 'right', 'z-index'].forEach(prop => {
+        navButtons.style.removeProperty(prop);
+      });
+    }
     
     setTimeout(() => {
       setKeyboardLayoutInProgress(false);
@@ -144,7 +161,6 @@ adjustLayout(keyboardOffset, keyboardOpen) {
     }, 100);
   }
 }
-
 
 
 

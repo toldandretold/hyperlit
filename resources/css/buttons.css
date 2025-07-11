@@ -586,13 +586,7 @@ black #221F20;
     max-width: 60ch !important; /* Preserve your original constraint */
   }
 
-  /* Hide navigation when keyboard is open */
-  body.keyboard-open #nav-buttons,
-  body.keyboard-open #logoContainer,
-  body.keyboard-open #topRightContainer,
-  body.keyboard-open #userButtonContainer {
-    display: none !important;
-  }
+  
 
   /* Ensure edit toolbar stays at bottom when keyboard is open */
   body.keyboard-open #edit-toolbar {
