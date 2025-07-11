@@ -39,7 +39,6 @@ class EditToolbar {
     
     // Bind event handlers
     this.handleSelectionChange = this.handleSelectionChange.bind(this);
-    this.handleEditableChange = this.handleEditableChange.bind(this);
     this.updatePosition = this.updatePosition.bind(this);
     this.handleResize = this.handleResize.bind(this);
     this.handleViewportChange = this.handleViewportChange.bind(this);
@@ -50,23 +49,14 @@ class EditToolbar {
     this.isVisible = false;
     this.currentSelection = null;
     this.isFormatting = false;
+    this.lastValidRange = null;
   }
   
   /**
    * Initialize event listeners and set initial state.
    */
   init() {
-    // Listen for selection changes
-    document.addEventListener("selectionchange", this.handleSelectionChange);
     
-    // Listen for changes to contenteditable attribute
-    const observer = new MutationObserver(this.handleEditableChange);
-    document.querySelectorAll(".main-content").forEach(element => {
-      observer.observe(element, { 
-        attributes: true, 
-        attributeFilter: ['contenteditable'] 
-      });
-    });
     
     // Update position on window resize
     window.addEventListener("resize", this.handleResize);
@@ -77,11 +67,10 @@ class EditToolbar {
     // Attach button click handlers
     this.attachButtonHandlers();
     
-    // Initial check for editable content
-    this.handleEditableChange();
-    
     // Initial position update
     this.updatePosition();
+     // Start hidden - will be shown when setEditMode(true) is called
+    this.hide();
   }
   
   /**
@@ -184,47 +173,71 @@ class EditToolbar {
   /**
    * Handle selection changes within the document
    */
-  handleSelectionChange() {
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
-    
-    this.currentSelection = selection;
-    
-    // Check if selection is within editable content
-    const editableContent = document.querySelector(this.editableSelector);
-    if (!editableContent) {
-      this.hide();
-      return;
-    }
-    
-    const range = selection.getRangeAt(0);
-    const container = range.commonAncestorContainer;
-    
-    // Check if the selection is within our editable content
-    if (editableContent.contains(container)) {
-      this.show();
-      this.updateButtonStates();
-      this.updatePosition();
-    } else {
-      this.hide();
-    }
-  }
-  
-  /**
-   * Handle changes to contenteditable attribute
+    /**
+   * Handle selection changes within the document (only for button states and positioning)
    */
-  handleEditableChange() {
-    const editableContent = document.querySelector(this.editableSelector);
+    /**
+   * Handle selection changes within the document (only for button states and positioning)
+   */
+      /**
+     * Handle selection changes within the document (only for button states and positioning)
+     */
+    handleSelectionChange() {
+      const selection = window.getSelection();
+      console.log("🔍 Selection change detected:", {
+        hasSelection: !!selection,
+        rangeCount: selection?.rangeCount,
+        isCollapsed: selection?.isCollapsed,
+        toolbarVisible: this.isVisible
+      });
+      
+      if (!selection || selection.rangeCount === 0) return;
+      
+      // Only update button states and position if toolbar is visible
+      if (this.isVisible) {
+        const editableContent = document.querySelector(this.editableSelector);
+        if (editableContent) {
+          const range = selection.getRangeAt(0);
+          const container = range.commonAncestorContainer;
+          
+          console.log("🎯 Selection container:", {
+            container: container,
+            containerParent: container.parentElement,
+            containerId: container.id || container.parentElement?.id,
+            isInEditable: editableContent.contains(container)
+          });
+          
+          // Only store selection if it's within editable content
+          if (editableContent.contains(container)) {
+            // STORE THE VALID SELECTION
+            this.currentSelection = selection;
+            this.lastValidRange = range.cloneRange(); // Store a copy of the range
+            this.updateButtonStates();
+            this.updatePosition();
+          }
+          // Don't update currentSelection if it's outside editable content
+        }
+      }
+    }
+  
     
-    if (editableContent) {
-      // Content is editable, check if selection is within it
+    /**
+   * Set edit mode and control toolbar visibility
+   * @param {boolean} isEditMode - Whether edit mode is active
+   */
+  setEditMode(isEditMode) {
+    if (isEditMode) {
+      this.show();
+      // Re-add selection change listener when in edit mode
+      document.addEventListener("selectionchange", this.handleSelectionChange);
+      // Initial button state update
       this.handleSelectionChange();
     } else {
-      // Content is not editable, hide toolbar
       this.hide();
+      // Remove selection change listener when not in edit mode
+      document.removeEventListener("selectionchange", this.handleSelectionChange);
     }
   }
-  
   /**
    * Update the active states of formatting buttons based on current selection
    */
@@ -307,14 +320,46 @@ class EditToolbar {
       this.hasParentWithTag(element.parentNode, tagName) : false;
   }
   
-  /**
-   * Format the selected text with the specified style
-   */
-  formatText(type) {
+    /**
+     * Format the selected text with the specified style
+     */
+    formatText(type) {
+    console.log("🔧 Format text called:", {
+      type: type,
+      hasCurrentSelection: !!this.currentSelection,
+      hasLastValidRange: !!this.lastValidRange,
+      isCollapsed: this.currentSelection?.isCollapsed,
+      currentSelectionText: this.currentSelection?.toString()
+    });
+    
     this.isFormatting = true;
+    
     try {
       const editableContent = document.querySelector(this.editableSelector);
-      if (!editableContent || !this.currentSelection) return;
+      if (!editableContent) return;
+      
+      // Use the stored valid range if current selection is invalid
+      let workingSelection = this.currentSelection;
+      let workingRange = null;
+      
+      if (this.lastValidRange && editableContent.contains(this.lastValidRange.commonAncestorContainer)) {
+        // Restore the last valid selection
+        workingSelection = window.getSelection();
+        workingSelection.removeAllRanges();
+        workingSelection.addRange(this.lastValidRange);
+        workingRange = this.lastValidRange;
+        console.log("🔄 Restored valid selection to:", workingRange.commonAncestorContainer);
+      } else if (workingSelection && workingSelection.rangeCount > 0) {
+        workingRange = workingSelection.getRangeAt(0);
+      }
+      
+      if (!workingSelection || !workingRange) {
+        console.warn("❌ No valid selection found");
+        return;
+      }
+      
+      // Update currentSelection to the working selection
+      this.currentSelection = workingSelection;
       
       // Focus the editable content to ensure commands work
       editableContent.focus();
@@ -513,18 +558,47 @@ class EditToolbar {
       }, 100);
     }
   }
-  
 
   /**
    * Format the current block with the specified style
    */
   formatBlock(type) {
+  console.log("🔧 Format block called:", {
+    type: type,
+    hasCurrentSelection: !!this.currentSelection,
+    hasLastValidRange: !!this.lastValidRange,
+    isCollapsed: this.currentSelection?.isCollapsed,
+    currentSelectionText: this.currentSelection?.toString()
+  });
 
-    this.isFormatting = true;
-  
+  this.isFormatting = true;
+
   try {
     const editableContent = document.querySelector(this.editableSelector);
-    if (!editableContent || !this.currentSelection) return;
+    if (!editableContent) return;
+    
+    // ADD THE SAME SELECTION RESTORATION LOGIC AS formatText():
+    let workingSelection = this.currentSelection;
+    let workingRange = null;
+    
+    if (this.lastValidRange && editableContent.contains(this.lastValidRange.commonAncestorContainer)) {
+      // Restore the last valid selection
+      workingSelection = window.getSelection();
+      workingSelection.removeAllRanges();
+      workingSelection.addRange(this.lastValidRange);
+      workingRange = this.lastValidRange;
+      console.log("🔄 Restored valid selection to:", workingRange.commonAncestorContainer);
+    } else if (workingSelection && workingSelection.rangeCount > 0) {
+      workingRange = workingSelection.getRangeAt(0);
+    }
+    
+    if (!workingSelection || !workingRange) {
+      console.warn("❌ No valid selection found");
+      return;
+    }
+    
+    // Update currentSelection to the working selection
+    this.currentSelection = workingSelection;
     
     // Focus the editable content to ensure commands work
     editableContent.focus();

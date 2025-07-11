@@ -261,6 +261,12 @@ export function startObserving(editableDiv) {
       return;
     }
 
+    const toolbar = getEditToolbar();
+    if (toolbar && toolbar.isFormatting) {
+      console.log("Skipping mutations during formatting");
+      return;
+    }
+
     if (shouldSkipMutation(mutations)) {
       console.log("Skipping mutations related to status icons");
       return;
