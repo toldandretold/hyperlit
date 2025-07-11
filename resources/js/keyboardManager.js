@@ -9,7 +9,8 @@ class KeyboardManager {
     this.state               = { 
       initialLeft: null, 
       initialRight: null,
-      originalMainContentPaddingBottom: null
+      originalMainContentPaddingBottom: null,
+      keyboardTop: null // Store the fixed keyboard position
     };
 
     this.handleViewportChange = this.handleViewportChange.bind(this);
@@ -62,6 +63,10 @@ class KeyboardManager {
     if (keyboardOpen !== this.isKeyboardOpen) {
       this.isKeyboardOpen = keyboardOpen;
       this.adjustLayout(keyboardOffset, keyboardOpen);
+    } else if (keyboardOpen && this.isKeyboardOpen) {
+      // Keyboard is open and stays open, but viewport might have shifted
+      // Keep toolbar position fixed relative to screen, not viewport
+      this.updateToolbarPosition();
     }
   }
 
@@ -84,6 +89,10 @@ class KeyboardManager {
         this.state.initialLeft  = r.left;
         this.state.initialRight = window.innerWidth - r.right;
       }
+
+      // Calculate and store the fixed keyboard top position
+      const vv = window.visualViewport;
+      this.state.keyboardTop = vv.offsetTop + vv.height;
 
       this.pinToTop(logoContainer,     10, 5);
       this.pinToTop(topRightContainer, 10, null);
@@ -121,6 +130,24 @@ class KeyboardManager {
     );
     this.state.initialLeft = this.state.initialRight = null;
     this.state.originalMainContentPaddingBottom = null;
+    this.state.keyboardTop = null;
+  }
+
+  updateToolbarPosition() {
+    // Update toolbar position when viewport shifts but keyboard stays open
+    const editToolbar = document.querySelector('#edit-toolbar');
+    const navButtons = document.querySelector('#nav-buttons');
+    
+    if (editToolbar && this.state.keyboardTop !== null) {
+      const toolbarHeight = editToolbar.getBoundingClientRect().height;
+      const fixedTop = this.state.keyboardTop - toolbarHeight;
+      
+      editToolbar.style.setProperty('top', `${fixedTop}px`, 'important');
+      
+      if (navButtons) {
+        navButtons.style.setProperty('top', `${fixedTop - 60}px`, 'important');
+      }
+    }
   }
 
   pinToTop(element, topPx, horizontalPx) {
@@ -140,11 +167,10 @@ class KeyboardManager {
   moveToolbarAboveKeyboard(toolbar, navButtons, mainContent) {
     if (!toolbar) return;
     
-    const vv = window.visualViewport;
     const toolbarHeight = toolbar.getBoundingClientRect().height;
-    const top = vv.offsetTop + vv.height - toolbarHeight;
+    const top = this.state.keyboardTop - toolbarHeight;
 
-    // Position the toolbar
+    // Position the toolbar at fixed position relative to screen
     toolbar.style.setProperty('position', 'fixed', 'important');
     toolbar.style.setProperty('top', `${top}px`, 'important');
     toolbar.style.setProperty('left', '0', 'important');
@@ -161,6 +187,7 @@ class KeyboardManager {
       );
       
       // Ensure the main content height accounts for the toolbar
+      const vv = window.visualViewport;
       const availableHeight = vv.height - toolbarHeight;
       mainContent.style.setProperty(
         'max-height',
@@ -168,6 +195,9 @@ class KeyboardManager {
         'important'
       );
       mainContent.style.setProperty('overflow-y', 'auto', 'important');
+      
+      // Prevent over-scrolling past the content
+      mainContent.style.setProperty('overscroll-behavior', 'contain', 'important');
     }
 
     // Position nav buttons
@@ -196,7 +226,8 @@ class KeyboardManager {
       'box-sizing',
       'padding-bottom',
       'max-height',
-      'overflow-y'
+      'overflow-y',
+      'overscroll-behavior'
     ];
     elements.forEach(el => {
       if (!el) return;
