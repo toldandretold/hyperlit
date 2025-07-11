@@ -568,15 +568,22 @@ black #221F20;
     height: var(--content-height, auto) !important;
     max-height: var(--content-height, auto) !important;
     overflow-y: auto !important;
+    /* 🚫 REMOVE THESE - let JavaScript handle positioning:
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
-    right: 0 !important;
-    padding-left: 20px !important; /* Reduced from 40px for mobile */
-    padding-right: 20px !important; /* Reduced from 40px for mobile */
-    padding-bottom: 80px !important; /* Space for toolbar */
+    right: 0 !important; */
+    
+    /* Keep these styling properties: */
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+    padding-bottom: 80px !important;
     z-index: 1000 !important;
     box-sizing: border-box !important;
+    
+    /* 🆕 ADD: Ensure it maintains its width constraints */
+    width: 100% !important;
+    max-width: 60ch !important; /* Preserve your original constraint */
   }
 
   /* Hide navigation when keyboard is open */
