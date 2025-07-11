@@ -455,25 +455,21 @@ black #221F20;
     height: 26px;
   }
 
-  
-
   #logoContainer img {
-  display: block;
-  width: 18px !important;
-  height: 18px !important;
-  transition: none;
-
-}
+    display: block;
+    width: 18px !important;
+    height: 18px !important;
+    transition: none;
+  }
 
   #logoContainer {
     left: 5px;
-    width: 32px; /* Optional: reduce container size */
+    width: 32px;
     height: 32px;
   }
 
   /* Mobile horizontal toolbar */
-
-   #edit-toolbar {
+  #edit-toolbar {
     /* AGGRESSIVE mobile positioning */
     position: fixed !important;
     bottom: 0px !important;
@@ -537,7 +533,7 @@ black #221F20;
     box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
   }
 
-    #edit-toolbar.visible {
+  #edit-toolbar.visible {
     opacity: 1;
     visibility: visible;
   }
@@ -551,7 +547,7 @@ black #221F20;
     transform: scale(0.95);
   }
 
-   .main-content.toolbar-visible {
+  .main-content.toolbar-visible {
     padding-bottom: 80px !important;
     margin-bottom: 0 !important;
   }
@@ -563,5 +559,42 @@ black #221F20;
   
   .main-content[contenteditable="true"].toolbar-visible {
     padding-bottom: 80px;
+  }
+
+  /* 🆕 ADD THESE KEYBOARD-SPECIFIC STYLES: */
+  
+  /* When keyboard is open, adjust the main content */
+  body.keyboard-open .main-content {
+    height: var(--content-height, auto) !important;
+    max-height: var(--content-height, auto) !important;
+    overflow-y: auto !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    padding-left: 20px !important; /* Reduced from 40px for mobile */
+    padding-right: 20px !important; /* Reduced from 40px for mobile */
+    padding-bottom: 80px !important; /* Space for toolbar */
+    z-index: 1000 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Hide navigation when keyboard is open */
+  body.keyboard-open #nav-buttons,
+  body.keyboard-open #logoContainer,
+  body.keyboard-open #topRightContainer,
+  body.keyboard-open #userButtonContainer {
+    display: none !important;
+  }
+
+  /* Ensure edit toolbar stays at bottom when keyboard is open */
+  body.keyboard-open #edit-toolbar {
+    position: fixed !important;
+    bottom: 0px !important;
+    left: 0px !important;
+    right: 0px !important;
+    z-index: 999999 !important;
+    background: rgba(34, 31, 32, 1) !important;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.5) !important;
   }
 }
