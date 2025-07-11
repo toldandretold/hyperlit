@@ -1,4 +1,6 @@
-// keyboardManager.js or in your main JS file
+import { setKeyboardLayoutInProgress } from './operationState.js';
+
+// keyboardManager.js
 class KeyboardManager {
   constructor() {
     this.isIOS = /iPhone|iPad|iPod/.test(window.navigator.userAgent);
@@ -30,7 +32,6 @@ class KeyboardManager {
     const viewport = window.visualViewport;
     let referenceHeight;
     
-    // Use the demo's approach
     if (this.isIOS) {
       referenceHeight = this.initialVisualHeight;
     } else {
@@ -56,10 +57,11 @@ class KeyboardManager {
   
   adjustLayout(keyboardOffset, keyboardOpen) {
     const body = document.body;
-    const mainContent = document.querySelector('.main-content');
     
     if (keyboardOpen && keyboardOffset > 0) {
       console.log(`🔧 KeyboardManager: Keyboard OPEN - adjusting layout`);
+      
+      setKeyboardLayoutInProgress(true);
       
       // Add keyboard-open class to body for CSS targeting
       body.classList.add('keyboard-open');
@@ -71,46 +73,39 @@ class KeyboardManager {
       
       console.log(`📱 KeyboardManager: Available: ${availableHeight}px, Content: ${contentHeight}px`);
       
-      // Adjust main content
-      if (mainContent) {
-        mainContent.style.height = `${contentHeight}px`;
-        mainContent.style.maxHeight = `${contentHeight}px`;
-        mainContent.style.overflowY = 'auto';
-        mainContent.style.position = 'fixed';
-        mainContent.style.top = '0px';
-        mainContent.style.left = '0px';
-        mainContent.style.right = '0px';
-        mainContent.style.paddingBottom = `${toolbarHeight + 10}px`;
-      }
-      
-      // Set CSS custom property for other elements to use
+      // Use CSS custom properties instead of direct style manipulation
       document.documentElement.style.setProperty('--keyboard-offset', `${keyboardOffset}px`);
       document.documentElement.style.setProperty('--available-height', `${availableHeight}px`);
+      document.documentElement.style.setProperty('--content-height', `${contentHeight}px`);
       
       // Scroll to keep focused element visible
       this.scrollToFocusedElement();
       
+      // 🆕 CLEAR THE FLAG after layout changes are done
+      setTimeout(() => {
+        setKeyboardLayoutInProgress(false);
+        console.log('🔧 KeyboardManager: Layout changes complete, mutations re-enabled');
+      }, 150);
+      
     } else {
       console.log(`🔧 KeyboardManager: Keyboard CLOSED - resetting layout`);
+      
+      // 🆕 SET FLAG for cleanup
+      setKeyboardLayoutInProgress(true);
       
       // Remove keyboard-open class
       body.classList.remove('keyboard-open');
       
-      // Reset main content
-      if (mainContent) {
-        mainContent.style.height = '';
-        mainContent.style.maxHeight = '';
-        mainContent.style.overflowY = '';
-        mainContent.style.position = '';
-        mainContent.style.top = '';
-        mainContent.style.left = '';
-        mainContent.style.right = '';
-        mainContent.style.paddingBottom = '';
-      }
-      
       // Remove CSS custom properties
       document.documentElement.style.removeProperty('--keyboard-offset');
       document.documentElement.style.removeProperty('--available-height');
+      document.documentElement.style.removeProperty('--content-height');
+      
+      // 🆕 CLEAR FLAG after cleanup
+      setTimeout(() => {
+        setKeyboardLayoutInProgress(false);
+        console.log('🔧 KeyboardManager: Cleanup complete, mutations re-enabled');
+      }, 150);
     }
   }
   
@@ -145,11 +140,13 @@ class KeyboardManager {
     document.body.classList.remove('keyboard-open');
     document.documentElement.style.removeProperty('--keyboard-offset');
     document.documentElement.style.removeProperty('--available-height');
+    document.documentElement.style.removeProperty('--content-height');
+    
+    // Clear any lingering flag
+    window.keyboardLayoutInProgress = false;
     
     console.log('🧹 KeyboardManager: Destroyed');
   }
 }
-
-
 
 export { KeyboardManager };

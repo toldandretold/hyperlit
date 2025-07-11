@@ -5,6 +5,12 @@ import { showSpinner, showTick } from "./editIndicator.js";
 let pendingOperations = 0;
 let unloadWarningActive = false;
 export let hypercitePasteInProgress = false;
+export let keyboardLayoutInProgress = false;
+
+export function setKeyboardLayoutInProgress(value) {
+  keyboardLayoutInProgress = value;
+  console.log(`🔧 KeyboardManager: Layout in progress = ${value}`);
+}
 
 /**
  * Returns the current number of pending operations.
