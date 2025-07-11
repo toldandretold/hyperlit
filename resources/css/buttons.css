@@ -46,6 +46,16 @@ black #221F20;
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+#editButton svg {
+  pointer-events: none !important; /* Prevent SVG from blocking clicks */
+}
+
+#editButton path {
+  pointer-events: none !important; /* Prevent path elements from blocking clicks */
 }
 
 #editButton.inverted {
@@ -55,6 +65,8 @@ black #221F20;
   height: 20px;
   border-radius: 4px;
   border: none;
+  pointer-events: auto !important;
+  cursor: pointer !important;
 }
 
 .open {
@@ -462,27 +474,40 @@ black #221F20;
   /* Mobile horizontal toolbar */
 
    #edit-toolbar {
-    bottom: 0;
-    left: 0;
-    right: 0;
-    top: auto;
+    /* AGGRESSIVE mobile positioning */
+    position: fixed !important;
+    bottom: 0px !important;
+    left: 0px !important;
+    right: 0px !important;
+    top: auto !important;
+    z-index: 999999 !important;
+    
+    /* Layout */
+    display: flex;
     flex-direction: row;
     justify-content: center;
     align-items: center;
-    background: rgba(34, 31, 32, 0.95);
-    backdrop-filter: blur(10px);
-    padding: 12px;
-    border-top: 1px solid #444;
     gap: 16px;
-    transition: none;
-    position: fixed !important;
-    /* Ensure it's always on top */
-    z-index: 99999;
-    /* Prevent any browser-specific transforms */
+    padding: 12px;
+    
+    /* Appearance */
+    background: rgba(34, 31, 32, 0.98) !important;
+    backdrop-filter: blur(10px);
+    border-top: 1px solid #444;
+    
+    /* Prevent any transforms or transitions */
     transform: none !important;
-    /* Ensure consistent height */
+    transition: none !important;
+    
+    /* Ensure consistent sizing */
     min-height: 60px;
+    max-height: 80px;
     box-sizing: border-box;
+    
+    /* Prevent any browser interference */
+    -webkit-transform: none !important;
+    -moz-transform: none !important;
+    -ms-transform: none !important;
   }
 
   @supports (-webkit-touch-callout: none) {
@@ -505,10 +530,11 @@ black #221F20;
   
   /* When keyboard is open, ensure toolbar stays at bottom */
   #edit-toolbar.keyboard-open {
+    /* Even more aggressive positioning */
     position: fixed !important;
-    bottom: 0 !important;
-    /* Override any JavaScript positioning */
-    transform: none !important;
+    z-index: 9999999 !important;
+    background: rgba(34, 31, 32, 1) !important;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
   }
 
     #edit-toolbar.visible {
@@ -523,6 +549,11 @@ black #221F20;
 
   #edit-toolbar button:active {
     transform: scale(0.95);
+  }
+
+   .main-content.toolbar-visible {
+    padding-bottom: 80px !important;
+    margin-bottom: 0 !important;
   }
 
   .main-content[contenteditable="true"] {

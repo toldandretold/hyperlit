@@ -118,39 +118,46 @@ export default class NavButtons {
      * Checks if an event should be ignored because it originates
      * from a sup.note or any interactive element.
      */
-    shouldIgnoreEvent(event) {
+shouldIgnoreEvent(event) {
+   console.log('🔍 NavButtons shouldIgnoreEvent check:', {
+    target: event.target,
+    targetId: event.target.id,
+    targetClass: event.target.className,
+    closestEditButton: event.target.closest('#editButton'),
+    closestEditToolbar: event.target.closest('#edit-toolbar'),
+    isEditing: window.isEditing
+  });
 
-      // First, check if we're in edit mode
-  if (window.isEditing) {
-    console.log('NavButtons: Ignoring click because edit mode is active');
+  // Edit button and edit toolbar should be ignored by NavButtons
+  if (event.target.closest('#logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button, #cloudRef, #edit-toolbar')) {
+    console.log('🚫 NavButtons: Ignoring click on specific nav button/toolbar - let it handle its own functionality');
     return true;
   }
-  // Check if any container is active
-  const activeContainer = window.uiState?.activeContainer || window.activeContainer;
-  if (activeContainer && activeContainer !== "main-content") {
-    console.log(`NavButtons: Ignoring click because ${activeContainer} is active`);
+
+  // Check if we're in edit mode (for content clicks, not buttons)
+  if (window.isEditing) {
+    console.log('🚫 NavButtons: Ignoring content click because edit mode is active');
     return true;
   }
 
   // Allow clicks on annotation links
   if (event.target.closest('a') || 
       event.target.closest('sup.open-icon') ||
-      event.target.closest('u.couple') ||    // Add this
-      event.target.closest('u.poly')) {      // Add this
-    console.log('NavButtons: Allowing click on interactive element');
+      event.target.closest('u.couple') ||
+      event.target.closest('u.poly')) {
+    console.log('🚫 NavButtons: Allowing click on interactive element');
     return true;
   }
   
-  // 🆕 LOGO EXCLUSION ZONE - but only when logo is VISIBLE
+  // LOGO EXCLUSION ZONE - but only when logo is VISIBLE
   const logoContainer = document.getElementById('logoContainer');
   if (logoContainer && !logoContainer.classList.contains('hidden-nav')) {
-    // Logo is visible, so create exclusion zone
     const logoRect = logoContainer.getBoundingClientRect();
     const exclusionZone = {
       left: 0,
       top: 0,
-      right: logoRect.right + 20, // Add 20px buffer
-      bottom: logoRect.bottom + 20 // Add 20px buffer
+      right: logoRect.right + 20,
+      bottom: logoRect.bottom + 20
     };
     
     const clickX = event.clientX;
@@ -160,35 +167,33 @@ export default class NavButtons {
         clickX <= exclusionZone.right && 
         clickY >= exclusionZone.top && 
         clickY <= exclusionZone.bottom) {
-      console.log('NavButtons: Ignoring click in logo exclusion zone (logo visible)');
+      console.log('🚫 NavButtons: Ignoring click in logo exclusion zone');
       return true;
     }
   }
-  // If logo is hidden (has hidden-nav class), no exclusion zone - allow toggling
   
-  // SPECIFIC BUTTON HANDLING
-  if (event.target.closest('#logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button, #cloudRef')) {
-    console.log('NavButtons: Ignoring click on specific nav button - let it do its action');
-    return true;
-  }
-  
-  // Rest of your existing code...
+  // General interactive elements
   if (event.target.matches('button, a, input, select, textarea, [role="button"]')) {
-    console.log('NavButtons: Ignoring click on interactive element:', event.target.tagName);
+    console.log('🚫 NavButtons: Ignoring click on interactive element:', event.target.tagName);
     return true;
   }
   
+  // Modal containers
   if (event.target.closest('.hidden, .overlay, #toc-container, #highlight-container, #ref-container')) {
-    console.log('NavButtons: Ignoring click inside modal container');
+    console.log('🚫 NavButtons: Ignoring click inside modal container');
     return true;
   }
   
-  return (
+  // Special content elements
+  const shouldIgnore = (
     event.target.closest("sup.note") ||
     event.target.closest("mark") ||
     event.target.closest(".open") ||
     event.target.closest(".active")
   );
+  
+  console.log('✅ NavButtons: Should ignore?', shouldIgnore);
+  return shouldIgnore;
 }
 
   /**
@@ -214,11 +219,6 @@ export default class NavButtons {
       return;
     }
     
-    // 🆕 ADD DEBUGGING FOR TOUCH
-    console.log('Touch event target:', event.target);
-    console.log('Touch event target closest button:', event.target.closest('button'));
-    console.log('Touch event target closest logoContainer:', event.target.closest('#logoContainer'));
-    
     if (this.shouldIgnoreEvent(event)) {
       console.log('Touch event ignored by shouldIgnoreEvent');
       return;
@@ -227,16 +227,11 @@ export default class NavButtons {
     const deltaX = Math.abs(event.clientX - this.startX);
     const deltaY = Math.abs(event.clientY - this.startY);
     
-    console.log(`Touch delta: X=${deltaX}, Y=${deltaY}, threshold=${this.tapThreshold}`);
-    
     if (deltaX < this.tapThreshold && deltaY < this.tapThreshold) {
       console.log('NavButtons: Toggling navigation (touch)');
       this.elements.forEach((element) => {
         element.classList.toggle("hidden-nav");
-        console.log(`- Toggled ${element.id}, hidden-nav: ${element.classList.contains("hidden-nav")}`);
       });
-    } else {
-      console.log('Touch movement too large, not toggling');
     }
   }
 
@@ -244,19 +239,20 @@ export default class NavButtons {
    * On click (desktop), toggle the navigation container.
    */
   handleClick(event) {
-    const mainContent = document.querySelector(".main-content");
-    if (!mainContent || mainContent.offsetParent === null) {
-      return;
-    }
-    if (this.shouldIgnoreEvent(event)) {
-      return;
-    }
-    console.log('NavButtons: Toggling navigation (click)');
-    this.elements.forEach((element) => {
-      element.classList.toggle("hidden-nav");
-      console.log(`- Toggled ${element.id}, hidden-nav: ${element.classList.contains("hidden-nav")}`);
-    });
+  const mainContent = document.querySelector(".main-content");
+  if (!mainContent || mainContent.offsetParent === null) {
+    return;
   }
+  
+  if (this.shouldIgnoreEvent(event)) {
+    return;
+  }
+  
+  console.log('NavButtons: Toggling navigation (click)');
+  this.elements.forEach((element) => {
+    element.classList.toggle("hidden-nav");
+  });
+}
 
   /**
    * Update the position of nav-buttons relative to the .main-content and viewport.

@@ -79,7 +79,12 @@ class EditToolbar {
   setupMobileKeyboardDetection() {
     // Detect browser type
     this.browserType = this.detectBrowser();
-    console.log('Detected browser:', this.browserType);
+    console.log('🔧 EditToolbar: Detected browser:', this.browserType);
+  console.log('🔧 EditToolbar: Initial viewport height:', window.innerHeight);
+  console.log('🔧 EditToolbar: Visual viewport supported:', 'visualViewport' in window);
+  
+  // Log initial state
+  this.logViewportState('Initial setup');
     
     // Listen for viewport changes
     window.addEventListener('resize', this.handleViewportChange);
@@ -103,6 +108,28 @@ class EditToolbar {
     }
   }
   
+  logViewportState(context) {
+  const state = {
+    context: context,
+    windowHeight: window.innerHeight,
+    windowWidth: window.innerWidth,
+    initialHeight: this.initialViewportHeight,
+    heightDiff: this.initialViewportHeight - window.innerHeight,
+    isMobile: this.isMobile,
+    isKeyboardOpen: this.isKeyboardOpen,
+    toolbarVisible: this.isVisible,
+    toolbarBottom: this.toolbar.style.bottom,
+    toolbarPosition: this.toolbar.style.position
+  };
+  
+  if ('visualViewport' in window) {
+    state.visualHeight = window.visualViewport.height;
+    state.visualWidth = window.visualViewport.width;
+    state.keyboardHeight = window.innerHeight - window.visualViewport.height;
+  }
+  
+  console.log('📊 EditToolbar viewport state:', state);
+}
 
   detectBrowser() {
     const userAgent = navigator.userAgent.toLowerCase();
@@ -135,12 +162,20 @@ class EditToolbar {
    * Handle focus out events (mainly for Safari)
    */
   handleFocusOut(event) {
-    if (this.isMobile && event.target.contentEditable === 'true') {
-      setTimeout(() => {
-        this.adjustForKeyboard(false);
-      }, 100);
-    }
+  console.log('🎯 EditToolbar: Focus out event', {
+    target: event.target.tagName,
+    contentEditable: event.target.contentEditable,
+    isMobile: this.isMobile
+  });
+  
+  if (this.isMobile && event.target.contentEditable === 'true') {
+    console.log('⌨️ EditToolbar: Keyboard should be closing...');
+    setTimeout(() => {
+      this.logViewportState('Focus out - after timeout');
+      this.adjustForKeyboard(false);
+    }, 100);
   }
+}
 
 
     /**
@@ -148,6 +183,8 @@ class EditToolbar {
    */
   adjustForKeyboard(keyboardOpen) {
     if (!this.isMobile) return;
+    
+    console.log(`🔧 EditToolbar: Adjusting for keyboard - ${keyboardOpen ? 'OPEN' : 'CLOSED'}`);
     
     const mainContent = document.querySelector('.main-content');
     
@@ -159,32 +196,30 @@ class EditToolbar {
         mainContent.classList.add('toolbar-visible');
       }
       
-      switch (this.browserType) {
-        case 'safari':
-          // Safari: Force toolbar to stay visible
-          this.toolbar.style.position = 'fixed';
-          this.toolbar.style.bottom = '0px';
-          this.toolbar.style.zIndex = '99999';
-          break;
-          
-        case 'chrome':
-          // Chrome: Account for viewport changes
-          this.toolbar.style.position = 'fixed';
-          this.toolbar.style.bottom = '0px';
-          break;
-          
-        case 'firefox':
-          // Firefox: Works well, just ensure positioning
-          this.toolbar.style.position = 'fixed';
-          this.toolbar.style.bottom = '0px';
-          break;
-          
-        default:
-          this.toolbar.style.position = 'fixed';
-          this.toolbar.style.bottom = '0px';
+      // AGGRESSIVE positioning - try multiple approaches
+      this.toolbar.style.position = 'fixed';
+      this.toolbar.style.zIndex = '999999';
+      this.toolbar.style.transform = 'none';
+      
+      // Try to position above keyboard
+      let bottomPosition = '0px';
+      
+      if ('visualViewport' in window) {
+        const keyboardHeight = window.innerHeight - window.visualViewport.height;
+        if (keyboardHeight > 50) {
+          bottomPosition = `${keyboardHeight}px`;
+          console.log(`📱 EditToolbar: Positioning ${bottomPosition} above keyboard`);
+        }
       }
       
-      console.log(`Keyboard open - ${this.browserType} handling applied`);
+      this.toolbar.style.bottom = bottomPosition;
+      
+      // Force a repaint
+      this.toolbar.style.display = 'none';
+      this.toolbar.offsetHeight; // Trigger reflow
+      this.toolbar.style.display = 'flex';
+      
+      console.log(`✅ EditToolbar: Keyboard open styles applied - bottom: ${bottomPosition}`);
       
     } else {
       this.isKeyboardOpen = false;
@@ -197,74 +232,74 @@ class EditToolbar {
       // Reset positioning
       this.toolbar.style.position = 'fixed';
       this.toolbar.style.bottom = '0px';
+      this.toolbar.style.zIndex = '99999';
       
-      console.log(`Keyboard closed - ${this.browserType} handling applied`);
+      console.log('✅ EditToolbar: Keyboard closed styles applied');
     }
+    
+    this.logViewportState(`After adjust - keyboard ${keyboardOpen ? 'open' : 'closed'}`);
   }
 
     /**
    * Handle viewport changes for keyboard detection
    */
   handleViewportChange() {
-    const currentHeight = window.innerHeight;
-    const heightDifference = this.initialViewportHeight - currentHeight;
-    this.isMobile = window.innerWidth <= 768;
-    
-    if (!this.isMobile) return;
-    
-    const keyboardOpen = heightDifference > 150;
-    
-    // Browser-specific viewport handling
-    switch (this.browserType) {
-      case 'safari':
-        // Safari doesn't resize viewport much, rely on focus events
-        break;
-        
-      case 'chrome':
-        // Chrome can be aggressive with viewport changes
-        if (keyboardOpen && heightDifference > 300) {
-          // Likely keyboard, but Chrome might over-adjust
-          this.toolbar.style.bottom = '0px';
-        }
-        break;
-        
-      case 'firefox':
-        // Firefox handles this well
-        if (keyboardOpen) {
-          this.toolbar.style.bottom = '0px';
-        }
-        break;
-    }
-    
-    this.adjustForKeyboard(keyboardOpen);
-    
-    // Update initial height on small changes
-    if (Math.abs(heightDifference) < 50) {
-      this.initialViewportHeight = currentHeight;
-    }
+  const currentHeight = window.innerHeight;
+  const heightDifference = this.initialViewportHeight - currentHeight;
+  this.isMobile = window.innerWidth <= 768;
+  
+  console.log('📏 EditToolbar: Viewport change', {
+    currentHeight: currentHeight,
+    initialHeight: this.initialViewportHeight,
+    heightDifference: heightDifference,
+    isMobile: this.isMobile,
+    browserType: this.browserType
+  });
+  
+  if (!this.isMobile) return;
+  
+  const keyboardOpen = heightDifference > 150;
+  
+  console.log(`⌨️ EditToolbar: Keyboard detected as ${keyboardOpen ? 'OPEN' : 'CLOSED'} (diff: ${heightDifference}px)`);
+  
+  this.adjustForKeyboard(keyboardOpen);
+  
+  // Update initial height on small changes
+  if (Math.abs(heightDifference) < 50) {
+    this.initialViewportHeight = currentHeight;
+    console.log('📏 EditToolbar: Updated initial viewport height to', currentHeight);
   }
+}
   
     /**
    * Handle Visual Viewport API changes (better keyboard detection)
    */
   handleVisualViewportChange() {
-    if (!this.isMobile) return;
-    
-    const keyboardHeight = window.innerHeight - window.visualViewport.height;
-    const keyboardOpen = keyboardHeight > 150;
-    
-    // For browsers that support Visual Viewport API well
-    if (this.browserType === 'chrome' || this.browserType === 'firefox') {
-      if (keyboardOpen) {
-        // Position toolbar above keyboard for these browsers
-        this.toolbar.style.bottom = `${Math.max(0, keyboardHeight - 20)}px`;
-      } else {
-        this.toolbar.style.bottom = '0px';
-      }
-    }
-    
-    this.adjustForKeyboard(keyboardOpen);
+  if (!this.isMobile) return;
+  
+  const keyboardHeight = window.innerHeight - window.visualViewport.height;
+  const keyboardOpen = keyboardHeight > 150;
+  
+  console.log('📱 EditToolbar: Visual viewport change', {
+    windowHeight: window.innerHeight,
+    visualHeight: window.visualViewport.height,
+    keyboardHeight: keyboardHeight,
+    keyboardOpen: keyboardOpen,
+    browserType: this.browserType
+  });
+  
+  // FORCE positioning regardless of browser
+  if (keyboardOpen) {
+    const bottomPos = Math.max(0, keyboardHeight - 10);
+    this.toolbar.style.bottom = `${bottomPos}px`;
+    console.log(`🚀 EditToolbar: FORCING bottom position to ${bottomPos}px`);
+  } else {
+    this.toolbar.style.bottom = '0px';
+    console.log('🚀 EditToolbar: FORCING bottom position to 0px');
   }
+  
+  this.adjustForKeyboard(keyboardOpen);
+}
   
   /**
    * Attach click handlers to formatting buttons
@@ -1429,25 +1464,47 @@ class EditToolbar {
   /**
    * Show the toolbar
    */
-    show() {
-    if (this.isVisible) return;
+   show() {
+  if (this.isVisible) return;
+  
+  console.log('👁️ EditToolbar: Showing toolbar');
+  
+  this.toolbar.classList.add("visible");
+  this.isVisible = true;
+  
+  // AGGRESSIVE mobile positioning
+  if (this.isMobile) {
+    console.log('📱 EditToolbar: Applying mobile positioning');
     
-    this.toolbar.classList.add("visible");
-    this.isVisible = true;
-    
-    // Add content padding on mobile
-    if (this.isMobile) {
-      const mainContent = document.querySelector('.main-content');
-      if (mainContent) {
-        mainContent.classList.add('toolbar-visible');
-      }
-      
-      // Ensure proper positioning
-      this.toolbar.style.position = 'fixed';
-      this.toolbar.style.bottom = '0px';
-      this.toolbar.style.transform = 'none';
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+      mainContent.classList.add('toolbar-visible');
     }
+    
+    // Force all the positioning styles
+    this.toolbar.style.position = 'fixed';
+    this.toolbar.style.bottom = '0px';
+    this.toolbar.style.left = '0px';
+    this.toolbar.style.right = '0px';
+    this.toolbar.style.zIndex = '999999';
+    this.toolbar.style.transform = 'none';
+    this.toolbar.style.display = 'flex';
+    
+    // Check if keyboard is already open
+    setTimeout(() => {
+      this.logViewportState('Show toolbar - checking keyboard state');
+      if ('visualViewport' in window) {
+        const keyboardHeight = window.innerHeight - window.visualViewport.height;
+        if (keyboardHeight > 150) {
+          console.log('🚨 EditToolbar: Keyboard already open on show!');
+          this.adjustForKeyboard(true);
+        }
+      }
+    }, 100);
   }
+  
+  this.logViewportState('After show');
+}
   
   /**
    * Hide the toolbar
@@ -1525,19 +1582,22 @@ class EditToolbar {
    * Clean up event listeners
    */
     destroy() {
-    document.removeEventListener("selectionchange", this.handleSelectionChange);
-    window.removeEventListener("resize", this.handleResize);
-    window.removeEventListener("resize", this.handleViewportChange);
-    
-    if (this.browserType === 'safari') {
-      window.removeEventListener('focusin', this.handleFocusIn);
-      window.removeEventListener('focusout', this.handleFocusOut);
-    }
-    
-    if ('visualViewport' in window) {
-      window.visualViewport.removeEventListener('resize', this.handleVisualViewportChange);
-    }
+  document.removeEventListener("selectionchange", this.handleSelectionChange);
+  window.removeEventListener("resize", this.handleResize);
+  window.removeEventListener("resize", this.handleViewportChange);
+  window.removeEventListener('focusin', this.handleFocusIn);
+  window.removeEventListener('focusout', this.handleFocusOut);
+  
+  if ('visualViewport' in window) {
+    window.visualViewport.removeEventListener('resize', this.handleVisualViewportChange);
   }
+  
+  if (this.debugInterval) {
+    clearInterval(this.debugInterval);
+  }
+  
+  console.log('🧹 EditToolbar: Destroyed and cleaned up');
+}
 
   /**
    * Find the closest block-level parent element
