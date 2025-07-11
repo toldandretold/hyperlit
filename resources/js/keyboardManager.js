@@ -56,58 +56,58 @@ class KeyboardManager {
   }
   
   adjustLayout(keyboardOffset, keyboardOpen) {
-    const body = document.body;
+  const body = document.body;
+  
+  if (keyboardOpen && keyboardOffset > 0) {
+    console.log(`🔧 KeyboardManager: Keyboard OPEN - adjusting layout`);
     
-    if (keyboardOpen && keyboardOffset > 0) {
-      console.log(`🔧 KeyboardManager: Keyboard OPEN - adjusting layout`);
-      
-      setKeyboardLayoutInProgress(true);
-      
-      // Add keyboard-open class to body for CSS targeting
-      body.classList.add('keyboard-open');
-      
-      // Calculate available space
-      const availableHeight = window.visualViewport.height;
-      const toolbarHeight = 50; // Edit toolbar height
-      const contentHeight = availableHeight - toolbarHeight - 20; // 20px buffer
-      
-      console.log(`📱 KeyboardManager: Available: ${availableHeight}px, Content: ${contentHeight}px`);
-      
-      // Use CSS custom properties instead of direct style manipulation
-      document.documentElement.style.setProperty('--keyboard-offset', `${keyboardOffset}px`);
-      document.documentElement.style.setProperty('--available-height', `${availableHeight}px`);
-      document.documentElement.style.setProperty('--content-height', `${contentHeight}px`);
-      
-      // Scroll to keep focused element visible
-      this.scrollToFocusedElement();
-      
-      // 🆕 CLEAR THE FLAG after layout changes are done
-      setTimeout(() => {
-        setKeyboardLayoutInProgress(false);
-        console.log('🔧 KeyboardManager: Layout changes complete, mutations re-enabled');
-      }, 150);
-      
-    } else {
-      console.log(`🔧 KeyboardManager: Keyboard CLOSED - resetting layout`);
-      
-      // 🆕 SET FLAG for cleanup
-      setKeyboardLayoutInProgress(true);
-      
-      // Remove keyboard-open class
-      body.classList.remove('keyboard-open');
-      
-      // Remove CSS custom properties
-      document.documentElement.style.removeProperty('--keyboard-offset');
-      document.documentElement.style.removeProperty('--available-height');
-      document.documentElement.style.removeProperty('--content-height');
-      
-      // 🆕 CLEAR FLAG after cleanup
-      setTimeout(() => {
-        setKeyboardLayoutInProgress(false);
-        console.log('🔧 KeyboardManager: Cleanup complete, mutations re-enabled');
-      }, 150);
-    }
+    // 🆕 SET FLAG and keep it longer
+    setKeyboardLayoutInProgress(true);
+    
+    // Add keyboard-open class to body for CSS targeting
+    body.classList.add('keyboard-open');
+    
+    // Calculate available space
+    const availableHeight = window.visualViewport.height;
+    const toolbarHeight = 50;
+    const contentHeight = availableHeight - toolbarHeight - 20;
+    
+    console.log(`📱 KeyboardManager: Available: ${availableHeight}px, Content: ${contentHeight}px`);
+    
+    // Use CSS custom properties
+    document.documentElement.style.setProperty('--keyboard-offset', `${keyboardOffset}px`);
+    document.documentElement.style.setProperty('--available-height', `${availableHeight}px`);
+    document.documentElement.style.setProperty('--content-height', `${contentHeight}px`);
+    
+    // Scroll to keep focused element visible
+    this.scrollToFocusedElement();
+    
+    // 🆕 LONGER TIMEOUT - wait for all mutations to settle
+    setTimeout(() => {
+      setKeyboardLayoutInProgress(false);
+      console.log('🔧 KeyboardManager: Layout changes complete, mutations re-enabled');
+    }, 500); // Increased from 150ms to 500ms
+    
+  } else {
+    console.log(`🔧 KeyboardManager: Keyboard CLOSED - resetting layout`);
+    
+    setKeyboardLayoutInProgress(true);
+    
+    // Remove keyboard-open class
+    body.classList.remove('keyboard-open');
+    
+    // Remove CSS custom properties
+    document.documentElement.style.removeProperty('--keyboard-offset');
+    document.documentElement.style.removeProperty('--available-height');
+    document.documentElement.style.removeProperty('--content-height');
+    
+    // 🆕 LONGER TIMEOUT for cleanup too
+    setTimeout(() => {
+      setKeyboardLayoutInProgress(false);
+      console.log('🔧 KeyboardManager: Cleanup complete, mutations re-enabled');
+    }, 500); // Increased from 150ms to 500ms
   }
+}
   
   scrollToFocusedElement() {
     const activeElement = document.activeElement;
