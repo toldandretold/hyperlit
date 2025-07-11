@@ -38,7 +38,7 @@ class KeyboardManager {
     const vv             = window.visualViewport;
     const reference      = this.isIOS ? this.initialVisualHeight : vv.height;
     const keyboardOffset = reference - vv.height;
-    const keyboardOpen   = keyboardOffset > 50;
+    const keyboardOpen   = keyboardOffset > 20;
 
     console.log('📱 KeyboardManager: viewport change', {
       referenceHeight: reference,
