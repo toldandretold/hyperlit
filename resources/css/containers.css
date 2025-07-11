@@ -208,21 +208,7 @@ black #221F20;
   text-align: center;
 }
 
-.main-content {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding-left: 40px;
-    padding-right: 40px;
-    padding-bottom: 10px;
-    box-sizing: border-box;
-    line-height: 1.6;
-    background-color: #221F20;
-    color: #CBCCCC;
-    width: 100%;
-    max-width: 60ch;
-    /* Remove margin: 0 auto since parent centers it */
-}
+
 
 #imageContainer {
   margin-bottom: 1em;
