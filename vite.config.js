@@ -98,6 +98,7 @@ export default defineConfig({
         'resources/js/chunkManager.js',
         'resources/js/postgreSQL.js',
         'resources/sass/app.scss',
+        'resources/css/layour.css',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.
       ],

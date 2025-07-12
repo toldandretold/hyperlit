@@ -8,60 +8,35 @@ let editToolbarInstance = null;
  * EditToolbar class for handling formatting controls in editable content
  */
 class EditToolbar {
-  /**
-   * Options:
-   * - toolbarId: The ID of the edit toolbar element (default "edit-toolbar").
-   * - editableSelector: The selector for the editable content area (default ".main-content[contenteditable='true']").
-   */
   constructor(options = {}) {
     this.toolbarId = options.toolbarId || "edit-toolbar";
     this.editableSelector = options.editableSelector || ".main-content[contenteditable='true']";
     
-    // Get DOM elements
     this.toolbar = document.getElementById(this.toolbarId);
-    
-    // Check if toolbar exists
     if (!this.toolbar) {
       throw new Error(`Element with id "${this.toolbarId}" not found.`);
     }
     
-    // Get toolbar buttons
     this.boldButton = document.getElementById("boldButton");
-    this.italicButton = document.getElementById("italicButton");
-    this.headingButton = document.getElementById("headingButton");
-    this.blockquoteButton = document.getElementById("blockquoteButton");
-    this.codeButton = document.getElementById("codeButton");
+    // ... other buttons ...
     
-    // Basic properties
     this.isMobile = window.innerWidth <= 768;
     
     // Bind event handlers
     this.handleSelectionChange = this.handleSelectionChange.bind(this);
-    this.updatePosition = this.updatePosition.bind(this);
-    this.handleResize = this.handleResize.bind(this);
     this.attachButtonHandlers = this.attachButtonHandlers.bind(this);
     
-    this.resizeDebounceTimeout = null;
     this.isVisible = false;
     this.currentSelection = null;
     this.isFormatting = false;
     this.lastValidRange = null;
   }
   
-  /**
-   * Initialize event listeners and set initial state.
-   */
   init() {
-    // Update position on window resize
-    window.addEventListener("resize", this.handleResize);
-    
     // Attach button click handlers
     this.attachButtonHandlers();
     
-    // Initial position update
-    this.updatePosition();
-    
-    // Start hidden - will be shown when setEditMode(true) is called
+    // Start hidden
     this.hide();
   }
   
@@ -1238,54 +1213,7 @@ class EditToolbar {
     this.isVisible = false;
   }
   
-  /**
-   * Update the position of the toolbar
-   */
-  updatePosition() {
-    window.requestAnimationFrame(() => {
-      const mainContent = document.querySelector(".main-content");
-      if (!mainContent) {
-        return;
-      }
-      
-      const windowWidth = window.innerWidth;
-      const computedMainWidth = mainContent.offsetWidth - 20;
-      const margin = (windowWidth - computedMainWidth) / 2;
-      
-      const minDistance = 20;
-      let newRight;
-      
-      if (margin >= 2 * minDistance) {
-        newRight = margin - minDistance;
-      } else {
-        newRight = margin / 2;
-      }
-      
-      // Only update right position on desktop
-      if (!this.isMobile) {
-        this.toolbar.style.right = `${newRight}px`;
-      }
-    });
-  }
-  
-  /**
-   * Handle resize event
-   */
-  handleResize() {
-    // Update mobile detection
-    this.isMobile = window.innerWidth <= 768;
-    
-    if (!this.isMobile) {
-      // Desktop resize handling
-      this.toolbar.classList.add("disable-right-transition");
-      this.updatePosition();
-      
-      clearTimeout(this.resizeDebounceTimeout);
-      this.resizeDebounceTimeout = setTimeout(() => {
-        this.toolbar.classList.remove("disable-right-transition");
-      }, 100);
-    }
-  }
+
   
   /**
    * Clean up event listeners

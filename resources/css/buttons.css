@@ -150,9 +150,6 @@ black #221F20;
 /* ───────────────────────────────────────────────────────────────────── */
 /* SITE LOGO BUTTON */
 #logoContainer {
-  position: absolute;
-  top: 10px;
-  left: 5px;
   width: 36px;
   height: 36px;
   margin: 0;
@@ -166,6 +163,7 @@ black #221F20;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.1s ease, filter 0.1s ease, left 0.3s ease; /* Added left transition */
   appearance: none;
+  flex-shrink: 0;
 }
 
 #logoContainer img {
@@ -193,19 +191,12 @@ black #221F20;
 }
 
 #userButtonContainer {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  height: 40px;
-  width: 40px;
   z-index: 999;
   transition: opacity 0.3s ease;
+  flex-shrink: 0;
 }
 
 #topRightContainer {
-  position: fixed;
-  top: 10px;
-  right: 10px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
