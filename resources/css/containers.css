@@ -166,26 +166,9 @@ black #221F20;
 
 
 
-.content-wrapper {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background-color: #221F20;
-  color: #CBCCCC;
-}
 
-.fixed-header {
-  flex-shrink: 0; /* Prevent shrinking */
-  width: 100%;
-  max-width: 60ch;
-  margin: 0 auto;
-  padding-left: 40px;
-  padding-right: 20px;
-  padding-bottom: 0px;
-  box-sizing: border-box;
-  background-color: #221F20;
-  z-index: 5; /* Ensure it stays on top */
-}
+
+
 
 .top-content {
   width: 100%;
@@ -340,6 +323,7 @@ black #221F20;
 #topRightContainer {
   position: relative; /* or absolute/fixed if needed */
   z-index: 999; /* Higher than your containers */
+  flex-shrink: 0;
 }
 
 
