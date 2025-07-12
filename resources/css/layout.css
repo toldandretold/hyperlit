@@ -25,7 +25,7 @@ html, body {
 #app-container .home-content-wrapper {
   margin: 0 auto; /* Center the block */
   width: 100%;
-  max-width: 60ch;
+  max-width: 50ch;
   
   /* --- THIS IS THE KEY FIX --- */
   /* Use 100vh to make the container exactly the height of the screen */

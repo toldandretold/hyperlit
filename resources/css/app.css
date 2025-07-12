@@ -7,7 +7,10 @@ black #221F20;
 
 @import url('/public/fonts/inter/inter.css');
 
+body {
 
+    font-size: 28px;
+}
 
 #conversion-message {
     color: #221F20;
