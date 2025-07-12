@@ -13,53 +13,25 @@ html, body {
     color: #CBCCCC;
 }
 
-/* ================================================== */
-/* === Text Wrapping & Overflow Fixes             === */
-/* ================================================== */
-
-/*
-  This is the main fix. It applies to paragraphs and links,
-  telling the browser to force a line break on long words
-  (like URLs) if they would otherwise overflow the container.
-*/
-p, a {
-  overflow-wrap: break-word;
-  word-wrap: break-word; /* Legacy fallback */
-}
-
-/*
-  This is for code blocks. <pre> tags by default do NOT wrap text.
-  'pre-wrap' tells it to preserve whitespace BUT wrap text when needed.
-*/
-pre {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-
-/*
-  This is an extra-safe rule for inline code tags.
-  'break-all' is more aggressive and will break a word at any character
-  to prevent overflow.
-*/
-code {
-  word-break: break-all;
-}
-
 /* 2. App Container - A simple positioning context */
 #app-container {
   width: 100%;
-  height: 100%;
+  /* REMOVED height: 100%. It's no longer needed and can cause issues. */
   position: relative;
 }
 
 /* 3. The Center Columns (Reader and Home) */
-.main-content,
-.home-content-wrapper {
+#app-container .main-content,
+#app-container .home-content-wrapper {
   margin: 0 auto; /* Center the block */
   width: 100%;
   max-width: 60ch;
-  height: 100%;
-  overflow-y: auto;
+  
+  /* --- THIS IS THE KEY FIX --- */
+  /* Use 100vh to make the container exactly the height of the screen */
+  height: 100vh; 
+  
+  overflow-y: auto; /* No !important needed now */
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   padding: 10px 40px 40px 40px;
@@ -67,19 +39,18 @@ code {
 }
 
 /* 4. The Side Buttons - MOBILE-FIRST DEFAULTS */
-/* This is the layout used on small screens, and as a fallback */
 #logoContainer,
 #userButtonContainer {
   position: fixed;
   top: 10px;
-  left: 10px; /* Default mobile position */
+  left: 10px;
   z-index: 10;
 }
 
 #topRightContainer {
   position: fixed;
   top: 10px;
-  right: 10px; /* Default mobile position */
+  right: 10px;
   z-index: 10;
 }
 
@@ -90,4 +61,17 @@ code {
   background-color: #221F20;
   z-index: 10;
   padding-bottom: 10px;
+}
+
+/* Text Wrapping & Overflow Fixes */
+p, a {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+code {
+  word-break: break-all;
 }
