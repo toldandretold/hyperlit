@@ -1696,13 +1696,19 @@ function scrollCaretIntoView() {
 
 
 
-
-
 /**
  * Check if a removed node is a hypercite element and handle delinking
  * @param {Node} removedNode - The node that was removed
  */
 async function handleHyperciteRemoval(removedNode) {
+  // Helper function to verify removal with optional delay
+  const verifyRemoval = async (hyperciteId, delay = 0) => {
+    if (delay > 0) {
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    return !document.getElementById(hyperciteId);
+  };
+
   // Check if the removed node is a hypercite element
   if (removedNode.nodeType === Node.ELEMENT_NODE && 
       removedNode.tagName === 'A' && 
@@ -1710,16 +1716,24 @@ async function handleHyperciteRemoval(removedNode) {
       removedNode.id.startsWith('hypercite_') && 
       removedNode.href) {
     
-    console.log(`🔗 Hypercite element removed: ${removedNode.id}`);
+    console.log(`🔗 Hypercite element potentially removed: ${removedNode.id}`);
+    
+    // 🆕 VERIFICATION: Check immediately and after a brief delay
+    const immediateCheck = await verifyRemoval(removedNode.id);
+    const delayedCheck = immediateCheck ? await verifyRemoval(removedNode.id, 50) : false;
+    
+    if (!delayedCheck) {
+      console.log(`✅ Hypercite ${removedNode.id} still exists in DOM - skipping delink`);
+      return;
+    }
+    
+    console.log(`🗑️ Confirmed: Hypercite ${removedNode.id} truly removed from DOM`);
     console.log(`📍 Href: ${removedNode.href}`);
     
-    // Import the delink function (assuming it's available globally or import it)
     try {
-      // If you made the functions global for testing, use:
       if (window.testDelinkHypercite) {
         await window.testDelinkHypercite(removedNode.id, removedNode.href);
       } else {
-        // Or import the function if modules are supported
         const { delinkHypercite } = await import('./hyperCites.js');
         await delinkHypercite(removedNode.id, removedNode.href);
       }
@@ -1728,7 +1742,7 @@ async function handleHyperciteRemoval(removedNode) {
     }
   }
   
-  // Also check for hypercites within removed elements
+  // Handle nested hypercites with the same verification
   if (removedNode.nodeType === Node.ELEMENT_NODE && removedNode.querySelectorAll) {
     const hypercites = removedNode.querySelectorAll('a[id^="hypercite_"][href]');
     
@@ -1736,7 +1750,15 @@ async function handleHyperciteRemoval(removedNode) {
       console.log(`🔗 Found ${hypercites.length} hypercites within removed element`);
       
       for (const hypercite of hypercites) {
-        console.log(`🔗 Processing nested hypercite: ${hypercite.id}`);
+        const immediateCheck = await verifyRemoval(hypercite.id);
+        const delayedCheck = immediateCheck ? await verifyRemoval(hypercite.id, 50) : false;
+        
+        if (!delayedCheck) {
+          console.log(`✅ Nested hypercite ${hypercite.id} still exists in DOM - skipping delink`);
+          continue;
+        }
+        
+        console.log(`🗑️ Confirmed: Nested hypercite ${hypercite.id} truly removed from DOM`);
         
         try {
           if (window.testDelinkHypercite) {
@@ -1752,8 +1774,6 @@ async function handleHyperciteRemoval(removedNode) {
     }
   }
 }
-
-
 
 // Add this helper function near the top of your file
 function findAllNumericalIdNodesInChunks(container) {

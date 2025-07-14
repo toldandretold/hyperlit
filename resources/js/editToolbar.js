@@ -99,7 +99,7 @@ class EditToolbar {
           this.currentSelection = selection;
           this.lastValidRange = range.cloneRange(); // Store a copy of the range
           this.updateButtonStates();
-          this.updatePosition();
+          
         }
         // Don't update currentSelection if it's outside editable content
       }
