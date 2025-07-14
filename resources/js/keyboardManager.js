@@ -61,31 +61,57 @@ class KeyboardManager {
   }
 
   // MODIFIED: This now triggers the scroll command reliably.
-  handleViewportChange() {
-    const vv = window.visualViewport;
-    const referenceHeight = this.isIOS
-      ? this.initialVisualHeight
-      : window.innerHeight;
-    const keyboardOpen = vv.height < referenceHeight * 0.9;
+handleViewportChange() {
+  const vv = window.visualViewport;
+  const referenceHeight = this.isIOS
+    ? this.initialVisualHeight
+    : window.innerHeight;
+  const keyboardOpen = vv.height < referenceHeight * 0.9;
 
-    if (keyboardOpen !== this.isKeyboardOpen) {
-      this.isKeyboardOpen = keyboardOpen;
-      this.adjustLayout(keyboardOpen);
+  if (keyboardOpen !== this.isKeyboardOpen) {
+    this.isKeyboardOpen = keyboardOpen;
+    this.adjustLayout(keyboardOpen);
 
-      // --- THIS IS THE IMPROVED FIX ---
-      // If the keyboard just opened AND we have a focused element...
-      if (keyboardOpen && this.state.focusedElement) {
-        // ...then after a delay, scroll it into view above the keyboard/toolbar.
-        setTimeout(() => {
-          if (this.state.focusedElement) {
-            console.log("✅ Ensuring element is visible above keyboard.");
-            this.scrollElementIntoVisibleArea(this.state.focusedElement);
-          }
-        }, 300); // A slightly longer delay is more reliable
-      }
+    // --- FIXED VERSION ---
+    // If the keyboard just opened AND we have a focused element...
+    if (keyboardOpen && this.state.focusedElement) {
+      // ...then after a delay, scroll it into view if it's actually blocked.
+      setTimeout(() => {
+        if (this.state.focusedElement) {
+          console.log("✅ Checking if element needs scrolling.");
+          this.scrollElementIfBlocked(this.state.focusedElement);
+        }
+      }, 300);
     }
   }
+}
 
+// NEW METHOD: Only scroll if element is actually blocked by keyboard/toolbar
+scrollElementIfBlocked(element) {
+  const scrollContainer = document.querySelector(".reader-content-wrapper");
+  if (!scrollContainer) return;
+
+  const elementRect = element.getBoundingClientRect();
+  const toolbar = document.querySelector("#edit-toolbar");
+  const toolbarHeight = toolbar ? toolbar.getBoundingClientRect().height : 0;
+  
+  // Calculate where the keyboard+toolbar starts (this is what blocks the view)
+  const blockingTop = this.state.keyboardTop - toolbarHeight;
+  
+  // Only scroll if the element is actually blocked (below the blocking area)
+  if (elementRect.bottom > blockingTop) {
+    console.log("Element is blocked by keyboard/toolbar, scrolling...");
+    // Calculate how much we need to scroll up to clear the blocking area
+    const scrollAmount = elementRect.bottom - blockingTop + 20; // 20px buffer
+    
+    scrollContainer.scrollBy({
+      top: scrollAmount,
+      behavior: "smooth"
+    });
+  } else {
+    console.log("Element is already visible, no scrolling needed.");
+  }
+}
   // NEW METHOD: Manually scroll element into view above keyboard/toolbar
   scrollElementIntoVisibleArea(element) {
     const scrollContainer = document.querySelector(".reader-content-wrapper");
