@@ -1532,11 +1532,8 @@ export function updateCitationForExistingHypercite(
       {
         citedIN: existing.citedIN,
         relationshipStatus: updatedRelationshipStatus,
-        // 🔧 ADD THIS: Update the hypercitedHTML to reflect new class
-        hypercitedHTML: existing.hypercitedHTML.replace(
-          /class="[^"]*"/,
-          `class="${updatedRelationshipStatus}"`
-        )
+        // 🔧 RECONSTRUCT: Build new hypercitedHTML with correct class
+        hypercitedHTML: `<u id="${hyperciteIDa}" class="${updatedRelationshipStatus}">${existing.hypercitedText}</u>`
       }
     );
 
@@ -1830,26 +1827,33 @@ export async function syncNodeChunksToPostgreSQL(nodeChunks = []) {
   return out;
 }
 
-// 🆕 Function to sync hypercite to PostgreSQL
 export async function syncHyperciteToPostgreSQL(hypercite) {
-  // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
-  const payload = {
-    book: hypercite.book,
-    data: [hypercite]
+  // 🔧 Ensure hypercitedHTML matches the current relationshipStatus
+  const hyperciteData = {
+    ...hypercite,
+    hypercitedHTML: `<u id="${hypercite.hyperciteId}" class="${hypercite.relationshipStatus}">${hypercite.hypercitedText}</u>`
   };
 
+  const payload = {
+    book: hypercite.book,
+    data: [hyperciteData]
+  };
+
+  // 🔍 DEBUG: Log what we're sending
   console.log(`🔄 Syncing hypercite ${hypercite.hyperciteId}…`);
+  console.log('🔍 Payload being sent:', JSON.stringify(payload, null, 2));
+  console.log('🔍 Hypercite relationshipStatus:', hyperciteData.relationshipStatus);
+  console.log('🔍 Hypercite hypercitedHTML:', hyperciteData.hypercitedHTML);
 
   const res = await fetch("/api/db/hypercites/upsert", {
     method: "POST",
     headers: {
-      "Content-Type":    "application/json",
-      "Accept":          "application/json",
+      "Content-Type": "application/json",
+      "Accept": "application/json",
       "X-Requested-With": "XMLHttpRequest",
-      "X-CSRF-TOKEN":
-        document.querySelector('meta[name="csrf-token"]')?.content
+      "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content
     },
-    credentials: "include", // ← ensures cookies are sent
+    credentials: "include",
     body: JSON.stringify(payload)
   });
 
