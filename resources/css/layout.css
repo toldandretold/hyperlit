@@ -1,44 +1,62 @@
 /* ================================================== */
-/* === layout.css - The Single Source of Truth    === */
+/* === layout.css - FINAL CORRECTED VERSION       === */
 /* ================================================== */
 
 /* 1. Base Setup */
-html, body {
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    font-family: 'Inter', sans-serif;
-    background-color: #221F20;
-    color: #CBCCCC;
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: "Inter", sans-serif;
+  background-color: #221f20;
+  color: #cbcccc;
 }
 
-/* 2. App Container - A simple positioning context */
+/* 2. App Container - The main positioning context */
 #app-container {
   width: 100%;
-  /* REMOVED height: 100%. It's no longer needed and can cause issues. */
+  height: 100%; /* Use 100% to fill the body */
   position: relative;
 }
 
-/* 3. The Center Columns (Reader and Home) */
-#app-container .main-content,
-#app-container .home-content-wrapper {
+/* 
+   ==================================================
+   3. Main Content Columns (Unified & Corrected) 
+   This single section now correctly handles BOTH the 
+   home page and the reader page.
+   ==================================================
+*/
+
+/* Rule for the SCROLLING WRAPPERS */
+.home-content-wrapper,
+.reader-content-wrapper {
   margin: 0 auto; /* Center the block */
   width: 100%;
   max-width: 50ch;
-  
-  /* --- THIS IS THE KEY FIX --- */
-  /* Use 100vh to make the container exactly the height of the screen */
-  height: 100vh; 
-  
-  overflow-y: auto; /* No !important needed now */
+  height: 100%; /* Fill the parent #app-container */
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-  padding: 10px 40px 40px 40px;
   box-sizing: border-box;
 }
 
-/* 4. The Side Buttons - MOBILE-FIRST DEFAULTS */
+/* Rule for the INNER CONTENT DIVs */
+.main-content {
+  padding: 10px 40px 40px 40px;
+  box-sizing: border-box;
+  /* For the reader, ensures it fills the wrapper for short content */
+  min-height: 100%;
+}
+
+/* 
+   ==================================================
+   4. Side Buttons & Sticky Header
+   ==================================================
+*/
+
+/* Side Buttons - MOBILE-FIRST DEFAULTS */
 #logoContainer,
 #userButtonContainer {
   position: fixed;
@@ -54,17 +72,22 @@ html, body {
   z-index: 10;
 }
 
-/* 5. The Sticky Header (for the HOME page) */
+/* Sticky Header (for HOME page only) - NO DUPLICATION */
 .fixed-header {
   position: sticky;
   top: 0;
-  background-color: #221F20;
+  background-color: #221f20;
   z-index: 10;
   padding-bottom: 10px;
 }
 
-/* Text Wrapping & Overflow Fixes */
-p, a {
+/* 
+   ==================================================
+   5. Text Wrapping & Overflow Fixes
+   ==================================================
+*/
+p,
+a {
   overflow-wrap: break-word;
   word-wrap: break-word;
 }

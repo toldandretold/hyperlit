@@ -216,15 +216,22 @@ class KeyboardManager {
   }
 
   // ✨ NEW: Helper function to manage the spacer element.
+  // THIS IS THE NEW, CORRECTED FUNCTION
   createOrUpdateSpacer(height) {
-    const mainContent = document.querySelector(".main-content");
-    if (!mainContent) return;
+    // CHANGE 1: Look for the new wrapper class instead of .main-content
+    const scrollContainer = document.querySelector(".reader-content-wrapper");
+
+    // If the wrapper doesn't exist (e.g., on the home page), do nothing.
+    if (!scrollContainer) {
+      return;
+    }
 
     let spacer = document.querySelector("#keyboard-spacer");
     if (!spacer) {
       spacer = document.createElement("div");
       spacer.id = "keyboard-spacer";
-      mainContent.appendChild(spacer);
+      // CHANGE 2: Append the spacer to the wrapper, not the editable div.
+      scrollContainer.appendChild(spacer);
     }
     spacer.style.height = `${height}px`;
   }
