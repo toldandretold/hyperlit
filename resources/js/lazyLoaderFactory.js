@@ -424,10 +424,13 @@ export function applyHypercites(html, hypercites) {
   
   // 🔍 DEBUG: Let's see what we're working with
   hypercites.forEach(h => {
-    console.log(`Hypercite ${h.hyperciteId}: relationshipStatus = "${h.relationshipStatus}"`);
+    console.log(`🔍 Hypercite ${h.hyperciteId}: relationshipStatus = "${h.relationshipStatus}"`);
   });
   
   const segments = createHyperciteSegments(hypercites);
+  
+  // 🔍 DEBUG: Check what segments were created
+  console.log("🔍 Created segments:", segments);
   
   const tempElement = document.createElement("div");
   tempElement.innerHTML = html;
