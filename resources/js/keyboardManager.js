@@ -85,37 +85,51 @@ handleViewportChange() {
     }
   }
 }
-
 debugAndScroll(element) {
-  const elementRect = element.getBoundingClientRect();
+  // Get the actual cursor/caret position
+  const selection = window.getSelection();
+  let caretRect = null;
+  
+  if (selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    caretRect = range.getBoundingClientRect();
+  }
+  
+  if (!caretRect || (caretRect.width === 0 && caretRect.height === 0)) {
+    console.log("Could not get caret position, skipping scroll");
+    return;
+  }
+  
   const toolbar = document.querySelector("#edit-toolbar");
   const toolbarRect = toolbar ? toolbar.getBoundingClientRect() : null;
+  const vv = window.visualViewport;
   
-  console.log("=== DEBUG INFO ===");
-  console.log("Element bottom:", elementRect.bottom);
-  console.log("Element top:", elementRect.top);
-  console.log("Keyboard top:", this.state.keyboardTop);
-  console.log("Toolbar rect:", toolbarRect);
-  console.log("Visual viewport height:", window.visualViewport.height);
-  console.log("Visual viewport offsetTop:", window.visualViewport.offsetTop);
+  console.log("=== CARET DEBUG INFO ===");
+  console.log("Caret top:", caretRect.top);
+  console.log("Caret bottom:", caretRect.bottom);
+  console.log("Toolbar top:", toolbarRect?.top);
+  console.log("Viewport offsetTop:", vv.offsetTop);
   
   if (toolbarRect) {
-    const blockingLine = toolbarRect.top;
-    console.log("Blocking line (toolbar top):", blockingLine);
-    console.log("Is element covered?", elementRect.bottom > blockingLine);
+    const viewportTop = vv.offsetTop;
+    const toolbarTop = toolbarRect.top;
     
-    if (elementRect.bottom > blockingLine) {
-      console.log("SCROLLING!");
+    // Check if caret is visible (between viewport top and toolbar top)
+    const isCaretVisible = caretRect.top >= viewportTop && caretRect.bottom <= toolbarTop;
+    
+    console.log("Is caret visible?", isCaretVisible);
+    
+    if (!isCaretVisible) {
+      console.log("SCROLLING - caret not visible!");
       element.scrollIntoView({
         behavior: "smooth",
         block: "center"
       });
     } else {
-      console.log("NOT SCROLLING - element is visible");
+      console.log("NOT SCROLLING - caret is visible");
     }
   }
 }
-  
 
   // All the functions below are from YOUR working version. They are unchanged.
   adjustLayout(keyboardOpen) {
