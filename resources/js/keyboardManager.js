@@ -75,34 +75,25 @@ handleViewportChange() {
 
     // If the keyboard just opened AND we have a focused element...
     if (keyboardOpen && this.state.focusedElement) {
-      // Wait for keyboard to fully settle, then check if we need to scroll
+      // Wait for keyboard to fully settle, then check if element is visible
       setTimeout(() => {
         if (this.state.focusedElement) {
-          console.log("✅ Checking if element is blocked by keyboard.");
-          this.scrollIfBlocked(this.state.focusedElement);
+          const rect = this.state.focusedElement.getBoundingClientRect();
+          const vv = window.visualViewport;
+          
+          // Only scroll if element is NOT visible in current viewport
+          if (rect.bottom < vv.offsetTop || rect.top > vv.offsetTop + vv.height) {
+            console.log("Element is not visible, scrolling.");
+            this.state.focusedElement.scrollIntoView({
+              behavior: "smooth",
+              block: "center"
+            });
+          } else {
+            console.log("Element is visible, doing nothing.");
+          }
         }
-      }, 500); // Longer delay to let keyboard fully settle
+      }, 500);
     }
-  }
-}
-
-// Simple check: only scroll if actually blocked
-scrollIfBlocked(element) {
-  const elementRect = element.getBoundingClientRect();
-  const toolbar = document.querySelector("#edit-toolbar");
-  const toolbarHeight = toolbar ? toolbar.getBoundingClientRect().height : 0;
-  const blockingTop = this.state.keyboardTop - toolbarHeight;
-  
-  // Only scroll if the element is actually blocked
-  if (elementRect.bottom > blockingTop) {
-    console.log("Element is blocked, using native scroll.");
-    element.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-      inline: "nearest"
-    });
-  } else {
-    console.log("Element is visible, no scrolling needed.");
   }
 }
   
