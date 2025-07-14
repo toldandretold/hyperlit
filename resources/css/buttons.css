@@ -393,7 +393,7 @@ black #221F20;
   }
 
   #userButtonContainer {
-    position: absolute;
+    position: fixed !important; /* Change from absolute to fixed */
     top: 10px;
     left: 10px;
     height: 36px;

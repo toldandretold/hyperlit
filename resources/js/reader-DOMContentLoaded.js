@@ -107,36 +107,38 @@ if (!window.isInitialized) {
     generateTableOfContents("toc-container", "toc-toggle-button");
 
 
-    // Initialize Navigation Buttons.
-    // Get the data-page attribute from the <body> tag
-    const pageType = document.body.getAttribute("data-page");
+   // Initialize Navigation Buttons.
+  const pageType = document.body.getAttribute("data-page");
 
-    // Initialize Navigation Buttons differently based on pageType
-    if (pageType === "reader") {
+  if (pageType === "reader") {
+    // Wait for elements to be ready
+    setTimeout(() => {
       const navButtons = new NavButtons({
         elementIds: ["nav-buttons", "logoContainer", "topRightContainer"],
         tapThreshold: 15,
       });
-
       navButtons.init();
-      initEditToolbar();
-    } else if (pageType === "home") {
-      import("./userContainer.js");
+    }, 100);
+    
+    initEditToolbar();
+  } else if (pageType === "home") {
+    import("./userContainer.js");
 
+    // Wait for elements to be ready AND remove non-existent nav-buttons
+    setTimeout(() => {
       const navButtons = new NavButtons({
-        elementIds: ["nav-buttons", "userButtonContainer", "topRightContainer"],
+        elementIds: ["userButtonContainer", "topRightContainer"], // Remove nav-buttons!
         tapThreshold: 15,
       });
-
       navButtons.init();
+    }, 100);
 
-      import('./homepageDisplayUnit.js').then(module => {
-        module.initializeHomepageButtons();
-      }).catch(error => {
-        console.error('Failed to load homepage display unit:', error);
-      });
-    }
-
+    import('./homepageDisplayUnit.js').then(module => {
+      module.initializeHomepageButtons();
+    }).catch(error => {
+      console.error('Failed to load homepage display unit:', error);
+    });
+  }
     
 
     // Get TOC elements here.
