@@ -1,129 +1,85 @@
-// keyboardManager.js - Combining the working toolbar pinning with the working spacer.
+// keyboardManager.js - A new approach focusing only on the toolbar and spacer.
 
 class KeyboardManager {
   constructor() {
-    this.isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
     this.isKeyboardOpen = false;
-
-    // Bind methods
-    this.handleViewportChange = this.handleViewportChange.bind(this);
-    this.preventToolbarScroll = this.preventToolbarScroll.bind(this);
     this.init();
   }
 
   init() {
     if (!window.visualViewport) {
-      console.warn("Visual Viewport API not supported");
+      console.warn("Visual Viewport API not supported, manager disabled.");
       return;
     }
-    window.visualViewport.addEventListener(
-      "resize",
-      this.handleViewportChange,
-    );
-  }
-
-  preventToolbarScroll(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    return false;
+    // Bind the context of 'this' for the event listener
+    this.handleViewportChange = this.handleViewportChange.bind(this);
+    window.visualViewport.addEventListener("resize", this.handleViewportChange);
   }
 
   handleViewportChange() {
     const vv = window.visualViewport;
     const keyboardIsOpenNow = vv.height < window.innerHeight * 0.9;
 
+    // Only act if the keyboard state changes
     if (keyboardIsOpenNow !== this.isKeyboardOpen) {
       this.isKeyboardOpen = keyboardIsOpenNow;
       this.adjustLayout(keyboardIsOpenNow);
     }
   }
 
-  // This is the original function that correctly pinned the container and toolbar.
-  adjustLayout(keyboardOpen) {
-    const appContainer = document.querySelector("#app-container");
-    const editToolbar = document.querySelector("#edit-toolbar");
+  adjustLayout(isOpening) {
+    const toolbar = document.querySelector("#edit-toolbar");
+    const scrollContainer = document.querySelector(".reader-content-wrapper");
 
-    if (keyboardOpen) {
-      const vv = window.visualViewport;
+    if (isOpening) {
+      console.log("⌨️ Keyboard opened. Fixing toolbar, adding spacer.");
+      const keyboardHeight = window.innerHeight - window.visualViewport.height;
+      const toolbarHeight = toolbar ? toolbar.offsetHeight : 0;
 
-      // --- Part 1: Pin the entire app container (This stabilized the toolbar) ---
-      if (appContainer) {
-        appContainer.style.setProperty("position", "fixed", "important");
-        appContainer.style.setProperty("top", `${vv.offsetTop}px`, "important");
-        appContainer.style.setProperty("height", `${vv.height}px`, "important");
-        appContainer.style.setProperty("width", "100%", "important");
-        appContainer.style.setProperty("left", "0", "important");
+      // --- 1. Fix the toolbar to the viewport ---
+      if (toolbar) {
+        toolbar.style.position = "fixed";
+        toolbar.style.bottom = `${keyboardHeight}px`;
+        toolbar.style.left = "0";
+        toolbar.style.right = "0";
+        toolbar.style.zIndex = "1000";
       }
 
-      // --- Part 2: Add the spacer (This fixed the scrolling) ---
-      const keyboardHeight = window.innerHeight - vv.height;
-      this.createOrUpdateSpacer(keyboardHeight);
-
-      // --- Part 3: Position the toolbar within the pinned container ---
-      this.moveToolbarAboveKeyboard(editToolbar, keyboardHeight);
+      // --- 2. Create a spacer tall enough for the keyboard AND the toolbar ---
+      const totalSpacerHeight = keyboardHeight + toolbarHeight;
+      this.createOrUpdateSpacer(scrollContainer, totalSpacerHeight);
     } else {
-      // KEYBOARD CLOSED: Reset everything
-      if (editToolbar) {
-        editToolbar.removeEventListener("touchstart", this.preventToolbarScroll);
+      console.log("⌨️ Keyboard closed. Resetting everything.");
+      // --- 1. Un-fix the toolbar ---
+      if (toolbar) {
+        toolbar.style.position = "";
+        toolbar.style.bottom = "";
+        toolbar.style.left = "";
+        toolbar.style.right = "";
+        toolbar.style.zIndex = "";
       }
+
+      // --- 2. Remove the spacer ---
       this.removeSpacer();
-      this.resetInlineStyles(appContainer, editToolbar);
     }
   }
 
-  // This function correctly positions the toolbar above the keyboard.
-  moveToolbarAboveKeyboard(toolbar, keyboardHeight) {
-    if (!toolbar) return;
-    const toolbarHeight = toolbar.getBoundingClientRect().height;
-
-    toolbar.style.setProperty("position", "absolute", "important");
-    // Position from the bottom of the fixed container, minus its own height
-    toolbar.style.setProperty(
-      "bottom",
-      `${keyboardHeight + 1}px`,
-      "important",
-    );
-    toolbar.style.setProperty("left", "0", "important");
-    toolbar.style.setProperty("right", "0", "important");
-    toolbar.style.setProperty("z-index", "9999", "important");
-    toolbar.addEventListener("touchstart", this.preventToolbarScroll, {
-      passive: false,
-    });
-  }
-
-  // This function creates the scrollable space.
-  createOrUpdateSpacer(height) {
-    const scrollContainer = document.querySelector(".reader-content-wrapper");
-    if (!scrollContainer) return;
+  createOrUpdateSpacer(container, height) {
+    if (!container) return;
     let spacer = document.querySelector("#keyboard-spacer");
     if (!spacer) {
       spacer = document.createElement("div");
       spacer.id = "keyboard-spacer";
-      scrollContainer.appendChild(spacer);
+      container.appendChild(spacer);
     }
     spacer.style.height = `${height}px`;
   }
 
   removeSpacer() {
     const spacer = document.querySelector("#keyboard-spacer");
-    if (spacer) spacer.remove();
-  }
-
-  resetInlineStyles(...elements) {
-    const props = [
-      "position",
-      "top",
-      "left",
-      "right",
-      "bottom",
-      "height",
-      "width",
-      "z-index",
-    ];
-    elements.forEach((el) => {
-      if (!el) return;
-      props.forEach((p) => el.style.removeProperty(p));
-    });
+    if (spacer) {
+      spacer.remove();
+    }
   }
 
   destroy() {
