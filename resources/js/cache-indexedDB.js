@@ -391,7 +391,7 @@ export function getLocalStorageKey(baseKey, bookId = "latest") {
 }
 
 
-function processNodeContentHighlightsAndCites(node) {
+function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
   const hyperlights = [];
   const hypercites = [];
   
@@ -457,10 +457,15 @@ function processNodeContentHighlightsAndCites(node) {
     const uLength = uTag.textContent.length;
     
     if (startPos >= 0) {
+      // ✅ MERGE: Find existing hypercite data or use defaults
+      const existingHypercite = existingHypercites.find(hc => hc.hyperciteId === uTag.id);
+      
       hypercites.push({
         hyperciteId: uTag.id,
         charStart: startPos,
         charEnd: startPos + uLength,
+        relationshipStatus: existingHypercite?.relationshipStatus || "single",
+        citedIN: existingHypercite?.citedIN || []
       });
       
       console.log("Calculated hypercite positions:", {
@@ -646,8 +651,6 @@ export function updateIndexedDBRecord(record) {
     });
   });
 }
-
-
 // New batched function to replace individual updateIndexedDBRecord calls
 export async function batchUpdateIndexedDBRecords(recordsToProcess) {
   return withPending(async () => {
@@ -689,15 +692,17 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
       const numericNodeId = parseNodeId(nodeId);
       const compositeKey = [bookId, numericNodeId];
       
-      // Process the node content
-      const processedData = node ? processNodeContentHighlightsAndCites(node) : null;
-
-      // Get existing record
+      // Get existing record FIRST to preserve hypercite data
       return new Promise((resolve, reject) => {
         const getReq = chunksStore.get(compositeKey);
         
         getReq.onsuccess = () => {
           const existing = getReq.result;
+          
+          // ✅ PASS EXISTING HYPERCITES TO PRESERVE RELATIONSHIP STATUS
+          const existingHypercites = existing?.hypercites || [];
+          const processedData = node ? processNodeContentHighlightsAndCites(node, existingHypercites) : null;
+          
           let toSave;
 
           if (existing) {
@@ -789,9 +794,6 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
     });
   });
 }
-
-
-
 
 
 export async function syncBatchUpdateWithPostgreSQL(
