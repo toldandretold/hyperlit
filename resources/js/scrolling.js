@@ -14,24 +14,47 @@ import { repositionSentinels } from "./lazyLoaderFactory.js"; // if exported
 // ========= Scrolling Helper Functions =========
 
 function scrollElementIntoMainContent(targetElement, headerOffset = 0) {
-  const container = document.getElementById(book);
-  if (!container) {
-    console.error(`Container with id ${book} not found!`);
+  // `book` is the ID of your <div class="main-content">
+  const contentContainer = document.getElementById(book); // Renamed `container` to `contentContainer` for clarity
+  if (!contentContainer) { // Changed 'container' to 'contentContainer'
+    console.error(`Content container with id ${book} not found!`);
     targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
+
+  // >>>>>> THIS IS THE CRUCIAL NEW PART <<<<<<
+  // Find the actual scrollable parent (e.g., .reader-content-wrapper)
+  const scrollableParent = contentContainer.closest(".reader-content-wrapper") ||
+                           contentContainer.closest(".home-content-wrapper"); // Keep both for home page too
+
+  if (!scrollableParent) {
+    console.error("ERROR: No scrollable parent wrapper found for content container!");
+    targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  // >>>>>> END CRUCIAL NEW PART <<<<<<
+
   const elementRect = targetElement.getBoundingClientRect();
-  const containerRect = container.getBoundingClientRect();
-  const offset = elementRect.top - containerRect.top + container.scrollTop;
+  // Changed `containerRect` to `scrollableParentRect` and used `scrollableParent`
+  const scrollableParentRect = scrollableParent.getBoundingClientRect();
+  // Changed `container.scrollTop` to `scrollableParent.scrollTop`
+  const offset = elementRect.top - scrollableParentRect.top + scrollableParent.scrollTop;
   const targetScrollTop = offset - headerOffset;
+
   console.log("Element rect:", elementRect);
-  console.log("Container rect:", containerRect);
-  console.log("Container current scrollTop:", container.scrollTop);
+  // Changed `Container rect` to `Scrollable parent rect`
+  console.log("Scrollable parent rect:", scrollableParentRect);
+  // Changed `Container current scrollTop` to `Scrollable parent current scrollTop`
+  console.log("Scrollable parent current scrollTop:", scrollableParent.scrollTop);
   console.log("Calculated targetScrollTop:", targetScrollTop);
-  container.scrollTo({
+
+  // >>>>>> THIS IS THE FINAL CRUCIAL CHANGE <<<<<<
+  // Tell the *actual scrollable parent* to scroll
+  scrollableParent.scrollTo({
     top: targetScrollTop,
     behavior: "smooth"
   });
+  // >>>>>> END FINAL CRUCIAL CHANGE <<<<<<
 }
 
 function lockScrollToTarget(targetElement, headerOffset = 50, attempts = 3) {
@@ -339,30 +362,50 @@ export async function restoreScrollPosition() {
 
 function scrollElementIntoContainer(
   targetElement,
-  container,
+  contentContainer, // This is currentLazyLoader.container, which is your <div class="main-content" id="book">
   headerOffset = 0
 ) {
-  if (!container) {
+  if (!contentContainer) { // Changed 'container' to 'contentContainer'
     console.error(
-      "Container not available, falling back to default scrollIntoView"
+      "Content container not available, falling back to default scrollIntoView"
     );
     targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
+
+  // >>>>>> THIS IS THE CRUCIAL NEW PART <<<<<<
+  // Find the actual scrollable parent (e.g., .reader-content-wrapper)
+  const scrollableParent = contentContainer.closest(".reader-content-wrapper") ||
+                           contentContainer.closest(".home-content-wrapper");
+
+  if (!scrollableParent) {
+    console.error("ERROR: No scrollable parent wrapper found for content container!");
+    targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  // >>>>>> END CRUCIAL NEW PART <<<<<<
+
   const elementRect = targetElement.getBoundingClientRect();
-  const containerRect = container.getBoundingClientRect();
-  const offset = elementRect.top - containerRect.top + container.scrollTop;
+  // Changed `containerRect` to `scrollableParentRect` and used `scrollableParent`
+  const scrollableParentRect = scrollableParent.getBoundingClientRect();
+  // Changed `container.scrollTop` to `scrollableParent.scrollTop`
+  const offset = elementRect.top - scrollableParentRect.top + scrollableParent.scrollTop;
   const targetScrollTop = offset - headerOffset;
-  console.log("Scrolling container:", container.id);
+
+  // Added this console.log for clear debugging
+  console.log("Scrolling the actual container:", scrollableParent.id || scrollableParent.className);
   console.log("Element rect:", elementRect);
-  console.log("Container rect:", containerRect);
+  console.log("Scrollable parent rect:", scrollableParentRect);
   console.log("Calculated targetScrollTop:", targetScrollTop);
-  container.scrollTo({
+
+  // >>>>>> THIS IS THE FINAL CRUCIAL CHANGE <<<<<<
+  // Tell the *actual scrollable parent* to scroll
+  scrollableParent.scrollTo({
     top: targetScrollTop,
     behavior: "smooth"
   });
+  // >>>>>> END FINAL CRUCIAL CHANGE <<<<<<
 }
-
 export function navigateToInternalId(targetId, lazyLoader) {
   if (!lazyLoader) {
     console.error("Lazy loader instance not provided!");

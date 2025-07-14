@@ -183,62 +183,79 @@ document.addEventListener("click", (event) => {
   }
 
   // 3) Now handle <a> clicks
-    const link = event.target.closest("a");
-    if (!link) return;
+  const link = event.target.closest("a");
+  if (!link) return;
 
-    const href = link.getAttribute("href").trim();
+  const href = link.getAttribute("href").trim();
 
-    // 4) Pure-hash in-page links
-    if (href.startsWith("#")) {
-      event.preventDefault();
-      navigateToInternalId(href.slice(1), currentLazyLoader);
-      console.log(`Hash-only → nav to ${href}`);
-      return;
+  // 4) Pure-hash in-page links (e.g., <a href="#some-id">)
+  // Ensure it's not an external link with a hash, e.g., <a href="http://example.com/#hash">
+  if (href.startsWith("#") && link.hostname === window.location.hostname) {
+    event.preventDefault();
+    const targetId = href.slice(1);
+    
+    // Crucial for browser history (back/forward buttons) and for consistent URL display
+    // Don't add to history if the hash is already the current one
+    if (window.location.hash !== href) {
+        history.pushState(null, "", href);
     }
 
-    // 5) Same-book + HL_#### detection via the URL API
-    const url = new URL(link.href, window.location.origin);
-    // external?
-    if (url.origin !== window.location.origin) return;
+    // You already have currentLazyLoader.isNavigatingToInternalId = true
+    // being set in navigateToInternalId itself.
+    navigateToInternalId(targetId, currentLazyLoader);
+    console.log(`Intercepted hash-only link → nav to ${href}`);
+    return;
+  }
 
-    // path → ["book", "HL_1234"]
-    const [bookSegment, hlSegment] = url.pathname.split("/").filter(Boolean);
-    const currentBook = window.location.pathname
-      .split("/")
-      .filter(Boolean)[0];
-    const hlMatch = hlSegment && hlSegment.match(/^HL_(\d+)$/);
+  // 5) Same-book + HL_#### detection via the URL API
+  const url = new URL(link.href, window.location.origin);
+  // external?
+  if (url.origin !== window.location.origin) return;
 
-    if (bookSegment === currentBook && hlMatch) {
-      // WE INTERCEPT HERE
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      const highlightId = hlMatch[0];
-      const internalId = url.hash ? url.hash.slice(1) : null;
+  // path → ["book", "HL_1234"]
+  const [bookSegment, hlSegment] = url.pathname.split("/").filter(Boolean);
+  const currentBook = window.location.pathname
+    .split("/")
+    .filter(Boolean)[0];
+  const hlMatch = hlSegment && hlSegment.match(/^HL_(\d+)$/);
 
-      // pushState to avoid reload
-      const newPath =
-        `/${currentBook}/${highlightId}` + (internalId ? `#${internalId}` : "");
-      window.history.pushState(null, "", newPath);
+  if (bookSegment === currentBook && hlMatch) {
+    // WE INTERCEPT HERE
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const highlightId = hlMatch[0];
+    const internalId = url.hash ? url.hash.slice(1) : null;
 
-      console.log(`Internal highlight link → ${highlightId}` +
-        (internalId ? `#${internalId}` : ""));
-      navigateToInternalId(highlightId, currentLazyLoader, internalId);
-      return;
+    // pushState to avoid reload and update URL for direct highlight links
+    const newPath =
+      `/${currentBook}/${highlightId}` + (internalId ? `#${internalId}` : "");
+    if (window.location.pathname + window.location.hash !== newPath) {
+        window.history.pushState(null, "", newPath);
     }
 
-    // 6) Same-book hypercite links (e.g., /book#hypercite_lxk9tha)
-    if (bookSegment === currentBook && url.hash) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      const internalId = url.hash.slice(1); // Remove the #
-      
-      // pushState to update URL
-      window.history.pushState(null, "", `/${currentBook}#${internalId}`);
-      
-      console.log(`Same-book hypercite → nav to ${internalId}`);
-      navigateToInternalId(internalId, currentLazyLoader);
-      return;
+    console.log(`Internal highlight link → ${highlightId}` +
+      (internalId ? `#${internalId}` : ""));
+    // navigateToInternalId already handles the highlight ID, and can then look for internalId
+    navigateToInternalId(highlightId, currentLazyLoader); // Your navigateToInternalId takes the primary ID (highlight)
+    return;
+  }
+
+  // 6) Same-book hypercite links (e.g., /book#hypercite_lxk9tha)
+  if (bookSegment === currentBook && url.hash) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const internalId = url.hash.slice(1); // Remove the #
+    
+    // pushState to update URL
+    const newPath = `/${currentBook}#${internalId}`;
+    if (window.location.pathname + window.location.hash !== newPath) {
+        window.history.pushState(null, "", newPath);
     }
+    
+    console.log(`Same-book hypercite → nav to ${internalId}`);
+    navigateToInternalId(internalId, currentLazyLoader);
+    return;
+  }
 
     // 7) otherwise, fall through and let the browser do the full navigation
   
