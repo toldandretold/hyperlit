@@ -60,9 +60,7 @@ class KeyboardManager {
     return false;
   }
 
-
-// MODIFIED: This now triggers the scroll command reliably.
-// MODIFIED: This now triggers the scroll command reliably.
+// MODIFIED: More responsive timing
 handleViewportChange() {
   const vv = window.visualViewport;
   const referenceHeight = this.isIOS
@@ -76,16 +74,18 @@ handleViewportChange() {
 
     // If the keyboard just opened AND we have a focused element...
     if (keyboardOpen && this.state.focusedElement) {
-      // Wait for keyboard to fully settle, then check if element is visible
+      // Reduced delay for faster response
       setTimeout(() => {
         if (this.state.focusedElement) {
-          this.debugAndScroll(this.state.focusedElement);
+          this.scrollCaretIntoView(this.state.focusedElement);
         }
-      }, 500);
+      }, 200); // Reduced from 500ms to 200ms
     }
   }
 }
-debugAndScroll(element) {
+
+// Renamed and cleaned up for production
+scrollCaretIntoView(element) {
   // Get the actual cursor/caret position
   const selection = window.getSelection();
   let caretRect = null;
@@ -96,37 +96,32 @@ debugAndScroll(element) {
   }
   
   if (!caretRect || (caretRect.width === 0 && caretRect.height === 0)) {
-    console.log("Could not get caret position, skipping scroll");
-    return;
+    return; // Silently fail if no caret
   }
   
   const toolbar = document.querySelector("#edit-toolbar");
   const toolbarRect = toolbar ? toolbar.getBoundingClientRect() : null;
   const vv = window.visualViewport;
   
-  console.log("=== CARET DEBUG INFO ===");
-  console.log("Caret top:", caretRect.top);
-  console.log("Caret bottom:", caretRect.bottom);
-  console.log("Toolbar top:", toolbarRect?.top);
-  console.log("Viewport offsetTop:", vv.offsetTop);
-  
   if (toolbarRect) {
     const viewportTop = vv.offsetTop;
     const toolbarTop = toolbarRect.top;
+    const buffer = 20; // Add some breathing room
     
-    // Check if caret is visible (between viewport top and toolbar top)
-    const isCaretVisible = caretRect.top >= viewportTop && caretRect.bottom <= toolbarTop;
-    
-    console.log("Is caret visible?", isCaretVisible);
+    // Check if caret is visible (between viewport top and toolbar with buffer)
+    const isCaretVisible = caretRect.top >= viewportTop && 
+                          caretRect.bottom <= (toolbarTop - buffer);
     
     if (!isCaretVisible) {
-      console.log("SCROLLING - caret not visible!");
-      element.scrollIntoView({
-        behavior: "smooth",
-        block: "center"
-      });
-    } else {
-      console.log("NOT SCROLLING - caret is visible");
+      // Use scrollBy for more precise control
+      const scrollContainer = document.querySelector(".reader-content-wrapper");
+      if (scrollContainer) {
+        const scrollAmount = caretRect.bottom - (toolbarTop - buffer);
+        scrollContainer.scrollBy({
+          top: scrollAmount,
+          behavior: "smooth"
+        });
+      }
     }
   }
 }
