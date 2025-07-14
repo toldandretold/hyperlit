@@ -416,16 +416,22 @@ function createChunkElement(nodes, instance) { // Pass instance instead of bookI
 
 export function applyHypercites(html, hypercites) {
   if (!hypercites || hypercites.length === 0) return html;
+
+  // 🔍 ADD THIS DEBUG LINE HERE
+  console.log("🔍 Raw hypercites data:", JSON.stringify(hypercites, null, 2));
   
   console.log("Applying hypercites:", hypercites);
   
-  // Create segments (same logic as hyperlights)
+  // 🔍 DEBUG: Let's see what we're working with
+  hypercites.forEach(h => {
+    console.log(`Hypercite ${h.hyperciteId}: relationshipStatus = "${h.relationshipStatus}"`);
+  });
+  
   const segments = createHyperciteSegments(hypercites);
   
   const tempElement = document.createElement("div");
   tempElement.innerHTML = html;
   
-  // Apply segments in reverse order (same as hyperlights)
   segments.sort((a, b) => b.charStart - a.charStart);
 
   for (const segment of segments) {
@@ -439,40 +445,41 @@ export function applyHypercites(html, hypercites) {
       // Handle single vs multiple hypercites in segment
       if (segment.hyperciteIDs.length === 1) {
         underlineElement.id = segment.hyperciteIDs[0];
-        underlineElement.className = segment.statuses[0] || 'single';
+        
+        // 🔧 FIX: Don't default to 'single', use the actual status
+        const actualStatus = segment.statuses[0];
+        console.log(`🔍 Single hypercite ${segment.hyperciteIDs[0]} status: "${actualStatus}"`);
+        
+        underlineElement.className = actualStatus || 'single';
       } else {
-      // Multiple hypercites overlapping
-      underlineElement.id = "hypercite_overlapping";
-      
-      // 🔍 DEBUG: Let's see what statuses we're working with
-      console.log("🔍 Overlapping segment debug:");
-      console.log("Hypercite IDs:", segment.hyperciteIDs);
-      console.log("Statuses array:", segment.statuses);
-      
-      // Determine class based on your requirement
-      let finalStatus = 'single';
-      const coupleCount = segment.statuses.filter(status => status === 'couple').length;
-      
-      console.log("Couple count:", coupleCount);
-      
-      if (segment.statuses.includes('poly')) {
-        finalStatus = 'poly';
-        console.log("Set to poly because includes poly");
-      } else if (coupleCount >= 2) {
-        // Multiple couples become poly
-        finalStatus = 'poly';
-        console.log("Set to poly because multiple couples:", coupleCount);
-      } else if (segment.statuses.includes('couple')) {
-        // Single couple stays couple
-        finalStatus = 'couple';
-        console.log("Set to couple because single couple");
+        // Multiple hypercites overlapping
+        underlineElement.id = "hypercite_overlapping";
+        
+        console.log("🔍 Overlapping segment debug:");
+        console.log("Hypercite IDs:", segment.hyperciteIDs);
+        console.log("Statuses array:", segment.statuses);
+        
+        let finalStatus = 'single';
+        const coupleCount = segment.statuses.filter(status => status === 'couple').length;
+        
+        console.log("Couple count:", coupleCount);
+        
+        if (segment.statuses.includes('poly')) {
+          finalStatus = 'poly';
+          console.log("Set to poly because includes poly");
+        } else if (coupleCount >= 2) {
+          finalStatus = 'poly';
+          console.log("Set to poly because multiple couples:", coupleCount);
+        } else if (segment.statuses.includes('couple')) {
+          finalStatus = 'couple';
+          console.log("Set to couple because single couple");
+        }
+        
+        console.log("Final status:", finalStatus);
+        
+        underlineElement.className = finalStatus;
+        underlineElement.setAttribute("data-overlapping", segment.hyperciteIDs.join(","));
       }
-      
-      console.log("Final status:", finalStatus);
-      
-      underlineElement.className = finalStatus;
-      underlineElement.setAttribute("data-overlapping", segment.hyperciteIDs.join(","));
-    }
       
       try {
         const range = document.createRange();

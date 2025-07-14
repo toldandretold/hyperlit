@@ -1475,16 +1475,14 @@ export function updateCitationForExistingHypercite(
       console.log('🔍 addCitationToHypercite result:', result);
 
       if (result.success) {
-
-         // IMMEDIATELY verify the update worked
-          const verifyChunk = await getNodeChunkFromIndexedDB(booka, startLine);
-          const verifyHypercite = verifyChunk?.hypercites?.find(hc => hc.hyperciteId === hyperciteIDa);
-          
-          console.log('🔍 VERIFICATION - Updated nodeChunk hypercite:', verifyHypercite);
-          console.log('🔍 VERIFICATION - citedIN array:', verifyHypercite?.citedIN);
-          
-          foundAndUpdated = true;
+        // IMMEDIATELY verify the nodeChunk update worked
+        const verifyChunk = await getNodeChunkFromIndexedDB(booka, startLine);
+        const verifyHypercite = verifyChunk?.hypercites?.find(hc => hc.hyperciteId === hyperciteIDa);
         
+        console.log('🔍 VERIFICATION - Updated nodeChunk hypercite:', verifyHypercite);
+        console.log('🔍 VERIFICATION - citedIN array:', verifyHypercite?.citedIN);
+        
+        foundAndUpdated = true;
         updatedRelationshipStatus = result.relationshipStatus;
         
         // Get the updated nodeChunk for PostgreSQL sync
@@ -1542,6 +1540,10 @@ export function updateCitationForExistingHypercite(
       return false;
     }
 
+    // 🔧 MOVED VERIFICATION HERE - After main hypercites store update:
+    const verifyMainHypercite = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
+    console.log('🔍 VERIFICATION - Main hypercites store AFTER update:', verifyMainHypercite);
+
     // 🆕 3) Update timestamps for all affected books
     const libraryRecords = [];
     for (const bookId of affectedBooks) {
@@ -1576,39 +1578,39 @@ export function updateCitationForExistingHypercite(
         console.log('✅ Successfully synced hypercite to PostgreSQL');
       }
 
-    if (libraryRecords.length) {
-      console.log(
-        `🔄 Updating timestamps for ${libraryRecords.length} library records...`
-      );
+      if (libraryRecords.length) {
+        console.log(
+          `🔄 Updating timestamps for ${libraryRecords.length} library records...`
+        );
 
-      for (const lr of libraryRecords) {
-        // ✅ Only send book and timestamp, like hyperlights do
-        const payload = {
-          book: lr.book,
-          timestamp: lr.timestamp || Date.now()
-        };
+        for (const lr of libraryRecords) {
+          // ✅ Only send book and timestamp, like hyperlights do
+          const payload = {
+            book: lr.book,
+            timestamp: lr.timestamp || Date.now()
+          };
 
-        const res = await fetch("/api/db/library/update-timestamp", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-CSRF-TOKEN":
-              document.querySelector('meta[name="csrf-token"]')?.content
-          },
-          credentials: "include",
-          body: JSON.stringify(payload)
-        });
+          const res = await fetch("/api/db/library/update-timestamp", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-TOKEN":
+                document.querySelector('meta[name="csrf-token"]')?.content
+            },
+            credentials: "include",
+            body: JSON.stringify(payload)
+          });
 
-        if (!res.ok) {
-          console.error(
-            `❌ Failed to update timestamp for book ${lr.book}:`,
-            await res.text()
-          );
-        } else {
-          console.log(`✅ Timestamp updated for book ${lr.book}`);
+          if (!res.ok) {
+            console.error(
+              `❌ Failed to update timestamp for book ${lr.book}:`,
+              await res.text()
+            );
+          } else {
+            console.log(`✅ Timestamp updated for book ${lr.book}`);
+          }
         }
       }
-    }
       
     } catch (error) {
       console.error('❌ Error during PostgreSQL sync:', error);
