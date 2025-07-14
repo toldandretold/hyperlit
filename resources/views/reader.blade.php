@@ -28,11 +28,11 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
   </a>
       
       <div class="spacer"></div>
-
+      <div class="reader-content-wrapper">
   <!-- Load the content of the main-text.md file -->
   <div id="{{ $book }}" class="main-content" contenteditable="{{ $editMode ? 'true' : 'false' }}"> 
       </div>
-
+      </div>
       <div class="spacer"></div>
 
   <div id="topRightContainer" class="loading">
