@@ -14,11 +14,15 @@ body {
   color: #cbcccc;
 }
 
-/* 2. App Container - The main positioning context */
 #app-container {
   width: 100%;
-  height: 100vh; /* Use viewport height instead of 100% */
+  height: 100vh;
   position: relative;
+}
+
+
+/* Only use flexbox on reader page */
+body[data-page="reader"] #app-container {
   display: flex;
   flex-direction: column;
 }
@@ -42,6 +46,16 @@ body {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   box-sizing: border-box;
+}
+
+/* Flexbox sizing only for reader */
+body[data-page="reader"] .reader-content-wrapper {
+  flex: 1; /* Take up remaining space */
+}
+
+/* Traditional height for home page */
+body[data-page="home"] .home-content-wrapper {
+  height: 100vh; /* Full height for home page */
 }
 
 #keyboard-spacer {
