@@ -60,7 +60,7 @@ class KeyboardManager {
     return false;
   }
 
-  // MODIFIED: This now triggers the scroll command reliably.
+
 handleViewportChange() {
   const vv = window.visualViewport;
   const referenceHeight = this.isIOS
@@ -72,45 +72,20 @@ handleViewportChange() {
     this.isKeyboardOpen = keyboardOpen;
     this.adjustLayout(keyboardOpen);
 
-    // --- FIXED VERSION ---
     // If the keyboard just opened AND we have a focused element...
     if (keyboardOpen && this.state.focusedElement) {
-      // ...then after a delay, scroll it into view if it's actually blocked.
+      // Wait for keyboard to fully settle, then use native scroll
       setTimeout(() => {
         if (this.state.focusedElement) {
-          console.log("✅ Checking if element needs scrolling.");
-          this.scrollElementIfBlocked(this.state.focusedElement);
+          console.log("✅ Scrolling element into view.");
+          this.state.focusedElement.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+            inline: "nearest"
+          });
         }
-      }, 300);
+      }, 500); // Longer delay to let keyboard fully settle
     }
-  }
-}
-
-// NEW METHOD: Only scroll if element is actually blocked by keyboard/toolbar
-scrollElementIfBlocked(element) {
-  const scrollContainer = document.querySelector(".reader-content-wrapper");
-  if (!scrollContainer) return;
-
-  const elementRect = element.getBoundingClientRect();
-  const toolbar = document.querySelector("#edit-toolbar");
-  const toolbarHeight = toolbar ? toolbar.getBoundingClientRect().height : 0;
-  
-  // Calculate where the keyboard+toolbar starts (this is what blocks the view)
-  const blockingTop = this.state.keyboardTop - toolbarHeight;
-  
-  // Only scroll if the element's TOP is below the blocking area
-  // (meaning it's completely hidden, not just partially)
-  if (elementRect.top > blockingTop) {
-    console.log("Element is completely blocked by keyboard/toolbar, scrolling...");
-    // Calculate how much we need to scroll up to show the element
-    const scrollAmount = elementRect.top - blockingTop + 20; // 20px buffer
-    
-    scrollContainer.scrollBy({
-      top: scrollAmount,
-      behavior: "smooth"
-    });
-  } else {
-    console.log("Element is visible, no scrolling needed.");
   }
 }
   
