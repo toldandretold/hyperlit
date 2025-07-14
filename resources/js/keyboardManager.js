@@ -167,9 +167,10 @@ scrollCaretIntoView(element) {
     if (!toolbar) return;
     const toolbarHeight = toolbar.getBoundingClientRect().height;
     
-    // Account for page scroll when positioning
-    const scrollY = window.scrollY || window.pageYOffset || 0;
-    const top = this.state.keyboardTop - toolbarHeight - scrollY;
+    // Calculate keyboard position more directly
+    const vv = window.visualViewport;
+    const keyboardTop = vv.offsetTop + vv.height;
+    const top = keyboardTop - toolbarHeight;
 
     toolbar.style.setProperty("position", "fixed", "important");
     toolbar.style.setProperty("top", `${top}px`, "important");
@@ -191,7 +192,7 @@ scrollCaretIntoView(element) {
 
     if (navButtons) {
       navButtons.style.setProperty("position", "fixed", "important");
-      navButtons.style.setProperty("top", `${top - 60 - scrollY}px`, "important");
+      navButtons.style.setProperty("top", `${top - 60}px`, "important");
       navButtons.style.setProperty("right", "5px", "important");
       navButtons.style.setProperty("z-index", "999998", "important");
       navButtons.addEventListener("touchstart", this.preventToolbarScroll, {
