@@ -214,23 +214,22 @@ scrollCaretIntoView(element) {
       props.forEach((p) => el.style.removeProperty(p));
     });
   }
-
-  createOrUpdateSpacer(height) {
-    const scrollContainer = document.querySelector(".reader-content-wrapper");
-    if (!scrollContainer) return;
-    let spacer = document.querySelector("#keyboard-spacer");
-    if (!spacer) {
-      spacer = document.createElement("div");
-      spacer.id = "keyboard-spacer";
-      scrollContainer.appendChild(spacer);
-    }
-    spacer.style.height = `${height}px`;
+createOrUpdateSpacer(height) {
+  const spacer = document.querySelector("#keyboard-spacer");
+  if (spacer) {
+    // Use the larger of keyboard height or minimum reading height
+    const minHeight = 100;
+    spacer.style.height = `${Math.max(height, minHeight)}px`;
   }
+}
 
-  removeSpacer() {
-    const spacer = document.querySelector("#keyboard-spacer");
-    if (spacer) spacer.remove();
+removeSpacer() {
+  const spacer = document.querySelector("#keyboard-spacer");
+  if (spacer) {
+    // Reset to minimum height instead of removing
+    spacer.style.height = "100px";
   }
+}
 
   destroy() {
     window.removeEventListener("focusin", this.handleFocusIn, true);
