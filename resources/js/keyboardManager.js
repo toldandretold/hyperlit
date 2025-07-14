@@ -112,39 +112,7 @@ scrollElementIfBlocked(element) {
     console.log("Element is already visible, no scrolling needed.");
   }
 }
-  // NEW METHOD: Manually scroll element into view above keyboard/toolbar
-  scrollElementIntoVisibleArea(element) {
-    const scrollContainer = document.querySelector(".reader-content-wrapper");
-    if (!scrollContainer) return;
-
-    const elementRect = element.getBoundingClientRect();
-    const toolbar = document.querySelector("#edit-toolbar");
-    const toolbarHeight = toolbar ? toolbar.getBoundingClientRect().height : 0;
-    
-    // Calculate the effective visible area (above keyboard + toolbar)
-    const effectiveViewportTop = window.visualViewport.offsetTop;
-    const effectiveViewportBottom = this.state.keyboardTop - toolbarHeight - 20; // 20px buffer
-    
-    // Check if element is below the effective visible area
-    if (elementRect.bottom > effectiveViewportBottom) {
-      // Calculate how much we need to scroll up
-      const scrollAmount = elementRect.bottom - effectiveViewportBottom;
-      
-      // Scroll the container up by that amount
-      scrollContainer.scrollBy({
-        top: scrollAmount,
-        behavior: "smooth"
-      });
-    }
-    // If element is above the effective visible area, scroll it down into view
-    else if (elementRect.top < effectiveViewportTop) {
-      const scrollAmount = effectiveViewportTop - elementRect.top;
-      scrollContainer.scrollBy({
-        top: -scrollAmount,
-        behavior: "smooth"
-      });
-    }
-  }
+  
 
   // All the functions below are from YOUR working version. They are unchanged.
   adjustLayout(keyboardOpen) {
