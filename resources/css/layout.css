@@ -44,6 +44,11 @@ body {
   box-sizing: border-box;
 }
 
+#keyboard-spacer {
+  height: 100px; /* Default minimum height for reading */
+  transition: height 0.3s ease; /* Smooth resize when keyboard appears */
+}
+
 /* Rule for the INNER CONTENT DIVs */
 .main-content {
   padding: 10px 40px 40px 40px;
