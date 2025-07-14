@@ -1,27 +1,36 @@
-// keyboardManager.js
+// keyboardManager.js - FINAL VERSION with Simple, Direct Check
 
 class KeyboardManager {
-  // ... constructor, init, handleFocusIn, preventToolbarScroll are all correct and unchanged ...
   constructor() {
     this.isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
     this.initialVisualHeight = null;
     this.isKeyboardOpen = false;
     this.state = {
-      originalMainContentPaddingBottom: null,
-      keyboardTop: null,
+      // REMOVED unnecessary state properties
       focusedElement: null,
-      elementOffsetFromContentTop: null,
-      focusedElementHeight: null,
-      needsBottomFocusHandling: false,
     };
 
+    // Bind methods
     this.handleViewportChange = this.handleViewportChange.bind(this);
     this.preventToolbarScroll = this.preventToolbarScroll.bind(this);
     this.handleFocusIn = this.handleFocusIn.bind(this);
+    this.checkAndScrollIfObscured =
+      this.checkAndScrollIfObscured.bind(this);
+
     this.init();
+  }
 
+  init() {
+    if (!window.visualViewport) {
+      console.warn("Visual Viewport API not supported");
+      return;
+    }
+    this.initialVisualHeight = window.visualViewport.height;
+    window.visualViewport.addEventListener(
+      "resize",
+      this.handleViewportChange,
+    );
     window.addEventListener("focusin", this.handleFocusIn, true);
-
     window.addEventListener(
       "focusout",
       () => {
@@ -35,40 +44,13 @@ class KeyboardManager {
     );
   }
 
-  init() {
-    if (!window.visualViewport) {
-      console.warn("Visual Viewport API not supported");
-      return;
-    }
-    this.initialVisualHeight = window.visualViewport.height;
-    window.visualViewport.addEventListener(
-      "resize",
-      this.handleViewportChange,
-    );
-  }
-
+  // SIMPLIFIED: This function now ONLY tracks the focused element.
   handleFocusIn(e) {
     if (
-      !e.target.isContentEditable &&
-      !["INPUT", "TEXTAREA"].includes(e.target.tagName)
+      e.target.isContentEditable ||
+      ["INPUT", "TEXTAREA"].includes(e.target.tagName)
     ) {
-      return;
-    }
-    const mainContent = document.querySelector(".main-content");
-    if (!mainContent) return;
-    this.state.focusedElement = e.target;
-    if (!this.isKeyboardOpen) {
-      const elementRect = e.target.getBoundingClientRect();
-      const mainContentRect = mainContent.getBoundingClientRect();
-      this.state.elementOffsetFromContentTop =
-        elementRect.top - mainContentRect.top + mainContent.scrollTop;
-      this.state.focusedElementHeight = elementRect.height;
-      const elementBottomRelativeToContent =
-        elementRect.bottom - mainContentRect.top;
-      const contentVisibleHeight = mainContentRect.height;
-      if (elementBottomRelativeToContent > contentVisibleHeight * 0.6) {
-        this.state.needsBottomFocusHandling = true;
-      }
+      this.state.focusedElement = e.target;
     }
   }
 
@@ -78,6 +60,7 @@ class KeyboardManager {
     return false;
   }
 
+  // MODIFIED: This now calls our simple check every time.
   handleViewportChange() {
     const vv = window.visualViewport;
     const referenceHeight = this.isIOS
@@ -89,153 +72,102 @@ class KeyboardManager {
       this.isKeyboardOpen = keyboardOpen;
       this.adjustLayout(keyboardOpen);
 
-      if (keyboardOpen && this.state.needsBottomFocusHandling) {
-        setTimeout(() => this.handleBottomFocusScenario(), 150);
+      // If keyboard just opened, run our check after a delay.
+      if (keyboardOpen) {
+        // 300ms is a safer delay to ensure all browser animations are done.
+        setTimeout(this.checkAndScrollIfObscured, 300);
       }
     }
   }
 
-  // THIS IS THE NEW, SMARTER FUNCTION
-  handleBottomFocusScenario() {
+  // RENAMED & REFINED: This is the core logic you want.
+  checkAndScrollIfObscured() {
     const focusedElement = this.state.focusedElement;
     const editToolbar = document.querySelector("#edit-toolbar");
 
-    // If we don't have what we need, exit.
-    if (!this.state.needsBottomFocusHandling || !focusedElement || !editToolbar) {
-      this.state.needsBottomFocusHandling = false;
+    // If there's no focused element or toolbar, we can't do anything.
+    if (!focusedElement || !editToolbar) {
       return;
     }
 
-    console.log("🔎 Checking if focused element is obscured by the toolbar...");
+    console.log("🔎 Checking if cursor is obscured...");
 
-    // Get the real-time geometry of the toolbar and the focused element
-    const toolbarRect = editToolbar.getBoundingClientRect();
     const elementRect = focusedElement.getBoundingClientRect();
+    const toolbarRect = editToolbar.getBoundingClientRect();
 
-    // The "danger zone" starts at the top of the toolbar.
+    // The "danger zone" is any area covered by the toolbar.
     const obstructionTop = toolbarRect.top;
-    const buffer = 10; // A 10px buffer for comfort
 
-    // CONDITION: Is the bottom of our element below the top of the toolbar?
-    if (elementRect.bottom > obstructionTop - buffer) {
-      console.log("✅ Obscured! Scrolling into view.");
-
-      // ACTION: Scroll the element to be just above the toolbar.
-      // 'block: "end"' is great for this. It tries to align the
-      // bottom of the element with the bottom of the visible scroll area.
+    // CONDITION: Is the bottom of the element hidden behind the toolbar?
+    if (elementRect.bottom > obstructionTop) {
+      console.log("✅ Obscured! Scrolling just enough to make it visible.");
+      // 'nearest' is the correct, minimal-scroll option.
       focusedElement.scrollIntoView({
         behavior: "smooth",
-        block: "end",
-        inline: "nearest",
+        block: "nearest",
       });
     } else {
-      console.log("👍 Element is already visible. No scroll needed.");
+      console.log("👍 Visible. No scroll needed.");
     }
-
-    // We've handled it, so reset the flag.
-    this.state.needsBottomFocusHandling = false;
   }
 
-  /**
-   * MODIFIED VERSION: Integrates the spacer logic.
-   */
+  // This function is now only called from handleViewportChange
   adjustLayout(keyboardOpen) {
     const appContainer = document.querySelector("#app-container");
     const mainContent = document.querySelector(".main-content");
     const editToolbar = document.querySelector("#edit-toolbar");
-    const navButtons = document.querySelector("#nav-buttons");
 
     if (keyboardOpen) {
       const vv = window.visualViewport;
 
-      // --- YOUR EXISTING LOGIC (UNCHANGED) ---
       if (appContainer) {
         appContainer.style.setProperty("position", "fixed", "important");
         appContainer.style.setProperty("top", `${vv.offsetTop}px`, "important");
         appContainer.style.setProperty("height", `${vv.height}px`, "important");
-        appContainer.style.setProperty("width", "100%", "important");
-        appContainer.style.setProperty("left", "0", "important");
-        appContainer.style.setProperty("z-index", "1", "important");
       }
-      // --- END OF YOUR EXISTING LOGIC ---
 
-      // ✨ NEW: Add the spacer to create scroll room
       const keyboardHeight = window.innerHeight - vv.height;
       this.createOrUpdateSpacer(keyboardHeight);
 
-      if (this.state.originalMainContentPaddingBottom === null && mainContent) {
-        this.state.originalMainContentPaddingBottom =
-          window.getComputedStyle(mainContent).paddingBottom;
-      }
+      if (editToolbar) {
+        const toolbarHeight = editToolbar.getBoundingClientRect().height;
+        const toolbarTop = vv.offsetTop + vv.height - toolbarHeight;
+        editToolbar.style.setProperty("position", "fixed", "important");
+        editToolbar.style.setProperty("top", `${toolbarTop}px`, "important");
+        editToolbar.style.setProperty("left", "0", "important");
+        editToolbar.style.setProperty("right", "0", "important");
+        editToolbar.style.setProperty("z-index", "999999", "important");
+        editToolbar.addEventListener("touchstart", this.preventToolbarScroll, {
+          passive: false,
+        });
 
-      this.state.keyboardTop = vv.offsetTop + vv.height;
-      this.moveToolbarAboveKeyboard(editToolbar, navButtons, mainContent);
+        if (mainContent) {
+          const paddingBottom = toolbarHeight + 80;
+          mainContent.style.setProperty(
+            "padding-bottom",
+            `${paddingBottom}px`,
+            "important",
+          );
+        }
+      }
     } else {
       // KEYBOARD CLOSED: Reset everything
       if (editToolbar) {
         editToolbar.removeEventListener("touchstart", this.preventToolbarScroll);
       }
-      if (navButtons) {
-        navButtons.removeEventListener("touchstart", this.preventToolbarScroll);
-      }
-
-      // ✨ NEW: Remove the spacer on close
       this.removeSpacer();
-
-      this.resetInlineStyles(appContainer, mainContent, editToolbar, navButtons);
-
-      this.state.originalMainContentPaddingBottom = null;
-      this.state.keyboardTop = null;
-      this.state.needsBottomFocusHandling = false;
+      this.resetInlineStyles(appContainer, mainContent, editToolbar);
     }
   }
 
-  // This method is unchanged
-  moveToolbarAboveKeyboard(toolbar, navButtons, mainContent) {
-    if (!toolbar) return;
-    const toolbarHeight = toolbar.getBoundingClientRect().height;
-    const top = this.state.keyboardTop - toolbarHeight;
-
-    toolbar.style.setProperty("position", "fixed", "important");
-    toolbar.style.setProperty("top", `${top}px`, "important");
-    toolbar.style.setProperty("left", "0", "important");
-    toolbar.style.setProperty("right", "0", "important");
-    toolbar.style.setProperty("z-index", "999999", "important");
-    toolbar.addEventListener("touchstart", this.preventToolbarScroll, {
-      passive: false,
-    });
-
-    if (mainContent) {
-      const paddingBottom = toolbarHeight + 80;
-      mainContent.style.setProperty(
-        "padding-bottom",
-        `${paddingBottom}px`,
-        "important",
-      );
-    }
-
-    if (navButtons) {
-      navButtons.style.setProperty("position", "fixed", "important");
-      navButtons.style.setProperty("top", `${top - 60}px`, "important");
-      navButtons.style.setProperty("right", "5px", "important");
-      navButtons.style.setProperty("z-index", "999998", "important");
-      navButtons.addEventListener("touchstart", this.preventToolbarScroll, {
-        passive: false,
-      });
-    }
-  }
-
-  // This method is unchanged
   resetInlineStyles(...elements) {
     const props = [
       "position",
       "top",
       "left",
       "height",
-      "width",
-      "z-index",
       "padding-bottom",
-      "touch-action",
+      "z-index",
     ];
     elements.forEach((el) => {
       if (!el) return;
@@ -243,36 +175,23 @@ class KeyboardManager {
     });
   }
 
-  // ✨ NEW: Helper function to manage the spacer element.
-  // THIS IS THE NEW, CORRECTED FUNCTION
   createOrUpdateSpacer(height) {
-    // CHANGE 1: Look for the new wrapper class instead of .main-content
     const scrollContainer = document.querySelector(".reader-content-wrapper");
-
-    // If the wrapper doesn't exist (e.g., on the home page), do nothing.
-    if (!scrollContainer) {
-      return;
-    }
-
+    if (!scrollContainer) return;
     let spacer = document.querySelector("#keyboard-spacer");
     if (!spacer) {
       spacer = document.createElement("div");
       spacer.id = "keyboard-spacer";
-      // CHANGE 2: Append the spacer to the wrapper, not the editable div.
       scrollContainer.appendChild(spacer);
     }
     spacer.style.height = `${height}px`;
   }
 
-  // ✨ NEW: Helper function to remove the spacer.
   removeSpacer() {
     const spacer = document.querySelector("#keyboard-spacer");
-    if (spacer) {
-      spacer.remove();
-    }
+    if (spacer) spacer.remove();
   }
 
-  // This method is unchanged
   destroy() {
     window.removeEventListener("focusin", this.handleFocusIn, true);
     if (window.visualViewport) {
