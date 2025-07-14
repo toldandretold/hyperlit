@@ -62,6 +62,7 @@ class KeyboardManager {
 
 
 // MODIFIED: This now triggers the scroll command reliably.
+// MODIFIED: This now triggers the scroll command reliably.
 handleViewportChange() {
   const vv = window.visualViewport;
   const referenceHeight = this.isIOS
@@ -78,21 +79,39 @@ handleViewportChange() {
       // Wait for keyboard to fully settle, then check if element is visible
       setTimeout(() => {
         if (this.state.focusedElement) {
-          const rect = this.state.focusedElement.getBoundingClientRect();
-          const vv = window.visualViewport;
-          
-          // Only scroll if element is NOT visible in current viewport
-          if (rect.bottom < vv.offsetTop || rect.top > vv.offsetTop + vv.height) {
-            console.log("Element is not visible, scrolling.");
-            this.state.focusedElement.scrollIntoView({
-              behavior: "smooth",
-              block: "center"
-            });
-          } else {
-            console.log("Element is visible, doing nothing.");
-          }
+          this.debugAndScroll(this.state.focusedElement);
         }
       }, 500);
+    }
+  }
+}
+
+debugAndScroll(element) {
+  const elementRect = element.getBoundingClientRect();
+  const toolbar = document.querySelector("#edit-toolbar");
+  const toolbarRect = toolbar ? toolbar.getBoundingClientRect() : null;
+  
+  console.log("=== DEBUG INFO ===");
+  console.log("Element bottom:", elementRect.bottom);
+  console.log("Element top:", elementRect.top);
+  console.log("Keyboard top:", this.state.keyboardTop);
+  console.log("Toolbar rect:", toolbarRect);
+  console.log("Visual viewport height:", window.visualViewport.height);
+  console.log("Visual viewport offsetTop:", window.visualViewport.offsetTop);
+  
+  if (toolbarRect) {
+    const blockingLine = toolbarRect.top;
+    console.log("Blocking line (toolbar top):", blockingLine);
+    console.log("Is element covered?", elementRect.bottom > blockingLine);
+    
+    if (elementRect.bottom > blockingLine) {
+      console.log("SCROLLING!");
+      element.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+    } else {
+      console.log("NOT SCROLLING - element is visible");
     }
   }
 }
