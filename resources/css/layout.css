@@ -18,14 +18,11 @@ body {
   width: 100%;
   height: 100vh;
   position: relative;
-}
-
-
-/* Only use flexbox on reader page */
-body[data-page="reader"] #app-container {
   display: flex;
   flex-direction: column;
 }
+
+
 
 /* 
    ==================================================
@@ -48,14 +45,17 @@ body[data-page="reader"] #app-container {
   box-sizing: border-box;
 }
 
+.home-content-wrapper .main-content {
+  flex: none; /* Don't let main-content interfere with flex layout */
+}
+
 /* Flexbox sizing only for reader */
 body[data-page="reader"] .reader-content-wrapper {
   flex: 1; /* Take up remaining space */
 }
 
-/* Traditional height for home page */
 body[data-page="home"] .home-content-wrapper {
-  height: 100vh; /* Full height for home page */
+  flex: 1; /* Change from height: 100vh to flex: 1 */
 }
 
 #keyboard-spacer {
@@ -93,15 +93,21 @@ body[data-page="home"] .home-content-wrapper {
   z-index: 10;
 }
 
-/* Sticky Header (for HOME page only) - NO DUPLICATION */
-.fixed-header {
+
+arranger-buttons-container {
+    padding-left: 60px;
+}
+body[data-page="home"] .fixed-header {
   position: sticky;
   top: 0;
   background-color: #221f20;
   z-index: 10;
   padding-bottom: 10px;
+  /* Add this to prevent overlap */
+  margin: 0 -10px; /* Negative margin to extend to edges */
+  padding: 0 10px; /* Padding to bring content back in */
+  padding-left: 60px;
 }
-
 /* 
    ==================================================
    5. Text Wrapping & Overflow Fixes
