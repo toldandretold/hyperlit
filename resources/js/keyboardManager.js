@@ -72,20 +72,51 @@ class KeyboardManager {
       this.isKeyboardOpen = keyboardOpen;
       this.adjustLayout(keyboardOpen);
 
-      // --- THIS IS THE FIX ---
+      // --- THIS IS THE IMPROVED FIX ---
       // If the keyboard just opened AND we have a focused element...
       if (keyboardOpen && this.state.focusedElement) {
-        // ...then after a delay, scroll it into view.
+        // ...then after a delay, scroll it into view above the keyboard/toolbar.
         setTimeout(() => {
           if (this.state.focusedElement) {
-            console.log("✅ Ensuring element is visible.");
-            this.state.focusedElement.scrollIntoView({
-              behavior: "smooth",
-              block: "nearest",
-            });
+            console.log("✅ Ensuring element is visible above keyboard.");
+            this.scrollElementIntoVisibleArea(this.state.focusedElement);
           }
         }, 300); // A slightly longer delay is more reliable
       }
+    }
+  }
+
+  // NEW METHOD: Manually scroll element into view above keyboard/toolbar
+  scrollElementIntoVisibleArea(element) {
+    const scrollContainer = document.querySelector(".reader-content-wrapper");
+    if (!scrollContainer) return;
+
+    const elementRect = element.getBoundingClientRect();
+    const toolbar = document.querySelector("#edit-toolbar");
+    const toolbarHeight = toolbar ? toolbar.getBoundingClientRect().height : 0;
+    
+    // Calculate the effective visible area (above keyboard + toolbar)
+    const effectiveViewportTop = window.visualViewport.offsetTop;
+    const effectiveViewportBottom = this.state.keyboardTop - toolbarHeight - 20; // 20px buffer
+    
+    // Check if element is below the effective visible area
+    if (elementRect.bottom > effectiveViewportBottom) {
+      // Calculate how much we need to scroll up
+      const scrollAmount = elementRect.bottom - effectiveViewportBottom;
+      
+      // Scroll the container up by that amount
+      scrollContainer.scrollBy({
+        top: scrollAmount,
+        behavior: "smooth"
+      });
+    }
+    // If element is above the effective visible area, scroll it down into view
+    else if (elementRect.top < effectiveViewportTop) {
+      const scrollAmount = effectiveViewportTop - elementRect.top;
+      scrollContainer.scrollBy({
+        top: -scrollAmount,
+        behavior: "smooth"
+      });
     }
   }
 
