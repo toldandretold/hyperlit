@@ -1531,7 +1531,12 @@ export function updateCitationForExistingHypercite(
       hyperciteIDa,
       {
         citedIN: existing.citedIN,
-        relationshipStatus: updatedRelationshipStatus
+        relationshipStatus: updatedRelationshipStatus,
+        // 🔧 ADD THIS: Update the hypercitedHTML to reflect new class
+        hypercitedHTML: existing.hypercitedHTML.replace(
+          /class="[^"]*"/,
+          `class="${updatedRelationshipStatus}"`
+        )
       }
     );
 
