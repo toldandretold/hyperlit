@@ -355,12 +355,21 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
       console.log("NodeChunk record to put:", JSON.stringify(updatedNodeChunkRecord));
 
       // 👈 ADD THIS: Store the updated record for API sync
+      console.log("About to save nodeChunk with hypercites:", JSON.stringify(updatedNodeChunkRecord.hypercites, null, 2));
       updatedNodeChunks.push(updatedNodeChunkRecord);
 
       const putRequestNodeChunk = nodeChunksStore.put(updatedNodeChunkRecord);
       await new Promise((resolve, reject) => {
         putRequestNodeChunk.onsuccess = () => {
           console.log(`✅ Updated nodeChunk [${book}, ${block.startLine}] with NEW hypercite info.`);
+          
+          // ✅ ADD THIS: Immediately read back what was actually saved
+          const verifyRequest = nodeChunksStore.get(createNodeChunksKey(book, block.startLine));
+          verifyRequest.onsuccess = () => {
+            console.log("🔍 IMMEDIATELY AFTER SAVE - What was actually stored:", 
+                        JSON.stringify(verifyRequest.result.hypercites, null, 2));
+          };
+          
           resolve();
         };
         putRequestNodeChunk.onerror = (e) => {
@@ -538,7 +547,7 @@ function collectHyperciteData(hyperciteId, wrapper) {
       charEnd: charEnd,
       // Don't include the full HTML, just the ID and type
       elementType: parentElement.tagName.toLowerCase(),
-      hypercite_id: hyperciteId,
+      hyperciteId: hyperciteId,
       id: parentElement.id,
     },
   ];
