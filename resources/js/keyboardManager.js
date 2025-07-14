@@ -95,16 +95,44 @@ class KeyboardManager {
     }
   }
 
+  // THIS IS THE NEW, SMARTER FUNCTION
   handleBottomFocusScenario() {
-    if (!this.state.needsBottomFocusHandling || !this.state.focusedElement) {
+    const focusedElement = this.state.focusedElement;
+    const editToolbar = document.querySelector("#edit-toolbar");
+
+    // If we don't have what we need, exit.
+    if (!this.state.needsBottomFocusHandling || !focusedElement || !editToolbar) {
+      this.state.needsBottomFocusHandling = false;
       return;
     }
-    console.log("🔧 Handling bottom focus scenario (with spacer)");
-    // This logic is now reliable because the spacer div exists.
-    this.state.focusedElement.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-    });
+
+    console.log("🔎 Checking if focused element is obscured by the toolbar...");
+
+    // Get the real-time geometry of the toolbar and the focused element
+    const toolbarRect = editToolbar.getBoundingClientRect();
+    const elementRect = focusedElement.getBoundingClientRect();
+
+    // The "danger zone" starts at the top of the toolbar.
+    const obstructionTop = toolbarRect.top;
+    const buffer = 10; // A 10px buffer for comfort
+
+    // CONDITION: Is the bottom of our element below the top of the toolbar?
+    if (elementRect.bottom > obstructionTop - buffer) {
+      console.log("✅ Obscured! Scrolling into view.");
+
+      // ACTION: Scroll the element to be just above the toolbar.
+      // 'block: "end"' is great for this. It tries to align the
+      // bottom of the element with the bottom of the visible scroll area.
+      focusedElement.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+        inline: "nearest",
+      });
+    } else {
+      console.log("👍 Element is already visible. No scroll needed.");
+    }
+
+    // We've handled it, so reset the flag.
     this.state.needsBottomFocusHandling = false;
   }
 
