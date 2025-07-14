@@ -8,7 +8,7 @@ body {
   height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  /* Remove overflow: hidden - let the wrapper handle scrolling */
   font-family: "Inter", sans-serif;
   background-color: #221f20;
   color: #cbcccc;
