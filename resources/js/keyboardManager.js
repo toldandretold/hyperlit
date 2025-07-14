@@ -98,18 +98,19 @@ scrollElementIfBlocked(element) {
   // Calculate where the keyboard+toolbar starts (this is what blocks the view)
   const blockingTop = this.state.keyboardTop - toolbarHeight;
   
-  // Only scroll if the element is actually blocked (below the blocking area)
-  if (elementRect.bottom > blockingTop) {
-    console.log("Element is blocked by keyboard/toolbar, scrolling...");
-    // Calculate how much we need to scroll up to clear the blocking area
-    const scrollAmount = elementRect.bottom - blockingTop + 20; // 20px buffer
+  // Only scroll if the element's TOP is below the blocking area
+  // (meaning it's completely hidden, not just partially)
+  if (elementRect.top > blockingTop) {
+    console.log("Element is completely blocked by keyboard/toolbar, scrolling...");
+    // Calculate how much we need to scroll up to show the element
+    const scrollAmount = elementRect.top - blockingTop + 20; // 20px buffer
     
     scrollContainer.scrollBy({
       top: scrollAmount,
       behavior: "smooth"
     });
   } else {
-    console.log("Element is already visible, no scrolling needed.");
+    console.log("Element is visible, no scrolling needed.");
   }
 }
   
