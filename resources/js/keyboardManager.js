@@ -1,4 +1,4 @@
-// keyboardManager.js - A radically simpler approach
+// keyboardManager.js - Combines working spacer with working toolbar logic
 
 class KeyboardManager {
   constructor() {
@@ -20,19 +20,42 @@ class KeyboardManager {
     const vv = window.visualViewport;
     const keyboardIsOpenNow = vv.height < window.innerHeight * 0.9;
 
-    // Only act if the keyboard state changes
     if (keyboardIsOpenNow !== this.isKeyboardOpen) {
       this.isKeyboardOpen = keyboardIsOpenNow;
 
       if (keyboardIsOpenNow) {
-        // Keyboard is open: add a spacer
-        console.log("⌨️ Keyboard opened. Adding spacer.");
+        console.log("⌨️ Keyboard opened. Adding spacer and positioning toolbar.");
+        // --- Part 1: The Spacer (This works) ---
         const keyboardHeight = window.innerHeight - vv.height;
         this.createOrUpdateSpacer(keyboardHeight);
+
+        // --- Part 2: Position the Toolbar (Bringing this back) ---
+        const toolbar = document.querySelector("#edit-toolbar");
+        if (toolbar) {
+          const toolbarHeight = toolbar.getBoundingClientRect().height;
+          // Calculate where the top of the toolbar should be
+          const toolbarTop = vv.offsetTop + vv.height - toolbarHeight;
+
+          toolbar.style.setProperty("position", "fixed", "important");
+          toolbar.style.setProperty("top", `${toolbarTop}px`, "important");
+          toolbar.style.setProperty("left", "0", "important");
+          toolbar.style.setProperty("right", "0", "important");
+          toolbar.style.setProperty("z-index", "9999", "important");
+        }
       } else {
-        // Keyboard is closed: remove the spacer
-        console.log("⌨️ Keyboard closed. Removing spacer.");
+        console.log("⌨️ Keyboard closed. Removing spacer and resetting toolbar.");
+        // --- Part 1: Remove the Spacer ---
         this.removeSpacer();
+
+        // --- Part 2: Reset the Toolbar ---
+        const toolbar = document.querySelector("#edit-toolbar");
+        if (toolbar) {
+          toolbar.style.removeProperty("position");
+          toolbar.style.removeProperty("top");
+          toolbar.style.removeProperty("left");
+          toolbar.style.removeProperty("right");
+          toolbar.style.removeProperty("z-index");
+        }
       }
     }
   }
@@ -45,12 +68,8 @@ class KeyboardManager {
     if (!spacer) {
       spacer = document.createElement("div");
       spacer.id = "keyboard-spacer";
-      // This is for debugging, makes the spacer visible
-      // spacer.style.background = "rgba(255,0,0,0.2)";
       scrollContainer.appendChild(spacer);
     }
-    // We only need to create enough space for the browser to scroll into.
-    // The keyboard height is a good, simple value for this.
     spacer.style.height = `${height}px`;
   }
 
@@ -69,6 +88,15 @@ class KeyboardManager {
       );
     }
     this.removeSpacer(); // Cleanup
+    // Also reset toolbar on destroy
+    const toolbar = document.querySelector("#edit-toolbar");
+    if (toolbar) {
+      toolbar.style.removeProperty("position");
+      toolbar.style.removeProperty("top");
+      toolbar.style.removeProperty("left");
+      toolbar.style.removeProperty("right");
+      toolbar.style.removeProperty("z-index");
+    }
   }
 }
 
