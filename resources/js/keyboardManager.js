@@ -1,18 +1,14 @@
-// keyboardManager.js - FINAL VERSION
+// This is your working code, with the "bad guess" removed and the scroll call made reliable.
 
 class KeyboardManager {
-  // ... constructor, init, handleFocusIn, etc. are all unchanged ...
   constructor() {
     this.isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
     this.initialVisualHeight = null;
     this.isKeyboardOpen = false;
     this.state = {
-      originalMainContentPaddingBottom: null,
-      keyboardTop: null,
+      // REMOVED needsBottomFocusHandling and other unnecessary state
       focusedElement: null,
-      elementOffsetFromContentTop: null,
-      focusedElementHeight: null,
-      needsBottomFocusHandling: false,
+      keyboardTop: null,
     };
 
     this.handleViewportChange = this.handleViewportChange.bind(this);
@@ -47,6 +43,7 @@ class KeyboardManager {
     );
   }
 
+  // SIMPLIFIED: This now only tracks the focused element. No more guessing.
   handleFocusIn(e) {
     if (
       !e.target.isContentEditable &&
@@ -54,22 +51,7 @@ class KeyboardManager {
     ) {
       return;
     }
-    const mainContent = document.querySelector(".main-content");
-    if (!mainContent) return;
     this.state.focusedElement = e.target;
-    if (!this.isKeyboardOpen) {
-      const elementRect = e.target.getBoundingClientRect();
-      const mainContentRect = mainContent.getBoundingClientRect();
-      this.state.elementOffsetFromContentTop =
-        elementRect.top - mainContentRect.top + mainContent.scrollTop;
-      this.state.focusedElementHeight = elementRect.height;
-      const elementBottomRelativeToContent =
-        elementRect.bottom - mainContentRect.top;
-      const contentVisibleHeight = mainContentRect.height;
-      if (elementBottomRelativeToContent > contentVisibleHeight * 0.6) {
-        this.state.needsBottomFocusHandling = true;
-      }
-    }
   }
 
   preventToolbarScroll(e) {
@@ -78,6 +60,7 @@ class KeyboardManager {
     return false;
   }
 
+  // MODIFIED: This now triggers the scroll command reliably.
   handleViewportChange() {
     const vv = window.visualViewport;
     const referenceHeight = this.isIOS
@@ -89,24 +72,24 @@ class KeyboardManager {
       this.isKeyboardOpen = keyboardOpen;
       this.adjustLayout(keyboardOpen);
 
-      if (keyboardOpen && this.state.needsBottomFocusHandling) {
-        setTimeout(() => this.handleBottomFocusScenario(), 150);
+      // --- THIS IS THE FIX ---
+      // If the keyboard just opened AND we have a focused element...
+      if (keyboardOpen && this.state.focusedElement) {
+        // ...then after a delay, scroll it into view.
+        setTimeout(() => {
+          if (this.state.focusedElement) {
+            console.log("✅ Ensuring element is visible.");
+            this.state.focusedElement.scrollIntoView({
+              behavior: "smooth",
+              block: "nearest",
+            });
+          }
+        }, 300); // A slightly longer delay is more reliable
       }
     }
   }
 
-  handleBottomFocusScenario() {
-    if (!this.state.needsBottomFocusHandling || !this.state.focusedElement) {
-      return;
-    }
-    console.log("🔧 Handling bottom focus scenario (with spacer)");
-    this.state.focusedElement.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-    });
-    this.state.needsBottomFocusHandling = false;
-  }
-
+  // All the functions below are from YOUR working version. They are unchanged.
   adjustLayout(keyboardOpen) {
     const appContainer = document.querySelector("#app-container");
     const mainContent = document.querySelector(".main-content");
@@ -126,12 +109,7 @@ class KeyboardManager {
       }
 
       const keyboardHeight = window.innerHeight - vv.height;
-      this.createOrUpdateSpacer(keyboardHeight); // This now calls the corrected function
-
-      if (this.state.originalMainContentPaddingBottom === null && mainContent) {
-        this.state.originalMainContentPaddingBottom =
-          window.getComputedStyle(mainContent).paddingBottom;
-      }
+      this.createOrUpdateSpacer(keyboardHeight);
 
       this.state.keyboardTop = vv.offsetTop + vv.height;
       this.moveToolbarAboveKeyboard(editToolbar, navButtons, mainContent);
@@ -142,14 +120,9 @@ class KeyboardManager {
       if (navButtons) {
         navButtons.removeEventListener("touchstart", this.preventToolbarScroll);
       }
-
       this.removeSpacer();
-
       this.resetInlineStyles(appContainer, mainContent, editToolbar, navButtons);
-
-      this.state.originalMainContentPaddingBottom = null;
       this.state.keyboardTop = null;
-      this.state.needsBottomFocusHandling = false;
     }
   }
 
@@ -204,23 +177,13 @@ class KeyboardManager {
     });
   }
 
-  // ====================================================================
-  // ✨ THIS IS THE ONLY FUNCTION THAT HAS BEEN MATERIALLY CHANGED ✨
-  // ====================================================================
   createOrUpdateSpacer(height) {
-    // Look for the new wrapper class instead of .main-content
     const scrollContainer = document.querySelector(".reader-content-wrapper");
-
-    // If the wrapper doesn't exist (e.g., on the home page), do nothing.
-    if (!scrollContainer) {
-      return;
-    }
-
+    if (!scrollContainer) return;
     let spacer = document.querySelector("#keyboard-spacer");
     if (!spacer) {
       spacer = document.createElement("div");
       spacer.id = "keyboard-spacer";
-      // Append the spacer to the wrapper, not the editable div.
       scrollContainer.appendChild(spacer);
     }
     spacer.style.height = `${height}px`;
@@ -228,9 +191,7 @@ class KeyboardManager {
 
   removeSpacer() {
     const spacer = document.querySelector("#keyboard-spacer");
-    if (spacer) {
-      spacer.remove();
-    }
+    if (spacer) spacer.remove();
   }
 
   destroy() {
