@@ -34,8 +34,7 @@
     </button>
   </div>
 
-  <!-- Spacer to push content to the center -->
-  <div class="spacer"></div>
+ 
 
   <!-- 
     ==================================================================
@@ -63,7 +62,7 @@
   <!-- ================================================================ -->
 
   <!-- Spacer to keep the content centered -->
-  <div class="spacer"></div>
+  
 
   <!-- Right Column: The New Book Button -->
   <div id="topRightContainer" class="loading">
