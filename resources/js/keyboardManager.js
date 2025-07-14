@@ -167,10 +167,15 @@ scrollCaretIntoView(element) {
     if (!toolbar) return;
     const toolbarHeight = toolbar.getBoundingClientRect().height;
     
-    // Calculate keyboard position more directly
+    // Get current scroll position
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+    
+    // Calculate keyboard position accounting for scroll
     const vv = window.visualViewport;
-    const keyboardTop = vv.offsetTop + vv.height;
+    const keyboardTop = vv.offsetTop + vv.height + scrollY;
     const top = keyboardTop - toolbarHeight;
+
+    console.log("ScrollY:", scrollY, "VV offsetTop:", vv.offsetTop, "VV height:", vv.height, "Final top:", top);
 
     toolbar.style.setProperty("position", "fixed", "important");
     toolbar.style.setProperty("top", `${top}px`, "important");
