@@ -166,16 +166,7 @@ scrollCaretIntoView(element) {
   moveToolbarAboveKeyboard(toolbar, navButtons, mainContent) {
     if (!toolbar) return;
     const toolbarHeight = toolbar.getBoundingClientRect().height;
-    
-    // Get current scroll position
-    const scrollY = window.scrollY || window.pageYOffset || 0;
-    
-    // Calculate keyboard position accounting for scroll
-    const vv = window.visualViewport;
-    const keyboardTop = vv.offsetTop + vv.height + scrollY;
-    const top = keyboardTop - toolbarHeight;
-
-    console.log("ScrollY:", scrollY, "VV offsetTop:", vv.offsetTop, "VV height:", vv.height, "Final top:", top);
+    const top = this.state.keyboardTop - toolbarHeight;
 
     toolbar.style.setProperty("position", "fixed", "important");
     toolbar.style.setProperty("top", `${top}px`, "important");
@@ -205,6 +196,7 @@ scrollCaretIntoView(element) {
       });
     }
   }
+   
 
   resetInlineStyles(...elements) {
     const props = [
