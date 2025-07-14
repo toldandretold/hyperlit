@@ -61,6 +61,7 @@ class KeyboardManager {
   }
 
 
+// MODIFIED: This now triggers the scroll command reliably.
 handleViewportChange() {
   const vv = window.visualViewport;
   const referenceHeight = this.isIOS
@@ -74,18 +75,34 @@ handleViewportChange() {
 
     // If the keyboard just opened AND we have a focused element...
     if (keyboardOpen && this.state.focusedElement) {
-      // Wait for keyboard to fully settle, then use native scroll
+      // Wait for keyboard to fully settle, then check if we need to scroll
       setTimeout(() => {
         if (this.state.focusedElement) {
-          console.log("✅ Scrolling element into view.");
-          this.state.focusedElement.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-            inline: "nearest"
-          });
+          console.log("✅ Checking if element is blocked by keyboard.");
+          this.scrollIfBlocked(this.state.focusedElement);
         }
       }, 500); // Longer delay to let keyboard fully settle
     }
+  }
+}
+
+// Simple check: only scroll if actually blocked
+scrollIfBlocked(element) {
+  const elementRect = element.getBoundingClientRect();
+  const toolbar = document.querySelector("#edit-toolbar");
+  const toolbarHeight = toolbar ? toolbar.getBoundingClientRect().height : 0;
+  const blockingTop = this.state.keyboardTop - toolbarHeight;
+  
+  // Only scroll if the element is actually blocked
+  if (elementRect.bottom > blockingTop) {
+    console.log("Element is blocked, using native scroll.");
+    element.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+      inline: "nearest"
+    });
+  } else {
+    console.log("Element is visible, no scrolling needed.");
   }
 }
   
