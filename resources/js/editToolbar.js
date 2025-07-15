@@ -33,6 +33,12 @@ class EditToolbar {
     this.currentSelection = null;
     this.isFormatting = false;
     this.lastValidRange = null;
+
+    if (this.isMobile) {
+      this.mobileBackupRange = null;
+      this.mobileBackupText = "";
+      this.mobileBackupContainer = null;
+    }
   }
   
   init() {
