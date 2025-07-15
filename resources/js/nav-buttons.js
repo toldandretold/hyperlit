@@ -51,9 +51,7 @@ export default class NavButtons {
     this.isTouchDevice =
       "ontouchstart" in window || navigator.maxTouchPoints > 0;
 
-    // Bind event handlers.
-    this.handlePointerDown = this.handlePointerDown.bind(this);
-    this.handlePointerUp = this.handlePointerUp.bind(this);
+    // Bind event handlers - REMOVED pointer event bindings
     this.handleClick = this.handleClick.bind(this);
     this.updatePosition = this.updatePosition.bind(this);
     this.handleResize = this.handleResize.bind(this);
@@ -68,16 +66,17 @@ export default class NavButtons {
    */
   init() {
     if (this.isTouchDevice) {
-      document.addEventListener("pointerdown", this.handlePointerDown);
-      document.addEventListener("pointerup", this.handlePointerUp);
+      // Use touchstart/touchend instead of pointerdown/pointerup for better control
+      document.addEventListener("touchstart", this.handleTouchStart.bind(this), { passive: false });
+      document.addEventListener("touchend", this.handleTouchEnd.bind(this), { passive: false });
     } else {
       document.addEventListener("click", this.handleClick);
     }
     this.updatePosition();
     window.addEventListener("resize", this.handleResize);
     window.addEventListener('keyboardStateChange', this.handleKeyboardChange);
-
   }
+  
 
   /**
    * Remove event listeners.
@@ -96,9 +95,10 @@ export default class NavButtons {
   /**
    * Checks if an event should be ignored.
    */
-  shouldIgnoreEvent(event) {
+shouldIgnoreEvent(event) {
   // Always ignore edit toolbar - let it handle its own events without toggling nav
   if (event.target.closest('#edit-toolbar')) {
+    console.log('NavButtons: Ignoring edit toolbar event');
     return true;
   }
   
@@ -142,27 +142,43 @@ export default class NavButtons {
   );
 }
 
-  /**
-   * Record the starting pointer/touch coordinates.
-   */
-  handlePointerDown(event) {
-    if (this.shouldIgnoreEvent(event)) return;
-    this.startX = event.clientX;
-    this.startY = event.clientY;
+  
+
+    handleTouchStart(event) {
+    if (this.shouldIgnoreEvent(event)) {
+      console.log('NavButtons: Touch start ignored');
+      return;
+    }
+    this.startX = event.touches[0].clientX;
+    this.startY = event.touches[0].clientY;
+    this.touchStartTime = Date.now();
   }
 
-  /**
-   * On pointer/touch up, check for tap.
-   */
-  handlePointerUp(event) {
-    if (this.shouldIgnoreEvent(event)) return;
-    const deltaX = Math.abs(event.clientX - this.startX);
-    const deltaY = Math.abs(event.clientY - this.startY);
-    if (deltaX < this.tapThreshold && deltaY < this.tapThreshold) {
+  handleTouchEnd(event) {
+    if (this.shouldIgnoreEvent(event)) {
+      console.log('NavButtons: Touch end ignored');
+      return;
+    }
+    
+    // Only proceed if we have stored start coordinates
+    if (this.startX === undefined || this.startY === undefined) return;
+    
+    const touch = event.changedTouches[0];
+    const deltaX = Math.abs(touch.clientX - this.startX);
+    const deltaY = Math.abs(touch.clientY - this.startY);
+    const deltaTime = Date.now() - this.touchStartTime;
+    
+    // Only toggle if it's a quick tap with minimal movement
+    if (deltaX < this.tapThreshold && deltaY < this.tapThreshold && deltaTime < 500) {
       this.elements.forEach((element) => {
         element.classList.toggle("hidden-nav");
       });
     }
+    
+    // Reset
+    this.startX = undefined;
+    this.startY = undefined;
+    this.touchStartTime = undefined;
   }
 
   /**
