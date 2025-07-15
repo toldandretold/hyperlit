@@ -47,26 +47,38 @@ class EditToolbar {
    * Attach click handlers to formatting buttons
    */
   attachButtonHandlers() {
-    if (this.boldButton) {
-      this.boldButton.addEventListener("click", () => this.formatText("bold"));
+  const buttons = [
+    { element: this.boldButton, name: "bold", action: () => this.formatText("bold") },
+    { element: this.italicButton, name: "italic", action: () => this.formatText("italic") },
+    { element: this.headingButton, name: "heading", action: () => this.formatBlock("heading") },
+    { element: this.blockquoteButton, name: "blockquote", action: () => this.formatBlock("blockquote") },
+    { element: this.codeButton, name: "code", action: () => this.formatBlock("code") }
+  ];
+  
+  buttons.forEach(({ element, name, action }) => {
+    if (element) {
+      console.log(`✅ ${name} button found:`, element);
+      
+      // Prevent selection clearing on mobile
+      element.addEventListener("touchstart", (e) => {
+        e.preventDefault(); // Prevent default touch behavior
+      });
+      
+      element.addEventListener("mousedown", (e) => {
+        e.preventDefault(); // Prevent focus change that clears selection
+      });
+      
+      element.addEventListener("click", (e) => {
+        console.log(`🖱️ ${name} button clicked!`, e);
+        e.preventDefault();
+        e.stopPropagation();
+        action();
+      });
+    } else {
+      console.log(`❌ ${name} button NOT found`);
     }
-    
-    if (this.italicButton) {
-      this.italicButton.addEventListener("click", () => this.formatText("italic"));
-    }
-    
-    if (this.headingButton) {
-      this.headingButton.addEventListener("click", () => this.formatBlock("heading"));
-    }
-    
-    if (this.blockquoteButton) {
-      this.blockquoteButton.addEventListener("click", () => this.formatBlock("blockquote"));
-    }
-    
-    if (this.codeButton) {
-      this.codeButton.addEventListener("click", () => this.formatBlock("code"));
-    }
-  }
+  });
+}
   
   /**
    * Handle selection changes within the document (only for button states and positioning)
