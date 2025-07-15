@@ -97,69 +97,50 @@ export default class NavButtons {
    * Checks if an event should be ignored.
    */
   shouldIgnoreEvent(event) {
-    // If keyboard is visible, be much more restrictive
-    if (this.isKeyboardVisible) {
-      // Only allow very specific elements when keyboard is visible
-      const allowedWhenKeyboardUp = [
-        '#editButton',           // Allow edit button specifically
-        '#edit-toolbar',         // Allow edit toolbar
-        '#edit-toolbar *',       // All children of edit toolbar
-        '#nav-buttons button',   // All buttons in nav-buttons (including editButton)
-        'button[id*="Button"]'   // All buttons with "Button" in their ID
-      ];
-      
-      const isAllowed = allowedWhenKeyboardUp.some(selector => 
-        event.target.closest(selector)
-      );
-      
-      if (!isAllowed) {
-        console.log('Ignoring event due to keyboard being visible:', event.target);
-        return true;
-      }
-      
-      // If it's the edit button specifically, always allow it
-      if (event.target.closest('#editButton')) {
-        console.log('Edit button clicked while keyboard visible - allowing');
-        return false; // Don't ignore this event
-      }
-    }
-    
-    // Edit button and edit toolbar should be ignored by NavButtons (original logic)
-    if (
-      event.target.closest(
-        "#logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button, #cloudRef, #edit-toolbar",
-      )
-    ) {
-      return true;
-    }
-    
-    if (window.isEditing) {
-      return true;
-    }
-    
-    // ... rest of your existing ignore logic ...
-    if (
-      event.target.closest("a") ||
-      event.target.closest("sup.open-icon") ||
-      event.target.closest("u.couple") ||
-      event.target.closest("u.poly")
-    ) {
-      return true;
-    }
-    if (
-      event.target.matches(
-        'button, a, input, select, textarea, [role="button"]',
-      )
-    ) {
-      return true;
-    }
-    return (
-      event.target.closest("sup.note") ||
-      event.target.closest("mark") ||
-      event.target.closest(".open") ||
-      event.target.closest(".active")
-    );
+  // Always ignore edit toolbar - let it handle its own events without toggling nav
+  if (event.target.closest('#edit-toolbar')) {
+    return true;
   }
+  
+  // Ignore other UI elements
+  if (
+    event.target.closest(
+      "#logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button, #cloudRef",
+    )
+  ) {
+    return true;
+  }
+  
+  // Don't toggle nav buttons when in edit mode
+  if (window.isEditing) {
+    return true;
+  }
+  
+  // Ignore interactive elements
+  if (
+    event.target.closest("a") ||
+    event.target.closest("sup.open-icon") ||
+    event.target.closest("u.couple") ||
+    event.target.closest("u.poly")
+  ) {
+    return true;
+  }
+  
+  if (
+    event.target.matches(
+      'button, a, input, select, textarea, [role="button"]',
+    )
+  ) {
+    return true;
+  }
+  
+  return (
+    event.target.closest("sup.note") ||
+    event.target.closest("mark") ||
+    event.target.closest(".open") ||
+    event.target.closest(".active")
+  );
+}
 
   /**
    * Record the starting pointer/touch coordinates.
