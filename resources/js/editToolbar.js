@@ -53,39 +53,60 @@ class EditToolbar {
    * Attach click handlers to formatting buttons
    */
   attachButtonHandlers() {
-  const buttons = [
-    { element: this.boldButton, name: "bold", action: () => this.formatText("bold") },
-    { element: this.italicButton, name: "italic", action: () => this.formatText("italic") },
-    { element: this.headingButton, name: "heading", action: () => this.formatBlock("heading") },
-    { element: this.blockquoteButton, name: "blockquote", action: () => this.formatBlock("blockquote") },
-    { element: this.codeButton, name: "code", action: () => this.formatBlock("code") }
-  ];
-  
-  buttons.forEach(({ element, name, action }) => {
-    if (element) {
-      console.log(`✅ ${name} button found:`, element);
-      
-      // Prevent selection clearing on mobile
-      element.addEventListener("touchstart", (e) => {
-        e.preventDefault(); // Prevent default touch behavior
-      });
-      
-      element.addEventListener("mousedown", (e) => {
-        e.preventDefault(); // Prevent focus change that clears selection
-      });
-      
-      element.addEventListener("click", (e) => {
-        console.log(`🖱️ ${name} button clicked!`, e);
-        e.preventDefault();
-        e.stopPropagation();
-        action();
-      });
-    } else {
-      console.log(`❌ ${name} button NOT found`);
-    }
-  });
-}
-  
+    const buttons = [
+      { element: this.boldButton, name: "bold", action: () => this.formatText("bold") },
+      { element: this.italicButton, name: "italic", action: () => this.formatText("italic") },
+      { element: this.headingButton, name: "heading", action: () => this.formatBlock("heading") },
+      { element: this.blockquoteButton, name: "blockquote", action: () => this.formatBlock("blockquote") },
+      { element: this.codeButton, name: "code", action: () => this.formatBlock("code") }
+    ];
+    
+    buttons.forEach(({ element, name, action }) => {
+      if (element) {
+        console.log(`✅ ${name} button found:`, element);
+        
+        // Prevent default behavior that clears selection
+        element.addEventListener("touchstart", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          // Store the current selection immediately
+          const selection = window.getSelection();
+          if (selection && selection.rangeCount > 0) {
+            this.lastValidRange = selection.getRangeAt(0).cloneRange();
+            console.log(`📱 ${name} touchstart - stored selection:`, this.lastValidRange.toString());
+          }
+        }, { passive: false });
+        
+        element.addEventListener("touchend", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          console.log(`📱 ${name} touchend - executing action`);
+          
+          // Small delay to ensure selection is stored
+          setTimeout(() => {
+            action();
+          }, 10);
+        }, { passive: false });
+        
+        // Keep desktop click handler
+        element.addEventListener("click", (e) => {
+          // Only handle click if not a touch device
+          if (!this.isMobile) {
+            console.log(`🖱️ ${name} button clicked!`, e);
+            e.preventDefault();
+            e.stopPropagation();
+            action();
+          }
+        });
+        
+      } else {
+        console.log(`❌ ${name} button NOT found`);
+      }
+    });
+  }
+    
   /**
    * Handle selection changes within the document (only for button states and positioning)
    */
