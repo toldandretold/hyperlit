@@ -108,15 +108,25 @@ class EditToolbar {
           isInEditable: editableContent.contains(container)
         });
         
-        // Only store selection if it's within editable content
+        // Store selection if it's within editable content
         if (editableContent.contains(container)) {
           // STORE THE VALID SELECTION
           this.currentSelection = selection;
-          this.lastValidRange = range.cloneRange(); // Store a copy of the range
-          this.updateButtonStates();
+          this.lastValidRange = range.cloneRange();
           
+          // On mobile, also store additional backup info
+          if (this.isMobile) {
+            this.mobileBackupRange = range.cloneRange();
+            this.mobileBackupText = selection.toString();
+            this.mobileBackupContainer = container;
+            console.log("📱 Mobile backup stored:", {
+              text: this.mobileBackupText,
+              container: this.mobileBackupContainer
+            });
+          }
+          
+          this.updateButtonStates();
         }
-        // Don't update currentSelection if it's outside editable content
       }
     }
   }
