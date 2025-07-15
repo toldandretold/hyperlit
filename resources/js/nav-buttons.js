@@ -59,6 +59,8 @@ export default class NavButtons {
     this.handleResize = this.handleResize.bind(this);
 
     this.resizeDebounceTimeout = null;
+
+    this.handleKeyboardChange = this.handleKeyboardChange.bind(this);
   }
 
   /**
@@ -73,6 +75,8 @@ export default class NavButtons {
     }
     this.updatePosition();
     window.addEventListener("resize", this.handleResize);
+    window.addEventListener('keyboardStateChange', this.handleKeyboardChange);
+
   }
 
   /**
@@ -82,10 +86,37 @@ export default class NavButtons {
     // ... your destroy logic ...
   }
 
+
+
+  handleKeyboardChange(event) {
+    this.isKeyboardVisible = event.detail.isOpen;
+    console.log('Keyboard state changed:', this.isKeyboardVisible);
+  }
+
   /**
    * Checks if an event should be ignored.
    */
   shouldIgnoreEvent(event) {
+
+    if (this.isKeyboardVisible) {
+      // Only allow very specific elements when keyboard is visible
+      const allowedWhenKeyboardUp = [
+        '#editButton',
+        '#edit-toolbar',
+        '#edit-toolbar *', // All children of edit toolbar
+        'button[id*="Button"]' // All buttons with "Button" in their ID
+      ];
+      
+      const isAllowed = allowedWhenKeyboardUp.some(selector => 
+        event.target.closest(selector)
+      );
+      
+      if (!isAllowed) {
+        console.log('Ignoring event due to keyboard being visible:', event.target);
+        return true;
+      }
+    }
+    
     // Edit button and edit toolbar should be ignored by NavButtons
     if (
       event.target.closest(
