@@ -535,109 +535,139 @@ formatBlock(type) {
     let newElement = null;
     
     switch (type) {
-      case "heading":
-        if (isTextSelected) {
-          const range = this.currentSelection.getRangeAt(0);
-          const affectedBlocks = this.getBlockElementsInRange(range);
+  case "heading":
+    if (isTextSelected) {
+      const range = this.currentSelection.getRangeAt(0);
+      const affectedBlocks = this.getBlockElementsInRange(range);
+      
+      if (affectedBlocks.length === 0) {
+        // Fallback: use the parent element of the selection
+        const parentElement = this.getSelectionParentElement();
+        const blockParent = this.findClosestBlockParent(parentElement);
+        
+        if (blockParent) {
+          const isHeading = /^H[1-6]$/.test(blockParent.tagName);
           
-          if (affectedBlocks.length === 0) {
-            // Fallback to original single-element logic
-            const parentElementForSelection = this.getSelectionParentElement();
-            // ... your existing single-element logic
-          } else {
-            // Process each block element
-            const modifiedElements = [];
-            
-            for (const block of affectedBlocks) {
-              const isHeading = /^H[1-6]$/.test(block.tagName);
-              
-              if (isHeading) {
-                // Convert heading to paragraph
-                const pElement = document.createElement("p");
-                pElement.innerHTML = block.innerHTML;
-                pElement.id = block.id; // Keep the same ID
-                block.parentNode.replaceChild(pElement, block);
-                modifiedElements.push({ id: pElement.id, element: pElement });
-              } else {
-                // Convert to heading
-                const h2Element = document.createElement("h2");
-                h2Element.innerHTML = block.innerHTML;
-                h2Element.id = block.id; // Keep the same ID
-                block.parentNode.replaceChild(h2Element, block);
-                modifiedElements.push({ id: h2Element.id, element: h2Element });
-              }
-            }
-            
-            // Restore selection across the modified elements
-            this.selectAcrossElements(modifiedElements);
-            
-            // For compatibility with existing code, set the first modified element
-            if (modifiedElements.length > 0) {
-              modifiedElementId = modifiedElements[0].id;
-              newElement = modifiedElements[0].element;
-            }
-          }
-        } else {
-          // Cursor position only - toggle heading for the entire block
-          const cursorFocusParent = this.currentSelection.focusNode.parentElement;
-          const blockParent = this.findClosestBlockParent(cursorFocusParent);
-
-          if (
-            blockParent && 
-            (blockParent.tagName === "H1" ||
-              blockParent.tagName === "H2" ||
-              blockParent.tagName === "H3" ||
-              blockParent.tagName === "H4" ||
-              blockParent.tagName === "H5" ||
-              blockParent.tagName === "H6")
-          ) {
+          if (isHeading) {
             // Convert heading to paragraph
-            const headingElement = blockParent;
-            const beforeId = findPreviousElementId(headingElement);
-            const afterId = findNextElementId(headingElement);
-
-            const currentOffset = this.getTextOffsetInElement(
-              headingElement,
-              this.currentSelection.focusNode,
-              this.currentSelection.focusOffset
-            );
-
             const pElement = document.createElement("p");
-            pElement.innerHTML = headingElement.innerHTML;
-
-            const newPId = generateIdBetween(beforeId, afterId);
-            pElement.id = newPId;
-
-            headingElement.parentNode.replaceChild(pElement, headingElement);
-            this.setCursorAtTextOffset(pElement, currentOffset);
-
-            modifiedElementId = newPId;
+            pElement.innerHTML = blockParent.innerHTML;
+            pElement.id = blockParent.id; // Keep the same ID
+            blockParent.parentNode.replaceChild(pElement, blockParent);
+            modifiedElementId = pElement.id;
             newElement = pElement;
-          } else if (blockParent) {
-            // Convert paragraph or other block to heading
-            const beforeId = findPreviousElementId(blockParent);
-            const afterId = findNextElementId(blockParent);
-
-            const currentOffset = this.getTextOffsetInElement(
-              blockParent,
-              this.currentSelection.focusNode,
-              this.currentSelection.focusOffset
-            );
-
+          } else {
+            // Convert to heading
             const h2Element = document.createElement("h2");
             h2Element.innerHTML = blockParent.innerHTML;
-
-            const newH2Id = generateIdBetween(beforeId, afterId);
-            h2Element.id = newH2Id;
-
+            h2Element.id = blockParent.id; // Keep the same ID
             blockParent.parentNode.replaceChild(h2Element, blockParent);
-            this.setCursorAtTextOffset(h2Element, currentOffset);
-
-            modifiedElementId = newH2Id;
+            modifiedElementId = h2Element.id;
             newElement = h2Element;
           }
+          
+          // Restore selection
+          if (this.currentSelection) {
+            const newRange = document.createRange();
+            newRange.selectNodeContents(newElement);
+            this.currentSelection.removeAllRanges();
+            this.currentSelection.addRange(newRange);
+          }
         }
-        break;
+      } else {
+        // Process each block element
+        const modifiedElements = [];
+        
+        for (const block of affectedBlocks) {
+          const isHeading = /^H[1-6]$/.test(block.tagName);
+          
+          if (isHeading) {
+            // Convert heading to paragraph
+            const pElement = document.createElement("p");
+            pElement.innerHTML = block.innerHTML;
+            pElement.id = block.id; // Keep the same ID
+            block.parentNode.replaceChild(pElement, block);
+            modifiedElements.push({ id: pElement.id, element: pElement });
+          } else {
+            // Convert to heading
+            const h2Element = document.createElement("h2");
+            h2Element.innerHTML = block.innerHTML;
+            h2Element.id = block.id; // Keep the same ID
+            block.parentNode.replaceChild(h2Element, block);
+            modifiedElements.push({ id: h2Element.id, element: h2Element });
+          }
+        }
+        
+        // Restore selection across the modified elements
+        this.selectAcrossElements(modifiedElements);
+        
+        // For compatibility with existing code, set the first modified element
+        if (modifiedElements.length > 0) {
+          modifiedElementId = modifiedElements[0].id;
+          newElement = modifiedElements[0].element;
+        }
+      }
+    } else {
+      // Cursor position only - toggle heading for the entire block
+      const cursorFocusParent = this.currentSelection.focusNode.parentElement;
+      const blockParent = this.findClosestBlockParent(cursorFocusParent);
+
+      if (
+        blockParent && 
+        (blockParent.tagName === "H1" ||
+          blockParent.tagName === "H2" ||
+          blockParent.tagName === "H3" ||
+          blockParent.tagName === "H4" ||
+          blockParent.tagName === "H5" ||
+          blockParent.tagName === "H6")
+      ) {
+        // Convert heading to paragraph
+        const headingElement = blockParent;
+        const beforeId = findPreviousElementId(headingElement);
+        const afterId = findNextElementId(headingElement);
+
+        const currentOffset = this.getTextOffsetInElement(
+          headingElement,
+          this.currentSelection.focusNode,
+          this.currentSelection.focusOffset
+        );
+
+        const pElement = document.createElement("p");
+        pElement.innerHTML = headingElement.innerHTML;
+
+        const newPId = generateIdBetween(beforeId, afterId);
+        pElement.id = newPId;
+
+        headingElement.parentNode.replaceChild(pElement, headingElement);
+        this.setCursorAtTextOffset(pElement, currentOffset);
+
+        modifiedElementId = newPId;
+        newElement = pElement;
+      } else if (blockParent) {
+        // Convert paragraph or other block to heading
+        const beforeId = findPreviousElementId(blockParent);
+        const afterId = findNextElementId(blockParent);
+
+        const currentOffset = this.getTextOffsetInElement(
+          blockParent,
+          this.currentSelection.focusNode,
+          this.currentSelection.focusOffset
+        );
+
+        const h2Element = document.createElement("h2");
+        h2Element.innerHTML = blockParent.innerHTML;
+
+        const newH2Id = generateIdBetween(beforeId, afterId);
+        h2Element.id = newH2Id;
+
+        blockParent.parentNode.replaceChild(h2Element, blockParent);
+        this.setCursorAtTextOffset(h2Element, currentOffset);
+
+        modifiedElementId = newH2Id;
+        newElement = h2Element;
+      }
+    }
+    break;
 
       case "blockquote":
         if (isTextSelected) {
