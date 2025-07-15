@@ -326,6 +326,8 @@ function disableEditMode() {
 
 // Add this at the end of reader-edit.js to verify the edit button is working
 console.log("Edit button element:", editBtn);
+// Add this at the end of reader-edit.js to verify the edit button is working
+console.log("Edit button element:", editBtn);
 if (editBtn) {
   editBtn.addEventListener("click", (e) => {
     e.preventDefault();
@@ -333,7 +335,8 @@ if (editBtn) {
     
     console.log("Edit button clicked, current state:", {
       isEditing: window.isEditing,
-      checkInProgress: editModeCheckInProgress
+      checkInProgress: editModeCheckInProgress,
+      keyboardVisible: window.keyboardManager?.isKeyboardVisible // Add this line
     });
     
     // Don't allow clicks while check is in progress
@@ -348,6 +351,23 @@ if (editBtn) {
       enableEditMode();
     }
   });
+  
+  // ADD THIS NEW EVENT LISTENER - Force the button to work even when keyboard is up
+  editBtn.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log("Edit button touchend when keyboard up");
+    
+    if (editModeCheckInProgress) return;
+    
+    if (window.isEditing) {
+      disableEditMode();
+    } else {
+      enableEditMode();
+    }
+  });
+  
   console.log("Edit button event listener attached");
 }
 
