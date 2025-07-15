@@ -18,7 +18,10 @@ class EditToolbar {
     }
     
     this.boldButton = document.getElementById("boldButton");
-    // ... other buttons ...
+    this.italicButton = document.getElementById("italicButton");
+    this.headingButton = document.getElementById("headingButton");
+    this.blockquoteButton = document.getElementById("blockquoteButton");
+    this.codeButton = document.getElementById("codeButton");
     
     this.isMobile = window.innerWidth <= 768;
     
