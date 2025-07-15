@@ -220,858 +220,838 @@ class EditToolbar {
     return element.parentNode && element.parentNode.nodeType === 1 ? 
       this.hasParentWithTag(element.parentNode, tagName) : false;
   }
+  /**
+ * Format the selected text with the specified style
+ */
+formatText(type) {
+  console.log("🔧 Format text called:", {
+    type: type,
+    hasCurrentSelection: !!this.currentSelection,
+    hasLastValidRange: !!this.lastValidRange,
+    isCollapsed: this.currentSelection?.isCollapsed,
+    currentSelectionText: this.currentSelection?.toString()
+  });
   
-  /**
-   * Format the selected text with the specified style
-   */
-  formatText(type) {
-    console.log("🔧 Format text called:", {
-      type: type,
-      hasCurrentSelection: !!this.currentSelection,
-      hasLastValidRange: !!this.lastValidRange,
-      isCollapsed: this.currentSelection?.isCollapsed,
-      currentSelectionText: this.currentSelection?.toString()
-    });
+  this.isFormatting = true;
+  
+  try {
+    const editableContent = document.querySelector(this.editableSelector);
+    if (!editableContent) return;
     
-    this.isFormatting = true;
+    // Much simpler selection restoration
+    let workingSelection = this.currentSelection;
+    let workingRange = null;
     
-    try {
-      const editableContent = document.querySelector(this.editableSelector);
-      if (!editableContent) return;
-      
-      // Use the stored valid range if current selection is invalid
-      let workingSelection = this.currentSelection;
-      let workingRange = null;
-      
-      if (this.lastValidRange && editableContent.contains(this.lastValidRange.commonAncestorContainer)) {
-        // Restore the last valid selection
+    // First try lastValidRange if it exists
+    if (this.lastValidRange && editableContent.contains(this.lastValidRange.commonAncestorContainer)) {
+      try {
         workingSelection = window.getSelection();
         workingSelection.removeAllRanges();
-        workingSelection.addRange(this.lastValidRange);
-        workingRange = this.lastValidRange;
+        workingSelection.addRange(this.lastValidRange.cloneRange());
+        workingRange = this.lastValidRange.cloneRange();
         console.log("🔄 Restored valid selection to:", workingRange.commonAncestorContainer);
-      } else if (workingSelection && workingSelection.rangeCount > 0) {
-        workingRange = workingSelection.getRangeAt(0);
+      } catch (e) {
+        console.warn("Failed to restore lastValidRange:", e);
+        workingSelection = null;
+        workingRange = null;
       }
-      
-      if (!workingSelection || !workingRange) {
-        console.warn("❌ No valid selection found");
-        return;
-      }
-      
-      // Update currentSelection to the working selection
-      this.currentSelection = workingSelection;
-      
-      // Focus the editable content to ensure commands work
-      editableContent.focus();
-      
-      // Check if there's an actual text selection or just a cursor position
-      const isTextSelected = !this.currentSelection.isCollapsed;
-      const parentElement = this.getSelectionParentElement();
-      
-      // Track the ID of the element being modified for later DB update
-      let modifiedElementId = null;
-      let newElement = null;
-      
-      switch (type) {
-        case "bold":
-          if (isTextSelected) {
-            // Text is selected - apply/remove formatting only to selection
-            document.execCommand("bold", false, null);
-            const parentAfterBold = this.getSelectionParentElement();
-            console.log("Element after bold formatting:", parentAfterBold.outerHTML);
-            console.log("Element ID:", parentAfterBold.id);
-            
-            // Find the block parent to save
-            const blockParent = this.findClosestBlockParent(parentAfterBold);
-            if (blockParent && blockParent.id) {
-              modifiedElementId = blockParent.id;
-              newElement = blockParent;
-            }
-          } else {
-            // Cursor position only - get current offset before changes
-            const currentOffset = this.getTextOffsetInElement(
-              parentElement,
-              this.currentSelection.focusNode,
-              this.currentSelection.focusOffset
-            );
-            
-            if (this.hasParentWithTag(parentElement, "STRONG") || 
-                this.hasParentWithTag(parentElement, "B")) {
-              // Find the bold parent
-              const boldElement = this.findParentWithTag(parentElement, "STRONG") || 
-                                  this.findParentWithTag(parentElement, "B");
-              if (boldElement) {
-                // Replace bold element with its text content
-                const newTextNode = document.createTextNode(boldElement.textContent);
-                const parentNode = boldElement.parentNode;
-                parentNode.replaceChild(newTextNode, boldElement);
-                
-                // Restore cursor position at the same text offset
-                this.setCursorAtTextOffset(parentNode, currentOffset);
-                
-                // Find the block parent to save
-                const blockParent = this.findClosestBlockParent(parentNode);
-                if (blockParent && blockParent.id) {
-                  modifiedElementId = blockParent.id;
-                  newElement = blockParent;
-                }
-              }
-            } else {
-              // Find the text node containing the cursor
-              let node = this.currentSelection.focusNode;
-              if (node.nodeType !== Node.TEXT_NODE) {
-                // If not a text node, find the first text node child
-                const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
-                node = walker.firstChild();
-              }
-              
-              if (node && node.nodeType === Node.TEXT_NODE) {
-                // Create a range that encompasses the entire text node
-                const range = document.createRange();
-                range.selectNodeContents(node);
-                
-                // Select the entire text node
-                this.currentSelection.removeAllRanges();
-                this.currentSelection.addRange(range);
-                
-                // Apply bold formatting
-                document.execCommand("bold", false, null);
-                
-                // Find the new bold element and restore cursor position
-                const newBoldNode = this.findParentWithTag(node.parentNode, "STRONG") || 
-                                   this.findParentWithTag(node.parentNode, "B");
-                if (newBoldNode) {
-                  this.setCursorAtTextOffset(newBoldNode, currentOffset);
-                  
-                  // Find the block parent to save
-                  const blockParent = this.findClosestBlockParent(newBoldNode);
-                  if (blockParent && blockParent.id) {
-                    modifiedElementId = blockParent.id;
-                    newElement = blockParent;
-                  }
-                }
-              }
-            }
-          }
-          break;
-          
-        case "italic":
-          if (isTextSelected) {
-            // Text is selected - apply/remove formatting only to selection
-            document.execCommand("italic", false, null);
-            
-            // Find the block parent to save
-            const parentAfterItalic = this.getSelectionParentElement();
-            const blockParent = this.findClosestBlockParent(parentAfterItalic);
-            if (blockParent && blockParent.id) {
-              modifiedElementId = blockParent.id;
-              newElement = blockParent;
-            }
-          } else {
-            // Cursor position only - get current offset before changes
-            const currentOffset = this.getTextOffsetInElement(
-              parentElement,
-              this.currentSelection.focusNode,
-              this.currentSelection.focusOffset
-            );
-            
-            if (this.hasParentWithTag(parentElement, "EM") || 
-                this.hasParentWithTag(parentElement, "I")) {
-              // Find the italic parent
-              const italicElement = this.findParentWithTag(parentElement, "EM") || 
-                                   this.findParentWithTag(parentElement, "I");
-              if (italicElement) {
-                // Replace italic element with its text content
-                const newTextNode = document.createTextNode(italicElement.textContent);
-                const parentNode = italicElement.parentNode;
-                parentNode.replaceChild(newTextNode, italicElement);
-                
-                // Restore cursor position at the same text offset
-                this.setCursorAtTextOffset(parentNode, currentOffset);
-                
-                // Find the block parent to save
-                const blockParent = this.findClosestBlockParent(parentNode);
-                if (blockParent && blockParent.id) {
-                  modifiedElementId = blockParent.id;
-                  newElement = blockParent;
-                }
-              }
-            } else {
-              // Find the text node containing the cursor
-              let node = this.currentSelection.focusNode;
-              if (node.nodeType !== Node.TEXT_NODE) {
-                // If not a text node, find the first text node child
-                const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
-                node = walker.firstChild();
-              }
-              
-              if (node && node.nodeType === Node.TEXT_NODE) {
-                // Create a range that encompasses the entire text node
-                const range = document.createRange();
-                range.selectNodeContents(node);
-                
-                // Select the entire text node
-                this.currentSelection.removeAllRanges();
-                this.currentSelection.addRange(range);
-                
-                // Apply italic formatting
-                document.execCommand("italic", false, null);
-                
-                // Find the new italic element and restore cursor position
-                const newItalicNode = this.findParentWithTag(node.parentNode, "EM") || 
-                                     this.findParentWithTag(node.parentNode, "I");
-                if (newItalicNode) {
-                  this.setCursorAtTextOffset(newItalicNode, currentOffset);
-                  
-                  // Find the block parent to save
-                  const blockParent = this.findClosestBlockParent(newItalicNode);
-                  if (blockParent && blockParent.id) {
-                    modifiedElementId = blockParent.id;
-                    newElement = blockParent;
-                  }
-                }
-              }
-            }
-          }
-          break;
-      }
-      
-      // Update button states after formatting
-      this.updateButtonStates();
-      
-      // Save to IndexedDB if we have a modified element
-      if (modifiedElementId && newElement) {
-        setTimeout(() => {
-          const updatedElement = document.getElementById(modifiedElementId);
-          if (updatedElement) {
-            this.saveToIndexedDB(modifiedElementId, updatedElement.outerHTML);
-          } else {
-            this.saveToIndexedDB(modifiedElementId, newElement.outerHTML);
-          }
-        }, 50);
-      }
-
-    } finally {
-      // RESET THE FLAG AFTER A SHORT DELAY
-      setTimeout(() => {
-        this.isFormatting = false;
-      }, 100);
     }
-  }
-
-  /**
-   * Format the current block with the specified style
-   */
-  formatBlock(type) {
-    console.log("🔧 Format block called:", {
-      type: type,
-      hasCurrentSelection: !!this.currentSelection,
-      hasLastValidRange: !!this.lastValidRange,
-      isCollapsed: this.currentSelection?.isCollapsed,
-      currentSelectionText: this.currentSelection?.toString()
-    });
-
-    this.isFormatting = true;
-
-    try {
-      const editableContent = document.querySelector(this.editableSelector);
-      if (!editableContent) return;
-      
-      // ADD THE SAME SELECTION RESTORATION LOGIC AS formatText():
-      let workingSelection = this.currentSelection;
-      let workingRange = null;
-      
-      if (this.lastValidRange && editableContent.contains(this.lastValidRange.commonAncestorContainer)) {
-        // Restore the last valid selection
-        workingSelection = window.getSelection();
-        workingSelection.removeAllRanges();
-        workingSelection.addRange(this.lastValidRange);
-        workingRange = this.lastValidRange;
-        console.log("🔄 Restored valid selection to:", workingRange.commonAncestorContainer);
-      } else if (workingSelection && workingSelection.rangeCount > 0) {
+    
+    // If no lastValidRange, try current selection
+    if (!workingSelection || !workingRange) {
+      workingSelection = window.getSelection();
+      if (workingSelection && workingSelection.rangeCount > 0) {
         workingRange = workingSelection.getRangeAt(0);
       }
-      
-      if (!workingSelection || !workingRange) {
-        console.warn("❌ No valid selection found");
-        return;
-      }
-      
-      // Update currentSelection to the working selection
-      this.currentSelection = workingSelection;
-      
-      // Focus the editable content to ensure commands work
-      editableContent.focus();
-      
-      // Check if there's an actual text selection or just a cursor position
-      const isTextSelected = !this.currentSelection.isCollapsed;
-      const parentElement = this.getSelectionParentElement();
-
-      // NEW: Special handling for list items
-      const listItem = this.findClosestListItem(parentElement);
-      if (listItem) {
-        return this.convertListItemToBlock(listItem, type);
-      }
-
-      // Track the ID of the element being modified for later DB update
-      let modifiedElementId = null;
-      let newElement = null;
-      
-      switch (type) {
-        case "heading":
-          if (isTextSelected) {
-            const range = this.currentSelection.getRangeAt(0);
-            const affectedBlocks = this.getBlockElementsInRange(range);
-            
-            if (affectedBlocks.length === 0) {
-              // Fallback to original single-element logic
-              const parentElementForSelection = this.getSelectionParentElement();
-              // ... your existing single-element logic
-            } else {
-              // Process each block element
-              const modifiedElements = [];
-              
-              for (const block of affectedBlocks) {
-                const isHeading = /^H[1-6]$/.test(block.tagName);
-                
-                if (isHeading) {
-                  // Convert heading to paragraph
-                  const pElement = document.createElement("p");
-                  pElement.innerHTML = block.innerHTML;
-                  pElement.id = block.id; // Keep the same ID
-                  block.parentNode.replaceChild(pElement, block);
-                  modifiedElements.push({ id: pElement.id, element: pElement });
-                } else {
-                  // Convert to heading
-                  const h2Element = document.createElement("h2");
-                  h2Element.innerHTML = block.innerHTML;
-                  h2Element.id = block.id; // Keep the same ID
-                  block.parentNode.replaceChild(h2Element, block);
-                  modifiedElements.push({ id: h2Element.id, element: h2Element });
-                }
-              }
-              
-              // Restore selection across the modified elements
-              this.selectAcrossElements(modifiedElements);
-              
-              // For compatibility with existing code, set the first modified element
-              if (modifiedElements.length > 0) {
-                modifiedElementId = modifiedElements[0].id;
-                newElement = modifiedElements[0].element;
+    }
+    
+    // If still nothing, just bail out
+    if (!workingSelection || !workingRange) {
+      console.warn("❌ No valid selection found - cannot format");
+      return;
+    }
+    
+    // Update currentSelection to the working selection
+    this.currentSelection = workingSelection;
+    
+    // Focus the editable content to ensure commands work
+    editableContent.focus();
+    
+    // Rest of your existing formatText logic stays exactly the same...
+    const isTextSelected = !this.currentSelection.isCollapsed;
+    const parentElement = this.getSelectionParentElement();
+    
+    let modifiedElementId = null;
+    let newElement = null;
+    
+    switch (type) {
+      case "bold":
+        // Your existing bold logic here - don't change it
+        if (isTextSelected) {
+          document.execCommand("bold", false, null);
+          const parentAfterBold = this.getSelectionParentElement();
+          const blockParent = this.findClosestBlockParent(parentAfterBold);
+          if (blockParent && blockParent.id) {
+            modifiedElementId = blockParent.id;
+            newElement = blockParent;
+          }
+        } else {
+          // Your existing cursor-only bold logic
+          const currentOffset = this.getTextOffsetInElement(
+            parentElement,
+            this.currentSelection.focusNode,
+            this.currentSelection.focusOffset
+          );
+          
+          if (this.hasParentWithTag(parentElement, "STRONG") || 
+              this.hasParentWithTag(parentElement, "B")) {
+            const boldElement = this.findParentWithTag(parentElement, "STRONG") || 
+                                this.findParentWithTag(parentElement, "B");
+            if (boldElement) {
+              const newTextNode = document.createTextNode(boldElement.textContent);
+              const parentNode = boldElement.parentNode;
+              parentNode.replaceChild(newTextNode, boldElement);
+              this.setCursorAtTextOffset(parentNode, currentOffset);
+              const blockParent = this.findClosestBlockParent(parentNode);
+              if (blockParent && blockParent.id) {
+                modifiedElementId = blockParent.id;
+                newElement = blockParent;
               }
             }
           } else {
-            // Cursor position only - toggle heading for the entire block
-            const cursorFocusParent = this.currentSelection.focusNode.parentElement;
-            const blockParent = this.findClosestBlockParent(cursorFocusParent);
+            let node = this.currentSelection.focusNode;
+            if (node.nodeType !== Node.TEXT_NODE) {
+              const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+              node = walker.nextNode();
+            }
+            
+            if (node && node.nodeType === Node.TEXT_NODE) {
+              const range = document.createRange();
+              range.selectNodeContents(node);
+              this.currentSelection.removeAllRanges();
+              this.currentSelection.addRange(range);
+              document.execCommand("bold", false, null);
+              const newBoldNode = this.findParentWithTag(node.parentNode, "STRONG") || 
+                                 this.findParentWithTag(node.parentNode, "B");
+              if (newBoldNode) {
+                this.setCursorAtTextOffset(newBoldNode, currentOffset);
+                const blockParent = this.findClosestBlockParent(newBoldNode);
+                if (blockParent && blockParent.id) {
+                  modifiedElementId = blockParent.id;
+                  newElement = blockParent;
+                }
+              }
+            }
+          }
+        }
+        break;
+        
+      case "italic":
+        // Your existing italic logic here - don't change it
+        if (isTextSelected) {
+          document.execCommand("italic", false, null);
+          const parentAfterItalic = this.getSelectionParentElement();
+          const blockParent = this.findClosestBlockParent(parentAfterItalic);
+          if (blockParent && blockParent.id) {
+            modifiedElementId = blockParent.id;
+            newElement = blockParent;
+          }
+        } else {
+          const currentOffset = this.getTextOffsetInElement(
+            parentElement,
+            this.currentSelection.focusNode,
+            this.currentSelection.focusOffset
+          );
+          
+          if (this.hasParentWithTag(parentElement, "EM") || 
+              this.hasParentWithTag(parentElement, "I")) {
+            const italicElement = this.findParentWithTag(parentElement, "EM") || 
+                                 this.findParentWithTag(parentElement, "I");
+            if (italicElement) {
+              const newTextNode = document.createTextNode(italicElement.textContent);
+              const parentNode = italicElement.parentNode;
+              parentNode.replaceChild(newTextNode, italicElement);
+              this.setCursorAtTextOffset(parentNode, currentOffset);
+              const blockParent = this.findClosestBlockParent(parentNode);
+              if (blockParent && blockParent.id) {
+                modifiedElementId = blockParent.id;
+                newElement = blockParent;
+              }
+            }
+          } else {
+            let node = this.currentSelection.focusNode;
+            if (node.nodeType !== Node.TEXT_NODE) {
+              const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+              node = walker.nextNode();
+            }
+            
+            if (node && node.nodeType === Node.TEXT_NODE) {
+              const range = document.createRange();
+              range.selectNodeContents(node);
+              this.currentSelection.removeAllRanges();
+              this.currentSelection.addRange(range);
+              document.execCommand("italic", false, null);
+              const newItalicNode = this.findParentWithTag(node.parentNode, "EM") || 
+                                   this.findParentWithTag(node.parentNode, "I");
+              if (newItalicNode) {
+                this.setCursorAtTextOffset(newItalicNode, currentOffset);
+                const blockParent = this.findClosestBlockParent(newItalicNode);
+                if (blockParent && blockParent.id) {
+                  modifiedElementId = blockParent.id;
+                  newElement = blockParent;
+                }
+              }
+            }
+          }
+        }
+        break;
+    }
+    
+    // Update button states after formatting
+    this.updateButtonStates();
+    
+    // Save to IndexedDB if we have a modified element
+    if (modifiedElementId && newElement) {
+      setTimeout(() => {
+        const updatedElement = document.getElementById(modifiedElementId);
+        if (updatedElement) {
+          this.saveToIndexedDB(modifiedElementId, updatedElement.outerHTML);
+        } else {
+          this.saveToIndexedDB(modifiedElementId, newElement.outerHTML);
+        }
+      }, 50);
+    }
 
-            if (
-              blockParent && 
-              (blockParent.tagName === "H1" ||
-                blockParent.tagName === "H2" ||
-                blockParent.tagName === "H3" ||
-                blockParent.tagName === "H4" ||
-                blockParent.tagName === "H5" ||
-                blockParent.tagName === "H6")
-            ) {
-              // Convert heading to paragraph
-              const headingElement = blockParent;
-              const beforeId = findPreviousElementId(headingElement);
-              const afterId = findNextElementId(headingElement);
+  } finally {
+    setTimeout(() => {
+      this.isFormatting = false;
+    }, 100);
+  }
+}
 
-              const currentOffset = this.getTextOffsetInElement(
-                headingElement,
-                this.currentSelection.focusNode,
-                this.currentSelection.focusOffset
+/**
+ * Format the current block with the specified style
+ */
+formatBlock(type) {
+  console.log("🔧 Format block called:", {
+    type: type,
+    hasCurrentSelection: !!this.currentSelection,
+    hasLastValidRange: !!this.lastValidRange,
+    isCollapsed: this.currentSelection?.isCollapsed,
+    currentSelectionText: this.currentSelection?.toString()
+  });
+
+  this.isFormatting = true;
+
+  try {
+    const editableContent = document.querySelector(this.editableSelector);
+    if (!editableContent) return;
+    
+    // Simple selection restoration
+    let workingSelection = this.currentSelection;
+    let workingRange = null;
+    
+    if (this.lastValidRange && editableContent.contains(this.lastValidRange.commonAncestorContainer)) {
+      try {
+        workingSelection = window.getSelection();
+        workingSelection.removeAllRanges();
+        workingSelection.addRange(this.lastValidRange.cloneRange());
+        workingRange = this.lastValidRange.cloneRange();
+        console.log("🔄 Restored valid selection to:", workingRange.commonAncestorContainer);
+      } catch (e) {
+        console.warn("Failed to restore lastValidRange:", e);
+        workingSelection = null;
+        workingRange = null;
+      }
+    }
+    
+    if (!workingSelection || !workingRange) {
+      workingSelection = window.getSelection();
+      if (workingSelection && workingSelection.rangeCount > 0) {
+        workingRange = workingSelection.getRangeAt(0);
+      }
+    }
+    
+    if (!workingSelection || !workingRange) {
+      console.warn("❌ No valid selection found - cannot format");
+      return;
+    }
+    
+    // Update currentSelection to the working selection
+    this.currentSelection = workingSelection;
+    
+    // Focus the editable content to ensure commands work
+    editableContent.focus();
+    
+    // Check if there's an actual text selection or just a cursor position
+    const isTextSelected = !this.currentSelection.isCollapsed;
+    const parentElement = this.getSelectionParentElement();
+
+    // Special handling for list items
+    const listItem = this.findClosestListItem(parentElement);
+    if (listItem) {
+      return this.convertListItemToBlock(listItem, type);
+    }
+
+    // Track the ID of the element being modified for later DB update
+    let modifiedElementId = null;
+    let newElement = null;
+    
+    switch (type) {
+      case "heading":
+        if (isTextSelected) {
+          const range = this.currentSelection.getRangeAt(0);
+          const affectedBlocks = this.getBlockElementsInRange(range);
+          
+          if (affectedBlocks.length === 0) {
+            // Fallback to original single-element logic
+            const parentElementForSelection = this.getSelectionParentElement();
+            // ... your existing single-element logic
+          } else {
+            // Process each block element
+            const modifiedElements = [];
+            
+            for (const block of affectedBlocks) {
+              const isHeading = /^H[1-6]$/.test(block.tagName);
+              
+              if (isHeading) {
+                // Convert heading to paragraph
+                const pElement = document.createElement("p");
+                pElement.innerHTML = block.innerHTML;
+                pElement.id = block.id; // Keep the same ID
+                block.parentNode.replaceChild(pElement, block);
+                modifiedElements.push({ id: pElement.id, element: pElement });
+              } else {
+                // Convert to heading
+                const h2Element = document.createElement("h2");
+                h2Element.innerHTML = block.innerHTML;
+                h2Element.id = block.id; // Keep the same ID
+                block.parentNode.replaceChild(h2Element, block);
+                modifiedElements.push({ id: h2Element.id, element: h2Element });
+              }
+            }
+            
+            // Restore selection across the modified elements
+            this.selectAcrossElements(modifiedElements);
+            
+            // For compatibility with existing code, set the first modified element
+            if (modifiedElements.length > 0) {
+              modifiedElementId = modifiedElements[0].id;
+              newElement = modifiedElements[0].element;
+            }
+          }
+        } else {
+          // Cursor position only - toggle heading for the entire block
+          const cursorFocusParent = this.currentSelection.focusNode.parentElement;
+          const blockParent = this.findClosestBlockParent(cursorFocusParent);
+
+          if (
+            blockParent && 
+            (blockParent.tagName === "H1" ||
+              blockParent.tagName === "H2" ||
+              blockParent.tagName === "H3" ||
+              blockParent.tagName === "H4" ||
+              blockParent.tagName === "H5" ||
+              blockParent.tagName === "H6")
+          ) {
+            // Convert heading to paragraph
+            const headingElement = blockParent;
+            const beforeId = findPreviousElementId(headingElement);
+            const afterId = findNextElementId(headingElement);
+
+            const currentOffset = this.getTextOffsetInElement(
+              headingElement,
+              this.currentSelection.focusNode,
+              this.currentSelection.focusOffset
+            );
+
+            const pElement = document.createElement("p");
+            pElement.innerHTML = headingElement.innerHTML;
+
+            const newPId = generateIdBetween(beforeId, afterId);
+            pElement.id = newPId;
+
+            headingElement.parentNode.replaceChild(pElement, headingElement);
+            this.setCursorAtTextOffset(pElement, currentOffset);
+
+            modifiedElementId = newPId;
+            newElement = pElement;
+          } else if (blockParent) {
+            // Convert paragraph or other block to heading
+            const beforeId = findPreviousElementId(blockParent);
+            const afterId = findNextElementId(blockParent);
+
+            const currentOffset = this.getTextOffsetInElement(
+              blockParent,
+              this.currentSelection.focusNode,
+              this.currentSelection.focusOffset
+            );
+
+            const h2Element = document.createElement("h2");
+            h2Element.innerHTML = blockParent.innerHTML;
+
+            const newH2Id = generateIdBetween(beforeId, afterId);
+            h2Element.id = newH2Id;
+
+            blockParent.parentNode.replaceChild(h2Element, blockParent);
+            this.setCursorAtTextOffset(h2Element, currentOffset);
+
+            modifiedElementId = newH2Id;
+            newElement = h2Element;
+          }
+        }
+        break;
+
+      case "blockquote":
+        if (isTextSelected) {
+          const range = this.currentSelection.getRangeAt(0);
+          const commonAncestor = range.commonAncestorContainer;
+          const parentElement =
+            commonAncestor.nodeType === Node.ELEMENT_NODE
+              ? commonAncestor
+              : commonAncestor.parentElement;
+
+          const containingBlockquote = parentElement.closest("blockquote");
+
+          if (containingBlockquote) {
+            // UNWRAPPING FROM BLOCKQUOTE (Selected Text)
+            const beforeOriginalId = findPreviousElementId(containingBlockquote);
+            const afterOriginalId = findNextElementId(containingBlockquote);
+
+            const contentFragment = document.createDocumentFragment();
+            const lines = containingBlockquote.innerHTML.split(/<br\s*\/?>/gi).filter(line => line.trim() !== '');
+            let firstNewP = null;
+            let lastGeneratedId = beforeOriginalId;
+
+            lines.forEach((lineHTML, index) => {
+              const trimmedLineHTML = lineHTML.trim();
+              if (trimmedLineHTML) {
+                const pElement = document.createElement("p");
+                pElement.innerHTML = trimmedLineHTML;
+
+                const newPId = generateIdBetween(lastGeneratedId, afterOriginalId);
+                pElement.id = newPId;
+                lastGeneratedId = newPId;
+
+                if (index === 0) {
+                  firstNewP = pElement;
+                }
+                contentFragment.appendChild(pElement);
+              }
+            });
+
+            if (contentFragment.childNodes.length > 0) {
+              containingBlockquote.parentNode.replaceChild(
+                contentFragment,
+                containingBlockquote
               );
-
+              modifiedElementId = firstNewP ? firstNewP.id : null;
+              newElement = firstNewP;
+              if (newElement && this.currentSelection) {
+                this.setCursorAtTextOffset(newElement, 0);
+              }
+            } else {
+              // Handle empty blockquote
               const pElement = document.createElement("p");
-              pElement.innerHTML = headingElement.innerHTML;
-
-              const newPId = generateIdBetween(beforeId, afterId);
+              pElement.innerHTML = "&nbsp;";
+              const newPId = generateIdBetween(beforeOriginalId, afterOriginalId);
               pElement.id = newPId;
-
-              headingElement.parentNode.replaceChild(pElement, headingElement);
-              this.setCursorAtTextOffset(pElement, currentOffset);
-
+              containingBlockquote.parentNode.replaceChild(
+                pElement,
+                containingBlockquote
+              );
               modifiedElementId = newPId;
               newElement = pElement;
-            } else if (blockParent) {
-              // Convert paragraph or other block to heading
-              const beforeId = findPreviousElementId(blockParent);
-              const afterId = findNextElementId(blockParent);
-
-              const currentOffset = this.getTextOffsetInElement(
-                blockParent,
-                this.currentSelection.focusNode,
-                this.currentSelection.focusOffset
-              );
-
-              const h2Element = document.createElement("h2");
-              h2Element.innerHTML = blockParent.innerHTML;
-
-              const newH2Id = generateIdBetween(beforeId, afterId);
-              h2Element.id = newH2Id;
-
-              blockParent.parentNode.replaceChild(h2Element, blockParent);
-              this.setCursorAtTextOffset(h2Element, currentOffset);
-
-              modifiedElementId = newH2Id;
-              newElement = h2Element;
-            }
-          }
-          break;
-
-        case "blockquote":
-          if (isTextSelected) {
-            const range = this.currentSelection.getRangeAt(0);
-            const commonAncestor = range.commonAncestorContainer;
-            const parentElement =
-              commonAncestor.nodeType === Node.ELEMENT_NODE
-                ? commonAncestor
-                : commonAncestor.parentElement;
-
-            const containingBlockquote = parentElement.closest("blockquote");
-
-            if (containingBlockquote) {
-              // UNWRAPPING FROM BLOCKQUOTE (Selected Text)
-              const beforeOriginalId = findPreviousElementId(containingBlockquote);
-              const afterOriginalId = findNextElementId(containingBlockquote);
-
-              const contentFragment = document.createDocumentFragment();
-              const lines = containingBlockquote.innerHTML.split(/<br\s*\/?>/gi).filter(line => line.trim() !== '');
-              let firstNewP = null;
-              let lastGeneratedId = beforeOriginalId;
-
-              lines.forEach((lineHTML, index) => {
-                const trimmedLineHTML = lineHTML.trim();
-                if (trimmedLineHTML) {
-                  const pElement = document.createElement("p");
-                  pElement.innerHTML = trimmedLineHTML;
-
-                  const newPId = generateIdBetween(lastGeneratedId, afterOriginalId);
-                  pElement.id = newPId;
-                  lastGeneratedId = newPId;
-
-                  if (index === 0) {
-                    firstNewP = pElement;
-                  }
-                  contentFragment.appendChild(pElement);
-                }
-              });
-
-              if (contentFragment.childNodes.length > 0) {
-                containingBlockquote.parentNode.replaceChild(
-                  contentFragment,
-                  containingBlockquote
-                );
-                modifiedElementId = firstNewP ? firstNewP.id : null;
-                newElement = firstNewP;
-                if (newElement && this.currentSelection) {
-                  this.setCursorAtTextOffset(newElement, 0);
-                }
-              } else {
-                // Handle empty blockquote
-                const pElement = document.createElement("p");
-                pElement.innerHTML = "&nbsp;";
-                const newPId = generateIdBetween(beforeOriginalId, afterOriginalId);
-                pElement.id = newPId;
-                containingBlockquote.parentNode.replaceChild(
-                  pElement,
-                  containingBlockquote
-                );
-                modifiedElementId = newPId;
-                newElement = pElement;
-                if (newElement && this.currentSelection) {
-                  this.setCursorAtTextOffset(newElement, 0);
-                }
+              if (newElement && this.currentSelection) {
+                this.setCursorAtTextOffset(newElement, 0);
               }
-            } else {
-              // WRAPPING INTO BLOCKQUOTE (Selected Text)
-              const blockquoteElement = document.createElement("blockquote");
-              const selectedFragment = range.extractContents();
-
-              // Convert selected content to blockquote format with <br> tags
-              let blockquoteContent = "";
-              for (let i = 0; i < selectedFragment.childNodes.length; i++) {
-                const node = selectedFragment.childNodes[i];
-                if (node.nodeType === Node.TEXT_NODE) {
-                  blockquoteContent += node.textContent;
-                } else if (node.nodeType === Node.ELEMENT_NODE) {
-                  blockquoteContent += node.textContent || node.innerHTML;
-                }
-                // Add <br> between nodes (this creates the line breaks)
-                if (i < selectedFragment.childNodes.length - 1) {
-                  blockquoteContent += "<br>";
-                }
-              }
-              
-              // Add a trailing <br> to match blockquote format
-              if (blockquoteContent && !blockquoteContent.endsWith("<br>")) {
-                blockquoteContent += "<br>";
-              }
-              
-              blockquoteElement.innerHTML = blockquoteContent;
-
-              range.insertNode(blockquoteElement);
-
-              const beforeId = findPreviousElementId(blockquoteElement);
-              const afterId = findNextElementId(blockquoteElement);
-              const newBlockquoteId = generateIdBetween(beforeId, afterId);
-              blockquoteElement.id = newBlockquoteId;
-
-              this.currentSelection.selectAllChildren(blockquoteElement);
-              modifiedElementId = newBlockquoteId;
-              newElement = blockquoteElement;
             }
           } else {
-            // CURSOR POSITION ONLY (No Text Selected)
-            const parentElement = this.currentSelection.focusNode.parentElement;
-            const blockParentToToggle = this.findClosestBlockParent(parentElement);
+            // WRAPPING INTO BLOCKQUOTE (Selected Text)
+            const blockquoteElement = document.createElement("blockquote");
+            const selectedFragment = range.extractContents();
 
-            if (
-              blockParentToToggle &&
-              blockParentToToggle.tagName === "BLOCKQUOTE"
-            ) {
-              // UNWRAPPING BLOCKQUOTE (Cursor Position)
-              const blockquoteToConvert = blockParentToToggle;
-              const beforeOriginalId = findPreviousElementId(blockquoteToConvert);
-              const afterOriginalId = findNextElementId(blockquoteToConvert);
-
-              const contentFragment = document.createDocumentFragment();
-              const lines = blockquoteToConvert.innerHTML.split(/<br\s*\/?>/gi).filter(line => line.trim() !== '');
-              let firstNewP = null;
-              let lastGeneratedId = beforeOriginalId;
-
-              const currentOffset = this.getTextOffsetInElement(
-                blockquoteToConvert,
-                this.currentSelection.focusNode,
-                this.currentSelection.focusOffset
-              );
-
-              lines.forEach((lineHTML, index) => {
-                const trimmedLineHTML = lineHTML.trim();
-                if (trimmedLineHTML) {
-                  const pElement = document.createElement("p");
-                  pElement.innerHTML = trimmedLineHTML;
-                  const newPId = generateIdBetween(lastGeneratedId, afterOriginalId);
-                  pElement.id = newPId;
-                  lastGeneratedId = newPId;
-                  if (index === 0) {
-                    firstNewP = pElement;
-                  }
-                  contentFragment.appendChild(pElement);
-                }
-              });
-
-              if (contentFragment.childNodes.length > 0) {
-                blockquoteToConvert.parentNode.replaceChild(
-                  contentFragment,
-                  blockquoteToConvert
-                );
-                modifiedElementId = firstNewP ? firstNewP.id : null;
-                newElement = firstNewP;
-                if (newElement) this.setCursorAtTextOffset(newElement, 0);
-              } else {
-                const pElement = document.createElement("p");
-                pElement.innerHTML = "&nbsp;";
-                const newPId = generateIdBetween(beforeOriginalId, afterOriginalId);
-                pElement.id = newPId;
-                blockquoteToConvert.parentNode.replaceChild(
-                  pElement,
-                  blockquoteToConvert
-                );
-                modifiedElementId = newPId;
-                newElement = pElement;
-                if (newElement) this.setCursorAtTextOffset(newElement, 0);
+            // Convert selected content to blockquote format with <br> tags
+            let blockquoteContent = "";
+            for (let i = 0; i < selectedFragment.childNodes.length; i++) {
+              const node = selectedFragment.childNodes[i];
+              if (node.nodeType === Node.TEXT_NODE) {
+                blockquoteContent += node.textContent;
+              } else if (node.nodeType === Node.ELEMENT_NODE) {
+                blockquoteContent += node.textContent || node.innerHTML;
               }
-            } else if (blockParentToToggle) {
-              // WRAPPING BLOCK TO BLOCKQUOTE (Cursor Position)
-              const beforeId = findPreviousElementId(blockParentToToggle);
-              const afterId = findNextElementId(blockParentToToggle);
-
-              const blockquoteElement = document.createElement("blockquote");
-              const newBlockquoteId = generateIdBetween(beforeId, afterId);
-              blockquoteElement.id = newBlockquoteId;
-              
-              // Convert paragraph content to blockquote format with trailing <br>
-              let content = blockParentToToggle.innerHTML;
-              if (content && !content.endsWith("<br>")) {
-                content += "<br>";
+              // Add <br> between nodes (this creates the line breaks)
+              if (i < selectedFragment.childNodes.length - 1) {
+                blockquoteContent += "<br>";
               }
-              blockquoteElement.innerHTML = content;
-
-              const currentOffset = this.getTextOffsetInElement(
-                blockParentToToggle,
-                this.currentSelection.focusNode,
-                this.currentSelection.focusOffset
-              );
-
-              blockParentToToggle.parentNode.replaceChild(
-                blockquoteElement,
-                blockParentToToggle
-              );
-              modifiedElementId = newBlockquoteId;
-              newElement = blockquoteElement;
-              this.setCursorAtTextOffset(newElement, currentOffset);
             }
+            
+            // Add a trailing <br> to match blockquote format
+            if (blockquoteContent && !blockquoteContent.endsWith("<br>")) {
+              blockquoteContent += "<br>";
+            }
+            
+            blockquoteElement.innerHTML = blockquoteContent;
+
+            range.insertNode(blockquoteElement);
+
+            const beforeId = findPreviousElementId(blockquoteElement);
+            const afterId = findNextElementId(blockquoteElement);
+            const newBlockquoteId = generateIdBetween(beforeId, afterId);
+            blockquoteElement.id = newBlockquoteId;
+
+            this.currentSelection.selectAllChildren(blockquoteElement);
+            modifiedElementId = newBlockquoteId;
+            newElement = blockquoteElement;
           }
-          break;
+        } else {
+          // CURSOR POSITION ONLY (No Text Selected)
+          const parentElement = this.currentSelection.focusNode.parentElement;
+          const blockParentToToggle = this.findClosestBlockParent(parentElement);
 
-        case "code":
-          const getContainingPre = (element) => {
-            if (!element) return null;
-            return element.closest("pre");
-          };
+          if (
+            blockParentToToggle &&
+            blockParentToToggle.tagName === "BLOCKQUOTE"
+          ) {
+            // UNWRAPPING BLOCKQUOTE (Cursor Position)
+            const blockquoteToConvert = blockParentToToggle;
+            const beforeOriginalId = findPreviousElementId(blockquoteToConvert);
+            const afterOriginalId = findNextElementId(blockquoteToConvert);
 
-          if (isTextSelected) {
-            const range = this.currentSelection.getRangeAt(0);
-            const commonAncestor = range.commonAncestorContainer;
-            const parentElementForSelection =
-              commonAncestor.nodeType === Node.ELEMENT_NODE
-                ? commonAncestor
-                : commonAncestor.parentElement;
-            const containingPreForSelection = getContainingPre(
-              parentElementForSelection
+            const contentFragment = document.createDocumentFragment();
+            const lines = blockquoteToConvert.innerHTML.split(/<br\s*\/?>/gi).filter(line => line.trim() !== '');
+            let firstNewP = null;
+            let lastGeneratedId = beforeOriginalId;
+
+            const currentOffset = this.getTextOffsetInElement(
+              blockquoteToConvert,
+              this.currentSelection.focusNode,
+              this.currentSelection.focusOffset
             );
 
-            if (containingPreForSelection) {
-              // UNWRAPPING FROM CODE BLOCK (Selected Text)
-              const preToUnwrap = containingPreForSelection;
-              const codeContentElement = preToUnwrap.querySelector("code");
-              const textContent = codeContentElement
-                ? codeContentElement.textContent
-                : "";
-
-              const beforeOriginalId = findPreviousElementId(preToUnwrap);
-              const afterOriginalId = findNextElementId(preToUnwrap);
-
-              const contentFragment = document.createDocumentFragment();
-              const lines = textContent.split("\n");
-              let firstNewP = null;
-              let lastGeneratedId = beforeOriginalId;
-
-              lines.forEach((lineText, index) => {
-                if (lineText.trim() || (lines.length === 1 && index === 0)) {
-                  const pElement = document.createElement("p");
-                  pElement.textContent = lineText || "\u00A0";
-                  const newPId = generateIdBetween(lastGeneratedId, afterOriginalId);
-                  pElement.id = newPId;
-                  lastGeneratedId = newPId;
-                  if (index === 0) {
-                    firstNewP = pElement;
-                  }
-                  contentFragment.appendChild(pElement);
-                }
-              });
-
-              if (contentFragment.childNodes.length > 0) {
-                preToUnwrap.parentNode.replaceChild(contentFragment, preToUnwrap);
-                modifiedElementId = firstNewP ? firstNewP.id : null;
-                newElement = firstNewP;
-                if (newElement && this.currentSelection) {
-                  this.setCursorAtTextOffset(newElement, 0);
-                }
-              } else {
+            lines.forEach((lineHTML, index) => {
+              const trimmedLineHTML = lineHTML.trim();
+              if (trimmedLineHTML) {
                 const pElement = document.createElement("p");
-                pElement.textContent = "\u00A0";
-                const newPId = generateIdBetween(beforeOriginalId, afterOriginalId);
+                pElement.innerHTML = trimmedLineHTML;
+                const newPId = generateIdBetween(lastGeneratedId, afterOriginalId);
                 pElement.id = newPId;
-                preToUnwrap.parentNode.replaceChild(pElement, preToUnwrap);
-                modifiedElementId = newPId;
-                newElement = pElement;
-                if (newElement && this.currentSelection) {
-                  this.setCursorAtTextOffset(newElement, 0);
+                lastGeneratedId = newPId;
+                if (index === 0) {
+                  firstNewP = pElement;
                 }
+                contentFragment.appendChild(pElement);
+              }
+            });
+
+            if (contentFragment.childNodes.length > 0) {
+              blockquoteToConvert.parentNode.replaceChild(
+                contentFragment,
+                blockquoteToConvert
+              );
+              modifiedElementId = firstNewP ? firstNewP.id : null;
+              newElement = firstNewP;
+              if (newElement) this.setCursorAtTextOffset(newElement, 0);
+            } else {
+              const pElement = document.createElement("p");
+              pElement.innerHTML = "&nbsp;";
+              const newPId = generateIdBetween(beforeOriginalId, afterOriginalId);
+              pElement.id = newPId;
+              blockquoteToConvert.parentNode.replaceChild(
+                pElement,
+                blockquoteToConvert
+              );
+              modifiedElementId = newPId;
+              newElement = pElement;
+              if (newElement) this.setCursorAtTextOffset(newElement, 0);
+            }
+          } else if (blockParentToToggle) {
+            // WRAPPING BLOCK TO BLOCKQUOTE (Cursor Position)
+            const beforeId = findPreviousElementId(blockParentToToggle);
+            const afterId = findNextElementId(blockParentToToggle);
+
+            const blockquoteElement = document.createElement("blockquote");
+            const newBlockquoteId = generateIdBetween(beforeId, afterId);
+            blockquoteElement.id = newBlockquoteId;
+            
+            // Convert paragraph content to blockquote format with trailing <br>
+            let content = blockParentToToggle.innerHTML;
+            if (content && !content.endsWith("<br>")) {
+              content += "<br>";
+            }
+            blockquoteElement.innerHTML = content;
+
+            const currentOffset = this.getTextOffsetInElement(
+              blockParentToToggle,
+              this.currentSelection.focusNode,
+              this.currentSelection.focusOffset
+            );
+
+            blockParentToToggle.parentNode.replaceChild(
+              blockquoteElement,
+              blockParentToToggle
+            );
+            modifiedElementId = newBlockquoteId;
+            newElement = blockquoteElement;
+            this.setCursorAtTextOffset(newElement, currentOffset);
+          }
+        }
+        break;
+
+      case "code":
+        const getContainingPre = (element) => {
+          if (!element) return null;
+          return element.closest("pre");
+        };
+
+        if (isTextSelected) {
+          const range = this.currentSelection.getRangeAt(0);
+          const commonAncestor = range.commonAncestorContainer;
+          const parentElementForSelection =
+            commonAncestor.nodeType === Node.ELEMENT_NODE
+              ? commonAncestor
+              : commonAncestor.parentElement;
+          const containingPreForSelection = getContainingPre(
+            parentElementForSelection
+          );
+
+          if (containingPreForSelection) {
+            // UNWRAPPING FROM CODE BLOCK (Selected Text)
+            const preToUnwrap = containingPreForSelection;
+            const codeContentElement = preToUnwrap.querySelector("code");
+            const textContent = codeContentElement
+              ? codeContentElement.textContent
+              : "";
+
+            const beforeOriginalId = findPreviousElementId(preToUnwrap);
+            const afterOriginalId = findNextElementId(preToUnwrap);
+
+            const contentFragment = document.createDocumentFragment();
+            const lines = textContent.split("\n");
+            let firstNewP = null;
+            let lastGeneratedId = beforeOriginalId;
+
+            lines.forEach((lineText, index) => {
+              if (lineText.trim() || (lines.length === 1 && index === 0)) {
+                const pElement = document.createElement("p");
+                pElement.textContent = lineText || "\u00A0";
+                const newPId = generateIdBetween(lastGeneratedId, afterOriginalId);
+                pElement.id = newPId;
+                lastGeneratedId = newPId;
+                if (index === 0) {
+                  firstNewP = pElement;
+                }
+                contentFragment.appendChild(pElement);
+              }
+            });
+
+            if (contentFragment.childNodes.length > 0) {
+              preToUnwrap.parentNode.replaceChild(contentFragment, preToUnwrap);
+              modifiedElementId = firstNewP ? firstNewP.id : null;
+              newElement = firstNewP;
+              if (newElement && this.currentSelection) {
+                this.setCursorAtTextOffset(newElement, 0);
               }
             } else {
-              // WRAPPING SELECTED TEXT INTO NEW CODE BLOCK
+              const pElement = document.createElement("p");
+              pElement.textContent = "\u00A0";
+              const newPId = generateIdBetween(beforeOriginalId, afterOriginalId);
+              pElement.id = newPId;
+              preToUnwrap.parentNode.replaceChild(pElement, preToUnwrap);
+              modifiedElementId = newPId;
+              newElement = pElement;
+              if (newElement && this.currentSelection) {
+                this.setCursorAtTextOffset(newElement, 0);
+              }
+            }
+          } else {
+            // WRAPPING SELECTED TEXT INTO NEW CODE BLOCK
+            const preElement = document.createElement("pre");
+            const codeElement = document.createElement("code");
+            preElement.appendChild(codeElement);
+
+            const selectedFragment = range.extractContents();
+            let combinedTextContent = "";
+
+            for (let i = 0; i < selectedFragment.childNodes.length; i++) {
+              const node = selectedFragment.childNodes[i];
+              combinedTextContent += node.textContent;
+              if (i < selectedFragment.childNodes.length - 1) {
+                combinedTextContent += "\n";
+              }
+            }
+            codeElement.textContent = combinedTextContent;
+
+            range.insertNode(preElement);
+
+            const beforeId = findPreviousElementId(preElement);
+            const afterId = findNextElementId(preElement);
+            const newPreId = generateIdBetween(beforeId, afterId);
+            preElement.id = newPreId;
+
+            if (this.currentSelection && codeElement.firstChild) {
+              const newRange = document.createRange();
+              newRange.selectNodeContents(codeElement);
+              this.currentSelection.removeAllRanges();
+              this.currentSelection.addRange(newRange);
+            }
+
+            modifiedElementId = newPreId;
+            newElement = preElement;
+          }
+        } else {
+          // CURSOR POSITION ONLY (No Text Selected)
+          const focusElement = this.currentSelection.focusNode;
+          const parentElementForCursor =
+            focusElement.nodeType === Node.ELEMENT_NODE
+              ? focusElement
+              : focusElement.parentElement;
+          const containingPreAtCursor = getContainingPre(parentElementForCursor);
+
+          if (containingPreAtCursor) {
+            // UNWRAPPING CODE BLOCK (Cursor Position)
+            const preToUnwrap = containingPreAtCursor;
+            const codeContentElement = preToUnwrap.querySelector("code");
+            const textContent = codeContentElement
+              ? codeContentElement.textContent
+              : "";
+
+            const beforeOriginalId = findPreviousElementId(preToUnwrap);
+            const afterOriginalId = findNextElementId(preToUnwrap);
+
+            const currentOffsetInfo = {
+              node: this.currentSelection.focusNode,
+              offset: this.currentSelection.focusOffset,
+              charOffsetInCode: this.getTextOffsetInElement(
+                codeContentElement || preToUnwrap,
+                this.currentSelection.focusNode,
+                this.currentSelection.focusOffset
+              ),
+            };
+
+            const contentFragment = document.createDocumentFragment();
+            const lines = textContent.split("\n");
+            let firstNewP = null;
+            let lastGeneratedId = beforeOriginalId;
+            let pForCursor = null;
+            let charCount = 0;
+
+            lines.forEach((lineText, index) => {
+              if (lineText.trim() || (lines.length === 1 && index === 0)) {
+                const pElement = document.createElement("p");
+                pElement.textContent = lineText || "\u00A0";
+                const newPId = generateIdBetween(lastGeneratedId, afterOriginalId);
+                pElement.id = newPId;
+                lastGeneratedId = newPId;
+
+                if (index === 0) firstNewP = pElement;
+                contentFragment.appendChild(pElement);
+
+                if (
+                  !pForCursor &&
+                  currentOffsetInfo.charOffsetInCode <= charCount + lineText.length
+                ) {
+                  pForCursor = pElement;
+                }
+                charCount += lineText.length + 1;
+              }
+            });
+
+            if (contentFragment.childNodes.length > 0) {
+              preToUnwrap.parentNode.replaceChild(contentFragment, preToUnwrap);
+              modifiedElementId = firstNewP ? firstNewP.id : null;
+              newElement = firstNewP;
+
+              const targetP = pForCursor || firstNewP;
+              if (targetP && this.currentSelection) {
+                let newOffset = 0;
+                if (pForCursor) {
+                  let tempCharCount = 0;
+                  for (let i = 0; i < lines.indexOf(targetP.textContent.replace(/\u00A0/g, '')); i++) {
+                      tempCharCount += lines[i].length + 1;
+                  }
+                  newOffset = Math.max(0, currentOffsetInfo.charOffsetInCode - tempCharCount);
+                  newOffset = Math.min(newOffset, targetP.textContent.length);
+                }
+                this.setCursorAtTextOffset(targetP, newOffset);
+              }
+            } else {
+              const pElement = document.createElement("p");
+              pElement.textContent = "\u00A0";
+              const newPId = generateIdBetween(beforeOriginalId, afterOriginalId);
+              pElement.id = newPId;
+              preToUnwrap.parentNode.replaceChild(pElement, preToUnwrap);
+              modifiedElementId = newPId;
+              newElement = pElement;
+              if (newElement && this.currentSelection) {
+                this.setCursorAtTextOffset(newElement, 0);
+              }
+            }
+          } else {
+            // WRAPPING BLOCK TO CODE BLOCK (Cursor Position)
+            const blockParentToWrap = this.findClosestBlockParent(
+              parentElementForCursor
+            );
+            if (blockParentToWrap) {
+              const beforeId = findPreviousElementId(blockParentToWrap);
+              const afterId = findNextElementId(blockParentToWrap);
+
               const preElement = document.createElement("pre");
               const codeElement = document.createElement("code");
               preElement.appendChild(codeElement);
 
-              const selectedFragment = range.extractContents();
-              let combinedTextContent = "";
-
-              for (let i = 0; i < selectedFragment.childNodes.length; i++) {
-                const node = selectedFragment.childNodes[i];
-                combinedTextContent += node.textContent;
-                if (i < selectedFragment.childNodes.length - 1) {
-                  combinedTextContent += "\n";
-                }
-              }
-              codeElement.textContent = combinedTextContent;
-
-              range.insertNode(preElement);
-
-              const beforeId = findPreviousElementId(preElement);
-              const afterId = findNextElementId(preElement);
               const newPreId = generateIdBetween(beforeId, afterId);
               preElement.id = newPreId;
 
-              if (this.currentSelection && codeElement.firstChild) {
-                const newRange = document.createRange();
-                newRange.selectNodeContents(codeElement);
-                this.currentSelection.removeAllRanges();
-                this.currentSelection.addRange(newRange);
-              }
+              codeElement.textContent = blockParentToWrap.textContent;
 
+              const currentOffset = this.getTextOffsetInElement(
+                blockParentToWrap,
+                this.currentSelection.focusNode,
+                this.currentSelection.focusOffset
+              );
+
+              blockParentToWrap.parentNode.replaceChild(
+                preElement,
+                blockParentToWrap
+              );
               modifiedElementId = newPreId;
               newElement = preElement;
-            }
-          } else {
-            // CURSOR POSITION ONLY (No Text Selected)
-            const focusElement = this.currentSelection.focusNode;
-            const parentElementForCursor =
-              focusElement.nodeType === Node.ELEMENT_NODE
-                ? focusElement
-                : focusElement.parentElement;
-            const containingPreAtCursor = getContainingPre(parentElementForCursor);
 
-            if (containingPreAtCursor) {
-              // UNWRAPPING CODE BLOCK (Cursor Position)
-              const preToUnwrap = containingPreAtCursor;
-              const codeContentElement = preToUnwrap.querySelector("code");
-              const textContent = codeContentElement
-                ? codeContentElement.textContent
-                : "";
-
-              const beforeOriginalId = findPreviousElementId(preToUnwrap);
-              const afterOriginalId = findNextElementId(preToUnwrap);
-
-              const currentOffsetInfo = {
-                node: this.currentSelection.focusNode,
-                offset: this.currentSelection.focusOffset,
-                charOffsetInCode: this.getTextOffsetInElement(
-                  codeContentElement || preToUnwrap,
-                  this.currentSelection.focusNode,
-                  this.currentSelection.focusOffset
-                ),
-              };
-
-              const contentFragment = document.createDocumentFragment();
-              const lines = textContent.split("\n");
-              let firstNewP = null;
-              let lastGeneratedId = beforeOriginalId;
-              let pForCursor = null;
-              let charCount = 0;
-
-              lines.forEach((lineText, index) => {
-                if (lineText.trim() || (lines.length === 1 && index === 0)) {
-                  const pElement = document.createElement("p");
-                  pElement.textContent = lineText || "\u00A0";
-                  const newPId = generateIdBetween(lastGeneratedId, afterOriginalId);
-                  pElement.id = newPId;
-                  lastGeneratedId = newPId;
-
-                  if (index === 0) firstNewP = pElement;
-                  contentFragment.appendChild(pElement);
-
-                  if (
-                    !pForCursor &&
-                    currentOffsetInfo.charOffsetInCode <= charCount + lineText.length
-                  ) {
-                    pForCursor = pElement;
-                  }
-                  charCount += lineText.length + 1;
-                }
-              });
-
-              if (contentFragment.childNodes.length > 0) {
-                preToUnwrap.parentNode.replaceChild(contentFragment, preToUnwrap);
-                modifiedElementId = firstNewP ? firstNewP.id : null;
-                newElement = firstNewP;
-
-                const targetP = pForCursor || firstNewP;
-                if (targetP && this.currentSelection) {
-                  let newOffset = 0;
-                  if (pForCursor) {
-                    let tempCharCount = 0;
-                    for (let i = 0; i < lines.indexOf(targetP.textContent.replace(/\u00A0/g, '')); i++) {
-                        tempCharCount += lines[i].length + 1;
-                    }
-                    newOffset = Math.max(0, currentOffsetInfo.charOffsetInCode - tempCharCount);
-                    newOffset = Math.min(newOffset, targetP.textContent.length);
-                  }
-                  this.setCursorAtTextOffset(targetP, newOffset);
-                }
-              } else {
-                const pElement = document.createElement("p");
-                pElement.textContent = "\u00A0";
-                const newPId = generateIdBetween(beforeOriginalId, afterOriginalId);
-                pElement.id = newPId;
-                preToUnwrap.parentNode.replaceChild(pElement, preToUnwrap);
-                modifiedElementId = newPId;
-                newElement = pElement;
-                if (newElement && this.currentSelection) {
-                  this.setCursorAtTextOffset(newElement, 0);
-                }
-              }
-            } else {
-              // WRAPPING BLOCK TO CODE BLOCK (Cursor Position)
-              const blockParentToWrap = this.findClosestBlockParent(
-                parentElementForCursor
-              );
-              if (blockParentToWrap) {
-                const beforeId = findPreviousElementId(blockParentToWrap);
-                const afterId = findNextElementId(blockParentToWrap);
-
-                const preElement = document.createElement("pre");
-                const codeElement = document.createElement("code");
-                preElement.appendChild(codeElement);
-
-                const newPreId = generateIdBetween(beforeId, afterId);
-                preElement.id = newPreId;
-
-                codeElement.textContent = blockParentToWrap.textContent;
-
-                const currentOffset = this.getTextOffsetInElement(
-                  blockParentToWrap,
-                  this.currentSelection.focusNode,
-                  this.currentSelection.focusOffset
-                );
-
-                blockParentToWrap.parentNode.replaceChild(
-                  preElement,
-                  blockParentToWrap
-                );
-                modifiedElementId = newPreId;
-                newElement = preElement;
-
-                if (codeElement.firstChild && this.currentSelection) {
-                  this.setCursorAtTextOffset(codeElement, currentOffset);
-                } else if (this.currentSelection) {
-                  this.setCursorAtTextOffset(codeElement, 0);
-                }
+              if (codeElement.firstChild && this.currentSelection) {
+                this.setCursorAtTextOffset(codeElement, currentOffset);
+              } else if (this.currentSelection) {
+                this.setCursorAtTextOffset(codeElement, 0);
               }
             }
           }
-          break;
-      }
-      
-      // Update button states after formatting
-      this.updateButtonStates();
-      
-      // Save to IndexedDB
-      if (modifiedElementId && newElement) {
-        setTimeout(() => {
-          const updatedElement = document.getElementById(modifiedElementId);
-          if (updatedElement) {
-            this.saveToIndexedDB(modifiedElementId, updatedElement.outerHTML);
-          } else {
-            this.saveToIndexedDB(modifiedElementId, newElement.outerHTML);
-          }
-        }, 50);
-      }
-
-     } finally {
-      // RESET THE FLAG AFTER A SHORT DELAY
-      setTimeout(() => {
-        this.isFormatting = false;
-      }, 100);
+        }
+        break;
     }
+    
+    // Update button states after formatting
+    this.updateButtonStates();
+    
+    // Save to IndexedDB
+    if (modifiedElementId && newElement) {
+      setTimeout(() => {
+        const updatedElement = document.getElementById(modifiedElementId);
+        if (updatedElement) {
+          this.saveToIndexedDB(modifiedElementId, updatedElement.outerHTML);
+        } else {
+          this.saveToIndexedDB(modifiedElementId, newElement.outerHTML);
+        }
+      }, 50);
+    }
+
+   } finally {
+    // RESET THE FLAG AFTER A SHORT DELAY
+    setTimeout(() => {
+      this.isFormatting = false;
+    }, 100);
   }
+}
+
 
   getBlockElementsInRange(range) {
     const blockElements = [];
