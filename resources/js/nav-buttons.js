@@ -97,14 +97,15 @@ export default class NavButtons {
    * Checks if an event should be ignored.
    */
   shouldIgnoreEvent(event) {
-
+    // If keyboard is visible, be much more restrictive
     if (this.isKeyboardVisible) {
       // Only allow very specific elements when keyboard is visible
       const allowedWhenKeyboardUp = [
-        '#editButton',
-        '#edit-toolbar',
-        '#edit-toolbar *', // All children of edit toolbar
-        'button[id*="Button"]' // All buttons with "Button" in their ID
+        '#editButton',           // Allow edit button specifically
+        '#edit-toolbar',         // Allow edit toolbar
+        '#edit-toolbar *',       // All children of edit toolbar
+        '#nav-buttons button',   // All buttons in nav-buttons (including editButton)
+        'button[id*="Button"]'   // All buttons with "Button" in their ID
       ];
       
       const isAllowed = allowedWhenKeyboardUp.some(selector => 
@@ -115,9 +116,15 @@ export default class NavButtons {
         console.log('Ignoring event due to keyboard being visible:', event.target);
         return true;
       }
+      
+      // If it's the edit button specifically, always allow it
+      if (event.target.closest('#editButton')) {
+        console.log('Edit button clicked while keyboard visible - allowing');
+        return false; // Don't ignore this event
+      }
     }
     
-    // Edit button and edit toolbar should be ignored by NavButtons
+    // Edit button and edit toolbar should be ignored by NavButtons (original logic)
     if (
       event.target.closest(
         "#logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button, #cloudRef, #edit-toolbar",
@@ -125,10 +132,12 @@ export default class NavButtons {
     ) {
       return true;
     }
+    
     if (window.isEditing) {
       return true;
     }
-    // ... and all your other original ignore logic ...
+    
+    // ... rest of your existing ignore logic ...
     if (
       event.target.closest("a") ||
       event.target.closest("sup.open-icon") ||
