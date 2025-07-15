@@ -49,6 +49,7 @@ export class ContainerManager {
     });
   }
 
+  // >>>>>> THIS IS THE ONLY PART YOU NEED TO REPLACE <<<<<<
   // Add a new event listener for link clicks within the container
   if (this.container) {
     this.container.addEventListener("click", (e) => {
@@ -58,77 +59,44 @@ export class ContainerManager {
       const href = link.getAttribute("href");
       if (!href) return; // No href attribute
 
-      // Check if this is a citation link (has hypercite in the hash)
-      const isCitationLink = href.includes("#hypercite_");
+      // Step 1: ALWAYS close this container if a link inside it is clicked.
+      // This is the desired UX for most pop-up containers.
+      this.closeContainer(); 
       
-      if (isCitationLink) {
-          e.preventDefault();
-          
-          // Extract the hash part
-          const url = new URL(href, window.location.origin);
-          const hash = url.hash ? url.hash.substring(1) : null;
-          
-          // Close the current container
-          this.closeContainer();
-          
-          
-          if (hash) {
-              navigateToInternalId(hash, currentLazyLoader);
-            }
-          
-          
-          return;
-        }
-      
-      // Create URL objects for comparison
-      const currentUrl = new URL(window.location.href);
+      // Step 2: Handle external links specifically (open in new tab).
       let targetUrl;
       try {
         targetUrl = new URL(href, window.location.origin);
-      } catch (e) {
-        console.error("Invalid URL:", href);
-        return;
+      } catch (error) {
+        console.error("ContainerManager: Invalid URL encountered:", href, error);
+        // Let the default browser behavior potentially handle it if parsing fails.
+        return; 
       }
-      
-      // Check if this is actually an internal navigation
-      const isInternalNavigation = 
-        targetUrl.pathname === currentUrl.pathname || 
-        href.startsWith('#') ||
-        href.startsWith('/HL_');
-      
-      if (isInternalNavigation) {
-        e.preventDefault();
-        
-        const isHighlightLink = href.includes("/HL_");
-        const highlightMatch = href.match(/\/HL_\d+/);
-        const highlightId = highlightMatch ? highlightMatch[0].substring(1) : null;
-        
-        const hash = targetUrl.hash ? targetUrl.hash.substring(1) : null;
-        
-        this.closeContainer();
-        
-        setTimeout(() => {
-          if (isHighlightLink && highlightId) {
-            if (hash) {
-              window.history.pushState(null, '', `#${hash}`);
-            } else {
-              window.history.pushState(null, '', window.location.pathname);
-            }
-            navigateToInternalId(highlightId, currentLazyLoader);
-          } else if (hash) {
-            navigateToInternalId(hash, currentLazyLoader);
-          } else {
-            window.location.href = href;
-          }
-        }, 300);
-      } else {
-        // For external links, let them open in a new tab
+
+      if (targetUrl.origin !== window.location.origin) {
+        // It's an external link. Open in a new tab.
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
+        // Do NOT preventDefault() here. Let the browser proceed with the modified link.
+        console.log("ContainerManager: Opening external link in new tab:", href);
+        // We return here because we've handled this specific case.
+        return; 
       }
+      
+      // Step 3: For ALL other links (internal, same-origin),
+      // DO NOT preventDefault() here.
+      // DO NOT call navigateToInternalId() here.
+      // Let the event bubble up to the document-level event listener in app.js.
+      // The app.js listener has the comprehensive logic to determine
+      // if it's a same-book hash, a cross-book link, a highlight link, etc.,
+      // and will call navigateToInternalId or allow default browser navigation accordingly.
+      
+      console.log("ContainerManager: Allowing internal link to be handled by app.js listener:", href);
+      // No return; // allows event to bubble
+      // No e.preventDefault(); // allows app.js to process
     });
   }
-} // <-- Constructor ends here
+} // <--- Constructor ends here for the new code block // <-- Constructor ends here
   
 
   // Helper method to freeze an element:
