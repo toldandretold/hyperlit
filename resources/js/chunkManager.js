@@ -1,7 +1,7 @@
 import { updateIndexedDBRecord } from './cache-indexedDB.js';
 import { generateIdBetween } from './IDfunctions.js';
 import { setChunkOverflowInProgress, currentObservedChunk } from './operationState.js';
-import { startObserving, stopObserving } from './divEditor.js';
+import { startObserving, stopObserving, movedNodesByOverflow } from './divEditor.js';
 
 // Object to store node counts for each chunk
 export const chunkNodeCounts = {};
@@ -286,8 +286,8 @@ export async function handleChunkOverflow(currentChunk, mutations) {
           id: id,
           html: currentHtml,
           chunk_id: parseFloat(newChunkId),
-          action: "add" // Use "add" instead of "update" to create a new record
-        }).catch(error => console.error(`Error creating node ${id}:`, error))
+          action: "update" // Change to 'update' to ensure upsert behavior if ID exists
+        }).catch(error => console.error(`Error updating node ${id}:`, error))
       );
     });
     
@@ -310,6 +310,12 @@ export async function handleChunkOverflow(currentChunk, mutations) {
     await Promise.all(savePromises);
     console.log(`Re-created ${overflowNodeData.length} nodes in chunk ${newChunkId}`);
     
+    // *** ADD THIS SECTION ***
+    // Mark these nodes as being handled by the overflow process
+    overflowNodeData.forEach(({ id }) => {
+      movedNodesByOverflow.add(id);
+    });
+    console.log("Moved nodes added to movedNodesByOverflow set:", Array.from(movedNodesByOverflow));
     // IMPROVED CURSOR POSITIONING FOR ENTER KEY PRESSES:
     
     // First check: If this appears to be an Enter key press (looking for newly created empty paragraph)
@@ -398,6 +404,9 @@ export async function handleChunkOverflow(currentChunk, mutations) {
   } finally {
     // Always clear the flag when done, even if there was an error
     setChunkOverflowInProgress(false);
+    // *** ADD THIS LINE TO CLEAR THE SET WHEN OVERFLOW IS COMPLETE ***
+    movedNodesByOverflow.clear();
+    console.log("Moved nodes set cleared.");
   }
 }
 

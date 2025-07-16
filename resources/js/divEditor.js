@@ -50,7 +50,7 @@ import { delinkHypercite, handleHyperciteDeletion } from './hyperCites.js';
 
 
 
-
+export let movedNodesByOverflow = new Set();
 // Tracking sets
 const modifiedNodes = new Set(); // Track element IDs whose content was modified.
 const addedNodes = new Set(); // Track newly-added element nodes.
@@ -64,6 +64,8 @@ let observedChunks = new Map(); // chunkId -> chunk element
 let deletionHandler = null;
 
 let isObserverRestarting = false;
+
+
 
 // ================================================================
 // DEBOUNCING INFRASTRUCTURE
@@ -367,6 +369,15 @@ function filterChunkMutations(mutations) {
       );
       
       if (chunkDeletions.length > 0) {
+        // *** ADD THE GUARD HERE ***
+        if (chunkOverflowInProgress) {
+            console.log(`⚠️ Skipping direct chunk deletion handling (DB) because chunk overflow is in progress.`);
+            // DO NOT process deletion here. `handleChunkOverflow` will manage the DB state for these nodes.
+            // Still push the mutation if you need `processChunkMutations` to see the DOM change,
+            // but `processChunkMutations` should also ignore it for specific IDs.
+            // We push the mutation to `filteredMutations` below this `if` block.
+        } else {
+            // *** ORIGINAL DELETION LOGIC (ONLY IF NO OVERFLOW) ***
         console.log('Detected chunk deletion(s):', chunkDeletions);
         
         // For each deleted chunk, handle deletion of numerical ID nodes directly
@@ -384,6 +395,8 @@ function filterChunkMutations(mutations) {
             debouncedBatchDelete();
           }
         });
+
+    }
         
         // Include the original chunk deletion mutation for any other processing
         filteredMutations.push(mutation);
@@ -562,6 +575,43 @@ async function processChunkMutations(chunk, mutations) {
   
   console.log(`🔄 Processing ${mutations.length} mutations for chunk ${chunkId}`);
 
+  // *** CRITICAL ADDITION HERE ***
+  // If chunk overflow is in progress, handle it directly and prevent other mutation processing
+  if (chunkOverflowInProgress) {
+    const isRemovalMutation = mutations.some(m => m.type === "childList" && m.removedNodes.length > 0);
+    const isAddedMutation = mutations.some(m => m.type === "childList" && m.addedNodes.length > 0);
+    
+    // During overflow, we are only interested in processing the initial DOM removals
+    // AND then the subsequent re-creation/updates.
+    // The `handleChunkOverflow` function should be the authority for DB ops.
+    // So, if overflow is active, let `handleChunkOverflow` complete its work.
+    // Any other mutation observers firing should be ignored for these specific nodes.
+    
+    // If the overflow handler is active, and this mutation is a removal of one of the nodes it's moving,
+    // or if it's a mutation on the *target* chunk where nodes are added (which handleChunkOverflow also handles),
+    // we should let handleChunkOverflow manage the database updates.
+    // The previous check with `movedNodesByOverflow` was good but it's populated too late.
+    // The `chunkOverflowInProgress` is immediate.
+
+    // If the overflow is in progress, we expect handleChunkOverflow to handle all relevant DB updates.
+    // We should only proceed if it's NOT a removal of a node that was just moved,
+    // or if it's not directly related to the DOM movements handled by handleChunkOverflow.
+    
+    // For simplicity and to directly address the logs:
+    // If we're in chunk overflow mode, and this is a *removal* mutation that our overflow logic caused,
+    // we must skip the default deletion process. The moved nodes will be updated by handleChunkOverflow.
+    if (isRemovalMutation) {
+        console.log(`⚠️ Skipping mutation processing for chunk ${chunkId} during chunk overflow (due to removal).`);
+        return; // Prevents deleted nodes from being queued for batch deletion
+    }
+    // If it's an added mutation, that might be a new chunk being created or a node being inserted into a new chunk.
+    // handleChunkOverflow should also manage these related DB updates for the moved nodes.
+    // If other unrelated additions/changes occur, that's complex, but for now, let's stop the problematic deletions.
+    // You might need more granular control if other types of edits are possible during overflow,
+    // but usually, overflow is a quick, atomic operation.
+  }
+  // **********************************
+
   // Only show spinner if we're not already processing
   if (!isProcessing) {  // ← ADD THIS CHECK
     showSpinner();
@@ -600,6 +650,15 @@ async function processChunkMutations(chunk, mutations) {
       
       for (const node of mutation.removedNodes) {
         if (node.nodeType === Node.ELEMENT_NODE) {
+
+
+          // **** ADD THIS CHECK HERE ****
+          if (node.id && movedNodesByOverflow.has(node.id)) {
+            console.log(`🗑️ Skipping deletion for node ${node.id} as it's handled by chunk overflow.`);
+            movedNodesByOverflow.delete(node.id); // Remove it from the set once it's seen here
+            continue; // Skip the rest of the deletion logic for this node
+          }
+          // *****************************
 
           // 🆕 ADD THIS: Check for hypercite removals
           await handleHyperciteRemoval(node);
