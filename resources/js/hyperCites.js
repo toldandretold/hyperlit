@@ -13,7 +13,6 @@ import { getCurrentUser, getAuthorId, getAnonymousToken } from "./auth.js";
 
 
 let lastEventTime = 0;
-
 function handleCopyEvent(event) {
   event.preventDefault();
   event.stopPropagation();
@@ -173,9 +172,15 @@ function handleCopyEvent(event) {
   }
 }
 
+
+
 // Set up event listeners
 const copyButton = document.getElementById("copy-hypercite");
 
+// Just add this one line to prevent the button from clearing selection:
+copyButton.addEventListener('mousedown', function(e) {
+  e.preventDefault();
+});
 // Remove existing listeners
 copyButton.removeEventListener('click', handleCopyEvent);
 copyButton.removeEventListener('touchend', handleCopyEvent);
