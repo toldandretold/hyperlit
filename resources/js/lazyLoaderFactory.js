@@ -55,15 +55,30 @@ export function createLazyLoader(config) {
     return null;
   }
 
-  // Instead of passing a container separately, get it by the bookId.
-  const container = document.getElementById(bookId);
+  // --- MOVE THIS BLOCK UP! ---
+  const container = document.getElementById(bookId); // <<< DEFINE CONTAINER FIRST
   if (!container) {
     console.error(
       `Container element with id "${bookId}" not found in the DOM.`
     );
     return null;
   }
+  // --- END MOVED BLOCK ---
 
+  // Now, container is defined, so you can safely use it:
+  let scrollableParent;
+  const readerWrapper = container.closest(".reader-content-wrapper");
+  const homeWrapper = container.closest(".home-content-wrapper");
+
+  if (readerWrapper) {
+      scrollableParent = readerWrapper;
+  } else if (homeWrapper) {
+      scrollableParent = homeWrapper;
+  } else {
+      scrollableParent = window;
+      console.warn("No specific .reader-content-wrapper or .home-content-wrapper found. Using window as scrollable parent.");
+  }
+  
   // Create the instance to track lazy-loader state.
   const instance = {
     nodeChunks, // Array of chunk objects
@@ -75,8 +90,8 @@ export function createLazyLoader(config) {
     isNavigatingToInternalId,
     isUpdatingJsonContent,
     bookId,
-    // Save the container element directly in the instance.
-    container
+    container, // Now 'container' is defined.
+    scrollableParent // This is also correctly set.
   };
 
   if (instance.isRestoringFromCache) {
@@ -108,44 +123,54 @@ export function createLazyLoader(config) {
   };
 
   // --- SCROLL POSITION SAVING LOGIC ---
-instance.saveScrollPosition = () => {
-  // Query for all elements having an id attribute.
-  const elements = Array.from(container.querySelectorAll("[id]"));
-  if (elements.length === 0) return;
-  // Find the first element whose top is at or after the viewport top.
-  const topVisible = elements.find((el) => {
-    const rect = el.getBoundingClientRect();
-    return rect.top >= 0;
-  });
-  if (topVisible) {
-    // Use the element's id
-    const detectedId = topVisible.id;
-    // Modified regex to accept decimal numbers
-    if (/^\d+(\.\d+)?$/.test(detectedId)) {
-      const scrollData = {
-        elementId: detectedId,
-      };
-      const storageKey = getLocalStorageKey(
-        "scrollPosition",
-        instance.bookId
-      );
-      const stringifiedData = JSON.stringify(scrollData);
-      sessionStorage.setItem(storageKey, stringifiedData);
-      localStorage.setItem(storageKey, stringifiedData);
-      console.log("Saved scroll data:", scrollData);
+ instance.saveScrollPosition = () => {
+    // Query for all elements having an id attribute.
+    // Use instance.container here:
+    const elements = Array.from(instance.container.querySelectorAll("[id]")); 
+    if (elements.length === 0) return;
+    
+    let scrollSourceElement = instance.scrollableParent;
+    let scrollSourceRect;
+
+    if (scrollSourceElement === window) {
+      scrollSourceElement = document.documentElement;
+      scrollSourceRect = { top: 0, left: 0, bottom: window.innerHeight, right: window.innerWidth };
     } else {
-      console.log(
-        `Element id "${detectedId}" is not numerical. Skip saving scroll data.`
-      );
+      // Use instance.scrollableParent for getBoundingClientRect:
+      scrollSourceRect = instance.scrollableParent.getBoundingClientRect(); 
     }
-  }
-};
+    
+    const topVisible = elements.find((el) => {
+      const rect = el.getBoundingClientRect();
+      return rect.top >= scrollSourceRect.top;
+    });
+
+    if (topVisible) {
+      const detectedId = topVisible.id;
+      if (/^\d+(\.\d+)?$/.test(detectedId)) {
+        const scrollData = { elementId: detectedId };
+        const storageKey = getLocalStorageKey("scrollPosition", instance.bookId);
+        const stringifiedData = JSON.stringify(scrollData);
+        sessionStorage.setItem(storageKey, stringifiedData);
+        localStorage.setItem(storageKey, stringifiedData);
+        console.log("Saved scroll data:", scrollData);
+      } else {
+        console.log(
+          `Element id "${detectedId}" is not numerical. Skip saving scroll data.`
+        );
+      }
+    }
+  };
 
   document.dispatchEvent(new Event("pageReady"));
   
-  container.addEventListener("scroll", throttle(instance.saveScrollPosition, 200));
+   if (instance.scrollableParent === window) {
+    window.addEventListener("scroll", throttle(instance.saveScrollPosition, 200));
+  } else {
+    instance.scrollableParent.addEventListener("scroll", throttle(instance.saveScrollPosition, 200));
+  }
 
-  instance.restoreScrollPosition = async () => {
+instance.restoreScrollPosition = async () => {
     const storageKey = getLocalStorageKey("scrollPosition", instance.bookId);
     const storedData =
       sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
@@ -165,13 +190,15 @@ instance.saveScrollPosition = () => {
 
     // First, try to find the element in the already loaded DOM.
     // Use CSS.escape to properly escape the ID:
-    let targetElement = container.querySelector(`#${CSS.escape(scrollData.elementId)}`);
+    // *** FIX 1: Use instance.container ***
+    let targetElement = instance.container.querySelector(`#${CSS.escape(scrollData.elementId)}`);
     if (targetElement) {
       console.log(
         "Restoring scroll position to already loaded element:",
         scrollData.elementId
       );
-      targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+      // *** FIX 2: Use scrollElementIntoMainContent ***
+      scrollElementIntoMainContent(targetElement, instance.container, 50); // Pass instance.container
     } else {
       console.log(
         "Element not in DOM; looking it up in IndexedDB based on startLine:",
@@ -204,19 +231,20 @@ instance.saveScrollPosition = () => {
             matchingChunk.chunk_id,
             "down",
             instance,
-            attachMarkers
+            // *** FIX 3: ensure attachMarkers is passed correctly ***
+            attachMarkers // Assuming attachMarkers is in scope for createLazyLoader
           );
           // Allow some time for the chunk to be rendered.
           setTimeout(() => {
-            let newTarget = container.querySelector(
-              `#${scrollData.elementId}`
-            );
+            // *** FIX 4: Use instance.container ***
+            let newTarget = instance.container.querySelector(`#${scrollData.elementId}`);
             if (newTarget) {
               console.log(
                 "Restoring scroll position after loading chunk, element:",
                 scrollData.elementId
               );
-              newTarget.scrollIntoView({ behavior: "smooth", block: "start" });
+              // *** FIX 5: Use scrollElementIntoMainContent ***
+              scrollElementIntoMainContent(newTarget, instance.container, 50); // Pass instance.container
             } else {
               console.warn(
                 "After loading, element still not found:",
@@ -257,7 +285,7 @@ instance.saveScrollPosition = () => {
 
   // Set up IntersectionObserver options.
   const observerOptions = {
-    root: container,
+    root: instance.scrollableParent === window ? null : instance.scrollableParent, // null means viewport
     rootMargin: "150px",
     threshold: 0
   };
@@ -811,12 +839,15 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
     scheduleAutoClear(prevChunkId, 1000);
     
     const container = instance.container;
-    const prevScrollTop = container.scrollTop;
+    const prevScrollTop = instance.scrollableParent.scrollTop;
     const chunkElement = createChunkElement(prevNodes, instance);
     container.insertBefore(chunkElement, container.firstElementChild);
     instance.currentlyLoadedChunks.add(prevChunkId);
     const newHeight = chunkElement.getBoundingClientRect().height;
-    container.scrollTop = prevScrollTop + newHeight;
+    
+
+    instance.scrollableParent.scrollTop = prevScrollTop + newHeight; // <<< Use scrollableParent
+    console.log(`Adjusted scroll top of scrollableParent by ${newHeight}. New scrollTop: ${instance.scrollableParent.scrollTop}`); // NEW DEBUG
     
     if (instance.topSentinel) {
       instance.topSentinel.remove();
