@@ -403,8 +403,9 @@ updateEditButtonVisibility(book);
 // Add this function to your file
 // reader-edit.js
 
+// reader-edit.js
+
 async function showCustomAlert(title, message, options = {}) {
-  // --- Setup: This part is the same ---
   const overlay = document.createElement("div");
   overlay.className = "custom-alert-overlay";
 
@@ -433,63 +434,60 @@ async function showCustomAlert(title, message, options = {}) {
   document.body.appendChild(overlay);
   document.body.appendChild(alertBox);
 
-  // --- Event Handlers: All of your original logic is preserved here ---
+  // --- Event Handlers ---
 
-  const readButton = document.getElementById("customAlertRead");
-  const loginButton = document.getElementById("customAlertLogin");
-
-  // Your original closeAlert function
-  function closeAlert() {
+  // A single, reliable function to close the modal and reset the state.
+  function closeAlertAndCancel() {
     if (overlay.parentElement) overlay.remove();
     if (alertBox.parentElement) alertBox.remove();
-    // We must also remove the keydown listener to prevent memory leaks
     document.removeEventListener("keydown", handleEscape);
+    handleEditModeCancel(); // Go back to read mode
   }
 
-  // Your original readButton handler
-  if (readButton) {
-    readButton.addEventListener("click", () => {
-      closeAlert();
-      handleEditModeCancel();
-      if (options.onRead) options.onRead();
-    });
-  }
+  // Use event delegation on the alertBox to handle all clicks.
+  // This works even after the content changes.
+  alertBox.addEventListener("click", (e) => {
+    const targetId = e.target.id;
 
-  // THIS IS THE NEW, CORRECT loginButton handler
-  if (loginButton) {
-    loginButton.addEventListener("click", () => {
-      // 1. Set the callback for what to do after a successful login.
+    if (targetId === "customAlertRead" || targetId === "cancelAlert") {
+      closeAlertAndCancel();
+      if (targetId === "customAlertRead" && options.onRead) {
+        options.onRead();
+      }
+    } else if (targetId === "customAlertLogin") {
       userManager.setPostLoginAction(() => {
         enableEditMode();
       });
 
-      // 2. Get the raw HTML for the login form from our central manager.
-      const loginHTML = userManager.getLoginFormHTML();
+      // Get the CORE form HTML from the manager
+      const formHTML = userManager.getLoginFormHTML();
+      
+      // Inject the form HTML. The userManager's global listener will handle
+      // the 'loginSubmit' and 'showRegister' buttons automatically.
+      alertBox.innerHTML = formHTML;
 
-      // 3. Inject it directly into the existing alert box.
-      // The div resizes automatically. No flash. No new CSS needed.
-      alertBox.innerHTML = loginHTML;
-    });
-  }
-
-  // Your original overlay click handler (re-added for completeness)
-  overlay.addEventListener("click", (e) => {
-    // This check is important: only close if it's NOT a login form.
-    if (!alertBox.querySelector(".user-form")) {
-      closeAlert();
-      handleEditModeCancel();
+      // NOW, add the Cancel button, which is specific to this workflow.
+      const buttonContainer = alertBox.querySelector(".alert-buttons");
+      if (buttonContainer) {
+        const cancelButton = document.createElement("button");
+        cancelButton.type = "button";
+        cancelButton.id = "cancelAlert";
+        cancelButton.className = "alert-button secondary";
+        cancelButton.textContent = "Cancel";
+        buttonContainer.appendChild(cancelButton);
+      }
     }
   });
 
-  // Your original Escape key handler, fully preserved.
+  // The overlay click should ALWAYS allow cancellation.
+  overlay.addEventListener("click", closeAlertAndCancel);
+
+  // The Escape key should ALWAYS allow cancellation.
   function handleEscape(e) {
-    // This check is important: only close if it's NOT a login form.
-    if (e.key === "Escape" && !alertBox.querySelector(".user-form")) {
-      closeAlert();
-      handleEditModeCancel();
+    if (e.key === "Escape") {
+      closeAlertAndCancel();
     }
   }
   document.addEventListener("keydown", handleEscape);
 }
-
 
