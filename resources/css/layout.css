@@ -215,21 +215,19 @@ body[data-page="home"] .main-content {
 
 /* The alert box itself */
 .custom-alert {
-  /* --- REMOVED old positioning logic --- */
-  /* position, top, left, and transform are no longer needed here */
-
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   background-color: #221F20;
   color: #CBCCCC;
   padding: 25px;
   border-radius: 0.75em;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
-  
-  /* Make it responsive */
   width: 100%;
-  max-width: 420px; /* Adjust as needed */
+  max-width: 420px;
   box-sizing: border-box;
-  
-  /* It no longer needs a z-index because it's a child of the overlay */
+  z-index: 2000;
 }
 
 /* (The rest of the styles for h3, p, and buttons remain the same) */
