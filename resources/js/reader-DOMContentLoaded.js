@@ -43,6 +43,7 @@ import DOMPurify from 'dompurify';
 import "./containerCustomization.js";
 import "./drag.js";
 import { KeyboardManager } from "./keyboardManager.js";
+import { fireAndForgetSync } from './createNewBook.js';
 
 
 window.uiState = {
@@ -74,6 +75,35 @@ if (editMode) {
 if (!window.isInitialized) {
   window.isInitialized = true;
 
+  // ✅ DEFINE THIS FUNCTION
+  /**
+   * Checks sessionStorage for a new book that needs to be synced
+   * and kicks off the background sync process.
+   */
+  function handlePendingNewBookSync() {
+    const pendingSyncJSON = sessionStorage.getItem('pending_new_book_sync');
+
+    if (pendingSyncJSON) {
+      console.log("✅ Detected a new book requiring background sync.");
+
+      // IMPORTANT: Remove the item immediately so this doesn't run again on a normal refresh.
+      sessionStorage.removeItem('pending_new_book_sync');
+
+      try {
+        const pendingSync = JSON.parse(pendingSyncJSON);
+        const { bookId, isNewBook } = pendingSync;
+
+        if (bookId && isNewBook) {
+          // Now we call the sync function from the new, stable page.
+          fireAndForgetSync(bookId, isNewBook);
+        }
+      } catch (error) {
+        console.error("❌ Failed to handle pending book sync:", error);
+      }
+    }
+  }
+
+
   document.addEventListener("DOMContentLoaded", async () => {
     // Utility function to bust the cache using a lastModified timestamp
     window.getFreshUrl = function (url, lastModified) {
@@ -83,6 +113,9 @@ if (!window.isInitialized) {
     window.mdFilePath = `/markdown/book/main-text.md`; // Path to raw MD file
     window.isNavigatingToInternalId = false;
     console.log("✅ DOM is ready. Loading Markdown file...");
+
+    // ✅ CALL THE FUNCTION HERE, EARLY IN THE PAGE LOAD
+    handlePendingNewBookSync();
 
     // Initialize IndexedDB.
     window.db = await openDatabase();

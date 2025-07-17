@@ -1,4 +1,3 @@
-import { book } from "./app.js";
 import {
   broadcastToOpenTabs
 } from './BroadcastListener.js';
@@ -6,7 +5,8 @@ import { withPending } from "./operationState.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 import { getCurrentUser } from './auth.js';   
 
-export const DB_VERSION = 15;
+export const DB_VERSION = 16;
+import { book } from "./app.js";
 
 
  
@@ -43,19 +43,24 @@ export async function openDatabase() {
         {
           name: "hyperlights",
           keyPath: ["book", "hyperlight_id"],
-          indices: ["hyperlight_id", "book"], // ✅ ADD "book" here
+          indices: ["hyperlight_id", "book"],
         },
         {
           name: "hypercites",
           keyPath: ["book", "hyperciteId"],
-          indices: ["hyperciteId", "book"], // ✅ ADD "book" here
+          indices: ["hyperciteId", "book"],
         },
         {
           name: "library",
           keyPath: "book",
+        },
+        // ✅ ADD THIS: failedSyncs store for retry mechanism
+        {
+          name: "failedSyncs",
+          keyPath: "bookId",
+          indices: ["timestamp", "syncType"],
         }
       ];
-
 
       storeConfigs.forEach(({ name, keyPath, indices }) => {
         if (db.objectStoreNames.contains(name)) {
@@ -86,63 +91,90 @@ export async function openDatabase() {
 
 
 
+// In cache-indexedDB.js
+
 /**
- * Adds a new nodeChunk record directly to IndexedDB without DOM processing.
- * Used for creating initial book structure or adding nodes programmatically.
- * 
- * @param {string} bookId - The book identifier
- * @param {number} startLine - The line number (will be converted to numeric)
- * @param {string} content - The HTML content for the node
- * @param {number} chunkId - The chunk ID (defaults to 0)
- * @returns {Promise<boolean>} - Success status
+ * Adds a new nodeChunk record to IndexedDB.
+ * Can operate within an existing transaction or create its own.
+ *
+ * @param {string} bookId - The book identifier.
+ * @param {number} startLine - The line number.
+ * @param {string} content - The HTML content for the node.
+ * @param {number} [chunkId=0] - The chunk ID.
+ * @param {IDBTransaction} [transaction] - An optional existing transaction to use.
+ * @returns {Promise<boolean>} - Success status.
  */
-export async function addNewBookToIndexedDB(bookId, startLine, content, chunkId = 0) {
+export async function addNewBookToIndexedDB(
+  bookId,
+  startLine,
+  content,
+  chunkId = 0,
+  transaction // <-- The new optional parameter
+) {
+  // Your withPending wrapper is preserved.
   return withPending(async () => {
-    console.log(`Adding nodeChunk: book=${bookId}, startLine=${startLine}, chunkId=${chunkId}`);
+    console.log(
+      `Adding nodeChunk: book=${bookId}, startLine=${startLine}, chunkId=${chunkId}`
+    );
 
     try {
-      const db = await openDatabase();
-      const tx = db.transaction("nodeChunks", "readwrite");
-      const store = tx.objectStore("nodeChunks");
+      // --- MODIFICATION START ---
 
+      // If a transaction is NOT provided, create a new one for the 'nodeChunks' store.
+      // Otherwise, use the transaction that was passed in.
+      const tx =
+        transaction ||
+        (await openDatabase()).transaction("nodeChunks", "readwrite");
+
+      const store = tx.objectStore("nodeChunks");
       const numericStartLine = parseNodeId(startLine);
-      
+
       const nodeChunkRecord = {
         book: bookId,
         startLine: numericStartLine,
         chunk_id: chunkId,
         content: content,
         hyperlights: [],
-        hypercites: []
+        hypercites: [], // Preserved your original object structure
       };
 
       console.log("Creating nodeChunk record:", nodeChunkRecord);
       store.put(nodeChunkRecord);
 
-      return new Promise((resolve, reject) => {
-        tx.oncomplete = async() => {
-          console.log(`✅ Successfully added nodeChunk [${bookId}, ${numericStartLine}]`);
-
-          resolve(true);
-        };
-        
-        tx.onerror = (e) => {
-          console.error("❌ Error adding nodeChunk:", e.target.error);
-          reject(e.target.error);
-        };
-        
-        tx.onabort = (e) => {
-          console.warn("❌ Transaction aborted:", e);
-          reject(new Error("Transaction aborted"));
-        };
-      });
+      // If we are in STANDALONE mode (we created our own transaction),
+      // we are responsible for awaiting its completion.
+      if (!transaction) {
+        return new Promise((resolve, reject) => {
+          tx.oncomplete = () => {
+            console.log(
+              `✅ Successfully added nodeChunk [${bookId}, ${numericStartLine}]`
+            );
+            resolve(true);
+          };
+          tx.onerror = (e) => {
+            console.error("❌ Error adding nodeChunk:", e.target.error);
+            reject(e.target.error);
+          };
+          tx.onabort = (e) => {
+            console.warn("❌ Transaction aborted:", e);
+            reject(new Error("Transaction aborted"));
+          };
+        });
+      } else {
+        // If we are in SHARED mode, the caller is responsible for the transaction.
+        // We just log that our part is done and resolve immediately.
+        console.log(
+          `✅ Queued nodeChunk [${bookId}, ${numericStartLine}] to existing transaction.`
+        );
+        return true; // Resolve immediately.
+      }
+      // --- MODIFICATION END ---
     } catch (err) {
       console.error("❌ Failed to add nodeChunk:", err);
       throw err;
     }
   });
 }
-
 
 export async function saveAllNodeChunksToIndexedDB(
   nodeChunks,

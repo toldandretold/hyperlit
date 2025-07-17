@@ -1,45 +1,146 @@
-// createNewBook.js
-import { openDatabase, updateBookTimestamp, addNewBookToIndexedDB } from "./cache-indexedDB.js";
+const API_BASE_URL = window.location.origin;
+
+// createNewBook.js (Corrected and Optimized)
+import {
+  openDatabase,
+  updateBookTimestamp,
+  addNewBookToIndexedDB,
+  syncNodeChunksToPostgreSQL
+} from "./cache-indexedDB.js";
 import { buildBibtexEntry } from "./bibtexProcessor.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
-import { getCurrentUser, getAnonymousToken } from "./auth.js"; // Changed import
+import { getCurrentUser, getAnonymousToken } from "./auth.js";
 
-// your existing helper (you could move this to utils.js)
+
+
+// Helper remains the same
 function generateUUID() {
-  return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(
-    /[018]/g,
-    (c) =>
-      (c ^ (crypto.getRandomValues(new Uint8Array(1))[0] &
-        (15 >> (c / 4)))).toString(16)
+  return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
+    (
+      c ^
+      (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))
+    ).toString(16)
   );
 }
 
-// REMOVED: getCreatorId() function - no longer needed
+/**
+ * Enhanced sync that handles both new books and existing books
+ * @param {string} bookId
+ * @param {boolean} isNewBook - Whether this is a brand new book
+ */
+export async function fireAndForgetSync(bookId, isNewBook = false) {
+  try {
+    await updateBookTimestamp(bookId);
+    
+    if (isNewBook) {
+      // For new books, sync library first, then node chunks
+      await syncNewBookToPostgreSQL(bookId);
+      await syncNodeChunksForNewBook(bookId); // ← Use the new function name
+    } else {
+      // For existing books, use regular upsert
+      await syncIndexedDBtoPostgreSQL(bookId);
+    }
+    
+    console.log(`[Background Sync] Successfully synced ${isNewBook ? 'new' : 'existing'} book: ${bookId}`);
+  } catch (err) {
+    console.error(`[Background Sync] Failed for book: ${bookId}`, err);
+    // Store for retry later
+    await storeFallbackSync(bookId, err, isNewBook);
+  }
+}
+
+/**
+ * Sync a new book to PostgreSQL using bulk-create endpoint
+ * @param {string} bookId
+ */
+async function syncNewBookToPostgreSQL(bookId) {
+  try {
+    const db = await openDatabase();
+    
+    // Get the library record from IndexedDB - FIXED VERSION
+    const tx = db.transaction(['library'], 'readonly');
+    const libraryStore = tx.objectStore('library');
+    
+    // Create a promise to handle the async IndexedDB operation
+    const libraryRecord = await new Promise((resolve, reject) => {
+      const request = libraryStore.get(bookId);
+      
+      request.onsuccess = (event) => {
+        const result = event.target.result;
+        console.log('📚 Retrieved library record from IndexedDB:', result);
+        resolve(result);
+      };
+      
+      request.onerror = (event) => {
+        console.error('❌ Error retrieving library record:', event.target.error);
+        reject(event.target.error);
+      };
+    });
+    
+    if (!libraryRecord) {
+      throw new Error(`Library record not found for book: ${bookId}`);
+    }
+    
+    console.log('📤 Sending new book data to bulk-create endpoint:', {
+      book: bookId,
+      data: libraryRecord
+    });
+    
+    const response = await fetch(`${API_BASE_URL}/api/db/library/bulk-create`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        book: bookId,
+        data: libraryRecord
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Server responded with ${response.status}: ${errorText}`);
+    }
+    
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(`Bulk create failed: ${result.message}`);
+    }
+    
+    console.log('✅ New book successfully created on server:', result);
+    return result;
+    
+  } catch (error) {
+    console.error('❌ Error in syncNewBookToPostgreSQL:', error);
+    throw error;
+  }
+}
 
 export async function createNewBook() {
   try {
-    // 1) Get auth info using new system
-    const user = await getCurrentUser();
-    const anonymousToken = await getAnonymousToken(); // This handles auth initialization
-    
-    // Determine creator info
-    const creator = user
-      ? (user.name || user.username || user.email)
-      : null;
+    // --- OPTIMIZATION 1: Parallelize Auth Calls ---
+    const [user, anonymousToken] = await Promise.all([
+      getCurrentUser(),
+      getAnonymousToken(),
+    ]);
+
+    const creator = user ? user.name || user.username || user.email : null;
     const creator_token = user ? null : anonymousToken;
 
     console.log("Creating new book with", {
       creator,
-      creator_token: creator_token ? 'present' : 'null',
-      user_authenticated: !!user
+      creator_token: creator_token ? "present" : "null",
+      user_authenticated: !!user,
     });
 
-    // Validate that we have some form of auth
     if (!creator && !creator_token) {
-      throw new Error('No valid authentication - cannot create book');
+      throw new Error("No valid authentication - cannot create book");
     }
 
-    // 2) open IndexedDB
+    // --- Local Operations: These are fast ---
     const db = await openDatabase();
     const bookId = "book_" + Date.now();
 
@@ -51,48 +152,185 @@ export async function createNewBook() {
       type: "book",
       timestamp: new Date().toISOString(),
       creator,
-      creator_token
+      creator_token,
     };
     newLibraryRecord.bibtex = buildBibtexEntry(newLibraryRecord);
 
-    // 3) write into IndexedDB
-    const tx = db.transaction(["library"], "readwrite");
-    const store = tx.objectStore("library");
-    store.put(newLibraryRecord);
+    // --- FIX: Create a single transaction for all related writes ---
+    // 1. The transaction must declare ALL object stores it will write to.
+    const tx = db.transaction(["library", "nodeChunks"], "readwrite");
 
-    return new Promise((resolve, reject) => {
-      tx.oncomplete = async () => {
-        console.log("New book created in IndexedDB:", newLibraryRecord);
-        try {
-          // seed initial nodes
-          await addNewBookToIndexedDB(
-            bookId,
-            1,
-            '<h1 id="1">Untitled</h1>',
-            0
-          );
-          console.log("Initial nodes created");
+    // 2. Queue the first write operation (to the 'library' store).
+    tx.objectStore("library").put(newLibraryRecord);
 
-          // sync up to server (backend will use cookie-based auth)
-          await updateBookTimestamp(bookId);
-          await syncIndexedDBtoPostgreSQL(bookId);
+    // 3. Queue the second write operation by passing the transaction
+    //    into our updated function.
+    await addNewBookToIndexedDB(
+      bookId,
+      1,
+      '<h1 id="1">Untitled</h1>',
+      0,
+      tx // Pass the transaction here
+    );
 
-          // go edit!
-          window.location.href = `/${bookId}/edit?target=1`;
-          resolve(newLibraryRecord);
-        } catch (err) {
-          console.error("Failed post-indexedDB steps:", err);
-          reject(err);
-        }
+    // 4. Now, await the completion of the single, atomic transaction.
+    //    This promise will only resolve after BOTH writes are successful.
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = () => {
+        console.log("Atomic local book creation successful:", newLibraryRecord);
+        resolve();
       };
-      tx.onerror = e => {
-        console.error("IndexedDB transaction failed:", e.target.error);
+      tx.onerror = (e) => {
+        console.error("Atomic transaction failed:", e.target.error);
         reject(e.target.error);
       };
     });
+
+    // --- ✅ NEW APPROACH: DECOUPLE SYNC FROM NAVIGATION ---
+
+    // 1. Store the pending sync information in sessionStorage.
+    //    sessionStorage is cleared when the browser tab is closed.
+    console.log(`📝 Staging book ${bookId} for background sync on next page load.`);
+    sessionStorage.setItem('pending_new_book_sync', JSON.stringify({
+        bookId: bookId,
+        isNewBook: true
+    }));
+
+    // 2. Now, navigate to the new page.
+    window.location.href = `/${bookId}/edit?target=1`;
+
+    // The fireAndForgetSync() call is REMOVED from here.
+
+    return newLibraryRecord;
   } catch (err) {
-    // catches any errors *before* the tx.promise is returned
     console.error("createNewBook() failed:", err);
     throw err;
   }
 }
+
+
+
+/**
+ * Store failed syncs for later retry
+ */
+async function storeFallbackSync(bookId, error, isNewBook = false) {
+  try {
+    const db = await openDatabase();
+    
+    // Make sure failedSyncs object store exists
+    if (!db.objectStoreNames.contains('failedSyncs')) {
+      console.warn('failedSyncs store not found, cannot store fallback');
+      return;
+    }
+    
+    const tx = db.transaction(['failedSyncs'], 'readwrite');
+    tx.objectStore('failedSyncs').put({
+      bookId,
+      timestamp: Date.now(),
+      error: error.message,
+      retryCount: 0,
+      isNewBook,
+      syncType: isNewBook ? 'bulk-create' : 'upsert'
+    });
+    
+    console.log(`📝 Stored failed sync for later retry: ${bookId}`);
+  } catch (e) {
+    console.error('Failed to store fallback sync:', e);
+  }
+}
+
+
+/**
+ * Retry failed syncs (call this when connection is restored)
+ */
+async function retryFailedSyncs() {
+  try {
+    const db = await openDatabase();
+    
+    if (!db.objectStoreNames.contains('failedSyncs')) {
+      return;
+    }
+    
+    const tx = db.transaction(['failedSyncs'], 'readwrite');
+    const failedSyncs = await tx.objectStore('failedSyncs').getAll();
+    
+    console.log(`🔄 Retrying ${failedSyncs.length} failed syncs...`);
+    
+    for (const sync of failedSyncs) {
+      try {
+        if (sync.isNewBook) {
+          await syncNewBookToPostgreSQL(sync.bookId);
+        } else {
+          await syncIndexedDBtoPostgreSQL(sync.bookId);
+        }
+        
+        // Remove from failed syncs on success
+        await tx.objectStore('failedSyncs').delete(sync.bookId);
+        console.log(`✅ Retry successful for: ${sync.bookId}`);
+        
+      } catch (retryError) {
+        console.error(`❌ Retry failed for: ${sync.bookId}`, retryError);
+        
+        // Update retry count
+        sync.retryCount = (sync.retryCount || 0) + 1;
+        if (sync.retryCount < 5) { // Max 5 retries
+          await tx.objectStore('failedSyncs').put(sync);
+        } else {
+          console.error(`🚫 Max retries reached for: ${sync.bookId}`);
+          await tx.objectStore('failedSyncs').delete(sync.bookId);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Failed to retry syncs:', e);
+  }
+}
+
+/**
+ * Retrieve and sync node chunks for a new book
+ * @param {string} bookId
+ */
+async function syncNodeChunksForNewBook(bookId) {
+  try {
+    const db = await openDatabase();
+    
+    // Get node chunks from IndexedDB
+    const tx = db.transaction(['nodeChunks'], 'readonly');
+    const nodeChunksStore = tx.objectStore('nodeChunks');
+    const index = nodeChunksStore.index('book');
+    
+    const nodeChunks = await new Promise((resolve, reject) => {
+      const request = index.getAll(bookId);
+      
+      request.onsuccess = (event) => {
+        const result = event.target.result;
+        console.log(`📚 Retrieved ${result.length} node chunks from IndexedDB for sync`);
+        resolve(result);
+      };
+      
+      request.onerror = (event) => {
+        console.error('❌ Error retrieving node chunks:', event.target.error);
+        reject(event.target.error);
+      };
+    });
+    
+    if (nodeChunks.length === 0) {
+      console.log('No node chunks to sync for book:', bookId);
+      return { success: true, message: 'No node chunks to sync' };
+    }
+    
+    // Use your existing syncNodeChunksToPostgreSQL function
+    console.log(`📤 Calling syncNodeChunksToPostgreSQL with ${nodeChunks.length} chunks`);
+    return await syncNodeChunksToPostgreSQL(nodeChunks);
+    
+  } catch (error) {
+    console.error('❌ Error in syncNodeChunksForNewBook:', error);
+    throw error;
+  }
+}
+
+// Add this to your main app initialization
+window.addEventListener('online', () => {
+  console.log('🌐 Connection restored - retrying failed syncs...');
+  retryFailedSyncs();
+});
