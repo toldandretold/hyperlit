@@ -514,3 +514,58 @@ black #221F20;
 .container-resizing .container-controls {
   pointer-events: auto;
 }
+
+
+/* =============================================== */
+/* ==          Custom Alert Modal Styles        == */
+/* =============================================== */
+
+/* The full-screen background overlay */
+.custom-alert-overlay {
+  position: fixed; /* Stays in place even when scrolling */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent black */
+  z-index: 2000; /* High z-index to be on top of everything */
+}
+
+/* The alert box itself */
+.custom-alert {
+  position: fixed; /* Stays in place relative to the viewport */
+  top: 50%; /* Move the top edge to the middle of the screen */
+  left: 50%; /* Move the left edge to the middle of the screen */
+  transform: translate(-50%, -50%); /* Shift it back by half its own width and height */
+  
+  background-color: #221F20; /* Same as your user container */
+  color: #CBCCCC;
+  padding: 25px;
+  border-radius: 0.75em;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
+  z-index: 2001; /* One level above the overlay */
+  
+  min-width: 300px; /* Prevents it from looking too cramped */
+  max-width: 450px; /* Prevents it from being too wide on large screens */
+  box-sizing: border-box;
+}
+
+.custom-alert h3 {
+  color: #EF8D34;
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+
+.custom-alert p {
+  margin-bottom: 25px;
+  line-height: 1.5;
+}
+
+/* Container for the buttons */
+.alert-buttons {
+  display: flex;
+  justify-content: flex-end; /* Aligns buttons to the right */
+  gap: 10px; /* Adds space between buttons */
+}
+
+
