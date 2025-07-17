@@ -189,7 +189,6 @@ body[data-page="home"] .main-content {
   pointer-events: auto;
 }
 
-
 /* =============================================== */
 /* ==      Definitive Centering Modal Styles    == */
 /* =============================================== */
@@ -199,12 +198,12 @@ body[data-page="home"] .main-content {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw; /* Use viewport width */
-  height: 100vh; /* Use viewport height */
+  width: 100%;
+  height: 100%;
   background-color: rgba(0, 0, 0, 0.7);
   z-index: 2000;
 
-  /* Use Flexbox for perfect centering */
+  /* --- NEW: Use Flexbox for perfect centering --- */
   display: flex;
   align-items: center;      /* Vertical centering */
   justify-content: center;  /* Horizontal centering */
@@ -216,8 +215,8 @@ body[data-page="home"] .main-content {
 
 /* The alert box itself */
 .custom-alert {
-  /* It no longer needs any positioning logic of its own. */
-  /* Its parent, the overlay, handles all centering. */
+  /* --- REMOVED old positioning logic --- */
+  /* position, top, left, and transform are no longer needed here */
 
   background-color: #221F20;
   color: #CBCCCC;
@@ -227,25 +226,29 @@ body[data-page="home"] .main-content {
   
   /* Make it responsive */
   width: 100%;
-  max-width: 420px;
+  max-width: 420px; /* Adjust as needed */
   box-sizing: border-box;
-  text-align: center; /* Center the text inside */
+  
+  /* It no longer needs a z-index because it's a child of the overlay */
 }
 
+/* (The rest of the styles for h3, p, and buttons remain the same) */
 .custom-alert h3 {
   color: #EF8D34;
   margin-top: 0;
   margin-bottom: 15px;
+  text-align: center; /* Looks better centered */
 }
 
 .custom-alert p {
   margin-bottom: 25px;
   line-height: 1.5;
+  text-align: center; /* Looks better centered */
 }
 
 .alert-buttons {
   display: flex;
-  justify-content: center;
+  justify-content: center; /* Center the buttons */
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: wrap; /* Allows buttons to stack on small screens */
 }
