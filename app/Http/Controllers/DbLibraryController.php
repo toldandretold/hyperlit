@@ -23,6 +23,28 @@ use App\Models\AnonymousSession;
 
 class DbLibraryController extends Controller
 {
+
+    public function test(Request $request)
+    {
+        $creatorInfo = $this->getCreatorInfo($request);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'DbLibraryController is working!',
+            'timestamp' => now(),
+            'auth_info' => [
+                'authenticated_user' => Auth::user() ? Auth::user()->name : null,
+                'creator_info' => $creatorInfo,
+                'cookies' => $request->cookies->all(),
+                'headers' => [
+                    'origin' => $request->header('Origin'),
+                    'user_agent' => $request->header('User-Agent'),
+                ]
+            ]
+        ]);
+    }
+
+
      private function isValidAnonymousToken($token)
     {
         if (!$token) {
@@ -270,6 +292,8 @@ class DbLibraryController extends Controller
         });
     }
 
+    // In app/Http/Controllers/DbLibraryController.php
+
     public function bulkCreate(Request $request)
     {
         // Use database transaction to ensure atomicity
@@ -286,8 +310,11 @@ class DbLibraryController extends Controller
                     ], 401);
                 }
                 
-                if (isset($data['data']) && is_object($data['data'])) {
-                    $item = $data['data'];
+                // ✅ FIX: Check for an object OR an array.
+                if (isset($data['data']) && (is_object($data['data']) || is_array($data['data']))) {
+                    
+                    // ✅ FIX: Cast to an array to ensure consistent access.
+                    $item = (array) $data['data'];
                     
                     $record = [
                         'book' => $item['book'] ?? null,
@@ -312,7 +339,7 @@ class DbLibraryController extends Controller
                         'total_views' => $item['total_views'] ?? 0,
                         'total_highlights' => $item['total_highlights'] ?? 0,
                         'total_citations' => $item['total_citations'] ?? 0,
-                        'raw_json' => ($item),
+                        'raw_json' => json_encode($item), // Encode the item for storage
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];
@@ -342,6 +369,7 @@ class DbLibraryController extends Controller
                     ]);
                 }
                 
+                // This is the error you were getting
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid data format'
@@ -349,7 +377,7 @@ class DbLibraryController extends Controller
                 
             } catch (\Exception $e) {
                 // Transaction will automatically rollback
-                Log::error('BulkCreate failed: ' . $e->getMessage());
+                Log::error('BulkCreate failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Failed to sync data',
@@ -358,7 +386,6 @@ class DbLibraryController extends Controller
             }
         });
     }
-
     
 
     /**

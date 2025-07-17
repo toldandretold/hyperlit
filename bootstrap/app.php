@@ -19,13 +19,27 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Add Sanctum middleware for API routes
+        // Add CORS middleware for API routes
         $middleware->api(prepend: [
+            \App\Http\Middleware\CorsMiddleware::class,
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
         ]);
+        
+        // Add CORS middleware for web routes too (in case you need it)
+        $middleware->web(append: [
+            \App\Http\Middleware\CorsMiddleware::class,
+        ]);
+        
+        // ✅ THIS IS THE MISSING LINE
+        // This tells Laravel not to require CSRF tokens for any route starting with /api/
+        $middleware->validateCsrfTokens(except: [
+            'api/*',
+        ]);
+        
         $middleware->alias([
             'book.owner' => \App\Http\Middleware\CheckBookOwnership::class,
             'author'     => \App\Http\Middleware\RequireAuthor::class,
+            'cors'       => \App\Http\Middleware\CorsMiddleware::class, // Add alias for manual use
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

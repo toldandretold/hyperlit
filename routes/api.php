@@ -13,6 +13,8 @@ use App\Http\Controllers\HomePageServerController;
 
 use App\Http\Controllers\AuthController;
 
+
+
 // Public routes
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/register', [AuthController::class, 'register']);
@@ -22,6 +24,9 @@ Route::post('/anonymous-session', [AuthController::class, 'createAnonymousSessio
 Route::get('/auth-check', [AuthController::class, 'checkAuth']);
 
 Route::middleware(['author', 'throttle:30,1'])->group(function () {
+
+    Route::get('/db/library/test', [DbLibraryController::class, 'test']);
+
     /* ----------------  Homepage / library stats  ---------------- */
     Route::post(
         '/homepage/books/update',
@@ -123,4 +128,14 @@ Route::prefix('database-to-indexeddb')->group(function () {
     // Get just library data for a specific book
     Route::get('books/{bookId}/library', [DatabaseToIndexedDBController::class, 'getBookLibrary'])
         ->name('api.database-to-indexeddb.book-library');
+});
+
+// Test route to verify CORS is working
+Route::get('/test-cors', function (Request $request) {
+    return response()->json([
+        'message' => 'CORS is working!',
+        'origin' => $request->header('Origin'),
+        'method' => $request->method(),
+        'timestamp' => now(),
+    ]);
 });
