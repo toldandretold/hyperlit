@@ -401,16 +401,16 @@ export async function updateEditButtonVisibility(bookId) {
 updateEditButtonVisibility(book);
 
 // Add this function to your file
+// reader-edit.js
+
 async function showCustomAlert(title, message, options = {}) {
-  // Create overlay
+  // --- Setup: This part is the same ---
   const overlay = document.createElement("div");
   overlay.className = "custom-alert-overlay";
 
-  // Create alert box
   const alertBox = document.createElement("div");
   alertBox.className = "custom-alert";
 
-  // Check if user is logged in
   const user = await getCurrentUser();
   const isLoggedIn = user !== null;
 
@@ -418,7 +418,6 @@ async function showCustomAlert(title, message, options = {}) {
   if (options.showReadButton) {
     buttonsHtml += `<button type="button" id="customAlertRead" class="alert-button secondary">Read</button>`;
   }
-  // MODIFIED: The login button will now trigger the userManager
   if (options.showLoginButton && !isLoggedIn) {
     buttonsHtml += `<button type="button" id="customAlertLogin" class="alert-button primary">Log In</button>`;
   }
@@ -431,19 +430,23 @@ async function showCustomAlert(title, message, options = {}) {
     </div>
   `;
 
-  // Add to page
   document.body.appendChild(overlay);
   document.body.appendChild(alertBox);
 
-  // Handle button clicks
+  // --- Event Handlers: All of your original logic is preserved here ---
+
   const readButton = document.getElementById("customAlertRead");
   const loginButton = document.getElementById("customAlertLogin");
 
+  // Your original closeAlert function
   function closeAlert() {
-    document.body.removeChild(overlay);
-    document.body.removeChild(alertBox);
+    if (overlay.parentElement) overlay.remove();
+    if (alertBox.parentElement) alertBox.remove();
+    // We must also remove the keydown listener to prevent memory leaks
+    document.removeEventListener("keydown", handleEscape);
   }
 
+  // Your original readButton handler
   if (readButton) {
     readButton.addEventListener("click", () => {
       closeAlert();
@@ -452,31 +455,41 @@ async function showCustomAlert(title, message, options = {}) {
     });
   }
 
-  // MODIFIED: Login button now uses the centralized userManager
+  // THIS IS THE NEW, CORRECT loginButton handler
   if (loginButton) {
     loginButton.addEventListener("click", () => {
-      closeAlert(); // Close this alert first
-
-      // 1. Tell the userManager what to do after a successful login
+      // 1. Set the callback for what to do after a successful login.
       userManager.setPostLoginAction(() => {
-        // The action is to try enabling edit mode again
         enableEditMode();
       });
 
-      // 2. Open the main login container
-      userManager.toggleContainer();
+      // 2. Get the raw HTML for the login form from our central manager.
+      const loginHTML = userManager.getLoginFormHTML();
+
+      // 3. Inject it directly into the existing alert box.
+      // The div resizes automatically. No flash. No new CSS needed.
+      alertBox.innerHTML = loginHTML;
     });
   }
 
-  // Handle Escape key
-  function handleEscape(e) {
-    if (e.key === 'Escape' && !alertBox.querySelector('.login-form')) {
+  // Your original overlay click handler (re-added for completeness)
+  overlay.addEventListener("click", (e) => {
+    // This check is important: only close if it's NOT a login form.
+    if (!alertBox.querySelector(".user-form")) {
       closeAlert();
-      document.removeEventListener('keydown', handleEscape);
+      handleEditModeCancel();
+    }
+  });
+
+  // Your original Escape key handler, fully preserved.
+  function handleEscape(e) {
+    // This check is important: only close if it's NOT a login form.
+    if (e.key === "Escape" && !alertBox.querySelector(".user-form")) {
+      closeAlert();
       handleEditModeCancel();
     }
   }
-  document.addEventListener('keydown', handleEscape);
+  document.addEventListener("keydown", handleEscape);
 }
 
 
