@@ -22,6 +22,11 @@ export class UserContainerManager extends ContainerManager {
     this.initializeUser();
   }
 
+   // ADD THIS: A method to set the post-login action
+  setPostLoginAction(action) {
+    this.postLoginAction = action;
+  }
+
   // ADDED: New initialization function that uses the auth module
   async initializeUser() {
     // This will trigger initializeAuth() in auth.js if it hasn't run yet
@@ -178,6 +183,125 @@ export class UserContainerManager extends ContainerManager {
     }
   }
 
+  getLoginFormHTML() {
+    const loginHTML = `
+      <div class="user-form">
+        <h3 style="color: #EF8D34; margin-bottom: 15px;">Login</h3>
+        <form id="login-form-embedded">
+          <input type="email" id="loginEmail" placeholder="Email" required 
+                 style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
+          <input type="password" id="loginPassword" placeholder="Password" required 
+                 style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
+          <button type="submit" id="loginSubmitEmbedded" 
+                  style="width: 100%; padding: 10px; background: #4EACAE; color: #221F20; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">
+            Login
+          </button>
+          <button type="button" id="showRegisterEmbedded" 
+                  style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer;">
+            Switch to Register
+          </button>
+        </form>
+      </div>
+    `;
+
+    // We need to define the handlers here so we can remove them later
+    const handleLoginSubmit = (e) => {
+      e.preventDefault();
+      this.handleLogin(); // We can reuse the main handleLogin logic!
+    };
+
+    const handleShowRegister = (e) => {
+      e.preventDefault();
+      // When switching, we can just replace the content again
+      const { html, cleanup } = this.getRegisterFormHTML();
+      const formContainer = document.querySelector(".user-form").parentElement;
+      if (formContainer) {
+        cleanup(); // Clean up old listeners
+        formContainer.innerHTML = html;
+      }
+    };
+
+    // This function attaches the listeners to the live DOM
+    const attachListeners = () => {
+      document
+        .getElementById("loginSubmitEmbedded")
+        ?.addEventListener("click", handleLoginSubmit);
+      document
+        .getElementById("showRegisterEmbedded")
+        ?.addEventListener("click", handleShowRegister);
+    };
+
+    // This function is returned so the caller can clean up
+    const cleanup = () => {
+      document
+        .getElementById("loginSubmitEmbedded")
+        ?.removeEventListener("click", handleLoginSubmit);
+      document
+        .getElementById("showRegisterEmbedded")
+        ?.removeEventListener("click", handleShowRegister);
+    };
+
+    // We need to attach listeners after the HTML is in the DOM
+    // So we'll do it in a timeout to wait for the next render cycle.
+    setTimeout(attachListeners, 0);
+
+    return { html: loginHTML, cleanup };
+  }
+
+  // We'll need a corresponding one for the register form
+  getRegisterFormHTML() {
+    // This is very similar to getLoginFormHTML
+    const registerHTML = `
+      <div class="user-form">
+        <h3 style="color: #EF8D34; margin-bottom: 15px;">Register</h3>
+        <form id="register-form-embedded">
+          <input type="text" id="registerName" placeholder="Name" required style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
+          <input type="email" id="registerEmail" placeholder="Email" required style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
+          <input type="password" id="registerPassword" placeholder="Password" required style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
+          <button type="submit" id="registerSubmitEmbedded" style="width: 100%; padding: 10px; background: #4EACAE; color: #221F20; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">Register</button>
+          <button type="button" id="showLoginEmbedded" style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer;">Switch to Login</button>
+        </form>
+      </div>
+    `;
+
+    const handleRegisterSubmit = (e) => {
+      e.preventDefault();
+      this.handleRegister();
+    };
+
+    const handleShowLogin = (e) => {
+      e.preventDefault();
+      const { html, cleanup } = this.getLoginFormHTML();
+      const formContainer = document.querySelector(".user-form").parentElement;
+      if (formContainer) {
+        cleanup();
+        formContainer.innerHTML = html;
+      }
+    };
+
+    const attachListeners = () => {
+      document
+        .getElementById("registerSubmitEmbedded")
+        ?.addEventListener("click", handleRegisterSubmit);
+      document
+        .getElementById("showLoginEmbedded")
+        ?.addEventListener("click", handleShowLogin);
+    };
+
+    const cleanup = () => {
+      document
+        .getElementById("registerSubmitEmbedded")
+        ?.removeEventListener("click", handleRegisterSubmit);
+      document
+        .getElementById("showLoginEmbedded")
+        ?.removeEventListener("click", handleShowLogin);
+    };
+
+    setTimeout(attachListeners, 0);
+
+    return { html: registerHTML, cleanup };
+  }
+
   getCsrfTokenFromCookie() {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; XSRF-TOKEN=`);
@@ -192,7 +316,6 @@ export class UserContainerManager extends ContainerManager {
     const password = document.getElementById("loginPassword").value;
 
     try {
-      // First, get the CSRF cookie
       await fetch("/sanctum/csrf-cookie", {
         credentials: "include",
       });
@@ -214,12 +337,36 @@ export class UserContainerManager extends ContainerManager {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // MODIFIED: Update state in both places
+        // This part is the same: set user data and handle transfers
         setCurrentUser(data.user);
         this.user = data.user;
-
         await this.handleAnonymousBookTransfer();
-        this.showUserProfile();
+
+        // --- LOGIC HAS BEEN REVISED HERE ---
+
+        // Check if a custom alert is open. This tells us if the login
+        // happened on the reader page in "headless" mode.
+        const customAlert = document.querySelector(".custom-alert");
+        if (customAlert) {
+          // If the custom alert exists, remove it.
+          const overlay = document.querySelector(".custom-alert-overlay");
+          if (overlay) overlay.remove();
+          customAlert.remove();
+        }
+
+        // Now, decide what to do next.
+        if (typeof this.postLoginAction === "function") {
+          // This is the flow for the reader page.
+          // We just run the action (e.g., enableEditMode).
+          // We DO NOT call closeContainer() because it was never opened.
+          this.postLoginAction();
+          this.postLoginAction = null; // Clear the action
+        } else {
+          // This is the default flow for the main page.
+          // The login happened inside the main user-container,
+          // so we replace the form with the user profile.
+          this.showUserProfile();
+        }
       } else {
         this.showLoginError(data.errors || data.message || "Login failed");
       }
@@ -369,9 +516,20 @@ export class UserContainerManager extends ContainerManager {
     if (this.isAnimating) return;
     this.isAnimating = true;
 
-    const rect = this.button.getBoundingClientRect();
-    this.container.style.top = `${rect.bottom + 8}px`;
-    this.container.style.left = `${rect.left}px`;
+    // MODIFIED: This logic correctly handles both scenarios
+    // If the button exists, position the container relative to it.
+    if (this.button) {
+      const rect = this.button.getBoundingClientRect();
+      this.container.style.top = `${rect.bottom + 8}px`;
+      this.container.style.left = `${rect.left}px`;
+      // Ensure any previous transform is cleared for correct positioning
+      this.container.style.transform = "";
+    } else {
+      // NEW: If no button, center the container on the screen.
+      this.container.style.top = "50%";
+      this.container.style.left = "50%";
+      this.container.style.transform = "translate(-50%, -50%)";
+    }
 
     this.container.classList.remove("hidden");
     this.container.style.visibility = "visible";
@@ -397,9 +555,13 @@ export class UserContainerManager extends ContainerManager {
       window.activeContainer = this.container.id;
       this.updateState();
 
-      this.container.addEventListener("transitionend", () => {
-        this.isAnimating = false;
-      }, { once: true });
+      this.container.addEventListener(
+        "transitionend",
+        () => {
+          this.isAnimating = false;
+        },
+        { once: true }
+      );
     });
   }
 

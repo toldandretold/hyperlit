@@ -9,6 +9,7 @@ import { addPasteListener } from './paste.js';
 import { getCurrentUser, canUserEditBook } from './auth.js';
 import { getLibraryObjectFromIndexedDB } from './cache-indexedDB.js';
 import { initEditToolbar, getEditToolbar } from './editToolbar.js';
+import userManager from "./userContainer.js";
 
 const editBtn     = document.getElementById("editButton");
 const editableDiv = document.getElementById(book);
@@ -402,25 +403,26 @@ updateEditButtonVisibility(book);
 // Add this function to your file
 async function showCustomAlert(title, message, options = {}) {
   // Create overlay
-  const overlay = document.createElement('div');
-  overlay.className = 'custom-alert-overlay';
-  
+  const overlay = document.createElement("div");
+  overlay.className = "custom-alert-overlay";
+
   // Create alert box
-  const alertBox = document.createElement('div');
-  alertBox.className = 'custom-alert';
-  
+  const alertBox = document.createElement("div");
+  alertBox.className = "custom-alert";
+
   // Check if user is logged in
   const user = await getCurrentUser();
   const isLoggedIn = user !== null;
-  
-  let buttonsHtml = '';
+
+  let buttonsHtml = "";
   if (options.showReadButton) {
     buttonsHtml += `<button type="button" id="customAlertRead" class="alert-button secondary">Read</button>`;
   }
+  // MODIFIED: The login button will now trigger the userManager
   if (options.showLoginButton && !isLoggedIn) {
     buttonsHtml += `<button type="button" id="customAlertLogin" class="alert-button primary">Log In</button>`;
   }
-  
+
   alertBox.innerHTML = `
     <h3>${title}</h3>
     <p>${message}</p>
@@ -428,14 +430,14 @@ async function showCustomAlert(title, message, options = {}) {
       ${buttonsHtml}
     </div>
   `;
-  
+
   // Add to page
   document.body.appendChild(overlay);
   document.body.appendChild(alertBox);
-  
+
   // Handle button clicks
-  const readButton = document.getElementById('customAlertRead');
-  const loginButton = document.getElementById('customAlertLogin');
+  const readButton = document.getElementById("customAlertRead");
+  const loginButton = document.getElementById("customAlertLogin");
 
   function closeAlert() {
     document.body.removeChild(overlay);
@@ -443,27 +445,28 @@ async function showCustomAlert(title, message, options = {}) {
   }
 
   if (readButton) {
-    readButton.addEventListener('click', () => {
+    readButton.addEventListener("click", () => {
       closeAlert();
       handleEditModeCancel();
       if (options.onRead) options.onRead();
     });
   }
 
+  // MODIFIED: Login button now uses the centralized userManager
   if (loginButton) {
-    loginButton.addEventListener('click', () => {
-      // Don't close the alert, show login form instead
-      showLoginFormInAlert(alertBox);
+    loginButton.addEventListener("click", () => {
+      closeAlert(); // Close this alert first
+
+      // 1. Tell the userManager what to do after a successful login
+      userManager.setPostLoginAction(() => {
+        // The action is to try enabling edit mode again
+        enableEditMode();
+      });
+
+      // 2. Open the main login container
+      userManager.toggleContainer();
     });
   }
-
-  // Close on overlay click (but not if login form is showing)
-  overlay.addEventListener('click', (e) => {
-    if (!alertBox.querySelector('.login-form')) {
-      closeAlert();
-      handleEditModeCancel();
-    }
-  });
 
   // Handle Escape key
   function handleEscape(e) {
@@ -476,155 +479,4 @@ async function showCustomAlert(title, message, options = {}) {
   document.addEventListener('keydown', handleEscape);
 }
 
-// Function to show login form inside the alert
-function showLoginFormInAlert(alertBox) {
-  const loginHTML = `
-    <div class="login-form">
-      <h3 style="color: #EF8D34; margin-bottom: 15px;">Login</h3>
-      <form id="alert-login-form">
-        <input type="email" id="alertLoginEmail" placeholder="Email" required 
-               style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
-        <input type="password" id="alertLoginPassword" placeholder="Password" required 
-               style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
-        <div class="alert-buttons">
-          <button type="submit" id="alertLoginSubmit" class="alert-button primary">
-            Login
-          </button>
-          <button type="button" id="alertLoginCancel" class="alert-button secondary">
-            Cancel
-          </button>
-        </div>
-      </form>
-    </div>
-  `;
-  
-  alertBox.innerHTML = loginHTML;
-  
-  // Handle form submission
-  const form = document.getElementById('alert-login-form');
-  const cancelButton = document.getElementById('alertLoginCancel');
-  
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    await handleAlertLogin();
-  });
-  
-  cancelButton.addEventListener('click', () => {
-    // Close the entire alert
-    const overlay = document.querySelector('.custom-alert-overlay');
-    const alertBox = document.querySelector('.custom-alert');
-    if (overlay && alertBox) {
-      document.body.removeChild(overlay);
-      document.body.removeChild(alertBox);
-    }
-    
-    handleEditModeCancel();
-  });
-  
-  // Focus the email input
-  document.getElementById('alertLoginEmail').focus();
-}
 
-// Handle login from the alert
-// Handle login from the alert
-async function handleAlertLogin() {
-  const email = document.getElementById('alertLoginEmail').value;
-  const password = document.getElementById('alertLoginPassword').value;
-  
-  try {
-    // Get CSRF token (same as your userContainer.js)
-    await fetch('/sanctum/csrf-cookie', {
-      credentials: 'include'
-    });
-    
-    const csrfToken = getCsrfTokenFromCookie();
-    
-    const response = await fetch('/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-XSRF-TOKEN': csrfToken
-      },
-      credentials: 'include',
-      body: JSON.stringify({ email, password })
-    });
-
-    const data = await response.json();
-    
-    if (response.ok && data.success) {
-      // Login successful - close alert
-      const overlay = document.querySelector('.custom-alert-overlay');
-      const alertBox = document.querySelector('.custom-alert');
-      if (overlay && alertBox) {
-        document.body.removeChild(overlay);
-        document.body.removeChild(alertBox);
-      }
-      
-      // Reset the edit mode check flag
-      editModeCheckInProgress = false;
-      
-      // Try to enable edit mode automatically
-      try {
-        await enableEditMode();
-      } catch (error) {
-        console.error('Error auto-enabling edit mode after login:', error);
-        // If auto-enable fails, just reload the page as fallback
-        window.location.reload();
-      }
-    } else {
-      showLoginError(data.errors || data.message || 'Login failed');
-    }
-    
-  } catch (error) {
-    console.error('Login error:', error);
-    showLoginError('Network error occurred');
-  }
-}
-
-// Show login error in the alert
-function showLoginError(errors) {
-  const form = document.getElementById('alert-login-form');
-  if (!form) return;
-  
-  const errorDiv = document.createElement('div');
-  errorDiv.style.cssText = `
-    color: #EE4A95; 
-    font-size: 12px; 
-    margin-top: 10px; 
-    padding: 8px; 
-    background: rgba(238, 74, 149, 0.1); 
-    border-radius: 4px;
-  `;
-  
-  if (typeof errors === 'object' && errors !== null) {
-    const errorMessages = [];
-    for (const [field, messages] of Object.entries(errors)) {
-      if (Array.isArray(messages)) {
-        errorMessages.push(...messages);
-      } else {
-        errorMessages.push(messages);
-      }
-    }
-    errorDiv.innerHTML = errorMessages.join('<br>');
-  } else {
-    errorDiv.textContent = errors || 'An error occurred';
-  }
-  
-  const existingError = form.querySelector('.error-message');
-  if (existingError) existingError.remove();
-  
-  errorDiv.className = 'error-message';
-  form.appendChild(errorDiv);
-}
-
-// Helper function to get CSRF token (same as your userContainer.js)
-function getCsrfTokenFromCookie() {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; XSRF-TOKEN=`);
-  if (parts.length === 2) {
-    return decodeURIComponent(parts.pop().split(';').shift());
-  }
-  return null;
-}
