@@ -80,28 +80,33 @@ if (!window.isInitialized) {
    * Checks sessionStorage for a new book that needs to be synced
    * and kicks off the background sync process.
    */
-  function handlePendingNewBookSync() {
-    const pendingSyncJSON = sessionStorage.getItem('pending_new_book_sync');
+  // In reader-DOMContentLoaded.js -> handlePendingNewBookSync()
 
-    if (pendingSyncJSON) {
-      console.log("✅ Detected a new book requiring background sync.");
+function handlePendingNewBookSync() {
+  const pendingSyncJSON = sessionStorage.getItem('pending_new_book_sync');
 
-      // IMPORTANT: Remove the item immediately so this doesn't run again on a normal refresh.
-      sessionStorage.removeItem('pending_new_book_sync');
+  if (pendingSyncJSON) {
+    console.log("✅ Detected a new book requiring background sync.");
+    sessionStorage.removeItem('pending_new_book_sync');
 
-      try {
-        const pendingSync = JSON.parse(pendingSyncJSON);
-        const { bookId, isNewBook } = pendingSync;
+    try {
+      const pendingSync = JSON.parse(pendingSyncJSON);
+      const { bookId, isNewBook } = pendingSync;
 
-        if (bookId && isNewBook) {
-          // Now we call the sync function from the new, stable page.
+      if (bookId && isNewBook) {
+        // ✅ DELAY THE SYNC
+        // Wait 1 second after the page loads before starting the sync.
+        // This makes the UI feel completely instant.
+        setTimeout(() => {
+          console.log("🚀 Kicking off delayed background sync...");
           fireAndForgetSync(bookId, isNewBook);
-        }
-      } catch (error) {
-        console.error("❌ Failed to handle pending book sync:", error);
+        }, 1000); // 1000ms = 1 second
       }
+    } catch (error) {
+      console.error("❌ Failed to handle pending book sync:", error);
     }
   }
+}
 
 
   document.addEventListener("DOMContentLoaded", async () => {

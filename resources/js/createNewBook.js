@@ -33,18 +33,22 @@ export async function fireAndForgetSync(bookId, isNewBook = false) {
     await updateBookTimestamp(bookId);
     
     if (isNewBook) {
-      // For new books, sync library first, then node chunks
-      await syncNewBookToPostgreSQL(bookId);
-      await syncNodeChunksForNewBook(bookId); // ← Use the new function name
+      console.log(`🔥 Firing parallel sync for new book: ${bookId}`);
+      // ✅ RUN IN PARALLEL
+      // This starts both network requests at the same time.
+      // The total time will be the time of the LONGEST request, not the sum of both.
+      await Promise.all([
+        syncNewBookToPostgreSQL(bookId),
+        syncNodeChunksForNewBook(bookId)
+      ]);
     } else {
-      // For existing books, use regular upsert
+      // For existing books, the logic remains the same.
       await syncIndexedDBtoPostgreSQL(bookId);
     }
     
     console.log(`[Background Sync] Successfully synced ${isNewBook ? 'new' : 'existing'} book: ${bookId}`);
   } catch (err) {
     console.error(`[Background Sync] Failed for book: ${bookId}`, err);
-    // Store for retry later
     await storeFallbackSync(bookId, err, isNewBook);
   }
 }
