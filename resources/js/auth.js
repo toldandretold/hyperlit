@@ -1,5 +1,5 @@
 import { getLibraryObjectFromIndexedDB } from './cache-indexedDB.js';
-
+ 
 // Internal state
 let currentUserInfo = null;
 let anonymousToken = null;
