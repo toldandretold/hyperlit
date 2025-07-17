@@ -31,10 +31,9 @@ function handleEditModeCancel() {
   // Reset the edit mode check flag
   editModeCheckInProgress = false;
   
-  // If we're currently in edit mode, disable it
-  if (window.isEditing) {
+  
     disableEditMode();
-  }
+  
   
   // Update URL without reload if we're on an /edit path
   const currentUrl = window.location.pathname;
@@ -300,12 +299,9 @@ async function enableEditMode(targetElementId = null) {
 }
 
 function disableEditMode() {
-  if (!window.isEditing) return;
   window.isEditing = false;
   editBtn.classList.remove("inverted");
   editableDiv.contentEditable = "false";
-
-
 
   // Get the existing toolbar instance and hide it:
   const toolbar = getEditToolbar();
