@@ -40,11 +40,6 @@ export class UserContainerManager extends ContainerManager {
     }
   }
 
-  // REMOVED: This logic is now centralized in auth.js
-  // async initializeSanctum() { ... }
-
-  // REMOVED: This logic is now centralized in auth.js
-  // async checkAuthStatus() { ... }
 
   setupUserContainerStyles() {
     const container = this.container;
@@ -93,12 +88,15 @@ export class UserContainerManager extends ContainerManager {
     });
   }
 
-  // ... (showLoginForm, showRegisterForm, showUserProfile methods remain the same) ...
-  showLoginForm() {
-    const loginHTML = `
+
+  getLoginFormHTML() {
+    // The button IDs 'loginSubmit' and 'showRegister' will be automatically
+    // handled by the global listener in setupUserListeners().
+    // This function now correctly returns ONLY the HTML string.
+    return `
       <div class="user-form">
         <h3 style="color: #EF8D34; margin-bottom: 15px;">Login</h3>
-        <form id="login-form">
+        <form id="login-form-embedded">
           <input type="email" id="loginEmail" placeholder="Email" required 
                  style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
           <input type="password" id="loginPassword" placeholder="Password" required 
@@ -114,43 +112,45 @@ export class UserContainerManager extends ContainerManager {
         </form>
       </div>
     `;
-    
-    if (!this.isOpen) {
-      this.container.innerHTML = loginHTML;
-      this.openContainer("login");
-    } else {
-      this.container.innerHTML = loginHTML;
-    }
   }
 
-  showRegisterForm() {
-    const registerHTML = `
+  // REPLACE the existing getRegisterFormHTML with this one.
+  getRegisterFormHTML() {
+    // This function now correctly returns ONLY the HTML string.
+    return `
       <div class="user-form">
         <h3 style="color: #EF8D34; margin-bottom: 15px;">Register</h3>
-        <form id="register-form">
-          <input type="text" id="registerName" placeholder="Name" required 
-                 style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
-          <input type="email" id="registerEmail" placeholder="Email" required 
-                 style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
-          <input type="password" id="registerPassword" placeholder="Password" required 
-                 style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
-          <button type="submit" id="registerSubmit"
-                  style="width: 100%; padding: 10px; background: #4EACAE; color: #221F20; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">
-            Register
-          </button>
-          <button type="button" id="showLogin" 
-                  style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer;">
-            Switch to Login
-          </button>
+        <form id="register-form-embedded">
+          <input type="text" id="registerName" placeholder="Name" required style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
+          <input type="email" id="registerEmail" placeholder="Email" required style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
+          <input type="password" id="registerPassword" placeholder="Password" required style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
+          <button type="submit" id="registerSubmit" style="width: 100%; padding: 10px; background: #4EACAE; color: #221F20; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">Register</button>
+          <button type="button" id="showLogin" style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer;">Switch to Login</button>
         </form>
       </div>
     `;
-    
-    if (!this.isOpen) {
-      this.container.innerHTML = registerHTML;
+  }
+
+   showLoginForm() {
+    const loginHTML = this.getLoginFormHTML();
+    // Find the right container: the alert box if it exists, otherwise the main container.
+    const container = document.querySelector(".custom-alert") || this.container;
+    container.innerHTML = loginHTML;
+
+    // Only open the main container if we're using it and it's closed.
+    if (!this.isOpen && container === this.container) {
+      this.openContainer("login");
+    }
+  }
+
+  // REVISED to be smarter about where it injects the form.
+  showRegisterForm() {
+    const registerHTML = this.getRegisterFormHTML();
+    const container = document.querySelector(".custom-alert") || this.container;
+    container.innerHTML = registerHTML;
+
+    if (!this.isOpen && container === this.container) {
       this.openContainer("register");
-    } else {
-      this.container.innerHTML = registerHTML;
     }
   }
 
@@ -183,125 +183,6 @@ export class UserContainerManager extends ContainerManager {
     }
   }
 
-  getLoginFormHTML() {
-    const loginHTML = `
-      <div class="user-form">
-        <h3 style="color: #EF8D34; margin-bottom: 15px;">Login</h3>
-        <form id="login-form-embedded">
-          <input type="email" id="loginEmail" placeholder="Email" required 
-                 style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
-          <input type="password" id="loginPassword" placeholder="Password" required 
-                 style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
-          <button type="submit" id="loginSubmitEmbedded" 
-                  style="width: 100%; padding: 10px; background: #4EACAE; color: #221F20; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">
-            Login
-          </button>
-          <button type="button" id="showRegisterEmbedded" 
-                  style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer;">
-            Switch to Register
-          </button>
-        </form>
-      </div>
-    `;
-
-    // We need to define the handlers here so we can remove them later
-    const handleLoginSubmit = (e) => {
-      e.preventDefault();
-      this.handleLogin(); // We can reuse the main handleLogin logic!
-    };
-
-    const handleShowRegister = (e) => {
-      e.preventDefault();
-      // When switching, we can just replace the content again
-      const { html, cleanup } = this.getRegisterFormHTML();
-      const formContainer = document.querySelector(".user-form").parentElement;
-      if (formContainer) {
-        cleanup(); // Clean up old listeners
-        formContainer.innerHTML = html;
-      }
-    };
-
-    // This function attaches the listeners to the live DOM
-    const attachListeners = () => {
-      document
-        .getElementById("loginSubmitEmbedded")
-        ?.addEventListener("click", handleLoginSubmit);
-      document
-        .getElementById("showRegisterEmbedded")
-        ?.addEventListener("click", handleShowRegister);
-    };
-
-    // This function is returned so the caller can clean up
-    const cleanup = () => {
-      document
-        .getElementById("loginSubmitEmbedded")
-        ?.removeEventListener("click", handleLoginSubmit);
-      document
-        .getElementById("showRegisterEmbedded")
-        ?.removeEventListener("click", handleShowRegister);
-    };
-
-    // We need to attach listeners after the HTML is in the DOM
-    // So we'll do it in a timeout to wait for the next render cycle.
-    setTimeout(attachListeners, 0);
-
-    return { html: loginHTML, cleanup };
-  }
-
-  // We'll need a corresponding one for the register form
-  getRegisterFormHTML() {
-    // This is very similar to getLoginFormHTML
-    const registerHTML = `
-      <div class="user-form">
-        <h3 style="color: #EF8D34; margin-bottom: 15px;">Register</h3>
-        <form id="register-form-embedded">
-          <input type="text" id="registerName" placeholder="Name" required style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
-          <input type="email" id="registerEmail" placeholder="Email" required style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
-          <input type="password" id="registerPassword" placeholder="Password" required style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
-          <button type="submit" id="registerSubmitEmbedded" style="width: 100%; padding: 10px; background: #4EACAE; color: #221F20; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">Register</button>
-          <button type="button" id="showLoginEmbedded" style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer;">Switch to Login</button>
-        </form>
-      </div>
-    `;
-
-    const handleRegisterSubmit = (e) => {
-      e.preventDefault();
-      this.handleRegister();
-    };
-
-    const handleShowLogin = (e) => {
-      e.preventDefault();
-      const { html, cleanup } = this.getLoginFormHTML();
-      const formContainer = document.querySelector(".user-form").parentElement;
-      if (formContainer) {
-        cleanup();
-        formContainer.innerHTML = html;
-      }
-    };
-
-    const attachListeners = () => {
-      document
-        .getElementById("registerSubmitEmbedded")
-        ?.addEventListener("click", handleRegisterSubmit);
-      document
-        .getElementById("showLoginEmbedded")
-        ?.addEventListener("click", handleShowLogin);
-    };
-
-    const cleanup = () => {
-      document
-        .getElementById("registerSubmitEmbedded")
-        ?.removeEventListener("click", handleRegisterSubmit);
-      document
-        .getElementById("showLoginEmbedded")
-        ?.removeEventListener("click", handleShowLogin);
-    };
-
-    setTimeout(attachListeners, 0);
-
-    return { html: registerHTML, cleanup };
-  }
-
   getCsrfTokenFromCookie() {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; XSRF-TOKEN=`);
@@ -311,15 +192,14 @@ export class UserContainerManager extends ContainerManager {
     return null;
   }
 
+  // userContainer.js -> inside the UserContainerManager class
+
   async handleLogin() {
     const email = document.getElementById("loginEmail").value;
     const password = document.getElementById("loginPassword").value;
 
     try {
-      await fetch("/sanctum/csrf-cookie", {
-        credentials: "include",
-      });
-
+      await fetch("/sanctum/csrf-cookie", { credentials: "include" });
       const csrfToken = this.getCsrfTokenFromCookie();
 
       const response = await fetch("/api/login", {
@@ -337,34 +217,23 @@ export class UserContainerManager extends ContainerManager {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // This part is the same: set user data and handle transfers
         setCurrentUser(data.user);
         this.user = data.user;
         await this.handleAnonymousBookTransfer();
 
-        // --- LOGIC HAS BEEN REVISED HERE ---
-
-        // Check if a custom alert is open. This tells us if the login
-        // happened on the reader page in "headless" mode.
+        // THIS IS THE KEY CHANGE: Clean up the alert box if it exists.
         const customAlert = document.querySelector(".custom-alert");
         if (customAlert) {
-          // If the custom alert exists, remove it.
           const overlay = document.querySelector(".custom-alert-overlay");
           if (overlay) overlay.remove();
           customAlert.remove();
         }
 
-        // Now, decide what to do next.
+        // The rest of the logic now works for both scenarios.
         if (typeof this.postLoginAction === "function") {
-          // This is the flow for the reader page.
-          // We just run the action (e.g., enableEditMode).
-          // We DO NOT call closeContainer() because it was never opened.
           this.postLoginAction();
-          this.postLoginAction = null; // Clear the action
+          this.postLoginAction = null;
         } else {
-          // This is the default flow for the main page.
-          // The login happened inside the main user-container,
-          // so we replace the form with the user profile.
           this.showUserProfile();
         }
       } else {
