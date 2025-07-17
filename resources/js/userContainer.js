@@ -1,62 +1,52 @@
 // userContainer.js
 import { ContainerManager } from "./container-manager.js";
-import { book } from "./app.js"
-import { setCurrentUser } from './auth.js';
+import { book } from "./app.js";
+// MODIFIED: Import more functions from auth.js
+import {
+  setCurrentUser,
+  clearCurrentUser,
+  getCurrentUser,
+} from "./auth.js";
 
 export class UserContainerManager extends ContainerManager {
   constructor(containerId, overlayId, buttonId, frozenContainerIds = []) {
     super(containerId, overlayId, buttonId, frozenContainerIds);
-    
+
     this.setupUserContainerStyles();
     this.isAnimating = false;
     this.button = document.getElementById(buttonId);
     this.setupUserListeners();
     this.user = null;
-    
-    // Initialize CSRF protection and then check auth
-    this.initializeSanctum().then(() => {
-      this.checkAuthStatus();
-    });
+
+    // MODIFIED: Simplified initialization. We will rely on auth.js
+    this.initializeUser();
   }
 
-  async initializeSanctum() {
-    try {
-      await fetch('/sanctum/csrf-cookie', {
-        credentials: 'include'
-      });
-    } catch (error) {
-      console.error('Failed to initialize Sanctum:', error);
+  // ADDED: New initialization function that uses the auth module
+  async initializeUser() {
+    // This will trigger initializeAuth() in auth.js if it hasn't run yet
+    const user = await getCurrentUser();
+    if (user) {
+      this.user = user;
+      // You can optionally update the UI here if needed, e.g., change button text
+      console.log("UserContainerManager initialized with user:", this.user.name);
+    } else {
+      console.log("UserContainerManager initialized with no user.");
     }
   }
 
-  async checkAuthStatus() {
-    try {
-      const response = await fetch('/api/auth-check', {
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        this.user = data.authenticated ? data.user : null;
-      } else {
-        this.user = null;
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      this.user = null;
-    }
-  }
+  // REMOVED: This logic is now centralized in auth.js
+  // async initializeSanctum() { ... }
+
+  // REMOVED: This logic is now centralized in auth.js
+  // async checkAuthStatus() { ... }
 
   setupUserContainerStyles() {
     const container = this.container;
     if (!container) return;
 
     container.style.position = "fixed";
-    container.style.transition = 
+    container.style.transition =
       "width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, padding 0.3s ease-out";
     container.style.zIndex = "1000";
     container.style.backgroundColor = "#221F20";
@@ -69,34 +59,36 @@ export class UserContainerManager extends ContainerManager {
   }
 
   setupUserListeners() {
-    document.addEventListener('click', (e) => {
-      if (e.target.id === 'loginSubmit') {
+    // This remains the same
+    document.addEventListener("click", (e) => {
+      if (e.target.id === "loginSubmit") {
         e.preventDefault();
         this.handleLogin();
       }
-      if (e.target.id === 'registerSubmit') {
+      if (e.target.id === "registerSubmit") {
         e.preventDefault();
         this.handleRegister();
       }
-      if (e.target.id === 'showRegister') {
+      if (e.target.id === "showRegister") {
         e.preventDefault();
         this.showRegisterForm();
       }
-      if (e.target.id === 'showLogin') {
+      if (e.target.id === "showLogin") {
         e.preventDefault();
         this.showLoginForm();
       }
-      if (e.target.id === 'logout') {
+      if (e.target.id === "logout") {
         e.preventDefault();
         this.handleLogout();
       }
-      
-      if (e.target.id === 'user-overlay' && this.isOpen) {
+
+      if (e.target.id === "user-overlay" && this.isOpen) {
         this.closeContainer();
       }
     });
   }
 
+  // ... (showLoginForm, showRegisterForm, showUserProfile methods remain the same) ...
   showLoginForm() {
     const loginHTML = `
       <div class="user-form">
@@ -186,145 +178,138 @@ export class UserContainerManager extends ContainerManager {
     }
   }
 
-  // Add this helper function to extract CSRF token from cookie
   getCsrfTokenFromCookie() {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; XSRF-TOKEN=`);
     if (parts.length === 2) {
-      return decodeURIComponent(parts.pop().split(';').shift());
+      return decodeURIComponent(parts.pop().split(";").shift());
     }
     return null;
   }
 
   async handleLogin() {
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
-    
+    const email = document.getElementById("loginEmail").value;
+    const password = document.getElementById("loginPassword").value;
+
     try {
       // First, get the CSRF cookie
-      console.log('Getting CSRF cookie...');
-      await fetch('/sanctum/csrf-cookie', {
-        credentials: 'include'
-      });
-      
-      // Get the CSRF token from the cookie
-      const csrfToken = this.getCsrfTokenFromCookie();
-      console.log('CSRF token from cookie:', csrfToken);
-      
-      console.log('Making login request...');
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-XSRF-TOKEN': csrfToken  // Add this header
-        },
-        credentials: 'include',
-        body: JSON.stringify({ email, password })
+      await fetch("/sanctum/csrf-cookie", {
+        credentials: "include",
       });
 
-      console.log('Response status:', response.status);
+      const csrfToken = this.getCsrfTokenFromCookie();
+
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          "X-XSRF-TOKEN": csrfToken,
+        },
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
+      });
+
       const data = await response.json();
-      console.log('Response data:', data);
-      
+
       if (response.ok && data.success) {
-        this.user = data.user;
-        
-        await this.handleAnonymousBookTransfer();
+        // MODIFIED: Update state in both places
         setCurrentUser(data.user);
+        this.user = data.user;
+
+        await this.handleAnonymousBookTransfer();
         this.showUserProfile();
       } else {
-        this.showLoginError(data.errors || data.message || 'Login failed');
+        this.showLoginError(data.errors || data.message || "Login failed");
       }
-      
     } catch (error) {
-      console.error('Login error:', error);
-      this.showLoginError('Network error occurred');
+      console.error("Login error:", error);
+      this.showLoginError("Network error occurred");
     }
   }
 
-  // Update handleRegister similarly
   async handleRegister() {
-    const name = document.getElementById('registerName').value;
-    const email = document.getElementById('registerEmail').value;
-    const password = document.getElementById('registerPassword').value;
-    
+    // This method is mostly fine, but we'll ensure state is synced
+    const name = document.getElementById("registerName").value;
+    const email = document.getElementById("registerEmail").value;
+    const password = document.getElementById("registerPassword").value;
+
     try {
-      await fetch('/sanctum/csrf-cookie', {
-        credentials: 'include'
+      await fetch("/sanctum/csrf-cookie", {
+        credentials: "include",
       });
-      
+
       const csrfToken = this.getCsrfTokenFromCookie();
-      
-      const response = await fetch('/api/register', {
-        method: 'POST',
+
+      const response = await fetch("/api/register", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-XSRF-TOKEN': csrfToken  // Add this header
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          "X-XSRF-TOKEN": csrfToken,
         },
-        credentials: 'include',
-        body: JSON.stringify({ name, email, password })
+        credentials: "include",
+        body: JSON.stringify({ name, email, password }),
       });
 
       const data = await response.json();
-      
+
       if (response.ok && data.success) {
+        // MODIFIED: Update state in both places
+        setCurrentUser(data.user);
         this.user = data.user;
         this.showUserProfile();
       } else {
-        this.showRegisterError(data.errors || data.message || 'Registration failed');
+        this.showRegisterError(
+          data.errors || data.message || "Registration failed"
+        );
       }
-      
     } catch (error) {
-      console.error('Register error:', error);
-      this.showRegisterError('Network error occurred');
+      console.error("Register error:", error);
+      this.showRegisterError("Network error occurred");
     }
   }
 
   async handleLogout() {
     try {
-      // Get fresh CSRF token for logout
-      await fetch('/sanctum/csrf-cookie', {
-        credentials: 'include'
-      });
-      
-      const csrfToken = this.getCsrfTokenFromCookie();
-      console.log('Logout CSRF token:', csrfToken);
-      
-      const response = await fetch('/logout', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-XSRF-TOKEN': csrfToken  // Add this header
-        },
-        credentials: 'include'
+      await fetch("/sanctum/csrf-cookie", {
+        credentials: "include",
       });
 
-      console.log('Logout response status:', response.status);
-      
+      const csrfToken = this.getCsrfTokenFromCookie();
+
+      const response = await fetch("/logout", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          "X-XSRF-TOKEN": csrfToken,
+        },
+        credentials: "include",
+      });
+
       if (response.ok) {
-        this.user = null;
+        // MODIFIED: Centralize state clearing
         clearCurrentUser();
+        this.user = null;
         this.closeContainer();
       } else {
-        console.error('Logout failed:', response.status);
-        // Still clear local state even if server logout failed
+        console.error("Logout failed:", response.status);
+        clearCurrentUser();
         this.user = null;
         this.closeContainer();
       }
-      
     } catch (error) {
-      console.error('Logout error:', error);
-      // Still clear local state
+      console.error("Logout error:", error);
+      clearCurrentUser();
       this.user = null;
       this.closeContainer();
     }
   }
 
+  // ... (error handling and other methods remain the same) ...
   showLoginError(errors) {
     this.showError(errors, 'login-form');
   }
@@ -438,7 +423,6 @@ export class UserContainerManager extends ContainerManager {
     }, { once: true });
   }
 
-  // Add this method to your UserContainerManager class
   async handleAnonymousBookTransfer() {
     if (!this.user) return;
     
@@ -651,11 +635,11 @@ export class UserContainerManager extends ContainerManager {
         throw new Error(`Backend transfer failed: ${response.status}`);
       }
     }
-  }
+}
 
 const userManager = new UserContainerManager(
   "user-container",
-  "user-overlay", 
+  "user-overlay",
   "userButton",
   ["main-content"]
 );
