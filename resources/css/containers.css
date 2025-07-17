@@ -515,57 +515,66 @@ black #221F20;
   pointer-events: auto;
 }
 
-
 /* =============================================== */
-/* ==          Custom Alert Modal Styles        == */
+/* ==      Definitive Centering Modal Styles    == */
 /* =============================================== */
 
 /* The full-screen background overlay */
 .custom-alert-overlay {
-  position: fixed; /* Stays in place even when scrolling */
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent black */
-  z-index: 2000; /* High z-index to be on top of everything */
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 2000;
+
+  /* --- NEW: Use Flexbox for perfect centering --- */
+  display: flex;
+  align-items: center;      /* Vertical centering */
+  justify-content: center;  /* Horizontal centering */
+
+  /* Add some padding to prevent the modal from touching screen edges */
+  padding: 20px;
+  box-sizing: border-box;
 }
 
 /* The alert box itself */
 .custom-alert {
-  position: fixed; /* Stays in place relative to the viewport */
-  top: 50%; /* Move the top edge to the middle of the screen */
-  left: 50%; /* Move the left edge to the middle of the screen */
-  transform: translate(-50%, -50%); /* Shift it back by half its own width and height */
-  
-  background-color: #221F20; /* Same as your user container */
+  /* --- REMOVED old positioning logic --- */
+  /* position, top, left, and transform are no longer needed here */
+
+  background-color: #221F20;
   color: #CBCCCC;
   padding: 25px;
   border-radius: 0.75em;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
-  z-index: 2001; /* One level above the overlay */
   
-  min-width: 300px; /* Prevents it from looking too cramped */
-  max-width: 450px; /* Prevents it from being too wide on large screens */
+  /* Make it responsive */
+  width: 100%;
+  max-width: 420px; /* Adjust as needed */
   box-sizing: border-box;
+  
+  /* It no longer needs a z-index because it's a child of the overlay */
 }
 
+/* (The rest of the styles for h3, p, and buttons remain the same) */
 .custom-alert h3 {
   color: #EF8D34;
   margin-top: 0;
   margin-bottom: 15px;
+  text-align: center; /* Looks better centered */
 }
 
 .custom-alert p {
   margin-bottom: 25px;
   line-height: 1.5;
+  text-align: center; /* Looks better centered */
 }
 
-/* Container for the buttons */
 .alert-buttons {
   display: flex;
-  justify-content: flex-end; /* Aligns buttons to the right */
-  gap: 10px; /* Adds space between buttons */
+  justify-content: center; /* Center the buttons */
+  gap: 10px;
+  flex-wrap: wrap; /* Allows buttons to stack on small screens */
 }
-
-
