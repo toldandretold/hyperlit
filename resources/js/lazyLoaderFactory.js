@@ -16,6 +16,7 @@ import {
   scheduleAutoClear 
 } from './chunkLoadingState.js';
 import { getUserHighlightCache } from "./userCache.js";
+import { scrollElementIntoMainContent } from "./scrolling.js";
 
 // --- A simple throttle helper to limit scroll firing
 function throttle(fn, delay) {
