@@ -208,7 +208,7 @@ black #221F20;
   transform: translateX(calc(100% + 2em)); /* Off-screen, including the gap */
   transition: transform 0.3s ease-in-out;
   position: fixed;
-  right: 1em; /* Positioned on the right */
+  right: .75em; /* Positioned on the right */
   bottom: 1em;
   top: 1em;
   height: 90%;
