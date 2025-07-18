@@ -96,7 +96,6 @@
 /* Responsive adjustments */
 @media (max-width: 480px) {
   .custom-alert {
-    margin: 20px;
     max-width: calc(100vw - 40px);
     padding: 20px;
   }
