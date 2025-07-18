@@ -7,7 +7,7 @@ black #221F20;
 
 /* Base styles for the TOC */
 #toc-container {
-  transform: translateX(calc(-105%)); /* Off-screen, including the gap */
+  transform: translateX(calc(-120%)); /* Off-screen, including the gap */
   transition: transform 0.3s ease-in-out;
   position: fixed;
   left: 1em;
@@ -117,9 +117,9 @@ black #221F20;
   right: 0;
   height: 1em; /* matches scroller’s bottom padding */
   pointer-events: none;
-  background-color: #221F20;
-  z‑index: 10;
-  box-shadow: inset 0px 4px 4px -4px #221F20;
+  background-color: #221f20;
+  z-index: 10; /* Corrected: changed en dash to hyphen */
+  box-shadow: inset 0px 4px 4px -4px #221f20;
   border-radius: 0 0 1em 1em;
 }
 

@@ -13,7 +13,7 @@ import { repositionSentinels } from "./lazyLoaderFactory.js"; // if exported
 
 // ========= Scrolling Helper Functions =========
 
-function scrollElementIntoMainContent(targetElement, headerOffset = 0) {
+export function scrollElementIntoMainContent(targetElement, headerOffset = 0) {
   // `book` is the ID of your <div class="main-content">
   const contentContainer = document.getElementById(book); // Renamed `container` to `contentContainer` for clarity
   if (!contentContainer) { // Changed 'container' to 'contentContainer'
