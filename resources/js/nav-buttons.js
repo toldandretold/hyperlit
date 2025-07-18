@@ -105,7 +105,7 @@ shouldIgnoreEvent(event) {
   // Ignore other UI elements
   if (
     event.target.closest(
-      "#logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button, #cloudRef",
+      "#logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button, #cloudRef, .custom-alert, .custom-alert-overlay",
     )
   ) {
     return true;
