@@ -7,10 +7,10 @@ black #221F20;
 
 /* Base styles for the TOC */
 #toc-container {
-  transform: translateX(calc(-120%)); /* Off-screen, including the gap */
+  transform: translateX(calc(-100% - 2em)); /* Off-screen, including the gap */
   transition: transform 0.3s ease-in-out;
   position: fixed;
-  left: .5em;
+  left: .75em;
   bottom: 1em;
   top: 1em;
   height: 90%;
