@@ -202,23 +202,16 @@ body[data-page="home"] .main-content {
   height: 100%;
   background-color: rgba(0, 0, 0, 0.7);
   z-index: 2000;
-
-  /* --- NEW: Use Flexbox for perfect centering --- */
   display: flex;
-  align-items: center;      /* Vertical centering */
-  justify-content: center;  /* Horizontal centering */
-
-  /* Add some padding to prevent the modal from touching screen edges */
+  align-items: center;
+  justify-content: center;
   padding: 20px;
   box-sizing: border-box;
 }
 
 /* The alert box itself */
 .custom-alert {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  /* Remove position: fixed, top, left, and transform */
   background-color: #221F20;
   color: #CBCCCC;
   padding: 25px;
@@ -227,7 +220,7 @@ body[data-page="home"] .main-content {
   width: 100%;
   max-width: 420px;
   box-sizing: border-box;
-  z-index: 2000;
+  /* z-index not needed since overlay handles stacking */
 }
 
 /* (The rest of the styles for h3, p, and buttons remain the same) */
