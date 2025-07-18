@@ -10,7 +10,7 @@ black #221F20;
   transform: translateX(calc(-120%)); /* Off-screen, including the gap */
   transition: transform 0.3s ease-in-out;
   position: fixed;
-  left: 1em;
+  left: .5em;
   bottom: 1em;
   top: 1em;
   height: 90%;
