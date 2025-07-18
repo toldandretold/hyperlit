@@ -2,24 +2,27 @@
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   background: rgba(0, 0, 0, 0.7);
   z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .custom-alert {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   background: #221F20;
-  width: 320px;
+  color: #CBCCCC;
   padding: 25px;
-  border-radius: 12px;
+  border-radius: 0.75em;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
   border: 1px solid #444;
+  width: 320px; /* Fixed width */
+  box-sizing: border-box;
   z-index: 10000;
 }
-
 .custom-alert h3 {
   color: #EE4A95;
   margin: 0 0 15px 0;
