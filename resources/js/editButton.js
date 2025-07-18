@@ -415,6 +415,7 @@ async function showCustomAlert(title, message, options = {}) {
   const user = await getCurrentUser();
   const isLoggedIn = user !== null;
 
+  // Initial alert content
   let buttonsHtml = "";
   if (options.showReadButton) {
     buttonsHtml += `<button type="button" id="customAlertRead" class="alert-button secondary">Read</button>`;
@@ -423,11 +424,14 @@ async function showCustomAlert(title, message, options = {}) {
     buttonsHtml += `<button type="button" id="customAlertLogin" class="alert-button primary">Log In</button>`;
   }
 
+  // Initial structure
   alertBox.innerHTML = `
-    <h3>${title}</h3>
-    <p>${message}</p>
-    <div class="alert-buttons">
-      ${buttonsHtml}
+    <div class="user-form">
+      <h3>${title}</h3>
+      <p>${message}</p>
+      <div class="alert-buttons">
+        ${buttonsHtml}
+      </div>
     </div>
   `;
 
