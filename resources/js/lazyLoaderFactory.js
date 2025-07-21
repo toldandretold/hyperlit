@@ -390,6 +390,78 @@ instance.restoreScrollPosition = async () => {
     }
   };
 
+  // +++ ADD THE NEW METHOD HERE, ALONGSIDE THE OTHERS +++
+  instance.updateAndRenderFromPaste = async function (newNodes, insertionNodeId) {
+    console.log("⚡️ Performing targeted update and render for paste...");
+
+    // 1. Find the insertion index in the loader's internal list.
+    const insertionIndex = this.nodeChunks.findIndex(
+      (chunk) => chunk.startLine == insertionNodeId
+    );
+
+    if (insertionIndex === -1) {
+      console.error(
+        "Could not find insertion point in lazy loader. Forcing full refresh."
+      );
+      await this.refresh(); // Fallback to a hard refresh
+      return;
+    }
+
+    // 2. Surgically update the loader's in-memory `nodeChunks` array.
+    const countToRemove = this.nodeChunks.length - (insertionIndex + 1);
+    this.nodeChunks.splice(
+      insertionIndex + 1,
+      countToRemove,
+      ...newNodes
+    );
+    console.log(
+      `🧠 Loader memory updated. New nodeChunks length: ${this.nodeChunks.length}`
+    );
+
+    // 3. Clear the view and reset loaded chunks.
+    this.container.innerHTML = "";
+    this.currentlyLoadedChunks.clear();
+
+    // 4. Re-insert sentinels.
+    this.container.prepend(this.topSentinel);
+    this.container.appendChild(this.bottomSentinel);
+
+    // 5. Find the chunk_id of our insertion point to start rendering from there.
+    const targetChunkData = this.nodeChunks.find(
+      (chunk) => chunk.startLine == insertionNodeId
+    );
+
+    if (!targetChunkData) {
+      console.error("Cannot find target chunk data after update. Aborting render.");
+      return;
+    }
+
+    const targetChunkId = targetChunkData.chunk_id;
+    console.log(`🎯 Target chunk for re-rendering is ${targetChunkId}`);
+
+    // 6. Load the target chunk and scroll to the insertion point.
+    await loadChunkInternal(targetChunkId, "down", this, attachMarkers);
+
+    setTimeout(() => {
+      const lastPastedNode = newNodes[newNodes.length - 1];
+      const lastElement = document.getElementById(lastPastedNode.startLine);
+      if (lastElement) {
+        console.log(`📜 Scrolling to last pasted element: ${lastPastedNode.startLine}`);
+        lastElement.scrollIntoView({
+          behavior: "auto",
+          block: "center",
+        });
+        
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(lastElement);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    }, 100);
+  };
+
   return instance;
 }
 

@@ -18,7 +18,8 @@ import {
   setCurrentObservedChunk,
   hypercitePasteInProgress,
   keyboardLayoutInProgress,
-  isProgrammaticUpdateInProgress
+  isProgrammaticUpdateInProgress,
+  isPasteInProgress
 } from './operationState.js';
 
 import { showSpinner, showTick, isProcessing } from './editIndicator.js';
@@ -255,6 +256,10 @@ export function startObserving(editableDiv) {
   // Create observer for the main-content container
   observer = new MutationObserver(async (mutations) => {
 
+    if (isPasteInProgress()) {
+      console.log("🚫 Skipping mutations: Paste operation is in control.");
+      return;
+    }
 
     if (isProgrammaticUpdateInProgress()) {
       console.log("Skipping mutations: Programmatic update in progress.");
