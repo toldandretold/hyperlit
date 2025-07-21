@@ -5,6 +5,11 @@ import { showSpinner, showTick } from "./editIndicator.js";
 let pendingOperations = 0;
 let unloadWarningActive = false;
 let programmaticUpdateInProgress = false;
+export let pasteInProgress = false;
+
+
+
+
 export let hypercitePasteInProgress = false;
 export let keyboardLayoutInProgress = false;
 
@@ -131,4 +136,14 @@ export function setProgrammaticUpdateInProgress(isUpdating) {
 
 export function isProgrammaticUpdateInProgress() {
   return programmaticUpdateInProgress;
+}
+
+
+export function isPasteInProgress() {
+  return pasteInProgress;
+}
+
+export function setPasteInProgress(value) {
+  console.log(`🚩 Paste In Progress state set to: ${value}`);
+  pasteInProgress = value;
 }

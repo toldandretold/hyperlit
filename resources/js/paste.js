@@ -12,13 +12,16 @@ import { book } from './app.js';
 import { getNodeChunksAfter,
          deleteNodeChunksAfter,
          writeNodeChunks,
-         updateCitationForExistingHypercite } from './cache-indexedDB.js';
+         updateCitationForExistingHypercite,
+         queueForSync } from './cache-indexedDB.js';
 import { syncIndexedDBtoPostgreSQL } from './postgreSQL.js';
 import { initializeMainLazyLoader } from './initializePage.js';
 import { parseHyperciteHref } from './hyperCites.js';
 import {
   getHandleHypercitePaste,
-  setHandleHypercitePaste
+  setHandleHypercitePaste,
+  isPasteInProgress,
+  setPasteInProgress
 } from './operationState.js';
 import { queueNodeForSave } from './divEditor.js';
 import { broadcastToOpenTabs } from './BroadcastListener.js';
@@ -264,111 +267,96 @@ async function showProgressModal() {
 }
 
 async function handlePaste(event) {
-  // 1) Prevent double-handling
-  if (pasteHandled) return;
-  pasteHandled = true;
-  setTimeout(() => (pasteHandled = false), 0);
+  // Set the flag immediately to disable the MutationObserver
+  setPasteInProgress(true);
 
-  // 2) Grab clipboard data
-  const plainText = event.clipboardData.getData('text/plain');
-  const rawHtml   = event.clipboardData.getData('text/html') || '';
+  try {
+    // 1) Prevent double-handling
+    if (pasteHandled) return;
+    pasteHandled = true;
+    setTimeout(() => (pasteHandled = false), 0);
 
-  console.log(
-    'handlePaste → rawHtml length:',
-    rawHtml.length,
-    'preview →',
-    rawHtml.slice(0, 100)
-  );
+    // 2) Grab and process clipboard data
+    const plainText = event.clipboardData.getData("text/plain");
+    const rawHtml = event.clipboardData.getData("text/html") || "";
+    let htmlContent = "";
+    const isMarkdown = detectMarkdown(plainText);
 
-  // 3) Detect markdown
-  let htmlContent = '';
-  const isMarkdown = detectMarkdown(plainText);
-
-  if (isMarkdown) {
-  console.log('Entering markdown branch');
-  event.preventDefault();
-
-    if (plainText.length > 1000) {
-      console.log('Showing progress modal for large markdown...');
-      const progressModal = await showProgressModal();
-      
-      try {
-        console.log('Starting chunked markdown processing...');
-        const startTime = performance.now();
-        
-        const dirty = await processMarkdownInChunks(plainText, (percent, current, total) => {
-          progressModal.updateProgress(percent, current, total);
-        });
-        
-        const endTime = performance.now();
-        console.log(`Chunked marked completed in ${endTime - startTime}ms`);
-        
-        console.log('Starting DOMPurify...');
-        const purifyStart = performance.now();
+    if (isMarkdown) {
+      console.log("Entering markdown branch");
+      event.preventDefault(); // This is now safe to call
+      // ... (the rest of your markdown processing logic is correct) ...
+      if (plainText.length > 1000) {
+        const progressModal = await showProgressModal();
+        try {
+          const dirty = await processMarkdownInChunks(plainText, (p, c, t) =>
+            progressModal.updateProgress(p, c, t)
+          );
+          htmlContent = DOMPurify.sanitize(dirty, { USE_PROFILES: { html: true } });
+          progressModal.complete();
+        } catch (error) {
+          console.error("Error during chunked conversion:", error);
+          progressModal.modal.remove();
+          return;
+        }
+      } else {
+        const dirty = marked(plainText);
         htmlContent = DOMPurify.sanitize(dirty, { USE_PROFILES: { html: true } });
-        const purifyEnd = performance.now();
-        console.log(`DOMPurify completed in ${purifyEnd - purifyStart}ms`);
-        
-        progressModal.complete();
-        
-      } catch (error) {
-        console.error('Error during chunked conversion:', error);
-        progressModal.modal.remove();
-        return;
       }
-    } else {
-      // Small content - process normally without progress bar
-      console.time("marked");
-      const dirty = marked(plainText);
-      console.timeEnd("marked");
-      
-      console.time("dompurify");
-      htmlContent = DOMPurify.sanitize(dirty, { USE_PROFILES: { html: true } });
-      console.timeEnd("dompurify");
+    } else if (rawHtml.trim()) {
+      htmlContent = assimilateHTML(rawHtml);
     }
-  } else if (rawHtml.trim()) {
-    // 4) Not markdown but HTML → clean it
-    htmlContent = assimilateHTML(rawHtml);
-    console.log('handlePaste → assimilateHTML result:', {
-      rawLength:   rawHtml.length,
-      cleanLength: htmlContent.length
+
+    // 3) Get our reliable estimate.
+    const estimatedNodes = estimatePasteNodeCount(htmlContent || plainText);
+    console.log("PASTE EVENT:", {
+      length: plainText.length,
+      isMarkdown,
+      estimatedNodes,
     });
-  } else {
-    console.log('handlePaste → plaintext only');
+
+    // 4) Perform routing checks for special paste types.
+    if (await handleHypercitePaste(event)) return; // Make sure this is awaited if it's async
+    const chunk = getCurrentChunk();
+    const chunkElement = chunk
+      ? document.querySelector(`[data-chunk-id="${chunk}"],[id="${chunk}"]`)
+      : null;
+    if (handleCodeBlockPaste(event, chunkElement)) return;
+
+    // 5) Route to the correct handler (small vs. large paste).
+    if (handleSmallPaste(event, htmlContent, plainText, estimatedNodes)) {
+      return;
+    }
+
+    const insertionPoint = getInsertionPoint(chunkElement);
+    if (!insertionPoint) {
+      console.error("Could not determine insertion point. Aborting paste.");
+      return;
+    }
+    const contentToProcess = htmlContent || plainText;
+
+    const newAndUpdatedNodes = await handleJsonPaste(
+      event,
+      insertionPoint,
+      contentToProcess,
+      !!htmlContent
+    );
+
+    if (!newAndUpdatedNodes || newAndUpdatedNodes.length === 0) {
+      console.log("Paste resulted in no new nodes. Aborting render.");
+      return;
+    }
+
+    const loader = initializeMainLazyLoader();
+    await loader.updateAndRenderFromPaste(
+      newAndUpdatedNodes,
+      insertionPoint.beforeNodeId
+    );
+
+  } finally {
+    // THIS IS ESSENTIAL: No matter what happens, re-enable the observer.
+    setPasteInProgress(false);
   }
-
-  // …the rest of your existing logic…
-  const estimatedNodes = estimatePasteNodeCount(htmlContent || plainText);
-  console.log('PASTE EVENT:', {
-    length:        plainText.length,
-    isMarkdown,
-    estimatedNodes
-  });
-
-  if (handleHypercitePaste(event)) return;
-  const chunk         = getCurrentChunk();
-  const chunkElement  = chunk
-    ? document.querySelector(`[data-chunk-id="${chunk}"],[id="${chunk}"]`)
-    : null;
-  if (handleCodeBlockPaste(event, chunkElement)) return;
-
-  let actualNodeCount = estimatedNodes;
-  if (htmlContent) {
-    const doc = new DOMParser().parseFromString(htmlContent, 'text/html');
-    actualNodeCount = doc.body.querySelectorAll('*').length;
-  }
-  if (handleSmallPaste(
-        event, htmlContent, plainText,
-        actualNodeCount, estimatedNodes
-      )) {
-    return;
-  }
-
-  const insertionPoint   = getInsertionPoint(chunkElement);
-  const contentToProcess = htmlContent || plainText;
-  await handleJsonPaste(event, insertionPoint, contentToProcess, !!htmlContent);
-  const loader = initializeMainLazyLoader();
-  await loader.refresh();
 }
 
 function getInsertionPoint(chunkElement) {
@@ -621,92 +609,88 @@ function handleCodeBlockPaste(event, chunk) {
  * @param {number} estimatedNodes - Estimated node count
  * @returns {boolean} - True if handled, false if should continue to large paste handler
  */
-function handleSmallPaste(event, htmlContent, plainText, actualNodeCount, estimatedNodes) {
+/**
+ * Handle small paste operations (≤ SMALL_NODE_LIMIT nodes)
+ * The signature is now clean, accepting only one node count.
+ */
+function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
   const SMALL_NODE_LIMIT = 20;
-  
-  // Check if this qualifies as a small paste
-  if (
-    (htmlContent && actualNodeCount > SMALL_NODE_LIMIT) ||
-    (!htmlContent && estimatedNodes > SMALL_NODE_LIMIT)
-  ) {
+
+  // The logic now correctly uses the single `nodeCount` parameter.
+  if (nodeCount > SMALL_NODE_LIMIT) {
     return false; // Not a small paste, continue to large paste handler
   }
-  
+
   console.log(
-    `Small paste (≈${actualNodeCount || estimatedNodes} nodes); ` +
-    `handling directly with HTML insertion.`
+    `Small paste (≈${nodeCount} nodes); handling directly with HTML insertion.`
   );
-  
-  // Handle HTML content (from markdown or sanitized HTML)
+
+  // The rest of the logic inside this function is correct.
   if (htmlContent) {
     event.preventDefault();
-    
     const selection = window.getSelection();
     if (selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
-      
-      // Find the current paragraph/block element
       let currentElement = range.startContainer;
       if (currentElement.nodeType === Node.TEXT_NODE) {
         currentElement = currentElement.parentElement;
       }
-      
-      // Find the closest block element (p, h1, h2, etc.)
-      const currentBlock = currentElement.closest('p, h1, h2, h3, h4, h5, h6, div, pre, blockquote');
-      
-      if (currentBlock && currentBlock.id && /^\d+(\.\d+)*$/.test(currentBlock.id)) {
-        // We're inside a numbered block - insert the new HTML after this block
-        const tempDiv = document.createElement('div');
+      const currentBlock = currentElement.closest(
+        "p, h1, h2, h3, h4, h5, h6, div, pre, blockquote"
+      );
+      if (
+        currentBlock &&
+        currentBlock.id &&
+        /^\d+(\.\d+)*$/.test(currentBlock.id)
+      ) {
+        const tempDiv = document.createElement("div");
         tempDiv.innerHTML = htmlContent;
-        
-        // Remove IDs from all elements to let mutation observer assign them
-        tempDiv.querySelectorAll('[id]').forEach(el => {
-          el.removeAttribute('id');
+        tempDiv.querySelectorAll("[id]").forEach((el) => {
+          el.removeAttribute("id");
         });
-        
-        // Insert each child element after the current block
         const elementsToInsert = Array.from(tempDiv.children);
         let insertAfter = currentBlock;
-        
-        elementsToInsert.forEach(element => {
-          insertAfter.insertAdjacentElement('afterend', element);
-          insertAfter = element; // Update reference for next insertion
+        elementsToInsert.forEach((element) => {
+          insertAfter.insertAdjacentElement("afterend", element);
+          insertAfter = element;
         });
-        
-        // Move cursor to the end of the last inserted element
-        const lastInserted = elementsToInsert[elementsToInsert.length - 1]; // Fixed typo here
-            if (lastInserted) {
-              const newRange = document.createRange();
-              newRange.selectNodeContents(lastInserted);
-              newRange.collapse(false);
-              selection.removeAllRanges();
-              selection.addRange(newRange);
-            }
-        
-        console.log('Small HTML paste inserted after block:', currentBlock.id);
+        const lastInserted = elementsToInsert[elementsToInsert.length - 1];
+        if (lastInserted) {
+          const newRange = document.createRange();
+          newRange.selectNodeContents(lastInserted);
+          newRange.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+        }
       } else {
-        // No proper block context - handle based on content type
-        const tempDiv = document.createElement('div');
+        const tempDiv = document.createElement("div");
         tempDiv.innerHTML = htmlContent;
-        
-        // Remove IDs from all elements
-        tempDiv.querySelectorAll('[id]').forEach(el => {
-          el.removeAttribute('id');
+        tempDiv.querySelectorAll("[id]").forEach((el) => {
+          el.removeAttribute("id");
         });
-        
-        // If we're pasting a block element (like h1) into inline context,
-        // we need to break out of the current paragraph
         const firstElement = tempDiv.firstElementChild;
-        if (firstElement && ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'DIV', 'BLOCKQUOTE', 'PRE'].includes(firstElement.tagName)) {
-          // This is a block element - we need to insert it as a sibling, not inline
-          const parentBlock = currentElement.closest('p, div, h1, h2, h3, h4, h5, h6');
+        if (
+          firstElement &&
+          [
+            "H1",
+            "H2",
+            "H3",
+            "H4",
+            "H5",
+            "H6",
+            "P",
+            "DIV",
+            "BLOCKQUOTE",
+            "PRE",
+          ].includes(firstElement.tagName)
+        ) {
+          const parentBlock = currentElement.closest(
+            "p, div, h1, h2, h3, h4, h5, h6"
+          );
           if (parentBlock) {
-            // Insert after the parent block
-            Array.from(tempDiv.children).forEach(child => {
-              parentBlock.insertAdjacentElement('afterend', child);
+            Array.from(tempDiv.children).forEach((child) => {
+              parentBlock.insertAdjacentElement("afterend", child);
             });
-            
-            // Move cursor to the new element
             const lastChild = Array.from(tempDiv.children).pop();
             if (lastChild) {
               const newRange = document.createRange();
@@ -717,12 +701,10 @@ function handleSmallPaste(event, htmlContent, plainText, actualNodeCount, estima
             }
           }
         } else {
-          // Inline content - insert normally
           const fragment = document.createDocumentFragment();
           while (tempDiv.firstChild) {
             fragment.appendChild(tempDiv.firstChild);
           }
-          
           range.deleteContents();
           range.insertNode(fragment);
           range.collapse(false);
@@ -731,15 +713,12 @@ function handleSmallPaste(event, htmlContent, plainText, actualNodeCount, estima
         }
       }
     }
-    
-    return true; // Handled successfully
+    return true;
   } else {
-    // Plain text - let browser handle it natively
-    console.log('Small plain text paste, deferring to native contentEditable');
-    return true; // Handled (by letting browser do it)
+    console.log("Small plain text paste, deferring to native contentEditable");
+    return true;
   }
 }
-
 
 /**
  * Estimate how many nodes a paste operation will create
@@ -835,34 +814,28 @@ function convertTextToHtml(content, nodeId) {
  *
  * 3) This function merges them, renumbers the "tail", and logs the result.
  */
-async function handleJsonPaste(event, insertionPoint, pastedContent, isHtmlContent = false) {
-  event.preventDefault();
-  const { book, afterNodeId } = insertionPoint;
+// In paste.js
+// In paste.js
 
-  let textBlocks;
-  
-  if (isHtmlContent) {
-    // If it's HTML content (from markdown or sanitized HTML), parse it into blocks
-    textBlocks = parseHtmlToBlocks(pastedContent);
-  } else {
-    // Plain text - split into text blocks as before
-    textBlocks = pastedContent
-      .split(/\n\s*\n/)
-      .filter((blk) => blk.trim());
-  }
-  
+async function handleJsonPaste(
+  event,
+  insertionPoint,
+  pastedContent,
+  isHtmlContent = false
+) {
+  event.preventDefault();
+
+  // --- 1. DATA LAYER: Calculate all database changes ---
+  const { book, beforeNodeId, afterNodeId } = insertionPoint;
+  const textBlocks = isHtmlContent
+    ? parseHtmlToBlocks(pastedContent)
+    : pastedContent.split(/\n\s*\n/).filter((blk) => blk.trim());
   if (!textBlocks.length) return [];
 
-  // run through convertToJsonObjects
-  const {
-    jsonObjects: newJsonObjects,
-    state: {
-      currentChunkId: startChunkId,
-      nodesInCurrentChunk: startNodeCount
-    }
-  } = convertToJsonObjects(textBlocks, insertionPoint);
-
-  // Convert newJsonObjects to "chunk-shaped" objects for IndexedDB
+  const { jsonObjects: newJsonObjects, state } = convertToJsonObjects(
+    textBlocks,
+    insertionPoint
+  );
   const newChunks = newJsonObjects.map((obj) => {
     const key = Object.keys(obj)[0];
     const { content, startLine, chunk_id } = obj[key];
@@ -871,120 +844,60 @@ async function handleJsonPaste(event, insertionPoint, pastedContent, isHtmlConte
       startLine,
       chunk_id,
       content,
-      // new nodes haven't had any marks yet:
       hyperlights: [],
       hypercites: [],
-      footnotes: []
+      footnotes: [],
     };
   });
 
-  // If there's no afterNodeId, we're at the end of the doc
-  if (afterNodeId == null) {
-    console.log(
-      "📌 No afterNodeId — pasting at end; saving new chunks only."
+  let toWrite = newChunks;
+  if (afterNodeId != null) {
+    const newLines = newJsonObjects.map(
+      (o) => o[Object.keys(o)[0]].startLine
     );
-    
-    // Just write the new chunks to IndexedDB
-    await writeNodeChunks(newChunks);
-    console.log("📦 IndexedDB has been updated with new chunks!");
-    await syncIndexedDBtoPostgreSQL(book);
-    console.log("postgreSQL updated too");
-    return newJsonObjects;
+    const maxNewLine = Math.max(...newLines);
+    const existingChunks = await getNodeChunksAfter(book, afterNodeId);
+    let currentChunkId = state.currentChunkId;
+    let nodesInCurrentChunk = state.nodesInCurrentChunk;
+    const tailChunks = existingChunks.map((origChunk, idx) => {
+      if (nodesInCurrentChunk >= NODE_LIMIT) {
+        currentChunkId = getNextIntegerId(currentChunkId);
+        nodesInCurrentChunk = 0;
+      }
+      const newStart = maxNewLine + idx + 1;
+      const updatedContent = origChunk.content.replace(
+        /id="[^"]*"/,
+        `id="${newStart}"`
+      );
+      nodesInCurrentChunk++;
+      return {
+        ...origChunk,
+        startLine: newStart,
+        chunk_id: parseFloat(currentChunkId),
+        content: updatedContent,
+      };
+    });
+    toWrite = [...newChunks, ...tailChunks];
   }
 
-  // If we have an afterNodeId, handle the tail renumbering
-  // find highest startLine so far
-  const newLines = newJsonObjects.map((o) => {
-    const k = Object.keys(o)[0];
-    return o[k].startLine;
+  // --- 2. DATABASE LAYER: Execute the transaction & queue for sync ---
+  if (afterNodeId != null) {
+    await deleteNodeChunksAfter(book, afterNodeId);
+  }
+  await writeNodeChunks(toWrite);
+  console.log("📦 IndexedDB has been updated with new and renumbered chunks!");
+  toWrite.forEach((chunk) => {
+    queueForSync("nodeChunks", chunk.startLine, "update");
   });
-  const maxNewLine = Math.max(...newLines);
+  console.log(
+    `✅ Queued ${toWrite.length} total affected chunks for sync.`
+  );
 
-  // grab the existing chunks
-  const existingChunks = await getNodeChunksAfter(book, afterNodeId);
-
-  // renumber the tail, carrying on the same chunk logic
-  let currentChunkId = startChunkId;
-  let nodesInCurrentChunk = startNodeCount;
-
-  const tailJsonObjects = existingChunks.map((chunk, idx) => {
-    // rotate chunk?
-    if (nodesInCurrentChunk >= NODE_LIMIT) {
-      currentChunkId = getNextIntegerId(currentChunkId);
-      nodesInCurrentChunk = 0;
-    }
-
-    // we _do_ want to keep sequential node IDs
-    const newStart = maxNewLine + idx + 1;
-
-    // rewrite the HTML so its id= matches newStart
-    const updatedContent = chunk.content.replace(
-      /id="[^"]*"/,
-      `id="${newStart}"`
-    );
-
-    const key = `${book},${newStart}`;
-    const obj = {
-      [key]: {
-        content: updatedContent,
-        startLine: newStart,
-        chunk_id: parseFloat(currentChunkId)
-      }
-    };
-
-    nodesInCurrentChunk++;
-    return obj;
-  });
-
-  const merged = [...newJsonObjects, ...tailJsonObjects];
-
-  // Reset chunk tracking for tail processing
-  currentChunkId = startChunkId;
-  nodesInCurrentChunk = startNodeCount;
-
-  const tailChunks = existingChunks.map((origChunk, idx) => {
-    // bump chunk boundary?
-    if (nodesInCurrentChunk >= NODE_LIMIT) {
-      currentChunkId = getNextIntegerId(currentChunkId);
-      nodesInCurrentChunk = 0;
-    }
-    const newStart = maxNewLine + idx + 1;
-    // patch the id="" in the HTML
-    const updatedContent = origChunk.content.replace(
-      /id="[^"]*"/,
-      `id="${newStart}"`
-    );
-    nodesInCurrentChunk++;
-
-    // take the original chunk object and override only the bits that moved:
-    return {
-      // these 3 are required by your schema
-      book: origChunk.book,
-      startLine: newStart,
-      chunk_id: parseFloat(currentChunkId),
-      content: updatedContent,
-      // …and *everything else* you fetched:
-      hyperlights: origChunk.hyperlights,
-      hypercites: origChunk.hypercites,
-      footnotes: origChunk.footnotes,
-      // etc., if you have other props like `marks`, `meta`, whatever
-    };
-  });
-
-  // 1) delete the old tail
-  await deleteNodeChunksAfter(book, afterNodeId);
-
-  // 2) concatenate your brand‐new + the renumbered tail
-  const toWrite = [...newChunks, ...tailChunks];
-
-  // 3) bulk‐write them back
-  await writeNodeChunks(newChunks);
-    console.log("📦 IndexedDB has been updated with new chunks!");
-  await syncIndexedDBtoPostgreSQL(book);
-    console.log("postgreSQL updated too");
-  return merged;
+  // --- 3. RETURN THE DATA ---
+  // The function's only job is to calculate and save data.
+  // It now returns the result to the caller.
+  return toWrite;
 }
-
 /**
  * Handle pasting of hypercites
  * @returns {boolean} true if handled as hypercite, false otherwise
