@@ -3,7 +3,8 @@ import {
 } from './BroadcastListener.js';
 import { withPending } from "./operationState.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
-import { getCurrentUser } from './auth.js';   
+import { getCurrentUser } from './auth.js';  
+import { debounce } from './divEditor.js'; 
 
 export const DB_VERSION = 16;
 import { book } from "./app.js";
@@ -89,7 +90,233 @@ export async function openDatabase() {
 }
 
 
+// In cache-indexedDB.js
 
+// --- NEW, SMARTER DEBOUNCED SYNC INFRASTRUCTURE ---
+
+// The "Shopping List": A Map to store pending sync operations.
+// Using a Map automatically handles duplicates. If you save the same node 5 times,
+// it only gets one entry on our list.
+const pendingSyncs = new Map();
+
+// In cache-indexedDB.js
+
+const debouncedMasterSync = debounce(async () => {
+  const bookId = book || "latest";
+  if (pendingSyncs.size === 0) {
+    console.log("Debounced sync triggered, but queue is empty.");
+    return;
+  }
+
+  console.log(`DEBOUNCED SYNC: Processing ${pendingSyncs.size} items...`);
+
+  const itemsToSync = new Map(pendingSyncs);
+  pendingSyncs.clear();
+
+  // The payload now supports all our data types
+  const payload = {
+    book: bookId,
+    updates: {
+      nodeChunks: [],
+      hypercites: [],
+      hyperlights: [],
+      library: null // Only one library record per book
+    },
+    deletions: {
+      nodeChunks: [],
+      hyperlights: [],
+      // Add deletion support for other types if needed
+    }
+  };
+// Fetch the latest data for all queued items from IndexedDB
+  for (const [key, item] of itemsToSync.entries()) {
+    if (item.type === 'update') {
+      switch (item.store) {
+
+        case 'nodeChunks':
+          const ncRecord = await getNodeChunkFromIndexedDB(bookId, item.id);
+          if (ncRecord) payload.updates.nodeChunks.push(ncRecord);
+          break;
+        
+        case 'hypercites':
+          // The key for the hypercites store is [book, hyperciteId]
+          const hcRecord = await getHyperciteFromIndexedDB(bookId, item.id);
+          if (hcRecord) payload.updates.hypercites.push(hcRecord);
+          break;
+
+        case 'hyperlights':
+          // You will need a getHyperlightFromIndexedDB helper function for this
+          const hlRecord = await getHyperlightFromIndexedDB(bookId, item.id);
+          if (hlRecord) payload.updates.hyperlights.push(hlRecord);
+          break;
+
+        case 'library':
+          const libRecord = await getLibraryObjectFromIndexedDB(item.id);
+          if (libRecord) payload.updates.library = libRecord;
+          break;
+      }
+    } else if (item.type === "delete") {
+      // +++ ADDED 'hyperlights' TO THIS BLOCK +++
+      switch (item.store) {
+        case "nodeChunks":
+          payload.deletions.nodeChunks.push({
+            book: bookId,
+            startLine: item.id,
+            _action: "delete",
+          });
+          break;
+        case "hyperlights":
+          payload.deletions.hyperlights.push({
+            book: bookId,
+            hyperlight_id: item.id,
+          });
+          break;
+      }
+    }
+  }
+
+  console.log("FINAL SYNC PAYLOAD:", payload);
+  
+  try {
+    // Sync Node Chunks (updates and deletions)
+    if (payload.updates.nodeChunks.length > 0 || payload.deletions.nodeChunks.length > 0) {
+      const allNodeChunks = [
+        ...payload.updates.nodeChunks.map(toPublicChunk).filter(Boolean),
+        ...payload.deletions.nodeChunks
+      ];
+      if (allNodeChunks.length > 0) {
+        await syncNodeChunksToPostgreSQL(bookId, allNodeChunks);
+      }
+    }
+
+    // ✅ THE FIX: Add the sync call for hypercites.
+    if (payload.updates.hypercites.length > 0) {
+      // Assuming syncHyperciteToPostgreSQL can handle an array of hypercites.
+      // If not, you'll need to loop or adjust it.
+      await syncHyperciteToPostgreSQL(payload.updates.hypercites);
+    }
+    
+    if (payload.updates.hyperlights.length > 0) {
+      await syncHyperlightToPostgreSQL(payload.updates.hyperlights);
+    }
+    if (payload.deletions.hyperlights.length > 0) {
+      await syncHyperlightDeletionsToPostgreSQL(
+        payload.deletions.hyperlights
+      );
+    }
+
+    if (payload.updates.library) {
+      await upsertLibraryRecord(payload.updates.library);
+    }
+
+  } catch (error) {
+    console.error("❌ Debounced master sync failed:", error);
+    // Future: Re-queue failed items here.
+  }
+
+}, 3000);
+
+
+// The "Add to List" function. This is our new trigger.
+export function queueForSync(store, id, type = 'update') {
+  const key = `${store}-${id}`;
+  pendingSyncs.set(key, { store, id, type });
+  console.log(`Queued for sync: ${key}`);
+  debouncedMasterSync(); // Nudge the shopper.
+}
+
+
+
+/**
+ * 🆕 Helper function to get a single hyperlight from IndexedDB.
+ * @param {string} book - The book identifier.
+ * @param {string} hyperlightId - The hyperlight ID.
+ * @returns {Promise<object|null>}
+ */
+export async function getHyperlightFromIndexedDB(book, hyperlightId) {
+  return new Promise(async (resolve) => {
+    try {
+      const db = await openDatabase();
+      const tx = db.transaction("hyperlights", "readonly");
+      const store = tx.objectStore("hyperlights");
+      const key = [book, hyperlightId];
+      const getRequest = store.get(key);
+
+      getRequest.onsuccess = (event) => {
+        resolve(event.target.result || null);
+      };
+      getRequest.onerror = (event) => {
+        console.error("Error getting hyperlight:", event.target.error);
+        resolve(null);
+      };
+    } catch (error) {
+      console.error("DB error in getHyperlightFromIndexedDB:", error);
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * 🆕 Function to sync hyperlight creations/updates to PostgreSQL.
+ * @param {Array<object>} hyperlights - An array of hyperlight records.
+ */
+export async function syncHyperlightToPostgreSQL(hyperlights) {
+  if (!hyperlights || hyperlights.length === 0) return;
+  const bookId = hyperlights[0].book;
+
+  console.log(`🔄 Syncing ${hyperlights.length} hyperlight upserts...`);
+  const res = await fetch("/api/db/hyperlights/upsert", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRF-TOKEN":
+        document.querySelector('meta[name="csrf-token"]')?.content,
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      book: bookId,
+      data: hyperlights,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(
+      `Hyperlight sync failed (${res.status}): ${await res.text()}`
+    );
+  }
+  console.log("✅ Hyperlights synced");
+}
+
+/**
+ * 🆕 Function to sync hyperlight deletions to PostgreSQL.
+ * @param {Array<object>} deletedHyperlights - Array of objects with { book, hyperlight_id }.
+ */
+export async function syncHyperlightDeletionsToPostgreSQL(deletedHyperlights) {
+  if (!deletedHyperlights || deletedHyperlights.length === 0) return;
+  const bookId = deletedHyperlights[0].book;
+
+  console.log(`🔄 Syncing ${deletedHyperlights.length} hyperlight deletions...`);
+  const res = await fetch("/api/db/hyperlights/delete", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRF-TOKEN":
+        document.querySelector('meta[name="csrf-token"]')?.content,
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      book: bookId,
+      data: deletedHyperlights,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(
+      `Hyperlight deletion sync failed (${res.status}): ${await res.text()}`
+    );
+  }
+  console.log("✅ Hyperlight deletions synced");
+}
 
 // In cache-indexedDB.js
 
@@ -648,30 +875,22 @@ export function updateIndexedDBRecord(record) {
     // return a promise that resolves/rejects with the transaction
     return new Promise((resolve, reject) => {
       tx.oncomplete = async() => {
-        console.log("✅ IndexedDB record update complete");
+          console.log("✅ IndexedDB record update complete");
+          await updateBookTimestamp(bookId); // This will queue the library update
 
-        // 🆕 Update the book timestamp FIRST (before sync)
-        await updateBookTimestamp(bookId);
-        
-        // 🆕 Get updated library record for sync
-        const libraryRecord = await getLibraryObjectFromIndexedDB(bookId);
-        
-        // 🔥 SYNC EVERYTHING THAT WAS ACTUALLY SAVED
-        try {
-          await syncNodeUpdateWithPostgreSQL(
-            bookId, 
-            savedNodeChunk, 
-            savedHyperlights, 
-            savedHypercites,
-            libraryRecord // 🆕 Pass library record
-          );
-        } catch (syncError) {
-          console.error("❌ PostgreSQL sync failed:", syncError);
-          // Don't reject - IndexedDB update was successful
-        }
+          // ✅ Queue the specific items that were changed
+          if (savedNodeChunk) {
+            queueForSync('nodeChunks', savedNodeChunk.startLine, 'update');
+          }
+          savedHyperlights.forEach(hl => {
+            queueForSync('hyperlights', hl.hyperlight_id, 'update');
+          });
+          savedHypercites.forEach(hc => {
+            queueForSync('hypercites', hc.hyperciteId, 'update');
+          });
 
-        resolve();
-      };
+          resolve();
+        };
       tx.onerror = (e) => {
         console.error("Transaction failed during update:", e.target.error);
         reject(e.target.error);
@@ -684,10 +903,11 @@ export function updateIndexedDBRecord(record) {
   });
 }
 // New batched function to replace individual updateIndexedDBRecord calls
+// In cache-indexedDB.js
+
 export async function batchUpdateIndexedDBRecords(recordsToProcess) {
   return withPending(async () => {
     const bookId = book || "latest";
-    
     console.log(`🔄 Batch updating ${recordsToProcess.length} IndexedDB records`);
     
     const db = await openDatabase();
@@ -699,44 +919,38 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
     const lightsStore = tx.objectStore("hyperlights");
     const citesStore = tx.objectStore("hypercites");
 
-    // Collect all data for sync
-    const batchSyncData = {
-      nodeChunks: [],
-      hyperlights: [],
-      hypercites: []
-    };
+    // ✅ STEP 1: Create arrays to hold the DETAILED results of the processing.
+    const allSavedNodeChunks = [];
+    const allSavedHyperlights = [];
+    const allSavedHypercites = [];
 
-    // Process each record in the same transaction
-    const processPromises = recordsToProcess.map(async (record) => {
-      // Find the nearest ancestor with a numeric ID
-      let nodeId = record.id;
-      let node = document.getElementById(nodeId);
-      while (node && !/^\d+(\.\d+)?$/.test(nodeId)) {
-        node = node.parentElement;
-        if (node?.id) nodeId = node.id;
-      }
+    const processPromises = recordsToProcess.map(record => {
+      return new Promise(async (resolve, reject) => {
+        let nodeId = record.id;
+        let node = document.getElementById(nodeId);
+        while (node && !/^\d+(\.\d+)?$/.test(nodeId)) {
+          node = node.parentElement;
+          if (node?.id) nodeId = node.id;
+        }
 
-      if (!/^\d+(\.\d+)?$/.test(nodeId)) {
-        console.log(`Skipping IndexedDB update – no valid parent node ID for ${record.id}`);
-        return;
-      }
+        if (!/^\d+(\.\d+)?$/.test(nodeId)) {
+          console.log(`Skipping batch update – no valid parent for ${record.id}`);
+          return resolve();
+        }
 
-      const numericNodeId = parseNodeId(nodeId);
-      const compositeKey = [bookId, numericNodeId];
-      
-      // Get existing record FIRST to preserve hypercite data
-      return new Promise((resolve, reject) => {
+        const numericNodeId = parseNodeId(nodeId);
+        const compositeKey = [bookId, numericNodeId];
+        
         const getReq = chunksStore.get(compositeKey);
         
+        getReq.onerror = (e) => reject(e.target.error);
         getReq.onsuccess = () => {
           const existing = getReq.result;
-          
-          // ✅ PASS EXISTING HYPERCITES TO PRESERVE RELATIONSHIP STATUS
           const existingHypercites = existing?.hypercites || [];
           const processedData = node ? processNodeContentHighlightsAndCites(node, existingHypercites) : null;
           
           let toSave;
-
+          // ... (your existing logic to build the 'toSave' object is correct) ...
           if (existing) {
             toSave = { ...existing };
             if (processedData) {
@@ -744,85 +958,59 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
               toSave.hyperlights = processedData.hyperlights;
               toSave.hypercites = processedData.hypercites;
             } else {
-              toSave.content = record.html;
+              toSave.content = record.html || existing.content;
             }
-            if (record.chunk_id !== undefined) {
-              toSave.chunk_id = record.chunk_id;
-            }
+            if (record.chunk_id !== undefined) toSave.chunk_id = record.chunk_id;
           } else {
             toSave = {
               book: bookId,
               startLine: numericNodeId,
               chunk_id: record.chunk_id !== undefined ? record.chunk_id : 0,
-              content: processedData ? processedData.content : record.html,
+              content: processedData ? processedData.content : (record.html || ''),
               hyperlights: processedData ? processedData.hyperlights : [],
               hypercites: processedData ? processedData.hypercites : []
             };
           }
 
-          // Store the chunk
           chunksStore.put(toSave);
-          batchSyncData.nodeChunks.push(toSave);
+          // ✅ STEP 2: Add the saved chunk to our results array.
+          allSavedNodeChunks.push(toSave);
 
-          // Update hyperlight/hypercite records
           if (processedData) {
-            const savedHyperlights = [];
-            const savedHypercites = [];
-            
-            updateHyperlightRecords(processedData.hyperlights, lightsStore, bookId, numericNodeId, savedHyperlights, node);
-            updateHyperciteRecords(processedData.hypercites, citesStore, bookId, savedHypercites, node);
-            
-            batchSyncData.hyperlights.push(...savedHyperlights);
-            batchSyncData.hypercites.push(...savedHypercites);
+            // These functions will populate the 'saved' arrays
+            updateHyperlightRecords(processedData.hyperlights, lightsStore, bookId, numericNodeId, allSavedHyperlights, node);
+            updateHyperciteRecords(processedData.hypercites, citesStore, bookId, allSavedHypercites, node);
           }
 
           resolve();
         };
-
-        getReq.onerror = (e) => {
-          console.error("Error fetching nodeChunk for batch update:", e.target.error);
-          reject(e.target.error);
-        };
       });
     });
 
-    // Wait for all individual processing to complete
     await Promise.all(processPromises);
 
-    // Return promise that resolves when transaction completes
     return new Promise((resolve, reject) => {
       tx.oncomplete = async () => {
         console.log("✅ Batch IndexedDB update complete");
-
-        // Single timestamp update
-        await updateBookTimestamp(bookId);
+        const currentBookId = book || "latest";
+        await updateBookTimestamp(currentBookId);
         
-        // Single library record fetch
-        const libraryRecord = await getLibraryObjectFromIndexedDB(bookId);
-        
-        // Single batched sync
-        try {
-          await syncBatchUpdateWithPostgreSQL(
-            bookId, 
-            batchSyncData,
-            libraryRecord
-          );
-        } catch (syncError) {
-          console.error("❌ PostgreSQL batch sync failed:", syncError);
-        }
+        // ✅ STEP 3: Use the DETAILED results arrays to queue everything correctly.
+        allSavedNodeChunks.forEach(chunk => {
+          queueForSync('nodeChunks', chunk.startLine, 'update');
+        });
+        allSavedHyperlights.forEach(hl => {
+          queueForSync('hyperlights', hl.hyperlight_id, 'update');
+        });
+        allSavedHypercites.forEach(hc => {
+          queueForSync('hypercites', hc.hyperciteId, 'update');
+        });
 
         resolve();
       };
       
-      tx.onerror = (e) => {
-        console.error("Batch transaction failed:", e.target.error);
-        reject(e.target.error);
-      };
-      
-      tx.onabort = (e) => {
-        console.warn("Batch transaction aborted:", e);
-        reject(new Error("Batch transaction aborted"));
-      };
+      tx.onerror = (e) => reject(e.target.error);
+      tx.onabort = (e) => reject(new Error("Batch transaction aborted"));
     });
   });
 }
@@ -1029,31 +1217,15 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
       // Return promise that resolves when transaction completes
       return new Promise((resolve, reject) => {
         tx.oncomplete = async () => {
-          console.log(`✅ Batch IndexedDB deletion transaction complete - deleted ${processedCount}/${nodeIds.length} records`);
+          console.log(`✅ Batch IndexedDB deletion transaction complete...`);
 
-          try {
-            // Update timestamp
-            await updateBookTimestamp(bookId);
-            console.log(`✅ Updated book timestamp`);
-            
-            // Get library record
-            const libraryRecord = await getLibraryObjectFromIndexedDB(bookId);
-            console.log(`✅ Retrieved library record`);
-            
-            // Sync deletions with PostgreSQL
-            if (typeof syncBatchDeletionWithPostgreSQL === 'function') {
-              await syncBatchDeletionWithPostgreSQL(
-                bookId, 
-                deletedData,
-                libraryRecord
-              );
-              console.log(`✅ Synced deletions with PostgreSQL`);
-            } else {
-              console.log(`⚠️ PostgreSQL sync function not available`);
-            }
-          } catch (syncError) {
-            console.error("❌ Error in post-deletion operations:", syncError);
-          }
+          // ✅ THE FIX: Use the globally available 'book' variable here.
+          const currentBookId = book || "latest";
+          await updateBookTimestamp(currentBookId);
+          
+          nodeIds.forEach(nodeId => {
+            queueForSync('nodeChunks', nodeId, 'delete');
+          });
 
           resolve();
         };
@@ -1447,58 +1619,52 @@ export async function updateHyperciteInIndexedDB(book, hyperciteId, updatedField
   });
 }
 
-function toPublicChunk(chunk) {
+export function toPublicChunk(chunk) {
+  // Safety check
+  if (!chunk || typeof chunk.content === 'undefined') {
+    console.error("Attempted to create public chunk from an invalid record:", chunk);
+    return null;
+  }
+
   return {
     book:        chunk.book,
     startLine:   chunk.startLine,
+    content:     chunk.content, // ✅ The correct version
     hyperlights: chunk.hyperlights ?? [],
-    hypercites:  chunk.hypercites  ?? []
+    hypercites:  chunk.hypercites  ?? [],
+    chunk_id:    chunk.chunk_id
   };
 }
+
+// In cache-indexedDB.js
 
 export function updateCitationForExistingHypercite(
   booka,
   hyperciteIDa,
-  citationIDb,
-  insertContent = true
+  citationIDb
 ) {
   return withPending(async () => {
     console.log(
       `Updating citation: book=${booka}, hyperciteID=${hyperciteIDa}, citationIDb=${citationIDb}`
     );
 
-    const isInternalPaste = booka === book;
-
-    // Load all nodeChunks for this book
+    let affectedStartLine = null;
     const nodeChunks = await getNodeChunksFromIndexedDB(booka);
     if (!nodeChunks?.length) {
       console.warn(`No nodeChunks found for book ${booka}`);
-      return false;
+      return { success: false, startLine: null, newStatus: null };
     }
 
     let foundAndUpdated = false;
     let updatedRelationshipStatus = "single";
-    const updatedNodeChunks = []; // Track updated nodeChunks for PostgreSQL sync
-    const affectedBooks = new Set([booka]); // 🆕 Track all affected books
-
-    // 🆕 If this is a cross-book citation, track the target book too
-    if (citationIDb && citationIDb !== hyperciteIDa) {
-      // Extract book from citationIDb if it's a cross-book reference
-      // This assumes citationIDb format includes book info - adjust as needed
-      affectedBooks.add(book || "latest"); // Add current book
-    }
 
     // 1) Update the nodeChunks store
     for (const record of nodeChunks) {
-      const hcList = record.hypercites;
-      if (!Array.isArray(hcList)) continue;
-
-      const idx = hcList.findIndex(hc => hc.hyperciteId === hyperciteIDa);
-      if (idx === -1) continue;
+      if (!record.hypercites?.find(hc => hc.hyperciteId === hyperciteIDa)) {
+        continue;
+      }
 
       const startLine = record.startLine;
-      
-      // Use the new function to add the citation
       const result = await addCitationToHypercite(
         booka,
         startLine,
@@ -1506,52 +1672,24 @@ export function updateCitationForExistingHypercite(
         citationIDb
       );
 
-      console.log('🔍 addCitationToHypercite result:', result);
-
       if (result.success) {
-        // IMMEDIATELY verify the nodeChunk update worked
-        const verifyChunk = await getNodeChunkFromIndexedDB(booka, startLine);
-        const verifyHypercite = verifyChunk?.hypercites?.find(hc => hc.hyperciteId === hyperciteIDa);
-        
-        console.log('🔍 VERIFICATION - Updated nodeChunk hypercite:', verifyHypercite);
-        console.log('🔍 VERIFICATION - citedIN array:', verifyHypercite?.citedIN);
-        
         foundAndUpdated = true;
         updatedRelationshipStatus = result.relationshipStatus;
-        
-        // Get the updated nodeChunk for PostgreSQL sync
-        const updatedNodeChunk = await getNodeChunkFromIndexedDB(booka, startLine);
-        if (updatedNodeChunk) {
-          updatedNodeChunks.push(updatedNodeChunk);
-        }
-        
-        broadcastToOpenTabs(booka, startLine);
-
-        if (isInternalPaste) {
-          const elem = document.getElementById(hyperciteIDa);
-          if (elem) {
-            elem.className = updatedRelationshipStatus;
-          }
-        }
-      } else {
-        console.error(
-          `Failed to update nodeChunk ${startLine} in book ${booka}`
-        );
+        affectedStartLine = startLine;
+        break;
       }
     }
 
     if (!foundAndUpdated) {
-      console.log(
-        `No matching hypercite found in book ${booka} with ID ${hyperciteIDa}`
-      );
-      return false;
+      console.log(`No matching hypercite found in book ${booka} with ID ${hyperciteIDa}`);
+      return { success: false, startLine: null, newStatus: null };
     }
 
     // 2) Update the hypercites object store itself
     const existing = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
     if (!existing) {
       console.error(`Hypercite ${hyperciteIDa} not found in book ${booka}`);
-      return false;
+      return { success: false, startLine: null, newStatus: null };
     }
 
     existing.citedIN ||= [];
@@ -1566,98 +1704,46 @@ export function updateCitationForExistingHypercite(
       {
         citedIN: existing.citedIN,
         relationshipStatus: updatedRelationshipStatus,
-        // 🔧 RECONSTRUCT: Build new hypercitedHTML with correct class
         hypercitedHTML: `<u id="${hyperciteIDa}" class="${updatedRelationshipStatus}">${existing.hypercitedText}</u>`
       }
     );
 
     if (!hyperciteSuccess) {
       console.error(`Failed to update hypercite ${hyperciteIDa}`);
-      return false;
+      return { success: false, startLine: null, newStatus: null };
     }
 
-    // 🔧 MOVED VERIFICATION HERE - After main hypercites store update:
-    const verifyMainHypercite = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
-    console.log('🔍 VERIFICATION - Main hypercites store AFTER update:', verifyMainHypercite);
-
-    // 🆕 3) Update timestamps for all affected books
-    const libraryRecords = [];
+    // 3) Update timestamps for all affected books
+    const affectedBooks = new Set([booka]);
+    if (citationIDb) {
+      const urlParts = citationIDb.split('/');
+      if (urlParts.length > 1) {
+        const targetBook = urlParts[1].split('#')[0];
+        if (targetBook) affectedBooks.add(targetBook);
+      }
+    }
     for (const bookId of affectedBooks) {
-      await updateBookTimestamp(bookId);
-      const libraryRecord = await getLibraryObjectFromIndexedDB(bookId);
-      if (libraryRecord) {
-        libraryRecords.push(libraryRecord);
-      }
+      await updateBookTimestamp(bookId); // This will correctly queue the library updates
     }
 
-    // 🆕 4) Sync to PostgreSQL
+    // ✅ THE FIX: REMOVE the old sync block and REPLACE it with queuing.
     try {
-      console.log(`🔄 Syncing ${updatedNodeChunks.length} nodeChunks to PostgreSQL...`);
-      
-      // Sync updated nodeChunks
-      if (updatedNodeChunks.length > 0) {
-        const publicChunks = updatedNodeChunks.map(toPublicChunk);
-        const nodeChunkSyncResult = await syncNodeChunksToPostgreSQL(publicChunks);
-        if (!nodeChunkSyncResult.success) {
-          console.error('❌ Failed to sync nodeChunks to PostgreSQL:', nodeChunkSyncResult.message);
-        } else {
-          console.log('✅ Successfully synced nodeChunks to PostgreSQL');
-        }
+      // Queue the specific items that were changed.
+      if (affectedStartLine) {
+        queueForSync('nodeChunks', affectedStartLine, 'update');
       }
-
-      // Sync updated hypercite
-      console.log(`🔄 Syncing hypercite ${hyperciteIDa} to PostgreSQL...`);
-      const hyperciteSyncResult = await syncHyperciteToPostgreSQL(existing);
-      if (!hyperciteSyncResult.success) {
-        console.error('❌ Failed to sync hypercite to PostgreSQL:', hyperciteSyncResult.message);
-      } else {
-        console.log('✅ Successfully synced hypercite to PostgreSQL');
-      }
-
-      if (libraryRecords.length) {
-        console.log(
-          `🔄 Updating timestamps for ${libraryRecords.length} library records...`
-        );
-
-        for (const lr of libraryRecords) {
-          // ✅ Only send book and timestamp, like hyperlights do
-          const payload = {
-            book: lr.book,
-            timestamp: lr.timestamp || Date.now()
-          };
-
-          const res = await fetch("/api/db/library/update-timestamp", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-CSRF-TOKEN":
-                document.querySelector('meta[name="csrf-token"]')?.content
-            },
-            credentials: "include",
-            body: JSON.stringify(payload)
-          });
-
-          if (!res.ok) {
-            console.error(
-              `❌ Failed to update timestamp for book ${lr.book}:`,
-              await res.text()
-            );
-          } else {
-            console.log(`✅ Timestamp updated for book ${lr.book}`);
-          }
-        }
-      }
-      
+      queueForSync('hypercites', hyperciteIDa, 'update');
     } catch (error) {
-      console.error('❌ Error during PostgreSQL sync:', error);
-      // Don't fail the entire operation if sync fails
+      console.error('❌ Error queueing for sync:', error);
     }
 
-    console.log(
-      `Successfully updated hypercite ${hyperciteIDa} in book ${booka}`
-    );
+    console.log(`Successfully updated hypercite ${hyperciteIDa} in book ${booka}`);
       
-    return true;
+    return { 
+      success: true, 
+      startLine: affectedStartLine,
+      newStatus: updatedRelationshipStatus
+    };
   });
 }
 
@@ -1814,13 +1900,12 @@ export async function writeNodeChunks(chunks) {
   });
 }
 // 🆕 Function to sync nodeChunks to PostgreSQL
-export async function syncNodeChunksToPostgreSQL(nodeChunks = []) {
+export async function syncNodeChunksToPostgreSQL(bookId, nodeChunks = []) {
   if (!nodeChunks.length) {
     console.log("ℹ️  syncNodeChunksToPostgreSQL: nothing to sync");
     return { success: true };
   }
 
-  const bookId = nodeChunks[0].book;
   
   // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
   const payload = {
@@ -1861,23 +1946,22 @@ export async function syncNodeChunksToPostgreSQL(nodeChunks = []) {
   return out;
 }
 
-export async function syncHyperciteToPostgreSQL(hypercite) {
-  // 🔧 Ensure hypercitedHTML matches the current relationshipStatus
-  const hyperciteData = {
-    ...hypercite,
-    hypercitedHTML: `<u id="${hypercite.hyperciteId}" class="${hypercite.relationshipStatus}">${hypercite.hypercitedText}</u>`
-  };
+export async function syncHyperciteToPostgreSQL(hypercites) {
+  if (!hypercites || hypercites.length === 0) return { success: true };
+
+  // All hypercites in a batch should be from the same book
+  const bookId = hypercites[0].book;
 
   const payload = {
-    book: hypercite.book,
-    data: [hyperciteData]
+    book: bookId,
+    data: hypercites.map(hc => ({ // Ensure each item has the correct structure
+      ...hc,
+      hypercitedHTML: `<u id="${hc.hyperciteId}" class="${hc.relationshipStatus}">${hc.hypercitedText}</u>`
+    }))
   };
 
-  // 🔍 DEBUG: Log what we're sending
-  console.log(`🔄 Syncing hypercite ${hypercite.hyperciteId}…`);
+ console.log(`🔄 Syncing ${hypercites.length} hypercites…`);
   console.log('🔍 Payload being sent:', JSON.stringify(payload, null, 2));
-  console.log('🔍 Hypercite relationshipStatus:', hyperciteData.relationshipStatus);
-  console.log('🔍 Hypercite hypercitedHTML:', hyperciteData.hypercitedHTML);
 
   const res = await fetch("/api/db/hypercites/upsert", {
     method: "POST",
@@ -2120,22 +2204,10 @@ export async function deleteIndexedDBRecord(id) {
         clearTimeout(timeoutId);
         console.log(`Successfully deleted record with key: ${key}`);
         
-        try {
-          // Update the book timestamp
           await updateBookTimestamp(bookId);
-          
-          // Get updated library record for sync
-          const libraryRecord = await getLibraryObjectFromIndexedDB(bookId);
-          
-          // Sync deletion to PostgreSQL
-          await syncDeletionToPostgreSQL(bookId, numericId, libraryRecord);
-          
+
+          queueForSync('nodeChunks', numericId, 'delete');
           resolve(true);
-        } catch (syncError) {
-          console.error("❌ PostgreSQL sync failed:", syncError);
-          // Don't reject - IndexedDB deletion was successful
-          resolve(true);
-        }
       };
 
       tx.onerror = (event) => {
@@ -2329,7 +2401,6 @@ export async function updateBookTimestamp(bookId = book || "latest") {
     const tx = db.transaction("library", "readwrite");
     const store = tx.objectStore("library");
     
-    // Get the existing library record for this book
     const getRequest = store.get(bookId);
     
     return new Promise((resolve, reject) => {
@@ -2337,16 +2408,15 @@ export async function updateBookTimestamp(bookId = book || "latest") {
         const existingRecord = getRequest.result;
         
         if (existingRecord) {
-          // Update the timestamp in the existing record
           existingRecord.timestamp = Date.now();
-          
-          console.log(`Updating timestamp for book "${bookId}" to ${existingRecord.timestamp}`);
-          
-          // Put the updated record back
           const putRequest = store.put(existingRecord);
           
           putRequest.onsuccess = () => {
             console.log(`✅ Successfully updated timestamp for book: ${bookId}`);
+            
+            // ✅ THE FIX: Add the queue call here as well.
+            queueForSync('library', bookId, 'update');
+
             resolve(true);
           };
           
@@ -2355,22 +2425,22 @@ export async function updateBookTimestamp(bookId = book || "latest") {
             resolve(false);
           };
         } else {
-          // If no library record exists, create one with just the timestamp
           const newRecord = {
             book: bookId,
             timestamp: Date.now(),
-            // Add other default fields if needed
             title: bookId,
             description: "",
             tags: []
           };
           
-          console.log(`Creating new library record for book "${bookId}" with timestamp ${newRecord.timestamp}`);
-          
           const putRequest = store.put(newRecord);
           
           putRequest.onsuccess = () => {
             console.log(`✅ Successfully created library record with timestamp for book: ${bookId}`);
+            
+            // This one is correct.
+            queueForSync('library', bookId, 'update');
+
             resolve(true);
           };
           

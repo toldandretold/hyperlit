@@ -3,6 +3,7 @@
 import { book } from "./app.js"; // current book identifier
 import { applyHypercites, applyHighlights } from "./lazyLoaderFactory.js"; // adjust path as needed
 import { attachUnderlineClickListeners } from "./hyperCites.js";
+import { setProgrammaticUpdateInProgress } from './operationState.js';
 
 export function initializeBroadcastListener() {
   const channel = new BroadcastChannel("node-updates");
@@ -29,80 +30,54 @@ async function updateDomNode(startLine) {
   console.group(`updateDomNode(${startLine})`);
   console.log(`Starting update for node ID: ${startLine}`);
   
+  setProgrammaticUpdateInProgress(true);
+
   try {
     const record = await getNodeChunkByKey(book, startLine);
-    console.log(`Retrieved record from IndexedDB:`, record);
-    
-    if (record) {
-      console.log(`Original content from DB:`, record.content);
-      
-      // Get the current DOM node
-      const node = document.getElementById(startLine);
-      
-      if (!node) {
-        console.warn(`⚠️ No DOM element found with id=${startLine}`);
-        return;
-      }
-      
-      console.log(`Found DOM node:`, node);
-      console.log(`Current node HTML before update:`, node.outerHTML);
-      
-      // Only process hypercites - we don't need to reapply highlights
-      if (record.hypercites && record.hypercites.length > 0) {
-        console.log(`Applying hypercites:`, record.hypercites);
-        
-        // Create a temporary div with the current DOM content
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = node.innerHTML;
-        
-        // Find all <u> elements in the temp div
-        const underlineTags = tempDiv.querySelectorAll('u');
-        
-        // Create another temp div with the content from the record
-        // to extract the relationship classes
-        const recordTempDiv = document.createElement('div');
-        let processedContent = sanitizeContent(record.content || "");
-        processedContent = applyHypercites(processedContent, record.hypercites);
-        recordTempDiv.innerHTML = processedContent;
-        
-        // Get all <u> elements from the processed content
-        const processedUnderlines = recordTempDiv.querySelectorAll('u');
-        
-        // Map of citation IDs to their relationship classes
-        const citationClassMap = {};
-        processedUnderlines.forEach(u => {
-          const citationId = u.getAttribute('data-citation-id');
-          if (citationId) {
-            citationClassMap[citationId] = u.className;
-          }
-        });
-        
-        // Now update only the classes on the actual DOM node's <u> elements
-        const actualUnderlines = node.querySelectorAll('u');
-        actualUnderlines.forEach(u => {
-          const citationId = u.getAttribute('data-citation-id');
-          if (citationId && citationClassMap[citationId]) {
-            // Only update the class, preserving the element and its contents
-            u.className = citationClassMap[citationId];
-          }
-        });
-        
-        console.log(`Updated only the classes of <u> tags`);
-        console.log(`Node HTML after update:`, node.outerHTML);
-      } else {
-        console.log(`No hypercites to apply`);
-      }
-      
-      // Re-attach listeners after updating the DOM
-      attachUnderlineClickListeners();
-      console.log(`Attached underline click listeners`);
-    } else {
-      console.warn(`⚠️ No record returned for key [${book}, ${startLine}]`);
+    if (!record) {
+      console.warn(`⚠️ No record for key [${book}, ${startLine}]`);
+      return;
     }
+
+    const node = document.getElementById(startLine);
+    if (!node) {
+      console.warn(`⚠️ No DOM element with id=${startLine}`);
+      return;
+    }
+
+    // ✅ THE FIX: Sanitize and unwrap the content first.
+    // 1. Create a temporary container.
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = record.content;
+
+    // 2. Extract the INNER content of the first child element (the h1 or p).
+    const innerContent = tempDiv.firstElementChild ? tempDiv.firstElementChild.innerHTML : "";
+    
+    // 3. Start the processing pipeline with the CLEAN, UNWRAPPED content.
+    let processedContent = innerContent;
+
+    // 4. Run it through the rendering pipeline.
+    if (record.hyperlights && record.hyperlights.length > 0) {
+      processedContent = applyHighlights(processedContent, record.hyperlights);
+    }
+    if (record.hypercites && record.hypercites.length > 0) {
+      processedContent = applyHypercites(processedContent, record.hypercites);
+    }
+
+    // 5. Replace the innerHTML of the target node with the processed INNER content.
+    // This prevents the nesting bug.
+    node.innerHTML = processedContent;
+    console.log(`✅ Node ${startLine} re-rendered from scratch.`);
+    console.log(`Node HTML after update:`, node.outerHTML);
+
+    attachUnderlineClickListeners();
+    console.log(`Attached underline click listeners`);
+
   } catch (error) {
     console.error("❌ Error updating DOM node:", error);
-    console.error("Error stack:", error.stack);
   } finally {
+    console.log("Clearing programmatic update flag.");
+    setProgrammaticUpdateInProgress(false);
     console.groupEnd();
   }
 }

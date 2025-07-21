@@ -4,7 +4,9 @@ import { openDatabase,
          parseNodeId, 
          createNodeChunksKey, 
          getLibraryObjectFromIndexedDB,
-         updateBookTimestamp  } from "./cache-indexedDB.js";
+         updateBookTimestamp,
+         toPublicChunk,
+         queueForSync  } from "./cache-indexedDB.js";
 import { ContainerManager } from "./container-manager.js";
 import { formatBibtexToCitation } from "./bibtexProcessor.js";
 import { currentLazyLoader } from './initializePage.js';
@@ -392,22 +394,16 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
     console.log("✅ NEW Hypercite and affected nodeChunks updated.");
 
     await updateBookTimestamp(book);
-    await syncHyperciteWithPostgreSQL(hyperciteEntry, updatedNodeChunks);
 
+    queueForSync('hypercites', hyperciteId, 'update');
+    blocks.forEach(block => {
+      queueForSync('nodeChunks', block.startLine, 'update');
+    });
+
+  // ✅ THE FIX: Add the missing catch block.
   } catch (error) {
     console.error("❌ Error in NewHyperciteIndexedDB:", error);
   }
-}
-
-// Helper function to sync data with PostgreSQL
-/* keep only the public columns of a nodeChunk */
-function toPublicChunk(chunk) {
-  return {
-    book:        chunk.book,
-    startLine:   chunk.startLine,
-    hyperlights: chunk.hyperlights ?? [],
-    hypercites:  chunk.hypercites  ?? []
-  };
 }
 
 async function syncHyperciteWithPostgreSQL(hyperciteEntry, nodeChunks) {
@@ -428,7 +424,7 @@ async function syncHyperciteWithPostgreSQL(hyperciteEntry, nodeChunks) {
         "X-CSRF-TOKEN":
           document.querySelector('meta[name="csrf-token"]')?.content
       },
-      credentials: "include", // ← Changed from "same-origin" to "include"
+      credentials: "include",
       body: JSON.stringify({
         book: hyperciteEntry.book,
         data: [hyperciteEntry],
@@ -447,29 +443,34 @@ async function syncHyperciteWithPostgreSQL(hyperciteEntry, nodeChunks) {
     /* 2. node-chunks /targeted-upsert  (public fields only)         */
     /* ------------------------------------------------------------- */
     if (nodeChunks?.length) {
-      const publicChunks = nodeChunks.map(toPublicChunk);
+      const publicChunks = nodeChunks
+        .map(toPublicChunk)
+        .filter(chunk => chunk !== null);
 
-      const chunkRes = await fetch("/api/db/node-chunks/targeted-upsert", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-TOKEN":
-            document.querySelector('meta[name="csrf-token"]')?.content
-        },
-        credentials: "include", // ← Changed from "same-origin" to "include"
-        body: JSON.stringify({
-          book: hyperciteEntry.book,
-          data: publicChunks,
-          ...topLevelAuth
-        })
-      });
+      if (publicChunks.length > 0) {
+          // ✅ THE FIX: Add the missing method, headers, and credentials
+          const chunkRes = await fetch("/api/db/node-chunks/targeted-upsert", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-TOKEN":
+                document.querySelector('meta[name="csrf-token"]')?.content
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              book: hyperciteEntry.book,
+              data: publicChunks,
+              ...topLevelAuth
+            })
+          });
 
-      if (!chunkRes.ok) {
-        throw new Error(
-          `NodeChunk sync failed (${chunkRes.status}): ${await chunkRes.text()}`
-        );
+          if (!chunkRes.ok) {
+            throw new Error(
+              `NodeChunk sync failed (${chunkRes.status}): ${await chunkRes.text()}`
+            );
+          }
+          console.log("✅ NodeChunks (public columns) synced");
       }
-      console.log("✅ NodeChunks (public columns) synced");
     }
 
     /* ------------------------------------------------------------- */
@@ -1290,8 +1291,12 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
     // Step 7: Update book timestamp
     await updateBookTimestamp(targetHypercite.book);
 
-    // Step 8: Sync with PostgreSQL
-    await syncDelinkWithPostgreSQL(updatedHypercite);
+    // ✅ THE FIX: Queue the specific hypercite that changed.
+  queueForSync('hypercites', targetHypercite.hyperciteId, 'update');
+
+    if (targetHypercite.startLine) {
+        queueForSync('nodeChunks', targetHypercite.startLine, 'update');
+    }
 
     console.log("✅ Delink process completed successfully");
 

@@ -4,6 +4,7 @@ import { showSpinner, showTick } from "./editIndicator.js";
 
 let pendingOperations = 0;
 let unloadWarningActive = false;
+let programmaticUpdateInProgress = false;
 export let hypercitePasteInProgress = false;
 export let keyboardLayoutInProgress = false;
 
@@ -123,3 +124,11 @@ export function setChunkOverflowInProgress(value) {
   return value;
 }
 
+
+export function setProgrammaticUpdateInProgress(isUpdating) {
+  programmaticUpdateInProgress = isUpdating;
+}
+
+export function isProgrammaticUpdateInProgress() {
+  return programmaticUpdateInProgress;
+}
