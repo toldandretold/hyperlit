@@ -17,7 +17,8 @@ import {
   currentObservedChunk,
   setCurrentObservedChunk,
   hypercitePasteInProgress,
-  keyboardLayoutInProgress
+  keyboardLayoutInProgress,
+  isProgrammaticUpdateInProgress
 } from './operationState.js';
 
 import { showSpinner, showTick, isProcessing } from './editIndicator.js';
@@ -64,6 +65,7 @@ let observedChunks = new Map(); // chunkId -> chunk element
 let deletionHandler = null;
 
 let isObserverRestarting = false;
+let selectionChangeDebounceTimer = null;
 
 
 
@@ -96,7 +98,7 @@ const pendingSaves = {
 };
 
 // Generic debounce function
-function debounce(func, delay, timerId) {
+export function debounce(func, delay, timerId) {
   return function(...args) {
     clearTimeout(debounceTimers[timerId]);
     debounceTimers[timerId] = setTimeout(() => {
@@ -252,6 +254,12 @@ export function startObserving(editableDiv) {
 
   // Create observer for the main-content container
   observer = new MutationObserver(async (mutations) => {
+
+
+    if (isProgrammaticUpdateInProgress()) {
+      console.log("Skipping mutations: Programmatic update in progress.");
+      return;
+    }
 
     // When to NOT observe:
     if (hypercitePasteInProgress) {
@@ -541,7 +549,12 @@ async function processMutationsByChunk(mutations) {
   for (const [chunkId, chunkMutations] of mutationsByChunk) {
     const chunk = observedChunks.get(chunkId);
     if (chunk && document.contains(chunk)) { // Ensure chunk is still in DOM
+      setTimeout(async () => {
+        // By wrapping this in a timeout, we yield to the main thread,
+      // allowing the browser to render the typed character immediately.
+      // This makes the UI feel much snappier during fast typing.
       await processChunkMutations(chunk, chunkMutations);
+    }, 0);
     } else if (chunk) {
   // Chunk was removed, clean up - but delay it to let any pending transactions finish
   console.log(`🗑️ Chunk ${chunkId} removed from DOM, scheduling cleanup...`);
@@ -876,44 +889,30 @@ export function stopObserving() {
 
 
 
-// Fix your selectionchange listener:
+// Replace your old selectionchange listener with this one
 document.addEventListener("selectionchange", () => {
-  if (!window.isEditing || chunkOverflowInProgress || isObserverRestarting) return;
+  // Clear any previous timer
+  clearTimeout(selectionChangeDebounceTimer);
 
-  const toolbar = getEditToolbar();
-  if (toolbar && toolbar.isFormatting) {
-    console.log("Skipping chunk change detection during formatting");
-    return;
-  }
+  // Set a new timer
+  selectionChangeDebounceTimer = setTimeout(() => {
+    // The actual logic only runs after 150ms of no selection changes
+    if (!window.isEditing || chunkOverflowInProgress || isObserverRestarting) return;
 
-  const newChunkId = getCurrentChunk();
-  const currentChunkId = currentObservedChunk ? 
-    (currentObservedChunk.id || currentObservedChunk.dataset.chunkId) : null;
-    
-  if (newChunkId !== currentChunkId) {
-    console.log(`Chunk change detected: ${currentChunkId} → ${newChunkId}`);
-    
-    // Set guard flag
-    isObserverRestarting = true;
-    
-    stopObserving();
-    
-    if (newChunkId) {
-      // ✅ ALWAYS pass the main container, not individual chunks
-      const mainContainer = document.querySelector('.main-content');
-      if (mainContainer) {
-        startObserving(mainContainer);
-      }
-    } else {
-      setCurrentObservedChunk(null);
-      console.warn("Lost focus on any chunk.");
+    const toolbar = getEditToolbar();
+    if (toolbar && toolbar.isFormatting) {
+      return;
     }
-    
-    // Clear guard flag after a short delay
-    setTimeout(() => {
-      isObserverRestarting = false;
-    }, 100);
-  }
+
+    const newChunkId = getCurrentChunk(); // Assumes this gets the ID of the current chunk
+    const currentChunkId = currentObservedChunk; // Assumes this is the stored ID string
+
+    // This is the key: we ONLY update the state. We don't restart the observer.
+    if (newChunkId && newChunkId !== currentChunkId) {
+      console.log(`✅ Chunk focus changed (debounced): ${currentChunkId} → ${newChunkId}`);
+      setCurrentObservedChunk(newChunkId);
+    }
+  }, 150); // 150ms is a good delay to feel responsive but avoid storms
 });
 
 document.addEventListener("keydown", function handleTypingActivity(event) {
@@ -971,21 +970,7 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
   // Rest of your existing keydown logic (unchanged)
   pendingSaves.lastActivity = Date.now();
   
-  if (event.key.length === 1 || ['Backspace', 'Delete', 'Enter'].includes(event.key)) {
-    const selection = document.getSelection();
-    if (selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      let currentNode = range.startContainer;
-      if (currentNode.nodeType !== Node.ELEMENT_NODE) {
-        currentNode = currentNode.parentElement;
-      }
-      
-      let elementWithId = currentNode.closest('[id]');
-      if (elementWithId && elementWithId.id) {
-        queueNodeForSave(elementWithId.id, 'update');
-      }
-    }
-  } 
+ 
 });
 
 /** Ensure there’s a library record for this book (or create a stub). */

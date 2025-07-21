@@ -7,11 +7,12 @@ import { openDatabase,
          parseNodeId, 
          createNodeChunksKey, 
          updateBookTimestamp,
-         getLibraryObjectFromIndexedDB } from "./cache-indexedDB.js";
+         getLibraryObjectFromIndexedDB,
+         toPublicChunk,
+         queueForSync } from "./cache-indexedDB.js";
 import { attachAnnotationListener } from "./annotation-saver.js";
 import { addPasteListener } from "./paste.js";
 import { addHighlightContainerPasteListener } from "./hyperLightsListener.js";
-import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 import { getCurrentUser, getCurrentUserId } from "./auth.js";
 import { getUserHighlightCache } from './userCache.js';
 
@@ -951,11 +952,26 @@ addTouchAndClickListener(
       });
       
       console.log("Added to highlights table");
-      await updateBookTimestamp(book);
-      
-      // ✅ SIMPLIFIED: Sync with PostgreSQL (auth handled by middleware)
-      await syncHyperlightWithPostgreSQL(hyperlightEntry, updatedNodeChunks);
-      
+      await updateBookTimestamp(book); // This queues the library update
+
+      // --- REPLACEMENT LOGIC START ---
+      // REPLACED: The direct call to syncHyperlightWithPostgreSQL
+      // ✅ NEW: Queue all modified items for the debounced sync.
+
+      // 1. Queue the new hyperlight record itself.
+      queueForSync("hyperlights", highlightId, "update");
+
+      // 2. Queue all the node chunks that were updated with highlight metadata.
+      updatedNodeChunks.forEach((chunk) => {
+        if (chunk && chunk.startLine) {
+          queueForSync("nodeChunks", chunk.startLine, "update");
+        }
+      });
+
+      console.log(
+        `✅ Queued for sync: 1 hyperlight and ${updatedNodeChunks.length} node chunks.`
+      );
+      // --- REPLACEMENT LOGIC END ---
     } catch (error) {
       console.error("❌ Error saving highlight metadata:", error);
     }
@@ -974,15 +990,7 @@ addTouchAndClickListener(
 
 // Helper function to sync hyperlight data with PostgreSQL
 
-/* keep only the public columns */
-function toPublicChunk(chunk) {
-  return {
-    book:        chunk.book,
-    startLine:   chunk.startLine,
-    hyperlights: chunk.hyperlights ?? [],
-    hypercites:  chunk.hypercites  ?? []
-  };
-}
+
  
 async function syncHyperlightWithPostgreSQL(hyperlightEntry, nodeChunks) {
   try {
@@ -1072,7 +1080,8 @@ async function syncHyperlightWithPostgreSQL(hyperlightEntry, nodeChunks) {
   } catch (err) {
     console.error("❌ Error syncing hyperlight with PostgreSQL:", err);
   }
-}
+} 
+
 
 // new signature — takes chunkId as a string (e.g. "1.1")
 async function updateNodeHighlight(
@@ -1228,12 +1237,23 @@ addTouchAndClickListener(document.getElementById("delete-hyperlight"),
     if (highlightIdsToRemove.length > 0) {
       await updateBookTimestamp(book);
       
-      // 👈 ADD: Sync deletions with PostgreSQL
-      await syncHyperlightDeletionsWithPostgreSQL(
-        deletedHyperlights, 
-        updatedNodeChunks,
-        book
+       deletedHyperlights.forEach((hl) => {
+        if (hl && hl.hyperlight_id) {
+          queueForSync("hyperlights", hl.hyperlight_id, "delete");
+        }
+      });
+
+      // 2. Queue the node chunks that were updated (had highlights removed).
+      updatedNodeChunks.forEach((chunk) => {
+        if (chunk && chunk.startLine) {
+          queueForSync("nodeChunks", chunk.startLine, "update");
+        }
+      });
+
+      console.log(
+        `✅ Queued for sync: ${deletedHyperlights.length} deletions and ${updatedNodeChunks.length} node chunk updates.`
       );
+      // --- REPLACEMENT LOGIC END ---
     }
 
     console.log("Removed highlight IDs:", highlightIdsToRemove);

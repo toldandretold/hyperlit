@@ -21,6 +21,7 @@ import {
   setHandleHypercitePaste
 } from './operationState.js';
 import { queueNodeForSave } from './divEditor.js';
+import { broadcastToOpenTabs } from './BroadcastListener.js';
 
 // Configure marked options
 marked.setOptions({
@@ -988,7 +989,7 @@ async function handleJsonPaste(event, insertionPoint, pastedContent, isHtmlConte
  * Handle pasting of hypercites
  * @returns {boolean} true if handled as hypercite, false otherwise
  */
-function handleHypercitePaste(event) {
+async function handleHypercitePaste(event) {
   const clipboardHtml = event.clipboardData.getData("text/html");
   if (!clipboardHtml) return false;
 
@@ -1121,24 +1122,38 @@ function handleHypercitePaste(event) {
   saveCurrentParagraph();
   
   // Update the original hypercite's citedIN array
-  updateCitationForExistingHypercite(
-    booka, 
-    hyperciteIDa, 
-    citationIDb,
-    false // Don't insert content, just update the database
-  ).then(updated => {
-    if (updated) {
+  try {
+    // ✅ 3. AWAIT the function and capture the full result object.
+    const updateResult = await updateCitationForExistingHypercite(
+      booka, 
+      hyperciteIDa, 
+      citationIDb
+    );
+
+    if (updateResult && updateResult.success) {
       console.log(`Successfully linked: ${citationIDa} cited in ${citationIDb}`);
+
+      // ✅ 4. Perform BOTH the local DOM update and the broadcast.
+      // ACTION A: Update the DOM in the CURRENT tab.
+      const localElement = document.getElementById(hyperciteIDa);
+      if (localElement) {
+        console.log(`(Paste Handler) Updating local DOM for ${hyperciteIDa} to class: ${updateResult.newStatus}`);
+        localElement.className = updateResult.newStatus;
+      }
+
+      // ACTION B: Broadcast to OTHER tabs.
+      broadcastToOpenTabs(booka, updateResult.startLine);
+
     } else {
       console.warn(`Failed to update citation for ${citationIDa}`);
     }
-    
-    // Clear the flag after a short delay
-    setTimeout(() => {
-      setHandleHypercitePaste(false);
-      console.log("setHandleHypercitePaste cleared/made");
-    }, 100);
-  });
+  } catch (error) {
+    console.error("Error during hypercite paste update:", error);
+  } finally {
+    // ✅ 5. Clear the flag in the finally block to guarantee it's always reset.
+    setHandleHypercitePaste(false);
+    console.log("setHandleHypercitePaste cleared");
+  }
   
   return true; // Successfully handled as hypercite
 }
