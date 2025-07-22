@@ -1,6 +1,8 @@
 // annotationSaver.js
-import { withPending } from './operationState.js';
-import { openDatabase } from './cache-indexedDB.js';
+
+import { withPending } from "./operationState.js";
+// 👈 1. IMPORT queueForSync
+import { openDatabase, queueForSync } from "./cache-indexedDB.js";
 
 // Debounce timer variable for the highlight container.
 let annotationDebounceTimer = null;
@@ -23,26 +25,33 @@ function getAnnotationHTML(container) {
  * @param {string} annotationHTML - The annotation HTML to be saved.
  */
 export const saveAnnotationToIndexedDB = (highlightId, annotationHTML) =>
-  withPending(async () => { 
+  withPending(async () => {
     const db = await openDatabase();
-    const tx = db.transaction('hyperlights','readwrite');
-    const store = tx.objectStore('hyperlights');
-    const idx   = store.index('hyperlight_id');
+    const tx = db.transaction("hyperlights", "readwrite");
+    const store = tx.objectStore("hyperlights");
+    const idx = store.index("hyperlight_id");
     const record = await new Promise((res, rej) => {
       const req = idx.get(highlightId);
       req.onsuccess = () => res(req.result);
-      req.onerror   = () => rej(req.error);
+      req.onerror = () => rej(req.error);
     });
-    if (!record) throw new Error('No highlight record');
+    if (!record) throw new Error("No highlight record");
     record.annotation = annotationHTML;
     await new Promise((res, rej) => {
       const upd = store.put(record);
       upd.onsuccess = () => res();
-      upd.onerror   = () => rej(upd.error);
+      upd.onerror = () => rej(upd.error);
     });
     await new Promise((res, rej) => {
-      tx.oncomplete = () => res();
-      tx.onerror    = () => rej(tx.error);
+      tx.oncomplete = () => {
+        // 👈 2. ADD QUEUE CALL TO THE HELPER
+        console.log(
+          `Annotation for ${highlightId} saved via helper. Queuing for sync.`
+        );
+        queueForSync("hyperlights", highlightId);
+        res();
+      };
+      tx.onerror = () => rej(tx.error);
     });
   });
 
@@ -61,23 +70,17 @@ export function attachAnnotationListener(highlightId) {
   let debounceTimer = null;
   let lastHTML = "";
 
-  /* ------------------------------------------------------------ */
-  /* track latest HTML on keyup                                   */
-  /* ------------------------------------------------------------ */
   annotationEl.addEventListener("keyup", () => {
     lastHTML = annotationEl.innerHTML || "";
   });
 
-  /* ------------------------------------------------------------ */
-  /* save after 1 s of inactivity                                 */
-  /* ------------------------------------------------------------ */
   annotationEl.addEventListener("input", () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       const html = lastHTML;
 
       withPending(async () => {
-        /* 1 — update IndexedDB ----------------------------------- */
+        /* 1 — update IndexedDB (This logic is unchanged) */
         const db = await openDatabase();
         const tx = db.transaction("hyperlights", "readwrite");
         const store = tx.objectStore("hyperlights");
@@ -95,42 +98,21 @@ export function attachAnnotationListener(highlightId) {
           u.onsuccess = () => res();
           u.onerror = () => rej(u.error);
         });
+
+        // Wait for the transaction to complete before queuing
         await new Promise((res, rej) => {
-          tx.oncomplete = () => res();
+          tx.oncomplete = () => {
+            // 👈 3. THE FIX: Replace the fetch call with queueForSync
+            console.log(
+              `✅ Annotation for ${highlightId} saved to IndexedDB. Queuing for sync.`
+            );
+            queueForSync("hyperlights", highlightId);
+            res();
+          };
           tx.onerror = () => rej(tx.error);
         });
 
-        /* 2 — sync to PostgreSQL --------------------------------- */
-        // ✅ FIXED: Use backend-managed auth system
-        const payload = {
-          book: rec.book,
-          data: [
-            {
-              book: rec.book,
-              hyperlight_id: rec.hyperlight_id,
-              annotation: html
-            }
-          ]
-          // ❌ REMOVED: anonymous_token - backend handles this via cookies
-        };
-
-        const response = await fetch("/api/db/hyperlights/upsert", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-CSRF-TOKEN":
-              document.querySelector('meta[name="csrf-token"]')?.content
-          },
-          credentials: "include", // ✅ FIXED: Changed from "same-origin" to "include"
-          body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to sync annotation (${response.status}): ${await response.text()}`
-          );
-        }
-        console.log(`✅ Annotation synced to PostgreSQL for ${highlightId}`);
+        /* ❌ 4. THE ENTIRE POSTGRESQL SYNC BLOCK IS REMOVED FROM HERE */
       }).catch(console.error);
     }, 1000);
   });
