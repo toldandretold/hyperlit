@@ -1,4 +1,4 @@
-import { getNextIntegerId } from './IDfunctions.js';
+import { getNextIntegerId, generateIdBetween } from './IDfunctions.js';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { 
@@ -613,110 +613,99 @@ function handleCodeBlockPaste(event, chunk) {
  * Handle small paste operations (≤ SMALL_NODE_LIMIT nodes)
  * The signature is now clean, accepting only one node count.
  */
+/**
+ * Handle small paste operations (≤ SMALL_NODE_LIMIT nodes)
+ * This version is now responsible for assigning correct IDs.
+ */
 function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
   const SMALL_NODE_LIMIT = 20;
 
-  // The logic now correctly uses the single `nodeCount` parameter.
   if (nodeCount > SMALL_NODE_LIMIT) {
     return false; // Not a small paste, continue to large paste handler
   }
 
   console.log(
-    `Small paste (≈${nodeCount} nodes); handling directly with HTML insertion.`
+    `Small paste (≈${nodeCount} nodes); handling with ID-aware insertion.`
   );
 
-  // The rest of the logic inside this function is correct.
   if (htmlContent) {
     event.preventDefault();
     const selection = window.getSelection();
-    if (selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      let currentElement = range.startContainer;
-      if (currentElement.nodeType === Node.TEXT_NODE) {
-        currentElement = currentElement.parentElement;
-      }
-      const currentBlock = currentElement.closest(
-        "p, h1, h2, h3, h4, h5, h6, div, pre, blockquote"
-      );
-      if (
-        currentBlock &&
-        currentBlock.id &&
-        /^\d+(\.\d+)*$/.test(currentBlock.id)
-      ) {
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = htmlContent;
-        tempDiv.querySelectorAll("[id]").forEach((el) => {
-          el.removeAttribute("id");
-        });
-        const elementsToInsert = Array.from(tempDiv.children);
-        let insertAfter = currentBlock;
-        elementsToInsert.forEach((element) => {
-          insertAfter.insertAdjacentElement("afterend", element);
-          insertAfter = element;
-        });
-        const lastInserted = elementsToInsert[elementsToInsert.length - 1];
-        if (lastInserted) {
-          const newRange = document.createRange();
-          newRange.selectNodeContents(lastInserted);
-          newRange.collapse(false);
-          selection.removeAllRanges();
-          selection.addRange(newRange);
-        }
-      } else {
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = htmlContent;
-        tempDiv.querySelectorAll("[id]").forEach((el) => {
-          el.removeAttribute("id");
-        });
-        const firstElement = tempDiv.firstElementChild;
-        if (
-          firstElement &&
-          [
-            "H1",
-            "H2",
-            "H3",
-            "H4",
-            "H5",
-            "H6",
-            "P",
-            "DIV",
-            "BLOCKQUOTE",
-            "PRE",
-          ].includes(firstElement.tagName)
-        ) {
-          const parentBlock = currentElement.closest(
-            "p, div, h1, h2, h3, h4, h5, h6"
-          );
-          if (parentBlock) {
-            Array.from(tempDiv.children).forEach((child) => {
-              parentBlock.insertAdjacentElement("afterend", child);
-            });
-            const lastChild = Array.from(tempDiv.children).pop();
-            if (lastChild) {
-              const newRange = document.createRange();
-              newRange.selectNodeContents(lastChild);
-              newRange.collapse(false);
-              selection.removeAllRanges();
-              selection.addRange(newRange);
-            }
-          }
-        } else {
-          const fragment = document.createDocumentFragment();
-          while (tempDiv.firstChild) {
-            fragment.appendChild(tempDiv.firstChild);
-          }
-          range.deleteContents();
-          range.insertNode(fragment);
-          range.collapse(false);
-          selection.removeAllRanges();
-          selection.addRange(range);
-        }
-      }
+    if (!selection.rangeCount) return true; // Nothing to do
+
+    const range = selection.getRangeAt(0);
+    let currentElement = range.startContainer;
+    if (currentElement.nodeType === Node.TEXT_NODE) {
+      currentElement = currentElement.parentElement;
     }
-    return true;
+
+    // Find the block element where the paste is happening. This is our anchor.
+    const currentBlock = currentElement.closest(
+      "p, h1, h2, h3, h4, h5, h6, div, pre, blockquote"
+    );
+
+    // If we can't find a valid block with an ID, we can't proceed.
+    if (!currentBlock || !currentBlock.id || !/^\d+(\.\d+)*$/.test(currentBlock.id)) {
+      console.warn("Small paste aborted: Could not find a valid anchor block with a numerical ID.");
+      // Fallback to default browser behavior might be an option here, but for now, we stop.
+      return true;
+    }
+
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = htmlContent;
+    // Strip existing IDs to prevent conflicts.
+    tempDiv.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
+
+    const elementsToInsert = Array.from(tempDiv.children);
+    
+    // ====================================================================
+    // REPLACEMENT LOGIC: ID-AWARE INSERTION LOOP
+    // ====================================================================
+    
+    // 'lastInsertedElement' will be our moving reference point. It starts as the block
+    // the user's cursor was in.
+    let lastInsertedElement = currentBlock;
+
+    elementsToInsert.forEach((elementToInsert) => {
+      // 1. Find the next sibling with a valid ID *relative to our last insertion*.
+      //    This is crucial because the DOM is changing with each loop iteration.
+      let nextSiblingWithId = lastInsertedElement.nextElementSibling;
+      while (nextSiblingWithId && (!nextSiblingWithId.id || !/^\d+(\.\d+)*$/.test(nextSiblingWithId.id))) {
+        nextSiblingWithId = nextSiblingWithId.nextElementSibling;
+      }
+      const nextId = nextSiblingWithId ? nextSiblingWithId.id : null;
+
+      // 2. Generate a new, valid ID between our last element and the next one.
+      const newId = generateIdBetween(lastInsertedElement.id, nextId);
+      elementToInsert.id = newId;
+      console.log(`Assigning new ID ${newId} to pasted element.`);
+
+      // 3. Insert the element (which now has a valid ID) into the DOM.
+      lastInsertedElement.insertAdjacentElement("afterend", elementToInsert);
+
+      // 4. CRITICAL: Update our reference to the element we just inserted.
+      //    For the next loop iteration, this becomes the new "before" anchor.
+      lastInsertedElement = elementToInsert;
+    });
+
+    // After the loop, move the cursor to the end of the very last element we inserted.
+    if (lastInsertedElement && lastInsertedElement !== currentBlock) {
+      const newRange = document.createRange();
+      newRange.selectNodeContents(lastInsertedElement);
+      newRange.collapse(false); // false = collapse to the end
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+    }
+    
+    // The MutationObserver will now correctly detect these new nodes (with their shiny new IDs)
+    // and queue them for saving automatically.
+
+    return true; // We have handled the paste.
   } else {
     console.log("Small plain text paste, deferring to native contentEditable");
-    return true;
+    // Let the browser handle simple text insertion. The MutationObserver will catch it.
+    setPasteInProgress(false); // Allow observer to run for this case.
+    return false; // Returning false lets the default action proceed.
   }
 }
 
