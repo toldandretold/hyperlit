@@ -1124,12 +1124,21 @@ let enterCount = 0;
 let lastEnterTime = 0;
 
 function createAndInsertParagraph(blockElement, chunkContainer, content, selection) {
-  // 1. Create the new paragraph
+  // ==================================================================
+  // 1. PROACTIVELY FIX THE SOURCE ELEMENT (THE KEY CHANGE)
+  // ==================================================================
+  // This ensures the source element has an ID before we try to use it.
+  ensureNodeHasValidId(blockElement);
+  if (!blockElement.id) {
+    console.error("FATAL: Could not assign an ID to the source block element. Aborting paragraph creation.", blockElement);
+    return null; // Or handle error appropriately
+  }
+
+  // 2. Create the new paragraph
   const newParagraph = document.createElement('p');
 
-  // 2. Handle content
+  // 3. Handle content (your existing logic is fine here)
   if (content) {
-    // Unwrap any nested paragraphs
     const nodes = content.nodeType === Node.DOCUMENT_FRAGMENT_NODE
       ? Array.from(content.childNodes)
       : [content];
@@ -1146,66 +1155,42 @@ function createAndInsertParagraph(blockElement, chunkContainer, content, selecti
   } else {
     const br = document.createElement('br');
     newParagraph.appendChild(br);
-
   }
 
-  // 3. Generate an ID for the new paragraph
-  if (blockElement.id) {
-    // Find the correct container to insert into
-    const container = blockElement.closest('.chunk') || blockElement.parentNode;
+  // ==================================================================
+  // 4. SIMPLIFIED AND UNIFIED ID GENERATION
+  // ==================================================================
+  // This logic is now guaranteed to run because we know blockElement.id exists.
+  const container = blockElement.closest('.chunk') || blockElement.parentNode;
     
-    // Find the next element with a numeric ID (if any)
-    let nextElement = blockElement.nextElementSibling;
-    while (nextElement && (!nextElement.id || !/^\d+(\.\d+)?$/.test(nextElement.id))) {
-      nextElement = nextElement.nextElementSibling;
-    }
-    
-    if (nextElement && nextElement.id) {
-      // Generate ID between current and next
-      newParagraph.id = generateIdBetween(blockElement.id, nextElement.id);
-    } else {
-      // Generate ID after current
-      const blockId = parseFloat(blockElement.id);
-      if (!isNaN(blockId)) {
-        if (Number.isInteger(blockId)) {
-          newParagraph.id = (blockId + 1).toString();
-        } else {
-          newParagraph.id = Math.ceil(blockId).toString();
-        }
-      } else {
-        newParagraph.id = generateIdBetween(blockElement.id, null);
-      }
-    }
-    
-    // 4. Insert the paragraph at the correct position in the DOM
-    // IMPORTANT: Insert as a sibling, not a child
-    if (blockElement.nextSibling) {
-      container.insertBefore(newParagraph, blockElement.nextSibling);
-    } else {
-      container.appendChild(newParagraph);
-    }
-    
-    console.log(`Created new paragraph with ID ${newParagraph.id} after ${blockElement.id}`);
+  // Find the next element with a numeric ID (your existing logic is good)
+  let nextElement = blockElement.nextElementSibling;
+  while (nextElement && (!nextElement.id || !/^\d+(\.\d+)?$/.test(nextElement.id))) {
+    nextElement = nextElement.nextElementSibling;
   }
+  
+  // ALWAYS use generateIdBetween for consistency. It should handle the null case.
+  const nextElementId = nextElement ? nextElement.id : null;
+  newParagraph.id = generateIdBetween(blockElement.id, nextElementId);
+  
+  // 5. Insert the paragraph at the correct position in the DOM
+  if (blockElement.nextSibling) {
+    container.insertBefore(newParagraph, blockElement.nextSibling);
+  } else {
+    container.appendChild(newParagraph);
+  }
+  
+  console.log(`Created new paragraph with ID ${newParagraph.id} after ${blockElement.id}`);
 
-  // 5. Move cursor to the new paragraph
+  // 6. Move cursor and scroll (your existing logic is fine)
   const target = newParagraph.firstChild?.nodeType === Node.TEXT_NODE
     ? newParagraph.firstChild
     : newParagraph;
   moveCaretTo(target, 0);
-  // 2) Immediately scroll the new paragraph into view:
-  // Then scroll after a tiny delay to let the DOM settle
-    setTimeout(() => {
-    const rect = newParagraph.getBoundingClientRect();
-    const viewportHeight = window.innerHeight;
-    
-    // Only scroll if needed
-    if (rect.top < 0 || rect.bottom > viewportHeight) {
-      // Position the element 20% from the top of the viewport
-      const scrollTarget = window.scrollY + rect.top - (viewportHeight * 0.2);
-      window.scrollTo(0, scrollTarget);
-    }
+  setTimeout(() => {
+    newParagraph.scrollIntoView({ behavior: 'auto', block: 'nearest' });
   }, 10);
+
   return newParagraph;
 }
 
@@ -1303,6 +1288,13 @@ document.addEventListener("keydown", function(event) {
 
     if (isHeading && isAtStart) {
       event.preventDefault();
+
+      // PROACTIVELY FIX THE HEADING'S ID
+      ensureNodeHasValidId(blockElement);
+      if (!blockElement.id) {
+          console.error("Could not assign ID to heading. Aborting.", blockElement);
+          return;
+      }
       
       // 1. Create a new paragraph to insert BEFORE the heading
       const newParagraph = document.createElement('p');
