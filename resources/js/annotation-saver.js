@@ -55,6 +55,8 @@ export const saveAnnotationToIndexedDB = (highlightId, annotationHTML) =>
     });
   });
 
+// IN annotationSaver.js, REPLACE the attachAnnotationListener function with this:
+
 export function attachAnnotationListener(highlightId) {
   const container = document.getElementById("highlight-container");
   if (!container || container.classList.contains("hidden")) return;
@@ -68,19 +70,23 @@ export function attachAnnotationListener(highlightId) {
   }
 
   let debounceTimer = null;
-  let lastHTML = "";
+  // ❌ The 'lastHTML' variable is no longer needed.
 
-  annotationEl.addEventListener("keyup", () => {
-    lastHTML = annotationEl.innerHTML || "";
-  });
+  /* ❌ The 'keyup' event listener is removed entirely. */
 
+  /* ------------------------------------------------------------ */
+  /* save after 1 s of inactivity (now handles all input types)   */
+  /* ------------------------------------------------------------ */
   annotationEl.addEventListener("input", () => {
+    // 👈 THE FIX: Get the current HTML right away.
+    const html = annotationEl.innerHTML || "";
+
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
-      const html = lastHTML;
-
+      // The rest of your logic remains the same, but it now uses the
+      // correct 'html' variable captured when the input event fired.
       withPending(async () => {
-        /* 1 — update IndexedDB (This logic is unchanged) */
+        /* 1 — update IndexedDB */
         const db = await openDatabase();
         const tx = db.transaction("hyperlights", "readwrite");
         const store = tx.objectStore("hyperlights");
@@ -99,10 +105,8 @@ export function attachAnnotationListener(highlightId) {
           u.onerror = () => rej(u.error);
         });
 
-        // Wait for the transaction to complete before queuing
         await new Promise((res, rej) => {
           tx.oncomplete = () => {
-            // 👈 3. THE FIX: Replace the fetch call with queueForSync
             console.log(
               `✅ Annotation for ${highlightId} saved to IndexedDB. Queuing for sync.`
             );
@@ -111,8 +115,6 @@ export function attachAnnotationListener(highlightId) {
           };
           tx.onerror = () => rej(tx.error);
         });
-
-        /* ❌ 4. THE ENTIRE POSTGRESQL SYNC BLOCK IS REMOVED FROM HERE */
       }).catch(console.error);
     }, 1000);
   });
