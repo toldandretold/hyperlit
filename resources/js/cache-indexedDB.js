@@ -212,7 +212,7 @@ const debouncedMasterSync = debounce(async () => {
     console.error("❌ Debounced master sync failed:", error);
     // Here you might re-queue the failed items from `itemsToSync`
   }
-}, 3000, 'masterSync');
+}, 3000);
 
 // --- NEW: The "Final Save" function for page unload ---
 let isSyncingOnUnload = false;
@@ -777,11 +777,11 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
 }
 
 
-// In cache-indexedDB.js
-
 export function updateIndexedDBRecord(record) {
   return withPending(async () => {
     const bookId = book || "latest";
+
+    // Find the nearest ancestor with a numeric ID
     let nodeId = record.id;
     let node = document.getElementById(nodeId);
     while (node && !/^\d+(\.\d+)?$/.test(nodeId)) {
@@ -790,89 +790,17 @@ export function updateIndexedDBRecord(record) {
     }
 
     if (!/^\d+(\.\d+)?$/.test(nodeId)) {
-      console.log(`Skipping update – no valid parent node ID for ${record.id}`);
+      console.log(
+        `Skipping IndexedDB update – no valid parent node ID for ${record.id}`
+      );
       return;
     }
 
     const numericNodeId = parseNodeId(nodeId);
-    const processedData = node ? processNodeContentHighlightsAndCites(node) : null;
+    console.log(
+      `Updating IndexedDB record for node ${nodeId} (numeric: ${numericNodeId})`
+    );
 
-    // =======================================================================
-    // PHASE 1: OPTIMISTIC QUEUING
-    // =======================================================================
-    console.log("✅ Queuing single record update immediately...");
-    
-    // We need to fetch the existing record to build a complete object for the queue.
-    const db = await openDatabase();
-    const readTx = db.transaction("nodeChunks", "readonly");
-    const readStore = readTx.objectStore("nodeChunks");
-    const getReq = readStore.get([bookId, numericNodeId]);
-    const existing = await new Promise(res => { getReq.onsuccess = () => res(getReq.result) });
-
-    let recordToQueue;
-    if (existing) {
-        recordToQueue = { ...existing };
-        if (processedData) {
-            recordToQueue.content = processedData.content;
-            recordToQueue.hyperlights = processedData.hyperlights;
-            recordToQueue.hypercites = processedData.hypercites;
-        } else {
-            recordToQueue.content = record.html;
-        }
-        if (record.chunk_id !== undefined) {
-            recordToQueue.chunk_id = record.chunk_id;
-        }
-    } else {
-        recordToQueue = { /* ... create new record object ... */ };
-    }
-
-    queueForSync("nodeChunks", numericNodeId, "update", recordToQueue);
-    if (processedData) {
-        // Queue associated hyperlights/cites
-    }
-    updateBookTimestamp(bookId);
-
-
-    // =======================================================================
-    // PHASE 2: LOCAL SAVE
-    // =======================================================================
-    const writeTx = db.transaction(["nodeChunks", "hyperlights", "hypercites"], "readwrite");
-    const chunksStore = writeTx.objectStore("nodeChunks");
-    // ... (lightsStore, citesStore) ...
-    
-    chunksStore.put(recordToQueue); // Save the same object we queued
-    if (processedData) {
-        updateHyperlightRecords(processedData.hyperlights, writeTx.objectStore("hyperlights"), bookId, numericNodeId, [], node);
-        updateHyperciteRecords(processedData.hypercites, writeTx.objectStore("hypercites"), bookId, [], node);
-    }
-
-    return new Promise((resolve, reject) => {
-      writeTx.oncomplete = () => {
-        console.log("✅ IndexedDB single record update complete (queuing was done earlier).");
-        resolve();
-      };
-      writeTx.onerror = (e) => reject(e.target.error);
-    });
-  });
-}
-
-// New batched function to replace individual updateIndexedDBRecord calls
-// In cache-indexedDB.js
-// In cache-indexedDB.js
-
-// In cache-indexedDB.js
-
-export async function batchUpdateIndexedDBRecords(recordsToProcess) {
-  return withPending(async () => {
-    const bookId = book || "latest";
-    console.log(`🔄 Batch updating ${recordsToProcess.length} IndexedDB records`);
-
-    // The optimistic queuing logic is correct and should remain.
-    // ... (your PART 1: OPTIMISTIC QUEUING block is fine) ...
-
-    // =======================================================================
-    // PART 2: INDEXEDDB TRANSACTION (The Corrected Part)
-    // =======================================================================
     const db = await openDatabase();
     const tx = db.transaction(
       ["nodeChunks", "hyperlights", "hypercites"],
@@ -881,6 +809,130 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
     const chunksStore = tx.objectStore("nodeChunks");
     const lightsStore = tx.objectStore("hyperlights");
     const citesStore = tx.objectStore("hypercites");
+    const compositeKey = [bookId, numericNodeId];
+
+    // Arrays to collect what we actually save for sync
+    let savedNodeChunk = null;
+    const savedHyperlights = [];
+    const savedHypercites = [];
+
+    // 🔥 USE YOUR EXISTING FUNCTION TO PROPERLY PROCESS THE NODE
+    const processedData = node ? processNodeContentHighlightsAndCites(node) : null;
+
+    // Fetch the existing chunk record
+    const getReq = chunksStore.get(compositeKey);
+
+    getReq.onsuccess = () => {
+      const existing = getReq.result;
+      let toSave;
+
+      if (existing) {
+        console.log("Existing nodeChunk found for merge:", JSON.stringify(existing));
+
+        // Start with a copy of the existing record to preserve its structure
+        toSave = { ...existing };
+
+        // 🔥 USE PROCESSED CONTENT (WITHOUT MARK/U TAGS)
+        if (processedData) {
+          toSave.content = processedData.content;
+          // Update hyperlights and hypercites arrays in the node chunk
+          toSave.hyperlights = processedData.hyperlights;
+          toSave.hypercites = processedData.hypercites;
+        } else {
+          // Fallback to record.html if no DOM node available
+          toSave.content = record.html;
+        }
+
+        // Add the chunk_ID update here
+        if (record.chunk_id !== undefined) {
+          toSave.chunk_id = record.chunk_id;
+          console.log(`Updated chunk_id to ${record.chunk_id} for node ${nodeId}`);
+        }
+
+      } else {
+        // Case: No existing record, create a new one
+        console.log("No existing nodeChunk record, creating new one.");
+        toSave = {
+          book: bookId,
+          startLine: numericNodeId,
+          chunk_id: record.chunk_id !== undefined ? record.chunk_id : 0,
+          content: processedData ? processedData.content : record.html,
+          hyperlights: processedData ? processedData.hyperlights : [],
+          hypercites: processedData ? processedData.hypercites : []
+        };
+        console.log("New nodeChunk record to create:", JSON.stringify(toSave));
+      }
+
+      console.log("Final nodeChunk record to put:", JSON.stringify(toSave));
+
+      // Store for sync
+      savedNodeChunk = toSave;
+
+      // write the node chunk
+      chunksStore.put(toSave);
+
+      // 🔥 UPDATE INDIVIDUAL HYPERLIGHT/HYPERCITE RECORDS USING PROCESSED DATA
+      if (processedData) {
+        updateHyperlightRecords(processedData.hyperlights, lightsStore, bookId, numericNodeId, savedHyperlights, node);
+        updateHyperciteRecords(processedData.hypercites, citesStore, bookId, savedHypercites, node);
+      }
+    };
+
+    getReq.onerror = (e) => {
+      console.error("Error fetching nodeChunk for update:", e.target.error);
+    };
+
+    // return a promise that resolves/rejects with the transaction
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = async () => {
+        console.log("✅ IndexedDB record update complete");
+        await updateBookTimestamp(bookId);
+
+        // MODIFIED: Pass the full data object to the queue.
+        if (savedNodeChunk) {
+          queueForSync(
+            "nodeChunks",
+            savedNodeChunk.startLine,
+            "update",
+            savedNodeChunk
+          );
+        }
+        savedHyperlights.forEach((hl) => {
+          queueForSync("hyperlights", hl.hyperlight_id, "update", hl);
+        });
+        savedHypercites.forEach((hc) => {
+          queueForSync("hypercites", hc.hyperciteId, "update", hc);
+        });
+
+        resolve();
+      };
+      tx.onerror = (e) => reject(e.target.error);
+      tx.onabort = (e) => reject(new Error("Transaction aborted"));
+    });
+  });
+}
+
+// New batched function to replace individual updateIndexedDBRecord calls
+// In cache-indexedDB.js
+
+export async function batchUpdateIndexedDBRecords(recordsToProcess) {
+  return withPending(async () => {
+    const bookId = book || "latest";
+    console.log(`🔄 Batch updating ${recordsToProcess.length} IndexedDB records`);
+    
+    const db = await openDatabase();
+    const tx = db.transaction(
+      ["nodeChunks", "hyperlights", "hypercites"],
+      "readwrite"
+    );
+    const chunksStore = tx.objectStore("nodeChunks");
+    const lightsStore = tx.objectStore("hyperlights");
+    const citesStore = tx.objectStore("hypercites");
+
+    // ✅ STEP 1: Create arrays to hold the DETAILED results of the processing.
+    const allSavedNodeChunks = [];
+    const allSavedHyperlights = [];
+    const allSavedHypercites = [];
 
     const processPromises = recordsToProcess.map(record => {
       return new Promise(async (resolve, reject) => {
@@ -892,6 +944,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
         }
 
         if (!/^\d+(\.\d+)?$/.test(nodeId)) {
+          console.log(`Skipping batch update – no valid parent for ${record.id}`);
           return resolve();
         }
 
@@ -903,29 +956,22 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
         getReq.onerror = (e) => reject(e.target.error);
         getReq.onsuccess = () => {
           const existing = getReq.result;
-          
-          // ✅ THE CRITICAL FIX IS HERE ✅
-          // We pass the existing hypercites from the DB into the processor.
           const existingHypercites = existing?.hypercites || [];
           const processedData = node ? processNodeContentHighlightsAndCites(node, existingHypercites) : null;
           
           let toSave;
+          // ... (your existing logic to build the 'toSave' object is correct) ...
           if (existing) {
             toSave = { ...existing };
             if (processedData) {
               toSave.content = processedData.content;
-              // MERGE the new positional data with the existing relationship data.
-              toSave.hypercites = processedData.hypercites.map(newHc => {
-                  const oldHc = existingHypercites.find(old => old.hyperciteId === newHc.hyperciteId);
-                  return { ...oldHc, ...newHc }; // New data (positions) overwrites old, but old data (citedIN) is kept.
-              });
-              toSave.hyperlights = processedData.hyperlights; // Hyperlights are simpler
+              toSave.hyperlights = processedData.hyperlights;
+              toSave.hypercites = processedData.hypercites;
             } else {
               toSave.content = record.html || existing.content;
             }
             if (record.chunk_id !== undefined) toSave.chunk_id = record.chunk_id;
           } else {
-            // This logic for creating a new record is correct.
             toSave = {
               book: bookId,
               startLine: numericNodeId,
@@ -937,10 +983,13 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
           }
 
           chunksStore.put(toSave);
+          // ✅ STEP 2: Add the saved chunk to our results array.
+          allSavedNodeChunks.push(toSave);
 
           if (processedData) {
-            updateHyperlightRecords(processedData.hyperlights, lightsStore, bookId, numericNodeId, [], node);
-            updateHyperciteRecords(processedData.hypercites, citesStore, bookId, [], node);
+            // These functions will populate the 'saved' arrays
+            updateHyperlightRecords(processedData.hyperlights, lightsStore, bookId, numericNodeId, allSavedHyperlights, node);
+            updateHyperciteRecords(processedData.hypercites, citesStore, bookId, allSavedHypercites, node);
           }
 
           resolve();
@@ -951,113 +1000,182 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
     await Promise.all(processPromises);
 
     return new Promise((resolve, reject) => {
-      tx.oncomplete = () => {
-        console.log("✅ Batch IndexedDB update complete (queuing was done earlier).");
+      tx.oncomplete = async () => {
+        console.log("✅ Batch IndexedDB update complete");
+        await updateBookTimestamp(book || "latest");
+
+        // MODIFIED: Pass the full data object to the queue.
+        allSavedNodeChunks.forEach((chunk) => {
+          queueForSync("nodeChunks", chunk.startLine, "update", chunk);
+        });
+        allSavedHyperlights.forEach((hl) => {
+          queueForSync("hyperlights", hl.hyperlight_id, "update", hl);
+        });
+        allSavedHypercites.forEach((hc) => {
+          queueForSync("hypercites", hc.hyperciteId, "update", hc);
+        });
+
         resolve();
       };
+
       tx.onerror = (e) => reject(e.target.error);
       tx.onabort = (e) => reject(new Error("Batch transaction aborted"));
     });
   });
 }
 
+
+
+
 // New batched deletion function
-// In cache-indexedDB.js
-
-// In cache-indexedDB.js
-
 export async function batchDeleteIndexedDBRecords(nodeIds) {
   return withPending(async () => {
     const bookId = book || "latest";
+    
     console.log(`🗑️ Batch deleting ${nodeIds.length} IndexedDB records`);
-
-    // =======================================================================
-    // PHASE 1: OPTIMISTIC QUEUING
-    // =======================================================================
-    console.log("✅ Queuing deletions immediately to prevent data loss...");
-    const numericNodeIds = new Set(); // Use a Set for efficient lookups later
-
-    nodeIds.forEach((nodeId) => {
-      if (/^\d+(\.\d+)?$/.test(nodeId)) {
-        const numericId = parseNodeId(nodeId);
-        numericNodeIds.add(numericId);
-        // Queue the primary deletion
-        queueForSync("nodeChunks", numericId, "delete");
-      }
-    });
-    // Also queue the library timestamp update immediately
-    updateBookTimestamp(bookId);
-
-
-    // =======================================================================
-    // PHASE 2: INDEXEDDB TRANSACTION
-    // =======================================================================
+    console.log(`🔍 First 10 IDs:`, nodeIds.slice(0, 10));
+    
     try {
       const db = await openDatabase();
+      console.log(`✅ Database opened successfully`);
+      
       const tx = db.transaction(
         ["nodeChunks", "hyperlights", "hypercites"],
         "readwrite"
       );
+      console.log(`✅ Transaction created`);
+      
       const chunksStore = tx.objectStore("nodeChunks");
       const lightsStore = tx.objectStore("hyperlights");
       const citesStore = tx.objectStore("hypercites");
 
-      // 1. Delete the main nodeChunks
-      for (const numericId of numericNodeIds) {
-        chunksStore.delete([bookId, numericId]);
-      }
-      console.log(`Deleted ${numericNodeIds.size} nodeChunks.`);
+      // Collect data for sync (what was deleted)
+      const deletedData = {
+        nodeChunks: [],
+        hyperlights: [],
+        hypercites: []
+      };
 
-      // 2. Scan and delete associated hyperlights (the correct way)
-      const lightCleanupPromise = new Promise(resolve => {
-        let deletedCount = 0;
-        lightsStore.openCursor().onsuccess = (event) => {
-          const cursor = event.target.result;
-          if (cursor) {
-            const hyperlight = cursor.value;
-            // Check if this hyperlight belongs to the current book and a deleted node
-            if (hyperlight.book === bookId && numericNodeIds.has(hyperlight.startLine)) {
-              cursor.delete();
-              deletedCount++;
-              // Also queue the deletion for this specific hyperlight
-              queueForSync("hyperlights", hyperlight.hyperlight_id, "delete");
+      let processedCount = 0;
+      
+      // Process each node ID for deletion
+      const deletePromises = nodeIds.map(async (nodeId, index) => {
+        console.log(`🔍 Processing deletion ${index + 1}/${nodeIds.length}: ${nodeId}`);
+        
+        // Ensure we have a numeric ID
+        if (!/^\d+(\.\d+)?$/.test(nodeId)) {
+          console.log(`❌ Skipping deletion – invalid node ID: ${nodeId}`);
+          return;
+        }
+
+        const numericNodeId = parseNodeId(nodeId);
+        const compositeKey = [bookId, numericNodeId];
+        
+        console.log(`🔍 Deleting composite key:`, compositeKey);
+        
+        return new Promise((resolve, reject) => {
+          // Get the record before deleting (for sync purposes)
+          const getReq = chunksStore.get(compositeKey);
+          
+          getReq.onsuccess = () => {
+            const existing = getReq.result;
+            
+            if (existing) {
+              console.log(`✅ Found existing record for ${nodeId}, deleting...`);
+              
+              // Store what we're deleting for sync
+              deletedData.nodeChunks.push({
+                ...existing,
+                _deleted: true // Mark as deleted for sync
+              });
+              
+              // Delete the main record
+              const deleteReq = chunksStore.delete(compositeKey);
+              
+              deleteReq.onsuccess = () => {
+                processedCount++;
+                console.log(`✅ Deleted ${nodeId} (${processedCount}/${nodeIds.length})`);
+                resolve();
+              };
+              
+              deleteReq.onerror = (e) => {
+                console.error(`❌ Failed to delete ${nodeId}:`, e.target.error);
+                reject(e.target.error);
+              };
+              
+              // Delete associated hyperlights
+              try {
+                const lightIndex = lightsStore.index("book_startLine");
+                const lightRange = IDBKeyRange.only([bookId, numericNodeId]);
+                const lightReq = lightIndex.openCursor(lightRange);
+                
+                lightReq.onsuccess = (e) => {
+                  const cursor = e.target.result;
+                  if (cursor) {
+                    deletedData.hyperlights.push({
+                      ...cursor.value,
+                      _deleted: true
+                    });
+                    cursor.delete();
+                    cursor.continue();
+                  }
+                };
+              } catch (lightError) {
+                console.warn(`⚠️ Error deleting hyperlights for ${nodeId}:`, lightError);
+              }
+              
+              // Delete associated hypercites
+              try {
+                const citeIndex = citesStore.index("book_startLine");
+                const citeRange = IDBKeyRange.only([bookId, numericNodeId]);
+                const citeReq = citeIndex.openCursor(citeRange);
+                
+                citeReq.onsuccess = (e) => {
+                  const cursor = e.target.result;
+                  if (cursor) {
+                    deletedData.hypercites.push({
+                      ...cursor.value,
+                      _deleted: true
+                    });
+                    cursor.delete();
+                    cursor.continue();
+                  }
+                };
+              } catch (citeError) {
+                console.warn(`⚠️ Error deleting hypercites for ${nodeId}:`, citeError);
+              }
+            } else {
+              console.log(`⚠️ No existing record found for ${nodeId}`);
+              resolve();
             }
-            cursor.continue();
-          } else {
-            console.log(`Cleaned up ${deletedCount} orphaned hyperlights.`);
-            resolve();
-          }
-        };
+          };
+
+          getReq.onerror = (e) => {
+            console.error(`❌ Error fetching record for deletion ${nodeId}:`, e.target.error);
+            reject(e.target.error);
+          };
+        });
       });
 
-      // 3. Scan and delete associated hypercites (the correct way)
-      const citeCleanupPromise = new Promise(resolve => {
-        let deletedCount = 0;
-        citesStore.openCursor().onsuccess = (event) => {
-          const cursor = event.target.result;
-          if (cursor) {
-            const hypercite = cursor.value;
-            // Check if this hypercite belongs to the current book and a deleted node
-            if (hypercite.book === bookId && numericNodeIds.has(hypercite.startLine)) {
-              cursor.delete();
-              deletedCount++;
-              // Hypercites don't have a separate deletion endpoint in your sync logic,
-              // so we don't queue them separately. The nodeChunk deletion is enough.
-            }
-            cursor.continue();
-          } else {
-            console.log(`Cleaned up ${deletedCount} orphaned hypercites.`);
-            resolve();
-          }
-        };
-      });
+      // Wait for all deletions to complete
+      console.log(`⏳ Waiting for ${deletePromises.length} deletion promises...`);
+      await Promise.all(deletePromises);
+      console.log(`✅ All deletion promises completed`);
 
-      // Wait for all cleanup operations to finish
-      await Promise.all([lightCleanupPromise, citeCleanupPromise]);
-
+      // Return promise that resolves when transaction completes
       return new Promise((resolve, reject) => {
-        tx.oncomplete = () => {
-          console.log("✅ Batch IndexedDB deletion and cleanup complete.");
+        tx.oncomplete = async () => {
+          console.log(`✅ Batch IndexedDB deletion transaction complete...`);
+
+          // ✅ THE FIX: Use the globally available 'book' variable here.
+          const currentBookId = book || "latest";
+          await updateBookTimestamp(currentBookId);
+          
+          // MODIFIED: This is correct. No data object needed for deletions.
+          nodeIds.forEach((nodeId) => {
+            queueForSync("nodeChunks", parseNodeId(nodeId), "delete");
+          });
+
           resolve();
         };
         tx.onerror = (e) => reject(e.target.error);
@@ -1286,10 +1404,7 @@ export function toPublicChunk(chunk) {
 // In cache-indexedDB.js
 
 // In cache-indexedDB.js
-// In cache-indexedDB.js
-// In cache-indexedDB.js
 
-// ✅ REVERT TO YOUR ORIGINAL, WORKING FUNCTION
 export function updateCitationForExistingHypercite(
   booka,
   hyperciteIDa,
@@ -1340,6 +1455,7 @@ export function updateCitationForExistingHypercite(
     }
 
     // 2) Update the hypercites object store itself
+    // MODIFIED: Renamed `existing` to `existingHypercite` for clarity and to fix the error.
     const existingHypercite = await getHyperciteFromIndexedDB(
       booka,
       hyperciteIDa
@@ -1380,7 +1496,7 @@ export function updateCitationForExistingHypercite(
       }
     }
     for (const bookId of affectedBooks) {
-      await updateBookTimestamp(bookId);
+      await updateBookTimestamp(bookId); // This will correctly queue the library updates
     }
 
     // 4) Queue the updated records for synchronization
@@ -1399,6 +1515,7 @@ export function updateCitationForExistingHypercite(
           );
         }
       }
+      // MODIFIED: Use the correct variable name here.
       queueForSync(
         "hypercites",
         hyperciteIDa,
@@ -1743,6 +1860,7 @@ async function addCitationToHypercite(book, startLine, hyperciteId, newCitation)
               console.log('🔍 IMMEDIATE VERIFY - citedIN:', verifyHypercite?.citedIN);
             };
             
+            await updateBookTimestamp(book);
             resolve({
               success: true,
               relationshipStatus: hyperciteToUpdate.relationshipStatus
@@ -1823,40 +1941,70 @@ export async function getHyperciteFromIndexedDB(book, hyperciteId) {
 
 
 
-// In cache-indexedDB.js
-
 export async function deleteIndexedDBRecord(id) {
   return withPending(async () => {
-    if (!id || !/^\d+(\.\d+)?$/.test(id)) {
+    // Only process numeric IDs
+    if (!id || !id.match(/^\d+(\.\d+)?$/)) {
       console.log(`Skipping deletion for non-numeric ID: ${id}`);
       return false;
     }
 
     const bookId = book || "latest";
     const numericId = parseNodeId(id);
+    console.log(
+      `Deleting node with ID ${id} (numeric: ${numericId}) from IndexedDB`
+    );
 
-    // =======================================================================
-    // PHASE 1: OPTIMISTIC QUEUING
-    // =======================================================================
-    console.log("✅ Queuing single record deletion immediately...");
-    queueForSync("nodeChunks", numericId, "delete");
-    updateBookTimestamp(bookId);
-
-    // =======================================================================
-    // PHASE 2: LOCAL SAVE
-    // =======================================================================
     const db = await openDatabase();
     const tx = db.transaction("nodeChunks", "readwrite");
     const store = tx.objectStore("nodeChunks");
     const key = [bookId, numericId];
-    store.delete(key);
 
+    // Get the record before deleting it (for PostgreSQL sync)
+    let recordToDelete = null;
+    const getRequest = store.get(key);
+    
     return new Promise((resolve, reject) => {
-      tx.oncomplete = () => {
-        console.log(`✅ Deleted node ${id} from IndexedDB (queuing was done earlier).`);
+      const TRANSACTION_TIMEOUT = 10000;
+      const timeoutId = setTimeout(() => tx.abort(), TRANSACTION_TIMEOUT);
+
+      getRequest.onsuccess = () => {
+        recordToDelete = getRequest.result;
+        
+        if (recordToDelete) {
+          console.log("Found record to delete:", recordToDelete);
+        } else {
+          console.log(`No record found for key: ${key}`);
+        }
+
+        // Delete the record from IndexedDB
+        store.delete(key);
+      };
+
+      getRequest.onerror = (event) => {
+        clearTimeout(timeoutId);
+        console.error("Error getting record for deletion:", event.target.error);
+        reject(event.target.error);
+      };
+
+      tx.oncomplete = async () => {
+        await updateBookTimestamp(bookId);
+        // MODIFIED: This is correct. No data object needed for deletion.
+        queueForSync("nodeChunks", numericId, "delete");
         resolve(true);
       };
-      tx.onerror = (event) => reject(event.target.error);
+
+      tx.onerror = (event) => {
+        clearTimeout(timeoutId);
+        console.error("Transaction error:", event.target.error);
+        reject(event.target.error);
+      };
+
+      tx.onabort = (event) => {
+        clearTimeout(timeoutId);
+        console.warn("Transaction aborted:", event);
+        reject(new Error("Transaction aborted"));
+      };
     });
   });
 }
@@ -1872,48 +2020,92 @@ export async function deleteIndexedDBRecord(id) {
  * @param {string|number} newId - The new startLine for the record.
  * @param {string} html - The new HTML content for the record.
  */
-// In cache-indexedDB.js
-
-export async function updateIndexedDBRecordForNormalization(oldId, newId, html) {
+export async function updateIndexedDBRecordForNormalization(
+  oldId, newId, html
+) {
   return withPending(async () => {
+    console.log(`Normalizing record in IndexedDB: ${oldId} -> ${newId}`);
+
+    // Only numeric IDs allowed
     const numericOldId = parseNodeId(oldId);
     const numericNewId = parseNodeId(newId);
     const bookId = book || "latest";
 
-    // =======================================================================
-    // PHASE 1: PRE-FETCH & QUEUING
-    // =======================================================================
     const db = await openDatabase();
-    const readTx = db.transaction("nodeChunks", "readonly");
-    const readStore = readTx.objectStore("nodeChunks");
-    const getOld = readStore.get([bookId, numericOldId]);
-    const oldRecord = await new Promise(res => { getOld.onsuccess = () => res(getOld.result) });
+    const tx = db.transaction("nodeChunks", "readwrite");
+    const store = tx.objectStore("nodeChunks");
 
-    const newRecord = oldRecord
-      ? { ...oldRecord, startLine: numericNewId, content: html || oldRecord.content }
-      : { book: bookId, startLine: numericNewId, /* ... defaults ... */ };
+    // Optional timeout/abort
+    const TRANSACTION_TIMEOUT = 15_000;
+    const timeoutId = setTimeout(() => tx.abort(), TRANSACTION_TIMEOUT);
 
-    console.log("✅ Queuing normalization changes immediately...");
-    queueForSync("nodeChunks", oldId, "delete");
-    queueForSync("nodeChunks", newId, "update", newRecord);
-    updateBookTimestamp(bookId);
+    // Kick off the get/put/delete sequence
+    const oldKey = [bookId, numericOldId];
+    const getOld = store.get(oldKey);
 
-    // =======================================================================
-    // PHASE 2: LOCAL SAVE
-    // =======================================================================
-    const writeTx = db.transaction("nodeChunks", "readwrite");
-    const writeStore = writeTx.objectStore("nodeChunks");
-    if (oldRecord) {
-      writeStore.delete([bookId, numericOldId]);
-    }
-    writeStore.put(newRecord);
+    getOld.onsuccess = () => {
+      const oldRecord = getOld.result;
+      if (oldRecord) console.log("Found old record:", oldRecord);
 
+      // Build new record
+      const newRecord = oldRecord
+        ? { ...oldRecord,
+            book: bookId,
+            startLine: numericNewId,
+            content: html || oldRecord.content }
+        : { book: bookId,
+            startLine: numericNewId,
+            chunk_id: 0,
+            content: html,
+            hyperlights: [],
+            hypercites: [] };
+
+      const newKey = [bookId, numericNewId];
+      const putReq = store.put(newRecord);
+
+      putReq.onerror = (e) => {
+        console.error("Error adding new record:", e.target.error);
+        // Let the tx.onerror handler reject
+      };
+
+      // If we had an old record, delete it
+      if (oldRecord) {
+        const delReq = store.delete(oldKey);
+        delReq.onerror = (e) => {
+          console.error("Error deleting old record:", e.target.error);
+        };
+      }
+    };
+
+    getOld.onerror = (e) => {
+      console.error("Error getting old record:", e.target.error);
+      // Let the tx.onerror handler reject
+    };
+
+    // Now wait for the transaction to finish
     return new Promise((resolve, reject) => {
-      writeTx.oncomplete = () => {
-        console.log(`✅ Normalized record ${oldId} -> ${newId} in IndexedDB.`);
+      tx.oncomplete = async () => {
+        clearTimeout(timeoutId);
+        await updateBookTimestamp(bookId);
+        // MODIFIED: This direct sync call is now handled by the queue.
+        // We need to queue the deletion of the old and update of the new.
+        const newRecord = await getNodeChunkFromIndexedDB(bookId, newId);
+        if (newRecord) {
+          queueForSync("nodeChunks", newId, "update", newRecord);
+        }
+        queueForSync("nodeChunks", oldId, "delete");
         resolve(true);
       };
-      writeTx.onerror = (e) => reject(e.target.error);
+      tx.onerror = (e) => {
+        clearTimeout(timeoutId);
+        console.error("Transaction error during normalization:", e.target.error);
+        reject(e.target.error);
+      };
+      tx.onabort = (e) => {
+        clearTimeout(timeoutId);
+        console.warn("Transaction aborted:", e);
+        reject(new Error("Transaction aborted"));
+      };
     });
   });
 }
@@ -1960,8 +2152,6 @@ export async function deleteIndexedDBRecordWithRetry(id) {
  * @param {string} bookId - The book identifier (defaults to current book)
  * @returns {Promise<boolean>} - Success status
  */
-// In cache-indexedDB.js
-
 export async function updateBookTimestamp(bookId = book || "latest") {
   try {
     const db = await openDatabase();
@@ -1969,54 +2159,45 @@ export async function updateBookTimestamp(bookId = book || "latest") {
     const store = tx.objectStore("library");
     const getRequest = store.get(bookId);
 
-    // First, await the result of fetching the existing record.
-    // This shrinks the race condition window significantly.
-    const existingRecord = await new Promise((resolve, reject) => {
-      getRequest.onsuccess = () => resolve(getRequest.result);
-      getRequest.onerror = (e) => reject(e.target.error);
-    });
-
-    // Now, construct the object we intend to save.
-    const recordToSave = existingRecord ? { ...existingRecord } : {
-      book: bookId,
-      timestamp: Date.now(),
-      title: bookId, // Default title
-      description: "",
-      tags: [],
-    };
-    // Always update the timestamp to the current time.
-    recordToSave.timestamp = Date.now();
-
-    // =======================================================================
-    // OPTIMISTIC QUEUING
-    // Queue the change immediately, before the final write operation.
-    // =======================================================================
-    queueForSync("library", bookId, "update", recordToSave);
-
-    // =======================================================================
-    // INDEXEDDB WRITE
-    // Now, perform the final write to the local database.
-    // =======================================================================
-    const putRequest = store.put(recordToSave);
     return new Promise((resolve, reject) => {
-      // The transaction is already complete from our perspective.
-      // The queue has the data, which is the most important thing.
-      tx.oncomplete = () => {
-        console.log(`✅ Book timestamp updated in IndexedDB for ${bookId}.`);
-        resolve(true);
-      };
-      tx.onerror = (e) => {
-        console.error("❌ Failed to write updated book timestamp:", e.target.error);
-        // Even on failure, we resolve true because the data is safely in the queue.
-        resolve(true);
-      };
-    });
+      getRequest.onsuccess = () => {
+        const existingRecord = getRequest.result;
 
+        if (existingRecord) {
+          existingRecord.timestamp = Date.now();
+          const putRequest = store.put(existingRecord);
+          putRequest.onsuccess = () => {
+            // MODIFIED: Pass the updated record to the queue.
+            queueForSync("library", bookId, "update", existingRecord);
+            resolve(true);
+          };
+          putRequest.onerror = (e) => resolve(false);
+        } else {
+          const newRecord = {
+            book: bookId,
+            timestamp: Date.now(),
+            title: bookId,
+            description: "",
+            tags: [],
+          };
+          const putRequest = store.put(newRecord);
+          putRequest.onsuccess = () => {
+            // MODIFIED: Pass the new record to the queue.
+            queueForSync("library", bookId, "update", newRecord);
+            resolve(true);
+          };
+          putRequest.onerror = (e) => resolve(false);
+        }
+      };
+      getRequest.onerror = (e) => resolve(false);
+      tx.onerror = (e) => resolve(false);
+    });
   } catch (error) {
     console.error("❌ Failed to update book timestamp:", error);
     return false;
   }
 }
+
 
 // Helper function to get library object from IndexedDB
 export async function getLibraryObjectFromIndexedDB(book) {

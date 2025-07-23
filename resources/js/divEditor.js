@@ -78,8 +78,7 @@ const debounceTimers = {
   typing: null,
   mutations: null,
   saves: null,
-  titleSync: null,
-  masterSync: null
+  titleSync: null
 };
 
 // Debounce delays (in milliseconds)
@@ -100,27 +99,13 @@ const pendingSaves = {
 
 // Generic debounce function
 export function debounce(func, delay, timerId) {
-  // Your existing return function is the "debounced" function
-  const debounced = function(...args) {
+  return function(...args) {
     clearTimeout(debounceTimers[timerId]);
     debounceTimers[timerId] = setTimeout(() => {
       func.apply(this, args);
     }, delay);
   };
-
-  // ✅ Attach the .cancel() method here.
-  // It uses the same timerId to know which timer to clear.
-  debounced.cancel = function() {
-    clearTimeout(debounceTimers[timerId]);
-  };
-
-  // Return the function with the .cancel method attached
-  return debounced;
 }
-
-
-
-
 
 // Specialized debounced functions
 const debouncedSaveNode = debounce(saveNodeToDatabase, DEBOUNCE_DELAYS.SAVES, 'saves');
