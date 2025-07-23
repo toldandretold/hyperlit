@@ -1,7 +1,4 @@
-// annotationSaver.js
-
 import { withPending } from "./operationState.js";
-// 👈 1. IMPORT queueForSync
 import { openDatabase, queueForSync } from "./cache-indexedDB.js";
 
 // Debounce timer variable for the highlight container.
@@ -44,18 +41,16 @@ export const saveAnnotationToIndexedDB = (highlightId, annotationHTML) =>
     });
     await new Promise((res, rej) => {
       tx.oncomplete = () => {
-        // 👈 2. ADD QUEUE CALL TO THE HELPER
         console.log(
           `Annotation for ${highlightId} saved via helper. Queuing for sync.`
         );
-        queueForSync("hyperlights", highlightId);
+        // MODIFIED: Pass the full 'record' object to the queue.
+        queueForSync("hyperlights", highlightId, "update", record);
         res();
       };
       tx.onerror = () => rej(tx.error);
     });
   });
-
-// IN annotationSaver.js, REPLACE the attachAnnotationListener function with this:
 
 export function attachAnnotationListener(highlightId) {
   const container = document.getElementById("highlight-container");
@@ -70,23 +65,13 @@ export function attachAnnotationListener(highlightId) {
   }
 
   let debounceTimer = null;
-  // ❌ The 'lastHTML' variable is no longer needed.
 
-  /* ❌ The 'keyup' event listener is removed entirely. */
-
-  /* ------------------------------------------------------------ */
-  /* save after 1 s of inactivity (now handles all input types)   */
-  /* ------------------------------------------------------------ */
   annotationEl.addEventListener("input", () => {
-    // 👈 THE FIX: Get the current HTML right away.
     const html = annotationEl.innerHTML || "";
 
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
-      // The rest of your logic remains the same, but it now uses the
-      // correct 'html' variable captured when the input event fired.
       withPending(async () => {
-        /* 1 — update IndexedDB */
         const db = await openDatabase();
         const tx = db.transaction("hyperlights", "readwrite");
         const store = tx.objectStore("hyperlights");
@@ -110,7 +95,8 @@ export function attachAnnotationListener(highlightId) {
             console.log(
               `✅ Annotation for ${highlightId} saved to IndexedDB. Queuing for sync.`
             );
-            queueForSync("hyperlights", highlightId);
+            // MODIFIED: Pass the full 'rec' object to the queue.
+            queueForSync("hyperlights", highlightId, "update", rec);
             res();
           };
           tx.onerror = () => rej(tx.error);

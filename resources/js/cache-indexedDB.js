@@ -89,18 +89,23 @@ export async function openDatabase() {
   });
 }
 
-
-// In cache-indexedDB.js
-
-// --- NEW, SMARTER DEBOUNCED SYNC INFRASTRUCTURE ---
-
-// The "Shopping List": A Map to store pending sync operations.
-// Using a Map automatically handles duplicates. If you save the same node 5 times,
-// it only gets one entry on our list.
 const pendingSyncs = new Map();
 
-// In cache-indexedDB.js
+// MODIFIED: The "Add to List" function. This is our new trigger.
+// It now accepts the full data object for updates.
+export function queueForSync(store, id, type = "update", data = null) {
+  const key = `${store}-${id}`;
+  // For deletions, data can be null. For updates, it's required.
+  if (type === "update" && !data) {
+    console.warn(`⚠️ queueForSync called for update on ${key} without data.`);
+    return;
+  }
+  pendingSyncs.set(key, { store, id, type, data });
+  console.log(`Queued for sync: ${key} (Type: ${type})`);
+  debouncedMasterSync(); // Nudge the shopper.
+}
 
+// MODIFIED: The debounced sync now reads from the map, not the DB.
 const debouncedMasterSync = debounce(async () => {
   const bookId = book || "latest";
   if (pendingSyncs.size === 0) {
@@ -110,6 +115,7 @@ const debouncedMasterSync = debounce(async () => {
 
   console.log(`DEBOUNCED SYNC: Processing ${pendingSyncs.size} items...`);
 
+  // Take a snapshot of the queue and clear it.
   const itemsToSync = new Map(pendingSyncs);
   pendingSyncs.clear();
 
@@ -120,43 +126,33 @@ const debouncedMasterSync = debounce(async () => {
       nodeChunks: [],
       hypercites: [],
       hyperlights: [],
-      library: null // Only one library record per book
+      library: null,
     },
     deletions: {
       nodeChunks: [],
       hyperlights: [],
-      // Add deletion support for other types if needed
-    }
+    },
   };
-// Fetch the latest data for all queued items from IndexedDB
-  for (const [key, item] of itemsToSync.entries()) {
-    if (item.type === 'update') {
+
+  // Build the payload directly from the data in our map
+  for (const item of itemsToSync.values()) {
+    if (item.type === "update") {
+      if (!item.data) continue; // Skip if data is missing
       switch (item.store) {
-
-        case 'nodeChunks':
-          const ncRecord = await getNodeChunkFromIndexedDB(bookId, item.id);
-          if (ncRecord) payload.updates.nodeChunks.push(ncRecord);
+        case "nodeChunks":
+          payload.updates.nodeChunks.push(item.data);
           break;
-        
-        case 'hypercites':
-          // The key for the hypercites store is [book, hyperciteId]
-          const hcRecord = await getHyperciteFromIndexedDB(bookId, item.id);
-          if (hcRecord) payload.updates.hypercites.push(hcRecord);
+        case "hypercites":
+          payload.updates.hypercites.push(item.data);
           break;
-
-        case 'hyperlights':
-          // You will need a getHyperlightFromIndexedDB helper function for this
-          const hlRecord = await getHyperlightFromIndexedDB(bookId, item.id);
-          if (hlRecord) payload.updates.hyperlights.push(hlRecord);
+        case "hyperlights":
+          payload.updates.hyperlights.push(item.data);
           break;
-
-        case 'library':
-          const libRecord = await getLibraryObjectFromIndexedDB(item.id);
-          if (libRecord) payload.updates.library = libRecord;
+        case "library":
+          payload.updates.library = item.data;
           break;
       }
     } else if (item.type === "delete") {
-      // +++ ADDED 'hyperlights' TO THIS BLOCK +++
       switch (item.store) {
         case "nodeChunks":
           payload.deletions.nodeChunks.push({
@@ -176,26 +172,29 @@ const debouncedMasterSync = debounce(async () => {
   }
 
   console.log("FINAL SYNC PAYLOAD:", payload);
-  
+
   try {
+    // MODIFIED: Added full sync logic for all data types.
     // Sync Node Chunks (updates and deletions)
-    if (payload.updates.nodeChunks.length > 0 || payload.deletions.nodeChunks.length > 0) {
+    if (
+      payload.updates.nodeChunks.length > 0 ||
+      payload.deletions.nodeChunks.length > 0
+    ) {
       const allNodeChunks = [
         ...payload.updates.nodeChunks.map(toPublicChunk).filter(Boolean),
-        ...payload.deletions.nodeChunks
+        ...payload.deletions.nodeChunks,
       ];
       if (allNodeChunks.length > 0) {
         await syncNodeChunksToPostgreSQL(bookId, allNodeChunks);
       }
     }
 
-    // ✅ THE FIX: Add the sync call for hypercites.
+    // Sync Hypercites
     if (payload.updates.hypercites.length > 0) {
-      // Assuming syncHyperciteToPostgreSQL can handle an array of hypercites.
-      // If not, you'll need to loop or adjust it.
       await syncHyperciteToPostgreSQL(payload.updates.hypercites);
     }
-    
+
+    // Sync Hyperlights (updates and deletions)
     if (payload.updates.hyperlights.length > 0) {
       await syncHyperlightToPostgreSQL(payload.updates.hyperlights);
     }
@@ -205,59 +204,128 @@ const debouncedMasterSync = debounce(async () => {
       );
     }
 
+    // Sync Library
     if (payload.updates.library) {
       await upsertLibraryRecord(payload.updates.library);
     }
-
   } catch (error) {
     console.error("❌ Debounced master sync failed:", error);
-    // Future: Re-queue failed items here.
+    // Here you might re-queue the failed items from `itemsToSync`
   }
-
 }, 3000);
 
+// --- NEW: The "Final Save" function for page unload ---
+let isSyncingOnUnload = false;
+function syncOnUnload() {
+  // Prevent running multiple times if both pagehide and beforeunload fire.
+  if (isSyncingOnUnload || pendingSyncs.size === 0) {
+    return;
+  }
 
-// The "Add to List" function. This is our new trigger.
-export function queueForSync(store, id, type = 'update') {
-  const key = `${store}-${id}`;
-  pendingSyncs.set(key, { store, id, type });
-  console.log(`Queued for sync: ${key}`);
-  debouncedMasterSync(); // Nudge the shopper.
+  isSyncingOnUnload = true;
+  console.log(
+    `BEACON SYNC: Page is unloading. Attempting to sync ${pendingSyncs.size} items.`
+  );
+
+  const bookId = book || "latest";
+  const payload = {
+    book: bookId,
+    updates: {
+      nodeChunks: [],
+      hypercites: [],
+      hyperlights: [],
+      library: null,
+    },
+    deletions: {
+      nodeChunks: [],
+      hyperlights: [],
+    },
+  };
+
+  // Build the payload synchronously from the data in our map
+  for (const item of pendingSyncs.values()) {
+    if (item.type === "update") {
+      if (!item.data) continue;
+      switch (item.store) {
+        case "nodeChunks":
+          payload.updates.nodeChunks.push(item.data);
+          break;
+        case "hypercites":
+          payload.updates.hypercites.push(item.data);
+          break;
+        case "hyperlights":
+          payload.updates.hyperlights.push(item.data);
+          break;
+        case "library":
+          payload.updates.library = item.data;
+          break;
+      }
+    } else if (item.type === "delete") {
+      switch (item.store) {
+        case "nodeChunks":
+          payload.deletions.nodeChunks.push({
+            book: bookId,
+            startLine: item.id,
+            _action: "delete",
+          });
+          break;
+        case "hyperlights":
+          payload.deletions.hyperlights.push({
+            book: bookId,
+            hyperlight_id: item.id,
+          });
+          break;
+      }
+    }
+  }
+
+  // Use navigator.sendBeacon to send the data.
+  const blob = new Blob([JSON.stringify(payload)], {
+    type: "application/json",
+  });
+
+  // You will need to create this new API endpoint on your server.
+  const syncUrl = "/api/db/sync/beacon";
+  const success = navigator.sendBeacon(syncUrl, blob);
+
+  if (success) {
+    console.log("✅ Beacon sync successfully queued.");
+    pendingSyncs.clear();
+  } else {
+    console.error("❌ Beacon sync failed. Data may be lost.");
+  }
+
+  // This message may be shown to the user in a confirmation dialog.
+  return "Your latest changes are being saved. Are you sure you want to leave?";
 }
 
-
-
-/**
- * 🆕 Helper function to get a single hyperlight from IndexedDB.
- * @param {string} book - The book identifier.
- * @param {string} hyperlightId - The hyperlight ID.
- * @returns {Promise<object|null>}
- */
-export async function getHyperlightFromIndexedDB(book, hyperlightId) {
-  return new Promise(async (resolve) => {
-    try {
-      const db = await openDatabase();
-      const tx = db.transaction("hyperlights", "readonly");
-      const store = tx.objectStore("hyperlights");
-      const key = [book, hyperlightId];
-      const getRequest = store.get(key);
-
-      getRequest.onsuccess = (event) => {
-        resolve(event.target.result || null);
-      };
-      getRequest.onerror = (event) => {
-        console.error("Error getting hyperlight:", event.target.error);
-        resolve(null);
-      };
-    } catch (error) {
-      console.error("DB error in getHyperlightFromIndexedDB:", error);
-      resolve(null);
+// --- NEW: Add the event listeners in your main application entry point ---
+// For example, in your main app.js or an init function.
+export function setupUnloadSync() {
+  window.addEventListener("beforeunload", (event) => {
+    if (pendingSyncs.size > 0) {
+      // Cancel any pending debounced sync, as the beacon will handle it.
+      debouncedMasterSync.cancel();
+      const message = syncOnUnload();
+      // Standard way to show a confirmation prompt.
+      event.preventDefault();
+      event.returnValue = message;
+      return message;
     }
   });
+
+  // `pagehide` is a more reliable event for mobile devices.
+  window.addEventListener("pagehide", syncOnUnload, { capture: true });
 }
 
+
+
+
+
+// In cache-indexedDB.js, add these two functions:
+
 /**
- * 🆕 Function to sync hyperlight creations/updates to PostgreSQL.
+ * Function to sync hyperlight creations/updates to PostgreSQL.
  * @param {Array<object>} hyperlights - An array of hyperlight records.
  */
 export async function syncHyperlightToPostgreSQL(hyperlights) {
@@ -288,7 +356,7 @@ export async function syncHyperlightToPostgreSQL(hyperlights) {
 }
 
 /**
- * 🆕 Function to sync hyperlight deletions to PostgreSQL.
+ * Function to sync hyperlight deletions to PostgreSQL.
  * @param {Array<object>} deletedHyperlights - Array of objects with { book, hyperlight_id }.
  */
 export async function syncHyperlightDeletionsToPostgreSQL(deletedHyperlights) {
@@ -317,8 +385,6 @@ export async function syncHyperlightDeletionsToPostgreSQL(deletedHyperlights) {
   }
   console.log("✅ Hyperlight deletions synced");
 }
-
-// In cache-indexedDB.js
 
 /**
  * Adds a new nodeChunk record to IndexedDB.
@@ -491,29 +557,7 @@ export async function getNodeChunksFromIndexedDB(bookId = "latest") {
 }
 
 
-/**
- * Clears the entire nodeChunks store in IndexedDB.
- */
-export async function clearIndexedDB() {
-  try {
-    const db = await openDatabase();
-    const tx = db.transaction("nodeChunks", "readwrite");
-    const store = tx.objectStore("nodeChunks");
-    store.clear();
-    return new Promise((resolve) => {
-      tx.oncomplete = () => {
-        console.log("🗑 IndexedDB 'nodeChunks' cleared.");
-        resolve();
-      };
-      tx.onerror = () => {
-        console.error("❌ Error clearing nodeChunks in IndexedDB.");
-        resolve();
-      };
-    });
-  } catch (error) {
-    console.error("❌ Failed to clear IndexedDB:", error);
-  }
-}
+
 
 /* ---------- Footnotes Functions ---------- */
 
@@ -566,39 +610,34 @@ export async function saveFootnotesToIndexedDB(footnotesData, bookId = "latest")
   console.log("🙏 Attempting to save to 'footnotes' object store in IndexedDB...");
 
   try {
-    // Open the database
     const db = await openDatabase();
 
-    // Return a promise to handle the transaction
     return new Promise((resolve, reject) => {
-      // Check if the 'footnotes' object store exists
       if (!db.objectStoreNames.contains("footnotes")) {
         console.warn("⚠️ Cannot save: 'footnotes' store missing.");
         return reject("Object store missing");
       }
 
-      // Start a readwrite transaction on the 'footnotes' store
       const transaction = db.transaction(["footnotes"], "readwrite");
       const store = transaction.objectStore("footnotes");
 
-      // Prepare the data to be saved
       const dataToSave = {
-        book: bookId, // Use the provided bookId or default to "latest"
-        data: footnotesData, // The footnotes data to save
+        book: bookId,
+        data: footnotesData,
       };
 
-      // Save the data to the store
       const request = store.put(dataToSave);
 
-      // Handle success
+      // --- CORRECTED LOGIC ---
       request.onsuccess = async() => {
         console.log("✅ Successfully saved footnotes to IndexedDB.");
-          await updateBookTimestamp(bookId);
-          await syncIndexedDBtoPostgreSQL(bookId);
+        // This correctly queues the library update for the debounced sync.
+        await updateBookTimestamp(bookId);
+        // The old, direct sync call has been removed.
         resolve();
       };
+      // --- END CORRECTION ---
 
-      // Handle errors
       request.onerror = () => {
         console.error("❌ Failed to save footnotes to IndexedDB.");
         reject("Failed to save footnotes to IndexedDB");
@@ -612,35 +651,6 @@ export async function saveFootnotesToIndexedDB(footnotesData, bookId = "latest")
 
 
 
-/**
- * Clears nodeChunks records for a specified book.
- */
-export async function clearNodeChunksForBook(bookId = "latest") {
-  try {
-    const db = await openDatabase();
-    const tx = db.transaction("nodeChunks", "readwrite");
-    const store = tx.objectStore("nodeChunks");
-
-    const request = store.getAll();
-    request.onsuccess = () => {
-      const records = request.result || [];
-      records.forEach((record) => {
-        if (record.book === bookId) {
-          const key = [record.book, record.startLine];
-          store.delete(key);
-        }
-      });
-      console.log(`Cleared nodeChunks for book "${bookId}".`);
-    };
-    return new Promise((resolve, reject) => {
-      tx.oncomplete = () => resolve();
-      tx.onerror = () =>
-        reject("Error clearing nodeChunks for book " + bookId);
-    });
-  } catch (error) {
-    console.error("Failed to clear nodeChunks for book:", error);
-  }
-}
 
 /**
  * Generates a localStorage key based on a provided base key and book.
@@ -874,34 +884,34 @@ export function updateIndexedDBRecord(record) {
 
     // return a promise that resolves/rejects with the transaction
     return new Promise((resolve, reject) => {
-      tx.oncomplete = async() => {
-          console.log("✅ IndexedDB record update complete");
-          await updateBookTimestamp(bookId); // This will queue the library update
+      tx.oncomplete = async () => {
+        console.log("✅ IndexedDB record update complete");
+        await updateBookTimestamp(bookId);
 
-          // ✅ Queue the specific items that were changed
-          if (savedNodeChunk) {
-            queueForSync('nodeChunks', savedNodeChunk.startLine, 'update');
-          }
-          savedHyperlights.forEach(hl => {
-            queueForSync('hyperlights', hl.hyperlight_id, 'update');
-          });
-          savedHypercites.forEach(hc => {
-            queueForSync('hypercites', hc.hyperciteId, 'update');
-          });
+        // MODIFIED: Pass the full data object to the queue.
+        if (savedNodeChunk) {
+          queueForSync(
+            "nodeChunks",
+            savedNodeChunk.startLine,
+            "update",
+            savedNodeChunk
+          );
+        }
+        savedHyperlights.forEach((hl) => {
+          queueForSync("hyperlights", hl.hyperlight_id, "update", hl);
+        });
+        savedHypercites.forEach((hc) => {
+          queueForSync("hypercites", hc.hyperciteId, "update", hc);
+        });
 
-          resolve();
-        };
-      tx.onerror = (e) => {
-        console.error("Transaction failed during update:", e.target.error);
-        reject(e.target.error);
+        resolve();
       };
-      tx.onabort = (e) => {
-        console.warn("Transaction aborted during update:", e);
-        reject(new Error("Transaction aborted"));
-      };
+      tx.onerror = (e) => reject(e.target.error);
+      tx.onabort = (e) => reject(new Error("Transaction aborted"));
     });
   });
 }
+
 // New batched function to replace individual updateIndexedDBRecord calls
 // In cache-indexedDB.js
 
@@ -992,23 +1002,22 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
     return new Promise((resolve, reject) => {
       tx.oncomplete = async () => {
         console.log("✅ Batch IndexedDB update complete");
-        const currentBookId = book || "latest";
-        await updateBookTimestamp(currentBookId);
-        
-        // ✅ STEP 3: Use the DETAILED results arrays to queue everything correctly.
-        allSavedNodeChunks.forEach(chunk => {
-          queueForSync('nodeChunks', chunk.startLine, 'update');
+        await updateBookTimestamp(book || "latest");
+
+        // MODIFIED: Pass the full data object to the queue.
+        allSavedNodeChunks.forEach((chunk) => {
+          queueForSync("nodeChunks", chunk.startLine, "update", chunk);
         });
-        allSavedHyperlights.forEach(hl => {
-          queueForSync('hyperlights', hl.hyperlight_id, 'update');
+        allSavedHyperlights.forEach((hl) => {
+          queueForSync("hyperlights", hl.hyperlight_id, "update", hl);
         });
-        allSavedHypercites.forEach(hc => {
-          queueForSync('hypercites', hc.hyperciteId, 'update');
+        allSavedHypercites.forEach((hc) => {
+          queueForSync("hypercites", hc.hyperciteId, "update", hc);
         });
 
         resolve();
       };
-      
+
       tx.onerror = (e) => reject(e.target.error);
       tx.onabort = (e) => reject(new Error("Batch transaction aborted"));
     });
@@ -1016,67 +1025,6 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
 }
 
 
-export async function syncBatchUpdateWithPostgreSQL(
-  bookId,
-  batchData,
-  libraryRecord      
-) {
-  /* ------------------------------------------------------------- */
-  /* 1. build the payload                                          */
-  /* ------------------------------------------------------------- */
-  const transformedData = batchData.nodeChunks.map(chunk => ({
-    book:        chunk.book,
-    startLine:   chunk.startLine,
-    chunk_id:    chunk.chunk_id,
-    content:     chunk.content,
-    hyperlights: chunk.hyperlights ?? [],
-    hypercites:  chunk.hypercites  ?? [],
-    footnotes:   chunk.footnotes   ?? [],
-    plainText:   chunk.plainText   ?? null,
-    type:        chunk.type        ?? null
-  }));
-
-  // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
-  const payload = {
-    book: bookId,
-    data: transformedData
-  };
-
-  console.log('🔍 Making request to /api/db/node-chunks/targeted-upsert');
-  console.log('🔍 Payload rows:', transformedData.length);
-  console.log('🔍 Sample row:', transformedData[0]);
-
-  /* ------------------------------------------------------------- */
-  /* 2. send the request with cookies (credentials)                */
-  /* ------------------------------------------------------------- */
-  const response = await fetch('/api/db/node-chunks/targeted-upsert', {
-    method: 'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'Accept':        'application/json',
-      'X-Requested-With': 'XMLHttpRequest',
-      'X-CSRF-TOKEN':
-        document.querySelector('meta[name="csrf-token"]')?.content
-    },
-    credentials: 'include',        // ← ensures cookies are sent
-    body: JSON.stringify(payload)
-  });
-
-  console.log('🔍 Response status:', response.status);
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('🔍 Error response:', errorText);
-    throw new Error(`Batch sync failed: ${response.status}`);
-  }
-
-  const result = await response.json();
-  console.log(
-    `✅ Batch-synced ${transformedData.length} nodeChunks to PostgreSQL`,
-    result
-  );
-  return result;
-}
 
 
 // New batched deletion function
@@ -1223,74 +1171,21 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
           const currentBookId = book || "latest";
           await updateBookTimestamp(currentBookId);
           
-          nodeIds.forEach(nodeId => {
-            queueForSync('nodeChunks', nodeId, 'delete');
+          // MODIFIED: This is correct. No data object needed for deletions.
+          nodeIds.forEach((nodeId) => {
+            queueForSync("nodeChunks", parseNodeId(nodeId), "delete");
           });
 
           resolve();
         };
-        
-        tx.onerror = (e) => {
-          console.error("❌ Batch deletion transaction failed:", e.target.error);
-          reject(e.target.error);
-        };
-        
-        tx.onabort = (e) => {
-          console.warn("⚠️ Batch deletion transaction aborted:", e);
-          reject(new Error("Batch deletion transaction aborted"));
-        };
+        tx.onerror = (e) => reject(e.target.error);
+        tx.onabort = (e) => reject(new Error("Batch deletion transaction aborted"));
       });
-      
     } catch (error) {
       console.error("❌ Error in batchDeleteIndexedDBRecords:", error);
       throw error;
     }
   });
-}
-
-export async function syncBatchDeletionWithPostgreSQL(
-  bookId,
-  deletedData,
-  libraryRecord = null
-) {
-  // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
-  const payload = {
-    book: bookId,
-    data: deletedData.nodeChunks.map(c => ({
-      book: bookId,
-      startLine: c.startLine,
-      _action: "delete"
-    }))
-  };
-
-  console.log(
-    `🔄 Syncing batch deletion of ${payload.data.length} nodeChunks (book ${bookId})…`
-  );
-
-  const res = await fetch("/api/db/node-chunks/targeted-upsert", {
-    method: "POST",
-    headers: {
-      "Content-Type":    "application/json",
-      "Accept":          "application/json",
-      "X-Requested-With": "XMLHttpRequest",
-      "X-CSRF-TOKEN":
-        document.querySelector('meta[name="csrf-token"]')?.content
-    },
-    credentials: "include", // ← ensures cookies are sent
-    body: JSON.stringify(payload)
-  });
-
-  if (!res.ok) {
-    const txt = await res.text();
-    console.error("❌ Batch-deletion sync error:", txt);
-    throw new Error(txt);
-  }
-  console.log("✅ Batch deletion synced");
-
-  /* optionally upsert the library record */
-  if (libraryRecord) {
-    await upsertLibraryRecord(libraryRecord);
-  }
 }
 
 async function upsertLibraryRecord(libraryRecord) {
@@ -1416,136 +1311,6 @@ function updateHyperciteRecords(hypercites, store, bookId, syncArray, node) {
 
 
 
-
-async function syncNodeUpdateWithPostgreSQL (
-  bookId,
-  nodeChunk,
-  hyperlights,
-  hypercites,
-  libraryRecord
-) {
-    try {
-      console.log('🔄 Starting PostgreSQL sync for node update…');
-
-      /* ------------------------------------------------------------------ */
-      /* 1. node-chunks /targeted-upsert                                    */
-      /* ------------------------------------------------------------------ */
-      if (nodeChunk) {
-        console.log('📝 Syncing node chunk:', {
-          book:          nodeChunk.book,
-          startLine:     nodeChunk.startLine,
-          hasHyperlights: !!nodeChunk.hyperlights,
-          hasHypercites:  !!nodeChunk.hypercites,
-          hasContent:     !!nodeChunk.content
-        });
-
-        // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
-        const body = {
-          book: bookId,
-          data: [nodeChunk]
-        };
-
-        const res = await fetch('/api/db/node-chunks/targeted-upsert', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN':
-              document.querySelector('meta[name="csrf-token"]')?.content
-          },
-          credentials: 'include', // ← ensures cookies are sent
-          body: JSON.stringify(body)
-        });
-
-        if (!res.ok) {
-          throw new Error(
-            `NodeChunk sync failed: ${res.status} ${res.statusText}\n${await res.text()}`
-          );
-        }
-        console.log('✅ NodeChunk synced with PostgreSQL');
-      }
-
-      /* ------------------------------------------------------------------ */
-      /* 2. hyperlights                                                     */
-      /* ------------------------------------------------------------------ */
-      if (hyperlights.length) {
-        const body = { book: bookId, data: hyperlights };
-
-        const res = await fetch('/api/db/hyperlights/upsert', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN':
-              document.querySelector('meta[name="csrf-token"]')?.content
-          },
-          credentials: 'include', // ← ensures cookies are sent
-          body: JSON.stringify(body)
-        });
-
-        if (!res.ok) {
-          throw new Error(
-            `Hyperlight sync failed: ${res.status} ${res.statusText}\n${await res.text()}`
-          );
-        }
-        console.log(`✅ ${hyperlights.length} hyperlights synced`);
-      }
-
-      /* ------------------------------------------------------------------ */
-      /* 3. hypercites                                                      */
-      /* ------------------------------------------------------------------ */
-      if (hypercites.length) {
-        const body = { book: bookId, data: hypercites };
-
-        const res = await fetch('/api/db/hypercites/upsert', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN':
-              document.querySelector('meta[name="csrf-token"]')?.content
-          },
-          credentials: 'include', // ← ensures cookies are sent
-          body: JSON.stringify(body)
-        });
-
-        if (!res.ok) {
-          throw new Error(
-            `Hypercite sync failed: ${res.status} ${res.statusText}\n${await res.text()}`
-          );
-        }
-        console.log(`✅ ${hypercites.length} hypercites synced`);
-      }
-
-      /* ------------------------------------------------------------------ */
-      /* 4. library record                                                  */
-      /* ------------------------------------------------------------------ */
-      if (libraryRecord) {
-        const body = { book: bookId, data: libraryRecord };
-
-        const res = await fetch('/api/db/library/upsert', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN':
-              document.querySelector('meta[name="csrf-token"]')?.content
-          },
-          credentials: 'include', // ← ensures cookies are sent
-          body: JSON.stringify(body)
-        });
-
-        if (!res.ok) {
-          throw new Error(
-            `Library sync failed: ${res.status} ${res.statusText}\n${await res.text()}`
-          );
-        }
-        console.log('✅ Library record synced');
-      }
-
-      console.log('🎉 Node update successfully synced with PostgreSQL');
-    } catch (err) {
-      console.error('❌ Error syncing node update with PostgreSQL:', err);
-      throw err;
-    }
-  }
-
 // Helper function to update a specific hypercite in IndexedDB
 export async function updateHyperciteInIndexedDB(book, hyperciteId, updatedFields) {
   return new Promise((resolve, reject) => {
@@ -1638,6 +1403,8 @@ export function toPublicChunk(chunk) {
 
 // In cache-indexedDB.js
 
+// In cache-indexedDB.js
+
 export function updateCitationForExistingHypercite(
   booka,
   hyperciteIDa,
@@ -1660,7 +1427,7 @@ export function updateCitationForExistingHypercite(
 
     // 1) Update the nodeChunks store
     for (const record of nodeChunks) {
-      if (!record.hypercites?.find(hc => hc.hyperciteId === hyperciteIDa)) {
+      if (!record.hypercites?.find((hc) => hc.hyperciteId === hyperciteIDa)) {
         continue;
       }
 
@@ -1681,30 +1448,36 @@ export function updateCitationForExistingHypercite(
     }
 
     if (!foundAndUpdated) {
-      console.log(`No matching hypercite found in book ${booka} with ID ${hyperciteIDa}`);
+      console.log(
+        `No matching hypercite found in book ${booka} with ID ${hyperciteIDa}`
+      );
       return { success: false, startLine: null, newStatus: null };
     }
 
     // 2) Update the hypercites object store itself
-    const existing = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
-    if (!existing) {
+    // MODIFIED: Renamed `existing` to `existingHypercite` for clarity and to fix the error.
+    const existingHypercite = await getHyperciteFromIndexedDB(
+      booka,
+      hyperciteIDa
+    );
+    if (!existingHypercite) {
       console.error(`Hypercite ${hyperciteIDa} not found in book ${booka}`);
       return { success: false, startLine: null, newStatus: null };
     }
 
-    existing.citedIN ||= [];
-    if (!existing.citedIN.includes(citationIDb)) {
-      existing.citedIN.push(citationIDb);
+    existingHypercite.citedIN ||= [];
+    if (!existingHypercite.citedIN.includes(citationIDb)) {
+      existingHypercite.citedIN.push(citationIDb);
     }
-    existing.relationshipStatus = updatedRelationshipStatus;
+    existingHypercite.relationshipStatus = updatedRelationshipStatus;
 
     const hyperciteSuccess = await updateHyperciteInIndexedDB(
       booka,
       hyperciteIDa,
       {
-        citedIN: existing.citedIN,
+        citedIN: existingHypercite.citedIN,
         relationshipStatus: updatedRelationshipStatus,
-        hypercitedHTML: `<u id="${hyperciteIDa}" class="${updatedRelationshipStatus}">${existing.hypercitedText}</u>`
+        hypercitedHTML: `<u id="${hyperciteIDa}" class="${updatedRelationshipStatus}">${existingHypercite.hypercitedText}</u>`,
       }
     );
 
@@ -1716,9 +1489,9 @@ export function updateCitationForExistingHypercite(
     // 3) Update timestamps for all affected books
     const affectedBooks = new Set([booka]);
     if (citationIDb) {
-      const urlParts = citationIDb.split('/');
+      const urlParts = citationIDb.split("/");
       if (urlParts.length > 1) {
-        const targetBook = urlParts[1].split('#')[0];
+        const targetBook = urlParts[1].split("#")[0];
         if (targetBook) affectedBooks.add(targetBook);
       }
     }
@@ -1726,23 +1499,37 @@ export function updateCitationForExistingHypercite(
       await updateBookTimestamp(bookId); // This will correctly queue the library updates
     }
 
-    // ✅ THE FIX: REMOVE the old sync block and REPLACE it with queuing.
+    // 4) Queue the updated records for synchronization
     try {
-      // Queue the specific items that were changed.
       if (affectedStartLine) {
-        queueForSync('nodeChunks', affectedStartLine, 'update');
+        const updatedNodeChunk = await getNodeChunkFromIndexedDB(
+          booka,
+          affectedStartLine
+        );
+        if (updatedNodeChunk) {
+          queueForSync(
+            "nodeChunks",
+            affectedStartLine,
+            "update",
+            updatedNodeChunk
+          );
+        }
       }
-      queueForSync('hypercites', hyperciteIDa, 'update');
+      // MODIFIED: Use the correct variable name here.
+      queueForSync(
+        "hypercites",
+        hyperciteIDa,
+        "update",
+        existingHypercite
+      );
     } catch (error) {
-      console.error('❌ Error queueing for sync:', error);
+      console.error("❌ Error queueing for sync:", error);
     }
 
-    console.log(`Successfully updated hypercite ${hyperciteIDa} in book ${booka}`);
-      
-    return { 
-      success: true, 
+    return {
+      success: true,
       startLine: affectedStartLine,
-      newStatus: updatedRelationshipStatus
+      newStatus: updatedRelationshipStatus,
     };
   });
 }
@@ -2200,14 +1987,11 @@ export async function deleteIndexedDBRecord(id) {
         reject(event.target.error);
       };
 
-      tx.oncomplete = async() => {
-        clearTimeout(timeoutId);
-        console.log(`Successfully deleted record with key: ${key}`);
-        
-          await updateBookTimestamp(bookId);
-
-          queueForSync('nodeChunks', numericId, 'delete');
-          resolve(true);
+      tx.oncomplete = async () => {
+        await updateBookTimestamp(bookId);
+        // MODIFIED: This is correct. No data object needed for deletion.
+        queueForSync("nodeChunks", numericId, "delete");
+        resolve(true);
       };
 
       tx.onerror = (event) => {
@@ -2225,46 +2009,17 @@ export async function deleteIndexedDBRecord(id) {
   });
 }
 
-// 🆕 Function to sync deletion to PostgreSQL
-export async function syncDeletionToPostgreSQL(
-  bookId,
-  startLine,
-  libraryRecord = null
-) {
-  // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
-  const payload = {
-    book: bookId,
-    data: [
-      { book: bookId, startLine, _action: "delete" }
-    ]
-  };
 
-  console.log(`🔄 Syncing deletion (book ${bookId}, startLine ${startLine})…`);
-
-  const res = await fetch("/api/db/node-chunks/targeted-upsert", {
-    method: "POST",
-    headers: {
-      "Content-Type":    "application/json",
-      "X-CSRF-TOKEN":
-        document.querySelector('meta[name="csrf-token"]')?.content
-    },
-    credentials: "include", // ← ensures cookies are sent
-    body: JSON.stringify(payload)
-  });
-
-  if (!res.ok) {
-    const txt = await res.text();
-    console.error("❌ Deletion sync error:", txt);
-    throw new Error(txt);
-  }
-  console.log("✅ NodeChunk deletion synced");
-
-  /* optionally upsert the library record */
-  if (libraryRecord) {
-    await upsertLibraryRecord(libraryRecord); // ← removed anon parameter
-  }
-}
-
+/**
+ * Renames a record's primary key in IndexedDB by creating a new record
+ * and deleting the old one. This is essential for "normalization" tasks,
+ * such as renumbering node `startLine` IDs after numerous edits have
+ * created fractional or non-sequential keys.
+ *
+ * @param {string|number} oldId - The original startLine of the record.
+ * @param {string|number} newId - The new startLine for the record.
+ * @param {string} html - The new HTML content for the record.
+ */
 export async function updateIndexedDBRecordForNormalization(
   oldId, newId, html
 ) {
@@ -2329,11 +2084,16 @@ export async function updateIndexedDBRecordForNormalization(
 
     // Now wait for the transaction to finish
     return new Promise((resolve, reject) => {
-      tx.oncomplete = async() => {
+      tx.oncomplete = async () => {
         clearTimeout(timeoutId);
-        console.log(`Successfully normalized record: ${oldId} -> ${newId}`);
         await updateBookTimestamp(bookId);
-        await syncIndexedDBtoPostgreSQL(bookId);
+        // MODIFIED: This direct sync call is now handled by the queue.
+        // We need to queue the deletion of the old and update of the new.
+        const newRecord = await getNodeChunkFromIndexedDB(bookId, newId);
+        if (newRecord) {
+          queueForSync("nodeChunks", newId, "update", newRecord);
+        }
+        queueForSync("nodeChunks", oldId, "delete");
         resolve(true);
       };
       tx.onerror = (e) => {
@@ -2381,10 +2141,7 @@ export async function deleteIndexedDBRecordWithRetry(id) {
   return retryOperation(() => deleteIndexedDBRecord(id));
 }
 
-// Example usage with the normalization function
-export async function normalizeIndexedDBRecordWithRetry(oldId, newId, html) {
-  return retryOperation(() => updateIndexedDBRecordForNormalization(oldId, newId, html));
-}
+
 
 
 
@@ -2400,66 +2157,40 @@ export async function updateBookTimestamp(bookId = book || "latest") {
     const db = await openDatabase();
     const tx = db.transaction("library", "readwrite");
     const store = tx.objectStore("library");
-    
     const getRequest = store.get(bookId);
-    
+
     return new Promise((resolve, reject) => {
       getRequest.onsuccess = () => {
         const existingRecord = getRequest.result;
-        
+
         if (existingRecord) {
           existingRecord.timestamp = Date.now();
           const putRequest = store.put(existingRecord);
-          
           putRequest.onsuccess = () => {
-            console.log(`✅ Successfully updated timestamp for book: ${bookId}`);
-            
-            // ✅ THE FIX: Add the queue call here as well.
-            queueForSync('library', bookId, 'update');
-
+            // MODIFIED: Pass the updated record to the queue.
+            queueForSync("library", bookId, "update", existingRecord);
             resolve(true);
           };
-          
-          putRequest.onerror = (e) => {
-            console.error(`❌ Error updating timestamp for book ${bookId}:`, e.target.error);
-            resolve(false);
-          };
+          putRequest.onerror = (e) => resolve(false);
         } else {
           const newRecord = {
             book: bookId,
             timestamp: Date.now(),
             title: bookId,
             description: "",
-            tags: []
+            tags: [],
           };
-          
           const putRequest = store.put(newRecord);
-          
           putRequest.onsuccess = () => {
-            console.log(`✅ Successfully created library record with timestamp for book: ${bookId}`);
-            
-            // This one is correct.
-            queueForSync('library', bookId, 'update');
-
+            // MODIFIED: Pass the new record to the queue.
+            queueForSync("library", bookId, "update", newRecord);
             resolve(true);
           };
-          
-          putRequest.onerror = (e) => {
-            console.error(`❌ Error creating library record for book ${bookId}:`, e.target.error);
-            resolve(false);
-          };
+          putRequest.onerror = (e) => resolve(false);
         }
       };
-      
-      getRequest.onerror = (e) => {
-        console.error(`❌ Error getting library record for book ${bookId}:`, e.target.error);
-        resolve(false);
-      };
-      
-      tx.onerror = (e) => {
-        console.error(`❌ Transaction error updating timestamp:`, e.target.error);
-        resolve(false);
-      };
+      getRequest.onerror = (e) => resolve(false);
+      tx.onerror = (e) => resolve(false);
     });
   } catch (error) {
     console.error("❌ Failed to update book timestamp:", error);
@@ -2516,3 +2247,7 @@ export async function getLibraryObjectFromIndexedDB(book) {
     return null;
   }
 }
+
+
+
+
