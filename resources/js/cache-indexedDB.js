@@ -212,7 +212,7 @@ const debouncedMasterSync = debounce(async () => {
     console.error("❌ Debounced master sync failed:", error);
     // Here you might re-queue the failed items from `itemsToSync`
   }
-}, 3000);
+}, 3000, 'masterSync');
 
 // --- NEW: The "Final Save" function for page unload ---
 let isSyncingOnUnload = false;
