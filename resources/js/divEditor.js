@@ -6,7 +6,6 @@ import {
   openDatabase,
   updateCitationForExistingHypercite,
   batchUpdateIndexedDBRecords,
-  syncBatchUpdateWithPostgreSQL,
   getNodeChunksAfter,
   deleteNodeChunksAfter,
   writeNodeChunks
@@ -156,36 +155,37 @@ async function saveNodeToDatabase() {
   
   console.log(`💾 Processing ${nodesToSave.length} pending node saves`);
   
-  // Separate by action type
   const updates = nodesToSave.filter(n => n.action === 'update');
   const additions = nodesToSave.filter(n => n.action === 'add');
   const deletions = nodesToSave.filter(n => n.action === 'delete');
   
   try {
-    // 🆕 FIX: Pass the full record objects, not just IDs
     const recordsToUpdate = [...updates, ...additions].filter(node => {
       const element = document.getElementById(node.id);
       if (!element) {
         console.warn(`⚠️ Skipping save for node ${node.id} - element not found in DOM`);
         return false;
       }
+      // We need to pass the element itself or enough info for batchUpdate to find it.
+      // The current structure { id, action } is what batchUpdateIndexedDBRecords expects.
       return true;
     });
 
     if (recordsToUpdate.length > 0) {
-      // 🆕 Pass the full record objects with { id, action }
+      // This function now correctly saves to IndexedDB AND queues the changes
+      // for the master debounced sync in cache-indexedDB.js.
       await batchUpdateIndexedDBRecords(recordsToUpdate);
-    } else {
-      console.log("ℹ️ No valid nodes to batch update, skipping");
     }
     
-    // Handle deletions separately (still individual for now)
     if (deletions.length > 0) {
+      // This function also correctly queues deletions.
       await Promise.all(deletions.map(node => 
         deleteIndexedDBRecordWithRetry(node.id)
       ));
-      console.log(`✅ Deleted ${deletions.length} nodes`);
     }
+    
+    // CRITICAL: There should be NO other sync calls here.
+    // The functions above handle all necessary queuing.
     
   } catch (error) {
     console.error('❌ Error in batch save:', error);

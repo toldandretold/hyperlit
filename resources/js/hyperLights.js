@@ -631,7 +631,8 @@ async function addToHighlightsTable(highlightData) {
 
     addRequest.onsuccess = () => {
       console.log("✅ Successfully added highlight to hyperlights table"); 
-      resolve();
+      // MODIFIED: Resolve with the entry that was just saved.
+      resolve(highlightEntry);
     };
 
     addRequest.onerror = (event) => {
@@ -673,52 +674,7 @@ function calculateCleanTextOffset(container, textNode, offset) {
   return cleanOffset;
 }
 
-/*
-function calculateTrueCharacterOffset(container, textNode, offset) {
-  // First, create a clone of the container to work with
-  const containerClone = container.cloneNode(true);
-  
-  // Remove all mark tags from the clone, preserving their text content
-  const marks = containerClone.getElementsByTagName('mark');
-  while (marks.length > 0) {
-    const mark = marks[0];
-    const text = mark.textContent;
-    mark.parentNode.replaceChild(document.createTextNode(text), mark);
-  }
-  
-  // Get the raw text content
-  const rawText = containerClone.textContent;
-  console.log("Raw text content:", rawText);
-  
-  // Now find the corresponding position in the raw text
-  const walker = document.createTreeWalker(
-    container, // Use original container
-    NodeFilter.SHOW_TEXT,
-    null,
-    false
-  );
-  
-  let currentNode;
-  let rawOffset = 0;
-  
-  while ((currentNode = walker.nextNode()) !== null) {
-    if (currentNode === textNode) {
-      // Found our target node
-      let adjustedOffset = rawOffset + offset;
-      console.log("Found target node, adjusted offset:", adjustedOffset);
-      return adjustedOffset;
-    }
-    
-    // For nodes inside marks, get their contribution to the raw text
-    if (currentNode.parentElement.tagName === 'MARK') {
-      rawOffset += currentNode.textContent.length;
-    } else {
-      rawOffset += currentNode.textContent.length;
-    }
-  }
-  
-  return rawOffset;
-} */
+
 addTouchAndClickListener(
   document.getElementById("copy-hyperlight"),
   async function() {
@@ -951,136 +907,45 @@ addTouchAndClickListener(
         startLine: startContainer.id,
       });
       
+      const savedHighlightEntry = await addToHighlightsTable({
+        highlightId,
+        text: selectedText,
+        startChar: cleanStartOffset,
+        endChar: cleanEndOffset,
+        startLine: startContainer.id,
+      });
+      
       console.log("Added to highlights table");
       await updateBookTimestamp(book); // This queues the library update
 
-      // --- REPLACEMENT LOGIC START ---
-      // REPLACED: The direct call to syncHyperlightWithPostgreSQL
-      // ✅ NEW: Queue all modified items for the debounced sync.
-
+      // --- MODIFIED LOGIC START ---
+      
       // 1. Queue the new hyperlight record itself.
-      queueForSync("hyperlights", highlightId, "update");
+      // MODIFIED: Pass the full data object.
+      queueForSync("hyperlights", highlightId, "update", savedHighlightEntry);
 
       // 2. Queue all the node chunks that were updated with highlight metadata.
       updatedNodeChunks.forEach((chunk) => {
         if (chunk && chunk.startLine) {
-          queueForSync("nodeChunks", chunk.startLine, "update");
+          // MODIFIED: Pass the full data object.
+          queueForSync("nodeChunks", chunk.startLine, "update", chunk);
         }
       });
 
       console.log(
         `✅ Queued for sync: 1 hyperlight and ${updatedNodeChunks.length} node chunks.`
       );
-      // --- REPLACEMENT LOGIC END ---
+      // --- MODIFIED LOGIC END ---
     } catch (error) {
       console.error("❌ Error saving highlight metadata:", error);
     }
 
     attachMarkListeners();
-
-    // Clear selection and hide buttons
     window.getSelection().removeAllRanges();
     document.getElementById("hyperlight-buttons").style.display = "none";
-
-    // Open the newly created highlight in the container
-    console.log("🎯 Opening newly created highlight:", highlightId);
     await openHighlightById(highlightId, true, [highlightId]);
   }
 );
-
-// Helper function to sync hyperlight data with PostgreSQL
-
-
- 
-async function syncHyperlightWithPostgreSQL(hyperlightEntry, nodeChunks) {
-  try {
-    console.log("🔄 Starting Hyperlight PostgreSQL sync…");
-
-    const libraryObj = await getLibraryObjectFromIndexedDB(hyperlightEntry.book);
-
-    /* ---------------------------------------------------- */
-    /* 1. hyperlights/upsert                                */
-    /* ---------------------------------------------------- */
-    const hyperRes = await fetch("/api/db/hyperlights/upsert", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-TOKEN":
-          document.querySelector('meta[name="csrf-token"]')?.content
-      },
-      credentials: "include",
-      body: JSON.stringify({
-        book: hyperlightEntry.book,
-        data: [hyperlightEntry]
-      })
-    });
-
-    if (!hyperRes.ok) {
-      throw new Error(
-        `Hyperlight sync failed (${hyperRes.status}): ${await hyperRes.text()}`
-      );
-    }
-    console.log("✅ Hyperlight synced");
-
-    /* ---------------------------------------------------- */
-    /* 2. node-chunks/targeted-upsert  (public fields only) */
-    /* ---------------------------------------------------- */
-    if (nodeChunks?.length) {
-      const publicChunks = nodeChunks.map(toPublicChunk);
-
-      const chunkRes = await fetch("/api/db/node-chunks/targeted-upsert", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-TOKEN":
-            document.querySelector('meta[name="csrf-token"]')?.content
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          book: hyperlightEntry.book,
-          data: publicChunks
-        })
-      });
-
-      if (!chunkRes.ok) {
-        throw new Error(
-          `NodeChunk sync failed (${chunkRes.status}): ${await chunkRes.text()}`
-        );
-      }
-      console.log("✅ NodeChunks (public columns) synced");
-    }
-
-    /* ---------------------------------------------------- */
-    /* 3. library/update-timestamp (SECURE - timestamp only) */
-    /* ---------------------------------------------------- */
-    if (libraryObj && libraryObj.timestamp) {
-      const timestampRes = await fetch("/api/db/library/update-timestamp", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-TOKEN":
-            document.querySelector('meta[name="csrf-token"]')?.content
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          book: libraryObj.book,
-          timestamp: libraryObj.timestamp
-        })
-      });
-
-      if (!timestampRes.ok) {
-        throw new Error(
-          `Library timestamp update failed (${timestampRes.status}): ${await timestampRes.text()}`
-        );
-      }
-      console.log("✅ Library timestamp updated");
-    }
-
-    console.log("🎉 Hyperlight + public nodeChunk data synced successfully");
-  } catch (err) {
-    console.error("❌ Error syncing hyperlight with PostgreSQL:", err);
-  }
-} 
 
 
 // new signature — takes chunkId as a string (e.g. "1.1")
@@ -1246,114 +1111,18 @@ addTouchAndClickListener(document.getElementById("delete-hyperlight"),
       // 2. Queue the node chunks that were updated (had highlights removed).
       updatedNodeChunks.forEach((chunk) => {
         if (chunk && chunk.startLine) {
-          queueForSync("nodeChunks", chunk.startLine, "update");
+          // MODIFIED: Pass the full data object.
+          queueForSync("nodeChunks", chunk.startLine, "update", chunk);
         }
       });
 
       console.log(
         `✅ Queued for sync: ${deletedHyperlights.length} deletions and ${updatedNodeChunks.length} node chunk updates.`
       );
-      // --- REPLACEMENT LOGIC END ---
+      // --- MODIFIED LOGIC END ---
     }
-
-    console.log("Removed highlight IDs:", highlightIdsToRemove);
   }
 );
-
-async function syncHyperlightDeletionsWithPostgreSQL(deletedHyperlights, updatedNodeChunks, book) {
-  try {
-    console.log("🔄 Starting Hyperlight deletion PostgreSQL sync...");
-
-    // ✅ Get library object using the book parameter
-    const libraryObject = await getLibraryObjectFromIndexedDB(book);
-    
-    if (!libraryObject) {
-      console.warn("⚠️ No library object found for book:", book);
-    }
-
-    // Sync deleted hyperlights (they'll be removed from PostgreSQL)
-    if (deletedHyperlights.length > 0) {
-      const hyperlightResponse = await fetch("/api/db/hyperlights/delete", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-TOKEN": document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute("content"),
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          book: book,
-          data: deletedHyperlights
-        }),
-      });
-
-      if (!hyperlightResponse.ok) {
-        throw new Error(`Hyperlight deletion sync failed (${hyperlightResponse.status}): ${await hyperlightResponse.text()}`);
-      }
-
-      console.log("✅ Hyperlights deleted from PostgreSQL");
-    }
-
-    // Sync updated node chunks (with hyperlights removed) - public fields only
-    if (updatedNodeChunks.length > 0) {
-      const publicChunks = updatedNodeChunks.map(toPublicChunk);
-      
-      const nodeChunkResponse = await fetch("/api/db/node-chunks/targeted-upsert", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-TOKEN": document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute("content"),
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          book: book,
-          data: publicChunks
-        }),
-      });
-
-      if (!nodeChunkResponse.ok) {
-        throw new Error(
-          `NodeChunk sync failed (${nodeChunkResponse.status}): ${await nodeChunkResponse.text()}`
-        );
-      }
-
-      console.log("✅ NodeChunks synced with PostgreSQL (targeted)");
-    }
-
-    // ✅ FIXED: Use secure timestamp-only update instead of full library upsert
-    if (libraryObject && libraryObject.timestamp) {
-      const timestampResponse = await fetch("/api/db/library/update-timestamp", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-TOKEN": document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute("content"),
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          book: libraryObject.book,
-          timestamp: libraryObject.timestamp
-        }),
-      });
-
-      if (!timestampResponse.ok) {
-        throw new Error(
-          `Library timestamp update failed (${timestampResponse.status}): ${await timestampResponse.text()}`
-        );
-      }
-
-      console.log("✅ Library timestamp updated in PostgreSQL");
-    }
-
-    console.log("🎉 All hyperlight deletion data successfully synced with PostgreSQL");
-  } catch (error) {
-    console.error("❌ Error syncing hyperlight deletions with PostgreSQL:", error);
-  }
-}
 
 // IndexedDB helper to remove highlight from the "nodeChunks" table.
 async function removeHighlightFromNodeChunks(highlightId) {

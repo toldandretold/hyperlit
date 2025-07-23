@@ -803,9 +803,6 @@ function convertTextToHtml(content, nodeId) {
  *
  * 3) This function merges them, renumbers the "tail", and logs the result.
  */
-// In paste.js
-// In paste.js
-
 async function handleJsonPaste(
   event,
   insertionPoint,
@@ -875,16 +872,17 @@ async function handleJsonPaste(
   }
   await writeNodeChunks(toWrite);
   console.log("📦 IndexedDB has been updated with new and renumbered chunks!");
+  
+  // MODIFIED: Pass the full 'chunk' object to the queue.
   toWrite.forEach((chunk) => {
-    queueForSync("nodeChunks", chunk.startLine, "update");
+    queueForSync("nodeChunks", chunk.startLine, "update", chunk);
   });
+  
   console.log(
     `✅ Queued ${toWrite.length} total affected chunks for sync.`
   );
 
   // --- 3. RETURN THE DATA ---
-  // The function's only job is to calculate and save data.
-  // It now returns the result to the caller.
   return toWrite;
 }
 /**

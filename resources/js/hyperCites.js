@@ -6,7 +6,8 @@ import { openDatabase,
          getLibraryObjectFromIndexedDB,
          updateBookTimestamp,
          toPublicChunk,
-         queueForSync  } from "./cache-indexedDB.js";
+         queueForSync,
+         getNodeChunkFromIndexedDB  } from "./cache-indexedDB.js";
 import { ContainerManager } from "./container-manager.js";
 import { formatBibtexToCitation } from "./bibtexProcessor.js";
 import { currentLazyLoader } from './initializePage.js';
@@ -395,113 +396,12 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
 
     await updateBookTimestamp(book);
 
-    queueForSync('hypercites', hyperciteId, 'update');
-    blocks.forEach(block => {
-      queueForSync('nodeChunks', block.startLine, 'update');
+    queueForSync("hypercites", hyperciteId, "update", hyperciteEntry);
+    updatedNodeChunks.forEach((chunk) => {
+      queueForSync("nodeChunks", chunk.startLine, "update", chunk);
     });
-
-  // ✅ THE FIX: Add the missing catch block.
   } catch (error) {
     console.error("❌ Error in NewHyperciteIndexedDB:", error);
-  }
-}
-
-async function syncHyperciteWithPostgreSQL(hyperciteEntry, nodeChunks) {
-  try {
-    console.log("🔄 Starting PostgreSQL sync…");
-
-    const anon         = await getAnonymousToken();
-    const topLevelAuth = anon ? { anonymous_token: anon } : {};
-    const libraryObj   = await getLibraryObjectFromIndexedDB(hyperciteEntry.book);
-
-    /* ------------------------------------------------------------- */
-    /* 1. hypercites /upsert                                         */
-    /* ------------------------------------------------------------- */
-    const hyperRes = await fetch("/api/db/hypercites/upsert", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-TOKEN":
-          document.querySelector('meta[name="csrf-token"]')?.content
-      },
-      credentials: "include",
-      body: JSON.stringify({
-        book: hyperciteEntry.book,
-        data: [hyperciteEntry],
-        ...topLevelAuth
-      })
-    });
-
-    if (!hyperRes.ok) {
-      throw new Error(
-        `Hypercite sync failed (${hyperRes.status}): ${await hyperRes.text()}`
-      );
-    }
-    console.log("✅ Hypercite synced");
-
-    /* ------------------------------------------------------------- */
-    /* 2. node-chunks /targeted-upsert  (public fields only)         */
-    /* ------------------------------------------------------------- */
-    if (nodeChunks?.length) {
-      const publicChunks = nodeChunks
-        .map(toPublicChunk)
-        .filter(chunk => chunk !== null);
-
-      if (publicChunks.length > 0) {
-          // ✅ THE FIX: Add the missing method, headers, and credentials
-          const chunkRes = await fetch("/api/db/node-chunks/targeted-upsert", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-CSRF-TOKEN":
-                document.querySelector('meta[name="csrf-token"]')?.content
-            },
-            credentials: "include",
-            body: JSON.stringify({
-              book: hyperciteEntry.book,
-              data: publicChunks,
-              ...topLevelAuth
-            })
-          });
-
-          if (!chunkRes.ok) {
-            throw new Error(
-              `NodeChunk sync failed (${chunkRes.status}): ${await chunkRes.text()}`
-            );
-          }
-          console.log("✅ NodeChunks (public columns) synced");
-      }
-    }
-
-    /* ------------------------------------------------------------- */
-    /* 3. library/update-timestamp (SECURE - timestamp only)         */
-    /* ------------------------------------------------------------- */
-    if (libraryObj && libraryObj.timestamp) {
-      const timestampRes = await fetch("/api/db/library/update-timestamp", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-TOKEN":
-            document.querySelector('meta[name="csrf-token"]')?.content
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          book: libraryObj.book,
-          timestamp: libraryObj.timestamp
-        })
-      });
-
-      if (!timestampRes.ok) {
-        throw new Error(
-          `Library timestamp update failed (${timestampRes.status}): ${await timestampRes.text()}`
-        );
-      }
-      console.log("✅ Library timestamp updated");
-    }
-
-    console.log("🎉 Hypercite workflow synced successfully");
-  } catch (err) {
-    console.error("❌ Error syncing with PostgreSQL:", err);
   }
 }
 
@@ -1291,15 +1191,30 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
     // Step 7: Update book timestamp
     await updateBookTimestamp(targetHypercite.book);
 
-    // ✅ THE FIX: Queue the specific hypercite that changed.
-  queueForSync('hypercites', targetHypercite.hyperciteId, 'update');
+    queueForSync(
+      "hypercites",
+      updatedHypercite.hyperciteId,
+      "update",
+      updatedHypercite
+    );
 
-    if (targetHypercite.startLine) {
-        queueForSync('nodeChunks', targetHypercite.startLine, 'update');
+    // Also queue the nodeChunk that contains the hypercite, if it exists
+    if (updatedHypercite.startLine) {
+      const nodeChunkToSync = await getNodeChunkFromIndexedDB(
+        updatedHypercite.book,
+        updatedHypercite.startLine
+      );
+      if (nodeChunkToSync) {
+        queueForSync(
+          "nodeChunks",
+          nodeChunkToSync.startLine,
+          "update",
+          nodeChunkToSync
+        );
+      }
     }
 
     console.log("✅ Delink process completed successfully");
-
   } catch (error) {
     console.error("❌ Error in delinkHypercite:", error);
   }
@@ -1391,19 +1306,14 @@ function determineRelationshipStatus(citedINLength) {
  * @param {IDBDatabase} db - The IndexedDB database
  * @param {Object} hyperciteData - The updated hypercite data
  */
-async function updateHyperciteInIndexedDB(db, hyperciteData) {
+// Renamed for clarity to avoid confusion with the one in cache-indexedDB.js
+async function updateHyperciteInDB(db, hyperciteData) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("hypercites", "readwrite");
     const store = tx.objectStore("hypercites");
     const request = store.put(hyperciteData);
-
-    request.onsuccess = () => {
-      resolve();
-    };
-
-    request.onerror = () => {
-      reject(new Error("Error updating hypercite in IndexedDB"));
-    };
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(new Error("Error updating hypercite"));
   });
 }
 
