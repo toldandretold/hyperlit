@@ -15,7 +15,8 @@ import {
 } from "./footnotes.js";
 import {
   openDatabase,
-  getNodeChunksFromIndexedDB
+  getNodeChunksFromIndexedDB,
+  setupUnloadSync
 } from "./cache-indexedDB.js";
 import { loadHyperText } from "./initializePage.js";
 import {
@@ -141,6 +142,9 @@ function handlePendingNewBookSync() {
     attachMarkListeners();
 
     initializeBroadcastListener();
+
+    setupUnloadSync();
+    console.log("✅ Emergency save-on-close (beacon) has been initialized.");
   
     generateTableOfContents("toc-container", "toc-toggle-button");
 
