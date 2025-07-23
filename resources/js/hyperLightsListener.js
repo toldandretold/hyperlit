@@ -1,6 +1,6 @@
 import { parseHyperciteHref } from './hyperCites.js';
 import { extractQuotedText } from './paste.js';
-import { openDatabase, updateCitationForExistingHypercite, queueForSync, updateBookTimestamp } from './cache-indexedDB.js';
+import { openDatabase, updateCitationForExistingHypercite, queueForSync } from './cache-indexedDB.js';
 import { book } from './app.js';
 
 /**
@@ -114,68 +114,28 @@ async function processPastedHyperciteInAnnotation(clipboardHtml, highlightId) {
 }
 
 // This function saves the annotation and queues it for sync. It is correct.
-// In hyperLightsListener.js
-
-async function saveHighlightAnnotation(highlightId, annotationHTML) {
+function saveHighlightAnnotation(highlightId, annotationHTML) {
   if (!highlightId) return;
-
-  try {
-    // =======================================================================
-    // PHASE 1: ASYNCHRONOUS INFO GATHERING
-    // Fetch the existing record so we have the full object for queuing.
-    // =======================================================================
-    const db = await openDatabase();
-    // We need a 'readwrite' transaction here because we will use it again in Phase 3.
+  
+  openDatabase().then(db => {
     const tx = db.transaction("hyperlights", "readwrite");
     const store = tx.objectStore("hyperlights");
     const index = store.index("hyperlight_id");
     const getRequest = index.get(highlightId);
-
-    const highlightData = await new Promise((resolve, reject) => {
-      getRequest.onsuccess = () => resolve(getRequest.result);
-      getRequest.onerror = (e) => reject(e.target.error);
-    });
-
-    if (!highlightData) {
-      console.error(`Could not find highlight ${highlightId} to save annotation.`);
-      return;
-    }
-
-    // =======================================================================
-    // PHASE 2: SYNCHRONOUS CALCULATION & OPTIMISTIC QUEUING
-    // =======================================================================
-    // A. Update the annotation property on the object we fetched.
-    highlightData.annotation = annotationHTML;
-
-    // B. Immediately queue the entire updated object for sync.
-    queueForSync("hyperlights", highlightId, "update", highlightData);
     
-    // C. Queue the timestamp update for the book.
-    updateBookTimestamp(highlightData.book);
-    console.log(`✅ Queued annotation update for highlight ${highlightId}`);
-
-
-    // =======================================================================
-    // PHASE 3: ASYNCHRONOUS LOCAL SAVE
-    // Now, write the updated object back to IndexedDB.
-    // =======================================================================
-    store.put(highlightData);
-
-    await new Promise((resolve, reject) => {
-      tx.oncomplete = () => {
-        console.log(`✅ Successfully saved annotation for highlight ${highlightId} to IndexedDB.`);
-        resolve();
+    getRequest.onsuccess = () => {
+      const highlightData = getRequest.result;
+      if (!highlightData) return;
+      
+      highlightData.annotation = annotationHTML;
+      const updateRequest = store.put(highlightData);
+      
+      updateRequest.onsuccess = () => {
+        console.log(`Successfully saved annotation for highlight ${highlightId}`);
+        queueForSync("hyperlights", highlightId, "update", highlightData);
       };
-      tx.onerror = (e) => {
-        console.error("Error during annotation save transaction:", e.target.error);
-        // We can reject here, but the data is already safely queued.
-        reject(e.target.error);
-      };
-    });
-
-  } catch (error) {
-    console.error(`❌ Failed to save annotation for highlight ${highlightId}:`, error);
-  }
+    };
+  });
 }
 
 // This function attaches the paste listener. It is correct.
