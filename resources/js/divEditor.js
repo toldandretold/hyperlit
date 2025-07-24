@@ -97,14 +97,39 @@ const pendingSaves = {
   lastActivity: null          
 };
 
-// Generic debounce function
-export function debounce(func, delay, timerId) {
-  return function(...args) {
-    clearTimeout(debounceTimers[timerId]);
-    debounceTimers[timerId] = setTimeout(() => {
+
+
+/**
+ * Creates a debounced function that delays invoking `func` until after `delay`
+ * milliseconds have passed since the last time the debounced function was invoked.
+ *
+ * This version includes a `.cancel()` method to cancel a pending invocation.
+ *
+ * @param {Function} func The function to debounce.
+ * @param {number} delay The number of milliseconds to delay.
+ * @returns {Function} The new debounced function with a `.cancel()` method.
+ */
+export function debounce(func, delay) {
+  let timeoutId;
+
+  // This is the function that will be called when the event fires.
+  const debouncedFunction = function (...args) {
+    // Clear the previous timeout to reset the delay timer
+    clearTimeout(timeoutId);
+
+    // Set a new timeout
+    timeoutId = setTimeout(() => {
+      // When the timeout completes, call the original function
       func.apply(this, args);
     }, delay);
   };
+
+  // This function cancels the pending debounced call
+  debouncedFunction.cancel = function () {
+    clearTimeout(timeoutId);
+  };
+
+  return debouncedFunction;
 }
 
 // Specialized debounced functions

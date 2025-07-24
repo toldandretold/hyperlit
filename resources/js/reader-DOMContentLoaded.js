@@ -15,7 +15,8 @@ import {
 } from "./footnotes.js";
 import {
   openDatabase,
-  getNodeChunksFromIndexedDB
+  getNodeChunksFromIndexedDB,
+  setupUnloadSync
 } from "./cache-indexedDB.js";
 import { loadHyperText } from "./initializePage.js";
 import {
@@ -75,13 +76,7 @@ if (editMode) {
 if (!window.isInitialized) {
   window.isInitialized = true;
 
-  // ✅ DEFINE THIS FUNCTION
-  /**
-   * Checks sessionStorage for a new book that needs to be synced
-   * and kicks off the background sync process.
-   */
-  // In reader-DOMContentLoaded.js -> handlePendingNewBookSync()
-
+  
 function handlePendingNewBookSync() {
   const pendingSyncJSON = sessionStorage.getItem('pending_new_book_sync');
 
@@ -141,6 +136,8 @@ function handlePendingNewBookSync() {
     attachMarkListeners();
 
     initializeBroadcastListener();
+
+    setupUnloadSync();
   
     generateTableOfContents("toc-container", "toc-toggle-button");
 
