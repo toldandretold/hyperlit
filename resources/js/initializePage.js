@@ -10,7 +10,9 @@ import {
   openDatabase,
   getNodeChunksFromIndexedDB,
   saveAllNodeChunksToIndexedDB,
-  saveFootnotesToIndexedDB
+  saveFootnotesToIndexedDB,
+  updateHistoryLog, 
+  executeSyncPayload
 } from "./cache-indexedDB.js";
 
 import {
@@ -23,10 +25,82 @@ import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL } from "./postgreSQ
 // Add to your imports at the top
 import { buildUserHighlightCache, clearUserHighlightCache } from "./userCache.js";
 
+
+let isRetrying = false; // Prevents multiple retries at once
+
+async function retryFailedBatches() {
+  // Don't run if already retrying or if we're still offline
+  if (isRetrying || !navigator.onLine) {
+    return;
+  }
+
+  isRetrying = true;
+  console.log("🔁 Network is online. Checking for failed sync batches...");
+
+  try {
+    const db = await openDatabase();
+    
+    // ===================================================================
+    // THE FIX IS HERE: Replace the incorrect line with this standard IndexedDB pattern.
+    // ===================================================================
+    const tx = db.transaction("historyLog", "readonly");
+    const store = tx.objectStore("historyLog");
+    const index = store.index("status");
+
+    const failedLogs = await new Promise((resolve, reject) => {
+      // Get all records where the 'status' index is "failed"
+      const request = index.getAll("failed");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    // ===================================================================
+
+    if (failedLogs.length === 0) {
+      console.log("✅ No failed batches to retry.");
+      isRetrying = false;
+      return;
+    }
+
+    console.log(`Retrying ${failedLogs.length} failed sync batches...`);
+
+    // Process one by one to maintain order
+    for (const log of failedLogs) {
+      try {
+        await executeSyncPayload(log.payload);
+        // It worked! Update the status to 'synced'
+        log.status = "synced";
+        await updateHistoryLog(log);
+        console.log(`✅ Successfully retried batch ${log.id}`);
+      } catch (error) {
+        console.error(`❌ Retry for batch ${log.id} failed again. Will stop for now.`);
+        // Stop on the first failure to maintain order and prevent spamming a broken endpoint
+        break;
+      }
+    }
+  } catch (error) {
+    console.error("❌ A critical error occurred during the retry process:", error);
+  } finally {
+    isRetrying = false;
+  }
+}
+
+// ✅ STEP 3: A setup function to attach the event listeners
+export function setupOnlineSyncListener() {
+  // Immediately check for failed batches when the app loads
+  retryFailedBatches();
+
+  // Add a listener to automatically retry when the browser comes back online
+  window.addEventListener("online", retryFailedBatches);
+
+  console.log("👂 Online sync listener is active.");
+}
+
+
 // Your existing function - unchanged for backward compatibility
 export async function loadHyperText() {
   console.log(`📖 Opening: ${book}`);
-  console.log("📝 Book variable:", book, "Type:", typeof book);
+  
+  setupOnlineSyncListener();
 
   const openHyperlightID = OpenHyperlightID || null;
   if (openHyperlightID) {
@@ -41,12 +115,10 @@ export async function loadHyperText() {
       console.log(`✅ Found ${cached.length} cached nodeChunks`);
       window.nodeChunks = cached;
       
-      // 🚨 BUILD USER HIGHLIGHT CACHE HERE
       await buildUserHighlightCache(book);
       
       initializeLazyLoader(openHyperlightID);
 
-      // Start async timestamp check (don't await)
       checkAndUpdateIfNeeded(book);
 
       return;
@@ -465,38 +537,4 @@ function notifyContentUpdated() {
 }
 
 
-// for page load to go to the histroy log object store... if needed, to update to backend
-
-/*
-
-// In initializePage.js or similar
-
-async function retryFailedBatches() {
-  if (!navigator.onLine) return;
-
-  const db = await openDatabase();
-  const failedLogs = await db.getAllFromIndex("historyLog", "status", "failed");
-
-  if (failedLogs.length === 0) return;
-  console.log(`Retrying ${failedLogs.length} failed sync batches...`);
-
-  for (const log of failedLogs) {
-    try {
-      await executeSyncPayload(log.payload);
-      log.status = "synced"; // It worked!
-      await updateHistoryLog(log);
-      console.log(`✅ Successfully retried batch ${log.id}`);
-    } catch (error) {
-      console.error(`❌ Retry for batch ${log.id} failed again.`);
-      // We can add a retryCount to the log object to prevent infinite loops
-      break; // Stop on first failure to maintain order
-    }
-  }
-}
-
-// Call this on page load and when the 'online' event fires.
-retryFailedBatches();
-window.addEventListener('online', retryFailedBatches);
-
-*/
 
