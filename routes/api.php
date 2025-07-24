@@ -10,6 +10,7 @@ use App\Http\Controllers\DbLibraryController;
 use App\Http\Controllers\DbFootnoteController;
 use App\Http\Controllers\DatabaseToIndexedDBController;
 use App\Http\Controllers\HomePageServerController;
+use App\Http\Controllers\BeaconSyncController;
 
 use App\Http\Controllers\AuthController;
 
@@ -109,6 +110,11 @@ Route::middleware(['author', 'throttle:30,1'])->group(function () {
         '/db/library/update-timestamp', 
         [DbLibraryController::class, 'updateTimestamp']
     );
+
+    Route::post(
+        '/db/sync/beacon', 
+        [BeaconSyncController::class, 'handleSync']
+        );
 });
 
 // API routes for transferring data from database to IndexedDB
