@@ -65,11 +65,11 @@ export function generateIdBetween(beforeId, afterId) {
     if (isNaN(beforeNum)) return `${beforeId}_1`;
 
     const nextInteger = Math.floor(beforeNum) + 1;
+    // isDuplicateId check is kept as per your original code
     if (isDuplicateId(nextInteger.toString())) {
       console.warn(
         `Next integer ${nextInteger} already exists, falling back to decimal`
       );
-      // if I had `1`, become `1.1`; if I had `1.9`, become `1.91`, etc.
       const [intPart, decPart = ""] = beforeId.split(".");
       if (Number.isInteger(beforeNum)) {
         return `${beforeNum}.1`;
@@ -95,7 +95,6 @@ export function generateIdBetween(beforeId, afterId) {
     return generateIdBetween(beforeId, null);
   }
 
-  // if either isn’t a valid number, skip to fallback
   if (!isNaN(beforeNum) && !isNaN(afterNum)) {
     // handle outrageously long decimals by simple string logic…
     const beforeDecLen = beforeId.split(".")[1]?.length || 0;
@@ -111,47 +110,38 @@ export function generateIdBetween(beforeId, afterId) {
       return `${i}.1`;
     }
 
+    // ✨ --- START OF THE FIX --- ✨
+    // This new block handles the missing case by checking for an integer gap first.
+    // It solves "1" vs "2.01" -> "2" and "3.5" vs "5" -> "4".
+    const nextIntAfterBefore = Math.floor(beforeNum) + 1;
+    if (compareDecimalStrings(nextIntAfterBefore.toString(), afterId) < 0) {
+      console.log(`EXIT: Using next available integer: ${nextIntAfterBefore}`);
+      return nextIntAfterBefore.toString();
+    }
+    // ✨ ---  END OF THE FIX  --- ✨
+
     const beforeParts = beforeId.split(".");
     const afterParts = afterId.split(".");
     const gap = afterNum - beforeNum;
     const lenB = beforeParts[1]?.length || 0;
     const lenA = afterParts[1]?.length || 0;
 
-        // CASE 1) same integer part, both have decimals
+    // CASE 1) same integer part, both have decimals
     if (beforeParts[0] === afterParts[0] && lenB > 0 && lenA > 0) {
+      // ... (This logic is correct for its purpose and is now protected by the fix above)
       console.log("Case 1: same int & both decimals");
-
-      const intPart     = beforeParts[0];
-      const beforeDec   = beforeParts[1];
-      const afterDec    = afterParts[1];
-
-      // 1.A) exactly same decimal length → append “1”
-      if (lenA === lenB) {
-        return `${beforeId}1`;
-      }
-
-      // 1.B) after has more digits → pad and append “1”
-      if (lenA > lenB) {
-        const extra  = lenA - lenB;
-        const suffix = "0".repeat(extra) + "1";
-        return `${beforeId}${suffix}`;
-      }
-
-      // 1.C) before has more digits → try to increment last digit
-      //    e.g. 1.21 vs 1.3 → pad "3" to "30", then do 21→22
+      const intPart = beforeParts[0];
+      const beforeDec = beforeParts[1];
+      const afterDec = afterParts[1];
+      if (lenA === lenB) return `${beforeId}1`;
+      if (lenA > lenB) return `${beforeId}${"0".repeat(lenA - lenB)}1`;
       const paddedAfterDec = afterDec.padEnd(lenB, "0");
-      const beforeNumDec   = parseInt(beforeDec, 10);
-      const afterNumDec    = parseInt(paddedAfterDec, 10);
-
-      // if there’s room to add 1, do it:
+      const beforeNumDec = parseInt(beforeDec, 10);
+      const afterNumDec = parseInt(paddedAfterDec, 10);
       if (afterNumDec - beforeNumDec > 1) {
-        let newDec = (beforeNumDec + 1).toString();
-        // preserve leading zeros if any
-        newDec = newDec.padStart(lenB, "0");
+        let newDec = (beforeNumDec + 1).toString().padStart(lenB, "0");
         return `${intPart}.${newDec}`;
       }
-
-      // otherwise fallback to just appending “1”
       return `${beforeId}1`;
     }
 
@@ -160,39 +150,32 @@ export function generateIdBetween(beforeId, afterId) {
       beforePartsLength: beforeParts.length,
       afterPartsLength: afterParts.length,
       sameIntegerPart: beforeParts[0] === afterParts[0],
-      gapPositive: gap > 0,
-      gapSmall: gap <= 0.1
     });
     if (
       beforeParts.length === 1 &&
       afterParts.length === 2 &&
-      beforeParts[0] === afterParts[0] &&
-      gap > 0 &&
-      gap <= 0.1 + Number.EPSILON
+      beforeParts[0] === afterParts[0]
     ) {
+      // ... (This logic is correct for its purpose and is now protected by the fix above)
       console.log("EXIT: Case 2 triggered");
       const suffix = "0".repeat(lenA) + "1";
       return `${beforeParts[0]}.${suffix}`;
     }
 
-    
     // CASE 3: integers with gap (e.g. 1 and 2 → 1.1, or 3 and 5 → 4)
     console.log("Checking case 3...");
-    if (
-      Number.isInteger(beforeNum) &&
-      Number.isInteger(afterNum)
-    ) {
+    if (Number.isInteger(beforeNum) && Number.isInteger(afterNum)) {
+      // ... (The fix above already handles the "3 and 5 -> 4" case, but this is fine as a fallback)
       if (afterNum - beforeNum === 1) {
-        // Consecutive integers, use decimal
         return `${beforeNum}.1`;
       } else if (afterNum - beforeNum > 1) {
-        // Gap between integers, use the next integer
         return (beforeNum + 1).toString();
       }
     }
 
     // CASE 4: before has decimal, after is integer
     if (!Number.isInteger(beforeNum) && Number.isInteger(afterNum)) {
+      // ... (The fix above already handles the "3.5 and 5 -> 4" case)
       const beforeInt = Math.floor(beforeNum);
       if (afterNum - beforeInt > 1) {
         return (beforeInt + 1).toString();
@@ -205,11 +188,10 @@ export function generateIdBetween(beforeId, afterId) {
     }
   }
 
-  // FINAL fallback: keep bumping after beforeId
+  // FINAL fallback: This should now be unreachable for valid numerical inputs.
   console.log("EXIT: Fallback");
   return `${beforeId}_next`;
 }
-
 // Helper function to find the ID of the previous element with a numerical ID
 export function findPreviousElementId(node) {
   let prev = node.previousElementSibling;
