@@ -463,3 +463,40 @@ function notifyContentUpdated() {
     detail: { bookId: book }
   }));
 }
+
+
+// for page load to go to the histroy log object store... if needed, to update to backend
+
+/*
+
+// In initializePage.js or similar
+
+async function retryFailedBatches() {
+  if (!navigator.onLine) return;
+
+  const db = await openDatabase();
+  const failedLogs = await db.getAllFromIndex("historyLog", "status", "failed");
+
+  if (failedLogs.length === 0) return;
+  console.log(`Retrying ${failedLogs.length} failed sync batches...`);
+
+  for (const log of failedLogs) {
+    try {
+      await executeSyncPayload(log.payload);
+      log.status = "synced"; // It worked!
+      await updateHistoryLog(log);
+      console.log(`✅ Successfully retried batch ${log.id}`);
+    } catch (error) {
+      console.error(`❌ Retry for batch ${log.id} failed again.`);
+      // We can add a retryCount to the log object to prevent infinite loops
+      break; // Stop on first failure to maintain order
+    }
+  }
+}
+
+// Call this on page load and when the 'online' event fires.
+retryFailedBatches();
+window.addEventListener('online', retryFailedBatches);
+
+*/
+
