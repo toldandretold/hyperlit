@@ -25,6 +25,7 @@ import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL } from "./postgreSQ
 // Add to your imports at the top
 import { buildUserHighlightCache, clearUserHighlightCache } from "./userCache.js";
 
+import { undoLastBatch } from './historyManager.js';
 
 let isRetrying = false; // Prevents multiple retries at once
 
@@ -95,6 +96,8 @@ export function setupOnlineSyncListener() {
   console.log("👂 Online sync listener is active.");
 }
 
+window.undo = undoLastBatch;
+console.log("💡 Undo function available in console as `window.undo()`");
 
 // Your existing function - unchanged for backward compatibility
 export async function loadHyperText() {
