@@ -164,14 +164,15 @@ const debouncedMasterSync = debounce(async () => {
 
   console.log(`DEBOUNCED SYNC: Processing ${pendingSyncs.size} items...`);
 
-  // --- 1. Build Payload (Your existing logic) ---
+  // --- 1. Build Payload ---
   const itemsToSync = new Map(pendingSyncs);
   pendingSyncs.clear();
 
+  // ✅ Added hypercites to the deletions payload for completeness
   const payload = {
     book: bookId,
     updates: { nodeChunks: [], hypercites: [], hyperlights: [], library: null },
-    deletions: { nodeChunks: [], hyperlights: [] },
+    deletions: { nodeChunks: [], hyperlights: [], hypercites: [] },
   };
   const previousState = {}; // For undo functionality
 
@@ -185,9 +186,19 @@ const debouncedMasterSync = debounce(async () => {
         case "library": payload.updates.library = item.data; break;
       }
     } else if (item.type === "delete") {
+      // ✅ THE CHANGE IS HERE: We now use the full `item.data` object.
+      if (!item.data) continue; // Safety check
       switch (item.store) {
-        case "nodeChunks": payload.deletions.nodeChunks.push({ book: bookId, startLine: item.id, _action: "delete" }); break;
-        case "hyperlights": payload.deletions.hyperlights.push({ book: bookId, hyperlight_id: item.id }); break;
+        case "nodeChunks":
+          // Use the full record and add an action flag for the backend
+          payload.deletions.nodeChunks.push({ ...item.data, _action: "delete" });
+          break;
+        case "hyperlights":
+          payload.deletions.hyperlights.push({ ...item.data, _action: "delete" });
+          break;
+        case "hypercites":
+          payload.deletions.hypercites.push({ ...item.data, _action: "delete" });
+          break;
       }
     }
   }
@@ -201,36 +212,31 @@ const debouncedMasterSync = debounce(async () => {
     previousState: previousState,
   };
 
-  // ✅ THE FIX: Correctly get the ID from the 'add' operation.
   const db = await openDatabase();
   const tx = db.transaction("historyLog", "readwrite");
   const store = tx.objectStore("historyLog");
 
   const newId = await new Promise((resolve, reject) => {
     const request = store.add(logEntry);
-    request.onsuccess = () => resolve(request.result); // The ID is in request.result
+    request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 
-  logEntry.id = newId; // newId is now a number, not an object.
-  await tx.done; // Wait for the transaction to complete.
-  console.log(`📦 Saved batch to historyLog with ID: ${logEntry.id}`); // This will now log correctly.
+  logEntry.id = newId;
+  await tx.done;
+  console.log(`📦 Saved batch to historyLog with ID: ${logEntry.id}`);
 
   // --- 3. Attempt to Sync to Backend ---
   try {
     if (!navigator.onLine) throw new Error("Offline");
-
     await executeSyncPayload(payload);
-
-    // Success! Update the log status to 'synced'. This will now work.
     logEntry.status = "synced";
     await updateHistoryLog(logEntry);
     console.log(`✅ Batch ${logEntry.id} synced successfully.`);
   } catch (error) {
-    // Failure! Update the log status to 'failed'. This will also work.
-    console.error(`❌ Sync failed for batch ${logEntry.id}:`, error.message);
     logEntry.status = "failed";
     await updateHistoryLog(logEntry);
+    console.error(`❌ Sync failed for batch ${logEntry.id}:`, error.message);
   }
 }, 3000);
 
@@ -1070,7 +1076,7 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
       const lightsStore = tx.objectStore("hyperlights");
       const citesStore = tx.objectStore("hypercites");
 
-      // Collect data for sync (what was deleted)
+      // This object will collect the full data of everything we delete.
       const deletedData = {
         nodeChunks: [],
         hyperlights: [],
@@ -1083,7 +1089,6 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
       const deletePromises = nodeIds.map(async (nodeId, index) => {
         console.log(`🔍 Processing deletion ${index + 1}/${nodeIds.length}: ${nodeId}`);
         
-        // Ensure we have a numeric ID
         if (!/^\d+(\.\d+)?$/.test(nodeId)) {
           console.log(`❌ Skipping deletion – invalid node ID: ${nodeId}`);
           return;
@@ -1092,10 +1097,7 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
         const numericNodeId = parseNodeId(nodeId);
         const compositeKey = [bookId, numericNodeId];
         
-        console.log(`🔍 Deleting composite key:`, compositeKey);
-        
         return new Promise((resolve, reject) => {
-          // Get the record before deleting (for sync purposes)
           const getReq = chunksStore.get(compositeKey);
           
           getReq.onsuccess = () => {
@@ -1104,39 +1106,30 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
             if (existing) {
               console.log(`✅ Found existing record for ${nodeId}, deleting...`);
               
-              // Store what we're deleting for sync
-              deletedData.nodeChunks.push({
-                ...existing,
-                _deleted: true // Mark as deleted for sync
-              });
+              // ✅ CHANGE 1: Store the original record for the history log.
+              // We no longer need the `_deleted: true` flag.
+              deletedData.nodeChunks.push(existing);
               
-              // Delete the main record
+              // This part of your logic is correct and is preserved.
               const deleteReq = chunksStore.delete(compositeKey);
-              
               deleteReq.onsuccess = () => {
                 processedCount++;
                 console.log(`✅ Deleted ${nodeId} (${processedCount}/${nodeIds.length})`);
                 resolve();
               };
+              deleteReq.onerror = (e) => reject(e.target.error);
               
-              deleteReq.onerror = (e) => {
-                console.error(`❌ Failed to delete ${nodeId}:`, e.target.error);
-                reject(e.target.error);
-              };
-              
-              // Delete associated hyperlights
+              // This critical logic for deleting associated data is preserved.
               try {
-                const lightIndex = lightsStore.index("book_startLine");
+                const lightIndex = lightsStore.index("book_startLine"); // This assumes you have this index
                 const lightRange = IDBKeyRange.only([bookId, numericNodeId]);
                 const lightReq = lightIndex.openCursor(lightRange);
                 
                 lightReq.onsuccess = (e) => {
                   const cursor = e.target.result;
                   if (cursor) {
-                    deletedData.hyperlights.push({
-                      ...cursor.value,
-                      _deleted: true
-                    });
+                    // ✅ CHANGE 2: Store the original hyperlight record.
+                    deletedData.hyperlights.push(cursor.value);
                     cursor.delete();
                     cursor.continue();
                   }
@@ -1145,19 +1138,16 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
                 console.warn(`⚠️ Error deleting hyperlights for ${nodeId}:`, lightError);
               }
               
-              // Delete associated hypercites
               try {
-                const citeIndex = citesStore.index("book_startLine");
+                const citeIndex = citesStore.index("book_startLine"); // This assumes you have this index
                 const citeRange = IDBKeyRange.only([bookId, numericNodeId]);
                 const citeReq = citeIndex.openCursor(citeRange);
                 
                 citeReq.onsuccess = (e) => {
                   const cursor = e.target.result;
                   if (cursor) {
-                    deletedData.hypercites.push({
-                      ...cursor.value,
-                      _deleted: true
-                    });
+                    // ✅ CHANGE 3: Store the original hypercite record.
+                    deletedData.hypercites.push(cursor.value);
                     cursor.delete();
                     cursor.continue();
                   }
@@ -1171,30 +1161,27 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
             }
           };
 
-          getReq.onerror = (e) => {
-            console.error(`❌ Error fetching record for deletion ${nodeId}:`, e.target.error);
-            reject(e.target.error);
-          };
+          getReq.onerror = (e) => reject(e.target.error);
         });
       });
 
-      // Wait for all deletions to complete
-      console.log(`⏳ Waiting for ${deletePromises.length} deletion promises...`);
       await Promise.all(deletePromises);
       console.log(`✅ All deletion promises completed`);
 
-      // Return promise that resolves when transaction completes
       return new Promise((resolve, reject) => {
         tx.oncomplete = async () => {
           console.log(`✅ Batch IndexedDB deletion transaction complete...`);
-
-          // ✅ THE FIX: Use the globally available 'book' variable here.
-          const currentBookId = book || "latest";
-          await updateBookTimestamp(currentBookId);
+          await updateBookTimestamp(bookId);
           
-          // MODIFIED: This is correct. No data object needed for deletions.
-          nodeIds.forEach((nodeId) => {
-            queueForSync("nodeChunks", parseNodeId(nodeId), "delete");
+          // ✅ CHANGE 4: Instead of queueing IDs, queue the full records we collected.
+          deletedData.nodeChunks.forEach((record) => {
+            queueForSync("nodeChunks", record.startLine, "delete", record);
+          });
+          deletedData.hyperlights.forEach((record) => {
+            queueForSync("hyperlights", record.hyperlight_id, "delete", record);
+          });
+          deletedData.hypercites.forEach((record) => {
+            queueForSync("hypercites", record.hyperciteId, "delete", record);
           });
 
           resolve();
@@ -1965,7 +1952,7 @@ export async function getHyperciteFromIndexedDB(book, hyperciteId) {
 export async function deleteIndexedDBRecord(id) {
   return withPending(async () => {
     // Only process numeric IDs
-    if (!id || !id.match(/^\d+(\.\d+)?$/)) {
+    if (!id || !/^\d+(\.\d+)?$/.test(id)) {
       console.log(`Skipping deletion for non-numeric ID: ${id}`);
       return false;
     }
@@ -1973,59 +1960,85 @@ export async function deleteIndexedDBRecord(id) {
     const bookId = book || "latest";
     const numericId = parseNodeId(id);
     console.log(
-      `Deleting node with ID ${id} (numeric: ${numericId}) from IndexedDB`
+      `Deleting node with ID ${id} (numeric: ${numericId}) and its associations`
     );
 
     const db = await openDatabase();
-    const tx = db.transaction("nodeChunks", "readwrite");
-    const store = tx.objectStore("nodeChunks");
+    // ✅ CHANGE 1: The transaction now includes all relevant stores.
+    const tx = db.transaction(
+      ["nodeChunks", "hyperlights", "hypercites"],
+      "readwrite"
+    );
+    const chunksStore = tx.objectStore("nodeChunks");
+    const lightsStore = tx.objectStore("hyperlights");
+    const citesStore = tx.objectStore("hypercites");
     const key = [bookId, numericId];
 
-    // Get the record before deleting it (for PostgreSQL sync)
-    let recordToDelete = null;
-    const getRequest = store.get(key);
-    
     return new Promise((resolve, reject) => {
-      const TRANSACTION_TIMEOUT = 10000;
-      const timeoutId = setTimeout(() => tx.abort(), TRANSACTION_TIMEOUT);
+      const getRequest = chunksStore.get(key);
 
       getRequest.onsuccess = () => {
-        recordToDelete = getRequest.result;
-        
+        const recordToDelete = getRequest.result;
+
         if (recordToDelete) {
           console.log("Found record to delete:", recordToDelete);
+
+          // Queue the full nodeChunk object for the history log
+          queueForSync("nodeChunks", numericId, "delete", recordToDelete);
+
+          // Now, delete the main record
+          chunksStore.delete(key);
+
+          // ✅ CHANGE 2: Add logic to find and delete associated data,
+          // just like in the batch version.
+          try {
+            // This assumes you have a 'book_startLine' index on these stores.
+            // If not, you'll need to create one in onupgradeneeded.
+            const range = IDBKeyRange.only([bookId, numericId]);
+
+            // Delete associated hyperlights
+            const lightIndex = lightsStore.index("book_startLine");
+            const lightReq = lightIndex.openCursor(range);
+            lightReq.onsuccess = (e) => {
+              const cursor = e.target.result;
+              if (cursor) {
+                console.log("Deleting associated hyperlight:", cursor.value);
+                // Queue the full hyperlight record for history
+                queueForSync("hyperlights", cursor.value.hyperlight_id, "delete", cursor.value);
+                cursor.delete();
+                cursor.continue();
+              }
+            };
+
+            // Delete associated hypercites
+            const citeIndex = citesStore.index("book_startLine");
+            const citeReq = citeIndex.openCursor(range);
+            citeReq.onsuccess = (e) => {
+              const cursor = e.target.result;
+              if (cursor) {
+                console.log("Deleting associated hypercite:", cursor.value);
+                // Queue the full hypercite record for history
+                queueForSync("hypercites", cursor.value.hyperciteId, "delete", cursor.value);
+                cursor.delete();
+                cursor.continue();
+              }
+            };
+          } catch (error) {
+            console.warn(`⚠️ Error finding associated records for node ${numericId}:`, error);
+          }
         } else {
-          console.log(`No record found for key: ${key}`);
+          console.log(`No record found for key: ${key}, nothing to delete.`);
         }
-
-        // Delete the record from IndexedDB
-        store.delete(key);
       };
 
-      getRequest.onerror = (event) => {
-        clearTimeout(timeoutId);
-        console.error("Error getting record for deletion:", event.target.error);
-        reject(event.target.error);
-      };
+      getRequest.onerror = (e) => reject(e.target.error);
 
       tx.oncomplete = async () => {
         await updateBookTimestamp(bookId);
-        // MODIFIED: This is correct. No data object needed for deletion.
-        queueForSync("nodeChunks", numericId, "delete");
         resolve(true);
       };
 
-      tx.onerror = (event) => {
-        clearTimeout(timeoutId);
-        console.error("Transaction error:", event.target.error);
-        reject(event.target.error);
-      };
-
-      tx.onabort = (event) => {
-        clearTimeout(timeoutId);
-        console.warn("Transaction aborted:", event);
-        reject(new Error("Transaction aborted"));
-      };
+      tx.onerror = (e) => reject(e.target.error);
     });
   });
 }
