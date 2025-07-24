@@ -109,7 +109,7 @@ export function queueForSync(store, id, type = "update", data = null) {
   debouncedMasterSync(); // Nudge the shopper.
 }
 
-async function updateHistoryLog(logEntry) {
+export async function updateHistoryLog(logEntry) {
   const db = await openDatabase();
   const tx = db.transaction("historyLog", "readwrite");
   // .put() works for both creating and updating an entry.
@@ -117,7 +117,7 @@ async function updateHistoryLog(logEntry) {
   return tx.done;
 }
 
-async function executeSyncPayload(payload) {
+export async function executeSyncPayload(payload) {
   const bookId = payload.book;
   const promises = [];
 
