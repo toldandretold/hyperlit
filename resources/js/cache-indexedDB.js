@@ -1,23 +1,18 @@
-import {
-  broadcastToOpenTabs
-} from './BroadcastListener.js';
+// In cache-indexedDB.js
+
+import { broadcastToOpenTabs } from "./BroadcastListener.js";
 import { withPending } from "./operationState.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
-import { getCurrentUser } from './auth.js';  
-import { debounce } from './divEditor.js'; 
+import { getCurrentUser } from "./auth.js";
+import { debounce } from "./divEditor.js";
 
-export const DB_VERSION = 16;
+// Increment the version to ensure this new schema is applied.
+export const DB_VERSION = 17;
 import { book } from "./app.js";
 
-
- 
 /**
- * Opens (or creates) the IndexedDB database.
- * 
- * For the nodeChunks store, we now use a composite key: [book, startLine],
- * and keep only chunk_id as an index.
- * 
- * For the footnotes store, the key is now just "book".
+ * Opens (or creates) the IndexedDB database with the final, correct schema.
+ * This version replaces 'failedSyncs' with the more powerful 'historyLog'.
  */
 export async function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -27,6 +22,7 @@ export async function openDatabase() {
       console.log("📌 Upgrading IndexedDB to version " + DB_VERSION);
       const db = event.target.result;
 
+      // This array now defines the final, correct set of object stores.
       const storeConfigs = [
         {
           name: "nodeChunks",
@@ -55,20 +51,28 @@ export async function openDatabase() {
           name: "library",
           keyPath: "book",
         },
-        // ✅ ADD THIS: failedSyncs store for retry mechanism
+        // ✅ REPLACED 'failedSyncs' with the new 'historyLog' store.
+        // This is the foundation for your offline sync and undo/redo features.
         {
-          name: "failedSyncs",
-          keyPath: "bookId",
-          indices: ["timestamp", "syncType"],
-        }
+          name: "historyLog",
+          keyPath: "id", // Use a unique, auto-incrementing key for each batch
+          autoIncrement: true,
+          indices: ["status", "bookId"], // We'll need these to find failed/pending logs
+        },
       ];
 
-      storeConfigs.forEach(({ name, keyPath, indices }) => {
+      // This loop will delete and rebuild the stores, ensuring a clean slate.
+      // Perfect for development when you can clear the cache.
+      storeConfigs.forEach(({ name, keyPath, autoIncrement, indices }) => {
         if (db.objectStoreNames.contains(name)) {
           db.deleteObjectStore(name);
-          console.log(`Deleted existing store: ${name}`);
+          console.log(`🗑️ Deleted existing store: ${name}`);
         }
-        const objectStore = db.createObjectStore(name, { keyPath });
+        const storeOptions = { keyPath };
+        if (autoIncrement) {
+          storeOptions.autoIncrement = true;
+        }
+        const objectStore = db.createObjectStore(name, storeOptions);
         console.log(
           `✅ Created store '${name}' with keyPath: ${JSON.stringify(keyPath)}`
         );
@@ -105,114 +109,131 @@ export function queueForSync(store, id, type = "update", data = null) {
   debouncedMasterSync(); // Nudge the shopper.
 }
 
-// MODIFIED: The debounced sync now reads from the map, not the DB.
+async function updateHistoryLog(logEntry) {
+  const db = await openDatabase();
+  const tx = db.transaction("historyLog", "readwrite");
+  // .put() works for both creating and updating an entry.
+  await tx.objectStore("historyLog").put(logEntry);
+  return tx.done;
+}
+
+async function executeSyncPayload(payload) {
+  const bookId = payload.book;
+  const promises = [];
+
+  if (
+    payload.updates.nodeChunks.length > 0 ||
+    payload.deletions.nodeChunks.length > 0
+  ) {
+    const allNodeChunks = [
+      ...payload.updates.nodeChunks.map(toPublicChunk).filter(Boolean),
+      ...payload.deletions.nodeChunks,
+    ];
+    if (allNodeChunks.length > 0) {
+      promises.push(syncNodeChunksToPostgreSQL(bookId, allNodeChunks));
+    }
+  }
+  if (payload.updates.hypercites.length > 0) {
+    promises.push(syncHyperciteToPostgreSQL(payload.updates.hypercites));
+  }
+  if (payload.updates.hyperlights.length > 0) {
+    promises.push(syncHyperlightToPostgreSQL(payload.updates.hyperlights));
+  }
+  if (payload.deletions.hyperlights.length > 0) {
+    promises.push(
+      syncHyperlightDeletionsToPostgreSQL(payload.deletions.hyperlights)
+    );
+  }
+  if (payload.updates.library) {
+    promises.push(upsertLibraryRecord(payload.updates.library));
+  }
+
+  await Promise.all(promises);
+}
+
+// In cache-indexedDB.js
+
+// =====================================================================
+// THIS IS THE OVERHAULED and CORRECTED debouncedMasterSync
+// =====================================================================
 const debouncedMasterSync = debounce(async () => {
   const bookId = book || "latest";
   if (pendingSyncs.size === 0) {
-    console.log("Debounced sync triggered, but queue is empty.");
     return;
   }
 
   console.log(`DEBOUNCED SYNC: Processing ${pendingSyncs.size} items...`);
 
-  // Take a snapshot of the queue and clear it.
+  // --- 1. Build Payload (Your existing logic) ---
   const itemsToSync = new Map(pendingSyncs);
   pendingSyncs.clear();
 
-  // The payload now supports all our data types
   const payload = {
     book: bookId,
-    updates: {
-      nodeChunks: [],
-      hypercites: [],
-      hyperlights: [],
-      library: null,
-    },
-    deletions: {
-      nodeChunks: [],
-      hyperlights: [],
-    },
+    updates: { nodeChunks: [], hypercites: [], hyperlights: [], library: null },
+    deletions: { nodeChunks: [], hyperlights: [] },
   };
+  const previousState = {}; // For undo functionality
 
-  // Build the payload directly from the data in our map
   for (const item of itemsToSync.values()) {
     if (item.type === "update") {
-      if (!item.data) continue; // Skip if data is missing
+      if (!item.data) continue;
       switch (item.store) {
-        case "nodeChunks":
-          payload.updates.nodeChunks.push(item.data);
-          break;
-        case "hypercites":
-          payload.updates.hypercites.push(item.data);
-          break;
-        case "hyperlights":
-          payload.updates.hyperlights.push(item.data);
-          break;
-        case "library":
-          payload.updates.library = item.data;
-          break;
+        case "nodeChunks": payload.updates.nodeChunks.push(item.data); break;
+        case "hypercites": payload.updates.hypercites.push(item.data); break;
+        case "hyperlights": payload.updates.hyperlights.push(item.data); break;
+        case "library": payload.updates.library = item.data; break;
       }
     } else if (item.type === "delete") {
       switch (item.store) {
-        case "nodeChunks":
-          payload.deletions.nodeChunks.push({
-            book: bookId,
-            startLine: item.id,
-            _action: "delete",
-          });
-          break;
-        case "hyperlights":
-          payload.deletions.hyperlights.push({
-            book: bookId,
-            hyperlight_id: item.id,
-          });
-          break;
+        case "nodeChunks": payload.deletions.nodeChunks.push({ book: bookId, startLine: item.id, _action: "delete" }); break;
+        case "hyperlights": payload.deletions.hyperlights.push({ book: bookId, hyperlight_id: item.id }); break;
       }
     }
   }
 
-  console.log("FINAL SYNC PAYLOAD:", payload);
+  // --- 2. Save to Local History Log FIRST ---
+  const logEntry = {
+    timestamp: Date.now(),
+    bookId: payload.book,
+    status: "pending",
+    payload: payload,
+    previousState: previousState,
+  };
 
+  // ✅ THE FIX: Correctly get the ID from the 'add' operation.
+  const db = await openDatabase();
+  const tx = db.transaction("historyLog", "readwrite");
+  const store = tx.objectStore("historyLog");
+
+  const newId = await new Promise((resolve, reject) => {
+    const request = store.add(logEntry);
+    request.onsuccess = () => resolve(request.result); // The ID is in request.result
+    request.onerror = () => reject(request.error);
+  });
+
+  logEntry.id = newId; // newId is now a number, not an object.
+  await tx.done; // Wait for the transaction to complete.
+  console.log(`📦 Saved batch to historyLog with ID: ${logEntry.id}`); // This will now log correctly.
+
+  // --- 3. Attempt to Sync to Backend ---
   try {
-    // MODIFIED: Added full sync logic for all data types.
-    // Sync Node Chunks (updates and deletions)
-    if (
-      payload.updates.nodeChunks.length > 0 ||
-      payload.deletions.nodeChunks.length > 0
-    ) {
-      const allNodeChunks = [
-        ...payload.updates.nodeChunks.map(toPublicChunk).filter(Boolean),
-        ...payload.deletions.nodeChunks,
-      ];
-      if (allNodeChunks.length > 0) {
-        await syncNodeChunksToPostgreSQL(bookId, allNodeChunks);
-      }
-    }
+    if (!navigator.onLine) throw new Error("Offline");
 
-    // Sync Hypercites
-    if (payload.updates.hypercites.length > 0) {
-      await syncHyperciteToPostgreSQL(payload.updates.hypercites);
-    }
+    await executeSyncPayload(payload);
 
-    // Sync Hyperlights (updates and deletions)
-    if (payload.updates.hyperlights.length > 0) {
-      await syncHyperlightToPostgreSQL(payload.updates.hyperlights);
-    }
-    if (payload.deletions.hyperlights.length > 0) {
-      await syncHyperlightDeletionsToPostgreSQL(
-        payload.deletions.hyperlights
-      );
-    }
-
-    // Sync Library
-    if (payload.updates.library) {
-      await upsertLibraryRecord(payload.updates.library);
-    }
+    // Success! Update the log status to 'synced'. This will now work.
+    logEntry.status = "synced";
+    await updateHistoryLog(logEntry);
+    console.log(`✅ Batch ${logEntry.id} synced successfully.`);
   } catch (error) {
-    console.error("❌ Debounced master sync failed:", error);
-    // Here you might re-queue the failed items from `itemsToSync`
+    // Failure! Update the log status to 'failed'. This will also work.
+    console.error(`❌ Sync failed for batch ${logEntry.id}:`, error.message);
+    logEntry.status = "failed";
+    await updateHistoryLog(logEntry);
   }
 }, 3000);
+
 
 // --- NEW: The "Final Save" function for page unload ---
 let isSyncingOnUnload = false;
