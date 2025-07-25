@@ -7,7 +7,7 @@ import { getCurrentUser } from "./auth.js";
 import { debounce } from "./divEditor.js";
 
 // Increment the version to ensure this new schema is applied.
-export const DB_VERSION = 18;
+export const DB_VERSION = 19;
 import { book } from "./app.js";
 
 /**
@@ -63,7 +63,6 @@ export async function openDatabase() {
         {
           name: "redoLog",
           keyPath: "id",
-          autoIncrement: true, // It will use the ID from the historyLog
           indices: ["bookId"],
         },
       ];
