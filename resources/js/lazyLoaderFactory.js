@@ -348,22 +348,23 @@ instance.restoreScrollPosition = async () => {
     loadChunkInternal(chunkId, direction, instance, attachMarkers);
 
 
-    instance.refresh = async () => {
-    console.log("🔄 Lazy-loader refresh starting…");
+    // In lazyLoaderFactory.js, inside the createLazyLoader function...
+
+  instance.refresh = async (targetElementId = null) => {
+    console.log(`🔄 Lazy-loader refresh starting. Target ID: ${targetElementId}`);
     
-    // 1) re-read the fresh nodeChunks from IndexedDB
+    // 1. Re-read the fresh nodeChunks from IndexedDB (from your original)
     instance.nodeChunks = await instance.getNodeChunks();
     
-    // 2) remove all rendered chunk-DIVs
+    // 2. Remove all rendered chunk-DIVs (from your original)
     instance.container
       .querySelectorAll("[data-chunk-id]")
       .forEach(el => el.remove());
     
-    // 3) reset our “which chunks are in the DOM” set
+    // 3. Reset our “which chunks are in the DOM” set (from your original)
     instance.currentlyLoadedChunks.clear();
     
-    // 4) ensure our sentinels are back in place
-    //    (they should already be there, but just in case)
+    // 4. Ensure sentinels are in place (from your original)
     if (!instance.container.contains(instance.topSentinel)) {
       instance.container.prepend(instance.topSentinel);
     }
@@ -371,97 +372,54 @@ instance.restoreScrollPosition = async () => {
       instance.container.appendChild(instance.bottomSentinel);
     }
     
-    // 5) fire the observer again on your sentinels
-    //    (usually they’re already being observed, but this
-    //     guarantees one immediate push)
+    // 5. ✅ KEPT: Re-observe the sentinels for robustness (from your original)
     instance.observer.observe(instance.topSentinel);
     instance.observer.observe(instance.bottomSentinel);
 
-    // 6) load the very first chunk manually
-    //    (you could choose the lowest chunk_id, or the chunk
-    //     that contains the insertion point, etc.)
-    const allIds = Array.from(new Set(
-      instance.nodeChunks.map(n => parseFloat(n.chunk_id))
-    )).sort((a,b)=>a-b);
-    if (allIds.length) {
-      const firstId = allIds[0];
-      console.log("🔄 Refresh loading first chunk:", firstId);
-      loadChunkInternal(firstId, "down", instance, attachMarkers);
-    }
-  };
+    // 6. ✅ NEW: Determine which chunk to load first
+    const allChunkIds = [...new Set(instance.nodeChunks.map(n => n.chunk_id))].sort((a, b) => a - b);
+    let chunkToLoadId = allChunkIds.length > 0 ? allChunkIds[0] : null;
 
-  // +++ ADD THE NEW METHOD HERE, ALONGSIDE THE OTHERS +++
-  instance.updateAndRenderFromPaste = async function (newNodes, insertionNodeId) {
-    console.log("⚡️ Performing targeted update and render for paste...");
-
-    // 1. Find the insertion index in the loader's internal list.
-    const insertionIndex = this.nodeChunks.findIndex(
-      (chunk) => chunk.startLine == insertionNodeId
-    );
-
-    if (insertionIndex === -1) {
-      console.error(
-        "Could not find insertion point in lazy loader. Forcing full refresh."
-      );
-      await this.refresh(); // Fallback to a hard refresh
-      return;
+    if (targetElementId) {
+      const targetChunk = instance.nodeChunks.find(c => c.startLine == targetElementId);
+      if (targetChunk) {
+        chunkToLoadId = targetChunk.chunk_id;
+        console.log(`🎯 Found target chunk ${chunkToLoadId} for element ${targetElementId}`);
+      }
     }
 
-    // 2. Surgically update the loader's in-memory `nodeChunks` array.
-    const countToRemove = this.nodeChunks.length - (insertionIndex + 1);
-    this.nodeChunks.splice(
-      insertionIndex + 1,
-      countToRemove,
-      ...newNodes
-    );
-    console.log(
-      `🧠 Loader memory updated. New nodeChunks length: ${this.nodeChunks.length}`
-    );
-
-    // 3. Clear the view and reset loaded chunks.
-    this.container.innerHTML = "";
-    this.currentlyLoadedChunks.clear();
-
-    // 4. Re-insert sentinels.
-    this.container.prepend(this.topSentinel);
-    this.container.appendChild(this.bottomSentinel);
-
-    // 5. Find the chunk_id of our insertion point to start rendering from there.
-    const targetChunkData = this.nodeChunks.find(
-      (chunk) => chunk.startLine == insertionNodeId
-    );
-
-    if (!targetChunkData) {
-      console.error("Cannot find target chunk data after update. Aborting render.");
-      return;
+    // 7. Load the determined chunk
+    if (chunkToLoadId !== null) {
+      console.log(`🔄 Refresh loading initial chunk: ${chunkToLoadId}`);
+      loadChunkInternal(chunkToLoadId, "down", instance, attachMarkers);
     }
 
-    const targetChunkId = targetChunkData.chunk_id;
-    console.log(`🎯 Target chunk for re-rendering is ${targetChunkId}`);
-
-    // 6. Load the target chunk and scroll to the insertion point.
-    await loadChunkInternal(targetChunkId, "down", this, attachMarkers);
-
+    // 8. ✅ NEW: Set focus after a short delay to allow for rendering
     setTimeout(() => {
-      const lastPastedNode = newNodes[newNodes.length - 1];
-      const lastElement = document.getElementById(lastPastedNode.startLine);
-      if (lastElement) {
-        console.log(`📜 Scrolling to last pasted element: ${lastPastedNode.startLine}`);
-        lastElement.scrollIntoView({
-          behavior: "auto",
-          block: "center",
-        });
-        
+      let elementToFocus = targetElementId ? document.getElementById(targetElementId) : null;
+
+      // Fallback if the target element isn't found
+      if (!elementToFocus) {
+        elementToFocus = instance.container.querySelector('p, h1, h2, h3, blockquote, pre');
+        console.log("...target element not found, falling back to first block element.");
+      }
+
+      if (elementToFocus) {
+        console.log(`✨ Setting focus to element:`, elementToFocus);
+        elementToFocus.focus(); // Essential for contenteditable
+
+        // Place the cursor at the end of the element
         const selection = window.getSelection();
         const range = document.createRange();
-        range.selectNodeContents(lastElement);
-        range.collapse(false);
+        range.selectNodeContents(elementToFocus);
+        range.collapse(false); // false means collapse to the end
         selection.removeAllRanges();
         selection.addRange(range);
       }
     }, 100);
   };
 
+  
   return instance;
 }
 
