@@ -7,7 +7,7 @@ import { getCurrentUser } from "./auth.js";
 import { debounce } from "./divEditor.js";
 
 // Increment the version to ensure this new schema is applied.
-export const DB_VERSION = 17;
+export const DB_VERSION = 18;
 import { book } from "./app.js";
 
 /**
@@ -59,6 +59,13 @@ export async function openDatabase() {
           autoIncrement: true,
           indices: ["status", "bookId"], // We'll need these to find failed/pending logs
         },
+
+        {
+          name: "redoLog",
+          keyPath: "id",
+          autoIncrement: true, // It will use the ID from the historyLog
+          indices: ["bookId"],
+        },
       ];
 
       // This loop will delete and rebuild the stores, ensuring a clean slate.
@@ -68,13 +75,17 @@ export async function openDatabase() {
           db.deleteObjectStore(name);
           console.log(`🗑️ Deleted existing store: ${name}`);
         }
+        // ✅ We've slightly modified this part to handle 'autoIncrement'
         const storeOptions = { keyPath };
         if (autoIncrement) {
           storeOptions.autoIncrement = true;
         }
         const objectStore = db.createObjectStore(name, storeOptions);
+
         console.log(
-          `✅ Created store '${name}' with keyPath: ${JSON.stringify(keyPath)}`
+          `✅ Created store '${name}' with options: ${JSON.stringify(
+            storeOptions
+          )}`
         );
         if (indices) {
           indices.forEach((indexName) => {
@@ -151,11 +162,19 @@ export async function executeSyncPayload(payload) {
   await Promise.all(promises);
 }
 
-// In cache-indexedDB.js
 
-// =====================================================================
-// THIS IS THE OVERHAULED and CORRECTED debouncedMasterSync
-// =====================================================================
+async function clearRedoLog() {
+  const db = await openDatabase();
+  const tx = db.transaction("redoLog", "readwrite");
+  await tx.objectStore("redoLog").clear();
+  console.log("🧹 Redo log cleared due to new action.");
+  return tx.done;
+}
+
+
+// =================================
+// THIS IS THE debouncedMasterSync
+// =================================
 const debouncedMasterSync = debounce(async () => {
   const bookId = book || "latest";
   if (pendingSyncs.size === 0) {

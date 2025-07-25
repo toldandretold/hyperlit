@@ -1,5 +1,6 @@
 import { updateIndexedDBRecord, batchUpdateIndexedDBRecords, } from "./cache-indexedDB.js";
 import { generateIdBetween, findPreviousElementId, findNextElementId } from "./IDfunctions.js";
+import { undoLastBatch, redoLastBatch } from './historyManager.js';
 
 // Private module-level variable to hold the toolbar instance
 let editToolbarInstance = null;
@@ -22,6 +23,8 @@ class EditToolbar {
     this.headingButton = document.getElementById("headingButton");
     this.blockquoteButton = document.getElementById("blockquoteButton");
     this.codeButton = document.getElementById("codeButton");
+    this.undoButton = document.getElementById("undoButton");
+    this.redoButton = document.getElementById("redoButton");
     
     this.isMobile = window.innerWidth <= 768;
     
@@ -34,6 +37,9 @@ class EditToolbar {
     this.isFormatting = false;
     this.lastValidRange = null;
 
+    // ✅ ADD THIS FLAG to prevent rapid clicks while an undo/redo is processing
+    this.isProcessingHistory = false;
+
     if (this.isMobile) {
       this.mobileBackupRange = null;
       this.mobileBackupText = "";
@@ -42,10 +48,7 @@ class EditToolbar {
   }
   
   init() {
-    // Attach button click handlers
     this.attachButtonHandlers();
-    
-    // Start hidden
     this.hide();
   }
   
@@ -58,7 +61,9 @@ class EditToolbar {
       { element: this.italicButton, name: "italic", action: () => this.formatText("italic") },
       { element: this.headingButton, name: "heading", action: () => this.formatBlock("heading") },
       { element: this.blockquoteButton, name: "blockquote", action: () => this.formatBlock("blockquote") },
-      { element: this.codeButton, name: "code", action: () => this.formatBlock("code") }
+      { element: this.codeButton, name: "code", action: () => this.formatBlock("code") },
+      { element: this.undoButton, name: "undo", action: () => this.handleUndo() },
+      { element: this.redoButton, name: "redo", action: () => this.handleRedo() }
     ];
     
     buttons.forEach(({ element, name, action }) => {
@@ -105,6 +110,41 @@ class EditToolbar {
         console.log(`❌ ${name} button NOT found`);
       }
     });
+  }
+
+    async handleUndo() {
+    if (this.isProcessingHistory) {
+      console.log("⏳ Undo/Redo already in progress. Please wait.");
+      return;
+    }
+    this.isProcessingHistory = true;
+    try {
+      await undoLastBatch();
+    } catch (error) {
+      console.error("❌ Error during undo operation:", error);
+    } finally {
+      // This block will run AFTER await undoLastBatch() is complete,
+      // ensuring the UI is unlocked for the next action.
+      this.isProcessingHistory = false;
+      console.log("✅ Undo/Redo lock released.");
+    }
+  }
+
+  async handleRedo() {
+    if (this.isProcessingHistory) {
+      console.log("⏳ Undo/Redo already in progress. Please wait.");
+      return;
+    }
+    this.isProcessingHistory = true;
+    try {
+      await redoLastBatch();
+    } catch (error) {
+      console.error("❌ Error during redo operation:", error);
+    } finally {
+      // This ensures the UI is unlocked even if redo fails.
+      this.isProcessingHistory = false;
+      console.log("✅ Undo/Redo lock released.");
+    }
   }
     
   /**

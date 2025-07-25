@@ -329,6 +329,9 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
         />
       </svg>
     </button>
+
+    <button id="undoButton">Un</button>
+    <button id="redoButton">Re</button>
   </div>
 
 
