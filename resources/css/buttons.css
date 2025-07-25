@@ -15,6 +15,22 @@ black #221F20;
   height: 28px;
 }
 
+#undoButton,
+#redoButton {
+  color: #CBCCCC; /* Use your "white" color for the text */
+  font-size: 14px;
+  font-family: sans-serif; /* A safe, clean font */
+  font-weight: 600;
+  
+  /* Give them a size and padding */
+  height: 28px; /* Match the height of the other buttons */
+  width: auto; /* Let the width be determined by the text */
+  padding: 0 10px; /* Add some horizontal padding */
+  
+  /* Ensure they don't shrink in the flex container */
+  flex-shrink: 0;
+}
+
 #nav-buttons.loading,
 #topRightContainer.loading,
 #logoContainer.loading,
