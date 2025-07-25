@@ -16,9 +16,8 @@ export async function undoLastBatch() {
   );
   const historyStore = tx.objectStore("historyLog");
   const chunksStore = tx.objectStore("nodeChunks");
-  // Add other stores if you need to restore hyperlights/cites
-  // const lightsStore = tx.objectStore("hyperlights");
-  // const citesStore = tx.objectStore("hypercites");
+  const lightsStore = tx.objectStore("hyperlights");
+  const citesStore = tx.objectStore("hypercites");
 
   // Use a cursor to get the very last item in the store
   const cursor = await new Promise((resolve, reject) => {
