@@ -17,25 +17,30 @@ black #221F20;
 
 #undoButton,
 #redoButton {
-  color: #CBCCCC; /* Use your "white" color for the text */
-  font-size: 14px;
-  font-family: sans-serif; /* A safe, clean font */
-  font-weight: 600;
+  width: 28px; /* Set width to match other buttons */
+  height: 28px; /* Set height to match other buttons */
+  padding: 0; /* Remove padding as content is now SVG, not text */
+  /* Remove font-related styles as they are no longer relevant for SVG buttons */
+  color: transparent; /* Make text transparent if any accidental text remains */
+  font-size: 0;
+  font-family: none;
+  font-weight: normal;
   
-  /* Give them a size and padding */
-  height: 28px; /* Match the height of the other buttons */
-  width: auto; /* Let the width be determined by the text */
-  padding: 0 10px; /* Add some horizontal padding */
+  /* Reset background and border from previous text-based styling */
+  background: transparent;
+  border: none;
   
-  /* Ensure they don't shrink in the flex container */
-  flex-shrink: 0;
+  /* Add flex properties to center the SVG within the button */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-#nav-buttons.loading,
-#topRightContainer.loading,
-#logoContainer.loading,
-#userButtonContainer.loading {
-  opacity: 0 !important;
+#undoButton svg,
+#redoButton svg {
+  width: 28px;
+  height: 28px;
+  display: block; /* Important for preventing extra space */
 }
 
 #toc-toggle-button {
@@ -353,6 +358,12 @@ black #221F20;
   stroke: #221F20;
 }
 
+/* NEW RULE: This specifically targets the path within undo/redo buttons when hovered */
+#undoButton:hover svg path,
+#redoButton:hover svg path {
+  fill: #221F20; /* Change the fill to black on hover */
+}
+
 #edit-toolbar button.active svg rect {
   fill: #CBCCCC;
 }
@@ -361,6 +372,12 @@ black #221F20;
 #edit-toolbar button.active svg line,
 #edit-toolbar button.active svg polyline {
   stroke: #221F20;
+}
+
+/* NEW RULE: This specifically targets the path within undo/redo buttons when active */
+#undoButton.active svg path,
+#redoButton.active svg path {
+  fill: #221F20; /* Change the fill to black when active */
 }
 
 .arranger-button-container {
