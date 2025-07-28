@@ -7,6 +7,7 @@ import { getCurrentUser } from "./auth.js";
 import { debounce } from "./divEditor.js";
 import { book } from "./app.js";
 import { addHistoryBatch } from "./historyManager.js";
+import { getEditToolbar } from "./editToolbar.js";
 
 // IMPORTANT: Increment this version number ONLY when you need to change the database schema.
 // For instance, if you add a new store, add a new index, or modify a keyPath.
@@ -1189,6 +1190,10 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
 
         await addHistoryBatch(bookId, comprehensivePayload);
 
+        const toolbar = getEditToolbar();
+        if (toolbar) {
+            await toolbar.updateHistoryButtonStates();
+        }
 
         resolve();
       };
@@ -1332,6 +1337,11 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
                   hypercites: deletedData.hypercites
               }
           });
+
+          const toolbar = getEditToolbar();
+            if (toolbar) {
+                await toolbar.updateHistoryButtonStates();
+            }
 
           // The `queueForSync` calls inside `deleteIndexedDBRecord` are for syncing to PostgreSQL,
           // not for history. They should remain for *single* deletions. For batch deletions,
@@ -2225,6 +2235,11 @@ export async function deleteIndexedDBRecord(id) {
         deletedHistoryPayload.hypercites.forEach((record) => {
           queueForSync("hypercites", record.hyperciteId, "delete", record);
         });
+
+        const toolbar = getEditToolbar();
+        if (toolbar) {
+            await toolbar.updateHistoryButtonStates();
+        }
 
         resolve(true);
       };
