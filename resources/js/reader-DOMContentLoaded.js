@@ -146,16 +146,27 @@ function handlePendingNewBookSync() {
   const pageType = document.body.getAttribute("data-page");
 
   if (pageType === "reader") {
-    // Wait for elements to be ready
+    // ✅ Use the 'book' variable directly as the currentBookId
+    // Ensure 'book' is available in this scope and holds the correct book ID.
+    // Based on `import { book, markdownContent } from "./app.js";`, it implies
+    // `book` is accessible here.
+    const currentBookId = book; // Assuming `book` correctly holds the current book's ID
+
     setTimeout(() => {
       const navButtons = new NavButtons({
         elementIds: ["nav-buttons", "logoContainer", "topRightContainer"],
         tapThreshold: 15,
       });
       navButtons.init();
+
+      // Initialize EditToolbar and pass the currentBookId
+      initEditToolbar({
+        toolbarId: "edit-toolbar",
+        editableSelector: ".main-content[contenteditable='true']",
+        currentBookId: currentBookId // Pass the 'book' variable
+      });
+
     }, 100);
-    
-    initEditToolbar();
   } else if (pageType === "home") {
     import("./userContainer.js");
 
