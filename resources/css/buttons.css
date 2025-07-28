@@ -318,23 +318,42 @@ black #221F20;
   opacity: 1;
   visibility: visible;
 }
-
-/* In your CSS file (e.g., style.css) */
-.edit-toolbar button.disabled {
-  opacity: 0.3; /* Make it look faded */
-  pointer-events: none; /* Crucial: Prevents clicks on the faded button */
-  cursor: not-allowed;
+#edit-toolbar button.disabled {
+  opacity: 0.3 !important;
+  pointer-events: none !important;
+  cursor: not-allowed !important;
+  transform: none !important; /* Reset hover transform */
 }
 
-.edit-toolbar button.processing {
-  opacity: 0.5;
-  pointer-events: none;
-  cursor: wait; /* Indicates an operation is in progress */
+#edit-toolbar button.processing {
+  opacity: 0.5 !important;
+  pointer-events: none !important;
+  cursor: wait !important;
+  transform: none !important; /* Reset hover transform */
 }
 
-#edit-toolbar.disable-right-transition {
-  transition: opacity 0.3s ease;
+/* Specific styling for the SVG path (the arrow shape) when undo/redo buttons are disabled/processing */
+#undoButton.disabled svg path,
+#redoButton.disabled svg path {
+  fill: #888888 !important; /* Fade the arrow color to gray */
 }
+
+#undoButton.processing svg path,
+#redoButton.processing svg path {
+  fill: #AAAAAA !important; /* Slightly lighter gray for processing */
+}
+
+/* Ensure the SVG's background rect is NOT affected by these specific arrow fill changes,
+   and stays its original background color if it has one. */
+#undoButton.disabled svg rect,
+#redoButton.disabled svg rect,
+#undoButton.processing svg rect,
+#redoButton.processing svg rect {
+  fill: #221F20 !important; /* Ensure the rect retains its background fill #221F20 */
+}
+
+
+
 
 #edit-toolbar button {
   background: transparent;
