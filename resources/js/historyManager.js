@@ -264,9 +264,9 @@ export async function addHistoryBatch(bookId, payload) {
   // Add to history log
   await historyStore.add(newLogEntry);
 
-  // Clear redo log whenever a new history entry is added
+  // THIS IS THE CRUCIAL FIX: Clear redo log whenever a new history entry is added
   // because adding a new action invalidates future 'redo' operations
-  await redoStore.clear();
+  await redoStore.clear(); // <--- ADD THIS LINE HERE
 
   await new Promise((resolve, reject) => {
     tx.oncomplete = () => {
