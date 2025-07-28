@@ -241,6 +241,11 @@ class DbHyperlightController extends Controller
                             continue; // Skip this item
                         }
                     }
+
+                    Log::info("Processing hyperlight for upsert", [
+                        'hyperlight_id' => $item['hyperlight_id'] ?? 'N/A',
+                        'annotation_value' => $item['annotation'] ?? '---NULL OR NOT SET---'
+                    ]);
                     
                     PgHyperlight::updateOrCreate(
                         [

@@ -1385,6 +1385,7 @@ export async function updateHyperciteInIndexedDB(book, hyperciteId, updatedField
           updateRequest.onsuccess = async() => {
             console.log(`Successfully updated hypercite for key: [${book}, ${hyperciteId}]`);
             await updateBookTimestamp(book);
+            queueForSync("hypercites", hyperciteId, "update", existingRecord);
             resolve(true);
           };
           
