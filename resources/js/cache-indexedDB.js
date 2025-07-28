@@ -5,29 +5,40 @@ import { withPending } from "./operationState.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 import { getCurrentUser } from "./auth.js";
 import { debounce } from "./divEditor.js";
-
-// Increment the version to ensure this new schema is applied.
-export const DB_VERSION = 19;
 import { book } from "./app.js";
 
+// IMPORTANT: Increment this version number ONLY when you need to change the database schema.
+// For instance, if you add a new store, add a new index, or modify a keyPath.
+// I've incremented it to 20 to ensure it triggers the proper migration for users on version 19.
+export const DB_VERSION = 20;
+
 /**
- * Opens (or creates) the IndexedDB database with the final, correct schema.
- * This version replaces 'failedSyncs' with the more powerful 'historyLog'.
+ * Opens (or creates) the IndexedDB database.
+ * This function now implements proper schema migration using `event.oldVersion`.
+ * It will preserve existing data during upgrades and only apply necessary changes.
  */
 export async function openDatabase() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open("MarkdownDB", DB_VERSION);
 
     request.onupgradeneeded = (event) => {
-      console.log("📌 Upgrading IndexedDB to version " + DB_VERSION);
+      console.log(`📌 IndexedDB upgrade: from version ${event.oldVersion} to ${event.newVersion}`);
       const db = event.target.result;
+      const transaction = event.target.transaction; // Access the transaction for schema changes
+      const oldVersion = event.oldVersion;
 
-      // This array now defines the final, correct set of object stores.
-      const storeConfigs = [
+      // Define ALL store configurations for the FINAL desired schema at DB_VERSION 20.
+      // This is the target state we are migrating to.
+      const ALL_STORE_CONFIGS = [
         {
           name: "nodeChunks",
           keyPath: ["book", "startLine"],
-          indices: ["chunk_id", "book"],
+          indices: [
+            "chunk_id",
+            "book",
+            // Add any composite indices needed for queries, e.g., for deletion by book and line
+            { name: "book_startLine", keyPath: ["book", "startLine"], unique: false }
+          ],
         },
         {
           name: "footnotes",
@@ -40,60 +51,97 @@ export async function openDatabase() {
         {
           name: "hyperlights",
           keyPath: ["book", "hyperlight_id"],
-          indices: ["hyperlight_id", "book"],
+          indices: [
+            "hyperlight_id",
+            "book",
+            // Add this composite index if used in your `deleteIndexedDBRecord` or `batchDeleteIndexedDBRecords`
+            { name: "book_startLine", keyPath: ["book", "startLine"], unique: false }
+          ],
         },
         {
           name: "hypercites",
           keyPath: ["book", "hyperciteId"],
-          indices: ["hyperciteId", "book"],
+          indices: [
+            "hyperciteId",
+            "book",
+            // Add this composite index if used in your `deleteIndexedDBRecord` or `batchDeleteIndexedDBRecords`
+            { name: "book_startLine", keyPath: ["book", "startLine"], unique: false }
+          ],
         },
         {
           name: "library",
           keyPath: "book",
         },
-        // ✅ REPLACED 'failedSyncs' with the new 'historyLog' store.
-        // This is the foundation for your offline sync and undo/redo features.
         {
           name: "historyLog",
-          keyPath: "id", // Use a unique, auto-incrementing key for each batch
+          keyPath: "id",
           autoIncrement: true,
-          indices: ["status", "bookId"], // We'll need these to find failed/pending logs
+          indices: ["status", "bookId"],
         },
-
         {
           name: "redoLog",
           keyPath: "id",
+          autoIncrement: true,
           indices: ["bookId"],
         },
       ];
 
-      // This loop will delete and rebuild the stores, ensuring a clean slate.
-      // Perfect for development when you can clear the cache.
-      storeConfigs.forEach(({ name, keyPath, autoIncrement, indices }) => {
-        if (db.objectStoreNames.contains(name)) {
-          db.deleteObjectStore(name);
-          console.log(`🗑️ Deleted existing store: ${name}`);
-        }
-        // ✅ We've slightly modified this part to handle 'autoIncrement'
-        const storeOptions = { keyPath };
-        if (autoIncrement) {
-          storeOptions.autoIncrement = true;
-        }
-        const objectStore = db.createObjectStore(name, storeOptions);
+      // --- Migration Logic by Version ---
+      // This ensures changes are applied incrementally and safely.
 
-        console.log(
-          `✅ Created store '${name}' with options: ${JSON.stringify(
-            storeOptions
-          )}`
-        );
-        if (indices) {
-          indices.forEach((indexName) => {
-            objectStore.createIndex(indexName, indexName, { unique: false });
-            console.log(`  ✅ Created index '${indexName}'`);
-          });
-        }
-      });
-    };
+      // Version 1 to 19 (Initial setup, or basic upgrades that involved deleting stores previously)
+      // This block runs for any user upgrading from < 19 to 19 or higher.
+      // We will ensure all primary stores are created.
+      if (oldVersion < 19) {
+        console.log("Migrating to schema version 19: Creating/ensuring core stores exist.");
+        ALL_STORE_CONFIGS.forEach(storeConfig => {
+          if (!db.objectStoreNames.contains(storeConfig.name)) {
+            const storeOptions = { keyPath: storeConfig.keyPath };
+            if (storeConfig.autoIncrement) {
+              storeOptions.autoIncrement = true;
+            }
+            db.createObjectStore(storeConfig.name, storeOptions);
+            console.log(`✅ Created store: ${storeConfig.name}`);
+          }
+          // For existing stores, ensure indices exist (created or updated below)
+        });
+      }
+
+      // Version 20 (The current version we are targeting)
+      // In this specific block, we handle any new changes made for VERSION 20,
+      // such as ensuring all required indices are present for all stores.
+      if (oldVersion < 20) {
+        console.log("Migrating to schema version 20: Ensuring all indices are created.");
+        ALL_STORE_CONFIGS.forEach(storeConfig => {
+          // If the store itself was just created in a previous `if (oldVersion < X)` block,
+          // or if it already existed, we get a reference to it.
+          const objectStore = transaction.objectStore(storeConfig.name);
+
+          // Iterate through defined indices and create if missing
+          if (storeConfig.indices) {
+            storeConfig.indices.forEach(indexDef => {
+              const indexName = typeof indexDef === 'string' ? indexDef : indexDef.name;
+              const indexKeyPath = typeof indexDef === 'string' ? indexDef : indexDef.keyPath;
+              const indexUnique = (typeof indexDef !== 'string' && indexDef.unique) || false;
+
+              if (!objectStore.indexNames.contains(indexName)) {
+                objectStore.createIndex(indexName, indexKeyPath, { unique: indexUnique });
+                console.log(`  ✅ Created index '${indexName}' for '${storeConfig.name}'`);
+              }
+            });
+          }
+        });
+      }
+
+      // Add future migration blocks here:
+      // if (oldVersion < 21) {
+      //   console.log("Migrating to schema version 21: Add new store XYZ");
+      //   db.createObjectStore("newStoreXYZ", { keyPath: "id" });
+      //   // Or modify an existing store, e.g., change keyPath (requires data migration)
+      //   // ... complex data migration logic ...
+      // }
+
+    }; // End of request.onupgradeneeded
 
     request.onsuccess = (event) => resolve(event.target.result);
     request.onerror = (event) => {

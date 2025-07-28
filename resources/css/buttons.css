@@ -319,6 +319,19 @@ black #221F20;
   visibility: visible;
 }
 
+/* In your CSS file (e.g., style.css) */
+.edit-toolbar button.disabled {
+  opacity: 0.3; /* Make it look faded */
+  pointer-events: none; /* Crucial: Prevents clicks on the faded button */
+  cursor: not-allowed;
+}
+
+.edit-toolbar button.processing {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: wait; /* Indicates an operation is in progress */
+}
+
 #edit-toolbar.disable-right-transition {
   transition: opacity 0.3s ease;
 }

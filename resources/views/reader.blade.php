@@ -344,7 +344,7 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
         c0.6,0.6,0.6,1.6,0,2.1l-4.9,4.9c-0.6,0.6-0.6,1.3,0.4,1.3c0.3,0,0.7,0,0.7,0L30.3,12.6z"
         fill="#CBCCCC"
         transform="scale(0.35) translate(8.2, 8.2)"
-      />
+      /> 
     </svg>
   </button>
   <button id="redoButton">
