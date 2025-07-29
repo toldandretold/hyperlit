@@ -6,7 +6,7 @@ import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 import { getCurrentUser } from "./auth.js";
 import { debounce } from "./divEditor.js";
 import { book } from "./app.js";
-import { addHistoryBatch } from "./historyManager.js";
+import { clearRedoHistory } from "./historyManager.js";
 import { getEditToolbar } from "./editToolbar.js";
 
 // IMPORTANT: Increment this version number ONLY when you need to change the database schema.
@@ -153,20 +153,20 @@ export async function openDatabase() {
   });
 }
 
-const pendingSyncs = new Map();
+export const pendingSyncs = new Map();
 
 // MODIFIED: The "Add to List" function. This is our new trigger.
 // It now accepts the full data object for updates.
-export function queueForSync(store, id, type = "update", data = null) {
+export function queueForSync(store, id, type = "update", data = null, originalData = null) { // <-- ADD originalData
   const key = `${store}-${id}`;
-  // For deletions, data can be null. For updates, it's required.
   if (type === "update" && !data) {
     console.warn(`⚠️ queueForSync called for update on ${key} without data.`);
     return;
   }
-  pendingSyncs.set(key, { store, id, type, data });
+  pendingSyncs.set(key, { store, id, type, data, originalData }); // <-- STORE originalData
   console.log(`Queued for sync: ${key} (Type: ${type})`);
-  debouncedMasterSync(); // Nudge the shopper.
+  clearRedoHistory(book || "latest");
+  debouncedMasterSync();
 }
 
 export async function updateHistoryLog(logEntry) {
@@ -220,11 +220,9 @@ async function clearRedoLog() {
   return tx.done;
 }
 
+// In cache-indexedDB.js
 
-// =================================
-// THIS IS THE debouncedMasterSync
-// =================================
-const debouncedMasterSync = debounce(async () => {
+export const debouncedMasterSync = debounce(async () => {
   const bookId = book || "latest";
   if (pendingSyncs.size === 0) {
     return;
@@ -232,72 +230,96 @@ const debouncedMasterSync = debounce(async () => {
 
   console.log(`DEBOUNCED SYNC: Processing ${pendingSyncs.size} items...`);
 
-  // --- 1. Build Payload ---
   const itemsToSync = new Map(pendingSyncs);
   pendingSyncs.clear();
 
-  // ✅ Added hypercites to the deletions payload for completeness
-  const payload = {
+  const historyLogPayload = {
     book: bookId,
     updates: { nodeChunks: [], hypercites: [], hyperlights: [], library: null },
-    deletions: { nodeChunks: [], hyperlights: [], hypercites: [] },
+    deletions: { nodeChunks: [], hyperlights: [], hypercites: [], library: null },
   };
-  const previousState = {}; // For undo functionality
 
+  // Populate the history payload directly from the queued items
   for (const item of itemsToSync.values()) {
     if (item.type === "update") {
-      if (!item.data) continue;
-      switch (item.store) {
-        case "nodeChunks": payload.updates.nodeChunks.push(item.data); break;
-        case "hypercites": payload.updates.hypercites.push(item.data); break;
-        case "hyperlights": payload.updates.hyperlights.push(item.data); break;
-        case "library": payload.updates.library = item.data; break;
+      // Add the new state to 'updates'
+      if (item.store === "nodeChunks") {
+        historyLogPayload.updates.nodeChunks.push(toPublicChunk(item.data));
+      } else if (item.store === "library") {
+        historyLogPayload.updates.library = item.data;
+      } else {
+        historyLogPayload.updates[item.store].push(item.data);
+      }
+
+      // Add the original state (if it exists) to 'deletions'
+      if (item.originalData) {
+        if (item.store === "nodeChunks") {
+          historyLogPayload.deletions.nodeChunks.push(toPublicChunk(item.originalData));
+        } else if (item.store === "library") {
+          historyLogPayload.deletions.library = item.originalData;
+        } else {
+          historyLogPayload.deletions[item.store].push(item.originalData);
+        }
       }
     } else if (item.type === "delete") {
-      // ✅ THE CHANGE IS HERE: We now use the full `item.data` object.
-      if (!item.data) continue; // Safety check
-      switch (item.store) {
-        case "nodeChunks":
-          // Use the full record and add an action flag for the backend
-          payload.deletions.nodeChunks.push({ ...item.data, _action: "delete" });
-          break;
-        case "hyperlights":
-          payload.deletions.hyperlights.push({ ...item.data, _action: "delete" });
-          break;
-        case "hypercites":
-          payload.deletions.hypercites.push({ ...item.data, _action: "delete" });
-          break;
+      // Add the deleted record to 'deletions'
+      if (item.data) {
+        if (item.store === "nodeChunks") {
+          historyLogPayload.deletions.nodeChunks.push(toPublicChunk(item.data));
+        } else {
+          historyLogPayload.deletions[item.store].push(item.data);
+        }
       }
     }
   }
 
-  // --- 2. Save to Local History Log FIRST ---
+  // --- Save to Local History Log ---
   const logEntry = {
     timestamp: Date.now(),
-    bookId: payload.book,
+    bookId: historyLogPayload.book,
     status: "pending",
-    payload: payload,
-    previousState: previousState,
+    payload: historyLogPayload,
   };
+
+  console.log(`DEBUG: Final historyLog payload before saving:`, JSON.stringify(historyLogPayload, null, 2));
 
   const db = await openDatabase();
   const tx = db.transaction("historyLog", "readwrite");
   const store = tx.objectStore("historyLog");
-
   const newId = await new Promise((resolve, reject) => {
     const request = store.add(logEntry);
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onerror = (e) => reject(e.target.error);
   });
-
   logEntry.id = newId;
   await tx.done;
   console.log(`📦 Saved batch to historyLog with ID: ${logEntry.id}`);
 
-  // --- 3. Attempt to Sync to Backend ---
+  // --- Attempt to Sync to Backend ---
   try {
     if (!navigator.onLine) throw new Error("Offline");
-    await executeSyncPayload(payload);
+    const syncPayload = {
+      book: bookId,
+      updates: { nodeChunks: [], hypercites: [], hyperlights: [], library: null },
+      deletions: { nodeChunks: [], hyperlights: [], hypercites: [] },
+    };
+    for (const item of itemsToSync.values()) {
+      if (item.type === "update" && item.data) {
+        switch (item.store) {
+          case "nodeChunks": syncPayload.updates.nodeChunks.push(item.data); break;
+          case "hypercites": syncPayload.updates.hypercites.push(item.data); break;
+          case "hyperlights": syncPayload.updates.hyperlights.push(item.data); break;
+          case "library": syncPayload.updates.library = item.data; break;
+        }
+      } else if (item.type === "delete" && item.data) {
+        switch (item.store) {
+          case "nodeChunks": syncPayload.deletions.nodeChunks.push({ ...item.data, _action: "delete" }); break;
+          case "hyperlights": syncPayload.deletions.hyperlights.push({ ...item.data, _action: "delete" }); break;
+          case "hypercites": syncPayload.deletions.hypercites.push({ ...item.data, _action: "delete" }); break;
+        }
+      }
+    }
+    await executeSyncPayload(syncPayload);
     logEntry.status = "synced";
     await updateHistoryLog(logEntry);
     console.log(`✅ Batch ${logEntry.id} synced successfully.`);
@@ -305,9 +327,13 @@ const debouncedMasterSync = debounce(async () => {
     logEntry.status = "failed";
     await updateHistoryLog(logEntry);
     console.error(`❌ Sync failed for batch ${logEntry.id}:`, error.message);
+  } finally {
+    const toolbar = getEditToolbar();
+    if (toolbar) {
+      await toolbar.updateHistoryButtonStates();
+    }
   }
 }, 3000);
-
 
 // --- NEW: The "Final Save" function for page unload ---
 let isSyncingOnUnload = false;
@@ -1009,6 +1035,8 @@ export function updateIndexedDBRecord(record) {
 
 // New batched function to replace individual updateIndexedDBRecord calls
 // In cache-indexedDB.js
+// In cache-indexedDB.js
+
 export async function batchUpdateIndexedDBRecords(recordsToProcess) {
   return withPending(async () => {
     const bookId = book || "latest";
@@ -1023,16 +1051,32 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
     const lightsStore = tx.objectStore("hyperlights");
     const citesStore = tx.objectStore("hypercites");
 
-    // ✅ STEP 1: Create arrays to hold the DETAILED results of the processing.
     const allSavedNodeChunks = [];
     const allSavedHyperlights = [];
     const allSavedHypercites = [];
-
-    // Store original states for history if available
     const originalNodeChunkStates = new Map();
 
+    // This is a critical step: Read all original states BEFORE any writes.
+    const readPromises = recordsToProcess.map(record => {
+      return new Promise((resolve) => {
+        const numericNodeId = parseNodeId(record.id);
+        const getReq = chunksStore.get([bookId, numericNodeId]);
+        getReq.onsuccess = () => {
+          if (getReq.result) {
+            originalNodeChunkStates.set(numericNodeId, { ...getReq.result });
+          }
+          resolve();
+        };
+        getReq.onerror = () => resolve(); // Resolve even on error
+      });
+    });
+    await Promise.all(readPromises);
+
+    // Now, perform the updates
     const processPromises = recordsToProcess.map(record => {
       return new Promise(async (resolve, reject) => {
+        // ... (your existing logic to build `toSave` object) ...
+        // This part is correct.
         let nodeId = record.id;
         let node = document.getElementById(nodeId);
         while (node && !/^\d+(\.\d+)?$/.test(nodeId)) {
@@ -1046,57 +1090,43 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
         }
 
         const numericNodeId = parseNodeId(nodeId);
-        const compositeKey = [bookId, numericNodeId];
+        const existing = originalNodeChunkStates.get(numericNodeId);
+        const existingHypercites = existing?.hypercites || [];
+        const processedData = node ? processNodeContentHighlightsAndCites(node, existingHypercites) : null;
         
-        const getReq = chunksStore.get(compositeKey);
-        
-        getReq.onerror = (e) => reject(e.target.error);
-        getReq.onsuccess = () => {
-          const existing = getReq.result;
-          // ✅ Capture original state for history BEFORE modification
-          if (existing) {
-              originalNodeChunkStates.set(numericNodeId, { ...existing });
-          }
-
-          const existingHypercites = existing?.hypercites || [];
-          const processedData = node ? processNodeContentHighlightsAndCites(node, existingHypercites) : null;
-          
-          let toSave;
-          if (existing) {
-            toSave = { ...existing };
-            if (processedData) {
-              toSave.content = processedData.content;
-              toSave.hyperlights = processedData.hyperlights;
-              toSave.hypercites = processedData.hypercites;
-            } else {
-              toSave.content = record.html || existing.content;
-            }
-            if (record.chunk_id !== undefined) toSave.chunk_id = record.chunk_id;
-          } else {
-            toSave = {
-              book: bookId,
-              startLine: numericNodeId,
-              chunk_id: record.chunk_id !== undefined ? record.chunk_id : 0,
-              content: processedData ? processedData.content : (record.html || ''),
-              hyperlights: processedData ? processedData.hyperlights : [],
-              hypercites: processedData ? processedData.hypercites : []
-            };
-          }
-
-          chunksStore.put(toSave);
-          // ✅ STEP 2: Add the saved chunk to our results array.
-          allSavedNodeChunks.push(toSave);
-
+        let toSave;
+        if (existing) {
+          toSave = { ...existing };
           if (processedData) {
-            updateHyperlightRecords(processedData.hyperlights, lightsStore, bookId, numericNodeId, allSavedHyperlights, node);
-            updateHyperciteRecords(processedData.hypercites, citesStore, bookId, allSavedHypercites, node);
+            toSave.content = processedData.content;
+            toSave.hyperlights = processedData.hyperlights;
+            toSave.hypercites = processedData.hypercites;
+          } else {
+            toSave.content = record.html || existing.content;
           }
+          if (record.chunk_id !== undefined) toSave.chunk_id = record.chunk_id;
+        } else {
+          toSave = {
+            book: bookId,
+            startLine: numericNodeId,
+            chunk_id: record.chunk_id !== undefined ? record.chunk_id : 0,
+            content: processedData ? processedData.content : (record.html || ''),
+            hyperlights: processedData ? processedData.hyperlights : [],
+            hypercites: processedData ? processedData.hypercites : []
+          };
+        }
 
-          resolve();
-        };
+        chunksStore.put(toSave);
+        allSavedNodeChunks.push(toSave);
+
+        if (processedData) {
+          updateHyperlightRecords(processedData.hyperlights, lightsStore, bookId, numericNodeId, allSavedHyperlights, node);
+          updateHyperciteRecords(processedData.hypercites, citesStore, bookId, allSavedHypercites, node);
+        }
+
+        resolve();
       });
     });
-
     await Promise.all(processPromises);
 
     return new Promise((resolve, reject) => {
@@ -1104,106 +1134,27 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
         console.log("✅ Batch IndexedDB update complete");
         await updateBookTimestamp(book || "latest");
 
-        // MODIFIED: Pass the full data object to the queue.
-        // This queues for sync to backend, which is good.
+        // MODIFIED: Pass the original state to the queue.
         allSavedNodeChunks.forEach((chunk) => {
-          queueForSync("nodeChunks", chunk.startLine, "update", chunk);
+          const originalChunk = originalNodeChunkStates.get(chunk.startLine);
+          queueForSync("nodeChunks", chunk.startLine, "update", chunk, originalChunk);
         });
         allSavedHyperlights.forEach((hl) => {
-          queueForSync("hyperlights", hl.hyperlight_id, "update", hl);
+          // Note: To make hyperlight undo work, you'd need to fetch their original state too.
+          queueForSync("hyperlights", hl.hyperlight_id, "update", hl, null);
         });
         allSavedHypercites.forEach((hc) => {
-          queueForSync("hypercites", hc.hyperciteId, "update", hc);
+          // Note: To make hypercite undo work, you'd need to fetch their original state too.
+          queueForSync("hypercites", hc.hyperciteId, "update", hc, null);
         });
-
-        // ✅ IMPORTANT: Now, add to history batch for UNDO/REDO
-        const historyPayload = {
-            updates: {
-                nodeChunks: allSavedNodeChunks.map(chunk => toPublicChunk(chunk)),
-                hyperlights: allSavedHyperlights.map(hl => hl), // Assuming these are already public format
-                hypercites: allSavedHypercites.map(hc => hc)   // Assuming these are already public format
-            },
-            // For undoing a batch update, you generally need the *original* state of the updated items
-            // and potentially deleted items (if this batch operation also deleted).
-            // For now, let's keep deletions empty if this is purely an update.
-            // If a batch update also *deletes* elements, you'd need to gather those too.
-            deletions: {
-                nodeChunks: [], // Assuming this batch update only updates, not deletes elements entirely
-                hyperlights: [],
-                hypercites: []
-            }
-        };
-
-        // You might need to refine this payload if a batch update can result in deletions or complex structural changes.
-        // The `originalNodeChunkStates` map could be used here to record the *before* state for `undo`.
-        // Example: If an update transforms an element (e.g., P to H2), the `undo` should revert H2 back to P.
-        // This might require a more sophisticated payload or an `undo` mechanism that re-applies `originalBlockStates`.
-
-        // For `batchUpdateIndexedDBRecords`, the history payload should reflect what was *changed*.
-        // If an element was updated (e.g., its content or tag), the undo needs to revert it.
-        // Let's refine the payload for `batchUpdateIndexedDBRecords` to store both original and new states.
-        const undoNodeChunks = [];
-        const redoNodeChunks = [];
-
-        allSavedNodeChunks.forEach(newChunk => {
-            const originalChunk = originalNodeChunkStates.get(newChunk.startLine);
-            if (originalChunk) {
-                // If it was an existing record, the undo payload should revert it to original
-                // The redo payload should apply the new version
-                undoNodeChunks.push({
-                    type: "update",
-                    book: newChunk.book,
-                    startLine: newChunk.startLine,
-                    original: toPublicChunk(originalChunk),
-                    new: toPublicChunk(newChunk)
-                });
-            } else {
-                // If it was a new record (created by this batch update), undo should delete it
-                undoNodeChunks.push({
-                    type: "create",
-                    book: newChunk.book,
-                    startLine: newChunk.startLine,
-                    new: toPublicChunk(newChunk)
-                });
-            }
-        });
-
-        const comprehensivePayload = {
-            // This is a more comprehensive payload for undo/redo
-            // It will require a slight modification in undoLastBatch/redoLastBatch to interpret 'changes'
-            // instead of just 'updates' and 'deletions'.
-            // For now, let's simplify to match your current undo/redo:
-            // updates in history payload mean "revert this to this state",
-            // deletions in history payload mean "put this back".
-
-            updates: {
-                nodeChunks: allSavedNodeChunks.map(chunk => toPublicChunk(chunk)),
-                hyperlights: allSavedHyperlights,
-                hypercites: allSavedHypercites
-            },
-            deletions: { // This batch function doesn't perform deletions itself directly
-                nodeChunks: [],
-                hyperlights: [],
-                hypercites: []
-            }
-        };
-
-        await addHistoryBatch(bookId, comprehensivePayload);
-
-        const toolbar = getEditToolbar();
-        if (toolbar) {
-            await toolbar.updateHistoryButtonStates();
-        }
 
         resolve();
       };
-
       tx.onerror = (e) => reject(e.target.error);
       tx.onabort = (e) => reject(new Error("Batch transaction aborted"));
     });
   });
 }
-
 
 
 
@@ -1321,27 +1272,7 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
           console.log(`✅ Batch IndexedDB deletion transaction complete...`);
           await updateBookTimestamp(bookId);
           
-          // ✅ Instead of queueForSync, call addHistoryBatch with the deleted data
-          // For a deletion, the "updates" array in the history payload will be empty,
-          // and the "deletions" array will contain the items that were just removed
-          // (which should be re-added on undo).
-          await addHistoryBatch(bookId, {
-              updates: {
-                  nodeChunks: [],
-                  hyperlights: [],
-                  hypercites: []
-              },
-              deletions: {
-                  nodeChunks: deletedData.nodeChunks.map(chunk => toPublicChunk(chunk)),
-                  hyperlights: deletedData.hyperlights,
-                  hypercites: deletedData.hypercites
-              }
-          });
-
-          const toolbar = getEditToolbar();
-            if (toolbar) {
-                await toolbar.updateHistoryButtonStates();
-            }
+         
 
           // The `queueForSync` calls inside `deleteIndexedDBRecord` are for syncing to PostgreSQL,
           // not for history. They should remain for *single* deletions. For batch deletions,
@@ -2212,17 +2143,7 @@ export async function deleteIndexedDBRecord(id) {
       tx.oncomplete = async () => {
         await updateBookTimestamp(bookId);
 
-        // ✅ Add to history batch after the transaction is complete and data is collected
-        if (deletedHistoryPayload.nodeChunks.length > 0 || deletedHistoryPayload.hyperlights.length > 0 || deletedHistoryPayload.hypercites.length > 0) {
-            await addHistoryBatch(bookId, {
-                updates: { nodeChunks: [], hyperlights: [], hypercites: [] },
-                deletions: {
-                    nodeChunks: deletedHistoryPayload.nodeChunks.map(toPublicChunk),
-                    hyperlights: deletedHistoryPayload.hyperlights,
-                    hypercites: deletedHistoryPayload.hypercites
-                }
-            });
-        }
+     
 
         // Now, queue for sync to PostgreSQL
         // Your existing queueForSync calls for deletions are correct for backend sync.

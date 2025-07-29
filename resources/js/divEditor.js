@@ -109,24 +109,48 @@ const pendingSaves = {
  * @param {number} delay The number of milliseconds to delay.
  * @returns {Function} The new debounced function with a `.cancel()` method.
  */
+// In your utility file (e.g., divEditor.js)
+
 export function debounce(func, delay) {
   let timeoutId;
+  // ✅ NEW: Variables to store the context and arguments of the last call
+  let lastArgs;
+  let lastThis;
 
-  // This is the function that will be called when the event fires.
   const debouncedFunction = function (...args) {
+    // Store the context and arguments from the most recent call
+    lastThis = this;
+    lastArgs = args;
+
     // Clear the previous timeout to reset the delay timer
     clearTimeout(timeoutId);
 
     // Set a new timeout
     timeoutId = setTimeout(() => {
       // When the timeout completes, call the original function
-      func.apply(this, args);
+      // with the arguments from the last call.
+      func.apply(lastThis, lastArgs);
+      // Reset after execution
+      timeoutId = null;
     }, delay);
   };
 
   // This function cancels the pending debounced call
   debouncedFunction.cancel = function () {
     clearTimeout(timeoutId);
+    timeoutId = null; // Reset the timer ID
+  };
+
+  // ✅ NEW: This function immediately executes the pending debounced call
+  debouncedFunction.flush = function () {
+    // If there's a pending timeout...
+    if (timeoutId) {
+      // ...cancel the scheduled execution...
+      clearTimeout(timeoutId);
+      timeoutId = null;
+      // ...and immediately call the function with the last-saved arguments.
+      func.apply(lastThis, lastArgs);
+    }
   };
 
   return debouncedFunction;

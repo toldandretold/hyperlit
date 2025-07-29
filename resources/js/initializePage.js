@@ -30,31 +30,23 @@ import { undoLastBatch, redoLastBatch } from './historyManager.js';
 let isRetrying = false; // Prevents multiple retries at once
 
 async function retryFailedBatches() {
-  // Don't run if already retrying or if we're still offline
   if (isRetrying || !navigator.onLine) {
     return;
   }
-
   isRetrying = true;
   console.log("🔁 Network is online. Checking for failed sync batches...");
 
   try {
     const db = await openDatabase();
-    
-    // ===================================================================
-    // THE FIX IS HERE: Replace the incorrect line with this standard IndexedDB pattern.
-    // ===================================================================
     const tx = db.transaction("historyLog", "readonly");
     const store = tx.objectStore("historyLog");
     const index = store.index("status");
 
     const failedLogs = await new Promise((resolve, reject) => {
-      // Get all records where the 'status' index is "failed"
       const request = index.getAll("failed");
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    // ===================================================================
 
     if (failedLogs.length === 0) {
       console.log("✅ No failed batches to retry.");
@@ -64,17 +56,43 @@ async function retryFailedBatches() {
 
     console.log(`Retrying ${failedLogs.length} failed sync batches...`);
 
-    // Process one by one to maintain order
     for (const log of failedLogs) {
       try {
-        await executeSyncPayload(log.payload);
-        // It worked! Update the status to 'synced'
+        // --- START: Build a clean payload for syncing ---
+        const historyPayload = log.payload;
+        const syncPayload = {
+          book: historyPayload.book,
+          updates: {
+            nodeChunks: historyPayload.updates.nodeChunks || [],
+            hypercites: historyPayload.updates.hypercites || [],
+            hyperlights: historyPayload.updates.hyperlights || [],
+            library: historyPayload.updates.library || null,
+          },
+          deletions: {
+            // For syncing, we only want TRUE deletions.
+            // A true deletion is an item in `deletions` that does NOT have a corresponding `update`.
+            nodeChunks: (historyPayload.deletions.nodeChunks || []).filter(
+              d => !(historyPayload.updates.nodeChunks || []).some(u => u.startLine === d.startLine)
+            ),
+            hypercites: (historyPayload.deletions.hypercites || []).filter(
+              d => !(historyPayload.updates.hypercites || []).some(u => u.hyperciteId === d.hyperciteId)
+            ),
+            hyperlights: (historyPayload.deletions.hyperlights || []).filter(
+              d => !(historyPayload.updates.hyperlights || []).some(u => u.hyperlight_id === d.hyperlight_id)
+            ),
+            // Library deletions are not handled this way, so it remains empty for sync.
+          }
+        };
+        // --- END: Build a clean payload for syncing ---
+
+        console.log(`🔄 Retrying batch ${log.id} with clean syncPayload:`, syncPayload);
+        await executeSyncPayload(syncPayload); // <-- Pass the clean syncPayload
+
         log.status = "synced";
         await updateHistoryLog(log);
         console.log(`✅ Successfully retried batch ${log.id}`);
       } catch (error) {
-        console.error(`❌ Retry for batch ${log.id} failed again. Will stop for now.`);
-        // Stop on the first failure to maintain order and prevent spamming a broken endpoint
+        console.error(`❌ Retry for batch ${log.id} failed again. Will stop for now.`, error);
         break;
       }
     }

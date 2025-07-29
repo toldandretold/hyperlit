@@ -1,19 +1,49 @@
 // In edit-toolbar.js
 
-import { updateIndexedDBRecord, batchUpdateIndexedDBRecords } from "./cache-indexedDB.js";
-import { generateIdBetween, findPreviousElementId, findNextElementId } from "./IDfunctions.js";
-import { undoLastBatch, redoLastBatch, canUndo, canRedo, addHistoryBatch, setCurrentBookId } from './historyManager.js';
+import {
+  updateIndexedDBRecord,
+  batchUpdateIndexedDBRecords,
+  getNodeChunkFromIndexedDB,
+  parseNodeId,
+  openDatabase,
+  debouncedMasterSync,
+  pendingSyncs,
+} from "./cache-indexedDB.js";
+import {
+  generateIdBetween,
+  findPreviousElementId,
+  findNextElementId,
+} from "./IDfunctions.js";
+import {
+  undoLastBatch,
+  redoLastBatch,
+  canUndo,
+  canRedo,
+  setCurrentBookId,
+} from "./historyManager.js";
+import { currentLazyLoader } from "./initializePage.js";
 
 // Private module-level variable to hold the toolbar instance
 let editToolbarInstance = null;
+
+// ✅ NEW: Helper function to yield to the browser's main thread.
+/**
+ * Pauses execution and yields to the main thread, allowing the event loop
+ * to process pending operations like IndexedDB commits.
+ */
+function yieldToMainThread() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 /**
  * EditToolbar class for handling formatting controls in editable content
  */
 class EditToolbar {
+  // ... constructor and all other methods are unchanged ...
   constructor(options = {}) {
     this.toolbarId = options.toolbarId || "edit-toolbar";
-    this.editableSelector = options.editableSelector || ".main-content[contenteditable='true']";
+    this.editableSelector =
+      options.editableSelector || ".main-content[contenteditable='true']";
     this.currentBookId = options.currentBookId || null; // ✅ NEW: Accept currentBookId
 
     this.toolbar = document.getElementById(this.toolbarId);
@@ -34,7 +64,8 @@ class EditToolbar {
     // Bind event handlers
     this.handleSelectionChange = this.handleSelectionChange.bind(this);
     this.attachButtonHandlers = this.attachButtonHandlers.bind(this);
-    this.updateHistoryButtonStates = this.updateHistoryButtonStates.bind(this); // ✅ NEW: Bind this method
+    this.updateHistoryButtonStates =
+      this.updateHistoryButtonStates.bind(this); // ✅ NEW: Bind this method
 
     this.isVisible = false;
     this.currentSelection = null;
@@ -75,79 +106,87 @@ class EditToolbar {
    * Attach click handlers to formatting buttons
    */
   attachButtonHandlers() {
-    const buttons = [{
+    const buttons = [
+      {
         element: this.boldButton,
         name: "bold",
-        action: () => this.formatText("bold")
+        action: () => this.formatText("bold"),
       },
       {
         element: this.italicButton,
         name: "italic",
-        action: () => this.formatText("italic")
+        action: () => this.formatText("italic"),
       },
       {
         element: this.headingButton,
         name: "heading",
-        action: () => this.formatBlock("heading")
+        action: () => this.formatBlock("heading"),
       },
       {
         element: this.blockquoteButton,
         name: "blockquote",
-        action: () => this.formatBlock("blockquote")
+        action: () => this.formatBlock("blockquote"),
       },
       {
         element: this.codeButton,
         name: "code",
-        action: () => this.formatBlock("code")
+        action: () => this.formatBlock("code"),
       },
       {
         element: this.undoButton,
         name: "undo",
-        action: () => this.handleUndo()
+        action: () => this.handleUndo(),
       },
       {
         element: this.redoButton,
         name: "redo",
-        action: () => this.handleRedo()
-      }
+        action: () => this.handleRedo(),
+      },
     ];
 
-    buttons.forEach(({
-      element,
-      name,
-      action
-    }) => {
+    buttons.forEach(({ element, name, action }) => {
       if (element) {
         console.log(`✅ ${name} button found:`, element);
 
         // Prevent default behavior that clears selection
-        element.addEventListener("touchstart", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
+        element.addEventListener(
+          "touchstart",
+          (e) => {
+            e.preventDefault();
+            e.stopPropagation();
 
-          // Store the current selection immediately
-          const selection = window.getSelection();
-          if (selection && selection.rangeCount > 0) {
-            this.lastValidRange = selection.getRangeAt(0).cloneRange();
-            console.log(`📱 ${name} touchstart - stored selection:`, this.lastValidRange.toString());
+            // Store the current selection immediately
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0) {
+              this.lastValidRange = selection.getRangeAt(0).cloneRange();
+              console.log(
+                `📱 ${name} touchstart - stored selection:`,
+                this.lastValidRange.toString()
+              );
+            }
+          },
+          {
+            passive: false,
           }
-        }, {
-          passive: false
-        });
+        );
 
-        element.addEventListener("touchend", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
+        element.addEventListener(
+          "touchend",
+          (e) => {
+            e.preventDefault();
+            e.stopPropagation();
 
-          console.log(`📱 ${name} touchend - executing action`);
+            console.log(`📱 ${name} touchend - executing action`);
 
-          // Small delay to ensure selection is stored
-          setTimeout(() => {
-            action();
-          }, 10);
-        }, {
-          passive: false
-        });
+            // Small delay to ensure selection is stored
+            setTimeout(() => {
+              action();
+            }, 10);
+          },
+          {
+            passive: false,
+          }
+        );
 
         // Keep desktop click handler
         element.addEventListener("click", (e) => {
@@ -159,7 +198,6 @@ class EditToolbar {
             action();
           }
         });
-
       } else {
         console.log(`❌ ${name} button NOT found`);
       }
@@ -172,32 +210,59 @@ class EditToolbar {
       return;
     }
     this.isProcessingHistory = true;
-    this.updateHistoryButtonStates(); // Update visual state immediately
+    this.updateHistoryButtonStates();
+
     try {
-      await undoLastBatch();
+      if (pendingSyncs.size > 0) {
+        console.log("🌀 Pending changes detected. Flushing sync before undoing...");
+        await debouncedMasterSync.flush();
+        console.log("✅ Flush complete.");
+      }
+
+      const targetId = await undoLastBatch();
+
+      if (targetId && currentLazyLoader) {
+        await currentLazyLoader.refresh(targetId);
+      } else if (targetId) {
+        window.location.reload();
+      }
     } catch (error) {
       console.error("❌ Error during undo operation:", error);
     } finally {
+      console.log("Yielding to main thread before releasing lock...");
+      await yieldToMainThread();
+
       this.isProcessingHistory = false;
-      this.updateHistoryButtonStates(); // Update visual state after completion
+      this.updateHistoryButtonStates();
       console.log("✅ Undo/Redo lock released.");
     }
   }
 
+  // ✅ FINAL, CORRECTED VERSION OF handleRedo
   async handleRedo() {
     if (this.isProcessingHistory) {
       console.log("⏳ Undo/Redo already in progress. Please wait.");
       return;
     }
     this.isProcessingHistory = true;
-    this.updateHistoryButtonStates(); // Update visual state immediately
+    this.updateHistoryButtonStates();
+
     try {
-      await redoLastBatch();
+      const targetId = await redoLastBatch();
+
+      if (targetId && currentLazyLoader) {
+        await currentLazyLoader.refresh(targetId);
+      } else if (targetId) {
+        window.location.reload();
+      }
     } catch (error) {
       console.error("❌ Error during redo operation:", error);
     } finally {
+      console.log("Yielding to main thread before releasing lock...");
+      await yieldToMainThread();
+
       this.isProcessingHistory = false;
-      this.updateHistoryButtonStates(); // Update visual state after completion
+      this.updateHistoryButtonStates();
       console.log("✅ Undo/Redo lock released.");
     }
   }
@@ -215,25 +280,36 @@ class EditToolbar {
 
     if (this.undoButton) {
       const canCurrentlyUndo = await canUndo();
-      console.log(`Undo button: isProcessingHistory=${this.isProcessingHistory}, canCurrentlyUndo=${canCurrentlyUndo}`);
+      console.log(
+        `Undo button: isProcessingHistory=${this.isProcessingHistory}, canCurrentlyUndo=${canCurrentlyUndo}`
+      );
       this.undoButton.classList.toggle("processing", this.isProcessingHistory);
-      this.undoButton.classList.toggle("disabled", this.isProcessingHistory || !canCurrentlyUndo);
-      this.undoButton.disabled = this.isProcessingHistory || !canCurrentlyUndo; // Disable button element
+      this.undoButton.classList.toggle(
+        "disabled",
+        this.isProcessingHistory || !canCurrentlyUndo
+      );
+      this.undoButton.disabled =
+        this.isProcessingHistory || !canCurrentlyUndo; // Disable button element
     } else {
       console.warn("Undo button not found in DOM.");
     }
 
     if (this.redoButton) {
       const canCurrentlyRedo = await canRedo();
-      console.log(`Redo button: isProcessingHistory=${this.isProcessingHistory}, canCurrentlyRedo=${canCurrentlyRedo}`);
+      console.log(
+        `Redo button: isProcessingHistory=${this.isProcessingHistory}, canCurrentlyRedo=${canCurrentlyRedo}`
+      );
       this.redoButton.classList.toggle("processing", this.isProcessingHistory);
-      this.redoButton.classList.toggle("disabled", this.isProcessingHistory || !canCurrentlyRedo);
-      this.redoButton.disabled = this.isProcessingHistory || !canCurrentlyRedo; // Disable button element
+      this.redoButton.classList.toggle(
+        "disabled",
+        this.isProcessingHistory || !canCurrentlyRedo
+      );
+      this.redoButton.disabled =
+        this.isProcessingHistory || !canCurrentlyRedo; // Disable button element
     } else {
       console.warn("Redo button not found in DOM.");
     }
   }
-
 
   /**
    * Handle selection changes within the document (only for button states and positioning)
@@ -244,7 +320,7 @@ class EditToolbar {
       hasSelection: !!selection,
       rangeCount: selection?.rangeCount,
       isCollapsed: selection?.isCollapsed,
-      toolbarVisible: this.isVisible
+      toolbarVisible: this.isVisible,
     });
 
     if (!selection || selection.rangeCount === 0) return;
@@ -260,7 +336,7 @@ class EditToolbar {
           container: container,
           containerParent: container.parentElement,
           containerId: container.id || container.parentElement?.id,
-          isInEditable: editableContent.contains(container)
+          isInEditable: editableContent.contains(container),
         });
 
         // Store selection if it's within editable content
@@ -276,7 +352,7 @@ class EditToolbar {
             this.mobileBackupContainer = container;
             console.log("📱 Mobile backup stored:", {
               text: this.mobileBackupText,
-              container: this.mobileBackupContainer
+              container: this.mobileBackupContainer,
             });
           }
 
@@ -304,7 +380,10 @@ class EditToolbar {
     } else {
       this.hide();
       // Remove selection change listener when not in edit mode
-      document.removeEventListener("selectionchange", this.handleSelectionChange);
+      document.removeEventListener(
+        "selectionchange",
+        this.handleSelectionChange
+      );
     }
   }
 
@@ -318,42 +397,52 @@ class EditToolbar {
 
     // Update bold button state
     if (this.boldButton) {
-      this.boldButton.classList.toggle("active",
+      this.boldButton.classList.toggle(
+        "active",
         document.queryCommandState("bold") ||
-        this.hasParentWithTag(parentElement, "STRONG") ||
-        this.hasParentWithTag(parentElement, "B"));
+          this.hasParentWithTag(parentElement, "STRONG") ||
+          this.hasParentWithTag(parentElement, "B")
+      );
     }
 
     // Update italic button state
     if (this.italicButton) {
-      this.italicButton.classList.toggle("active",
+      this.italicButton.classList.toggle(
+        "active",
         document.queryCommandState("italic") ||
-        this.hasParentWithTag(parentElement, "EM") ||
-        this.hasParentWithTag(parentElement, "I"));
+          this.hasParentWithTag(parentElement, "EM") ||
+          this.hasParentWithTag(parentElement, "I")
+      );
     }
 
     // Update heading button state
     if (this.headingButton) {
-      this.headingButton.classList.toggle("active",
+      this.headingButton.classList.toggle(
+        "active",
         this.hasParentWithTag(parentElement, "H1") ||
-        this.hasParentWithTag(parentElement, "H2") ||
-        this.hasParentWithTag(parentElement, "H3") ||
-        this.hasParentWithTag(parentElement, "H4") ||
-        this.hasParentWithTag(parentElement, "H5") ||
-        this.hasParentWithTag(parentElement, "H6"));
+          this.hasParentWithTag(parentElement, "H2") ||
+          this.hasParentWithTag(parentElement, "H3") ||
+          this.hasParentWithTag(parentElement, "H4") ||
+          this.hasParentWithTag(parentElement, "H5") ||
+          this.hasParentWithTag(parentElement, "H6")
+      );
     }
 
     // Update blockquote button state
     if (this.blockquoteButton) {
-      this.blockquoteButton.classList.toggle("active",
-        this.hasParentWithTag(parentElement, "BLOCKQUOTE"));
+      this.blockquoteButton.classList.toggle(
+        "active",
+        this.hasParentWithTag(parentElement, "BLOCKQUOTE")
+      );
     }
 
     // Update code button state
     if (this.codeButton) {
-      this.codeButton.classList.toggle("active",
+      this.codeButton.classList.toggle(
+        "active",
         this.hasParentWithTag(parentElement, "CODE") ||
-        this.hasParentWithTag(parentElement, "PRE"));
+          this.hasParentWithTag(parentElement, "PRE")
+      );
     }
   }
 
@@ -386,8 +475,9 @@ class EditToolbar {
       return true;
     }
 
-    return element.parentNode && element.parentNode.nodeType === 1 ?
-      this.hasParentWithTag(element.parentNode, tagName) : false;
+    return element.parentNode && element.parentNode.nodeType === 1
+      ? this.hasParentWithTag(element.parentNode, tagName)
+      : false;
   }
   /**
    * Format the selected text with the specified style
@@ -398,7 +488,7 @@ class EditToolbar {
       hasCurrentSelection: !!this.currentSelection,
       hasLastValidRange: !!this.lastValidRange,
       isCollapsed: this.currentSelection?.isCollapsed,
-      currentSelectionText: this.currentSelection?.toString()
+      currentSelectionText: this.currentSelection?.toString(),
     });
 
     this.isFormatting = true;
@@ -410,13 +500,19 @@ class EditToolbar {
       let workingSelection = this.currentSelection;
       let workingRange = null;
 
-      if (this.lastValidRange && editableContent.contains(this.lastValidRange.commonAncestorContainer)) {
+      if (
+        this.lastValidRange &&
+        editableContent.contains(this.lastValidRange.commonAncestorContainer)
+      ) {
         try {
           workingSelection = window.getSelection();
           workingSelection.removeAllRanges();
           workingSelection.addRange(this.lastValidRange.cloneRange());
           workingRange = this.lastValidRange.cloneRange();
-          console.log("🔄 Restored valid selection to:", workingRange.commonAncestorContainer);
+          console.log(
+            "🔄 Restored valid selection to:",
+            workingRange.commonAncestorContainer
+          );
         } catch (e) {
           console.warn("Failed to restore lastValidRange:", e);
           workingSelection = null;
@@ -439,10 +535,11 @@ class EditToolbar {
       this.currentSelection = workingSelection;
       editableContent.focus();
 
-      const affectedElementsBefore = this.getElementsInSelectionRange(workingRange);
-      const originalStates = affectedElementsBefore.map(el => ({
+      const affectedElementsBefore =
+        this.getElementsInSelectionRange(workingRange);
+      const originalStates = affectedElementsBefore.map((el) => ({
         id: el.id,
-        html: el.outerHTML
+        html: el.outerHTML,
       }));
 
       const isTextSelected = !this.currentSelection.isCollapsed;
@@ -468,12 +565,17 @@ class EditToolbar {
               this.currentSelection.focusOffset
             );
 
-            if (this.hasParentWithTag(parentElement, "STRONG") ||
-              this.hasParentWithTag(parentElement, "B")) {
-              const boldElement = this.findParentWithTag(parentElement, "STRONG") ||
+            if (
+              this.hasParentWithTag(parentElement, "STRONG") ||
+              this.hasParentWithTag(parentElement, "B")
+            ) {
+              const boldElement =
+                this.findParentWithTag(parentElement, "STRONG") ||
                 this.findParentWithTag(parentElement, "B");
               if (boldElement) {
-                const newTextNode = document.createTextNode(boldElement.textContent);
+                const newTextNode = document.createTextNode(
+                  boldElement.textContent
+                );
                 const parentNode = boldElement.parentNode;
                 parentNode.replaceChild(newTextNode, boldElement);
                 this.setCursorAtTextOffset(parentNode, currentOffset);
@@ -486,7 +588,10 @@ class EditToolbar {
             } else {
               let node = this.currentSelection.focusNode;
               if (node.nodeType !== Node.TEXT_NODE) {
-                const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+                const walker = document.createTreeWalker(
+                  node,
+                  NodeFilter.SHOW_TEXT
+                );
                 node = walker.nextNode();
               }
 
@@ -496,7 +601,8 @@ class EditToolbar {
                 this.currentSelection.removeAllRanges();
                 this.currentSelection.addRange(range);
                 document.execCommand("bold", false, null);
-                const newBoldNode = this.findParentWithTag(node.parentNode, "STRONG") ||
+                const newBoldNode =
+                  this.findParentWithTag(node.parentNode, "STRONG") ||
                   this.findParentWithTag(node.parentNode, "B");
                 if (newBoldNode) {
                   this.setCursorAtTextOffset(newBoldNode, currentOffset);
@@ -527,12 +633,17 @@ class EditToolbar {
               this.currentSelection.focusOffset
             );
 
-            if (this.hasParentWithTag(parentElement, "EM") ||
-              this.hasParentWithTag(parentElement, "I")) {
-              const italicElement = this.findParentWithTag(parentElement, "EM") ||
+            if (
+              this.hasParentWithTag(parentElement, "EM") ||
+              this.hasParentWithTag(parentElement, "I")
+            ) {
+              const italicElement =
+                this.findParentWithTag(parentElement, "EM") ||
                 this.findParentWithTag(parentElement, "I");
               if (italicElement) {
-                const newTextNode = document.createTextNode(italicElement.textContent);
+                const newTextNode = document.createTextNode(
+                  italicElement.textContent
+                );
                 const parentNode = italicElement.parentNode;
                 parentNode.replaceChild(newTextNode, italicElement);
                 this.setCursorAtTextOffset(parentNode, currentOffset);
@@ -545,7 +656,10 @@ class EditToolbar {
             } else {
               let node = this.currentSelection.focusNode;
               if (node.nodeType !== Node.TEXT_NODE) {
-                const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+                const walker = document.createTreeWalker(
+                  node,
+                  NodeFilter.SHOW_TEXT
+                );
                 node = walker.nextNode();
               }
 
@@ -555,11 +669,13 @@ class EditToolbar {
                 this.currentSelection.removeAllRanges();
                 this.currentSelection.addRange(range);
                 document.execCommand("italic", false, null);
-                const newItalicNode = this.findParentWithTag(node.parentNode, "EM") ||
+                const newItalicNode =
+                  this.findParentWithTag(node.parentNode, "EM") ||
                   this.findParentWithTag(node.parentNode, "I");
                 if (newItalicNode) {
                   this.setCursorAtTextOffset(newItalicNode, currentOffset);
-                  const blockParent = this.findClosestBlockParent(newItalicNode);
+                  const blockParent =
+                    this.findClosestBlockParent(newItalicNode);
                   if (blockParent && blockParent.id) {
                     modifiedElementId = blockParent.id;
                     newElement = blockParent;
@@ -573,77 +689,47 @@ class EditToolbar {
 
       this.updateButtonStates();
 
-      // ✅ THIS IS THE ONLY HISTORY/SAVE BLOCK THAT SHOULD REMAIN
+      // REMOVED ALL HISTORY/SAVE BLOCK from formatText
       const handleHistoryAndSave = async () => {
-        const affectedElementsAfter = [];
+        // Define an inner async function
+        // Removed originalStates capture and complex historyPayload logic from here.
+        // It's now handled by debouncedMasterSync's read of current/previous states.
+        const affectedElementsAfter = []; // Still useful for knowing what to save
         if (modifiedElementId && document.getElementById(modifiedElementId)) {
           affectedElementsAfter.push({
             id: modifiedElementId,
-            html: document.getElementById(modifiedElementId).outerHTML
+            html: document.getElementById(modifiedElementId).outerHTML,
           });
         } else if (modifiedElementId && newElement) {
           affectedElementsAfter.push({
             id: newElement.id,
-            html: newElement.outerHTML
+            html: newElement.outerHTML,
           });
         }
 
-        if (this.currentBookId && (originalStates.length > 0 || affectedElementsAfter.length > 0)) {
-            const previousElementState = originalStates.find(item => item.id === (modifiedElementId || newElement?.id));
-            const newElementState = affectedElementsAfter.find(item => item.id === (modifiedElementId || newElement?.id));
-
-            if (previousElementState && newElementState) {
-                 await addHistoryBatch(this.currentBookId, {
-                     updates: {
-                         nodeChunks: [{
-                             book: this.currentBookId,
-                             startLine: previousElementState.id,
-                             html: previousElementState.html
-                         }]
-                     },
-                     deletions: {
-                         nodeChunks: []
-                     }
-                 });
-            } else if (!previousElementState && newElementState) {
-                await addHistoryBatch(this.currentBookId, {
-                    updates: { nodeChunks: [] },
-                    deletions: {
-                        nodeChunks: [{
-                            book: this.currentBookId,
-                            startLine: newElementState.id,
-                            html: newElementState.html
-                        }]
-                    }
-                });
-            } else if (previousElementState && !newElementState) {
-                await addHistoryBatch(this.currentBookId, {
-                    updates: { nodeChunks: [] },
-                    deletions: {
-                        nodeChunks: [{
-                            book: this.currentBookId,
-                            startLine: previousElementState.id,
-                            html: previousElementState.html
-                        }]
-                    }
-                });
-            }
-        }
-        if (modifiedElementId && newElement) { // Only call saveToIndexedDB if a specific element was modified/created
+        // Save to IndexedDB if a specific element was modified/created.
+        // This will trigger queueForSync and then debouncedMasterSync,
+        // which handles history logging and redo clearing.
+        if (modifiedElementId && newElement) {
           const updatedElement = document.getElementById(modifiedElementId);
           if (updatedElement) {
-            await this.saveToIndexedDB(modifiedElementId, updatedElement.outerHTML);
+            await this.saveToIndexedDB(
+              modifiedElementId,
+              updatedElement.outerHTML
+            );
           } else {
-            await this.saveToIndexedDB(modifiedElementId, newElement.outerHTML);
+            await this.saveToIndexedDB(
+              modifiedElementId,
+              newElement.outerHTML
+            );
           }
         }
-        await this.updateHistoryButtonStates();
+        // Removed: await this.updateHistoryButtonStates(); // This is now handled by clearRedoHistory
       };
 
-      handleHistoryAndSave().catch(error => {
-          console.error("Error processing history and save:", error);
+      handleHistoryAndSave().catch((error) => {
+        console.error("Error processing save from formatText:", error);
       });
-
     } finally {
       setTimeout(() => {
         this.isFormatting = false;
@@ -651,7 +737,8 @@ class EditToolbar {
     }
   }
 
-  async formatBlock(type) { // ✅ Mark as async
+  async formatBlock(type) {
+    // ✅ Mark as async
     console.log("🔧 Format block called:", {
       type: type,
       hasCurrentSelection: !!this.currentSelection,
@@ -707,26 +794,14 @@ class EditToolbar {
       const listItem = this.findClosestListItem(parentElement);
       if (listItem) {
         await this.convertListItemToBlock(listItem, type); // ✅ await here
-        // History for list conversion is handled inside convertListItemToBlock
+        // History for list conversion is handled inside convertListItemToBlock (via saveToIndexedDB)
         this.updateButtonStates();
         return; // Exit after list conversion
       }
 
       let modifiedElementId = null;
       let newElement = null; // Reference to the element after modification
-      let originalBlockStates = []; // To store original state of blocks for history
-
-      // Capture original state before modification
-      if (isTextSelected) {
-        const affectedBlocksBefore = this.getBlockElementsInRange(workingRange);
-        originalBlockStates = affectedBlocksBefore.map(block => ({ id: block.id, html: block.outerHTML }));
-      } else {
-        const blockParentBefore = this.findClosestBlockParent(parentElement);
-        if (blockParentBefore && blockParentBefore.id) {
-          originalBlockStates.push({ id: blockParentBefore.id, html: blockParentBefore.outerHTML });
-        }
-      }
-
+      // Removed originalBlockStates capture from here, as it's not used directly anymore
 
       switch (type) {
         case "heading":
@@ -737,7 +812,6 @@ class EditToolbar {
             if (affectedBlocks.length > 0) {
               const recordsToUpdate = [];
               const modifiedElementsForSelection = [];
-              const newElementIds = []; // To track new IDs for history payload
 
               for (const block of affectedBlocks) {
                 const isHeading = /^H[1-6]$/.test(block.tagName);
@@ -757,44 +831,25 @@ class EditToolbar {
                   element: newBlockElement,
                 });
                 recordsToUpdate.push({
+                  // This is used by batchUpdateIndexedDBRecords
                   id: newBlockElement.id,
                   html: newBlockElement.outerHTML,
                 });
-                newElementIds.push(newBlockElement.id); // Add modified/new element ID
               }
 
               this.selectAcrossElements(modifiedElementsForSelection);
 
-              // ✅ NEW: Add batch update to history
-              if (this.currentBookId && recordsToUpdate.length > 0) {
-                  const historyPayload = {
-                      updates: {
-                          nodeChunks: originalBlockStates.map(item => ({
-                              book: this.currentBookId,
-                              startLine: item.id,
-                              html: item.html
-                          }))
-                      },
-                      deletions: {
-                          nodeChunks: []
-                      }
-                  };
-                  await addHistoryBatch(this.currentBookId, historyPayload); // ✅ await here
-              }
-              // Original IndexedDB save for batch updates.
+              // No direct history payload creation here. batchUpdateIndexedDBRecords will trigger queueForSync.
               if (recordsToUpdate.length > 0) {
-                  // If batchUpdateIndexedDBRecords doesn't implicitly call addHistoryBatch,
-                  // you'd need to modify it or call addHistoryBatch after it.
-                  // For now, let's assume saveToIndexedDB handles history, and
-                  // batchUpdateIndexedDBRecords will too if refactored.
-                  batchUpdateIndexedDBRecords(recordsToUpdate);
+                batchUpdateIndexedDBRecords(recordsToUpdate);
               }
               break; // Break from switch after handling selected text
             }
           }
 
           // Cursor-only logic
-          const cursorFocusParent = this.currentSelection.focusNode.parentElement;
+          const cursorFocusParent =
+            this.currentSelection.focusNode.parentElement;
           const blockParent = this.findClosestBlockParent(cursorFocusParent);
 
           if (blockParent && /^H[1-6]$/.test(blockParent.tagName)) {
@@ -808,27 +863,15 @@ class EditToolbar {
             );
             const pElement = document.createElement("p");
             pElement.innerHTML = headingElement.innerHTML;
-            const newPId = headingElement.id || generateIdBetween(beforeId, afterId); // Try to preserve ID
+            const newPId =
+              headingElement.id || generateIdBetween(beforeId, afterId);
             pElement.id = newPId;
             headingElement.parentNode.replaceChild(pElement, headingElement);
             this.setCursorAtTextOffset(pElement, currentOffset);
             modifiedElementId = newPId;
             newElement = pElement;
 
-            // ✅ History for cursor-only heading toggle
-            if (this.currentBookId && originalBlockStates.length > 0) {
-                await addHistoryBatch(this.currentBookId, { // ✅ await here
-                    updates: {
-                        nodeChunks: [{
-                            book: this.currentBookId,
-                            startLine: originalBlockStates[0].id,
-                            html: originalBlockStates[0].html
-                        }]
-                    },
-                    deletions: { nodeChunks: [] } // No deletions, just an update/replace
-                });
-            }
-
+            // No direct history payload here. saveToIndexedDB will trigger queueForSync.
           } else if (blockParent) {
             const beforeId = findPreviousElementId(blockParent);
             const afterId = findNextElementId(blockParent);
@@ -839,26 +882,15 @@ class EditToolbar {
             );
             const h2Element = document.createElement("h2");
             h2Element.innerHTML = blockParent.innerHTML;
-            const newH2Id = blockParent.id || generateIdBetween(beforeId, afterId); // Try to preserve ID
+            const newH2Id =
+              blockParent.id || generateIdBetween(beforeId, afterId);
             h2Element.id = newH2Id;
             blockParent.parentNode.replaceChild(h2Element, blockParent);
             this.setCursorAtTextOffset(h2Element, currentOffset);
             modifiedElementId = newH2Id;
             newElement = h2Element;
 
-            // ✅ History for cursor-only heading toggle
-            if (this.currentBookId && originalBlockStates.length > 0) {
-                await addHistoryBatch(this.currentBookId, { // ✅ await here
-                    updates: {
-                        nodeChunks: [{
-                            book: this.currentBookId,
-                            startLine: originalBlockStates[0].id,
-                            html: originalBlockStates[0].html
-                        }]
-                    },
-                    deletions: { nodeChunks: [] }
-                });
-            }
+            // No direct history payload here. saveToIndexedDB will trigger queueForSync.
           }
           break;
 
@@ -892,45 +924,40 @@ class EditToolbar {
               newBlockElement.id = generateIdBetween(beforeId, afterId);
 
               const parent = affectedBlocks[0].parentNode;
-              parent.insertBefore(
-                newBlockElement,
-                affectedBlocks[0]
-              );
+              parent.insertBefore(newBlockElement, affectedBlocks[0]);
 
-              // Store IDs of deleted elements for history
-              const deletedOriginalIds = affectedBlocks.map(block => block.id);
+              const deletedOriginalIds = affectedBlocks.map(
+                (block) => block.id
+              );
               affectedBlocks.forEach((block) => block.remove());
 
               this.currentSelection.selectAllChildren(newBlockElement);
               modifiedElementId = newBlockElement.id;
               newElement = newBlockElement;
 
-              // ✅ NEW: Add batch history for block wrapping selection
-              if (this.currentBookId) {
-                  const historyPayload = {
-                      updates: { // For undo, these are the original elements that were effectively 'deleted' and need to be re-added
-                          nodeChunks: originalBlockStates.map(item => ({
-                              book: this.currentBookId,
-                              startLine: item.id,
-                              html: item.html
-                          }))
-                      },
-                      deletions: { // For undo, this is the newly created block element that needs to be removed
-                          nodeChunks: [{
-                              book: this.currentBookId,
-                              startLine: newBlockElement.id,
-                              html: newBlockElement.outerHTML
-                          }]
-                      }
-                  };
-                  await addHistoryBatch(this.currentBookId, historyPayload); // ✅ await here
+              // These are effectively a deletion of old blocks and creation of a new one.
+              // Handle this as a batch operation involving both.
+              // We queue the new block as an "update" and the deleted blocks as "deletions".
+              if (this.currentBookId && newBlockElement.id) {
+                // Queue the new block as an update
+                await this.saveToIndexedDB(
+                  newBlockElement.id,
+                  newBlockElement.outerHTML
+                );
+
+                // Queue the old blocks as deletions (using batchDeleteIndexedDBRecords for multiple)
+                if (deletedOriginalIds.length > 0) {
+                  await batchDeleteIndexedDBRecords(deletedOriginalIds); // batchDelete will queueForSync
+                }
               }
             } else {
-              // Fallback for selections not in a block - this has the original bug
-              // This part of the logic needs to be re-evaluated, but the main case is fixed.
-              console.warn("Selection for block format is not within a recognized block. This may fail.");
+              // Fallback for selections not in a block (still need to handle this)
+              console.warn(
+                "Selection for block format is not within a recognized block. This may fail."
+              );
               const parentElement = this.getSelectionParentElement();
-              const containingBlock = this.findClosestBlockParent(parentElement);
+              const containingBlock =
+                this.findClosestBlockParent(parentElement);
               if (containingBlock) {
                 const beforeId = findPreviousElementId(containingBlock);
                 const afterId = findNextElementId(containingBlock);
@@ -938,40 +965,28 @@ class EditToolbar {
 
                 document.execCommand("formatBlock", false, type);
 
-                const newElem = document.getElementById(beforeId)?.nextElementSibling || document.getElementById(afterId)?.previousElementSibling;
+                const newElem =
+                  document.getElementById(beforeId)?.nextElementSibling ||
+                  document.getElementById(afterId)?.previousElementSibling;
                 if (newElem) {
                   newElem.id = newId;
                   modifiedElementId = newId;
                   newElement = newElem;
-
-                  // ✅ History for single block wrapping (fallback)
-                  if (this.currentBookId && originalBlockStates.length > 0) {
-                      const historyPayload = {
-                          updates: {
-                              nodeChunks: originalBlockStates.map(item => ({
-                                  book: this.currentBookId,
-                                  startLine: item.id,
-                                  html: item.html
-                              }))
-                          },
-                          deletions: {
-                              nodeChunks: [{
-                                  book: this.currentBookId,
-                                  startLine: newElem.id,
-                                  html: newElem.outerHTML
-                              }]
-                          }
-                      };
-                      await addHistoryBatch(this.currentBookId, historyPayload); // ✅ await here
-                  }
+                  await this.saveToIndexedDB(
+                    modifiedElementId,
+                    newElement.outerHTML
+                  );
                 }
               }
             }
           } else {
             // CURSOR-ONLY LOGIC
-            const parentElement = this.currentSelection.focusNode.parentElement;
-            const blockParentToToggle = this.findClosestBlockParent(parentElement);
-            const isBlockquote = blockParentToToggle?.tagName === "BLOCKQUOTE";
+            const parentElement =
+              this.currentSelection.focusNode.parentElement;
+            const blockParentToToggle =
+              this.findClosestBlockParent(parentElement);
+            const isBlockquote =
+              blockParentToToggle?.tagName === "BLOCKQUOTE";
             const isCode = blockParentToToggle?.tagName === "PRE";
 
             if (
@@ -987,7 +1002,7 @@ class EditToolbar {
               const fragment = document.createDocumentFragment();
               let lastId = beforeOriginalId;
               let firstNewP = null;
-              const createdP_ids = []; // Track IDs of new P elements
+              const createdP_ids_with_html = []; // Store IDs with HTML for saveToIndexedDB
 
               lines.forEach((line, index) => {
                 if (line.trim() || lines.length === 1) {
@@ -997,7 +1012,10 @@ class EditToolbar {
                   lastId = p.id;
                   if (index === 0) firstNewP = p;
                   fragment.appendChild(p);
-                  createdP_ids.push({ id: p.id, html: p.outerHTML });
+                  createdP_ids_with_html.push({
+                    id: p.id,
+                    html: p.outerHTML,
+                  });
                 }
               });
 
@@ -1007,25 +1025,11 @@ class EditToolbar {
                 modifiedElementId = newElement.id;
                 this.setCursorAtTextOffset(newElement, 0);
 
-                // ✅ History for unwrap
-                if (this.currentBookId) {
-                    const historyPayload = {
-                        updates: { // For undo, these are the blocks that need to be re-wrapped (i.e., new P tags become the old block)
-                            nodeChunks: [{
-                                book: this.currentBookId,
-                                startLine: blockToUnwrap.id,
-                                html: blockToUnwrap.outerHTML // Original block to put back
-                            }]
-                        },
-                        deletions: { // For undo, these are the new P tags that need to be removed
-                            nodeChunks: createdP_ids.map(item => ({
-                                book: this.currentBookId,
-                                startLine: item.id,
-                                html: item.html
-                            }))
-                        }
-                    };
-                    await addHistoryBatch(this.currentBookId, historyPayload); // ✅ await here
+                // Queue new paragraphs as updates (batchUpdate)
+                await batchUpdateIndexedDBRecords(createdP_ids_with_html);
+                // Queue old wrapper block as deletion
+                if (blockToUnwrap.id) {
+                  await this.deleteFromIndexedDB(blockToUnwrap.id); // Assuming this is your single delete func
                 }
               } else {
                 // Handle empty case (unwrap an empty block)
@@ -1037,25 +1041,9 @@ class EditToolbar {
                 modifiedElementId = p.id;
                 this.setCursorAtTextOffset(newElement, 0);
 
-                // ✅ History for unwrap empty
-                if (this.currentBookId) {
-                    const historyPayload = {
-                        updates: {
-                            nodeChunks: [{
-                                book: this.currentBookId,
-                                startLine: blockToUnwrap.id,
-                                html: blockToUnwrap.outerHTML
-                            }]
-                        },
-                        deletions: {
-                            nodeChunks: [{
-                                book: this.currentBookId,
-                                startLine: p.id,
-                                html: p.outerHTML
-                            }]
-                        }
-                    };
-                    await addHistoryBatch(this.currentBookId, historyPayload); // ✅ await here
+                await this.saveToIndexedDB(p.id, p.outerHTML); // Queue new empty paragraph
+                if (blockToUnwrap.id) {
+                  await this.deleteFromIndexedDB(blockToUnwrap.id); // Queue old wrapper block
                 }
               }
             } else if (blockParentToToggle) {
@@ -1090,25 +1078,14 @@ class EditToolbar {
               modifiedElementId = newElement.id;
               this.setCursorAtTextOffset(newElement, currentOffset);
 
-              // ✅ History for wrap
-              if (this.currentBookId) {
-                  const historyPayload = {
-                      updates: { // For undo, this is the original block to put back
-                          nodeChunks: [{
-                              book: this.currentBookId,
-                              startLine: blockParentToToggle.id,
-                              html: blockParentToToggle.outerHTML
-                          }]
-                      },
-                      deletions: { // For undo, this is the newly created wrapper block to remove
-                          nodeChunks: [{
-                              book: this.currentBookId,
-                              startLine: newBlockElement.id,
-                              html: newBlockElement.outerHTML
-                          }]
-                      }
-                  };
-                  await addHistoryBatch(this.currentBookId, historyPayload); // ✅ await here
+              // This is a delete of old blockParentToToggle and creation of newBlockElement
+              // Queue newBlockElement as an update, oldBlockParentToToggle as a deletion.
+              if (newBlockElement.id && blockParentToToggle.id) {
+                await this.saveToIndexedDB(
+                  newBlockElement.id,
+                  newBlockElement.outerHTML
+                ); // Queue new block
+                await this.deleteFromIndexedDB(blockParentToToggle.id); // Queue old block for deletion
               }
             }
           }
@@ -1117,80 +1094,46 @@ class EditToolbar {
 
       this.updateButtonStates();
 
-      // ✅ THIS IS THE ONLY HISTORY/SAVE BLOCK THAT SHOULD REMAIN
-      const handleHistoryAndSave = async () => { // Define an inner async function
+      // REMOVED ALL HISTORY/SAVE BLOCK from formatBlock
+      const handleHistoryAndSave = async () => {
+        // Define an inner async function
         const affectedElementsAfter = [];
         if (modifiedElementId && document.getElementById(modifiedElementId)) {
           affectedElementsAfter.push({
             id: modifiedElementId,
-            html: document.getElementById(modifiedElementId).outerHTML
+            html: document.getElementById(modifiedElementId).outerHTML,
           });
         } else if (modifiedElementId && newElement) {
           affectedElementsAfter.push({
             id: newElement.id,
-            html: newElement.outerHTML
+            html: newElement.outerHTML,
           });
         }
 
-        if (this.currentBookId && (originalBlockStates.length > 0 || affectedElementsAfter.length > 0)) {
-            const previousElementState = originalBlockStates.find(item => item.id === (modifiedElementId || newElement?.id));
-            const newElementState = affectedElementsAfter.find(item => item.id === (modifiedElementId || newElement?.id));
-
-            if (previousElementState && newElementState) {
-                 await addHistoryBatch(this.currentBookId, {
-                     updates: {
-                         nodeChunks: [{
-                             book: this.currentBookId,
-                             startLine: previousElementState.id,
-                             html: previousElementState.html
-                         }]
-                     },
-                     deletions: {
-                         nodeChunks: []
-                     }
-                 });
-            } else if (!previousElementState && newElementState) {
-                await addHistoryBatch(this.currentBookId, {
-                    updates: { nodeChunks: [] },
-                    deletions: {
-                        nodeChunks: [{
-                            book: this.currentBookId,
-                            startLine: newElementState.id,
-                            html: newElementState.html
-                        }]
-                    }
-                });
-            } else if (previousElementState && !newElementState) {
-                await addHistoryBatch(this.currentBookId, {
-                    updates: { nodeChunks: [] },
-                    deletions: {
-                        nodeChunks: [{
-                            book: this.currentBookId,
-                            startLine: previousElementState.id,
-                            html: previousElementState.html
-                        }]
-                    }
-                });
-            }
-        }
-        // Save to IndexedDB if it's a direct element modification outside of `addHistoryBatch`'s implicit save
+        // Save to IndexedDB if a specific element was modified/created.
+        // This will trigger queueForSync and then debouncedMasterSync,
+        // which handles history logging and redo clearing.
         if (modifiedElementId && newElement) {
           const updatedElement = document.getElementById(modifiedElementId);
           if (updatedElement) {
-            await this.saveToIndexedDB(modifiedElementId, updatedElement.outerHTML);
+            await this.saveToIndexedDB(
+              modifiedElementId,
+              updatedElement.outerHTML
+            );
           } else {
-            await this.saveToIndexedDB(modifiedElementId, newElement.outerHTML);
+            await this.saveToIndexedDB(
+              modifiedElementId,
+              newElement.outerHTML
+            );
           }
         }
-        await this.updateHistoryButtonStates(); // Update button states AFTER history is processed
+        // Removed: await this.updateHistoryButtonStates(); // This is now handled by clearRedoHistory
       };
 
       // Call the inner async function immediately (no setTimeout for this chain)
-      handleHistoryAndSave().catch(error => {
-          console.error("Error processing history and save:", error);
+      handleHistoryAndSave().catch((error) => {
+        console.error("Error processing save from formatBlock:", error);
       });
-
-
     } finally {
       // This setTimeout is now ONLY for resetting isFormatting,
       // it won't interfere with the history state updates.
@@ -1199,8 +1142,6 @@ class EditToolbar {
       }, 100);
     }
   }
-  
-
 
   getElementsInSelectionRange(range) {
     const elements = [];
@@ -1213,7 +1154,7 @@ class EditToolbar {
             return NodeFilter.FILTER_ACCEPT;
           }
           return NodeFilter.FILTER_SKIP;
-        }
+        },
       }
     );
 
@@ -1228,18 +1169,19 @@ class EditToolbar {
     const blockElements = [];
     const walker = document.createTreeWalker(
       range.commonAncestorContainer,
-      NodeFilter.SHOW_ELEMENT, {
+      NodeFilter.SHOW_ELEMENT,
+      {
         acceptNode: (node) => {
           if (this.isBlockElement(node) && range.intersectsNode(node)) {
             return NodeFilter.FILTER_ACCEPT;
           }
           return NodeFilter.FILTER_SKIP;
-        }
+        },
       }
     );
 
     let node;
-    while (node = walker.nextNode()) {
+    while ((node = walker.nextNode())) {
       blockElements.push(node);
     }
 
@@ -1258,84 +1200,63 @@ class EditToolbar {
   }
 
   /**
-   * Helper method to update IndexedDB record
-   * ✅ IMPORTANT: This function should now also trigger addHistoryBatch
+   * Helper method to update IndexedDB record (for a single item)
+   * This now calls updateIndexedDBRecord (in cache-indexedDB.js) which queues for sync.
+   * It no longer directly handles history payload or calls addHistoryBatch.
    */
-  async saveToIndexedDB(id, html) { // ✅ Mark as async
-    console.log(`Manual update for element ID: ${id}`);
+  async saveToIndexedDB(id, html) {
+    // `id` here is the string ID from the DOM
+    console.log(`EditToolbar: saveToIndexedDB called for ID: ${id}`);
     if (!this.currentBookId) {
-      console.warn("Cannot save to IndexedDB: currentBookId is not set.");
+      console.warn(
+        "EditToolbar: Cannot save to IndexedDB: currentBookId is not set."
+      );
       return;
     }
 
-    // Retrieve the current state from DB before update for history
-    const db = await openDatabase();
-    const tx = db.transaction("nodeChunks", "readonly");
-    const store = tx.objectStore("nodeChunks");
-    const request = store.get([this.currentBookId, id]);
-
-    return new Promise((resolve, reject) => { // Wrap in Promise to await internal operations
-        request.onsuccess = async (event) => { // ✅ Mark as async
-            const oldRecord = event.target.result;
-            const originalHtml = oldRecord ? oldRecord.html : null;
-
-            updateIndexedDBRecord({
-                id: id,
-                html: html,
-                action: "update",
-                book: this.currentBookId
-            }).then(async () => { // ✅ Mark as async
-                console.log(`Successfully updated record with key: ${id}`);
-
-                const payload = {
-                    updates: {
-                        nodeChunks: [{
-                            book: this.currentBookId,
-                            startLine: id,
-                            html: originalHtml // The state to revert to on undo
-                        }]
-                    },
-                    deletions: {
-                        nodeChunks: [] // No deletions for a simple update
-                    }
-                };
-                if (!originalHtml) { // If it was a new insertion
-                    payload.deletions.nodeChunks.push({ book: this.currentBookId, startLine: id, html: html }); // To undo, delete the new item
-                    payload.updates.nodeChunks = []; // No update needed for undo
-                }
-
-                await addHistoryBatch(this.currentBookId, payload); // ✅ await here
-                await this.updateHistoryButtonStates(); // ✅ await here
-                resolve(); // Resolve the promise once everything is done
-            }).catch(error => {
-                console.error(`Error updating IndexedDB record for ${id}:`, error);
-                reject(error); // Reject on error
-            });
-        };
-        request.onerror = (event) => {
-            console.error(`Error fetching old record for history logging for ${id}:`, event.target.error);
-            // Proceed with update anyway, but history might be incomplete
-            updateIndexedDBRecord({
-                id: id,
-                html: html,
-                action: "update",
-                book: this.currentBookId
-            }).then(async () => { // ✅ Mark as async
-                console.log(`Successfully updated record with key: ${id} (history might be incomplete)`);
-                await this.updateHistoryButtonStates(); // ✅ await here
-                resolve(); // Resolve even if history is incomplete
-            }).catch(error => {
-                console.error(`Error updating IndexedDB record for ${id}:`, error);
-                reject(error); // Reject on error
-            });
-        };
+    // `updateIndexedDBRecord` will handle parsing ID, processing HTML, and calling `queueForSync`.
+    // The history payload for this action will be built by `debouncedMasterSync`.
+    await updateIndexedDBRecord({
+      id: id,
+      html: html,
+      action: "update", // This action type is used internally by updateIndexedDBRecord
+      book: this.currentBookId,
     });
+
+    console.log(
+      `EditToolbar: Queued update for ID: ${id}. History handled by debounced sync.`
+    );
+    // No direct updateHistoryButtonStates here, as clearRedoHistory (from queueForSync) will trigger it.
+  }
+
+  /**
+   * Helper method to delete a record from IndexedDB (for a single item).
+   * This now calls deleteIndexedDBRecord (in cache-indexedDB.js) which queues for sync.
+   * It no longer directly handles history payload or calls addHistoryBatch.
+   */
+  async deleteFromIndexedDB(id) {
+    console.log(`EditToolbar: deleteFromIndexedDB called for ID: ${id}`);
+    if (!this.currentBookId) {
+      console.warn(
+        "EditToolbar: Cannot delete from IndexedDB: currentBookId is not set."
+      );
+      return;
+    }
+
+    // `deleteIndexedDBRecord` will handle parsing ID and calling `queueForSync`.
+    // The history payload for this action will be built by `debouncedMasterSync`.
+    await deleteIndexedDBRecord(id);
+
+    console.log(
+      `EditToolbar: Queued deletion for ID: ${id}. History handled by debounced sync.`
+    );
   }
 
   /**
    * Unwrap selected text from any heading tag (H1-H6)
    */
-  async unwrapSelectedTextFromHeading() { // ✅ Mark as async
+  async unwrapSelectedTextFromHeading() {
+    // ✅ Mark as async
     if (!this.currentSelection || this.currentSelection.isCollapsed) {
       console.warn("unwrapSelectedTextFromHeading called with no selection.");
       return null;
@@ -1346,24 +1267,30 @@ class EditToolbar {
     let currentElement = this.getSelectionParentElement();
 
     while (currentElement) {
-      if (currentElement.nodeType === Node.ELEMENT_NODE && /^H[1-6]$/.test(currentElement.tagName)) {
+      if (
+        currentElement.nodeType === Node.ELEMENT_NODE &&
+        /^H[1-6]$/.test(currentElement.tagName)
+      ) {
         headingElement = currentElement;
         break;
       }
-      if (currentElement.hasAttribute('contenteditable') && currentElement.getAttribute('contenteditable') === 'true') break;
+      if (
+        currentElement.hasAttribute("contenteditable") &&
+        currentElement.getAttribute("contenteditable") === "true"
+      )
+        break;
       if (currentElement === document.body) break;
       currentElement = currentElement.parentNode;
     }
 
     if (!headingElement) {
-      console.warn("unwrapSelectedTextFromHeading: Could not find parent heading element.");
+      console.warn(
+        "unwrapSelectedTextFromHeading: Could not find parent heading element."
+      );
       return null;
     }
 
-    // Capture original state for history
-    const originalHeadingHtml = headingElement.outerHTML;
-    const originalHeadingId = headingElement.id;
-
+    // Removed: Capture original state for history (no longer needed here)
 
     const beforeOriginalId = findPreviousElementId(headingElement);
     const afterOriginalId = findNextElementId(headingElement);
@@ -1373,7 +1300,9 @@ class EditToolbar {
 
     const newPId = generateIdBetween(beforeOriginalId, afterOriginalId);
     if (!newPId) {
-      console.error("unwrapSelectedTextFromHeading: Failed to generate a new ID for the paragraph.");
+      console.error(
+        "unwrapSelectedTextFromHeading: Failed to generate a new ID for the paragraph."
+      );
       pElement.id = `temp_${Date.now()}`;
     } else {
       pElement.id = newPId;
@@ -1382,7 +1311,10 @@ class EditToolbar {
     try {
       headingElement.parentNode.replaceChild(pElement, headingElement);
     } catch (domError) {
-      console.error("unwrapSelectedTextFromHeading: DOM replacement failed.", domError);
+      console.error(
+        "unwrapSelectedTextFromHeading: DOM replacement failed.",
+        domError
+      );
       return null;
     }
 
@@ -1393,28 +1325,12 @@ class EditToolbar {
       this.currentSelection.addRange(newRange);
     }
 
-    console.log(`unwrapSelectedTextFromHeading: Returning ID "${newPId}" and element`, pElement);
+    console.log(`unwrapSelectedTextFromHeading: New paragraph ID "${newPId}"`);
 
-    // ✅ NEW: Add to history after unwrap
+    // Call saveToIndexedDB for the new paragraph and deleteFromIndexedDB for the old heading
     if (this.currentBookId) {
-        const historyPayload = {
-            updates: {
-                nodeChunks: [{
-                    book: this.currentBookId,
-                    startLine: originalHeadingId,
-                    html: originalHeadingHtml
-                }]
-            },
-            deletions: {
-                nodeChunks: [{
-                    book: this.currentBookId,
-                    startLine: pElement.id,
-                    html: pElement.outerHTML
-                }]
-            }
-        };
-        await addHistoryBatch(this.currentBookId, historyPayload); // ✅ await here
-        await this.updateHistoryButtonStates(); // ✅ await here
+      await this.saveToIndexedDB(pElement.id, pElement.outerHTML);
+      await this.deleteFromIndexedDB(headingElement.id);
     }
 
     return {
@@ -1433,8 +1349,9 @@ class EditToolbar {
       return element;
     }
 
-    return element.parentNode && element.parentNode.nodeType === 1 ?
-      this.findParentWithTag(element.parentNode, tagName) : null;
+    return element.parentNode && element.parentNode.nodeType === 1
+      ? this.findParentWithTag(element.parentNode, tagName)
+      : null;
   }
 
   /**
@@ -1443,7 +1360,7 @@ class EditToolbar {
   show() {
     if (this.isVisible) return;
 
-    console.log('👁️ EditToolbar: Showing toolbar');
+    console.log("👁️ EditToolbar: Showing toolbar");
 
     this.toolbar.classList.add("visible");
     this.isVisible = true;
@@ -1459,8 +1376,6 @@ class EditToolbar {
     this.isVisible = false;
   }
 
-
-
   /**
    * Clean up event listeners
    */
@@ -1468,7 +1383,7 @@ class EditToolbar {
     document.removeEventListener("selectionchange", this.handleSelectionChange);
     window.removeEventListener("resize", this.handleResize);
 
-    console.log('🧹 EditToolbar: Destroyed and cleaned up');
+    console.log("🧹 EditToolbar: Destroyed and cleaned up");
   }
 
   /**
@@ -1478,16 +1393,32 @@ class EditToolbar {
     if (!element) return null;
 
     const blockElements = [
-      'P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
-      'BLOCKQUOTE', 'PRE', 'UL', 'OL', 'LI', 'TABLE', 'TR', 'TD', 'TH'
+      "P",
+      "DIV",
+      "H1",
+      "H2",
+      "H3",
+      "H4",
+      "H5",
+      "H6",
+      "BLOCKQUOTE",
+      "PRE",
+      "UL",
+      "OL",
+      "LI",
+      "TABLE",
+      "TR",
+      "TD",
+      "TH",
     ];
 
     if (blockElements.includes(element.tagName)) {
       return element;
     }
 
-    return element.parentNode && element.parentNode.nodeType === 1 ?
-      this.findClosestBlockParent(element.parentNode) : null;
+    return element.parentNode && element.parentNode.nodeType === 1
+      ? this.findClosestBlockParent(element.parentNode)
+      : null;
   }
 
   /**
@@ -1547,7 +1478,10 @@ class EditToolbar {
 
     if (targetNode) {
       const range = document.createRange();
-      range.setStart(targetNode, Math.min(targetOffset, targetNode.textContent?.length || 0));
+      range.setStart(
+        targetNode,
+        Math.min(targetOffset, targetNode.textContent?.length || 0)
+      );
       range.collapse(true);
       this.currentSelection.removeAllRanges();
       this.currentSelection.addRange(range);
@@ -1580,7 +1514,7 @@ class EditToolbar {
     if (!element) return null;
 
     while (element && element !== document.body) {
-      if (element.tagName === 'LI') {
+      if (element.tagName === "LI") {
         return element;
       }
       element = element.parentElement;
@@ -1592,23 +1526,26 @@ class EditToolbar {
   /**
    * Convert a list item to a block element (blockquote or code)
    */
-  async convertListItemToBlock(listItem, blockType) { // ✅ Mark as async
-    // Capture original state of parent list and the list item for history
-    const originalParentListId = listItem.parentElement.id;
-    const originalListItemId = listItem.id;
-    const originalParentListHtml = listItem.parentElement.outerHTML; // Capture parent list's HTML
-    const originalListItemHtml = listItem.outerHTML;
+  async convertListItemToBlock(listItem, blockType) {
+    // ✅ Mark as async
+    // Removed original state capture (history is handled by queueForSync flow)
 
     const immediateParentList = listItem.parentElement;
 
-    if (!immediateParentList || !['UL', 'OL'].includes(immediateParentList.tagName)) {
+    if (
+      !immediateParentList ||
+      !["UL", "OL"].includes(immediateParentList.tagName)
+    ) {
       console.warn("Cannot convert list item - not in a list");
       return;
     }
 
     let listWithId = immediateParentList;
     while (listWithId && listWithId !== document.body) {
-      if ((listWithId.tagName === 'UL' || listWithId.tagName === 'OL') && listWithId.id) {
+      if (
+        (listWithId.tagName === "UL" || listWithId.tagName === "OL") &&
+        listWithId.id
+      ) {
         break;
       }
       listWithId = listWithId.parentElement;
@@ -1621,12 +1558,13 @@ class EditToolbar {
 
     console.log(`Converting list item from list with ID: ${listWithId.id}`);
 
-    const newBlock = blockType === 'blockquote' ?
-      document.createElement('blockquote') :
-      document.createElement('pre');
+    const newBlock =
+      blockType === "blockquote"
+        ? document.createElement("blockquote")
+        : document.createElement("pre");
 
-    if (blockType === 'code') {
-      const codeElement = document.createElement('code');
+    if (blockType === "code") {
+      const codeElement = document.createElement("code");
       newBlock.appendChild(codeElement);
       codeElement.textContent = listItem.textContent.trim();
     } else {
@@ -1641,62 +1579,24 @@ class EditToolbar {
     const afterId = findNextElementId(listWithId);
     newBlock.id = generateIdBetween(beforeId, afterId);
 
-    // Perform DOM modification and capture new state for history
-    const originalRootListHtmlBeforeSplit = listWithId.outerHTML; // Capture root list HTML before split
+    // Removed originalRootListHtmlBeforeSplit capture (history is handled by queueForSync flow)
 
-    await this.splitListAndInsertBlock(immediateParentList, listItem, newBlock, listWithId); // ✅ await here
+    await this.splitListAndInsertBlock(
+      immediateParentList,
+      listItem,
+      newBlock,
+      listWithId
+    ); // ✅ await here
 
     // Save the new block to IndexedDB
     await this.saveToIndexedDB(newBlock.id, newBlock.outerHTML); // ✅ await here
     this.setCursorAtTextOffset(newBlock, 0);
 
-    // ✅ NEW: Add to history after list item conversion
-    if (this.currentBookId) {
-        const affectedElementsAfter = [];
-        const updatedRootList = document.getElementById(listWithId.id);
-        if (newBlock.id && document.getElementById(newBlock.id)) {
-            affectedElementsAfter.push({
-                id: newBlock.id,
-                html: document.getElementById(newBlock.id).outerHTML
-            });
-        }
-        if (updatedRootList) {
-            affectedElementsAfter.push({
-                id: updatedRootList.id,
-                html: updatedRootList.outerHTML
-            });
-        }
-
-        const historyPayload = {
-            updates: {
-                nodeChunks: [{
-                    book: this.currentBookId,
-                    startLine: listWithId.id,
-                    html: originalRootListHtmlBeforeSplit // Revert root list to this state
-                }]
-            },
-            deletions: {
-                nodeChunks: [{
-                    book: this.currentBookId,
-                    startLine: newBlock.id,
-                    html: newBlock.outerHTML // Remove the new block
-                }]
-            }
-        };
-
-        // If a new list was created after the split, add it to deletions for undo
-        const newPostSplitList = document.getElementById(newBlock.nextElementSibling?.id);
-        if (newPostSplitList && (newPostSplitList.tagName === 'UL' || newPostSplitList.tagName === 'OL')) {
-            historyPayload.deletions.nodeChunks.push({
-                book: this.currentBookId,
-                startLine: newPostSplitList.id,
-                html: newPostSplitList.outerHTML
-            });
-        }
-
-        await addHistoryBatch(this.currentBookId, historyPayload); // ✅ await here
-        await this.updateHistoryButtonStates(); // ✅ await here
-    }
+    // REMOVED ALL HISTORY PAYLOAD CONSTRUCTION AND addHistoryBatch CALLS
+    // The history for this complex operation (delete list item, insert block, split list)
+    // will now be formed by debouncedMasterSync from the individual queueForSync calls
+    // made by saveToIndexedDB and deleteFromIndexedDB within splitListAndInsertBlock
+    // and cleanupAfterSplit.
 
     return newBlock;
   }
@@ -1705,7 +1605,13 @@ class EditToolbar {
    * Split a list around a specific item and insert a block element
    * Now ensures the original list's HTML state is captured if it's the `rootListWithId`
    */
-  async splitListAndInsertBlock(parentList, targetItem, newBlock, rootListWithId) { // ✅ Mark as async
+  async splitListAndInsertBlock(
+    parentList,
+    targetItem,
+    newBlock,
+    rootListWithId
+  ) {
+    // ✅ Mark as async
     const allItems = Array.from(parentList.children);
     const targetIndex = allItems.indexOf(targetItem);
 
@@ -1716,24 +1622,26 @@ class EditToolbar {
 
     targetItem.remove(); // Remove the target item first
 
-    // Store current state of rootListWithId if it's about to be modified for history purposes
-    // const originalRootListHtml = rootListWithId.outerHTML; // This is captured in convertListItemToBlock now
+    // Removed originalRootListHtml capture (history is handled by queueForSync flow)
 
     if (parentList === rootListWithId) {
       // Simple case: we're splitting the root list directly
-      rootListWithId.parentNode.insertBefore(newBlock, rootListWithId.nextSibling);
+      rootListWithId.parentNode.insertBefore(
+        newBlock,
+        rootListWithId.nextSibling
+      );
 
       if (itemsAfter.length > 0) {
         const newList = document.createElement(parentList.tagName);
         const afterBlockId = findNextElementId(newBlock);
         newList.id = generateIdBetween(newBlock.id, afterBlockId);
 
-        itemsAfter.forEach(item => newList.appendChild(item));
+        itemsAfter.forEach((item) => newList.appendChild(item));
 
         newBlock.parentNode.insertBefore(newList, newBlock.nextSibling);
-        await this.saveToIndexedDB(newList.id, newList.outerHTML); // This will call addHistoryBatch for the new list ✅ await here
+        await this.saveToIndexedDB(newList.id, newList.outerHTML); // This will call queueForSync
       }
-      await this.saveToIndexedDB(rootListWithId.id, rootListWithId.outerHTML); // This will call addHistoryBatch for the updated original list ✅ await here
+      await this.saveToIndexedDB(rootListWithId.id, rootListWithId.outerHTML); // This will call queueForSync
     } else {
       // Complex case: nested list
       const pathToRoot = [];
@@ -1753,13 +1661,16 @@ class EditToolbar {
 
       if (topLevelIndex !== -1) {
         const insertAfter = rootItems[topLevelIndex];
-        rootListWithId.parentNode.insertBefore(newBlock, insertAfter.nextSibling);
+        rootListWithId.parentNode.insertBefore(
+          newBlock,
+          insertAfter.nextSibling
+        );
 
         if (itemsAfter.length > 0) {
-          const newTopLevelItem = document.createElement('li');
+          const newTopLevelItem = document.createElement("li");
           const newNestedList = document.createElement(parentList.tagName);
 
-          itemsAfter.forEach(item => newNestedList.appendChild(item));
+          itemsAfter.forEach((item) => newNestedList.appendChild(item));
           newTopLevelItem.appendChild(newNestedList);
 
           const newList = document.createElement(rootListWithId.tagName);
@@ -1768,25 +1679,26 @@ class EditToolbar {
 
           newList.appendChild(newTopLevelItem);
           newBlock.parentNode.insertBefore(newList, newBlock.nextSibling);
-          await this.saveToIndexedDB(newList.id, newList.outerHTML); // This will call addHistoryBatch ✅ await here
+          await this.saveToIndexedDB(newList.id, newList.outerHTML); // This will call queueForSync
         }
       }
-      await this.cleanupAfterSplit(rootListWithId); // Cleanup also saves to DB and triggers history ✅ await here
+      await this.cleanupAfterSplit(rootListWithId); // Cleanup also saves to DB and triggers queueForSync
     }
   }
 
-  async cleanupAfterSplit(rootList) { // ✅ Mark as async
-    // Store original HTML of rootList before cleanup for history
-    // const originalRootListHtml = rootList.outerHTML; // Captured in convertListItemToBlock
+  async cleanupAfterSplit(rootList) {
+    // ✅ Mark as async
+    // Removed originalRootListHtml capture (history is handled by queueForSync flow)
 
-    const emptyLists = rootList.querySelectorAll('ul:empty, ol:empty');
-    emptyLists.forEach(list => list.remove());
+    const emptyLists = rootList.querySelectorAll("ul:empty, ol:empty");
+    emptyLists.forEach((list) => list.remove());
 
-    const listItems = rootList.querySelectorAll('li');
-    listItems.forEach(li => {
-      const hasContent = li.textContent.trim() !== '';
-      const hasNonEmptyChildren = Array.from(li.children).some(child =>
-        child.textContent.trim() !== '' || child.children.length > 0
+    const listItems = rootList.querySelectorAll("li");
+    listItems.forEach((li) => {
+      const hasContent = li.textContent.trim() !== "";
+      const hasNonEmptyChildren = Array.from(li.children).some(
+        (child) =>
+          child.textContent.trim() !== "" || child.children.length > 0
       );
 
       if (!hasContent && !hasNonEmptyChildren) {
@@ -1794,7 +1706,7 @@ class EditToolbar {
       }
     });
 
-    // Save the updated root list, which will trigger addHistoryBatch
+    // Save the updated root list, which will trigger queueForSync
     await this.saveToIndexedDB(rootList.id, rootList.outerHTML); // ✅ await here
   }
 }
@@ -1809,8 +1721,11 @@ export function initEditToolbar(options = {}) {
     editToolbarInstance.init();
   } else {
     // If instance exists, but a new book is loaded, update the book ID
-    if (options.currentBookId && options.currentBookId !== editToolbarInstance.currentBookId) {
-        editToolbarInstance.setBookId(options.currentBookId);
+    if (
+      options.currentBookId &&
+      options.currentBookId !== editToolbarInstance.currentBookId
+    ) {
+      editToolbarInstance.setBookId(options.currentBookId);
     }
   }
   return editToolbarInstance;
