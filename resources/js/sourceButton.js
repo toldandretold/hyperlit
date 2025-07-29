@@ -607,4 +607,23 @@ async function exportBookAsDocxStyled(bookId = book || 'latest') {
   }
 }
 
+export function initializeSourceButtonListener() {
+  const button = document.getElementById("cloudRef");
+  if (!button) {
+    console.warn("Source button #cloudRef not found. Cannot attach listener.");
+    return;
+  }
 
+  // Prevent adding the listener multiple times on re-renders
+  if (button.dataset.sourceListenerAttached) {
+    return;
+  }
+
+  button.addEventListener("click", (e) => {
+    e.preventDefault();
+    sourceManager.toggleContainer();
+  });
+
+  button.dataset.sourceListenerAttached = "true";
+  console.log("✅ Source button listener attached to #cloudRef.");
+}

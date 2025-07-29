@@ -146,6 +146,8 @@ function getLastContentElement(container) {
   return contentElements[contentElements.length - 1].id;
 }
 
+// PASTE THIS ENTIRE FUNCTION INTO resources/js/editButton.js
+
 async function enableEditMode(targetElementId = null) {
   // ✅ These queries are now correctly inside the function.
   const editBtn = document.getElementById("editButton");
@@ -169,10 +171,16 @@ async function enableEditMode(targetElementId = null) {
   if (window.pendingBookSyncPromise) {
     try {
       await window.pendingBookSyncPromise;
-      console.log("✅ Pending book sync complete. Proceeding with permission check.");
+      console.log(
+        "✅ Pending book sync complete. Proceeding with permission check."
+      );
     } catch (e) {
       console.error("Sync failed, cannot enable edit mode.", e);
-      showCustomAlert(/* ... */);
+      showCustomAlert(
+        "Sync In Progress",
+        "The book is still syncing. Please try again in a moment.",
+        { showReadButton: true }
+      );
       editModeCheckInProgress = false;
       return;
     } finally {
@@ -180,19 +188,42 @@ async function enableEditMode(targetElementId = null) {
     }
   }
 
+  // =================================================================
+  // THE SINGLE, CORRECT PERMISSION CHECK
+  // =================================================================
   const canEdit = await canUserEditBook(book);
+
+  // This block handles the case where the user does NOT have permission.
   if (!canEdit) {
     console.log("❌ User does not have permission to edit this book");
-    showCustomAlert(/* ... */);
+
+    // Tell the userManager what to do AFTER a successful login.
+    userManager.setPostLoginAction(() => {
+      enableEditMode(targetElementId);
+    });
+
+    // Call the alert with specific, defined arguments to show the login prompt.
+    showCustomAlert(
+      "Login to Edit",
+      "You need to be logged in to your account to edit this book.",
+      {
+        showLoginButton: true,
+        showReadButton: true,
+      }
+    );
+
     editModeCheckInProgress = false;
-    return;
+    return; // IMPORTANT: Stop the function here.
   }
 
-  // Continue with edit mode...
+  // =================================================================
+  // If the code reaches this point, the user HAS permission.
+  // The rest of the function will now execute correctly.
+  // =================================================================
+
   incrementPendingOperations();
-  
+
   try {
-    // We wait for the content to be on the page BEFORE we try to edit it.
     console.log("⏳ Waiting for the first chunk of content to render...");
     await pendingFirstChunkLoadedPromise;
     console.log("✅ First chunk is ready. Proceeding to enable edit mode.");
@@ -210,97 +241,102 @@ async function enableEditMode(targetElementId = null) {
           toolbar.setEditMode(true);
         }
 
-        // We need to import this inside the async context of the timeout
-        import('./divEditor.js').then(({ ensureMinimumDocumentStructure }) => {
+        import("./divEditor.js").then(({ ensureMinimumDocumentStructure }) => {
           ensureMinimumDocumentStructure();
         });
-        
-        // Your entire smart cursor placement logic is perfect and runs here.
+
+        // =================================================================
+        // YOUR CURSOR PLACEMENT LOGIC - INCLUDED AND IN THE CORRECT PLACE
+        // =================================================================
         let cursorPlaced = false;
         if (targetElementId) {
           cursorPlaced = placeCursorAtEndOfElement(targetElementId);
         }
-    
-    // 2. If no targetElementId or it failed, try saved scroll position
-    if (!cursorPlaced) {
-      const savedElementId = getSavedScrollElementId(book);
-      if (savedElementId) {
-        console.log(`Trying to place cursor at saved scroll position: ${savedElementId}`);
-        cursorPlaced = placeCursorAtEndOfElement(savedElementId);
-      }
-    }
-    
-    // 3. Smart fallback based on content length
-    if (!cursorPlaced) {
-      const contentExceedsViewport = doesContentExceedViewport(editableDiv);
-      console.log(`Content exceeds viewport: ${contentExceedsViewport}`);
-      
-      if (contentExceedsViewport) {
-        // Long content - place cursor at first element (existing behavior)
-        const firstElementId = getFirstElementWithId(editableDiv);
-        if (firstElementId) {
-          console.log(`Long content: placing cursor at first element with ID: ${firstElementId}`);
-          cursorPlaced = placeCursorAtEndOfElement(firstElementId);
-        }
-      } else {
-        // Short content - place cursor at last content element
-        const lastContentElementId = getLastContentElement(editableDiv);
-        if (lastContentElementId) {
-          console.log(`Short content: placing cursor at last content element with ID: ${lastContentElementId}`);
-          cursorPlaced = placeCursorAtEndOfElement(lastContentElementId);
-        } else {
-          // Fallback to first element if no content elements found
-          const firstElementId = getFirstElementWithId(editableDiv);
-          if (firstElementId) {
-            console.log(`No content elements found: placing cursor at first element with ID: ${firstElementId}`);
-            cursorPlaced = placeCursorAtEndOfElement(firstElementId);
+
+        // 2. If no targetElementId or it failed, try saved scroll position
+        if (!cursorPlaced) {
+          const savedElementId = getSavedScrollElementId(book);
+          if (savedElementId) {
+            console.log(
+              `Trying to place cursor at saved scroll position: ${savedElementId}`
+            );
+            cursorPlaced = placeCursorAtEndOfElement(savedElementId);
           }
         }
-      }
-    }
-    
-    // 4. Final fallback - original logic (unchanged)
-    if (!cursorPlaced) {
-      console.log("Using final fallback cursor placement");
-      const selection = window.getSelection();
-      if (!selection.rangeCount || selection.isCollapsed) {
-        const range = document.createRange();
-        const walker = document.createTreeWalker(
-          editableDiv,
-          NodeFilter.SHOW_TEXT,
-          null,
-          false
-        );
-        
-        let textNode = walker.nextNode();
-        if (textNode) {
-          range.setStart(textNode, 0);
-          range.collapse(true);
-          selection.removeAllRanges();
-          selection.addRange(range);
+
+        // 3. Smart fallback based on content length
+        if (!cursorPlaced) {
+          const contentExceedsViewport = doesContentExceedViewport(editableDiv);
+          console.log(`Content exceeds viewport: ${contentExceedsViewport}`);
+
+          if (contentExceedsViewport) {
+            // Long content - place cursor at first element (existing behavior)
+            const firstElementId = getFirstElementWithId(editableDiv);
+            if (firstElementId) {
+              console.log(
+                `Long content: placing cursor at first element with ID: ${firstElementId}`
+              );
+              cursorPlaced = placeCursorAtEndOfElement(firstElementId);
+            }
+          } else {
+            // Short content - place cursor at last content element
+            const lastContentElementId = getLastContentElement(editableDiv);
+            if (lastContentElementId) {
+              console.log(
+                `Short content: placing cursor at last content element with ID: ${lastContentElementId}`
+              );
+              cursorPlaced = placeCursorAtEndOfElement(lastContentElementId);
+            } else {
+              // Fallback to first element if no content elements found
+              const firstElementId = getFirstElementWithId(editableDiv);
+              if (firstElementId) {
+                console.log(
+                  `No content elements found: placing cursor at first element with ID: ${firstElementId}`
+                );
+                cursorPlaced = placeCursorAtEndOfElement(firstElementId);
+              }
+            }
+          }
         }
-      }
-    }
-    
-    editableDiv.focus();
+
+        // 4. Final fallback - original logic (unchanged)
+        if (!cursorPlaced) {
+          console.log("Using final fallback cursor placement");
+          const selection = window.getSelection();
+          if (!selection.rangeCount || selection.isCollapsed) {
+            const range = document.createRange();
+            const walker = document.createTreeWalker(
+              editableDiv,
+              NodeFilter.SHOW_TEXT,
+              null,
+              false
+            );
+
+            let textNode = walker.nextNode();
+            if (textNode) {
+              range.setStart(textNode, 0);
+              range.collapse(true);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            }
+          }
+        }
+
+        editableDiv.focus();
         startObserving(editableDiv);
         addPasteListener(editableDiv);
         initTitleSync(book);
-        
-        console.log("Edit mode enabled");
 
+        console.log("Edit mode enabled");
       } catch (error) {
         console.error("Error during UI update inside setTimeout:", error);
       } finally {
-        // This is the single, correct place to decrement the counter.
         decrementPendingOperations();
-        editModeCheckInProgress = false; // Reset flag on success or failure of UI update
+        editModeCheckInProgress = false;
       }
     }, 0);
-
   } catch (error) {
     console.error("Error waiting for content promise:", error);
-    // If the promise itself fails, we must also clean up.
     decrementPendingOperations();
     editModeCheckInProgress = false;
   }
