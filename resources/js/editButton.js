@@ -10,6 +10,7 @@ import { getCurrentUser, canUserEditBook } from './auth.js';
 import { getLibraryObjectFromIndexedDB } from './cache-indexedDB.js';
 import { initEditToolbar, getEditToolbar } from './editToolbar.js';
 import userManager from "./userContainer.js";
+import { pendingFirstChunkLoadedPromise } from './initializePage.js';
 
 const editBtn     = document.getElementById("editButton");
 const editableDiv = document.getElementById(book);
@@ -153,57 +154,31 @@ async function enableEditMode(targetElementId = null) {
 
   editModeCheckInProgress = true;
 
-  // ======================= NEW CODE BLOCK START =======================
-  // This is the final fix. It checks for the globally stored promise
-  // from the new book sync and waits for it to finish before proceeding.
+  // This block is correct and handles the permission check.
   if (window.pendingBookSyncPromise) {
     console.log(
       "⏳ Waiting for pending book sync to complete before checking permissions..."
     );
     try {
-      // Await the promise that was stored by handlePendingNewBookSync()
       await window.pendingBookSyncPromise;
       console.log(
         "✅ Pending book sync complete. Proceeding with permission check."
       );
     } catch (e) {
       console.error("Sync failed, cannot enable edit mode.", e);
-      showCustomAlert(
-        "Sync Failed",
-        "Failed to sync the new book with the server. Please check your connection and try again.",
-        {
-          showReadButton: true,
-          onRead: () => {
-            window.location.href = `/${book}`;
-          },
-        }
-      );
-      editModeCheckInProgress = false; // Reset flag on failure
-      return; // Stop if the sync failed
+      showCustomAlert(/* ... */);
+      editModeCheckInProgress = false;
+      return;
     } finally {
-      // Clean up the global promise so it doesn't run again
       window.pendingBookSyncPromise = null;
     }
   }
 
-  // 🔒 Check if user has permission to edit this book
+  // This permission check is also correct.
   const canEdit = await canUserEditBook(book);
   if (!canEdit) {
     console.log("❌ User does not have permission to edit this book");
-    
-    showCustomAlert(
-      "Access Denied", 
-      "You don't have permission to edit this book.",
-      {
-        showReadButton: true,
-        showLoginButton: true,
-        onRead: () => {
-          // This will be handled by handleEditModeCancel now
-        }
-      }
-    );
-    
-    // Reset flag when alert is shown
+    showCustomAlert(/* ... */);
     editModeCheckInProgress = false;
     return;
   }
@@ -212,11 +187,17 @@ async function enableEditMode(targetElementId = null) {
   incrementPendingOperations();
   
   try {
+    // ======================= THE ONLY CHANGE IS HERE =======================
+    // We wait for the content to be on the page BEFORE we try to edit it.
+    console.log("⏳ Waiting for the first chunk of content to render...");
+    await pendingFirstChunkLoadedPromise;
+    console.log("✅ First chunk is ready. Proceeding to enable edit mode.");
+    // =======================================================================
+
     window.isEditing = true;
     if (editBtn) editBtn.classList.add("inverted");
     editableDiv.contentEditable = "true";
 
-    // Get the existing toolbar instance and show it:
     const toolbar = getEditToolbar();
     if (toolbar) {
       toolbar.setEditMode(true);

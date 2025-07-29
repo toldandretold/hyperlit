@@ -1,6 +1,5 @@
 import { book, OpenHyperlightID } from './app.js';
 
-
 import {
   createLazyLoader,
   loadNextChunkFixed,
@@ -29,6 +28,11 @@ import { buildUserHighlightCache, clearUserHighlightCache } from "./userCache.js
 import { undoLastBatch, redoLastBatch } from './historyManager.js';
 
 let isRetrying = false; // Prevents multiple retries at once
+
+let firstChunkLoadedResolver;
+export const pendingFirstChunkLoadedPromise = new Promise(resolve => {
+  firstChunkLoadedResolver = resolve;
+});
 
 async function retryFailedBatches() {
   if (isRetrying || !navigator.onLine) {
@@ -115,19 +119,12 @@ export function setupOnlineSyncListener() {
   console.log("👂 Online sync listener is active.");
 }
 
-
-// Your existing function - unchanged for backward compatibility
 export async function loadHyperText() {
-
-
   console.log(`📖 Opening: ${book}`);
   
   setupOnlineSyncListener();
 
   const openHyperlightID = OpenHyperlightID || null;
-  if (openHyperlightID) {
-    console.log(`🔍 Found OpenHyperlightID to navigate to: ${openHyperlightID}`);
-  }
   
   try {
     // 1. Check for node chunks in indexedDB
@@ -138,9 +135,7 @@ export async function loadHyperText() {
       window.nodeChunks = cached;
       
       await buildUserHighlightCache(book);
-      
       initializeLazyLoader(openHyperlightID);
-
       checkAndUpdateIfNeeded(book);
 
       return;
@@ -155,28 +150,27 @@ export async function loadHyperText() {
         console.log(`✅ Loaded ${dbChunks.length} nodeChunks from database`);
         window.nodeChunks = dbChunks;
         
-        // 🚨 BUILD USER HIGHLIGHT CACHE HERE
         await buildUserHighlightCache(book);
-        
         initializeLazyLoader(openHyperlightID);
+
         return;
       }
     }
 
-    // 3. Generate from markdown with notification
+    // 3. Generate from markdown
     console.log("🆕 Not in database or indexedDB – generating from markdown");
-    
     window.nodeChunks = await generateNodeChunksFromMarkdown(book);
     console.log("✅ Content generated + saved; now initializing UI");
     
-    // 🚨 BUILD USER HIGHLIGHT CACHE HERE
     await buildUserHighlightCache(book);
-    
     initializeLazyLoader(OpenHyperlightID || null);
-    console.log("✅ Content loading complete");
+
     return;
+
   } catch (err) {
     console.error("❌ Error loading content:", err);
+    // Also resolve on error so the app doesn't hang forever
+    firstChunkLoadedResolver();
   }
 }
 
@@ -398,7 +392,8 @@ function initializeLazyLoader(openHyperlightID) {
       loadPreviousChunk: loadPreviousChunkFixed,
       attachMarkListeners,
       bookId: book,
-      isNavigatingToInternalId: !!openHyperlightID
+      isNavigatingToInternalId: !!openHyperlightID,
+      onFirstChunkLoaded: firstChunkLoadedResolver
     });
     
     if (openHyperlightID) {

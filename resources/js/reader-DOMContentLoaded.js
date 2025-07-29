@@ -156,7 +156,7 @@ function handlePendingNewBookSync() {
     // `book` is accessible here.
     const currentBookId = book; // Assuming `book` correctly holds the current book's ID
 
-    setTimeout(() => {
+    
       const navButtons = new NavButtons({
         elementIds: ["nav-buttons", "logoContainer", "topRightContainer"],
         tapThreshold: 15,
@@ -170,7 +170,7 @@ function handlePendingNewBookSync() {
         currentBookId: currentBookId // Pass the 'book' variable
       });
 
-    }, 100);
+    
   } else if (pageType === "home") {
     import("./userContainer.js");
 

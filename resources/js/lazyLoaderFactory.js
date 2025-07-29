@@ -48,7 +48,8 @@ export function createLazyLoader(config) {
     isRestoringFromCache = false,
     isNavigatingToInternalId = false,
     isUpdatingJsonContent = false,
-    bookId = "latest"
+    bookId = "latest",
+    onFirstChunkLoaded,
   } = config;
 
   if (!nodeChunks || nodeChunks.length === 0) {
@@ -92,7 +93,8 @@ export function createLazyLoader(config) {
     isUpdatingJsonContent,
     bookId,
     container, // Now 'container' is defined.
-    scrollableParent // This is also correctly set.
+    scrollableParent,
+    onFirstChunkLoadedCallback: onFirstChunkLoaded,
   };
 
   if (instance.isRestoringFromCache) {
@@ -427,7 +429,8 @@ instance.restoreScrollPosition = async () => {
  * Helper: Creates a chunk element given an array of node objects.
  */
 // Keep createChunkElement function signature unchanged
-function createChunkElement(nodes, instance) { // Pass instance instead of bookId
+function createChunkElement(nodes, instance) {
+  // <-- Correct, simple signature
   console.log("createChunkElement called with nodes:", nodes.length);
   if (!nodes || nodes.length === 0) {
     console.warn("No nodes provided to createChunkElement.");
@@ -438,31 +441,15 @@ function createChunkElement(nodes, instance) { // Pass instance instead of bookI
   const chunkWrapper = document.createElement("div");
   chunkWrapper.setAttribute("data-chunk-id", chunkId);
   chunkWrapper.classList.add("chunk");
-  console.log("Created chunk element, id:", chunkId);
 
-  // Render each block in the chunk.
   nodes.forEach((node) => {
     let html = renderBlockToHtml(node);
-
-    // Apply highlights - use instance.bookId
     if (node.hyperlights && node.hyperlights.length > 0) {
-      console.log(
-        `Node ${node.id || node.startLine} hyperlights:`,
-        node.hyperlights
-      );
-      html = applyHighlights(html, node.hyperlights, instance.bookId); // Use instance.bookId
+      html = applyHighlights(html, node.hyperlights, instance.bookId);
     }
-
-    // Apply hypercites if available
     if (node.hypercites && node.hypercites.length > 0) {
-      console.log(
-        `Node ${node.id || node.startLine} hypercites:`,
-        node.hypercites
-      );
       html = applyHypercites(html, node.hypercites);
     }
-
-    // Convert the modified HTML string back to a DOM node.
     const temp = document.createElement("div");
     temp.innerHTML = html;
     if (temp.firstChild) {
@@ -473,6 +460,8 @@ function createChunkElement(nodes, instance) { // Pass instance instead of bookI
   return chunkWrapper;
 }
 
+
+  
 export function applyHypercites(html, hypercites) {
   if (!hypercites || hypercites.length === 0) return html;
 
@@ -812,7 +801,7 @@ export function loadNextChunkFixed(currentLastChunkId, instance) {
     scheduleAutoClear(nextChunkId, 1000); // Auto-clear after 1 second
     
     const container = instance.container;
-    const chunkElement = createChunkElement(nextNodes, instance);
+    const chunkElement = createChunkElement(nextNodes, instance, instance.config?.onFirstChunkLoaded);
     container.appendChild(chunkElement);
     instance.currentlyLoadedChunks.add(nextChunkId);
     
@@ -871,7 +860,7 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
     
     const container = instance.container;
     const prevScrollTop = instance.scrollableParent.scrollTop;
-    const chunkElement = createChunkElement(prevNodes, instance);
+    const chunkElement = createChunkElement(prevNodes, instance, instance.config?.onFirstChunkLoaded);
     container.insertBefore(chunkElement, container.firstElementChild);
     instance.currentlyLoadedChunks.add(prevChunkId);
     const newHeight = chunkElement.getBoundingClientRect().height;
@@ -898,50 +887,59 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
   }
 }
 
-// Update loadChunkInternal similarly
 function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   console.log(`Loading chunk ${chunkId} in direction: ${direction}`);
-  
+
   if (instance.currentlyLoadedChunks.has(chunkId)) {
     console.log(`Chunk ${chunkId} already loaded; skipping.`);
     return;
   }
-  
+
   const nextNodes = instance.nodeChunks.filter(
     (node) => node.chunk_id === chunkId
   );
-  
+
   if (!nextNodes || nextNodes.length === 0) {
     console.warn(`No data found for chunk ${chunkId}.`);
     return;
   }
-  
-  // 🚨 SET LOADING STATE BEFORE DOM CHANGES
+
   setChunkLoadingInProgress(chunkId);
   scheduleAutoClear(chunkId, 1000);
-  
+
+  // createChunkElement is called with its simple, correct signature.
   const element = createChunkElement(nextNodes, instance);
+
   if (direction === "up") {
     instance.container.insertBefore(element, instance.container.firstChild);
   } else {
     instance.container.appendChild(element);
   }
-  
+
   instance.currentlyLoadedChunks.add(chunkId);
   attachMarkers(instance.container);
-  
+
   if (chunkId === 0) {
     repositionFixedSentinelsForBlockInternal(instance, attachMarkers);
   }
-  
+
+  // ✅ THIS IS THE CORRECT LOGIC AND LOCATION
+  // After the element is on the page, check for the stored callback.
+  if (typeof instance.onFirstChunkLoadedCallback === "function") {
+    console.log(
+      "✅ First chunk rendered. Resolving pendingFirstChunkLoadedPromise."
+    );
+    instance.onFirstChunkLoadedCallback(); // Call the stored callback
+    instance.onFirstChunkLoadedCallback = null; // Set it to null so it only fires once.
+  }
+
   attachUnderlineClickListeners();
   injectFootnotesForChunk(chunkId, instance.bookId);
-  
-  // 🚨 CLEAR LOADING STATE AFTER DOM CHANGES
+
   setTimeout(() => {
     clearChunkLoadingInProgress(chunkId);
   }, 100);
-  
+
   console.log(`Chunk ${chunkId} loaded.`);
 }
 
