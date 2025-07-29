@@ -105,6 +105,7 @@ export default defineConfig({
                 'resources/js/toc.js',
                 'resources/js/viewInitializers.js',       
                 'resources/js/viewManager.js',
+                'resources/js/homePageDisplayUnit.js',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.
       ],
