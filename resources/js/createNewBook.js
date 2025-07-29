@@ -247,49 +247,77 @@ async function storeFallbackSync(bookId, error, isNewBook = false) {
 /**
  * Retry failed syncs (call this when connection is restored)
  */
+// In initializePage.js (or wherever this function lives)
+
 async function retryFailedSyncs() {
   try {
     const db = await openDatabase();
     
+    // Check if the store exists before trying to use it
     if (!db.objectStoreNames.contains('failedSyncs')) {
+      console.log('✅ No failedSyncs store found, nothing to retry.');
       return;
     }
     
-    const tx = db.transaction(['failedSyncs'], 'readwrite');
-    const failedSyncs = await tx.objectStore('failedSyncs').getAll();
+    // Step 1: Get the list of all failed syncs in a readonly transaction.
+    const readTx = db.transaction(['failedSyncs'], 'readonly');
+    const failedSyncsStore = readTx.objectStore('failedSyncs');
+    const failedSyncs = await new Promise((resolve, reject) => {
+        const request = failedSyncsStore.getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = (e) => reject(e.target.error);
+    });
+    await readTx.done;
+
+    if (failedSyncs.length === 0) {
+        console.log('✅ No failed syncs to retry.');
+        return;
+    }
     
-    console.log(`🔄 Retrying ${failedSyncs.length} failed syncs...`);
+    console.log(`🔄 Retrying ${failedSyncs.length} failed syncs sequentially...`);
     
+    // Step 2: Use a for...of loop to process each failed sync one by one.
     for (const sync of failedSyncs) {
       try {
+        console.log(`🔄 Retrying sync for: ${sync.bookId}`);
+        
+        // Perform the actual network sync operation
         if (sync.isNewBook) {
           await syncNewBookToPostgreSQL(sync.bookId);
         } else {
           await syncIndexedDBtoPostgreSQL(sync.bookId);
         }
         
-        // Remove from failed syncs on success
-        await tx.objectStore('failedSyncs').delete(sync.bookId);
+        // If sync is successful, open a NEW transaction to remove it from the failed list.
+        const writeTxSuccess = db.transaction(['failedSyncs'], 'readwrite');
+        await writeTxSuccess.objectStore('failedSyncs').delete(sync.bookId);
+        await writeTxSuccess.done;
+        
         console.log(`✅ Retry successful for: ${sync.bookId}`);
         
       } catch (retryError) {
         console.error(`❌ Retry failed for: ${sync.bookId}`, retryError);
         
-        // Update retry count
+        // If sync fails again, open a NEW transaction to update its retry count or delete it.
+        const writeTxFail = db.transaction(['failedSyncs'], 'readwrite');
+        const store = writeTxFail.objectStore('failedSyncs');
+        
         sync.retryCount = (sync.retryCount || 0) + 1;
         if (sync.retryCount < 5) { // Max 5 retries
-          await tx.objectStore('failedSyncs').put(sync);
+          await store.put(sync);
+          console.log(`📝 Updated retry count for ${sync.bookId} to ${sync.retryCount}.`);
         } else {
-          console.error(`🚫 Max retries reached for: ${sync.bookId}`);
-          await tx.objectStore('failedSyncs').delete(sync.bookId);
+          console.error(`🚫 Max retries reached for: ${sync.bookId}. Removing from queue.`);
+          await store.delete(sync.bookId);
         }
+        await writeTxFail.done;
       }
     }
+    console.log('✅ All failed syncs have been processed.');
   } catch (e) {
-    console.error('Failed to retry syncs:', e);
+    console.error('Failed to process the retry queue:', e);
   }
 }
-
 /**
  * Retrieve and sync node chunks for a new book
  * @param {string} bookId

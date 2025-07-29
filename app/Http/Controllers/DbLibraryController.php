@@ -122,7 +122,7 @@ class DbLibraryController extends Controller
     {
         return DB::transaction(function () use ($request) {
             try {
-                $data = $request->all();
+                $data = $request->input('data'); // Get the 'data' object from the request
                 
                 // Get creator info based on auth state
                 $creatorInfo = $this->getCreatorInfo($request);
@@ -134,137 +134,65 @@ class DbLibraryController extends Controller
                     return response()->json([
                         'success' => false,
                         'message' => 'Invalid session',
-                        'debug' => [
-                            'has_auth_user' => Auth::user() ? true : false,
-                            'has_anon_token' => $request->cookie('anon_token') ? true : false,
-                            'creator_info' => $creatorInfo
-                        ]
                     ], 401);
                 }
                 
-                if (isset($data['data']) && (is_object($data['data']) || is_array($data['data']))) {
-                    $item = (array) $data['data'];
+                if (isset($data) && (is_object($data) || is_array($data))) {
+                    $item = (array) $data;
+                    
+                    $bookId = $item['book'] ?? null;
+                    if (!$bookId) {
+                        return response()->json(['success' => false, 'message' => 'Book ID is required'], 400);
+                    }
                     
                     Log::info('Processing upsert with validated session', [
-                        'book' => $item['book'] ?? 'not_set',
+                        'book' => $bookId,
                         'creator_from_server' => $creatorInfo['creator'],
                         'creator_token_present' => $creatorInfo['creator_token'] ? 'yes' : 'no',
-                        'auth_user' => Auth::user() ? Auth::user()->name : 'anonymous'
                     ]);
                     
-                    // For upsert, we need to handle existing records carefully
-                    $bookId = $item['book'] ?? null;
-                    $citationId = $item['citationID'] ?? null;
-                    
-                    if (!$bookId) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'Book ID is required'
-                        ], 400);
-                    }
-                    
-                    // Check if record already exists and if user has permission to update it
-                    $existingRecord = PgLibrary::where('book', $bookId)
-                        ->where('citationID', $citationId)
-                        ->first();
-                    
-                    if ($existingRecord) {
-                        Log::info('Found existing record, checking permissions', [
-                            'existing_creator' => $existingRecord->creator,
-                            'existing_creator_token_present' => $existingRecord->creator_token ? 'yes' : 'no',
-                            'current_creator' => $creatorInfo['creator'],
-                            'current_creator_token_present' => $creatorInfo['creator_token'] ? 'yes' : 'no'
-                        ]);
-                        
-                        // Check if user can modify this existing record
-                        $user = Auth::user();
-                        $canModify = false;
-                        $reason = '';
-                        
-                        if ($user && $existingRecord->creator === $user->name) {
-                            // Authenticated user owns the record
-                            $canModify = true;
-                            $reason = 'authenticated_user_owns_record';
-                        } elseif (!$user && $existingRecord->creator_token && $existingRecord->creator_token === $creatorInfo['creator_token']) {
-                            // Anonymous user owns the record
-                            $canModify = true;
-                            $reason = 'anonymous_user_owns_record';
-                        } elseif (!$existingRecord->creator && !$existingRecord->creator_token) {
-                            // Orphaned record, can be claimed
-                            $canModify = true;
-                            $reason = 'orphaned_record_claimed';
-                        } else {
-                            $reason = 'no_matching_ownership';
-                        }
-                        
-                        Log::info('Permission check result', [
-                            'can_modify' => $canModify,
-                            'reason' => $reason,
-                            'existing_creator' => $existingRecord->creator,
-                            'existing_token_match' => $existingRecord->creator_token === $creatorInfo['creator_token']
-                        ]);
-                        
-                        if (!$canModify) {
-                            return response()->json([
-                                'success' => false,
-                                'message' => 'Access denied: Cannot modify this library record',
-                                'debug' => [
-                                    'reason' => $reason,
-                                    'existing_creator' => $existingRecord->creator,
-                                    'existing_has_token' => $existingRecord->creator_token ? true : false,
-                                    'current_user' => $user ? $user->name : null,
-                                    'current_has_token' => $creatorInfo['creator_token'] ? true : false,
-                                    'tokens_match' => $existingRecord->creator_token === $creatorInfo['creator_token']
-                                ]
-                            ], 403);
-                        }
-                    } else {
-                        Log::info('No existing record found, will create new one');
-                    }
-                    
-                    // Step 1: Perform upsert and ensure it's committed
-                    $record = PgLibrary::updateOrCreate(
-                        [
-                            'book' => $bookId,
-                            'citationID' => $citationId,
-                        ],
-                        [
-                            'title' => $item['title'] ?? null,
-                            'author' => $item['author'] ?? null,
-                            'creator' => $creatorInfo['creator'], // Use server-determined creator
-                            'creator_token' => $creatorInfo['creator_token'], // Use server-determined token
-                            'type' => $item['type'] ?? null,
-                            'timestamp' => $item['timestamp'] ?? null,
-                            'bibtex' => $item['bibtex'] ?? null,
-                            'year' => $item['year'] ?? null,
-                            'publisher' => $item['publisher'] ?? null,
-                            'journal' => $item['journal'] ?? null,
-                            'pages' => $item['pages'] ?? null,
-                            'url' => $item['url'] ?? null,
-                            'note' => $item['note'] ?? null,
-                            'school' => $item['school'] ?? null,
-                            'fileName' => $item['fileName'] ?? null,
-                            'fileType' => $item['fileType'] ?? null,
-                            'recent' => $item['recent'] ?? null,
-                            'total_views' => $item['total_views'] ?? 0,
-                            'total_highlights' => $item['total_highlights'] ?? 0,
-                            'total_citations' => $item['total_citations'] ?? 0,
-                            'raw_json' => ($item),
-                            'updated_at' => now(),
-                        ]
+                    // Prepare the data for upsert
+                    $upsertData = [
+                        'book' => $bookId,
+                        'citationID' => $item['citationID'] ?? $bookId, // Default citationID to bookId if not present
+                        'title' => $item['title'] ?? null,
+                        'author' => $item['author'] ?? null,
+                        'creator' => $creatorInfo['creator'], // Use server-determined creator
+                        'creator_token' => $creatorInfo['creator_token'], // Use server-determined token
+                        'type' => $item['type'] ?? null,
+                        'timestamp' => $item['timestamp'] ?? null,
+                        'bibtex' => $item['bibtex'] ?? null,
+                        'year' => $item['year'] ?? null,
+                        'publisher' => $item['publisher'] ?? null,
+                        'journal' => $item['journal'] ?? null,
+                        'pages' => $item['pages'] ?? null,
+                        'url' => $item['url'] ?? null,
+                        'note' => $item['note'] ?? null,
+                        'school' => $item['school'] ?? null,
+                        'fileName' => $item['fileName'] ?? null,
+                        'fileType' => $item['fileType'] ?? null,
+                        'recent' => $item['recent'] ?? null,
+                        'total_views' => $item['total_views'] ?? 0,
+                        'total_highlights' => $item['total_highlights'] ?? 0,
+                        'total_citations' => $item['total_citations'] ?? 0,
+                        'raw_json' => json_encode($item), // Ensure it's a JSON string
+                        'updated_at' => now(),
+                        // 'created_at' will be handled by the database on insert
+                    ];
+
+                    // Use Laravel's upsert method
+                    // 1st arg: The values to insert or update (must be an array of arrays)
+                    // 2nd arg: The column(s) that uniquely identify records
+                    // 3rd arg: The column(s) to update if a record already exists
+                    PgLibrary::upsert(
+                        [$upsertData], // The data must be wrapped in an array
+                        ['book'],      // The unique key to check for duplicates
+                        array_keys($upsertData) // Update all columns from the provided data
                     );
                     
-                    // Verify the record exists
-                    if (!$record || !$record->exists) {
-                        throw new \Exception('Failed to upsert library record');
-                    }
+                    Log::info('Library record upserted successfully', ['book' => $bookId]);
                     
-                    Log::info('Library record upserted successfully', [
-                        'book' => $bookId,
-                        'was_existing' => $existingRecord ? true : false
-                    ]);
-                    
-                    // Step 2: Chain the subsequent operations AFTER successful upsert
+                    // Chain the subsequent operations AFTER successful upsert
                     $chainResult = $this->executeChainedOperations();
                     
                     return response()->json([
@@ -274,10 +202,7 @@ class DbLibraryController extends Controller
                     ]);
                 }
                 
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid data format'
-                ], 400);
+                return response()->json(['success' => false, 'message' => 'Invalid data format'], 400);
                 
             } catch (\Exception $e) {
                 Log::error('Upsert failed: ' . $e->getMessage(), [
@@ -291,6 +216,7 @@ class DbLibraryController extends Controller
             }
         });
     }
+    
 
     // In app/Http/Controllers/DbLibraryController.php
 
