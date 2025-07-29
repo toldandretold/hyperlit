@@ -89,13 +89,11 @@ function handlePendingNewBookSync() {
       const { bookId, isNewBook } = pendingSync;
 
       if (bookId && isNewBook) {
-        // ✅ DELAY THE SYNC
-        // Wait 1 second after the page loads before starting the sync.
-        // This makes the UI feel completely instant.
         setTimeout(() => {
           console.log("🚀 Kicking off delayed background sync...");
-          fireAndForgetSync(bookId, isNewBook);
-        }, 1000); // 1000ms = 1 second
+          // THE FIX IS HERE: Add 'pendingSync' as the third argument.
+          fireAndForgetSync(bookId, isNewBook, pendingSync);
+        }, 1000);
       }
     } catch (error) {
       console.error("❌ Failed to handle pending book sync:", error);

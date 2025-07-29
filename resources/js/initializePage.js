@@ -1,5 +1,6 @@
 import { book, OpenHyperlightID } from './app.js';
 
+
 import {
   createLazyLoader,
   loadNextChunkFixed,
@@ -117,6 +118,8 @@ export function setupOnlineSyncListener() {
 
 // Your existing function - unchanged for backward compatibility
 export async function loadHyperText() {
+
+
   console.log(`📖 Opening: ${book}`);
   
   setupOnlineSyncListener();
