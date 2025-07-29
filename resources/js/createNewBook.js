@@ -27,26 +27,33 @@ function generateUUID() {
  * Enhanced sync that handles both new books and existing books
  * @param {string} bookId
  * @param {boolean} isNewBook - Whether this is a brand new book
+ * @param {object} [payload] - Optional payload with pre-fetched data
  */
-export async function fireAndForgetSync(bookId, isNewBook = false) {
+export async function fireAndForgetSync(
+  bookId,
+  isNewBook = false,
+  payload = null
+) {
   try {
+    // This is fine, it queues a library update which is debounced
     await updateBookTimestamp(bookId);
-    
+
     if (isNewBook) {
       console.log(`🔥 Firing parallel sync for new book: ${bookId}`);
-      // ✅ RUN IN PARALLEL
-      // This starts both network requests at the same time.
-      // The total time will be the time of the LONGEST request, not the sum of both.
       await Promise.all([
-        syncNewBookToPostgreSQL(bookId),
-        syncNodeChunksForNewBook(bookId)
+        // Pass the payload data down
+        syncNewBookToPostgreSQL(bookId, payload?.libraryRecord),
+        syncNodeChunksForNewBook(bookId, payload?.nodeChunks),
       ]);
     } else {
-      // For existing books, the logic remains the same.
       await syncIndexedDBtoPostgreSQL(bookId);
     }
-    
-    console.log(`[Background Sync] Successfully synced ${isNewBook ? 'new' : 'existing'} book: ${bookId}`);
+
+    console.log(
+      `[Background Sync] Successfully synced ${
+        isNewBook ? "new" : "existing"
+      } book: ${bookId}`
+    );
   } catch (err) {
     console.error(`[Background Sync] Failed for book: ${bookId}`, err);
     await storeFallbackSync(bookId, err, isNewBook);
@@ -56,34 +63,29 @@ export async function fireAndForgetSync(bookId, isNewBook = false) {
 /**
  * Sync a new book to PostgreSQL using bulk-create endpoint
  * @param {string} bookId
+ * @param {object} [libraryData] - Optional pre-fetched library record
  */
-async function syncNewBookToPostgreSQL(bookId) {
+async function syncNewBookToPostgreSQL(bookId, libraryData = null) {
   try {
-    const db = await openDatabase();
-    
-    // Get the library record from IndexedDB - FIXED VERSION
-    const tx = db.transaction(['library'], 'readonly');
-    const libraryStore = tx.objectStore('library');
-    
-    // Create a promise to handle the async IndexedDB operation
-    const libraryRecord = await new Promise((resolve, reject) => {
-      const request = libraryStore.get(bookId);
-      
-      request.onsuccess = (event) => {
-        const result = event.target.result;
-        console.log('📚 Retrieved library record from IndexedDB:', result);
-        resolve(result);
-      };
-      
-      request.onerror = (event) => {
-        console.error('❌ Error retrieving library record:', event.target.error);
-        reject(event.target.error);
-      };
-    });
-    
+    let libraryRecord = libraryData;
+
+    // If no data was passed, fall back to reading from IndexedDB
+    if (!libraryRecord) {
+      console.log("No payload for library, reading from IndexedDB...");
+      const db = await openDatabase();
+      const tx = db.transaction(["library"], "readonly");
+      libraryRecord = await tx.objectStore("library").get(bookId);
+      await tx.done;
+    }
+
     if (!libraryRecord) {
       throw new Error(`Library record not found for book: ${bookId}`);
     }
+
+    const payload = {
+        book: bookId, // Keep this for the endpoint to know which book it's for
+        data: libraryRecord // The libraryRecord object already contains `book: "book_123..."`
+    };
     
     console.log('📤 Sending new book data to bulk-create endpoint:', {
       book: bookId,
@@ -97,10 +99,7 @@ async function syncNewBookToPostgreSQL(bookId) {
         'Accept': 'application/json',
       },
       credentials: 'include',
-      body: JSON.stringify({
-        book: bookId,
-        data: libraryRecord
-      })
+      body: JSON.stringify(payload) // Send the corrected payload
     });
     
     if (!response.ok) {
@@ -123,28 +122,21 @@ async function syncNewBookToPostgreSQL(bookId) {
   }
 }
 
+// In createNewBook.js
+
 export async function createNewBook() {
   try {
-    // --- OPTIMIZATION 1: Parallelize Auth Calls ---
+    // --- Auth and other setup remains the same ---
     const [user, anonymousToken] = await Promise.all([
       getCurrentUser(),
       getAnonymousToken(),
     ]);
-
     const creator = user ? user.name || user.username || user.email : null;
     const creator_token = user ? null : anonymousToken;
-
-    console.log("Creating new book with", {
-      creator,
-      creator_token: creator_token ? "present" : "null",
-      user_authenticated: !!user,
-    });
-
     if (!creator && !creator_token) {
       throw new Error("No valid authentication - cannot create book");
     }
 
-    // --- Local Operations: These are fast ---
     const db = await openDatabase();
     const bookId = "book_" + Date.now();
 
@@ -154,56 +146,56 @@ export async function createNewBook() {
       title: "Untitled",
       author: null,
       type: "book",
-      timestamp: new Date().toISOString(),
+      timestamp: Date.now(),
       creator,
       creator_token,
     };
     newLibraryRecord.bibtex = buildBibtexEntry(newLibraryRecord);
 
-    // --- FIX: Create a single transaction for all related writes ---
-    // 1. The transaction must declare ALL object stores it will write to.
+    // ✅ DEFINE THE INITIAL NODE CHUNK OBJECT
+    const initialNodeChunk = {
+      book: bookId,
+      startLine: 1,
+      chunk_id: 0,
+      content: '<h1 id="1">Untitled</h1>',
+      hyperlights: [],
+      hypercites: [],
+    };
+
+    // --- Atomic IndexedDB write remains the same ---
     const tx = db.transaction(["library", "nodeChunks"], "readwrite");
-
-    // 2. Queue the first write operation (to the 'library' store).
     tx.objectStore("library").put(newLibraryRecord);
-
-    // 3. Queue the second write operation by passing the transaction
-    //    into our updated function.
+    // We pass the data from our object to the function
     await addNewBookToIndexedDB(
-      bookId,
-      1,
-      '<h1 id="1">Untitled</h1>',
-      0,
-      tx // Pass the transaction here
+      initialNodeChunk.book,
+      initialNodeChunk.startLine,
+      initialNodeChunk.content,
+      initialNodeChunk.chunk_id,
+      tx
     );
 
-    // 4. Now, await the completion of the single, atomic transaction.
-    //    This promise will only resolve after BOTH writes are successful.
     await new Promise((resolve, reject) => {
-      tx.oncomplete = () => {
-        console.log("Atomic local book creation successful:", newLibraryRecord);
-        resolve();
-      };
-      tx.onerror = (e) => {
-        console.error("Atomic transaction failed:", e.target.error);
-        reject(e.target.error);
-      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = (e) => reject(e.target.error);
     });
 
-    // --- ✅ NEW APPROACH: DECOUPLE SYNC FROM NAVIGATION ---
-
-    // 1. Store the pending sync information in sessionStorage.
-    //    sessionStorage is cleared when the browser tab is closed.
-    console.log(`📝 Staging book ${bookId} for background sync on next page load.`);
-    sessionStorage.setItem('pending_new_book_sync', JSON.stringify({
+    // --- ✅ NEW APPROACH: STAGE THE ACTUAL DATA FOR SYNC ---
+    console.log(
+      `📝 Staging full payload for book ${bookId} for background sync.`
+    );
+    sessionStorage.setItem(
+      "pending_new_book_sync",
+      JSON.stringify({
         bookId: bookId,
-        isNewBook: true
-    }));
+        isNewBook: true,
+        // Pass the actual data we just created
+        libraryRecord: newLibraryRecord,
+        nodeChunks: [initialNodeChunk],
+      })
+    );
 
-    // 2. Now, navigate to the new page.
+    // --- Navigate to the new page ---
     window.location.href = `/${bookId}/edit?target=1`;
-
-    // The fireAndForgetSync() call is REMOVED from here.
 
     return newLibraryRecord;
   } catch (err) {
@@ -318,45 +310,38 @@ async function retryFailedSyncs() {
     console.error('Failed to process the retry queue:', e);
   }
 }
+
 /**
  * Retrieve and sync node chunks for a new book
  * @param {string} bookId
+ * @param {Array<object>} [chunksData] - Optional pre-fetched node chunks
  */
-async function syncNodeChunksForNewBook(bookId) {
+async function syncNodeChunksForNewBook(bookId, chunksData = null) {
   try {
-    const db = await openDatabase();
-    
-    // Get node chunks from IndexedDB
-    const tx = db.transaction(['nodeChunks'], 'readonly');
-    const nodeChunksStore = tx.objectStore('nodeChunks');
-    const index = nodeChunksStore.index('book');
-    
-    const nodeChunks = await new Promise((resolve, reject) => {
-      const request = index.getAll(bookId);
-      
-      request.onsuccess = (event) => {
-        const result = event.target.result;
-        console.log(`📚 Retrieved ${result.length} node chunks from IndexedDB for sync`);
-        resolve(result);
-      };
-      
-      request.onerror = (event) => {
-        console.error('❌ Error retrieving node chunks:', event.target.error);
-        reject(event.target.error);
-      };
-    });
-    
-    if (nodeChunks.length === 0) {
-      console.log('No node chunks to sync for book:', bookId);
-      return { success: true, message: 'No node chunks to sync' };
+    let nodeChunks = chunksData;
+
+    // If no data was passed, fall back to reading from IndexedDB
+    if (!nodeChunks) {
+      console.log("No payload for chunks, reading from IndexedDB...");
+      const db = await openDatabase();
+      const tx = db.transaction(["nodeChunks"], "readonly");
+      const index = tx.objectStore("nodeChunks").index("book");
+      nodeChunks = await index.getAll(bookId);
+      await tx.done;
     }
-    
-    // Use your existing syncNodeChunksToPostgreSQL function
-    console.log(`📤 Calling syncNodeChunksToPostgreSQL with ${nodeChunks.length} chunks`);
-    return await syncNodeChunksToPostgreSQL(nodeChunks);
-    
+
+    if (nodeChunks.length === 0) {
+      console.log("No node chunks to sync for book:", bookId);
+      return { success: true, message: "No node chunks to sync" };
+    }
+
+    console.log(
+      `📤 Calling syncNodeChunksToPostgreSQL with ${nodeChunks.length} chunks`
+    );
+    // Your existing function should work perfectly with this data
+    return await syncNodeChunksToPostgreSQL(bookId, nodeChunks);
   } catch (error) {
-    console.error('❌ Error in syncNodeChunksForNewBook:', error);
+    console.error("❌ Error in syncNodeChunksForNewBook:", error);
     throw error;
   }
 }
