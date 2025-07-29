@@ -11,6 +11,7 @@ import { setupUnloadSync } from './cache-indexedDB.js';
 import { generateTableOfContents } from './toc.js';
 import { KeyboardManager } from './keyboardManager.js';
 import { handleAutoEdit, initializeEditButtonListeners } from './editButton.js';
+import { initializeSourceButtonListener } from './sourceButton.js';
 
 // This is now the single, authoritative function to make the reader page "live".
 export async function initializeReaderView() {
@@ -44,6 +45,7 @@ export async function initializeReaderView() {
   navButtons.init();
 
   initializeEditButtonListeners();
+   initializeSourceButtonListener();
 
   initEditToolbar({
     toolbarId: "edit-toolbar",
