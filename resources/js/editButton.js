@@ -147,13 +147,11 @@ function getLastContentElement(container) {
 }
 
 async function enableEditMode(targetElementId = null) {
-  // ✅ QUERY FOR ELEMENTS AT THE TIME OF EXECUTION
+  // ✅ These queries are now correctly inside the function.
   const editBtn = document.getElementById("editButton");
   const editableDiv = document.getElementById(book);
 
-  console.log("🔔 enableEditMode() called from:", new Error().stack);
-  console.log("🔔 enableEditMode() called, shouldAutoEdit=", shouldAutoEdit);
-  console.log("🔔 targetElementId:", targetElementId);
+  console.log("🔔 enableEditMode() called...");
 
   if (window.isEditing || editModeCheckInProgress) {
     console.log("Edit mode already active or check in progress, returning");
@@ -167,16 +165,11 @@ async function enableEditMode(targetElementId = null) {
 
   editModeCheckInProgress = true;
 
-  // This block is correct and handles the permission check.
+  // This block for permission checking is perfect.
   if (window.pendingBookSyncPromise) {
-    console.log(
-      "⏳ Waiting for pending book sync to complete before checking permissions..."
-    );
     try {
       await window.pendingBookSyncPromise;
-      console.log(
-        "✅ Pending book sync complete. Proceeding with permission check."
-      );
+      console.log("✅ Pending book sync complete. Proceeding with permission check.");
     } catch (e) {
       console.error("Sync failed, cannot enable edit mode.", e);
       showCustomAlert(/* ... */);
@@ -187,7 +180,6 @@ async function enableEditMode(targetElementId = null) {
     }
   }
 
-  // This permission check is also correct.
   const canEdit = await canUserEditBook(book);
   if (!canEdit) {
     console.log("❌ User does not have permission to edit this book");
@@ -200,34 +192,34 @@ async function enableEditMode(targetElementId = null) {
   incrementPendingOperations();
   
   try {
-    // ======================= THE ONLY CHANGE IS HERE =======================
     // We wait for the content to be on the page BEFORE we try to edit it.
     console.log("⏳ Waiting for the first chunk of content to render...");
     await pendingFirstChunkLoadedPromise;
     console.log("✅ First chunk is ready. Proceeding to enable edit mode.");
-    // =======================================================================
 
-    window.isEditing = true;
-    if (editBtn) editBtn.classList.add("inverted");
-    editableDiv.contentEditable = "true";
+    // Now, schedule the UI update for the next browser tick.
+    setTimeout(() => {
+      try {
+        console.log("🚀 Proceeding to enable edit mode after browser tick.");
+        window.isEditing = true;
+        if (editBtn) editBtn.classList.add("inverted");
+        editableDiv.contentEditable = "true";
 
-    const toolbar = getEditToolbar();
-    if (toolbar) {
-      toolbar.setEditMode(true);
-    } else {
-      console.warn("Toolbar not found - make sure it's initialized");
-    }
+        const toolbar = getEditToolbar();
+        if (toolbar) {
+          toolbar.setEditMode(true);
+        }
 
-    const { ensureMinimumDocumentStructure } = await import('./divEditor.js');
-    ensureMinimumDocumentStructure();
-    
-    // Smart cursor placement logic
-    let cursorPlaced = false;
-    
-    // 1. Try to use provided targetElementId
-    if (targetElementId) {
-      cursorPlaced = placeCursorAtEndOfElement(targetElementId);
-    }
+        // We need to import this inside the async context of the timeout
+        import('./divEditor.js').then(({ ensureMinimumDocumentStructure }) => {
+          ensureMinimumDocumentStructure();
+        });
+        
+        // Your entire smart cursor placement logic is perfect and runs here.
+        let cursorPlaced = false;
+        if (targetElementId) {
+          cursorPlaced = placeCursorAtEndOfElement(targetElementId);
+        }
     
     // 2. If no targetElementId or it failed, try saved scroll position
     if (!cursorPlaced) {
@@ -291,22 +283,26 @@ async function enableEditMode(targetElementId = null) {
     }
     
     editableDiv.focus();
+        startObserving(editableDiv);
+        addPasteListener(editableDiv);
+        initTitleSync(book);
+        
+        console.log("Edit mode enabled");
 
-    startObserving(editableDiv);
-    addPasteListener(editableDiv);
-    initTitleSync(book);
-    
-    console.log("Edit mode enabled");
-    editModeCheckInProgress = false; // Reset flag on success
+      } catch (error) {
+        console.error("Error during UI update inside setTimeout:", error);
+      } finally {
+        // This is the single, correct place to decrement the counter.
+        decrementPendingOperations();
+        editModeCheckInProgress = false; // Reset flag on success or failure of UI update
+      }
+    }, 0);
+
   } catch (error) {
-    console.error("Error enabling edit mode:", error);
-    // Make sure to reset editing state on error
-    window.isEditing = false;
-    if (editBtn) editBtn.classList.remove("inverted");
-    editableDiv.contentEditable = "false";
-  } finally {
-    editModeCheckInProgress = false; // Always reset this flag
+    console.error("Error waiting for content promise:", error);
+    // If the promise itself fails, we must also clean up.
     decrementPendingOperations();
+    editModeCheckInProgress = false;
   }
 }
 
