@@ -39,12 +39,12 @@ export async function fireAndForgetSync(
     await updateBookTimestamp(bookId);
 
     if (isNewBook) {
-      console.log(`🔥 Firing parallel sync for new book: ${bookId}`);
-      await Promise.all([
-        // Pass the payload data down
-        syncNewBookToPostgreSQL(bookId, payload?.libraryRecord),
-        syncNodeChunksForNewBook(bookId, payload?.nodeChunks),
-      ]);
+      console.log(`🔥 Firing sequential sync for new book: ${bookId}`);
+      // First, wait for the main library record to be created.
+      await syncNewBookToPostgreSQL(bookId, payload?.libraryRecord);
+
+      // ONLY after that is successful, sync the content.
+      await syncNodeChunksForNewBook(bookId, payload?.nodeChunks);
     } else {
       await syncIndexedDBtoPostgreSQL(bookId);
     }
