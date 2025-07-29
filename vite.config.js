@@ -90,7 +90,7 @@ export default defineConfig({
                 'resources/js/convert-markdown.js',
                 'resources/js/editToolbar.js',
                 'resources/js/footnotes.js',
-                'resources/js/homepage.js',                 
+                'resources/js/homepage.js',                 // ✅ NEW
                 'resources/js/hyperLights.js',
                 'resources/js/IDmanager.js',
                 'resources/js/initializePage.js',
@@ -103,9 +103,9 @@ export default defineConfig({
                 'resources/js/renderOpenBooks.js',
                 'resources/js/scrolling.js',
                 'resources/js/toc.js',
-                'resources/js/viewInitializers.js',       
+                'resources/js/viewInitializers.js',       // ✅ NEW
                 'resources/js/viewManager.js',
-                'resources/js/homePageDisplayUnit.js',
+                'resources/js/homepageDisplayUnit.js',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.
       ],
