@@ -161,4 +161,60 @@ class AuthController extends Controller
             ->where('created_at', '>', now()->subDays(365)) // Token expires after 1 year
             ->exists();
     }
+
+    public function getSessionInfo(Request $request)
+    {
+        // Case 1: User is fully authenticated via Sanctum
+        if (Auth::check()) {
+            return response()->json([
+                'authenticated' => true,
+                'user' => Auth::user(),
+                'anonymous_token' => null,
+                'csrf_token' => csrf_token(), // Always provide the CSRF token
+            ]);
+        }
+
+        // Case 2: User has an existing anonymous session token
+        $anonymousToken = $request->cookie('anon_token');
+        if ($anonymousToken && $this->isValidAnonymousToken($anonymousToken)) {
+            // The user is a known anonymous user. Return their token.
+            return response()->json([
+                'authenticated' => false,
+                'user' => null,
+                'anonymous_token' => $anonymousToken,
+                'csrf_token' => csrf_token(),
+            ]);
+        }
+
+        // Case 3: No session exists. This is a new visitor.
+        // Create a new anonymous session for them.
+        $newAnonymousToken = Str::uuid()->toString();
+
+        // Store in your database (using your existing logic)
+        DB::table('anonymous_sessions')->insert([
+            'token' => $newAnonymousToken,
+            'created_at' => now(),
+            'last_used_at' => now(),
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        // Return the new token and set the cookie for future requests.
+        return response()->json([
+            'authenticated' => false,
+            'user' => null,
+            'anonymous_token' => $newAnonymousToken,
+            'csrf_token' => csrf_token(),
+        ])->cookie(
+            'anon_token',      // cookie name
+            $newAnonymousToken,  // value
+            60 * 24 * 365,       // expires in 1 year
+            '/',                 // path
+            config('session.domain'), // domain
+            config('session.secure'), // secure
+            true,                // httpOnly
+            false,               // raw
+            'lax'                // sameSite
+        );
+    }
 }

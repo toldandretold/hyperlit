@@ -219,99 +219,97 @@ class DbLibraryController extends Controller
     
 
     // In app/Http/Controllers/DbLibraryController.php
-
-    public function bulkCreate(Request $request)
-    {
-        // Use database transaction to ensure atomicity
-        return DB::transaction(function () use ($request) {
-            try {
-                $data = $request->all();
-                
-                // Get creator info based on auth state
-                $creatorInfo = $this->getCreatorInfo($request);
-                if (!$creatorInfo['valid']) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Invalid session'
-                    ], 401);
-                }
-                
-                // ✅ FIX: Check for an object OR an array.
-                if (isset($data['data']) && (is_object($data['data']) || is_array($data['data']))) {
-                    
-                    // ✅ FIX: Cast to an array to ensure consistent access.
-                    $item = (array) $data['data'];
-                    
-                    $record = [
-                        'book' => $item['book'] ?? null,
-                        'citationID' => $item['citationID'] ?? null,
-                        'title' => $item['title'] ?? null,
-                        'author' => $item['author'] ?? null,
-                        'creator' => $creatorInfo['creator'], // Use server-determined creator
-                        'creator_token' => $creatorInfo['creator_token'], // Use server-determined token
-                        'type' => $item['type'] ?? null,
-                        'timestamp' => $item['timestamp'] ?? null,
-                        'bibtex' => $item['bibtex'] ?? null,
-                        'year' => $item['year'] ?? null,
-                        'publisher' => $item['publisher'] ?? null,
-                        'journal' => $item['journal'] ?? null,
-                        'pages' => $item['pages'] ?? null,
-                        'url' => $item['url'] ?? null,
-                        'note' => $item['note'] ?? null,
-                        'school' => $item['school'] ?? null,
-                        'fileName' => $item['fileName'] ?? null,
-                        'fileType' => $item['fileType'] ?? null,
-                        'recent' => $item['recent'] ?? null,
-                        'total_views' => $item['total_views'] ?? 0,
-                        'total_highlights' => $item['total_highlights'] ?? 0,
-                        'total_citations' => $item['total_citations'] ?? 0,
-                        'raw_json' => json_encode($item), // Encode the item for storage
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-                    
-                    Log::info('Creating library record with auth info', [
-                        'book' => $record['book'],
-                        'creator' => $record['creator'],
-                        'creator_token' => $record['creator_token'] ? 'present' : 'null',
-                        'auth_user' => Auth::user() ? Auth::user()->name : 'anonymous'
-                    ]);
-                    
-                    // Step 1: Create the record and ensure it's committed
-                    $createdRecord = PgLibrary::create($record);
-                    
-                    // Verify the record was actually created
-                    if (!$createdRecord || !$createdRecord->exists) {
-                        throw new \Exception('Failed to create library record');
-                    }
-                    
-                    // Step 2: Chain the subsequent operations AFTER successful creation
-                    $chainResult = $this->executeChainedOperations();
-                    
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Library record created and chain completed',
-                        'chain_result' => $chainResult
-                    ]);
-                }
-                
-                // This is the error you were getting
+public function bulkCreate(Request $request)
+{
+    // Use database transaction to ensure atomicity
+    return DB::transaction(function () use ($request) {
+        try {
+            $data = $request->all();
+            
+            // Get creator info based on auth state
+            $creatorInfo = $this->getCreatorInfo($request);
+            if (!$creatorInfo['valid']) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid data format'
-                ], 400);
-                
-            } catch (\Exception $e) {
-                // Transaction will automatically rollback
-                Log::error('BulkCreate failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to sync data',
-                    'error' => $e->getMessage()
-                ], 500);
+                    'message' => 'Invalid session'
+                ], 401);
             }
-        });
-    }
+            
+            if (isset($data['data']) && (is_object($data['data']) || is_array($data['data']))) {
+                
+                $item = (array) $data['data'];
+                
+                $record = [
+                    'book' => $item['book'] ?? null,
+                    'citationID' => $item['citationID'] ?? null,
+                    'title' => $item['title'] ?? null,
+                    'author' => $item['author'] ?? null,
+                    'creator' => $creatorInfo['creator'], // Use server-determined creator
+                    'creator_token' => $creatorInfo['creator_token'], // Use server-determined token
+                    'type' => $item['type'] ?? null,
+                    'timestamp' => $item['timestamp'] ?? null,
+                    'bibtex' => $item['bibtex'] ?? null,
+                    'year' => $item['year'] ?? null,
+                    'publisher' => $item['publisher'] ?? null,
+                    'journal' => $item['journal'] ?? null,
+                    'pages' => $item['pages'] ?? null,
+                    'url' => $item['url'] ?? null,
+                    'note' => $item['note'] ?? null,
+                    'school' => $item['school'] ?? null,
+                    'fileName' => $item['fileName'] ?? null,
+                    'fileType' => $item['fileType'] ?? null,
+                    'recent' => $item['recent'] ?? null,
+                    'total_views' => $item['total_views'] ?? 0,
+                    'total_highlights' => $item['total_highlights'] ?? 0,
+                    'total_citations' => $item['total_citations'] ?? 0,
+                    'raw_json' => json_encode($item),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+                
+                Log::info('Creating library record with auth info', [
+                    'book' => $record['book'],
+                    'creator' => $record['creator'],
+                    'creator_token' => $record['creator_token'] ? 'present' : 'null',
+                ]);
+                
+                // Use updateOrCreate to be more robust. It will create the record if it
+                // doesn't exist, or update it if a duplicate request is sent.
+                $createdRecord = PgLibrary::updateOrCreate(
+                    ['book' => $record['book']], // The unique key to find the record
+                    $record                     // The data to insert or update with
+                );
+                
+                if (!$createdRecord) {
+                    throw new \Exception('Failed to create or update library record');
+                }
+                
+                $chainResult = $this->executeChainedOperations();
+                
+                // ✅ THIS IS THE FIX: Return the complete library object in the response.
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Library record created and chain completed',
+                    'library' => $createdRecord, // <-- THE CRITICAL ADDITION
+                    'chain_result' => $chainResult
+                ]);
+            }
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid data format'
+            ], 400);
+            
+        } catch (\Exception $e) {
+            Log::error('BulkCreate failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to sync data',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    });
+}
     
 
     /**

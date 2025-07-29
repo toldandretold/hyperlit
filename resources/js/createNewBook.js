@@ -29,35 +29,61 @@ function generateUUID() {
  * @param {boolean} isNewBook - Whether this is a brand new book
  * @param {object} [payload] - Optional payload with pre-fetched data
  */
+// In createNewBook.js
+
+// In createNewBook.js
+
 export async function fireAndForgetSync(
   bookId,
   isNewBook = false,
   payload = null
 ) {
-  try {
-    // This is fine, it queues a library update which is debounced
-    await updateBookTimestamp(bookId);
+  // This function now returns a promise that resolves when the critical sync is done.
+  return new Promise(async (resolve, reject) => {
+    try {
+      await updateBookTimestamp(bookId);
 
-    if (isNewBook) {
-      console.log(`🔥 Firing sequential sync for new book: ${bookId}`);
-      // First, wait for the main library record to be created.
-      await syncNewBookToPostgreSQL(bookId, payload?.libraryRecord);
+      if (isNewBook) {
+        console.log(`🔥 Firing sequential sync for new book: ${bookId}`);
+        const syncResult = await syncNewBookToPostgreSQL(
+          bookId,
+          payload?.libraryRecord
+        );
 
-      // ONLY after that is successful, sync the content.
-      await syncNodeChunksForNewBook(bookId, payload?.nodeChunks);
-    } else {
-      await syncIndexedDBtoPostgreSQL(bookId);
+        if (syncResult.success && syncResult.library) {
+          console.log(
+            "✅ Sync successful. Updating local library record with server data:",
+            syncResult.library
+          );
+          const db = await openDatabase();
+          const tx = db.transaction("library", "readwrite");
+          await tx.objectStore("library").put(syncResult.library);
+          await tx.done;
+          console.log("✅ Local library record updated with correct owner.");
+        }
+
+        // The critical part is done. We can resolve the promise now.
+        resolve();
+
+        // The non-critical part (syncing node chunks) can continue in the background.
+        await syncNodeChunksForNewBook(bookId, payload?.nodeChunks);
+      } else {
+        // For existing books, the sync is the whole operation.
+        await syncIndexedDBtoPostgreSQL(bookId);
+        resolve();
+      }
+
+      console.log(
+        `[Background Sync] Successfully synced ${
+          isNewBook ? "new" : "existing"
+        } book: ${bookId}`
+      );
+    } catch (err) {
+      console.error(`[Background Sync] Failed for book: ${bookId}`, err);
+      await storeFallbackSync(bookId, err, isNewBook);
+      reject(err); // Reject the promise on failure.
     }
-
-    console.log(
-      `[Background Sync] Successfully synced ${
-        isNewBook ? "new" : "existing"
-      } book: ${bookId}`
-    );
-  } catch (err) {
-    console.error(`[Background Sync] Failed for book: ${bookId}`, err);
-    await storeFallbackSync(bookId, err, isNewBook);
-  }
+  });
 }
 
 /**
@@ -65,11 +91,12 @@ export async function fireAndForgetSync(
  * @param {string} bookId
  * @param {object} [libraryData] - Optional pre-fetched library record
  */
+// In createNewBook.js
+
 async function syncNewBookToPostgreSQL(bookId, libraryData = null) {
   try {
     let libraryRecord = libraryData;
 
-    // If no data was passed, fall back to reading from IndexedDB
     if (!libraryRecord) {
       console.log("No payload for library, reading from IndexedDB...");
       const db = await openDatabase();
@@ -83,96 +110,68 @@ async function syncNewBookToPostgreSQL(bookId, libraryData = null) {
     }
 
     const payload = {
-        book: bookId, // Keep this for the endpoint to know which book it's for
-        data: libraryRecord // The libraryRecord object already contains `book: "book_123..."`
-    };
-    
-    console.log('📤 Sending new book data to bulk-create endpoint:', {
       book: bookId,
-      data: libraryRecord
-    });
-    
-    const response = await fetch(`${API_BASE_URL}/api/db/library/bulk-create`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify(payload) // Send the corrected payload
-    });
-    
+      data: libraryRecord,
+    };
+
+    console.log("📤 Sending new book data to bulk-create endpoint:", payload);
+
+    const response = await fetch(
+      `${API_BASE_URL}/api/db/library/bulk-create`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          // ✅ THE FIX: Add the CSRF token header, just like in your other sync functions.
+          "X-CSRF-TOKEN":
+            document.querySelector('meta[name="csrf-token"]')?.content,
+        },
+        credentials: "include", // This correctly sends the session cookie
+        body: JSON.stringify(payload),
+      }
+    );
+
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Server responded with ${response.status}: ${errorText}`);
+      throw new Error(
+        `Server responded with ${response.status}: ${errorText}`
+      );
     }
-    
+
     const result = await response.json();
-    
+
     if (!result.success) {
       throw new Error(`Bulk create failed: ${result.message}`);
     }
-    
-    console.log('✅ New book successfully created on server:', result);
+
+    console.log("✅ New book successfully created on server:", result);
     return result;
-    
   } catch (error) {
-    console.error('❌ Error in syncNewBookToPostgreSQL:', error);
+    console.error("❌ Error in syncNewBookToPostgreSQL:", error);
     throw error;
   }
 }
 
-// In createNewBook.js
 
-// In createNewBook.js
 
+// This is the correct, offline-first version.
 export async function createNewBook() {
   try {
-    let creator = null;
-    let creator_token = null;
-
-    // --- THIS IS THE FIX ---
-    // We will TRY to get the user, but we will NOT stop if it fails.
-    // This makes the button click feel instant and reliable.
-    try {
-      const [user, anonymousToken] = await Promise.all([
-        getCurrentUser(),
-        getAnonymousToken(),
-      ]);
-      creator = user ? user.name || user.username || user.email : null;
-      creator_token = user ? null : anonymousToken;
-    } catch (authError) {
-      console.warn(
-        "Could not determine user before book creation. This can happen on slow networks. Proceeding with fallback.",
-        authError
-      );
-      // If the main auth check fails, try to get a fallback anonymous token.
-      // This uses your existing auth logic to find any available token.
-      creator_token = await getAnonymousToken();
-    }
-    // --- END FIX ---
-
-    // If after all that, we still have no identity, then we must stop.
-    if (!creator && !creator_token) {
-      console.error("Fatal: No valid user or anonymous token available. Cannot create book.");
-      // Optionally, alert the user that something is wrong with their session.
-      alert("Could not verify your session. Please refresh the page and try again.");
-      return; // Stop execution.
-    }
-
-    // The rest of the function proceeds exactly as before.
     const db = await openDatabase();
     const bookId = "book_" + Date.now();
 
+    // Create the records with NULL for creator fields.
+    // Your Laravel backend will fill these in correctly during the sync.
     const newLibraryRecord = {
       book: bookId,
       citationID: bookId,
       title: "Untitled",
       author: null,
       type: "book",
-      timestamp: Date.now(), // This is correct
-      creator,
-      creator_token,
+      timestamp: Date.now(),
+      creator: null,       // <-- INTENTIONALLY NULL
+      creator_token: null, // <-- INTENTIONALLY NULL
     };
     newLibraryRecord.bibtex = buildBibtexEntry(newLibraryRecord);
 
@@ -185,6 +184,7 @@ export async function createNewBook() {
       hypercites: [],
     };
 
+    // The rest of the function is correct.
     const tx = db.transaction(["library", "nodeChunks"], "readwrite");
     tx.objectStore("library").put(newLibraryRecord);
     await addNewBookToIndexedDB(
@@ -210,12 +210,12 @@ export async function createNewBook() {
       })
     );
 
-    // This line will now be reached reliably.
+    // This will now work instantly, even if you are offline.
     window.location.href = `/${bookId}/edit?target=1`;
 
   } catch (err) {
-    // This top-level catch will now only catch errors from IndexedDB or the redirect.
     console.error("createNewBook() failed:", err);
+    alert("An error occurred while creating the book locally. Please try again.");
   }
 }
 

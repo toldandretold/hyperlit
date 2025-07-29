@@ -20,6 +20,8 @@ use App\Http\Controllers\AuthController;
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/register', [AuthController::class, 'register']);
 
+Route::get('/auth/session-info', [AuthController::class, 'getSessionInfo']);
+
 Route::post('/anonymous-session', [AuthController::class, 'createAnonymousSession']);
 // Auth check (works for both authenticated and guest)
 Route::get('/auth-check', [AuthController::class, 'checkAuth']);

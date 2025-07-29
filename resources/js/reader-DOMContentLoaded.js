@@ -77,6 +77,8 @@ if (!window.isInitialized) {
   window.isInitialized = true;
 
   
+// In reader-DOMContentLoaded.js
+
 function handlePendingNewBookSync() {
   const pendingSyncJSON = sessionStorage.getItem('pending_new_book_sync');
 
@@ -89,14 +91,18 @@ function handlePendingNewBookSync() {
       const { bookId, isNewBook } = pendingSync;
 
       if (bookId && isNewBook) {
-        setTimeout(() => {
-          console.log("🚀 Kicking off delayed background sync...");
-          // THE FIX IS HERE: Add 'pendingSync' as the third argument.
-          fireAndForgetSync(bookId, isNewBook, pendingSync);
-        }, 1000);
+        console.log("🚀 Kicking off background sync and storing promise...");
+        // ✅ STORE THE PROMISE
+        window.pendingBookSyncPromise = fireAndForgetSync(
+          bookId,
+          isNewBook,
+          pendingSync
+        );
       }
     } catch (error) {
       console.error("❌ Failed to handle pending book sync:", error);
+      // Ensure the promise is null on error
+      window.pendingBookSyncPromise = null;
     }
   }
 }
