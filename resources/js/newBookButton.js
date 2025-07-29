@@ -1,22 +1,10 @@
 import { ContainerManager } from "./container-manager.js";
 import { openDatabase } from "./cache-indexedDB.js";
 import { createNewBook } from "./createNewBook.js";
+import { transitionToReaderView } from './viewManager.js';
 import { ensureAuthInitialized } from "./auth.js";
 
-// Listen for clicks on the button with id="newBook"
-// Get the data-page attribute from the <body> tag
-const pageType = document.body.getAttribute("data-page");
 
-// Only add the "newBook" button event listener if the page is "home"
-if (pageType === "home") {
-  import("./newBookForm.js");
-
-  document.getElementById("newBook").addEventListener("click", async () => {
-    console.log("newBOok BUTTONNNN");
-
-
-  });
-}
 
 export class NewBookContainerManager extends ContainerManager {
   constructor(
@@ -57,11 +45,20 @@ export class NewBookContainerManager extends ContainerManager {
 
 
   setupButtonListeners() {
-    // Add event listeners for the buttons inside the container
-      document.getElementById("createNewBook")?.addEventListener("click", () => { // <-- No longer async
+    // ✅ THIS IS THE ONLY LISTENER YOU NEED. It is correct.
+    document.getElementById("createNewBook")?.addEventListener("click", async () => {
       console.log("Create new book clicked");
-      createNewBook(); // <-- Simple, direct call.
+      
+      // First, close the popup
       this.closeContainer();
+
+      // Call the engine
+      const newBookId = await createNewBook(); 
+
+      // Transition the view
+      if (newBookId) {
+        await transitionToReaderView(newBookId);
+      }
     });
 
       // In your NewBookContainerManager class, update the importBook event listener:
