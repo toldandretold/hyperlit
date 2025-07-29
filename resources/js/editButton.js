@@ -12,8 +12,7 @@ import { initEditToolbar, getEditToolbar } from './editToolbar.js';
 import userManager from "./userContainer.js";
 import { pendingFirstChunkLoadedPromise } from './initializePage.js';
 
-const editBtn     = document.getElementById("editButton");
-const editableDiv = document.getElementById(book);
+
 
 // Detect "edit" from URL
 const params   = new URLSearchParams(location.search);
@@ -27,6 +26,17 @@ window.isEditing = false;
 
 // Add this at the top with your other variables
 let editModeCheckInProgress = false;
+
+export function handleAutoEdit() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const shouldAutoEdit = urlParams.has('edit');
+  const targetElementId = urlParams.get('target');
+
+  if (shouldAutoEdit) {
+    console.log("Auto-edit detected, enabling edit mode");
+    enableEditMode(targetElementId);
+  }
+}
 
 // Add this function to handle edit mode cancellation without reload
 function handleEditModeCancel() {
@@ -136,8 +146,11 @@ function getLastContentElement(container) {
   return contentElements[contentElements.length - 1].id;
 }
 
-// Update your enableEditMode function
 async function enableEditMode(targetElementId = null) {
+  // ✅ QUERY FOR ELEMENTS AT THE TIME OF EXECUTION
+  const editBtn = document.getElementById("editButton");
+  const editableDiv = document.getElementById(book);
+
   console.log("🔔 enableEditMode() called from:", new Error().stack);
   console.log("🔔 enableEditMode() called, shouldAutoEdit=", shouldAutoEdit);
   console.log("🔔 targetElementId:", targetElementId);
@@ -298,6 +311,12 @@ async function enableEditMode(targetElementId = null) {
 }
 
 function disableEditMode() {
+  // ✅ QUERY FOR ELEMENTS AT THE TIME OF EXECUTION
+  const editBtn = document.getElementById("editButton");
+  const editableDiv = document.getElementById(book);
+
+  if (!editableDiv) return; // Safety check
+
   window.isEditing = false;
   editBtn.classList.remove("inverted");
   editableDiv.contentEditable = "false";
@@ -319,70 +338,39 @@ function disableEditMode() {
   console.log("Edit mode disabled");
 }
 
-// Add this at the end of reader-edit.js to verify the edit button is working
-console.log("Edit button element:", editBtn);
-// Add this at the end of reader-edit.js to verify the edit button is working
-console.log("Edit button element:", editBtn);
-if (editBtn) {
-  editBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    console.log("Edit button clicked, current state:", {
-      isEditing: window.isEditing,
-      checkInProgress: editModeCheckInProgress,
-      keyboardVisible: window.keyboardManager?.isKeyboardVisible // Add this line
+// ✅ CREATE A NEW, EXPORTED INITIALIZER FOR THE LISTENERS
+export function initializeEditButtonListeners() {
+  const editBtn = document.getElementById("editButton");
+  if (editBtn) {
+    // This check prevents adding listeners multiple times
+    if (editBtn.dataset.listenersAttached) return;
+
+    editBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.isEditing) {
+        disableEditMode();
+      } else {
+        enableEditMode();
+      }
     });
     
-    // Don't allow clicks while check is in progress
-    if (editModeCheckInProgress) {
-      console.log("Edit mode check in progress, ignoring click");
-      return;
-    }
+    editBtn.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.isEditing) {
+        disableEditMode();
+      } else {
+        enableEditMode();
+      }
+    });
     
-    if (window.isEditing) {
-      disableEditMode();
-    } else {
-      enableEditMode();
-    }
-  });
-  
-  // ADD THIS NEW EVENT LISTENER - Force the button to work even when keyboard is up
-  editBtn.addEventListener("touchend", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    console.log("Edit button touchend when keyboard up");
-    
-    if (editModeCheckInProgress) return;
-    
-    if (window.isEditing) {
-      disableEditMode();
-    } else {
-      enableEditMode();
-    }
-  });
-  
-  console.log("Edit button event listener attached");
-}
-
-
-if (shouldAutoEdit) {
-  console.log("Auto-edit detected, enabling edit mode");
-  
-  // Check for target element ID in URL params
-  const targetElementId = params.get("target");
-  console.log("Target element ID from URL:", targetElementId);
-  
-  // Add a small delay to ensure DOM is fully loaded for new books
-  if (targetElementId) {
-    setTimeout(() => {
-      enableEditMode(targetElementId);
-    }, 200); // Slightly longer delay for new books
-  } else {
-    enableEditMode();
+    editBtn.dataset.listenersAttached = 'true';
+    console.log("✅ Edit button event listeners attached.");
   }
 }
+
+
 
 export async function updateEditButtonVisibility(bookId) {
   console.log('EDIT BUTTON VISIBILITY CHECK FOR:', bookId);

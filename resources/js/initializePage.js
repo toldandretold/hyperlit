@@ -119,8 +119,12 @@ export function setupOnlineSyncListener() {
   console.log("👂 Online sync listener is active.");
 }
 
-export async function loadHyperText() {
-  console.log(`📖 Opening: ${book}`);
+export async function loadHyperText(bookId) {
+  // If bookId isn't passed (e.g., on a direct page load),
+  // we fall back to the global `book` variable. This makes the function robust.
+  const currentBook = bookId || book;
+
+  console.log(`📖 Opening: ${currentBook}`);
   
   setupOnlineSyncListener();
 
@@ -129,29 +133,37 @@ export async function loadHyperText() {
   try {
     // 1. Check for node chunks in indexedDB
     console.log("🔍 Checking if nodeChunks are in IndexedDB...");
-    const cached = await getNodeChunksFromIndexedDB(book);
+    // ✅ Use the new `currentBook` variable
+    const cached = await getNodeChunksFromIndexedDB(currentBook);
     if (cached && cached.length) {
       console.log(`✅ Found ${cached.length} cached nodeChunks`);
       window.nodeChunks = cached;
       
-      await buildUserHighlightCache(book);
-      initializeLazyLoader(openHyperlightID);
-      checkAndUpdateIfNeeded(book);
+      // ✅ Use the new `currentBook` variable
+      await buildUserHighlightCache(currentBook);
+      // ✅ Pass the new `currentBook` variable down
+      initializeLazyLoader(openHyperlightID, currentBook);
+      // ✅ Use the new `currentBook` variable
+      checkAndUpdateIfNeeded(currentBook);
 
       return;
     }
 
     // 2. Try Database
     console.log("🔍 Trying to load chunks from database...");
-    const dbResult = await syncBookDataFromDatabase(book);
+    // ✅ Use the new `currentBook` variable
+    const dbResult = await syncBookDataFromDatabase(currentBook);
     if (dbResult && dbResult.success) {
-      const dbChunks = await getNodeChunksFromIndexedDB(book);
+      // ✅ Use the new `currentBook` variable
+      const dbChunks = await getNodeChunksFromIndexedDB(currentBook);
       if (dbChunks && dbChunks.length) {
         console.log(`✅ Loaded ${dbChunks.length} nodeChunks from database`);
         window.nodeChunks = dbChunks;
         
-        await buildUserHighlightCache(book);
-        initializeLazyLoader(openHyperlightID);
+        // ✅ Use the new `currentBook` variable
+        await buildUserHighlightCache(currentBook);
+        // ✅ Pass the new `currentBook` variable down
+        initializeLazyLoader(openHyperlightID, currentBook);
 
         return;
       }
@@ -159,18 +171,23 @@ export async function loadHyperText() {
 
     // 3. Generate from markdown
     console.log("🆕 Not in database or indexedDB – generating from markdown");
-    window.nodeChunks = await generateNodeChunksFromMarkdown(book);
+    // ✅ Use the new `currentBook` variable
+    window.nodeChunks = await generateNodeChunksFromMarkdown(currentBook);
     console.log("✅ Content generated + saved; now initializing UI");
     
-    await buildUserHighlightCache(book);
-    initializeLazyLoader(OpenHyperlightID || null);
+    // ✅ Use the new `currentBook` variable
+    await buildUserHighlightCache(currentBook);
+    // ✅ Pass the new `currentBook` variable down
+    initializeLazyLoader(OpenHyperlightID || null, currentBook);
 
     return;
 
   } catch (err) {
     console.error("❌ Error loading content:", err);
     // Also resolve on error so the app doesn't hang forever
-    firstChunkLoadedResolver();
+    if (firstChunkLoadedResolver) {
+      firstChunkLoadedResolver();
+    }
   }
 }
 
@@ -384,14 +401,14 @@ export async function initializeLazyLoaderForContainer(bookId) {
 
 
 // Your existing helper function - unchanged
-function initializeLazyLoader(openHyperlightID) {
+function initializeLazyLoader(openHyperlightID, bookId) { // <-- Add bookId parameter
   if (!currentLazyLoader) {
     currentLazyLoader = createLazyLoader({
       nodeChunks: window.nodeChunks,
       loadNextChunk: loadNextChunkFixed,
       loadPreviousChunk: loadPreviousChunkFixed,
       attachMarkListeners,
-      bookId: book,
+      bookId: bookId, // <-- Use the passed-in bookId
       isNavigatingToInternalId: !!openHyperlightID,
       onFirstChunkLoaded: firstChunkLoadedResolver
     });

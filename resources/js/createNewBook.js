@@ -211,7 +211,7 @@ export async function createNewBook() {
     );
 
     // This will now work instantly, even if you are offline.
-    window.location.href = `/${bookId}/edit?target=1`;
+    return bookId;
 
   } catch (err) {
     console.error("createNewBook() failed:", err);
