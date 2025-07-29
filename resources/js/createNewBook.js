@@ -124,19 +124,43 @@ async function syncNewBookToPostgreSQL(bookId, libraryData = null) {
 
 // In createNewBook.js
 
+// In createNewBook.js
+
 export async function createNewBook() {
   try {
-    // --- Auth and other setup remains the same ---
-    const [user, anonymousToken] = await Promise.all([
-      getCurrentUser(),
-      getAnonymousToken(),
-    ]);
-    const creator = user ? user.name || user.username || user.email : null;
-    const creator_token = user ? null : anonymousToken;
+    let creator = null;
+    let creator_token = null;
+
+    // --- THIS IS THE FIX ---
+    // We will TRY to get the user, but we will NOT stop if it fails.
+    // This makes the button click feel instant and reliable.
+    try {
+      const [user, anonymousToken] = await Promise.all([
+        getCurrentUser(),
+        getAnonymousToken(),
+      ]);
+      creator = user ? user.name || user.username || user.email : null;
+      creator_token = user ? null : anonymousToken;
+    } catch (authError) {
+      console.warn(
+        "Could not determine user before book creation. This can happen on slow networks. Proceeding with fallback.",
+        authError
+      );
+      // If the main auth check fails, try to get a fallback anonymous token.
+      // This uses your existing auth logic to find any available token.
+      creator_token = await getAnonymousToken();
+    }
+    // --- END FIX ---
+
+    // If after all that, we still have no identity, then we must stop.
     if (!creator && !creator_token) {
-      throw new Error("No valid authentication - cannot create book");
+      console.error("Fatal: No valid user or anonymous token available. Cannot create book.");
+      // Optionally, alert the user that something is wrong with their session.
+      alert("Could not verify your session. Please refresh the page and try again.");
+      return; // Stop execution.
     }
 
+    // The rest of the function proceeds exactly as before.
     const db = await openDatabase();
     const bookId = "book_" + Date.now();
 
@@ -146,13 +170,12 @@ export async function createNewBook() {
       title: "Untitled",
       author: null,
       type: "book",
-      timestamp: Date.now(),
+      timestamp: Date.now(), // This is correct
       creator,
       creator_token,
     };
     newLibraryRecord.bibtex = buildBibtexEntry(newLibraryRecord);
 
-    // ✅ DEFINE THE INITIAL NODE CHUNK OBJECT
     const initialNodeChunk = {
       book: bookId,
       startLine: 1,
@@ -162,10 +185,8 @@ export async function createNewBook() {
       hypercites: [],
     };
 
-    // --- Atomic IndexedDB write remains the same ---
     const tx = db.transaction(["library", "nodeChunks"], "readwrite");
     tx.objectStore("library").put(newLibraryRecord);
-    // We pass the data from our object to the function
     await addNewBookToIndexedDB(
       initialNodeChunk.book,
       initialNodeChunk.startLine,
@@ -179,28 +200,22 @@ export async function createNewBook() {
       tx.onerror = (e) => reject(e.target.error);
     });
 
-    // --- ✅ NEW APPROACH: STAGE THE ACTUAL DATA FOR SYNC ---
-    console.log(
-      `📝 Staging full payload for book ${bookId} for background sync.`
-    );
     sessionStorage.setItem(
       "pending_new_book_sync",
       JSON.stringify({
         bookId: bookId,
         isNewBook: true,
-        // Pass the actual data we just created
         libraryRecord: newLibraryRecord,
         nodeChunks: [initialNodeChunk],
       })
     );
 
-    // --- Navigate to the new page ---
+    // This line will now be reached reliably.
     window.location.href = `/${bookId}/edit?target=1`;
 
-    return newLibraryRecord;
   } catch (err) {
+    // This top-level catch will now only catch errors from IndexedDB or the redirect.
     console.error("createNewBook() failed:", err);
-    throw err;
   }
 }
 
