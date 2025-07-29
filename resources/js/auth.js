@@ -22,76 +22,60 @@ export async function ensureAuthInitialized() {
   initializeAuthPromise = initializeAuth();
   return initializeAuthPromise;
 }
+// In auth.js
 
-// Initialize auth - called automatically when needed
-// auth.js - updated initializeAuth function
 async function initializeAuth() {
   if (authInitialized) {
     return;
   }
 
-  console.log("🔄 Initializing authentication...");
-  
+  console.log("🔄 Initializing authentication via unified session endpoint...");
+
   try {
-    // First, ensure we have CSRF protection
-    await fetch('/sanctum/csrf-cookie', {
-      credentials: 'include'
+    // A single GET request to a new, smarter endpoint.
+    // This endpoint will handle creating an anonymous session if one doesn't exist.
+    const response = await fetch("/api/auth/session-info", {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      credentials: "include",
     });
 
-    // Then check if user is logged in or has existing anonymous session
-    const authResponse = await fetch('/api/auth-check', {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-      credentials: 'include',
-    });
+    if (!response.ok) {
+      throw new Error(`Session endpoint failed with status ${response.status}`);
+    }
 
-    if (authResponse.ok) {
-      const data = await authResponse.json();
-      if (data.authenticated) {
-        currentUserInfo = data.user;
-        anonymousToken = null;
-        console.log("✅ User authenticated:", currentUserInfo);
-      } else if (data.anonymous_token) {
-        anonymousToken = data.anonymous_token;
-        console.log("✅ Existing anonymous session:", anonymousToken);
-      }
-      authInitialized = true;
-      return; // Exit successfully
+    const data = await response.json();
+
+    // The server now tells us everything we need to know.
+    if (data.authenticated) {
+      currentUserInfo = data.user;
+      anonymousToken = null;
+      console.log("✅ User authenticated:", currentUserInfo);
+    } else if (data.anonymous_token) {
+      currentUserInfo = null;
+      anonymousToken = data.anonymous_token;
+      console.log("✅ Anonymous session established:", anonymousToken);
+    } else {
+      // This case should ideally not be reached if the backend is correct.
+      console.error("❌ Server did not provide user or anonymous token.");
     }
-    
-    // No valid session, create anonymous session
-    console.log("🆕 Creating new anonymous session...");
-    
-    // Get CSRF token from cookie for the POST request
-    const csrfToken = getCsrfTokenFromCookie();
-    
-    const anonResponse = await fetch('/api/anonymous-session', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-XSRF-TOKEN': csrfToken // Add CSRF token
-      },
-      credentials: 'include',
-    });
-    
-    if (anonResponse.ok) {
-      const anonData = await anonResponse.json();
-      anonymousToken = anonData.token;
-      authInitialized = true;
-      console.log("✅ New anonymous session created:", anonymousToken);
-      return;
+
+    // IMPORTANT: Set the CSRF token for subsequent POST/PUT requests
+    // We get it from the response body to avoid timing issues with cookies.
+    if (data.csrf_token) {
+      // Store it somewhere accessible, e.g., on a global object or in a module-level variable.
+      // For simplicity, let's attach it to the window for now.
+      window.csrfToken = data.csrf_token;
+      console.log("✅ CSRF token received and stored.");
     }
-    
-    console.error("❌ Failed to establish session");
-    
+
+    authInitialized = true;
   } catch (error) {
-    console.error('❌ Error initializing auth:', error);
+    console.error("❌ Error initializing auth:", error);
   }
 }
 
@@ -167,17 +151,47 @@ export async function getAnonymousToken() {
   return user ? null : anonymousToken;
 }
 
+// In auth.js
+
+// In auth.js
+
 export async function canUserEditBook(bookId) {
   try {
+    // ✅ NEW DIAGNOSTIC LOG: Let's see what's in sessionStorage right now.
+    const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");
+    console.log(
+      `[canUserEditBook] Checking permissions for book: ${bookId}`
+    );
+    console.log(
+      `[canUserEditBook] Found pending sync in sessionStorage:`,
+      pendingSyncJSON
+    );
+
+    if (pendingSyncJSON) {
+      const pendingData = JSON.parse(pendingSyncJSON);
+      // Check if the pending book ID matches the one we're checking permissions for.
+      if (pendingData.bookId === bookId) {
+        console.log(
+          "✅ Granting optimistic edit permission for pending new book."
+        );
+        return true; // Grant permission immediately
+      }
+    }
+
+    // If we get here, it's not a pending new book, so proceed with the normal checks.
+    console.log(
+      `[canUserEditBook] Not a pending book, proceeding with standard auth check.`
+    );
+
     // Ensure auth is initialized
     if (!authInitialized) {
       await initializeAuth();
     }
-    
+
     // 1) fetch the library record
     const record = await getLibraryObjectFromIndexedDB(bookId);
     if (!record) {
-      console.log('📚 Book not found in IndexedDB');
+      console.log("📚 Book not found in IndexedDB");
       return false;
     }
 
@@ -186,19 +200,26 @@ export async function canUserEditBook(bookId) {
     if (user) {
       const userId = user.name || user.username || user.email;
       const ok = record.creator === userId;
-      console.log('🔐 Logged in:', userId, 'creator:', record.creator, 'ok=', ok);
+      console.log(
+        "🔐 Logged in:",
+        userId,
+        "creator:",
+        record.creator,
+        "ok=",
+        ok
+      );
       return ok;
     }
 
     // 3) anonymous path — use server token
-    console.log('👤 Anon edit check:', anonymousToken, record.creator_token);
+    console.log("👤 Anon edit check:", anonymousToken, record.creator_token);
     return anonymousToken !== null && record.creator_token === anonymousToken;
-
   } catch (err) {
-    console.error('❌ Error in canUserEditBook:', err);
+    console.error("❌ Error in canUserEditBook:", err);
     return false;
   }
 }
+
 
 // DEPRECATED: Keep for backward compatibility but log warning
 function readAnonId() {

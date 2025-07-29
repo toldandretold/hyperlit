@@ -58,27 +58,11 @@ export class NewBookContainerManager extends ContainerManager {
 
   setupButtonListeners() {
     // Add event listeners for the buttons inside the container
-      document.getElementById("createNewBook")?.addEventListener("click", async () => { // <-- Make this async
-    console.log("Create new book clicked. Waiting for auth to be ready...");
-
-    try {
-      // First, wait for the authentication process to complete.
-      await ensureAuthInitialized();
-      console.log("Auth is ready. Proceeding to create book.");
-
-      // Now that we know who the user is, create the book.
-      await createNewBook();
-
-      // This will now only run if createNewBook succeeds.
+      document.getElementById("createNewBook")?.addEventListener("click", () => { // <-- No longer async
+      console.log("Create new book clicked");
+      createNewBook(); // <-- Simple, direct call.
       this.closeContainer();
-
-    } catch (error) {
-      console.error("Failed to create new book after auth check:", error);
-      // Optionally, show an error to the user in the UI.
-      alert("There was a problem creating the book. Please check your connection and try again.");
-      this.closeContainer();
-    }
-  });
+    });
 
       // In your NewBookContainerManager class, update the importBook event listener:
 

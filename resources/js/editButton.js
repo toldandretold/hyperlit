@@ -140,34 +140,51 @@ async function enableEditMode(targetElementId = null) {
   console.log("🔔 enableEditMode() called from:", new Error().stack);
   console.log("🔔 enableEditMode() called, shouldAutoEdit=", shouldAutoEdit);
   console.log("🔔 targetElementId:", targetElementId);
-  
+
   if (window.isEditing || editModeCheckInProgress) {
     console.log("Edit mode already active or check in progress, returning");
     return;
   }
-  
+
   if (!editableDiv) {
     console.error(`no #${book} div`);
     return;
   }
 
-  // In enableEditMode function, add this check at the beginning
-  if (window.editPermissionDenied) {
-      showCustomAlert(
-          "Access Denied", 
-          "You don't have permission to edit this book.",
-          {
-              showReadButton: true,
-              showLoginButton: true,
-              onRead: () => {
-                  window.location.href = `/${book}`;
-              }
-          }
-      );
-      return;
-  }
-
   editModeCheckInProgress = true;
+
+  // ======================= NEW CODE BLOCK START =======================
+  // This is the final fix. It checks for the globally stored promise
+  // from the new book sync and waits for it to finish before proceeding.
+  if (window.pendingBookSyncPromise) {
+    console.log(
+      "⏳ Waiting for pending book sync to complete before checking permissions..."
+    );
+    try {
+      // Await the promise that was stored by handlePendingNewBookSync()
+      await window.pendingBookSyncPromise;
+      console.log(
+        "✅ Pending book sync complete. Proceeding with permission check."
+      );
+    } catch (e) {
+      console.error("Sync failed, cannot enable edit mode.", e);
+      showCustomAlert(
+        "Sync Failed",
+        "Failed to sync the new book with the server. Please check your connection and try again.",
+        {
+          showReadButton: true,
+          onRead: () => {
+            window.location.href = `/${book}`;
+          },
+        }
+      );
+      editModeCheckInProgress = false; // Reset flag on failure
+      return; // Stop if the sync failed
+    } finally {
+      // Clean up the global promise so it doesn't run again
+      window.pendingBookSyncPromise = null;
+    }
+  }
 
   // 🔒 Check if user has permission to edit this book
   const canEdit = await canUserEditBook(book);
