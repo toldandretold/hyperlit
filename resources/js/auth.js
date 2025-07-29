@@ -4,10 +4,23 @@ import { getLibraryObjectFromIndexedDB } from './cache-indexedDB.js';
 let currentUserInfo = null;
 let anonymousToken = null;
 let authInitialized = false;
+let initializeAuthPromise = null;
 
 // Export a getter function
 export function getCurrentUserInfo() {
+  console.log('AUTH_GETTER: getCurrentUserInfo() called. Returning:', currentUserInfo);
   return currentUserInfo;
+}
+
+export async function ensureAuthInitialized() {
+  // If initializeAuth has already been called, return the existing promise.
+  // This prevents multiple network requests.
+  if (initializeAuthPromise) {
+    return initializeAuthPromise;
+  }
+  // Otherwise, start the initialization and store the promise.
+  initializeAuthPromise = initializeAuth();
+  return initializeAuthPromise;
 }
 
 // Initialize auth - called automatically when needed
@@ -38,19 +51,16 @@ async function initializeAuth() {
 
     if (authResponse.ok) {
       const data = await authResponse.json();
-      
       if (data.authenticated) {
         currentUserInfo = data.user;
         anonymousToken = null;
-        authInitialized = true;
         console.log("✅ User authenticated:", currentUserInfo);
-        return;
       } else if (data.anonymous_token) {
         anonymousToken = data.anonymous_token;
-        authInitialized = true;
         console.log("✅ Existing anonymous session:", anonymousToken);
-        return;
       }
+      authInitialized = true;
+      return; // Exit successfully
     }
     
     // No valid session, create anonymous session
@@ -97,12 +107,9 @@ function getCsrfTokenFromCookie() {
 
 // BACKWARD COMPATIBLE: Keep the same function signature
 export async function getCurrentUser() {
-  console.log("Checking authentication...");
-  
-  if (!authInitialized) {
-    await initializeAuth();
-  }
-  
+  // First, ensure the initialization process has completed.
+  await ensureAuthInitialized();
+  // Then, return the now-guaranteed-to-be-correct value.
   return currentUserInfo;
 }
 
@@ -204,6 +211,7 @@ export function resetAuth() {
   currentUserInfo = null;
   anonymousToken = null;
   authInitialized = false;
+  initializeAuthPromise = null;
 }
 
 export async function refreshAuth() {

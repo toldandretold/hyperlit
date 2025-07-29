@@ -2313,6 +2313,7 @@ export async function deleteIndexedDBRecordWithRetry(id) {
  * @param {string} bookId - The book identifier (defaults to current book)
  * @returns {Promise<boolean>} - Success status
  */
+// Corrected version:
 export async function updateBookTimestamp(bookId = book || "latest") {
   try {
     const db = await openDatabase();
@@ -2321,37 +2322,45 @@ export async function updateBookTimestamp(bookId = book || "latest") {
     const getRequest = store.get(bookId);
 
     return new Promise((resolve, reject) => {
-      getRequest.onsuccess = () => {
-        const existingRecord = getRequest.result;
+      getRequest.onerror = (e) => {
+        console.error("❌ Failed to get library record for timestamp update:", e.target.error);
+        reject(e.target.error);
+      };
 
-        if (existingRecord) {
-          existingRecord.timestamp = Date.now();
-          const putRequest = store.put(existingRecord);
-          putRequest.onsuccess = () => {
-            // MODIFIED: Pass the updated record to the queue.
-            queueForSync("library", bookId, "update", existingRecord);
-            resolve(true);
-          };
-          putRequest.onerror = (e) => resolve(false);
+      getRequest.onsuccess = () => {
+        // ✅ STEP 1: Capture the original state BEFORE any modifications.
+        // `structuredClone` creates a true, deep copy.
+        const originalRecord = getRequest.result ? structuredClone(getRequest.result) : null;
+        let recordToSave;
+
+        if (getRequest.result) {
+          // Now it's safe to modify the record we fetched.
+          recordToSave = getRequest.result;
+          recordToSave.timestamp = Date.now();
         } else {
-          const newRecord = {
+          // If it's a new record, the original state is correctly `null`.
+          recordToSave = {
             book: bookId,
             timestamp: Date.now(),
             title: bookId,
             description: "",
             tags: [],
           };
-          const putRequest = store.put(newRecord);
-          putRequest.onsuccess = () => {
-            // MODIFIED: Pass the new record to the queue.
-            queueForSync("library", bookId, "update", newRecord);
-            resolve(true);
-          };
-          putRequest.onerror = (e) => resolve(false);
         }
+
+        const putRequest = store.put(recordToSave);
+
+        putRequest.onerror = (e) => {
+          console.error("❌ Failed to put updated library record:", e.target.error);
+          reject(e.target.error);
+        };
+
+        putRequest.onsuccess = () => {
+          // ✅ STEP 2: Queue for sync, providing BOTH the new and original data.
+          queueForSync("library", bookId, "update", recordToSave, originalRecord);
+          resolve(true);
+        };
       };
-      getRequest.onerror = (e) => resolve(false);
-      tx.onerror = (e) => resolve(false);
     });
   } catch (error) {
     console.error("❌ Failed to update book timestamp:", error);
