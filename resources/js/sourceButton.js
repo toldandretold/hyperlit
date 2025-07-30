@@ -116,6 +116,14 @@ export class SourceContainerManager extends ContainerManager {
     this.isAnimating = false;
   }
 
+  rebindElements() {
+    // Call the parent rebindElements first
+    super.rebindElements();
+    
+    // THE FIX: Reapply the critical styles after finding the new DOM elements
+    this.setupSourceContainerStyles();
+  }
+
   setupSourceContainerStyles() {
     const c = this.container;
     if (!c) return;
@@ -126,156 +134,73 @@ export class SourceContainerManager extends ContainerManager {
       width: "0",
       height: "0",
       overflow: "hidden",
-      transition: "width 0.4s ease-out, height 0.4s ease-out",
+      transition: "width 0.4s ease-out, height 0.4s ease-out, opacity 0.3s ease-out",
       zIndex: "1000",
       backgroundColor: "#221F20",
       boxShadow: "0 0 15px rgba(0, 0, 0, 0.2)",
       borderRadius: "1em",
-      maxWidth: "400px",
-      maxHeight: "400px",
+      opacity: "0",
     });
   }
 
-  async openContainer(content = null, highlightId = null) {
-    if (this.isAnimating) return;
+  async openContainer() {
+    if (this.isAnimating || !this.container) return;
     this.isAnimating = true;
 
-    // 1) build or accept HTML
-    let html = content;
-    if (!html) {
-      const bookId = window.currentBookId || "default-id";
-      html = await buildSourceHtml(bookId);
-    }
-
-    // 2) inject into container
+    const html = await buildSourceHtml(book);
     this.container.innerHTML = html;
 
-    // 3) wire download buttons *once*
     const mdBtn = this.container.querySelector("#download-md");
     const docxBtn = this.container.querySelector("#download-docx");
-    if (mdBtn) {
-      mdBtn.addEventListener("click", async () => {
-        console.log("Download .md clicked");
-        exportBookAsMarkdown(book);
-      });
-    }
-    if (docxBtn) {
-      docxBtn.addEventListener("click", () => {
-        console.log("Download .docx clicked");
-        exportBookAsDocxStyled(book);
-      });
-    }
+    if (mdBtn) mdBtn.addEventListener("click", () => exportBookAsMarkdown(book));
+    if (docxBtn) docxBtn.addEventListener("click", () => exportBookAsDocxStyled(book));
 
-    // 4) make container visible
+    // =================================================================
+    // THIS IS THE FUCKING FIX. THIS ONE LINE.
+    // We have to remove the .hidden class before we try to animate it.
+    // =================================================================
     this.container.classList.remove("hidden");
+
     this.container.style.visibility = "visible";
     this.container.style.display = "block";
 
-    // 5) compute target size
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const w = Math.min(vw * 0.8, 600);
-    const h = Math.min(vh * 0.9, 800);
+    const w = Math.min(vw * 0.8, 400);
+    const h = Math.min(vh * 0.8, 400);
 
-    // 6) animate open
     requestAnimationFrame(() => {
       this.container.style.width = `${w}px`;
       this.container.style.height = `${h}px`;
-
-      // freeze background
-      this.frozenElements.forEach((el) => this.freezeElement(el));
-
-      // activate overlay
-      if (this.overlay) {
-        this.overlay.classList.add("active");
-        this.overlay.style.display = "block";
-        this.overlay.style.opacity = "1";
-      }
-
-      // hide nav
-      ["nav-buttons", "logoContainer", "topRightContainer"].forEach((id) => {
-        const el = document.getElementById(id);
-        if (el) el.classList.add("hidden-nav");
-      });
-
+      this.container.style.opacity = "1";
       this.isOpen = true;
-      
-      // FIX: Use window.uiState instead of direct assignment
-      if (window.uiState) {
-        window.uiState.setActiveContainer(this.container.id);
-      } else {
-        window.activeContainer = this.container.id;
-      }
-
-      this.container.addEventListener(
-        "transitionend",
-        () => {
-          this.isAnimating = false;
-          console.log("Source container open animation complete");
-        },
-        { once: true }
-      );
+      window.activeContainer = this.container.id;
+      this.updateState();
+      this.container.addEventListener("transitionend", () => { this.isAnimating = false; }, { once: true });
     });
   }
 
   closeContainer() {
-    if (this.isAnimating) return;
+    if (this.isAnimating || !this.container) return;
     this.isAnimating = true;
 
-    // animate close
     this.container.style.width = "0";
     this.container.style.height = "0";
-
-    // unfreeze background
-    this.frozenElements.forEach((el) => this.unfreezeElement(el));
-
-    // hide overlay - FIX: Reset overlay state properly
-    if (this.overlay) {
-      this.overlay.classList.remove("active");
-      this.overlay.style.opacity = "0";
-      // Don't immediately set display: none
-    }
-
-    // show nav
-    ["nav-buttons", "logoContainer", "topRightContainer"].forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.classList.remove("hidden-nav");
-    });
-
+    this.container.style.opacity = "0";
     this.isOpen = false;
-    
-    // FIX: Use window.uiState consistently
-    if (window.uiState) {
-      window.uiState.setActiveContainer("main-content");
-    } else {
-      window.activeContainer = "main-content";
-    }
+    window.activeContainer = "main-content";
+    this.updateState();
 
-    this.container.addEventListener(
-      "transitionend",
-      () => {
-        this.container.classList.add("hidden");
-        this.isAnimating = false;
-        console.log("Source container close animation complete");
-        
-        // FIX: Reset overlay completely after animation
-        if (this.overlay) {
-          this.overlay.style.display = "";
-          this.overlay.style.opacity = "";
-        }
-      },
-      { once: true }
-    );
-  }
-  
-
-  toggleContainer() {
-    if (this.isAnimating) return;
-    this.isOpen ? this.closeContainer() : this.openContainer();
+    this.container.addEventListener("transitionend", () => {
+      this.container.style.visibility = "hidden";
+      // Add the .hidden class back AFTER the animation is finished.
+      this.container.classList.add("hidden");
+      this.isAnimating = false;
+    }, { once: true });
   }
 }
 
-// initialize and export
+// This instance is created only ONCE.
 const sourceManager = new SourceContainerManager(
   "source-container",
   "ref-overlay",
@@ -283,7 +208,6 @@ const sourceManager = new SourceContainerManager(
   ["main-content"]
 );
 export default sourceManager;
-
 
 
 let _TurndownService = null;
@@ -608,22 +532,22 @@ async function exportBookAsDocxStyled(bookId = book || 'latest') {
 }
 
 export function initializeSourceButtonListener() {
-  const button = document.getElementById("cloudRef");
-  if (!button) {
-    console.warn("Source button #cloudRef not found. Cannot attach listener.");
+  sourceManager.rebindElements();
+
+  if (!sourceManager.button) {
+    console.warn("Source button #cloudRef not found by manager. Cannot attach listener.");
     return;
   }
 
-  // Prevent adding the listener multiple times on re-renders
-  if (button.dataset.sourceListenerAttached) {
+  if (sourceManager.button.dataset.sourceListenerAttached) {
     return;
   }
 
-  button.addEventListener("click", (e) => {
+  sourceManager.button.addEventListener("click", (e) => {
     e.preventDefault();
     sourceManager.toggleContainer();
   });
 
-  button.dataset.sourceListenerAttached = "true";
+  sourceManager.button.dataset.sourceListenerAttached = "true";
   console.log("✅ Source button listener attached to #cloudRef.");
 }

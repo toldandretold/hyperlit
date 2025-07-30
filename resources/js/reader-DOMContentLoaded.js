@@ -1,9 +1,20 @@
+// =================================================================
+// THE KEY FIX: Import app.js first to set up initial state.
+// This line ensures the 'book' variable is defined before anything else runs.
+import { book } from './app.js'; 
+// =================================================================
+
 import { openDatabase } from "./cache-indexedDB.js";
 import { fireAndForgetSync } from './createNewBook.js';
-// Import our new, centralized initializer.
 import { initializeReaderView } from './viewInitializers.js';
-import { book } from './app.js'; // We need this to check the page type
 import { initializeHomepage } from './homepage.js';
+import NavButtons from './nav-buttons.js';
+
+export const navButtons = new NavButtons({
+  // Give it ALL possible element IDs it might ever need to control
+  elementIds: ["nav-buttons", "logoContainer", "topRightContainer", "userButtonContainer"],
+  tapThreshold: 15,
+});
 
 // This function for handling a pending sync after a reload is still correct.
 function handlePendingNewBookSync() {
@@ -33,12 +44,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   await openDatabase();
   console.log("✅ IndexedDB initialized.");
 
+  // This now works perfectly because the server sets the attribute on the body.
   const pageType = document.body.getAttribute("data-page");
 
   if (pageType === "reader") {
+    // initializeReaderView can now safely use the 'book' variable
+    // because app.js was guaranteed to run first.
     await initializeReaderView();
   } else if (pageType === "home") {
-    // ✅ Just call the single, clean homepage initializer.
     initializeHomepage();
   }
 });

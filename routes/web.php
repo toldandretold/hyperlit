@@ -11,19 +11,14 @@ use App\Models\User;
 
 use App\Events\ProcessComplete;
 use App\Http\Controllers\FootnotesController;
+use App\Http\Controllers\HomeController;
 
 
 
 require __DIR__.'/auth.php';
 
-// Home route
-Route::get('/', function () {
-    return view('home');
-});
-
-Route::get('/home', function () {
-    return view('home');
-});
+Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/home', [HomeController::class, 'index']);
  
 
 Route::get('/test-log', function () {

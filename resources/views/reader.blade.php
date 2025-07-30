@@ -6,10 +6,7 @@
     @endsection
 @section('content')
 
-<body 
-data-page="reader"
-data-edit-mode="{{ $editMode ? '1' : '0' }}"
->
+
 
 
 <div id="app-container">
@@ -384,7 +381,7 @@ data-edit-mode="{{ $editMode ? '1' : '0' }}"
   <div id="user-overlay"></div>
   <div id="user-container" class="hidden" style="visibility: hidden;"></div>
 
-</body>
+
 
 @endsection
 

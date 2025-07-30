@@ -1,72 +1,58 @@
 // Export the NavButtons class
 export default class NavButtons {
-  /**
-   * Options:
-   * - elementIds: An array of IDs or selectors of elements to toggle (default ["nav-buttons"]).
-   * - loadingElementIds: An array of IDs for elements to hide during loading.
-   * - tapThreshold: Maximum movement in pixels to consider an event a tap (default 10).
-   */
   constructor(options = {}) {
-    // Elements to toggle on tap/click
+    // 1. Store the configuration.
     this.elementIds = options.elementIds || ["nav-buttons"];
-
-    // --- CHANGE 1: Add 'edit-toolbar' to the list of elements to manage ---
-    const possibleLoadingElements = [
-      "nav-buttons",
-      "topRightContainer",
-      "logoContainer", // exists on reader page
-      "userButtonContainer", // exists on home page
-      "edit-toolbar", // ADD THIS
-    ];
-
-    // Only include elements that actually exist in the DOM
-    this.loadingElementIds =
-      options.loadingElementIds ||
-      possibleLoadingElements.filter(
-        (id) => document.getElementById(id) !== null,
-      );
-
     this.tapThreshold = options.tapThreshold || 10;
     this.desktopBreakpoint = options.desktopBreakpoint || 768;
 
-    // Get toggle elements
+    // Define all possible elements this manager might control.
+    this.possibleLoadingElementIds = [
+      "nav-buttons", "topRightContainer", "logoContainer",
+      "userButtonContainer", "edit-toolbar",
+    ];
+
+    // Initialize properties that will be set by rebindElements
+    this.elements = [];
+    this.loadingElements = [];
+    
+    this.startX = 0;
+    this.startY = 0;
+    this.isInitialized = false;
+    this.isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+
+    // Bind event handlers once
+    this.handleClick = this.handleClick.bind(this);
+    this.updatePosition = this.updatePosition.bind(this);
+    this.handleResize = this.handleResize.bind(this);
+    this.handleKeyboardChange = this.handleKeyboardChange.bind(this);
+  }
+
+  // =================================================================
+  // THIS IS THE NEW METHOD. It's the "take a new photo" function.
+  // =================================================================
+  rebindElements() {
+    console.log("Rebinding elements for NavButtons...");
+    
+    // Find the elements that exist on the CURRENT page.
     this.elements = this.elementIds
       .map((id) => document.getElementById(id))
       .filter((el) => el !== null);
 
-    // Check if we found any toggle elements
-    if (this.elements.length === 0) {
-      console.warn("No toggle elements found");
-    }
-
-    // Get loading elements (only ones that exist)
-    this.loadingElements = this.loadingElementIds
+    this.loadingElements = this.possibleLoadingElementIds
       .map((id) => document.getElementById(id))
       .filter((el) => el !== null);
 
-    this.startX = 0;
-    this.startY = 0;
-    this.isInitialized = false;
-
-    this.isTouchDevice =
-      "ontouchstart" in window || navigator.maxTouchPoints > 0;
-
-    // Bind event handlers - REMOVED pointer event bindings
-    this.handleClick = this.handleClick.bind(this);
-    this.updatePosition = this.updatePosition.bind(this);
-    this.handleResize = this.handleResize.bind(this);
-
-    this.resizeDebounceTimeout = null;
-
-    this.handleKeyboardChange = this.handleKeyboardChange.bind(this);
+    console.log("Rebound complete. Found elements to toggle:", this.elements.length);
   }
 
-  /**
-   * Initialize event listeners.
-   */
   init() {
+    if (this.isInitialized) return; // Prevent adding listeners multiple times
+
+    // Find the initial set of elements on the current page.
+    this.rebindElements();
+
     if (this.isTouchDevice) {
-      // Use touchstart/touchend instead of pointerdown/pointerup for better control
       document.addEventListener("touchstart", this.handleTouchStart.bind(this), { passive: false });
       document.addEventListener("touchend", this.handleTouchEnd.bind(this), { passive: false });
     } else {
@@ -75,6 +61,8 @@ export default class NavButtons {
     this.updatePosition();
     window.addEventListener("resize", this.handleResize);
     window.addEventListener('keyboardStateChange', this.handleKeyboardChange);
+    
+    this.isInitialized = true;
   }
   
 
