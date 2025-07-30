@@ -10,72 +10,76 @@ use League\CommonMark\CommonMarkConverter;
 
 class TextController extends Controller
 {
+    public function show(Request $request, $book)
+    {
 
+       
 
-   public function show(Request $request, $book)
-{
-    $editMode = $request->boolean('edit') || $request->routeIs('book.edit');
+        $editMode = $request->boolean('edit') || $request->routeIs('book.edit');
 
-    // Check all possible data sources
-    $bookExistsInDB = DB::table('node_chunks')->where('book', $book)->exists();
-    $markdownPath = resource_path("markdown/{$book}/main-text.md");
-    $htmlPath = resource_path("markdown/{$book}/main-text.html");
-    $markdownExists = File::exists($markdownPath);
-    $htmlExists = File::exists($htmlPath);
+        // Check all possible data sources
+        $bookExistsInDB = DB::table('node_chunks')->where('book', $book)->exists();
+        $markdownPath = resource_path("markdown/{$book}/main-text.md");
+        $htmlPath = resource_path("markdown/{$book}/main-text.html");
+        $markdownExists = File::exists($markdownPath);
+        $htmlExists = File::exists($htmlPath);
 
-    // Determine data source priority and handle accordingly
-    if ($bookExistsInDB) {
-        // PostgreSQL has the data - serve empty HTML, let JS load from DB
+        // Determine data source priority and handle accordingly
+        if ($bookExistsInDB) {
+            // PostgreSQL has the data - serve empty HTML, let JS load from DB
+            return view('reader', [
+                'html' => '',
+                'book' => $book,
+                'editMode' => $editMode,
+                'dataSource' => 'database',
+                'pageType' => 'reader' // <-- ADD THIS
+            ]);
+        }
+        
+        if ($markdownExists || $htmlExists) {
+            // File system has the data - process files as before
+            $convertToHtml = false;
+            if ($markdownExists) {
+                if (!$htmlExists) {
+                    $convertToHtml = true;
+                } else {
+                    $markdownModified = File::lastModified($markdownPath);
+                    $htmlModified = File::lastModified($htmlPath);
+                    if ($markdownModified > $htmlModified) {
+                        $convertToHtml = true;
+                    }
+                }
+            }
+
+            if ($convertToHtml) {
+                $markdown = File::get($markdownPath);
+                $markdown = $this->normalizeMarkdown($markdown);
+                $conversionController = new ConversionController($book);
+                File::put($markdownPath, $markdown);
+                $html = $conversionController->markdownToHtml();
+            } else {
+                $html = File::get($htmlPath);
+            }
+
+            return view('reader', [
+                'html' => $html,
+                'book' => $book,
+                'editMode' => $editMode,
+                'dataSource' => 'filesystem',
+                'pageType' => 'reader' // <-- ADD THIS
+            ]);
+        }
+
+        // Neither PostgreSQL nor filesystem has it - assume it might be in IndexedDB
+        // Always serve the reader view and let frontend JS check IndexedDB
         return view('reader', [
             'html' => '',
             'book' => $book,
             'editMode' => $editMode,
-            'dataSource' => 'database',
+            'dataSource' => 'indexeddb', // Frontend will check IndexedDB
+            'pageType' => 'reader' // <-- ADD THIS
         ]);
     }
-    
-    if ($markdownExists || $htmlExists) {
-        // File system has the data - process files as before
-        $convertToHtml = false;
-        if ($markdownExists) {
-            if (!$htmlExists) {
-                $convertToHtml = true;
-            } else {
-                $markdownModified = File::lastModified($markdownPath);
-                $htmlModified = File::lastModified($htmlPath);
-                if ($markdownModified > $htmlModified) {
-                    $convertToHtml = true;
-                }
-            }
-        }
-
-        if ($convertToHtml) {
-            $markdown = File::get($markdownPath);
-            $markdown = $this->normalizeMarkdown($markdown);
-            $conversionController = new ConversionController($book);
-            File::put($markdownPath, $markdown);
-            $html = $conversionController->markdownToHtml();
-        } else {
-            $html = File::get($htmlPath);
-        }
-
-        return view('reader', [
-            'html' => $html,
-            'book' => $book,
-            'editMode' => $editMode,
-            'dataSource' => 'filesystem',
-        ]);
-    }
-
-    // Neither PostgreSQL nor filesystem has it - assume it might be in IndexedDB
-    // Always serve the reader view and let frontend JS check IndexedDB
-    return view('reader', [
-        'html' => '',
-        'book' => $book,
-        'editMode' => $editMode,
-        'dataSource' => 'indexeddb', // Frontend will check IndexedDB
-    ]);
-}
 
 
     // Preprocess the markdown to handle soft line breaks

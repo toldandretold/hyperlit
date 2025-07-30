@@ -7,7 +7,7 @@
 
 @section('content')
 
-<body data-page="home">
+
 
 <!-- 
   ======================================================================
@@ -158,7 +158,7 @@
 <div id="ref-overlay"></div>
 <div id="user-overlay"></div>
 
-</body>
+
 @endsection
 
 @section('scripts')
@@ -167,7 +167,6 @@
 <script src="{{ asset('js/rangy-classapplier.min.js') }}"></script>
 <script src="{{ asset('js/rangy-highlighter.min.js') }}"></script>
 @vite([
-    'resources/js/reader-DOMContentLoaded.js',
-    'resources/js/homepageDisplayUnit.js'
+    'resources/js/reader-DOMContentLoaded.js'
 ])
 @endsection

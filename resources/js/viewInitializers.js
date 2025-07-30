@@ -10,25 +10,46 @@ import { initializeBroadcastListener } from './BroadcastListener.js';
 import { setupUnloadSync } from './cache-indexedDB.js';
 import { generateTableOfContents } from './toc.js';
 import { KeyboardManager } from './keyboardManager.js';
-import { handleAutoEdit, initializeEditButtonListeners } from './editButton.js';
+import { handleAutoEdit, initializeEditButtonListeners, updateEditButtonVisibility } from './editButton.js';
 import { initializeSourceButtonListener } from './sourceButton.js';
 
-// This is now the single, authoritative function to make the reader page "live".
 export async function initializeReaderView() {
-  // Use the global `book` variable, which is now correctly updated by the viewManager.
   const currentBookId = book;
   console.log(`🚀 Initializing Reader View for book: ${currentBookId}`);
   
-  // 1. Load the book's content.
-  await loadHyperText(currentBookId);
+  const loadPromise = loadHyperText(currentBookId);
 
-  // 2. Set up all the core features.
-  // This is the logic you had in reader-DOMContentLoaded.js
+  setTimeout(() => {
+    console.log("✅ DOM settled. Initializing UI components...");
+    
+    // =================================================================
+    // THE FIX: Create a NEW, FRESH NavButtons instance for the reader page.
+    // This instance only knows about the reader page DOM and has no stale references.
+    // =================================================================
+    const navButtons = new NavButtons({
+      elementIds: ["nav-buttons", "logoContainer", "topRightContainer"],
+      tapThreshold: 15,
+    });
+    navButtons.init(); // This will find the new elements and attach listeners.
+
+    initializeEditButtonListeners();
+    initializeSourceButtonListener();
+    updateEditButtonVisibility(currentBookId);
+
+    initEditToolbar({
+      toolbarId: "edit-toolbar",
+      editableSelector: ".main-content[contenteditable='true']",
+      currentBookId: currentBookId
+    });
+  }, 0);
+
+  await loadPromise;
+  console.log("✅ Content loading process complete.");
+
+  // Initialize everything else that was waiting.
   window.keyboardManager = new KeyboardManager();
   window.addEventListener('beforeunload', () => {
-    if (window.keyboardManager) {
-      window.keyboardManager.destroy();
-    }
+    if (window.keyboardManager) window.keyboardManager.destroy();
   });
 
   restoreScrollPosition();
@@ -36,23 +57,5 @@ export async function initializeReaderView() {
   initializeBroadcastListener();
   setupUnloadSync();
   generateTableOfContents("toc-container", "toc-toggle-button");
-
-  // 3. Initialize UI components.
-  const navButtons = new NavButtons({
-    elementIds: ["nav-buttons", "logoContainer", "topRightContainer"],
-    tapThreshold: 15,
-  });
-  navButtons.init();
-
-  initializeEditButtonListeners();
-   initializeSourceButtonListener();
-
-  initEditToolbar({
-    toolbarId: "edit-toolbar",
-    editableSelector: ".main-content[contenteditable='true']",
-    currentBookId: currentBookId
-  });
-
-  // 4. Check if we need to automatically enter edit mode.
   handleAutoEdit();
 }
