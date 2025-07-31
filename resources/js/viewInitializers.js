@@ -9,6 +9,7 @@ import { attachMarkListeners,
          initializeHighlightingControls,
          initializeHighlightManager
           } from './hyperLights.js';
+import { initializeHypercitingControls } from './hyperCites.js';
 import { initializeBroadcastListener } from './BroadcastListener.js';
 import { setupUnloadSync } from './cache-indexedDB.js';
 import { generateTableOfContents } from './toc.js';
@@ -40,6 +41,7 @@ export async function initializeReaderView() {
     updateEditButtonVisibility(currentBookId);
     initializeHighlightManager();
     initializeHighlightingControls(currentBookId);
+    initializeHypercitingControls(currentBookId);
 
     initEditToolbar({
       toolbarId: "edit-toolbar",

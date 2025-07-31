@@ -16,23 +16,21 @@ import { getCurrentUser, getAuthorId, getAnonymousToken } from "./auth.js";
 
 
 let lastEventTime = 0;
-function handleCopyEvent(event) {
+
+function handleCopyEvent(event, bookId) {
   event.preventDefault();
   event.stopPropagation();
   
-  // Prevent double-firing within 300ms
   const now = Date.now();
   if (now - lastEventTime < 300) return;
   lastEventTime = now;
   
   const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) {
-    console.log("No selection found");
-    return;
-  }
+  if (!selection || selection.rangeCount === 0) return;
 
-  if (!book) {
-    console.error("Book identifier not found.");
+  // This check now uses the passed-in bookId
+  if (!bookId) {
+    console.error("Book identifier (bookId) was not passed to handleCopyEvent.");
     return;
   }
 
@@ -67,7 +65,7 @@ function handleCopyEvent(event) {
   }
 
   const currentSiteUrl = `${window.location.origin}`;
-  const citationIdA = book;
+  const citationIdA = bookId;
   const hrefA = `${currentSiteUrl}/${citationIdA}#${hyperciteId}`;
 
   const clipboardHtml = `'${selectedText}'<a href="${hrefA}" id="${hyperciteId}"><span class="open-icon">↗</span></a>`;
@@ -177,24 +175,8 @@ function handleCopyEvent(event) {
 
 
 
-// Set up event listeners
-const copyButton = document.getElementById("copy-hypercite");
 
-// Just add this one line to prevent the button from clearing selection:
-copyButton.addEventListener('mousedown', function(e) {
-  e.preventDefault();
-});
-// Remove existing listeners
-copyButton.removeEventListener('click', handleCopyEvent);
-copyButton.removeEventListener('touchend', handleCopyEvent);
 
-// Add listeners with proper options
-copyButton.addEventListener('click', handleCopyEvent, { passive: false });
-copyButton.addEventListener('touchend', handleCopyEvent, { passive: false });
-
-// Ensure button is optimized for mobile
-copyButton.style.touchAction = 'manipulation';
-copyButton.style.userSelect = 'none';
 
 // Keep your existing wrapSelectedTextInDOM function unchanged
 function wrapSelectedTextInDOM(hyperciteId, book) {
@@ -1096,22 +1078,59 @@ export async function PolyClick(event) {
 
 // Assume ContainerManager, openDatabase, and other helper functions are imported
 
-// Create a container manager for hypercites using the same overlay if needed
-const hyperciteManager = new ContainerManager(
-  "hypercite-container",
-  "ref-overlay",
-  null,
-  ["main-content", "nav-buttons"]
-);
+let hyperciteManager = null;
+
+// This new function will be called by viewInitializers.js
+export function initializeHypercitingControls(currentBookId) {
+  console.log(`🔗 Initializing hyperciting controls for book: ${currentBookId}`);
+
+  // Re-initialize the ContainerManager with the new DOM context
+  hyperciteManager = new ContainerManager(
+    "hypercite-container",
+    "ref-overlay",
+    null,
+    ["main-content", "nav-buttons"]
+  );
+
+  const copyButton = document.getElementById("copy-hypercite");
+  if (!copyButton) {
+    console.error(
+      "Hyperciting UI controls not found. Aborting initialization."
+    );
+    return;
+  }
+
+  // Prevent the button from clearing selection
+  copyButton.addEventListener('mousedown', (e) => e.preventDefault());
+
+  // Attach fresh listeners that pass the correct bookId to the handler
+  addTouchAndClickListener(copyButton, (event) =>
+    handleCopyEvent(event, currentBookId)
+  );
+
+  // Ensure button is optimized for mobile
+  copyButton.style.touchAction = 'manipulation';
+  copyButton.style.userSelect = 'none';
+
+  console.log("✅ Hyperciting controls are live.");
+}
 
 export function openHyperciteContainer(content) {
+  if (!hyperciteManager) {
+    console.error("Hypercite manager not initialized!");
+    return;
+  }
   hyperciteManager.openContainer(content);
 }
 
+// MODIFIED: closeHyperciteContainer now uses the re-initialized manager
 export function closeHyperciteContainer() {
+  if (!hyperciteManager) {
+    console.error("Hypercite manager not initialized!");
+    return;
+  }
   hyperciteManager.closeContainer();
 }
-
 
 
 // Helper: Parse hypercite URL to extract components
