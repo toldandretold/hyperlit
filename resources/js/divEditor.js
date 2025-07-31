@@ -420,6 +420,24 @@ function filterChunkMutations(mutations) {
     
     // If we found a chunk, include the mutation
     if (chunk !== null) {
+
+
+      if (mutation.type === 'childList') {
+        const isOnlyHighlightNodes = (nodeList) => {
+          if (nodeList.length === 0) return false; // Not this type of mutation
+          // Check if every node in the list is either a MARK tag or a plain text node.
+          return Array.from(nodeList).every(
+            (node) => node.nodeName === 'MARK' || node.nodeType === Node.TEXT_NODE
+          );
+        };
+
+        // If the only things added/removed were MARK tags (and their text), ignore it.
+        if (isOnlyHighlightNodes(mutation.addedNodes) || isOnlyHighlightNodes(mutation.removedNodes)) {
+          console.log("✍️ Ignoring MARK tag mutation in divEditor, handled by hyperLights.js.");
+          return; // Exit this iteration of forEach, do not add to filteredMutations.
+        }
+      }
+      
       filteredMutations.push(mutation);
       return;
     }

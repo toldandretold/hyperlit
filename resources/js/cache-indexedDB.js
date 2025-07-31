@@ -230,6 +230,29 @@ export const debouncedMasterSync = debounce(async () => {
 
   console.log(`DEBOUNCED SYNC: Processing ${pendingSyncs.size} items...`);
 
+
+  const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");
+  if (pendingSyncJSON) {
+    try {
+      const pendingSync = JSON.parse(pendingSyncJSON);
+      // If the pending sync is for the book we are currently processing...
+      if (pendingSync.bookId === bookId && window.pendingBookSyncPromise) {
+        console.log(
+          `[Debounced Sync] Waiting for initial creation of book ${bookId} to complete...`
+        );
+        // ...then we MUST wait for the initial creation to finish.
+        await window.pendingBookSyncPromise;
+        console.log(
+          `[Debounced Sync] Initial book creation complete. Proceeding with content sync.`
+        );
+        // Clean up the promise to prevent re-awaiting on subsequent syncs.
+        window.pendingBookSyncPromise = null;
+      }
+    } catch (e) {
+      console.error("Could not parse pending_new_book_sync", e);
+    }
+  }
+  
   const itemsToSync = new Map(pendingSyncs);
   pendingSyncs.clear();
 
