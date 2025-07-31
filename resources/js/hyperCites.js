@@ -1078,18 +1078,13 @@ export async function PolyClick(event) {
 
 // Assume ContainerManager, openDatabase, and other helper functions are imported
 
-let hyperciteManager = null;
+
+let activeHyperciteListeners = null;
 
 // This new function will be called by viewInitializers.js
 export function initializeHypercitingControls(currentBookId) {
-  console.log(`🔗 Initializing hyperciting controls for book: ${currentBookId}`);
-
-  // Re-initialize the ContainerManager with the new DOM context
-  hyperciteManager = new ContainerManager(
-    "hypercite-container",
-    "ref-overlay",
-    null,
-    ["main-content", "nav-buttons"]
+  console.log(
+    `🔗 Initializing hyperciting controls for book: ${currentBookId}`
   );
 
   const copyButton = document.getElementById("copy-hypercite");
@@ -1100,30 +1095,84 @@ export function initializeHypercitingControls(currentBookId) {
     return;
   }
 
-  // Prevent the button from clearing selection
-  copyButton.addEventListener('mousedown', (e) => e.preventDefault());
+  // --- START: CRITICAL FIX ---
 
-  // Attach fresh listeners that pass the correct bookId to the handler
-  addTouchAndClickListener(copyButton, (event) =>
-    handleCopyEvent(event, currentBookId)
-  );
+  // 1. If there are old listeners, remove them first to prevent stacking
+  if (activeHyperciteListeners) {
+    copyButton.removeEventListener(
+      "mousedown",
+      activeHyperciteListeners.mousedown
+    );
+    copyButton.removeEventListener("click", activeHyperciteListeners.click);
+    copyButton.removeEventListener(
+      "touchend",
+      activeHyperciteListeners.touchend
+    );
+    console.log("🧹 Cleaned up old hypercite listeners.");
+  }
+
+  // 2. Define the new set of listeners
+  const mousedownListener = (e) => {
+    // This is ESSENTIAL to prevent the button from stealing focus and
+    // clearing the user's text selection.
+    e.preventDefault();
+  };
+
+  const eventHandler = (event) => {
+    handleCopyEvent(event, currentBookId);
+  };
+
+  // 3. Store the new listeners so we can remove them later
+  activeHyperciteListeners = {
+    mousedown: mousedownListener,
+    click: eventHandler,
+    touchend: eventHandler,
+  };
+
+  // 4. Add the new, robust listeners
+  copyButton.addEventListener("mousedown", activeHyperciteListeners.mousedown);
+  copyButton.addEventListener("click", activeHyperciteListeners.click, {
+    passive: false,
+  });
+  copyButton.addEventListener("touchend", activeHyperciteListeners.touchend, {
+    passive: false,
+  });
+
+  // --- END: CRITICAL FIX ---
 
   // Ensure button is optimized for mobile
-  copyButton.style.touchAction = 'manipulation';
-  copyButton.style.userSelect = 'none';
+  copyButton.style.touchAction = "manipulation";
+  copyButton.style.userSelect = "none";
 
-  console.log("✅ Hyperciting controls are live.");
+  // Re-initialize the ContainerManager for the pop-up
+  // You had this logic separated, but it's good to keep it with the controls
+  // that use it.
+  initializeHyperciteContainerManager();
+
+  console.log("✅ Hyperciting controls are live and correctly bound.");
+}
+
+
+let hyperciteManager = null;
+
+function initializeHyperciteContainerManager() {
+  hyperciteManager = new ContainerManager(
+    "hypercite-container",
+    "ref-overlay",
+    null,
+    ["main-content", "nav-buttons"]
+  );
 }
 
 export function openHyperciteContainer(content) {
   if (!hyperciteManager) {
     console.error("Hypercite manager not initialized!");
-    return;
+    // Attempt to initialize it as a fallback
+    initializeHyperciteContainerManager();
   }
   hyperciteManager.openContainer(content);
 }
 
-// MODIFIED: closeHyperciteContainer now uses the re-initialized manager
 export function closeHyperciteContainer() {
   if (!hyperciteManager) {
     console.error("Hypercite manager not initialized!");
