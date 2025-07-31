@@ -5,7 +5,10 @@ import { loadHyperText } from './initializePage.js';
 import { initEditToolbar } from './editToolbar.js';
 import NavButtons from './nav-buttons.js';
 import { restoreScrollPosition } from './scrolling.js';
-import { attachMarkListeners } from './hyperLights.js';
+import { attachMarkListeners, 
+         initializeHighlightingControls,
+         initializeHighlightManager
+          } from './hyperLights.js';
 import { initializeBroadcastListener } from './BroadcastListener.js';
 import { setupUnloadSync } from './cache-indexedDB.js';
 import { generateTableOfContents } from './toc.js';
@@ -35,6 +38,8 @@ export async function initializeReaderView() {
     initializeEditButtonListeners();
     initializeSourceButtonListener();
     updateEditButtonVisibility(currentBookId);
+    initializeHighlightManager();
+    initializeHighlightingControls(currentBookId);
 
     initEditToolbar({
       toolbarId: "edit-toolbar",
