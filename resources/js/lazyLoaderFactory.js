@@ -269,6 +269,62 @@ instance.restoreScrollPosition = async () => {
   };
 
 
+  // Add this method to the instance object
+  instance.updateAndRenderFromPaste = async (newAndUpdatedNodes, beforeNodeId) => {
+    console.log(`🔄 updateAndRenderFromPaste called with ${newAndUpdatedNodes.length} nodes, beforeNodeId: ${beforeNodeId}`);
+    
+    try {
+      // Update the instance's nodeChunks
+      instance.nodeChunks = newAndUpdatedNodes;
+      
+      // Find affected chunks
+      const affectedChunkIds = [...new Set(newAndUpdatedNodes.map(node => node.chunk_id))];
+      console.log(`🔄 Affected chunks: ${affectedChunkIds.join(', ')}`);
+      
+      // Remove affected chunks from DOM and tracking
+      affectedChunkIds.forEach(chunkId => {
+        const chunkElement = instance.container.querySelector(`[data-chunk-id="${chunkId}"]`);
+        if (chunkElement) {
+          chunkElement.remove();
+          instance.currentlyLoadedChunks.delete(chunkId);
+        }
+      });
+      
+      // Ensure sentinels are in place
+      if (!instance.container.contains(instance.topSentinel)) {
+        instance.container.prepend(instance.topSentinel);
+      }
+      if (!instance.container.contains(instance.bottomSentinel)) {
+        instance.container.appendChild(instance.bottomSentinel);
+      }
+      
+      // Load the first affected chunk
+      const firstChunkId = Math.min(...affectedChunkIds);
+      loadChunkInternal(firstChunkId, "down", instance, attachMarkers);
+      
+      // Set focus to the beforeNodeId element
+      setTimeout(() => {
+        const targetElement = document.getElementById(beforeNodeId);
+        if (targetElement) {
+          console.log(`✨ Setting focus to element: ${beforeNodeId}`);
+          targetElement.focus();
+          
+          // Place cursor at end
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(targetElement);
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      }, 100);
+      
+    } catch (error) {
+      console.error("❌ Error in updateAndRenderFromPaste:", error);
+      throw error;
+    }
+  };
+
   window.addEventListener("resize", throttle(instance.restoreScrollPosition, 200));
   // --- END SCROLL POSITION LOGIC ---
 
@@ -1000,7 +1056,7 @@ function insertChunkInOrderInternal(newChunk, instance) {
       inserted = true;
       break;
     }
-  }
+  } 
   if (!inserted) container.appendChild(newChunk);
   console.log(`Inserted chunk ${newChunkId} in order.`);
 }
