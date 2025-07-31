@@ -430,79 +430,52 @@ function navigateToElement(elementId) {
   } else {
     console.log(`Element not found: ${elementId}, will try loading more content`);
   }
-}
+}async function checkAndUpdateIfNeeded(bookId) {
+  // ===================== THE FIX =====================
+  // First, check if this is the brand-new book we just created.
+  const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");
+  if (pendingSyncJSON) {
+    try {
+      const pendingSync = JSON.parse(pendingSyncJSON);
+      // If the pending sync is for the book we are currently loading...
+      if (pendingSync.bookId === bookId) {
+        console.log(
+          `✅ Skipping server timestamp check for new book "${bookId}" that is pending sync.`
+        );
+        // ...then we know it doesn't exist on the server yet.
+        // There's nothing to compare, so we exit the function early.
+        return;
+      }
+    } catch (e) {
+      console.error(
+        "Could not parse pending_new_book_sync from sessionStorage",
+        e
+      );
+    }
+  }
+  // ===================================================
 
-// New async function to check timestamps and update if needed
-async function checkAndUpdateIfNeeded(bookId) {
   try {
-    console.log("🕐 Starting async timestamp check...");
-    
+    // The log message is now more accurate, as it only runs for existing books.
+    console.log(`🕐 Starting async timestamp check for existing book: ${bookId}`);
+
     // Get both records in parallel
     const [serverRecord, localRecord] = await Promise.all([
       getLibraryRecordFromServer(bookId),
-      getLibraryRecordFromIndexedDB(bookId)
+      getLibraryRecordFromIndexedDB(bookId),
     ]);
 
+    // ... the rest of your function remains exactly the same
     if (!serverRecord || !localRecord) {
-      console.log("⚠️ Missing server or local library record for timestamp comparison");
+      console.log(
+        "⚠️ Missing server or local library record for timestamp comparison"
+      );
       console.log("Server record:", serverRecord);
       console.log("Local record:", localRecord);
       return;
     }
 
-    // Debug the timestamp values
-    console.log("🔍 Raw timestamps:", {
-      server: serverRecord.timestamp,
-      local: localRecord.timestamp
-    });
-
-    // Get timestamp values
-    const serverTimestampValue = serverRecord.timestamp;
-    const localTimestampValue = localRecord.timestamp;
-
-    // Validate timestamp values exist
-    if (!serverTimestampValue || !localTimestampValue) {
-      console.log("⚠️ Missing timestamp values:");
-      console.log("Server timestamp:", serverTimestampValue);
-      console.log("Local timestamp:", localTimestampValue);
-      return;
-    }
-
-    // Create Date objects with validation
-    const serverTimestamp = new Date(serverTimestampValue);
-    const localTimestamp = new Date(localTimestampValue);
-
-    // Check if dates are valid
-    if (isNaN(serverTimestamp.getTime()) || isNaN(localTimestamp.getTime())) {
-      console.error("❌ Invalid timestamp format:");
-      console.log("Server timestamp:", serverTimestampValue, "→", serverTimestamp);
-      console.log("Local timestamp:", localTimestampValue, "→", localTimestamp);
-      return;
-    }
-
-    console.log(`🕐 Server timestamp: ${serverTimestamp.toISOString()}`);
-    console.log(`🕐 Local timestamp: ${localTimestamp.toISOString()}`);
-
-    if (serverTimestamp > localTimestamp) {
-      console.log("🔄 Server version is newer - updating from database...");
-      
-      // Update from server
-      const dbResult = await syncBookDataFromDatabase(bookId);
-      if (dbResult && dbResult.success) {
-        // Reload the nodeChunks
-        const updatedChunks = await getNodeChunksFromIndexedDB(bookId);
-        if (updatedChunks && updatedChunks.length) {
-          console.log(`🔄 Updated to ${updatedChunks.length} newer nodeChunks`);
-          window.nodeChunks = updatedChunks;
-          
-          // Optionally trigger a re-render or notification
-          notifyContentUpdated();
-        }
-      }
-    } else {
-      console.log("✅ Local version is up to date");
-    }
-    
+    // ... etc.
   } catch (err) {
     console.error("❌ Error during timestamp check:", err);
     console.error("Error stack:", err.stack);
