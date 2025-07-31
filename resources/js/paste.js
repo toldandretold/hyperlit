@@ -93,24 +93,23 @@ function hideConversionModal() {
 // Update your modal to show progress
 async function showProgressModal() {
   const modal = document.createElement("div");
-  modal.style.cssText = `
-    position: fixed; inset: 0; display: flex; align-items: center; 
-    justify-content: center; background: #221F20; z-index: 9999;
-  `;
+  modal.className = "progress-modal";
+  
   modal.innerHTML = `
-    <div style="background: #CBCCCC; padding: 2em; border-radius: 4px; min-width: 400px;">
-      <p id="progress-text">Converting Markdown...</p>
-      <div style="width: 100%; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden; margin: 1em 0;">
-        <div id="progress-bar" style="height: 100%; background: linear-gradient(to right, #EE4A95, #EF8D34, #4EACAE, #EE4A95); width: 0%; transition: width 0.3s;"></div>
+    <div class="progress-modal-content">
+      <p class="progress-text">Converting Markdown...</p>
+      <div class="progress-bar-container">
+        <div class="progress-bar"></div>
       </div>
-      <p id="progress-details" style="font-size: 12px; color: #666; margin: 0;">Preparing...</p>
+      <p class="progress-details">Preparing...</p>
     </div>
   `;
+  
   document.body.appendChild(modal);
   
-  const bar = modal.querySelector('#progress-bar');
-  const text = modal.querySelector('#progress-text');
-  const details = modal.querySelector('#progress-details');
+  const bar = modal.querySelector('.progress-bar');
+  const text = modal.querySelector('.progress-text');
+  const details = modal.querySelector('.progress-details');
   
   return {
     modal,
