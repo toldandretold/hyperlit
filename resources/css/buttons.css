@@ -295,7 +295,7 @@ black #221F20;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 8px;
+  gap: clamp(8px, 3.5vw, 16px);
   transition: opacity 0.3s ease, right 0.3s ease;
   z-index: 1000;
   opacity: 0;
@@ -331,6 +331,8 @@ black #221F20;
   cursor: wait !important;
   transform: none !important; /* Reset hover transform */
 }
+
+
 
 /* Specific styling for the SVG path (the arrow shape) when undo/redo buttons are disabled/processing */
 #undoButton.disabled svg path,
@@ -409,6 +411,148 @@ black #221F20;
   fill: #221f20; /* Change the fill to black when active */
 }
 
+/* In resources/css/buttons.css */
+
+/*
+  STYLE 1: Mobile "Read Mode"
+  This class is added by JS when text is selected and you are NOT in edit mode.
+  It fixes the buttons to the bottom of the screen.
+*/
+#hyperlight-buttons.mobile-fixed-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+
+  /* Override the absolute positioning from the inline style */
+  top: auto !important;
+  left: auto !important;
+
+  /* Style it like a proper toolbar */
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background-color: #221f20; /* Match your theme */
+  border-top: 1px solid #444;
+  border-radius: 0;
+  padding: 8px 0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+  z-index: 9998; /* Just below the main edit toolbar's z-index */
+}
+
+/*
+  STYLE 2: Mobile "Edit Mode"
+  This style applies ONLY when the buttons are moved inside the edit-toolbar.
+  It makes them blend in seamlessly with the other edit buttons.
+*/
+/* =================================================================== */
+/*  MOBILE HYPERLIGHT BUTTONS - FINAL VERSION
+/*  (Place this in buttons.css, replacing the old @media block)
+/* =================================================================== */
+
+/* =================================================================== */
+/*  MOBILE HYPERLIGHT BUTTONS - FINAL VERSION
+/* =================================================================== */
+
+/* =================================================================== */
+/*  FINAL CSS FIX - SIZE AND PADDING
+/*  This is a simpler, more direct approach.
+/* =================================================================== */
+
+@media (max-width: 768px) {
+  /*
+    Make the #hyperlight-buttons container invisible and static
+    when it's inside the main edit toolbar. (This part is correct)
+  */
+  #edit-toolbar #hyperlight-buttons {
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    background: transparent;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    display: flex;
+    gap: clamp(4px, 2vw, 8px);
+  }
+
+  /* --- THE CORE FIX --- */
+
+  /* 1. Style the BUTTON container */
+  #edit-toolbar #hyperlight-buttons button {
+    width: 26px; /* Match the other toolbar buttons */
+    height: 26px; /* Match the other toolbar buttons */
+    padding: 0; /* REMOVE padding from the button itself */
+    background: #221f20;
+    border: none;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+  }
+
+  /* 2. Set a fixed size for the SVG ICON inside the button */
+  #edit-toolbar #hyperlight-buttons button svg {
+    width: 18px; /* This creates the visual padding */
+    height: 18px; /* This creates the visual padding */
+
+  }
+
+  /* 1. Make ONLY the delete button a positioning context. */
+#edit-toolbar #hyperlight-buttons #delete-hyperlight {
+  position: relative;
+}
+
+/* 2. Force ONLY the delete button's SVG into the absolute center. */
+#edit-toolbar #hyperlight-buttons #delete-hyperlight svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+  /* --- Color and Hover Styles (from before, but simplified) --- */
+
+  /* Set the default icon colors */
+  #edit-toolbar #copy-hyperlight .hyperlight-color {
+    fill: #ee4a95;
+  }
+  #edit-toolbar #delete-hyperlight svg path {
+    stroke: #cbcccc;
+  }
+  #edit-toolbar #copy-hypercite svg path {
+    fill: #cbcccc;
+  }
+
+  /* Handle the hover effects to match your other buttons */
+  #edit-toolbar #hyperlight-buttons button:hover {
+    transform: scale(1.1);
+  }
+
+  #edit-toolbar #delete-hyperlight:hover,
+  #edit-toolbar #copy-hypercite:hover {
+    background: #cbcccc;
+  }
+  #edit-toolbar #delete-hyperlight:hover svg path {
+    stroke: #221f20;
+  }
+  #edit-toolbar #copy-hypercite:hover svg path {
+    fill: #221f20;
+  }
+  #edit-toolbar #copy-hyperlight:hover .hyperlight-color {
+    filter: brightness(1.2);
+  }
+
+  .toolbar-separator {
+    width: 1px;
+    height: 20px; /* A bit shorter than the buttons for a nice look */
+    background-color: #444; /* A subtle, dark grey */
+    margin: 0; /* Give it some space on both sides */
+    flex-shrink: 0; /* Prevent it from shrinking */
+  }
+}
 .arranger-button-container {
   padding: 0px 0;
   margin-bottom: 20px !important;
