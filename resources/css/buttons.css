@@ -680,7 +680,7 @@ black #221F20;
     flex-direction: row;
     justify-content: center;
     align-items: center;
-    gap: 16px;
+    gap: clamp(4px, 2.5vw, 10px);
     padding: 12px;
 
     /* Appearance */
