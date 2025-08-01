@@ -16,6 +16,7 @@ import { generateTableOfContents } from './toc.js';
 import { KeyboardManager } from './keyboardManager.js';
 import { handleAutoEdit, initializeEditButtonListeners, updateEditButtonVisibility } from './editButton.js';
 import { initializeSourceButtonListener } from './sourceButton.js';
+import { initializeSelectionHandler } from "./selectionHandler.js";
 
 export async function initializeReaderView() {
   const currentBookId = book;
@@ -42,6 +43,7 @@ export async function initializeReaderView() {
     initializeHighlightManager();
     initializeHighlightingControls(currentBookId);
     initializeHypercitingControls(currentBookId);
+    initializeSelectionHandler();
 
     initEditToolbar({
       toolbarId: "edit-toolbar",

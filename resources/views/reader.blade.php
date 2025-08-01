@@ -63,47 +63,61 @@
       </button>
   </div>
 
-</div> <!-- app-container -->
+<!-- In reader.blade.php -->
 
-  <!-- Buttons for hyper-lighting -->
-  <div id="hyperlight-buttons" style="display: none; position: absolute; z-index: 9999;">
-    <button id="copy-hyperlight" type="button">
-      <svg 
-      id="svgHighlighter" 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="16" 
-      height="16"
-      >
-      <rect 
-      width="16" 
-      height="16" 
-      fill="#EE4A95" 
-      rx="4" 
-      ry="4" />
-          </svg>
-      </button>
+<!-- Buttons for hyper-lighting -->
+<div id="hyperlight-buttons" style="display: none; position: absolute; z-index: 9999;">
 
-    <button id="delete-hyperlight" type="button">🗑️</button>
-    
-    <button id="copy-hypercite" type="button">
-      <svg
-      id="svgHyperciter"
-      viewBox="0 0 15 16"
-      width="16"
-      height="16"
-       xmlns="http://www.w3.org/2000/svg"
-      >
-      <!-- Background rectangle -->
-      <rect width="15" height="16" fill="#221F20" />
-      <!-- Quotation mark symbol -->
+  <!-- Delete Button (NOW A PROPER SVG ICON) -->
+  <button id="delete-hyperlight" type="button">
+    <svg
+      id="svgDeleter"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
       <path
-      fill="#CBCCCC"
-      d="M6.5 3.5H1.5V8.5H3.75L1.75 12.5H4.75L6.5 9V3.5zM13.5 3.5H8.5V8.5H10.75L8.75 12.5H11.75L13.5 9V3.5z"
-          />
-          </svg>
-      </button>
-  </div>
+        d="M3 6h18"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  </button>
+  
+  <!-- Hyperlight Button (Pink Square) -->
+  <button id="copy-hyperlight" type="button">
+    <svg
+      id="svgHighlighter"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <!-- The color is now a class so CSS can control it -->
+      <rect class="hyperlight-color" width="24" height="24" rx="4" ry="4" />
+    </svg>
+  </button>
 
+
+  <!-- Hypercite Button (fill attribute removed from path) -->
+  <button id="copy-hypercite" type="button">
+    <svg
+      id="svgHyperciter"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <!-- The path no longer has a hardcoded fill color -->
+      <path
+        d="M10 3.5H3V10.5H5.75L3.25 15.5H7.25L10 11V3.5zM21 3.5H14V10.5H16.75L14.25 15.5H18.25L21 11V3.5z"
+      />
+    </svg>
+  </button>
+</div>
   
 
 
