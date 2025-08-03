@@ -299,8 +299,11 @@ export function startObserving(editableDiv) {
 
   ensureMinimumDocumentStructure();
 
+
   // Initialize tracking for all current chunks
   initializeCurrentChunks(editableDiv);
+
+  enterKeyHandler = new EnterKeyHandler();
 
   // Create observer for the main-content container
   observer = new MutationObserver(async (mutations) => {
@@ -935,6 +938,11 @@ export function stopObserving() {
     observer.disconnect();
     observer = null;
   }
+
+  if (enterKeyHandler) {
+    enterKeyHandler.destroy();
+    enterKeyHandler = null;
+  }
   
   observedChunks.clear();
   console.log("Multi-chunk observer stopped and tracking cleared");
@@ -1185,11 +1193,6 @@ export async function initTitleSync(bookId) {
 }
 
 
-// Track consecutive Enter presses
-let lastKeyWasEnter = false;
-let enterCount = 0;
-let lastEnterTime = 0;
-
 function createAndInsertParagraph(blockElement, chunkContainer, content, selection) {
   // ==================================================================
   // 1. PROACTIVELY FIX THE SOURCE ELEMENT (THE KEY CHANGE)
@@ -1284,34 +1287,47 @@ function isElementInViewport(el) {
     rect.right <= (window.innerWidth || document.documentElement.clientWidth)
   );
 }
-document.addEventListener("keydown", function (event) {
-  // Skip paragraph creation if chunk overflow is in progress
+
+
+class EnterKeyHandler {
+  constructor() {
+    // State is now instance-specific, not global.
+    this.lastKeyWasEnter = false;
+    this.enterCount = 0;
+    this.lastEnterTime = 0;
+
+    // Bind the event handler to this instance.
+    this.handleKeyDown = this.handleKeyDown.bind(this);
+
+    // Attach the listener.
+    document.addEventListener("keydown", this.handleKeyDown);
+    console.log("✅ EnterKeyHandler initialized.");
+  }
+
+  handleKeyDown(event) {
   if (event.key === "Enter" && chunkOverflowInProgress) {
     event.preventDefault();
     console.log("Enter key ignored during chunk overflow processing");
     return;
   }
 
-  // Reset enter count if any other key is pressed
   if (event.key !== "Enter") {
-    lastKeyWasEnter = false;
-    enterCount = 0;
+    this.lastKeyWasEnter = false;
+    this.enterCount = 0;
     return;
   }
 
-  // Check if this is a consecutive Enter press (within 2 seconds)
   const now = Date.now();
-  if (lastKeyWasEnter && now - lastEnterTime < 2000) {
-    enterCount++;
+  if (this.lastKeyWasEnter && now - this.lastEnterTime < 2000) {
+    this.enterCount++;
   } else {
-    enterCount = 1;
+    this.enterCount = 1;
   }
 
-  lastKeyWasEnter = true;
-  lastEnterTime = now;
+  this.lastKeyWasEnter = true;
+  this.lastEnterTime = now;
 
-  // Debug
-  console.log("Enter count:", enterCount);
+  console.log("Enter count:", this.enterCount);
 
   if (window.isEditing) {
     // Get the current selection
@@ -1320,13 +1336,10 @@ document.addEventListener("keydown", function (event) {
 
     const range = selection.getRangeAt(0);
 
-    // Find the current node and its parent block element
-    let currentNode = range.startContainer;
+        let currentNode = range.startContainer;
     if (currentNode.nodeType !== Node.ELEMENT_NODE) {
       currentNode = currentNode.parentElement;
     }
-
-    // Find the parent block element
     let blockElement = currentNode;
     while (
       blockElement &&
@@ -1346,18 +1359,11 @@ document.addEventListener("keydown", function (event) {
     ) {
       blockElement = blockElement.parentElement;
     }
-
     if (!blockElement) return;
-
-    // Find the chunk container
     const chunkContainer = blockElement.closest(".chunk");
     if (!chunkContainer) return;
-
-    // Check if we're at the beginning of a heading
     const isHeading = /^H[1-6]$/.test(blockElement.tagName);
     let isAtStart = false;
-
-    // Determine if cursor is at the start
     if (range.startContainer.nodeType === Node.TEXT_NODE) {
       isAtStart =
         range.startOffset === 0 &&
@@ -1368,435 +1374,447 @@ document.addEventListener("keydown", function (event) {
     }
 
     if (isHeading && isAtStart) {
-      event.preventDefault();
 
-      // PROACTIVELY FIX THE HEADING'S ID
-      ensureNodeHasValidId(blockElement);
-      if (!blockElement.id) {
-        console.error(
-          "Could not assign ID to heading. Aborting.",
-          blockElement
-        );
-        return;
-      }
 
-      // 1. Create a new paragraph to insert BEFORE the heading
-      const newParagraph = document.createElement("p");
-      newParagraph.innerHTML = "<br>";
+          event.preventDefault();
 
-      // 2. Generate ID for the new paragraph
-      if (blockElement.id) {
-        // Find previous element with numeric ID
-        let prevElement = blockElement.previousElementSibling;
-        while (
-          prevElement &&
-          (!prevElement.id || !/^\d+(\.\d+)?$/.test(prevElement.id))
-        ) {
-          prevElement = prevElement.previousElementSibling;
-        }
-
-        // Special case: if heading is ID "1" and no previous element, use "0" as beforeId
-        if (!prevElement && blockElement.id === "1") {
-          newParagraph.id = generateIdBetween("0", "1");
-        } else if (prevElement && prevElement.id) {
-          // Generate ID between previous and current
-          newParagraph.id = generateIdBetween(prevElement.id, blockElement.id);
-        } else {
-          // Generate ID before current
-          newParagraph.id = generateIdBetween(null, blockElement.id);
-        }
-
-        // 3. Insert the new paragraph before the heading
-        blockElement.parentNode.insertBefore(newParagraph, blockElement);
-
-        // 4. Save the current scroll position
-        const scrollYBefore = window.scrollY;
-
-        // 5. Position cursor at start of heading (where it already is)
-        // No need to move the cursor as it's already at the start of the heading
-
-        // 6. Ensure the heading stays visible by restoring scroll position
-        setTimeout(() => {
-          // Restore scroll position to keep heading in view
-          window.scrollTo(0, scrollYBefore);
-
-          // If heading is still not visible, scroll it into view
-          if (!isElementInViewport(blockElement)) {
-            blockElement.scrollIntoView({
-              behavior: "auto",
-              block: "nearest",
-            });
-          }
-        }, 0);
-      }
-
-      // The MutationObserver will handle saving both elements
-
-      enterCount = 0;
-      return;
-    }
-
-    // ==========================================================================
-    // SECTION 1: REWRITTEN special handling for paragraph elements
-    // ==========================================================================
-    if (blockElement.tagName === "P") {
-      event.preventDefault();
-
-      // --- PATH A: User wants a line break (Shift+Enter) ---
-      if (event.shiftKey) {
-        console.log("Shift+Enter in <p>: Inserting <br>");
-        const br = document.createElement("br");
-        range.insertNode(br);
-
-        // Force cursor after the br by inserting a zero-width space
-        const zwsp = document.createTextNode("\u200B");
-        br.parentNode.insertBefore(zwsp, br.nextSibling);
-
-        // Position cursor in the zero-width space
-        const newRange = document.createRange();
-        newRange.setStart(zwsp, 1);
-        newRange.collapse(true);
-
-        selection.removeAllRanges();
-        selection.addRange(newRange);
-
-        // Reset enter count so this doesn't affect other blocks
-        enterCount = 0;
-        return; // Stop execution here
-      }
-
-      // --- PATH B: User wants a new paragraph (Regular Enter) ---
-      console.log("Enter in <p>: Creating new paragraph");
-
-      // Split the content at cursor position
-      const cursorOffset = range.startOffset;
-
-      // Check if cursor is at the end of the text content
-      let isAtEnd = false;
-      if (range.startContainer.nodeType === Node.TEXT_NODE) {
-        isAtEnd = cursorOffset === range.startContainer.textContent.length;
-      } else if (range.startContainer.nodeType === Node.ELEMENT_NODE) {
-        isAtEnd = cursorOffset === range.startContainer.childNodes.length;
-      }
-
-      // Prepare content for the new paragraph
-      let content = null;
-      if (
-        !(
-          (isAtEnd && range.startContainer === blockElement.lastChild) ||
-          (range.startContainer === blockElement &&
-            blockElement.textContent.trim() === "")
-        )
-      ) {
-        const rangeToExtract = document.createRange();
-        rangeToExtract.setStart(range.startContainer, cursorOffset);
-        rangeToExtract.setEndAfter(blockElement);
-
-        const clonedContent = rangeToExtract.cloneContents();
-        const tempDiv = document.createElement("div");
-        tempDiv.appendChild(clonedContent);
-        const extractedText = tempDiv.textContent.trim();
-
-        // Store the content to move to the new paragraph
-        content = rangeToExtract.extractContents();
-
-        // If the current block is now empty, add a <br>
-        if (
-          blockElement.innerHTML === "" ||
-          blockElement.textContent.trim() === ""
-        ) {
-          blockElement.innerHTML = "<br>";
-        }
-
-        if (extractedText === "") {
-          content = null;
-        }
-      }
-
-      // Create and insert new paragraph
-      const newParagraph = createAndInsertParagraph(
-        blockElement,
-        chunkContainer,
-        content,
-        selection
-      );
-
-      // Scroll the new paragraph into view
-      setTimeout(() => {
-        newParagraph.scrollIntoView({
-          behavior: "auto",
-          block: "nearest",
-        });
-      }, 10);
-
-      // Reset enter count after creating a new paragraph
-      enterCount = 0;
-      return; // Stop execution here
-    }
-
-    // ==========================================================================
-    // SECTION 2: UNCHANGED handling for blockquote and pre (code blocks)
-    // ==========================================================================
-    if (
-      blockElement.tagName === "BLOCKQUOTE" ||
-      blockElement.tagName === "PRE"
-    ) {
-      event.preventDefault(); // Prevent default Enter behavior
-
-      // If this is the third consecutive Enter press, we either exit or split the block
-      if (enterCount >= 3) {
-        // Determine if the cursor is effectively at the end of the block.
-        const rangeToEnd = document.createRange();
-        rangeToEnd.setStart(range.endContainer, range.endOffset);
-        rangeToEnd.setEndAfter(blockElement);
-        const contentAfterCursor = rangeToEnd.cloneContents();
-        const isEffectivelyAtEnd =
-          contentAfterCursor.textContent.replace(/\u200B/g, "").trim() === "";
-
-        // --- PATH A: User is at the end of the block (Exit Logic) ---
-        if (isEffectivelyAtEnd) {
-          console.log("Exiting block from the end.");
-          let targetElement = blockElement;
-          if (
-            blockElement.tagName === "PRE" &&
-            blockElement.querySelector("code")
-          ) {
-            targetElement = blockElement.querySelector("code");
+          // PROACTIVELY FIX THE HEADING'S ID
+          ensureNodeHasValidId(blockElement);
+          if (!blockElement.id) {
+            console.error(
+              "Could not assign ID to heading. Aborting.",
+              blockElement
+            );
+            return;
           }
 
-          while (targetElement.lastChild) {
-            const last = targetElement.lastChild;
-            if (last.nodeName === "BR") {
-              targetElement.removeChild(last);
-            } else if (
-              last.nodeType === Node.TEXT_NODE &&
-              last.textContent.replace(/\u200B/g, "").trim() === ""
+          // 1. Create a new paragraph to insert BEFORE the heading
+          const newParagraph = document.createElement("p");
+          newParagraph.innerHTML = "<br>";
+
+          // 2. Generate ID for the new paragraph
+          if (blockElement.id) {
+            // Find previous element with numeric ID
+            let prevElement = blockElement.previousElementSibling;
+            while (
+              prevElement &&
+              (!prevElement.id || !/^\d+(\.\d+)?$/.test(prevElement.id))
             ) {
-              targetElement.removeChild(last);
+              prevElement = prevElement.previousElementSibling;
+            }
+
+            // Special case: if heading is ID "1" and no previous element, use "0" as beforeId
+            if (!prevElement && blockElement.id === "1") {
+              newParagraph.id = generateIdBetween("0", "1");
+            } else if (prevElement && prevElement.id) {
+              // Generate ID between previous and current
+              newParagraph.id = generateIdBetween(prevElement.id, blockElement.id);
             } else {
-              break;
+              // Generate ID before current
+              newParagraph.id = generateIdBetween(null, blockElement.id);
+            }
+
+            // 3. Insert the new paragraph before the heading
+            blockElement.parentNode.insertBefore(newParagraph, blockElement);
+
+            // 4. Save the current scroll position
+            const scrollYBefore = window.scrollY;
+
+            // 5. Position cursor at start of heading (where it already is)
+            // No need to move the cursor as it's already at the start of the heading
+
+            // 6. Ensure the heading stays visible by restoring scroll position
+            setTimeout(() => {
+              // Restore scroll position to keep heading in view
+              window.scrollTo(0, scrollYBefore);
+
+              // If heading is still not visible, scroll it into view
+              if (!isElementInViewport(blockElement)) {
+                blockElement.scrollIntoView({
+                  behavior: "auto",
+                  block: "nearest",
+                });
+              }
+            }, 0);
+          }
+
+          // The MutationObserver will handle saving both elements
+
+          this.enterCount = 0;
+          return;
+        }
+
+        // ==========================================================================
+        // SECTION 1: REWRITTEN special handling for paragraph elements
+        // ==========================================================================
+        if (blockElement.tagName === "P") {
+          event.preventDefault();
+
+          // --- PATH A: User wants a line break (Shift+Enter) ---
+          if (event.shiftKey) {
+            console.log("Shift+Enter in <p>: Inserting <br>");
+            const br = document.createElement("br");
+            range.insertNode(br);
+
+            // Force cursor after the br by inserting a zero-width space
+            const zwsp = document.createTextNode("\u200B");
+            br.parentNode.insertBefore(zwsp, br.nextSibling);
+
+            // Position cursor in the zero-width space
+            const newRange = document.createRange();
+            newRange.setStart(zwsp, 1);
+            newRange.collapse(true);
+
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+
+            // Reset enter count so this doesn't affect other blocks
+            this.enterCount = 0;
+            return; // Stop execution here
+          }
+
+          // --- PATH B: User wants a new paragraph (Regular Enter) ---
+          console.log("Enter in <p>: Creating new paragraph");
+
+          // Split the content at cursor position
+          const cursorOffset = range.startOffset;
+
+          // Check if cursor is at the end of the text content
+          let isAtEnd = false;
+          if (range.startContainer.nodeType === Node.TEXT_NODE) {
+            isAtEnd = cursorOffset === range.startContainer.textContent.length;
+          } else if (range.startContainer.nodeType === Node.ELEMENT_NODE) {
+            isAtEnd = cursorOffset === range.startContainer.childNodes.length;
+          }
+
+          // Prepare content for the new paragraph
+          let content = null;
+          if (
+            !(
+              (isAtEnd && range.startContainer === blockElement.lastChild) ||
+              (range.startContainer === blockElement &&
+                blockElement.textContent.trim() === "")
+            )
+          ) {
+            const rangeToExtract = document.createRange();
+            rangeToExtract.setStart(range.startContainer, cursorOffset);
+            rangeToExtract.setEndAfter(blockElement);
+
+            const clonedContent = rangeToExtract.cloneContents();
+            const tempDiv = document.createElement("div");
+            tempDiv.appendChild(clonedContent);
+            const extractedText = tempDiv.textContent.trim();
+
+            // Store the content to move to the new paragraph
+            content = rangeToExtract.extractContents();
+
+            // If the current block is now empty, add a <br>
+            if (
+              blockElement.innerHTML === "" ||
+              blockElement.textContent.trim() === ""
+            ) {
+              blockElement.innerHTML = "<br>";
+            }
+
+            if (extractedText === "") {
+              content = null;
             }
           }
 
-          if (targetElement.innerHTML.trim() === "") {
-            targetElement.innerHTML = "<br>";
-          }
-          if (blockElement.id) {
-            queueNodeForSave(blockElement.id, "update");
-          }
+          // Create and insert new paragraph
           const newParagraph = createAndInsertParagraph(
             blockElement,
             chunkContainer,
-            null,
+            content,
             selection
           );
+
+          // Scroll the new paragraph into view
           setTimeout(() => {
-            newParagraph.scrollIntoView({ behavior: "auto", block: "nearest" });
+            newParagraph.scrollIntoView({
+              behavior: "auto",
+              block: "nearest",
+            });
           }, 10);
-        } else {
-          // --- PATH B: User is in the middle of the block (Split Logic) ---
-          console.log("Splitting block from the middle.");
 
-          // 1. Extract content from cursor to end.
-          const contentToMove = rangeToEnd.extractContents();
+          // Reset enter count after creating a new paragraph
+          this.enterCount = 0;
+          return; // Stop execution here
+        }
 
-          // 2. Get the correct element to clean up (the <blockquote> or <code> tag)
-          let firstBlockTarget = blockElement;
-          if (
-            blockElement.tagName === "PRE" &&
-            blockElement.querySelector("code")
-          ) {
-            firstBlockTarget = blockElement.querySelector("code");
-          }
+        // ==========================================================================
+        // SECTION 2: UNCHANGED handling for blockquote and pre (code blocks)
+        // ==========================================================================
+        if (
+          blockElement.tagName === "BLOCKQUOTE" ||
+          blockElement.tagName === "PRE"
+        ) {
+          event.preventDefault(); // Prevent default Enter behavior
 
-          // 3. Robustly clean up ALL trailing <br>s and whitespace from the first block.
-          while (firstBlockTarget.lastChild) {
-            const last = firstBlockTarget.lastChild;
-            if (last.nodeName === "BR") {
-              firstBlockTarget.removeChild(last);
-            } else if (
-              last.nodeType === Node.TEXT_NODE &&
-              last.textContent.replace(/\u200B/g, "").trim() === ""
-            ) {
-              firstBlockTarget.removeChild(last);
+          // If this is the third consecutive Enter press, we either exit or split the block
+          if (this.enterCount >= 3) {
+            // Determine if the cursor is effectively at the end of the block.
+            const rangeToEnd = document.createRange();
+            rangeToEnd.setStart(range.endContainer, range.endOffset);
+            rangeToEnd.setEndAfter(blockElement);
+            const contentAfterCursor = rangeToEnd.cloneContents();
+            const isEffectivelyAtEnd =
+              contentAfterCursor.textContent.replace(/\u200B/g, "").trim() === "";
+
+            // --- PATH A: User is at the end of the block (Exit Logic) ---
+            if (isEffectivelyAtEnd) {
+              console.log("Exiting block from the end.");
+              let targetElement = blockElement;
+              if (
+                blockElement.tagName === "PRE" &&
+                blockElement.querySelector("code")
+              ) {
+                targetElement = blockElement.querySelector("code");
+              }
+
+              while (targetElement.lastChild) {
+                const last = targetElement.lastChild;
+                if (last.nodeName === "BR") {
+                  targetElement.removeChild(last);
+                } else if (
+                  last.nodeType === Node.TEXT_NODE &&
+                  last.textContent.replace(/\u200B/g, "").trim() === ""
+                ) {
+                  targetElement.removeChild(last);
+                } else {
+                  break;
+                }
+              }
+
+              if (targetElement.innerHTML.trim() === "") {
+                targetElement.innerHTML = "<br>";
+              }
+              if (blockElement.id) {
+                queueNodeForSave(blockElement.id, "update");
+              }
+              const newParagraph = createAndInsertParagraph(
+                blockElement,
+                chunkContainer,
+                null,
+                selection
+              );
+              setTimeout(() => {
+                newParagraph.scrollIntoView({ behavior: "auto", block: "nearest" });
+              }, 10);
             } else {
-              break;
-            }
-          }
-          if (firstBlockTarget.innerHTML.trim() === "") {
-            firstBlockTarget.innerHTML = "<br>";
-          }
-          if (blockElement.id) {
-            queueNodeForSave(blockElement.id, "update");
-          }
+              // --- PATH B: User is in the middle of the block (Split Logic) ---
+              console.log("Splitting block from the middle.");
 
-          // 4. Create the new paragraph and the new block for the split content
-          const newParagraph = document.createElement("p");
-          newParagraph.innerHTML = "<br>";
-          const newSplitBlock = document.createElement(blockElement.tagName);
+              // 1. Extract content from cursor to end.
+              const contentToMove = rangeToEnd.extractContents();
 
-          // 5. Populate the new block, intelligently unwrapping the fragment.
-          let targetForMovedContent = newSplitBlock;
-          if (newSplitBlock.tagName === "PRE") {
-            const newCode = document.createElement("code");
-            newSplitBlock.appendChild(newCode);
-            targetForMovedContent = newCode;
-          }
-          let sourceOfNodes = contentToMove;
-          const wrapperNode = contentToMove.querySelector("blockquote, pre");
-          if (wrapperNode) {
-            if (wrapperNode.tagName === "PRE") {
-              sourceOfNodes = wrapperNode.querySelector("code") || wrapperNode;
-            } else {
-              sourceOfNodes = wrapperNode;
-            }
-          }
-          Array.from(sourceOfNodes.childNodes).forEach((child) => {
-            targetForMovedContent.appendChild(child);
-          });
+              // 2. Get the correct element to clean up (the <blockquote> or <code> tag)
+              let firstBlockTarget = blockElement;
+              if (
+                blockElement.tagName === "PRE" &&
+                blockElement.querySelector("code")
+              ) {
+                firstBlockTarget = blockElement.querySelector("code");
+              }
 
-          // 6. ***REWRITTEN*** Robustly clean up all leading junk from the new block.
-          while (targetForMovedContent.firstChild) {
-            const first = targetForMovedContent.firstChild;
+              // 3. Robustly clean up ALL trailing <br>s and whitespace from the first block.
+              while (firstBlockTarget.lastChild) {
+                const last = firstBlockTarget.lastChild;
+                if (last.nodeName === "BR") {
+                  firstBlockTarget.removeChild(last);
+                } else if (
+                  last.nodeType === Node.TEXT_NODE &&
+                  last.textContent.replace(/\u200B/g, "").trim() === ""
+                ) {
+                  firstBlockTarget.removeChild(last);
+                } else {
+                  break;
+                }
+              }
+              if (firstBlockTarget.innerHTML.trim() === "") {
+                firstBlockTarget.innerHTML = "<br>";
+              }
+              if (blockElement.id) {
+                queueNodeForSave(blockElement.id, "update");
+              }
 
-            // If it's a <br>, remove it and check the next node.
-            if (first.nodeName === "BR") {
-              targetForMovedContent.removeChild(first);
-              continue;
-            }
+              // 4. Create the new paragraph and the new block for the split content
+              const newParagraph = document.createElement("p");
+              newParagraph.innerHTML = "<br>";
+              const newSplitBlock = document.createElement(blockElement.tagName);
 
-            // If it's a text node, check if it's effectively empty.
-            if (first.nodeType === Node.TEXT_NODE) {
-              // Check for emptiness (ZWS and whitespace)
-              if (first.nodeValue.replace(/\u200B/g, "").trim() === "") {
-                // This node is junk, remove it and check the next one.
-                targetForMovedContent.removeChild(first);
-                continue;
-              } else {
-                // This is the first REAL content. Trim leading whitespace from it.
-                first.nodeValue = first.nodeValue.replace(/^\s+/, "");
-                // We are done cleaning, so exit the loop.
+              // 5. Populate the new block, intelligently unwrapping the fragment.
+              let targetForMovedContent = newSplitBlock;
+              if (newSplitBlock.tagName === "PRE") {
+                const newCode = document.createElement("code");
+                newSplitBlock.appendChild(newCode);
+                targetForMovedContent = newCode;
+              }
+              let sourceOfNodes = contentToMove;
+              const wrapperNode = contentToMove.querySelector("blockquote, pre");
+              if (wrapperNode) {
+                if (wrapperNode.tagName === "PRE") {
+                  sourceOfNodes = wrapperNode.querySelector("code") || wrapperNode;
+                } else {
+                  sourceOfNodes = wrapperNode;
+                }
+              }
+              Array.from(sourceOfNodes.childNodes).forEach((child) => {
+                targetForMovedContent.appendChild(child);
+              });
+
+              // 6. ***REWRITTEN*** Robustly clean up all leading junk from the new block.
+              while (targetForMovedContent.firstChild) {
+                const first = targetForMovedContent.firstChild;
+
+                // If it's a <br>, remove it and check the next node.
+                if (first.nodeName === "BR") {
+                  targetForMovedContent.removeChild(first);
+                  continue;
+                }
+
+                // If it's a text node, check if it's effectively empty.
+                if (first.nodeType === Node.TEXT_NODE) {
+                  // Check for emptiness (ZWS and whitespace)
+                  if (first.nodeValue.replace(/\u200B/g, "").trim() === "") {
+                    // This node is junk, remove it and check the next one.
+                    targetForMovedContent.removeChild(first);
+                    continue;
+                  } else {
+                    // This is the first REAL content. Trim leading whitespace from it.
+                    first.nodeValue = first.nodeValue.replace(/^\s+/, "");
+                    // We are done cleaning, so exit the loop.
+                    break;
+                  }
+                }
+
+                // If we reach here, it's a non-text, non-BR element (e.g. <span>).
+                // This is content, so we stop cleaning.
                 break;
+              }
+
+              // 7. Generate IDs and insert into the DOM
+              const nextSibling = blockElement.nextElementSibling;
+              const nextSiblingId = nextSibling ? nextSibling.id : null;
+              newParagraph.id = generateIdBetween(blockElement.id, nextSiblingId);
+              newSplitBlock.id = generateIdBetween(newParagraph.id, nextSiblingId);
+              blockElement.after(newParagraph, newSplitBlock);
+
+              // 8. Save new elements and position cursor
+              queueNodeForSave(newParagraph.id, "create");
+              queueNodeForSave(newSplitBlock.id, "create");
+              moveCaretTo(newParagraph, 0);
+              newParagraph.scrollIntoView({ behavior: "auto", block: "center" });
+            }
+
+            this.enterCount = 0; // Reset enter count after action
+          } else {
+            // This is the original logic for 1st/2nd Enter press (inserting a <br>)
+            // It remains unchanged.
+            let targetElement = range.startContainer;
+            let insertTarget = blockElement;
+
+            if (blockElement.tagName === "PRE") {
+              const codeElement = blockElement.querySelector("code");
+              if (codeElement) {
+                insertTarget = codeElement;
               }
             }
 
-            // If we reach here, it's a non-text, non-BR element (e.g. <span>).
-            // This is content, so we stop cleaning.
-            break;
+            const br = document.createElement("br");
+            range.insertNode(br);
+            const textNode = document.createTextNode("\u200B");
+            range.setStartAfter(br);
+            range.insertNode(textNode);
+            moveCaretTo(textNode, 0);
+            blockElement.scrollIntoView({ behavior: "smooth", block: "nearest" });
           }
 
-          // 7. Generate IDs and insert into the DOM
-          const nextSibling = blockElement.nextElementSibling;
-          const nextSiblingId = nextSibling ? nextSibling.id : null;
-          newParagraph.id = generateIdBetween(blockElement.id, nextSiblingId);
-          newSplitBlock.id = generateIdBetween(newParagraph.id, nextSiblingId);
-          blockElement.after(newParagraph, newSplitBlock);
-
-          // 8. Save new elements and position cursor
-          queueNodeForSave(newParagraph.id, "create");
-          queueNodeForSave(newSplitBlock.id, "create");
-          moveCaretTo(newParagraph, 0);
-          newParagraph.scrollIntoView({ behavior: "auto", block: "center" });
+          return; // Stop further execution
         }
 
-        enterCount = 0; // Reset enter count after action
-      } else {
-        // This is the original logic for 1st/2nd Enter press (inserting a <br>)
-        // It remains unchanged.
-        let targetElement = range.startContainer;
-        let insertTarget = blockElement;
+        // ==========================================================================
+        // SECTION 3: UNCHANGED handling for all other elements (e.g., headings)
+        // ==========================================================================
+        event.preventDefault();
 
-        if (blockElement.tagName === "PRE") {
-          const codeElement = blockElement.querySelector("code");
-          if (codeElement) {
-            insertTarget = codeElement;
+        // Split the content at cursor position
+        const cursorOffset = range.startOffset;
+
+        // Check if cursor is at the end of the text content
+        let isAtEnd = false;
+        if (range.startContainer.nodeType === Node.TEXT_NODE) {
+          isAtEnd = cursorOffset === range.startContainer.length;
+        } else if (range.startContainer.nodeType === Node.ELEMENT_NODE) {
+          isAtEnd = cursorOffset === range.startContainer.childNodes.length;
+        }
+
+        // Prepare content for the new paragraph
+        let content = null;
+        if (
+          !(
+            (isAtEnd && range.startContainer === blockElement.lastChild) ||
+            (range.startContainer === blockElement &&
+              blockElement.textContent.trim() === "")
+          )
+        ) {
+          const rangeToExtract = document.createRange();
+          rangeToExtract.setStart(range.startContainer, cursorOffset);
+          rangeToExtract.setEndAfter(blockElement);
+
+          const clonedContent = rangeToExtract.cloneContents();
+          const tempDiv = document.createElement("div");
+          tempDiv.appendChild(clonedContent);
+          const extractedText = tempDiv.textContent.trim();
+
+          // Store the content to move to the new paragraph
+          content = rangeToExtract.extractContents();
+
+          // If the current block is now empty, add a <br>
+          if (
+            blockElement.innerHTML === "" ||
+            blockElement.textContent.trim() === ""
+          ) {
+            blockElement.innerHTML = "<br>";
+          }
+
+          if (extractedText === "") {
+            content = null;
           }
         }
+        console.log("blockElement:", blockElement);
 
-        const br = document.createElement("br");
-        range.insertNode(br);
-        const textNode = document.createTextNode("\u200B");
-        range.setStartAfter(br);
-        range.insertNode(textNode);
-        moveCaretTo(textNode, 0);
-        blockElement.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }
+        // Create and insert new paragraph
+        const newParagraph = createAndInsertParagraph(
+          blockElement,
+          chunkContainer,
+          content,
+          selection
+        );
 
-      return; // Stop further execution
-    }
+        // Scroll the new paragraph into view
+        // Then scroll after a tiny delay to let the DOM settle
+        setTimeout(() => {
+          newParagraph.scrollIntoView({
+            behavior: "auto", // or keep 'smooth' if you prefer
+            block: "nearest",
+          });
+        }, 10);
 
-    // ==========================================================================
-    // SECTION 3: UNCHANGED handling for all other elements (e.g., headings)
-    // ==========================================================================
-    event.preventDefault();
-
-    // Split the content at cursor position
-    const cursorOffset = range.startOffset;
-
-    // Check if cursor is at the end of the text content
-    let isAtEnd = false;
-    if (range.startContainer.nodeType === Node.TEXT_NODE) {
-      isAtEnd = cursorOffset === range.startContainer.length;
-    } else if (range.startContainer.nodeType === Node.ELEMENT_NODE) {
-      isAtEnd = cursorOffset === range.startContainer.childNodes.length;
-    }
-
-    // Prepare content for the new paragraph
-    let content = null;
-    if (
-      !(
-        (isAtEnd && range.startContainer === blockElement.lastChild) ||
-        (range.startContainer === blockElement &&
-          blockElement.textContent.trim() === "")
-      )
-    ) {
-      const rangeToExtract = document.createRange();
-      rangeToExtract.setStart(range.startContainer, cursorOffset);
-      rangeToExtract.setEndAfter(blockElement);
-
-      const clonedContent = rangeToExtract.cloneContents();
-      const tempDiv = document.createElement("div");
-      tempDiv.appendChild(clonedContent);
-      const extractedText = tempDiv.textContent.trim();
-
-      // Store the content to move to the new paragraph
-      content = rangeToExtract.extractContents();
-
-      // If the current block is now empty, add a <br>
-      if (
-        blockElement.innerHTML === "" ||
-        blockElement.textContent.trim() === ""
-      ) {
-        blockElement.innerHTML = "<br>";
-      }
-
-      if (extractedText === "") {
-        content = null;
+        // Reset enter count after creating a new paragraph
+        this.enterCount = 0;
       }
     }
-    console.log("blockElement:", blockElement);
 
-    // Create and insert new paragraph
-    const newParagraph = createAndInsertParagraph(
-      blockElement,
-      chunkContainer,
-      content,
-      selection
-    );
-
-    // Scroll the new paragraph into view
-    // Then scroll after a tiny delay to let the DOM settle
-    setTimeout(() => {
-      newParagraph.scrollIntoView({
-        behavior: "auto", // or keep 'smooth' if you prefer
-        block: "nearest",
-      });
-    }, 10);
-
-    // Reset enter count after creating a new paragraph
-    enterCount = 0;
+  // The crucial cleanup method.
+  destroy() {
+    document.removeEventListener("keydown", this.handleKeyDown);
+    console.log("🧹 EnterKeyHandler destroyed.");
   }
-});
+}
+
+// ✅ ADD a module-level variable to hold our handler instance.
+let enterKeyHandler = null;
 
 
 
