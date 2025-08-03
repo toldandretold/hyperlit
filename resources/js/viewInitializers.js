@@ -2,7 +2,6 @@
 
 import { book, setCurrentBook } from "./app.js";
 import { loadHyperText } from "./initializePage.js";
-// ✅ CORRECTED IMPORT: stopObserving comes from divEditor.js
 import { stopObserving } from "./divEditor.js";
 import { initEditToolbar, destroyEditToolbar } from "./editToolbar.js";
 import NavButtons from "./nav-buttons.js";
@@ -23,7 +22,11 @@ import {
   updateEditButtonVisibility,
 } from "./editButton.js";
 import { initializeSourceButtonListener } from "./sourceButton.js";
-import { initializeSelectionHandler } from "./selectionHandler.js";
+// ✅ CORRECTED IMPORT: Bring in both functions.
+import {
+  initializeSelectionHandler,
+  destroySelectionHandler,
+} from "./selectionHandler.js";
 
 // ========================================================================
 // 1. STATE MANAGEMENT FOR ACTIVE COMPONENTS
@@ -32,13 +35,13 @@ let activeNavButtons = null;
 let activeKeyboardManager = null;
 
 // ========================================================================
-// 2. THE CLEANUP FUNCTION (Logic is correct, dependency was wrong)
+// 2. THE CLEANUP FUNCTION
 // ========================================================================
 function cleanupReaderView() {
   console.log("🧹 Cleaning up previous reader view...");
 
   if (activeNavButtons) {
-    // activeNavButtons.destroy();
+    // activeNavButtons.destroy(); // Assuming it has a destroy method
     activeNavButtons = null;
   }
   if (activeKeyboardManager) {
@@ -47,16 +50,19 @@ function cleanupReaderView() {
   }
 
   destroyEditToolbar();
-
-  // This call is now valid because of the corrected import.
   stopObserving();
+
+  // ✅ THE FIX: Explicitly destroy the old selection handler
+  // This removes its event listener and clears its stale DOM references.
+  destroySelectionHandler();
 }
 
 // ========================================================================
-// 3. THE TRANSITION ORCHESTRATOR (No changes needed here)
+// 3. THE TRANSITION ORCHESTRATOR (No changes needed)
 // ========================================================================
 export async function transitionToReaderView(bookId) {
   try {
+    // This now correctly cleans up the old selection handler before proceeding.
     cleanupReaderView();
 
     const response = await fetch(`/${bookId}/edit?target=1`);
@@ -92,7 +98,7 @@ export async function transitionToReaderView(bookId) {
 }
 
 // ========================================================================
-// 4. THE SETUP FUNCTION (No changes needed here)
+// 4. THE SETUP FUNCTION (No changes needed)
 // ========================================================================
 export async function initializeReaderView() {
   const currentBookId = book;
@@ -115,6 +121,8 @@ export async function initializeReaderView() {
     initializeHighlightManager();
     initializeHighlightingControls(currentBookId);
     initializeHypercitingControls(currentBookId);
+
+    // This now initializes the handler with fresh references from the new DOM.
     initializeSelectionHandler();
 
     initEditToolbar({
