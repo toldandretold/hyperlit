@@ -1,7 +1,7 @@
 // resources/js/selectionHandler.js
 
-const hyperlightButtons = document.getElementById("hyperlight-buttons");
-const originalParent = hyperlightButtons.parentElement;
+let hyperlightButtons = null;
+let originalParent = null;
 
 /**
  * Removes the toolbar separator if it exists.
@@ -18,6 +18,9 @@ function isMobile() {
 }
 
 function handleSelection() {
+  // Guard clause: If the handler hasn't been initialized, do nothing.
+  if (!hyperlightButtons) return;
+
   if (window.activeContainer === "source-container") {
     return;
   }
@@ -28,35 +31,27 @@ function handleSelection() {
   if (selectedText.length > 0) {
     const editToolbar = document.getElementById("edit-toolbar");
 
-    if (isMobile()) {
+    if (window.innerWidth <= 768) {
+      // Mobile logic...
       hyperlightButtons.style.top = "";
       hyperlightButtons.style.left = "";
       hyperlightButtons.style.position = "";
 
       if (window.isEditing && editToolbar) {
         hyperlightButtons.classList.remove("mobile-fixed-bottom");
-
         if (hyperlightButtons.parentElement !== editToolbar) {
-          // --- THIS IS THE CORRECTED LOGIC ---
-          // 1. Create the separator
           const separator = document.createElement("span");
           separator.id = "hyperlight-separator";
           separator.className = "toolbar-separator";
-
-          // 2. Insert it as the FIRST CHILD of the buttons container
           hyperlightButtons.insertBefore(
             separator,
             hyperlightButtons.firstChild,
           );
-          // --- END OF CORRECTION ---
-
-          // 3. Add the entire group to the toolbar
           editToolbar.appendChild(hyperlightButtons);
         }
-        // --- END OF NEW LOGIC ---
       } else {
-        // When not in edit mode, ensure the separator is gone
-        removeSeparator();
+        const separator = document.getElementById("hyperlight-separator");
+        if (separator) separator.remove();
         hyperlightButtons.classList.add("mobile-fixed-bottom");
         if (hyperlightButtons.parentElement !== originalParent) {
           originalParent.appendChild(hyperlightButtons);
@@ -64,8 +59,9 @@ function handleSelection() {
       }
       hyperlightButtons.style.display = "flex";
     } else {
-      // When on desktop, ensure the separator is gone
-      removeSeparator();
+      // Desktop logic...
+      const separator = document.getElementById("hyperlight-separator");
+      if (separator) separator.remove();
       hyperlightButtons.classList.remove("mobile-fixed-bottom");
       if (hyperlightButtons.parentElement !== originalParent) {
         originalParent.appendChild(hyperlightButtons);
@@ -95,8 +91,8 @@ function handleSelection() {
       ? "block"
       : "none";
   } else {
-    // When no text is selected, hide everything and remove the separator
-    removeSeparator();
+    const separator = document.getElementById("hyperlight-separator");
+    if (separator) separator.remove();
     hyperlightButtons.style.display = "none";
     hyperlightButtons.classList.remove("mobile-fixed-bottom");
     document.getElementById("delete-hyperlight").style.display = "none";
@@ -104,6 +100,21 @@ function handleSelection() {
 }
 
 export function initializeSelectionHandler() {
+  // Re-query the DOM for the elements every time we initialize.
+  hyperlightButtons = document.getElementById("hyperlight-buttons");
+  if (!hyperlightButtons) {
+    console.error("Could not initialize SelectionHandler: #hyperlight-buttons not found.");
+    return;
+  }
+  originalParent = hyperlightButtons.parentElement;
+
   document.addEventListener("selectionchange", handleSelection);
   console.log("✅ Selection Handler Initialized");
+}
+
+export function destroySelectionHandler() {
+  document.removeEventListener("selectionchange", handleSelection);
+  hyperlightButtons = null;
+  originalParent = null;
+  console.log("🧹 Selection Handler Destroyed");
 }

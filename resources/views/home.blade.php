@@ -79,17 +79,66 @@
   of the <body>, so they can float freely over the whole page.
   ======================================================================
 -->
+
+<!-- Buttons for hyper-lighting -->
 <div id="hyperlight-buttons" style="display: none; position: absolute; z-index: 9999;">
-  <button id="copy-hyperlight" type="button">
-    <svg id="svgHighlighter" xmlns="http://www.w3.org/2000/svg" width="16" height="16">
-      <rect width="16" height="16" fill="#EE4A95" rx="4" ry="4" />
+
+  <!-- Delete Button (NOW A PROPER SVG ICON) -->
+  <button id="delete-hyperlight" type="button">
+    <svg
+      id="svgDeleter"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M3 6h18"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
     </svg>
   </button>
-  <button id="delete-hyperlight" type="button">🗑️</button>
+  
+  <!-- Hyperlight Button (Pink Square) -->
+  <button id="copy-hyperlight" type="button">
+    <svg
+      id="svgHighlighter"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <!-- The color is now a class so CSS can control it -->
+      <rect class="hyperlight-color" width="24" height="24" rx="4" ry="4" />
+    </svg>
+  </button>
+
+
+  <!-- Hypercite Button (fill attribute removed from path) -->
   <button id="copy-hypercite" type="button">
-    <svg id="svgHyperciter" viewBox="0 0 15 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
-      <rect width="15" height="16" fill="#221F20" />
-      <path fill="#CBCCCC" d="M6.5 3.5H1.5V8.5H3.75L1.75 12.5H4.75L6.5 9V3.5zM13.5 3.5H8.5V8.5H10.75L8.75 12.5H11.75L13.5 9V3.5z" />
+    <svg 
+    id="Layer_1" 
+    xmlns="http://www.w3.org/2000/svg" 
+    version="1.1" 
+    viewBox="0 0 36 36">
+  <defs>
+    <style>
+      .st0 {
+        fill: #cbcccc;
+      }
+    </style>
+  </defs>
+  <path 
+    class="st0" 
+    d="M17.71,24.31h-4.82v-3.71c0-1.36.28-2.44.85-3.23.57-.79,1.54-1.49,2.92-2.09l1.04,1.97c-.85.4-1.44.8-1.76,1.19-.32.39-.51.86-.54,1.4h2.3v4.47h0ZM23.32,24.31h-4.82v-3.71c0-1.36.28-2.44.85-3.23.57-.79,1.54-1.49,2.92-2.09l1.04,1.97c-.85.4-1.44.8-1.76,1.19-.32.39-.51.86-.54,1.4h2.3v4.47h0Z"/>
+  <path 
+    class="st0" 
+    d="M30.34,2.51h-13.47c-2.97,0-5.39,2.42-5.39,5.39-2.97,0-5.39,2.42-5.39,5.39v13.47c0,2.97,2.42,5.39,5.39,5.39h13.47c2.97,0,5.39-2.42,5.39-5.39,2.97,0,5.39-2.42,5.39-5.39V7.9c0-2.97-2.42-5.39-5.39-5.39ZM27.65,26.76c0,1.49-1.21,2.69-2.69,2.69h-13.47c-1.49,0-2.69-1.21-2.69-2.69v-13.47c0-1.49,1.21-2.69,2.69-2.69h13.47c1.49,0,2.69,1.21,2.69,2.69v13.47ZM33.04,21.37c0,1.49-1.21,2.69-2.69,2.69v-10.78c0-2.97-2.42-5.39-5.39-5.39h-10.78c0-1.49,1.21-2.69,2.69-2.69h13.47c1.49,0,2.69,1.21,2.69,2.69v13.47Z"/>
     </svg>
   </button>
 </div>
