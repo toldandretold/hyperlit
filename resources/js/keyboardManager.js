@@ -14,9 +14,11 @@ class KeyboardManager {
     this.handleViewportChange = this.handleViewportChange.bind(this);
     this.preventToolbarScroll = this.preventToolbarScroll.bind(this);
     this.handleFocusIn = this.handleFocusIn.bind(this);
+    this.handleFocusOut = this.handleFocusOut.bind(this);
     this.init();
 
     window.addEventListener("focusin", this.handleFocusIn, true);
+    window.addEventListener("focusout", this.handleFocusOut, true);
 
     window.addEventListener(
       "focusout",
@@ -52,6 +54,14 @@ class KeyboardManager {
       return;
     }
     this.state.focusedElement = e.target;
+  }
+
+  handleFocusOut() {
+    if (this.isKeyboardOpen) {
+      this.isKeyboardOpen = false;
+      this.adjustLayout(false);
+    }
+    this.state.focusedElement = null;
   }
 
   preventToolbarScroll(e) {
@@ -232,7 +242,9 @@ removeSpacer() {
 }
 
   destroy() {
+    console.log("⌨️ KeyboardManager destroyed.");
     window.removeEventListener("focusin", this.handleFocusIn, true);
+    window.removeEventListener("focusout", this.handleFocusOut);
     if (window.visualViewport) {
       window.visualViewport.removeEventListener(
         "resize",
