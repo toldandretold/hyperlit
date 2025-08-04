@@ -1530,6 +1530,8 @@ export function toPublicChunk(chunk) {
 
 // In cache-indexedDB.js
 
+// In cache-indexedDB.js
+
 export function updateCitationForExistingHypercite(
   booka,
   hyperciteIDa,
@@ -1540,7 +1542,25 @@ export function updateCitationForExistingHypercite(
       `Updating citation: book=${booka}, hyperciteID=${hyperciteIDa}, citationIDb=${citationIDb}`,
     );
 
-    // --- This section remains unchanged ---
+    // ✅ --- NEW PRE-FLIGHT CHECK ---
+    // First, ensure the hypercite exists in our local IndexedDB, fetching
+    // it from the server if necessary.
+    const resolvedHypercite = await resolveHypercite(booka, hyperciteIDa);
+
+    // If it's not found anywhere (local or server), we cannot proceed.
+    if (!resolvedHypercite) {
+      console.error(
+        `FATAL: Could not resolve hypercite ${hyperciteIDa} from any source. Aborting link.`,
+      );
+      // TODO: Trigger your UI prompt to the user here.
+      // e.g., showHyperciteNotFoundModal(booka, hyperciteIDa);
+      return { success: false, startLine: null, newStatus: null };
+    }
+    // ✅ --- END OF NEW LOGIC ---
+
+    // --- YOUR EXISTING, UNCHANGED LOGIC CAN NOW SAFELY RUN ---
+    // It can now be confident that any local lookups will succeed.
+
     let affectedStartLine = null;
     const nodeChunks = await getNodeChunksFromIndexedDB(booka);
     if (!nodeChunks?.length) {
@@ -1556,7 +1576,6 @@ export function updateCitationForExistingHypercite(
       if (!record.hypercites?.find((hc) => hc.hyperciteId === hyperciteIDa)) {
         continue;
       }
-
       const startLine = record.startLine;
       const result = await addCitationToHypercite(
         booka,
@@ -1564,7 +1583,6 @@ export function updateCitationForExistingHypercite(
         hyperciteIDa,
         citationIDb,
       );
-
       if (result.success) {
         foundAndUpdated = true;
         updatedRelationshipStatus = result.relationshipStatus;
@@ -1574,6 +1592,7 @@ export function updateCitationForExistingHypercite(
     }
 
     if (!foundAndUpdated) {
+      // This block should theoretically be unreachable now, but we keep it as a safeguard.
       console.log(
         `No matching hypercite found in book ${booka} with ID ${hyperciteIDa}`,
       );
@@ -1589,45 +1608,43 @@ export function updateCitationForExistingHypercite(
       console.error(`Hypercite ${hyperciteIDa} not found in book ${booka}`);
       return { success: false, startLine: null, newStatus: null };
     }
-
     existingHypercite.citedIN ||= [];
     if (!existingHypercite.citedIN.includes(citationIDb)) {
       existingHypercite.citedIN.push(citationIDb);
     }
     existingHypercite.relationshipStatus = updatedRelationshipStatus;
-
-    const hyperciteSuccess = await updateHyperciteInIndexedDB(booka, hyperciteIDa, {
-      citedIN: existingHypercite.citedIN,
-      relationshipStatus: updatedRelationshipStatus,
-      hypercitedHTML: `<u id="${hyperciteIDa}" class="${updatedRelationshipStatus}">${existingHypercite.hypercitedText}</u>`,
-    });
-
+    const hyperciteSuccess = await updateHyperciteInIndexedDB(
+      booka,
+      hyperciteIDa,
+      {
+        citedIN: existingHypercite.citedIN,
+        relationshipStatus: updatedRelationshipStatus,
+        hypercitedHTML: `<u id="${hyperciteIDa}" class="${updatedRelationshipStatus}">${existingHypercite.hypercitedText}</u>`,
+      },
+    );
     if (!hyperciteSuccess) {
       console.error(`Failed to update hypercite ${hyperciteIDa}`);
       return { success: false, startLine: null, newStatus: null };
     }
 
-    // --- ✅ SECTION 3: TRY IMMEDIATE SYNC WITH FALLBACK ---
-    // This replaces your original `queueForSync` block.
-
+    // 3) TRY IMMEDIATE SYNC WITH FALLBACK
     try {
-      // First, get the final state of the records we just saved to IndexedDB.
-      const finalHyperciteRecord = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
+      const finalHyperciteRecord = await getHyperciteFromIndexedDB(
+        booka,
+        hyperciteIDa,
+      );
       const finalNodeChunkRecord = affectedStartLine
         ? await getNodeChunkFromIndexedDB(booka, affectedStartLine)
         : null;
-
       if (!finalHyperciteRecord || !finalNodeChunkRecord) {
-        throw new Error("Could not retrieve updated records from IndexedDB for sync.");
+        throw new Error(
+          "Could not retrieve updated records from IndexedDB for sync.",
+        );
       }
-
-      // Now, attempt the immediate sync.
       const didSyncImmediately = await syncHyperciteUpdateImmediately(
         finalHyperciteRecord,
         finalNodeChunkRecord,
       );
-
-      // If the immediate sync failed (or we were offline), fallback to the queue.
       if (!didSyncImmediately) {
         console.log(
           "🔄 Fallback: Queuing hypercite and nodeChunk for debounced sync.",
@@ -1647,11 +1664,9 @@ export function updateCitationForExistingHypercite(
       }
     } catch (error) {
       console.error("❌ Error during sync attempt:", error);
-      // Even if sync fails, the local operation succeeded, so we don't stop.
-      // The data is safe in IndexedDB.
     }
 
-    // --- ✅ SECTION 4: UPDATE TIMESTAMPS (Unchanged) ---
+    // 4) UPDATE TIMESTAMPS
     const affectedBooks = new Set([booka]);
     if (citationIDb) {
       const urlParts = citationIDb.split("/");
@@ -1664,7 +1679,7 @@ export function updateCitationForExistingHypercite(
       await updateBookTimestamp(bookId);
     }
 
-    // --- ✅ SECTION 5: RETURN SUCCESS (Unchanged) ---
+    // 5) RETURN SUCCESS
     return {
       success: true,
       startLine: affectedStartLine,
@@ -2537,6 +2552,75 @@ export async function syncHyperciteUpdateImmediately(
   } catch (error) {
     console.error("❌ Immediate sync failed, will fallback to queue.", error);
     return false; // Return false on any failure
+  }
+}
+
+// In cache-indexedDB.js
+
+/**
+ * Resolves a hypercite by first checking the local IndexedDB, and if not found,
+ * fetching it from the server. Caches the server result locally for future lookups.
+ * @param {string} bookId - The book identifier for the hypercite.
+ * @param {string} hyperciteId - The ID of the hypercite to find.
+ * @returns {Promise<object|null>} - The hypercite object if found, otherwise null.
+ */
+async function resolveHypercite(bookId, hyperciteId) {
+  // Path 1: Check local IndexedDB first. (Unchanged)
+  const localHypercite = await getHyperciteFromIndexedDB(bookId, hyperciteId);
+  if (localHypercite) {
+    console.log("✅ Resolved hypercite from local IndexedDB.");
+    return localHypercite;
+  }
+
+  // Path 2: If not found locally, check the server.
+  console.log(
+    "🤔 Hypercite not in local DB. Fetching hypercite and its entire parent book...",
+  );
+  try {
+    const response = await fetch(
+      `/api/db/hypercites/find/${bookId}/${hyperciteId}`,
+      { /* ... your fetch options ... */ }
+    );
+
+    if (!response.ok) {
+      // ... error handling is unchanged ...
+      return null;
+    }
+
+    const data = await response.json();
+    const serverHypercite = data.hypercite;
+    const serverNodeChunks = data.nodeChunks; // Note the plural
+
+    if (!serverHypercite || !serverNodeChunks || serverNodeChunks.length === 0) {
+        console.error("❌ Server response was missing hypercite or nodeChunks data.");
+        return null;
+    }
+
+    console.log(`✅ Resolved hypercite and ${serverNodeChunks.length} nodeChunks from server. Caching all...`);
+
+    // ✅ CACHE BOTH THE HYPERCITE AND ALL THE NODECHUNKS
+    const db = await openDatabase();
+    const tx = db.transaction(["hypercites", "nodeChunks"], "readwrite");
+    const hypercitesStore = tx.objectStore("hypercites");
+    const nodeChunksStore = tx.objectStore("nodeChunks");
+
+    // Put the single hypercite record
+    hypercitesStore.put(serverHypercite);
+
+    // Bulk-write all the node chunks
+    for (const chunk of serverNodeChunks) {
+        nodeChunksStore.put(chunk);
+    }
+
+    await tx.done;
+    console.log("✅ Successfully cached all records in IndexedDB.");
+
+    // Return just the hypercite, as the calling function expects.
+    return serverHypercite;
+
+  } catch (error) {
+    console.error("❌ Network error while fetching hypercite and book content:", error);
+    return null;
   }
 }
 

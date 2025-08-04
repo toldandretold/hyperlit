@@ -117,6 +117,11 @@ Route::middleware(['author', 'throttle:30,1'])->group(function () {
         '/db/sync/beacon', 
         [BeaconSyncController::class, 'handleSync']
         );
+
+     Route::get(
+        '/db/hypercites/find/{book}/{hyperciteId}',
+        [DbHyperciteController::class, 'find']
+    );
 });
 
 // API routes for transferring data from database to IndexedDB
