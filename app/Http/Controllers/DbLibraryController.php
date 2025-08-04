@@ -119,78 +119,71 @@ class DbLibraryController extends Controller
 
     // In app/Http/Controllers/DbLibraryController.php
 
-    public function upsert(Request $request)
-    {
-        return DB::transaction(function () use ($request) {
-            try {
-                $data = (array) $request->input('data');
-                $bookId = $data['book'] ?? null;
+public function upsert(Request $request)
+{
+    // The transaction is still a great idea to ensure the update is atomic.
+    return DB::transaction(function () use ($request) {
+        try {
+            $data = (array) $request->input('data');
+            $bookId = $data['book'] ?? null;
 
-                if (!$bookId) {
-                    return response()->json(['success' => false, 'message' => 'Book ID is required'], 400);
-                }
-
-                // Find the existing record first. Fail if it doesn't exist.
-                $libraryRecord = PgLibrary::where('book', $bookId)->firstOrFail();
-
-                // Get the current user's info
-                $currentUserInfo = $this->getCreatorInfo($request);
-                if (!$currentUserInfo['valid']) {
-                    return response()->json(['success' => false, 'message' => 'Invalid session'], 401);
-                }
-
-                // Check if the current user is the owner of the record
-                $isOwner = ($libraryRecord->creator && $libraryRecord->creator === $currentUserInfo['creator']) ||
-                           ($libraryRecord->creator_token && $libraryRecord->creator_token === $currentUserInfo['creator_token']);
-
-                Log::info('Library upsert permission check', [
-                    'book' => $bookId,
-                    'is_owner' => $isOwner,
-                    'record_owner_token' => $libraryRecord->creator_token,
-                    'request_user_token' => $currentUserInfo['creator_token']
-                ]);
-
-                if ($isOwner) {
-                    // OWNER: Can update all fields
-                    $updateData = [
-                        'title' => $data['title'] ?? $libraryRecord->title,
-                        'author' => $data['author'] ?? $libraryRecord->author,
-                        'type' => $data['type'] ?? $libraryRecord->type,
-                        'timestamp' => $data['timestamp'] ?? $libraryRecord->timestamp,
-                        'bibtex' => $data['bibtex'] ?? $libraryRecord->bibtex,
-                        // ... include all other editable fields ...
-                        'raw_json' => json_encode($data),
-                    ];
-                } else {
-                    // NON-OWNER: Can ONLY update the timestamp.
-                    // All other data from the request is ignored.
-                    $updateData = [
-                        'timestamp' => $data['timestamp'] ?? $libraryRecord->timestamp,
-                    ];
-                }
-
-                // Apply the update
-                $libraryRecord->update($updateData);
-
-                Log::info('Library record updated successfully', ['book' => $bookId, 'is_owner' => $isOwner]);
-
-                $chainResult = $this->executeChainedOperations();
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Library synced and chain completed successfully',
-                    'chain_result' => $chainResult
-                ]);
-
-            } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-                return response()->json(['success' => false, 'message' => 'Book not found'], 404);
-            } catch (\Exception $e) {
-                Log::error('Upsert failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-                return response()->json(['success' => false, 'message' => 'Failed to sync data', 'error' => $e->getMessage()], 500);
+            if (!$bookId) {
+                return response()->json(['success' => false, 'message' => 'Book ID is required'], 400);
             }
-        });
-    }
-        
+
+            $libraryRecord = PgLibrary::where('book', $bookId)->firstOrFail();
+
+            $currentUserInfo = $this->getCreatorInfo($request);
+            if (!$currentUserInfo['valid']) {
+                return response()->json(['success' => false, 'message' => 'Invalid session'], 401);
+            }
+
+            $isOwner = ($libraryRecord->creator && $libraryRecord->creator === $currentUserInfo['creator']) ||
+                       ($libraryRecord->creator_token && $libraryRecord->creator_token === $currentUserInfo['creator_token']);
+
+            // This logic remains exactly the same.
+            if ($isOwner) {
+                $updateData = [
+                    'title' => $data['title'] ?? $libraryRecord->title,
+                    'author' => $data['author'] ?? $libraryRecord->author,
+                    'type' => $data['type'] ?? $libraryRecord->type,
+                    'timestamp' => $data['timestamp'] ?? $libraryRecord->timestamp,
+                    'bibtex' => $data['bibtex'] ?? $libraryRecord->bibtex,
+                    'raw_json' => json_encode($data),
+                ];
+            } else {
+                $updateData = [
+                    'timestamp' => $data['timestamp'] ?? $libraryRecord->timestamp,
+                ];
+            }
+
+            // Apply the update (this is fast)
+            $libraryRecord->update($updateData);
+
+            Log::info('Library record updated successfully', ['book' => $bookId, 'is_owner' => $isOwner]);
+
+            // --- THE FIX ---
+            // 1. REMOVE the direct call to executeChainedOperations().
+            // $chainResult = $this->executeChainedOperations();
+
+            // 2. DISPATCH the job to the background queue instead. This is instant.
+            \App\Jobs\UpdateLibraryStatsJob::dispatch();
+
+            // 3. UPDATE the response to be immediate and informative.
+            return response()->json([
+                'success' => true,
+                'message' => 'Library record updated. Stats update is processing in the background.',
+                'library' => $libraryRecord->refresh(), // Return the updated record
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Book not found'], 404);
+        } catch (\Exception $e) {
+            Log::error('Upsert failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json(['success' => false, 'message' => 'Failed to sync data', 'error' => $e->getMessage()], 500);
+        }
+    });
+}
 
     // In app/Http/Controllers/DbLibraryController.php
 public function bulkCreate(Request $request)
@@ -253,19 +246,14 @@ public function bulkCreate(Request $request)
                     ['book' => $record['book']], // The unique key to find the record
                     $record                     // The data to insert or update with
                 );
-                
-                if (!$createdRecord) {
-                    throw new \Exception('Failed to create or update library record');
-                }
-                
-                $chainResult = $this->executeChainedOperations();
-                
-                // ✅ THIS IS THE FIX: Return the complete library object in the response.
+
+                \App\Jobs\UpdateLibraryStatsJob::dispatch(); 
+
                 return response()->json([
                     'success' => true,
-                    'message' => 'Library record created and chain completed',
-                    'library' => $createdRecord, // <-- THE CRITICAL ADDITION
-                    'chain_result' => $chainResult
+                    // The message is updated to reflect what's happening.
+                    'message' => 'Library record created. Stats update is processing in the background.',
+                    'library' => $createdRecord,
                 ]);
             }
             
