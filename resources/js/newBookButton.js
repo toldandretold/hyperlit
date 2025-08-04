@@ -1,17 +1,20 @@
 import { ContainerManager } from "./container-manager.js";
 import { openDatabase } from "./cache-indexedDB.js";
-import { createNewBook } from "./createNewBook.js";
 import { transitionToReaderView } from './viewManager.js';
 import { ensureAuthInitialized } from "./auth.js";
 
+import { createNewBook, fireAndForgetSync } from "./createNewBook.js";
 
+import { setInitialBookSyncPromise } from "./operationState.js";
+
+ 
 
 export class NewBookContainerManager extends ContainerManager {
   constructor(
     containerId,
     overlayId,
     buttonId,
-    frozenContainerIds = []
+    frozenContainerIds = [],
   ) {
     super(containerId, overlayId, buttonId, frozenContainerIds);
 
@@ -20,7 +23,7 @@ export class NewBookContainerManager extends ContainerManager {
     this.button = document.getElementById(buttonId);
     this.buttonPosition = null;
     this.setupButtonListeners();
-    this.originalContent = null; // Store the original content
+    this.originalContent = null;
   }
 
  setupNewBookContainerStyles() {
@@ -45,21 +48,40 @@ export class NewBookContainerManager extends ContainerManager {
 
 
   setupButtonListeners() {
-    // ✅ THIS IS THE ONLY LISTENER YOU NEED. It is correct.
-    document.getElementById("createNewBook")?.addEventListener("click", async () => {
-      console.log("Create new book clicked");
-      
-      // First, close the popup
-      this.closeContainer();
+    // ✅ 4. THIS IS THE MAIN FIX. Replace your existing listener with this.
+    document
+      .getElementById("createNewBook")
+      ?.addEventListener("click", async () => {
+        console.log("Create new book clicked");
 
-      // Call the engine
-      const newBookId = await createNewBook(); 
+        // First, close the popup
+        this.closeContainer();
 
-      // Transition the view
-      if (newBookId) {
-        await transitionToReaderView(newBookId);
-      }
-    });
+        // 1. Create the book locally and get the full sync data object
+        const pendingSyncData = await createNewBook();
+
+        if (pendingSyncData) {
+          // 2. START the background sync immediately and get the promise
+          const syncPromise = fireAndForgetSync(
+            pendingSyncData.bookId,
+            true,
+            pendingSyncData,
+          ).finally(() => {
+            // Clear the promise from the state manager when the sync is fully complete
+            console.log(
+              "SYNC STATE: Initial book sync promise has been resolved/cleared.",
+            );
+            setInitialBookSyncPromise(null);
+          });
+
+          // 3. ARM THE GATE: Store the promise in our global state manager
+          setInitialBookSyncPromise(syncPromise);
+
+          // 4. Now, transition to the new view. The user can start typing,
+          // but any attempt to save will be paused by the promise gate.
+          await transitionToReaderView(pendingSyncData.bookId);
+        }
+      });
 
       // In your NewBookContainerManager class, update the importBook event listener:
 
