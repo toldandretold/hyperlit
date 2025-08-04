@@ -144,7 +144,7 @@ export async function loadHyperText(bookId) {
       // ✅ Pass the new `currentBook` variable down
       initializeLazyLoader(openHyperlightID, currentBook);
       // ✅ Use the new `currentBook` variable
-      checkAndUpdateIfNeeded(currentBook);
+      checkAndUpdateIfNeeded(currentBook, currentLazyLoader);
 
       return;
     }
@@ -430,7 +430,9 @@ function navigateToElement(elementId) {
   } else {
     console.log(`Element not found: ${elementId}, will try loading more content`);
   }
-}async function checkAndUpdateIfNeeded(bookId) {
+}
+
+async function checkAndUpdateIfNeeded(bookId, lazyLoader) {
   // ===================== THE FIX =====================
   // First, check if this is the brand-new book we just created.
   const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");
@@ -453,6 +455,15 @@ function navigateToElement(elementId) {
       );
     }
   }
+
+  // This part only runs for EXISTING books.
+  if (!lazyLoader) {
+    console.warn(
+      "⚠️ Timestamp check skipped: lazyLoader instance not provided."
+    );
+    return;
+  }
+
   // ===================================================
 
   try {
@@ -465,20 +476,28 @@ function navigateToElement(elementId) {
       getLibraryRecordFromIndexedDB(bookId),
     ]);
 
-    // ... the rest of your function remains exactly the same
-    if (!serverRecord || !localRecord) {
-      console.log(
-        "⚠️ Missing server or local library record for timestamp comparison"
-      );
-      console.log("Server record:", serverRecord);
-      console.log("Local record:", localRecord);
-      return;
-    }
+    const serverTimestamp = new Date(serverRecord.timestamp).getTime();
+    const localTimestamp = new Date(localRecord.timestamp).getTime();
 
-    // ... etc.
+    if (serverTimestamp > localTimestamp) {
+      console.log(
+        `🔥 Server content is newer for ${bookId}. Syncing in background...`
+      );
+      await syncBookDataFromDatabase(bookId, true); // Download new data
+      notifyContentUpdated();
+
+      // Tell the already-rendered page to refresh itself with the new data.
+      console.log(
+        `🔄 Triggering lazyLoader.refresh() to display updated content.`
+      );
+      await lazyLoader.refresh();
+    } else {
+      console.log(
+        `✅ Local content is up-to-date for ${bookId}. No action needed.`
+      );
+    }
   } catch (err) {
-    console.error("❌ Error during timestamp check:", err);
-    console.error("Error stack:", err.stack);
+    console.error("❌ Error during background timestamp check:", err);
   }
 }
 
