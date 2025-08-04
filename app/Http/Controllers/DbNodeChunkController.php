@@ -256,6 +256,8 @@ class DbNodeChunkController extends Controller
         }
     }
 
+    // In app/Http/Controllers/DbNodeChunkController.php
+
     public function targetedUpsert(Request $request)
     {
         try {
@@ -267,82 +269,60 @@ class DbNodeChunkController extends Controller
             ]);
             
             if (!isset($data['data']) || !is_array($data['data']) || empty($data['data'])) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid data format'
-                ], 400);
+                return response()->json(['success' => false, 'message' => 'Invalid data format'], 400);
             }
             
-            // Get book ID from first item
             $firstItem = $data['data'][0];
             $bookId = $firstItem['book'] ?? null;
             
             if (!$bookId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Book ID is required'
-                ], 400);
+                return response()->json(['success' => false, 'message' => 'Book ID is required'], 400);
             }
-            
-            // Check if this is a public-fields-only update
-            $isPublicUpdate = true;
-            foreach ($data['data'] as $item) {
-                if (!$this->isPublicFieldsOnlyUpdate($item)) {
-                    $isPublicUpdate = false;
-                    break;
-                }
-            }
-            
-            // Only check book permissions if it's not a public update
-            if (!$isPublicUpdate && !$this->checkBookPermission($request, $bookId)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Access denied'
-                ], 403);
-            }
-            
-            Log::info('Targeted upsert permissions', [
+
+            // ===================== THE FIX STARTS HERE =====================
+
+            // We check permission once for the book, as it's the same for the whole batch.
+            $hasPermission = $this->checkBookPermission($request, $bookId);
+
+            Log::info('Targeted upsert permissions check', [
                 'book' => $bookId,
-                'is_public_update' => $isPublicUpdate,
-                'permission_check_required' => !$isPublicUpdate
+                'user_has_ownership_permission' => $hasPermission
             ]);
-            
+
             $processedCount = 0;
             $deletedCount = 0;
             $upsertedCount = 0;
             
             foreach ($data['data'] as $index => $item) {
-                // Verify each item is for the same book (security check)
                 if (($item['book'] ?? null) !== $bookId) {
                     Log::warning('Book mismatch in targeted upsert', [
                         'expected_book' => $bookId,
                         'item_book' => $item['book'] ?? null,
                         'item_index' => $index
                     ]);
-                    continue; // Skip this item
+                    continue;
                 }
                 
-                // Handle deletion requests
                 if (isset($item['_action']) && $item['_action'] === 'delete') {
-                    $deleted = PgNodeChunk::where('book', $item['book'])
-                        ->where('startLine', $item['startLine'])
-                        ->delete();
-                    
-                    $deletedCount += $deleted;
+                    // Deletion should only be allowed for owners
+                    if ($hasPermission) {
+                        $deleted = PgNodeChunk::where('book', $item['book'])
+                            ->where('startLine', $item['startLine'])
+                            ->delete();
+                        $deletedCount += $deleted;
+                    } else {
+                        Log::warning('Attempted deletion by non-owner denied.', [
+                            'book' => $bookId,
+                            'startLine' => $item['startLine'] ?? 'unknown'
+                        ]);
+                    }
                     $processedCount++;
                     continue;
                 }
                 
-                // Prepare update data based on whether it's a public update
-                if ($isPublicUpdate) {
-                    // Only update public fields
-                    $updateData = [
-                        'hyperlights' => $item['hyperlights'] ?? [],
-                        'hypercites' => $item['hypercites'] ?? [],
-                        'updated_at' => now(),
-                    ];
-                } else {
-                    // Full update (user owns the book)
+                // Build the update payload based on permissions
+                if ($hasPermission) {
+                    // OWNER: Can update all fields
                     $updateData = [
                         'chunk_id' => $item['chunk_id'] ?? null,
                         'content' => $item['content'] ?? null,
@@ -351,16 +331,24 @@ class DbNodeChunkController extends Controller
                         'hyperlights' => $item['hyperlights'] ?? [],
                         'plainText' => $item['plainText'] ?? null,
                         'type' => $item['type'] ?? null,
-                        'raw_json' => $item,
+                        'raw_json' => $this->cleanItemForStorage($item), // Use helper here
+                        'updated_at' => now(),
+                    ];
+                } else {
+                    // NON-OWNER (PUBLIC): Can ONLY update public fields.
+                    // We explicitly ignore any other fields sent in the request.
+                    $updateData = [
+                        'hyperlights' => $item['hyperlights'] ?? [],
+                        'hypercites' => $item['hypercites'] ?? [],
                         'updated_at' => now(),
                     ];
                 }
                 
-                // Upsert the record
+                // Upsert the record with the permission-filtered data
                 PgNodeChunk::updateOrCreate(
                     [
-                        'book' => $item['book'] ?? null,
-                        'startLine' => $item['startLine'] ?? null,
+                        'book' => $item['book'],
+                        'startLine' => $item['startLine'],
                     ],
                     $updateData
                 );
@@ -369,12 +357,13 @@ class DbNodeChunkController extends Controller
                 $processedCount++;
             }
             
+            // ===================== THE FIX ENDS HERE =====================
+
             Log::info('Targeted upsert completed', [
                 'book' => $bookId,
                 'total_processed' => $processedCount,
                 'deleted_count' => $deletedCount,
                 'upserted_count' => $upsertedCount,
-                'is_public_update' => $isPublicUpdate
             ]);
             
             return response()->json([
@@ -385,7 +374,8 @@ class DbNodeChunkController extends Controller
         } catch (\Exception $e) {
             Log::error('Targeted upsert failed', [
                 'error' => $e->getMessage(),
-                'book' => $data['data'][0]['book'] ?? 'unknown'
+                'book' => $data['data'][0]['book'] ?? 'unknown',
+                'trace' => $e->getTraceAsString() // More detailed logging
             ]);
             
             return response()->json([
