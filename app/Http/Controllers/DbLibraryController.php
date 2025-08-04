@@ -117,106 +117,80 @@ class DbLibraryController extends Controller
         }
     }
 
-    // Update your upsert method with better debugging
+    // In app/Http/Controllers/DbLibraryController.php
+
     public function upsert(Request $request)
     {
         return DB::transaction(function () use ($request) {
             try {
-                $data = $request->input('data'); // Get the 'data' object from the request
-                
-                // Get creator info based on auth state
-                $creatorInfo = $this->getCreatorInfo($request);
-                if (!$creatorInfo['valid']) {
-                    Log::warning('Invalid session in upsert', [
-                        'creator_info' => $creatorInfo,
-                        'cookies' => $request->cookies->all()
-                    ]);
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Invalid session',
-                    ], 401);
-                }
-                
-                if (isset($data) && (is_object($data) || is_array($data))) {
-                    $item = (array) $data;
-                    
-                    $bookId = $item['book'] ?? null;
-                    if (!$bookId) {
-                        return response()->json(['success' => false, 'message' => 'Book ID is required'], 400);
-                    }
-                    
-                    Log::info('Processing upsert with validated session', [
-                        'book' => $bookId,
-                        'creator_from_server' => $creatorInfo['creator'],
-                        'creator_token_present' => $creatorInfo['creator_token'] ? 'yes' : 'no',
-                    ]);
-                    
-                    // Prepare the data for upsert
-                    $upsertData = [
-                        'book' => $bookId,
-                        'citationID' => $item['citationID'] ?? $bookId, // Default citationID to bookId if not present
-                        'title' => $item['title'] ?? null,
-                        'author' => $item['author'] ?? null,
-                        'creator' => $creatorInfo['creator'], // Use server-determined creator
-                        'creator_token' => $creatorInfo['creator_token'], // Use server-determined token
-                        'type' => $item['type'] ?? null,
-                        'timestamp' => $item['timestamp'] ?? null,
-                        'bibtex' => $item['bibtex'] ?? null,
-                        'year' => $item['year'] ?? null,
-                        'publisher' => $item['publisher'] ?? null,
-                        'journal' => $item['journal'] ?? null,
-                        'pages' => $item['pages'] ?? null,
-                        'url' => $item['url'] ?? null,
-                        'note' => $item['note'] ?? null,
-                        'school' => $item['school'] ?? null,
-                        'fileName' => $item['fileName'] ?? null,
-                        'fileType' => $item['fileType'] ?? null,
-                        'recent' => $item['recent'] ?? null,
-                        'total_views' => $item['total_views'] ?? 0,
-                        'total_highlights' => $item['total_highlights'] ?? 0,
-                        'total_citations' => $item['total_citations'] ?? 0,
-                        'raw_json' => json_encode($item), // Ensure it's a JSON string
-                        'updated_at' => now(),
-                        // 'created_at' will be handled by the database on insert
-                    ];
+                $data = (array) $request->input('data');
+                $bookId = $data['book'] ?? null;
 
-                    // Use Laravel's upsert method
-                    // 1st arg: The values to insert or update (must be an array of arrays)
-                    // 2nd arg: The column(s) that uniquely identify records
-                    // 3rd arg: The column(s) to update if a record already exists
-                    PgLibrary::upsert(
-                        [$upsertData], // The data must be wrapped in an array
-                        ['book'],      // The unique key to check for duplicates
-                        array_keys($upsertData) // Update all columns from the provided data
-                    );
-                    
-                    Log::info('Library record upserted successfully', ['book' => $bookId]);
-                    
-                    // Chain the subsequent operations AFTER successful upsert
-                    $chainResult = $this->executeChainedOperations();
-                    
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Library synced and chain completed successfully',
-                        'chain_result' => $chainResult
-                    ]);
+                if (!$bookId) {
+                    return response()->json(['success' => false, 'message' => 'Book ID is required'], 400);
                 }
-                
-                return response()->json(['success' => false, 'message' => 'Invalid data format'], 400);
-                
-            } catch (\Exception $e) {
-                Log::error('Upsert failed: ' . $e->getMessage(), [
-                    'trace' => $e->getTraceAsString()
+
+                // Find the existing record first. Fail if it doesn't exist.
+                $libraryRecord = PgLibrary::where('book', $bookId)->firstOrFail();
+
+                // Get the current user's info
+                $currentUserInfo = $this->getCreatorInfo($request);
+                if (!$currentUserInfo['valid']) {
+                    return response()->json(['success' => false, 'message' => 'Invalid session'], 401);
+                }
+
+                // Check if the current user is the owner of the record
+                $isOwner = ($libraryRecord->creator && $libraryRecord->creator === $currentUserInfo['creator']) ||
+                           ($libraryRecord->creator_token && $libraryRecord->creator_token === $currentUserInfo['creator_token']);
+
+                Log::info('Library upsert permission check', [
+                    'book' => $bookId,
+                    'is_owner' => $isOwner,
+                    'record_owner_token' => $libraryRecord->creator_token,
+                    'request_user_token' => $currentUserInfo['creator_token']
                 ]);
+
+                if ($isOwner) {
+                    // OWNER: Can update all fields
+                    $updateData = [
+                        'title' => $data['title'] ?? $libraryRecord->title,
+                        'author' => $data['author'] ?? $libraryRecord->author,
+                        'type' => $data['type'] ?? $libraryRecord->type,
+                        'timestamp' => $data['timestamp'] ?? $libraryRecord->timestamp,
+                        'bibtex' => $data['bibtex'] ?? $libraryRecord->bibtex,
+                        // ... include all other editable fields ...
+                        'raw_json' => json_encode($data),
+                    ];
+                } else {
+                    // NON-OWNER: Can ONLY update the timestamp.
+                    // All other data from the request is ignored.
+                    $updateData = [
+                        'timestamp' => $data['timestamp'] ?? $libraryRecord->timestamp,
+                    ];
+                }
+
+                // Apply the update
+                $libraryRecord->update($updateData);
+
+                Log::info('Library record updated successfully', ['book' => $bookId, 'is_owner' => $isOwner]);
+
+                $chainResult = $this->executeChainedOperations();
+
                 return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to sync data',
-                    'error' => $e->getMessage()
-                ], 500);
+                    'success' => true,
+                    'message' => 'Library synced and chain completed successfully',
+                    'chain_result' => $chainResult
+                ]);
+
+            } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+                return response()->json(['success' => false, 'message' => 'Book not found'], 404);
+            } catch (\Exception $e) {
+                Log::error('Upsert failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+                return response()->json(['success' => false, 'message' => 'Failed to sync data', 'error' => $e->getMessage()], 500);
             }
         });
     }
-    
+        
 
     // In app/Http/Controllers/DbLibraryController.php
 public function bulkCreate(Request $request)
