@@ -1526,20 +1526,21 @@ export function toPublicChunk(chunk) {
   };
 }
 
-// In cache-indexedDB.js
+
 
 // In cache-indexedDB.js
 
 export function updateCitationForExistingHypercite(
   booka,
   hyperciteIDa,
-  citationIDb
+  citationIDb,
 ) {
   return withPending(async () => {
     console.log(
-      `Updating citation: book=${booka}, hyperciteID=${hyperciteIDa}, citationIDb=${citationIDb}`
+      `Updating citation: book=${booka}, hyperciteID=${hyperciteIDa}, citationIDb=${citationIDb}`,
     );
 
+    // --- This section remains unchanged ---
     let affectedStartLine = null;
     const nodeChunks = await getNodeChunksFromIndexedDB(booka);
     if (!nodeChunks?.length) {
@@ -1561,7 +1562,7 @@ export function updateCitationForExistingHypercite(
         booka,
         startLine,
         hyperciteIDa,
-        citationIDb
+        citationIDb,
       );
 
       if (result.success) {
@@ -1574,16 +1575,15 @@ export function updateCitationForExistingHypercite(
 
     if (!foundAndUpdated) {
       console.log(
-        `No matching hypercite found in book ${booka} with ID ${hyperciteIDa}`
+        `No matching hypercite found in book ${booka} with ID ${hyperciteIDa}`,
       );
       return { success: false, startLine: null, newStatus: null };
     }
 
     // 2) Update the hypercites object store itself
-    // MODIFIED: Renamed `existing` to `existingHypercite` for clarity and to fix the error.
     const existingHypercite = await getHyperciteFromIndexedDB(
       booka,
-      hyperciteIDa
+      hyperciteIDa,
     );
     if (!existingHypercite) {
       console.error(`Hypercite ${hyperciteIDa} not found in book ${booka}`);
@@ -1596,22 +1596,62 @@ export function updateCitationForExistingHypercite(
     }
     existingHypercite.relationshipStatus = updatedRelationshipStatus;
 
-    const hyperciteSuccess = await updateHyperciteInIndexedDB(
-      booka,
-      hyperciteIDa,
-      {
-        citedIN: existingHypercite.citedIN,
-        relationshipStatus: updatedRelationshipStatus,
-        hypercitedHTML: `<u id="${hyperciteIDa}" class="${updatedRelationshipStatus}">${existingHypercite.hypercitedText}</u>`,
-      }
-    );
+    const hyperciteSuccess = await updateHyperciteInIndexedDB(booka, hyperciteIDa, {
+      citedIN: existingHypercite.citedIN,
+      relationshipStatus: updatedRelationshipStatus,
+      hypercitedHTML: `<u id="${hyperciteIDa}" class="${updatedRelationshipStatus}">${existingHypercite.hypercitedText}</u>`,
+    });
 
     if (!hyperciteSuccess) {
       console.error(`Failed to update hypercite ${hyperciteIDa}`);
       return { success: false, startLine: null, newStatus: null };
     }
 
-    // 3) Update timestamps for all affected books
+    // --- ✅ SECTION 3: TRY IMMEDIATE SYNC WITH FALLBACK ---
+    // This replaces your original `queueForSync` block.
+
+    try {
+      // First, get the final state of the records we just saved to IndexedDB.
+      const finalHyperciteRecord = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
+      const finalNodeChunkRecord = affectedStartLine
+        ? await getNodeChunkFromIndexedDB(booka, affectedStartLine)
+        : null;
+
+      if (!finalHyperciteRecord || !finalNodeChunkRecord) {
+        throw new Error("Could not retrieve updated records from IndexedDB for sync.");
+      }
+
+      // Now, attempt the immediate sync.
+      const didSyncImmediately = await syncHyperciteUpdateImmediately(
+        finalHyperciteRecord,
+        finalNodeChunkRecord,
+      );
+
+      // If the immediate sync failed (or we were offline), fallback to the queue.
+      if (!didSyncImmediately) {
+        console.log(
+          "🔄 Fallback: Queuing hypercite and nodeChunk for debounced sync.",
+        );
+        queueForSync(
+          "nodeChunks",
+          finalNodeChunkRecord.startLine,
+          "update",
+          finalNodeChunkRecord,
+        );
+        queueForSync(
+          "hypercites",
+          finalHyperciteRecord.hyperciteId,
+          "update",
+          finalHyperciteRecord,
+        );
+      }
+    } catch (error) {
+      console.error("❌ Error during sync attempt:", error);
+      // Even if sync fails, the local operation succeeded, so we don't stop.
+      // The data is safe in IndexedDB.
+    }
+
+    // --- ✅ SECTION 4: UPDATE TIMESTAMPS (Unchanged) ---
     const affectedBooks = new Set([booka]);
     if (citationIDb) {
       const urlParts = citationIDb.split("/");
@@ -1621,36 +1661,10 @@ export function updateCitationForExistingHypercite(
       }
     }
     for (const bookId of affectedBooks) {
-      await updateBookTimestamp(bookId); // This will correctly queue the library updates
+      await updateBookTimestamp(bookId);
     }
 
-    // 4) Queue the updated records for synchronization
-    try {
-      if (affectedStartLine) {
-        const updatedNodeChunk = await getNodeChunkFromIndexedDB(
-          booka,
-          affectedStartLine
-        );
-        if (updatedNodeChunk) {
-          queueForSync(
-            "nodeChunks",
-            affectedStartLine,
-            "update",
-            updatedNodeChunk
-          );
-        }
-      }
-      // MODIFIED: Use the correct variable name here.
-      queueForSync(
-        "hypercites",
-        hyperciteIDa,
-        "update",
-        existingHypercite
-      );
-    } catch (error) {
-      console.error("❌ Error queueing for sync:", error);
-    }
-
+    // --- ✅ SECTION 5: RETURN SUCCESS (Unchanged) ---
     return {
       success: true,
       startLine: affectedStartLine,
@@ -2430,6 +2444,100 @@ export async function getLibraryObjectFromIndexedDB(book) {
   }
 }
 
+// In cache-indexedDB.js
 
+/**
+ * TRIES to immediately sync a hypercite and its parent nodeChunk.
+ * Returns `true` on success and `false` on failure, allowing for a fallback.
+ * @param {object} updatedHypercite - The full hypercite object to sync.
+ * @param {object} updatedNodeChunk - The full nodeChunk object that contains the hypercite.
+ * @returns {Promise<boolean>} - A promise that resolves to true if sync was successful, false otherwise.
+ */
+export async function syncHyperciteUpdateImmediately(
+  updatedHypercite,
+  updatedNodeChunk,
+) {
+  // 1. Quick check for offline status
+  if (!navigator.onLine) {
+    console.log(
+      "🔌 Browser is offline. Skipping immediate sync, will fallback to queue.",
+    );
+    return false;
+  }
+
+  console.log(
+    "⚡ Attempting IMMEDIATE sync for hypercite:",
+    updatedHypercite.hyperciteId,
+  );
+  try {
+    const syncPromises = [];
+
+    // Promise for syncing the hypercite
+    if (updatedHypercite) {
+      const hypercitePayload = {
+        book: updatedHypercite.book,
+        data: [updatedHypercite],
+      };
+      syncPromises.push(
+        fetch("/api/db/hypercites/upsert", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN": document
+              .querySelector('meta[name="csrf-token"]')
+              ?.getAttribute("content"),
+          },
+          credentials: "include",
+          body: JSON.stringify(hypercitePayload),
+        }).then((res) => {
+          if (!res.ok) {
+            // Throw an error to be caught by the outer catch block
+            throw new Error(
+              `Immediate hypercite sync failed with status: ${res.status}`,
+            );
+          }
+          console.log("✅ Immediate hypercite sync successful.");
+          return res.json();
+        }),
+      );
+    }
+
+    // Promise for syncing the nodeChunk
+    if (updatedNodeChunk) {
+      const nodeChunkPayload = {
+        book: updatedNodeChunk.book,
+        data: [toPublicChunk(updatedNodeChunk)],
+      };
+      syncPromises.push(
+        fetch("/api/db/node-chunks/targeted-upsert", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN": document
+              .querySelector('meta[name="csrf-token"]')
+              ?.getAttribute("content"),
+          },
+          credentials: "include",
+          body: JSON.stringify(nodeChunkPayload),
+        }).then((res) => {
+          if (!res.ok) {
+            throw new Error(
+              `Immediate nodeChunk sync failed with status: ${res.status}`,
+            );
+          }
+          console.log("✅ Immediate nodeChunk sync successful.");
+          return res.json();
+        }),
+      );
+    }
+
+    await Promise.all(syncPromises);
+    console.log("⚡ Immediate sync transaction complete.");
+    return true; // Return true on success
+  } catch (error) {
+    console.error("❌ Immediate sync failed, will fallback to queue.", error);
+    return false; // Return false on any failure
+  }
+}
 
 
