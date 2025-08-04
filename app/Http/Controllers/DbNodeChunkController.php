@@ -256,135 +256,104 @@ class DbNodeChunkController extends Controller
         }
     }
 
+
     // In app/Http/Controllers/DbNodeChunkController.php
 
-    public function targetedUpsert(Request $request)
-    {
-        try {
-            $data = $request->all();
-            
-            Log::info('Targeted upsert started', [
-                'data_count' => isset($data['data']) ? count($data['data']) : 0,
-                'request_size' => strlen(json_encode($data))
-            ]);
-            
-            if (!isset($data['data']) || !is_array($data['data']) || empty($data['data'])) {
-                return response()->json(['success' => false, 'message' => 'Invalid data format'], 400);
-            }
-            
-            $firstItem = $data['data'][0];
-            $bookId = $firstItem['book'] ?? null;
-            
-            if (!$bookId) {
-                return response()->json(['success' => false, 'message' => 'Book ID is required'], 400);
-            }
+// In app/Http/Controllers/DbNodeChunkController.php
 
-            // ===================== THE FIX STARTS HERE =====================
-
-            // We check permission once for the book, as it's the same for the whole batch.
-            $hasPermission = $this->checkBookPermission($request, $bookId);
-
-            Log::info('Targeted upsert permissions check', [
-                'book' => $bookId,
-                'user_has_ownership_permission' => $hasPermission
-            ]);
-
-            $processedCount = 0;
-            $deletedCount = 0;
-            $upsertedCount = 0;
-            
-            foreach ($data['data'] as $index => $item) {
-                if (($item['book'] ?? null) !== $bookId) {
-                    Log::warning('Book mismatch in targeted upsert', [
-                        'expected_book' => $bookId,
-                        'item_book' => $item['book'] ?? null,
-                        'item_index' => $index
-                    ]);
-                    continue;
-                }
-                
-                if (isset($item['_action']) && $item['_action'] === 'delete') {
-                    // Deletion should only be allowed for owners
-                    if ($hasPermission) {
-                        $deleted = PgNodeChunk::where('book', $item['book'])
-                            ->where('startLine', $item['startLine'])
-                            ->delete();
-                        $deletedCount += $deleted;
-                    } else {
-                        Log::warning('Attempted deletion by non-owner denied.', [
-                            'book' => $bookId,
-                            'startLine' => $item['startLine'] ?? 'unknown'
-                        ]);
-                    }
-                    $processedCount++;
-                    continue;
-                }
-                
-                // Build the update payload based on permissions
-                if ($hasPermission) {
-                    // OWNER: Can update all fields
-                    $updateData = [
-                        'chunk_id' => $item['chunk_id'] ?? null,
-                        'content' => $item['content'] ?? null,
-                        'footnotes' => $item['footnotes'] ?? [],
-                        'hypercites' => $item['hypercites'] ?? [],
-                        'hyperlights' => $item['hyperlights'] ?? [],
-                        'plainText' => $item['plainText'] ?? null,
-                        'type' => $item['type'] ?? null,
-                        'raw_json' => $this->cleanItemForStorage($item), // Use helper here
-                        'updated_at' => now(),
-                    ];
-                } else {
-                    // NON-OWNER (PUBLIC): Can ONLY update public fields.
-                    // We explicitly ignore any other fields sent in the request.
-                    $updateData = [
-                        'hyperlights' => $item['hyperlights'] ?? [],
-                        'hypercites' => $item['hypercites'] ?? [],
-                        'updated_at' => now(),
-                    ];
-                }
-                
-                // Upsert the record with the permission-filtered data
-                PgNodeChunk::updateOrCreate(
-                    [
-                        'book' => $item['book'],
-                        'startLine' => $item['startLine'],
-                    ],
-                    $updateData
-                );
-                
-                $upsertedCount++;
-                $processedCount++;
-            }
-            
-            // ===================== THE FIX ENDS HERE =====================
-
-            Log::info('Targeted upsert completed', [
-                'book' => $bookId,
-                'total_processed' => $processedCount,
-                'deleted_count' => $deletedCount,
-                'upserted_count' => $upsertedCount,
-            ]);
-            
-            return response()->json([
-                'success' => true, 
-                'message' => "Node chunks updated successfully (targeted)"
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Targeted upsert failed', [
-                'error' => $e->getMessage(),
-                'book' => $data['data'][0]['book'] ?? 'unknown',
-                'trace' => $e->getTraceAsString() // More detailed logging
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to sync data (targeted)',
-                'error' => $e->getMessage()
-            ], 500);
+public function targetedUpsert(Request $request)
+{
+    try {
+        $data = $request->all();
+        
+        if (!isset($data['data']) || !is_array($data['data']) || empty($data['data'])) {
+            return response()->json(['success' => false, 'message' => 'Invalid data format'], 400);
         }
+        
+        $firstItem = $data['data'][0];
+        $bookId = $firstItem['book'] ?? null;
+        
+        if (!$bookId) {
+            return response()->json(['success' => false, 'message' => 'Book ID is required'], 400);
+        }
+
+        $hasPermission = $this->checkBookPermission($request, $bookId);
+
+        Log::info('Targeted upsert permissions check', [
+            'book' => $bookId,
+            'user_has_ownership_permission' => $hasPermission
+        ]);
+        
+        foreach ($data['data'] as $index => $item) {
+            if (($item['book'] ?? null) !== $bookId) { continue; }
+            if (isset($item['_action']) && $item['_action'] === 'delete') {
+                if ($hasPermission) {
+                    PgNodeChunk::where('book', $item['book'])->where('startLine', $item['startLine'])->delete();
+                }
+                continue;
+            }
+
+            $existingChunk = PgNodeChunk::where('book', 'like', $item['book'])
+                ->where('startLine', $item['startLine'])
+                ->first();
+
+            if ($hasPermission) {
+                // OWNER: Can update all fields.
+                $updateData = [
+                    'chunk_id' => $item['chunk_id'] ?? ($existingChunk->chunk_id ?? null),
+                    'content' => $item['content'] ?? ($existingChunk->content ?? null),
+                    'footnotes' => $item['footnotes'] ?? ($existingChunk->footnotes ?? []),
+                    'hypercites' => $item['hypercites'] ?? ($existingChunk->hypercites ?? []),
+                    'hyperlights' => $item['hyperlights'] ?? ($existingChunk->hyperlights ?? []),
+                    'plainText' => $item['plainText'] ?? ($existingChunk->plainText ?? null),
+                    'type' => $item['type'] ?? ($existingChunk->type ?? null),
+                    'raw_json' => $this->cleanItemForStorage($item),
+                ];
+            } else {
+                // ===================== THE DEFINITIVE FIX =====================
+                // NON-OWNER (PUBLIC): Merge public fields.
+                
+                // Get the raw_json, which Laravel has already cast to an array.
+                $currentRawJson = $existingChunk ? $existingChunk->raw_json : [];
+                
+                // Safeguard in case the cast fails or data is null/malformed.
+                if (!is_array($currentRawJson)) { $currentRawJson = []; }
+
+                // Merge new public data into the existing raw_json data.
+                $currentRawJson['hyperlights'] = $item['hyperlights'] ?? $currentRawJson['hyperlights'] ?? [];
+                $currentRawJson['hypercites'] = $item['hypercites'] ?? $currentRawJson['hypercites'] ?? [];
+
+                $updateData = [
+                    // Use the merged data for the dedicated columns.
+                    'hyperlights' => $currentRawJson['hyperlights'],
+                    'hypercites' => $currentRawJson['hypercites'],
+                    // Provide the complete, updated raw_json.
+                    'raw_json' => $this->cleanItemForStorage($currentRawJson),
+                ];
+                // ===================== END OF FIX =====================
+            }
+            
+            $updateData['updated_at'] = now();
+
+            PgNodeChunk::updateOrCreate(
+                ['book' => $item['book'], 'startLine' => $item['startLine']],
+                $updateData
+            );
+        }
+        
+        Log::info('Targeted upsert completed successfully');
+        return response()->json(['success' => true, 'message' => "Node chunks updated successfully (targeted)"]);
+
+    } catch (\Exception $e) {
+        Log::error('Targeted upsert failed', [
+            'error' => $e->getMessage(),
+            'book' => $data['data'][0]['book'] ?? 'unknown',
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return response()->json(['success' => false, 'message' => 'Failed to sync data (targeted)', 'error' => $e->getMessage()], 500);
     }
+}
 
     private function cleanItemForStorage($item)
     {
