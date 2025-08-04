@@ -2,7 +2,7 @@
 
 import { book, setCurrentBook } from "./app.js";
 import { loadHyperText } from "./initializePage.js";
-import { stopObserving } from "./divEditor.js";
+import { stopObserving, initTitleSync } from "./divEditor.js";
 import { initEditToolbar, destroyEditToolbar } from "./editToolbar.js";
 import NavButtons from "./nav-buttons.js";
 import { restoreScrollPosition } from "./scrolling.js";
@@ -120,6 +120,8 @@ export async function initializeReaderView() {
 
   await loadPromise;
   console.log("✅ Content loading process complete.");
+
+  await initTitleSync(currentBookId);
 
   activeKeyboardManager = new KeyboardManager();
 
