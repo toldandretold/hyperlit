@@ -155,14 +155,11 @@ async function syncNewBookToPostgreSQL(bookId, libraryData = null) {
 
 
 
-// This is the correct, offline-first version.
 export async function createNewBook() {
   try {
     const db = await openDatabase();
     const bookId = "book_" + Date.now();
 
-    // Create the records with NULL for creator fields.
-    // Your Laravel backend will fill these in correctly during the sync.
     const newLibraryRecord = {
       book: bookId,
       citationID: bookId,
@@ -170,8 +167,8 @@ export async function createNewBook() {
       author: null,
       type: "book",
       timestamp: Date.now(),
-      creator: null,       // <-- INTENTIONALLY NULL
-      creator_token: null, // <-- INTENTIONALLY NULL
+      creator: null,
+      creator_token: null,
     };
     newLibraryRecord.bibtex = buildBibtexEntry(newLibraryRecord);
 
@@ -184,7 +181,6 @@ export async function createNewBook() {
       hypercites: [],
     };
 
-    // The rest of the function is correct.
     const tx = db.transaction(["library", "nodeChunks"], "readwrite");
     tx.objectStore("library").put(newLibraryRecord);
     await addNewBookToIndexedDB(
@@ -192,7 +188,7 @@ export async function createNewBook() {
       initialNodeChunk.startLine,
       initialNodeChunk.content,
       initialNodeChunk.chunk_id,
-      tx
+      tx,
     );
 
     await new Promise((resolve, reject) => {
@@ -200,22 +196,28 @@ export async function createNewBook() {
       tx.onerror = (e) => reject(e.target.error);
     });
 
+    // ✅ THE CHANGE: Create the full data object here.
+    const pendingSyncData = {
+      bookId: bookId,
+      isNewBook: true,
+      libraryRecord: newLibraryRecord,
+      nodeChunks: [initialNodeChunk],
+    };
+
+    // We still save to sessionStorage as a fallback for page reloads.
     sessionStorage.setItem(
       "pending_new_book_sync",
-      JSON.stringify({
-        bookId: bookId,
-        isNewBook: true,
-        libraryRecord: newLibraryRecord,
-        nodeChunks: [initialNodeChunk],
-      })
+      JSON.stringify(pendingSyncData),
     );
 
-    // This will now work instantly, even if you are offline.
-    return bookId;
-
+    // ✅ Return the full object, not just the ID.
+    return pendingSyncData;
   } catch (err) {
     console.error("createNewBook() failed:", err);
-    alert("An error occurred while creating the book locally. Please try again.");
+    alert(
+      "An error occurred while creating the book locally. Please try again.",
+    );
+    return null; // Return null on failure.
   }
 }
 

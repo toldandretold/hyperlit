@@ -1,4 +1,4 @@
-// In resources/js/viewInitializers.js
+/*
 
 import { book, setCurrentBook } from "./app.js";
 import { loadHyperText } from "./initializePage.js";
@@ -22,47 +22,34 @@ import {
   updateEditButtonVisibility,
 } from "./editButton.js";
 import { initializeSourceButtonListener } from "./sourceButton.js";
-// ✅ CORRECTED IMPORT: Bring in both functions.
 import {
   initializeSelectionHandler,
   destroySelectionHandler,
 } from "./selectionHandler.js";
 
-// ========================================================================
-// 1. STATE MANAGEMENT FOR ACTIVE COMPONENTS
-// ========================================================================
+// State management and cleanup are correct.
 let activeNavButtons = null;
 let activeKeyboardManager = null;
 
-// ========================================================================
-// 2. THE CLEANUP FUNCTION
-// ========================================================================
 function cleanupReaderView() {
   console.log("🧹 Cleaning up previous reader view...");
-
   if (activeNavButtons) {
-    // activeNavButtons.destroy(); // Assuming it has a destroy method
     activeNavButtons = null;
   }
   if (activeKeyboardManager) {
     activeKeyboardManager.destroy();
     activeKeyboardManager = null;
   }
-
   destroyEditToolbar();
   stopObserving();
-
-  // ✅ THE FIX: Explicitly destroy the old selection handler
-  // This removes its event listener and clears its stale DOM references.
   destroySelectionHandler();
 }
 
 // ========================================================================
-// 3. THE TRANSITION ORCHESTRATOR (No changes needed)
+// ✅ THIS IS THE FINAL, CORRECTED TRANSITION FUNCTION
 // ========================================================================
 export async function transitionToReaderView(bookId) {
   try {
-    // This now correctly cleans up the old selection handler before proceeding.
     cleanupReaderView();
 
     const response = await fetch(`/${bookId}/edit?target=1`);
@@ -72,34 +59,35 @@ export async function transitionToReaderView(bookId) {
     const parser = new DOMParser();
     const newDoc = parser.parseFromString(htmlString, "text/html");
 
-    const currentPageWrapper = document.getElementById("page-wrapper");
-    const newPageWrapper = newDoc.getElementById("page-wrapper");
+    // --- This is the robust update logic ---
+    const newBody = newDoc.body;
+    const newTitle = newDoc.title;
 
-    if (!currentPageWrapper || !newPageWrapper) {
-      console.error(
-        "Critical error: #page-wrapper not found. Falling back to full reload.",
-      );
-      window.location.href = `/${bookId}/edit?target=1&edit=1`;
-      return;
+    // Replace the entire body content and its attributes
+    document.body.innerHTML = newBody.innerHTML;
+
+    // Manually copy over the data attributes from the new body
+    for (const { name, value } of newBody.attributes) {
+      document.body.setAttribute(name, value);
     }
-    currentPageWrapper.innerHTML = newPageWrapper.innerHTML;
 
-    document.body.dataset.page = newDoc.body.dataset.page || "reader";
-    document.body.dataset.editMode = newDoc.body.dataset.editMode || "0";
-    document.title = newDoc.title;
+    // Update the page title
+    document.title = newTitle;
+    // --- End of robust update logic ---
 
     setCurrentBook(bookId);
     history.pushState({}, "", `/${bookId}/edit?target=1&edit=1`);
+
+    // Now that the DOM is completely new and correct, initialize it.
     await initializeReaderView();
   } catch (error) {
     console.error("SPA Transition Failed:", error);
+    // Fallback to a full page load if the SPA transition fails
     window.location.href = `/${bookId}/edit?target=1&edit=1`;
   }
 }
 
-// ========================================================================
-// 4. THE SETUP FUNCTION (No changes needed)
-// ========================================================================
+// The setup function is correct and does not need to be changed.
 export async function initializeReaderView() {
   const currentBookId = book;
   console.log(`🚀 Initializing Reader View for book: ${currentBookId}`);
@@ -121,8 +109,6 @@ export async function initializeReaderView() {
     initializeHighlightManager();
     initializeHighlightingControls(currentBookId);
     initializeHypercitingControls(currentBookId);
-
-    // This now initializes the handler with fresh references from the new DOM.
     initializeSelectionHandler();
 
     initEditToolbar({
@@ -148,3 +134,5 @@ export async function initializeReaderView() {
   generateTableOfContents("toc-container", "toc-toggle-button");
   handleAutoEdit();
 }
+
+/*

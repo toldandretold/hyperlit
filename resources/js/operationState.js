@@ -7,11 +7,31 @@ let unloadWarningActive = false;
 let programmaticUpdateInProgress = false;
 export let pasteInProgress = false;
 
-
-
-
 export let hypercitePasteInProgress = false;
 export let keyboardLayoutInProgress = false;
+
+
+let initialBookSyncPromise = null;
+
+/**
+ * Stores the promise for the initial book creation sync.
+ * @param {Promise<void> | null} promise
+ */
+export function setInitialBookSyncPromise(promise) {
+  console.log("SYNC STATE: Initial book sync promise has been set.");
+  initialBookSyncPromise = promise;
+}
+
+/**
+ * Retrieves the promise for the initial book creation sync.
+ * @returns {Promise<void> | null}
+ */
+export function getInitialBookSyncPromise() {
+  return initialBookSyncPromise;
+}
+
+
+
 
 export function setKeyboardLayoutInProgress(value) {
   keyboardLayoutInProgress = value;

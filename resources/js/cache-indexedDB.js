@@ -1,7 +1,7 @@
 // In cache-indexedDB.js
 
 import { broadcastToOpenTabs } from "./BroadcastListener.js";
-import { withPending } from "./operationState.js";
+import { withPending, getInitialBookSyncPromise } from "./operationState.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 import { getCurrentUser } from "./auth.js";
 import { debounce } from "./divEditor.js";
@@ -231,26 +231,15 @@ export const debouncedMasterSync = debounce(async () => {
   console.log(`DEBOUNCED SYNC: Processing ${pendingSyncs.size} items...`);
 
 
-  const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");
-  if (pendingSyncJSON) {
-    try {
-      const pendingSync = JSON.parse(pendingSyncJSON);
-      // If the pending sync is for the book we are currently processing...
-      if (pendingSync.bookId === bookId && window.pendingBookSyncPromise) {
-        console.log(
-          `[Debounced Sync] Waiting for initial creation of book ${bookId} to complete...`
-        );
-        // ...then we MUST wait for the initial creation to finish.
-        await window.pendingBookSyncPromise;
-        console.log(
-          `[Debounced Sync] Initial book creation complete. Proceeding with content sync.`
-        );
-        // Clean up the promise to prevent re-awaiting on subsequent syncs.
-        window.pendingBookSyncPromise = null;
-      }
-    } catch (e) {
-      console.error("Could not parse pending_new_book_sync", e);
-    }
+  const initialSyncPromise = getInitialBookSyncPromise();
+  if (initialSyncPromise) {
+    console.log(
+      "DEBOUNCED SYNC: Waiting for initial book sync to complete before proceeding...",
+    );
+    await initialSyncPromise;
+    console.log(
+      "DEBOUNCED SYNC: Initial book sync complete. Proceeding with edit sync.",
+    );
   }
   
   const itemsToSync = new Map(pendingSyncs);
