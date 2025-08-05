@@ -220,7 +220,7 @@ black #221F20;
   padding-left: 1em;
   padding-right: 2em;
   border-radius: 1em 1em;
-  font-size: 20px;
+  font-size: 16px;
 }
 .dragging {
         cursor: grabbing;
