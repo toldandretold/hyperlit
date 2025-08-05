@@ -7,7 +7,8 @@ import { openDatabase,
          updateBookTimestamp,
          toPublicChunk,
          queueForSync,
-         getNodeChunkFromIndexedDB  } from "./cache-indexedDB.js";
+         getNodeChunkFromIndexedDB,
+         debouncedMasterSync  } from "./cache-indexedDB.js";
 import { ContainerManager } from "./container-manager.js";
 import { formatBibtexToCitation } from "./bibtexProcessor.js";
 import { currentLazyLoader } from './initializePage.js';
@@ -221,7 +222,9 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
     console.log("Attempting to add NEW hypercite with book:", book);
     console.log("NEW Hypercite ID:", hyperciteId);
     if (!book || !hyperciteId) {
-      throw new Error("Missing key properties: book or hyperciteId is undefined.");
+      throw new Error(
+        "Missing key properties: book or hyperciteId is undefined.",
+      );
     }
 
     const tx = db.transaction(["hypercites", "nodeChunks"], "readwrite");
@@ -247,7 +250,8 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
     const hypercitedHTML = tempDiv.innerHTML;
     const hypercitedText = uElement.textContent;
     const overallStartChar = blocks.length > 0 ? blocks[0].charStart : 0;
-    const overallEndChar = blocks.length > 0 ? blocks[blocks.length - 1].charEnd : 0;
+    const overallEndChar =
+      blocks.length > 0 ? blocks[blocks.length - 1].charEnd : 0;
 
     // Build the initial hypercite record for the main hypercites store
     const hyperciteEntry = {
@@ -258,14 +262,17 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
       startChar: overallStartChar,
       endChar: overallEndChar,
       relationshipStatus: "single",
-      citedIN: []
+      citedIN: [],
     };
 
     console.log("Hypercite record to add (main store):", hyperciteEntry);
 
     const putRequestHypercites = hypercitesStore.put(hyperciteEntry);
     putRequestHypercites.onerror = (event) => {
-      console.error("❌ Error upserting hypercite record in main store:", event.target.error);
+      console.error(
+        "❌ Error upserting hypercite record in main store:",
+        event.target.error,
+      );
     };
     putRequestHypercites.onsuccess = () => {
       console.log("✅ Successfully upserted hypercite record in main store.");
@@ -273,9 +280,12 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
 
     // --- Update nodeChunks for each affected block ---
     const nodeChunksStore = tx.objectStore("nodeChunks");
-    const updatedNodeChunks = []; // 👈 ADD THIS: Array to collect updated node chunks
+    const updatedNodeChunks = []; // 👈 Array to collect updated node chunks
 
     for (const block of blocks) {
+      // ... (your existing, correct logic for updating nodeChunks)
+      // This loop populates the `updatedNodeChunks` array.
+      // No changes are needed inside this loop.
       console.log("Processing block for NEW hypercite:", block);
       if (block.startLine === undefined || block.startLine === null) {
         console.error("Block missing startLine:", block);
@@ -296,36 +306,49 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
       let updatedNodeChunkRecord;
 
       if (nodeChunkRecord) {
-        console.log("Existing nodeChunk record found:", JSON.stringify(nodeChunkRecord));
+        console.log(
+          "Existing nodeChunk record found:",
+          JSON.stringify(nodeChunkRecord),
+        );
 
         if (!Array.isArray(nodeChunkRecord.hypercites)) {
           nodeChunkRecord.hypercites = [];
-          console.log("⚠️ Created empty hypercites array in existing nodeChunk");
+          console.log(
+            "⚠️ Created empty hypercites array in existing nodeChunk",
+          );
         }
 
         const existingHyperciteIndex = nodeChunkRecord.hypercites.findIndex(
-          (hc) => hc.hyperciteId === hyperciteId
+          (hc) => hc.hyperciteId === hyperciteId,
         );
 
         if (existingHyperciteIndex !== -1) {
-          console.log(`Hypercite ${hyperciteId} already exists in nodeChunk, updating position.`);
-          nodeChunkRecord.hypercites[existingHyperciteIndex].charStart = block.charStart;
-          nodeChunkRecord.hypercites[existingHyperciteIndex].charEnd = block.charEnd;
+          console.log(
+            `Hypercite ${hyperciteId} already exists in nodeChunk, updating position.`,
+          );
+          nodeChunkRecord.hypercites[existingHyperciteIndex].charStart =
+            block.charStart;
+          nodeChunkRecord.hypercites[existingHyperciteIndex].charEnd =
+            block.charEnd;
         } else {
-          console.log(`Adding new hypercite ${hyperciteId} to existing nodeChunk.`);
+          console.log(
+            `Adding new hypercite ${hyperciteId} to existing nodeChunk.`,
+          );
           nodeChunkRecord.hypercites.push({
             hyperciteId: hyperciteId,
             charStart: block.charStart,
             charEnd: block.charEnd,
             relationshipStatus: "single",
-            citedIN: []
+            citedIN: [],
           });
         }
 
         updatedNodeChunkRecord = nodeChunkRecord;
-
       } else {
-        console.log("No existing nodeChunk record, creating new one with startLine:", numericStartLine);
+        console.log(
+          "No existing nodeChunk record, creating new one with startLine:",
+          numericStartLine,
+        );
         updatedNodeChunkRecord = {
           book: book,
           startLine: numericStartLine,
@@ -336,30 +359,40 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
               charStart: block.charStart,
               charEnd: block.charEnd,
               relationshipStatus: "single",
-              citedIN: []
-            }
-          ]
+              citedIN: [],
+            },
+          ],
         };
       }
 
-      console.log("NodeChunk record to put:", JSON.stringify(updatedNodeChunkRecord));
+      console.log(
+        "NodeChunk record to put:",
+        JSON.stringify(updatedNodeChunkRecord),
+      );
 
-      // 👈 ADD THIS: Store the updated record for API sync
-      console.log("About to save nodeChunk with hypercites:", JSON.stringify(updatedNodeChunkRecord.hypercites, null, 2));
+      console.log(
+        "About to save nodeChunk with hypercites:",
+        JSON.stringify(updatedNodeChunkRecord.hypercites, null, 2),
+      );
       updatedNodeChunks.push(updatedNodeChunkRecord);
 
       const putRequestNodeChunk = nodeChunksStore.put(updatedNodeChunkRecord);
       await new Promise((resolve, reject) => {
         putRequestNodeChunk.onsuccess = () => {
-          console.log(`✅ Updated nodeChunk [${book}, ${block.startLine}] with NEW hypercite info.`);
-          
-          // ✅ ADD THIS: Immediately read back what was actually saved
-          const verifyRequest = nodeChunksStore.get(createNodeChunksKey(book, block.startLine));
+          console.log(
+            `✅ Updated nodeChunk [${book}, ${block.startLine}] with NEW hypercite info.`,
+          );
+
+          const verifyRequest = nodeChunksStore.get(
+            createNodeChunksKey(book, block.startLine),
+          );
           verifyRequest.onsuccess = () => {
-            console.log("🔍 IMMEDIATELY AFTER SAVE - What was actually stored:", 
-                        JSON.stringify(verifyRequest.result.hypercites, null, 2));
+            console.log(
+              "🔍 IMMEDIATELY AFTER SAVE - What was actually stored:",
+              JSON.stringify(verifyRequest.result.hypercites, null, 2),
+            );
           };
-          
+
           resolve();
         };
         putRequestNodeChunk.onerror = (e) => {
@@ -376,12 +409,23 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
 
     console.log("✅ NEW Hypercite and affected nodeChunks updated.");
 
-    await updateBookTimestamp(book);
+    // --- START: SOLUTION ---
 
+    // 1. Queue all necessary updates. The `updateBookTimestamp` function
+    //    also uses `queueForSync` internally.
+    await updateBookTimestamp(book);
     queueForSync("hypercites", hyperciteId, "update", hyperciteEntry);
     updatedNodeChunks.forEach((chunk) => {
       queueForSync("nodeChunks", chunk.startLine, "update", chunk);
     });
+
+    // 2. Immediately flush the sync queue to the server. This bypasses the
+    //    3-second debounce delay, solving the race condition for cross-device pasting.
+    console.log("⚡ Flushing sync queue immediately for new hypercite...");
+    await debouncedMasterSync.flush();
+    console.log("✅ Sync queue flushed.");
+
+    // --- END: SOLUTION ---
   } catch (error) {
     console.error("❌ Error in NewHyperciteIndexedDB:", error);
   }
