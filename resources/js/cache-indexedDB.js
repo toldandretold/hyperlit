@@ -1052,12 +1052,14 @@ export function updateIndexedDBRecord(record) {
 export async function batchUpdateIndexedDBRecords(recordsToProcess) {
   return withPending(async () => {
     const bookId = book || "latest";
-    console.log(`🔄 Batch updating ${recordsToProcess.length} IndexedDB records`);
-    
+    console.log(
+      `🔄 Batch updating ${recordsToProcess.length} IndexedDB records`,
+    );
+
     const db = await openDatabase();
     const tx = db.transaction(
       ["nodeChunks", "hyperlights", "hypercites"],
-      "readwrite"
+      "readwrite",
     );
     const chunksStore = tx.objectStore("nodeChunks");
     const lightsStore = tx.objectStore("hyperlights");
@@ -1069,9 +1071,27 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
     const originalNodeChunkStates = new Map();
 
     // This is a critical step: Read all original states BEFORE any writes.
-    const readPromises = recordsToProcess.map(record => {
+    const readPromises = recordsToProcess.map((record) => {
       return new Promise((resolve) => {
+        // ✅ FIX 1: Add a check for a valid record and ID before proceeding.
+        if (!record || typeof record.id === "undefined" || record.id === null) {
+          console.error(
+            "Skipping invalid record in batch update (record or id is null/undefined):",
+            record,
+          );
+          return resolve(); // Resolve the promise to not block the batch.
+        }
+
         const numericNodeId = parseNodeId(record.id);
+
+        // ✅ FIX 2: The most important check. Ensure the parsed ID is a valid number.
+        if (isNaN(numericNodeId)) {
+          console.error(
+            `Skipping batch update for invalid node ID: '${record.id}' which parsed to NaN.`,
+          );
+          return resolve(); // Resolve and skip this invalid record.
+        }
+
         const getReq = chunksStore.get([bookId, numericNodeId]);
         getReq.onsuccess = () => {
           if (getReq.result) {
@@ -1079,65 +1099,93 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
           }
           resolve();
         };
-        getReq.onerror = () => resolve(); // Resolve even on error
+        getReq.onerror = (err) => {
+          console.error(
+            `Error getting record for batch update: ID=${record.id}`,
+            err,
+          );
+          resolve(); // Resolve even on error to not block the whole batch.
+        };
       });
     });
     await Promise.all(readPromises);
 
     // Now, perform the updates
-    const processPromises = recordsToProcess.map(record => {
-      return new Promise(async (resolve, reject) => {
-        // ... (your existing logic to build `toSave` object) ...
-        // This part is correct.
-        let nodeId = record.id;
-        let node = document.getElementById(nodeId);
-        while (node && !/^\d+(\.\d+)?$/.test(nodeId)) {
-          node = node.parentElement;
-          if (node?.id) nodeId = node.id;
-        }
+    const processPromises = recordsToProcess.map(async (record) => {
+      // ✅ FIX 3: Repeat the same validation here to avoid processing bad data.
+      if (!record || typeof record.id === "undefined" || record.id === null) {
+        return;
+      }
+      const numericNodeId = parseNodeId(record.id);
+      if (isNaN(numericNodeId)) {
+        return;
+      }
 
-        if (!/^\d+(\.\d+)?$/.test(nodeId)) {
-          console.log(`Skipping batch update – no valid parent for ${record.id}`);
-          return resolve();
-        }
+      // ... (your existing logic to build `toSave` object) ...
+      let nodeId = record.id;
+      let node = document.getElementById(nodeId);
+      while (node && !/^\d+(\.\d+)?$/.test(nodeId)) {
+        node = node.parentElement;
+        if (node?.id) nodeId = node.id;
+      }
 
-        const numericNodeId = parseNodeId(nodeId);
-        const existing = originalNodeChunkStates.get(numericNodeId);
-        const existingHypercites = existing?.hypercites || [];
-        const processedData = node ? processNodeContentHighlightsAndCites(node, existingHypercites) : null;
-        
-        let toSave;
-        if (existing) {
-          toSave = { ...existing };
-          if (processedData) {
-            toSave.content = processedData.content;
-            toSave.hyperlights = processedData.hyperlights;
-            toSave.hypercites = processedData.hypercites;
-          } else {
-            toSave.content = record.html || existing.content;
-          }
-          if (record.chunk_id !== undefined) toSave.chunk_id = record.chunk_id;
-        } else {
-          toSave = {
-            book: bookId,
-            startLine: numericNodeId,
-            chunk_id: record.chunk_id !== undefined ? record.chunk_id : 0,
-            content: processedData ? processedData.content : (record.html || ''),
-            hyperlights: processedData ? processedData.hyperlights : [],
-            hypercites: processedData ? processedData.hypercites : []
-          };
-        }
+      if (!/^\d+(\.\d+)?$/.test(nodeId)) {
+        console.log(
+          `Skipping batch update – no valid parent for ${record.id}`,
+        );
+        return;
+      }
 
-        chunksStore.put(toSave);
-        allSavedNodeChunks.push(toSave);
+      const finalNumericNodeId = parseNodeId(nodeId); // Use the final valid ID
+      const existing = originalNodeChunkStates.get(finalNumericNodeId);
+      const existingHypercites = existing?.hypercites || [];
+      const processedData = node
+        ? processNodeContentHighlightsAndCites(node, existingHypercites)
+        : null;
 
+      let toSave;
+      if (existing) {
+        toSave = { ...existing };
         if (processedData) {
-          updateHyperlightRecords(processedData.hyperlights, lightsStore, bookId, numericNodeId, allSavedHyperlights, node);
-          updateHyperciteRecords(processedData.hypercites, citesStore, bookId, allSavedHypercites, node);
+          toSave.content = processedData.content;
+          toSave.hyperlights = processedData.hyperlights;
+          toSave.hypercites = processedData.hypercites;
+        } else {
+          toSave.content = record.html || existing.content;
         }
+        if (record.chunk_id !== undefined)
+          toSave.chunk_id = record.chunk_id;
+      } else {
+        toSave = {
+          book: bookId,
+          startLine: finalNumericNodeId,
+          chunk_id: record.chunk_id !== undefined ? record.chunk_id : 0,
+          content: processedData ? processedData.content : record.html || "",
+          hyperlights: processedData ? processedData.hyperlights : [],
+          hypercites: processedData ? processedData.hypercites : [],
+        };
+      }
 
-        resolve();
-      });
+      chunksStore.put(toSave);
+      allSavedNodeChunks.push(toSave);
+
+      if (processedData) {
+        updateHyperlightRecords(
+          processedData.hyperlights,
+          lightsStore,
+          bookId,
+          finalNumericNodeId,
+          allSavedHyperlights,
+          node,
+        );
+        updateHyperciteRecords(
+          processedData.hypercites,
+          citesStore,
+          bookId,
+          allSavedHypercites,
+          node,
+        );
+      }
     });
     await Promise.all(processPromises);
 
@@ -1146,17 +1194,20 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
         console.log("✅ Batch IndexedDB update complete");
         await updateBookTimestamp(book || "latest");
 
-        // MODIFIED: Pass the original state to the queue.
         allSavedNodeChunks.forEach((chunk) => {
           const originalChunk = originalNodeChunkStates.get(chunk.startLine);
-          queueForSync("nodeChunks", chunk.startLine, "update", chunk, originalChunk);
+          queueForSync(
+            "nodeChunks",
+            chunk.startLine,
+            "update",
+            chunk,
+            originalChunk,
+          );
         });
         allSavedHyperlights.forEach((hl) => {
-          // Note: To make hyperlight undo work, you'd need to fetch their original state too.
           queueForSync("hyperlights", hl.hyperlight_id, "update", hl, null);
         });
         allSavedHypercites.forEach((hc) => {
-          // Note: To make hypercite undo work, you'd need to fetch their original state too.
           queueForSync("hypercites", hc.hyperciteId, "update", hc, null);
         });
 
@@ -1167,7 +1218,6 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
     });
   });
 }
-
 
 
 export async function batchDeleteIndexedDBRecords(nodeIds) {

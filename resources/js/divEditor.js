@@ -873,7 +873,7 @@ async function processChunkMutations(chunk, mutations) {
       let parent = mutation.target.parentNode;
       
       // Find the closest parent with an ID (typically a paragraph)
-      while (parent && !parent.id) {
+       while (parent && (!parent.id || !/^\d+(\.\d+)?$/.test(parent.id))) {
         parent = parent.parentNode;
       }
       
