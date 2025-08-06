@@ -12,7 +12,7 @@ function generateUUID() {
         (15 >> (c / 4)))).toString(16)
   );
 }
-
+ 
 async function getCreatorId() {
   const user = await getCurrentUser();
   
@@ -406,7 +406,7 @@ function submitToLaravel(formData, submitButton) {
     // Create a new form element to submit to Laravel
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = '/cite-creator'; // Adjust this to match your route
+    form.action = '/cite-creator'; 
     form.enctype = 'multipart/form-data';
     
     // Add CSRF token

@@ -44,7 +44,7 @@ export async function openDatabase() {
         },
         {
           name: "footnotes",
-          keyPath: "book",
+          keyPath: "book", 
         },
         {
           name: "markdownStore",

@@ -8,222 +8,108 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Symfony\Component\Process\Process;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
 class PandocConversionJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    protected $filePath;
-    protected $outputPath;
+    protected $citation_id;
+    protected $originalFilePath;
 
-    public function __construct($filePath, $outputPath)
+    /**
+     * The new constructor only needs the citation_id and the path to the original file.
+     * It will determine all other paths itself.
+     */
+    public function __construct(string $citation_id, string $originalFilePath)
     {
-        $this->filePath = $filePath;
-        $this->outputPath = $outputPath;
+        $this->citation_id = $citation_id;
+        $this->originalFilePath = $originalFilePath;
     }
 
-    public function handle()
+    /**
+     * The new handle method performs a single, powerful Pandoc conversion
+     * that replaces all the old cleanup steps.
+     */
+    public function handle(): void
     {
-        Log::info("Pandoc conversion started for input: {$this->filePath}, output: {$this->outputPath}");
+        Log::info("Starting unified Pandoc processing for citation: {$this->citation_id}");
 
-        // Step 1: Pandoc Conversion
-        $process = new Process(['/usr/local/bin/pandoc', $this->filePath, '-f', 'docx', '-t', 'markdown-smart+raw_html', '-o', $this->outputPath, '--wrap=none']);
+        $basePath = resource_path("markdown/{$this->citation_id}");
+        $finalJsonPath = "{$basePath}/processed.json";
+
+        // Define paths for our Lua filters from the /resources/pandoc-filters/ directory
+        $fixQuotesFilterPath = resource_path('pandoc-filters/fix-quotes.lua');
+        $extractRefsFilterPath = resource_path('pandoc-filters/filter.lua'); // The new filter
+        
+        $findCitationsFilter = resource_path('pandoc-filters/find-citations.lua');
+
+        $process = new Process([
+            '/usr/local/bin/pandoc',
+            $this->originalFilePath,
+            '--lua-filter=' . $findCitationsFilter, // Use the new filter
+            '-f', 'docx',
+            '-t', 'html',
+            '--standalone' // Use standalone to get a full HTML doc
+        ]);
+
         $process->setTimeout(500);
         $process->run();
 
         if (!$process->isSuccessful()) {
-            Log::error('Pandoc conversion failed:', ['error' => $process->getErrorOutput()]);
+            Log::error('Unified Pandoc processing failed:', [
+                'citation_id' => $this->citation_id,
+                'error' => $process->getErrorOutput()
+            ]);
             return;
         }
 
-        // Step 2: Cleanup
-        if (file_exists($this->outputPath)) {
-            $this->cleanMarkdownFile($this->outputPath);
-        } else {
-            Log::error("Markdown file not found: {$this->outputPath}");
-            return;
-        }
+        $htmlOutput = $process->getOutput();
 
-        // Step 3: Extract Footnotes using Python Script
-        $pythonScriptPath = base_path('app/python/footnote-jason.py'); // Ensure this path is correct
-        $process = new Process(['python3', $pythonScriptPath, $this->outputPath]);
-        $process->setTimeout(300);
-        $process->run();
+        // --- Step 2: Parse the Pandoc Output into our JSON structure ---
 
-        if (!$process->isSuccessful()) {
-            Log::error('Footnote extraction failed:', ['error' => $process->getErrorOutput()]);
-            return;
-        }
+        // Extract the JSON data we embedded in the HTML comment via the Lua filter
+        preg_match('/<!-- PANDOC_DATA_JSON:(.*?)-->/s', $htmlOutput, $matches);
+        $citationsJson = $matches[1] ?? '[]';
+        $citations = json_decode($citationsJson, true);
 
-        Log::info('Pandoc conversion completed successfully');
-    }
+        // Now, parse the generated HTML into nodeChunks
+        $dom = new \DOMDocument();
+        // Suppress errors from potentially malformed HTML and ensure proper encoding
+        @$dom->loadHTML('<?xml encoding="utf-8" ?>' . $htmlOutput, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
 
+        $nodeChunks = [];
+        $nodeNumber = 0;
+        // The body tag is our root container for the content nodes
+        $body = $dom->getElementsByTagName('body')->item(0);
+        if ($body) {
+            foreach ($body->childNodes as $el) {
+                if ($el->nodeType !== XML_ELEMENT_NODE) continue;
 
-    /**
-     * Cleans the Markdown file by performing all necessary cleanup operations
-     */
-    protected function cleanMarkdownFile($outputPath)
-    {
-        if (!file_exists($outputPath)) {
-            Log::error("Markdown file does not exist: {$outputPath}");
-            return;
-        }
+                $nodeNumber++;
+                $el->setAttribute('id', $nodeNumber);
+                $el->setAttribute('data-block-id', $nodeNumber);
 
-        if (!is_readable($outputPath)) {
-            Log::error("Markdown file is not readable: {$outputPath}");
-            return;
-        }
-
-        $content = file_get_contents($outputPath);
-        if ($content === false) {
-            Log::error("Failed to read the markdown file: {$outputPath}");
-            return;
-        }
-
-        // Step 1: Perform both line break and attribute cleanup
-        $cleanedContent = $this->performCombinedCleanup($content);
-
-        // Check if content was modified
-        if ($cleanedContent !== $content) {
-            $writeSuccess = file_put_contents($outputPath, $cleanedContent);
-
-            if ($writeSuccess === false) {
-                Log::error("Failed to write cleaned content back to the file: {$outputPath}");
-            }
-        }
-    }
-
-    /**
-     * Combines line break removal and unwanted attribute removal in one step
-     */
-    protected function performCombinedCleanup($content)
-    {
-        // Step 1: Remove unnecessary line breaks
-        $lines = explode("\n", $content);
-        $cleanedLines = [];
-        $isInBlockQuote = false;
-        $currentParagraph = '';
-
-        foreach ($lines as $line) {
-            $trimmedLine = trim($line);
-
-            // Check if the line starts a blockquote
-            if (preg_match('/^>/', $trimmedLine)) {
-                $isInBlockQuote = true;
-            } else {
-                $isInBlockQuote = false;
-            }
-
-            // If inside blockquote or normal paragraph
-            if ($isInBlockQuote) {
-                // Remove unnecessary line breaks inside block quotes
-                if (!empty($trimmedLine)) {
-                    if (!empty($currentParagraph)) {
-                        // Append the line to the current blockquote paragraph
-                        $currentParagraph .= ' ' . preg_replace('/^>/', '', $trimmedLine);
-                    } else {
-                        $currentParagraph = $trimmedLine;
-                    }
-                } else {
-                    // Add the finished blockquote paragraph and reset
-                    if (!empty($currentParagraph)) {
-                        $cleanedLines[] = $currentParagraph;
-                        $currentParagraph = '';
-                    }
-                    $cleanedLines[] = '';
-                }
-            } else {
-                // Handle normal paragraphs
-                if (!empty($trimmedLine)) {
-                    if (!empty($currentParagraph)) {
-                        // Append the line to the current paragraph
-                        $currentParagraph .= ' ' . $trimmedLine;
-                    } else {
-                        $currentParagraph = $trimmedLine;
-                    }
-                } else {
-                    // Add the finished paragraph and reset
-                    if (!empty($currentParagraph)) {
-                        $cleanedLines[] = $currentParagraph;
-                        $currentParagraph = '';
-                    }
-                    $cleanedLines[] = '';
-                }
+                $nodeChunks[] = [
+                    'chunk_id' => floor(($nodeNumber - 1) / 100),
+                    'type' => $el->tagName,
+                    'content' => $dom->saveHTML($el),
+                    'plainText' => $el->textContent,
+                    'startLine' => $nodeNumber,
+                ];
             }
         }
 
-        // Add any remaining content in the paragraph
-        if (!empty($currentParagraph)) {
-            $cleanedLines[] = $currentParagraph;
-        }
+        // The final JSON payload to be served to the frontend
+        $payload = [
+            'nodeChunks' => $nodeChunks,
+            'citations' => $citations, // This contains ALL references (footnotes and author-date)
+        ];
 
-        // Join the cleaned lines back together with line breaks
-        $cleanedContent = implode("\n", $cleanedLines);
+        // Save the final, clean JSON payload to a file.
+        File::put($finalJsonPath, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
-        // Step 2: Remove unwanted attributes (like {dir="rtl"})
-        $cleanedContent = preg_replace('/\{dir="rtl"\}/', '', $cleanedContent);
-
-        // Step 3: Remove square brackets around quotes
-        // Step 3: Remove square brackets around quotes
-        $cleanedContent = preg_replace('/\[\'\]/', "'", $cleanedContent); // For single quotes
-        $cleanedContent = preg_replace('/\[\"\]/', '"', $cleanedContent); // For double quotes
-
-        // Step 4: Indent footnotes
-        $pattern = '/(\[\^[0-9]+\]:\s*)(.*?)(?=\n\[\^|\z)/s';  // Match footnotes until the next footnote or end of content
-        $cleanedContent = preg_replace_callback($pattern, function ($matches) {
-            // Split the footnote content into paragraphs
-            $footnoteContent = trim($matches[2]);  // Trim extra spaces
-            $paragraphs = preg_split('/\n{2,}/', $footnoteContent);  // Split by double newlines to detect paragraphs
-
-            // Ensure all subsequent paragraphs are indented with four spaces
-            $indentedParagraphs = array_map(function ($paragraph, $index) {
-                return $index === 0 ? $paragraph : '    ' . $paragraph;  // Indent all paragraphs after the first
-            }, $paragraphs, array_keys($paragraphs));
-
-            // Reconstruct the footnote with proper indentation
-            return $matches[1] . implode("\n\n", $indentedParagraphs) . "\n\n";
-        }, $cleanedContent);
-
-        // Step 5: Convert the first stand-alone line to H1 if it's a stand-alone line
-        $lines = explode("\n", $cleanedContent);
-    
-        // Check the first non-empty line and convert it to H1
-        foreach ($lines as $index => $line) {
-            if (trim($line) !== '') {
-                // Convert only if it's a stand-alone line
-                $lines[$index] = '# ' . trim($line);
-                break;
-            }
-        }
-
-        // Step 6: Convert stand-alone lines to H2 (title case, acronym, or bold) unless indented
-        foreach ($lines as $index => $line) {
-            $trimmedLine = trim($line);
-
-            // Skip conversion if the line is indented (e.g., part of a code block)
-            if (preg_match('/^\s{4,}/', $line)) {
-                continue; // Skip if the line is indented by 4 or more spaces (or tabs)
-            }
-
-            // Check for title case: Each word should start with a capital letter, and allow punctuation
-            $isTitleCase = preg_match('/^([A-Z][a-z]+(\s[A-Z][a-z]*)*)$/', $trimmedLine);
-
-            // Check for all-uppercase lines (e.g., "NIEO")
-            $isAllUppercase = preg_match('/^[A-Z\s]+$/', $trimmedLine);
-
-            // Check for bold text (**bold**)
-            $isBold = preg_match('/^\*\*(.*?)\*\*$/', $trimmedLine);
-
-            // If either title case, all-uppercase, or bold, convert to H2
-            if ($isTitleCase || $isAllUppercase || $isBold) {
-                $lines[$index] = '## ' . preg_replace('/\*\*/', '', $trimmedLine);
-            }
-        }
-
-        // Update the cleaned content after modifications
-        $cleanedContent = implode("\n", $lines);
-
-        return $cleanedContent;
+        Log::info("Unified Pandoc processing completed successfully for {$this->citation_id}. Output at {$finalJsonPath}");
     }
 }
