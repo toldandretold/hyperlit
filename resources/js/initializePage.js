@@ -12,7 +12,9 @@ import {
   saveAllNodeChunksToIndexedDB,
   saveFootnotesToIndexedDB,
   updateHistoryLog, 
-  executeSyncPayload
+  executeSyncPayload,
+  saveAllFootnotesToIndexedDB,
+  saveAllReferencesToIndexedDB
 } from "./cache-indexedDB.js";
 
 import {
@@ -119,77 +121,132 @@ export function setupOnlineSyncListener() {
   console.log("👂 Online sync listener is active.");
 }
 
-export async function loadHyperText(bookId) {
-  // If bookId isn't passed (e.g., on a direct page load),
-  // we fall back to the global `book` variable. This makes the function robust.
-  const currentBook = bookId || book;
 
-  console.log(`📖 Opening: ${currentBook}`);
-  
-  setupOnlineSyncListener();
 
-  const openHyperlightID = OpenHyperlightID || null;
-  
+
+// ✅ MODIFIED: This function now loads all three JSON files.
+async function loadFromJSONFiles(bookId) {
+  console.log(`Attempting to load all pre-generated JSON for book: ${bookId}`);
   try {
-    // 1. Check for node chunks in indexedDB
+    // Fetch all three files concurrently for maximum speed
+    const [
+      nodeChunksResponse,
+      footnotesResponse,
+      referencesResponse,
+    ] = await Promise.all([
+      fetch(`/markdown/${bookId}/nodeChunks.json`),
+      fetch(`/markdown/${bookId}/footnotes.json`),
+      fetch(`/markdown/${bookId}/references.json`),
+    ]);
+
+    // Check if all requests were successful
+    if (
+      !nodeChunksResponse.ok ||
+      !footnotesResponse.ok ||
+      !referencesResponse.ok
+    ) {
+      throw new Error("One or more required JSON files not found (404).");
+    }
+
+    // Parse all JSON responses concurrently
+    const [
+      nodeChunks,
+      footnotes,
+      references,
+    ] = await Promise.all([
+      nodeChunksResponse.json(),
+      footnotesResponse.json(),
+      referencesResponse.json(),
+    ]);
+
+    console.log(`✅ Successfully fetched all JSON files for ${bookId}.`);
+    console.log(`   - Found ${nodeChunks.length} nodeChunks.`);
+    console.log(`   - Found ${footnotes.length} footnotes.`);
+    console.log(`   - Found ${references.length} references.`);
+
+    // Save all the fetched data to IndexedDB concurrently
+    await Promise.all([
+      saveAllNodeChunksToIndexedDB(nodeChunks, bookId),
+      saveAllFootnotesToIndexedDB(footnotes, bookId),
+      saveAllReferencesToIndexedDB(references, bookId),
+    ]);
+
+    // Return the nodeChunks to be used immediately for rendering the page
+    return nodeChunks;
+  } catch (error) {
+    console.warn(
+      `Could not load from JSON files. Reason: ${error.message}`
+    );
+    throw error; // Re-throw to trigger the fallback
+  }
+}
+
+// ✅ MODIFIED: Your main loading function now calls the new loader.
+export async function loadHyperText(bookId) {
+  const currentBook = bookId || book;
+  console.log(`📖 Opening: ${currentBook}`);
+  setupOnlineSyncListener();
+  const openHyperlightID = OpenHyperlightID || null;
+
+  try {
+    // 1. Check for node chunks in IndexedDB (No change)
     console.log("🔍 Checking if nodeChunks are in IndexedDB...");
-    // ✅ Use the new `currentBook` variable
     const cached = await getNodeChunksFromIndexedDB(currentBook);
     if (cached && cached.length) {
+      // ... (no change to this block)
       console.log(`✅ Found ${cached.length} cached nodeChunks`);
       window.nodeChunks = cached;
-      
-      // ✅ Use the new `currentBook` variable
       await buildUserHighlightCache(currentBook);
-      // ✅ Pass the new `currentBook` variable down
       initializeLazyLoader(openHyperlightID, currentBook);
-      // ✅ Use the new `currentBook` variable
       checkAndUpdateIfNeeded(currentBook, currentLazyLoader);
-
       return;
     }
 
-    // 2. Try Database
+    // 2. Try Database Sync (No change)
     console.log("🔍 Trying to load chunks from database...");
-    // ✅ Use the new `currentBook` variable
     const dbResult = await syncBookDataFromDatabase(currentBook);
     if (dbResult && dbResult.success) {
-      // ✅ Use the new `currentBook` variable
+      // ... (no change to this block)
       const dbChunks = await getNodeChunksFromIndexedDB(currentBook);
       if (dbChunks && dbChunks.length) {
         console.log(`✅ Loaded ${dbChunks.length} nodeChunks from database`);
         window.nodeChunks = dbChunks;
-        
-        // ✅ Use the new `currentBook` variable
         await buildUserHighlightCache(currentBook);
-        // ✅ Pass the new `currentBook` variable down
         initializeLazyLoader(openHyperlightID, currentBook);
-
         return;
       }
     }
 
-    // 3. Generate from markdown
-    console.log("🆕 Not in database or indexedDB – generating from markdown");
-    // ✅ Use the new `currentBook` variable
+    // 3. Fallback: Try to load from pre-generated JSON
+    try {
+      // This now calls our new, more powerful function
+      const jsonChunks = await loadFromJSONFiles(currentBook);
+      if (jsonChunks && jsonChunks.length) {
+        console.log("✅ Content loaded from JSON; now initializing UI");
+        window.nodeChunks = jsonChunks;
+        await buildUserHighlightCache(currentBook);
+        initializeLazyLoader(openHyperlightID, currentBook);
+        return;
+      }
+    } catch (error) {
+      console.log("ℹ️ JSON loading failed. Falling back to markdown parsing...");
+    }
+
+    // 4. Final Fallback: Generate from markdown (No change)
+    console.log("🆕 Not in cache, DB, or JSON – generating from markdown");
     window.nodeChunks = await generateNodeChunksFromMarkdown(currentBook);
     console.log("✅ Content generated + saved; now initializing UI");
-    
-    // ✅ Use the new `currentBook` variable
     await buildUserHighlightCache(currentBook);
-    // ✅ Pass the new `currentBook` variable down
     initializeLazyLoader(OpenHyperlightID || null, currentBook);
-
     return;
-
   } catch (err) {
-    console.error("❌ Error loading content:", err);
-    // Also resolve on error so the app doesn't hang forever
+    console.error("❌ A critical error occurred during content loading:", err);
     if (firstChunkLoadedResolver) {
       firstChunkLoadedResolver();
     }
   }
 }
+
 
 // Helper function: Cache buster for forced reloads
 function buildUrl(path, forceReload = false) {

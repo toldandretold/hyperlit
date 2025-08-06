@@ -12,7 +12,7 @@ import { getEditToolbar } from "./editToolbar.js";
 // IMPORTANT: Increment this version number ONLY when you need to change the database schema.
 // For instance, if you add a new store, add a new index, or modify a keyPath.
 // I've incremented it to 20 to ensure it triggers the proper migration for users on version 19.
-export const DB_VERSION = 20;
+export const DB_VERSION = 21;
 
 /**
  * Opens (or creates) the IndexedDB database.
@@ -42,10 +42,19 @@ export async function openDatabase() {
             { name: "book_startLine", keyPath: ["book", "startLine"], unique: false }
           ],
         },
-        {
+
+         {
           name: "footnotes",
-          keyPath: "book", 
+          keyPath: ["book", "footnoteId"], // Composite key for uniqueness
+          indices: ["book", "footnoteId"], // Indices for fast lookups
         },
+        
+        {
+          name: "references",
+          keyPath: ["book", "referenceId"], // Composite key for uniqueness
+          indices: ["book", "referenceId"], // Indices for fast lookups
+        },
+
         {
           name: "markdownStore",
           keyPath: ["url", "book"],
@@ -88,62 +97,54 @@ export async function openDatabase() {
         },
       ];
 
-      // --- Migration Logic by Version ---
-      // This ensures changes are applied incrementally and safely.
+      
 
-      // Version 1 to 19 (Initial setup, or basic upgrades that involved deleting stores previously)
-      // This block runs for any user upgrading from < 19 to 19 or higher.
-      // We will ensure all primary stores are created.
-      if (oldVersion < 19) {
-        console.log("Migrating to schema version 19: Creating/ensuring core stores exist.");
-        ALL_STORE_CONFIGS.forEach(storeConfig => {
-          if (!db.objectStoreNames.contains(storeConfig.name)) {
-            const storeOptions = { keyPath: storeConfig.keyPath };
-            if (storeConfig.autoIncrement) {
-              storeOptions.autoIncrement = true;
+    if (oldVersion < 21) {
+            console.log(
+              "Migrating to schema version 21: Updating footnotes and adding references."
+            );
+
+            // Because we are changing the `keyPath` of 'footnotes', the safest
+            // way is to delete the old store and create a new one.
+            if (db.objectStoreNames.contains("footnotes")) {
+              db.deleteObjectStore("footnotes");
+              console.log("🔥 Deleted old 'footnotes' store to update schema.");
             }
-            db.createObjectStore(storeConfig.name, storeOptions);
-            console.log(`✅ Created store: ${storeConfig.name}`);
-          }
-          // For existing stores, ensure indices exist (created or updated below)
-        });
-      }
 
-      // Version 20 (The current version we are targeting)
-      // In this specific block, we handle any new changes made for VERSION 20,
-      // such as ensuring all required indices are present for all stores.
-      if (oldVersion < 20) {
-        console.log("Migrating to schema version 20: Ensuring all indices are created.");
-        ALL_STORE_CONFIGS.forEach(storeConfig => {
-          // If the store itself was just created in a previous `if (oldVersion < X)` block,
-          // or if it already existed, we get a reference to it.
-          const objectStore = transaction.objectStore(storeConfig.name);
+            // Now, use our config to create the stores if they don't exist.
+            ALL_STORE_CONFIGS.forEach((storeConfig) => {
+              if (!db.objectStoreNames.contains(storeConfig.name)) {
+                const storeOptions = { keyPath: storeConfig.keyPath };
+                if (storeConfig.autoIncrement) {
+                  storeOptions.autoIncrement = true;
+                }
+                const store = db.createObjectStore(
+                  storeConfig.name,
+                  storeOptions
+                );
+                console.log(`✅ Created store: ${storeConfig.name}`);
 
-          // Iterate through defined indices and create if missing
-          if (storeConfig.indices) {
-            storeConfig.indices.forEach(indexDef => {
-              const indexName = typeof indexDef === 'string' ? indexDef : indexDef.name;
-              const indexKeyPath = typeof indexDef === 'string' ? indexDef : indexDef.keyPath;
-              const indexUnique = (typeof indexDef !== 'string' && indexDef.unique) || false;
-
-              if (!objectStore.indexNames.contains(indexName)) {
-                objectStore.createIndex(indexName, indexKeyPath, { unique: indexUnique });
-                console.log(`  ✅ Created index '${indexName}' for '${storeConfig.name}'`);
+                // Create indices for the newly created store
+                if (storeConfig.indices) {
+                  storeConfig.indices.forEach((indexDef) => {
+                    const indexName =
+                      typeof indexDef === "string" ? indexDef : indexDef.name;
+                    const indexKeyPath =
+                      typeof indexDef === "string" ? indexDef : indexDef.keyPath;
+                    const indexUnique =
+                      (typeof indexDef !== "string" && indexDef.unique) || false;
+                    store.createIndex(indexName, indexKeyPath, {
+                      unique: indexUnique,
+                    });
+                    console.log(
+                      `  ✅ Created index '${indexName}' for '${storeConfig.name}'`
+                    );
+                  });
+                }
               }
             });
           }
-        });
-      }
-
-      // Add future migration blocks here:
-      // if (oldVersion < 21) {
-      //   console.log("Migrating to schema version 21: Add new store XYZ");
-      //   db.createObjectStore("newStoreXYZ", { keyPath: "id" });
-      //   // Or modify an existing store, e.g., change keyPath (requires data migration)
-      //   // ... complex data migration logic ...
-      // }
-
-    }; // End of request.onupgradeneeded
+        }; // End of onupgradeneeded
 
     request.onsuccess = (event) => resolve(event.target.result);
     request.onerror = (event) => {
@@ -2672,6 +2673,75 @@ async function resolveHypercite(bookId, hyperciteId) {
     console.error("❌ Network error while fetching hypercite and book content:", error);
     return null;
   }
+}
+
+
+/**
+ * Saves an array of footnote objects to IndexedDB.
+ * @param {Array<object>} footnotes - The array of footnote objects from your JSON.
+ * @param {string} bookId - The ID of the book they belong to.
+ */
+export async function saveAllFootnotesToIndexedDB(footnotes, bookId) {
+  if (!footnotes || footnotes.length === 0) return;
+  return withPending(async () => {
+    const db = await openDatabase();
+    const tx = db.transaction("footnotes", "readwrite");
+    const store = tx.objectStore("footnotes");
+
+    footnotes.forEach((footnote) => {
+      // Each footnote object MUST have a `footnoteId` property.
+      // We also add the `book` property to satisfy the composite key.
+      const record = { ...footnote, book: bookId };
+      store.put(record);
+    });
+
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => {
+        console.log(
+          `✅ ${footnotes.length} footnotes successfully saved for book: ${bookId}`
+        );
+        resolve();
+      };
+      tx.onerror = (e) => {
+        console.error("❌ Error saving footnotes:", e.target.error);
+        reject(e.target.error);
+      };
+    });
+  });
+}
+
+/**
+ * Saves an array of reference objects to IndexedDB.
+ * @param {Array<object>} references - The array of reference objects from your JSON.
+ * @param {string} bookId - The ID of the book they belong to.
+ */
+export async function saveAllReferencesToIndexedDB(references, bookId) {
+  if (!references || references.length === 0) return;
+  return withPending(async () => {
+    const db = await openDatabase();
+    const tx = db.transaction("references", "readwrite");
+    const store = tx.objectStore("references");
+
+    references.forEach((reference) => {
+      // Each reference object MUST have a `referenceId` property.
+      // We also add the `book` property to satisfy the composite key.
+      const record = { ...reference, book: bookId };
+      store.put(record);
+    });
+
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => {
+        console.log(
+          `✅ ${references.length} references successfully saved for book: ${bookId}`
+        );
+        resolve();
+      };
+      tx.onerror = (e) => {
+        console.error("❌ Error saving references:", e.target.error);
+        reject(e.target.error);
+      };
+    });
+  });
 }
 
 
