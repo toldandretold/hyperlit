@@ -14,10 +14,10 @@ class CiteCreator extends Controller
 {
     public function create()
     {
-        return view('CiteCreator');
+        return view('CiteCreator'); 
     }
 
-    public function createMainTextMarkdown(Request $request)
+    public function createMainTextMarkdown(Request $request) 
     {
         $citation_id = $request->input('citation_id');
         $title = $request->input('title');
@@ -83,7 +83,7 @@ class CiteCreator extends Controller
 
         // Sanitize citation_id to prevent path traversal
         $citation_id = preg_replace('/[^a-zA-Z0-9_-]/', '', $citation_id);
-        
+
         if (empty($citation_id)) {
             return redirect()->back()->with('error', 'Invalid citation ID format.');
         }
@@ -93,7 +93,7 @@ class CiteCreator extends Controller
         // Ensure the path is within the expected directory
         $realPath = realpath(dirname($path));
         $expectedPath = realpath(resource_path('markdown'));
-        
+
         if (!$realPath || !str_starts_with($realPath, $expectedPath)) {
             return redirect()->back()->with('error', 'Invalid path detected.');
         }
@@ -103,10 +103,14 @@ class CiteCreator extends Controller
             File::makeDirectory($path, 0755, true);
         }
 
+        // --- MODIFIED ---
+        // We need a flag to know which file to wait for at the end.
+        $isDocxProcessing = false;
+
         // Check if a file was uploaded
         if ($request->hasFile('markdown_file')) {
             $file = $request->file('markdown_file');
-            
+
             // Enhanced file validation
             if (!$this->validateUploadedFile($file)) {
                 Log::warning('File validation failed', [
@@ -120,10 +124,10 @@ class CiteCreator extends Controller
             $extension = strtolower($file->getClientOriginalExtension());
             $originalFilename = "original.{$extension}";
             $originalFilePath = "{$path}/{$originalFilename}";
-            
+
             // Move file securely
             $file->move($path, $originalFilename);
-            
+
             // Set proper file permissions
             chmod($originalFilePath, 0644);
 
@@ -135,55 +139,69 @@ class CiteCreator extends Controller
 
             // Process the file based on its extension
             if ($extension === 'md') {
+                // For now, we keep the old MD flow. This could also be unified later.
                 $this->sanitizeMarkdownFile($originalFilePath);
                 File::move($originalFilePath, "{$path}/main-text.md");
                 Log::info('Markdown file processed', ['citation_id' => $citation_id]);
             } elseif ($extension === 'epub') {
+                // EPUB processing remains the same for now.
                 $this->processEpubFile($originalFilePath, $path);
             } elseif (in_array($extension, ['doc', 'docx'])) {
-                $filename = 'main-text.md';
-                $markdownPath = "{$path}/{$filename}";
+                // --- MODIFIED ---
+                // This is the section you couldn't find. It's now updated.
+                $isDocxProcessing = true; // Set the flag
 
-                Log::info('Pandoc job dispatched', [
+                Log::info('Dispatching unified document processing job', [
                     'citation_id' => $citation_id,
                     'input_file' => basename($originalFilePath),
-                    'output_file' => $filename
                 ]);
-                
-                PandocConversionJob::dispatch($originalFilePath, $markdownPath);
+
+                // Dispatch the refactored job with the new, correct parameters
+                PandocConversionJob::dispatch($citation_id, $originalFilePath);
             }
         } else {
             Log::debug('Creating basic markdown file', ['citation_id' => $citation_id]);
             $this->createBasicMarkdown($request, $path);
         }
 
-        // Wait for main-text.md to be created (for async jobs)
-        $mainTextPath = "{$path}/main-text.md";
+        // --- MODIFIED ---
+        // The waiting logic now checks for the correct output file.
+        if ($isDocxProcessing) {
+            // If we processed a DOCX, we wait for the new `processed.json` file.
+            $finalPath = "{$path}/processed.json";
+            $fileDescription = "processed.json";
+        } else {
+            // For all other cases (MD upload, EPUB, or no file), we wait for `main-text.md`.
+            $finalPath = "{$path}/main-text.md";
+            $fileDescription = "main-text.md";
+        }
+
         $attempts = 0;
-        while (!File::exists($mainTextPath) && $attempts < 5) {
-            Log::debug('Waiting for file creation', [
+        // Wait for the correct final file to be created by the background job.
+        while (!File::exists($finalPath) && $attempts < 10) { // Increased attempts for longer jobs
+            Log::debug("Waiting for {$fileDescription} creation", [
                 'citation_id' => $citation_id,
                 'attempt' => $attempts + 1
             ]);
-            sleep(1);
+            sleep(2); // Increased sleep time
             $attempts++;
         }
 
-        // Redirect to the citation page
-        if (File::exists($mainTextPath)) {
+        // Redirect to the citation page if the final file exists
+        if (File::exists($finalPath)) {
             Log::info('File processing completed successfully', [
                 'citation_id' => $citation_id,
-                'processing_time' => $attempts . ' seconds'
+                'processing_time' => ($attempts * 2) . ' seconds'
             ]);
             return redirect("/{$citation_id}")->with('success', 'File processed successfully!');
         }
 
-        Log::error('File processing failed', [
+        Log::error('File processing failed: Timed out waiting for output file.', [
             'citation_id' => $citation_id,
             'attempts' => $attempts,
-            'expected_path' => $mainTextPath
+            'expected_path' => $finalPath
         ]);
-        return redirect()->back()->with('error', 'Failed to process file. Please try again.');
+        return redirect()->back()->with('error', 'Failed to process file. It may be too large or complex. Please try again.');
     }
 
     private function runPythonScripts(string $path): void
