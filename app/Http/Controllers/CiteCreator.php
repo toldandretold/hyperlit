@@ -62,15 +62,11 @@ class CiteCreator extends Controller
 
     public function store(Request $request)
     {
-        // Simplified initial logging
         Log::info('File upload started', [
             'citation_id' => $request->input('citation_id'),
             'has_file' => $request->hasFile('markdown_file'),
-            'file_size' => $request->hasFile('markdown_file') ? $request->file('markdown_file')->getSize() : null,
-            'file_extension' => $request->hasFile('markdown_file') ? $request->file('markdown_file')->getClientOriginalExtension() : null
         ]);
 
-        // Validate the request
         $request->validate([
             'citation_id' => 'required|string|regex:/^[a-zA-Z0-9_-]+$/',
             'title' => 'required|string|max:255',
@@ -79,10 +75,7 @@ class CiteCreator extends Controller
             'markdown_file' => 'nullable|file|max:50000|mimes:md,doc,docx,epub'
         ]);
 
-        $citation_id = $request->input('citation_id');
-
-        // Sanitize citation_id to prevent path traversal
-        $citation_id = preg_replace('/[^a-zA-Z0-9_-]/', '', $citation_id);
+        $citation_id = preg_replace('/[^a-zA-Z0-9_-]/', '', $request->input('citation_id'));
 
         if (empty($citation_id)) {
             return redirect()->back()->with('error', 'Invalid citation ID format.');
@@ -90,115 +83,86 @@ class CiteCreator extends Controller
 
         $path = resource_path("markdown/{$citation_id}");
 
-        // Ensure the path is within the expected directory
-        $realPath = realpath(dirname($path));
-        $expectedPath = realpath(resource_path('markdown'));
-
-        if (!$realPath || !str_starts_with($realPath, $expectedPath)) {
-            return redirect()->back()->with('error', 'Invalid path detected.');
-        }
-
-        // Create the directory if it doesn't exist
         if (!File::exists($path)) {
             File::makeDirectory($path, 0755, true);
         }
 
-        // --- MODIFIED ---
-        // We need a flag to know which file to wait for at the end.
+        // --- MODIFIED: Flag to track which workflow is running ---
         $isDocxProcessing = false;
 
-        // Check if a file was uploaded
         if ($request->hasFile('markdown_file')) {
             $file = $request->file('markdown_file');
-
-            // Enhanced file validation
-            if (!$this->validateUploadedFile($file)) {
-                Log::warning('File validation failed', [
-                    'citation_id' => $citation_id,
-                    'file_size' => $file->getSize(),
-                    'mime_type' => $file->getMimeType()
-                ]);
-                return redirect()->back()->with('error', 'Invalid file format or content.');
-            }
-
             $extension = strtolower($file->getClientOriginalExtension());
             $originalFilename = "original.{$extension}";
             $originalFilePath = "{$path}/{$originalFilename}";
 
-            // Move file securely
             $file->move($path, $originalFilename);
-
-            // Set proper file permissions
             chmod($originalFilePath, 0644);
 
             Log::info('File processing started', [
                 'citation_id' => $citation_id,
                 'extension' => $extension,
-                'file_size' => filesize($originalFilePath)
             ]);
 
-            // Process the file based on its extension
             if ($extension === 'md') {
-                // For now, we keep the old MD flow. This could also be unified later.
                 $this->sanitizeMarkdownFile($originalFilePath);
                 File::move($originalFilePath, "{$path}/main-text.md");
                 Log::info('Markdown file processed', ['citation_id' => $citation_id]);
             } elseif ($extension === 'epub') {
-                // EPUB processing remains the same for now.
                 $this->processEpubFile($originalFilePath, $path);
             } elseif (in_array($extension, ['doc', 'docx'])) {
-                // --- MODIFIED ---
-                // This is the section you couldn't find. It's now updated.
-                $isDocxProcessing = true; // Set the flag
+                // --- MODIFIED: This is the new workflow for DOC/DOCX ---
+                $isDocxProcessing = true; // Set the flag for the waiting logic
 
-                Log::info('Dispatching unified document processing job', [
+                Log::info('Dispatching PandocConversionJob for DOCX processing.', [
                     'citation_id' => $citation_id,
-                    'input_file' => basename($originalFilePath),
+                    'input_file' => $originalFilePath,
                 ]);
 
-                // Dispatch the refactored job with the new, correct parameters
+                // Dispatch the new job to handle the conversion in the background
                 PandocConversionJob::dispatch($citation_id, $originalFilePath);
             }
         } else {
-            Log::debug('Creating basic markdown file', ['citation_id' => $citation_id]);
+            Log::debug('No file uploaded, creating basic markdown file', ['citation_id' => $citation_id]);
             $this->createBasicMarkdown($request, $path);
         }
 
-        // --- MODIFIED ---
-        // The waiting logic now checks for the correct output file.
+        // --- MODIFIED: The waiting logic now handles both workflows ---
+        $finalPath = '';
+        $fileDescription = '';
+
         if ($isDocxProcessing) {
-            // If we processed a DOCX, we wait for the new `processed.json` file.
-            $finalPath = "{$path}/processed.json";
-            $fileDescription = "processed.json";
+            // If we processed a DOCX, we wait for one of the final JSON files.
+            $finalPath = "{$path}/nodeChunks.json";
+            $fileDescription = "nodeChunks.json";
         } else {
-            // For all other cases (MD upload, EPUB, or no file), we wait for `main-text.md`.
+            // For all other cases (MD, EPUB, or no file), we wait for main-text.md.
             $finalPath = "{$path}/main-text.md";
             $fileDescription = "main-text.md";
         }
 
         $attempts = 0;
         // Wait for the correct final file to be created by the background job.
-        while (!File::exists($finalPath) && $attempts < 10) { // Increased attempts for longer jobs
+        while (!File::exists($finalPath) && $attempts < 15) { // Increased attempts for longer jobs
             Log::debug("Waiting for {$fileDescription} creation", [
                 'citation_id' => $citation_id,
                 'attempt' => $attempts + 1
             ]);
-            sleep(2); // Increased sleep time
+            sleep(2);
             $attempts++;
         }
 
-        // Redirect to the citation page if the final file exists
         if (File::exists($finalPath)) {
             Log::info('File processing completed successfully', [
                 'citation_id' => $citation_id,
-                'processing_time' => ($attempts * 2) . ' seconds'
+                'final_file' => $fileDescription,
+                'processing_time_approx' => ($attempts * 2) . ' seconds'
             ]);
             return redirect("/{$citation_id}")->with('success', 'File processed successfully!');
         }
 
         Log::error('File processing failed: Timed out waiting for output file.', [
             'citation_id' => $citation_id,
-            'attempts' => $attempts,
             'expected_path' => $finalPath
         ]);
         return redirect()->back()->with('error', 'Failed to process file. It may be too large or complex. Please try again.');
