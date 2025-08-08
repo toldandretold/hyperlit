@@ -31,10 +31,35 @@ import { undoLastBatch, redoLastBatch } from './historyManager.js';
 
 let isRetrying = false; // Prevents multiple retries at once
 
+
+export let pendingFirstChunkLoadedPromise;
 let firstChunkLoadedResolver;
-export const pendingFirstChunkLoadedPromise = new Promise(resolve => {
-  firstChunkLoadedResolver = resolve;
-});
+
+export function resolveFirstChunkPromise() {
+  if (firstChunkLoadedResolver && typeof firstChunkLoadedResolver === 'function') {
+    console.log("✅ Manually resolving first chunk promise");
+    firstChunkLoadedResolver();
+    firstChunkLoadedResolver = null; // Clear it after use
+  } else {
+    console.log("⚠️ First chunk resolver not available - will resolve when created");
+    // Set a flag to resolve it immediately when the promise is created
+    window._resolveFirstChunkWhenReady = true;
+  }
+}
+
+function resetFirstChunkPromise() {
+    pendingFirstChunkLoadedPromise = new Promise(resolve => {
+        firstChunkLoadedResolver = resolve;
+        
+        // ✅ If we were asked to resolve immediately, do it now
+        if (window._resolveFirstChunkWhenReady) {
+            console.log("✅ Resolving first chunk promise immediately as requested");
+            resolve();
+            window._resolveFirstChunkWhenReady = false;
+        }
+    });
+    console.log("PROMISE STATE: A new firstChunkPromise has been created and is pending.");
+}
 
 async function retryFailedBatches() {
   if (isRetrying || !navigator.onLine) {
@@ -125,7 +150,7 @@ export function setupOnlineSyncListener() {
 
 
 // ✅ MODIFIED: This function now loads all three JSON files.
-async function loadFromJSONFiles(bookId) {
+export async function loadFromJSONFiles(bookId) {
   console.log(`Attempting to load all pre-generated JSON for book: ${bookId}`);
   try {
     // Fetch all three files concurrently for maximum speed
@@ -183,6 +208,7 @@ async function loadFromJSONFiles(bookId) {
 
 // ✅ MODIFIED: Your main loading function now calls the new loader.
 export async function loadHyperText(bookId) {
+  resetFirstChunkPromise();
   const currentBook = bookId || book;
   console.log(`📖 Opening: ${currentBook}`);
   setupOnlineSyncListener();

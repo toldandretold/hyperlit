@@ -34,7 +34,7 @@ async function syncBookDataToServer(bookName, objectStoreName, method = 'upsert'
     
     try {
         const db = await new Promise((resolve, reject) => {
-            const request = indexedDB.open("MarkdownDB", 15);
+            const request = indexedDB.open("MarkdownDB", 21);
             request.onerror = () => reject(request.error);
             request.onsuccess = () => resolve(request.result);
         });

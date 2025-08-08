@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
+use App\Models\PgLibrary;
+use App\Models\PgNodeChunk;
+use App\Http\Controllers\DbLibraryController;
 
 class CiteCreator extends Controller
 {
@@ -158,15 +161,105 @@ class CiteCreator extends Controller
                 'final_file' => $fileDescription,
                 'processing_time_approx' => ($attempts * 2) . ' seconds'
             ]);
+
+            $creatorInfo = app(DbLibraryController::class)->getCreatorInfo($request);
+
+            if (!$creatorInfo['valid']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid session'
+                ], 401);
+            }
+
+             if ($isDocxProcessing) {
+        try {
+            // Load all the JSON files created by PandocConversionJob
+            $nodeChunksPath = "{$path}/nodeChunks.json";
+            $footnotesPath = "{$path}/footnotes.json";
+            $referencesPath = "{$path}/references.json";
+            
+            if (File::exists($nodeChunksPath)) {
+                $nodeChunksData = json_decode(File::get($nodeChunksPath), true);
+                
+                Log::info('Saving nodeChunks to database', [
+                    'citation_id' => $citation_id,
+                    'chunks_count' => count($nodeChunksData)
+                ]);
+                
+                // Save nodeChunks to PostgreSQL
+                foreach ($nodeChunksData as $chunk) {
+                    PgNodeChunk::updateOrCreate(
+                        [
+                            'book' => $citation_id,
+                            'startLine' => $chunk['startLine']
+                        ],
+                        [
+                            'chunk_id' => $chunk['chunk_id'],
+                            'content' => $chunk['content'],
+                            'footnotes' => $chunk['footnotes'] ?? [],
+                            'hyperlights' => $chunk['hyperlights'] ?? [],
+                            'hypercites' => $chunk['hypercites'] ?? [],
+                            'plainText' => $chunk['plainText'] ?? '',
+                            'type' => $chunk['type'] ?? 'p',
+                            'raw_json' => $chunk
+                        ]
+                    );
+                }
+            }
+            
+            // Also save footnotes and references if you have models for them
+            // This ensures complete data consistency between JSON files and database
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to save nodeChunks to database', [
+                'citation_id' => $citation_id,
+                'error' => $e->getMessage()
+            ]);
+            // Don't fail the request, but log the error
+        }
+    }
+
+            // ✅ Store the result of updateOrCreate in $createdRecord
+            $createdRecord = PgLibrary::updateOrCreate(
+                ['book' => $citation_id],
+                [
+                    'title' => $request->input('title'),
+                    'author' => $request->input('author'),
+                    'type' => $request->input('type') ?? 'book',
+                    'timestamp' => round(microtime(true) * 1000),
+                    'creator' => $creatorInfo['creator'],
+                    'creator_token' => $creatorInfo['creator_token'],
+                    'raw_json' => []
+                ]
+            );
+
+            if ($request->expectsJson()) {
+                // ✅ Now $createdRecord exists and can be returned
+                return response()->json([
+                    'success' => true,
+                    'bookId' => $citation_id,
+                    'library' => $createdRecord
+                ]);
+            }
+
             return redirect("/{$citation_id}")->with('success', 'File processed successfully!');
         }
 
+        // ❌ FAILURE CASE
         Log::error('File processing failed: Timed out waiting for output file.', [
             'citation_id' => $citation_id,
             'expected_path' => $finalPath
         ]);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to process file. It may be too large or complex. Please try again.'
+            ], 500);
+        }
+
         return redirect()->back()->with('error', 'Failed to process file. It may be too large or complex. Please try again.');
-    }
+        } // ✅ This closes the store() method
 
     private function runPythonScripts(string $path): void
     {

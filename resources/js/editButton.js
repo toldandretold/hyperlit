@@ -148,8 +148,7 @@ function getLastContentElement(container) {
 
 // PASTE THIS ENTIRE FUNCTION INTO resources/js/editButton.js
 
-async function enableEditMode(targetElementId = null) {
-  // ✅ These queries are now correctly inside the function.
+export async function enableEditMode(targetElementId = null, isNewBook = false) {
   const editBtn = document.getElementById("editButton");
   const editableDiv = document.getElementById(book);
 
@@ -166,6 +165,7 @@ async function enableEditMode(targetElementId = null) {
   }
 
   editModeCheckInProgress = true;
+
 
   // This block for permission checking is perfect.
   if (window.pendingBookSyncPromise) {
@@ -228,7 +228,6 @@ async function enableEditMode(targetElementId = null) {
     await pendingFirstChunkLoadedPromise;
     console.log("✅ First chunk is ready. Proceeding to enable edit mode.");
 
-    // Now, schedule the UI update for the next browser tick.
     setTimeout(() => {
       try {
         console.log("🚀 Proceeding to enable edit mode after browser tick.");
@@ -241,9 +240,13 @@ async function enableEditMode(targetElementId = null) {
           toolbar.setEditMode(true);
         }
 
-        import("./divEditor.js").then(({ ensureMinimumDocumentStructure }) => {
-          ensureMinimumDocumentStructure();
-        });
+        // ✅ ONLY call ensureMinimumDocumentStructure for new blank books
+        if (isNewBook) {
+          console.log("📝 New blank book: Ensuring minimum document structure...");
+          import("./divEditor.js").then(({ ensureMinimumDocumentStructure }) => {
+            ensureMinimumDocumentStructure();
+          });
+        }
 
         // =================================================================
         // YOUR CURSOR PLACEMENT LOGIC - INCLUDED AND IN THE CORRECT PLACE

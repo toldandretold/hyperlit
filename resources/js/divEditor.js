@@ -1940,6 +1940,13 @@ function findAllNumericalIdNodesInChunks(container) {
 export function ensureMinimumDocumentStructure() {
   const mainContent = document.querySelector('.main-content');
   if (!mainContent) return;
+
+  // ✅ CHECK FOR IMPORTED BOOK FIRST
+  const isImportedBook = sessionStorage.getItem('imported_book_initializing');
+  if (isImportedBook) {
+    console.log("🔒 Imported book detected - skipping document structure creation");
+    return; // Exit early, don't create default structure
+  }
   
   console.log('🔍 Checking document structure...');
   

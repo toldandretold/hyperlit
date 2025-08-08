@@ -26,7 +26,7 @@ SET default_table_access_method = heap;
 
 CREATE TABLE public.anonymous_sessions (
     id bigint NOT NULL,
-    token uuid NOT NULL,
+    token text NOT NULL,
     created_at timestamp(0) without time zone NOT NULL,
     last_used_at timestamp(0) without time zone NOT NULL,
     ip_address inet,
@@ -51,6 +51,19 @@ CREATE SEQUENCE public.anonymous_sessions_id_seq
 --
 
 ALTER SEQUENCE public.anonymous_sessions_id_seq OWNED BY public.anonymous_sessions.id;
+
+
+--
+-- Name: bibliography; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bibliography (
+    book character varying(255) NOT NULL,
+    "referenceId" character varying(255) NOT NULL,
+    content text NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone
+);
 
 
 --
@@ -115,8 +128,8 @@ ALTER SEQUENCE public.failed_jobs_id_seq OWNED BY public.failed_jobs.id;
 
 CREATE TABLE public.footnotes (
     book character varying(255) NOT NULL,
-    data jsonb NOT NULL,
-    raw_json json,
+    "footnoteId" character varying(255) NOT NULL,
+    content text NOT NULL,
     created_at timestamp(0) without time zone,
     updated_at timestamp(0) without time zone
 );
@@ -577,7 +590,7 @@ ALTER TABLE ONLY public.failed_jobs
 --
 
 ALTER TABLE ONLY public.footnotes
-    ADD CONSTRAINT footnotes_pkey PRIMARY KEY (book);
+    ADD CONSTRAINT footnotes_pkey PRIMARY KEY (book, "footnoteId");
 
 
 --
@@ -674,6 +687,14 @@ ALTER TABLE ONLY public.personal_access_tokens
 
 ALTER TABLE ONLY public.personal_access_tokens
     ADD CONSTRAINT personal_access_tokens_token_unique UNIQUE (token);
+
+
+--
+-- Name: bibliography references_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bibliography
+    ADD CONSTRAINT references_pkey PRIMARY KEY (book, "referenceId");
 
 
 --
@@ -804,6 +825,11 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 19	2025_06_25_070106_add_time_since_to_hyperlights_table	13
 20	2025_07_03_223443_create_anonymous_sessions_table	14
 21	2025_07_03_223759_add_creator_columns_to_hypercites_table	15
+22	2025_07_05_065455_change_anonymous_sessions_token_to_text	16
+23	2025_07_05_133037_change_anonymous_sessions_token_to_text	17
+24	2025_08_08_004016_create_references_table	18
+25	2025_08_08_004059_update_footnotes_table_for_individual_records	18
+26	2025_08_08_011834_rename_references_table_to_bibliography	19
 \.
 
 
@@ -811,7 +837,7 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 -- Name: migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.migrations_id_seq', 21, true);
+SELECT pg_catalog.setval('public.migrations_id_seq', 26, true);
 
 
 --

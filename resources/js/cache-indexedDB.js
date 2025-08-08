@@ -2676,8 +2676,10 @@ async function resolveHypercite(bookId, hyperciteId) {
 }
 
 
+// In cache-indexedDB.js
+
 /**
- * Saves an array of footnote objects to IndexedDB.
+ * Saves an array of footnote objects to IndexedDB and then syncs to PostgreSQL.
  * @param {Array<object>} footnotes - The array of footnote objects from your JSON.
  * @param {string} bookId - The ID of the book they belong to.
  */
@@ -2689,21 +2691,30 @@ export async function saveAllFootnotesToIndexedDB(footnotes, bookId) {
     const store = tx.objectStore("footnotes");
 
     footnotes.forEach((footnote) => {
-      // Each footnote object MUST have a `footnoteId` property.
-      // We also add the `book` property to satisfy the composite key.
       const record = { ...footnote, book: bookId };
       store.put(record);
     });
 
     return new Promise((resolve, reject) => {
-      tx.oncomplete = () => {
+      // Make the oncomplete handler async to use await
+      tx.oncomplete = async () => {
         console.log(
-          `✅ ${footnotes.length} footnotes successfully saved for book: ${bookId}`
+          `✅ ${footnotes.length} footnotes successfully saved to IndexedDB for book: ${bookId}`
         );
+
+        // --- ADDED: Trigger the sync to PostgreSQL ---
+        try {
+          await syncFootnotesToPostgreSQL(bookId, footnotes);
+        } catch (err) {
+          // Log the error but don't reject the promise, as the local save was successful.
+          console.warn("⚠️ Footnote sync to PostgreSQL failed:", err);
+        }
+        // --- END ADDED ---
+
         resolve();
       };
       tx.onerror = (e) => {
-        console.error("❌ Error saving footnotes:", e.target.error);
+        console.error("❌ Error saving footnotes to IndexedDB:", e.target.error);
         reject(e.target.error);
       };
     });
@@ -2711,7 +2722,7 @@ export async function saveAllFootnotesToIndexedDB(footnotes, bookId) {
 }
 
 /**
- * Saves an array of reference objects to IndexedDB.
+ * Saves an array of reference objects to IndexedDB and then syncs to PostgreSQL.
  * @param {Array<object>} references - The array of reference objects from your JSON.
  * @param {string} bookId - The ID of the book they belong to.
  */
@@ -2723,21 +2734,29 @@ export async function saveAllReferencesToIndexedDB(references, bookId) {
     const store = tx.objectStore("references");
 
     references.forEach((reference) => {
-      // Each reference object MUST have a `referenceId` property.
-      // We also add the `book` property to satisfy the composite key.
       const record = { ...reference, book: bookId };
       store.put(record);
     });
 
     return new Promise((resolve, reject) => {
-      tx.oncomplete = () => {
+      // Make the oncomplete handler async to use await
+      tx.oncomplete = async () => {
         console.log(
-          `✅ ${references.length} references successfully saved for book: ${bookId}`
+          `✅ ${references.length} references successfully saved to IndexedDB for book: ${bookId}`
         );
+
+        // --- ADDED: Trigger the sync to PostgreSQL ---
+        try {
+          await syncReferencesToPostgreSQL(bookId, references);
+        } catch (err) {
+          console.warn("⚠️ Reference sync to PostgreSQL failed:", err);
+        }
+        // --- END ADDED ---
+
         resolve();
       };
       tx.onerror = (e) => {
-        console.error("❌ Error saving references:", e.target.error);
+        console.error("❌ Error saving references to IndexedDB:", e.target.error);
         reject(e.target.error);
       };
     });
@@ -2745,3 +2764,71 @@ export async function saveAllReferencesToIndexedDB(references, bookId) {
 }
 
 
+/**
+ * Syncs a batch of footnotes to PostgreSQL via the API.
+ * @param {string} bookId - The ID of the book.
+ * @param {Array<object>} footnotes - The array of footnote objects.
+ */
+async function syncFootnotesToPostgreSQL(bookId, footnotes) {
+  if (!footnotes || footnotes.length === 0) return;
+
+  console.log(`🔄 Syncing ${footnotes.length} footnotes to PostgreSQL...`);
+  const payload = { book: bookId, data: footnotes };
+
+  try {
+    const res = await fetch("/api/db/footnotes/upsert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN":
+          document.querySelector('meta[name="csrf-token"]')?.content,
+      },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      throw new Error(
+        `Footnote sync failed (${res.status}): ${await res.text()}`
+      );
+    }
+    console.log("✅ Footnotes synced to PostgreSQL.");
+  } catch (error) {
+    console.error("❌ Error syncing footnotes to PostgreSQL:", error);
+    // In a production app, you might queue this for a later retry.
+  }
+}
+
+/**
+ * Syncs a batch of references to PostgreSQL via the API.
+ * @param {string} bookId - The ID of the book.
+ * @param {Array<object>} references - The array of reference objects.
+ */
+async function syncReferencesToPostgreSQL(bookId, references) {
+  if (!references || references.length === 0) return;
+
+  console.log(`🔄 Syncing ${references.length} references to PostgreSQL...`);
+  const payload = { book: bookId, data: references };
+
+  try {
+    const res = await fetch("/api/db/references/upsert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN":
+          document.querySelector('meta[name="csrf-token"]')?.content,
+      },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      throw new Error(
+        `Reference sync failed (${res.status}): ${await res.text()}`
+      );
+    }
+    console.log("✅ References synced to PostgreSQL.");
+  } catch (error) {
+    console.error("❌ Error syncing references to PostgreSQL:", error);
+  }
+}
