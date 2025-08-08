@@ -7,11 +7,10 @@ use App\Http\Controllers\DbNodeChunkController;
 use App\Http\Controllers\DbHyperlightController;
 use App\Http\Controllers\DbHyperciteController;
 use App\Http\Controllers\DbLibraryController;
-use App\Http\Controllers\DbFootnoteController;
 use App\Http\Controllers\DatabaseToIndexedDBController;
 use App\Http\Controllers\HomePageServerController;
 use App\Http\Controllers\BeaconSyncController;
-
+use App\Http\Controllers\DbReferencesController;
 use App\Http\Controllers\AuthController;
 
 
@@ -67,10 +66,6 @@ Route::middleware(['author', 'throttle:30,1'])->group(function () {
         [DbLibraryController::class, 'bulkCreate']
     );
 
-    Route::post(
-        '/db/footnotes/bulk-create',
-        [DbFootnoteController::class, 'bulkCreate']
-    );
 
     /* ----------------  Upsert / targeted / delete  ---------------- */
     Route::post(
@@ -103,10 +98,6 @@ Route::middleware(['author', 'throttle:30,1'])->group(function () {
         [DbLibraryController::class, 'upsert']
     );
 
-    Route::post(
-        '/db/footnotes/upsert',
-        [DbFootnoteController::class, 'upsert']
-    );
 
     Route::post(
         '/db/library/update-timestamp', 
@@ -122,6 +113,10 @@ Route::middleware(['author', 'throttle:30,1'])->group(function () {
         '/db/hypercites/find/{book}/{hyperciteId}',
         [DbHyperciteController::class, 'find']
     );
+
+     // NEW: Routes for syncing footnotes and references
+    Route::post('/db/footnotes/upsert', [DbReferencesController::class, 'upsertFootnotes']);
+    Route::post('/db/references/upsert', [DbReferencesController::class, 'upsertReferences']);
 });
 
 // API routes for transferring data from database to IndexedDB

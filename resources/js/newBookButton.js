@@ -4,7 +4,7 @@ import { transitionToReaderView } from './viewManager.js';
 import { ensureAuthInitialized } from "./auth.js";
 
 import { createNewBook, fireAndForgetSync } from "./createNewBook.js";
-
+import { enableEditMode } from './editButton.js';
 import { setInitialBookSyncPromise } from "./operationState.js";
 
  
@@ -47,39 +47,30 @@ export class NewBookContainerManager extends ContainerManager {
   }
 
 
-  setupButtonListeners() {
-    // ✅ 4. THIS IS THE MAIN FIX. Replace your existing listener with this.
+   setupButtonListeners() {
     document
       .getElementById("createNewBook")
       ?.addEventListener("click", async () => {
         console.log("Create new book clicked");
-
-        // First, close the popup
         this.closeContainer();
-
-        // 1. Create the book locally and get the full sync data object
         const pendingSyncData = await createNewBook();
 
         if (pendingSyncData) {
-          // 2. START the background sync immediately and get the promise
           const syncPromise = fireAndForgetSync(
-            pendingSyncData.bookId,
-            true,
-            pendingSyncData,
-          ).finally(() => {
-            // Clear the promise from the state manager when the sync is fully complete
-            console.log(
-              "SYNC STATE: Initial book sync promise has been resolved/cleared.",
-            );
-            setInitialBookSyncPromise(null);
-          });
-
-          // 3. ARM THE GATE: Store the promise in our global state manager
+          pendingSyncData.bookId,
+          pendingSyncData.isNewBook,
+          pendingSyncData
+        );
           setInitialBookSyncPromise(syncPromise);
 
-          // 4. Now, transition to the new view. The user can start typing,
-          // but any attempt to save will be paused by the promise gate.
+          // ✅ STEP 1: Transition to the reader view WITHOUT any special options.
+          // This will just load the blank page structure.
           await transitionToReaderView(pendingSyncData.bookId);
+
+          // ✅ STEP 2: AFTER the transition is complete and the new view is stable,
+          // explicitly call enableEditMode. This is now a separate, deliberate action.
+          console.log("📘 New book from scratch: Forcing edit mode.");
+          enableEditMode(null, true);
         }
       });
 

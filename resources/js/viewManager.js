@@ -1,7 +1,7 @@
-// In resources/js/viewInitializers.js
+
 
 import { book, setCurrentBook } from "./app.js";
-import { loadHyperText } from "./initializePage.js";
+
 import { stopObserving, initTitleSync } from "./divEditor.js";
 import { initEditToolbar, destroyEditToolbar } from "./editToolbar.js";
 import NavButtons from "./nav-buttons.js";
@@ -17,15 +17,20 @@ import { setupUnloadSync } from "./cache-indexedDB.js";
 import { generateTableOfContents } from "./toc.js";
 import { KeyboardManager } from "./keyboardManager.js";
 import {
-  handleAutoEdit,
   initializeEditButtonListeners,
   updateEditButtonVisibility,
+  handleAutoEdit
 } from "./editButton.js";
 import { initializeSourceButtonListener } from "./sourceButton.js";
 import {
   initializeSelectionHandler,
   destroySelectionHandler,
 } from "./selectionHandler.js";
+import {
+  loadHyperText,
+  pendingFirstChunkLoadedPromise,
+  resolveFirstChunkPromise
+} from "./initializePage.js";
 
 // State management and cleanup are correct.
 let activeNavButtons = null;
@@ -45,9 +50,65 @@ function cleanupReaderView() {
   destroySelectionHandler();
 }
 
-// ========================================================================
-// ✅ THIS IS THE FINAL, CORRECTED TRANSITION FUNCTION
-// ========================================================================
+export async function initializeImportedBook(bookId) {
+  try {
+    // Step 1: Fetch the reader page HTML
+    const response = await fetch(`/${bookId}/edit?target=1`);
+    if (!response.ok) throw new Error("Failed to fetch reader page HTML");
+    const htmlString = await response.text();
+
+    // Step 2: Replace the current page content
+    const parser = new DOMParser();
+    const newDoc = parser.parseFromString(htmlString, "text/html");
+    
+    document.body.innerHTML = newDoc.body.innerHTML;
+    for (const { name, value } of newDoc.body.attributes) {
+      document.body.setAttribute(name, value);
+    }
+    document.title = newDoc.title;
+
+    // Step 3: Update global state
+    setCurrentBook(bookId);
+     history.pushState({}, "", `/${bookId}/edit?target=1`);
+
+    await initializeImportedReaderView(bookId);
+
+    // ✅ NOW enable edit mode programmatically after everything is ready
+    console.log("🎯 Enabling edit mode for imported book");
+    const { enableEditMode } = await import('./editButton.js');
+    await enableEditMode(null, false); // No target, not new book
+    
+    // ✅ Update URL to reflect edit mode
+    history.replaceState({}, "", `/${bookId}/edit?target=1&edit=1`);
+
+  } catch (error) {
+    console.error("❌ Imported book initialization failed:", error);
+    window.location.href = `/${bookId}/edit?target=1`;
+  }
+}
+
+export async function initializeImportedReaderView(bookId) {
+  console.log(`🚀 Initializing imported reader view for: ${bookId}`);
+
+  // ✅ Mark this as imported content with the specific book ID
+  sessionStorage.setItem('imported_book_flag', bookId);
+
+  // ✅ Resolve the first chunk promise since content is already in DOM
+  console.log("✅ Imported book: Content already in DOM, resolving first chunk promise");
+  resolveFirstChunkPromise();
+
+  // ✅ Call the ACTUAL initializeReaderView function 
+  await initializeReaderView();
+
+  // ✅ NOW call handleAutoEdit since the page is fully initialized
+  console.log("🎯 Checking for auto-edit after imported book initialization");
+  import('./editButton.js').then(module => {
+    module.handleAutoEdit();
+  });
+  
+  console.log("✅ Imported book fully initialized via standard reader flow");
+}
+
 export async function transitionToReaderView(bookId) {
   try {
     cleanupReaderView();
@@ -59,50 +120,43 @@ export async function transitionToReaderView(bookId) {
     const parser = new DOMParser();
     const newDoc = parser.parseFromString(htmlString, "text/html");
 
-    // --- This is the robust update logic ---
-    const newBody = newDoc.body;
-    const newTitle = newDoc.title;
-
-    // Replace the entire body content and its attributes
-    document.body.innerHTML = newBody.innerHTML;
-
-    // Manually copy over the data attributes from the new body
-    for (const { name, value } of newBody.attributes) {
+    document.body.innerHTML = newDoc.body.innerHTML;
+    for (const { name, value } of newDoc.body.attributes) {
       document.body.setAttribute(name, value);
     }
-
-    // Update the page title
-    document.title = newTitle;
-    // --- End of robust update logic ---
+    document.title = newDoc.title;
 
     setCurrentBook(bookId);
     history.pushState({}, "", `/${bookId}/edit?target=1&edit=1`);
 
-    // Now that the DOM is completely new and correct, initialize it.
+    // Call the simple initializer.
     await initializeReaderView();
   } catch (error) {
     console.error("SPA Transition Failed:", error);
-    // Fallback to a full page load if the SPA transition fails
     window.location.href = `/${bookId}/edit?target=1&edit=1`;
   }
 }
 
-// The setup function is correct and does not need to be changed.
+
 export async function initializeReaderView() {
   const currentBookId = book;
   console.log(`🚀 Initializing Reader View for book: ${currentBookId}`);
 
+  // ✅ Check if this is an imported book
+  const isImportedBook = sessionStorage.getItem('imported_book_initializing');
+  if (isImportedBook) {
+    console.log("📋 Imported book detected - using existing content");
+  }
+
   const loadPromise = loadHyperText(currentBookId);
 
   setTimeout(() => {
-    console.log("✅ DOM settled. Initializing UI components...");
-
+    console.log("✅ DOM settled. Initializing static UI components...");
     activeNavButtons = new NavButtons({
       elementIds: ["nav-buttons", "logoContainer", "topRightContainer"],
       tapThreshold: 15,
     });
     activeNavButtons.init();
-
     initializeEditButtonListeners();
     initializeSourceButtonListener();
     updateEditButtonVisibility(currentBookId);
@@ -110,7 +164,6 @@ export async function initializeReaderView() {
     initializeHighlightingControls(currentBookId);
     initializeHypercitingControls(currentBookId);
     initializeSelectionHandler();
-
     initEditToolbar({
       toolbarId: "edit-toolbar",
       editableSelector: ".main-content[contenteditable='true']",
@@ -122,17 +175,15 @@ export async function initializeReaderView() {
   console.log("✅ Content loading process complete.");
 
   await initTitleSync(currentBookId);
-
   activeKeyboardManager = new KeyboardManager();
-
   window.addEventListener("beforeunload", () => {
     if (activeKeyboardManager) activeKeyboardManager.destroy();
   });
-
   restoreScrollPosition();
   attachMarkListeners();
   initializeBroadcastListener();
   setupUnloadSync();
   generateTableOfContents("toc-container", "toc-toggle-button");
-  handleAutoEdit();
 }
+
+

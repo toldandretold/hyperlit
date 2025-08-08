@@ -2,23 +2,24 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class PgFootnote extends Model
 {
-    protected $table = 'footnotes';
-    protected $primaryKey = 'book';
+    use HasFactory;
+
+    protected $table = 'footnotes'; // 👈 explicitly set table name
+
+    // Define the composite primary key
+    protected $primaryKey = ['book', 'footnoteId'];
     public $incrementing = false;
     protected $keyType = 'string';
 
+    // Allow mass assignment for these fields
     protected $fillable = [
         'book',
-        'data',
-        'raw_json'
-    ];
-
-    protected $casts = [
-        'data' => 'array',
-        'raw_json' => 'array'
+        'footnoteId',
+        'content',
     ];
 }

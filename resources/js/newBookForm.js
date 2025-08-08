@@ -1,7 +1,9 @@
 import { openDatabase } from './cache-indexedDB.js';
 import './debugLog.js';
 import { generateBibtexFromForm } from './bibtexProcessor.js';
-import { getCurrentUser } from './auth.js'; // Add this import
+import { getCurrentUser, getAnonymousToken } from './auth.js';
+import { loadFromJSONFiles, loadHyperText } from './initializePage.js';
+import { transitionToReaderView, initializeImportedReaderView, initializeImportedBook } from "./viewManager.js";
 
 // Add the helper functions from createNewBook.js
 function generateUUID() {
@@ -236,14 +238,13 @@ export function initializeCitationFormListeners() {
     console.log("Citation form event listeners initialized");
 }
 
-// Main form submission handler
 function setupFormSubmission() {
     const form = document.getElementById('cite-form');
     if (!form || form._hasSubmitHandler) return;
     
     form._hasSubmitHandler = true;
     
-    form.addEventListener('submit', function(event) {
+    form.addEventListener('submit', async function(event) {
         event.preventDefault();
         event.stopPropagation();
 
@@ -258,60 +259,11 @@ function setupFormSubmission() {
             submitButton.textContent = 'Processing...';
         }
 
-        // Step 1: Prepare data for IndexedDB
         const formData = new FormData(this);
-        const citationData = {};
-        
-        for (const [key, value] of formData.entries()) {
-            if (key !== 'markdown_file' && key !== '_token') {
-                citationData[key] = value === '' ? null : value;
-            }
-        }
 
-        const selectedType = document.querySelector('input[name="type"]:checked');
-        if (selectedType) {
-            citationData.type = selectedType.value;
-        }
-
-        const citationID = 
-            (citationData.citation_id && citationData.citation_id.trim() !== '') 
-                ? citationData.citation_id.trim() 
-                : 'citation_' + Date.now();
-
-        citationData.bibtex = citationData.bibtex && citationData.bibtex.trim() !== ""
-            ? citationData.bibtex
-            : generateBibtexFromForm(citationData);
-
-        // Handle file info for IndexedDB
-        const fileInput = document.getElementById('markdown_file');
-        if (fileInput && fileInput.files.length > 0) {
-            const file = fileInput.files[0];
-            citationData.fileName = file.name;
-            citationData.fileType = file.type;
-        }
-
-        // Create IndexedDB record
-        const libraryRecord = {
-            book: citationID,
-            bibtex: citationData.bibtex || "",
-            title: citationData.title || null,
-            author: citationData.author || null,
-            year: citationData.year || null,
-            journal: citationData.journal || null,
-            publisher: citationData.publisher || null,
-            pages: citationData.pages || null,
-            school: citationData.school || null,
-            note: citationData.note || null,
-            url: citationData.url || null,
-            type: citationData.type || null,
-            fileName: citationData.fileName || null,
-            fileType: citationData.fileType || null,
-            timestamp: new Date().toISOString(),
-            syncStatus: 'pending' // Track sync status
-        };
-
-        // Step 2: Save to IndexedDB first
-        saveToIndexedDBThenSync(libraryRecord, formData, submitButton);
+        // ✅ We no longer create a local libraryRecord here.
+        // We just submit the form and let the backend handle it.
+        await submitToLaravelAndLoad(formData, submitButton);
     });
 }
 
@@ -400,61 +352,92 @@ async function syncToPostgreSQL(libraryRecord) {
     return Promise.resolve();
 }
 
-function submitToLaravel(formData, submitButton) {
-    console.log("Submitting to Laravel controller for file processing");
-    
-    // Create a new form element to submit to Laravel
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '/cite-creator'; 
-    form.enctype = 'multipart/form-data';
-    
-    // Add CSRF token
-    const csrfToken = document.querySelector('meta[name="csrf-token"]');
-    if (csrfToken) {
-        const tokenInput = document.createElement('input');
-        tokenInput.type = 'hidden';
-        tokenInput.name = '_token';
-        tokenInput.value = csrfToken.getAttribute('content');
-        form.appendChild(tokenInput);
-    }
-    
-    // Copy all form data to the new form
-    for (const [key, value] of formData.entries()) {
-        if (key === 'markdown_file') {
-            // Handle file input specially
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.name = 'markdown_file';
-            fileInput.style.display = 'none';
-            
-            // Create a new FileList with the original file
-            const originalFileInput = document.getElementById('markdown_file');
-            if (originalFileInput && originalFileInput.files.length > 0) {
-                // We need to recreate the file input with the same file
-                const dt = new DataTransfer();
-                dt.items.add(originalFileInput.files[0]);
-                fileInput.files = dt.files;
-            }
-            form.appendChild(fileInput);
+async function submitToLaravelAndLoad(formData, submitButton) {
+  console.log("Submitting to Laravel controller for file processing...");
+
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+  try {
+    const response = await fetch("/cite-creator", {
+      method: "POST",
+      body: formData,
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "X-CSRF-TOKEN": csrfToken,
+      },
+    });
+
+    if (!response.ok) {
+      // ✅ Get the actual error details from Laravel
+      const errorText = await response.text();
+      let errorDetails;
+      
+      try {
+        const errorJson = JSON.parse(errorText);
+        console.error("❌ Server validation errors:", errorJson);
+        
+        // Laravel validation errors are usually in errorJson.errors
+        if (errorJson.errors) {
+          const validationErrors = Object.entries(errorJson.errors)
+            .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+            .join('\n');
+          errorDetails = `Validation failed:\n${validationErrors}`;
         } else {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = key;
-            input.value = value;
-            form.appendChild(input);
+          errorDetails = errorJson.message || errorText;
         }
+      } catch (e) {
+        console.error("❌ Server error (not JSON):", errorText);
+        errorDetails = errorText;
+      }
+      
+      throw new Error(`Server responded with ${response.status}: ${errorDetails}`);
     }
-    
-    // Add form to document and submit
-    document.body.appendChild(form);
-    
-    // Show user that processing is happening
+
+    const result = await response.json();
+    console.log("✅ Import completed:", result);
+
+    if (!result.bookId) {
+      throw new Error("No bookId returned from backend");
+    }
+
+    // Save the authoritative library record that came from the server
+    if (result.library) {
+      const db = await openDatabase();
+      const tx = db.transaction("library", "readwrite");
+      tx.objectStore("library").put(result.library);
+      await tx.done;
+      console.log("✅ Server's library record saved to IndexedDB");
+    }
+
+    // Pre-load the book's content into IndexedDB so the transition is instant.
+    console.log(
+      `📥 Fetching pre-generated JSON for imported book: ${result.bookId}`
+    );
+    await loadFromJSONFiles(result.bookId);
+
+    // ===================== THE FIX: STEP 2 =====================
+    // REMOVED: The broken redirect workflow.
+    // sessionStorage.setItem("just_imported", result.bookId);
+    // window.location.href = `/${result.bookId}`;
+
+    // INSTEAD: Call the SPA transition function that you already built and know works.
+    // This will smoothly replace the form page with the reader view.
+    console.log(
+      `🚀 Handing off to the working SPA transition for book: ${result.bookId}`
+    );
+    await initializeImportedBook(result.bookId);
+    // ===========================================================
+  } catch (error) {
+    console.error("❌ Import failed:", error);
+    alert("Import failed: " + error.message);
+    // Re-enable the button only on failure, since on success we navigate away.
     if (submitButton) {
-        submitButton.textContent = 'Processing file...';
+      submitButton.disabled = false;
+      submitButton.textContent = "Submit";
     }
-    
-    form.submit(); // This will navigate to the Laravel response page
+  }
+  // The 'finally' block is removed because on success, the button no longer exists.
 }
 
 // Clear button handler

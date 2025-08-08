@@ -70,7 +70,7 @@ class DbLibraryController extends Controller
     /**
      * Get creator info based on auth state
      */
-    private function getCreatorInfo(Request $request)
+    public function getCreatorInfo(Request $request)
     {
         $user = Auth::user();
         
