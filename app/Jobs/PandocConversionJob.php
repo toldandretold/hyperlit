@@ -7,109 +7,99 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Symfony\Component\Process\Process;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\Process\Process;
+use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class PandocConversionJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected $citation_id;
-    protected $originalFilePath;
+    protected $inputFilePath;
 
     /**
-     * The new constructor only needs the citation_id and the path to the original file.
-     * It will determine all other paths itself.
+     * Create a new job instance.
+     *
+     * @param string $citation_id
+     * @param string $inputFilePath
+     * @return void
      */
-    public function __construct(string $citation_id, string $originalFilePath)
+    public function __construct(string $citation_id, string $inputFilePath)
     {
         $this->citation_id = $citation_id;
-        $this->originalFilePath = $originalFilePath;
+        $this->inputFilePath = $inputFilePath;
     }
 
     /**
-     * The new handle method performs a single, powerful Pandoc conversion
-     * that replaces all the old cleanup steps.
+     * Execute the job.
+     *
+     * @return void
      */
-    public function handle(): void
+    public function handle()
     {
-        Log::info("Starting unified Pandoc processing for citation: {$this->citation_id}");
-
         $basePath = resource_path("markdown/{$this->citation_id}");
-        $finalJsonPath = "{$basePath}/processed.json";
+        $htmlOutputPath = "{$basePath}/intermediate.html";
+        $pythonScriptPath = base_path('app/python/process_document.py');
 
-        // Define paths for our Lua filters from the /resources/pandoc-filters/ directory
-        $fixQuotesFilterPath = resource_path('pandoc-filters/fix-quotes.lua');
-        $extractRefsFilterPath = resource_path('pandoc-filters/filter.lua'); // The new filter
-        
-        $findCitationsFilter = resource_path('pandoc-filters/find-citations.lua');
+        Log::info("PandocConversionJob started for citation_id: {$this->citation_id}");
 
-        $process = new Process([
-            '/usr/local/bin/pandoc',
-            $this->originalFilePath,
-            '--lua-filter=' . $findCitationsFilter, // Use the new filter
-            '-f', 'docx',
-            '-t', 'html',
-            '--standalone' // Use standalone to get a full HTML doc
-        ]);
-
-        $process->setTimeout(500);
-        $process->run();
-
-        if (!$process->isSuccessful()) {
-            Log::error('Unified Pandoc processing failed:', [
-                'citation_id' => $this->citation_id,
-                'error' => $process->getErrorOutput()
+        try {
+            // Step 1: Convert DOCX to HTML using Pandoc
+            Log::info("Step 1: Converting DOCX to HTML...", [
+                'input' => $this->inputFilePath,
+                'output' => $htmlOutputPath
             ]);
-            return;
-        }
 
-        $htmlOutput = $process->getOutput();
+            $pandocProcess = new Process([
+                'pandoc',
+                $this->inputFilePath,
+                '-o',
+                $htmlOutputPath,
+                '--extract-media=' . $basePath // Extracts images to the folder
+            ]);
+            $pandocProcess->setTimeout(300); // 5 minutes timeout
+            $pandocProcess->run();
 
-        // --- Step 2: Parse the Pandoc Output into our JSON structure ---
+            if (!$pandocProcess->isSuccessful()) {
+                throw new ProcessFailedException($pandocProcess);
+            }
+            Log::info("Pandoc conversion successful.");
 
-        // Extract the JSON data we embedded in the HTML comment via the Lua filter
-        preg_match('/<!-- PANDOC_DATA_JSON:(.*?)-->/s', $htmlOutput, $matches);
-        $citationsJson = $matches[1] ?? '[]';
-        $citations = json_decode($citationsJson, true);
+            // Step 2: Run the Python script on the generated HTML
+            Log::info("Step 2: Running Python script...", [
+                'script' => $pythonScriptPath,
+                'html_input' => $htmlOutputPath,
+                'output_dir' => $basePath
+            ]);
 
-        // Now, parse the generated HTML into nodeChunks
-        $dom = new \DOMDocument();
-        // Suppress errors from potentially malformed HTML and ensure proper encoding
-        @$dom->loadHTML('<?xml encoding="utf-8" ?>' . $htmlOutput, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+            $pythonProcess = new Process([
+                'python3',
+                $pythonScriptPath,
+                $htmlOutputPath,
+                $basePath // Pass the output directory
+            ]);
+            $pythonProcess->setTimeout(300);
+            $pythonProcess->run();
 
-        $nodeChunks = [];
-        $nodeNumber = 0;
-        // The body tag is our root container for the content nodes
-        $body = $dom->getElementsByTagName('body')->item(0);
-        if ($body) {
-            foreach ($body->childNodes as $el) {
-                if ($el->nodeType !== XML_ELEMENT_NODE) continue;
+            if (!$pythonProcess->isSuccessful()) {
+                throw new ProcessFailedException($pythonProcess);
+            }
+            Log::info("Python script executed successfully. JSON files created.");
 
-                $nodeNumber++;
-                $el->setAttribute('id', $nodeNumber);
-                $el->setAttribute('data-block-id', $nodeNumber);
-
-                $nodeChunks[] = [
-                    'chunk_id' => floor(($nodeNumber - 1) / 100),
-                    'type' => $el->tagName,
-                    'content' => $dom->saveHTML($el),
-                    'plainText' => $el->textContent,
-                    'startLine' => $nodeNumber,
-                ];
+        } catch (ProcessFailedException $exception) {
+            Log::error("PandocConversionJob failed for {$this->citation_id}", [
+                'error' => $exception->getMessage(),
+                'stdout' => $exception->getProcess()->getOutput(),
+                'stderr' => $exception->getProcess()->getErrorOutput(),
+            ]);
+        } finally {
+            // Step 3: Clean up the intermediate HTML file
+            if (File::exists($htmlOutputPath)) {
+                File::delete($htmlOutputPath);
+                Log::info("Cleaned up intermediate file: {$htmlOutputPath}");
             }
         }
-
-        // The final JSON payload to be served to the frontend
-        $payload = [
-            'nodeChunks' => $nodeChunks,
-            'citations' => $citations, // This contains ALL references (footnotes and author-date)
-        ];
-
-        // Save the final, clean JSON payload to a file.
-        File::put($finalJsonPath, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-
-        Log::info("Unified Pandoc processing completed successfully for {$this->citation_id}. Output at {$finalJsonPath}");
     }
 }
