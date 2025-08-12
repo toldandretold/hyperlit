@@ -1,5 +1,3 @@
-# app/python/process_document.py (HANDLES REFERENCES AND ALL FOOTNOTE STYLES)
-
 import sys
 import re
 import json
@@ -45,15 +43,16 @@ def is_likely_reference(p_tag):
 
 # --- MAIN PROCESSING LOGIC ---
 
-def main(html_file_path, output_dir):
+def main(html_file_path, output_dir, book_id):
     with open(html_file_path, "r", encoding="utf-8") as f:
         soup = BeautifulSoup(f, "html.parser")
 
     # ========================================================================
-    # PASS 1: EXTRACT ALL DEFINITIONS (No changes here)
+    # PASS 1: EXTRACT ALL DEFINITIONS
     # ========================================================================
     print("--- PASS 1: Extracting All Definitions ---")
     
+    # --- 1A: Process Bibliography / References (No changes here) ---
     bibliography_map = {}
     references_data = []
     all_paragraphs = soup.find_all('p')
@@ -79,20 +78,55 @@ def main(html_file_path, output_dir):
     
     print(f"Found and processed {len(references_data)} reference entries (kept in DOM).")
 
+    # --- 1B: Process Footnotes (FIXED) ---
+    # --- 1B: Process Footnotes (FIXED) ---
     footnote_map = {}
     footnotes_data = []
-    fn_nodes_to_remove = []
 
-    for p in soup.find_all('p'):
-        text = p.get_text(strip=True)
-        num_match = re.match(r'^(\d+)\.\s*(.*)', text, re.DOTALL)
-        if num_match:
-            identifier, content = num_match.groups()
-            footnote_map[identifier] = content.strip()
-            fn_nodes_to_remove.append(p)
-    
-    for node in fn_nodes_to_remove: node.decompose()
-    footnotes_data = [{"footnoteId": k, "content": v} for k, v in footnote_map.items()]
+    fn_container = soup.find('section', class_='footnotes')
+    if fn_container:
+        list_items = fn_container.find_all('li')
+        
+        for li in list_items:
+            back_link = li.find('a', class_='footnote-back')
+            if not back_link: continue
+
+            href = back_link.get('href', '')
+            id_match = re.search(r'#fnref(\d+)', href)
+            if not id_match: continue
+            
+            identifier = id_match.group(1)
+
+            # Generate unique IDs
+            unique_fn_id = f"{book_id}Fn{int(time.time() * 1000)}{identifier}"
+            unique_fnref_id = f"{book_id}Fnref{int(time.time() * 1000)}{identifier}"
+
+            # Add anchor with unique ID and count attribute
+            anchor_tag = soup.new_tag('a', id=unique_fn_id)
+            anchor_tag['fn-count-id'] = identifier
+            li.insert(0, anchor_tag)
+
+            # Update the back-link to point to the unique in-text reference
+            back_link['href'] = f"#{unique_fnref_id}"
+
+            # Extract content for JSON
+            temp_li = BeautifulSoup(str(li), 'html.parser')
+            temp_back_link = temp_li.find('a', class_='footnote-back')
+            if temp_back_link:
+                temp_back_link.decompose()
+            content = temp_li.li.decode_contents().strip()
+
+            # Store all IDs in footnote_map for PASS 2B
+            footnote_map[identifier] = {
+                'unique_fn_id': unique_fn_id, 
+                'unique_fnref_id': unique_fnref_id,
+                'content': content
+            }
+        
+        print(f"Unwrapping {len(list_items)} footnote items to be processed as individual nodes.")
+        fn_container.replace_with(*list_items)
+
+    footnotes_data = [{"footnoteId": v['unique_fn_id'], "content": v['content']} for k, v in footnote_map.items()]
     print(f"Found and extracted {len(footnotes_data)} footnote definitions.")
 
     # ========================================================================
@@ -100,7 +134,7 @@ def main(html_file_path, output_dir):
     # ========================================================================
     print("\n--- PASS 2: Linking All In-Text Markers ---")
 
-    # --- 2A: Link References ---
+    # --- 2A: Link References (No changes here) ---
     for text_node in soup.find_all(string=True):
         if not text_node.find_parent("div", class_="bib-entry"):
             text = str(text_node)
@@ -121,38 +155,25 @@ def main(html_file_path, output_dir):
                         linked = False
                         for key in keys:
                             if key in bibliography_map:
-                                # --- MODIFIED SECTION START ---
-                                # Find the year to wrap the link around it specifically.
                                 year_match = re.search(r'(\d{4}[a-z]?)', sub_cite)
-                                
                                 if year_match:
-                                    # Split the citation string into parts: before, year, and after.
                                     author_part = sub_cite[:year_match.start(0)]
                                     year_part = year_match.group(0)
                                     trailing_part = sub_cite[year_match.end(0):]
-
-                                    # 1. Add the author part as plain text
                                     if author_part:
                                         new_content.append(NavigableString(author_part))
-
-                                    # 2. Create the link ONLY for the year
                                     a_tag = soup.new_tag("a", href=f"#{bibliography_map[key]}", attrs={'class': 'in-text-citation'})
                                     a_tag.string = year_part
                                     new_content.append(a_tag)
-
-                                    # 3. Add any trailing text (e.g., page numbers) as plain text
                                     if trailing_part:
                                         new_content.append(NavigableString(trailing_part))
                                 else:
-                                    # Fallback for safety: if no year found, link the whole citation
                                     a_tag = soup.new_tag("a", href=f"#{bibliography_map[key]}", attrs={'class': 'in-text-citation'})
                                     a_tag.string = sub_cite
                                     new_content.append(a_tag)
                                 
                                 linked = True
                                 break
-                                # --- MODIFIED SECTION END ---
-
                         if not linked: new_content.append(NavigableString(sub_cite))
                         if i < len(sub_citations) - 1: new_content.append(NavigableString("; "))
                     new_content.append(NavigableString(")"))
@@ -160,24 +181,59 @@ def main(html_file_path, output_dir):
                 new_content.append(NavigableString(text[last_index:]))
                 text_node.replace_with(*new_content)
 
-    # --- 2B: Link Footnotes (No changes here) ---
-    html_content = str(soup)
-    for identifier in footnote_map.keys():
-        pattern1 = rf'\[\^{re.escape(identifier)}\]'
-        replacement1 = f'<sup id="fnref:{identifier}"><a class="footnote-ref" href="#fn:{identifier}">{identifier}</a></sup>'
-        html_content = re.sub(pattern1, replacement1, html_content)
-        pattern2 = rf'([^>]*)(\b{re.escape(identifier)}\b)(\s*</(?:p|div|h[1-6]|blockquote)>)'
-        def replace_plain_footnote(match):
-            text_before = match.group(1)
-            if '<a ' in text_before and '</a>' not in text_before: return match.group(0)
-            if re.search(r'\d{4}', text_before[-10:]) or re.search(r'[,-]\s*\d+', text_before[-10:]): return match.group(0)
-            sup_tag = f'<sup id="fnref:{identifier}"><a class="footnote-ref" href="#fn:{identifier}">{identifier}</a></sup>'
-            return f'{text_before}{sup_tag}{match.group(3)}'
-        html_content = re.sub(pattern2, replace_plain_footnote, html_content)
-    soup = BeautifulSoup(html_content, "html.parser")
+    # --- 2B: Link Footnotes (COMPLETELY REWRITTEN) ---
+    # Handle existing <a> tags with #fn pattern
+    # --- 2B: Link Footnotes (UPDATED) ---
+    for a_tag in soup.find_all('a', href=re.compile(r'^#fn\d+')):
+        identifier_match = re.search(r'(\d+)', a_tag.get('href', ''))
+        if not identifier_match: continue
+        identifier = identifier_match.group(1)
+        text_content = a_tag.get_text(strip=True)
+
+        if identifier in footnote_map and text_content == identifier:
+            new_sup = soup.new_tag('sup', id=footnote_map[identifier]['unique_fnref_id'])
+            new_sup['fn-count-id'] = identifier
+            new_a = soup.new_tag('a', href=f"#{footnote_map[identifier]['unique_fn_id']}", attrs={'class': 'footnote-ref'})
+            new_a.string = text_content
+            new_sup.append(new_a)
+            a_tag.replace_with(new_sup)
+
+    # Handle existing <sup> tags
+    for sup_tag in soup.find_all('sup'):
+        if sup_tag.find('a', class_='footnote-ref'): continue
+        identifier = sup_tag.get_text(strip=True)
+        if identifier in footnote_map:
+            sup_tag['id'] = footnote_map[identifier]['unique_fnref_id']
+            sup_tag['fn-count-id'] = identifier
+            a_tag = soup.new_tag('a', href=f"#{footnote_map[identifier]['unique_fn_id']}", attrs={'class': 'footnote-ref'})
+            a_tag.string = identifier
+            sup_tag.string = '' 
+            sup_tag.append(a_tag)
+
+    # Handle [^identifier] patterns in text
+    for text_node in soup.find_all(string=True):
+        if not text_node.parent.name in ['style', 'script', 'a']:
+            text = str(text_node)
+            matches = list(re.finditer(r'\[\^(\w+)\]', text))
+            if matches:
+                new_content = []
+                last_index = 0
+                for match in matches:
+                    identifier = match.group(1)
+                    if identifier in footnote_map:
+                        new_content.append(NavigableString(text[last_index:match.start()]))
+                        new_sup = soup.new_tag('sup', id=footnote_map[identifier]['unique_fnref_id'])
+                        new_sup['fn-count-id'] = identifier
+                        new_a = soup.new_tag('a', href=f"#{footnote_map[identifier]['unique_fn_id']}", attrs={'class': 'footnote-ref'})
+                        new_a.string = identifier
+                        new_sup.append(new_a)
+                        new_content.append(new_sup)
+                        last_index = match.end()
+                new_content.append(NavigableString(text[last_index:]))
+                text_node.replace_with(*new_content)
 
     # ========================================================================
-    # PASS 3: GENERATE FINAL JSON OUTPUT (No changes here)
+    # PASS 3: GENERATE FINAL JSON OUTPUT
     # ========================================================================
     print("\n--- PASS 3: Generating Final JSON Output ---")
     book_id = f"book_{int(time.time() * 1000)}"
@@ -191,8 +247,15 @@ def main(html_file_path, output_dir):
         start_line_counter += 1
         chunk_id = (start_line_counter - 1) // CHUNK_SIZE
         node_key = f"{book_id}_{start_line_counter}"
+        
+        # Force footnote li elements to get startLine IDs, keep others' existing IDs
+        if node.name == 'li' and node.find('a', id=re.compile(rf'^{re.escape(book_id)}Fn')):
+            node['id'] = start_line_counter
+        elif not node.has_attr('id'):
+            node['id'] = start_line_counter
+        
         references_in_node = [a['href'].lstrip('#') for a in node.find_all('a', class_='in-text-citation')]
-        footnotes_in_node = [a['href'].split(':')[-1] for a in node.find_all('a', class_='footnote-ref')]
+        footnotes_in_node = [a.get('fn-count-id', '') for a in node.find_all('sup') if a.get('fn-count-id')]
         node_object = {
             "id": node_key, "book": book_id, "chunk_id": chunk_id, 
             "startLine": start_line_counter, "content": str(node), 
@@ -220,10 +283,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process a document to extract references, footnotes, and content chunks.")
     parser.add_argument("html_file", help="Path to the input HTML file.")
     parser.add_argument("output_dir", help="Directory to save the output JSON files.")
+    parser.add_argument("book_id", help="Book ID to use for generating unique footnote IDs.")
     args = parser.parse_args()
 
     if not os.path.isfile(args.html_file):
         print(f"Error: Input file not found at {args.html_file}")
         sys.exit(1)
 
-    main(args.html_file, args.output_dir)
+    main(args.html_file, args.output_dir, args.book_id)

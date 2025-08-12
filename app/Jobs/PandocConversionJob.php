@@ -71,14 +71,16 @@ class PandocConversionJob implements ShouldQueue
             Log::info("Step 2: Running Python script...", [
                 'script' => $pythonScriptPath,
                 'html_input' => $htmlOutputPath,
-                'output_dir' => $basePath
+                'output_dir' => $basePath,
+                'book_id' => $this->citation_id
             ]);
 
             $pythonProcess = new Process([
                 'python3',
                 $pythonScriptPath,
                 $htmlOutputPath,
-                $basePath // Pass the output directory
+                $basePath,
+                $this->citation_id // Pass citation_id as book_id
             ]);
             $pythonProcess->setTimeout(300);
             $pythonProcess->run();
