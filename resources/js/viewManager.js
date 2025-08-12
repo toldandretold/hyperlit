@@ -52,6 +52,9 @@ function cleanupReaderView() {
 
 export async function initializeImportedBook(bookId) {
   try {
+    // ✅ ADD CLEANUP FIRST - just like the regular SPA pathway
+    cleanupReaderView();
+
     // Step 1: Fetch the reader page HTML
     const response = await fetch(`/${bookId}/edit?target=1`);
     if (!response.ok) throw new Error("Failed to fetch reader page HTML");
@@ -69,7 +72,7 @@ export async function initializeImportedBook(bookId) {
 
     // Step 3: Update global state
     setCurrentBook(bookId);
-     history.pushState({}, "", `/${bookId}/edit?target=1`);
+    history.pushState({}, "", `/${bookId}/edit?target=1`);
 
     await initializeImportedReaderView(bookId);
 
