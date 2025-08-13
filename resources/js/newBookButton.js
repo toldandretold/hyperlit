@@ -213,6 +213,7 @@ export class NewBookContainerManager extends ContainerManager {
 
     document.getElementById("clearButton")?.addEventListener("click", () => {
       document.getElementById("cite-form").reset();
+      this.clearSavedFormData();
     });
 
     // Show/hide optional fields based on the selected type
@@ -227,6 +228,19 @@ export class NewBookContainerManager extends ContainerManager {
     if (typeRadios.length > 0) {
       typeRadios[0].checked = true;
       this.toggleOptionalFields("article");
+    }
+
+    this.loadFormData();
+
+    const form = document.getElementById('cite-form');
+    if (form) {
+      form.addEventListener('input', () => {
+        // Debounce the save to avoid too many localStorage writes
+        clearTimeout(this.saveTimeout);
+        this.saveTimeout = setTimeout(() => {
+          this.saveFormData();
+        }, 500);
+      });
     }
   }
 
@@ -396,6 +410,8 @@ export class NewBookContainerManager extends ContainerManager {
   if (this.isAnimating) return;
   this.isAnimating = true;
 
+  this.saveFormData();
+
   // Remove tilt from icon, if applicable
   const icon = this.button.querySelector(".icon");
   if (icon) {
@@ -446,6 +462,100 @@ export class NewBookContainerManager extends ContainerManager {
     },
     { once: true }
   );
+}
+
+// Add these methods to your NewBookContainerManager class
+
+saveFormData() {
+  const form = document.getElementById('cite-form');
+  if (!form) return;
+
+  const data = {};
+  
+  // Get all form inputs except file inputs
+  const inputs = form.querySelectorAll('input:not([type="file"]), textarea, select');
+  inputs.forEach(input => {
+    if (input.type === 'radio') {
+      if (input.checked) {
+        data[input.name] = input.value;
+      }
+    } else if (input.type === 'checkbox') {
+      data[input.name] = input.checked;
+    } else {
+      data[input.name] = input.value;
+    }
+  });
+  
+  // Handle file input separately - just save the filename for reference
+  const fileInput = document.getElementById('markdown_file');
+  if (fileInput && fileInput.files && fileInput.files.length > 0) {
+    data.selectedFileName = fileInput.files[0].name;
+  }
+  
+  // Save to localStorage
+  localStorage.setItem('newbook-form-data', JSON.stringify(data));
+  console.log('Form data saved:', data);
+}
+
+loadFormData() {
+  const savedData = localStorage.getItem('newbook-form-data');
+  if (!savedData) return;
+  
+  try {
+    const data = JSON.parse(savedData);
+    console.log('Loading form data:', data);
+    
+    // Wait a bit for the form to be fully rendered
+    setTimeout(() => {
+      // Restore specific form fields by ID
+      const fieldIds = ['bibtex', 'citation_id', 'author', 'title', 'year', 'url', 'pages', 'journal', 'publisher', 'school', 'note', '_token'];
+      
+      fieldIds.forEach(fieldId => {
+        const element = document.getElementById(fieldId);
+        if (element && data[fieldId]) {
+          element.value = data[fieldId];
+        }
+      });
+      
+      // Restore radio button selection
+      if (data.type) {
+        const radio = document.querySelector(`input[name="type"][value="${data.type}"]`);
+        if (radio) {
+          radio.checked = true;
+          this.toggleOptionalFields(data.type);
+        }
+      }
+      
+      // Show a message about the previously selected file
+      if (data.selectedFileName) {
+        const fileInput = document.getElementById('markdown_file');
+        if (fileInput) {
+          // Remove any existing file note
+          const existingNote = document.getElementById('file-restore-note');
+          if (existingNote) {
+            existingNote.remove();
+          }
+          
+          // Create a new note about the previously selected file
+          const fileNote = document.createElement('div');
+          fileNote.id = 'file-restore-note';
+          fileNote.style.fontSize = '12px';
+          fileNote.style.color = '#EF8D34';
+          fileNote.style.marginTop = '5px';
+          fileNote.textContent = `Previously selected: ${data.selectedFileName} (please reselect)`;
+          fileInput.parentNode.insertBefore(fileNote, fileInput.nextSibling);
+        }
+      }
+      
+    }, 100);
+    
+  } catch (error) {
+    console.error('Error loading form data:', error);
+  }
+}
+
+clearSavedFormData() {
+  localStorage.removeItem('newbook-form-data');
 }
 
 }
