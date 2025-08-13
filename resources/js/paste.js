@@ -614,14 +614,8 @@ function handleCodeBlockPaste(event, chunk) {
  * @param {number} estimatedNodes - Estimated node count
  * @returns {boolean} - True if handled, false if should continue to large paste handler
  */
-/**
- * Handle small paste operations (≤ SMALL_NODE_LIMIT nodes)
- * The signature is now clean, accepting only one node count.
- */
-/**
- * Handle small paste operations (≤ SMALL_NODE_LIMIT nodes)
- * This version is now responsible for assigning correct IDs.
- */
+
+
 function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
   const SMALL_NODE_LIMIT = 20;
 
@@ -636,7 +630,7 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
   if (htmlContent) {
     event.preventDefault();
     const selection = window.getSelection();
-    if (!selection.rangeCount) return true; // Nothing to do
+    if (!selection.rangeCount) return true;
 
     const range = selection.getRangeAt(0);
     let currentElement = range.startContainer;
@@ -644,73 +638,64 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
       currentElement = currentElement.parentElement;
     }
 
-    // Find the block element where the paste is happening. This is our anchor.
     const currentBlock = currentElement.closest(
       "p, h1, h2, h3, h4, h5, h6, div, pre, blockquote"
     );
 
-    // If we can't find a valid block with an ID, we can't proceed.
     if (!currentBlock || !currentBlock.id || !/^\d+(\.\d+)*$/.test(currentBlock.id)) {
       console.warn("Small paste aborted: Could not find a valid anchor block with a numerical ID.");
-      // Fallback to default browser behavior might be an option here, but for now, we stop.
       return true;
     }
 
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = htmlContent;
-    // Strip existing IDs to prevent conflicts.
     tempDiv.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
 
     const elementsToInsert = Array.from(tempDiv.children);
-    
-    // ====================================================================
-    // REPLACEMENT LOGIC: ID-AWARE INSERTION LOOP
-    // ====================================================================
-    
-    // 'lastInsertedElement' will be our moving reference point. It starts as the block
-    // the user's cursor was in.
     let lastInsertedElement = currentBlock;
+    
+    // ✅ NEW: Track inserted elements for saving
+    const insertedElements = [];
 
     elementsToInsert.forEach((elementToInsert) => {
-      // 1. Find the next sibling with a valid ID *relative to our last insertion*.
-      //    This is crucial because the DOM is changing with each loop iteration.
       let nextSiblingWithId = lastInsertedElement.nextElementSibling;
       while (nextSiblingWithId && (!nextSiblingWithId.id || !/^\d+(\.\d+)*$/.test(nextSiblingWithId.id))) {
         nextSiblingWithId = nextSiblingWithId.nextElementSibling;
       }
       const nextId = nextSiblingWithId ? nextSiblingWithId.id : null;
 
-      // 2. Generate a new, valid ID between our last element and the next one.
       const newId = generateIdBetween(lastInsertedElement.id, nextId);
       elementToInsert.id = newId;
       console.log(`Assigning new ID ${newId} to pasted element.`);
 
-      // 3. Insert the element (which now has a valid ID) into the DOM.
       lastInsertedElement.insertAdjacentElement("afterend", elementToInsert);
-
-      // 4. CRITICAL: Update our reference to the element we just inserted.
-      //    For the next loop iteration, this becomes the new "before" anchor.
+      
+      // ✅ NEW: Track this element
+      insertedElements.push(elementToInsert);
+      
       lastInsertedElement = elementToInsert;
     });
 
-    // After the loop, move the cursor to the end of the very last element we inserted.
+    // ✅ NEW: Explicitly save all inserted elements
+    insertedElements.forEach(element => {
+      console.log(`Explicitly saving small paste element: ${element.id}`);
+      queueNodeForSave(element.id, 'create'); // or 'update' if you prefer
+    });
+
+    // Move cursor to end
     if (lastInsertedElement && lastInsertedElement !== currentBlock) {
       const newRange = document.createRange();
       newRange.selectNodeContents(lastInsertedElement);
-      newRange.collapse(false); // false = collapse to the end
+      newRange.collapse(false);
       selection.removeAllRanges();
       selection.addRange(newRange);
     }
-    
-    // The MutationObserver will now correctly detect these new nodes (with their shiny new IDs)
-    // and queue them for saving automatically.
 
-    return true; // We have handled the paste.
+    return true;
   } else {
     console.log("Small plain text paste, deferring to native contentEditable");
-    // Let the browser handle simple text insertion. The MutationObserver will catch it.
-    setPasteInProgress(false); // Allow observer to run for this case.
-    return false; // Returning false lets the default action proceed.
+    setPasteInProgress(false);
+    return false;
   }
 }
 
