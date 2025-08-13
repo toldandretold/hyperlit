@@ -41,7 +41,7 @@ class PandocConversionJob implements ShouldQueue
     {
         $basePath = resource_path("markdown/{$this->citation_id}");
         $htmlOutputPath = "{$basePath}/intermediate.html";
-        $pythonScriptPath = base_path('app/python/process_document.py');
+        $pythonScriptPath = base_path('app/Python/process_document.py');
 
         Log::info("PandocConversionJob started for citation_id: {$this->citation_id}");
 
