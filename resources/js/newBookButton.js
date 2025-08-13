@@ -24,6 +24,13 @@ export class NewBookContainerManager extends ContainerManager {
     this.buttonPosition = null;
     this.setupButtonListeners();
     this.originalContent = null;
+
+    window.addEventListener('resize', () => {
+      if (this.isOpen && this.container.querySelector('#cite-form')) {
+        // If form is open, adjust size on resize
+        this.setResponsiveFormSize();
+      }
+    });
   }
 
  setupNewBookContainerStyles() {
@@ -48,59 +55,59 @@ export class NewBookContainerManager extends ContainerManager {
 
 
    setupButtonListeners() {
-    document
-      .getElementById("createNewBook")
-      ?.addEventListener("click", async () => {
-        console.log("Create new book clicked");
-        this.closeContainer();
-        const pendingSyncData = await createNewBook();
+  document
+    .getElementById("createNewBook")
+    ?.addEventListener("click", async () => {
+      console.log("Create new book clicked");
+      this.closeContainer();
+      const pendingSyncData = await createNewBook();
 
-        if (pendingSyncData) {
-          const syncPromise = fireAndForgetSync(
-          pendingSyncData.bookId,
-          pendingSyncData.isNewBook,
-          pendingSyncData
-        );
-          setInitialBookSyncPromise(syncPromise);
+      if (pendingSyncData) {
+        const syncPromise = fireAndForgetSync(
+        pendingSyncData.bookId,
+        pendingSyncData.isNewBook,
+        pendingSyncData
+      );
+        setInitialBookSyncPromise(syncPromise);
 
-          // ✅ STEP 1: Transition to the reader view WITHOUT any special options.
-          // This will just load the blank page structure.
-          await transitionToReaderView(pendingSyncData.bookId);
+        // ✅ STEP 1: Transition to the reader view WITHOUT any special options.
+        // This will just load the blank page structure.
+        await transitionToReaderView(pendingSyncData.bookId);
 
-          // ✅ STEP 2: AFTER the transition is complete and the new view is stable,
-          // explicitly call enableEditMode. This is now a separate, deliberate action.
-          console.log("📘 New book from scratch: Forcing edit mode.");
-          enableEditMode(null, true);
-        }
-      });
-
-      // In your NewBookContainerManager class, update the importBook event listener:
-
-    document.getElementById("importBook")?.addEventListener("click", () => {
-      console.log("Import book clicked");
-      // Save the original content if not already saved
-      if (!this.originalContent) {
-        this.originalContent = this.container.innerHTML;
+        // ✅ STEP 2: AFTER the transition is complete and the new view is stable,
+        // explicitly call enableEditMode. This is now a separate, deliberate action.
+        console.log("📘 New book from scratch: Forcing edit mode.");
+        enableEditMode(null, true);
       }
-
-      // Replace content with the form and expand the container
-      this.showImportForm();
-      
-      // Dynamically import the module and set up the form submission handler
-      import("./newBookForm.js")
-        .then(module => {
-          // Call the initialization function from the imported module
-          module.initializeCitationFormListeners();
-          
-          // Set up the form submission handler
-          module.setupFormSubmissionHandler();
-        })
-        .catch(error => {
-          console.error("Error importing citation form module:", error);
-        });
     });
 
-  }
+  document.getElementById("importBook")?.addEventListener("click", () => {
+    console.log("Import book clicked");
+    // Save the original content if not already saved
+    if (!this.originalContent) {
+      this.originalContent = this.container.innerHTML;
+    }
+
+    // Replace content with the form
+    this.showImportForm();
+    
+    // ✅ NOW OPEN THE CONTAINER IN FORM MODE
+    this.openContainer("form");
+    
+    // Dynamically import the module and set up the form submission handler
+    import("./newBookForm.js")
+      .then(module => {
+        // Call the initialization function from the imported module
+        module.initializeCitationFormListeners();
+        
+        // Set up the form submission handler
+        module.setupFormSubmissionHandler();
+      })
+      .catch(error => {
+        console.error("Error importing citation form module:", error);
+      });
+  });
+}
 
  showImportForm() {
   // Get the CSRF token from the meta tag.
@@ -183,14 +190,6 @@ export class NewBookContainerManager extends ContainerManager {
     // Replace the container content
     this.container.innerHTML = formHTML;
 
-    // IMPORTANT: Reset container styles that were used with flex
-
-    // so the form can flow naturally. We switch from flex to block.
-    
-    // Give it enough width and height for the form.
-    // You might try auto-height or a high fixed height.
-    this.container.style.width = "500px";
-    this.container.style.height = "80vh";
     this.container.style.padding = "20px";
     this.container.style.display = "block";
 
@@ -228,6 +227,30 @@ export class NewBookContainerManager extends ContainerManager {
     if (typeRadios.length > 0) {
       typeRadios[0].checked = true;
       this.toggleOptionalFields("article");
+    }
+  }
+
+  setResponsiveFormSize() {
+    const isMobile = window.innerWidth <= 768;
+    
+    if (isMobile) {
+      // Mobile: Use most of the screen
+      this.container.style.width = "calc(100vw - 40px)";  // Full width minus padding
+      this.container.style.height = "calc(100vh - 100px)"; // Full height minus some margin
+      this.container.style.maxWidth = "none";
+      
+      // Center it on mobile
+      this.container.style.left = "20px";
+      this.container.style.right = "20px";
+      this.container.style.top = "50px";
+    } else {
+      // Desktop: Keep existing size
+      this.container.style.width = "500px";
+      this.container.style.height = "80vh";
+      this.container.style.maxWidth = "500px";
+      
+      // Keep existing positioning logic for desktop
+      // (this will be set by openContainer method)
     }
   }
 
@@ -290,12 +313,10 @@ export class NewBookContainerManager extends ContainerManager {
   // icon tilt
   this.button.querySelector(".icon")?.classList.add("tilted");
 
-  // position on screen
+  // position on screen - keep original logic for both desktop and mobile
   const rect = this.button.getBoundingClientRect();
   this.container.style.top = `${rect.bottom + 8}px`;
-  this.container.style.right = `${
-    window.innerWidth - rect.right
-  }px`;
+  this.container.style.right = `${window.innerWidth - rect.right}px`;
 
   // make it visible
   this.container.classList.remove("hidden");
@@ -310,8 +331,10 @@ export class NewBookContainerManager extends ContainerManager {
 
   // decide layout by mode:
   let targetWidth, targetHeight;
+  const isMobile = window.innerWidth <= 768;
+  
   if (mode === "buttons") {
-    // the “+ New Book / Import” buttons view
+    // the "+ New Book / Import" buttons view
     this.container.style.display = "flex";
     this.container.style.flexDirection = "column";
     this.container.style.justifyContent = "center";
@@ -324,11 +347,22 @@ export class NewBookContainerManager extends ContainerManager {
   } else if (mode === "form") {
     // the big import form view
     this.container.style.display = "block";
-    // scrolling + fade‐masks come from your CSS on .scroller/.mask‐*
-    targetWidth = "500px";
-    targetHeight = "80vh";
-    // keep the padding tight so .scroller fills edge‑to‑edge
-    this.container.style.padding = "0";
+    
+    // Only adjust for mobile in form mode
+    if (isMobile) {
+      targetWidth = "calc(100vw - 40px)";
+      targetHeight = "calc(100vh - 100px)";
+      this.container.style.padding = "15px";
+      
+      // Adjust position for mobile only in form mode
+      this.container.style.top = "20px";
+      this.container.style.right = "20px";
+      this.container.style.left = "20px";
+    } else {
+      targetWidth = "400px";
+      targetHeight = "80vh";
+      this.container.style.padding = "0";
+    }
   }
 
   requestAnimationFrame(() => {
@@ -358,7 +392,6 @@ export class NewBookContainerManager extends ContainerManager {
   });
 }
 
-
   closeContainer() {
   if (this.isAnimating) return;
   this.isAnimating = true;
@@ -374,6 +407,11 @@ export class NewBookContainerManager extends ContainerManager {
   this.container.style.width = "0";
   this.container.style.height = "0";
   this.container.style.opacity = "0";
+  
+  // ✅ RESET ALL POSITIONING STYLES
+  this.container.style.left = "";
+  this.container.style.right = "";
+  this.container.style.top = "";
   
   // Deactivate the overlay
   if (this.overlay) {
@@ -395,11 +433,11 @@ export class NewBookContainerManager extends ContainerManager {
       this.container.classList.add("hidden");
       this.container.style.display = "none";
       this.isAnimating = false;
-  
+
       if (this.overlay) {
         this.overlay.style.display = "none";
       }
-  
+
       if (this.originalContent &&
           this.container.innerHTML !== this.originalContent) {
         this.container.innerHTML = this.originalContent;
