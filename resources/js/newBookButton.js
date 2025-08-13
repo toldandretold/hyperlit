@@ -365,11 +365,11 @@ export class NewBookContainerManager extends ContainerManager {
     // Only adjust for mobile in form mode
     if (isMobile) {
       targetWidth = "calc(100vw - 40px)";
-      targetHeight = "calc(100vh - 100px)";
+      targetHeight = "calc(100vh - 120px)";
       this.container.style.padding = "15px";
       
       // Adjust position for mobile only in form mode
-      this.container.style.top = "20px";
+      this.container.style.top = "30px";
       this.container.style.right = "20px";
       this.container.style.left = "20px";
     } else {
