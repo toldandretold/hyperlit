@@ -270,57 +270,69 @@ instance.restoreScrollPosition = async () => {
 
 
   // Add this method to the instance object
-  instance.updateAndRenderFromPaste = async (newAndUpdatedNodes, beforeNodeId) => {
-    console.log(`🔄 updateAndRenderFromPaste called with ${newAndUpdatedNodes.length} nodes, beforeNodeId: ${beforeNodeId}`);
-    
+  // In your lazyLoaderFactory.js file, replace the existing function with this one.
+  instance.updateAndRenderFromPaste = async (
+    newAndUpdatedNodes,
+    beforeNodeId
+  ) => {
+    console.log(
+      `🔄 [CORRECTED] updateAndRenderFromPaste called with ${newAndUpdatedNodes.length} nodes.`
+    );
+
     try {
-      // Update the instance's nodeChunks
-      instance.nodeChunks = newAndUpdatedNodes;
-      
-      // Find affected chunks
-      const affectedChunkIds = [...new Set(newAndUpdatedNodes.map(node => node.chunk_id))];
-      console.log(`🔄 Affected chunks: ${affectedChunkIds.join(', ')}`);
-      
-      // Remove affected chunks from DOM and tracking
-      affectedChunkIds.forEach(chunkId => {
-        const chunkElement = instance.container.querySelector(`[data-chunk-id="${chunkId}"]`);
-        if (chunkElement) {
-          chunkElement.remove();
-          instance.currentlyLoadedChunks.delete(chunkId);
-        }
-      });
-      
-      // Ensure sentinels are in place
-      if (!instance.container.contains(instance.topSentinel)) {
-        instance.container.prepend(instance.topSentinel);
+      // 1. GET THE TRUTH: The data in IndexedDB is now correct.
+      //    Fetch the complete, fresh list of all node chunks.
+      console.log("🔄 Fetching complete and fresh node list from IndexedDB...");
+      instance.nodeChunks = await instance.getNodeChunks();
+      if (!instance.nodeChunks || instance.nodeChunks.length === 0) {
+        console.error("❌ Aborting render: Failed to fetch any node chunks.");
+        return;
       }
-      if (!instance.container.contains(instance.bottomSentinel)) {
-        instance.container.appendChild(instance.bottomSentinel);
-      }
-      
-      // Load the first affected chunk
-      const firstChunkId = Math.min(...affectedChunkIds);
-      loadChunkInternal(firstChunkId, "down", instance, attachMarkers);
-      
-      // Set focus to the beforeNodeId element
+
+      // 2. CLEAN SLATE: Remove all previously rendered chunks from the DOM.
+      console.log("🔄 Clearing existing rendered chunks from the DOM.");
+      instance.container
+        .querySelectorAll("[data-chunk-id]")
+        .forEach((el) => el.remove());
+
+      // 3. RESET TRACKING: Clear the set of loaded chunks.
+      instance.currentlyLoadedChunks.clear();
+
+      // 4. FIND THE STARTING POINT: Determine which chunk to load first.
+      //    We want to load the chunk containing the first piece of new content.
+      const firstNewNode = newAndUpdatedNodes[0];
+      const chunkToLoadId = firstNewNode.chunk_id;
+      console.log(`🔄 Determined initial chunk to load: ${chunkToLoadId}`);
+
+      // 5. RENDER: Load the target chunk. The lazy loader will handle the rest.
+      loadChunkInternal(chunkToLoadId, "down", instance, attachMarkers);
+
+      // 6. RESTORE FOCUS: After a brief delay for rendering, find the first
+      //    newly pasted element and place the cursor at the end of it.
       setTimeout(() => {
-        const targetElement = document.getElementById(beforeNodeId);
+        const firstNewElementId = firstNewNode.startLine;
+        const targetElement = document.getElementById(firstNewElementId);
+
         if (targetElement) {
-          console.log(`✨ Setting focus to element: ${beforeNodeId}`);
-          targetElement.focus();
-          
-          // Place cursor at end
+          console.log(`✨ Setting focus to new element: ${firstNewElementId}`);
+          targetElement.focus(); // Set focus for contenteditable
+
+          // Place cursor at the end of the newly pasted content
           const selection = window.getSelection();
           const range = document.createRange();
           range.selectNodeContents(targetElement);
-          range.collapse(false);
+          range.collapse(false); // false = collapse to the end
           selection.removeAllRanges();
           selection.addRange(range);
+        } else {
+          console.warn(
+            `Could not find element ${firstNewElementId} to set focus.`
+          );
         }
-      }, 100);
-      
+      }, 150); // A slightly longer timeout to be safe.
     } catch (error) {
       console.error("❌ Error in updateAndRenderFromPaste:", error);
+      // Consider a full page refresh or error message as a fallback
       throw error;
     }
   };
