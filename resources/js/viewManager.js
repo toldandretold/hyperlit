@@ -19,7 +19,8 @@ import { KeyboardManager } from "./keyboardManager.js";
 import {
   initializeEditButtonListeners,
   updateEditButtonVisibility,
-  handleAutoEdit
+  handleAutoEdit,
+  enforceEditableState
 } from "./editButton.js";
 import { initializeSourceButtonListener } from "./sourceButton.js";
 import {
@@ -52,15 +53,12 @@ function cleanupReaderView() {
 
 export async function initializeImportedBook(bookId) {
   try {
-    // ✅ ADD CLEANUP FIRST - just like the regular SPA pathway
     cleanupReaderView();
 
-    // Step 1: Fetch the reader page HTML
     const response = await fetch(`/${bookId}/edit?target=1`);
     if (!response.ok) throw new Error("Failed to fetch reader page HTML");
     const htmlString = await response.text();
 
-    // Step 2: Replace the current page content
     const parser = new DOMParser();
     const newDoc = parser.parseFromString(htmlString, "text/html");
     
@@ -70,18 +68,24 @@ export async function initializeImportedBook(bookId) {
     }
     document.title = newDoc.title;
 
-    // Step 3: Update global state
+    // 🔥 ADD THIS: Reset contentEditable state after HTML injection
+    const editableDiv = document.getElementById(bookId);
+    if (editableDiv) {
+      editableDiv.contentEditable = "false";
+      console.log("🧹 Reset contentEditable after HTML injection");
+    }
+
+    enforceEditableState();
+
     setCurrentBook(bookId);
     history.pushState({}, "", `/${bookId}/edit?target=1`);
 
     await initializeImportedReaderView(bookId);
 
-    // ✅ NOW enable edit mode programmatically after everything is ready
     console.log("🎯 Enabling edit mode for imported book");
     const { enableEditMode } = await import('./editButton.js');
-    await enableEditMode(null, false); // No target, not new book
+    await enableEditMode(null, false);
     
-    // ✅ Update URL to reflect edit mode
     history.replaceState({}, "", `/${bookId}/edit?target=1&edit=1`);
 
   } catch (error) {
@@ -144,6 +148,8 @@ export async function transitionToReaderView(bookId) {
 export async function initializeReaderView() {
   const currentBookId = book;
   console.log(`🚀 Initializing Reader View for book: ${currentBookId}`);
+
+  enforceEditableState();
 
   // ✅ Check if this is an imported book
   const isImportedBook = sessionStorage.getItem('imported_book_initializing');

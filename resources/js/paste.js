@@ -241,7 +241,7 @@ function assimilateHTML(rawHtml) {
     }
     const tagsToRecastAsP = [
       "DIV", "ARTICLE", "SECTION", "MAIN",
-      "HEADER", "FOOTER", "ASIDE", "NAV",
+      "HEADER", "FOOTER", "ASIDE", "NAV", "BUTTON",
     ];
     if (tagsToRecastAsP.includes(node.tagName)) {
       replaceTag(node, "p");

@@ -29,7 +29,9 @@ let editModeCheckInProgress = false;
 
 export function handleAutoEdit() {
   const urlParams = new URLSearchParams(window.location.search);
-  const shouldAutoEdit = urlParams.has('edit');
+  const isEditQ = urlParams.get("edit") === "1"; // ✅ Match the top logic
+  const isEditP = location.pathname.endsWith("/edit");
+  const shouldAutoEdit = isEditQ || isEditP;
   const targetElementId = urlParams.get('target');
 
   if (shouldAutoEdit) {
@@ -38,23 +40,22 @@ export function handleAutoEdit() {
   }
 }
 
+
 // Add this function to handle edit mode cancellation without reload
 function handleEditModeCancel() {
-  // Reset the edit mode check flag
   editModeCheckInProgress = false;
+  disableEditMode();
   
+  // Clean up ALL edit-related URL parameters
+  const currentUrl = new URL(window.location);
+  currentUrl.searchParams.delete('edit');
+  currentUrl.searchParams.delete('target');
   
-    disableEditMode();
-  
-  
-  // Update URL without reload if we're on an /edit path
-  const currentUrl = window.location.pathname;
-  if (currentUrl.endsWith('/edit')) {
-    const readOnlyUrl = currentUrl.replace(/\/edit$/, '');
-    // Use pushState to change URL without reload
-    window.history.pushState({}, '', readOnlyUrl);
+  if (currentUrl.pathname.endsWith('/edit')) {
+    currentUrl.pathname = currentUrl.pathname.replace(/\/edit$/, '');
   }
   
+  window.history.pushState({}, '', currentUrl.toString());
 }
 
 // Add this helper function to get the saved scroll position
@@ -233,6 +234,9 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
         console.log("🚀 Proceeding to enable edit mode after browser tick.");
         window.isEditing = true;
         if (editBtn) editBtn.classList.add("inverted");
+
+        enforceEditableState();
+
         editableDiv.contentEditable = "true";
 
         const toolbar = getEditToolbar();
@@ -354,6 +358,8 @@ function disableEditMode() {
 
   window.isEditing = false;
   editBtn.classList.remove("inverted");
+
+  enforceEditableState();
   editableDiv.contentEditable = "false";
 
   // Get the existing toolbar instance and hide it:
@@ -514,5 +520,18 @@ async function showCustomAlert(title, message, options = {}) {
     }
   }
   document.addEventListener("keydown", handleEscape);
+}
+
+export function enforceEditableState() {
+  const editableDiv = document.getElementById(book);
+  if (!editableDiv) return;
+  
+  const shouldBeEditable = window.isEditing === true;
+  const currentlyEditable = editableDiv.contentEditable === "true";
+  
+  if (shouldBeEditable !== currentlyEditable) {
+    editableDiv.contentEditable = shouldBeEditable ? "true" : "false";
+    console.log(`🔧 Fixed contentEditable mismatch: set to ${shouldBeEditable}`);
+  }
 }
 
