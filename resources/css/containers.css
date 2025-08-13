@@ -585,6 +585,8 @@ black #221F20;
   .progress-details {
     font-size: 11px;
   }
+
+
 }
 
 /* Very small screens */
@@ -606,4 +608,23 @@ black #221F20;
   .progress-details {
     font-size: 10px;
   }
+}
+#newbook-container {
+  border-radius: 0.75em; /* Same as other containers */
+}
+
+#newbook-container .scroller {
+  padding: 1em; /* Same as other containers */
+}
+
+#newbook-container input,
+#newbook-container textarea,
+#newbook-container label,
+#newbook-container button {
+  font-size: 16px;
+  font-family: inherit;
+}
+
+#newbook-container h2 {
+  font-size: 20px;
 }
