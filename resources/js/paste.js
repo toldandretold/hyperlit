@@ -126,141 +126,145 @@ async function showProgressModal() {
     }
   };
 }
+
+
 /**
- * Take raw clipboard HTML, sanitize it, turn inline‐style hints into
- * semantic tags (h1–h3, blockquote), remove all style/span wrappers,
- * and return the cleaned HTML string.
- */function assimilateHTML(rawHtml) {
-  // 1) sanitize
+ * The definitive paste handler. It uses CONDITIONAL anchor injection.
+ * - If a link target is a BLOCK element (p, li, h1...), it injects an <a>
+ *   tag to hold the ID, freeing the block for a system ID.
+ * - If a link target is an INLINE element (a, sup, b...), it simply prefixes
+ *   the ID on the element itself, preserving its structure.
+ */
+function assimilateHTML(rawHtml) {
+  // 1) Sanitize
   const cleanHtml = DOMPurify.sanitize(rawHtml, {
-    USE_PROFILES: { html: true }
+    USE_PROFILES: { html: true },
+    ADD_TAGS: [
+      "sup", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote",
+      "ul", "ol", "li",
+    ],
+    ADD_ATTR: ["id", "href"],
   });
 
-  // 2) parse
-  const doc = new DOMParser().parseFromString(cleanHtml, 'text/html');
+  // 2) Parse
+  const doc = new DOMParser().parseFromString(cleanHtml, "text/html");
   const body = doc.body;
 
-  // 3) heading rules
-  const headingRules = [
-    { minPx: 24, tag: 'h1' },
-    { minPx: 20, tag: 'h2' },
-    { minPx: 16, tag: 'h3' }
-  ];
-
-  function replaceTag(el, tagName) {
-    const newEl = doc.createElement(tagName);
-    for (let { name, value } of el.attributes) {
-      if (name !== 'style') newEl.setAttribute(name, value);
+  // --- Helper Functions (unchanged) ---
+  function replaceTag(el, newTagName) {
+    const newEl = doc.createElement(newTagName);
+    for (const { name, value } of el.attributes) {
+      if (name !== "style" && name !== "class") {
+        newEl.setAttribute(name, value);
+      }
     }
-    while (el.firstChild) newEl.appendChild(el.firstChild);
+    while (el.firstChild) {
+      newEl.appendChild(el.firstChild);
+    }
     el.replaceWith(newEl);
     return newEl;
   }
 
   function unwrap(el) {
-    while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+    const parent = el.parentNode;
+    if (!parent) return;
+    while (el.firstChild) {
+      parent.insertBefore(el.firstChild, el);
+    }
     el.remove();
   }
 
-  // 4) walk & transform spans / headings / blockquotes
-  const walker = doc.createTreeWalker(body, NodeFilter.SHOW_ELEMENT);
-  let node;
-  while ((node = walker.nextNode())) {
-    const style = node.getAttribute('style') || '';
-    const styleMap = {};
-    style.split(';').forEach(pair => {
-      const [k, v] = pair.split(':').map(s => s && s.trim());
-      if (k && v) styleMap[k.toLowerCase()] = v;
-    });
-    node.removeAttribute('style');
+  // --- Main Transformation Pipeline ---
 
-    // unwrap spans
-    if (node.tagName === 'SPAN') {
-      unwrap(node);
-      continue;
-    }
+  // 3) CONDITIONAL ANCHOR INJECTION & LINK PROCESSING
+  const idPrefix = "pasted-";
+  (function processLinksAndInjectAnchors() {
+    const linksToProcess = new Map();
+    const blockTags = [
+      "P", "LI", "H1", "H2", "H3", "H4", "H5", "H6",
+      "BLOCKQUOTE", "UL", "OL", "PRE", "DIV",
+    ];
 
-    // <p> → heading?
-    if (node.tagName === 'P') {
-      let px = null;
-      if (styleMap['font-size']) {
-        px = parseFloat(styleMap['font-size']);
-      } else if (styleMap['font']) {
-        const m = styleMap['font'].match(/(\d+(?:\.\d+)?)px/);
-        if (m) px = parseFloat(m[1]);
-      }
-      if (px != null) {
-        const rule = headingRules.find(r => px >= r.minPx);
-        if (rule) {
-          node = replaceTag(node, rule.tag);
-          Array.from(node.querySelectorAll('b')).forEach(unwrap);
-          continue;
+    // Step A: Find all internal links and their targets.
+    body.querySelectorAll('a[href*="#"]').forEach((link) => {
+      try {
+        const url = new URL(link.href);
+        if (url.hash) {
+          const targetId = url.hash.substring(1);
+          const targetElement = body.querySelector(`#${targetId}`);
+          if (targetElement) {
+            if (!linksToProcess.has(targetId)) {
+              linksToProcess.set(targetId, {
+                targetElement: targetElement,
+                links: [],
+              });
+            }
+            linksToProcess.get(targetId).links.push(link);
+          }
         }
-      }
-    }
+      } catch (e) { /* ignore invalid URLs */ }
+    });
 
-    // blockquote for indent/italic
-    const ml = parseInt(styleMap['margin-left'], 10) || 0;
-    if (ml > 20 || styleMap['font-style'] === 'italic') {
-      replaceTag(node, 'blockquote');
+    // Step B: Process the found links with conditional logic.
+    linksToProcess.forEach((data, targetId) => {
+      const { targetElement, links } = data;
+      const newPrefixedId = `${idPrefix}${targetId}`;
+
+      // *** THE NEW CONDITIONAL LOGIC ***
+      if (blockTags.includes(targetElement.tagName)) {
+        // It's a block element: INJECT a new anchor to hold the ID.
+        console.log(`Injecting anchor for block target: #${targetId}`);
+        const anchor = doc.createElement("a");
+        anchor.id = newPrefixedId;
+        targetElement.prepend(anchor);
+        targetElement.removeAttribute("id");
+      } else {
+        // It's an inline element (<a>, <sup>, etc.): PREFIX the ID directly.
+        console.log(`Prefixing ID for inline target: #${targetId}`);
+        targetElement.id = newPrefixedId;
+      }
+
+      // Step C: Update all links to point to the new prefixed ID.
+      links.forEach((link) => {
+        link.setAttribute("href", `#${newPrefixedId}`);
+      });
+    });
+  })();
+
+  // 4) Structural transformation (unchanged)
+  const nodesToProcess = Array.from(body.querySelectorAll("*"));
+  for (let i = nodesToProcess.length - 1; i >= 0; i--) {
+    const node = nodesToProcess[i];
+    if (["SPAN", "FONT"].includes(node.tagName)) {
+      if (!node.classList.contains("open-icon")) unwrap(node);
       continue;
     }
+    const tagsToRecastAsP = [
+      "DIV", "ARTICLE", "SECTION", "MAIN",
+      "HEADER", "FOOTER", "ASIDE", "NAV",
+    ];
+    if (tagsToRecastAsP.includes(node.tagName)) {
+      replaceTag(node, "p");
+    }
   }
 
-  // 5) normalize paragraphs (merge runs of non-empty <p>)
-  (function normalizeParas() {
-  const newKids = [];
-  let buffer = [];
-
-  function flushBuffer() {
-    if (buffer.length === 0) return;
-    const p = doc.createElement('p');
-    p.innerHTML = buffer
-      .map(n => n.innerHTML.trim())
-      .filter(s => s.length > 0)
-      .join('<br>');
-    newKids.push(p);
-    buffer = [];
-  }
-
-  body.childNodes.forEach(n => {
-    // 1) skip pure-whitespace text nodes entirely
-    if (n.nodeType === Node.TEXT_NODE) {
-      if (!n.textContent.trim()) return;
-      // if it’s real text, flush any <p> buffer, then keep the text
-      flushBuffer();
-      newKids.push(n.cloneNode());
-      return;
+  // 5) Cleanup (unchanged)
+  body.querySelectorAll("p, blockquote, h1, h2, h3, li").forEach((el) => {
+    if (
+      !el.textContent.trim() &&
+      !el.querySelector("img") &&
+      !el.querySelector("a[id^='pasted-']")
+    ) {
+      el.remove();
     }
-
-    // 2) if it’s a <p>
-    if (n.nodeType === Node.ELEMENT_NODE && n.tagName === 'P') {
-      const txt = n.textContent.trim();
-      if (!txt) {
-        // empty paragraph ⇒ true paragraph break
-        flushBuffer();
-      } else {
-        // accumulate into our buffer
-        buffer.push(n);
-      }
-      return;
-    }
-
-    // 3) any other element ⇒ flush and then copy it
-    flushBuffer();
-    newKids.push(n.cloneNode(true));
   });
-
-  // flush any remaining <p> buffer at the end
-  flushBuffer();
-
-  // replace body content with our new normalized tree
-  body.innerHTML = '';
-  newKids.forEach(node => body.appendChild(node));
-})();
-
-  // 6) drop any remaining inline styles
-  body.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
+  body.querySelectorAll("*").forEach((el) => {
+    el.removeAttribute("style");
+    el.removeAttribute("class");
+    if (el.id && !el.id.startsWith(idPrefix)) {
+      el.removeAttribute("id");
+    }
+  });
 
   return body.innerHTML;
 }
@@ -303,7 +307,9 @@ async function handlePaste(event) {
         htmlContent = DOMPurify.sanitize(dirty, { USE_PROFILES: { html: true } });
       }
     } else if (rawHtml.trim()) {
+      console.log("Assimilating pasted HTML...");
       htmlContent = assimilateHTML(rawHtml);
+      console.log("Assimilation complete. Cleaned HTML:", htmlContent);
     }
 
     // 3) Get our reliable estimate.
