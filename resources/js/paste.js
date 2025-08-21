@@ -624,79 +624,99 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
   }
 
   console.log(
-    `Small paste (≈${nodeCount} nodes); handling with ID-aware insertion.`
+    `Small paste (≈${nodeCount} nodes); handling with browser insertion and ID fix-up.`
   );
 
-  if (htmlContent) {
-    event.preventDefault();
-    const selection = window.getSelection();
-    if (!selection.rangeCount) return true;
+  // --- 1. PREPARE THE CONTENT ---
+  let finalHtmlToInsert = htmlContent;
 
-    const range = selection.getRangeAt(0);
-    let currentElement = range.startContainer;
-    if (currentElement.nodeType === Node.TEXT_NODE) {
-      currentElement = currentElement.parentElement;
-    }
+  // If we only have plain text, convert it to structured HTML.
+  // This ensures that pasting text with blank lines creates new paragraphs.
+  if (!finalHtmlToInsert && plainText) {
+    finalHtmlToInsert = plainText
+      .split(/\n\s*\n/) // Split on blank lines
+      .filter((p) => p.trim())
+      .map((p) => `<p>${p}</p>`) // Wrap each part in a <p> tag
+      .join("");
+  }
 
-    const currentBlock = currentElement.closest(
-      "p, h1, h2, h3, h4, h5, h6, div, pre, blockquote"
-    );
-
-    if (!currentBlock || !currentBlock.id || !/^\d+(\.\d+)*$/.test(currentBlock.id)) {
-      console.warn("Small paste aborted: Could not find a valid anchor block with a numerical ID.");
-      return true;
-    }
-
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = htmlContent;
-    tempDiv.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
-
-    const elementsToInsert = Array.from(tempDiv.children);
-    let lastInsertedElement = currentBlock;
-    
-    // ✅ NEW: Track inserted elements for saving
-    const insertedElements = [];
-
-    elementsToInsert.forEach((elementToInsert) => {
-      let nextSiblingWithId = lastInsertedElement.nextElementSibling;
-      while (nextSiblingWithId && (!nextSiblingWithId.id || !/^\d+(\.\d+)*$/.test(nextSiblingWithId.id))) {
-        nextSiblingWithId = nextSiblingWithId.nextElementSibling;
-      }
-      const nextId = nextSiblingWithId ? nextSiblingWithId.id : null;
-
-      const newId = generateIdBetween(lastInsertedElement.id, nextId);
-      elementToInsert.id = newId;
-      console.log(`Assigning new ID ${newId} to pasted element.`);
-
-      lastInsertedElement.insertAdjacentElement("afterend", elementToInsert);
-      
-      // ✅ NEW: Track this element
-      insertedElements.push(elementToInsert);
-      
-      lastInsertedElement = elementToInsert;
-    });
-
-    // ✅ NEW: Explicitly save all inserted elements
-    insertedElements.forEach(element => {
-      console.log(`Explicitly saving small paste element: ${element.id}`);
-      queueNodeForSave(element.id, 'create'); // or 'update' if you prefer
-    });
-
-    // Move cursor to end
-    if (lastInsertedElement && lastInsertedElement !== currentBlock) {
-      const newRange = document.createRange();
-      newRange.selectNodeContents(lastInsertedElement);
-      newRange.collapse(false);
-      selection.removeAllRanges();
-      selection.addRange(newRange);
-    }
-
+  // If there's nothing to insert, we're done.
+  if (!finalHtmlToInsert) {
     return true;
-  } else {
-    console.log("Small plain text paste, deferring to native contentEditable");
-    setPasteInProgress(false);
+  }
+
+  // --- 2. GET INSERTION CONTEXT (BEFORE PASTING) ---
+  const selection = window.getSelection();
+  if (!selection.rangeCount) return true;
+
+  const range = selection.getRangeAt(0);
+  let currentElement = range.startContainer;
+  if (currentElement.nodeType === Node.TEXT_NODE) {
+    currentElement = currentElement.parentElement;
+  }
+
+  const currentBlock = currentElement.closest(
+    "p, h1, h2, h3, h4, h5, h6, div, pre, blockquote"
+  );
+
+  if (
+    !currentBlock ||
+    !currentBlock.id ||
+    !/^\d+(\.\d+)*$/.test(currentBlock.id)
+  ) {
+    console.warn(
+      "Small paste aborted: Could not find a valid anchor block with a numerical ID."
+    );
+    // Allow native paste as a fallback in this edge case.
     return false;
   }
+
+  // --- 3. PERFORM THE PASTE ---
+  event.preventDefault(); // Take control from the browser!
+
+  // Let the browser do the heavy lifting of splitting nodes and inserting content.
+  document.execCommand("insertHTML", false, finalHtmlToInsert);
+
+  // --- 4. FIX-UP: ASSIGN IDS TO NEWLY CREATED ELEMENTS ---
+  console.log("Fix-up phase: Scanning for new nodes to assign IDs.");
+
+  // The original block was modified, so save it.
+  queueNodeForSave(currentBlock.id, "update");
+
+  // Find the ID of the next "stable" node that already has an ID.
+  let nextStableElement = currentBlock.nextElementSibling;
+  while (
+    nextStableElement &&
+    (!nextStableElement.id || !/^\d+(\.\d+)*$/.test(nextStableElement.id))
+  ) {
+    nextStableElement = nextStableElement.nextElementSibling;
+  }
+  const nextStableNodeId = nextStableElement ? nextStableElement.id : null;
+
+  // Now, iterate through the new nodes between our original block and the next stable one.
+  let lastKnownId = currentBlock.id;
+  let elementToProcess = currentBlock.nextElementSibling;
+
+  while (elementToProcess && elementToProcess !== nextStableElement) {
+    // Only process block-level elements that are missing a valid ID.
+    if (
+      elementToProcess.matches("p, h1, h2, h3, h4, h5, h6, div, pre, blockquote") &&
+      (!elementToProcess.id || !/^\d+(\.\d+)*$/.test(elementToProcess.id))
+    ) {
+      const newId = generateIdBetween(lastKnownId, nextStableNodeId);
+      elementToProcess.id = newId;
+      console.log(`Assigned new ID ${newId} to pasted element.`);
+
+      // This is a newly created element.
+      queueNodeForSave(newId, "create");
+      lastKnownId = newId;
+    }
+    elementToProcess = elementToProcess.nextElementSibling;
+  }
+
+  // --- 5. FINALIZE ---
+  // The cursor is already placed correctly by execCommand.
+  return true; // We handled it.
 }
 
 /**
