@@ -1,11 +1,8 @@
 import { renderBlockToHtml } from "./convert-markdown.js";
 import { attachMarkListeners } from "./hyperLights.js";
-import { injectFootnotesForChunk } from "./footnotes.js";
 import {
   //saveNodeChunksToIndexedDB,
   getNodeChunksFromIndexedDB,
-  saveFootnotesToIndexedDB,
-  getFootnotesFromIndexedDB,
   getLocalStorageKey,
   getHyperciteFromIndexedDB
 } from "./cache-indexedDB.js";
@@ -117,12 +114,6 @@ export function createLazyLoader(config) {
   //};
   instance.getNodeChunks = () => {
     return getNodeChunksFromIndexedDB(instance.bookId);
-  };
-  instance.saveFootnotes = (footnotesData) => {
-    return saveFootnotesToIndexedDB(footnotesData, instance.bookId);
-  };
-  instance.getFootnotes = () => {
-    return getFootnotesFromIndexedDB(instance.bookId);
   };
 
   // --- SCROLL POSITION SAVING LOGIC ---
@@ -879,7 +870,6 @@ export function loadNextChunkFixed(currentLastChunkId, instance) {
     }
     
     attachUnderlineClickListeners();
-    injectFootnotesForChunk(nextChunkId, instance.bookId);
     
     // 🚨 CLEAR LOADING STATE AFTER DOM CHANGES
     // Use a small delay to ensure all mutations are processed
@@ -943,7 +933,6 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
     }
     
     attachUnderlineClickListeners();
-    injectFootnotesForChunk(prevChunkId, instance.bookId);
     
     // 🚨 CLEAR LOADING STATE AFTER DOM CHANGES
     setTimeout(() => {
@@ -1002,7 +991,6 @@ function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   }
 
   attachUnderlineClickListeners();
-  injectFootnotesForChunk(chunkId, instance.bookId);
 
   setTimeout(() => {
     clearChunkLoadingInProgress(chunkId);
