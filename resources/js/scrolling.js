@@ -7,7 +7,6 @@ import {
   getLocalStorageKey
 } from "./cache-indexedDB.js";
 import { parseMarkdownIntoChunksInitial } from "./convert-markdown.js";
-import { injectFootnotesForChunk } from "./footnotes.js";
 import { currentLazyLoader } from "./initializePage.js";
 import { repositionSentinels } from "./lazyLoaderFactory.js"; // if exported
 
@@ -542,11 +541,6 @@ function _navigateToInternalId(targetId, lazyLoader) {
   
   Promise.all(loadedChunksPromises)
     .then(() => {
-      // Optionally inject footnotes for each node.
-      for (let i = startIndex; i <= endIndex; i++) {
-        const node = lazyLoader.nodeChunks[i];
-        injectFootnotesForChunk(node.chunk_id, book);
-      }
       lazyLoader.repositionSentinels();
       
       // Delay a bit to let DOM updates settle.
