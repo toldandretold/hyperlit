@@ -94,6 +94,7 @@ export function createLazyLoader(config) {
     onFirstChunkLoadedCallback: onFirstChunkLoaded,
     scrollLocked: false, // NEW: Scroll position lock flag
     scrollLockReason: null, // NEW: Reason for lock (for debugging)
+    scrollSaveCooldown: false, // NEW: Cooldown period after navigation
   };
 
   if (instance.isRestoringFromCache) {
@@ -124,6 +125,12 @@ export function createLazyLoader(config) {
     if (instance.scrollLocked || instance.isNavigatingToInternalId) {
       const reason = instance.scrollLocked ? `scroll locked (${instance.scrollLockReason})` : 'navigation in progress';
       console.log(`🔧 SAVE SCROLL: ${reason}, SKIPPING scroll position save`);
+      return;
+    }
+    
+    // 🔄 NEW: Don't save scroll position during post-navigation cooldown
+    if (instance.scrollSaveCooldown) {
+      console.log(`🔧 SAVE SCROLL: cooldown period active, SKIPPING scroll position save`);
       return;
     }
     
@@ -447,22 +454,16 @@ instance.restoreScrollPosition = async () => {
     if (wasLocked) {
       console.log(`🔓 Scroll unlocked (was: ${reason})`);
       
-      // DEBUG: Monitor scroll position for a few seconds after unlock
-      const currentScrollTop = instance.scrollableParent.scrollTop;
-      console.log(`📍 Scroll position at unlock: ${currentScrollTop}px`);
+      // 🔄 NEW: Add cooldown period for scroll position saving after navigation
+      instance.scrollSaveCooldown = true;
+      setTimeout(() => {
+        instance.scrollSaveCooldown = false;
+        console.log(`🔄 Scroll position saving cooldown ended`);
+      }, 1000); // 1 second cooldown
       
-      let monitorCount = 0;
-      const monitorInterval = setInterval(() => {
-        const newScrollTop = instance.scrollableParent.scrollTop;
-        if (Math.abs(newScrollTop - currentScrollTop) > 10) {
-          console.log(`🚨 SCROLL CHANGE AFTER UNLOCK: ${currentScrollTop}px → ${newScrollTop}px (diff: ${Math.abs(newScrollTop - currentScrollTop)}px)`);
-          console.trace("Post-unlock scroll change source:");
-        }
-        monitorCount++;
-        if (monitorCount >= 20) { // Monitor for 2 seconds
-          clearInterval(monitorInterval);
-        }
-      }, 100);
+      // Simple unlock notification
+      const currentScrollTop = instance.scrollableParent.scrollTop;
+      console.log(`📍 Scroll position at unlock: ${currentScrollTop}px - user has full control`);
     }
   };
 

@@ -38,30 +38,12 @@ function scrollElementWithConsistentMethod(targetElement, scrollableContainer, h
   console.log(`🎯 Element at ${elementOffsetTop}px, scrolling to ${targetScrollTop}px (offset: ${headerOffset}px)`);
   console.log(`🎯 Container viewport: top=${containerRect.top}, height=${scrollableContainer.clientHeight}px`);
   
-  // Track element position during scroll to detect movement
-  let positionCheckCount = 0;
-  const initialElementOffset = elementOffsetTop;
+  // No position monitoring during instant scroll to avoid interference
   
-  const positionMonitor = setInterval(() => {
-    const currentRect = targetElement.getBoundingClientRect();
-    const currentContainerRect = scrollableContainer.getBoundingClientRect();
-    const currentElementOffset = (currentRect.top - currentContainerRect.top) + scrollableContainer.scrollTop;
-    const positionDrift = Math.abs(currentElementOffset - initialElementOffset);
-    
-    if (positionDrift > 10) {
-      console.log(`🚨 ELEMENT MOVING DURING SCROLL: ${initialElementOffset}px → ${currentElementOffset}px (drift: ${positionDrift}px)`);
-    }
-    
-    positionCheckCount++;
-    if (positionCheckCount >= 10) { // Monitor for 1 second during scroll
-      clearInterval(positionMonitor);
-    }
-  }, 100);
-  
-  // Apply scroll with smooth behavior for better visual experience
+  // Apply scroll with instant behavior to avoid animation conflicts with user input
   scrollableContainer.scrollTo({
     top: targetScrollTop,
-    behavior: "smooth"
+    behavior: "instant"
   });
   
   // Immediate check - is the element currently visible?
@@ -71,72 +53,29 @@ function scrollElementWithConsistentMethod(targetElement, scrollableContainer, h
                              elementRect.right <= containerRect.right;
   console.log(`🎯 Element currently visible before scroll: ${isCurrentlyVisible}`);
   
-  // Monitor for interference during the smooth scroll and verify element visibility
+  // Simple verification that scroll completed correctly
   setTimeout(() => {
     const actualPosition = scrollableContainer.scrollTop;
     const elementRect = targetElement.getBoundingClientRect();
     const containerRect = scrollableContainer.getBoundingClientRect();
     const currentElementPosition = elementRect.top - containerRect.top;
     
-    console.log(`🔍 POST-SCROLL VERIFICATION:`);
-    console.log(`  - Target scroll: ${targetScrollTop}px`);
-    console.log(`  - Actual scroll: ${actualPosition}px`);
-    console.log(`  - Element position from container top: ${currentElementPosition}px`);
-    console.log(`  - Element visible: ${elementRect.top >= containerRect.top && elementRect.bottom <= containerRect.bottom}`);
+    console.log(`🔍 NAVIGATION VERIFICATION: Element at ${currentElementPosition}px from top, scroll position ${actualPosition}px`);
     
-    if (Math.abs(actualPosition - targetScrollTop) > 20) {
-      console.log(`🚨 SCROLL DRIFT DETECTED: Target was ${targetScrollTop}px, actual is ${actualPosition}px (drift: ${Math.abs(actualPosition - targetScrollTop)}px)`);
-      // Correct the position if there's significant drift
-      scrollableContainer.scrollTo({
-        top: targetScrollTop,
-        behavior: "instant"
-      });
-    }
-    
-    // Check if element is not visible despite correct scroll position
-    if (Math.abs(currentElementPosition - headerOffset) > 50) {
-      console.log(`🚨 ELEMENT POSITION INCORRECT: Expected ~${headerOffset}px from top, actually ${currentElementPosition}px`);
-      console.log(`🔧 Recalculating and correcting position...`);
-      
-      // Recalculate based on current state
+    // Only do major correction if element is way off (probably due to content shift)
+    if (Math.abs(currentElementPosition - headerOffset) > 100) {
+      console.log(`🔧 Major position correction needed`);
       const freshElementRect = targetElement.getBoundingClientRect();
       const freshContainerRect = scrollableContainer.getBoundingClientRect();
       const freshElementOffset = (freshElementRect.top - freshContainerRect.top) + scrollableContainer.scrollTop;
       const correctedScrollTop = Math.max(0, freshElementOffset - headerOffset);
       
-      console.log(`🔧 Fresh calculation: element at ${freshElementOffset}px, correcting to ${correctedScrollTop}px`);
-      
       scrollableContainer.scrollTo({
         top: correctedScrollTop,
         behavior: "instant"
       });
     }
-  }, 800); // Check 800ms after scroll starts (during smooth scroll)
-  
-  // Also do a final check after smooth scroll should be complete
-  setTimeout(() => {
-    const finalPosition = scrollableContainer.scrollTop;
-    const finalElementRect = targetElement.getBoundingClientRect();
-    const finalContainerRect = scrollableContainer.getBoundingClientRect();
-    const finalElementPosition = finalElementRect.top - finalContainerRect.top;
-    
-    console.log(`🔍 FINAL VERIFICATION (1.5s):`);
-    console.log(`  - Final scroll position: ${finalPosition}px`);
-    console.log(`  - Final element position: ${finalElementPosition}px from top`);
-    console.log(`  - Element visible: ${finalElementRect.top >= finalContainerRect.top && finalElementRect.bottom <= finalContainerRect.bottom}`);
-    
-    // Final correction if still not positioned correctly
-    if (Math.abs(finalElementPosition - headerOffset) > 30) {
-      console.log(`🔧 FINAL CORRECTION: Element still misplaced, correcting...`);
-      const correctedOffset = (finalElementRect.top - finalContainerRect.top) + scrollableContainer.scrollTop;
-      const correctedScrollTop = Math.max(0, correctedOffset - headerOffset);
-      
-      scrollableContainer.scrollTo({
-        top: correctedScrollTop,
-        behavior: "smooth"
-      });
-    }
-  }, 1500); // Final check after 1.5 seconds
+  }, 200); // Quick check after instant scroll
   
   return targetScrollTop;
 }
@@ -675,6 +614,33 @@ export function navigateToInternalId(targetId, lazyLoader) {
   // 🔒 NEW: Lock scroll position during navigation
   if (lazyLoader.lockScroll) {
     lazyLoader.lockScroll(`navigation to ${targetId}`);
+    
+    // 🔄 NEW: Detect user scroll and unlock immediately  
+    let userScrollDetected = false;
+    const detectUserScroll = (event) => {
+      if (!userScrollDetected && lazyLoader.scrollLocked) {
+        console.log(`🔄 User scroll detected during navigation, unlocking immediately`);
+        userScrollDetected = true;
+        lazyLoader.unlockScroll();
+        
+        // Remove the listener once we've detected user scroll
+        lazyLoader.scrollableParent.removeEventListener('wheel', detectUserScroll);
+        lazyLoader.scrollableParent.removeEventListener('touchstart', detectUserScroll);
+        lazyLoader.scrollableParent.removeEventListener('keydown', detectUserScroll);
+      }
+    };
+    
+    // Listen for user scroll inputs (mouse wheel, touch, keyboard)
+    lazyLoader.scrollableParent.addEventListener('wheel', detectUserScroll, { passive: true });
+    lazyLoader.scrollableParent.addEventListener('touchstart', detectUserScroll, { passive: true });
+    lazyLoader.scrollableParent.addEventListener('keydown', detectUserScroll, { passive: true });
+    
+    // Clean up listeners after navigation timeout
+    setTimeout(() => {
+      lazyLoader.scrollableParent.removeEventListener('wheel', detectUserScroll);
+      lazyLoader.scrollableParent.removeEventListener('touchstart', detectUserScroll);
+      lazyLoader.scrollableParent.removeEventListener('keydown', detectUserScroll);
+    }, 2000);
   }
   
   // 🚀 FIX: Clear session storage when explicitly navigating to prevent cached position interference
@@ -787,7 +753,7 @@ async function _navigateToInternalId(targetId, lazyLoader) {
           const currentPath = window.location.pathname + window.location.search;
           window.history.replaceState(null, document.title, currentPath);
         }
-      }, 2000);
+      }, 500);
       return;
       
     } catch (error) {
@@ -943,7 +909,7 @@ async function _navigateToInternalId(targetId, lazyLoader) {
             const currentPath = window.location.pathname + window.location.search;
             window.history.replaceState(null, document.title, currentPath);
           }
-        }, 1000); // 1 second delay to ensure all scroll operations complete
+        }, 500); // 0.5 second delay to ensure all scroll operations complete
         
       } catch (error) {
         console.warn(
@@ -1007,7 +973,7 @@ async function _navigateToInternalId(targetId, lazyLoader) {
         }
         // 🎯 NEW: Hide loading indicator
         hideNavigationLoading();
-      }, 2000);
+      }, 500);
     });
 }
 
