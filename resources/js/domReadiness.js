@@ -17,16 +17,49 @@ function isElementFullyRendered(element) {
   if (rect.width === 0 && rect.height === 0) return false;
   
   // For highlights/hypercites, check if they have expected classes/attributes
-  if (element.tagName === 'MARK' && element.id.startsWith('HL_')) {
+  if (element.tagName === 'MARK' && (element.id.startsWith('HL_') || element.id === 'HL_overlap')) {
     // Highlight should have proper classes applied
-    return element.className && element.className.length > 0;
+    const hasClasses = element.className && element.className.length > 0;
+    
+    if (!hasClasses) {
+      console.log(`🔍 Highlight ${element.id} missing classes`);
+      return false;
+    }
+    
+    // Check if highlight has proper data attributes
+    if (!element.hasAttribute('data-highlight-count')) {
+      console.log(`🔍 Highlight ${element.id} missing data-highlight-count attribute`);
+      return false;
+    }
+    
+    // Check if CSS styling has been applied (background color should be visible)
+    const computedStyle = window.getComputedStyle(element);
+    const hasBackground = computedStyle.backgroundColor && 
+                         computedStyle.backgroundColor !== 'rgba(0, 0, 0, 0)' &&
+                         computedStyle.backgroundColor !== 'transparent';
+    
+    if (!hasBackground) {
+      console.log(`🔍 Highlight ${element.id} missing background styling`);
+      return false;
+    }
+    
+    return true;
   }
   
-  if (element.tagName === 'U' && element.id.startsWith('hypercite_')) {
-    // Hypercite should have relationship status class
-    return element.classList.contains('single') || 
-           element.classList.contains('couple') || 
-           element.classList.contains('poly');
+  if (element.tagName === 'U' && (element.id.startsWith('hypercite_') || element.id === 'hypercite_overlapping')) {
+    // Hypercite should have relationship status class - that's sufficient for readiness
+    const hasValidClass = element.classList.contains('single') || 
+                          element.classList.contains('couple') || 
+                          element.classList.contains('poly');
+    
+    if (!hasValidClass) {
+      console.log(`🔍 Hypercite ${element.id} missing relationship class. Classes: ${element.className}`);
+      return false;
+    }
+    
+    // If it has the right class and dimensions, it's ready
+    console.log(`✅ Hypercite ${element.id} ready with class: ${element.className}`);
+    return true;
   }
   
   return true;
@@ -174,7 +207,7 @@ export function waitForChunkLoadingComplete(container, chunkId, timeoutMs = 5000
           observer.disconnect();
           console.log(`✅ Chunk ${chunkId} loading complete (mutations settled)`);
           resolve();
-        }, 100); // Wait 100ms after last mutation
+        }, 200); // Wait 200ms after last mutation to allow for styling
       }
     });
     
@@ -200,6 +233,43 @@ export function waitForChunkLoadingComplete(container, chunkId, timeoutMs = 5000
 }
 
 /**
+ * Wait for fonts to load before navigation
+ * @returns {Promise<void>}
+ */
+async function waitForFontsReady() {
+  if (!document.fonts) {
+    console.log(`📝 Font API not available, skipping font wait`);
+    return;
+  }
+  
+  try {
+    console.log(`📝 Waiting for fonts to load...`);
+    await document.fonts.ready;
+    console.log(`📝 Fonts loaded successfully`);
+  } catch (error) {
+    console.warn(`📝 Font loading error (continuing anyway):`, error);
+  }
+}
+
+/**
+ * Wait for potential layout-shifting operations to complete
+ * @returns {Promise<void>}
+ */
+async function waitForLayoutStabilization() {
+  return new Promise(resolve => {
+    console.log(`📐 Waiting for layout stabilization...`);
+    
+    // Wait for any pending layout operations
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        console.log(`📐 Layout stabilization complete`);
+        resolve();
+      });
+    });
+  });
+}
+
+/**
  * Combined function: Wait for chunk loading, then wait for specific element
  * This is the main function you'll use for navigation
  * @param {string} targetId - Element ID to wait for
@@ -221,6 +291,12 @@ export async function waitForNavigationTarget(targetId, container, expectedChunk
     if (expectedChunkId !== null) {
       await waitForChunkLoadingComplete(container, expectedChunkId, maxWaitTime / 2);
     }
+    
+    // Wait for fonts to load (common cause of layout shifts)
+    await waitForFontsReady();
+    
+    // Wait for layout to stabilize
+    await waitForLayoutStabilization();
     
     // Now wait for the specific element to be ready
     const element = await waitForElementReady(targetId, {

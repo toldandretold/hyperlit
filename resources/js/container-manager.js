@@ -110,7 +110,18 @@ export class ContainerManager {
       el.style.pointerEvents = "";
       el.style.overflow = "";
       if (el.dataset.scrollPos) {
-        el.scrollTop = el.dataset.scrollPos;
+        // 🚨 DEBUG: Log container manager scroll restoration
+        console.log(`🔧 CONTAINER MANAGER: Would restore scroll position to ${el.dataset.scrollPos}, but checking for active navigation...`);
+        
+        // Check if we're currently navigating - if so, don't restore scroll position
+        const mainContent = document.getElementById('test555yeah') || document.querySelector('.main-content');
+        if (mainContent && window.currentLazyLoader && window.currentLazyLoader.scrollLocked) {
+          console.log(`🔧 CONTAINER MANAGER: SKIPPING scroll restoration - navigation in progress`);
+        } else {
+          console.log(`🔧 CONTAINER MANAGER: Applying scroll restoration to ${el.dataset.scrollPos}`);
+          console.trace("Container manager scroll restoration source:");
+          el.scrollTop = el.dataset.scrollPos;
+        }
         delete el.dataset.scrollPos;
       }
     }
