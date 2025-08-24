@@ -92,6 +92,8 @@ export function createLazyLoader(config) {
     container, // Now 'container' is defined.
     scrollableParent,
     onFirstChunkLoadedCallback: onFirstChunkLoaded,
+    scrollLocked: false, // NEW: Scroll position lock flag
+    scrollLockReason: null, // NEW: Reason for lock (for debugging)
   };
 
   if (instance.isRestoringFromCache) {
@@ -118,6 +120,15 @@ export function createLazyLoader(config) {
 
   // --- SCROLL POSITION SAVING LOGIC ---
  instance.saveScrollPosition = () => {
+    // 🚨 SCROLL LOCK PROTECTION: Don't save scroll position during navigation or when locked
+    if (instance.scrollLocked || instance.isNavigatingToInternalId) {
+      const reason = instance.scrollLocked ? `scroll locked (${instance.scrollLockReason})` : 'navigation in progress';
+      console.log(`🔧 SAVE SCROLL: ${reason}, SKIPPING scroll position save`);
+      return;
+    }
+    
+    console.log("🔧 SAVE SCROLL: Running saveScrollPosition");
+    
     // Query for all elements having an id attribute.
     // Use instance.container here:
     const elements = Array.from(instance.container.querySelectorAll("[id]")); 
@@ -147,10 +158,10 @@ export function createLazyLoader(config) {
         const stringifiedData = JSON.stringify(scrollData);
         sessionStorage.setItem(storageKey, stringifiedData);
         localStorage.setItem(storageKey, stringifiedData);
-        console.log("Saved scroll data:", scrollData);
+        console.log("🔧 SAVE SCROLL: Saved scroll data:", scrollData);
       } else {
         console.log(
-          `Element id "${detectedId}" is not numerical. Skip saving scroll data.`
+          `🔧 SAVE SCROLL: Element id "${detectedId}" is not numerical. Skip saving scroll data.`
         );
       }
     }
@@ -360,28 +371,41 @@ instance.restoreScrollPosition = async () => {
 
   // Create the IntersectionObserver.
   const observer = new IntersectionObserver((entries) => {
-    console.log("Observer triggered, entries:", entries.length);
+    console.log("🔍 Observer triggered, entries:", entries.length);
+    
+    // 🔒 CHECK SCROLL LOCK: Don't trigger lazy loading during navigation
+    if (instance.scrollLocked || instance.isNavigatingToInternalId) {
+      const reason = instance.scrollLocked ? `scroll locked (${instance.scrollLockReason})` : 'navigation in progress';
+      console.log(`🔍 OBSERVER: ${reason}, SKIPPING lazy loading`);
+      return;
+    }
+    
     entries.forEach((entry) => {
+      console.log(`🔍 Observer entry: target=${entry.target.id}, isIntersecting=${entry.isIntersecting}`);
       if (!entry.isIntersecting) return;
+      
       if (entry.target.id === topSentinel.id) {
+        console.log("🔍 TOP SENTINEL triggered");
         const firstChunkEl = container.querySelector("[data-chunk-id]");
         if (firstChunkEl) {
           const firstChunkId = parseFloat(firstChunkEl.getAttribute("data-chunk-id"));
+          console.log(`🔍 First chunk ID: ${firstChunkId}, checking if we should load chunk ${firstChunkId - 1}`);
           if (firstChunkId > 0 && !instance.currentlyLoadedChunks.has(firstChunkId - 1)) {
             console.log(
-              `Top sentinel triggered; loading previous chunk ${firstChunkId - 1}`
+              `🚨 OBSERVER: Top sentinel triggered; loading previous chunk ${firstChunkId - 1} - THIS WILL ADJUST SCROLL!`
             );
             loadPreviousChunkFixed(firstChunkId, instance);
           } else {
-            console.log("Top sentinel: either at first chunk or already loaded.");
+            console.log("🔍 Top sentinel: either at first chunk or already loaded.");
           }
         }
       }
       if (entry.target.id === bottomSentinel.id) {
+        console.log("🔍 BOTTOM SENTINEL triggered");
         const lastChunkEl = getLastChunkElement();
         if (lastChunkEl) {
           const lastChunkId = parseFloat(lastChunkEl.getAttribute("data-chunk-id"), 10);
-          console.log(`Bottom sentinel triggered, last chunk ID: ${lastChunkId}`);
+          console.log(`🚨 OBSERVER: Bottom sentinel triggered, loading next chunk after ${lastChunkId}`);
           loadNextChunkFixed(lastChunkId, instance);
         }
       }
@@ -407,6 +431,40 @@ instance.restoreScrollPosition = async () => {
     repositionFixedSentinelsForBlockInternal(instance, attachMarkers);
   instance.loadChunk = (chunkId, direction = "down") =>
     loadChunkInternal(chunkId, direction, instance, attachMarkers);
+
+  // NEW: Scroll lock methods
+  instance.lockScroll = (reason = 'navigation') => {
+    instance.scrollLocked = true;
+    instance.scrollLockReason = reason;
+    console.log(`🔒 Scroll locked: ${reason}`);
+  };
+  
+  instance.unlockScroll = () => {
+    const wasLocked = instance.scrollLocked;
+    const reason = instance.scrollLockReason;
+    instance.scrollLocked = false;
+    instance.scrollLockReason = null;
+    if (wasLocked) {
+      console.log(`🔓 Scroll unlocked (was: ${reason})`);
+      
+      // DEBUG: Monitor scroll position for a few seconds after unlock
+      const currentScrollTop = instance.scrollableParent.scrollTop;
+      console.log(`📍 Scroll position at unlock: ${currentScrollTop}px`);
+      
+      let monitorCount = 0;
+      const monitorInterval = setInterval(() => {
+        const newScrollTop = instance.scrollableParent.scrollTop;
+        if (Math.abs(newScrollTop - currentScrollTop) > 10) {
+          console.log(`🚨 SCROLL CHANGE AFTER UNLOCK: ${currentScrollTop}px → ${newScrollTop}px (diff: ${Math.abs(newScrollTop - currentScrollTop)}px)`);
+          console.trace("Post-unlock scroll change source:");
+        }
+        monitorCount++;
+        if (monitorCount >= 20) { // Monitor for 2 seconds
+          clearInterval(monitorInterval);
+        }
+      }, 100);
+    }
+  };
 
 
     // In lazyLoaderFactory.js, inside the createLazyLoader function...
@@ -924,8 +982,18 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
     const newHeight = chunkElement.getBoundingClientRect().height;
     
 
-    instance.scrollableParent.scrollTop = prevScrollTop + newHeight; // <<< Use scrollableParent
-    console.log(`Adjusted scroll top of scrollableParent by ${newHeight}. New scrollTop: ${instance.scrollableParent.scrollTop}`); // NEW DEBUG
+    // 🚨 SCROLL LOCK PROTECTION: Don't adjust scroll if locked or navigation is in progress
+    if (instance.scrollLocked || instance.isNavigatingToInternalId) {
+      const reason = instance.scrollLocked ? `scroll locked (${instance.scrollLockReason})` : 'navigation in progress';
+      console.log(`🔧 LAZY LOADER: ${reason}, SKIPPING scroll adjustment (would have been +${newHeight}px)`);
+    } else {
+      // 🚨 DEBUG: Log before adjusting scroll position
+      console.log(`🔧 LAZY LOADER: About to adjust scroll position by ${newHeight}px (from ${prevScrollTop} to ${prevScrollTop + newHeight})`);
+      console.trace("Lazy loader scroll adjustment source:");
+      
+      instance.scrollableParent.scrollTop = prevScrollTop + newHeight; // <<< Use scrollableParent
+      console.log(`🔧 LAZY LOADER: Adjusted scroll top of scrollableParent by ${newHeight}. New scrollTop: ${instance.scrollableParent.scrollTop}`); // NEW DEBUG
+    }
     
     if (instance.topSentinel) {
       instance.topSentinel.remove();
