@@ -1,5 +1,6 @@
 import { book } from "./app.js";
 import { navigateToInternalId } from "./scrolling.js";
+import { waitForElementReady, waitForMultipleElementsReady } from "./domReadiness.js";
 import { openDatabase, 
          parseNodeId, 
          createNodeChunksKey, 
@@ -623,18 +624,8 @@ async function CoupleClick(uElement) {
           const newPath = `/${currentBook}/${highlightId}` + (internalId ? `#${internalId}` : "");
           window.history.pushState(null, "", newPath);
           
-          // Use navigateToInternalId for everything - it handles highlight opening AND scrolling
-          if (internalId) {
-            // If there's an internal ID, navigate to the highlight first, then to the internal ID
-            navigateToInternalId(highlightId, currentLazyLoader);
-            // Wait for highlight to open, then navigate to internal ID
-            setTimeout(() => {
-              navigateToInternalId(internalId, currentLazyLoader);
-            }, 1000); // Increased timeout to ensure highlight opens first
-          } else {
-            // Just navigate to the highlight
-            navigateToInternalId(highlightId, currentLazyLoader);
-          }
+          // 🚀 NEW: Use proper sequential navigation with DOM readiness
+          await navigateToHyperciteTarget(highlightId, internalId, currentLazyLoader);
           
           return; // Don't do normal navigation
         }
@@ -794,6 +785,55 @@ async function handleOverlappingPoly(hyperciteIds, event) {
 }
 
 /**
+ * Navigate to hypercite targets with proper sequencing and DOM readiness
+ * @param {string} highlightId - The highlight ID to navigate to first
+ * @param {string} internalId - Optional internal ID to navigate to after highlight
+ * @param {Object} lazyLoader - The lazy loader instance
+ */
+async function navigateToHyperciteTarget(highlightId, internalId, lazyLoader) {
+  try {
+    console.log(`🎯 Starting hypercite navigation to highlight: ${highlightId}, internal: ${internalId}`);
+    
+    if (internalId) {
+      // Sequential navigation: highlight first, then internal ID
+      console.log(`📍 Step 1: Navigating to highlight ${highlightId}`);
+      navigateToInternalId(highlightId, lazyLoader);
+      
+      // Wait for the highlight to be ready before proceeding
+      await waitForElementReady(highlightId, {
+        maxAttempts: 40, // 2 seconds max wait
+        checkInterval: 50,
+        container: lazyLoader.container
+      });
+      
+      console.log(`✅ Highlight ${highlightId} ready, now navigating to internal ID ${internalId}`);
+      
+      // Small delay to let highlight open animation start
+      setTimeout(() => {
+        navigateToInternalId(internalId, lazyLoader);
+      }, 300);
+      
+    } else {
+      // Just navigate to the highlight
+      console.log(`📍 Navigating directly to highlight ${highlightId}`);
+      navigateToInternalId(highlightId, lazyLoader);
+    }
+    
+  } catch (error) {
+    console.error(`❌ Error in hypercite navigation:`, error);
+    // Fallback to original method if our improved method fails
+    if (internalId) {
+      navigateToInternalId(highlightId, lazyLoader);
+      setTimeout(() => {
+        navigateToInternalId(internalId, lazyLoader);
+      }, 1000);
+    } else {
+      navigateToInternalId(highlightId, lazyLoader);
+    }
+  }
+}
+
+/**
  * Navigate to a hypercite link (extracted from CoupleClick logic)
  * @param {string} link - The link to navigate to
  */
@@ -821,18 +861,8 @@ async function navigateToHyperciteLink(link) {
       const newPath = `/${currentBook}/${highlightId}` + (internalId ? `#${internalId}` : "");
       window.history.pushState(null, "", newPath);
       
-      // Use navigateToInternalId for everything - it handles highlight opening AND scrolling
-      if (internalId) {
-        // If there's an internal ID, navigate to the highlight first, then to the internal ID
-        navigateToInternalId(highlightId, currentLazyLoader);
-        // Wait for highlight to open, then navigate to internal ID
-        setTimeout(() => {
-          navigateToInternalId(internalId, currentLazyLoader);
-        }, 1000); // Increased timeout to ensure highlight opens first
-      } else {
-        // Just navigate to the highlight
-        navigateToInternalId(highlightId, currentLazyLoader);
-      }
+      // 🚀 NEW: Use proper sequential navigation with DOM readiness
+      await navigateToHyperciteTarget(highlightId, internalId, currentLazyLoader);
       
       return; // Don't do normal navigation
     }

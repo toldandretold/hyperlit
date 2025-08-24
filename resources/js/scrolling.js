@@ -9,6 +9,11 @@ import {
 import { parseMarkdownIntoChunksInitial } from "./convert-markdown.js";
 import { currentLazyLoader } from "./initializePage.js";
 import { repositionSentinels } from "./lazyLoaderFactory.js"; // if exported
+import { 
+  waitForNavigationTarget, 
+  waitForElementReady, 
+  waitForChunkLoadingComplete 
+} from "./domReadiness.js";
 
 // ========= Scrolling Helper Functions =========
 
@@ -399,10 +404,24 @@ function scrollElementIntoContainer(
 
   // >>>>>> THIS IS THE FINAL CRUCIAL CHANGE <<<<<<
   // Tell the *actual scrollable parent* to scroll
+  console.log(`📜 Attempting to scroll to: ${targetScrollTop} (current scrollTop: ${scrollableParent.scrollTop})`);
+  
   scrollableParent.scrollTo({
     top: targetScrollTop,
     behavior: "smooth"
   });
+  
+  // Verify the scroll actually happened
+  setTimeout(() => {
+    console.log(`📜 After scroll attempt - scrollTop is now: ${scrollableParent.scrollTop}`);
+    if (Math.abs(scrollableParent.scrollTop - targetScrollTop) > 100) {
+      console.warn(`⚠️ Scroll may have failed - expected: ${targetScrollTop}, actual: ${scrollableParent.scrollTop}`);
+      
+      // Try immediate scroll as fallback
+      scrollableParent.scrollTop = targetScrollTop;
+      console.log(`📜 Fallback direct scroll - scrollTop is now: ${scrollableParent.scrollTop}`);
+    }
+  }, 500);
   // >>>>>> END FINAL CRUCIAL CHANGE <<<<<<
 }
 export function navigateToInternalId(targetId, lazyLoader) {
@@ -448,33 +467,47 @@ function calculateScrollDelay(element, container, targetId) {
   return delay;
 }
 
-function _navigateToInternalId(targetId, lazyLoader) {
-  // Check if the target element is already present.
+async function _navigateToInternalId(targetId, lazyLoader) {
+  // Check if the target element is already present and fully rendered
   let existingElement = lazyLoader.container.querySelector(
     `#${CSS.escape(targetId)}`
   );
+  
   if (existingElement) {
-    // Already available: scroll and highlight.
-    scrollElementIntoContainer(existingElement, lazyLoader.container, 50);
-    
-    // Calculate delay based on element visibility (for ALL IDs now)
-    let delay = calculateScrollDelay(existingElement, lazyLoader.container, targetId);
-    
-    // Check if this is a highlight ID (starts with HL_)
-    if (targetId.startsWith('HL_')) {
-      setTimeout(() => {
-        console.log(`Opening highlight after navigation: ${targetId}`);
-        openHighlightById(targetId);
-      }, delay);
-    }
+    try {
+      // 🚀 NEW: Verify the element is actually ready before proceeding
+      console.log(`📍 Found existing element ${targetId}, verifying readiness...`);
+      
+      const readyElement = await waitForElementReady(targetId, {
+        maxAttempts: 5, // Quick check since element exists
+        checkInterval: 20,
+        container: lazyLoader.container
+      });
+      
+      console.log(`✅ Existing element ${targetId} confirmed ready`);
+      
+      // Scroll immediately since element is confirmed ready
+      scrollElementIntoContainer(readyElement, lazyLoader.container, 50);
+      
+      // For highlights, open them after scrolling starts
+      if (targetId.startsWith('HL_')) {
+        setTimeout(() => {
+          console.log(`Opening highlight after navigation: ${targetId}`);
+          openHighlightById(targetId);
+        }, 200);
+      }
 
-    setTimeout(() => {
+      // Clean up navigation state
       if (typeof lazyLoader.attachMarkListeners === "function") {
         lazyLoader.attachMarkListeners(lazyLoader.container);
       }
       lazyLoader.isNavigatingToInternalId = false;
-    }, Math.max(200, delay + 100)); // Ensure this runs after highlight delay
-    return;
+      return;
+      
+    } catch (error) {
+      console.warn(`⚠️ Existing element ${targetId} not fully ready: ${error.message}. Proceeding with chunk loading...`);
+      // Continue to chunk loading logic below
+    }
   }
 
   // Otherwise, determine which chunk should contain the target.
@@ -521,67 +554,96 @@ function _navigateToInternalId(targetId, lazyLoader) {
   // Clear the container and load the chunk (plus adjacent chunks).
   lazyLoader.container.innerHTML = "";
   lazyLoader.currentlyLoadedChunks.clear();
-  const startIndex = Math.max(0, targetChunkIndex - 1);
-  const endIndex = Math.min(
-    lazyLoader.nodeChunks.length - 1,
-    targetChunkIndex + 1
-  );
-  console.log(`Loading chunks ${startIndex} to ${endIndex}`);
+  
+  // 🚀 FIX: Get the actual chunk_id of the target node, not array index
+  const targetNode = lazyLoader.nodeChunks[targetChunkIndex];
+  const targetChunkId = targetNode.chunk_id;
+  
+  // Get all unique chunk_ids and sort them
+  const allChunkIds = [...new Set(lazyLoader.nodeChunks.map(n => n.chunk_id))].sort((a, b) => a - b);
+  const targetChunkPosition = allChunkIds.indexOf(targetChunkId);
+  
+  // Load target chunk plus adjacent chunks
+  const startChunkIndex = Math.max(0, targetChunkPosition - 1);
+  const endChunkIndex = Math.min(allChunkIds.length - 1, targetChunkPosition + 1);
+  const chunksToLoad = allChunkIds.slice(startChunkIndex, endChunkIndex + 1);
+  
+  console.log(`🎯 Target element "${targetId}" is in chunk_id: ${targetChunkId}`);
+  console.log(`📦 Loading chunks: ${chunksToLoad.join(', ')} (target chunk position: ${targetChunkPosition})`);
 
-  const loadedChunksPromises = Array.from(
-    { length: endIndex - startIndex + 1 },
-    (_, i) => {
-      const node = lazyLoader.nodeChunks[startIndex + i];
-      return new Promise((resolve) => {
-        lazyLoader.loadChunk(node.chunk_id, "down");
-        resolve();
-      });
-    }
-  );
+  const loadedChunksPromises = chunksToLoad.map(chunkId => {
+    return new Promise((resolve) => {
+      lazyLoader.loadChunk(chunkId, "down");
+      resolve();
+    });
+  });
   
   Promise.all(loadedChunksPromises)
-    .then(() => {
+    .then(async () => {
       lazyLoader.repositionSentinels();
       
-      // Delay a bit to let DOM updates settle.
-      setTimeout(() => {
-        let finalTarget = lazyLoader.container.querySelector(
-          `#${CSS.escape(targetId)}`
+      try {
+        // 🚀 NEW: Use DOM readiness detection instead of fixed timeout
+        console.log(`🎯 Waiting for navigation target to be ready: ${targetId}`);
+        
+        const finalTarget = await waitForNavigationTarget(
+          targetId, 
+          lazyLoader.container,
+          targetChunkId, // 🚀 NOW we know the exact chunk ID!
+          { 
+            maxWaitTime: 5000, // 5 second max wait
+            requireVisible: false 
+          }
         );
-        if (finalTarget) {
-          scrollElementIntoContainer(finalTarget, lazyLoader.container, 50);
-          
-          // Calculate delay for newly loaded elements
-          let delay = calculateScrollDelay(finalTarget, lazyLoader.container, targetId);
+        
+        console.log(`✅ Navigation target ready: ${targetId}`);
+        
+        // Scroll to the target immediately since it's confirmed ready
+        console.log(`🎯 About to scroll to confirmed ready element: ${targetId}`);
+        scrollElementIntoContainer(finalTarget, lazyLoader.container, 50);
+        
+        // For highlights, open them after scrolling
+        if (targetId.startsWith('HL_')) {
+          // Small delay to let scroll animation start
+          setTimeout(() => {
+            console.log(`Opening highlight after navigation: ${targetId}`);
+            openHighlightById(targetId);
+          }, 200);
+        }
+        
+        // Clean up navigation state
+        if (typeof lazyLoader.attachMarkListeners === "function") {
+          lazyLoader.attachMarkListeners(lazyLoader.container);
+        }
+        lazyLoader.isNavigatingToInternalId = false;
+        
+      } catch (error) {
+        console.warn(
+          `❌ Failed to wait for target element ${targetId}: ${error.message}. ` +
+            "Using fallback scroll position."
+        );
+        
+        // Fallback: try once more with querySelector in case it's there but not detected
+        const fallbackTarget = lazyLoader.container.querySelector(`#${CSS.escape(targetId)}`);
+        if (fallbackTarget) {
+          console.log(`📍 Found target on fallback attempt: ${targetId}`);
+          scrollElementIntoContainer(fallbackTarget, lazyLoader.container, 50);
           
           if (targetId.startsWith('HL_')) {
             setTimeout(() => {
-              console.log(`Opening highlight after navigation: ${targetId}`);
               openHighlightById(targetId);
-            }, delay);
+            }, 200);
           }
-          
-          // Use dynamic delay for cleanup too
-          setTimeout(() => {
-            if (typeof lazyLoader.attachMarkListeners === "function") {
-              lazyLoader.attachMarkListeners(lazyLoader.container);
-            }
-            lazyLoader.isNavigatingToInternalId = false;
-          }, delay + 100);
-          
         } else {
-          console.warn(
-            `Target element ${targetId} not found after loading chunks. ` +
-              "Using fallback scroll position."
-          );
+          // Last resort: use existing fallback
           fallbackScrollPosition(lazyLoader);
-          
-          if (typeof lazyLoader.attachMarkListeners === "function") {
-            lazyLoader.attachMarkListeners(lazyLoader.container);
-          }
-          lazyLoader.isNavigatingToInternalId = false;
         }
-      }, 100);
+        
+        if (typeof lazyLoader.attachMarkListeners === "function") {
+          lazyLoader.attachMarkListeners(lazyLoader.container);
+        }
+        lazyLoader.isNavigatingToInternalId = false;
+      }
     })
     .catch(error => {
       console.error("Error while loading chunks:", error);
