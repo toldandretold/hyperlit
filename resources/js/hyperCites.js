@@ -1,6 +1,7 @@
 import { book } from "./app.js";
 import { navigateToInternalId } from "./scrolling.js";
 import { waitForElementReady, waitForMultipleElementsReady } from "./domReadiness.js";
+import { getLocalStorageKey } from "./cache-indexedDB.js";
 import { openDatabase, 
          parseNodeId, 
          createNodeChunksKey, 
@@ -793,6 +794,13 @@ async function handleOverlappingPoly(hyperciteIds, event) {
 async function navigateToHyperciteTarget(highlightId, internalId, lazyLoader) {
   try {
     console.log(`🎯 Starting hypercite navigation to highlight: ${highlightId}, internal: ${internalId}`);
+    
+    // 🚀 FIX: Clear any conflicting saved scroll positions to prevent interference
+    const scrollKey = getLocalStorageKey("scrollPosition", lazyLoader.bookId);
+    console.log(`🧹 Clearing saved scroll positions to prevent navigation interference`);
+    sessionStorage.removeItem(scrollKey);
+    // Keep localStorage for when user refreshes page, but clear session storage
+    // so it doesn't override our explicit navigation
     
     if (internalId) {
       // Sequential navigation: highlight first, then internal ID

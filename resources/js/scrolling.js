@@ -38,19 +38,26 @@ export function scrollElementIntoMainContent(targetElement, headerOffset = 0) {
   }
   // >>>>>> END CRUCIAL NEW PART <<<<<<
 
-  const elementRect = targetElement.getBoundingClientRect();
-  // Changed `containerRect` to `scrollableParentRect` and used `scrollableParent`
-  const scrollableParentRect = scrollableParent.getBoundingClientRect();
-  // Changed `container.scrollTop` to `scrollableParent.scrollTop`
-  const offset = elementRect.top - scrollableParentRect.top + scrollableParent.scrollTop;
-  const targetScrollTop = offset - headerOffset;
+  // 🚀 FINAL FIX: Calculate element's absolute position within the scrollable document
+  let elementOffsetTop = targetElement.offsetTop;
+  let offsetParent = targetElement.offsetParent;
+  
+  // Walk up the chain until we reach the content container or scrollable parent
+  while (offsetParent && offsetParent !== contentContainer && offsetParent !== scrollableParent) {
+    elementOffsetTop += offsetParent.offsetTop;
+    offsetParent = offsetParent.offsetParent;
+  }
+  
+  // If we reached the content container, add its position relative to scrollable parent
+  if (offsetParent === contentContainer) {
+    elementOffsetTop += contentContainer.offsetTop;
+  }
+  
+  const targetScrollTop = Math.max(0, elementOffsetTop - headerOffset);
 
-  console.log("Element rect:", elementRect);
-  // Changed `Container rect` to `Scrollable parent rect`
-  console.log("Scrollable parent rect:", scrollableParentRect);
-  // Changed `Container current scrollTop` to `Scrollable parent current scrollTop`
-  console.log("Scrollable parent current scrollTop:", scrollableParent.scrollTop);
-  console.log("Calculated targetScrollTop:", targetScrollTop);
+  console.log(`📍 Element offsetTop: ${targetElement.offsetTop}, calculated total: ${elementOffsetTop}`);
+  console.log(`📍 Target scroll: ${targetScrollTop}, header offset: ${headerOffset}`);
+  console.log("Scrollable parent container:", scrollableParent.className);
 
   // >>>>>> THIS IS THE FINAL CRUCIAL CHANGE <<<<<<
   // Tell the *actual scrollable parent* to scroll
@@ -297,33 +304,44 @@ export async function restoreScrollPosition() {
 
   // Read target id from URL hash first.
   let targetId = window.location.hash.substring(1);
-
-  try {
-    const scrollKey = getLocalStorageKey("scrollPosition", currentLazyLoader.bookId);
-    const sessionSavedId = sessionStorage.getItem(scrollKey);
-    if (sessionSavedId && sessionSavedId !== "0") {
-      const parsed = JSON.parse(sessionSavedId);
-      if (parsed && parsed.elementId) {
-        // only override if we have a valid target from storage and
-        // if the hash target doesn't exist in the document.
-        targetId = parsed.elementId;
-      }
-    }
-  } catch (e) {
-    console.log("⚠️ sessionStorage not available or parse error", e);
-  }
+  const hasExplicitTarget = !!targetId; // Track if we have an explicit navigation target
   
-  try {
-    const scrollKey = getLocalStorageKey("scrollPosition", currentLazyLoader.bookId);
-    const localSavedId = localStorage.getItem(scrollKey);
-    if (localSavedId && localSavedId !== "0") {
-      const parsed = JSON.parse(localSavedId);
-      if (parsed && parsed.elementId) {
-        targetId = parsed.elementId;
+  console.log(`🔍 URL hash target: "${targetId}", explicit: ${hasExplicitTarget}`);
+
+  // Only use saved scroll position if there's no explicit target in URL
+  if (!hasExplicitTarget) {
+    try {
+      const scrollKey = getLocalStorageKey("scrollPosition", currentLazyLoader.bookId);
+      const sessionSavedId = sessionStorage.getItem(scrollKey);
+      if (sessionSavedId && sessionSavedId !== "0") {
+        const parsed = JSON.parse(sessionSavedId);
+        if (parsed && parsed.elementId) {
+          targetId = parsed.elementId;
+          console.log(`📌 Using saved session position: ${targetId}`);
+        }
+      }
+    } catch (e) {
+      console.log("⚠️ sessionStorage not available or parse error", e);
+    }
+    
+    // Fallback to localStorage only if no session data
+    if (!targetId) {
+      try {
+        const scrollKey = getLocalStorageKey("scrollPosition", currentLazyLoader.bookId);
+        const localSavedId = localStorage.getItem(scrollKey);
+        if (localSavedId && localSavedId !== "0") {
+          const parsed = JSON.parse(localSavedId);
+          if (parsed && parsed.elementId) {
+            targetId = parsed.elementId;
+            console.log(`📌 Using saved local position: ${targetId}`);
+          }
+        }
+      } catch (e) {
+        console.log("⚠️ localStorage not available or parse error", e);
       }
     }
-  } catch (e) {
-    console.log("⚠️ localStorage not available or parse error", e);
+  } else {
+    console.log(`🎯 Explicit target found in URL, ignoring saved scroll positions`);
   }
 
   if (!targetId) {
@@ -389,17 +407,39 @@ function scrollElementIntoContainer(
   }
   // >>>>>> END CRUCIAL NEW PART <<<<<<
 
-  const elementRect = targetElement.getBoundingClientRect();
-  // Changed `containerRect` to `scrollableParentRect` and used `scrollableParent`
-  const scrollableParentRect = scrollableParent.getBoundingClientRect();
-  // Changed `container.scrollTop` to `scrollableParent.scrollTop`
-  const offset = elementRect.top - scrollableParentRect.top + scrollableParent.scrollTop;
-  const targetScrollTop = offset - headerOffset;
-
-  // Added this console.log for clear debugging
+  // 🚀 FINAL FIX: Calculate element's absolute position within the scrollable document
+  // We need the element's true position within the scrollable content, not its current screen position
+  
+  // Method 1: Try using offsetTop with proper container walking
+  let elementOffsetTop = targetElement.offsetTop;
+  let offsetParent = targetElement.offsetParent;
+  
+  // Walk up the chain until we reach the content container or scrollable parent
+  while (offsetParent && offsetParent !== contentContainer && offsetParent !== scrollableParent) {
+    elementOffsetTop += offsetParent.offsetTop;
+    offsetParent = offsetParent.offsetParent;
+  }
+  
+  // If we reached the content container, add its position relative to scrollable parent
+  if (offsetParent === contentContainer) {
+    elementOffsetTop += contentContainer.offsetTop;
+  }
+  
+  console.log(`🔍 OFFSET CALCULATION: element.offsetTop=${targetElement.offsetTop}, total calculated=${elementOffsetTop}`);
+  
+  // Position element at ideal position from top of visible container
+  const containerVisibleHeight = scrollableParent.clientHeight;
+  const idealPositionFromTop = Math.min(containerVisibleHeight / 3, 192); // Top third, max 192px
+  
+  // Calculate scroll position so the element appears at idealPositionFromTop
+  // If we scroll to (elementOffsetTop - idealPositionFromTop), then the element 
+  // will appear at idealPositionFromTop pixels from the container's visible top
+  const targetScrollTop = Math.max(0, elementOffsetTop - idealPositionFromTop);
+  
+  console.log(`📐 Container height: ${containerVisibleHeight}px, ideal position: ${idealPositionFromTop}px from top`);
+  console.log(`📍 Content container offsetTop: ${contentContainer.offsetTop}`);
+  console.log(`📍 Current scroll: ${scrollableParent.scrollTop}, calculated element offset: ${elementOffsetTop}`);
   console.log("Scrolling the actual container:", scrollableParent.id || scrollableParent.className);
-  console.log("Element rect:", elementRect);
-  console.log("Scrollable parent rect:", scrollableParentRect);
   console.log("Calculated targetScrollTop:", targetScrollTop);
 
   // >>>>>> THIS IS THE FINAL CRUCIAL CHANGE <<<<<<
@@ -411,15 +451,43 @@ function scrollElementIntoContainer(
     behavior: "smooth"
   });
   
-  // Verify the scroll actually happened
+  // Enhanced verification with detailed debugging
   setTimeout(() => {
-    console.log(`📜 After scroll attempt - scrollTop is now: ${scrollableParent.scrollTop}`);
-    if (Math.abs(scrollableParent.scrollTop - targetScrollTop) > 100) {
-      console.warn(`⚠️ Scroll may have failed - expected: ${targetScrollTop}, actual: ${scrollableParent.scrollTop}`);
-      
-      // Try immediate scroll as fallback
-      scrollableParent.scrollTop = targetScrollTop;
-      console.log(`📜 Fallback direct scroll - scrollTop is now: ${scrollableParent.scrollTop}`);
+    const actualScrollTop = scrollableParent.scrollTop;
+    console.log(`📜 After scroll attempt - scrollTop is now: ${actualScrollTop}`);
+    
+    // Get fresh positioning info after scroll
+    const elementRect = targetElement.getBoundingClientRect();
+    const scrollableRect = scrollableParent.getBoundingClientRect();
+    
+    // Calculate where the element actually appears relative to the container
+    const actualElementPositionFromTop = elementRect.top - scrollableRect.top;
+    console.log(`🔍 DEBUGGING - After scroll:`);
+    console.log(`  - Target scroll position: ${targetScrollTop}`);
+    console.log(`  - Actual scroll position: ${actualScrollTop}`);
+    console.log(`  - Element getBoundingClientRect().top: ${elementRect.top}`);
+    console.log(`  - Container getBoundingClientRect().top: ${scrollableRect.top}`);
+    console.log(`  - Element position from container top: ${actualElementPositionFromTop}px`);
+    console.log(`  - Expected position from container top: ${idealPositionFromTop}px`);
+    
+    const positionError = Math.abs(actualElementPositionFromTop - idealPositionFromTop);
+    console.log(`  - Position error: ${positionError}px`);
+    
+    // Check if element is visible in viewport
+    const isVisible = elementRect.top >= scrollableRect.top && 
+                      elementRect.bottom <= scrollableRect.bottom &&
+                      elementRect.left >= scrollableRect.left && 
+                      elementRect.right <= scrollableRect.right;
+    
+    console.log(`📍 Element visibility: ${isVisible ? '✅ VISIBLE' : '❌ NOT VISIBLE'}`);
+    
+    if (!isVisible || positionError > 100) {
+      console.warn(`⚠️ Element positioning failed - using fallback scrollIntoView`);
+      targetElement.scrollIntoView({ 
+        behavior: "smooth", 
+        block: "start", 
+        inline: "nearest" 
+      });
     }
   }, 500);
   // >>>>>> END FINAL CRUCIAL CHANGE <<<<<<
@@ -430,6 +498,14 @@ export function navigateToInternalId(targetId, lazyLoader) {
     return;
   }
   console.log("Initiating navigation to internal ID:", targetId);
+  
+  // 🚀 FIX: Clear session storage when explicitly navigating to prevent cached position interference
+  if (targetId && targetId.trim() !== '') {
+    const scrollKey = getLocalStorageKey("scrollPosition", lazyLoader.bookId);
+    console.log(`🧹 Clearing session scroll cache for explicit navigation to: ${targetId}`);
+    sessionStorage.removeItem(scrollKey);
+  }
+  
   _navigateToInternalId(targetId, lazyLoader);
 }
 
@@ -487,7 +563,20 @@ async function _navigateToInternalId(targetId, lazyLoader) {
       console.log(`✅ Existing element ${targetId} confirmed ready`);
       
       // Scroll immediately since element is confirmed ready
-      scrollElementIntoContainer(readyElement, lazyLoader.container, 50);
+      console.log(`📍 Scrolling to existing element: ${targetId}`);
+      const scrollableParent = lazyLoader.scrollableParent;
+      
+      if (scrollableParent && scrollableParent !== window) {
+        console.log(`📍 Using custom scroll for existing element in container: ${scrollableParent.className}`);
+        scrollElementIntoContainer(readyElement, lazyLoader.container, 150);
+      } else {
+        console.log(`📍 Using native scrollIntoView for existing element`);
+        readyElement.scrollIntoView({ 
+          behavior: "smooth", 
+          block: "start", 
+          inline: "nearest" 
+        });
+      }
       
       // For highlights, open them after scrolling starts
       if (targetId.startsWith('HL_')) {
@@ -600,7 +689,24 @@ async function _navigateToInternalId(targetId, lazyLoader) {
         
         // Scroll to the target immediately since it's confirmed ready
         console.log(`🎯 About to scroll to confirmed ready element: ${targetId}`);
-        scrollElementIntoContainer(finalTarget, lazyLoader.container, 50);
+        
+        // 🚀 Fix: Use scrollIntoView with the correct scrollable container
+        console.log(`📍 Using scrollIntoView for element: ${targetId}`);
+        const scrollableParent = lazyLoader.scrollableParent;
+        
+        if (scrollableParent && scrollableParent !== window) {
+          // For custom containers, we need to use our custom scroll method
+          console.log(`📍 Using custom scroll for container: ${scrollableParent.className}`);
+          scrollElementIntoContainer(finalTarget, lazyLoader.container, 150);
+        } else {
+          // For window scrolling, use native method
+          console.log(`📍 Using native scrollIntoView for window scrolling`);
+          finalTarget.scrollIntoView({ 
+            behavior: "smooth", 
+            block: "start", 
+            inline: "nearest" 
+          });
+        }
         
         // For highlights, open them after scrolling
         if (targetId.startsWith('HL_')) {
@@ -627,7 +733,19 @@ async function _navigateToInternalId(targetId, lazyLoader) {
         const fallbackTarget = lazyLoader.container.querySelector(`#${CSS.escape(targetId)}`);
         if (fallbackTarget) {
           console.log(`📍 Found target on fallback attempt: ${targetId}`);
-          scrollElementIntoContainer(fallbackTarget, lazyLoader.container, 50);
+          const scrollableParent = lazyLoader.scrollableParent;
+          
+          if (scrollableParent && scrollableParent !== window) {
+            console.log(`📍 Using custom scroll for fallback element in container: ${scrollableParent.className}`);
+            scrollElementIntoContainer(fallbackTarget, lazyLoader.container, 150);
+          } else {
+            console.log(`📍 Using native scrollIntoView for fallback element`);
+            fallbackTarget.scrollIntoView({ 
+              behavior: "smooth", 
+              block: "start", 
+              inline: "nearest" 
+            });
+          }
           
           if (targetId.startsWith('HL_')) {
             setTimeout(() => {
