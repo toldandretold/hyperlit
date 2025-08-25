@@ -423,6 +423,18 @@ export async function restoreScrollPosition() {
   const hasExplicitTarget = !!targetId; // Track if we have an explicit navigation target
   
   console.log(`🔍 URL hash target: "${targetId}", explicit: ${hasExplicitTarget}`);
+  
+  // Show overlay immediately if we have a URL hash target (browser navigation)
+  // BUT only if overlay is not already active from page transition
+  let overlayShown = false;
+  if (hasExplicitTarget && !navigationModal) {
+    showNavigationLoading(targetId);
+    overlayShown = true;
+  } else if (navigationModal) {
+    // Overlay already exists from page transition
+    overlayShown = true;
+    console.log(`🎯 Using existing overlay from page transition for: ${targetId}`);
+  }
 
   // Only use saved scroll position if there's no explicit target in URL
   if (!hasExplicitTarget) {
@@ -494,8 +506,8 @@ export async function restoreScrollPosition() {
 
   console.log(`🎯 Found target position: ${targetId}. Navigating...`);
 
-  // Delegate to the navigation function.
-  navigateToInternalId(targetId, currentLazyLoader);
+  // Delegate to the navigation function (don't show overlay if already shown)
+  navigateToInternalId(targetId, currentLazyLoader, !overlayShown);
 }
 
 function scrollElementIntoContainer(
@@ -672,28 +684,107 @@ function scrollElementIntoContainer(
   }, 500);
   // >>>>>> END FINAL CRUCIAL CHANGE <<<<<<
 }
-// Optional: Show/hide navigation loading indicator
-function showNavigationLoading(targetId) {
-  // TODO: Replace with your actual loading indicator
+// Navigation loading indicator with overlay and progress bar
+let navigationModal = null;
+
+export function showNavigationLoading(targetId) {
   console.log(`🎯 LOADING: Starting navigation to ${targetId}`);
-  // Example: document.querySelector('.navigation-loader')?.classList.add('active');
+  
+  // Store in sessionStorage so overlay persists across page transitions
+  sessionStorage.setItem('navigationOverlayActive', 'true');
+  sessionStorage.setItem('navigationTargetId', targetId);
+  
+  // Create darkening overlay only
+  navigationModal = document.createElement("div");
+  navigationModal.className = "navigation-overlay";
+  
+  // Add styles
+  const style = document.createElement('style');
+  style.textContent = `
+    .navigation-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(2px);
+      z-index: 10000;
+    }
+  `;
+  
+  document.head.appendChild(style);
+  document.body.appendChild(navigationModal);
+  
+  return {
+    updateProgress: (percent, message) => {
+      // No-op for now
+    },
+    setMessage: (message) => {
+      // No-op for now  
+    }
+  };
 }
 
-function hideNavigationLoading() {
-  // TODO: Replace with your actual loading indicator
+export function hideNavigationLoading() {
   console.log(`🎯 LOADING: Navigation complete`);
-  // Example: document.querySelector('.navigation-loader')?.classList.remove('active');
+  
+  // Clear sessionStorage flags
+  sessionStorage.removeItem('navigationOverlayActive');
+  sessionStorage.removeItem('navigationTargetId');
+  
+  if (navigationModal) {
+    // Remove overlay immediately
+    navigationModal.remove();
+    navigationModal = null;
+  }
 }
 
-export function navigateToInternalId(targetId, lazyLoader) {
+// Function to restore overlay on page load if it was active during navigation
+export function restoreNavigationOverlayIfNeeded() {
+  const overlayActive = sessionStorage.getItem('navigationOverlayActive');
+  const targetId = sessionStorage.getItem('navigationTargetId');
+  
+  if (overlayActive === 'true' && targetId) {
+    console.log(`🎯 RESTORING: Navigation overlay for ${targetId} after page transition`);
+    
+    // Recreate the overlay immediately
+    navigationModal = document.createElement("div");
+    navigationModal.className = "navigation-overlay";
+    
+    // Add styles
+    const style = document.createElement('style');
+    style.textContent = `
+      .navigation-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(2px);
+        z-index: 10000;
+      }
+    `;
+    
+    document.head.appendChild(style);
+    document.body.appendChild(navigationModal);
+    
+    return true; // Indicate overlay was restored
+  }
+  
+  return false; // No overlay to restore
+}
+
+export function navigateToInternalId(targetId, lazyLoader, showOverlay = true) {
   if (!lazyLoader) {
     console.error("Lazy loader instance not provided!");
     return;
   }
   console.log("Initiating navigation to internal ID:", targetId);
   
-  // 🎯 NEW: Show loading indicator
-  showNavigationLoading(targetId);
+  // 🎯 Show loading indicator with progress tracking (only if requested)
+  const progressIndicator = showOverlay ? showNavigationLoading(targetId) : { updateProgress: () => {}, setMessage: () => {} };
   
   // 🔒 NEW: Lock scroll position during navigation
   if (lazyLoader.lockScroll) {
@@ -734,7 +825,7 @@ export function navigateToInternalId(targetId, lazyLoader) {
     sessionStorage.removeItem(scrollKey);
   }
   
-  _navigateToInternalId(targetId, lazyLoader);
+  _navigateToInternalId(targetId, lazyLoader, progressIndicator);
 }
 
 // Define helper function OUTSIDE the main function
@@ -771,97 +862,85 @@ function calculateScrollDelay(element, container, targetId) {
   return delay;
 }
 
-async function _navigateToInternalId(targetId, lazyLoader) {
+async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = null) {
   // Check if the target element is already present and fully rendered
   let existingElement = lazyLoader.container.querySelector(
     `#${CSS.escape(targetId)}`
   );
   
+  // Update progress - DOM check
+  if (progressIndicator) {
+    progressIndicator.updateProgress(20, "Checking if element is in DOM...");
+  }
+  
+  let targetElement = existingElement;
+  let elementsReady = false;
+  
   if (existingElement) {
     try {
-      // 🚀 NEW: Verify the element is actually ready before proceeding
+      // 🚀 Verify the element is actually ready before proceeding  
       console.log(`📍 Found existing element ${targetId}, verifying readiness...`);
       
-      const readyElement = await waitForElementReady(targetId, {
+      if (progressIndicator) {
+        progressIndicator.updateProgress(40, "Verifying element readiness...");
+      }
+      
+      targetElement = await waitForElementReady(targetId, {
         maxAttempts: 5, // Quick check since element exists
         checkInterval: 20,
         container: lazyLoader.container
       });
       
       console.log(`✅ Existing element ${targetId} confirmed ready`);
-      
-      // Scroll immediately since element is confirmed ready
-      console.log(`📍 Scrolling to existing element: ${targetId}`);
-      const scrollableParent = lazyLoader.scrollableParent;
-      
-      if (scrollableParent && scrollableParent !== window) {
-        console.log(`📍 Using consistent scroll for existing element in container: ${scrollableParent.className}`);
-        scrollElementWithConsistentMethod(readyElement, scrollableParent, 192);
-      } else {
-        console.log(`📍 Using fallback scrollIntoView for existing element (window scrolling)`);
-        readyElement.scrollIntoView({ 
-          behavior: "smooth", 
-          block: "start", 
-          inline: "nearest" 
-        });
-      }
-      
-      // For highlights, open them after scrolling starts
-      if (targetId.startsWith('HL_')) {
-        setTimeout(() => {
-          console.log(`Opening highlight after navigation: ${targetId}`);
-          openHighlightById(targetId);
-        }, 200);
-      }
-
-      // Clean up navigation state
-      if (typeof lazyLoader.attachMarkListeners === "function") {
-        lazyLoader.attachMarkListeners(lazyLoader.container);
-      }
-      
-      // 🚨 DELAY: Clear navigation flag after a delay to prevent lazy loader interference
-      setTimeout(() => {
-        console.log(`🏁 Clearing navigation flag for ${targetId} (existing element) after delay`);
-        lazyLoader.isNavigatingToInternalId = false;
-        // 🔓 NEW: Unlock scroll position
-        if (lazyLoader.unlockScroll) {
-          lazyLoader.unlockScroll();
-        }
-        // 🎯 NEW: Hide loading indicator
-        hideNavigationLoading();
-        
-        // 🧹 NEW: Clear hypercite hash from URL after successful navigation
-        if (targetId && (targetId.startsWith('hypercite_') || targetId.startsWith('HL_'))) {
-          console.log(`🧹 Clearing hypercite hash from URL: #${targetId}`);
-          // Use replaceState to avoid adding to browser history
-          const currentPath = window.location.pathname + window.location.search;
-          window.history.replaceState(null, document.title, currentPath);
-        }
-      }, 500);
-      return;
+      elementsReady = true;
       
     } catch (error) {
       console.warn(`⚠️ Existing element ${targetId} not fully ready: ${error.message}. Proceeding with chunk loading...`);
       // Continue to chunk loading logic below
+      targetElement = null;
     }
   }
 
-  // Otherwise, determine which chunk should contain the target.
-  let targetChunkIndex = -1;
-  if (/^\d+$/.test(targetId)) {
-    // Compare targetId (which is startLine) to node.startLine.
-    targetChunkIndex = lazyLoader.nodeChunks.findIndex(
-      node => node.startLine.toString() === targetId
-    );
-  } else {
-    // Use custom logic for non-numeric IDs.
-    const targetLine = findLineForCustomId(targetId, lazyLoader.nodeChunks);
-    if (targetLine === null) {
-      console.warn(
-        `No block found for target ID "${targetId}". ` +
-          `Fallback: loading default view.`
+  // If element not ready, determine which chunk should contain the target
+  if (!elementsReady) {
+    if (progressIndicator) {
+      progressIndicator.updateProgress(30, "Looking up target in content chunks...");
+    }
+    
+    let targetChunkIndex = -1;
+    if (/^\d+$/.test(targetId)) {
+      // Compare targetId (which is startLine) to node.startLine.
+      targetChunkIndex = lazyLoader.nodeChunks.findIndex(
+        node => node.startLine.toString() === targetId
       );
-      // Instead of silently finishing, try the fallback.
+    } else {
+      // Use custom logic for non-numeric IDs.
+      const targetLine = findLineForCustomId(targetId, lazyLoader.nodeChunks);
+      if (targetLine === null) {
+        console.warn(
+          `No block found for target ID "${targetId}". ` +
+            `Fallback: loading default view.`
+        );
+        // Instead of silently finishing, try the fallback.
+        hideNavigationLoading();
+        fallbackScrollPosition(lazyLoader);
+        if (typeof lazyLoader.attachMarkListeners === "function") {
+          lazyLoader.attachMarkListeners(lazyLoader.container);
+        }
+        lazyLoader.isNavigatingToInternalId = false;
+        return;
+      }
+      targetChunkIndex = lazyLoader.nodeChunks.findIndex(
+        node => targetLine === node.startLine
+      );
+    }
+
+    if (targetChunkIndex === -1) {
+      console.warn(
+        `No chunk found for target ID "${targetId}". ` +
+          "Fallback: proceeding with default content."
+      );
+      hideNavigationLoading();
       fallbackScrollPosition(lazyLoader);
       if (typeof lazyLoader.attachMarkListeners === "function") {
         lazyLoader.attachMarkListeners(lazyLoader.container);
@@ -869,196 +948,166 @@ async function _navigateToInternalId(targetId, lazyLoader) {
       lazyLoader.isNavigatingToInternalId = false;
       return;
     }
-    targetChunkIndex = lazyLoader.nodeChunks.findIndex(
-      node => targetLine === node.startLine
-    );
+
+    // Clear the container and load the chunk (plus adjacent chunks).
+    if (progressIndicator) {
+      progressIndicator.updateProgress(50, "Clearing container and preparing to load chunks...");
+    }
+    
+    lazyLoader.container.innerHTML = "";
+    lazyLoader.currentlyLoadedChunks.clear();
+    
+    // 🚀 Get the actual chunk_id of the target node, not array index
+    const targetNode = lazyLoader.nodeChunks[targetChunkIndex];
+    const targetChunkId = targetNode.chunk_id;
+    
+    // Get all unique chunk_ids and sort them
+    const allChunkIds = [...new Set(lazyLoader.nodeChunks.map(n => n.chunk_id))].sort((a, b) => a - b);
+    const targetChunkPosition = allChunkIds.indexOf(targetChunkId);
+    
+    // Load target chunk plus adjacent chunks
+    const startChunkIndex = Math.max(0, targetChunkPosition - 1);
+    const endChunkIndex = Math.min(allChunkIds.length - 1, targetChunkPosition + 1);
+    const chunksToLoad = allChunkIds.slice(startChunkIndex, endChunkIndex + 1);
+    
+    console.log(`🎯 Target element "${targetId}" is in chunk_id: ${targetChunkId}`);
+    console.log(`📦 Loading chunks: ${chunksToLoad.join(', ')} (target chunk position: ${targetChunkPosition})`);
+
+    if (progressIndicator) {
+      progressIndicator.updateProgress(60, `Loading ${chunksToLoad.length} chunks...`);
+    }
+
+    const loadedChunksPromises = chunksToLoad.map(chunkId => {
+      return new Promise((resolve) => {
+        lazyLoader.loadChunk(chunkId, "down");
+        resolve();
+      });
+    });
+    
+    await Promise.all(loadedChunksPromises);
+    lazyLoader.repositionSentinels();
+    
+    if (progressIndicator) {
+      progressIndicator.updateProgress(70, "Waiting for content to be ready...");
+    }
+    
+    try {
+      // 🚀 Use DOM readiness detection instead of fixed timeout
+      console.log(`🎯 Waiting for navigation target to be ready: ${targetId}`);
+      
+      targetElement = await waitForNavigationTarget(
+        targetId, 
+        lazyLoader.container,
+        targetChunkId, // Now we know the exact chunk ID!
+        { 
+          maxWaitTime: 5000, // 5 second max wait
+          requireVisible: false 
+        }
+      );
+      
+      console.log(`✅ Navigation target ready: ${targetId}`);
+      elementsReady = true;
+        
+    } catch (error) {
+      console.warn(`❌ Failed to wait for target element ${targetId}: ${error.message}. Trying fallback...`);
+      
+      // Fallback: try once more with querySelector in case it's there but not detected
+      const fallbackTarget = lazyLoader.container.querySelector(`#${CSS.escape(targetId)}`);
+      if (fallbackTarget) {
+        console.log(`📍 Found target on fallback attempt: ${targetId}`);
+        targetElement = fallbackTarget;
+        elementsReady = true;
+      } else {
+        console.warn(`❌ Could not locate target element: ${targetId}`);
+        hideNavigationLoading();
+        fallbackScrollPosition(lazyLoader);
+        return;
+      }
+    }
   }
 
-  if (targetChunkIndex === -1) {
-    console.warn(
-      `No chunk found for target ID "${targetId}". ` +
-        "Fallback: proceeding with default content."
-    );
-    fallbackScrollPosition(lazyLoader);
+  // ========= UNIFIED FINAL SCROLL SECTION =========
+  // At this point, we have a confirmed ready targetElement
+  if (elementsReady && targetElement) {
+    if (progressIndicator) {
+      progressIndicator.updateProgress(80, "Waiting for layout to stabilize...");
+    }
+    
+    // 🚀 LAYOUT FIX: Wait for layout to complete before scrolling
+    console.log(`⏳ Waiting for layout completion before scrolling to: ${targetId}`);
+    
+    try {
+      await pendingFirstChunkLoadedPromise;
+      console.log(`✅ Layout complete, proceeding with scroll`);
+    } catch (error) {
+      console.warn(`⚠️ Layout promise failed, proceeding anyway: ${error.message}`);
+    }
+    
+    if (progressIndicator) {
+      progressIndicator.updateProgress(90, "Scrolling to target...");
+    }
+    
+    // 🎯 FINAL SCROLL - No more corrections, no more delays
+    console.log(`🎯 FINAL SCROLL: Navigating to confirmed ready element: ${targetId}`);
+    const scrollableParent = lazyLoader.scrollableParent;
+    
+    if (scrollableParent && scrollableParent !== window) {
+      console.log(`📍 Using consistent scroll for container: ${scrollableParent.className}`);
+      scrollElementWithConsistentMethod(targetElement, scrollableParent, 192);
+    } else {
+      console.log(`📍 Using scrollIntoView for window scrolling`);
+      targetElement.scrollIntoView({ 
+        behavior: "smooth", 
+        block: "start", 
+        inline: "nearest" 
+      });
+    }
+    
+    // For highlights, open them after scrolling starts
+    if (targetId.startsWith('HL_')) {
+      setTimeout(() => {
+        console.log(`Opening highlight after navigation: ${targetId}`);
+        openHighlightById(targetId);
+      }, 200);
+    }
+
+    // Clean up navigation state
     if (typeof lazyLoader.attachMarkListeners === "function") {
       lazyLoader.attachMarkListeners(lazyLoader.container);
     }
-    lazyLoader.isNavigatingToInternalId = false;
-    return;
-  }
-
-  // Clear the container and load the chunk (plus adjacent chunks).
-  lazyLoader.container.innerHTML = "";
-  lazyLoader.currentlyLoadedChunks.clear();
-  
-  // 🚀 FIX: Get the actual chunk_id of the target node, not array index
-  const targetNode = lazyLoader.nodeChunks[targetChunkIndex];
-  const targetChunkId = targetNode.chunk_id;
-  
-  // Get all unique chunk_ids and sort them
-  const allChunkIds = [...new Set(lazyLoader.nodeChunks.map(n => n.chunk_id))].sort((a, b) => a - b);
-  const targetChunkPosition = allChunkIds.indexOf(targetChunkId);
-  
-  // Load target chunk plus adjacent chunks
-  const startChunkIndex = Math.max(0, targetChunkPosition - 1);
-  const endChunkIndex = Math.min(allChunkIds.length - 1, targetChunkPosition + 1);
-  const chunksToLoad = allChunkIds.slice(startChunkIndex, endChunkIndex + 1);
-  
-  console.log(`🎯 Target element "${targetId}" is in chunk_id: ${targetChunkId}`);
-  console.log(`📦 Loading chunks: ${chunksToLoad.join(', ')} (target chunk position: ${targetChunkPosition})`);
-
-  const loadedChunksPromises = chunksToLoad.map(chunkId => {
-    return new Promise((resolve) => {
-      lazyLoader.loadChunk(chunkId, "down");
-      resolve();
-    });
-  });
-  
-  Promise.all(loadedChunksPromises)
-    .then(async () => {
-      lazyLoader.repositionSentinels();
+    
+    if (progressIndicator) {
+      progressIndicator.updateProgress(100, "Navigation complete!");
+    }
+    
+    // 🚨 FINAL CLEANUP: Clear navigation flag and hide loading
+    setTimeout(() => {
+      console.log(`🏁 Navigation complete for ${targetId}`);
+      lazyLoader.isNavigatingToInternalId = false;
       
-      try {
-        // 🚀 NEW: Use DOM readiness detection instead of fixed timeout
-        console.log(`🎯 Waiting for navigation target to be ready: ${targetId}`);
-        
-        const finalTarget = await waitForNavigationTarget(
-          targetId, 
-          lazyLoader.container,
-          targetChunkId, // 🚀 NOW we know the exact chunk ID!
-          { 
-            maxWaitTime: 5000, // 5 second max wait
-            requireVisible: false 
-          }
-        );
-        
-        console.log(`✅ Navigation target ready: ${targetId}`);
-        
-        // Scroll to the target immediately since it's confirmed ready
-        console.log(`🎯 About to scroll to confirmed ready element: ${targetId}`);
-        
-        // 🚀 LAYOUT FIX: Wait for first chunk promise to ensure layout is complete
-        console.log(`⏳ Waiting for layout completion before scrolling...`);
-        
-        try {
-          await pendingFirstChunkLoadedPromise;
-          console.log(`✅ Layout complete, proceeding with scroll calculation`);
-        } catch (error) {
-          console.warn(`⚠️ Layout promise failed, proceeding anyway: ${error.message}`);
-        }
-        
-        console.log(`📍 Using scrollIntoView for element: ${targetId}`);
-        const scrollableParent = lazyLoader.scrollableParent;
-        
-        if (scrollableParent && scrollableParent !== window) {
-          // For custom containers, use consistent scroll method
-          console.log(`📍 Using consistent scroll for container: ${scrollableParent.className}`);
-          scrollElementWithConsistentMethod(finalTarget, scrollableParent, 192);
-        } else {
-          // For window scrolling, use native method
-          console.log(`📍 Using fallback scrollIntoView for window scrolling`);
-          finalTarget.scrollIntoView({ 
-            behavior: "smooth", 
-            block: "start", 
-            inline: "nearest" 
-          });
-        }
-        
-        // For highlights, open them after scrolling
-        if (targetId.startsWith('HL_')) {
-          // Small delay to let scroll animation start
-          setTimeout(() => {
-            console.log(`Opening highlight after navigation: ${targetId}`);
-            openHighlightById(targetId);
-          }, 200);
-        }
-        
-        // Clean up navigation state
-        if (typeof lazyLoader.attachMarkListeners === "function") {
-          lazyLoader.attachMarkListeners(lazyLoader.container);
-        }
-        
-        // 🚨 DELAY: Clear navigation flag after a delay to prevent lazy loader interference
-        setTimeout(() => {
-          console.log(`🏁 Clearing navigation flag for ${targetId} after delay`);
-          lazyLoader.isNavigatingToInternalId = false;
-          // 🔓 NEW: Unlock scroll position
-          if (lazyLoader.unlockScroll) {
-            lazyLoader.unlockScroll();
-          }
-          // 🧹 NEW: Clear hypercite hash from URL after successful navigation
-          if (targetId && (targetId.startsWith('hypercite_') || targetId.startsWith('HL_'))) {
-            console.log(`🧹 Clearing hypercite hash from URL: #${targetId}`);
-            // Use replaceState to avoid adding to browser history
-            const currentPath = window.location.pathname + window.location.search;
-            window.history.replaceState(null, document.title, currentPath);
-          }
-        }, 500); // 0.5 second delay to ensure all scroll operations complete
-        
-      } catch (error) {
-        console.warn(
-          `❌ Failed to wait for target element ${targetId}: ${error.message}. ` +
-            "Using fallback scroll position."
-        );
-        
-        // Fallback: try once more with querySelector in case it's there but not detected
-        const fallbackTarget = lazyLoader.container.querySelector(`#${CSS.escape(targetId)}`);
-        if (fallbackTarget) {
-          console.log(`📍 Found target on fallback attempt: ${targetId}`);
-          const scrollableParent = lazyLoader.scrollableParent;
-          
-          if (scrollableParent && scrollableParent !== window) {
-            console.log(`📍 Using consistent scroll for fallback element in container: ${scrollableParent.className}`);
-            scrollElementWithConsistentMethod(fallbackTarget, scrollableParent, 192);
-          } else {
-            console.log(`📍 Using fallback scrollIntoView for fallback element`);
-            fallbackTarget.scrollIntoView({ 
-              behavior: "smooth", 
-              block: "start", 
-              inline: "nearest" 
-            });
-          }
-          
-          if (targetId.startsWith('HL_')) {
-            setTimeout(() => {
-              openHighlightById(targetId);
-            }, 200);
-          }
-        } else {
-          // Last resort: use existing fallback
-          fallbackScrollPosition(lazyLoader);
-        }
-        
-        if (typeof lazyLoader.attachMarkListeners === "function") {
-          lazyLoader.attachMarkListeners(lazyLoader.container);
-        }
-        
-        // 🚨 DELAY: Clear navigation flag after a delay to prevent lazy loader interference  
-        setTimeout(() => {
-          console.log(`🏁 Clearing navigation flag (fallback) after delay`);
-          lazyLoader.isNavigatingToInternalId = false;
-          // 🔓 NEW: Unlock scroll position
-          if (lazyLoader.unlockScroll) {
-            lazyLoader.unlockScroll();
-          }
-        }, 1000);
+      // 🔓 Unlock scroll position
+      if (lazyLoader.unlockScroll) {
+        lazyLoader.unlockScroll();
       }
-    })
-    .catch(error => {
-      console.error("Error while loading chunks:", error);
       
-      // 🚨 DELAY: Clear navigation flag after a delay even on error
-      setTimeout(() => {
-        console.log(`🏁 Clearing navigation flag (error) after delay`);
-        lazyLoader.isNavigatingToInternalId = false;
-        // 🔓 NEW: Unlock scroll position
-        if (lazyLoader.unlockScroll) {
-          lazyLoader.unlockScroll();
-        }
-        // 🎯 NEW: Hide loading indicator
-        hideNavigationLoading();
-      }, 500);
-    });
+      // 🎯 Hide loading indicator
+      hideNavigationLoading();
+      
+      // 🧹 Clear hypercite hash from URL after successful navigation
+      if (targetId && (targetId.startsWith('hypercite_') || targetId.startsWith('HL_'))) {
+        console.log(`🧹 Clearing hypercite hash from URL: #${targetId}`);
+        const currentPath = window.location.pathname + window.location.search;
+        window.history.replaceState(null, document.title, currentPath);
+      }
+    }, 500);
+  } else {
+    console.error(`❌ Navigation failed - no ready target element found for: ${targetId}`);
+    hideNavigationLoading();
+    lazyLoader.isNavigatingToInternalId = false;
+    if (lazyLoader.unlockScroll) {
+      lazyLoader.unlockScroll();
+    }
+  }
 }
 
 // Utility: wait for an element and then scroll to it.

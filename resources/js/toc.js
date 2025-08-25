@@ -3,7 +3,7 @@
 // Import your helper functions and container manager.
 import { getNodeChunksFromIndexedDB } from "./cache-indexedDB.js";
 import { book } from "./app.js";
-import { navigateToInternalId } from "./scrolling.js"; // your internal navigation function
+import { navigateToInternalId, showNavigationLoading } from "./scrolling.js"; // your internal navigation function
 import { ContainerManager } from "./container-manager.js";
 import { currentLazyLoader } from "./initializePage.js";
 
@@ -62,12 +62,16 @@ export async function generateTableOfContents() {
     const link = event.target.closest("a");
     if (link) {
       event.preventDefault();
-      // Close the TOC using the container manager.
-      tocManager.closeContainer();
+      // Show overlay immediately on click
       const targetId = link.hash.substring(1); // e.g. "55" from "#55"
       if (!targetId) return;
+      
+      showNavigationLoading(targetId);
+      
+      // Close the TOC using the container manager.
+      tocManager.closeContainer();
       console.log(`📌 Navigating via TOC to: ${targetId}`);
-      navigateToInternalId(targetId, currentLazyLoader);
+      navigateToInternalId(targetId, currentLazyLoader, false); // Don't show overlay - already shown
     }
   });
 }

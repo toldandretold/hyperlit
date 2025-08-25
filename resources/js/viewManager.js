@@ -5,7 +5,7 @@ import { book, setCurrentBook } from "./app.js";
 import { stopObserving, initTitleSync } from "./divEditor.js";
 import { initEditToolbar, destroyEditToolbar } from "./editToolbar.js";
 import NavButtons from "./nav-buttons.js";
-import { restoreScrollPosition } from "./scrolling.js";
+import { restoreScrollPosition, restoreNavigationOverlayIfNeeded } from "./scrolling.js";
 import {
   attachMarkListeners,
   initializeHighlightingControls,
@@ -148,6 +148,9 @@ export async function transitionToReaderView(bookId) {
 export async function initializeReaderView() {
   const currentBookId = book;
   console.log(`🚀 Initializing Reader View for book: ${currentBookId}`);
+
+  // 🎯 FIRST PRIORITY: Restore navigation overlay if it was active during page transition
+  restoreNavigationOverlayIfNeeded();
 
   enforceEditableState();
 
