@@ -1,5 +1,5 @@
 import { book } from "./app.js";
-import { navigateToInternalId } from "./scrolling.js";
+import { navigateToInternalId, showNavigationLoading } from "./scrolling.js";
 import { waitForElementReady, waitForMultipleElementsReady } from "./domReadiness.js";
 import { getLocalStorageKey } from "./cache-indexedDB.js";
 import { openDatabase, 
@@ -638,13 +638,14 @@ async function CoupleClick(uElement) {
           if (internalId) {
             // Update URL and navigate to internal ID
             window.history.pushState(null, "", `/${currentBook}#${internalId}`);
-            navigateToInternalId(internalId, currentLazyLoader);
+            navigateToInternalId(internalId, currentLazyLoader, false); // Don't show overlay - already shown
             return;
           }
         }
       }
       
       // If not a same-book highlight, do normal navigation
+      // Keep the overlay during page transition
       window.location.href = link;
       
     } else {
@@ -882,7 +883,7 @@ async function navigateToHyperciteLink(link) {
       if (internalId) {
         // Update URL and navigate to internal ID
         window.history.pushState(null, "", `/${currentBook}#${internalId}`);
-        navigateToInternalId(internalId, currentLazyLoader);
+        navigateToInternalId(internalId, currentLazyLoader, false); // Don't show overlay - already shown
         return;
       }
     }
@@ -1005,6 +1006,8 @@ export function attachUnderlineClickListeners() {
     uElement.style.cursor = "pointer";
 
     uElement.addEventListener("click", async (event) => {
+      // Show overlay immediately on click
+      showNavigationLoading(uElement.id);
       await handleUnderlineClick(uElement, event);
     });
   });
