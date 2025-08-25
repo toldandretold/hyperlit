@@ -95,6 +95,7 @@ export function createLazyLoader(config) {
     scrollLocked: false, // NEW: Scroll position lock flag
     scrollLockReason: null, // NEW: Reason for lock (for debugging)
     scrollSaveCooldown: false, // NEW: Cooldown period after navigation
+    lastViewportWidth: null, // Track viewport width for smart resize handling
   };
 
   if (instance.isRestoringFromCache) {
@@ -346,7 +347,27 @@ instance.restoreScrollPosition = async () => {
     }
   };
 
-  window.addEventListener("resize", throttle(instance.restoreScrollPosition, 200));
+  // Smart resize handler that ignores DevTools opening/closing
+  let resizeTimeout;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      // Only restore if viewport width changed significantly (not just DevTools)
+      const currentWidth = window.innerWidth;
+      if (!instance.lastViewportWidth) {
+        instance.lastViewportWidth = currentWidth;
+        return; // Skip first measurement
+      }
+      
+      if (Math.abs(currentWidth - instance.lastViewportWidth) > 100) {
+        instance.lastViewportWidth = currentWidth;
+        console.log("🔧 VIEWPORT: Significant width change, restoring scroll position");
+        instance.restoreScrollPosition();
+      } else {
+        console.log("🔧 VIEWPORT: Minor resize (likely DevTools), skipping restore");
+      }
+    }, 300); // Longer delay to avoid DevTools flicker
+  });
   // --- END SCROLL POSITION LOGIC ---
 
   // Create top and bottom sentinel elements.

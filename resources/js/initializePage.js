@@ -559,6 +559,17 @@ async function checkAndUpdateIfNeeded(bookId, lazyLoader) {
       getLibraryRecordFromIndexedDB(bookId),
     ]);
 
+    // Handle case where server request failed
+    if (!serverRecord) {
+      console.log(`⚠️ Could not fetch server data for ${bookId}. Skipping timestamp check.`);
+      return;
+    }
+    
+    if (!localRecord) {
+      console.log(`⚠️ No local data found for ${bookId}. Skipping timestamp check.`);
+      return;
+    }
+
     const serverTimestamp = new Date(serverRecord.timestamp).getTime();
     const localTimestamp = new Date(localRecord.timestamp).getTime();
 
