@@ -12,6 +12,7 @@ import {
   clearChunkLoadingInProgress, 
   scheduleAutoClear 
 } from './chunkLoadingState.js';
+import { setupUserScrollDetection, shouldSkipScrollRestoration } from './scrolling.js';
 import { getUserHighlightCache } from "./userCache.js";
 import { scrollElementIntoMainContent } from "./scrolling.js";
 
@@ -97,6 +98,15 @@ export function createLazyLoader(config) {
     scrollSaveCooldown: false, // NEW: Cooldown period after navigation
     lastViewportWidth: null, // Track viewport width for smart resize handling
   };
+
+  // Set up user scroll detection to prevent restoration interference
+  if (scrollableParent && scrollableParent !== window) {
+    console.log("🔧 Setting up user scroll detection for scrollable container");
+    setupUserScrollDetection(scrollableParent);
+  } else {
+    console.log("🔧 Setting up user scroll detection for window");
+    setupUserScrollDetection(document.documentElement);
+  }
 
   if (instance.isRestoringFromCache) {
     console.log("Skipping lazy loading due to cache restoration.");
@@ -184,6 +194,11 @@ export function createLazyLoader(config) {
   }
 
 instance.restoreScrollPosition = async () => {
+    // Check if user is currently scrolling
+    if (shouldSkipScrollRestoration("instance restoreScrollPosition")) {
+      return;
+    }
+    
     const storageKey = getLocalStorageKey("scrollPosition", instance.bookId);
     const storedData =
       sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
@@ -361,8 +376,15 @@ instance.restoreScrollPosition = async () => {
       
       if (Math.abs(currentWidth - instance.lastViewportWidth) > 100) {
         instance.lastViewportWidth = currentWidth;
-        console.log("🔧 VIEWPORT: Significant width change, restoring scroll position");
-        instance.restoreScrollPosition();
+        console.log("🔧 VIEWPORT: Significant width change, checking if safe to restore scroll position");
+        
+        // Check if user is currently scrolling before restoring
+        if (!shouldSkipScrollRestoration("viewport resize")) {
+          console.log("🔧 VIEWPORT: Safe to restore scroll position");
+          instance.restoreScrollPosition();
+        } else {
+          console.log("🔧 VIEWPORT: User is scrolling, skipping restoration");
+        }
       } else {
         console.log("🔧 VIEWPORT: Minor resize (likely DevTools), skipping restore");
       }
