@@ -102,8 +102,7 @@ export default defineConfig({
                 'resources/js/reader-DOMContentLoaded.js',
                 'resources/js/renderOpenBooks.js',
                 'resources/js/scrolling.js',
-                'resources/js/toc.js',
-                'resources/js/viewInitializers.js',       // ✅ NEW
+                'resources/js/toc.js',      // ✅ NEW
                 'resources/js/viewManager.js',
                 'resources/js/homepageDisplayUnit.js',
         // You can include the service worker here if you wish,
