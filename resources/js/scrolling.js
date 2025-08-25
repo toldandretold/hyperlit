@@ -17,6 +17,69 @@ import {
 
 // ========= Scrolling Helper Functions =========
 
+// Global scroll state management to prevent restoration interference
+let userScrollState = {
+  isScrolling: false,
+  lastUserScrollTime: 0,
+  scrollTimeout: null
+};
+
+function detectUserScrollStart() {
+  userScrollState.isScrolling = true;
+  userScrollState.lastUserScrollTime = Date.now();
+  
+  // Clear any existing timeout
+  if (userScrollState.scrollTimeout) {
+    clearTimeout(userScrollState.scrollTimeout);
+  }
+  
+  console.log(`🔄 USER SCROLL DETECTED - Disabling all scroll restoration for 2 seconds`);
+  
+  // Reset after 2 seconds of no scroll events
+  userScrollState.scrollTimeout = setTimeout(() => {
+    userScrollState.isScrolling = false;
+    console.log(`✅ USER SCROLL ENDED - Re-enabling scroll restoration`);
+  }, 2000);
+}
+
+function isUserCurrentlyScrolling() {
+  const timeSinceLastScroll = Date.now() - userScrollState.lastUserScrollTime;
+  return userScrollState.isScrolling || timeSinceLastScroll < 2000;
+}
+
+export function shouldSkipScrollRestoration(reason = "user scrolling") {
+  const skip = isUserCurrentlyScrolling();
+  if (skip) {
+    console.log(`⏭️ SKIP RESTORATION: ${reason} - user was scrolling ${Date.now() - userScrollState.lastUserScrollTime}ms ago`);
+  }
+  return skip;
+}
+
+// Set up user scroll detection for a container
+export function setupUserScrollDetection(scrollableContainer) {
+  if (!scrollableContainer) {
+    console.warn("No scrollable container provided for user scroll detection");
+    return;
+  }
+  
+  console.log(`📡 Setting up user scroll detection for container: ${scrollableContainer.className || scrollableContainer.id}`);
+  
+  // User scroll detection events
+  const scrollEvents = ['scroll', 'wheel', 'touchstart', 'touchmove'];
+  
+  scrollEvents.forEach(eventType => {
+    scrollableContainer.addEventListener(eventType, detectUserScrollStart, { passive: true });
+  });
+  
+  // Also detect keyboard navigation (arrow keys, page up/down, etc.)
+  window.addEventListener('keydown', (event) => {
+    const scrollKeys = ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', 'Space'];
+    if (scrollKeys.includes(event.key)) {
+      detectUserScrollStart();
+    }
+  }, { passive: true });
+}
+
 // NEW: Consistent scroll method to be used throughout the application
 function scrollElementWithConsistentMethod(targetElement, scrollableContainer, headerOffset = 192) {
   if (!targetElement || !scrollableContainer) {
@@ -55,6 +118,11 @@ function scrollElementWithConsistentMethod(targetElement, scrollableContainer, h
   
   // Simple verification that scroll completed correctly
   setTimeout(() => {
+    // Skip correction if user started scrolling
+    if (shouldSkipScrollRestoration("scroll correction")) {
+      return;
+    }
+    
     const actualPosition = scrollableContainer.scrollTop;
     const elementRect = targetElement.getBoundingClientRect();
     const containerRect = scrollableContainer.getBoundingClientRect();
@@ -203,6 +271,11 @@ async function loadDefaultContent(lazyLoader) {
  */
 async function fallbackScrollPosition(lazyLoader) {
   console.log("Falling back to saved scroll position or top of page...");
+  
+  // Check if user is currently scrolling
+  if (shouldSkipScrollRestoration("fallbackScrollPosition")) {
+    return;
+  }
 
   // Check specifically for chunk elements
   const chunkElements = Array.from(lazyLoader.container.children).filter(
@@ -323,6 +396,12 @@ async function fallbackScrollPosition(lazyLoader) {
 
 export async function restoreScrollPosition() {
   console.log("restoring scroll position...");
+  
+  // Check if user is currently scrolling
+  if (shouldSkipScrollRestoration("restoreScrollPosition")) {
+    return;
+  }
+  
   if (!currentLazyLoader) {
     console.error("Lazy loader instance not available!");
     return;
@@ -465,6 +544,11 @@ function scrollElementIntoContainer(
   
   // Verify after a short delay with detailed debugging
   setTimeout(() => {
+    // Skip verification and correction if user started scrolling
+    if (shouldSkipScrollRestoration("scroll verification")) {
+      return;
+    }
+    
     const verifyElementRect = targetElement.getBoundingClientRect();
     const verifyScrollableRect = scrollableParent.getBoundingClientRect();
     const finalElementPosition = verifyElementRect.top - verifyScrollableRect.top;
