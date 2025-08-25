@@ -708,7 +708,6 @@ export function showNavigationLoading(targetId) {
       width: 100%;
       height: 100%;
       background: rgba(0, 0, 0, 0.3);
-      backdrop-filter: blur(2px);
       z-index: 10000;
     }
   `;
@@ -762,7 +761,6 @@ export function restoreNavigationOverlayIfNeeded() {
         width: 100%;
         height: 100%;
         background: rgba(0, 0, 0, 0.3);
-        backdrop-filter: blur(2px);
         z-index: 10000;
       }
     `;
