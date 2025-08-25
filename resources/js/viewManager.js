@@ -5,7 +5,7 @@ import { book, setCurrentBook } from "./app.js";
 import { stopObserving, initTitleSync } from "./divEditor.js";
 import { initEditToolbar, destroyEditToolbar } from "./editToolbar.js";
 import NavButtons from "./nav-buttons.js";
-import { restoreScrollPosition, restoreNavigationOverlayIfNeeded } from "./scrolling.js";
+import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading } from "./scrolling.js";
 import {
   attachMarkListeners,
   initializeHighlightingControls,
@@ -145,6 +145,43 @@ export async function transitionToReaderView(bookId) {
 }
 
 
+// Global link click handler to show overlay for all links
+function attachGlobalLinkClickHandler() {
+  document.addEventListener('click', (event) => {
+    // Find the closest anchor tag (in case user clicked on child element)
+    const link = event.target.closest('a');
+    
+    if (link && link.href) {
+      // Skip if this is a hypercite or TOC link (they handle their own overlays)
+      const isHypercite = link.closest('u.couple, u.poly');
+      const isTocLink = link.closest('#toc-container');
+      
+      if (!isHypercite && !isTocLink) {
+        console.log(`🎯 Global link click detected: ${link.href}`);
+        
+        // Show overlay for all other links
+        // Use a generic target ID since we don't know where we're going yet
+        const targetDisplay = link.textContent.trim() || link.href;
+        showNavigationLoading(`link: ${targetDisplay}`);
+      }
+    }
+  });
+  
+  // Handle browser back/forward navigation
+  window.addEventListener('popstate', (event) => {
+    console.log(`🎯 Browser navigation detected (back/forward)`);
+    
+    // Check if there's a hash in the current URL
+    const targetId = window.location.hash.substring(1);
+    if (targetId) {
+      showNavigationLoading(targetId);
+    } else {
+      // General navigation, show overlay
+      showNavigationLoading('navigation');
+    }
+  });
+}
+
 export async function initializeReaderView() {
   const currentBookId = book;
   console.log(`🚀 Initializing Reader View for book: ${currentBookId}`);
@@ -193,6 +230,7 @@ export async function initializeReaderView() {
   });
   restoreScrollPosition();
   attachMarkListeners();
+  attachGlobalLinkClickHandler();
   initializeBroadcastListener();
   setupUnloadSync();
   generateTableOfContents("toc-container", "toc-toggle-button");
