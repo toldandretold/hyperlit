@@ -1080,7 +1080,17 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       progressIndicator.updateProgress(100, "Navigation complete!");
     }
     
-    // 🚨 FINAL CLEANUP: Clear navigation flag and hide loading
+    // 🚨 SMART CLEANUP: Check if element is perfectly positioned to decide on delay
+    const elementRect = targetElement.getBoundingClientRect();
+    const containerRect = scrollableParent.getBoundingClientRect();
+    const currentPosition = elementRect.top - containerRect.top;
+    const targetPosition = 192; // header offset
+    
+    const isAlreadyPerfectlyPositioned = Math.abs(currentPosition - targetPosition) < 20; // 20px tolerance
+    const cleanupDelay = isAlreadyPerfectlyPositioned ? 0 : 500; // No delay if perfect, 500ms if corrections might fire
+    
+    console.log(`🎯 SMART CLEANUP: Element at ${currentPosition}px, target ${targetPosition}px, diff ${Math.abs(currentPosition - targetPosition)}px, using ${cleanupDelay}ms delay`);
+    
     setTimeout(() => {
       console.log(`🏁 Navigation complete for ${targetId}`);
       lazyLoader.isNavigatingToInternalId = false;
@@ -1099,7 +1109,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
         const currentPath = window.location.pathname + window.location.search;
         window.history.replaceState(null, document.title, currentPath);
       }
-    }, 500);
+    }, cleanupDelay);
   } else {
     console.error(`❌ Navigation failed - no ready target element found for: ${targetId}`);
     hideNavigationLoading();
