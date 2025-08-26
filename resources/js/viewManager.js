@@ -5,7 +5,7 @@ import { book, setCurrentBook } from "./app.js";
 import { stopObserving, initTitleSync } from "./divEditor.js";
 import { initEditToolbar, destroyEditToolbar } from "./editToolbar.js";
 import NavButtons from "./nav-buttons.js";
-import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading } from "./scrolling.js";
+import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
 import {
   attachMarkListeners,
   initializeHighlightingControls,
@@ -165,6 +165,19 @@ function attachGlobalLinkClickHandler() {
         showNavigationLoading(`link: ${targetDisplay}`);
       }
     }
+  });
+  
+  // Clear overlay when page becomes visible again (handles back button cache issues)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      // Page is visible again, clear any stuck overlay
+      hideNavigationLoading();
+    }
+  });
+  
+  // Also handle page focus as fallback
+  window.addEventListener('focus', () => {
+    hideNavigationLoading();
   });
   
   // Handle browser back/forward navigation
