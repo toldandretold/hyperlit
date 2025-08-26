@@ -860,6 +860,13 @@ export function hideNavigationLoading() {
   sessionStorage.removeItem('navigationOverlayActive');
   sessionStorage.removeItem('navigationTargetId');
   
+  // Always try to hide the initial overlay, regardless of navigationModal state
+  const initialOverlay = document.getElementById('initial-navigation-overlay');
+  if (initialOverlay) {
+    initialOverlay.style.display = 'none';
+    console.log('🎯 Initial overlay hidden');
+  }
+  
   if (navigationModal) {
     // Check if it's the blade template overlay or a created one
     if (navigationModal.id === 'initial-navigation-overlay') {
