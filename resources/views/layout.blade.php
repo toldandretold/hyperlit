@@ -17,10 +17,13 @@
     <div id="initial-navigation-overlay" class="navigation-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.3); z-index: 10000;"></div>
     
     <script>
-        // Hide overlay immediately if NOT coming from a navigation
-        if (sessionStorage.getItem('navigationOverlayActive') !== 'true') {
+        // For reader pages, always start dark and let JS decide when to undim
+        // For other pages, hide overlay immediately
+        const pageType = document.body.getAttribute('data-page');
+        if (pageType !== 'reader') {
             document.getElementById('initial-navigation-overlay').style.display = 'none';
         }
+        // Reader pages stay dark by default
         
         // Clear overlay when page is restored from cache (back button)
         window.addEventListener('pageshow', function(event) {
