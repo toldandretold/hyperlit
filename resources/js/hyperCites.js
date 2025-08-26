@@ -1006,8 +1006,11 @@ export function attachUnderlineClickListeners() {
     uElement.style.cursor = "pointer";
 
     uElement.addEventListener("click", async (event) => {
-      // Show overlay immediately on click
-      showNavigationLoading(uElement.id);
+      // Only show navigation overlay for u.couple (navigation), not u.poly (container)
+      const isPoly = uElement.classList.contains('poly');
+      if (!isPoly) {
+        showNavigationLoading(uElement.id);
+      }
       await handleUnderlineClick(uElement, event);
     });
   });
