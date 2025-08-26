@@ -168,9 +168,18 @@ function attachGlobalLinkClickHandler() {
   });
   
   // Clear overlay when page becomes visible again (handles back button cache issues)
+  // But NOT if we just clicked a link and are about to navigate away
+  let recentLinkClick = false;
+  document.addEventListener('click', () => {
+    recentLinkClick = true;
+    setTimeout(() => { recentLinkClick = false; }, 1000);
+  });
+  
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
+    if (!document.hidden && !recentLinkClick) {
       // Page is visible again, clear any stuck overlay
+      // But only if we didn't just click a link (which would be navigating away)
+      console.log('🎯 Visibility change - clearing overlay (not from recent link click)');
       hideNavigationLoading();
     }
   });
