@@ -13,17 +13,25 @@
 {{-- THIS IS THE FIX. THIS ONE LINE. --}}
 <body data-page="{{ $pageType ?? 'unknown' }}">
 
-    <!-- Navigation overlay for immediate display - show by default if coming from navigation -->
+    <!-- Navigation overlay for immediate display - show by default, hide for special cases -->
     <div id="initial-navigation-overlay" class="navigation-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.3); z-index: 10000;"></div>
     
     <script>
-        // For reader pages, always start dark and let JS decide when to undim
-        // For other pages, hide overlay immediately
+        // Hide overlay immediately for non-reader pages and new book creation
         const pageType = document.body.getAttribute('data-page');
+        const isNewBookCreation = sessionStorage.getItem('pending_new_book_sync');
+        const overlay = document.getElementById('initial-navigation-overlay');
+        
+        // Hide overlay for non-reader pages or new book creation
         if (pageType !== 'reader') {
-            document.getElementById('initial-navigation-overlay').style.display = 'none';
+            overlay.style.display = 'none';
+            console.log('✅ Overlay hidden for non-reader page');
+        } else if (isNewBookCreation) {
+            overlay.style.display = 'none';
+            console.log('✅ Overlay hidden for new book creation - content is immediately available');
+        } else {
+            console.log('🎯 Overlay visible for normal reader page load');
         }
-        // Reader pages stay dark by default
         
         // Clear overlay when page is restored from cache (back button)
         window.addEventListener('pageshow', function(event) {

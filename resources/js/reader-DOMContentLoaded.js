@@ -32,6 +32,14 @@ function handlePendingNewBookSync() {
     console.log(
       "✅ Detected a new book requiring background sync after page load.",
     );
+    
+    // Ensure overlay is definitely hidden for new book creation
+    const overlay = document.getElementById('initial-navigation-overlay');
+    if (overlay) {
+      overlay.style.display = 'none';
+      console.log('🎯 Double-ensuring overlay is hidden for new book creation');
+    }
+    
     sessionStorage.removeItem("pending_new_book_sync");
     try {
       const pendingSync = JSON.parse(pendingSyncJSON);
@@ -68,9 +76,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   
   const pageType = document.body.getAttribute("data-page");
 
-  // Show loading overlay for reader pages (JS system will reuse blade template overlay)
-  if (pageType === "reader") {
-    showNavigationLoading("loading page...");
+  // Check if this is a new book creation scenario
+  const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");
+  const isNewBookCreation = !!pendingSyncJSON;
+  
+  // For new book creation, overlay is already hidden by blade template
+  if (isNewBookCreation) {
+    console.log("✅ New book creation detected - overlay already handled by blade template");
+  } else if (pageType === "reader") {
+    console.log("✅ Normal reader page load - overlay visible, will hide when content loads");
   }
 
   handlePendingNewBookSync();
@@ -80,14 +94,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (pageType === "reader") {
     await initializeReaderView();
     
-    // Hide overlay once content is fully loaded
-    try {
-      await pendingFirstChunkLoadedPromise;
-      console.log("✅ Content fully loaded, hiding overlay");
-      hideNavigationLoading();
-    } catch (error) {
-      console.warn("⚠️ Content loading promise failed, hiding overlay anyway:", error);
-      hideNavigationLoading();
+    // Hide overlay once content is fully loaded (only if we showed it)
+    if (!isNewBookCreation) {
+      try {
+        await pendingFirstChunkLoadedPromise;
+        console.log("✅ Content fully loaded, hiding overlay");
+        hideNavigationLoading();
+      } catch (error) {
+        console.warn("⚠️ Content loading promise failed, hiding overlay anyway:", error);
+        hideNavigationLoading();
+      }
+    } else {
+      console.log("✅ New book creation - no overlay to hide");
     }
   } else if (pageType === "home") {
     initializeHomepage();

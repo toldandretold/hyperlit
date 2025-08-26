@@ -229,10 +229,20 @@ export async function initializeReaderView() {
   console.log(`🚀 Initializing Reader View for book: ${currentBookId}`);
 
   // 🎯 FIRST PRIORITY: Restore navigation overlay if it was active during page transition
-  // Skip restore if overlay is already active from page load
+  // Skip restore if overlay is already active from page load or if this is a new book creation
   const overlayAlreadyActive = document.querySelector('.navigation-overlay');
-  if (!overlayAlreadyActive) {
+  const isNewBookCreation = sessionStorage.getItem('pending_new_book_sync');
+  
+  if (!overlayAlreadyActive && !isNewBookCreation) {
     restoreNavigationOverlayIfNeeded();
+  } else if (isNewBookCreation) {
+    console.log("✅ Skipping overlay restore for new book creation");
+    // Double-ensure overlay is hidden for new book creation
+    const overlay = document.getElementById('initial-navigation-overlay');
+    if (overlay && overlay.style.display !== 'none') {
+      overlay.style.display = 'none';
+      console.log('🎯 ViewManager: Ensured overlay is hidden for new book creation');
+    }
   }
 
   enforceEditableState();
