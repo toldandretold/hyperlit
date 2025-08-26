@@ -187,11 +187,12 @@ function attachGlobalLinkClickHandler() {
     // Check if there's a hash in the current URL
     const targetId = window.location.hash.substring(1);
     if (targetId) {
+      // Only show overlay for hash navigation (internal links)
       showNavigationLoading(targetId);
-    } else {
-      // General navigation, show overlay
-      showNavigationLoading('navigation');
     }
+    // Don't show overlay for general back/forward navigation
+    // The page will either load from cache (no need for overlay) or
+    // load fresh (will get overlay from initial page load system)
   });
 }
 
@@ -200,7 +201,11 @@ export async function initializeReaderView() {
   console.log(`🚀 Initializing Reader View for book: ${currentBookId}`);
 
   // 🎯 FIRST PRIORITY: Restore navigation overlay if it was active during page transition
-  restoreNavigationOverlayIfNeeded();
+  // Skip restore if overlay is already active from page load
+  const overlayAlreadyActive = document.querySelector('.navigation-overlay');
+  if (!overlayAlreadyActive) {
+    restoreNavigationOverlayIfNeeded();
+  }
 
   enforceEditableState();
 

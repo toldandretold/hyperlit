@@ -13,6 +13,8 @@ import { initializeHomepage } from "./homepage.js";
 // ✅ This import is correct. We just need to use it.
 import { setInitialBookSyncPromise } from "./operationState.js";
 import NavButtons from "./nav-buttons.js";
+import { showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
+import { pendingFirstChunkLoadedPromise } from "./initializePage.js";
 
 export const navButtons = new NavButtons({
   elementIds: [
@@ -63,15 +65,38 @@ function handlePendingNewBookSync() {
 // This part of your code is already correct and does not need to change.
 document.addEventListener("DOMContentLoaded", async () => {
   console.log("✅ DOM is ready. Starting full page initialization...");
+  
+  const pageType = document.body.getAttribute("data-page");
+
+  // Check if initial overlay is showing and transfer control to JS system
+  const initialOverlay = document.getElementById('initial-navigation-overlay');
+  if (pageType === "reader") {
+    if (initialOverlay && initialOverlay.style.display === 'block') {
+      // Initial overlay is showing, hide it and let JS system take over
+      initialOverlay.style.display = 'none';
+      showNavigationLoading("loading page...");
+    } else {
+      // No initial overlay, show JS overlay normally
+      showNavigationLoading("loading page...");
+    }
+  }
 
   handlePendingNewBookSync();
   await openDatabase();
   console.log("✅ IndexedDB initialized.");
 
-  const pageType = document.body.getAttribute("data-page");
-
   if (pageType === "reader") {
     await initializeReaderView();
+    
+    // Hide overlay once content is fully loaded
+    try {
+      await pendingFirstChunkLoadedPromise;
+      console.log("✅ Content fully loaded, hiding overlay");
+      hideNavigationLoading();
+    } catch (error) {
+      console.warn("⚠️ Content loading promise failed, hiding overlay anyway:", error);
+      hideNavigationLoading();
+    }
   } else if (pageType === "home") {
     initializeHomepage();
   }
