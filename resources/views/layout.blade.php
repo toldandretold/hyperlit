@@ -13,13 +13,13 @@
 {{-- THIS IS THE FIX. THIS ONE LINE. --}}
 <body data-page="{{ $pageType ?? 'unknown' }}">
 
-    <!-- Navigation overlay for immediate display -->
-    <div id="initial-navigation-overlay" class="navigation-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.3); z-index: 10000;"></div>
+    <!-- Navigation overlay for immediate display - show by default if coming from navigation -->
+    <div id="initial-navigation-overlay" class="navigation-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.3); z-index: 10000;"></div>
     
     <script>
-        // Show overlay immediately if we're loading from a navigation
-        if (sessionStorage.getItem('navigationOverlayActive') === 'true') {
-            document.getElementById('initial-navigation-overlay').style.display = 'block';
+        // Hide overlay immediately if NOT coming from a navigation
+        if (sessionStorage.getItem('navigationOverlayActive') !== 'true') {
+            document.getElementById('initial-navigation-overlay').style.display = 'none';
         }
         
         // Clear overlay when page is restored from cache (back button)
