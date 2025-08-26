@@ -694,26 +694,33 @@ export function showNavigationLoading(targetId) {
   sessionStorage.setItem('navigationOverlayActive', 'true');
   sessionStorage.setItem('navigationTargetId', targetId);
   
-  // Create darkening overlay only
-  navigationModal = document.createElement("div");
-  navigationModal.className = "navigation-overlay";
-  
-  // Add styles
-  const style = document.createElement('style');
-  style.textContent = `
-    .navigation-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.3);
-      z-index: 10000;
-    }
-  `;
-  
-  document.head.appendChild(style);
-  document.body.appendChild(navigationModal);
+  // Try to use existing blade template overlay first
+  const initialOverlay = document.getElementById('initial-navigation-overlay');
+  if (initialOverlay) {
+    navigationModal = initialOverlay;
+    navigationModal.style.display = 'block';
+  } else {
+    // Fallback: create overlay if blade template overlay doesn't exist
+    navigationModal = document.createElement("div");
+    navigationModal.className = "navigation-overlay";
+    
+    // Add styles
+    const style = document.createElement('style');
+    style.textContent = `
+      .navigation-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.3);
+        z-index: 10000;
+      }
+    `;
+    
+    document.head.appendChild(style);
+    document.body.appendChild(navigationModal);
+  }
   
   return {
     updateProgress: (percent, message) => {
@@ -733,8 +740,14 @@ export function hideNavigationLoading() {
   sessionStorage.removeItem('navigationTargetId');
   
   if (navigationModal) {
-    // Remove overlay immediately
-    navigationModal.remove();
+    // Check if it's the blade template overlay or a created one
+    if (navigationModal.id === 'initial-navigation-overlay') {
+      // It's the blade template overlay, just hide it
+      navigationModal.style.display = 'none';
+    } else {
+      // It's a dynamically created overlay, remove it
+      navigationModal.remove();
+    }
     navigationModal = null;
   }
 }
