@@ -68,17 +68,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   
   const pageType = document.body.getAttribute("data-page");
 
-  // Check if initial overlay is showing and transfer control to JS system
-  const initialOverlay = document.getElementById('initial-navigation-overlay');
+  // Show loading overlay for reader pages (JS system will reuse blade template overlay)
   if (pageType === "reader") {
-    if (initialOverlay && initialOverlay.style.display === 'block') {
-      // Initial overlay is showing, hide it and let JS system take over
-      initialOverlay.style.display = 'none';
-      showNavigationLoading("loading page...");
-    } else {
-      // No initial overlay, show JS overlay normally
-      showNavigationLoading("loading page...");
-    }
+    showNavigationLoading("loading page...");
   }
 
   handlePendingNewBookSync();
