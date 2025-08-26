@@ -159,10 +159,29 @@ function attachGlobalLinkClickHandler() {
       if (!isHypercite && !isTocLink) {
         console.log(`🎯 Global link click detected: ${link.href}`);
         
-        // Show overlay for all other links
-        // Use a generic target ID since we don't know where we're going yet
-        const targetDisplay = link.textContent.trim() || link.href;
-        showNavigationLoading(`link: ${targetDisplay}`);
+        // Check if this is a same-page anchor link
+        const linkUrl = new URL(link.href, window.location.origin);
+        const currentUrl = new URL(window.location.href);
+        const isSamePage = linkUrl.pathname === currentUrl.pathname && 
+                          linkUrl.search === currentUrl.search && 
+                          linkUrl.hash !== '';
+        
+        if (isSamePage) {
+          // For same-page anchor links, show overlay briefly then hide it quickly
+          console.log(`🎯 Same-page anchor link detected: ${linkUrl.hash}`);
+          const targetDisplay = linkUrl.hash.substring(1);
+          showNavigationLoading(targetDisplay);
+          
+          // Hide overlay quickly for same-page navigation
+          setTimeout(() => {
+            console.log(`🎯 Auto-hiding overlay for same-page navigation: ${targetDisplay}`);
+            hideNavigationLoading();
+          }, 200); // Short delay to avoid flicker
+        } else {
+          // Show overlay for external/different page links
+          const targetDisplay = link.textContent.trim() || link.href;
+          showNavigationLoading(`link: ${targetDisplay}`);
+        }
       }
     }
   });

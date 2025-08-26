@@ -21,10 +21,17 @@ import {
 let userScrollState = {
   isScrolling: false,
   lastUserScrollTime: 0,
-  scrollTimeout: null
+  scrollTimeout: null,
+  isNavigating: false // NEW: Flag to ignore navigation scrolls
 };
 
 function detectUserScrollStart() {
+  // Don't treat navigation scrolls as user scrolls
+  if (userScrollState.isNavigating) {
+    console.log(`🎯 NAVIGATION SCROLL - Ignoring as user scroll`);
+    return;
+  }
+  
   userScrollState.isScrolling = true;
   userScrollState.lastUserScrollTime = Date.now();
   
@@ -87,7 +94,15 @@ function scrollElementWithConsistentMethod(targetElement, scrollableContainer, h
     return;
   }
   
-  console.log(`🎯 CONSISTENT SCROLL: Scrolling ${targetElement.id || 'unnamed element'} with offset ${headerOffset}px`);
+  // Mark as navigation scroll to prevent user scroll detection interference
+  userScrollState.isNavigating = true;
+  console.log(`🎯 CONSISTENT SCROLL: Scrolling ${targetElement.id || 'unnamed element'} with offset ${headerOffset}px (navigation mode)`);
+  
+  // Clear navigation flag after scroll completes
+  setTimeout(() => {
+    userScrollState.isNavigating = false;
+    console.log(`🎯 NAVIGATION SCROLL COMPLETE - User scroll detection re-enabled`);
+  }, 1000);
   
   const elementRect = targetElement.getBoundingClientRect();
   const containerRect = scrollableContainer.getBoundingClientRect();
@@ -95,11 +110,29 @@ function scrollElementWithConsistentMethod(targetElement, scrollableContainer, h
   // Calculate element's absolute position within scrollable content
   const elementOffsetTop = (elementRect.top - containerRect.top) + scrollableContainer.scrollTop;
   
-  // Position element at desired offset from top of container
-  const targetScrollTop = Math.max(0, elementOffsetTop - headerOffset);
+  // ALTERNATIVE: Try using offsetTop for more stable positioning
+  let alternativeOffset = 0;
+  let el = targetElement;
+  while (el && el !== scrollableContainer) {
+    alternativeOffset += el.offsetTop;
+    el = el.offsetParent;
+  }
+  console.log(`🔍 OFFSET COMPARISON: getBoundingClientRect method = ${elementOffsetTop}px, offsetTop method = ${alternativeOffset}px`);
+  
+  // Use the offsetTop method instead for more stable calculation
+  const targetScrollTop = Math.max(0, alternativeOffset - headerOffset);
+  console.log(`🔧 USING OFFSETTOP METHOD: Scrolling to ${targetScrollTop}px instead of ${elementOffsetTop - headerOffset}px`);
   
   console.log(`🎯 Element at ${elementOffsetTop}px, scrolling to ${targetScrollTop}px (offset: ${headerOffset}px)`);
   console.log(`🎯 Container viewport: top=${containerRect.top}, height=${scrollableContainer.clientHeight}px`);
+  
+  // DEBUG: Log detailed container info
+  console.log(`📊 CONTAINER DEBUG:`);
+  console.log(`  - Scrollable container: ${scrollableContainer.className}`);
+  console.log(`  - Container rect: top=${containerRect.top}, left=${containerRect.left}, width=${containerRect.width}, height=${containerRect.height}`);
+  console.log(`  - Container scroll: scrollTop=${scrollableContainer.scrollTop}, scrollLeft=${scrollableContainer.scrollLeft}`);
+  console.log(`  - Element rect: top=${elementRect.top}, left=${elementRect.left}, width=${elementRect.width}, height=${elementRect.height}`);
+  console.log(`  - Calculated element offset in container: ${elementOffsetTop}px`);
   
   // No position monitoring during instant scroll to avoid interference
   
@@ -116,8 +149,70 @@ function scrollElementWithConsistentMethod(targetElement, scrollableContainer, h
                              elementRect.right <= containerRect.right;
   console.log(`🎯 Element currently visible before scroll: ${isCurrentlyVisible}`);
   
-  // Simple verification that scroll completed correctly
+  // 🚨 ROOT CAUSE DEBUGGING: Comprehensive logging to understand cross-page navigation issues
+  let initialScrollPosition = scrollableContainer.scrollTop;
+  let initialElementPosition = null;
+  let initialContainerHeight = scrollableContainer.scrollHeight;
+  
+  // Record initial state
   setTimeout(() => {
+    const initialRect = targetElement.getBoundingClientRect();
+    const initialContainerRect = scrollableContainer.getBoundingClientRect();
+    initialElementPosition = initialRect.top - initialContainerRect.top;
+    
+    console.log(`🔍 INITIAL STATE RECORDED:`);
+    console.log(`  - Initial scroll position: ${initialScrollPosition}px`);
+    console.log(`  - Initial element position: ${initialElementPosition}px from container top`);
+    console.log(`  - Initial container height: ${initialContainerHeight}px`);
+    console.log(`  - Target header offset: ${headerOffset}px`);
+  }, 10);
+  
+  // Monitor for content changes that might affect positioning
+  let contentChangeCount = 0;
+  const contentObserver = new MutationObserver((mutations) => {
+    contentChangeCount++;
+    const currentHeight = scrollableContainer.scrollHeight;
+    const heightChange = currentHeight - initialContainerHeight;
+    
+    console.log(`🔄 CONTENT CHANGE #${contentChangeCount}:`);
+    console.log(`  - Container height changed from ${initialContainerHeight}px to ${currentHeight}px`);
+    console.log(`  - Height difference: ${heightChange}px`);
+    
+    if (Math.abs(heightChange) > 1000) {
+      console.log(`🚨 MAJOR CONTENT CHANGE DETECTED: ${heightChange}px height difference!`);
+      
+      // Check current element position after this change
+      const currentRect = targetElement.getBoundingClientRect();
+      const currentContainerRect = scrollableContainer.getBoundingClientRect();
+      const currentPosition = currentRect.top - currentContainerRect.top;
+      const currentScroll = scrollableContainer.scrollTop;
+      
+      console.log(`  - Element moved from ${initialElementPosition}px to ${currentPosition}px`);
+      console.log(`  - Scroll position: ${currentScroll}px (was ${initialScrollPosition}px)`);
+      console.log(`  - Element movement: ${currentPosition - initialElementPosition}px`);
+      
+      // Try to identify what kind of content change this was
+      const chunks = scrollableContainer.querySelectorAll('.chunk');
+      const totalChunkHeight = Array.from(chunks).reduce((sum, chunk) => sum + chunk.offsetHeight, 0);
+      console.log(`  - Current chunks: ${chunks.length}, total height: ${totalChunkHeight}px`);
+    }
+    
+    initialContainerHeight = currentHeight;
+  });
+  
+  contentObserver.observe(scrollableContainer, {
+    childList: true,
+    subtree: true,
+    attributes: false,
+    characterData: false
+  });
+  
+  // Single smart correction - wait for layout to settle then fix once
+  setTimeout(() => {
+    // Disconnect the observer
+    contentObserver.disconnect();
+    console.log(`🔍 TOTAL CONTENT CHANGES OBSERVED: ${contentChangeCount}`);
+    
     // Skip correction if user started scrolling
     if (shouldSkipScrollRestoration("scroll correction")) {
       return;
@@ -128,11 +223,19 @@ function scrollElementWithConsistentMethod(targetElement, scrollableContainer, h
     const containerRect = scrollableContainer.getBoundingClientRect();
     const currentElementPosition = elementRect.top - containerRect.top;
     
-    console.log(`🔍 NAVIGATION VERIFICATION: Element at ${currentElementPosition}px from top, scroll position ${actualPosition}px`);
+    console.log(`🔍 SINGLE CORRECTION CHECK: Element at ${currentElementPosition}px from top, scroll position ${actualPosition}px`);
     
-    // Only do major correction if element is way off (probably due to content shift)
-    if (Math.abs(currentElementPosition - headerOffset) > 100) {
-      console.log(`🔧 Major position correction needed`);
+    // DEBUG: Compare container positions between initial and correction
+    console.log(`📊 CORRECTION CONTAINER DEBUG:`);
+    console.log(`  - Container rect NOW: top=${containerRect.top}, left=${containerRect.left}, width=${containerRect.width}, height=${containerRect.height}`);
+    console.log(`  - Container was at top=0 initially, now at top=${containerRect.top} (moved ${containerRect.top}px DOWN)`);
+    console.log(`  - Element rect NOW: top=${elementRect.top}, height=${elementRect.height}`);
+    console.log(`  - Position shift: ${Math.abs(currentElementPosition - headerOffset)}px off target`);
+    console.log(`  - Element moved from initial ${initialElementPosition}px to ${currentElementPosition}px (${currentElementPosition - initialElementPosition}px change)`);
+    
+    // If element is significantly off target, fix it once
+    if (Math.abs(currentElementPosition - headerOffset) > 20) {
+      console.log(`🔧 APPLYING SINGLE CORRECTION: Element ${Math.abs(currentElementPosition - headerOffset)}px off target`);
       const freshElementRect = targetElement.getBoundingClientRect();
       const freshContainerRect = scrollableContainer.getBoundingClientRect();
       const freshElementOffset = (freshElementRect.top - freshContainerRect.top) + scrollableContainer.scrollTop;
@@ -142,8 +245,20 @@ function scrollElementWithConsistentMethod(targetElement, scrollableContainer, h
         top: correctedScrollTop,
         behavior: "instant"
       });
+      
+      console.log(`🔧 Correction applied: scrolled from ${actualPosition}px to ${correctedScrollTop}px`);
+      
+      // Final verification - but NO more corrections
+      setTimeout(() => {
+        const finalRect = targetElement.getBoundingClientRect();
+        const finalContainerRect = scrollableContainer.getBoundingClientRect();
+        const finalPosition = finalRect.top - finalContainerRect.top;
+        console.log(`✅ FINAL POSITION: Element at ${finalPosition}px from top (should be ${headerOffset}px)`);
+      }, 50);
+    } else {
+      console.log(`✅ POSITION OK: Element correctly positioned, no correction needed`);
     }
-  }, 200); // Quick check after instant scroll
+  }, 100); // Faster correction to minimize visible jump
   
   return targetScrollTop;
 }
