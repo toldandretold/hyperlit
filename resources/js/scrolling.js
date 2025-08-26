@@ -427,10 +427,16 @@ export async function restoreScrollPosition() {
   // Show overlay immediately if we have a URL hash target (browser navigation)
   // BUT only if overlay is not already active from page transition
   let overlayShown = false;
-  if (hasExplicitTarget && !navigationModal) {
+  const existingOverlay = navigationModal || document.getElementById('initial-navigation-overlay');
+  const overlayAlreadyVisible = existingOverlay && (
+    existingOverlay.style.display !== 'none' && 
+    existingOverlay.style.display !== ''
+  );
+  
+  if (hasExplicitTarget && !overlayAlreadyVisible) {
     showNavigationLoading(targetId);
     overlayShown = true;
-  } else if (navigationModal) {
+  } else if (overlayAlreadyVisible) {
     // Overlay already exists from page transition
     overlayShown = true;
     console.log(`🎯 Using existing overlay from page transition for: ${targetId}`);
