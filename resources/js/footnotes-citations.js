@@ -16,18 +16,32 @@ export const refContainer = document.getElementById("ref-container");
 export const refOverlay = document.getElementById("ref-overlay");
 export const isRefOpen = refManager.isOpen;
 
+// Export the manager itself so it can be rebound after SPA transitions
+export { refManager };
+
 // Function to open the reference container with content
 export function openReferenceContainer(content) {
+  console.log('🔧 DEBUG: openReferenceContainer called with content length:', content.length);
+  
   // First open the container (this handles all the overlay/state management)
   refManager.openContainer();
   
-  // Then insert content into the scroller div specifically
-  const scroller = refContainer.querySelector('.scroller');
+  // Get fresh reference to container and scroller (in case DOM was replaced)
+  const freshContainer = document.getElementById('ref-container');
+  const scroller = freshContainer ? freshContainer.querySelector('.scroller') : null;
+  
+  console.log('🔧 DEBUG: Fresh container:', freshContainer);
+  console.log('🔧 DEBUG: Found scroller element:', scroller);
+  
   if (scroller) {
     scroller.innerHTML = content;
-  } else {
+    console.log('🔧 DEBUG: Content inserted into scroller, scroller innerHTML length:', scroller.innerHTML.length);
+  } else if (freshContainer) {
     // Fallback: insert directly into container if no scroller found
-    refContainer.innerHTML = content;
+    freshContainer.innerHTML = content;
+    console.log('🔧 DEBUG: Content inserted directly into container (no scroller found)');
+  } else {
+    console.error('🔧 ERROR: No ref-container found in DOM!');
   }
 }
 

@@ -52,21 +52,42 @@ function cleanupReaderView() {
 }
 
 export async function initializeImportedBook(bookId) {
+  console.log(`🔥 DEBUG: initializeImportedBook CALLED for ${bookId}`);
   try {
+    console.log(`🎯 IMPORT: Starting initializeImportedBook for ${bookId}`);
     cleanupReaderView();
 
     const response = await fetch(`/${bookId}/edit?target=1`);
     if (!response.ok) throw new Error("Failed to fetch reader page HTML");
     const htmlString = await response.text();
+    console.log(`🎯 IMPORT: Fetched HTML, length: ${htmlString.length} characters`);
 
     const parser = new DOMParser();
     const newDoc = parser.parseFromString(htmlString, "text/html");
+    
+    // 🔥 SIMPLE FIX: Remove the overlay from the fetched HTML before injecting it
+    const overlayInFetchedHTML = newDoc.getElementById('initial-navigation-overlay');
+    if (overlayInFetchedHTML) {
+      overlayInFetchedHTML.remove();
+      console.log('🎯 Import: Removed overlay from fetched HTML before injection');
+    }
     
     document.body.innerHTML = newDoc.body.innerHTML;
     for (const { name, value } of newDoc.body.attributes) {
       document.body.setAttribute(name, value);
     }
+    // 🔥 CRITICAL FIX: Ensure data-page is set to "reader" for imported books
+    document.body.setAttribute('data-page', 'reader');
+    console.log('🎯 Import: Set data-page="reader" to ensure overlay logic works correctly');
     document.title = newDoc.title;
+
+    
+    // 🔥 CRITICAL FIX: Clean up the import flag after successful initialization
+    const importFlag = sessionStorage.getItem('pending_import_book');
+    if (importFlag) {
+      sessionStorage.removeItem('pending_import_book');
+      console.log('🎯 Import: Cleaned up pending_import_book flag after successful initialization');
+    }
 
     // 🔥 ADD THIS: Reset contentEditable state after HTML injection
     const editableDiv = document.getElementById(bookId);
@@ -97,6 +118,15 @@ export async function initializeImportedBook(bookId) {
 export async function initializeImportedReaderView(bookId) {
   console.log(`🚀 Initializing imported reader view for: ${bookId}`);
 
+  // 🔥 IMMEDIATE FIX: Hide overlay right now
+  const overlay = document.getElementById('initial-navigation-overlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+    overlay.style.visibility = 'hidden';
+    overlay.remove();
+    console.log('🎯 FIXED: Overlay completely removed for imported book');
+  }
+
   // ✅ Mark this as imported content with the specific book ID
   sessionStorage.setItem('imported_book_flag', bookId);
 
@@ -126,6 +156,13 @@ export async function transitionToReaderView(bookId) {
 
     const parser = new DOMParser();
     const newDoc = parser.parseFromString(htmlString, "text/html");
+
+    // 🔥 SIMPLE FIX: Remove the overlay from the fetched HTML before injecting it
+    const overlayInFetchedHTML = newDoc.getElementById('initial-navigation-overlay');
+    if (overlayInFetchedHTML) {
+      overlayInFetchedHTML.remove();
+      console.log('🎯 TransitionToReader: Removed overlay from fetched HTML before injection');
+    }
 
     document.body.innerHTML = newDoc.body.innerHTML;
     for (const { name, value } of newDoc.body.attributes) {
@@ -290,6 +327,22 @@ export async function initializeReaderView() {
   initializeBroadcastListener();
   setupUnloadSync();
   generateTableOfContents("toc-container", "toc-toggle-button");
+  
+  // 🔥 Initialize footnote and citation listeners AFTER content loads
+  // This ensures the DOM elements exist before we attach listeners
+  setTimeout(async () => {
+    const { initializeFootnoteCitationListeners } = await import('./footnotes-citations.js');
+    initializeFootnoteCitationListeners();
+    console.log("✅ Footnote and citation listeners initialized after content load");
+    
+    // 🔥 CRITICAL: Rebind the reference container manager after SPA transitions
+    // The ContainerManager needs fresh DOM references after HTML replacement
+    const { refManager } = await import('./footnotes-citations.js');
+    if (refManager && refManager.rebindElements) {
+      refManager.rebindElements();
+      console.log("✅ Reference container manager rebound after content load");
+    }
+  }, 1000);
 }
 
 

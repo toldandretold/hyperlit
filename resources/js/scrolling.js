@@ -885,6 +885,16 @@ export function restoreNavigationOverlayIfNeeded() {
   const overlayActive = sessionStorage.getItem('navigationOverlayActive');
   const targetId = sessionStorage.getItem('navigationTargetId');
   
+  // 🔥 DONT RESTORE OVERLAY FOR IMPORTED BOOKS
+  const isImportedBook = sessionStorage.getItem('imported_book_flag');
+  if (isImportedBook) {
+    console.log(`🎯 SKIPPING overlay restore for imported book: ${isImportedBook}`);
+    // Clear the overlay flags to prevent future restoration
+    sessionStorage.removeItem('navigationOverlayActive');
+    sessionStorage.removeItem('navigationTargetId');
+    return;
+  }
+  
   if (overlayActive === 'true' && targetId) {
     console.log(`🎯 RESTORING: Navigation overlay for ${targetId} after page transition`);
     
