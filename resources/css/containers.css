@@ -720,6 +720,11 @@ black #221F20;
   margin-bottom: 1em;
 }
 
+.form-header h2 {
+  margin-top: 0; /* Remove default browser margin */
+  margin-bottom: 0.5em; /* Reduce bottom margin */
+}
+
 .form-subtitle {
   font-size: 14px;
   color: #CBCCCC;
