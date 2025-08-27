@@ -236,6 +236,13 @@ export function initializeCitationFormListeners() {
     }
 
     console.log("Citation form event listeners initialized");
+    
+    // ✅ CRITICAL FIX: Set up validation when form is dynamically created
+    setupFormSubmission();
+    setupClearButton();
+    setupRealTimeValidation();
+    setupFormPersistence();
+    loadFormData();
 }
 
 function setupFormSubmission() {
@@ -579,12 +586,12 @@ function setupRealTimeValidation() {
     if (citationIdField) {
         citationIdField.addEventListener('input', function() {
             const result = validators.validateCitationId(this.value);
-            showValidationMessage('citation-id', result);
+            showValidationMessage('citation_id', result);
             setTimeout(validateForm, 100); // Slight delay for better UX
         });
         citationIdField.addEventListener('blur', function() {
             const result = validators.validateCitationId(this.value);
-            showValidationMessage('citation-id', result);
+            showValidationMessage('citation_id', result);
             validateForm();
         });
     }

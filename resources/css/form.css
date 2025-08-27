@@ -97,3 +97,27 @@ input[type="file"]::-webkit-file-upload-button {
 form b {
   color: #CBCCCC;
 }
+
+/* Validation message styling */
+.validation-message {
+    font-size: 14px;
+    margin-top: 5px;
+    margin-bottom: 15px;
+    padding: 5px;
+    border-radius: 3px;
+    display: none; /* Hidden by default */
+}
+
+.validation-message.error {
+    color: #EE4A95;
+    background-color: rgba(238, 74, 149, 0.1);
+    border: 1px solid rgba(238, 74, 149, 0.3);
+    display: block;
+}
+
+.validation-message.success {
+    color: #4EACAE;
+    background-color: rgba(78, 172, 174, 0.1);
+    border: 1px solid rgba(78, 172, 174, 0.3);
+    display: block;
+}
