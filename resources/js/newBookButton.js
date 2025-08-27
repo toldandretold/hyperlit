@@ -327,10 +327,21 @@ export class NewBookContainerManager extends ContainerManager {
   // icon tilt
   this.button.querySelector(".icon")?.classList.add("tilted");
 
-  // position on screen - keep original logic for both desktop and mobile
+  const isMobile = window.innerWidth <= 768;
   const rect = this.button.getBoundingClientRect();
-  this.container.style.top = `${rect.bottom + 8}px`;
-  this.container.style.right = `${window.innerWidth - rect.right}px`;
+
+  // Position logic - ALWAYS start from button position
+  if (mode === "form" && isMobile) {
+    // Mobile form mode: start from button, but expand to fill more of the screen
+    // Start at button position
+    this.container.style.top = `${rect.top}px`;
+    this.container.style.right = `${window.innerWidth - rect.right}px`;
+    this.container.style.left = ""; // Clear any previous left positioning
+  } else {
+    // Desktop positioning OR buttons mode: position relative to button
+    this.container.style.top = `${rect.bottom + 8}px`;
+    this.container.style.right = `${window.innerWidth - rect.right}px`;
+  }
 
   // make it visible
   this.container.classList.remove("hidden");
@@ -345,7 +356,6 @@ export class NewBookContainerManager extends ContainerManager {
 
   // decide layout by mode:
   let targetWidth, targetHeight;
-  const isMobile = window.innerWidth <= 768;
   
   if (mode === "buttons") {
     // the "+ New Book / Import" buttons view
@@ -362,16 +372,11 @@ export class NewBookContainerManager extends ContainerManager {
     // the big import form view
     this.container.style.display = "block";
     
-    // Only adjust for mobile in form mode
     if (isMobile) {
-      targetWidth = "calc(100vw - 40px)";
-      targetHeight = "calc(100vh - 120px)";
+      // On mobile, expand to take most of the screen but start from button position
+      targetWidth = "calc(100vw - 20px)";
+      targetHeight = "calc(100vh - 100px)";
       this.container.style.padding = "15px";
-      
-      // Adjust position for mobile only in form mode
-      this.container.style.top = "30px";
-      this.container.style.right = "20px";
-      this.container.style.left = "20px";
     } else {
       targetWidth = "400px";
       targetHeight = "80vh";
@@ -383,6 +388,15 @@ export class NewBookContainerManager extends ContainerManager {
     this.container.style.width = targetWidth;
     this.container.style.height = targetHeight;
     this.container.style.opacity = "1";
+
+    // For mobile form mode, also animate the position to center it better
+    if (mode === "form" && isMobile) {
+      // After starting the size animation, also adjust position
+      setTimeout(() => {
+        this.container.style.top = "50px";
+        this.container.style.right = "10px";
+      }, 50); // Small delay to let the width/height animation start
+    }
 
     // overlay:
     if (this.overlay) {
@@ -424,10 +438,11 @@ export class NewBookContainerManager extends ContainerManager {
   this.container.style.height = "0";
   this.container.style.opacity = "0";
   
-  // ✅ RESET ALL POSITIONING STYLES
+  // ✅ RESET ALL POSITIONING STYLES - including any mobile-specific ones
   this.container.style.left = "";
   this.container.style.right = "";
   this.container.style.top = "";
+  this.container.style.transform = "";
   
   // Deactivate the overlay
   if (this.overlay) {
