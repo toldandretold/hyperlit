@@ -71,9 +71,11 @@ def main(html_file_path, output_dir, book_id):
         keys = generate_ref_keys(text)
         if keys:
             entry_id = keys[0]
-            div_wrapper = soup.new_tag("div", attrs={"class": "bib-entry", "id": entry_id})
-            p.wrap(div_wrapper)
-            references_data.append({"referenceId": entry_id, "content": str(div_wrapper)})
+            # Create an anchor tag with the bib-entry class and reference ID
+            anchor_tag = soup.new_tag("a", attrs={"class": "bib-entry", "id": entry_id})
+            # Insert the anchor at the beginning of the paragraph
+            p.insert(0, anchor_tag)
+            references_data.append({"referenceId": entry_id, "content": str(p)})
             for key in keys: bibliography_map[key] = entry_id
     
     print(f"Found and processed {len(references_data)} reference entries (kept in DOM).")
@@ -136,7 +138,7 @@ def main(html_file_path, output_dir, book_id):
 
     # --- 2A: Link References (No changes here) ---
     for text_node in soup.find_all(string=True):
-        if not text_node.find_parent("div", class_="bib-entry"):
+        if not text_node.find_parent("p") or not text_node.find_parent("p").find("a", class_="bib-entry"):
             text = str(text_node)
             matches = list(re.finditer(r"\(([^)]*?\d{4}[^)]*?)\)", text))
             if matches:
@@ -248,8 +250,15 @@ def main(html_file_path, output_dir, book_id):
         chunk_id = (start_line_counter - 1) // CHUNK_SIZE
         node_key = f"{book_id}_{start_line_counter}"
         
-        # Force footnote li elements to get startLine IDs, keep others' existing IDs
-        if node.name == 'li' and node.find('a', id=re.compile(rf'^{re.escape(book_id)}Fn')):
+        # Force footnote li elements and bibliography p elements to get startLine IDs, keep others' existing IDs
+        if node.name == 'li' and node.find('a', attrs={'fn-count-id': True}):
+            original_id = node.get('id')  # Store the original footnote ID (e.g., "fn1")
+            node['id'] = start_line_counter  # Set numerical ID for startLine
+            # Add anchor tag with original footnote ID at the beginning
+            if original_id:
+                original_anchor = soup.new_tag('a', id=original_id)
+                node.insert(0, original_anchor)
+        elif node.name == 'p' and node.find('a', class_='bib-entry'):
             node['id'] = start_line_counter
         elif not node.has_attr('id'):
             node['id'] = start_line_counter
