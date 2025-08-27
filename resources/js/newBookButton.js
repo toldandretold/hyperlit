@@ -45,13 +45,14 @@ export class NewBookContainerManager extends ContainerManager {
     if (!container) return;
 
     // CLOSED state only:
-    container.style.position = "fixed";       // so we can animate from 0→XYZ
+    container.style.position = "fixed"; // so we can animate from 0→XYZ
     container.style.transition =
-      "width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, padding 0.3s ease-out";
+      "width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, padding 0.3s ease-out, top 0.3s ease-out, left 0.3s ease-out, right 0.3s ease-out";
     container.style.zIndex = "1000";
     container.style.backgroundColor = "#221F20";
     container.style.boxShadow = "0 0 15px rgba(0, 0, 0, 0.2)";
     container.style.borderRadius = "0.75em";
+    container.style.boxSizing = "border-box"; // Prevents padding from adding to the width
 
     // start hidden/collapsed:
     container.style.opacity = "0";
@@ -390,161 +391,81 @@ export class NewBookContainerManager extends ContainerManager {
   }
 
   openContainer(mode = "buttons") {
-  if (this.isAnimating) return;
-  this.isAnimating = true;
+    if (this.isAnimating) return;
+    this.isAnimating = true;
 
-  console.log("🔥 OPENCONTAINER START:", {
-    mode,
-    windowWidth: window.innerWidth,
-    containerBefore: {
-      width: this.container.style.width,
-      height: this.container.style.height,
-      left: this.container.style.left,
-      right: this.container.style.right,
-      top: this.container.style.top
-    }
-  });
+    const isMobile = window.innerWidth <= 768;
+    const rect = this.button.getBoundingClientRect();
 
-  // icon tilt
-  this.button.querySelector(".icon")?.classList.add("tilted");
+    // This logic handles the TRANSITION from the initial "buttons" view to the "form" view.
+    // It assumes the container is already open.
+    if (this.isOpen && mode === "form") {
+      this.container.style.display = "block";
+      this.container.style.gap = "";
+      this.container.style.alignItems = "";
+      this.container.style.justifyContent = "";
+      this.container.style.flexDirection = "";
 
-  const isMobile = window.innerWidth <= 768;
-  const rect = this.button.getBoundingClientRect();
-  
-  // Store original button position for consistent calculations
-  if (!this.originalButtonRect) {
-    this.originalButtonRect = {
-      x: rect.x,
-      y: rect.y,
-      width: rect.width,
-      height: rect.height,
-      top: rect.top,
-      right: rect.right,
-      bottom: rect.bottom,
-      left: rect.left
-    };
-    console.log("🔥 STORING ORIGINAL BUTTON RECT:", this.originalButtonRect);
-  }
+      let targetWidth, targetHeight, targetTop, targetPadding;
 
-  console.log("🔥 BUTTON RECT:", rect);
-  console.log("🔥 ORIGINAL BUTTON RECT:", this.originalButtonRect);
+      if (isMobile) {
+        // Mobile: Keep the right edge anchored. Animate width, height, and top.
+        targetWidth = `${this.originalButtonRect.right - 15}px`;
+        targetHeight = "calc(100vh - 100px)";
+        targetTop = "50px";
+        targetPadding = "15px";
+        this.container.style.maxWidth = targetWidth;
+      } else {
+        // Desktop: Keep the right edge anchored. Animate width, height, and top.
+        targetWidth = "400px";
+        targetHeight = "80vh";
+        targetTop = `${this.originalButtonRect.bottom + 8}px`;
+        targetPadding = "0";
+      }
 
-  // Position logic - ALWAYS start from button position
-  if (mode === "form" && isMobile) {
-    // Mobile form mode: Keep it simple - position at final location immediately
-    this.container.style.top = "50px";
-    this.container.style.left = "15px";
-    this.container.style.right = ""; // Clear right positioning
-    console.log("🔥 MOBILE FORM POSITION SET TO FINAL IMMEDIATELY:", {
-      top: "50px",
-      left: "15px",
-      right: ""
-    });
-  } else {
-    // Desktop positioning OR buttons mode: position relative to button
-    this.container.style.top = `${rect.bottom + 8}px`;
-    this.container.style.right = `${window.innerWidth - rect.right}px`;
-    console.log("🔥 DESKTOP/BUTTONS POSITION SET:", {
-      top: `${rect.bottom + 8}px`,
-      right: `${window.innerWidth - rect.right}px`
-    });
-  }
-
-  // make it visible
-  this.container.classList.remove("hidden");
-  this.container.style.visibility = "visible";
-
-  // clear any previous layout
-  this.container.style.display = "";
-  this.container.style.flexDirection = "";
-  this.container.style.justifyContent = "";
-  this.container.style.alignItems = "";
-  this.container.style.gap = "";
-
-  // decide layout by mode:
-  let targetWidth, targetHeight;
-  
-  if (mode === "buttons") {
-    // the "+ New Book / Import" buttons view
-    this.container.style.display = "flex";
-    this.container.style.flexDirection = "column";
-    this.container.style.justifyContent = "center";
-    this.container.style.alignItems = "center";
-    this.container.style.gap = "10px";
-    this.container.style.padding = "20px";
-
-    targetWidth = "200px";
-    targetHeight = "auto";
-  } else if (mode === "form") {
-    // the big import form view
-    this.container.style.display = "block";
-    
-    if (isMobile) {
-      // On mobile, expand only down and to the left from button position
-      // Use ORIGINAL button position to prevent growing during resize
-      const maxWidthFromButton = this.originalButtonRect.right - 15; // From left margin to button's right edge
-      targetWidth = `${maxWidthFromButton}px`;
-      targetHeight = "calc(100vh - 100px)";
-      this.container.style.padding = "15px";
-      this.container.style.maxWidth = `${maxWidthFromButton}px`;
-      console.log("🔥 MOBILE FORM TARGET SIZE:", {
-        targetWidth,
-        targetHeight,
-        maxWidthFromButton,
-        originalButtonRight: this.originalButtonRect.right
+      // Apply the new styles to trigger the transition.
+      requestAnimationFrame(() => {
+        this.container.style.width = targetWidth;
+        this.container.style.height = targetHeight;
+        this.container.style.top = targetTop;
+        this.container.style.padding = targetPadding;
+        this.container.addEventListener("transitionend", () => { this.isAnimating = false; }, { once: true });
       });
-    } else {
-      targetWidth = "400px";
-      targetHeight = "80vh";
-      this.container.style.padding = "0";
-      console.log("🔥 DESKTOP TARGET SIZE:", { targetWidth, targetHeight });
+      return;
+    }
+
+    // This logic handles the very FIRST opening of the container (to the "buttons" view).
+    if (!this.isOpen) {
+      this.button.querySelector(".icon")?.classList.add("tilted");
+
+      if (!this.originalButtonRect) {
+        this.originalButtonRect = { ...rect, right: rect.right, bottom: rect.bottom };
+      }
+
+      this.container.style.top = `${rect.bottom + 8}px`;
+      this.container.style.right = `${window.innerWidth - rect.right}px`;
+      this.container.style.visibility = "visible";
+      this.container.style.opacity = "1";
+      this.container.style.width = "200px";
+      this.container.style.height = "auto";
+      this.container.style.padding = "20px";
+      this.container.style.display = "flex";
+      this.container.style.flexDirection = "column";
+      this.container.style.justifyContent = "center";
+      this.container.style.alignItems = "center";
+      this.container.style.gap = "10px";
+
+      if (this.overlay) {
+        this.overlay.classList.add("active");
+        this.overlay.style.display = "block";
+        this.overlay.style.opacity = "0.5";
+      }
+
+      this.isOpen = true;
+      window.uiState?.setActiveContainer(this.container.id);
+      this.container.addEventListener("transitionend", () => { this.isAnimating = false; }, { once: true });
     }
   }
-
-  requestAnimationFrame(() => {
-    console.log("🔥 SETTING TARGET SIZE IN ANIMATION FRAME:", {
-      targetWidth,
-      targetHeight
-    });
-    this.container.style.width = targetWidth;
-    this.container.style.height = targetHeight;
-    this.container.style.opacity = "1";
-
-    // For mobile form mode, animate to final position
-    if (mode === "form" && isMobile) {
-      console.log("🔥 MOBILE FORM - SETTING UP DELAYED POSITION CHANGE");
-      setTimeout(() => {
-        console.log("🔥 DELAYED POSITION CHANGE EXECUTING");
-        this.container.style.top = "50px";
-        this.container.style.left = "15px"; // Animate to final left position
-        console.log("🔥 FINAL POSITION SET:", {
-          top: "50px",
-          left: "15px"
-        });
-      }, 50); // Small delay to let the width/height animation start
-    }
-
-    // overlay:
-    if (this.overlay) {
-      this.overlay.classList.add("active");
-      this.overlay.style.display = "block";
-      this.overlay.style.opacity = "0.5";
-    }
-
-    this.isOpen = true;
-    window.uiState
-      ? window.uiState.setActiveContainer(this.container.id)
-      : (window.activeContainer = this.container.id);
-
-    this.container.addEventListener(
-      "transitionend",
-      () => {
-        this.isAnimating = false;
-      },
-      { once: true }
-    );
-  });
-}
 
   closeContainer() {
   if (this.isAnimating) return;
