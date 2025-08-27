@@ -23,6 +23,11 @@ export class NewBookContainerManager extends ContainerManager {
     this.button = document.getElementById(buttonId);
     this.buttonPosition = null;
     this.originalButtonRect = null; // Store original button position
+    
+    // Store event handler references for proper cleanup
+    this.createBookHandler = null;
+    this.importBookHandler = null;
+    
     this.setupButtonListeners();
     this.originalContent = null;
 
@@ -63,9 +68,16 @@ export class NewBookContainerManager extends ContainerManager {
 
 
    setupButtonListeners() {
-  document
-    .getElementById("createNewBook")
-    ?.addEventListener("click", async () => {
+    // Remove existing event listeners if they exist
+    if (this.createBookHandler) {
+      document.getElementById("createNewBook")?.removeEventListener("click", this.createBookHandler);
+    }
+    if (this.importBookHandler) {
+      document.getElementById("importBook")?.removeEventListener("click", this.importBookHandler);
+    }
+
+    // Create and store event handler functions
+    this.createBookHandler = async () => {
       console.log("Create new book clicked");
       this.closeContainer();
       const pendingSyncData = await createNewBook();
@@ -87,35 +99,39 @@ export class NewBookContainerManager extends ContainerManager {
         console.log("📘 New book from scratch: Forcing edit mode.");
         enableEditMode(null, true);
       }
-    });
+    };
 
-  document.getElementById("importBook")?.addEventListener("click", () => {
-    console.log("Import book clicked");
-    // Save the original content if not already saved
-    if (!this.originalContent) {
-      this.originalContent = this.container.innerHTML;
-    }
+    this.importBookHandler = () => {
+      console.log("Import book clicked");
+      // Save the original content if not already saved
+      if (!this.originalContent) {
+        this.originalContent = this.container.innerHTML;
+      }
 
-    // Replace content with the form
-    this.showImportForm();
-    
-    // ✅ NOW OPEN THE CONTAINER IN FORM MODE
-    this.openContainer("form");
-    
-    // Dynamically import the module and set up the form submission handler
-    import("./newBookForm.js")
-      .then(module => {
-        // Call the initialization function from the imported module
-        module.initializeCitationFormListeners();
-        
-        // Set up the form submission handler
-        module.setupFormSubmissionHandler();
-      })
-      .catch(error => {
-        console.error("Error importing citation form module:", error);
-      });
-  });
-}
+      // Replace content with the form
+      this.showImportForm();
+      
+      // ✅ NOW OPEN THE CONTAINER IN FORM MODE
+      this.openContainer("form");
+      
+      // Dynamically import the module and set up the form submission handler
+      import("./newBookForm.js")
+        .then(module => {
+          // Call the initialization function from the imported module
+          module.initializeCitationFormListeners();
+          
+          // Set up the form submission handler
+          module.setupFormSubmissionHandler();
+        })
+        .catch(error => {
+          console.error("Error importing citation form module:", error);
+        });
+    };
+
+    // Add the event listeners
+    document.getElementById("createNewBook")?.addEventListener("click", this.createBookHandler);
+    document.getElementById("importBook")?.addEventListener("click", this.importBookHandler);
+  }
 
  showImportForm() {
   // Get the CSRF token from the meta tag.
