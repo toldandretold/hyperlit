@@ -389,7 +389,11 @@
   <div id="toc-container" class="hidden"></div>
   <div id="highlight-container" class="hidden"></div>
   <div id="hypercite-container" class="hidden"></div>
-  <div id="ref-container" class="hidden"></div>
+  <div id="ref-container" class="hidden">
+    <div class="scroller"></div>
+    <div class="mask-top"></div>
+    <div class="mask-bottom"></div>
+  </div>
   <div id="source-container" class="hidden"></div>
 
           

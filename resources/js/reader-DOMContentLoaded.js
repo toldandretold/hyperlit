@@ -10,6 +10,7 @@ import { openDatabase } from "./cache-indexedDB.js";
 import { fireAndForgetSync } from "./createNewBook.js";
 import { initializeReaderView } from "./viewManager.js";
 import { initializeHomepage } from "./homepage.js";
+import { initializeFootnoteCitationListeners } from "./footnotes-citations.js";
 // ✅ This import is correct. We just need to use it.
 import { setInitialBookSyncPromise } from "./operationState.js";
 import NavButtons from "./nav-buttons.js";
@@ -93,6 +94,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (pageType === "reader") {
     await initializeReaderView();
+    
+    // Initialize footnote and citation click listeners
+    initializeFootnoteCitationListeners();
+    console.log("✅ Footnote and citation listeners initialized");
     
     // Hide overlay once content is fully loaded (only if we showed it)
     if (!isNewBookCreation) {
