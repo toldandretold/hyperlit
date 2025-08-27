@@ -86,7 +86,7 @@ export default class NavButtons {
 shouldIgnoreEvent(event) {
   // Always ignore edit toolbar - let it handle its own events without toggling nav
   if (event.target.closest('#edit-toolbar')) {
-    console.log('NavButtons: Ignoring edit toolbar event');
+    console.log('NavButtons: Ignoring edit toolbar event - target:', event.target, 'type:', event.type);
     return true;
   }
   
@@ -99,7 +99,12 @@ shouldIgnoreEvent(event) {
     return true;
   }
   
-  // Ignore interactive elements (but not edit toolbar buttons which are handled above)
+  // Don't toggle nav buttons when in edit mode
+  if (window.isEditing) {
+    return true;
+  }
+  
+  // Ignore interactive elements
   if (
     event.target.closest("a") ||
     event.target.closest("sup.open-icon") ||
@@ -112,17 +117,11 @@ shouldIgnoreEvent(event) {
     return true;
   }
   
-  // Ignore buttons, inputs, etc. (but not edit toolbar buttons which are handled above)
   if (
     event.target.matches(
       'button, a, input, select, textarea, [role="button"]',
-    ) && !event.target.closest('#edit-toolbar')
+    )
   ) {
-    return true;
-  }
-  
-  // Don't toggle nav buttons when in edit mode (but allow edit toolbar to work)
-  if (window.isEditing && !event.target.closest('#edit-toolbar')) {
     return true;
   }
   
@@ -137,6 +136,12 @@ shouldIgnoreEvent(event) {
   
 
     handleTouchStart(event) {
+    // Early exit for edit toolbar to avoid any interference
+    if (event.target.closest('#edit-toolbar')) {
+      console.log('NavButtons: Edit toolbar touchstart - EARLY EXIT - target:', event.target);
+      return;
+    }
+    
     if (this.shouldIgnoreEvent(event)) {
       console.log('NavButtons: Touch start ignored');
       return;
@@ -147,6 +152,12 @@ shouldIgnoreEvent(event) {
   }
 
   handleTouchEnd(event) {
+    // Early exit for edit toolbar to avoid any interference
+    if (event.target.closest('#edit-toolbar')) {
+      console.log('NavButtons: Edit toolbar touchend - EARLY EXIT - target:', event.target);
+      return;
+    }
+    
     if (this.shouldIgnoreEvent(event)) {
       console.log('NavButtons: Touch end ignored');
       return;
