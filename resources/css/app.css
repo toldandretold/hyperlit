@@ -184,6 +184,43 @@ sup.open-icon {
     color: #EE4A95;
 }
 
+/* Touch-friendly footnotes and citations */
+sup[fn-count-id], 
+.footnote-ref, 
+.in-text-citation {
+    /* Increase touch target size */
+    position: relative;
+    cursor: pointer;
+}
+
+sup[fn-count-id]::before, 
+.footnote-ref::before, 
+.in-text-citation::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    right: -8px;
+    bottom: -8px;
+    /* This creates an invisible 16px padding around the element for easier clicking */
+}
+
+/* Visual feedback on touch/hover */
+sup[fn-count-id]:hover, 
+.footnote-ref:hover, 
+.in-text-citation:hover {
+    background-color: rgba(238, 74, 149, 0.1); /* Light pink background */
+    border-radius: 3px;
+}
+
+/* Active state for touch feedback */
+sup[fn-count-id]:active, 
+.footnote-ref:active, 
+.in-text-citation:active {
+    background-color: rgba(238, 74, 149, 0.2); /* Darker pink when tapped */
+    transform: scale(1.05); /* Slight scale up when tapped */
+}
+
 /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black 221F20 */
     
 li {
