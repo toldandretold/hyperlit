@@ -89,7 +89,7 @@ export default defineConfig({
                 'resources/js/chunkManager.js',
                 'resources/js/convert-markdown.js',
                 'resources/js/editToolbar.js',
-                'resources/js/footnotes.js',
+                'resources/js/footnotes-citations.js',
                 'resources/js/homepage.js',                 // ✅ NEW
                 'resources/js/hyperLights.js',
                 'resources/js/IDmanager.js',
