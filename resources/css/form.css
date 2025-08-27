@@ -10,7 +10,7 @@ black #221F20;
 #cite-form {
   background-color: #221F20;
   color: #CBCCCC;
-  padding: 20px;
+  padding: 10px 20px 20px 20px; /* Reduced top padding from 20px to 10px */
 }
 
 /* Remove default input styles and have a transparent background */
