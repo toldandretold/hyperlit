@@ -109,7 +109,10 @@ shouldIgnoreEvent(event) {
     event.target.closest("a") ||
     event.target.closest("sup.open-icon") ||
     event.target.closest("u.couple") ||
-    event.target.closest("u.poly")
+    event.target.closest("u.poly") ||
+    event.target.closest("sup[fn-count-id]") ||  // Ignore footnote sup elements
+    event.target.closest("a.footnote-ref") ||    // Ignore footnote links
+    event.target.closest("a.in-text-citation")   // Ignore citation links
   ) {
     return true;
   }
