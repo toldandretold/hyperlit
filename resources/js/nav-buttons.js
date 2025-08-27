@@ -99,12 +99,7 @@ shouldIgnoreEvent(event) {
     return true;
   }
   
-  // Don't toggle nav buttons when in edit mode
-  if (window.isEditing) {
-    return true;
-  }
-  
-  // Ignore interactive elements
+  // Ignore interactive elements (but not edit toolbar buttons which are handled above)
   if (
     event.target.closest("a") ||
     event.target.closest("sup.open-icon") ||
@@ -117,11 +112,17 @@ shouldIgnoreEvent(event) {
     return true;
   }
   
+  // Ignore buttons, inputs, etc. (but not edit toolbar buttons which are handled above)
   if (
     event.target.matches(
       'button, a, input, select, textarea, [role="button"]',
-    )
+    ) && !event.target.closest('#edit-toolbar')
   ) {
+    return true;
+  }
+  
+  // Don't toggle nav buttons when in edit mode (but allow edit toolbar to work)
+  if (window.isEditing && !event.target.closest('#edit-toolbar')) {
     return true;
   }
   
