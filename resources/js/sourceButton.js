@@ -135,7 +135,7 @@ export class SourceContainerManager extends ContainerManager {
       height: "0",
       overflow: "hidden",
       transition: "width 0.4s ease-out, height 0.4s ease-out, opacity 0.3s ease-out",
-      zIndex: "1000",
+      zIndex: "1001",
       backgroundColor: "#221F20",
       boxShadow: "0 0 15px rgba(0, 0, 0, 0.2)",
       borderRadius: "1em",
