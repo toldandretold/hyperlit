@@ -20,15 +20,19 @@
         // Hide overlay immediately for non-reader pages and new book creation
         const pageType = document.body.getAttribute('data-page');
         const isNewBookCreation = sessionStorage.getItem('pending_new_book_sync');
+        const isImportedBook = sessionStorage.getItem('pending_import_book');
         const overlay = document.getElementById('initial-navigation-overlay');
         
-        // Hide overlay for non-reader pages or new book creation
+        // Hide overlay for non-reader pages, new book creation, or imported books
         if (pageType !== 'reader') {
             overlay.style.display = 'none';
             console.log('✅ Overlay hidden for non-reader page');
         } else if (isNewBookCreation) {
             overlay.style.display = 'none';
             console.log('✅ Overlay hidden for new book creation - content is immediately available');
+        } else if (isImportedBook) {
+            overlay.style.display = 'none';
+            console.log('✅ Overlay hidden for imported book - content is immediately available');
         } else {
             console.log('🎯 Overlay visible for normal reader page load');
         }
@@ -43,6 +47,7 @@
                 }
                 sessionStorage.removeItem('navigationOverlayActive');
                 sessionStorage.removeItem('navigationTargetId');
+                sessionStorage.removeItem('pending_import_book');
             }
         });
         
@@ -55,6 +60,7 @@
                 }
                 sessionStorage.removeItem('navigationOverlayActive');
                 sessionStorage.removeItem('navigationTargetId');
+                sessionStorage.removeItem('pending_import_book');
             }
         });
     </script>

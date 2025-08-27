@@ -245,6 +245,7 @@ function setupFormSubmission() {
     form._hasSubmitHandler = true;
     
     form.addEventListener('submit', async function(event) {
+        console.log("🔥 DEBUG: FORM SUBMIT TRIGGERED");
         event.preventDefault();
         event.stopPropagation();
 
@@ -252,6 +253,7 @@ function setupFormSubmission() {
             console.log("File validation failed");
             return false;
         }
+        console.log("🔥 DEBUG: File validation passed");
 
         const submitButton = this.querySelector('button[type="submit"]');
         if (submitButton) {
@@ -353,6 +355,7 @@ async function syncToPostgreSQL(libraryRecord) {
 }
 
 async function submitToLaravelAndLoad(formData, submitButton) {
+  console.log("🔥 DEBUG: submitToLaravelAndLoad STARTED");
   console.log("Submitting to Laravel controller for file processing...");
 
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
@@ -396,10 +399,12 @@ async function submitToLaravelAndLoad(formData, submitButton) {
 
     const result = await response.json();
     console.log("✅ Import completed:", result);
+    console.log("🔥 DEBUG: About to check for result.bookId");
 
     if (!result.bookId) {
       throw new Error("No bookId returned from backend");
     }
+    console.log("🔥 DEBUG: bookId confirmed:", result.bookId);
 
     // Save the authoritative library record that came from the server
     if (result.library) {
@@ -417,16 +422,19 @@ async function submitToLaravelAndLoad(formData, submitButton) {
     await loadFromJSONFiles(result.bookId);
 
     // ===================== THE FIX: STEP 2 =====================
-    // REMOVED: The broken redirect workflow.
-    // sessionStorage.setItem("just_imported", result.bookId);
-    // window.location.href = `/${result.bookId}`;
+    // 🔥 CRITICAL: Set the same sessionStorage flag that create new book uses
+    // This tells layout.blade.php to hide the overlay immediately on page load
+    sessionStorage.setItem("pending_import_book", result.bookId);
+    console.log(`🎯 Set pending_import_book flag for overlay management: ${result.bookId}`);
 
     // INSTEAD: Call the SPA transition function that you already built and know works.
     // This will smoothly replace the form page with the reader view.
     console.log(
       `🚀 Handing off to the working SPA transition for book: ${result.bookId}`
     );
+    console.log(`🔥 DEBUG: About to call initializeImportedBook with ${result.bookId}`);
     await initializeImportedBook(result.bookId);
+    console.log(`🔥 DEBUG: initializeImportedBook completed for ${result.bookId}`);
     // ===========================================================
   } catch (error) {
     console.error("❌ Import failed:", error);
