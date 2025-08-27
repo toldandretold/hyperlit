@@ -586,6 +586,29 @@ black #221F20;
     font-size: 11px;
   }
 
+  /* Mobile-specific styling for newbook container */
+  #newbook-container {
+    /* Ensure smooth transitions on mobile */
+    transition: width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, 
+                padding 0.3s ease-out, top 0.3s ease-out, left 0.3s ease-out, right 0.3s ease-out;
+  }
+
+  /* Mobile form styling adjustments */
+  #newbook-container .scroller {
+    padding: 0.5em;
+  }
+
+  #newbook-container form {
+    /* Ensure form content is properly spaced on mobile */
+    margin: 0;
+  }
+
+  #newbook-container input,
+  #newbook-container textarea {
+    /* Improve touch targets on mobile */
+    min-height: 44px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
 
 }
 
