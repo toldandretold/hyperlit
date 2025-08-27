@@ -114,18 +114,39 @@ export class NewBookContainerManager extends ContainerManager {
       // ✅ NOW OPEN THE CONTAINER IN FORM MODE
       this.openContainer("form");
       
-      // Dynamically import the module and set up the form submission handler
-      import("./newBookForm.js")
-        .then(module => {
-          // Call the initialization function from the imported module
-          module.initializeCitationFormListeners();
-          
-          // Set up the form submission handler
-          module.setupFormSubmissionHandler();
-        })
-        .catch(error => {
-          console.error("Error importing citation form module:", error);
-        });
+      // ✅ FIX: Wait for container animation to complete before setting up form
+      // Use a more robust approach that waits for the container to be ready
+      const setupForm = () => {
+        // Ensure form exists before trying to set up listeners
+        const form = document.getElementById('cite-form');
+        if (!form) {
+          console.error("🔥 DEBUG: Form not found, retrying in 50ms");
+          setTimeout(setupForm, 50);
+          return;
+        }
+        
+        import("./newBookForm.js")
+          .then(module => {
+            console.log("🔥 DEBUG: Setting up form listeners on", form);
+            
+            // Call the initialization function from the imported module
+            module.initializeCitationFormListeners();
+            
+            // Set up the form submission handler explicitly
+            console.log("🔥 DEBUG: About to call setupFormSubmissionHandler");
+            module.setupFormSubmissionHandler();
+            console.log("🔥 DEBUG: setupFormSubmissionHandler called");
+          })
+          .catch(error => {
+            console.error("Error importing citation form module:", error);
+          });
+      };
+
+      // Wait for the next animation frame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        // Add a small delay to ensure mobile animations don't interfere
+        setTimeout(setupForm, 100);
+      });
     };
 
     // Add the event listeners
@@ -406,15 +427,28 @@ export class NewBookContainerManager extends ContainerManager {
   }
 
   openContainer(mode = "buttons") {
-    if (this.isAnimating) return;
+    console.log("🔥 DEBUG: openContainer called", { mode, isOpen: this.isOpen, isAnimating: this.isAnimating });
+    
+    if (this.isAnimating) {
+      console.log("🔥 DEBUG: openContainer blocked - already animating");
+      return;
+    }
     this.isAnimating = true;
 
     const isMobile = window.innerWidth <= 768;
     const rect = this.button.getBoundingClientRect();
+    
+    console.log("🔥 DEBUG: openContainer state", { isMobile, rect, originalButtonRect: this.originalButtonRect });
 
     // This logic handles the TRANSITION from the initial "buttons" view to the "form" view.
     // It assumes the container is already open.
     if (this.isOpen && mode === "form") {
+      console.log("🔥 DEBUG: Transitioning to form mode");
+      // ✅ FIX: Ensure originalButtonRect exists for mobile positioning
+      if (!this.originalButtonRect) {
+        this.originalButtonRect = { ...rect, right: rect.right, bottom: rect.bottom };
+      }
+
       this.container.style.display = "block";
       this.container.style.gap = "";
       this.container.style.alignItems = "";
@@ -439,36 +473,92 @@ export class NewBookContainerManager extends ContainerManager {
       }
 
       // Apply the new styles to trigger the transition.
+      console.log("🔥 DEBUG: Applying form styles", { targetWidth, targetHeight, targetTop, targetPadding });
       requestAnimationFrame(() => {
         this.container.style.width = targetWidth;
         this.container.style.height = targetHeight;
         this.container.style.top = targetTop;
         this.container.style.padding = targetPadding;
-        this.container.addEventListener("transitionend", () => { this.isAnimating = false; }, { once: true });
+        
+        console.log("🔥 DEBUG: Form styles applied", {
+          actualWidth: this.container.style.width,
+          actualHeight: this.container.style.height,
+          actualTop: this.container.style.top,
+          display: this.container.style.display,
+          opacity: this.container.style.opacity,
+          visibility: this.container.style.visibility
+        });
+        
+        // Add both transitionend listener and timeout fallback
+        const resetAnimation = () => { this.isAnimating = false; };
+        this.container.addEventListener("transitionend", resetAnimation, { once: true });
+        // Fallback timeout in case transitionend doesn't fire (mobile browser issue)
+        setTimeout(resetAnimation, 500);
       });
       return;
     }
 
-    // This logic handles the very FIRST opening of the container (to the "buttons" view).
+    // This logic handles the very FIRST opening of the container.
     if (!this.isOpen) {
+      console.log("🔥 DEBUG: Opening container for first time in mode:", mode);
+      
       this.button.querySelector(".icon")?.classList.add("tilted");
 
       if (!this.originalButtonRect) {
         this.originalButtonRect = { ...rect, right: rect.right, bottom: rect.bottom };
       }
 
-      this.container.style.top = `${rect.bottom + 8}px`;
-      this.container.style.right = `${window.innerWidth - rect.right}px`;
-      this.container.style.visibility = "visible";
-      this.container.style.opacity = "1";
-      this.container.style.width = "200px";
-      this.container.style.height = "auto";
-      this.container.style.padding = "20px";
-      this.container.style.display = "flex";
-      this.container.style.flexDirection = "column";
-      this.container.style.justifyContent = "center";
-      this.container.style.alignItems = "center";
-      this.container.style.gap = "10px";
+      // ✅ FIX: If opening directly in form mode, skip the buttons layout
+      if (mode === "form") {
+        console.log("🔥 DEBUG: Opening directly in form mode");
+        
+        // Set up the container for form display
+        this.container.style.visibility = "visible";
+        this.container.style.opacity = "1";
+        this.container.style.display = "block";
+        
+        // Apply form-specific positioning immediately
+        let targetWidth, targetHeight, targetTop, targetPadding;
+        if (isMobile) {
+          targetWidth = `${this.originalButtonRect.right - 15}px`;
+          targetHeight = "calc(100vh - 100px)";
+          targetTop = "50px";
+          targetPadding = "15px";
+          this.container.style.left = "15px";
+          this.container.style.right = "";
+          this.container.style.maxWidth = targetWidth;
+        } else {
+          targetWidth = "400px";
+          targetHeight = "80vh";
+          targetTop = `${this.originalButtonRect.bottom + 8}px`;
+          targetPadding = "0";
+          this.container.style.right = `${window.innerWidth - this.originalButtonRect.right}px`;
+        }
+        
+        this.container.style.width = targetWidth;
+        this.container.style.height = targetHeight;
+        this.container.style.top = targetTop;
+        this.container.style.padding = targetPadding;
+        
+        console.log("🔥 DEBUG: Direct form mode styles applied", {
+          width: targetWidth, height: targetHeight, top: targetTop, padding: targetPadding
+        });
+        
+      } else {
+        // Original buttons mode layout
+        this.container.style.top = `${rect.bottom + 8}px`;
+        this.container.style.right = `${window.innerWidth - rect.right}px`;
+        this.container.style.visibility = "visible";
+        this.container.style.opacity = "1";
+        this.container.style.width = "200px";
+        this.container.style.height = "auto";
+        this.container.style.padding = "20px";
+        this.container.style.display = "flex";
+        this.container.style.flexDirection = "column";
+        this.container.style.justifyContent = "center";
+        this.container.style.alignItems = "center";
+        this.container.style.gap = "10px";
+      }
 
       if (this.overlay) {
         this.overlay.classList.add("active");
@@ -478,7 +568,11 @@ export class NewBookContainerManager extends ContainerManager {
 
       this.isOpen = true;
       window.uiState?.setActiveContainer(this.container.id);
-      this.container.addEventListener("transitionend", () => { this.isAnimating = false; }, { once: true });
+      // Add both transitionend listener and timeout fallback
+      const resetAnimation = () => { this.isAnimating = false; };
+      this.container.addEventListener("transitionend", resetAnimation, { once: true });
+      // Fallback timeout in case transitionend doesn't fire (mobile browser issue)
+      setTimeout(resetAnimation, 500);
     }
   }
 
@@ -523,25 +617,25 @@ export class NewBookContainerManager extends ContainerManager {
     window.activeContainer = "main-content";
   }
   
-  this.container.addEventListener(
-    "transitionend",
-    () => {
-      this.container.classList.add("hidden");
-      this.container.style.display = "none";
-      this.isAnimating = false;
+  const onTransitionEnd = () => {
+    this.container.classList.add("hidden");
+    this.container.style.display = "none";
+    this.isAnimating = false;
 
-      if (this.overlay) {
-        this.overlay.style.display = "none";
-      }
+    if (this.overlay) {
+      this.overlay.style.display = "none";
+    }
 
-      if (this.originalContent &&
-          this.container.innerHTML !== this.originalContent) {
-        this.container.innerHTML = this.originalContent;
-        this.setupButtonListeners();
-      }
-    },
-    { once: true }
-  );
+    if (this.originalContent &&
+        this.container.innerHTML !== this.originalContent) {
+      this.container.innerHTML = this.originalContent;
+      this.setupButtonListeners();
+    }
+  };
+
+  this.container.addEventListener("transitionend", onTransitionEnd, { once: true });
+  // Fallback timeout in case transitionend doesn't fire (mobile browser issue)
+  setTimeout(onTransitionEnd, 500);
 }
 
 // Add these methods to your NewBookContainerManager class
