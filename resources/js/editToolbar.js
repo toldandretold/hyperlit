@@ -190,13 +190,11 @@ class EditToolbar {
 
         // Keep desktop click handler
         element.addEventListener("click", (e) => {
-          // Only handle click if not a touch device
-          if (!this.isMobile) {
-            console.log(`🖱️ ${name} button clicked!`, e);
-            e.preventDefault();
-            e.stopPropagation();
-            action();
-          }
+          console.log(`🖱️ ${name} button click handler triggered - isMobile: ${this.isMobile}`, e.target);
+          console.log(`🖱️ ${name} button clicked!`, e);
+          e.preventDefault();
+          e.stopPropagation();
+          action();
         });
       } else {
         console.log(`❌ ${name} button NOT found`);
@@ -338,6 +336,13 @@ class EditToolbar {
           containerId: container.id || container.parentElement?.id,
           isInEditable: editableContent.contains(container),
         });
+
+        // Check if selection is coming from toolbar button click
+        const isFromToolbar = container.closest && container.closest('#edit-toolbar');
+        if (isFromToolbar) {
+          console.log("🔧 Selection change from toolbar button - ignoring to preserve selection");
+          return; // Don't update anything if selection changed due to toolbar button click
+        }
 
         // Store selection if it's within editable content
         if (editableContent.contains(container)) {
