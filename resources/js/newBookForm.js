@@ -246,12 +246,25 @@ export function initializeCitationFormListeners() {
 }
 
 function setupFormSubmission() {
+    console.log("🔥 DEBUG: setupFormSubmission called");
     const form = document.getElementById('cite-form');
-    if (!form || form._hasSubmitHandler) return;
+    if (!form) {
+        console.error("🔥 DEBUG: setupFormSubmission - form not found");
+        return;
+    }
     
+    console.log("🔥 DEBUG: setupFormSubmission - form found:", form);
+    
+    // ✅ FIX: Check for existing handler more robustly
+    if (form._hasSubmitHandler) {
+        console.log("🔥 DEBUG: setupFormSubmission - handler already exists, skipping");
+        return;
+    }
+    
+    console.log("🔥 DEBUG: setupFormSubmission - adding new handler to form");
     form._hasSubmitHandler = true;
     
-    form.addEventListener('submit', async function(event) {
+    const submitHandler = async function(event) {
         console.log("🔥 DEBUG: FORM SUBMIT TRIGGERED");
         event.preventDefault();
         event.stopPropagation();
@@ -273,7 +286,23 @@ function setupFormSubmission() {
         // ✅ We no longer create a local libraryRecord here.
         // We just submit the form and let the backend handle it.
         await submitToLaravelAndLoad(formData, submitButton);
-    });
+    };
+    
+    form.addEventListener('submit', submitHandler);
+    // Store handler reference for potential cleanup
+    form._submitHandler = submitHandler;
+    
+    // ✅ DEBUG: Test if the submit button is working
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (submitButton) {
+        console.log("🔥 DEBUG: Found submit button:", submitButton);
+        // Test click handler
+        submitButton.addEventListener('click', function(e) {
+            console.log("🔥 DEBUG: Submit button clicked!", e);
+        });
+    } else {
+        console.error("🔥 DEBUG: Submit button not found!");
+    }
 }
 
 async function saveToIndexedDBThenSync(libraryRecord, originalFormData, submitButton) {
