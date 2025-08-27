@@ -33,7 +33,6 @@ import {
 } from './BroadcastListener.js';
 
 import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from './convert-markdown.js';
-import { processFootnotes } from './footnotes.js';
 
 import { 
   trackChunkNodeCount, 

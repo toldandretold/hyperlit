@@ -11,7 +11,7 @@ const ASSETS_TO_CACHE = [
   "/nav-buttons.js",
   "/lazy-loading-div.js",
   "/hyper-lights-cites.js",
-  "/footnotes.js",
+  "/footnotes-citations.js",
   "/convert-markdown.js",
   "/container-manager.js",
   "/cache-IndexedDB.js",
