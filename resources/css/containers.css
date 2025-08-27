@@ -325,7 +325,7 @@ black #221F20;
 
 #topRightContainer {
   position: relative; /* or absolute/fixed if needed */
-  z-index: 999; /* Higher than your containers */
+  z-index: 998; /* Below the overlay */
   flex-shrink: 0;
 }
 
@@ -365,7 +365,7 @@ black #221F20;
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.3s ease-in-out;
-    z-index: 999; /* Below the reference container */
+    z-index: 1000; /* Below the reference container */
 }
 
 

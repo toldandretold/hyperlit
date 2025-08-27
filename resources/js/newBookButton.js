@@ -48,7 +48,7 @@ export class NewBookContainerManager extends ContainerManager {
     container.style.position = "fixed"; // so we can animate from 0→XYZ
     container.style.transition =
       "width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, padding 0.3s ease-out, top 0.3s ease-out, left 0.3s ease-out, right 0.3s ease-out";
-    container.style.zIndex = "1000";
+    container.style.zIndex = "1001";
     container.style.backgroundColor = "#221F20";
     container.style.boxShadow = "0 0 15px rgba(0, 0, 0, 0.2)";
     container.style.borderRadius = "0.75em";
@@ -172,10 +172,9 @@ export class NewBookContainerManager extends ContainerManager {
           <label for="citation_id" class="required">Citation ID <span class="required-indicator">*</span></label>
           <input type="text" id="citation_id" name="citation_id" required 
                  placeholder="e.g., smith2023, doe_2024_book" 
-                 pattern="[a-zA-Z0-9_-]+" 
                  title="Only letters, numbers, underscores, and hyphens allowed">
           <div class="field-hint">Unique identifier (letters, numbers, _, - only)</div>
-          <div id="citation-id-validation" class="validation-message"></div>
+          <div id="citation_id-validation" class="validation-message"></div>
 
           <label for="title" class="required">Title <span class="required-indicator">*</span></label>
           <input type="text" id="title" name="title" required placeholder="Enter document title">

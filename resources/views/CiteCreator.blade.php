@@ -66,6 +66,27 @@ form textarea:focus {
     box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);  /* Slight shadow on focus */
 }
 
+/* Validation message styling */
+.validation-message {
+    font-size: 14px;
+    margin-top: 5px;
+    margin-bottom: 15px;
+    padding: 5px;
+    border-radius: 3px;
+}
+
+.validation-message.error {
+    color: #721c24;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+}
+
+.validation-message.success {
+    color: #155724;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+}
+
 
 
 </style>
@@ -92,6 +113,7 @@ form textarea:focus {
     <!-- Drag and drop field for Markdown file -->
     <label for="markdown_file">Upload Markdown or EPUB File:</label>
     <input type="file" id="markdown_file" name="markdown_file" accept=".md,.epub,.doc,.docx"><br>
+    <div id="file-validation" class="validation-message"></div>
 
     <!-- Paste BibTeX details -->
     <label for="bibtex">Paste BibTeX Details:</label>
@@ -109,12 +131,14 @@ form textarea:focus {
     <div id="common-fields">
         <label for="citation_id">Citation ID:</label>
         <input type="text" id="citation_id" name="citation_id"><br>
+        <div id="citation_id-validation" class="validation-message"></div>
 
         <label for="author">Author:</label>
         <input type="text" id="author" name="author"><br>
 
         <label for="title">Title:</label>
         <input type="text" id="title" name="title"><br>
+        <div id="title-validation" class="validation-message"></div>
 
         <label for="year">Year:</label>
         <input type="number" id="year" name="year"><br>
@@ -136,6 +160,12 @@ form textarea:focus {
 
         <label for="note" class="optional-field" style="display:none;">Note:</label>
         <input type="text" id="note" name="note" class="optional-field" style="display:none;"><br>
+    </div>
+
+    <!-- Form validation summary -->
+    <div id="form-validation-summary" style="display: none; background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
+        <strong>Please fix the following errors:</strong>
+        <ul id="validation-list"></ul>
     </div>
 
     <button type="submit" id="createButton">Create</button>
