@@ -472,13 +472,168 @@ function setupFormPersistence() {
     }
 }
 
-// Real-time validation
+// Enhanced real-time validation
 function setupRealTimeValidation() {
-    document.querySelectorAll('input[type="text"], textarea').forEach((input) => {
-        input.addEventListener('input', function() {
-            this.style.borderColor = this.value === '' ? 'red' : 'green';
+    // Validation functions
+    const validators = {
+        validateCitationId: (value) => {
+            if (!value) return { valid: false, message: 'Citation ID is required' };
+            if (!/^[a-zA-Z0-9_-]+$/.test(value)) return { valid: false, message: 'Only letters, numbers, underscores, and hyphens allowed' };
+            if (value.length < 3) return { valid: false, message: 'Citation ID must be at least 3 characters' };
+            return { valid: true, message: 'Valid citation ID' };
+        },
+        
+        validateTitle: (value) => {
+            if (!value) return { valid: false, message: 'Title is required' };
+            if (value.length > 255) return { valid: false, message: 'Title must be less than 255 characters' };
+            return { valid: true, message: 'Valid title' };
+        },
+        
+        validateFile: (fileInput) => {
+            if (!fileInput.files || fileInput.files.length === 0) {
+                return { valid: false, message: 'Please select a file to upload' };
+            }
+            
+            const file = fileInput.files[0];
+            const validExtensions = ['.md', '.epub', '.doc', '.docx'];
+            const fileName = file.name.toLowerCase();
+            const isValidType = validExtensions.some(ext => fileName.endsWith(ext));
+            
+            if (!isValidType) {
+                return { valid: false, message: 'Please select a .md, .epub, .doc, or .docx file' };
+            }
+            
+            if (file.size > 50 * 1024 * 1024) { // 50MB
+                return { valid: false, message: 'File size must be less than 50MB' };
+            }
+            
+            return { valid: true, message: 'Valid file selected' };
+        },
+        
+        validateYear: (value) => {
+            if (!value) return { valid: true, message: '' }; // Optional field
+            const year = parseInt(value);
+            const currentYear = new Date().getFullYear();
+            if (year < 1000 || year > currentYear + 10) {
+                return { valid: false, message: `Year must be between 1000 and ${currentYear + 10}` };
+            }
+            return { valid: true, message: 'Valid year' };
+        }
+    };
+    
+    // Show validation message
+    const showValidationMessage = (elementId, result) => {
+        const msgElement = document.getElementById(`${elementId}-validation`);
+        if (msgElement) {
+            msgElement.textContent = result.message;
+            msgElement.className = `validation-message ${result.valid ? 'success' : 'error'}`;
+        }
+    };
+    
+    // Validate form and update submit button
+    const validateForm = () => {
+        const citationId = document.getElementById('citation_id');
+        const title = document.getElementById('title');
+        const fileInput = document.getElementById('markdown_file');
+        const submitButton = document.getElementById('createButton');
+        
+        if (!citationId || !title || !fileInput || !submitButton) return;
+        
+        const citationResult = validators.validateCitationId(citationId.value);
+        const titleResult = validators.validateTitle(title.value);
+        const fileResult = validators.validateFile(fileInput);
+        
+        const isFormValid = citationResult.valid && titleResult.valid && fileResult.valid;
+        
+        submitButton.disabled = !isFormValid;
+        
+        // Update validation summary
+        updateValidationSummary([
+            { field: 'Citation ID', result: citationResult },
+            { field: 'Title', result: titleResult },
+            { field: 'File', result: fileResult }
+        ]);
+        
+        return isFormValid;
+    };
+    
+    // Update validation summary
+    const updateValidationSummary = (validations) => {
+        const summary = document.getElementById('form-validation-summary');
+        const list = document.getElementById('validation-list');
+        
+        if (!summary || !list) return;
+        
+        const errors = validations.filter(v => !v.result.valid && v.result.message);
+        
+        if (errors.length > 0) {
+            list.innerHTML = errors.map(e => `<li>${e.field}: ${e.result.message}</li>`).join('');
+            summary.style.display = 'block';
+        } else {
+            summary.style.display = 'none';
+        }
+    };
+    
+    // Set up individual field validators
+    const citationIdField = document.getElementById('citation_id');
+    if (citationIdField) {
+        citationIdField.addEventListener('input', function() {
+            const result = validators.validateCitationId(this.value);
+            showValidationMessage('citation-id', result);
+            setTimeout(validateForm, 100); // Slight delay for better UX
         });
-    });
+        citationIdField.addEventListener('blur', function() {
+            const result = validators.validateCitationId(this.value);
+            showValidationMessage('citation-id', result);
+            validateForm();
+        });
+    }
+    
+    const titleField = document.getElementById('title');
+    if (titleField) {
+        titleField.addEventListener('input', function() {
+            const result = validators.validateTitle(this.value);
+            showValidationMessage('title', result);
+            setTimeout(validateForm, 100);
+        });
+        titleField.addEventListener('blur', function() {
+            const result = validators.validateTitle(this.value);
+            showValidationMessage('title', result);
+            validateForm();
+        });
+    }
+    
+    const fileField = document.getElementById('markdown_file');
+    if (fileField) {
+        fileField.addEventListener('change', function() {
+            const result = validators.validateFile(this);
+            showValidationMessage('file', result);
+            validateForm();
+        });
+    }
+    
+    const yearField = document.getElementById('year');
+    if (yearField) {
+        yearField.addEventListener('input', function() {
+            const result = validators.validateYear(this.value);
+            if (result.message) {
+                // Only show year validation if there's an actual message (error or success)
+                const msgElement = document.querySelector('#year').parentNode.querySelector('.validation-message');
+                if (!msgElement) {
+                    const newMsgElement = document.createElement('div');
+                    newMsgElement.className = `validation-message ${result.valid ? 'success' : 'error'}`;
+                    newMsgElement.textContent = result.message;
+                    yearField.parentNode.appendChild(newMsgElement);
+                } else {
+                    msgElement.className = `validation-message ${result.valid ? 'success' : 'error'}`;
+                    msgElement.textContent = result.message;
+                }
+            }
+        });
+    }
+    
+    // Initial validation
+    setTimeout(validateForm, 500);
 }
 
 // Display saved citations

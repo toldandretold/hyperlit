@@ -22,11 +22,18 @@ export class NewBookContainerManager extends ContainerManager {
     this.isAnimating = false;
     this.button = document.getElementById(buttonId);
     this.buttonPosition = null;
+    this.originalButtonRect = null; // Store original button position
     this.setupButtonListeners();
     this.originalContent = null;
 
     window.addEventListener('resize', () => {
+      console.log("🔥 WINDOW RESIZE EVENT FIRED!", {
+        isOpen: this.isOpen,
+        hasCiteForm: !!this.container.querySelector('#cite-form'),
+        windowWidth: window.innerWidth
+      });
       if (this.isOpen && this.container.querySelector('#cite-form')) {
+        console.log("🔥 CALLING setResponsiveFormSize FROM RESIZE EVENT");
         // If form is open, adjust size on resize
         this.setResponsiveFormSize();
       }
@@ -124,62 +131,94 @@ export class NewBookContainerManager extends ContainerManager {
   const formHTML = `
       <div class="scroller">
       <form id="cite-form" action="${processCiteRoute}" method="POST" enctype="multipart/form-data">
-        <h2 style="color: #EF8D34;">.md, .docx or .epub:</h2>
+        <div class="form-header">
+          <h2 style="color: #EF8D34;">Import File</h2>
+          <p class="form-subtitle">Required fields marked with <span class="required-indicator">*</span></p>
+        </div>
+
         <input type="hidden" name="_token" value="${csrfToken}" id="submitFile">
 
-        <!-- Drag and drop field for Markdown file -->
-        <input type="file" id="markdown_file" name="markdown_file" accept=".md,.epub,.doc,.docx">
-        <p></p>
-        <!-- Paste BibTeX details -->
-        <label for="bibtex"><b>Paste</b> BibTeX Details:</label>
-        <textarea id="bibtex" name="bibtex"></textarea>
-
-        <!-- BibTeX Type Selection -->
-        <label for="type"><b>Or</b> <i>type</i>:</label>
-        <div class="radio-group">
-          <label><input type="radio" name="type" value="article"> Article</label>
-          <label><input type="radio" name="type" value="book"> Book</label>
-          <label><input type="radio" name="type" value="phdthesis"> PhD Thesis</label>
-          <label><input type="radio" name="type" value="misc"> Miscellaneous</label>
+        <!-- File Upload Section -->
+        <div class="form-section">
+          <label for="markdown_file" class="required">File <span class="required-indicator">*</span></label>
+          <input type="file" id="markdown_file" name="markdown_file" accept=".md,.epub,.doc,.docx" required>
+          <div class="field-hint">Upload .md, .docx, or .epub file</div>
+          <div id="file-validation" class="validation-message"></div>
         </div>
-        <br>
 
-        <!-- Shared Input Fields -->
-        <div id="common-fields">
-          <label for="citation_id">Citation ID:</label>
-          <input type="text" id="citation_id" name="citation_id">
+        <!-- BibTeX Section -->
+        <div class="form-section">
+          <label for="bibtex">BibTeX Details (optional)</label>
+          <textarea id="bibtex" name="bibtex" placeholder="Paste BibTeX entry here..."></textarea>
+          <div class="field-hint">Auto-fills fields below when pasted</div>
+        </div>
 
-          <label for="author">Author:</label>
-          <input type="text" id="author" name="author">
+        <!-- Type Selection -->
+        <div class="form-section">
+          <label>Document Type:</label>
+          <div class="radio-group">
+            <label><input type="radio" name="type" value="article"> Article</label>
+            <label><input type="radio" name="type" value="book" checked> Book</label>
+            <label><input type="radio" name="type" value="phdthesis"> PhD Thesis</label>
+            <label><input type="radio" name="type" value="misc"> Miscellaneous</label>
+          </div>
+        </div>
 
-          <label for="title">Title:</label>
-          <input type="text" id="title" name="title">
+        <!-- Required Fields Section -->
+        <div class="form-section">
+          <h3>Required Information</h3>
+          
+          <label for="citation_id" class="required">Citation ID <span class="required-indicator">*</span></label>
+          <input type="text" id="citation_id" name="citation_id" required 
+                 placeholder="e.g., smith2023, doe_2024_book" 
+                 pattern="[a-zA-Z0-9_-]+" 
+                 title="Only letters, numbers, underscores, and hyphens allowed">
+          <div class="field-hint">Unique identifier (letters, numbers, _, - only)</div>
+          <div id="citation-id-validation" class="validation-message"></div>
 
-          <label for="year">Year:</label>
-          <input type="number" id="year" name="year">
+          <label for="title" class="required">Title <span class="required-indicator">*</span></label>
+          <input type="text" id="title" name="title" required placeholder="Enter document title">
+          <div id="title-validation" class="validation-message"></div>
+        </div>
 
-          <label for="url">URL:</label>
-          <input type="text" id="url" name="url">
+        <!-- Optional Fields Section -->
+        <div class="form-section">
+          <h3>Additional Information (Optional)</h3>
+          
+          <label for="author">Author</label>
+          <input type="text" id="author" name="author" placeholder="Author name">
 
-          <label for="pages" class="optional-field" style="display:none;">Pages:</label>
-          <input type="text" id="pages" name="pages" class="optional-field" style="display:none;">
+          <label for="year">Year</label>
+          <input type="number" id="year" name="year" min="1000" max="${new Date().getFullYear() + 10}" placeholder="Publication year">
 
-          <label for="journal" class="optional-field" style="display:none;">Journal:</label>
-          <input type="text" id="journal" name="journal" class="optional-field" style="display:none;">
+          <label for="url">URL</label>
+          <input type="url" id="url" name="url" placeholder="https://...">
 
-          <label for="publisher" class="optional-field" style="display:none;">Publisher:</label>
-          <input type="text" id="publisher" name="publisher" class="optional-field" style="display:none;">
+          <!-- Type-specific fields -->
+          <label for="pages" class="optional-field" style="display:none;">Pages</label>
+          <input type="text" id="pages" name="pages" class="optional-field" style="display:none;" placeholder="e.g., 1-20, 45-67">
 
-          <label for="school" class="optional-field" style="display:none;">School:</label>
-          <input type="text" id="school" name="school" class="optional-field" style="display:none;">
+          <label for="journal" class="optional-field" style="display:none;">Journal</label>
+          <input type="text" id="journal" name="journal" class="optional-field" style="display:none;" placeholder="Journal name">
 
-          <label for="note" class="optional-field" style="display:none;">Note:</label>
-          <input type="text" id="note" name="note" class="optional-field" style="display:none;">
+          <label for="publisher" class="optional-field" style="display:none;">Publisher</label>
+          <input type="text" id="publisher" name="publisher" class="optional-field" style="display:none;" placeholder="Publisher name">
+
+          <label for="school" class="optional-field" style="display:none;">School</label>
+          <input type="text" id="school" name="school" class="optional-field" style="display:none;" placeholder="University/School name">
+
+          <label for="note" class="optional-field" style="display:none;">Note</label>
+          <input type="text" id="note" name="note" class="optional-field" style="display:none;" placeholder="Additional notes">
         </div>
 
         <div class="form-actions">
-          <button type="submit" id="createButton" class="formButton">Create</button>
+          <button type="submit" id="createButton" class="formButton" disabled>Create Book</button>
           <button type="button" id="clearButton" class="formButton">Clear</button>
+        </div>
+        
+        <div id="form-validation-summary" class="validation-summary" style="display:none;">
+          <h4>Please fix the following issues:</h4>
+          <ul id="validation-list"></ul>
         </div>
       </form>
       </div>
@@ -245,23 +284,53 @@ export class NewBookContainerManager extends ContainerManager {
   }
 
   setResponsiveFormSize() {
+    console.log("🔥 SETRESPONSIVEFORMSIZE CALLED!");
     const isMobile = window.innerWidth <= 768;
     
+    console.log("🔥 SETRESPONSIVEFORMSIZE BEFORE CHANGES:", {
+      isMobile,
+      currentWidth: this.container.style.width,
+      currentHeight: this.container.style.height,
+      currentLeft: this.container.style.left,
+      currentRight: this.container.style.right,
+      currentTop: this.container.style.top
+    });
+    
     if (isMobile) {
-      // Mobile: Use most of the screen
-      this.container.style.width = "calc(100vw - 40px)";  // Full width minus padding
-      this.container.style.height = "calc(100vh - 100px)"; // Full height minus some margin
-      this.container.style.maxWidth = "none";
+      // Mobile: Maintain our custom positioning - only expand down and to the left
+      // Use ORIGINAL button position to prevent size creep during resize
+      const maxWidthFromButton = this.originalButtonRect.right - 15; // From left margin to button's right edge
       
-      // Center it on mobile
-      this.container.style.left = "20px";
-      this.container.style.right = "20px";
+      this.container.style.width = `${maxWidthFromButton}px`;
+      this.container.style.height = "calc(100vh - 100px)";
+      this.container.style.maxWidth = `${maxWidthFromButton}px`;
+      
+      // Keep our positioning - don't override with centering
+      this.container.style.left = "15px";
+      this.container.style.right = ""; // Clear right positioning
       this.container.style.top = "50px";
+      
+      console.log("🔥 SETRESPONSIVEFORMSIZE MOBILE CHANGES APPLIED:", {
+        width: `${maxWidthFromButton}px`,
+        height: "calc(100vh - 100px)",
+        maxWidth: `${maxWidthFromButton}px`,
+        left: "15px",
+        right: "",
+        top: "50px",
+        originalButtonRight: this.originalButtonRect.right,
+        maxWidthFromButton
+      });
     } else {
       // Desktop: Keep existing size
       this.container.style.width = "500px";
       this.container.style.height = "80vh";
       this.container.style.maxWidth = "500px";
+      
+      console.log("🔥 SETRESPONSIVEFORMSIZE DESKTOP CHANGES APPLIED:", {
+        width: "500px",
+        height: "80vh",
+        maxWidth: "500px"
+      });
       
       // Keep existing positioning logic for desktop
       // (this will be set by openContainer method)
@@ -324,23 +393,61 @@ export class NewBookContainerManager extends ContainerManager {
   if (this.isAnimating) return;
   this.isAnimating = true;
 
+  console.log("🔥 OPENCONTAINER START:", {
+    mode,
+    windowWidth: window.innerWidth,
+    containerBefore: {
+      width: this.container.style.width,
+      height: this.container.style.height,
+      left: this.container.style.left,
+      right: this.container.style.right,
+      top: this.container.style.top
+    }
+  });
+
   // icon tilt
   this.button.querySelector(".icon")?.classList.add("tilted");
 
   const isMobile = window.innerWidth <= 768;
   const rect = this.button.getBoundingClientRect();
+  
+  // Store original button position for consistent calculations
+  if (!this.originalButtonRect) {
+    this.originalButtonRect = {
+      x: rect.x,
+      y: rect.y,
+      width: rect.width,
+      height: rect.height,
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      left: rect.left
+    };
+    console.log("🔥 STORING ORIGINAL BUTTON RECT:", this.originalButtonRect);
+  }
+
+  console.log("🔥 BUTTON RECT:", rect);
+  console.log("🔥 ORIGINAL BUTTON RECT:", this.originalButtonRect);
 
   // Position logic - ALWAYS start from button position
   if (mode === "form" && isMobile) {
-    // Mobile form mode: start from button, but expand to fill more of the screen
-    // Start at button position
-    this.container.style.top = `${rect.top}px`;
-    this.container.style.right = `${window.innerWidth - rect.right}px`;
-    this.container.style.left = ""; // Clear any previous left positioning
+    // Mobile form mode: Keep it simple - position at final location immediately
+    this.container.style.top = "50px";
+    this.container.style.left = "15px";
+    this.container.style.right = ""; // Clear right positioning
+    console.log("🔥 MOBILE FORM POSITION SET TO FINAL IMMEDIATELY:", {
+      top: "50px",
+      left: "15px",
+      right: ""
+    });
   } else {
     // Desktop positioning OR buttons mode: position relative to button
     this.container.style.top = `${rect.bottom + 8}px`;
     this.container.style.right = `${window.innerWidth - rect.right}px`;
+    console.log("🔥 DESKTOP/BUTTONS POSITION SET:", {
+      top: `${rect.bottom + 8}px`,
+      right: `${window.innerWidth - rect.right}px`
+    });
   }
 
   // make it visible
@@ -373,28 +480,47 @@ export class NewBookContainerManager extends ContainerManager {
     this.container.style.display = "block";
     
     if (isMobile) {
-      // On mobile, expand to take most of the screen but start from button position
-      targetWidth = "calc(100vw - 20px)";
+      // On mobile, expand only down and to the left from button position
+      // Use ORIGINAL button position to prevent growing during resize
+      const maxWidthFromButton = this.originalButtonRect.right - 15; // From left margin to button's right edge
+      targetWidth = `${maxWidthFromButton}px`;
       targetHeight = "calc(100vh - 100px)";
       this.container.style.padding = "15px";
+      this.container.style.maxWidth = `${maxWidthFromButton}px`;
+      console.log("🔥 MOBILE FORM TARGET SIZE:", {
+        targetWidth,
+        targetHeight,
+        maxWidthFromButton,
+        originalButtonRight: this.originalButtonRect.right
+      });
     } else {
       targetWidth = "400px";
       targetHeight = "80vh";
       this.container.style.padding = "0";
+      console.log("🔥 DESKTOP TARGET SIZE:", { targetWidth, targetHeight });
     }
   }
 
   requestAnimationFrame(() => {
+    console.log("🔥 SETTING TARGET SIZE IN ANIMATION FRAME:", {
+      targetWidth,
+      targetHeight
+    });
     this.container.style.width = targetWidth;
     this.container.style.height = targetHeight;
     this.container.style.opacity = "1";
 
-    // For mobile form mode, also animate the position to center it better
+    // For mobile form mode, animate to final position
     if (mode === "form" && isMobile) {
-      // After starting the size animation, also adjust position
+      console.log("🔥 MOBILE FORM - SETTING UP DELAYED POSITION CHANGE");
       setTimeout(() => {
+        console.log("🔥 DELAYED POSITION CHANGE EXECUTING");
         this.container.style.top = "50px";
-        this.container.style.right = "10px";
+        this.container.style.left = "15px"; // Animate to final left position
+        console.log("🔥 FINAL POSITION SET:", {
+          top: "50px",
+          left: "15px"
+        });
       }, 50); // Small delay to let the width/height animation start
     }
 
@@ -423,6 +549,9 @@ export class NewBookContainerManager extends ContainerManager {
   closeContainer() {
   if (this.isAnimating) return;
   this.isAnimating = true;
+
+  console.log("🔥 CLOSECONTAINER - CLEARING ORIGINAL BUTTON RECT");
+  this.originalButtonRect = null; // Clear so it gets recalculated next time
 
   this.saveFormData();
 
