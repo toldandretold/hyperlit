@@ -114,6 +114,8 @@ export class SourceContainerManager extends ContainerManager {
     super(containerId, overlayId, buttonId, frozenContainerIds);
     this.setupSourceContainerStyles();
     this.isAnimating = false;
+    this.button = document.getElementById(buttonId);
+    this.originalButtonRect = null;
   }
 
   rebindElements() {
@@ -129,12 +131,10 @@ export class SourceContainerManager extends ContainerManager {
     if (!c) return;
     Object.assign(c.style, {
       position: "fixed",
-      top: "16px",
-      right: "16px",
       width: "0",
       height: "0",
       overflow: "hidden",
-      transition: "width 0.4s ease-out, height 0.4s ease-out, opacity 0.3s ease-out",
+      transition: "width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, top 0.3s ease-out, right 0.3s ease-out",
       zIndex: "1001",
       backgroundColor: "#221F20",
       boxShadow: "0 0 15px rgba(0, 0, 0, 0.2)",
@@ -155,20 +155,28 @@ export class SourceContainerManager extends ContainerManager {
     if (mdBtn) mdBtn.addEventListener("click", () => exportBookAsMarkdown(book));
     if (docxBtn) docxBtn.addEventListener("click", () => exportBookAsDocxStyled(book));
 
-    // =================================================================
-    // THIS IS THE FUCKING FIX. THIS ONE LINE.
-    // We have to remove the .hidden class before we try to animate it.
-    // =================================================================
-    this.container.classList.remove("hidden");
+    // Get current button position
+    const rect = this.button.getBoundingClientRect();
+    if (!this.originalButtonRect) {
+      this.originalButtonRect = { ...rect, right: rect.right, bottom: rect.bottom };
+    }
 
+    // Remove hidden class and set up initial positioning
+    this.container.classList.remove("hidden");
     this.container.style.visibility = "visible";
     this.container.style.display = "block";
+    this.container.style.opacity = "0"; // Start invisible, fade in like newBookButton
+
+    // Position container relative to button (expand from button location)
+    this.container.style.top = `${rect.bottom + 8}px`;
+    this.container.style.right = `${window.innerWidth - rect.right}px`;
 
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const w = Math.min(vw * 0.8, 400);
     const h = Math.min(vh * 0.8, 400);
 
+    // Trigger animation with requestAnimationFrame for smooth fade-in
     requestAnimationFrame(() => {
       this.container.style.width = `${w}px`;
       this.container.style.height = `${h}px`;
@@ -184,17 +192,26 @@ export class SourceContainerManager extends ContainerManager {
     if (this.isAnimating || !this.container) return;
     this.isAnimating = true;
 
+    // Collapse to zero size and fade out, but keep positioned where it is
     this.container.style.width = "0";
     this.container.style.height = "0";
     this.container.style.opacity = "0";
+    
     this.isOpen = false;
     window.activeContainer = "main-content";
     this.updateState();
 
     this.container.addEventListener("transitionend", () => {
       this.container.style.visibility = "hidden";
-      // Add the .hidden class back AFTER the animation is finished.
       this.container.classList.add("hidden");
+      
+      // Only reset positioning AFTER animation is complete
+      this.container.style.left = "";
+      this.container.style.right = "";
+      this.container.style.top = "";
+      this.container.style.transform = "";
+      this.originalButtonRect = null;
+      
       this.isAnimating = false;
     }, { once: true });
   }

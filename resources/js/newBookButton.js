@@ -204,7 +204,6 @@ export class NewBookContainerManager extends ContainerManager {
 
         <!-- Required Fields Section -->
         <div class="form-section">
-          <h3>Required Information</h3>
           
           <label for="citation_id" class="required">Citation ID <span class="required-indicator">*</span></label>
           <input type="text" id="citation_id" name="citation_id" required 
@@ -213,14 +212,16 @@ export class NewBookContainerManager extends ContainerManager {
           <div class="field-hint">Unique identifier (letters, numbers, _, - only)</div>
           <div id="citation_id-validation" class="validation-message"></div>
 
+        </div>
+
+        <div class="form-section">
           <label for="title" class="required">Title <span class="required-indicator">*</span></label>
           <input type="text" id="title" name="title" required placeholder="Enter document title">
           <div id="title-validation" class="validation-message"></div>
-        </div>
+        
 
         <!-- Optional Fields Section -->
-        <div class="form-section">
-          <h3>Additional Information (Optional)</h3>
+        
           
           <label for="author">Author</label>
           <input type="text" id="author" name="author" placeholder="Author name">
@@ -512,9 +513,9 @@ export class NewBookContainerManager extends ContainerManager {
       if (mode === "form") {
         console.log("🔥 DEBUG: Opening directly in form mode");
         
-        // Set up the container for form display
+        // Set up the container for form display - start invisible then fade in
         this.container.style.visibility = "visible";
-        this.container.style.opacity = "1";
+        this.container.style.opacity = "0";
         this.container.style.display = "block";
         
         // Apply form-specific positioning immediately
@@ -540,16 +541,21 @@ export class NewBookContainerManager extends ContainerManager {
         this.container.style.top = targetTop;
         this.container.style.padding = targetPadding;
         
+        // Fade in after positioning is set, synced with button rotation (0.3s)
+        requestAnimationFrame(() => {
+          this.container.style.opacity = "1";
+        });
+        
         console.log("🔥 DEBUG: Direct form mode styles applied", {
           width: targetWidth, height: targetHeight, top: targetTop, padding: targetPadding
         });
         
       } else {
-        // Original buttons mode layout
+        // Original buttons mode layout - start invisible then fade in
         this.container.style.top = `${rect.bottom + 8}px`;
         this.container.style.right = `${window.innerWidth - rect.right}px`;
         this.container.style.visibility = "visible";
-        this.container.style.opacity = "1";
+        this.container.style.opacity = "0";
         this.container.style.width = "200px";
         this.container.style.height = "auto";
         this.container.style.padding = "20px";
@@ -558,6 +564,11 @@ export class NewBookContainerManager extends ContainerManager {
         this.container.style.justifyContent = "center";
         this.container.style.alignItems = "center";
         this.container.style.gap = "10px";
+        
+        // Fade in after positioning is set, synced with button rotation (0.3s)
+        requestAnimationFrame(() => {
+          this.container.style.opacity = "1";
+        });
       }
 
       if (this.overlay) {
