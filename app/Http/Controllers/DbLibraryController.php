@@ -558,6 +558,50 @@ public function bulkCreate(Request $request)
     }
 
     /**
+     * Check if a citation ID (book ID) already exists in the database
+     */
+    public function validateCitationId(Request $request)
+    {
+        try {
+            $citationId = $request->input('citation_id');
+            
+            if (!$citationId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Citation ID is required'
+                ], 400);
+            }
+            
+            // Check if the citation ID exists in the book column
+            $existingRecord = PgLibrary::where('book', $citationId)->first();
+            
+            if ($existingRecord) {
+                return response()->json([
+                    'success' => true,
+                    'exists' => true,
+                    'message' => 'Citation ID is already taken',
+                    'book_url' => url('/') . '/' . $citationId,
+                    'book_title' => $existingRecord->title,
+                    'book_author' => $existingRecord->author
+                ]);
+            }
+            
+            return response()->json([
+                'success' => true,
+                'exists' => false,
+                'message' => 'Citation ID is available'
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Citation ID validation failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation check failed'
+            ], 500);
+        }
+    }
+
+    /**
          * Update only the timestamp for a library record
          * This allows any authenticated user to update the last activity timestamp
          */
