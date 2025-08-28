@@ -28,6 +28,9 @@ export class NewBookContainerManager extends ContainerManager {
     this.createBookHandler = null;
     this.importBookHandler = null;
     
+    // Track external link clicks to prevent inappropriate closure
+    this.recentExternalLinkClick = false;
+    
     this.setupButtonListeners();
     this.originalContent = null;
 
@@ -41,6 +44,24 @@ export class NewBookContainerManager extends ContainerManager {
         console.log("🔥 CALLING setResponsiveFormSize FROM RESIZE EVENT");
         // If form is open, adjust size on resize
         this.setResponsiveFormSize();
+      }
+    });
+
+    // Override visibility change handling for mobile
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && this.recentExternalLinkClick) {
+        console.log('🔥 MOBILE: Page visible again after external link click - preserving form state');
+        this.recentExternalLinkClick = false;
+        return; // Don't let other handlers close the form
+      }
+    });
+
+    // Handle page focus for mobile browsers
+    window.addEventListener('focus', () => {
+      if (this.recentExternalLinkClick) {
+        console.log('🔥 MOBILE: Page focused after external link click - preserving form state');
+        this.recentExternalLinkClick = false;
+        return;
       }
     });
   }
@@ -434,6 +455,24 @@ export class NewBookContainerManager extends ContainerManager {
       console.log("🔥 DEBUG: openContainer blocked - already animating");
       return;
     }
+
+    // 🔥 MOBILE FIX: Reset any stuck states that could cause glitches
+    if (!this.isOpen) {
+      console.log("🔥 MOBILE: Resetting container state for fresh open");
+      this.container.style.display = "none";
+      this.container.style.opacity = "0";
+      this.container.style.width = "0";
+      this.container.style.height = "0";
+      this.container.style.visibility = "hidden";
+      this.container.classList.remove("hidden");
+      
+      // Clear any residual positioning
+      this.container.style.left = "";
+      this.container.style.right = "";
+      this.container.style.top = "";
+      this.container.style.transform = "";
+    }
+
     this.isAnimating = true;
 
     const isMobile = window.innerWidth <= 768;
@@ -590,6 +629,22 @@ export class NewBookContainerManager extends ContainerManager {
   closeContainer() {
   if (this.isAnimating) return;
   this.isAnimating = true;
+
+  // 🔥 MOBILE DEBUG: Log when and why container is closing
+  console.log("🔥 MOBILE DEBUG: closeContainer called", {
+    recentExternalLinkClick: this.recentExternalLinkClick,
+    isHidden: document.hidden,
+    userAgent: navigator.userAgent.includes('Mobile'),
+    stackTrace: new Error().stack.split('\n').slice(1, 4)
+  });
+
+  // Don't close if we recently clicked an external link (mobile protection)
+  if (this.recentExternalLinkClick) {
+    console.log("🔥 MOBILE: Preventing container close due to recent external link click");
+    this.isAnimating = false;
+    this.recentExternalLinkClick = false;
+    return;
+  }
 
   console.log("🔥 CLOSECONTAINER - CLEARING ORIGINAL BUTTON RECT");
   this.originalButtonRect = null; // Clear so it gets recalculated next time
@@ -752,6 +807,9 @@ const newBookManager = new NewBookContainerManager(
   "newBook", // The ID of your "+" button
   ["main-content"] // Same frozen containers
 );
+
+// Make available globally for mobile link handling
+window.newBookManager = newBookManager;
 
 // Export the manager instance for use in other files if needed
 export default newBookManager;
