@@ -1043,7 +1043,7 @@ class EditToolbar {
                     if (paragraphHTML.trim()) {
                       const p = document.createElement("p");
                       try {
-                        p.innerHTML = paragraphHTML.trim();
+                        p.textContent = paragraphHTML.trim();
                       } catch (e) {
                         console.warn("Failed to parse HTML from code block:", paragraphHTML);
                         p.textContent = paragraphHTML.trim();
@@ -1066,7 +1066,7 @@ class EditToolbar {
                     if (line.trim() || lines.length === 1) {
                       const p = document.createElement("p");
                       try {
-                        p.innerHTML = line || "\u00A0";
+                        p.textContent = line || "\u00A0";
                       } catch (e) {
                         console.warn("Failed to parse HTML from code block:", line);
                         p.textContent = line || "\u00A0";
