@@ -105,6 +105,11 @@ Route::middleware(['author', 'throttle:30,1'])->group(function () {
     );
 
     Route::post(
+        '/validate-citation-id',
+        [DbLibraryController::class, 'validateCitationId']
+    );
+
+    Route::post(
         '/db/sync/beacon', 
         [BeaconSyncController::class, 'handleSync']
         );

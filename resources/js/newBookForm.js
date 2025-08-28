@@ -512,11 +512,43 @@ function setupFormPersistence() {
 function setupRealTimeValidation() {
     // Validation functions
     const validators = {
-        validateCitationId: (value) => {
+        validateCitationId: async (value) => {
             if (!value) return { valid: false, message: 'Citation ID is required' };
             if (!/^[a-zA-Z0-9_-]+$/.test(value)) return { valid: false, message: 'Only letters, numbers, underscores, and hyphens allowed' };
             if (value.length < 3) return { valid: false, message: 'Citation ID must be at least 3 characters' };
-            return { valid: true, message: 'Valid citation ID' };
+            
+            // Check database for existing citation ID
+            try {
+                const response = await fetch('/api/validate-citation-id', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+                    },
+                    body: JSON.stringify({ citation_id: value })
+                });
+                
+                const data = await response.json();
+                
+                if (!data.success) {
+                    return { valid: false, message: 'Error checking citation ID availability' };
+                }
+                
+                if (data.exists) {
+                    const linkHtml = `<a href="${data.book_url}" target="_blank" style="color: #EF8D34; text-decoration: underline;">View existing book</a>`;
+                    return { 
+                        valid: false, 
+                        message: `Citation ID "${value}" is already taken by "${data.book_title}". ${linkHtml}`,
+                        isHtml: true
+                    };
+                }
+                
+                return { valid: true, message: 'Citation ID is available' };
+                
+            } catch (error) {
+                console.error('Citation ID validation error:', error);
+                return { valid: false, message: 'Unable to verify citation ID availability' };
+            }
         },
         
         validateTitle: (value) => {
@@ -561,13 +593,24 @@ function setupRealTimeValidation() {
     const showValidationMessage = (elementId, result) => {
         const msgElement = document.getElementById(`${elementId}-validation`);
         if (msgElement) {
-            msgElement.textContent = result.message;
+            if (result.isHtml) {
+                msgElement.innerHTML = result.message;
+                // Prevent validation message links from closing the form
+                const links = msgElement.querySelectorAll('a');
+                links.forEach(link => {
+                    link.addEventListener('click', (e) => {
+                        e.stopPropagation(); // Prevent event bubbling to overlay
+                    });
+                });
+            } else {
+                msgElement.textContent = result.message;
+            }
             msgElement.className = `validation-message ${result.valid ? 'success' : 'error'}`;
         }
     };
     
     // Validate form and update submit button
-    const validateForm = () => {
+    const validateForm = async () => {
         const citationId = document.getElementById('citation_id');
         const title = document.getElementById('title');
         const fileInput = document.getElementById('markdown_file');
@@ -575,13 +618,18 @@ function setupRealTimeValidation() {
         
         if (!citationId || !title || !fileInput || !submitButton) return;
         
-        const citationResult = validators.validateCitationId(citationId.value);
+        // Temporarily disable submit button during validation
+        submitButton.disabled = true;
+        submitButton.textContent = 'Validating...';
+        
+        const citationResult = await validators.validateCitationId(citationId.value);
         const titleResult = validators.validateTitle(title.value);
         const fileResult = validators.validateFile(fileInput);
         
         const isFormValid = citationResult.valid && titleResult.valid && fileResult.valid;
         
         submitButton.disabled = !isFormValid;
+        submitButton.textContent = isFormValid ? 'Create Book' : 'Create Book';
         
         // Update validation summary
         updateValidationSummary([
@@ -613,15 +661,23 @@ function setupRealTimeValidation() {
     // Set up individual field validators
     const citationIdField = document.getElementById('citation_id');
     if (citationIdField) {
+        let validationTimeout;
+        
         citationIdField.addEventListener('input', function() {
-            const result = validators.validateCitationId(this.value);
-            showValidationMessage('citation_id', result);
-            setTimeout(validateForm, 100); // Slight delay for better UX
+            clearTimeout(validationTimeout);
+            // Debounce the database check to avoid too many requests
+            validationTimeout = setTimeout(async () => {
+                const result = await validators.validateCitationId(this.value);
+                showValidationMessage('citation_id', result);
+                await validateForm();
+            }, 500);
         });
-        citationIdField.addEventListener('blur', function() {
-            const result = validators.validateCitationId(this.value);
+        
+        citationIdField.addEventListener('blur', async function() {
+            clearTimeout(validationTimeout);
+            const result = await validators.validateCitationId(this.value);
             showValidationMessage('citation_id', result);
-            validateForm();
+            await validateForm();
         });
     }
     
