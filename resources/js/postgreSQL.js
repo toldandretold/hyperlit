@@ -349,6 +349,7 @@ export async function syncBookDataFromDatabase(bookId) {
     console.log("✅ Data received from API:", {
       nodeChunks: data.nodeChunks.length,
       footnotes: data.footnotes ? 'Yes' : 'No',
+      bibliography: data.bibliography ? 'Yes' : 'No',
       hyperlights: data.hyperlights.length,
       hypercites: data.hypercites.length,
       library: data.library ? 'Yes' : 'No'
@@ -364,6 +365,7 @@ export async function syncBookDataFromDatabase(bookId) {
     await Promise.all([
       loadNodeChunksToIndexedDB(db, data.nodeChunks),
       loadFootnotesToIndexedDB(db, data.footnotes),
+      loadBibliographyToIndexedDB(db, data.bibliography),
       loadHyperlightsToIndexedDB(db, data.hyperlights),
       loadHypercitesToIndexedDB(db, data.hypercites),
       loadLibraryToIndexedDB(db, data.library)
@@ -497,7 +499,7 @@ async function loadNodeChunksToIndexedDB(db, nodeChunks) {
  * Load footnotes into IndexedDB
  */
 async function loadFootnotesToIndexedDB(db, footnotes) {
-  if (!footnotes) {
+  if (!footnotes || !footnotes.data) {
     console.log("ℹ️ No footnotes to load");
     return;
   }
@@ -507,13 +509,64 @@ async function loadFootnotesToIndexedDB(db, footnotes) {
   const tx = db.transaction('footnotes', 'readwrite');
   const store = tx.objectStore('footnotes');
   
-  await new Promise((resolve, reject) => {
-    const request = store.put(footnotes);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
+  // Convert footnotes.data object to individual records
+  const footnotesData = footnotes.data;
+  const promises = [];
   
-  console.log("✅ Loaded footnotes");
+  for (const [footnoteId, content] of Object.entries(footnotesData)) {
+    const record = {
+      book: footnotes.book,
+      footnoteId: footnoteId,
+      content: content
+    };
+    
+    promises.push(new Promise((resolve, reject) => {
+      const request = store.put(record);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    }));
+  }
+  
+  await Promise.all(promises);
+  
+  console.log(`✅ Loaded ${Object.keys(footnotesData).length} footnotes`);
+}
+
+/**
+ * Load bibliography/references into IndexedDB
+ */
+async function loadBibliographyToIndexedDB(db, bibliography) {
+  if (!bibliography || !bibliography.data) {
+    console.log("ℹ️ No bibliography to load");
+    return;
+  }
+  
+  console.log("📚 Loading bibliography...");
+  
+  const tx = db.transaction('references', 'readwrite');
+  const store = tx.objectStore('references');
+  
+  // Convert bibliography.data object to individual records
+  const bibliographyData = bibliography.data;
+  const promises = [];
+  
+  for (const [referenceId, content] of Object.entries(bibliographyData)) {
+    const record = {
+      book: bibliography.book,
+      referenceId: referenceId,
+      content: content
+    };
+    
+    promises.push(new Promise((resolve, reject) => {
+      const request = store.put(record);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    }));
+  }
+  
+  await Promise.all(promises);
+  
+  console.log(`✅ Loaded ${Object.keys(bibliographyData).length} references`);
 }
 
 /**

@@ -28,6 +28,9 @@ class DatabaseToIndexedDBController extends Controller
             // Get footnotes for this book
             $footnotes = $this->getFootnotes($bookId);
             
+            // Get bibliography/references for this book
+            $bibliography = $this->getBibliography($bookId);
+            
             // Get hyperlights for this book
             $hyperlights = $this->getHyperlights($bookId);
             
@@ -41,14 +44,16 @@ class DatabaseToIndexedDBController extends Controller
             $response = [
                 'nodeChunks' => $nodeChunks,
                 'footnotes' => $footnotes,
+                'bibliography' => $bibliography,
                 'hyperlights' => $hyperlights,
                 'hypercites' => $hypercites,
                 'library' => $library,
                 'metadata' => [
                     'book_id' => $bookId,
                     'total_chunks' => count($nodeChunks),
-                    'total_footnotes' => $footnotes ? count($footnotes) : 0,  // ✅ Handle null
-                    'total_hyperlights' => count($hyperlights ?? []),         // ✅ Handle null
+                    'total_footnotes' => $footnotes ? count($footnotes['data'] ?? []) : 0,
+                    'total_bibliography' => $bibliography ? count($bibliography['data'] ?? []) : 0,
+                    'total_hyperlights' => count($hyperlights ?? []),
                     'total_hypercites' => count($hypercites ?? []),
                     'generated_at' => now()->toISOString(),
                 ]
@@ -104,18 +109,48 @@ class DatabaseToIndexedDBController extends Controller
      */
     private function getFootnotes(string $bookId): ?array
     {
-        $footnote = DB::table('footnotes')
+        $footnotes = DB::table('footnotes')
             ->where('book', $bookId)
-            ->first();
+            ->get();
 
-        if (!$footnote) {
+        if ($footnotes->isEmpty()) {
             return null;
         }
 
+        // Convert to the format expected by the frontend
+        $footnotesData = [];
+        foreach ($footnotes as $footnote) {
+            $footnotesData[$footnote->footnoteId] = $footnote->content;
+        }
+
         return [
-            'book' => $footnote->book,
-            'data' => json_decode($footnote->data, true),
-            'raw_json' => json_decode($footnote->raw_json, true),
+            'book' => $bookId,
+            'data' => $footnotesData,
+        ];
+    }
+
+    /**
+     * Get bibliography/references for a book
+     */
+    private function getBibliography(string $bookId): ?array
+    {
+        $references = DB::table('bibliography')
+            ->where('book', $bookId)
+            ->get();
+
+        if ($references->isEmpty()) {
+            return null;
+        }
+
+        // Convert to the format expected by the frontend
+        $bibliographyData = [];
+        foreach ($references as $reference) {
+            $bibliographyData[$reference->referenceId] = $reference->content;
+        }
+
+        return [
+            'book' => $bookId,
+            'data' => $bibliographyData,
         ];
     }
 

@@ -913,18 +913,23 @@ class EditToolbar {
                 affectedBlocks[affectedBlocks.length - 1]
               );
 
-              const combinedText = affectedBlocks
-                .map((block) => block.textContent)
-                .join(type === "code" ? "\n" : " ");
-
               let newBlockElement;
               if (type === "blockquote") {
                 newBlockElement = document.createElement("blockquote");
-                newBlockElement.innerHTML = combinedText.trim() + "<br>";
+                // Preserve HTML formatting by using innerHTML instead of textContent
+                const combinedHTML = affectedBlocks
+                  .map((block) => block.innerHTML)
+                  .join(" ");
+                newBlockElement.innerHTML = combinedHTML.trim() + "<br>";
               } else {
+                // For code blocks, show the actual HTML markup
+                // Use a special marker to preserve original paragraph boundaries
+                const combinedHTML = affectedBlocks
+                  .map((block) => block.innerHTML)
+                  .join("\n<!-- PARAGRAPH_BREAK -->\n");
                 newBlockElement = document.createElement("pre");
                 const codeElement = document.createElement("code");
-                codeElement.textContent = combinedText;
+                codeElement.textContent = combinedHTML;
                 newBlockElement.appendChild(codeElement);
               }
 
@@ -1004,27 +1009,80 @@ class EditToolbar {
               const blockToUnwrap = blockParentToToggle;
               const beforeOriginalId = findPreviousElementId(blockToUnwrap);
               const afterOriginalId = findNextElementId(blockToUnwrap);
-              const textContent = blockToUnwrap.textContent;
-              const lines = textContent.split("\n");
+              
               const fragment = document.createDocumentFragment();
               let lastId = beforeOriginalId;
               let firstNewP = null;
               const createdP_ids_with_html = []; // Store IDs with HTML for saveToIndexedDB
 
-              lines.forEach((line, index) => {
-                if (line.trim() || lines.length === 1) {
-                  const p = document.createElement("p");
-                  p.textContent = line || "\u00A0";
-                  p.id = generateIdBetween(lastId, afterOriginalId);
-                  lastId = p.id;
-                  if (index === 0) firstNewP = p;
-                  fragment.appendChild(p);
-                  createdP_ids_with_html.push({
-                    id: p.id,
-                    html: p.outerHTML,
+              if (type === "blockquote" && isBlockquote) {
+                // For blockquotes, preserve HTML formatting when unwrapping
+                const p = document.createElement("p");
+                // Remove trailing <br> if present, then set innerHTML to preserve formatting
+                let content = blockToUnwrap.innerHTML;
+                if (content.endsWith("<br>")) {
+                  content = content.slice(0, -4);
+                }
+                p.innerHTML = content || "\u00A0";
+                p.id = generateIdBetween(lastId, afterOriginalId);
+                firstNewP = p;
+                fragment.appendChild(p);
+                createdP_ids_with_html.push({
+                  id: p.id,
+                  html: p.outerHTML,
+                });
+              } else {
+                // For code blocks, parse HTML markup back into functioning HTML
+                const htmlContent = blockToUnwrap.textContent;
+                
+                // Check if content has paragraph break markers (multiple paragraphs)
+                if (htmlContent.includes("<!-- PARAGRAPH_BREAK -->")) {
+                  const paragraphContents = htmlContent.split("\n<!-- PARAGRAPH_BREAK -->\n");
+                  
+                  paragraphContents.forEach((paragraphHTML, index) => {
+                    if (paragraphHTML.trim()) {
+                      const p = document.createElement("p");
+                      try {
+                        p.innerHTML = paragraphHTML.trim();
+                      } catch (e) {
+                        console.warn("Failed to parse HTML from code block:", paragraphHTML);
+                        p.textContent = paragraphHTML.trim();
+                      }
+                      p.id = generateIdBetween(lastId, afterOriginalId);
+                      lastId = p.id;
+                      if (index === 0) firstNewP = p;
+                      fragment.appendChild(p);
+                      createdP_ids_with_html.push({
+                        id: p.id,
+                        html: p.outerHTML,
+                      });
+                    }
+                  });
+                } else {
+                  // Single paragraph case - split by actual line breaks if any
+                  const lines = htmlContent.split("\n");
+                  
+                  lines.forEach((line, index) => {
+                    if (line.trim() || lines.length === 1) {
+                      const p = document.createElement("p");
+                      try {
+                        p.innerHTML = line || "\u00A0";
+                      } catch (e) {
+                        console.warn("Failed to parse HTML from code block:", line);
+                        p.textContent = line || "\u00A0";
+                      }
+                      p.id = generateIdBetween(lastId, afterOriginalId);
+                      lastId = p.id;
+                      if (index === 0) firstNewP = p;
+                      fragment.appendChild(p);
+                      createdP_ids_with_html.push({
+                        id: p.id,
+                        html: p.outerHTML,
+                      });
+                    }
                   });
                 }
-              });
+              }
 
               if (fragment.childNodes.length > 0) {
                 blockToUnwrap.parentNode.replaceChild(fragment, blockToUnwrap);
@@ -1072,7 +1130,8 @@ class EditToolbar {
               } else {
                 newBlockElement = document.createElement("pre");
                 const code = document.createElement("code");
-                code.textContent = blockParentToToggle.textContent;
+                // Show the HTML markup in the code block
+                code.textContent = blockParentToToggle.innerHTML;
                 newBlockElement.appendChild(code);
               }
 
