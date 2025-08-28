@@ -3,6 +3,8 @@
 import {
   updateIndexedDBRecord,
   batchUpdateIndexedDBRecords,
+  deleteIndexedDBRecord,
+  batchDeleteIndexedDBRecords,
   getNodeChunkFromIndexedDB,
   parseNodeId,
   openDatabase,
@@ -1168,6 +1170,24 @@ class EditToolbar {
       elements.push(node);
     }
     return elements;
+  }
+
+  /**
+   * Check if an element is a block-level element
+   */
+  isBlockElement(element) {
+    if (!element || element.nodeType !== Node.ELEMENT_NODE) {
+      return false;
+    }
+    
+    const blockElements = [
+      "P", "DIV", "H1", "H2", "H3", "H4", "H5", "H6", 
+      "BLOCKQUOTE", "PRE", "UL", "OL", "LI", "TABLE", 
+      "TR", "TD", "TH", "SECTION", "ARTICLE", "ASIDE", 
+      "HEADER", "FOOTER", "MAIN", "NAV", "FIGURE", "FIGCAPTION"
+    ];
+    
+    return blockElements.includes(element.tagName);
   }
 
   getBlockElementsInRange(range) {
