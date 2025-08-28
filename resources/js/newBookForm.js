@@ -600,6 +600,12 @@ function setupRealTimeValidation() {
                 links.forEach(link => {
                     link.addEventListener('click', (e) => {
                         e.stopPropagation(); // Prevent event bubbling to overlay
+                        
+                        // Mark that we clicked an external link (for mobile handling)
+                        if (window.newBookManager) {
+                            window.newBookManager.recentExternalLinkClick = true;
+                            console.log('🔥 MOBILE: External link clicked - flagged to preserve form state');
+                        }
                     });
                 });
             } else {
