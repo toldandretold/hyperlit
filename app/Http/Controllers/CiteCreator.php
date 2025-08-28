@@ -75,7 +75,28 @@ class CiteCreator extends Controller
             'title' => 'required|string|max:255',
             'author' => 'nullable|string|max:255',
             'year' => 'nullable|integer|min:1000|max:' . (date('Y') + 10),
-            'markdown_file' => 'nullable|file|max:50000|mimes:md,doc,docx,epub'
+            'markdown_file' => [
+                'nullable',
+                'file',
+                'max:50000',
+                function ($attribute, $value, $fail) {
+                    if ($value) {
+                        $extension = strtolower($value->getClientOriginalExtension());
+                        $allowedExtensions = ['md', 'doc', 'docx', 'epub'];
+                        
+                        Log::info('File validation debug', [
+                            'original_name' => $value->getClientOriginalName(),
+                            'extension' => $extension,
+                            'mime_type' => $value->getMimeType(),
+                            'size' => $value->getSize()
+                        ]);
+                        
+                        if (!in_array($extension, $allowedExtensions)) {
+                            $fail('The markdown file field must be a file of type: md, doc, docx, epub.');
+                        }
+                    }
+                }
+            ]
         ]);
 
         $citation_id = preg_replace('/[^a-zA-Z0-9_-]/', '', $request->input('citation_id'));
@@ -108,9 +129,16 @@ class CiteCreator extends Controller
             ]);
 
             if ($extension === 'md') {
-                $this->sanitizeMarkdownFile($originalFilePath);
-                File::move($originalFilePath, "{$path}/main-text.md");
-                Log::info('Markdown file processed', ['citation_id' => $citation_id]);
+                // --- MODIFIED: New workflow for MD files ---
+                $isDocxProcessing = true; // Use same processing pipeline as DOCX
+                
+                Log::info('Dispatching markdown-to-JSON processing.', [
+                    'citation_id' => $citation_id,
+                    'input_file' => $originalFilePath,
+                ]);
+                
+                // Process markdown file using the same pipeline as DOCX
+                $this->processMarkdownFile($originalFilePath, $path, $citation_id);
             } elseif ($extension === 'epub') {
                 $this->processEpubFile($originalFilePath, $path);
             } elseif (in_array($extension, ['doc', 'docx'])) {
@@ -607,5 +635,74 @@ class CiteCreator extends Controller
             'title' => $title,
             'path' => basename($path)
         ]);
+    }
+
+    private function processMarkdownFile(string $markdownFilePath, string $outputPath, string $citation_id): void
+    {
+        $htmlOutputPath = "{$outputPath}/intermediate.html";
+        $pythonScriptPath = base_path('app/Python/process_document.py');
+
+        try {
+            // Step 1: Sanitize the markdown file first
+            $this->sanitizeMarkdownFile($markdownFilePath);
+            
+            Log::info('Step 1: Converting Markdown to HTML...', [
+                'input' => $markdownFilePath,
+                'output' => $htmlOutputPath
+            ]);
+
+            // Step 2: Convert Markdown to HTML using Pandoc
+            $pandocProcess = new Process([
+                'pandoc',
+                $markdownFilePath,
+                '-o',
+                $htmlOutputPath,
+                '--extract-media=' . $outputPath // Extract images if any
+            ]);
+            $pandocProcess->setTimeout(300); // 5 minutes timeout
+            $pandocProcess->run();
+
+            if (!$pandocProcess->isSuccessful()) {
+                throw new ProcessFailedException($pandocProcess);
+            }
+            Log::info("Markdown to HTML conversion successful.");
+
+            // Step 3: Run the Python script on the generated HTML
+            Log::info("Step 2: Running Python script...", [
+                'script' => $pythonScriptPath,
+                'html_input' => $htmlOutputPath,
+                'output_dir' => $outputPath,
+                'book_id' => $citation_id
+            ]);
+
+            $pythonProcess = new Process([
+                'python3',
+                $pythonScriptPath,
+                $htmlOutputPath,
+                $outputPath,
+                $citation_id // Pass citation_id as book_id
+            ]);
+            $pythonProcess->setTimeout(300);
+            $pythonProcess->run();
+
+            if (!$pythonProcess->isSuccessful()) {
+                throw new ProcessFailedException($pythonProcess);
+            }
+            Log::info("Python script executed successfully. JSON files created from markdown.");
+
+        } catch (ProcessFailedException $exception) {
+            Log::error("Markdown processing failed for {$citation_id}", [
+                'error' => $exception->getMessage(),
+                'stdout' => $exception->getProcess()->getOutput(),
+                'stderr' => $exception->getProcess()->getErrorOutput(),
+            ]);
+            throw $exception;
+        } finally {
+            // Step 4: Clean up the intermediate HTML file
+            if (File::exists($htmlOutputPath)) {
+                File::delete($htmlOutputPath);
+                Log::info("Cleaned up intermediate file: {$htmlOutputPath}");
+            }
+        }
     }
 }
