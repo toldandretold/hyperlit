@@ -621,7 +621,7 @@ black #221F20;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-@media only screen and (max-width: 500px) {
+@media only screen and (max-width: 768px) {
   #cloudRef svg {
     width: 24px !important;
   }
@@ -701,15 +701,20 @@ black #221F20;
 
   #logoContainer img {
     display: block;
-    width: 18px !important;
+    width: auto !important;
     height: 18px !important;
+    max-width: 18px !important;
     transition: none;
+    margin: 0 auto;
   }
 
   #logoContainer {
-    left: 5px;
-    width: 32px;
-    height: 32px;
+    left: 12px;
+    width: 24px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   /* Mobile horizontal toolbar */
