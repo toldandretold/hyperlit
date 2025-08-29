@@ -106,7 +106,6 @@ async function handleFootnoteClick(supElement) {
       
       const htmlToDisplay = `
         <div class="footnote-content">
-          <div class="footnote-header">Footnote ${fnCountId}</div>
           <div class="footnote-text">${result.content}</div>
         </div>`;
       
@@ -151,7 +150,6 @@ async function handleCitationClick(linkElement) {
       
       const htmlToDisplay = `
         <div class="citation-content">
-          <div class="citation-header">Reference</div>
           <div class="citation-text">${result.content}</div>
         </div>`;
       
