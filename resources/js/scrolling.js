@@ -85,6 +85,7 @@ export function setupUserScrollDetection(scrollableContainer) {
       detectUserScrollStart();
     }
   }, { passive: true });
+  
 }
 
 // NEW: Consistent scroll method to be used throughout the application

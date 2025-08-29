@@ -18,8 +18,18 @@ body {
   width: 100%;
   height: 100vh;
   position: relative;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
+#page-wrapper,
+#page-wrapper.container {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+}
 
 /* Only use flexbox on reader page */
 body[data-page="reader"] #app-container {
@@ -46,6 +56,7 @@ body[data-page="reader"] #app-container {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   box-sizing: border-box;
+  position: relative; /* Needed for the scroll mask */
 }
 
 /* Flexbox sizing only for reader */
@@ -58,6 +69,28 @@ body[data-page="home"] .home-content-wrapper {
   height: 100vh; /* Full height for home page */
 }
 
+/* ================================================== */
+/* === SCROLL MASK - CLIPS CONTENT AT LOGO EDGE   === */
+/* ================================================== */
+
+/* Reader page scroll mask - clips at logo TOP (10px from top) */
+body[data-page="reader"] .reader-content-wrapper::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px; /* Logo top position = 10px */
+  background-color: #221f20;
+  z-index: 998; /* Below buttons (999) but above content */
+  pointer-events: none; /* Allow clicks to pass through */
+}
+
+/* Alternative approach using clip-path on the wrapper itself */
+body[data-page="reader"] .reader-content-wrapper {
+  clip-path: inset(10px 0 0 0); /* Clip from 10px from top - same as logo top */
+}
+
 #keyboard-spacer {
   height: 100px; /* Default minimum height for reading */
   transition: height 0.3s ease; /* Smooth resize when keyboard appears */
@@ -65,10 +98,13 @@ body[data-page="home"] .home-content-wrapper {
 
 /* Rule for the INNER CONTENT DIVs */
 .main-content {
-  padding: 10px 40px 40px 40px;
+  padding: 28px 40px 40px 40px;
   box-sizing: border-box;
   /* For the reader, ensures it fills the wrapper for short content */
   min-height: 100%;
+  /* Prevent main-content from extending beyond its container */
+  max-width: 100%;
+  margin: 0 auto;
 }
 
 /* 
@@ -169,6 +205,14 @@ body[data-page="home"] .main-content {
   max-width: 60ch;
   margin: 0 auto;
   padding: 0 20px;
+}
+
+.spacer {
+  margin: 0;
+  padding: 0;
+  height: 0;
+  width: 0;
+  display: none;
 }
 
 #edit-toolbar {
