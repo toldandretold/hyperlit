@@ -31,21 +31,13 @@ export class NewBookContainerManager extends ContainerManager {
     // Track external link clicks to prevent inappropriate closure
     this.recentExternalLinkClick = false;
     
+    // Store resize handler reference for lazy initialization and cleanup
+    this.resizeHandler = null;
+    
     this.setupButtonListeners();
     this.originalContent = null;
 
-    window.addEventListener('resize', () => {
-      console.log("🔥 WINDOW RESIZE EVENT FIRED!", {
-        isOpen: this.isOpen,
-        hasCiteForm: !!this.container.querySelector('#cite-form'),
-        windowWidth: window.innerWidth
-      });
-      if (this.isOpen && this.container.querySelector('#cite-form')) {
-        console.log("🔥 CALLING setResponsiveFormSize FROM RESIZE EVENT");
-        // If form is open, adjust size on resize
-        this.setResponsiveFormSize();
-      }
-    });
+    // Resize listener will be initialized lazily when import form is opened
 
     // Override visibility change handling for mobile
     document.addEventListener('visibilitychange', () => {
@@ -64,6 +56,34 @@ export class NewBookContainerManager extends ContainerManager {
         return;
       }
     });
+  }
+
+  setupResizeListener() {
+    // Only set up the resize listener if it hasn't been created yet
+    if (!this.resizeHandler) {
+      console.log("🔥 DEBUG: Setting up resize listener for form");
+      this.resizeHandler = () => {
+        console.log("🔥 WINDOW RESIZE EVENT FIRED!", {
+          isOpen: this.isOpen,
+          hasCiteForm: !!this.container?.querySelector('#cite-form'),
+          windowWidth: window.innerWidth
+        });
+        if (this.isOpen && this.container?.querySelector('#cite-form')) {
+          console.log("🔥 CALLING setResponsiveFormSize FROM RESIZE EVENT");
+          // If form is open, adjust size on resize
+          this.setResponsiveFormSize();
+        }
+      };
+      window.addEventListener('resize', this.resizeHandler);
+    }
+  }
+
+  cleanupResizeListener() {
+    if (this.resizeHandler) {
+      console.log("🔥 DEBUG: Cleaning up resize listener");
+      window.removeEventListener('resize', this.resizeHandler);
+      this.resizeHandler = null;
+    }
   }
 
  setupNewBookContainerStyles() {
@@ -128,6 +148,9 @@ export class NewBookContainerManager extends ContainerManager {
       if (!this.originalContent) {
         this.originalContent = this.container.innerHTML;
       }
+
+      // ✅ LAZY INITIALIZATION: Set up resize listener only when form is opened
+      this.setupResizeListener();
 
       // Replace content with the form
       this.showImportForm();
@@ -288,10 +311,7 @@ export class NewBookContainerManager extends ContainerManager {
     // Replace the container content
     this.container.innerHTML = formHTML;
 
-    this.container.style.padding = "20px";
-    this.container.style.display = "block";
-
-
+    // Let openContainer() handle all positioning and display logic
     // Remove alignment styles from flex usage, if any.
     this.container.style.flexDirection = "";
     this.container.style.justifyContent = "";
@@ -648,6 +668,9 @@ export class NewBookContainerManager extends ContainerManager {
 
   console.log("🔥 CLOSECONTAINER - CLEARING ORIGINAL BUTTON RECT");
   this.originalButtonRect = null; // Clear so it gets recalculated next time
+
+  // ✅ CLEANUP: Remove resize listener when form is closed
+  this.cleanupResizeListener();
 
   this.saveFormData();
 
