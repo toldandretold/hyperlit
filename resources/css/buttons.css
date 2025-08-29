@@ -90,6 +90,18 @@ black #221F20;
   cursor: pointer !important;
 }
 
+#editButton.locked-state {
+  background: #221F20;
+  color: #666666; /* Slightly muted color for lock */
+  cursor: default !important;
+  opacity: 0.8;
+}
+
+#editButton.locked-state svg {
+  fill: currentColor;
+  color: #666666; /* Muted gray color for the lock */
+}
+
 .open {
   background-color: #221F20;
   border: none;
@@ -662,6 +674,20 @@ black #221F20;
     height: 22px;
     border-radius: 4px;
     border: none;
+  }
+
+  #editButton.locked-state {
+    background: #221F20;
+    color: #666666; /* Slightly muted color for lock */
+    cursor: default !important;
+    opacity: 0.8;
+    width: 22px;
+    height: 22px;
+  }
+
+  #editButton.locked-state svg {
+    fill: currentColor;
+    color: #666666; /* Muted gray color for the lock */
   }
 
   #boldButton,

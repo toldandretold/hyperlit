@@ -364,7 +364,7 @@ export class NewBookContainerManager extends ContainerManager {
 
   setResponsiveFormSize() {
     console.log("🔥 SETRESPONSIVEFORMSIZE CALLED!");
-    const isMobile = window.innerWidth <= 768;
+    const isMobile = window.innerWidth <= 480;
     
     console.log("🔥 SETRESPONSIVEFORMSIZE BEFORE CHANGES:", {
       isMobile,
@@ -495,7 +495,7 @@ export class NewBookContainerManager extends ContainerManager {
 
     this.isAnimating = true;
 
-    const isMobile = window.innerWidth <= 768;
+    const isMobile = window.innerWidth <= 480;
     const rect = this.button.getBoundingClientRect();
     
     console.log("🔥 DEBUG: openContainer state", { isMobile, rect, originalButtonRect: this.originalButtonRect });
