@@ -197,21 +197,30 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
   // This block handles the case where the user does NOT have permission.
   if (!canEdit) {
     console.log("❌ User does not have permission to edit this book");
+    
+    const currentUser = await getCurrentUser();
+    
+    if (!currentUser) {
+      // User not logged in - show login prompt
+      userManager.setPostLoginAction(() => {
+        // After successful login, simply try to enable edit mode again
+        // This will trigger the permission check and show appropriate UI
+        enableEditMode(targetElementId);
+      });
 
-    // Tell the userManager what to do AFTER a successful login.
-    userManager.setPostLoginAction(() => {
-      enableEditMode(targetElementId);
-    });
-
-    // Call the alert with specific, defined arguments to show the login prompt.
-    showCustomAlert(
-      "Login to Edit",
-      "You need to be logged in to your account to edit this book.",
-      {
-        showLoginButton: true,
-        showReadButton: true,
-      }
-    );
+      showCustomAlert(
+        "Login to Edit",
+        "You need to be logged in to your account to edit this book.",
+        {
+          showLoginButton: true,
+          showReadButton: true,
+        }
+      );
+    } else {
+      // User is logged in but doesn't have permissions - replace with lock icon
+      replaceEditButtonWithLock();
+      console.log("🔒 User is logged in but doesn't have edit permissions - showing lock icon");
+    }
 
     editModeCheckInProgress = false;
     return; // IMPORTANT: Stop the function here.
@@ -389,6 +398,13 @@ export function initializeEditButtonListeners() {
     editBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
+      
+      // Don't do anything if button is in locked state
+      if (editBtn.dataset.isLocked === 'true') {
+        console.log("🔒 Edit button is locked - no action taken");
+        return;
+      }
+      
       if (window.isEditing) {
         disableEditMode();
       } else {
@@ -399,6 +415,13 @@ export function initializeEditButtonListeners() {
     editBtn.addEventListener("touchend", (e) => {
       e.preventDefault();
       e.stopPropagation();
+      
+      // Don't do anything if button is in locked state
+      if (editBtn.dataset.isLocked === 'true') {
+        console.log("🔒 Edit button is locked - no action taken");
+        return;
+      }
+      
       if (window.isEditing) {
         disableEditMode();
       } else {
@@ -423,9 +446,96 @@ export async function updateEditButtonVisibility(bookId) {
 
   editButton.style.display = 'block';
   editButton.classList.remove('hidden');
+  
+  // After making button visible, check permissions and update UI
+  await checkEditPermissionsAndUpdateUI();
 }
 
 updateEditButtonVisibility(book);
+
+// Function to replace edit button with lock icon
+function replaceEditButtonWithLock() {
+  const editBtn = document.getElementById("editButton");
+  if (!editBtn) return;
+  
+  // Store original button content and classes for potential restoration
+  if (!editBtn.dataset.originalContent) {
+    editBtn.dataset.originalContent = editBtn.innerHTML;
+    editBtn.dataset.originalClasses = editBtn.className;
+  }
+  
+  // Replace with lock SVG
+  editBtn.innerHTML = `
+    <svg fill="currentColor" viewBox="0 0 574.65 574.65" width="100%" height="100%" style="width: 100%; height: 100%;">
+      <path d="M424.94,217.315v-79.656C424.94,61.755,363.185,0,287.291,0S149.658,61.739,149.658,137.623v79.742
+        c-41.326,28.563-68.46,76.238-68.46,130.287v162.264c0,35.748,28.986,64.734,64.733,64.734h282.787
+        c35.748,0,64.734-28.986,64.734-64.734V347.652C493.456,293.574,466.306,245.892,424.94,217.315z M322.136,421.457v49.314
+        c0,19.221-15.577,34.811-34.808,34.811c-19.23,0-34.829-15.59-34.829-34.83v-49.283c-14.155-10.627-23.441-27.385-23.441-46.447
+        c0-32.174,26.102-58.254,58.252-58.254c32.173,0,58.255,26.084,58.255,58.254C345.563,394.084,336.276,410.832,322.136,421.457z
+         M348.241,189.969c-4.344-0.357-8.707-0.665-13.145-0.665h-95.538c-4.456,0-8.837,0.308-13.201,0.665v-52.346
+        c0-33.595,27.338-60.922,60.933-60.922c33.612,0,60.95,27.348,60.95,60.959V189.969L348.241,189.969z"/>
+    </svg>
+  `;
+  
+  // Add lock-specific styling
+  editBtn.className = editBtn.dataset.originalClasses + ' locked-state';
+  editBtn.dataset.isLocked = 'true';
+  
+  // Remove any existing event listeners by cloning the element
+  const newEditBtn = editBtn.cloneNode(true);
+  editBtn.parentNode.replaceChild(newEditBtn, editBtn);
+  
+  console.log("✅ Edit button replaced with lock icon");
+}
+
+// Function to restore edit button from lock state
+function restoreEditButtonFromLock() {
+  const editBtn = document.getElementById("editButton");
+  if (!editBtn || !editBtn.dataset.isLocked) return;
+  
+  // Restore original content and classes
+  if (editBtn.dataset.originalContent) {
+    editBtn.innerHTML = editBtn.dataset.originalContent;
+  }
+  if (editBtn.dataset.originalClasses) {
+    editBtn.className = editBtn.dataset.originalClasses;
+  }
+  
+  // Clean up lock-specific data
+  delete editBtn.dataset.isLocked;
+  delete editBtn.dataset.originalContent;
+  delete editBtn.dataset.originalClasses;
+  
+  // Re-initialize event listeners
+  initializeEditButtonListeners();
+  
+  console.log("✅ Edit button restored from lock state");
+}
+
+// Function to check if user has edit permissions and handle UI accordingly
+export async function checkEditPermissionsAndUpdateUI() {
+  const currentUser = await getCurrentUser();
+  const editBtn = document.getElementById("editButton");
+  
+  if (!editBtn) return;
+  
+  if (!currentUser) {
+    // User not logged in - show edit button (will trigger login flow when clicked)
+    restoreEditButtonFromLock();
+    return;
+  }
+  
+  // User is logged in - check permissions
+  const canEdit = await canUserEditBook(book);
+  
+  if (canEdit) {
+    // User has permissions - show edit button
+    restoreEditButtonFromLock();
+  } else {
+    // User doesn't have permissions - show lock
+    replaceEditButtonWithLock();
+  }
+}
 
 // Add this function to your file
 // reader-edit.js
@@ -508,6 +618,12 @@ async function showCustomAlert(title, message, options = {}) {
         buttonContainer.appendChild(cancelButton);
       }
     }
+  });
+
+  // Prevent default form submission to avoid 422 errors
+  alertBox.addEventListener("submit", (e) => {
+    e.preventDefault();
+    console.log("Form submission prevented - using JavaScript handlers instead");
   });
 
   // The overlay click should ALWAYS allow cancellation.
