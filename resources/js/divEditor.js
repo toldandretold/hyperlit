@@ -46,6 +46,7 @@ import { SelectionDeletionHandler } from './selectionDelete.js';
 import { initializeMainLazyLoader } from './initializePage.js';
 import { getEditToolbar } from './editToolbar.js';
 import { delinkHypercite, handleHyperciteDeletion } from './hyperCites.js';
+import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from './toc.js';
 
 
 
@@ -731,6 +732,9 @@ async function processChunkMutations(chunk, mutations) {
           if (node.id && node.id.match(/^\d+(\.\d+)?$/)) {
             console.log(`🗑️ Attempting to delete node ${node.id} from IndexedDB`);
 
+            // For deletions, we can't check tagName since node is removed, so invalidate cache for any numerical ID deletion
+            invalidateTocCacheForDeletion(node.id);
+
             // Check if this is the last node in the chunk 
             const remainingNodes = chunk.querySelectorAll('[id]').length;
             console.log(`Chunk ${chunkId} has ${remainingNodes} remaining nodes after this deletion`);
@@ -843,6 +847,9 @@ async function processChunkMutations(chunk, mutations) {
           addedCount++;
           newNodes.push(node);
           
+          // Check if this affects TOC and invalidate cache if needed
+          checkAndInvalidateTocCache(node.id, node);
+          
           // If this might be a paste, explicitly queue this node
           if (pasteDetected && node.id) {
             console.log(`Queueing potentially pasted node: ${node.id}`);
@@ -878,6 +885,10 @@ async function processChunkMutations(chunk, mutations) {
       
       if (parent && parent.id) {
         console.log(`Queueing characterData change in parent: ${parent.id}`);
+        
+        // Check if this affects TOC and invalidate cache if needed
+        checkAndInvalidateTocCache(parent.id, parent);
+        
         // 🔄 CONVERTED TO DEBOUNCED:
         queueNodeForSave(parent.id, 'update');
         modifiedNodes.add(parent.id);

@@ -12,68 +12,169 @@ export const tocContainer = document.getElementById("toc-container");
 export const tocOverlay = document.getElementById("toc-overlay");
 export const tocButton = document.getElementById("toc-toggle-button");
 
+// Create a custom TOC manager that generates content before opening
+class TocContainerManager extends ContainerManager {
+  async openContainer() {
+    console.log("📋 TOC opening - generating content first...");
+    await generateTableOfContents(); // Generate TOC content before opening
+    super.openContainer(); // Then open the container
+  }
+}
+
 // Create a container manager instance for the TOC.  
-// Assuming that "main-content" or "nav-buttons" should be frozen when TOC is open.
-const tocManager = new ContainerManager(
+// Only freeze main-content, keep nav buttons visible like highlights
+const tocManager = new TocContainerManager(
   "toc-container",
   "toc-overlay",
   "toc-toggle-button",
-  ["main-content", "nav-buttons"]
+  ["main-content"]
 );
 
-/**
- * Generates the Table of Contents.
- *
- * This function fetches nodeChunks from IndexedDB, filters out heading nodes,
- * generates the TOC data and renders the TOC into the container indicated by tocContainer.
- */
-export async function generateTableOfContents() {
-  if (!tocContainer) {
-    console.error("TOC container not found!");
-    return;
-  }
+// TOC cache management
+let tocCache = {
+  data: null,
+  lastScanTime: 0,
+  bookId: null,
+  headingCount: 0
+};
 
-  // Retrieve nodeChunks from IndexedDB for the current book.
+/**
+ * Check if TOC cache is valid for the current book
+ */
+function isTocCacheValid() {
+  const isValid = (
+    tocCache.data !== null &&
+    tocCache.bookId === book &&
+    Date.now() - tocCache.lastScanTime < 30000 // 30 second cache
+  );
+  
+  console.log(`📋 TOC Cache check:`, {
+    hasData: tocCache.data !== null,
+    correctBook: tocCache.bookId === book,
+    timeValid: Date.now() - tocCache.lastScanTime < 30000,
+    lastScan: new Date(tocCache.lastScanTime).toLocaleTimeString(),
+    isValid
+  });
+  
+  return isValid;
+}
+
+/**
+ * Scan nodeChunks content for heading elements
+ */
+async function scanForHeadings() {
+  console.log("📖 Scanning nodeChunks for headings...");
+  
   let nodeChunks = [];
   try {
     nodeChunks = await getNodeChunksFromIndexedDB(book);
   } catch (e) {
     console.error("Error retrieving nodeChunks from IndexedDB:", e);
+    return [];
+  }
+
+  const headings = [];
+  const headingRegex = /^<(h[1-6])[^>]*id="([^"]+)"[^>]*>(.*?)<\/h[1-6]>/i;
+
+  for (const chunk of nodeChunks) {
+    if (!chunk.content) continue;
+    
+    const match = chunk.content.match(headingRegex);
+    if (match) {
+      const [, tagName, id, textContent] = match;
+      
+      // Clean up the text content (remove any nested HTML tags)
+      const cleanText = textContent.replace(/<[^>]*>/g, '').trim();
+      
+      if (cleanText) {
+        headings.push({
+          id,
+          type: tagName.toLowerCase(),
+          text: cleanText,
+          link: `#${id}`,
+        });
+      }
+    }
+  }
+
+  console.log(`📖 Found ${headings.length} headings`);
+  return headings.sort((a, b) => {
+    // Sort by numerical ID if possible, otherwise alphabetically
+    const aNum = parseFloat(a.id);
+    const bNum = parseFloat(b.id);
+    if (!isNaN(aNum) && !isNaN(bNum)) {
+      return aNum - bNum;
+    }
+    return a.id.localeCompare(b.id);
+  });
+}
+
+/**
+ * Generates the Table of Contents with caching.
+ * @param {string} containerIdLegacy - Legacy parameter for backward compatibility (ignored)
+ * @param {string} buttonIdLegacy - Legacy parameter for backward compatibility (ignored)
+ */
+export async function generateTableOfContents(containerIdLegacy, buttonIdLegacy) {
+  console.log("📋 generateTableOfContents called");
+  
+  if (!tocContainer) {
+    console.error("TOC container not found!");
     return;
   }
 
-  // Filter only heading nodes (h1 through h6) and create TOC data.
-  const headingTags = ["h1", "h2", "h3", "h4", "h5", "h6"];
-  const tocData = nodeChunks
-    .filter((node) => headingTags.includes(node.type))
-    .map((node) => ({
-      id: node.startLine,
-      type: node.type,
-      text: node.plainText.trim(),
-      link: `#${node.startLine}`,
-    }));
+  // Check if we can use cached data
+  if (isTocCacheValid()) {
+    console.log("📋 Using cached TOC data");
+    renderTOC(tocContainer, tocCache.data);
+    attachTocClickHandler();
+    return;
+  }
 
-  // Render the TOC in the container.
+  // Scan for headings and cache the results
+  console.log("📋 Cache invalid, scanning for headings...");
+  const tocData = await scanForHeadings();
+  
+  // Update cache
+  tocCache = {
+    data: tocData,
+    lastScanTime: Date.now(),
+    bookId: book,
+    headingCount: tocData.length
+  };
+
+  console.log("📋 Cache updated, rendering TOC");
+  // Render the TOC
   renderTOC(tocContainer, tocData);
+  attachTocClickHandler();
+}
 
-  // Add click handler to the TOC container for navigation.
-  tocContainer.addEventListener("click", (event) => {
-    // Look for the closest anchor element if clicked within one.
+/**
+ * Attach click handler for TOC navigation (separated for reuse)
+ */
+function attachTocClickHandler() {
+  // Remove existing listeners to avoid duplicates
+  const existingHandler = tocContainer._tocClickHandler;
+  if (existingHandler) {
+    tocContainer.removeEventListener("click", existingHandler);
+  }
+
+  // Add new click handler
+  const clickHandler = (event) => {
     const link = event.target.closest("a");
     if (link) {
       event.preventDefault();
-      // Show overlay immediately on click
-      const targetId = link.hash.substring(1); // e.g. "55" from "#55"
+      const targetId = link.hash.substring(1);
       if (!targetId) return;
       
       showNavigationLoading(targetId);
-      
-      // Close the TOC using the container manager.
       tocManager.closeContainer();
       console.log(`📌 Navigating via TOC to: ${targetId}`);
-      navigateToInternalId(targetId, currentLazyLoader, false); // Don't show overlay - already shown
+      navigateToInternalId(targetId, currentLazyLoader, false);
     }
-  });
+  };
+
+  tocContainer.addEventListener("click", clickHandler);
+  tocContainer._tocClickHandler = clickHandler;
 }
 
 /**
@@ -147,4 +248,47 @@ export function closeTOC() {
  */
 export function toggleTOC() {
   tocManager.toggleContainer();
+}
+
+/**
+ * Invalidate TOC cache - forces a rescan on next access
+ */
+export function invalidateTocCache() {
+  console.log("🔄 TOC cache invalidated - STACK TRACE:", new Error().stack);
+  tocCache.data = null;
+  tocCache.lastScanTime = 0;
+}
+
+/**
+ * Check if a node change affects headings and invalidate cache if needed
+ */
+export function checkAndInvalidateTocCache(nodeId, nodeElement) {
+  if (!nodeElement) return false;
+  
+  // Check if this is a heading element
+  const isHeading = /^h[1-6]$/i.test(nodeElement.tagName);
+  
+  if (isHeading) {
+    console.log(`🔄 Heading ${nodeId} changed, invalidating TOC cache`);
+    invalidateTocCache();
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Force invalidate cache for any node deletion (safer approach)
+ */
+export function invalidateTocCacheForDeletion(nodeId) {
+  console.log(`🔄 Node ${nodeId} deleted, invalidating TOC cache (safe approach)`);
+  invalidateTocCache();
+}
+
+/**
+ * Force immediate TOC refresh (bypasses cache)
+ */
+export async function refreshTOC() {
+  invalidateTocCache();
+  await generateTableOfContents();
 }
