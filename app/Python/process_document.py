@@ -6,7 +6,215 @@ import os
 import argparse
 from bs4 import BeautifulSoup, NavigableString
 
-# --- UTILITY FUNCTIONS (No changes here) ---
+# --- UTILITY FUNCTIONS ---
+
+def detect_footnote_sections(soup):
+    """Detect footnote sections by scanning forward and identifying text ranges"""
+    all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr'])
+    print("--- DEBUG: Section Detection ---")
+    print(f"Total elements found: {len(all_elements)}")
+    
+    # Find all headers and hr separators first
+    headers = []
+    hrs = []
+    
+    for i, element in enumerate(all_elements):
+        text = element.get_text().strip()
+        if element.name and element.name.startswith('h'):
+            headers.append({
+                'element': element,
+                'index': i,
+                'text': text
+            })
+            print(f"Found header at index {i}: {text}")
+        elif element.name == 'hr':
+            hrs.append({
+                'element': element,
+                'index': i,
+                'text': '---'
+            })
+            print(f"Found HR separator at index {i}")
+    
+    # Look for header + footnotes + hr patterns
+    section_boundaries = []
+    
+    for header in headers:
+        header_idx = header['index']
+        
+        # Find the next HR after this header
+        next_hr = None
+        for hr in hrs:
+            if hr['index'] > header_idx:
+                next_hr = hr
+                break
+        
+        if next_hr:
+            # Check if there are footnotes between this header and the HR
+            footnote_count = 0
+            for i in range(header_idx + 1, next_hr['index']):
+                if i >= len(all_elements):
+                    break
+                element = all_elements[i]
+                text = element.get_text().strip()
+                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+                    footnote_count += 1
+            
+            if footnote_count > 0:
+                section_boundaries.append({
+                    'type': 'header_with_footnotes',
+                    'header': header,
+                    'hr': next_hr,
+                    'footnote_count': footnote_count
+                })
+                print(f"Found section: {header['text']} -> {footnote_count} footnotes -> HR at {next_hr['index']}")
+    
+    # Also add standalone notes headers (original behavior as fallback)
+    for header in headers:
+        if 'notes' in header['text'].lower():
+            # Check if this header isn't already part of a header+hr pattern
+            already_included = any(boundary['header']['index'] == header['index'] 
+                                 for boundary in section_boundaries 
+                                 if boundary['type'] == 'header_with_footnotes')
+            if not already_included:
+                section_boundaries.append({
+                    'type': 'notes_header',
+                    'header': header,
+                    'hr': None,
+                    'footnote_count': 0  # Will be calculated later
+                })
+                print(f"Found standalone notes header: {header['text']}")
+    
+    # For each boundary, create sections
+    sections = []
+    section_counter = 0
+    
+    for boundary_idx, boundary in enumerate(section_boundaries):
+        footnotes = []
+        
+        if boundary['type'] == 'header_with_footnotes':
+            # Text is before the header, footnotes are between header and HR
+            header_idx = boundary['header']['index']
+            hr_idx = boundary['hr']['index']
+            
+            # Collect footnotes between header and HR
+            for i in range(header_idx + 1, hr_idx):
+                if i >= len(all_elements):
+                    break
+                element = all_elements[i]
+                text = element.get_text().strip()
+                
+                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+                    footnotes.append(element)
+                    print(f"  Found footnote in section: {text[:50]}...")
+            
+            if footnotes:
+                section_counter += 1
+                
+                # Text range: from start of document (or end of previous section) to this header
+                text_start_idx = 0
+                if boundary_idx > 0:
+                    prev_boundary = section_boundaries[boundary_idx - 1]
+                    if prev_boundary['type'] == 'header_with_footnotes':
+                        text_start_idx = prev_boundary['hr']['index'] + 1
+                    else:
+                        # Handle notes_header type
+                        text_start_idx = prev_boundary['header']['index'] + 1
+                        # Skip previous footnotes
+                        for j in range(text_start_idx, header_idx):
+                            if j >= len(all_elements):
+                                break
+                            elem_text = all_elements[j].get_text().strip()
+                            if not re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', elem_text):
+                                text_start_idx = j
+                                break
+                
+                section_data = {
+                    'id': f'section_{section_counter}',
+                    'header': boundary['header']['element'],
+                    'footnotes': footnotes,
+                    'text_start_idx': text_start_idx,
+                    'text_end_idx': header_idx,  # Text ends at the header
+                    'footnotes_start_idx': header_idx + 1,
+                    'footnotes_end_idx': hr_idx
+                }
+                sections.append(section_data)
+                print(f"Created section {section_counter} with {len(footnotes)} footnotes")
+                print(f"  Header: {boundary['header']['text']}")
+                print(f"  Text range: {section_data['text_start_idx']} to {section_data['text_end_idx']}")
+                print(f"  Footnotes range: {section_data['footnotes_start_idx']} to {section_data['footnotes_end_idx']}")
+        
+        elif boundary['type'] == 'notes_header':
+            # Traditional notes header - footnotes come after
+            header_idx = boundary['header']['index']
+            
+            # Find where footnotes end (next header or end of document)
+            end_idx = len(all_elements)
+            for other_boundary in section_boundaries:
+                if (other_boundary != boundary and 
+                    other_boundary['header']['index'] > header_idx):
+                    end_idx = other_boundary['header']['index']
+                    break
+            
+            # Collect footnotes after header
+            for i in range(header_idx + 1, end_idx):
+                if i >= len(all_elements):
+                    break
+                element = all_elements[i]
+                text = element.get_text().strip()
+                
+                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+                    footnotes.append(element)
+                    print(f"  Found footnote in notes section: {text[:50]}...")
+            
+            if footnotes:
+                section_counter += 1
+                
+                # Text range: from start of document (or end of previous section) to this header
+                text_start_idx = 0
+                if boundary_idx > 0:
+                    prev_boundary = section_boundaries[boundary_idx - 1]
+                    if prev_boundary['type'] == 'header_with_footnotes':
+                        text_start_idx = prev_boundary['hr']['index'] + 1
+                    else:
+                        text_start_idx = prev_boundary['header']['index'] + 1
+                
+                section_data = {
+                    'id': f'section_{section_counter}',
+                    'header': boundary['header']['element'],
+                    'footnotes': footnotes,
+                    'text_start_idx': text_start_idx,
+                    'text_end_idx': header_idx,  # Text ends at the notes header
+                    'footnotes_start_idx': header_idx + 1,
+                    'footnotes_end_idx': end_idx
+                }
+                sections.append(section_data)
+                print(f"Created notes section {section_counter} with {len(footnotes)} footnotes")
+                print(f"  Text range: {section_data['text_start_idx']} to {section_data['text_end_idx']}")
+                print(f"  Footnotes range: {section_data['footnotes_start_idx']} to {section_data['footnotes_end_idx']}")
+    
+    # Handle case where there are footnotes but no section headers
+    if not sections:
+        footnotes = []
+        for element in all_elements:
+            text = element.get_text().strip()
+            if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+                footnotes.append(element)
+        
+        if footnotes:
+            sections = [{
+                'id': 'default_section',
+                'header': None,
+                'footnotes': footnotes,
+                'text_start_idx': 0,
+                'text_end_idx': len(all_elements),
+                'footnotes_start_idx': 0,
+                'footnotes_end_idx': len(all_elements)
+            }]
+            print(f"Created default section with {len(footnotes)} footnotes")
+    
+    print(f"Total sections detected: {len(sections)}")
+    # Also return the elements list for position-based matching
+    return sections, all_elements
 
 def generate_ref_keys(text, context_text=""):
     processed_text = re.sub(r'\[\d{4}\]\s*', '', text)
@@ -80,11 +288,12 @@ def main(html_file_path, output_dir, book_id):
     
     print(f"Found and processed {len(references_data)} reference entries (kept in DOM).")
 
-    # --- 1B: Process Footnotes (FIXED) ---
-    # --- 1B: Process Footnotes (FIXED) ---
-    footnote_map = {}
-    footnotes_data = []
-
+    # --- 1B: Process Footnotes (SECTION-AWARE) ---
+    footnote_sections, all_elements = detect_footnote_sections(soup)
+    sectioned_footnote_map = {}
+    all_footnotes_data = []
+    
+    # Process traditional footnotes container first
     fn_container = soup.find('section', class_='footnotes')
     if fn_container:
         list_items = fn_container.find_all('li')
@@ -99,7 +308,7 @@ def main(html_file_path, output_dir, book_id):
             
             identifier = id_match.group(1)
 
-            # Generate unique IDs
+            # Generate unique IDs for traditional footnotes
             unique_fn_id = f"{book_id}Fn{int(time.time() * 1000)}{identifier}"
             unique_fnref_id = f"{book_id}Fnref{int(time.time() * 1000)}{identifier}"
 
@@ -118,18 +327,71 @@ def main(html_file_path, output_dir, book_id):
                 temp_back_link.decompose()
             content = temp_li.li.decode_contents().strip()
 
-            # Store all IDs in footnote_map for PASS 2B
-            footnote_map[identifier] = {
+            # Store in global section for traditional footnotes
+            if 'traditional' not in sectioned_footnote_map:
+                sectioned_footnote_map['traditional'] = {}
+            
+            sectioned_footnote_map['traditional'][identifier] = {
                 'unique_fn_id': unique_fn_id, 
                 'unique_fnref_id': unique_fnref_id,
-                'content': content
+                'content': content,
+                'section_id': 'traditional'
             }
+            
+            all_footnotes_data.append({"footnoteId": unique_fn_id, "content": content})
         
-        print(f"Unwrapping {len(list_items)} footnote items to be processed as individual nodes.")
+        print(f"Unwrapping {len(list_items)} traditional footnote items to be processed as individual nodes.")
         fn_container.replace_with(*list_items)
-
-    footnotes_data = [{"footnoteId": v['unique_fn_id'], "content": v['content']} for k, v in footnote_map.items()]
-    print(f"Found and extracted {len(footnotes_data)} footnote definitions.")
+    
+    # Process sectioned footnotes
+    for section in footnote_sections:
+        section_id = section['id']
+        sectioned_footnote_map[section_id] = {}
+        
+        for footnote_element in section['footnotes']:
+            text = footnote_element.get_text()
+            # Extract footnote number from various patterns including [^1]:
+            # Must have brackets OR caret to avoid matching numbered lists
+            number_match = re.search(r'^\s*(\[\^?(\d+)\]|\^(\d+))\s*[:.]\s*(.*)', text, re.DOTALL)
+            if not number_match:
+                continue
+                
+            # Extract the digit from either group 2 or group 3
+            identifier = number_match.group(2) or number_match.group(3)
+            content = number_match.group(4).strip()
+            print(f"Processing footnote {identifier} in section {section_id}: {content[:30]}...")
+            
+            # Generate unique IDs with section prefix
+            unique_fn_id = f"{book_id}_{section_id}_Fn{int(time.time() * 1000)}{identifier}"
+            unique_fnref_id = f"{book_id}_{section_id}_Fnref{int(time.time() * 1000)}{identifier}"
+            
+            # Add anchor with unique ID and section info
+            anchor_tag = soup.new_tag('a', id=unique_fn_id)
+            anchor_tag['fn-count-id'] = identifier
+            anchor_tag['fn-section-id'] = section_id
+            footnote_element.insert(0, anchor_tag)
+            
+            sectioned_footnote_map[section_id][identifier] = {
+                'unique_fn_id': unique_fn_id,
+                'unique_fnref_id': unique_fnref_id,
+                'content': content,
+                'section_id': section_id,
+                'element': footnote_element
+            }
+            
+            all_footnotes_data.append({"footnoteId": unique_fn_id, "content": content})
+    
+    # Create flattened map for backward compatibility
+    footnote_map = {}
+    for section_id, section_footnotes in sectioned_footnote_map.items():
+        for identifier, footnote_data in section_footnotes.items():
+            # Use section-prefixed key to avoid conflicts
+            map_key = f"{section_id}_{identifier}" if section_id != 'traditional' else identifier
+            footnote_map[map_key] = footnote_data
+    
+    footnotes_data = all_footnotes_data
+    total_footnotes = sum(len(section_footnotes) for section_footnotes in sectioned_footnote_map.values())
+    print(f"Found and extracted {total_footnotes} footnote definitions across {len(footnote_sections)} sections.")
 
     # ========================================================================
     # PASS 2: LINK ALL IN-TEXT MARKERS
@@ -183,19 +445,55 @@ def main(html_file_path, output_dir, book_id):
                 new_content.append(NavigableString(text[last_index:]))
                 text_node.replace_with(*new_content)
 
-    # --- 2B: Link Footnotes (COMPLETELY REWRITTEN) ---
+    # --- 2B: Link Footnotes (SECTION-AWARE) ---
+    def find_footnote_in_sections(identifier, current_element):
+        """Find footnote data by determining which section's text area this element is in"""
+        # Get position of current element in document
+        try:
+            current_pos = all_elements.index(current_element)
+        except ValueError:
+            # If element not found, find closest parent that is
+            parent = current_element.parent
+            while parent:
+                try:
+                    current_pos = all_elements.index(parent)
+                    break
+                except ValueError:
+                    parent = parent.parent
+            else:
+                current_pos = 0
+        
+        # Find which section this element belongs to by checking explicit text ranges
+        for section in footnote_sections:
+            # Check if current element is in this section's text range
+            if (current_pos >= section.get('text_start_idx', 0) and 
+                current_pos < section.get('text_end_idx', len(all_elements))):
+                
+                if identifier in sectioned_footnote_map[section['id']]:
+                    print(f"Found footnote {identifier} in section {section['id']} (element at pos {current_pos})")
+                    return sectioned_footnote_map[section['id']][identifier]
+        
+        # Try traditional footnotes as final fallback
+        if 'traditional' in sectioned_footnote_map and identifier in sectioned_footnote_map['traditional']:
+            return sectioned_footnote_map['traditional'][identifier]
+            
+        print(f"Could not find footnote {identifier} in any section (element at pos {current_pos})")
+        return None
+    
     # Handle existing <a> tags with #fn pattern
-    # --- 2B: Link Footnotes (UPDATED) ---
     for a_tag in soup.find_all('a', href=re.compile(r'^#fn\d+')):
         identifier_match = re.search(r'(\d+)', a_tag.get('href', ''))
         if not identifier_match: continue
         identifier = identifier_match.group(1)
         text_content = a_tag.get_text(strip=True)
 
-        if identifier in footnote_map and text_content == identifier:
-            new_sup = soup.new_tag('sup', id=footnote_map[identifier]['unique_fnref_id'])
+        footnote_data = find_footnote_in_sections(identifier, a_tag)
+        if footnote_data and text_content == identifier:
+            new_sup = soup.new_tag('sup', id=footnote_data['unique_fnref_id'])
             new_sup['fn-count-id'] = identifier
-            new_a = soup.new_tag('a', href=f"#{footnote_map[identifier]['unique_fn_id']}", attrs={'class': 'footnote-ref'})
+            if 'section_id' in footnote_data:
+                new_sup['fn-section-id'] = footnote_data['section_id']
+            new_a = soup.new_tag('a', href=f"#{footnote_data['unique_fn_id']}", attrs={'class': 'footnote-ref'})
             new_a.string = text_content
             new_sup.append(new_a)
             a_tag.replace_with(new_sup)
@@ -204,35 +502,55 @@ def main(html_file_path, output_dir, book_id):
     for sup_tag in soup.find_all('sup'):
         if sup_tag.find('a', class_='footnote-ref'): continue
         identifier = sup_tag.get_text(strip=True)
-        if identifier in footnote_map:
-            sup_tag['id'] = footnote_map[identifier]['unique_fnref_id']
+        footnote_data = find_footnote_in_sections(identifier, sup_tag)
+        if footnote_data:
+            sup_tag['id'] = footnote_data['unique_fnref_id']
             sup_tag['fn-count-id'] = identifier
-            a_tag = soup.new_tag('a', href=f"#{footnote_map[identifier]['unique_fn_id']}", attrs={'class': 'footnote-ref'})
+            if 'section_id' in footnote_data:
+                sup_tag['fn-section-id'] = footnote_data['section_id']
+            a_tag = soup.new_tag('a', href=f"#{footnote_data['unique_fn_id']}", attrs={'class': 'footnote-ref'})
             a_tag.string = identifier
             sup_tag.string = '' 
             sup_tag.append(a_tag)
 
-    # Handle [^identifier] patterns in text
+    # Handle [^identifier] patterns in text (but NOT footnote definitions)
     for text_node in soup.find_all(string=True):
         if not text_node.parent.name in ['style', 'script', 'a']:
             text = str(text_node)
-            matches = list(re.finditer(r'\[\^(\w+)\]', text))
+            matches = list(re.finditer(r'\[\^?(\w+)\]', text))
             if matches:
                 new_content = []
                 last_index = 0
                 for match in matches:
                     identifier = match.group(1)
-                    if identifier in footnote_map:
+                    
+                    # Check if this is a footnote definition (followed by colon)
+                    # Skip processing if this looks like a definition
+                    match_end = match.end()
+                    following_text = text[match_end:match_end+5].strip()  # Look at next 5 chars
+                    if following_text.startswith(':'):
+                        # This is a footnote definition, skip it
+                        print(f"Skipping footnote definition pattern: {match.group(0)}:")
+                        continue
+                    
+                    footnote_data = find_footnote_in_sections(identifier, text_node.parent)
+                    if footnote_data:
                         new_content.append(NavigableString(text[last_index:match.start()]))
-                        new_sup = soup.new_tag('sup', id=footnote_map[identifier]['unique_fnref_id'])
+                        new_sup = soup.new_tag('sup', id=footnote_data['unique_fnref_id'])
                         new_sup['fn-count-id'] = identifier
-                        new_a = soup.new_tag('a', href=f"#{footnote_map[identifier]['unique_fn_id']}", attrs={'class': 'footnote-ref'})
+                        if 'section_id' in footnote_data:
+                            new_sup['fn-section-id'] = footnote_data['section_id']
+                        new_a = soup.new_tag('a', href=f"#{footnote_data['unique_fn_id']}", attrs={'class': 'footnote-ref'})
                         new_a.string = identifier
                         new_sup.append(new_a)
                         new_content.append(new_sup)
                         last_index = match.end()
-                new_content.append(NavigableString(text[last_index:]))
-                text_node.replace_with(*new_content)
+                    else:
+                        # If no footnote found, leave the text as-is
+                        continue
+                if new_content:  # Only replace if we found matches
+                    new_content.append(NavigableString(text[last_index:]))
+                    text_node.replace_with(*new_content)
 
     # ========================================================================
     # PASS 3: GENERATE FINAL JSON OUTPUT
