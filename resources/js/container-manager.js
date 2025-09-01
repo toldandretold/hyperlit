@@ -157,7 +157,7 @@ export class ContainerManager {
     const topRight = document.getElementById("topRightContainer");
     if (!topRight) return;
 
-    if (this.isOpen && (this.container.id === "toc-container" || this.container.id === "source-container")) {
+    if (this.isOpen && this.container.id === "source-container") {
       topRight.classList.toggle("hidden-nav", !this.navElementsState.topRightContainer);
     } else {
       topRight.classList.remove("hidden-nav");
@@ -171,7 +171,7 @@ export class ContainerManager {
       this.overlay.classList.add("active");
       this.frozenElements.forEach((el) => this.freezeElement(el));
 
-      if (this.container.id === "toc-container" || this.container.id === "source-container") {
+      if (this.container.id === "source-container") {
         this.saveNavElementsState();
         const navButtons = document.getElementById("nav-buttons");
         const logoContainer = document.getElementById("logoContainer");
@@ -184,7 +184,7 @@ export class ContainerManager {
       this.container.classList.remove("open");
       this.overlay.classList.remove("active");
       this.frozenElements.forEach((el) => this.unfreezeElement(el));
-      if (this.container.id === "toc-container" || this.container.id === "source-container") {
+      if (this.container.id === "source-container") {
         this.restoreNavElementsState();
       }
     }
