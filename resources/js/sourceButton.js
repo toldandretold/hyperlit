@@ -34,7 +34,18 @@ async function buildSourceHtml(currentBookId) {
 
   console.log("buildSourceHtml got:", { book, record });
 
-  const bibtex = record?.bibtex || "";
+  let bibtex = record?.bibtex || "";
+  
+  // If no bibtex exists, generate one from available record data
+  if (!bibtex && record) {
+    const year = new Date(record.timestamp).getFullYear();
+    bibtex = `@${record.type || 'book'}{${record.citationID || record.book},
+  author = {${record.author || record.creator || 'Unknown Author'}},
+  title = {${record.title || 'Untitled'}},
+  year = {${year}},
+}`;
+  }
+  
   const citation = formatBibtexToCitation(bibtex).trim();
 
   return `
