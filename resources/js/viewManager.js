@@ -37,6 +37,64 @@ import {
 let activeNavButtons = null;
 let activeKeyboardManager = null;
 
+// Handle page restoration from browser cache (bfcache) - critical for mobile
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) {
+    console.log("🔄 Page restored from bfcache - reinitializing interactive features");
+    const pageType = document.body.getAttribute("data-page");
+    
+    if (pageType === "reader") {
+      // Small delay to ensure DOM is fully restored
+      setTimeout(() => {
+        try {
+          console.log("🔧 Reinitializing interactive features after cache restore...");
+          
+          // Import and reinitialize footnote/citation listeners
+          import('./footnotes-citations.js').then(module => {
+            module.initializeFootnoteCitationListeners();
+            console.log("✅ Footnote/citation listeners reinitialized");
+            
+            // Also rebind the reference container manager
+            if (module.refManager && module.refManager.rebindElements) {
+              module.refManager.rebindElements();
+              console.log("✅ Reference container manager rebound");
+            }
+          });
+          
+          // Reinitialize TOC
+          generateTableOfContents("toc-container", "toc-toggle-button");
+          console.log("✅ TOC reinitialized");
+          
+          // Reinitialize hyperlight listeners
+          attachMarkListeners();
+          initializeHighlightingControls(book);
+          console.log("✅ Hyperlight listeners reinitialized");
+          
+          // Reinitialize hyperciting
+          initializeHypercitingControls(book);
+          console.log("✅ Hyperciting controls reinitialized");
+          
+          // Reinitialize nav buttons if they exist
+          const navButtonsContainer = document.querySelector('#nav-buttons');
+          if (navButtonsContainer && !activeNavButtons) {
+            activeNavButtons = new NavButtons({
+              elementIds: ["nav-buttons", "logoContainer", "topRightContainer"],
+              tapThreshold: 15,
+            });
+            activeNavButtons.init();
+            console.log("✅ Nav buttons reinitialized");
+          }
+          
+          console.log("🎉 All interactive features reinitialized after cache restore");
+          
+        } catch (error) {
+          console.error("❌ Error reinitializing after cache restore:", error);
+        }
+      }, 150); // Slightly longer delay for mobile
+    }
+  }
+});
+
 function cleanupReaderView() {
   console.log("🧹 Cleaning up previous reader view...");
   if (activeNavButtons) {

@@ -13,6 +13,8 @@ import { initializeHomepage } from "./homepage.js";
 import { initializeFootnoteCitationListeners } from "./footnotes-citations.js";
 // ✅ This import is correct. We just need to use it.
 import { setInitialBookSyncPromise } from "./operationState.js";
+import { generateTableOfContents } from "./toc.js";
+import { attachMarkListeners } from "./hyperLights.js";
 import NavButtons from "./nav-buttons.js";
 import { showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
 import { pendingFirstChunkLoadedPromise } from "./initializePage.js";

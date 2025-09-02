@@ -233,9 +233,11 @@ black #221F20;
 
 #ref-container blockquote,
 #highlight-container blockquote {
-  font-size: 18px;
+  font-size: 14px;
   padding-top: .25em;
   padding-bottom: .2em;
+  margin-left: 1em;
+  margin-right: 0;
 
 
 }
