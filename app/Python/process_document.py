@@ -578,6 +578,13 @@ def main(html_file_path, output_dir, book_id):
                 node.insert(0, original_anchor)
         elif node.name == 'p' and node.find('a', class_='bib-entry'):
             node['id'] = start_line_counter
+        elif node.name and node.name.startswith('h'):  # Handle heading elements
+            original_id = node.get('id')  # Store the original heading ID (e.g., "my-heading-text")
+            node['id'] = start_line_counter  # Set numerical ID for startLine
+            # Add anchor tag with original heading ID at the beginning for backwards compatibility
+            if original_id:
+                original_anchor = soup.new_tag('a', id=original_id)
+                node.insert(0, original_anchor)
         elif not node.has_attr('id'):
             node['id'] = start_line_counter
         

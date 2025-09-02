@@ -389,23 +389,27 @@ black #221F20;
 
 #toc-container h1.first {
     color: #EE4A95 !important;
+    padding-top: 1em;
 }
 
 #toc-container h1 {
     font-size: 25px;
     color: #E0E0E0;
+    margin: 0.5em 0 0.25em 0;
 }
 
 #toc-container h2 {
     font-size: 20px;
     padding-left: 2em;
     color: #C4C4C4;
+    margin: 0.4em 0 0.2em 0;
 }
 
 #toc-container h3, h4 {
     padding-left: 4em;
     font-size: 20px;
     color: #A8A8A8;
+    margin: 0.3em 0 0.15em 0;
 }
 
 .hidden-content {
@@ -585,6 +589,19 @@ black #221F20;
   
   .progress-details {
     font-size: 11px;
+  }
+
+  /* TOC font size adjustments for mobile */
+  #toc-container h1 {
+    font-size: 20px;
+  }
+
+  #toc-container h2 {
+    font-size: 16px;
+  }
+
+  #toc-container h3, h4 {
+    font-size: 14px;
   }
 
   /* Mobile-specific styling for newbook container */
