@@ -247,6 +247,7 @@ export async function openHighlightById(
         if (isEditable) {
           attachAnnotationListener(id);
           addHighlightContainerPasteListener(id);
+          attachPlaceholderBehavior(id);
         }
       }
     });
@@ -339,6 +340,7 @@ export async function openHighlightById(
       if (isEditable) {
         attachAnnotationListener(highlightId);
         addHighlightContainerPasteListener(highlightId);
+        attachPlaceholderBehavior(highlightId);
 
         // Place cursor in annotation div
         setTimeout(() => {
@@ -808,6 +810,38 @@ async function deleteHighlightHandler(event, bookId) {
   }
 }
 
+
+// Helper function to handle placeholder behavior for annotation divs
+function attachPlaceholderBehavior(highlightId) {
+  const annotationDiv = document.querySelector(
+    `.annotation[data-highlight-id="${highlightId}"]`
+  );
+  if (!annotationDiv) return;
+
+  // Function to check if div is effectively empty
+  const isEffectivelyEmpty = (div) => {
+    return !div.textContent.trim();
+  };
+
+  // Function to update placeholder visibility
+  const updatePlaceholder = () => {
+    if (isEffectivelyEmpty(annotationDiv)) {
+      annotationDiv.classList.add('empty-annotation');
+    } else {
+      annotationDiv.classList.remove('empty-annotation');
+    }
+  };
+
+  // Initial check
+  updatePlaceholder();
+
+  // Update on input
+  annotationDiv.addEventListener('input', updatePlaceholder);
+  
+  // Update on focus/blur for better UX
+  annotationDiv.addEventListener('focus', updatePlaceholder);
+  annotationDiv.addEventListener('blur', updatePlaceholder);
+}
 
 // Helper function to bind click and touchstart events
 export function addTouchAndClickListener(element, handler) {
