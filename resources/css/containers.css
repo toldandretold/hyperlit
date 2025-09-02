@@ -851,3 +851,21 @@ black #221F20;
   gap: 8px;
   margin-top: 1em;
 }
+
+/* Placeholder styling for annotation divs */
+#highlight-container .annotation:empty::before,
+#ref-container .annotation:empty::before,
+#hypercite-container .annotation:empty::before,
+#highlight-container .annotation.empty-annotation::before,
+#ref-container .annotation.empty-annotation::before,
+#hypercite-container .annotation.empty-annotation::before {
+  content: "Write annotation here...";
+  color: #888;
+  pointer-events: none;
+}
+
+#highlight-container .annotation:focus::before,
+#ref-container .annotation:focus::before,
+#hypercite-container .annotation:focus::before {
+  display: none;
+}
