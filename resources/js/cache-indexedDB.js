@@ -8,6 +8,7 @@ import { debounce } from "./divEditor.js";
 import { book } from "./app.js";
 import { clearRedoHistory } from "./historyManager.js";
 import { getEditToolbar } from "./editToolbar.js";
+import { showTick, showError } from "./editIndicator.js";
 
 // IMPORTANT: Increment this version number ONLY when you need to change the database schema.
 // For instance, if you add a new store, add a new index, or modify a keyPath.
@@ -336,10 +337,12 @@ export const debouncedMasterSync = debounce(async () => {
     logEntry.status = "synced";
     await updateHistoryLog(logEntry);
     console.log(`✅ Batch ${logEntry.id} synced successfully.`);
+    showTick(); // Show green indicator on successful server sync
   } catch (error) {
     logEntry.status = "failed";
     await updateHistoryLog(logEntry);
     console.error(`❌ Sync failed for batch ${logEntry.id}:`, error.message);
+    showError(); // Show red indicator on sync failure
   } finally {
     const toolbar = getEditToolbar();
     if (toolbar) {

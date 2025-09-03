@@ -73,11 +73,29 @@ export function showTick() {
   if (layer1) {
     layer1.style.fill = '#10a64a'
   }
-  console.log('Indicator → green (done)')
+  console.log('Indicator → green (synced to server)')
 
   // after a short pause, restore to grey AND restore topRight visibility
   setTimeout(() => {
     resetIndicator()
     console.log('Indicator → grey (ready)')
   }, 1500)
+}
+
+/** Mark "error" → red, then fade back to grey after 3s */
+export function showError() {
+  if (!isProcessing) return
+  isComplete = true
+
+  const layer1 = document.querySelector('#Layer_1 .cls-1')
+  if (layer1) {
+    layer1.style.fill = '#dc3545'
+  }
+  console.log('Indicator → red (sync error)')
+
+  // after a longer pause, restore to grey AND restore topRight visibility
+  setTimeout(() => {
+    resetIndicator()
+    console.log('Indicator → grey (ready after error)')
+  }, 3000)
 }

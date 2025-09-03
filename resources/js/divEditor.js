@@ -240,9 +240,10 @@ async function saveNodeToDatabase() {
     console.error('❌ Error in batch save:', error);
     // Re-queue failed saves
     nodesToSave.forEach(node => pendingSaves.nodes.set(node.id, node));
+    // Note: Error handling for IndexedDB save failures is handled by the debounced sync
   }
-
-  showTick();
+  
+  // Note: showTick() removed - now only shows green after successful server sync in debouncedMasterSync
 }
 
 
