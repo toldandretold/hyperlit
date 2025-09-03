@@ -259,16 +259,33 @@ export async function openHighlightById(
           `.annotation[data-highlight-id="${firstUserAnnotation}"]`
         );
         if (annotationDiv) {
+          // Mobile-friendly focus approach
           annotationDiv.focus();
-          // Place cursor at end of content
-          const range = document.createRange();
-          const selection = window.getSelection();
-          range.selectNodeContents(annotationDiv);
-          range.collapse(false);
-          selection.removeAllRanges();
-          selection.addRange(range);
+          
+          // For mobile, try multiple approaches to ensure focus works
+          if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            // Mobile device - use click to trigger focus
+            annotationDiv.click();
+            // Also try scrollIntoView to ensure visibility
+            annotationDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          
+          // Place cursor at end of content (works better after click on mobile)
+          setTimeout(() => {
+            try {
+              const range = document.createRange();
+              const selection = window.getSelection();
+              range.selectNodeContents(annotationDiv);
+              range.collapse(false);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            } catch (e) {
+              // Fallback for mobile browsers that don't support range selection
+              console.log('Range selection not supported, using focus only');
+            }
+          }, 50);
         }
-      }, 100);
+      }, 150); // Increased timeout for mobile
     }
 
     return;
@@ -348,16 +365,33 @@ export async function openHighlightById(
             `.annotation[data-highlight-id="${highlightId}"]`
           );
           if (annotationDiv) {
+            // Mobile-friendly focus approach
             annotationDiv.focus();
-            // Place cursor at end of content
-            const range = document.createRange();
-            const selection = window.getSelection();
-            range.selectNodeContents(annotationDiv);
-            range.collapse(false);
-            selection.removeAllRanges();
-            selection.addRange(range);
+            
+            // For mobile, try multiple approaches to ensure focus works
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+              // Mobile device - use click to trigger focus
+              annotationDiv.click();
+              // Also try scrollIntoView to ensure visibility
+              annotationDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
+            // Place cursor at end of content (works better after click on mobile)
+            setTimeout(() => {
+              try {
+                const range = document.createRange();
+                const selection = window.getSelection();
+                range.selectNodeContents(annotationDiv);
+                range.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(range);
+              } catch (e) {
+                // Fallback for mobile browsers that don't support range selection
+                console.log('Range selection not supported, using focus only');
+              }
+            }, 50);
           }
-        }, 100);
+        }, 150); // Increased timeout for mobile
       }
 
       // Rest of the existing URL hash handling code...
