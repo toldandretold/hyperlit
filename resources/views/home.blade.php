@@ -160,8 +160,8 @@
 </div>
 
 <div id="newbook-container" class="hidden" class="loading">
-  <button id="createNewBook" typ="button">new</button>
-  <button id="importBook" typ="button">import</button>
+  <button id="createNewBook" type="button">new</button>
+  <button id="importBook" type="button">import</button>
 </div>
 
 <div id="importCitation-container">
