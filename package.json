@@ -2,7 +2,10 @@
     "private": true,
     "type": "module",
     "scripts": {
+        "php": "php artisan serve --host=127.0.0.1 --port=8000",
+        "queue": "php artisan queue:work",
         "dev": "vite",
+        "dev:all": "concurrently -k -r -n PHP,QUEUE,DEV -c \"cyan,magenta,green\" \"npm:php\" \"npm:queue\" \"npm:dev\"",
         "build": "vite build"
     },
     "devDependencies": {
@@ -10,6 +13,7 @@
         "alpinejs": "^3.4.2",
         "autoprefixer": "^10.4.2",
         "axios": "^1.6.4",
+        "concurrently": "^9.2.1",
         "cross-env": "^7.0.3",
         "laravel-echo": "^1.16.1",
         "laravel-mix": "^6.0.49",
