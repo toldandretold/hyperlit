@@ -19,6 +19,58 @@ import NavButtons from "./nav-buttons.js";
 import { showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
 import { pendingFirstChunkLoadedPromise } from "./initializePage.js";
 
+// Progress bar control functions
+export function updatePageLoadProgress(percent, message = null) {
+  const progressBar = document.getElementById('page-load-progress-bar');
+  const progressText = document.getElementById('page-load-progress-text');
+  const progressDetails = document.getElementById('page-load-progress-details');
+  
+  if (progressBar) {
+    // Ensure progress never goes below 5% so we always see some color
+    const adjustedPercent = Math.max(5, percent);
+    progressBar.style.width = adjustedPercent + '%';
+  }
+  if (progressText) {
+    progressText.textContent = `Loading... ${Math.round(percent)}%`;
+  }
+  if (message && progressDetails) {
+    progressDetails.textContent = message;
+  }
+}
+
+export async function hidePageLoadProgress() {
+  const progressBar = document.getElementById('page-load-progress-bar');
+  const progressText = document.getElementById('page-load-progress-text');
+  const progressDetails = document.getElementById('page-load-progress-details');
+  const overlay = document.getElementById('initial-navigation-overlay');
+  
+  // Always do the completion animation for visual satisfaction
+  if (progressBar && overlay && overlay.style.display !== 'none') {
+    const currentWidth = parseInt(progressBar.style.width) || 5;
+    
+    // Hide the text elements before the final animation for clean visual
+    if (progressText) progressText.style.opacity = '0';
+    if (progressDetails) progressDetails.style.opacity = '0';
+    
+    // Force it back to current progress or 90% if it's already at 100%
+    if (currentWidth >= 100) {
+      progressBar.style.width = '90%';
+      // Small delay to let it register the change
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
+    // Shoot to 100% 
+    progressBar.style.width = '100%';
+    
+    // Wait for the CSS transition to complete
+    await new Promise(resolve => setTimeout(resolve, 400));
+  }
+  
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+}
+
 export const navButtons = new NavButtons({
   elementIds: [
     "nav-buttons",
@@ -106,9 +158,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       try {
         await pendingFirstChunkLoadedPromise;
         console.log("✅ Content fully loaded, hiding overlay");
+        await hidePageLoadProgress();
         hideNavigationLoading();
       } catch (error) {
         console.warn("⚠️ Content loading promise failed, hiding overlay anyway:", error);
+        await hidePageLoadProgress();
         hideNavigationLoading();
       }
     } else {
