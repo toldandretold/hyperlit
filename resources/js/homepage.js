@@ -6,11 +6,36 @@ import NavButtons from './nav-buttons.js';
 import './newBookButton.js'; 
 import { initializeLazyLoaderForContainer } from './initializePage.js';
 
-export function initializeHomepage() {
+export async function initializeHomepage() {
   console.log("🏠 Initializing homepage...");
 
-  initializeLazyLoaderForContainer('most-recent');
+  // Import progress functions
+  let updatePageLoadProgress, hidePageLoadProgress;
+  try {
+    const progressModule = await import('./reader-DOMContentLoaded.js');
+    updatePageLoadProgress = progressModule.updatePageLoadProgress;
+    hidePageLoadProgress = progressModule.hidePageLoadProgress;
+  } catch (e) {
+    console.warn('Could not import progress functions:', e);
+    // Create dummy functions if import fails
+    updatePageLoadProgress = () => {};
+    hidePageLoadProgress = () => {};
+  }
+
+  updatePageLoadProgress(10, "Loading homepage...");
+  
+  await new Promise(resolve => setTimeout(resolve, 100));
+  updatePageLoadProgress(40, "Loading recent content...");
+  
+  await initializeLazyLoaderForContainer('most-recent');
+  
+  updatePageLoadProgress(70, "Setting up interface...");
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
   initializeHomepageButtons();
+
+  updatePageLoadProgress(90, "Finishing setup...");
+  await new Promise(resolve => setTimeout(resolve, 100));
 
   // This is correct. Create a new manager for this page.
   const navButtons = new NavButtons({
@@ -18,4 +43,7 @@ export function initializeHomepage() {
     tapThreshold: 15,
   });
   navButtons.init();
+
+  // Hide the progress overlay
+  await hidePageLoadProgress();
 }
