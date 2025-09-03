@@ -48,18 +48,23 @@ export async function hidePageLoadProgress() {
   if (progressBar && overlay && overlay.style.display !== 'none') {
     const currentWidth = parseInt(progressBar.style.width) || 5;
     
-    // Hide the text elements before the final animation for clean visual
+    // Always hide the text elements before the final animation for clean visual
     if (progressText) progressText.style.opacity = '0';
     if (progressDetails) progressDetails.style.opacity = '0';
     
-    // Force it back to current progress or 90% if it's already at 100%
+    // Always ensure we get a smooth animation to 100% regardless of current progress
+    // If we're already at 100%, step back to create animation
     if (currentWidth >= 100) {
       progressBar.style.width = '90%';
-      // Small delay to let it register the change
       await new Promise(resolve => setTimeout(resolve, 50));
     }
+    // If we're below 85%, step up to at least 85% to make a nice sweep
+    else if (currentWidth < 85) {
+      progressBar.style.width = '85%';
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
     
-    // Shoot to 100% 
+    // Always shoot to 100% for the satisfying completion sweep
     progressBar.style.width = '100%';
     
     // Wait for the CSS transition to complete
@@ -159,11 +164,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         await pendingFirstChunkLoadedPromise;
         console.log("✅ Content fully loaded, hiding overlay");
         await hidePageLoadProgress();
-        hideNavigationLoading();
       } catch (error) {
         console.warn("⚠️ Content loading promise failed, hiding overlay anyway:", error);
         await hidePageLoadProgress();
-        hideNavigationLoading();
       }
     } else {
       console.log("✅ New book creation - no overlay to hide");
