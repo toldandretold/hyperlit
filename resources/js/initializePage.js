@@ -214,43 +214,74 @@ export async function loadHyperText(bookId) {
   setupOnlineSyncListener();
   const openHyperlightID = OpenHyperlightID || null;
 
+  // Import progress functions
+  let updatePageLoadProgress, hidePageLoadProgress;
+  try {
+    const progressModule = await import('./reader-DOMContentLoaded.js');
+    updatePageLoadProgress = progressModule.updatePageLoadProgress;
+    hidePageLoadProgress = progressModule.hidePageLoadProgress;
+    console.log('🎯 Progress functions imported successfully');
+  } catch (e) {
+    console.warn('Could not import progress functions:', e);
+    // Create dummy functions if import fails
+    updatePageLoadProgress = () => {};
+    hidePageLoadProgress = () => {};
+  }
+
+
   try {
     // 1. Check for node chunks in IndexedDB (No change)
+    updatePageLoadProgress(10, "Checking local cache...");
     console.log("🔍 Checking if nodeChunks are in IndexedDB...");
     const cached = await getNodeChunksFromIndexedDB(currentBook);
     if (cached && cached.length) {
       // ... (no change to this block)
+      updatePageLoadProgress(30, "Loading from cache...");
       console.log(`✅ Found ${cached.length} cached nodeChunks`);
       window.nodeChunks = cached;
+      
+      // Add small delays to make progress visible
+      await new Promise(resolve => setTimeout(resolve, 100));
+      updatePageLoadProgress(60, "Building highlights cache...");
       await buildUserHighlightCache(currentBook);
+      
+      await new Promise(resolve => setTimeout(resolve, 100));
+      updatePageLoadProgress(90, "Initializing interface...");
       initializeLazyLoader(openHyperlightID, currentBook);
       checkAndUpdateIfNeeded(currentBook, currentLazyLoader);
       return;
     }
 
     // 2. Try Database Sync (No change)
+    updatePageLoadProgress(20, "Connecting to database...");
     console.log("🔍 Trying to load chunks from database...");
     const dbResult = await syncBookDataFromDatabase(currentBook);
     if (dbResult && dbResult.success) {
       // ... (no change to this block)
+      updatePageLoadProgress(50, "Loading from database...");
       const dbChunks = await getNodeChunksFromIndexedDB(currentBook);
       if (dbChunks && dbChunks.length) {
         console.log(`✅ Loaded ${dbChunks.length} nodeChunks from database`);
         window.nodeChunks = dbChunks;
+        updatePageLoadProgress(80, "Building highlights cache...");
         await buildUserHighlightCache(currentBook);
+        updatePageLoadProgress(90, "Initializing interface...");
         initializeLazyLoader(openHyperlightID, currentBook);
         return;
       }
     }
 
     // 3. Fallback: Try to load from pre-generated JSON
+    updatePageLoadProgress(30, "Loading from files...");
     try {
       // This now calls our new, more powerful function
       const jsonChunks = await loadFromJSONFiles(currentBook);
       if (jsonChunks && jsonChunks.length) {
         console.log("✅ Content loaded from JSON; now initializing UI");
         window.nodeChunks = jsonChunks;
+        updatePageLoadProgress(80, "Building highlights cache...");
         await buildUserHighlightCache(currentBook);
+        updatePageLoadProgress(90, "Initializing interface...");
         initializeLazyLoader(openHyperlightID, currentBook);
         return;
       }
@@ -259,10 +290,13 @@ export async function loadHyperText(bookId) {
     }
 
     // 4. Final Fallback: Generate from markdown (No change)
+    updatePageLoadProgress(40, "Generating from markdown...");
     console.log("🆕 Not in cache, DB, or JSON – generating from markdown");
     window.nodeChunks = await generateNodeChunksFromMarkdown(currentBook);
     console.log("✅ Content generated + saved; now initializing UI");
+    updatePageLoadProgress(80, "Building highlights cache...");
     await buildUserHighlightCache(currentBook);
+    updatePageLoadProgress(90, "Initializing interface...");
     initializeLazyLoader(OpenHyperlightID || null, currentBook);
     return;
   } catch (err) {
