@@ -541,7 +541,7 @@ export async function restoreScrollPosition() {
   console.log(`🔍 URL hash target: "${targetId}", explicit: ${hasExplicitTarget}`);
   
   // Show overlay immediately if we have a URL hash target (browser navigation)
-  // BUT only if overlay is not already active from page transition
+  // BUT only if overlay is not already active from page transition AND it's not an internal link
   let overlayShown = false;
   const existingOverlay = navigationModal || document.getElementById('initial-navigation-overlay');
   const overlayAlreadyVisible = existingOverlay && (
@@ -549,13 +549,23 @@ export async function restoreScrollPosition() {
     existingOverlay.style.display !== ''
   );
   
-  if (hasExplicitTarget && !overlayAlreadyVisible) {
+  // Check if this is an internal navigation (same page)
+  const isInternalNavigation = hasExplicitTarget && (
+    targetId.startsWith('hypercite_') || 
+    targetId.startsWith('HL_') || 
+    /^\d+$/.test(targetId) // Numeric IDs are typically internal content
+  );
+  
+  if (hasExplicitTarget && !overlayAlreadyVisible && !isInternalNavigation) {
     showNavigationLoading(targetId);
     overlayShown = true;
+    console.log(`🎯 Showing overlay for external navigation to: ${targetId}`);
   } else if (overlayAlreadyVisible) {
     // Overlay already exists from page transition
     overlayShown = true;
     console.log(`🎯 Using existing overlay from page transition for: ${targetId}`);
+  } else if (isInternalNavigation) {
+    console.log(`✅ Internal navigation detected for ${targetId} - no overlay needed`);
   }
 
   // Only use saved scroll position if there's no explicit target in URL

@@ -638,14 +638,15 @@ async function CoupleClick(uElement) {
           if (internalId) {
             // Update URL and navigate to internal ID
             window.history.pushState(null, "", `/${currentBook}#${internalId}`);
-            navigateToInternalId(internalId, currentLazyLoader, false); // Don't show overlay - already shown
+            navigateToInternalId(internalId, currentLazyLoader, false); // Don't show overlay - internal navigation
             return;
           }
         }
       }
       
       // If not a same-book highlight, do normal navigation
-      // Keep the overlay during page transition
+      // Show overlay for external navigation
+      showNavigationLoading(clickedHyperciteId);
       window.location.href = link;
       
     } else {
@@ -883,13 +884,15 @@ async function navigateToHyperciteLink(link) {
       if (internalId) {
         // Update URL and navigate to internal ID
         window.history.pushState(null, "", `/${currentBook}#${internalId}`);
-        navigateToInternalId(internalId, currentLazyLoader, false); // Don't show overlay - already shown
+        navigateToInternalId(internalId, currentLazyLoader, false); // Don't show overlay - internal navigation
         return;
       }
     }
   }
   
   // If not a same-book highlight, do normal navigation
+  // Show overlay for external navigation
+  showNavigationLoading("hypercite_link");
   window.location.href = link;
 }
 
@@ -1006,11 +1009,6 @@ export function attachUnderlineClickListeners() {
     uElement.style.cursor = "pointer";
 
     uElement.addEventListener("click", async (event) => {
-      // Only show navigation overlay for u.couple (navigation), not u.poly (container)
-      const isPoly = uElement.classList.contains('poly');
-      if (!isPoly) {
-        showNavigationLoading(uElement.id);
-      }
       await handleUnderlineClick(uElement, event);
     });
   });
