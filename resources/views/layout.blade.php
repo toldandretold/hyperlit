@@ -14,7 +14,15 @@
 <body data-page="{{ $pageType ?? 'unknown' }}">
 
     <!-- Navigation overlay for immediate display - show by default, hide for special cases -->
-    <div id="initial-navigation-overlay" class="navigation-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.3); z-index: 10000;"></div>
+    <div id="initial-navigation-overlay" class="navigation-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.3); z-index: 10000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: transparent; padding: 2em; width: 400px; max-width: 70vw;">
+            <p class="progress-text" id="page-load-progress-text" style="color: #CBCCCC; text-align: center; margin: 0 0 1em 0; font-size: 16px;">Loading...</p>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="page-load-progress-bar" style="width: 5%;"></div>
+            </div>
+            <p class="progress-details" id="page-load-progress-details" style="color: #888; text-align: center; margin: 0.5em 0 0 0; font-size: 12px;">Initializing...</p>
+        </div>
+    </div>
     
     <script>
         // Hide overlay immediately for non-reader pages and new book creation
@@ -23,18 +31,21 @@
         const isImportedBook = sessionStorage.getItem('pending_import_book');
         const overlay = document.getElementById('initial-navigation-overlay');
         
-        // Hide overlay for non-reader pages, new book creation, or imported books
-        if (pageType !== 'reader') {
-            overlay.style.display = 'none';
-            console.log('✅ Overlay hidden for non-reader page');
-        } else if (isNewBookCreation) {
+        // Hide overlay for new book creation or imported books, but show for reader and home pages
+        if (isNewBookCreation) {
             overlay.style.display = 'none';
             console.log('✅ Overlay hidden for new book creation - content is immediately available');
         } else if (isImportedBook) {
             overlay.style.display = 'none';
             console.log('✅ Overlay hidden for imported book - content is immediately available');
+        } else if (pageType === 'reader') {
+            console.log('🎯 Overlay visible for reader page load');
+        } else if (pageType === 'home') {
+            console.log('🎯 Overlay visible for home page load');
         } else {
-            console.log('🎯 Overlay visible for normal reader page load');
+            // Hide overlay for other page types
+            overlay.style.display = 'none';
+            console.log('✅ Overlay hidden for other page types');
         }
         
         // Clear overlay when page is restored from cache (back button)

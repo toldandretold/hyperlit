@@ -19,6 +19,63 @@ import NavButtons from "./nav-buttons.js";
 import { showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
 import { pendingFirstChunkLoadedPromise } from "./initializePage.js";
 
+// Progress bar control functions
+export function updatePageLoadProgress(percent, message = null) {
+  const progressBar = document.getElementById('page-load-progress-bar');
+  const progressText = document.getElementById('page-load-progress-text');
+  const progressDetails = document.getElementById('page-load-progress-details');
+  
+  if (progressBar) {
+    // Ensure progress never goes below 5% so we always see some color
+    const adjustedPercent = Math.max(5, percent);
+    progressBar.style.width = adjustedPercent + '%';
+  }
+  if (progressText) {
+    progressText.textContent = `Loading... ${Math.round(percent)}%`;
+  }
+  if (message && progressDetails) {
+    progressDetails.textContent = message;
+  }
+}
+
+export async function hidePageLoadProgress() {
+  const progressBar = document.getElementById('page-load-progress-bar');
+  const progressText = document.getElementById('page-load-progress-text');
+  const progressDetails = document.getElementById('page-load-progress-details');
+  const overlay = document.getElementById('initial-navigation-overlay');
+  
+  // Always do the completion animation for visual satisfaction
+  if (progressBar && overlay && overlay.style.display !== 'none') {
+    const currentWidth = parseInt(progressBar.style.width) || 5;
+    
+    // Always hide the text elements before the final animation for clean visual
+    if (progressText) progressText.style.opacity = '0';
+    if (progressDetails) progressDetails.style.opacity = '0';
+    
+    // Always ensure we get a smooth animation to 100% regardless of current progress
+    // If we're already at 100%, step back to create animation
+    if (currentWidth >= 100) {
+      progressBar.style.width = '90%';
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    // If we're below 85%, step up to at least 85% to make a nice sweep
+    else if (currentWidth < 85) {
+      progressBar.style.width = '85%';
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    // Always shoot to 100% for the satisfying completion sweep
+    progressBar.style.width = '100%';
+    
+    // Wait for the CSS transition to complete
+    await new Promise(resolve => setTimeout(resolve, 400));
+  }
+  
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+}
+
 export const navButtons = new NavButtons({
   elementIds: [
     "nav-buttons",
@@ -106,15 +163,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       try {
         await pendingFirstChunkLoadedPromise;
         console.log("✅ Content fully loaded, hiding overlay");
-        hideNavigationLoading();
+        await hidePageLoadProgress();
       } catch (error) {
         console.warn("⚠️ Content loading promise failed, hiding overlay anyway:", error);
-        hideNavigationLoading();
+        await hidePageLoadProgress();
       }
     } else {
       console.log("✅ New book creation - no overlay to hide");
     }
   } else if (pageType === "home") {
-    initializeHomepage();
+    await initializeHomepage();
   }
 });
