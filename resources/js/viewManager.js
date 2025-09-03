@@ -262,16 +262,8 @@ function attachGlobalLinkClickHandler() {
                           linkUrl.hash !== '';
         
         if (isSamePage) {
-          // For same-page anchor links, show overlay briefly then hide it quickly
-          console.log(`🎯 Same-page anchor link detected: ${linkUrl.hash}`);
-          const targetDisplay = linkUrl.hash.substring(1);
-          showNavigationLoading(targetDisplay);
-          
-          // Hide overlay quickly for same-page navigation
-          setTimeout(() => {
-            console.log(`🎯 Auto-hiding overlay for same-page navigation: ${targetDisplay}`);
-            hideNavigationLoading();
-          }, 200); // Short delay to avoid flicker
+          // For same-page anchor links, no overlay needed - just internal navigation
+          console.log(`✅ Same-page anchor link detected: ${linkUrl.hash} - no overlay needed`);
         } else {
           // Show overlay for external/different page links
           const targetDisplay = link.textContent.trim() || link.href;
@@ -310,8 +302,17 @@ function attachGlobalLinkClickHandler() {
     // Check if there's a hash in the current URL
     const targetId = window.location.hash.substring(1);
     if (targetId) {
-      // Only show overlay for hash navigation (internal links)
-      showNavigationLoading(targetId);
+      // Check if this is internal navigation
+      const isInternalNavigation = targetId.startsWith('hypercite_') || 
+                                  targetId.startsWith('HL_') || 
+                                  /^\d+$/.test(targetId);
+      
+      if (isInternalNavigation) {
+        console.log(`✅ Browser navigation to internal target: ${targetId} - no overlay needed`);
+      } else {
+        // Only show overlay for external hash navigation
+        showNavigationLoading(targetId);
+      }
     }
     // Don't show overlay for general back/forward navigation
     // The page will either load from cache (no need for overlay) or
