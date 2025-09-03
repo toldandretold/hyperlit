@@ -262,34 +262,7 @@ export async function openHighlightById(
           const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
           
           if (isMobile) {
-            // Mobile-specific approach to force cursor visibility
-            // 1. Add a temporary zero-width space to force cursor appearance
-            annotationDiv.innerHTML = '&#8203;'; // Zero-width space
-            
-            // 2. Focus and select the content
-            annotationDiv.focus();
-            
-            // 3. Position cursor after the zero-width space
-            setTimeout(() => {
-              try {
-                const range = document.createRange();
-                const selection = window.getSelection();
-                range.selectNodeContents(annotationDiv);
-                range.collapse(false);
-                selection.removeAllRanges();
-                selection.addRange(range);
-                
-                // 4. Clear the zero-width space after cursor is positioned
-                setTimeout(() => {
-                  if (annotationDiv.textContent === '\u200B') {
-                    annotationDiv.innerHTML = '';
-                  }
-                }, 100);
-              } catch (e) {
-                // Fallback: just clear the zero-width space
-                annotationDiv.innerHTML = '';
-              }
-            }, 50);
+            // Mobile: No auto-focus, let user manually tap to show cursor and hide placeholder
           } else {
             // Desktop approach (original)
             annotationDiv.focus();
@@ -384,42 +357,20 @@ export async function openHighlightById(
 
         // Place cursor in annotation div
         setTimeout(() => {
+          console.log('🎯 Inside setTimeout, looking for annotation div...');
           const annotationDiv = document.querySelector(
             `.annotation[data-highlight-id="${highlightId}"]`
           );
+          console.log('📍 Found annotation div:', !!annotationDiv);
           if (annotationDiv) {
             const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            console.log('📱 Is mobile device:', isMobile);
             
             if (isMobile) {
-              // Mobile-specific approach to force cursor visibility
-              // 1. Add a temporary zero-width space to force cursor appearance
-              annotationDiv.innerHTML = '&#8203;'; // Zero-width space
-              
-              // 2. Focus and select the content
-              annotationDiv.focus();
-              
-              // 3. Position cursor after the zero-width space
-              setTimeout(() => {
-                try {
-                  const range = document.createRange();
-                  const selection = window.getSelection();
-                  range.selectNodeContents(annotationDiv);
-                  range.collapse(false);
-                  selection.removeAllRanges();
-                  selection.addRange(range);
-                  
-                  // 4. Clear the zero-width space after cursor is positioned
-                  setTimeout(() => {
-                    if (annotationDiv.textContent === '\u200B') {
-                      annotationDiv.innerHTML = '';
-                    }
-                  }, 100);
-                } catch (e) {
-                  // Fallback: just clear the zero-width space
-                  annotationDiv.innerHTML = '';
-                }
-              }, 50);
+              console.log('📱 Mobile: No auto-focus, let user manually tap to show cursor and hide placeholder');
+              // Don't focus on mobile - let the placeholder show and disappear when user manually taps
             } else {
+              console.log('🖥️ Executing desktop branch...');
               // Desktop approach (original)
               annotationDiv.focus();
               setTimeout(() => {
