@@ -68,19 +68,23 @@ class PandocConversionJob implements ShouldQueue
             Log::info("Pandoc conversion successful.");
 
             // Step 2: Run the Python script on the generated HTML
+            $pythonBin = env('PYTHON_PATH', 'python3');
+
             Log::info("Step 2: Running Python script...", [
-                'script' => $pythonScriptPath,
+                'python'     => $pythonBin,
+                'script'     => $pythonScriptPath,
                 'html_input' => $htmlOutputPath,
                 'output_dir' => $basePath,
-                'book_id' => $this->citation_id
+                'book_id'    => $this->citation_id,
             ]);
 
+            // Build the command as an array so Symfony handles quoting safely
             $pythonProcess = new Process([
-                'python3',
+                $pythonBin,
                 $pythonScriptPath,
                 $htmlOutputPath,
                 $basePath,
-                $this->citation_id // Pass citation_id as book_id
+                (string) $this->citation_id, // Pass citation_id as book_id
             ]);
             $pythonProcess->setTimeout(300);
             $pythonProcess->run();
