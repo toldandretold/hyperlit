@@ -1,6 +1,6 @@
 // operationState.js
 
-import { showSpinner, showTick } from "./editIndicator.js";
+import { showSpinner } from "./editIndicator.js";
 
 let pendingOperations = 0;
 let unloadWarningActive = false;
@@ -77,14 +77,13 @@ export function setHandleHypercitePaste(value) {
 
 /**
  * Internal helper: whenever pendingOperations changes,
- * if >0 show spinner, if it reaches 0 show tick.
+ * show spinner if >0. Tick is now only shown on successful server sync.
  */
 function notifySpinnerOrTick() {
   if (pendingOperations > 0) {
     showSpinner();
-  } else {
-    showTick();
   }
+  // Note: showTick() removed - now only shows green after successful server sync
 }
 
 /**
