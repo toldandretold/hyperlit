@@ -259,33 +259,55 @@ export async function openHighlightById(
           `.annotation[data-highlight-id="${firstUserAnnotation}"]`
         );
         if (annotationDiv) {
-          // Mobile-friendly focus approach
-          annotationDiv.focus();
+          const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
           
-          // For mobile, try multiple approaches to ensure focus works
-          if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-            // Mobile device - use click to trigger focus
-            annotationDiv.click();
-            // Also try scrollIntoView to ensure visibility
-            annotationDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if (isMobile) {
+            // Mobile-specific approach to force cursor visibility
+            // 1. Add a temporary zero-width space to force cursor appearance
+            annotationDiv.innerHTML = '&#8203;'; // Zero-width space
+            
+            // 2. Focus and select the content
+            annotationDiv.focus();
+            
+            // 3. Position cursor after the zero-width space
+            setTimeout(() => {
+              try {
+                const range = document.createRange();
+                const selection = window.getSelection();
+                range.selectNodeContents(annotationDiv);
+                range.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(range);
+                
+                // 4. Clear the zero-width space after cursor is positioned
+                setTimeout(() => {
+                  if (annotationDiv.textContent === '\u200B') {
+                    annotationDiv.innerHTML = '';
+                  }
+                }, 100);
+              } catch (e) {
+                // Fallback: just clear the zero-width space
+                annotationDiv.innerHTML = '';
+              }
+            }, 50);
+          } else {
+            // Desktop approach (original)
+            annotationDiv.focus();
+            setTimeout(() => {
+              try {
+                const range = document.createRange();
+                const selection = window.getSelection();
+                range.selectNodeContents(annotationDiv);
+                range.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(range);
+              } catch (e) {
+                console.log('Range selection not supported');
+              }
+            }, 50);
           }
-          
-          // Place cursor at end of content (works better after click on mobile)
-          setTimeout(() => {
-            try {
-              const range = document.createRange();
-              const selection = window.getSelection();
-              range.selectNodeContents(annotationDiv);
-              range.collapse(false);
-              selection.removeAllRanges();
-              selection.addRange(range);
-            } catch (e) {
-              // Fallback for mobile browsers that don't support range selection
-              console.log('Range selection not supported, using focus only');
-            }
-          }, 50);
         }
-      }, 150); // Increased timeout for mobile
+      }, 150);
     }
 
     return;
@@ -355,6 +377,7 @@ export async function openHighlightById(
 
       // Only attach listeners for editable highlights
       if (isEditable) {
+        console.log('🎯 Starting cursor placement for editable highlight:', highlightId);
         attachAnnotationListener(highlightId);
         addHighlightContainerPasteListener(highlightId);
         attachPlaceholderBehavior(highlightId);
@@ -365,33 +388,55 @@ export async function openHighlightById(
             `.annotation[data-highlight-id="${highlightId}"]`
           );
           if (annotationDiv) {
-            // Mobile-friendly focus approach
-            annotationDiv.focus();
+            const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
             
-            // For mobile, try multiple approaches to ensure focus works
-            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-              // Mobile device - use click to trigger focus
-              annotationDiv.click();
-              // Also try scrollIntoView to ensure visibility
-              annotationDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (isMobile) {
+              // Mobile-specific approach to force cursor visibility
+              // 1. Add a temporary zero-width space to force cursor appearance
+              annotationDiv.innerHTML = '&#8203;'; // Zero-width space
+              
+              // 2. Focus and select the content
+              annotationDiv.focus();
+              
+              // 3. Position cursor after the zero-width space
+              setTimeout(() => {
+                try {
+                  const range = document.createRange();
+                  const selection = window.getSelection();
+                  range.selectNodeContents(annotationDiv);
+                  range.collapse(false);
+                  selection.removeAllRanges();
+                  selection.addRange(range);
+                  
+                  // 4. Clear the zero-width space after cursor is positioned
+                  setTimeout(() => {
+                    if (annotationDiv.textContent === '\u200B') {
+                      annotationDiv.innerHTML = '';
+                    }
+                  }, 100);
+                } catch (e) {
+                  // Fallback: just clear the zero-width space
+                  annotationDiv.innerHTML = '';
+                }
+              }, 50);
+            } else {
+              // Desktop approach (original)
+              annotationDiv.focus();
+              setTimeout(() => {
+                try {
+                  const range = document.createRange();
+                  const selection = window.getSelection();
+                  range.selectNodeContents(annotationDiv);
+                  range.collapse(false);
+                  selection.removeAllRanges();
+                  selection.addRange(range);
+                } catch (e) {
+                  console.log('Range selection not supported');
+                }
+              }, 50);
             }
-            
-            // Place cursor at end of content (works better after click on mobile)
-            setTimeout(() => {
-              try {
-                const range = document.createRange();
-                const selection = window.getSelection();
-                range.selectNodeContents(annotationDiv);
-                range.collapse(false);
-                selection.removeAllRanges();
-                selection.addRange(range);
-              } catch (e) {
-                // Fallback for mobile browsers that don't support range selection
-                console.log('Range selection not supported, using focus only');
-              }
-            }, 50);
           }
-        }, 150); // Increased timeout for mobile
+        }, 150);
       }
 
       // Rest of the existing URL hash handling code...
