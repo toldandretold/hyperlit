@@ -31,18 +31,21 @@
         const isImportedBook = sessionStorage.getItem('pending_import_book');
         const overlay = document.getElementById('initial-navigation-overlay');
         
-        // Hide overlay for non-reader pages, new book creation, or imported books
-        if (pageType !== 'reader') {
-            overlay.style.display = 'none';
-            console.log('✅ Overlay hidden for non-reader page');
-        } else if (isNewBookCreation) {
+        // Hide overlay for new book creation or imported books, but show for reader and home pages
+        if (isNewBookCreation) {
             overlay.style.display = 'none';
             console.log('✅ Overlay hidden for new book creation - content is immediately available');
         } else if (isImportedBook) {
             overlay.style.display = 'none';
             console.log('✅ Overlay hidden for imported book - content is immediately available');
+        } else if (pageType === 'reader') {
+            console.log('🎯 Overlay visible for reader page load');
+        } else if (pageType === 'home') {
+            console.log('🎯 Overlay visible for home page load');
         } else {
-            console.log('🎯 Overlay visible for normal reader page load');
+            // Hide overlay for other page types
+            overlay.style.display = 'none';
+            console.log('✅ Overlay hidden for other page types');
         }
         
         // Clear overlay when page is restored from cache (back button)

@@ -169,6 +169,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.log("✅ New book creation - no overlay to hide");
     }
   } else if (pageType === "home") {
-    initializeHomepage();
+    await initializeHomepage();
   }
 });
