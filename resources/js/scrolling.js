@@ -854,25 +854,33 @@ export function showNavigationLoading(targetId) {
   };
 }
 
-export function hideNavigationLoading() {
+export async function hideNavigationLoading() {
   console.log(`🎯 LOADING: Navigation complete`);
   
   // Clear sessionStorage flags
   sessionStorage.removeItem('navigationOverlayActive');
   sessionStorage.removeItem('navigationTargetId');
   
-  // Always try to hide the initial overlay, regardless of navigationModal state
-  const initialOverlay = document.getElementById('initial-navigation-overlay');
-  if (initialOverlay) {
-    initialOverlay.style.display = 'none';
-    console.log('🎯 Initial overlay hidden');
+  // Use our progress completion animation instead of directly hiding
+  try {
+    const { hidePageLoadProgress } = await import('./reader-DOMContentLoaded.js');
+    await hidePageLoadProgress();
+    console.log('🎯 Initial overlay hidden with completion animation');
+  } catch (e) {
+    console.warn('Could not import progress functions, falling back to direct hide:', e);
+    // Fallback to direct hide if import fails
+    const initialOverlay = document.getElementById('initial-navigation-overlay');
+    if (initialOverlay) {
+      initialOverlay.style.display = 'none';
+      console.log('🎯 Initial overlay hidden (fallback)');
+    }
   }
   
   if (navigationModal) {
     // Check if it's the blade template overlay or a created one
     if (navigationModal.id === 'initial-navigation-overlay') {
-      // It's the blade template overlay, just hide it
-      navigationModal.style.display = 'none';
+      // It's the blade template overlay, already handled above
+      console.log('🎯 Blade template overlay already handled');
     } else {
       // It's a dynamically created overlay, remove it
       navigationModal.remove();
