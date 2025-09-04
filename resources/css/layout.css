@@ -100,8 +100,6 @@ body[data-page="reader"] .reader-content-wrapper {
 .main-content {
   padding: 28px 40px 40px 40px;
   box-sizing: border-box;
-  /* For the reader, ensures it fills the wrapper for short content */
-  min-height: 100%;
   /* Prevent main-content from extending beyond its container */
   max-width: 100%;
   margin: 0 auto;
@@ -110,6 +108,7 @@ body[data-page="reader"] .reader-content-wrapper {
 /* Reader page: adjust top padding so content starts at mask line (15px) */
 body[data-page="reader"] .main-content {
   padding-top: 15px; /* Match the mask height - content starts right at mask edge */
+  min-height: 100%; /* Only reader needs min-height for short content */
 }
 
 /* 
@@ -195,6 +194,8 @@ body[data-page="home"] .fixed-header {
   padding: 20px 20px 10px 20px; /* Internal spacing for the logo */
 }
 
+/* Header content alignment handled dynamically by JavaScript */
+
 /* 3. The Content Wrapper: The only scrollable part. */
 body[data-page="home"] .home-content-wrapper {
   height: 100vh;
@@ -209,7 +210,7 @@ body[data-page="home"] .home-content-wrapper {
 body[data-page="home"] .main-content {
   max-width: 60ch;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 20px 50px 20px; /* Bottom padding to prevent content below screen */
 }
 
 .spacer {
