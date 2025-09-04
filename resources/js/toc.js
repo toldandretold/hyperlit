@@ -166,7 +166,6 @@ function attachTocClickHandler() {
       const targetId = link.hash.substring(1);
       if (!targetId) return;
       
-      showNavigationLoading(targetId);
       tocManager.closeContainer();
       console.log(`📌 Navigating via TOC to: ${targetId}`);
       navigateToInternalId(targetId, currentLazyLoader, false);
