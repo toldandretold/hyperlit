@@ -2,7 +2,25 @@ import { loadHyperText, resetCurrentLazyLoader } from './initializePage.js';
 import { setCurrentBook } from './app.js';
 import { showNavigationLoading, hideNavigationLoading } from './scrolling.js';
 
+// Fix header spacing dynamically based on actual header height
+function fixHeaderSpacing() {
+  const header = document.querySelector('.fixed-header');
+  const wrapper = document.querySelector('.home-content-wrapper');
+  
+  if (header && wrapper) {
+    const headerHeight = header.offsetHeight;
+    // Add small buffer (10px) to ensure content doesn't touch header
+    wrapper.style.paddingTop = (headerHeight + 10) + 'px';
+  }
+}
+
 export function initializeHomepageButtons() {
+  // Fix header spacing on initialization
+  fixHeaderSpacing();
+  
+  // Run again on window resize to handle responsive changes
+  window.addEventListener('resize', fixHeaderSpacing);
+  
   // Initialize the default active content on page load  
   const activeButton = document.querySelector('.arranger-button.active');
   if (activeButton) {
