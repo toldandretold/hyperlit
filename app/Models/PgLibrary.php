@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Http\Controllers\HomePageServerController;
 
 class PgLibrary extends Model
 {
@@ -45,4 +46,21 @@ class PgLibrary extends Model
         'total_citations' => 'integer',
         'total_highlights' => 'integer'
     ];
+
+    protected static function booted()
+    {
+        // Only invalidate cache when citation/highlight counts change
+        static::updating(function ($library) {
+            $isDirty = $library->isDirty(['total_citations', 'total_highlights']);
+            
+            if ($isDirty) {
+                HomePageServerController::invalidateCache();
+            }
+        });
+
+        // Invalidate cache when new books are created (affects "most recent")
+        static::created(function ($library) {
+            HomePageServerController::invalidateCache();
+        });
+    }
 }

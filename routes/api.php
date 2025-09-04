@@ -30,6 +30,11 @@ Route::middleware(['author', 'throttle:30,1'])->group(function () {
     Route::get('/db/library/test', [DbLibraryController::class, 'test']);
 
     /* ----------------  Homepage / library stats  ---------------- */
+    Route::get(
+        '/homepage/books',
+        [HomePageServerController::class, 'getHomePageBooks']
+    );
+    
     Route::post(
         '/homepage/books/update',
         [HomePageServerController::class, 'updateHomePageBooks']

@@ -27,11 +27,31 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 
 class HomePageServerController extends Controller
 {
-    public function updateHomePageBooks(Request $request)
+    private const CACHE_KEY = 'homepage_books_data';
+    private const CACHE_TTL = 900; // 15 minutes
+
+    public function getHomePageBooks(Request $request)
+    {
+        return Cache::remember(self::CACHE_KEY, self::CACHE_TTL, function () {
+            return $this->generateHomePageBooks();
+        });
+    }
+
+    public function updateHomePageBooks(Request $request, $forceUpdate = false)
+    {
+        if ($forceUpdate) {
+            Cache::forget(self::CACHE_KEY);
+        }
+
+        return $this->generateHomePageBooks();
+    }
+
+    private function generateHomePageBooks()
     {
         // Get all library records with the required columns
         $libraryRecords = DB::table('library')
@@ -65,7 +85,7 @@ class HomePageServerController extends Controller
         $this->createLibraryEntries();
 
         // Create entries for each special book
-        $this->createNodeChunksForBook('most-recent', $libraryRecords, 'recent');
+        $this->createNodeChunksForBook('most-recent', $libraryRecords, $rankings['mostRecent']);
         $this->createNodeChunksForBook('most-connected', $libraryRecords, $rankings['mostConnected']);
         $this->createNodeChunksForBook('most-lit', $libraryRecords, $rankings['mostLit']);
 
@@ -113,11 +133,7 @@ class HomePageServerController extends Controller
 
         foreach ($libraryRecords as $record) {
             // Get the position ID based on book type
-            if ($bookName === 'most-recent') {
-                $positionId = $record->recent;
-            } else {
-                $positionId = $positionData[$record->book] ?? null;
-            }
+            $positionId = $positionData[$record->book] ?? null;
 
             if ($positionId === null) {
                 continue;
@@ -449,6 +465,9 @@ class HomePageServerController extends Controller
 
     private function calculateRankings($libraryRecords)
     {
+        // Most Recent: Based on created_at (newest first)
+        $mostRecent = $this->rankByCreationDate($libraryRecords);
+
         // Most Connected: Based on total_citations
         $mostConnected = $this->rankByMetric(
             $libraryRecords, 
@@ -464,6 +483,7 @@ class HomePageServerController extends Controller
         );
 
         return [
+            'mostRecent' => $mostRecent,
             'mostConnected' => $mostConnected,
             'mostLit' => $mostLit
         ];
@@ -504,5 +524,34 @@ class HomePageServerController extends Controller
         }
 
         return $rankings;
+    }
+
+    private function rankByCreationDate($records)
+    {
+        // Convert records to array with creation dates
+        $recordsWithDate = $records->map(function ($record) {
+            return [
+                'book' => $record->book,
+                'created_at' => $record->created_at
+            ];
+        })->toArray();
+
+        // Sort by created_at (descending - newest first)
+        usort($recordsWithDate, function ($a, $b) {
+            return strtotime($b['created_at']) <=> strtotime($a['created_at']);
+        });
+
+        // Assign rankings (1 = most recent)
+        $rankings = [];
+        foreach ($recordsWithDate as $index => $record) {
+            $rankings[$record['book']] = $index + 1;
+        }
+
+        return $rankings;
+    }
+
+    public static function invalidateCache()
+    {
+        Cache::forget(self::CACHE_KEY);
     }
 }
