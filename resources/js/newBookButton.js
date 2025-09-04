@@ -294,7 +294,7 @@ export class NewBookContainerManager extends ContainerManager {
         </div>
 
         <div class="form-actions">
-          <button type="submit" id="createButton" class="formButton" disabled>Create Book</button>
+          <button type="submit" id="createButton" class="formButton">Create Book</button>
           <button type="button" id="clearButton" class="formButton">Clear</button>
         </div>
         
