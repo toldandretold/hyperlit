@@ -162,18 +162,10 @@ public function upsert(Request $request)
 
             Log::info('Library record updated successfully', ['book' => $bookId, 'is_owner' => $isOwner]);
 
-            // --- THE FIX ---
-            // 1. REMOVE the direct call to executeChainedOperations().
-            // $chainResult = $this->executeChainedOperations();
-
-            // 2. DISPATCH the job to the background queue instead. This is instant.
-            \App\Jobs\UpdateLibraryStatsJob::dispatch();
-
-            // 3. UPDATE the response to be immediate and informative.
             return response()->json([
                 'success' => true,
-                'message' => 'Library record updated. Stats update is processing in the background.',
-                'library' => $libraryRecord->refresh(), // Return the updated record
+                'message' => 'Library record updated successfully.',
+                'library' => $libraryRecord->refresh(),
             ]);
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -247,12 +239,9 @@ public function bulkCreate(Request $request)
                     $record                     // The data to insert or update with
                 );
 
-                \App\Jobs\UpdateLibraryStatsJob::dispatch(); 
-
                 return response()->json([
                     'success' => true,
-                    // The message is updated to reflect what's happening.
-                    'message' => 'Library record created. Stats update is processing in the background.',
+                    'message' => 'Library record created successfully.',
                     'library' => $createdRecord,
                 ]);
             }
