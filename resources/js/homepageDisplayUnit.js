@@ -14,12 +14,43 @@ function fixHeaderSpacing() {
   }
 }
 
+// Align header content with main content text dynamically
+function alignHeaderContent() {
+  const mainContent = document.querySelector('body[data-page="home"] .main-content');
+  const imageContainer = document.getElementById('imageContainer');
+  const buttonsContainer = document.querySelector('.arranger-buttons-container');
+  
+  if (mainContent && imageContainer && buttonsContainer) {
+    // Calculate the left edge of the actual text content
+    const mainContentRect = mainContent.getBoundingClientRect();
+    const mainContentPadding = parseInt(getComputedStyle(mainContent).paddingLeft);
+    const textLeftEdge = mainContentRect.left + mainContentPadding;
+    
+    // Get current position of image container (without any margin)
+    imageContainer.style.marginLeft = '0px'; // Reset to get base position
+    const imageRect = imageContainer.getBoundingClientRect();
+    
+    // Calculate needed offset from the image's current position
+    const neededMargin = textLeftEdge - imageRect.left;
+    
+    // Apply the calculated margin
+    imageContainer.style.marginLeft = neededMargin + 'px';
+    buttonsContainer.style.marginLeft = neededMargin + 'px';
+  }
+}
+
 export function initializeHomepageButtons() {
   // Fix header spacing on initialization
   fixHeaderSpacing();
   
+  // Align header content with text content
+  alignHeaderContent();
+  
   // Run again on window resize to handle responsive changes
-  window.addEventListener('resize', fixHeaderSpacing);
+  window.addEventListener('resize', () => {
+    fixHeaderSpacing();
+    alignHeaderContent();
+  });
   
   // Initialize the default active content on page load  
   const activeButton = document.querySelector('.arranger-button.active');
@@ -82,6 +113,9 @@ async function transitionToBookContent(bookId, showLoader = true) {
     
     // Use the same loading pipeline as regular page transitions
     await loadHyperText(bookId);
+    
+    // Realign header content after new content is loaded
+    alignHeaderContent();
     
     console.log(`✅ Successfully loaded ${bookId} content`);
     
