@@ -182,6 +182,34 @@ function loadFormData() {
                 showFieldsForType(formData.type);
             }
         }
+
+        // After restoring values, trigger validations so the user sees status immediately
+        setTimeout(() => {
+            try {
+                const citation = document.getElementById('citation_id');
+                const title = document.getElementById('title');
+                const fileInput = document.getElementById('markdown_file');
+
+                // Kick title validators (immediate UX feedback)
+                if (title) {
+                    title.dispatchEvent(new Event('input', { bubbles: true }));
+                    title.dispatchEvent(new Event('blur', { bubbles: true }));
+                }
+
+                // Kick citation validators (server check runs once on blur if value exists)
+                if (citation) {
+                    citation.dispatchEvent(new Event('input', { bubbles: true }));
+                    citation.dispatchEvent(new Event('blur', { bubbles: true }));
+                }
+
+                // Show file validation message (will indicate reselect if empty)
+                if (fileInput) {
+                    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            } catch (e) {
+                console.warn('Initial validation trigger failed', e);
+            }
+        }, 50);
     }
 }
 
@@ -612,9 +640,23 @@ async function submitToLaravelAndLoad(formData, submitButton) {
     console.log(
       `📥 Fetching pre-generated JSON for imported book: ${result.bookId}`
     );
-    await loadFromJSONFiles(result.bookId);
+    // Try to preload JSON for faster transition; if it fails, continue anyway
+    try {
+      await loadFromJSONFiles(result.bookId);
+    } catch (e) {
+      console.warn('Preloading JSON failed; continuing with reader fallback', e);
+    }
 
     // ===================== THE FIX: STEP 2 =====================
+    // Clear any persisted draft data now that a book was successfully created
+    try {
+      localStorage.removeItem('formData');
+      localStorage.removeItem('newbook-form-data');
+      console.log('🧹 Cleared saved import form draft after successful creation');
+    } catch (e) {
+      console.warn('Unable to clear saved form data', e);
+    }
+
     // 🔥 CRITICAL: Set the same sessionStorage flag that create new book uses
     // This tells layout.blade.php to hide the overlay immediately on page load
     sessionStorage.setItem("pending_import_book", result.bookId);
