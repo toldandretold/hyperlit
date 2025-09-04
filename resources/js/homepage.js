@@ -25,14 +25,13 @@ export async function initializeHomepage() {
   updatePageLoadProgress(10, "Loading homepage...");
   
   await new Promise(resolve => setTimeout(resolve, 100));
-  updatePageLoadProgress(40, "Loading recent content...");
-  
-  await initializeLazyLoaderForContainer('most-recent');
-  
-  updatePageLoadProgress(70, "Setting up interface...");
+  updatePageLoadProgress(40, "Setting up interface...");
   await new Promise(resolve => setTimeout(resolve, 100));
   
+  // Initialize homepage buttons - this will handle loading the initial content
   initializeHomepageButtons();
+  
+  updatePageLoadProgress(70, "Interface ready...");
 
   updatePageLoadProgress(90, "Finishing setup...");
   await new Promise(resolve => setTimeout(resolve, 100));
