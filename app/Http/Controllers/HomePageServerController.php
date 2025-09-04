@@ -53,7 +53,7 @@ class HomePageServerController extends Controller
 
     private function generateHomePageBooks()
     {
-        // Get all library records with the required columns
+        // Get all library records with the required columns, excluding private books
         $libraryRecords = DB::table('library')
             ->select([
                 'book',
@@ -69,6 +69,7 @@ class HomePageServerController extends Controller
                 'publisher',
                 'journal'
             ])
+            ->where('private', false)
             ->get();
 
         // Calculate rankings
@@ -111,6 +112,7 @@ class HomePageServerController extends Controller
             $libraryEntries[] = [
                 'book' => $bookId,
                 'author' => 'hyperlit',
+                'private' => true,
                 'raw_json' => json_encode([
                     'type' => 'generated',
                     'purpose' => 'homepage_ranking',

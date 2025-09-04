@@ -42,15 +42,16 @@ let tocCache = {
  * Check if TOC cache is valid for the current book
  */
 function isTocCacheValid() {
+  const currentBook = book;
   const isValid = (
     tocCache.data !== null &&
-    tocCache.bookId === book &&
+    tocCache.bookId === currentBook &&
     Date.now() - tocCache.lastScanTime < 30000 // 30 second cache
   );
   
   console.log(`📋 TOC Cache check:`, {
     hasData: tocCache.data !== null,
-    correctBook: tocCache.bookId === book,
+    correctBook: tocCache.bookId === currentBook,
     timeValid: Date.now() - tocCache.lastScanTime < 30000,
     lastScan: new Date(tocCache.lastScanTime).toLocaleTimeString(),
     isValid
