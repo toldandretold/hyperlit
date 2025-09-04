@@ -202,7 +202,7 @@ body[data-page="home"] .home-content-wrapper {
   -webkit-overflow-scrolling: touch;
 
   /* THE KEY: Creates a permanent empty space at the top for the fixed header */
-  padding-top: 150px;
+  padding-top: 200px; /* Increased from 150px to account for actual header height of ~192px */
 }
 
 /* 4. Center the main content list inside the wrapper */

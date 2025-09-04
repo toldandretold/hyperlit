@@ -389,6 +389,14 @@ export const lazyLoaders = {};
 // Keep your existing single lazy loader for backward compatibility
 export let currentLazyLoader = null;
 
+// Function to reset the current lazy loader for homepage transitions
+export function resetCurrentLazyLoader() {
+  if (currentLazyLoader) {
+    console.log("🧹 Resetting current lazy loader for fresh content");
+    currentLazyLoader = null;
+  }
+}
+
 // Your existing function - unchanged for backward compatibility
 export function initializeMainLazyLoader() {
   if (currentLazyLoader) {
@@ -417,60 +425,19 @@ export function initializeMainLazyLoader() {
 }
 
 
-// Function for homepage multi-book support
+// Function for homepage multi-book support - always creates fresh content
 export async function initializeLazyLoaderForContainer(bookId) {
-  console.log(`🔄 Initializing lazy loader for book: ${bookId}`);
+  console.log(`🔄 Creating fresh lazy loader for book: ${bookId}`);
   
-  // If we already have a lazy loader for this book, don't recreate
+  // Clean up any existing lazy loader for this book
   if (lazyLoaders[bookId]) {
-    console.log(`✅ Lazy loader for ${bookId} already exists`);
-    return lazyLoaders[bookId];
-  }
-  
-  // Check if content is already loaded in the DOM
-  const container = document.getElementById(bookId);
-  const existingChunks = container?.querySelectorAll('.chunk');
-  if (existingChunks && existingChunks.length > 0) {
-    console.log(`📄 Content already exists in DOM for ${bookId}, skipping reload`);
-    
-    // Still create the lazy loader for scroll management, but don't reload content
-    try {
-      let nodeChunks = await getNodeChunksFromIndexedDB(bookId);
-      
-      if (!nodeChunks || !nodeChunks.length) {
-        console.log(`🔍 Loading ${bookId} from database...`);
-        const dbResult = await syncBookDataFromDatabase(bookId);
-        if (dbResult && dbResult.success) {
-          nodeChunks = await getNodeChunksFromIndexedDB(bookId);
-        }
-      }
-      
-      if (!nodeChunks || !nodeChunks.length) {
-        console.log(`🆕 Generating ${bookId} from markdown`);
-        nodeChunks = await generateNodeChunksFromMarkdown(bookId, true);
-      }
-      
-      if (nodeChunks && nodeChunks.length) {
-        lazyLoaders[bookId] = createLazyLoader({
-          nodeChunks: nodeChunks,
-          loadNextChunk: loadNextChunkFixed,
-          loadPreviousChunk: loadPreviousChunkFixed,
-          attachMarkListeners,
-          bookId: bookId,
-          skipInitialLoad: true // Add this flag to prevent initial content loading
-        });
-        
-        console.log(`✅ Lazy loader created for existing content: ${bookId}`);
-        return lazyLoaders[bookId];
-      }
-    } catch (error) {
-      console.error(`❌ Error creating lazy loader for existing content ${bookId}:`, error);
-    }
-    return null;
+    console.log(`🧹 Removing existing lazy loader for fresh ${bookId} content`);
+    delete lazyLoaders[bookId];
   }
   
   try {
-    // Load the book data (existing code for new content)
+    // Load book data using the same priority as regular books:
+    // 1. IndexedDB cache -> 2. Database sync -> 3. Generate from markdown
     let nodeChunks = await getNodeChunksFromIndexedDB(bookId);
     
     if (!nodeChunks || !nodeChunks.length) {
@@ -491,7 +458,7 @@ export async function initializeLazyLoaderForContainer(bookId) {
       return null;
     }
     
-    // Create new lazy loader instance
+    // Create fresh lazy loader instance
     lazyLoaders[bookId] = createLazyLoader({
       nodeChunks: nodeChunks,
       loadNextChunk: loadNextChunkFixed,
@@ -500,18 +467,19 @@ export async function initializeLazyLoaderForContainer(bookId) {
       bookId: bookId
     });
     
-    // Load the first chunk manually since the observer might not trigger immediately
+    // Load the first chunk to initialize content
     const firstChunk = nodeChunks.find(chunk => chunk.chunk_id === 0) || nodeChunks[0];
     if (firstChunk && lazyLoaders[bookId]) {
       console.log(`📄 Loading initial chunk ${firstChunk.chunk_id} for ${bookId}`);
       lazyLoaders[bookId].loadChunk(firstChunk.chunk_id, "down");
     }
     
-    console.log(`✅ Lazy loader created for ${bookId}`);
+    console.log(`✅ Fresh lazy loader created for ${bookId}`);
     return lazyLoaders[bookId];
     
   } catch (error) {
-    console.error(`❌ Error initializing lazy loader for ${bookId}:`, error);
+    console.error(`❌ Error creating fresh lazy loader for ${bookId}:`, error);
+    return null;
   }
 }
 
@@ -529,6 +497,17 @@ function initializeLazyLoader(openHyperlightID, bookId) { // <-- Add bookId para
       isNavigatingToInternalId: !!openHyperlightID,
       onFirstChunkLoaded: firstChunkLoadedResolver
     });
+    
+    // Only manually load first chunk for homepage contexts
+    // Regular reader pages will trigger via intersection observer
+    const isHomepageContext = document.querySelector('.home-content-wrapper');
+    if (isHomepageContext) {
+      const firstChunk = window.nodeChunks.find(chunk => chunk.chunk_id === 0) || window.nodeChunks[0];
+      if (firstChunk && currentLazyLoader) {
+        console.log(`📄 Loading initial chunk ${firstChunk.chunk_id} for ${bookId} (homepage context)`);
+        currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
+      }
+    }
     
     if (openHyperlightID) {
       setTimeout(() => {

@@ -30,7 +30,8 @@ import {
 import {
   loadHyperText,
   pendingFirstChunkLoadedPromise,
-  resolveFirstChunkPromise
+  resolveFirstChunkPromise,
+  resetCurrentLazyLoader
 } from "./initializePage.js";
 
 // State management and cleanup are correct.
@@ -48,6 +49,7 @@ window.addEventListener("pageshow", (event) => {
       setTimeout(() => {
         try {
           console.log("🔧 Reinitializing interactive features after cache restore...");
+          const currentBookId = book;
           
           // Import and reinitialize footnote/citation listeners
           import('./footnotes-citations.js').then(module => {
@@ -67,11 +69,11 @@ window.addEventListener("pageshow", (event) => {
           
           // Reinitialize hyperlight listeners
           attachMarkListeners();
-          initializeHighlightingControls(book);
+          initializeHighlightingControls(currentBookId);
           console.log("✅ Hyperlight listeners reinitialized");
           
           // Reinitialize hyperciting
-          initializeHypercitingControls(book);
+          initializeHypercitingControls(currentBookId);
           console.log("✅ Hyperciting controls reinitialized");
           
           // Reinitialize nav buttons if they exist
@@ -323,6 +325,9 @@ function attachGlobalLinkClickHandler() {
 export async function initializeReaderView() {
   const currentBookId = book;
   console.log(`🚀 Initializing Reader View for book: ${currentBookId}`);
+  
+  // Reset lazy loader to ensure we create a fresh one with the correct book ID
+  resetCurrentLazyLoader();
 
   // 🎯 FIRST PRIORITY: Restore navigation overlay if it was active during page transition
   // Skip restore if overlay is already active from page load or if this is a new book creation
