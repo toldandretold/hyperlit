@@ -809,6 +809,29 @@ loadFormData() {
           fileInput.parentNode.insertBefore(fileNote, fileInput.nextSibling);
         }
       }
+
+      // Trigger validations after values are restored so messages appear without interaction
+      try {
+        const citation = document.getElementById('citation_id');
+        const title = document.getElementById('title');
+        const fileInput = document.getElementById('markdown_file');
+
+        if (title) {
+          title.dispatchEvent(new Event('input', { bubbles: true }));
+          title.dispatchEvent(new Event('blur', { bubbles: true }));
+        }
+
+        if (citation && citation.value) {
+          citation.dispatchEvent(new Event('input', { bubbles: true }));
+          citation.dispatchEvent(new Event('blur', { bubbles: true }));
+        }
+
+        if (fileInput) {
+          fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      } catch (e) {
+        console.warn('Unable to trigger validations after draft load', e);
+      }
       
     }, 100);
     

@@ -39,10 +39,12 @@ function alignHeaderContent() {
   }
 }
 
+
 export function initializeHomepageButtons() {
   // Fix header spacing on initialization
   fixHeaderSpacing();
   
+
   // Align header content with text content
   alignHeaderContent();
   
@@ -51,6 +53,7 @@ export function initializeHomepageButtons() {
     fixHeaderSpacing();
     alignHeaderContent();
   });
+
   
   // Initialize the default active content on page load  
   const activeButton = document.querySelector('.arranger-button.active');
@@ -117,6 +120,7 @@ async function transitionToBookContent(bookId, showLoader = true) {
     // Realign header content after new content is loaded
     alignHeaderContent();
     
+
     console.log(`✅ Successfully loaded ${bookId} content`);
     
     if (showLoader) {
