@@ -77,16 +77,29 @@ function populateFieldsFromBibtex() {
         url: /url\s*=\s*[\{"']([^}\"']+)[\}"']/i
     };
 
+    let changed = false;
     Object.entries(patterns).forEach(([field, pattern]) => {
         const match = bibtexText.match(pattern);
         if (match) {
             const fieldName = field === 'id' ? 'citation_id' : field;
             const element = document.getElementById(fieldName);
             if (element) {
-                element.value = match[1].trim();
+                const newVal = match[1].trim();
+                if (element.value !== newVal) {
+                    element.value = newVal;
+                    changed = true;
+                }
             }
         }
     });
+
+    // If fields were updated programmatically, trigger their validation listeners
+    if (changed) {
+        const citation = document.getElementById('citation_id');
+        const title = document.getElementById('title');
+        if (citation) citation.dispatchEvent(new Event('input', { bubbles: true }));
+        if (title) title.dispatchEvent(new Event('input', { bubbles: true }));
+    }
 }
 
 function validateFileInput() {
@@ -184,6 +197,13 @@ export function initializeCitationFormListeners() {
     // Set up BibTeX field listeners
     const bibtexField = document.getElementById('bibtex');
     if (bibtexField) {
+        // Helper to kick validators after programmatic autofill
+        const triggerAutoValidation = () => {
+            const citation = document.getElementById('citation_id');
+            const title = document.getElementById('title');
+            if (citation) citation.dispatchEvent(new Event('input', { bubbles: true }));
+            if (title) title.dispatchEvent(new Event('input', { bubbles: true }));
+        };
         bibtexField.addEventListener('paste', function(e) {
             setTimeout(() => {
                 const bibtexText = this.value;
@@ -204,7 +224,10 @@ export function initializeCitationFormListeners() {
                         }
                     }
                     
-                    setTimeout(populateFieldsFromBibtex, 50);
+                    setTimeout(() => {
+                        populateFieldsFromBibtex();
+                        triggerAutoValidation();
+                    }, 50);
                 }
             }, 0);
         });
@@ -223,6 +246,7 @@ export function initializeCitationFormListeners() {
                         radio.checked = true;
                         showFieldsForType(bibType);
                         populateFieldsFromBibtex();
+                        triggerAutoValidation();
                     }
                 }
             }, 300);
@@ -269,35 +293,168 @@ function setupFormSubmission() {
         event.preventDefault();
         event.stopPropagation();
 
+        if (form._submitting) {
+            console.log('⏳ Submit suppressed: already submitting');
+            return false;
+        }
+        form._submitting = true;
+
+        // Force blur active element so any pending validation completes
+        try { if (document.activeElement) document.activeElement.blur(); } catch(_) {}
+
+        // Quick file validation
         if (!validateFileInput()) {
             console.log("File validation failed");
             return false;
         }
-        console.log("🔥 DEBUG: File validation passed");
 
+        // Title + Citation ID validation (block duplicates)
         const submitButton = this.querySelector('button[type="submit"]');
+        const citationInput = this.querySelector('#citation_id');
+        const titleInput = this.querySelector('#title');
+        const fileInput = this.querySelector('#markdown_file');
+
+        const errors = [];
+
+        // Title check
+        if (!titleInput || !titleInput.value || titleInput.value.trim().length === 0) {
+            errors.push({ field: 'Title', message: 'Title is required' });
+            const el = document.getElementById('title-validation');
+            if (el) { el.textContent = 'Title is required'; el.className = 'validation-message error'; }
+        }
+
+        // Citation ID checks
+        const idVal = citationInput?.value?.trim() || '';
+        if (!idVal) {
+            errors.push({ field: 'Citation ID', message: 'Citation ID is required' });
+            const el = document.getElementById('citation_id-validation');
+            if (el) { el.textContent = 'Citation ID is required'; el.className = 'validation-message error'; }
+        } else if (!/^[a-zA-Z0-9_-]+$/.test(idVal)) {
+            errors.push({ field: 'Citation ID', message: 'Only letters, numbers, underscores, and hyphens allowed' });
+            const el = document.getElementById('citation_id-validation');
+            if (el) { el.textContent = 'Only letters, numbers, underscores, and hyphens allowed'; el.className = 'validation-message error'; }
+        } else if (idVal.length < 3) {
+            errors.push({ field: 'Citation ID', message: 'Citation ID must be at least 3 characters' });
+            const el = document.getElementById('citation_id-validation');
+            if (el) { el.textContent = 'Citation ID must be at least 3 characters'; el.className = 'validation-message error'; }
+        } else {
+            // Server availability check
+            try {
+                const resp = await fetch('/api/validate-citation-id', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+                    },
+                    body: JSON.stringify({ citation_id: idVal })
+                });
+                const data = await resp.json();
+                if (!data.success) {
+                    errors.push({ field: 'Citation ID', message: 'Error checking citation ID availability' });
+                    const el = document.getElementById('citation_id-validation');
+                    if (el) { el.textContent = 'Error checking citation ID availability'; el.className = 'validation-message error'; }
+                } else if (data.exists) {
+                    errors.push({ field: 'Citation ID', message: `Citation ID "${idVal}" is already taken` });
+                    const el = document.getElementById('citation_id-validation');
+                    if (el) { el.textContent = `Citation ID "${idVal}" is already taken`; el.className = 'validation-message error'; }
+                } else {
+                    const el = document.getElementById('citation_id-validation');
+                    if (el) { el.textContent = 'Citation ID is available'; el.className = 'validation-message success'; }
+                }
+            } catch (e) {
+                console.warn('Citation ID check failed', e);
+                errors.push({ field: 'Citation ID', message: 'Unable to verify citation ID availability' });
+                const el = document.getElementById('citation_id-validation');
+                if (el) { el.textContent = 'Unable to verify citation ID availability'; el.className = 'validation-message error'; }
+            }
+        }
+
+        // Update summary
+        const summary = document.getElementById('form-validation-summary');
+        const list = document.getElementById('validation-list');
+        if (summary && list) {
+            if (errors.length > 0) {
+                list.innerHTML = errors.map(e => `<li>${e.field}: ${e.message}</li>`).join('');
+                summary.style.display = 'block';
+            } else {
+                summary.style.display = 'none';
+            }
+        }
+
+        if (errors.length > 0) {
+            // Do not proceed
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Create Book';
+            }
+            return false;
+        }
+
+        // Passed validations — disable to avoid double submission
         if (submitButton) {
             submitButton.disabled = true;
             submitButton.textContent = 'Processing...';
         }
 
-        const formData = new FormData(this);
-
-        // ✅ We no longer create a local libraryRecord here.
-        // We just submit the form and let the backend handle it.
-        await submitToLaravelAndLoad(formData, submitButton);
+        try {
+            const formData = new FormData(this);
+            await submitToLaravelAndLoad(formData, submitButton);
+        } finally {
+            // If navigation did not occur, allow another try
+            form._submitting = false;
+        }
     };
     
     form.addEventListener('submit', submitHandler);
     // Store handler reference for potential cleanup
     form._submitHandler = submitHandler;
     
-    // ✅ DEBUG: Test if the submit button is working
+    // ✅ DEBUG: Test if the submit button is working + Safari single-tap submit shim
     const submitButton = form.querySelector('button[type="submit"]');
     if (submitButton) {
         console.log("🔥 DEBUG: Found submit button:", submitButton);
-        // Test click handler
+
+        const ensureSubmit = (e) => {
+            // Mark that shim handled this tap to suppress the next click
+            form._shimSubmitted = true;
+            setTimeout(() => { form._shimSubmitted = false; }, 600);
+
+            // Prevent the following synthetic click; we will submit programmatically
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+                if (document.activeElement && document.activeElement !== submitButton) {
+                    document.activeElement.blur();
+                }
+            } catch (_) {}
+            // Defer slightly to allow blur handlers/validation to settle
+            setTimeout(() => {
+                // Guard: if form already disabled button (in-flight), skip
+                if (submitButton.disabled) return;
+                // Programmatic submit triggers our submit handler
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit(submitButton);
+                } else {
+                    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                }
+            }, 0);
+        };
+
+        // Use pointerup/touchend to capture the first tap on Safari and avoid double-tap
+        try {
+            submitButton.addEventListener('pointerup', ensureSubmit, { passive: false });
+            submitButton.addEventListener('touchend', ensureSubmit, { passive: false });
+        } catch (_) {
+            submitButton.addEventListener('touchend', ensureSubmit);
+        }
+
+        // Suppress immediate native click after shim to avoid double submission in Chrome
         submitButton.addEventListener('click', function(e) {
+            if (form._shimSubmitted) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
             console.log("🔥 DEBUG: Submit button clicked!", e);
         });
     } else {
@@ -488,15 +645,42 @@ async function submitToLaravelAndLoad(formData, submitButton) {
 function setupClearButton() {
     const clearButton = document.getElementById('clearButton');
     if (clearButton) {
-        clearButton.addEventListener('click', function() {
-            localStorage.removeItem('formData');
-            document.getElementById('cite-form').reset();
+        clearButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            const form = document.getElementById('cite-form');
+            if (!form) return;
+
+            // Reset inputs
+            form.reset();
+
+            // Hide optional fields (labels and inputs)
             document.querySelectorAll('.optional-field').forEach(field => {
                 field.style.display = 'none';
-                field.previousElementSibling.style.display = 'none';
             });
-            location.reload();
-        });
+
+            // Clear validation messages (remove inline display so CSS classes can show later)
+            document.querySelectorAll('.validation-message').forEach(msg => {
+                msg.textContent = '';
+                msg.innerHTML = '';
+                msg.className = 'validation-message';
+                msg.style.removeProperty('display');
+            });
+            const summary = document.getElementById('form-validation-summary');
+            const list = document.getElementById('validation-list');
+            if (summary) summary.style.display = 'none';
+            if (list) list.innerHTML = '';
+
+            // Re-enable submit button
+            const submitButton = document.getElementById('createButton');
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Create Book';
+            }
+
+            // Clear any persisted form data (both keys used across modules)
+            localStorage.removeItem('formData');
+            localStorage.removeItem('newbook-form-data');
+        }, { passive: false });
     }
 }
 
@@ -521,17 +705,27 @@ function setupRealTimeValidation() {
             try {
                 const response = await fetch('/api/validate-citation-id', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
+                        'Accept': 'application/json',
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
                     },
                     body: JSON.stringify({ citation_id: value })
                 });
                 
-                const data = await response.json();
+                let data;
+                try {
+                    data = await response.json();
+                } catch (parseErr) {
+                    console.warn('Citation ID check: non-JSON response', parseErr);
+                    // Non-blocking: do not show an error state here; enforce on submit
+                    return { valid: true, message: '' };
+                }
                 
                 if (!data.success) {
-                    return { valid: false, message: 'Error checking citation ID availability' };
+                    // Non-blocking warning; treat as neutral so UI isn't alarming
+                    return { valid: true, message: '' };
                 }
                 
                 if (data.exists) {
@@ -546,8 +740,9 @@ function setupRealTimeValidation() {
                 return { valid: true, message: 'Citation ID is available' };
                 
             } catch (error) {
-                console.error('Citation ID validation error:', error);
-                return { valid: false, message: 'Unable to verify citation ID availability' };
+                console.warn('Citation ID validation error (non-blocking):', error);
+                // Non-blocking: avoid showing an error; submit-time check will catch duplicates
+                return { valid: true, message: '' };
             }
         },
         
@@ -615,7 +810,7 @@ function setupRealTimeValidation() {
         }
     };
     
-    // Validate form and update submit button
+    // Validate form and update messages (do not disable the submit button pre-emptively)
     const validateForm = async () => {
         const citationId = document.getElementById('citation_id');
         const title = document.getElementById('title');
@@ -624,22 +819,20 @@ function setupRealTimeValidation() {
         
         if (!citationId || !title || !fileInput || !submitButton) return;
         
-        // Temporarily disable submit button during validation
-        submitButton.disabled = true;
-        submitButton.textContent = 'Validating...';
-        
-        const citationResult = await validators.validateCitationId(citationId.value);
+        // Do not disable the button here to avoid Safari double-tap issues
+        // Avoid hitting the server here; handle citation ID via its own listeners
         const titleResult = validators.validateTitle(title.value);
         const fileResult = validators.validateFile(fileInput);
         
-        const isFormValid = citationResult.valid && titleResult.valid && fileResult.valid;
-        
-        submitButton.disabled = !isFormValid;
-        submitButton.textContent = isFormValid ? 'Create Book' : 'Create Book';
+        const isFormValid = titleResult.valid && fileResult.valid;
+        // Show individual field messages
+        showValidationMessage('title', titleResult);
+        showValidationMessage('file', fileResult);
+        // Keep the submit button enabled; the submit handler will guard and show errors if needed
+        submitButton.textContent = 'Create Book';
         
         // Update validation summary
         updateValidationSummary([
-            { field: 'Citation ID', result: citationResult },
             { field: 'Title', result: titleResult },
             { field: 'File', result: fileResult }
         ]);
@@ -675,7 +868,14 @@ function setupRealTimeValidation() {
             validationTimeout = setTimeout(async () => {
                 const result = await validators.validateCitationId(this.value);
                 showValidationMessage('citation_id', result);
-                await validateForm();
+                // Also refresh summary with current local field states
+                const titleResult = validators.validateTitle(document.getElementById('title')?.value || '');
+                const fileResult = validators.validateFile(document.getElementById('markdown_file'));
+                updateValidationSummary([
+                    { field: 'Citation ID', result },
+                    { field: 'Title', result: titleResult },
+                    { field: 'File', result: fileResult }
+                ]);
             }, 500);
         });
         
@@ -683,7 +883,13 @@ function setupRealTimeValidation() {
             clearTimeout(validationTimeout);
             const result = await validators.validateCitationId(this.value);
             showValidationMessage('citation_id', result);
-            await validateForm();
+            const titleResult = validators.validateTitle(document.getElementById('title')?.value || '');
+            const fileResult = validators.validateFile(document.getElementById('markdown_file'));
+            updateValidationSummary([
+                { field: 'Citation ID', result },
+                { field: 'Title', result: titleResult },
+                { field: 'File', result: fileResult }
+            ]);
         });
     }
     
@@ -705,6 +911,7 @@ function setupRealTimeValidation() {
     if (fileField) {
         fileField.addEventListener('change', function() {
             const result = validators.validateFile(this);
+            // Pass field base id 'file' so showValidationMessage targets #file-validation
             showValidationMessage('file', result);
             validateForm();
         });
