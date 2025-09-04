@@ -498,11 +498,15 @@ function initializeLazyLoader(openHyperlightID, bookId) { // <-- Add bookId para
       onFirstChunkLoaded: firstChunkLoadedResolver
     });
     
-    // Load the first chunk manually to ensure content appears
-    const firstChunk = window.nodeChunks.find(chunk => chunk.chunk_id === 0) || window.nodeChunks[0];
-    if (firstChunk && currentLazyLoader) {
-      console.log(`📄 Loading initial chunk ${firstChunk.chunk_id} for ${bookId}`);
-      currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
+    // Only manually load first chunk for homepage contexts
+    // Regular reader pages will trigger via intersection observer
+    const isHomepageContext = document.querySelector('.home-content-wrapper');
+    if (isHomepageContext) {
+      const firstChunk = window.nodeChunks.find(chunk => chunk.chunk_id === 0) || window.nodeChunks[0];
+      if (firstChunk && currentLazyLoader) {
+        console.log(`📄 Loading initial chunk ${firstChunk.chunk_id} for ${bookId} (homepage context)`);
+        currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
+      }
     }
     
     if (openHyperlightID) {

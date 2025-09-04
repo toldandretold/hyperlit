@@ -663,4 +663,4 @@ public function bulkCreate(Request $request)
                 ], 500);
             }
         }
-}
+} 
