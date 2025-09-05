@@ -1,7 +1,8 @@
 import { ContainerManager } from "./container-manager.js";
 import { openDatabase, getNodeChunksFromIndexedDB } from "./cache-indexedDB.js";
-import { formatBibtexToCitation } from "./bibtexProcessor.js";
+import { formatBibtexToCitation, generateBibtexFromForm } from "./bibtexProcessor.js";
 import { book } from "./app.js";
+import { canUserEditBook } from "./auth.js";
 import { htmlToText } 
   from 'https://cdn.skypack.dev/html-to-text';
   import {
@@ -49,7 +50,7 @@ async function buildSourceHtml(currentBookId) {
   const citation = (await formatBibtexToCitation(bibtex)).trim();
 
   return `
-    <div class="scroller">
+    <div class="scroller" id="source-content">
     <div class="citation">${citation}</div>
 
     <br/>
@@ -116,6 +117,93 @@ async function buildSourceHtml(currentBookId) {
     </div>
   </button>
 
+    <!-- Edit Button in bottom right corner -->
+    <button id="edit-source" style="position: absolute; bottom: 10px; right: 10px; width: 20px; height: 20px; background: #221F20; border: none; cursor: pointer; padding: 0px; stroke: #CBCCCC; box-sizing: border-box; display: flex; align-items: center; justify-content: center; z-index: 1002;">
+      <svg 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke-width="2" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        style="pointer-events: none;"
+      >
+        <path d="M12 20h9" stroke="#CBCCCC" />
+        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" stroke="#CBCCCC" />
+      </svg>
+    </button>
+
+    </div>
+
+    <!-- Edit Form (initially hidden) -->
+    <div id="edit-form-container" class="hidden" style="display: none;">
+      <div class="scroller">
+        <form id="edit-source-form">
+          <div class="form-header">
+            <h2 style="color: #EF8D34;">Edit Library Record</h2>
+            <p class="form-subtitle">Update the details for this book</p>
+          </div>
+
+          <!-- BibTeX Section -->
+          <div class="form-section">
+            <label for="edit-bibtex">BibTeX Details (optional)</label>
+            <textarea id="edit-bibtex" name="bibtex" placeholder="Auto-generated from form data..."></textarea>
+            <div class="field-hint">Auto-updated when you save changes</div>
+          </div>
+
+          <!-- Type Selection -->
+          <div class="form-section">
+            <label>Document Type:</label>
+            <div class="radio-group">
+              <label><input type="radio" name="type" value="article"> Article</label>
+              <label><input type="radio" name="type" value="book" checked> Book</label>
+              <label><input type="radio" name="type" value="phdthesis"> PhD Thesis</label>
+              <label><input type="radio" name="type" value="misc"> Miscellaneous</label>
+            </div>
+          </div>
+
+          <!-- Required Fields Section -->
+          <div class="form-section">            
+            <label for="edit-title" class="required">Title <span class="required-indicator">*</span></label>
+            <input type="text" id="edit-title" name="title" required placeholder="Enter document title">
+            <div id="edit-title-validation" class="validation-message"></div>
+          </div>
+
+          <!-- Optional Fields Section -->
+          <div class="form-section">
+            <label for="edit-author">Author</label>
+            <input type="text" id="edit-author" name="author" placeholder="Author name">
+
+            <label for="edit-year">Year</label>
+            <input type="number" id="edit-year" name="year" min="1000" max="2035" placeholder="Publication year">
+
+            <label for="edit-url">URL</label>
+            <input type="url" id="edit-url" name="url" placeholder="https://...">
+
+            <!-- Type-specific fields with proper optional-field class -->
+            <label for="edit-pages" class="optional-field" style="display: none;">Pages</label>
+            <input type="text" id="edit-pages" name="pages" class="optional-field" style="display: none;" placeholder="e.g., 1-20, 45-67">
+
+            <label for="edit-journal" class="optional-field" style="display: none;">Journal</label>
+            <input type="text" id="edit-journal" name="journal" class="optional-field" style="display: none;" placeholder="Journal name">
+
+            <label for="edit-publisher" class="optional-field" style="display: none;">Publisher</label>
+            <input type="text" id="edit-publisher" name="publisher" class="optional-field" style="display: none;" placeholder="Publisher name">
+
+            <label for="edit-school" class="optional-field" style="display: none;">School</label>
+            <input type="text" id="edit-school" name="school" class="optional-field" style="display: none;" placeholder="University/School name">
+
+            <label for="edit-note" class="optional-field" style="display: none;">Note</label>
+            <input type="text" id="edit-note" name="note" class="optional-field" style="display: none;" placeholder="Additional notes">
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="save-edit" class="formButton">Save Changes</button>
+            <button type="button" id="cancel-edit" class="formButton">Cancel</button>
+          </div>
+        </form>
+      </div>
+      <div class="mask-top"></div>
+      <div class="mask-bottom"></div>
     </div>
   `;
 }
@@ -127,6 +215,7 @@ export class SourceContainerManager extends ContainerManager {
     this.isAnimating = false;
     this.button = document.getElementById(buttonId);
     this.originalButtonRect = null;
+    this.isInEditMode = false; // Track if we're currently in edit mode
   }
 
   rebindElements() {
@@ -135,23 +224,64 @@ export class SourceContainerManager extends ContainerManager {
     
     // THE FIX: Reapply the critical styles after finding the new DOM elements
     this.setupSourceContainerStyles();
+    
+    // OVERRIDE: Custom overlay click handler for edit mode support
+    if (this.overlay) {
+      // Remove the parent's overlay listener and add our own
+      const newOverlay = this.overlay.cloneNode(true);
+      this.overlay.parentNode.replaceChild(newOverlay, this.overlay);
+      this.overlay = newOverlay;
+      
+      this.overlay.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (this.isOpen) {
+          if (this.isInEditMode) {
+            this.hideEditForm();
+          } else {
+            this.closeContainer();
+          }
+        }
+      });
+    }
   }
 
   setupSourceContainerStyles() {
     const c = this.container;
     if (!c) return;
-    Object.assign(c.style, {
-      position: "fixed",
-      width: "0",
-      height: "0",
-      overflow: "hidden",
-      transition: "width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, top 0.3s ease-out, right 0.3s ease-out",
-      zIndex: "1001",
-      backgroundColor: "#221F20",
-      boxShadow: "0 0 15px rgba(0, 0, 0, 0.2)",
-      borderRadius: "1em",
-      opacity: "0",
-    });
+    
+    // Only apply initial hidden styles if container is not currently showing edit form
+    const editFormContainer = c.querySelector("#edit-form-container");
+    const isEditFormVisible = editFormContainer && editFormContainer.style.display === "block";
+    
+    if (!isEditFormVisible) {
+      Object.assign(c.style, {
+        position: "fixed",
+        width: "0",
+        height: "0",
+        overflow: "hidden",
+        transition: "width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, top 0.3s ease-out, right 0.3s ease-out",
+        zIndex: "1001",
+        backgroundColor: "#221F20",
+        boxShadow: "0 0 15px rgba(0, 0, 0, 0.2)",
+        borderRadius: "1em",
+        opacity: "0",
+      });
+    } else {
+      // If edit form is visible, ensure container has proper styling without zero dimensions
+      Object.assign(c.style, {
+        position: "fixed",
+        overflow: "auto", // Allow scrolling for form content
+        transition: "width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, top 0.3s ease-out, right 0.3s ease-out",
+        zIndex: "1001",
+        backgroundColor: "#221F20",
+        boxShadow: "0 0 15px rgba(0, 0, 0, 0.2)",
+        borderRadius: "1em",
+        opacity: "1",
+        visibility: "visible",
+        display: "block",
+      });
+    }
   }
 
   async openContainer() {
@@ -163,8 +293,11 @@ export class SourceContainerManager extends ContainerManager {
 
     const mdBtn = this.container.querySelector("#download-md");
     const docxBtn = this.container.querySelector("#download-docx");
+    const editBtn = this.container.querySelector("#edit-source");
+    
     if (mdBtn) mdBtn.addEventListener("click", () => exportBookAsMarkdown(book));
     if (docxBtn) docxBtn.addEventListener("click", () => exportBookAsDocxStyled(book));
+    if (editBtn) editBtn.addEventListener("click", () => this.handleEditClick());
 
     // Get current button position
     const rect = this.button.getBoundingClientRect();
@@ -182,10 +315,19 @@ export class SourceContainerManager extends ContainerManager {
     this.container.style.top = `${rect.bottom + 8}px`;
     this.container.style.right = `${window.innerWidth - rect.right}px`;
 
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const w = Math.min(vw * 0.8, 400);
-    const h = Math.min(vh * 0.8, 400);
+    // DYNAMIC WIDTH: Responsive behavior with narrower max width
+    const isMobile = window.innerWidth <= 480;
+    let w, h;
+    
+    if (isMobile) {
+      // Mobile: Use button-based width calculation
+      w = this.originalButtonRect.right - 15;
+      h = Math.min(window.innerHeight * 0.8, 400);
+    } else {
+      // Desktop: Use narrower max width than newbook container
+      w = 300; // Narrower than newbook's 400px
+      h = Math.min(window.innerHeight * 0.8, 400);
+    }
 
     // Trigger animation with requestAnimationFrame for smooth fade-in
     requestAnimationFrame(() => {
@@ -225,6 +367,317 @@ export class SourceContainerManager extends ContainerManager {
       
       this.isAnimating = false;
     }, { once: true });
+  }
+
+  async handleEditClick() {
+    console.log("Edit button clicked");
+    
+    // Check if user can edit this book
+    const canEdit = await canUserEditBook(book);
+    if (!canEdit) {
+      alert("You don't have permission to edit this book's details.");
+      return;
+    }
+
+    // Get the library record and show the edit form
+    await this.showEditForm();
+  }
+
+  async showEditForm() {
+    const db = await openDatabase();
+    const record = await getRecord(db, "library", book);
+    
+    if (!record) {
+      alert("Library record not found.");
+      return;
+    }
+
+    // Hide the main content and show the edit form
+    const sourceContent = this.container.querySelector("#source-content");
+    const editFormContainer = this.container.querySelector("#edit-form-container");
+    
+    if (sourceContent && editFormContainer) {
+      sourceContent.style.display = "none";
+      editFormContainer.style.display = "block";
+      editFormContainer.classList.remove("hidden");
+      
+      // SET EDIT MODE FLAG
+      this.isInEditMode = true;
+      
+      // Pre-fill the form with current data
+      this.populateEditForm(record);
+      
+      // Expand container to accommodate form
+      this.expandForEditForm();
+      
+      // CRITICAL FIX: Reapply container styles now that edit form is visible
+      this.setupSourceContainerStyles();
+      
+      // Set up form event listeners
+      this.setupEditFormListeners(record);
+    }
+  }
+
+  populateEditForm(record) {
+    // Basic fields
+    const titleField = this.container.querySelector("#edit-title");
+    const authorField = this.container.querySelector("#edit-author");
+    const yearField = this.container.querySelector("#edit-year");
+    const urlField = this.container.querySelector("#edit-url");
+    const bibtexField = this.container.querySelector("#edit-bibtex");
+    
+    if (titleField) titleField.value = record.title || "";
+    if (authorField) authorField.value = record.author || record.creator || "";
+    if (yearField) yearField.value = record.year || "";
+    if (urlField) urlField.value = record.url || "";
+    if (bibtexField) bibtexField.value = record.bibtex || "";
+    
+    // Set the correct radio button for type
+    const typeRadios = this.container.querySelectorAll('input[name="type"]');
+    const recordType = record.type || "book";
+    typeRadios.forEach(radio => {
+      radio.checked = radio.value === recordType;
+    });
+    
+    // Show optional fields based on type
+    this.showOptionalFieldsForType(recordType, record);
+  }
+
+  showOptionalFieldsForType(type, record = {}) {
+    // Hide all optional fields first (like the original showFieldsForType)
+    this.container.querySelectorAll('.optional-field').forEach(field => {
+      field.style.display = 'none';
+      // Also hide the label (previous sibling)
+      if (field.previousElementSibling && field.previousElementSibling.classList.contains('optional-field')) {
+        field.previousElementSibling.style.display = 'none';
+      }
+    });
+
+    // Show fields based on type (same logic as newBookForm.js)
+    if (type === 'article') {
+      const journal = this.container.querySelector('#edit-journal');
+      const journalLabel = this.container.querySelector('label[for="edit-journal"]');
+      const pages = this.container.querySelector('#edit-pages');
+      const pagesLabel = this.container.querySelector('label[for="edit-pages"]');
+      
+      if (journal && journalLabel) {
+        journal.style.display = 'block';
+        journalLabel.style.display = 'block';
+        journal.value = record.journal || '';
+      }
+      if (pages && pagesLabel) {
+        pages.style.display = 'block';
+        pagesLabel.style.display = 'block';
+        pages.value = record.pages || '';
+      }
+    } else if (type === 'book') {
+      const publisher = this.container.querySelector('#edit-publisher');
+      const publisherLabel = this.container.querySelector('label[for="edit-publisher"]');
+      
+      if (publisher && publisherLabel) {
+        publisher.style.display = 'block';
+        publisherLabel.style.display = 'block';
+        publisher.value = record.publisher || '';
+      }
+    } else if (type === 'phdthesis') {
+      const school = this.container.querySelector('#edit-school');
+      const schoolLabel = this.container.querySelector('label[for="edit-school"]');
+      
+      if (school && schoolLabel) {
+        school.style.display = 'block';
+        schoolLabel.style.display = 'block';
+        school.value = record.school || '';
+      }
+    } else if (type === 'misc') {
+      const note = this.container.querySelector('#edit-note');
+      const noteLabel = this.container.querySelector('label[for="edit-note"]');
+      
+      if (note && noteLabel) {
+        note.style.display = 'block';
+        noteLabel.style.display = 'block';
+        note.value = record.note || '';
+      }
+    }
+  }
+
+  expandForEditForm() {
+    // Expand the container to a larger size to accommodate the form
+    // NARROWER EDIT FORM: Keep it narrower than before
+    const isMobile = window.innerWidth <= 480;
+    let w, h;
+    
+    if (isMobile) {
+      // Mobile: Use button-based width calculation
+      w = this.originalButtonRect.right - 15;
+      h = Math.min(window.innerHeight * 0.9, 700);
+    } else {
+      // Desktop: Use narrower width for edit form
+      w = 400; // Narrower than the previous 600px
+      h = Math.min(window.innerHeight * 0.9, 700);
+    }
+    
+    this.container.style.width = `${w}px`;
+    this.container.style.height = `${h}px`;
+  }
+
+  setupEditFormListeners(record) {
+    const form = this.container.querySelector("#edit-source-form");
+    const cancelBtn = this.container.querySelector("#cancel-edit");
+    const typeRadios = this.container.querySelectorAll('input[name="type"]');
+    
+    // Type change listeners for radio buttons
+    typeRadios.forEach(radio => {
+      radio.addEventListener("change", (e) => {
+        if (e.target.checked) {
+          this.showOptionalFieldsForType(e.target.value, record);
+        }
+      });
+    });
+    
+    // Cancel button
+    if (cancelBtn) {
+      cancelBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.hideEditForm();
+      });
+    }
+    
+    // Form submission
+    if (form) {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        await this.handleFormSubmit(record);
+      });
+    }
+  }
+
+  hideEditForm() {
+    // CLEAR EDIT MODE FLAG
+    this.isInEditMode = false;
+    
+    const sourceContent = this.container.querySelector("#source-content");
+    const editFormContainer = this.container.querySelector("#edit-form-container");
+    
+    if (sourceContent && editFormContainer) {
+      sourceContent.style.display = "block";
+      editFormContainer.style.display = "none";
+      editFormContainer.classList.add("hidden");
+      
+      // Reset container size to narrower width
+      // NARROWER WIDTH: Use narrower width than newbook container
+      const isMobile = window.innerWidth <= 480;
+      let w, h;
+      
+      if (isMobile) {
+        // Mobile: Use button-based width calculation
+        w = this.originalButtonRect.right - 15;
+        h = Math.min(window.innerHeight * 0.8, 400);
+      } else {
+        // Desktop: Use narrower max width
+        w = 300; // Narrower than newbook's 400px
+        h = Math.min(window.innerHeight * 0.8, 400);
+      }
+      
+      this.container.style.width = `${w}px`;
+      this.container.style.height = `${h}px`;
+      
+      // ENSURE CONTAINER IS VISIBLE: Don't call setupSourceContainerStyles as it resets dimensions
+      // Instead, just apply the necessary styles without resetting to zero
+      this.container.style.overflow = "auto"; // Allow scrolling for content
+      this.container.style.opacity = "1";
+      
+      // RE-ATTACH EVENT LISTENERS: Make sure buttons work after returning from edit form
+      const mdBtn = this.container.querySelector("#download-md");
+      const docxBtn = this.container.querySelector("#download-docx");
+      const editBtn = this.container.querySelector("#edit-source");
+      
+      if (mdBtn) mdBtn.addEventListener("click", () => exportBookAsMarkdown(book));
+      if (docxBtn) docxBtn.addEventListener("click", () => exportBookAsDocxStyled(book));
+      if (editBtn) editBtn.addEventListener("click", () => this.handleEditClick());
+    }
+  }
+
+  async handleFormSubmit(originalRecord) {
+    try {
+      // Collect form data
+      const formData = this.collectFormData();
+      
+      // Generate new BibTeX from the form data
+      const generatedBibtex = await generateBibtexFromForm(formData);
+      
+      // Update the record with new data AND regenerated BibTeX
+      const updatedRecord = {
+        ...originalRecord,
+        ...formData,
+        bibtex: generatedBibtex, // Use the newly generated BibTeX
+        timestamp: originalRecord.timestamp, // Keep original timestamp
+        book: originalRecord.book, // Keep original book ID
+      };
+      
+      // Save to IndexedDB
+      const db = await openDatabase();
+      const tx = db.transaction("library", "readwrite");
+      const store = tx.objectStore("library");
+      await store.put(updatedRecord);
+      
+      console.log("Library record updated successfully:", updatedRecord);
+      console.log("Generated BibTeX:", generatedBibtex);
+      
+      // Hide the form and refresh the container content
+      this.hideEditForm();
+      
+      // Refresh the citation display
+      await this.refreshCitationDisplay();
+      
+      alert("Library record updated successfully!");
+      
+    } catch (error) {
+      console.error("Error updating library record:", error);
+      alert("Error updating library record: " + error.message);
+    }
+  }
+
+  collectFormData() {
+    const form = this.container.querySelector("#edit-source-form");
+    const formData = new FormData(form);
+    const data = {};
+    
+    for (let [key, value] of formData.entries()) {
+      data[key] = value;
+    }
+    
+    // Make sure we get the selected radio button type
+    const checkedTypeRadio = this.container.querySelector('input[name="type"]:checked');
+    if (checkedTypeRadio) {
+      data.type = checkedTypeRadio.value;
+    }
+    
+    // Also collect optional fields that might not be in the main form
+    const optionalFields = ["journal", "pages", "publisher", "school", "note", "url"];
+    optionalFields.forEach(fieldName => {
+      const field = this.container.querySelector(`#edit-${fieldName}`);
+      if (field && field.value) {
+        data[fieldName] = field.value;
+      }
+    });
+    
+    return data;
+  }
+
+  async refreshCitationDisplay() {
+    // Rebuild the HTML with updated citation
+    const html = await buildSourceHtml(book);
+    this.container.innerHTML = html;
+    
+    // Re-attach event listeners
+    const mdBtn = this.container.querySelector("#download-md");
+    const docxBtn = this.container.querySelector("#download-docx");
+    const editBtn = this.container.querySelector("#edit-source");
+    
+    if (mdBtn) mdBtn.addEventListener("click", () => exportBookAsMarkdown(book));
+    if (docxBtn) docxBtn.addEventListener("click", () => exportBookAsDocxStyled(book));
+    if (editBtn) editBtn.addEventListener("click", () => this.handleEditClick());
   }
 }
 

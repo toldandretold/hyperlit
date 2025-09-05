@@ -872,3 +872,225 @@ black #221F20;
 #hypercite-container .annotation.empty-annotation:focus::before {
   display: none !important;
 }
+
+/* SOURCE CONTAINER FORM STYLING - Make it match newbook-container */
+#source-container {
+  border-radius: 0.75em; /* Same as other containers */
+}
+
+#source-container .scroller {
+  padding: 1em; /* Same as other containers */
+}
+
+#source-container input,
+#source-container textarea,
+#source-container label,
+#source-container button {
+  font-size: 16px;
+  font-family: inherit;
+}
+
+/* CRITICAL: Override browser default button styling - ONLY FOR FORM BUTTONS WITH .formButton CLASS */
+#source-container .formButton {
+  font-size: 16px;
+  font-family: inherit;
+  border: none !important;
+  background: transparent !important;
+  padding: 5px 10px !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  color: #CBCCCC !important;
+  cursor: pointer;
+  outline: none;
+}
+
+/* Tighter spacing for form elements */
+#source-container label {
+  margin-bottom: 0.25em;
+  margin-top: 0.5em;
+  display: block;
+}
+
+#source-container label:first-child {
+  margin-top: 0;
+}
+
+#source-container input[type="text"],
+#source-container input[type="number"],
+#source-container input[type="url"],
+#source-container textarea {
+  margin-bottom: 0.25em;
+  background-color: #2A2A2A !important;
+  border: 1px solid #444 !important;
+  color: #CBCCCC !important;
+  padding: 8px !important;
+  border-radius: 4px !important;
+}
+
+#source-container input[type="text"]:focus,
+#source-container input[type="number"]:focus,
+#source-container input[type="url"]:focus,
+#source-container textarea:focus {
+  outline: none !important;
+  border-color: #4EACAE !important;
+  box-shadow: 0 0 0 2px rgba(78, 172, 174, 0.2) !important;
+}
+
+/* Radio button group spacing */
+#source-container .radio-group {
+  margin: 0.5em 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75em;
+}
+
+#source-container .radio-group label {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  font-weight: normal;
+}
+
+#source-container .radio-group input[type="radio"] {
+  margin-right: 0.5em;
+  margin-bottom: 0;
+}
+
+#source-container h2 {
+  font-size: 20px;
+  margin-bottom: 0.5em;
+}
+
+#source-container h3 {
+  font-size: 18px;
+  color: #4EACAE;
+  margin: 1em 0 0.5em 0;
+  border-bottom: 1px solid #444;
+  padding-bottom: 0.25em;
+}
+
+/* Form structure and validation styles */
+#source-container .form-header {
+  text-align: left;
+  margin-bottom: 1em;
+}
+
+#source-container .form-header h2 {
+  margin-top: 0; /* Remove default browser margin */
+  margin-bottom: 0.5em; /* Reduce bottom margin */
+}
+
+#source-container .form-subtitle {
+  font-size: 14px;
+  color: #CBCCCC;
+  margin: 0.25em 0;
+}
+
+#source-container .form-section {
+  margin-bottom: 1em;
+  padding-bottom: 0.5em;
+}
+
+#source-container .form-section:not(:last-of-type) {
+  border-bottom: 1px solid #333;
+}
+
+/* Required field indicators */
+#source-container .required-indicator {
+  color: #EE4A95;
+  font-weight: bold;
+}
+
+#source-container .required {
+  position: relative;
+}
+
+/* Field hints */
+#source-container .field-hint {
+  font-size: 12px;
+  color: #888;
+  margin-top: 0.1em;
+  margin-bottom: 0.5em;
+  font-style: italic;
+}
+
+/* Validation messages */
+#source-container .validation-message {
+  font-size: 12px;
+  margin-top: 0.25em;
+  display: none;
+}
+
+#source-container .validation-message.error {
+  color: #EE4A95;
+  display: block;
+}
+
+#source-container .validation-message.success {
+  color: #4EACAE;
+  display: block;
+}
+
+#source-container .validation-summary {
+  background: rgba(238, 74, 149, 0.1);
+  border: 1px solid #EE4A95;
+  border-radius: 4px;
+  padding: 1em;
+  margin-top: 1em;
+}
+
+#source-container .validation-summary h4 {
+  color: #EE4A95;
+  margin: 0 0 0.5em 0;
+  font-size: 14px;
+}
+
+#source-container .validation-summary ul {
+  margin: 0;
+  padding-left: 1.5em;
+  color: #EE4A95;
+  font-size: 12px;
+}
+
+/* Input field states */
+#source-container input:invalid:not(:placeholder-shown),
+#source-container textarea:invalid:not(:placeholder-shown) {
+  border-color: #EE4A95;
+  box-shadow: 0 0 0 2px rgba(238, 74, 149, 0.1);
+}
+
+#source-container input:valid:not(:placeholder-shown),
+#source-container textarea:valid:not(:placeholder-shown) {
+  border-color: #4EACAE;
+  box-shadow: 0 0 0 2px rgba(78, 172, 174, 0.1);
+}
+
+/* Submit button states - ONLY .formButton CLASS */
+#source-container .formButton[type="submit"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #666 !important;
+}
+
+#source-container .formButton[type="submit"]:not(:disabled) {
+  background-color: #4EACAE !important;
+  color: #221F20 !important;
+}
+
+#source-container .formButton[type="submit"]:not(:disabled):hover {
+  background-color: #5FBCC0 !important;
+}
+
+/* All .formButton hover states - covers non-submit buttons too */
+#source-container .formButton:hover {
+  background-color: #4EACAE !important;
+  color: #221F20 !important;
+}
+
+/* Form actions button spacing */
+#source-container .form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 1em;
+}
