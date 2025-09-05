@@ -24,6 +24,7 @@ class UserHomeServerController extends Controller
             [
                 'author' => 'hyperlit',
                 'title' => $username . " — My Books",
+                'private' => true,
                 'raw_json' => json_encode([
                     'type' => 'user_home',
                     'username' => $username,
@@ -37,45 +38,59 @@ class UserHomeServerController extends Controller
         // Clear existing chunks for this user-book
         DB::table('node_chunks')->where('book', $username)->delete();
 
-        // Build simple citation list similar to most-recent style
+        // Build libraryCard list using the same structure as homepage pseudo-books
         $chunks = [];
-        $chunkId = 1;
+        $positionId = 1;
 
         foreach ($records as $record) {
             $citationHtml = $this->generateCitationHtml($record);
-            $href = '/' . $record->book;
-            $lineHtml = "<p><a href=\"{$href}\">{$citationHtml}</a></p>";
+            $content = '<p class="libraryCard" id="' . $positionId . '">' .
+                $citationHtml . '<a href="/' . $record->book . '"><span class="open-icon">↗</span></a>' .
+                '</p>';
 
             $chunks[] = [
+                'raw_json' => json_encode([
+                    'original_book' => $record->book,
+                    'position_type' => 'user_home',
+                    'position_id' => $positionId,
+                    'bibtex' => $record->bibtex,
+                    'title' => $record->title ?? null,
+                    'author' => $record->author ?? null,
+                    'year' => $record->year ?? null,
+                ]),
                 'book' => $username,
-                'chunk_id' => $chunkId,
-                'startLine' => (float) ($chunkId * 10),
-                'content' => $lineHtml,
+                'chunk_id' => floor(($positionId - 1) / 100),
+                'startLine' => $positionId,
+                'footnotes' => null,
+                'hypercites' => null,
+                'hyperlights' => null,
+                'content' => $content,
                 'plainText' => strip_tags($citationHtml),
                 'type' => 'p',
-                'footnotes' => json_encode([]),
-                'hyperlights' => json_encode([]),
-                'hypercites' => json_encode([]),
-                'raw_json' => json_encode(['source' => 'user_home', 'book' => $record->book]),
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
-            $chunkId++;
+            $positionId++;
         }
 
         // Ensure at least one chunk so API consumers don't 404 on empty lists
         if (empty($chunks)) {
             $chunks[] = [
+                'raw_json' => json_encode([
+                    'original_book' => null,
+                    'position_type' => 'user_home',
+                    'position_id' => 1,
+                    'empty' => true,
+                ]),
                 'book' => $username,
-                'chunk_id' => 1,
-                'startLine' => 10.0,
-                'content' => '<p>No books at the moment</p>',
+                'chunk_id' => 0,
+                'startLine' => 1,
+                'footnotes' => null,
+                'hypercites' => null,
+                'hyperlights' => null,
+                'content' => '<p class="libraryCard" id="1">No books at the moment</p>',
                 'plainText' => 'No books at the moment',
                 'type' => 'p',
-                'footnotes' => json_encode([]),
-                'hyperlights' => json_encode([]),
-                'hypercites' => json_encode([]),
-                'raw_json' => json_encode(['source' => 'user_home', 'empty' => true]),
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
