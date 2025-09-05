@@ -143,8 +143,15 @@ async function showProgressModal() {
  *   the ID on the element itself, preserving its structure.
  */
 function assimilateHTML(rawHtml) {
-  // 1) Sanitize
-  const cleanHtml = DOMPurify.sanitize(rawHtml, {
+  // 1) Replace nbsp entities with regular spaces to prevent layout shifts
+  // Handle both direct nbsp entities and Apple-converted-space spans
+  let cleanedHtml = rawHtml
+    .replace(/<span class="Apple-converted-space">\s*&nbsp;\s*<\/span>/g, ' ')
+    .replace(/<span class="Apple-converted-space">\s*<\/span>/g, ' ')
+    .replace(/&nbsp;/g, ' ');
+  
+  // 2) Sanitize
+  const cleanHtml = DOMPurify.sanitize(cleanedHtml, {
     USE_PROFILES: { html: true },
     ADD_TAGS: [
       "sup", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote",

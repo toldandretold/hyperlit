@@ -110,10 +110,10 @@
 
 
     p {
-        text text-align: justify;
-            hyphens: auto;
-            font-size: 25px;
-            color: #CBCCCC;
+        text-align: justify;
+        hyphens: auto;
+        font-size: 25px;
+        color: #CBCCCC;
     }
 
     ol {
