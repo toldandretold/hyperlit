@@ -299,7 +299,8 @@ CREATE TABLE public.library (
     total_citations integer,
     total_highlights integer,
     creator character varying(255),
-    creator_token uuid
+    creator_token uuid,
+    private boolean DEFAULT false NOT NULL
 );
 
 
@@ -830,6 +831,7 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 24	2025_08_08_004016_create_references_table	18
 25	2025_08_08_004059_update_footnotes_table_for_individual_records	18
 26	2025_08_08_011834_rename_references_table_to_bibliography	19
+27	2025_09_04_090941_add_private_column_to_library_table	20
 \.
 
 
@@ -837,7 +839,7 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 -- Name: migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.migrations_id_seq', 26, true);
+SELECT pg_catalog.setval('public.migrations_id_seq', 27, true);
 
 
 --
