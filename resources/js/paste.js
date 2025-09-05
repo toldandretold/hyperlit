@@ -37,6 +37,13 @@ marked.setOptions({
 // Flag to prevent double-handling
 let pasteHandled = false;
 
+// Flag to temporarily disable safety mechanism during paste operations
+let isPasteOperationInProgress = false;
+
+export function isPasteOperationActive() {
+  return isPasteOperationInProgress;
+}
+
 export function addPasteListener(editableDiv) {
   console.log("Adding modular paste listener");
   editableDiv.addEventListener("paste", handlePaste); 
@@ -272,6 +279,9 @@ function assimilateHTML(rawHtml) {
 async function handlePaste(event) {
   // Set the flag immediately to disable the MutationObserver
   setPasteInProgress(true);
+  
+  // Also set flag to disable safety mechanism
+  isPasteOperationInProgress = true;
 
   try {
     // 1) Prevent double-handling
@@ -361,6 +371,8 @@ async function handlePaste(event) {
   } finally {
     // THIS IS ESSENTIAL: No matter what happens, re-enable the observer.
     setPasteInProgress(false);
+    // Also clear the safety mechanism flag
+    isPasteOperationInProgress = false;
   }
 }
 
@@ -684,7 +696,8 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
   queueNodeForSave(currentBlock.id, "update");
 
   // Find the ID of the next "stable" node that already has an ID.
-  let nextStableElement = currentBlock.nextElementSibling;
+  let nextStableElement = currentBlock ? currentBlock.nextElementSibling : 
+    currentElement.closest(".chunk")?.firstElementChild?.nextElementSibling;
   while (
     nextStableElement &&
     (!nextStableElement.id || !/^\d+(\.\d+)*$/.test(nextStableElement.id))
@@ -1171,6 +1184,7 @@ function parseHtmlToBlocks(htmlContent) {
   
   return blocks;
 }
+
 
 
 
