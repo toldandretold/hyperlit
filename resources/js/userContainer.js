@@ -85,6 +85,20 @@ export class UserContainerManager extends ContainerManager {
       if (e.target.id === "user-overlay" && this.isOpen) {
         this.closeContainer();
       }
+
+      if (e.target.id === "myBooksBtn") {
+        e.preventDefault();
+        if (this.user && this.user.name) {
+          window.location.href = "/" + encodeURIComponent(this.user.name);
+        } else {
+          this.setPostLoginAction(() => {
+            if (this.user && this.user.name) {
+              window.location.href = "/" + encodeURIComponent(this.user.name);
+            }
+          });
+          this.showLoginForm();
+        }
+      }
     });
   }
 
@@ -163,7 +177,7 @@ export class UserContainerManager extends ContainerManager {
             <button style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer; margin-bottom: 8px;">
               Account Settings
             </button>
-            <button style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer; margin-bottom: 8px;">
+            <button id="myBooksBtn" style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer; margin-bottom: 8px;">
               My Books
             </button>
             <button id="logout" 
