@@ -15,6 +15,7 @@ class UserHomeServerController extends Controller
         $records = DB::table('library')
             ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'updated_at'])
             ->where('creator', $username)
+            ->where('book', '!=', $username)
             ->orderByDesc('updated_at')
             ->get();
 
@@ -23,8 +24,8 @@ class UserHomeServerController extends Controller
         DB::table('library')->updateOrInsert(
             ['book' => $username],
             [
-                'author' => 'hyperlit',
-                'title' => $username . " — My Books",
+                'author' => null,
+                'title' => 'My Books',
                 'private' => true,
                 // Set ownership so server-side delete checks can authorize
                 'creator' => $username,
@@ -44,6 +45,24 @@ class UserHomeServerController extends Controller
 
         // Build libraryCard list using the same structure as homepage pseudo-books
         $chunks = [];
+        // Add a header node at the top: "{Username} Books"
+        $chunks[] = [
+            'raw_json' => json_encode([
+                'position_type' => 'user_home_header',
+                'position_id' => 0,
+            ]),
+            'book' => $username,
+            'chunk_id' => 0,
+            'startLine' => 0,
+            'footnotes' => null,
+            'hypercites' => null,
+            'hyperlights' => null,
+            'content' => '<h1 class="user-home-header">' . e($username) . ' Books</h1>',
+            'plainText' => 'My Books',
+            'type' => 'h1',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
         $positionId = 1;
 
         $isOwner = Auth::check() && Auth::user()->name === $username;
