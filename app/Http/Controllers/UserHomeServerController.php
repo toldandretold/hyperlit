@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
 class UserHomeServerController extends Controller
@@ -25,6 +26,9 @@ class UserHomeServerController extends Controller
                 'author' => 'hyperlit',
                 'title' => $username . " — My Books",
                 'private' => true,
+                // Set ownership so server-side delete checks can authorize
+                'creator' => $username,
+                'creator_token' => null,
                 'raw_json' => json_encode([
                     'type' => 'user_home',
                     'username' => $username,
@@ -42,11 +46,24 @@ class UserHomeServerController extends Controller
         $chunks = [];
         $positionId = 1;
 
+        $isOwner = Auth::check() && Auth::user()->name === $username;
+
         foreach ($records as $record) {
             $citationHtml = $this->generateCitationHtml($record);
             $content = '<p class="libraryCard" id="' . $positionId . '">' .
-                $citationHtml . '<a href="/' . $record->book . '"><span class="open-icon">↗</span></a>' .
-                '</p>';
+                $citationHtml .
+                '<a href="/' . $record->book . '"><span class="open-icon">↗</span></a>';
+
+            if ($isOwner) {
+                $content .= '<a href="#" class="delete-book" data-book="' . $record->book . '" title="Delete" aria-label="Delete">'
+                    . '<svg id="svgDeleter" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
+                    . '<path d="M3 6h18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />'
+                    . '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />'
+                    . '</svg>'
+                    . '</a>';
+            }
+
+            $content .= '</p>';
 
             $chunks[] = [
                 'raw_json' => json_encode([

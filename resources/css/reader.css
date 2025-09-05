@@ -1,5 +1,10 @@
 /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black #221F20 */
 
+/* User-home delete icon sizing and alignment */
+.libraryCard { position: relative; }
+.libraryCard .delete-book { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding: 2px; }
+.libraryCard .delete-book svg { width: 16px; height: 16px; stroke: #ffffff; display: inline-block; vertical-align: middle; }
+
 /* Disable the native iOS menu */
     html, body, * {
         -webkit-touch-callout: none; /* Disable the callout menu */
@@ -8,5 +13,6 @@
     }
 
   
+
 
 

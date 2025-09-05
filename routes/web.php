@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Events\ProcessComplete;
 use App\Http\Controllers\FootnotesController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\DbLibraryController;
 
 
 
@@ -45,6 +46,9 @@ Route::middleware(['author', 'throttle:30,1'])->group(function () {
     Route::post('/create-main-text-md', [CiteCreator::class, 'createNewMarkdown']);
 
  });
+
+// Delete book (owner only)
+Route::delete('/books/{book}', [DbLibraryController::class, 'destroy'])->middleware('auth');
 
 
 // jason book route
