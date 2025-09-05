@@ -41,6 +41,7 @@ import {
   chunkNodeCounts,
   getCurrentChunk
 } from './chunkManager.js';
+import { isPasteOperationActive } from './paste.js';
 import { isChunkLoadingInProgress, getLoadingChunkId } from './chunkLoadingState.js';
 import { SelectionDeletionHandler } from './selectionDelete.js';
 import { initializeMainLazyLoader } from './initializePage.js';
@@ -1095,7 +1096,10 @@ export async function updateLibraryTitle(bookId, newTitle) {
       const rec = e.target.result;
       if (!rec) return reject(new Error("Library record missing"));
 
-      // 1) Update title
+      // 1) Update title (truncate to 250 characters to leave room for "..." suffix)
+      if (newTitle && newTitle.length > 255) {
+        newTitle = newTitle.substring(0, 250) + '...';
+      }
       rec.title = newTitle;
 
       // 2) Regenerate the bibtex string so it stays in sync
@@ -1957,6 +1961,12 @@ export function ensureMinimumDocumentStructure() {
   if (isImportedBook) {
     console.log("🔒 Imported book detected - skipping document structure creation");
     return; // Exit early, don't create default structure
+  }
+  
+  // ✅ CHECK FOR PASTE OPERATION IN PROGRESS
+  if (isPasteOperationActive()) {
+    console.log("🔄 Paste operation in progress - skipping document structure creation");
+    return; // Exit early, don't interfere with paste operation
   }
   
   console.log('🔍 Checking document structure...');

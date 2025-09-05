@@ -143,8 +143,14 @@ public function upsert(Request $request)
 
             // This logic remains exactly the same.
             if ($isOwner) {
+                // Truncate title to 250 characters to leave room for "..." suffix if needed
+                $title = $data['title'] ?? $libraryRecord->title;
+                if (strlen($title) > 255) {
+                    $title = substr($title, 0, 250) . '...';
+                }
+                
                 $updateData = [
-                    'title' => $data['title'] ?? $libraryRecord->title,
+                    'title' => $title,
                     'author' => $data['author'] ?? $libraryRecord->author,
                     'type' => $data['type'] ?? $libraryRecord->type,
                     'timestamp' => $data['timestamp'] ?? $libraryRecord->timestamp,
@@ -198,10 +204,16 @@ public function bulkCreate(Request $request)
                 
                 $item = (array) $data['data'];
                 
+                // Truncate title to 250 characters to leave room for "..." suffix if needed
+                $title = $item['title'] ?? null;
+                if ($title && strlen($title) > 255) {
+                    $title = substr($title, 0, 250) . '...';
+                }
+                
                 $record = [
                     'book' => $item['book'] ?? null,
                     'citationID' => $item['citationID'] ?? null,
-                    'title' => $item['title'] ?? null,
+                    'title' => $title,
                     'author' => $item['author'] ?? null,
                     'creator' => $creatorInfo['creator'], // Use server-determined creator
                     'creator_token' => $creatorInfo['creator_token'], // Use server-determined token
