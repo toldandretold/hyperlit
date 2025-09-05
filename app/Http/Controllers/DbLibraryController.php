@@ -143,10 +143,11 @@ public function upsert(Request $request)
 
             // This logic remains exactly the same.
             if ($isOwner) {
-                // Truncate title to 250 characters to leave room for "..." suffix if needed
+                // Truncate title to approximately 15 words
                 $title = $data['title'] ?? $libraryRecord->title;
-                if (strlen($title) > 255) {
-                    $title = substr($title, 0, 250) . '...';
+                $words = explode(' ', $title);
+                if (count($words) > 15) {
+                    $title = implode(' ', array_slice($words, 0, 15)) . '...';
                 }
                 
                 $updateData = [
@@ -204,10 +205,13 @@ public function bulkCreate(Request $request)
                 
                 $item = (array) $data['data'];
                 
-                // Truncate title to 250 characters to leave room for "..." suffix if needed
+                // Truncate title to approximately 15 words
                 $title = $item['title'] ?? null;
-                if ($title && strlen($title) > 255) {
-                    $title = substr($title, 0, 250) . '...';
+                if ($title) {
+                    $words = explode(' ', $title);
+                    if (count($words) > 15) {
+                        $title = implode(' ', array_slice($words, 0, 15)) . '...';
+                    }
                 }
                 
                 $record = [
