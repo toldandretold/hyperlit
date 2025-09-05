@@ -167,7 +167,13 @@ public function upsert(Request $request)
             // Apply the update (this is fast)
             $libraryRecord->update($updateData);
 
-            Log::info('Library record updated successfully', ['book' => $bookId, 'is_owner' => $isOwner]);
+            Log::info('Library record updated successfully', [
+                'book' => $bookId, 
+                'is_owner' => $isOwner,
+                'creator_info' => $currentUserInfo,
+                'raw_request_data' => $data,
+                'auth_user' => Auth::user() ? ['id' => Auth::user()->id, 'name' => Auth::user()->name] : null,
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -245,7 +251,10 @@ public function bulkCreate(Request $request)
                 Log::info('Creating library record with auth info', [
                     'book' => $record['book'],
                     'creator' => $record['creator'],
+                    'creator_type' => gettype($record['creator']),
                     'creator_token' => $record['creator_token'] ? 'present' : 'null',
+                    'raw_frontend_data' => $item,
+                    'auth_user' => Auth::user() ? ['id' => Auth::user()->id, 'name' => Auth::user()->name] : null,
                 ]);
                 
                 // Use updateOrCreate to be more robust. It will create the record if it
