@@ -1074,7 +1074,7 @@ async function ensureLibraryRecord(bookId) {
     const newRec = {
       citationID: bookId,
       title: "",
-      author: localStorage.getItem("authorId") || "anon",
+      author: await getCurrentUserId() || "anon",
       type: "book",
       timestamp: new Date().toISOString(),
     };

@@ -46,7 +46,7 @@ async function buildSourceHtml(currentBookId) {
 }`;
   }
   
-  const citation = formatBibtexToCitation(bibtex).trim();
+  const citation = (await formatBibtexToCitation(bibtex)).trim();
 
   return `
     <div class="scroller">
