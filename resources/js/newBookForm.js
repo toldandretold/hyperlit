@@ -16,21 +16,10 @@ function generateUUID() {
 }
  
 async function getCreatorId() {
-  const user = await getCurrentUser();
-  
-  if (user) {
-    // User is logged in, use their username or name
-    return user.name || user.username || user.email;
-  } else {
-    // User not logged in, use persistent UUID
-    const AUTHOR_KEY = "authorId";
-    let authorId = localStorage.getItem(AUTHOR_KEY);
-    if (!authorId) {
-      authorId = generateUUID();
-      localStorage.setItem(AUTHOR_KEY, authorId);
-    }
-    return authorId;
-  }
+  // Use the new authentication system instead of localStorage
+  const userId = await getCurrentUserId();
+  console.log('getCreatorId() returning:', userId, typeof userId);
+  return userId;
 }
 
 // Global functions that need to be accessible everywhere

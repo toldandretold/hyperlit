@@ -471,7 +471,7 @@ export class UserContainerManager extends ContainerManager {
   async handleAnonymousBookTransfer() {
     if (!this.user) return;
     
-    const anonId = localStorage.getItem('authorId');
+    const anonId = await getAnonymousToken();
     if (!anonId) return;
     
     try {

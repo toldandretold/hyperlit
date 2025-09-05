@@ -1,9 +1,11 @@
+import { getCurrentUserId } from './auth.js';
+
 /**
  * Converts a BibTeX entry into a formatted academic citation.
  * @param {string} bibtex - The BibTeX string.
- * @returns {string} - The formatted citation.
+ * @returns {Promise<string>} - The formatted citation.
  */
-export function formatBibtexToCitation(bibtex) {
+export async function formatBibtexToCitation(bibtex) {
   // Helper to pull out all key = { value } or "value" pairs
   const parseBibtex = (bibtex) => {
     const fields = {};
@@ -18,16 +20,18 @@ export function formatBibtexToCitation(bibtex) {
   // Pull out all fields
   const fields = parseBibtex(bibtex);
   const rawAuthor = fields.author || "";
-  const myId = localStorage.getItem("authorId");
+  const currentUserId = await getCurrentUserId();
 
   // Decide what to show for author
   let author;
-  if (rawAuthor === myId) {
-    author = "Me";
+  if (rawAuthor === currentUserId && /^[0-9a-fA-F-]{36}$/.test(rawAuthor)) {
+    // Anonymous user viewing their own work
+    author = "Anon (me)";
   } else if (/^[0-9a-fA-F-]{36}$/.test(rawAuthor)) {
-    // Looks like a UUID but not me
+    // Someone else's anonymous work
     author = "Anon";
   } else {
+    // Real username or unknown
     author = rawAuthor || "Unknown Author";
   }
 
