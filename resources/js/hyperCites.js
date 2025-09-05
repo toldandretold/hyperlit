@@ -946,12 +946,12 @@ async function createOverlappingPolyContainer(allCitedINLinks, validHypercites) 
         const libraryRequest = libraryStore.get(bookID);
 
         return new Promise((resolve) => {
-          libraryRequest.onsuccess = () => {
+          libraryRequest.onsuccess = async () => {
             const libraryData = libraryRequest.result;
 
             if (libraryData && libraryData.bibtex) {
               // Format the BibTeX data into an academic citation
-              const formattedCitation = formatBibtexToCitation(libraryData.bibtex);
+              const formattedCitation = await formatBibtexToCitation(libraryData.bibtex);
               
               // Customize the citation display based on URL type
               const citationText = isHyperlightURL 
@@ -1087,12 +1087,12 @@ export async function PolyClick(event) {
               const libraryRequest = libraryStore.get(bookID);
 
               return new Promise((resolve) => {
-                libraryRequest.onsuccess = () => {
+                libraryRequest.onsuccess = async () => {
                   const libraryData = libraryRequest.result;
 
                   if (libraryData && libraryData.bibtex) {
                     // Format the BibTeX data into an academic citation
-                    const formattedCitation = formatBibtexToCitation(libraryData.bibtex);
+                    const formattedCitation = await formatBibtexToCitation(libraryData.bibtex);
                     
                     // Customize the citation display based on URL type
                     const citationText = isHyperlightURL 
