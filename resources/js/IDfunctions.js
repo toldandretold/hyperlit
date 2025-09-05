@@ -357,7 +357,7 @@ export function ensureNodeHasValidId(node, options = {}) {
   if (node.nodeType !== Node.ELEMENT_NODE) return;
 
   // 🆕 NEW: Skip elements that shouldn't have IDs
-  const skipElements = ['BR', 'SPAN', 'EM', 'STRONG', 'I', 'B', 'U', 'SUP', 'SUB'];
+  const skipElements = ['BR', 'SPAN', 'EM', 'STRONG', 'I', 'B', 'U', 'SUP', 'SUB', 'A'];
   if (skipElements.includes(node.tagName)) {
     console.log(`Skipping ID assignment for ${node.tagName} element`);
     return;
