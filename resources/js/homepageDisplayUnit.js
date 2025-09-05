@@ -117,6 +117,7 @@ async function transitionToBookContent(bookId, showLoader = true) {
     // Realign header content after new content is loaded
     alignHeaderContent();
     
+
     console.log(`✅ Successfully loaded ${bookId} content`);
     
     if (showLoader) {
