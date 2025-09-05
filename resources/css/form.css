@@ -121,3 +121,89 @@ form b {
     border: 1px solid rgba(78, 172, 174, 0.3);
     display: block;
 }
+
+/* SOURCE CONTAINER EDIT FORM - Make it match cite-form styling */
+#edit-source-form {
+  background-color: #221F20;
+  color: #CBCCCC;
+  padding: 10px 20px 20px 20px; /* Reduced top padding from 20px to 10px */
+}
+
+/* Remove default input styles and have a transparent background */
+#edit-source-form input[type="text"],
+#edit-source-form input[type="number"],
+#edit-source-form input[type="url"],
+#edit-source-form textarea {
+  background-color: transparent;
+  color: #CBCCCC;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Style textarea to mimic a notepad look */
+#edit-source-form textarea {
+  resize: none;
+  min-height: 26px;
+}
+
+/* Remove default styles for labels and radio buttons */
+#edit-source-form label {
+  display: block;
+  margin-bottom: 5px;
+  cursor: text;
+  font-weight: normal;
+}
+
+#edit-source-form input[type="radio"] {
+  margin-right: 5px;
+}
+
+/* Hide buttons' form-like appearance */
+#edit-source-form .formButton {
+  border: none !important;
+  background: transparent !important;
+  color: #CBCCCC !important;
+  cursor: pointer;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 16px;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+#edit-source-form .formButton:hover {
+  background-color: #4EACAE !important;
+  border: none !important;
+  color: #221F20 !important;
+  cursor: pointer;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 16px;
+  outline: none;
+}
+
+#edit-source-form input[type="radio"] {
+  accent-color: #EF8D34;
+}
+
+/* Optional: Add a subtle bottom border to simulate notebook paper lines */
+#edit-source-form input[type="text"],
+#edit-source-form input[type="number"],
+#edit-source-form input[type="url"],
+#edit-source-form textarea {
+  border-bottom: 1px solid rgba(203, 204, 204, 0.2);
+  margin-bottom: 15px;
+}
+
+/* Remove outlines on focus to keep the notepad look */
+#edit-source-form input:focus,
+#edit-source-form textarea:focus {
+  outline: none;
+  border-bottom-color: rgba(203, 204, 204, 0.5);
+}

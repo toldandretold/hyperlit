@@ -6,6 +6,7 @@ import {
   setCurrentUser,
   clearCurrentUser,
   getCurrentUser,
+  getAnonymousToken,
 } from "./auth.js";
 
 export class UserContainerManager extends ContainerManager {
