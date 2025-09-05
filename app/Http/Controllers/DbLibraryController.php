@@ -148,6 +148,7 @@ public function upsert(Request $request)
                 $words = explode(' ', $title);
                 if (count($words) > 15) {
                     $title = implode(' ', array_slice($words, 0, 15)) . '...';
+
                 }
                 
                 $updateData = [
@@ -211,6 +212,7 @@ public function bulkCreate(Request $request)
                 
                 $item = (array) $data['data'];
                 
+
                 // Truncate title to approximately 15 words
                 $title = $item['title'] ?? null;
                 if ($title) {
@@ -218,6 +220,7 @@ public function bulkCreate(Request $request)
                     if (count($words) > 15) {
                         $title = implode(' ', array_slice($words, 0, 15)) . '...';
                     }
+
                 }
                 
                 $record = [
