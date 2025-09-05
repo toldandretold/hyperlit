@@ -212,7 +212,6 @@ public function bulkCreate(Request $request)
                 
                 $item = (array) $data['data'];
                 
-
                 // Truncate title to approximately 15 words
                 $title = $item['title'] ?? null;
                 if ($title) {
