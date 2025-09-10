@@ -10,19 +10,69 @@ let hyperlitManager = null;
 
 export function initializeHyperlitManager() {
   console.log("🔄 Initializing Unified Hyperlit Container Manager...");
+  
+  // Check if container exists in the DOM (should be there from blade template)
+  const container = document.getElementById("hyperlit-container");
+  if (!container) {
+    console.error("❌ hyperlit-container not found in DOM! Check reader.blade.php");
+    return;
+  }
+  console.log("✅ Found hyperlit-container in DOM");
+  
+  // Check if overlay exists (should be there from blade template)
+  const overlay = document.getElementById("ref-overlay");
+  if (!overlay) {
+    console.error("❌ ref-overlay not found in DOM! Check reader.blade.php");
+    return;
+  }
+  console.log("✅ Found ref-overlay in DOM");
+  
+  // Now create the manager with the existing container and overlay
   hyperlitManager = new ContainerManager(
     "hyperlit-container", 
     "ref-overlay", 
     null, 
     ["main-content", "nav-buttons"]
   );
+  
+  console.log("✅ Unified Hyperlit Container Manager initialized");
 }
 
 export function openHyperlitContainer(content) {
   if (!hyperlitManager) {
     initializeHyperlitManager();
   }
-  hyperlitManager.openContainer(content);
+  
+  // Get the container (should exist after initialization)
+  const container = document.getElementById("hyperlit-container");
+  if (!container) {
+    console.error("❌ hyperlit-container not found after initialization!");
+    return;
+  }
+  
+  // Open the container using the manager FIRST
+  console.log("📂 Opening container with manager first...");
+  hyperlitManager.openContainer();
+  
+  // THEN set the content after the container is opened
+  setTimeout(() => {
+    const scroller = container.querySelector('.scroller');
+    if (scroller) {
+      console.log(`📝 Setting content in scroller AFTER opening (${content.length} chars)`);
+      scroller.innerHTML = content;
+      console.log(`✅ Content set after opening. Scroller innerHTML length: ${scroller.innerHTML.length}`);
+      
+      // Double-check the content is actually there
+      setTimeout(() => {
+        const recheckScroller = document.querySelector('#hyperlit-container .scroller');
+        console.log(`🔍 Final recheck - Scroller innerHTML length: ${recheckScroller ? recheckScroller.innerHTML.length : 'SCROLLER NOT FOUND'}`);
+        console.log(`🔍 Final recheck - Scroller content:`, recheckScroller ? recheckScroller.innerHTML : 'NO CONTENT');
+      }, 50);
+    } else {
+      console.warn("⚠️ No scroller found in hyperlit-container after opening, setting content directly");
+      container.innerHTML = content;
+    }
+  }, 50);
 }
 
 export function closeHyperlitContainer() {
@@ -77,6 +127,8 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     
     // Build unified content
     const unifiedContent = await buildUnifiedContent(contentTypes, newHighlightIds);
+    
+    console.log(`📦 Built unified content (${unifiedContent.length} chars):`, unifiedContent);
     
     // Open the unified container
     openHyperlitContainer(unifiedContent);
@@ -178,10 +230,20 @@ function detectCitation(element) {
  */
 async function detectHighlights(element, providedHighlightIds = null) {
   let highlightIds = providedHighlightIds;
+  let highlightElement = element;
   
-  // If not provided, extract from element classes
-  if (!highlightIds && element.tagName === 'MARK') {
-    highlightIds = Array.from(element.classList).filter(cls => cls.startsWith('HL_'));
+  // If not provided, extract from element classes or parent mark element
+  if (!highlightIds) {
+    if (element.tagName === 'MARK') {
+      highlightIds = Array.from(element.classList).filter(cls => cls.startsWith('HL_'));
+    } else {
+      // Check if this element is inside a mark with highlight classes
+      const parentMark = element.closest('mark');
+      if (parentMark) {
+        highlightIds = Array.from(parentMark.classList).filter(cls => cls.startsWith('HL_'));
+        highlightElement = parentMark;
+      }
+    }
   }
   
   if (!highlightIds || highlightIds.length === 0) {
@@ -190,7 +252,7 @@ async function detectHighlights(element, providedHighlightIds = null) {
   
   return {
     type: 'highlight',
-    element: element,
+    element: highlightElement,
     highlightIds: highlightIds
   };
 }
@@ -217,51 +279,63 @@ async function detectHypercites(element) {
  * Build unified content HTML from detected content types
  */
 async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
-  let html = `<div class="scroller">\n`;
+  console.log("🔨 Building unified content for types:", contentTypes.map(ct => ct.type));
+  
+  let contentHtml = '';
   
   // Process each content type in priority order
   for (const contentType of contentTypes) {
+    console.log(`🔨 Processing ${contentType.type} content...`);
+    
     switch (contentType.type) {
       case 'footnote':
         const footnoteHtml = await buildFootnoteContent(contentType);
         if (footnoteHtml) {
-          html += footnoteHtml;
+          console.log(`✅ Added footnote content (${footnoteHtml.length} chars)`);
+          contentHtml += footnoteHtml;
         }
         break;
         
       case 'citation':
         const citationHtml = await buildCitationContent(contentType);
         if (citationHtml) {
-          html += citationHtml;
+          console.log(`✅ Added citation content (${citationHtml.length} chars)`);
+          contentHtml += citationHtml;
         }
         break;
         
       case 'highlight':
         const highlightHtml = await buildHighlightContent(contentType, newHighlightIds);
         if (highlightHtml) {
-          html += highlightHtml;
+          console.log(`✅ Added highlight content (${highlightHtml.length} chars)`);
+          contentHtml += highlightHtml;
+        } else {
+          console.warn("⚠️ No highlight content generated");
         }
         break;
         
       case 'hypercite':
         const hyperciteHtml = await buildHyperciteContent(contentType);
         if (hyperciteHtml) {
-          html += hyperciteHtml;
+          console.log(`✅ Added hypercite content (${hyperciteHtml.length} chars)`);
+          contentHtml += hyperciteHtml;
+        } else {
+          console.warn("⚠️ No hypercite content generated");
         }
         break;
     }
   }
   
-  html += `</div>\n`;
-  html += `<div class="mask-bottom"></div>\n`;
-  html += `<div class="mask-top"></div>\n`;
-  html += `<div class="container-controls">\n`;
-  html += `<div class="resize-handle resize-left" title="Resize width"></div>\n`;
-  html += `<div class="drag-handle" title="Drag to move container"></div>\n`;
-  html += `<div class="resize-handle resize-right" title="Resize width"></div>\n`;
-  html += `</div>`;
+  if (!contentHtml) {
+    console.error("❌ No content was generated for any content type!");
+    contentHtml = '<div class="error">No content available</div>';
+  }
   
-  return html;
+  console.log(`📦 Final content HTML (${contentHtml.length} chars):`, contentHtml);
+  
+  // Return just the content, not the full structure
+  // The container already has the scroller, masks, etc.
+  return contentHtml;
 }
 
 /**
@@ -368,7 +442,10 @@ async function buildCitationContent(contentType) {
 async function buildHighlightContent(contentType, newHighlightIds = []) {
   try {
     const { highlightIds } = contentType;
+    console.log(`🎨 Building highlight content for IDs:`, highlightIds);
+    
     const currentUserId = await getCurrentUserId();
+    console.log(`👤 Current user ID:`, currentUserId);
     
     const db = await openDatabase();
     const tx = db.transaction("hyperlights", "readonly");
@@ -385,9 +462,13 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
     );
 
     const results = await Promise.all(reads);
+    console.log(`📊 Highlight DB results:`, results);
+    
     const validResults = results.filter((r) => r);
+    console.log(`✅ Valid highlight results:`, validResults);
     
     if (validResults.length === 0) {
+      console.warn("⚠️ No valid highlight results found");
       return `
         <div class="highlights-section">
           <h3>Highlights:</h3>
@@ -451,8 +532,10 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
 async function buildHyperciteContent(contentType) {
   try {
     const { hyperciteId, relationshipStatus } = contentType;
+    console.log(`🔗 Building hypercite content for ID: ${hyperciteId}, status: ${relationshipStatus}`);
     
     if (relationshipStatus === 'single') {
+      console.log(`📝 Single hypercite - returning simple content`);
       return `
         <div class="hypercites-section">
           <h3>Hypercite:</h3>
@@ -564,8 +647,13 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
   // Handle highlight-specific post-open actions
   const highlightType = contentTypes.find(ct => ct.type === 'highlight');
   if (highlightType) {
-    // Import functions we need from hyperLights.js
-    const { attachAnnotationListener, addHighlightContainerPasteListener, attachPlaceholderBehavior } = await import('./hyperLights.js');
+    // For now, skip the advanced highlight post-actions to avoid import issues
+    // The basic unified container functionality will work without these
+    console.log('🎯 Skipping highlight post-actions for now to avoid import conflicts');
+    return;
+    
+    // TODO: Fix dynamic imports later
+    // let attachAnnotationListener, addHighlightContainerPasteListener, attachPlaceholderBehavior;
     
     const { highlightIds } = highlightType;
     const currentUserId = await getCurrentUserId();

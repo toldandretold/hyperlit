@@ -205,7 +205,8 @@ black #221F20;
 
 #ref-container,
 #highlight-container,
-#hypercite-container {
+#hypercite-container,
+#hyperlit-container {
   transform: translateX(calc(100% + 2em)); /* Off-screen, including the gap */
   transition: transform 0.3s ease-in-out;
   position: fixed;
@@ -232,7 +233,8 @@ black #221F20;
 }
 
 #ref-container blockquote,
-#highlight-container blockquote {
+#highlight-container blockquote,
+#hyperlit-container blockquote {
   font-size: 14px;
   padding-top: .25em;
   padding-bottom: .2em;
@@ -256,7 +258,8 @@ black #221F20;
 
 #highlight-container .scroller,
 #ref-container .scroller,
-#hypercite-container .scroller {
+#hypercite-container .scroller,
+#hyperlit-container .scroller {
   position: absolute;
   top: 0;
   left: 0;
@@ -284,7 +287,8 @@ black #221F20;
 
 #highlight-container .mask-top,
 #ref-container .mask-top,
-#hypercite-container .mask-top {
+#hypercite-container .mask-top,
+#hyperlit-container .mask-top {
   position: absolute;
   top: 0;
   left: 0;
@@ -311,7 +315,8 @@ black #221F20;
 
 #highlight-container .mask-bottom,
 #ref-container .mask-bottom,
-#hypercite-container .mask-bottom {
+#hypercite-container .mask-bottom,
+#hyperlit-container .mask-bottom {
   position: absolute;
   bottom: 0;
   left: 0;
@@ -338,7 +343,8 @@ black #221F20;
 
 #ref-container.open,
 #highlight-container.open,
-#hypercite-container.open {
+#hypercite-container.open,
+#hyperlit-container.open {
   transform: translateX(0); /* Slide in to show the gap on the right */
 }
 
@@ -458,7 +464,8 @@ black #221F20;
 /* Show controls on container hover */
 #highlight-container:hover .container-controls,
 #ref-container:hover .container-controls,
-#hypercite-container:hover .container-controls {
+#hypercite-container:hover .container-controls,
+#hyperlit-container:hover .container-controls {
   opacity: 1;
 }
 
@@ -856,9 +863,11 @@ black #221F20;
 #highlight-container .annotation:empty::before,
 #ref-container .annotation:empty::before,
 #hypercite-container .annotation:empty::before,
+#hyperlit-container .annotation:empty::before,
 #highlight-container .annotation.empty-annotation::before,
 #ref-container .annotation.empty-annotation::before,
-#hypercite-container .annotation.empty-annotation::before {
+#hypercite-container .annotation.empty-annotation::before,
+#hyperlit-container .annotation.empty-annotation::before {
   content: "Write annotation here...";
   color: #888;
   pointer-events: none;
@@ -867,9 +876,11 @@ black #221F20;
 #highlight-container .annotation:focus::before,
 #ref-container .annotation:focus::before,
 #hypercite-container .annotation:focus::before,
+#hyperlit-container .annotation:focus::before,
 #highlight-container .annotation.empty-annotation:focus::before,
 #ref-container .annotation.empty-annotation:focus::before,
-#hypercite-container .annotation.empty-annotation:focus::before {
+#hypercite-container .annotation.empty-annotation:focus::before,
+#hyperlit-container .annotation.empty-annotation:focus::before {
   display: none !important;
 }
 

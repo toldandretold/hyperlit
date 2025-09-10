@@ -390,6 +390,16 @@
   <div id="toc-container" class="hidden"></div>
   <div id="highlight-container" class="hidden"></div>
   <div id="hypercite-container" class="hidden"></div>
+  <div id="hyperlit-container" class="container-panel hidden">
+    <div class="scroller"></div>
+    <div class="mask-top"></div>
+    <div class="mask-bottom"></div>
+    <div class="container-controls">
+      <div class="resize-handle resize-left" title="Resize width"></div>
+      <div class="drag-handle" title="Drag to move container"></div>
+      <div class="resize-handle resize-right" title="Resize width"></div>
+    </div>
+  </div>
   <div id="ref-container" class="hidden">
     <div class="scroller"></div>
     <div class="mask-top"></div>

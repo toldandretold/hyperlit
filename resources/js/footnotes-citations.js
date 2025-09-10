@@ -2,8 +2,9 @@
 import { book } from "./app.js";
 import { openDatabase } from "./cache-indexedDB.js";
 import { ContainerManager } from "./container-manager.js";
+import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './unified-container.js';
 
-// Create a container manager for references
+// Legacy container manager - now using unified system
 const refManager = new ContainerManager(
   "ref-container",   // The container to manage
   "ref-overlay",     // The overlay element
@@ -19,61 +20,30 @@ export const isRefOpen = refManager.isOpen;
 // Export the manager itself so it can be rebound after SPA transitions
 export { refManager };
 
-// Function to open the reference container with content
+// Function to open the reference container with content (now redirects to unified system)
 export function openReferenceContainer(content) {
-  console.log('🔧 DEBUG: openReferenceContainer called with content length:', content.length);
-  
-  // First open the container (this handles all the overlay/state management)
-  refManager.openContainer();
-  
-  // Get fresh reference to container and scroller (in case DOM was replaced)
-  const freshContainer = document.getElementById('ref-container');
-  const scroller = freshContainer ? freshContainer.querySelector('.scroller') : null;
-  
-  console.log('🔧 DEBUG: Fresh container:', freshContainer);
-  console.log('🔧 DEBUG: Found scroller element:', scroller);
-  
-  if (scroller) {
-    scroller.innerHTML = content;
-    console.log('🔧 DEBUG: Content inserted into scroller, scroller innerHTML length:', scroller.innerHTML.length);
-  } else if (freshContainer) {
-    // Fallback: insert directly into container if no scroller found
-    freshContainer.innerHTML = content;
-    console.log('🔧 DEBUG: Content inserted directly into container (no scroller found)');
-  } else {
-    console.error('🔧 ERROR: No ref-container found in DOM!');
-  }
+  console.log('🔧 DEBUG: openReferenceContainer called - redirecting to unified container');
+  openHyperlitContainer(content);
 }
 
-// Function to close the reference container
+// Function to close the reference container (now redirects to unified system)
 export function closeReferenceContainer() {
-  refManager.closeContainer();
+  closeHyperlitContainer();
 }
 
-// Main click handler for footnotes and citations
+// Main click handler for footnotes and citations (now uses unified system)
 export async function handleFootnoteOrCitationClick(element) {
   try {
-    // Check if it's a footnote (sup with fn-count-id)
-    if (element.tagName === 'SUP' && element.hasAttribute('fn-count-id')) {
-      await handleFootnoteClick(element);
-    }
-    // Check if it's a citation (a with class in-text-citation)
-    else if (element.tagName === 'A' && element.classList.contains('in-text-citation')) {
-      await handleCitationClick(element);
-    }
-    // Check if it's a footnote link inside a sup
-    else if (element.tagName === 'A' && element.classList.contains('footnote-ref')) {
-      const supElement = element.closest('sup[fn-count-id]');
-      if (supElement) {
-        await handleFootnoteClick(supElement);
-      }
-    }
+    // Use unified container system for all footnote/citation clicks
+    await handleUnifiedContentClick(element);
   } catch (error) {
     console.error('Error handling footnote/citation click:', error);
   }
 }
 
+// Legacy functions - now handled by unified container system
 // Handle footnote clicks
+/*
 async function handleFootnoteClick(supElement) {
   const fnCountId = supElement.getAttribute('fn-count-id');
   const elementId = supElement.id;
@@ -163,6 +133,7 @@ async function handleCitationClick(linkElement) {
     openReferenceContainer(`<div class="error">Error loading reference</div>`);
   }
 }
+*/
 
 // Initialize click listeners
 export function initializeFootnoteCitationListeners() {

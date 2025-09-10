@@ -16,6 +16,7 @@ import { formatBibtexToCitation } from "./bibtexProcessor.js";
 import { currentLazyLoader } from './initializePage.js';
 import { addTouchAndClickListener } from './hyperLights.js';
 import { getCurrentUser, getAuthorId, getAnonymousToken } from "./auth.js";
+import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './unified-container.js';
 
 
 let lastEventTime = 0;
@@ -710,14 +711,8 @@ async function handleUnderlineClick(uElement, event) {
     return;
   }
 
-  // Handle non-overlapping hypercites (original logic)
-  if (uElement.classList.contains("couple")) {
-    await CoupleClick(uElement);
-  } else if (uElement.classList.contains("poly")) {
-    await PolyClick(event);
-  } else {
-    console.log("Clicked on an underlined element with no special handling");
-  }
+  // Use unified container system for all hypercite clicks
+  await handleUnifiedContentClick(uElement);
 }
 
 /**
@@ -1276,32 +1271,22 @@ export function initializeHypercitingControls(currentBookId) {
 }
 
 
+// Legacy container manager - now using unified system
 let hyperciteManager = null;
 
 function initializeHyperciteContainerManager() {
-  hyperciteManager = new ContainerManager(
-    "hypercite-container",
-    "ref-overlay",
-    null,
-    ["main-content", "nav-buttons"]
-  );
+  console.log("🔄 Initializing Hypercite Container Manager (now using unified system)...");
+  initializeHyperlitManager();
 }
 
 export function openHyperciteContainer(content) {
-  if (!hyperciteManager) {
-    console.error("Hypercite manager not initialized!");
-    // Attempt to initialize it as a fallback
-    initializeHyperciteContainerManager();
-  }
-  hyperciteManager.openContainer(content);
+  // Redirect to unified container
+  openHyperlitContainer(content);
 }
 
 export function closeHyperciteContainer() {
-  if (!hyperciteManager) {
-    console.error("Hypercite manager not initialized!");
-    return;
-  }
-  hyperciteManager.closeContainer();
+  // Redirect to unified container
+  closeHyperlitContainer();
 }
 
 
