@@ -976,7 +976,8 @@ async function handleHypercitePaste(event) {
   let quotedText = "";
 
   // Method 1: Try regex to extract quoted text from raw HTML
-  const quoteMatch = clipboardHtml.match(/'([^']*)'/);
+  // Updated regex to handle smart quotes and allow quotes within content
+  const quoteMatch = clipboardHtml.match(/[''""]([^]*?)[''""](?=<a|$)/);
   if (quoteMatch) {
     quotedText = quoteMatch[1];
     console.log("🔍 Found quoted text via regex:", quotedText);
@@ -1009,8 +1010,8 @@ async function handleHypercitePaste(event) {
     console.log("🔍 Found quoted text via fallback:", quotedText);
   }
 
-  // Clean up the quoted text
-  quotedText = quotedText.replace(/^['"]|['"]$/g, ''); // Remove quotes
+  // Clean up the quoted text - handle both ASCII and smart quotes
+  quotedText = quotedText.replace(/^[''""]|[''""]$/g, ''); // Remove quotes
   console.log("🔍 Final cleaned quoted text:", `"${quotedText}"`);
   
   // Create the reference HTML with no space between text and sup
@@ -1095,7 +1096,8 @@ async function handleHypercitePaste(event) {
 export function extractQuotedText(pasteWrapper) {
   let quotedText = "";
   const fullText = pasteWrapper.textContent;
-  const quoteMatch = fullText.match(/^"(.+?)"/);
+  // Updated regex to handle smart quotes and allow quotes within content
+  const quoteMatch = fullText.match(/^[''""]([^]*?)[''""](?=\s*↗|$)/);
   
   if (quoteMatch && quoteMatch[1]) {
     quotedText = quoteMatch[1];
@@ -1104,7 +1106,7 @@ export function extractQuotedText(pasteWrapper) {
     const textNodes = Array.from(pasteWrapper.childNodes)
       .filter(node => node.nodeType === Node.TEXT_NODE);
     if (textNodes.length > 0) {
-      quotedText = textNodes[0].textContent.replace(/^"(.+)"$/, "$1");
+      quotedText = textNodes[0].textContent.replace(/^[''""]([^]*?)[''""]$/, "$1");
     }
   }
   
