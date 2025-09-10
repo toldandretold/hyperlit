@@ -1692,5 +1692,74 @@ export async function handleHyperciteDeletion(hyperciteElement) {
   await delinkHypercite(hyperciteElementId, hrefUrl);
 }
 
+/**
+ * Highlight target hypercite and dim others when navigating to a specific hypercite
+ * @param {string} targetHyperciteId - The ID of the hypercite being navigated to
+ */
+export function highlightTargetHypercite(targetHyperciteId) {
+  console.log(`🎯 Highlighting target hypercite: ${targetHyperciteId}`);
+  
+  // Find all hypercite elements (u tags with couple, poly, or single classes)
+  const allHypercites = document.querySelectorAll('u.single, u.couple, u.poly');
+  
+  // Find ALL segments for this hypercite (both individual and overlapping)
+  let targetElements = [];
+  
+  // 1. Check for direct element (individual segment)
+  const directElement = document.getElementById(targetHyperciteId);
+  if (directElement) {
+    console.log(`🎯 Found direct element for ${targetHyperciteId}:`, directElement);
+    targetElements.push(directElement);
+  }
+  
+  // 2. Check ALL overlapping elements for segments containing this hypercite
+  const overlappingElements = document.querySelectorAll('u[data-overlapping]');
+  for (const element of overlappingElements) {
+    const overlappingIds = element.getAttribute('data-overlapping');
+    if (overlappingIds && overlappingIds.split(',').map(id => id.trim()).includes(targetHyperciteId)) {
+      console.log(`🎯 Found target hypercite ${targetHyperciteId} in overlapping element:`, element);
+      targetElements.push(element);
+    }
+  }
+  
+  // Apply target highlighting to ALL elements containing this hypercite
+  if (targetElements.length > 0) {
+    targetElements.forEach(element => {
+      element.classList.add('hypercite-target');
+    });
+    console.log(`✅ Added target highlighting to ${targetElements.length} segments for: ${targetHyperciteId}`);
+  } else {
+    console.warn(`⚠️ Could not find target hypercite element: ${targetHyperciteId}`);
+  }
+  
+  // Dim all other hypercites (but not the target elements)
+  allHypercites.forEach(element => {
+    if (!targetElements.includes(element)) {
+      element.classList.add('hypercite-dimmed');
+    }
+  });
+  
+  console.log(`🔅 Dimmed ${allHypercites.length - 1} non-target hypercites`);
+  
+  // Remove highlighting after 5 seconds
+  setTimeout(() => {
+    restoreNormalHyperciteDisplay();
+  }, 5000);
+}
+
+/**
+ * Restore normal hypercite display by removing all navigation classes
+ */
+export function restoreNormalHyperciteDisplay() {
+  console.log(`🔄 Restoring normal hypercite display`);
+  
+  const allHypercites = document.querySelectorAll('u.hypercite-target, u.hypercite-dimmed');
+  allHypercites.forEach(element => {
+    element.classList.remove('hypercite-target', 'hypercite-dimmed');
+  });
+  
+  console.log(`✅ Restored normal display for ${allHypercites.length} hypercites`);
+}
+
 
 

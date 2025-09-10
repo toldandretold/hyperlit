@@ -68,8 +68,29 @@ u.hypercite-target {
     --hypercite-intensity: 1.0 !important; /* Max brightness for target */
 }
 
-u.hypercite-dimmed {
-    --hypercite-intensity: 0.1 !important; /* Very dim for non-targets */
+/* Single hypercites get dimmed to 50% of their already dim state */
+u.single.hypercite-dimmed {
+    --hypercite-intensity: 0.1 !important; /* 50% of 0.2 = 0.1 */
+}
+
+/* Couple/poly hypercites get dimmed to about 70% of their current intensity */
+u.couple.hypercite-dimmed,
+u.poly.hypercite-dimmed {
+    --hypercite-intensity: 0.3 !important; /* Dimmed from 0.4+ down to 0.3 */
+}
+
+/* Special styling for single hypercites when they're the target */
+u.single.hypercite-target {
+    text-decoration: none !important;
+    background-image: linear-gradient(to right, 
+        rgba(238, 74, 149, 1.0), 
+        rgba(239, 141, 52, 1.0), 
+        rgba(78, 172, 174, 1.0), 
+        rgba(238, 74, 149, 1.0)) !important;
+    background-position: 0 1.04em !important;
+    background-repeat: no-repeat !important;
+    background-size: 100% 2.5px !important;
+    padding-bottom: 3px !important;
 }
 
 
