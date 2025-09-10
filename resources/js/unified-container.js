@@ -846,15 +846,13 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
   // Handle highlight-specific post-open actions
   const highlightType = contentTypes.find(ct => ct.type === 'highlight');
   if (highlightType) {
-    // For now, skip the advanced highlight post-actions to avoid import issues
-    // The basic unified container functionality will work without these
-    console.log('🎯 Skipping highlight post-actions for now to avoid import conflicts');
-    return;
-    
-    // TODO: Fix dynamic imports later
-    // let attachAnnotationListener, addHighlightContainerPasteListener, attachPlaceholderBehavior;
-    
-    const { highlightIds } = highlightType;
+    try {
+      // Import the required functions
+      const { attachAnnotationListener } = await import('./annotation-saver.js');
+      const { addHighlightContainerPasteListener } = await import('./hyperLightsListener.js');
+      // Note: attachPlaceholderBehavior might not exist yet, so we'll skip it for now
+      
+      const { highlightIds } = highlightType;
     const currentUserId = await getCurrentUserId();
     
     // Get highlight data to determine which are editable
@@ -882,9 +880,12 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
         const isEditable = isUserHighlight || isNewlyCreated;
 
         if (isEditable) {
-          attachAnnotationListener(highlight.hyperlight_id);
-          addHighlightContainerPasteListener(highlight.hyperlight_id);
-          attachPlaceholderBehavior(highlight.hyperlight_id);
+          // Delay listener attachment to ensure DOM is ready
+          setTimeout(() => {
+            attachAnnotationListener(highlight.hyperlight_id);
+            addHighlightContainerPasteListener(highlight.hyperlight_id);
+            // Skip attachPlaceholderBehavior for now since it might not exist
+          }, 100);
           
           if (!firstUserAnnotation) {
             firstUserAnnotation = highlight.hyperlight_id;
@@ -919,6 +920,10 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
           }
         }
       }, 150);
+    }
+    
+    } catch (error) {
+      console.error('Error in highlight post-actions:', error);
     }
   }
 }
