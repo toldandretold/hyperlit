@@ -25,6 +25,7 @@ class DbHyperciteController extends Controller
                     'endChar' => $item['endChar'] ?? null,
                     'relationshipStatus' => $item['relationshipStatus'] ?? null,
                     'citedIN' => $item['citedIN'] ?? [],
+                    'time_since' => $item['time_since'] ?? null,
                     'raw_json' => $item,
                 ]);
             }
@@ -66,6 +67,7 @@ class DbHyperciteController extends Controller
                             'endChar' => $item['endChar'] ?? null,
                             'relationshipStatus' => $item['relationshipStatus'] ?? null,
                             'citedIN' => $item['citedIN'] ?? [],        // Remove json_encode()
+                            'time_since' => $item['time_since'] ?? null,
                             'raw_json' => $item,                        // Remove json_encode()
                             'updated_at' => now(),
                         ]

@@ -17,6 +17,7 @@ class PgHypercite extends Model
         'hypercitedText',
         'relationshipStatus',
         'startChar',
+        'time_since',
         'raw_json'
     ];
 

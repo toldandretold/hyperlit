@@ -15,35 +15,27 @@ import { addPasteListener } from "./paste.js";
 import { addHighlightContainerPasteListener } from "./hyperLightsListener.js";
 import { getCurrentUser, getCurrentUserId } from "./auth.js";
 import { getUserHighlightCache } from './userCache.js';
+import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './unified-container.js';
 
 let highlightId; 
 let highlightLazyLoader;
 
+// Legacy container manager - now using unified system
 let highlightManager = null;
 
 export function initializeHighlightManager() {
-  console.log("🔄 Initializing Highlight Container Manager...");
-  highlightManager = new ContainerManager(
-    "highlight-container", 
-    "ref-overlay", 
-    null, 
-    ["main-content", "nav-buttons"]
-  );
+  console.log("🔄 Initializing Highlight Container Manager (now using unified system)...");
+  initializeHyperlitManager();
 }
 
 export function openHighlightContainer(content) {
-  // Add a safety check. If the manager hasn't been initialized, do it now.
-  if (!highlightManager) {
-    initializeHighlightManager();
-  }
-  highlightManager.openContainer(content);
+  // Redirect to unified container
+  openHyperlitContainer(content);
 }
 
 export function closeHighlightContainer() {
-  if (!highlightManager) {
-    initializeHighlightManager();
-  }
-  highlightManager.closeContainer();
+  // Redirect to unified container
+  closeHyperlitContainer();
 }
 
 // Helper that creates or updates the lazy loader.
@@ -92,6 +84,13 @@ export function attachMarkListeners() {
 // First, refactor handleMarkClick to use a shared function
 // ========= Mark Click Handler =========
 export async function handleMarkClick(event) {
+  // Check if the click target is actually a nested element (like <u>, <a>, etc.)
+  // If so, let the unified system handle it instead of processing as a highlight
+  if (event.target.tagName !== 'MARK') {
+    console.log(`🎯 Click on ${event.target.tagName} inside mark - letting unified system handle`);
+    return; // Let the event bubble up and be handled by unified system
+  }
+  
   event.preventDefault();
   
   // Grab all classes that look like HL_*
@@ -107,14 +106,11 @@ export async function handleMarkClick(event) {
   const newHighlightIds = event.target.getAttribute('data-new-hl');
   const newIds = newHighlightIds ? newHighlightIds.split(',') : [];
   
-  const hasUserHighlight = event.target.classList.contains("user-highlight");
-  
-  console.log(`Mark has user-highlight class: ${hasUserHighlight}`);
   console.log(`New highlight IDs: ${newIds.join(", ")}`);
   console.log(`Opening highlights: ${highlightIds.join(", ")}`);
   
-  // Pass the new highlight IDs
-  await openHighlightById(highlightIds, hasUserHighlight, newIds);
+  // Use unified container system
+  await handleUnifiedContentClick(event.target, highlightIds, newIds);
 }
 
 // Helper function to format relative time
@@ -140,11 +136,22 @@ function formatRelativeTime(timeSince) {
   return `${diffYears}y`;
 }
 
+// Legacy function - now handled by unified container system
 export async function openHighlightById(
   rawIds,
   hasUserHighlight = false,
   newHighlightIds = []
 ) {
+  // Redirect to unified system
+  const highlightIds = Array.isArray(rawIds) ? rawIds : [rawIds];
+  const element = document.querySelector(`mark.${highlightIds[0]}`);
+  if (element) {
+    await handleUnifiedContentClick(element, highlightIds, newHighlightIds);
+  }
+  return;
+  
+  // Old implementation commented out - keeping for reference
+  /*
   const highlightIds = Array.isArray(rawIds) ? rawIds : [rawIds];
   const newIds = Array.isArray(newHighlightIds) ? newHighlightIds : [];
   if (highlightIds.length === 0) {
@@ -443,6 +450,7 @@ export async function openHighlightById(
   } catch (error) {
     console.error("❌ Error accessing IndexedDB:", error);
   }
+  */
 }
 
 function getRelativeOffsetTop(element, container) {
@@ -842,7 +850,7 @@ async function deleteHighlightHandler(event, bookId) {
 
 
 // Helper function to handle placeholder behavior for annotation divs
-function attachPlaceholderBehavior(highlightId) {
+export function attachPlaceholderBehavior(highlightId) {
   const annotationDiv = document.querySelector(
     `.annotation[data-highlight-id="${highlightId}"]`
   );
