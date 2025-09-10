@@ -187,6 +187,14 @@ function wrapSelectedTextInDOM(hyperciteId, book) {
   if (!selection.rangeCount) return console.error("No selection");
   const range = selection.getRangeAt(0);
 
+  // Check if selection spans multiple nodes with IDs
+  if (selectionSpansMultipleNodes(range)) {
+    // Show warning for multi-node selections
+    alert("Apologies: for now, you can't hypercite more than one paragraph or node at a time.");
+    setTimeout(() => selection.removeAllRanges(), 50);
+    return;
+  }
+
   // Find the nearest ancestor that has any ID at all:
   let parent = range.startContainer.nodeType === 3
     ? range.startContainer.parentElement
@@ -214,6 +222,35 @@ function wrapSelectedTextInDOM(hyperciteId, book) {
   NewHyperciteIndexedDB(book, hyperciteId, blocks);
 
   setTimeout(() => selection.removeAllRanges(), 50);
+}
+
+// Helper function to check if selection spans multiple nodes with IDs
+function selectionSpansMultipleNodes(range) {
+  const walker = document.createTreeWalker(
+    range.commonAncestorContainer,
+    NodeFilter.SHOW_ELEMENT,
+    {
+      acceptNode: function(node) {
+        // Only accept nodes that have a numerical ID and intersect with our range
+        if (node.id && /^\d+(?:\.\d+)?$/.test(node.id)) {
+          if (range.intersectsNode(node)) {
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        }
+        return NodeFilter.FILTER_SKIP;
+      }
+    }
+  );
+  
+  let nodeCount = 0;
+  while (walker.nextNode()) {
+    nodeCount++;
+    if (nodeCount > 1) {
+      return true; // Found more than one node, so it spans multiple
+    }
+  }
+  
+  return false; // Single node or no nodes
 }
 
 async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
