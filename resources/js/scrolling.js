@@ -14,6 +14,7 @@ import {
   waitForElementReady, 
   waitForChunkLoadingComplete 
 } from "./domReadiness.js";
+import { highlightTargetHypercite } from "./hyperCites.js";
 
 // ========= Scrolling Helper Functions =========
 
@@ -1036,6 +1037,19 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     `#${CSS.escape(targetId)}`
   );
   
+  // For hypercites, also check if it's part of an overlapping segment
+  if (!existingElement && targetId.startsWith('hypercite_')) {
+    const overlappingElements = lazyLoader.container.querySelectorAll('u[data-overlapping]');
+    for (const element of overlappingElements) {
+      const overlappingIds = element.getAttribute('data-overlapping');
+      if (overlappingIds && overlappingIds.split(',').map(id => id.trim()).includes(targetId)) {
+        console.log(`🎯 Found hypercite ${targetId} in overlapping element:`, element);
+        existingElement = element;
+        break;
+      }
+    }
+  }
+  
   // Update progress - DOM check
   if (progressIndicator) {
     progressIndicator.updateProgress(20, "Checking if element is in DOM...");
@@ -1180,7 +1194,21 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       console.warn(`❌ Failed to wait for target element ${targetId}: ${error.message}. Trying fallback...`);
       
       // Fallback: try once more with querySelector in case it's there but not detected
-      const fallbackTarget = lazyLoader.container.querySelector(`#${CSS.escape(targetId)}`);
+      let fallbackTarget = lazyLoader.container.querySelector(`#${CSS.escape(targetId)}`);
+      
+      // For hypercites, also check overlapping elements in fallback
+      if (!fallbackTarget && targetId.startsWith('hypercite_')) {
+        const overlappingElements = lazyLoader.container.querySelectorAll('u[data-overlapping]');
+        for (const element of overlappingElements) {
+          const overlappingIds = element.getAttribute('data-overlapping');
+          if (overlappingIds && overlappingIds.split(',').map(id => id.trim()).includes(targetId)) {
+            console.log(`🎯 Found hypercite ${targetId} in overlapping element (fallback):`, element);
+            fallbackTarget = element;
+            break;
+          }
+        }
+      }
+      
       if (fallbackTarget) {
         console.log(`📍 Found target on fallback attempt: ${targetId}`);
         targetElement = fallbackTarget;
@@ -1237,6 +1265,14 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
         console.log(`Opening highlight after navigation: ${targetId}`);
         openHighlightById(targetId);
       }, 200);
+    }
+    
+    // For hypercites, highlight the target and dim others
+    if (targetId.startsWith('hypercite_')) {
+      setTimeout(() => {
+        console.log(`Highlighting target hypercite after navigation: ${targetId}`);
+        highlightTargetHypercite(targetId);
+      }, 300);
     }
 
     // Clean up navigation state

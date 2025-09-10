@@ -579,7 +579,8 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
         </div>`;
     }
 
-    let html = `<div class="highlights-section">\n`;
+    let html = `<div class="highlights-section">\n<br>\n<h1>Hyperlights</h1>\n<br>\n`;
+
     let firstUserAnnotation = null;
 
     validResults.forEach((h, index) => {
@@ -681,7 +682,9 @@ async function buildHyperciteContent(contentType) {
         </div>`;
     }
 
-    let html = `<div class="hypercites-section">\n<b>Cited By</b>\n`;
+
+    let html = `<div class="hypercites-section">\n<h1>Cited By</h1>\n`;
+
     
     // Collect all citedIN links from all hypercites
     const allCitedINLinks = [];
@@ -888,7 +891,6 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
             // Skip attachPlaceholderBehavior for now since it might not exist
           }, 100);
 
-          
           if (!firstUserAnnotation) {
             firstUserAnnotation = highlight.hyperlight_id;
           }
