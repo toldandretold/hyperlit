@@ -140,7 +140,7 @@ function saveHighlightAnnotation(highlightId, annotationHTML) {
 
 // This function attaches the paste listener. It is correct.
 export function addHighlightContainerPasteListener(highlightId) {
-  const container = document.getElementById("highlight-container");
+  const container = document.getElementById("hyperlit-container");
   if (!container) return;
 
   const annotationDiv = container.querySelector(

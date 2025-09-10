@@ -6,7 +6,7 @@ let annotationDebounceTimer = null;
 
 /**
  * Extracts the current HTML content from within the annotation element.
- * Assumes .annotation is found inside the highlight container.
+ * Assumes .annotation is found inside the unified hyperlit container.
  * @param {HTMLElement} container
  * @returns {string} HTML string
  */
@@ -53,7 +53,7 @@ export const saveAnnotationToIndexedDB = (highlightId, annotationHTML) =>
   });
 
 export function attachAnnotationListener(highlightId) {
-  const container = document.getElementById("highlight-container");
+  const container = document.getElementById("hyperlit-container");
   if (!container || container.classList.contains("hidden")) return;
 
   const annotationEl = container.querySelector(
