@@ -853,6 +853,7 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
       // Note: attachPlaceholderBehavior might not exist yet, so we'll skip it for now
       
       const { highlightIds } = highlightType;
+
     const currentUserId = await getCurrentUserId();
     
     // Get highlight data to determine which are editable
@@ -886,6 +887,7 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
             addHighlightContainerPasteListener(highlight.hyperlight_id);
             // Skip attachPlaceholderBehavior for now since it might not exist
           }, 100);
+
           
           if (!firstUserAnnotation) {
             firstUserAnnotation = highlight.hyperlight_id;
@@ -925,6 +927,7 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
     } catch (error) {
       console.error('Error in highlight post-actions:', error);
     }
+
   }
 }
 
