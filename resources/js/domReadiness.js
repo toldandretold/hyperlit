@@ -90,7 +90,20 @@ export function waitForElementReady(targetId, options = {}) {
       attempts++;
       
       // Find element within the specified container
-      const element = container.querySelector(`#${CSS.escape(targetId)}`);
+      let element = container.querySelector(`#${CSS.escape(targetId)}`);
+      
+      // For hypercites, also check overlapping elements if direct element not found
+      if (!element && targetId.startsWith('hypercite_')) {
+        const overlappingElements = container.querySelectorAll('u[data-overlapping]');
+        for (const overlappingElement of overlappingElements) {
+          const overlappingIds = overlappingElement.getAttribute('data-overlapping');
+          if (overlappingIds && overlappingIds.split(',').map(id => id.trim()).includes(targetId)) {
+            console.log(`🎯 Found hypercite ${targetId} in overlapping element during DOM readiness check`);
+            element = overlappingElement;
+            break;
+          }
+        }
+      }
       
       if (onProgress) {
         onProgress({ attempts, targetId, found: !!element });
