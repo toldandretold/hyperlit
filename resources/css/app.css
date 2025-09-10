@@ -45,7 +45,7 @@ p[data-original-line="1"] {
 u.single {
   text-decoration: underline;
   text-decoration-skip-ink: auto; 
-  text-decoration-color: rgba(203, 204, 204, 0.5); /* Custom transparent underline */
+  text-decoration-color: rgba(203, 204, 204, var(--hypercite-intensity, 0.2)); /* Transparent underline with variable intensity */
 }
 
 
@@ -61,6 +61,15 @@ u.couple, u.poly {
     background-repeat: no-repeat;
     background-size: 100% 2.5px; /* Width of the underline */
     padding-bottom: 3px; /* Space for the underline */
+}
+
+/* Hypercite navigation states */
+u.hypercite-target {
+    --hypercite-intensity: 1.0 !important; /* Max brightness for target */
+}
+
+u.hypercite-dimmed {
+    --hypercite-intensity: 0.1 !important; /* Very dim for non-targets */
 }
 
 
