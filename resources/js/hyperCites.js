@@ -16,7 +16,53 @@ import { formatBibtexToCitation } from "./bibtexProcessor.js";
 import { currentLazyLoader } from './initializePage.js';
 import { addTouchAndClickListener } from './hyperLights.js';
 import { getCurrentUser, getAuthorId, getAnonymousToken } from "./auth.js";
+import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './unified-container.js';
 
+
+/**
+ * Fetch library record from server as fallback
+ */
+async function fetchLibraryFromServer(bookId) {
+  try {
+    const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/library`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+      },
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Server request failed: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // The API returns {success: true, library: {...}, book_id: ...}
+    if (data && data.success && data.library) {
+      if (data.library.bibtex) {
+        return data.library;
+      } else if (data.library.title || data.library.author) {
+        // Create basic bibtex from available fields
+        const basicBibtex = `@misc{${bookId},
+  author = {${data.library.author || 'Unknown'}},
+  title = {${data.library.title || 'Untitled'}},
+  year = {${new Date().getFullYear()}},
+}`;
+        return {
+          ...data.library,
+          bibtex: basicBibtex
+        };
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Failed to fetch library record from server:', error);
+    return null;
+  }
+}
 
 let lastEventTime = 0;
 
@@ -302,6 +348,7 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
       endChar: overallEndChar,
       relationshipStatus: "single",
       citedIN: [],
+      time_since: Math.floor(Date.now() / 1000) // Add timestamp like hyperlights
     };
 
     console.log("Hypercite record to add (main store):", hyperciteEntry);
@@ -379,6 +426,7 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
             charEnd: block.charEnd,
             relationshipStatus: "single",
             citedIN: [],
+            time_since: Math.floor(Date.now() / 1000)
           });
         }
 
@@ -399,6 +447,7 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
               charEnd: block.charEnd,
               relationshipStatus: "single",
               citedIN: [],
+              time_since: Math.floor(Date.now() / 1000)
             },
           ],
         };
@@ -710,14 +759,8 @@ async function handleUnderlineClick(uElement, event) {
     return;
   }
 
-  // Handle non-overlapping hypercites (original logic)
-  if (uElement.classList.contains("couple")) {
-    await CoupleClick(uElement);
-  } else if (uElement.classList.contains("poly")) {
-    await PolyClick(event);
-  } else {
-    console.log("Clicked on an underlined element with no special handling");
-  }
+  // Use unified container system for all hypercite clicks
+  await handleUnifiedContentClick(uElement);
 }
 
 /**
@@ -997,17 +1040,44 @@ async function createOverlappingPolyContainer(allCitedINLinks, validHypercites) 
 
               // Return the formatted citation with the clickable link
               resolve(
-                `<p>${citationText} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></p>`
+                `<blockquote>${citationText} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></blockquote>`
               );
             } else {
-              // If no record exists, return the default link
-              resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
+              // Fallback: try to fetch from server
+              fetchLibraryFromServer(bookID).then(async (serverLibraryData) => {
+                if (serverLibraryData && serverLibraryData.bibtex) {
+                  const formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
+                  const citationText = isHyperlightURL 
+                    ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}` 
+                    : formattedCitation;
+
+                  resolve(
+                    `<blockquote>${citationText} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></blockquote>`
+                  );
+                } else {
+                  resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
+                }
+              });
             }
           };
 
           libraryRequest.onerror = () => {
             console.error(`❌ Error fetching library data for book ID: ${bookID}`);
-            resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
+            // Fallback: try to fetch from server
+            fetchLibraryFromServer(bookID).then(async (serverLibraryData) => {
+              if (serverLibraryData && serverLibraryData.bibtex) {
+                const formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
+                const citationText = isHyperlightURL 
+                  ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}` 
+                  : formattedCitation;
+
+                resolve(
+                  `<blockquote>${citationText} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></blockquote>`
+                );
+              } else {
+                resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
+              }
+            });
           };
         });
       })
@@ -1016,10 +1086,12 @@ async function createOverlappingPolyContainer(allCitedINLinks, validHypercites) 
 
   const containerContent = `
     <div class="scroller">
-      <h1>Cited By (Overlapping Hypercites):</h1>
-      <p>Found ${validHypercites.length} overlapping hypercites with ${uniqueLinks.length} total citations.</p>
-      <div class="citation-links">
-        ${linksHTML}
+      <div class="hypercites-section">
+        <b>Cited By</b>
+        <div class="citation-links">
+          ${linksHTML}
+        </div>
+        <hr>
       </div>
     </div>
     <div class="mask-bottom"></div>
@@ -1138,17 +1210,44 @@ export async function PolyClick(event) {
 
                     // Return the formatted citation with the clickable link
                     resolve(
-                      `<p>${citationText} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></p>`
+                      `<blockquote>${citationText} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></blockquote>`
                     );
                   } else {
-                    // If no record exists, return the default link
-                    resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
+                    // Fallback: try to fetch from server
+                    fetchLibraryFromServer(bookID).then(async (serverLibraryData) => {
+                      if (serverLibraryData && serverLibraryData.bibtex) {
+                        const formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
+                        const citationText = isHyperlightURL 
+                          ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}` 
+                          : formattedCitation;
+
+                        resolve(
+                          `<blockquote>${citationText} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></blockquote>`
+                        );
+                      } else {
+                        resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
+                      }
+                    });
                   }
                 };
 
                 libraryRequest.onerror = () => {
                   console.error(`❌ Error fetching library data for book ID: ${bookID}`);
-                  resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
+                  // Fallback: try to fetch from server
+                  fetchLibraryFromServer(bookID).then(async (serverLibraryData) => {
+                    if (serverLibraryData && serverLibraryData.bibtex) {
+                      const formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
+                      const citationText = isHyperlightURL 
+                        ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}` 
+                        : formattedCitation;
+
+                      resolve(
+                        `<blockquote>${citationText} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></blockquote>`
+                      );
+                    } else {
+                      resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
+                    }
+                  });
                 };
               });
             })
@@ -1276,32 +1375,22 @@ export function initializeHypercitingControls(currentBookId) {
 }
 
 
+// Legacy container manager - now using unified system
 let hyperciteManager = null;
 
 function initializeHyperciteContainerManager() {
-  hyperciteManager = new ContainerManager(
-    "hypercite-container",
-    "ref-overlay",
-    null,
-    ["main-content", "nav-buttons"]
-  );
+  console.log("🔄 Initializing Hypercite Container Manager (now using unified system)...");
+  initializeHyperlitManager();
 }
 
 export function openHyperciteContainer(content) {
-  if (!hyperciteManager) {
-    console.error("Hypercite manager not initialized!");
-    // Attempt to initialize it as a fallback
-    initializeHyperciteContainerManager();
-  }
-  hyperciteManager.openContainer(content);
+  // Redirect to unified container
+  openHyperlitContainer(content);
 }
 
 export function closeHyperciteContainer() {
-  if (!hyperciteManager) {
-    console.error("Hypercite manager not initialized!");
-    return;
-  }
-  hyperciteManager.closeContainer();
+  // Redirect to unified container
+  closeHyperlitContainer();
 }
 
 

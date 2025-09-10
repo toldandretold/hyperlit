@@ -871,7 +871,8 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
         charStart: startPos,
         charEnd: startPos + uLength,
         relationshipStatus: existingHypercite?.relationshipStatus || "single",
-        citedIN: existingHypercite?.citedIN || []
+        citedIN: existingHypercite?.citedIN || [],
+        time_since: existingHypercite?.time_since || Math.floor(Date.now() / 1000)
       });
       
       console.log("Calculated hypercite positions:", {
@@ -1475,7 +1476,8 @@ function updateHyperciteRecords(hypercites, store, bookId, syncArray, node) {
           hypercitedText: hypercitedText,
           hypercitedHTML: hypercitedHTML,
           citedIN: [],
-          relationshipStatus: "single"
+          relationshipStatus: "single",
+          time_since: hypercite.time_since || Math.floor(Date.now() / 1000)
         };
         
         store.put(newRecord);
