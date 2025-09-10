@@ -663,6 +663,11 @@ export function applyHypercites(html, hypercites) {
         console.log(`🔍 Single hypercite ${segment.hyperciteIDs[0]} status: "${actualStatus}"`);
         
         underlineElement.className = actualStatus || 'single';
+        
+        // Set hypercite intensity for single hypercite (start dim)
+        if (actualStatus === 'couple' || actualStatus === 'poly') {
+          underlineElement.style.setProperty('--hypercite-intensity', '0.4');
+        }
       } else {
         // Multiple hypercites overlapping
         underlineElement.id = "hypercite_overlapping";
@@ -691,6 +696,15 @@ export function applyHypercites(html, hypercites) {
         
         underlineElement.className = finalStatus;
         underlineElement.setAttribute("data-overlapping", segment.hyperciteIDs.join(","));
+        
+        // Set hypercite intensity for overlapping hypercites (more overlaps = brighter)
+        if (finalStatus === 'couple' || finalStatus === 'poly') {
+          const overlappingCount = segment.hyperciteIDs.length;
+          // Increase intensity based on overlapping count - more overlaps = brighter
+          const intensity = Math.min(1.0, 0.4 + (overlappingCount - 1) * 0.2);
+          underlineElement.style.setProperty('--hypercite-intensity', intensity.toString());
+          console.log(`Set hypercite intensity for ${overlappingCount} overlapping hypercites: ${intensity}`);
+        }
       }
       
       try {

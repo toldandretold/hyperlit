@@ -52,7 +52,11 @@ u.single {
 u.couple, u.poly {
     text-decoration: none;
     display: inline;
-    background-image: linear-gradient(to right, #EE4A95, #EF8D34, #4EACAE, #EE4A95);
+    background-image: linear-gradient(to right, 
+        rgba(238, 74, 149, var(--hypercite-intensity, 0.4)), 
+        rgba(239, 141, 52, var(--hypercite-intensity, 0.4)), 
+        rgba(78, 172, 174, var(--hypercite-intensity, 0.4)), 
+        rgba(238, 74, 149, var(--hypercite-intensity, 0.4)));
     background-position: 0 1.04em; /* Position just below the text baseline */
     background-repeat: no-repeat;
     background-size: 100% 2.5px; /* Width of the underline */
