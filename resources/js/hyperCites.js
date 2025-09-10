@@ -1087,7 +1087,7 @@ async function createOverlappingPolyContainer(allCitedINLinks, validHypercites) 
   const containerContent = `
     <div class="scroller">
       <div class="hypercites-section">
-        <b>Cited By</b>
+        <h1>Cited By</h1>
         <div class="citation-links">
           ${linksHTML}
         </div>
