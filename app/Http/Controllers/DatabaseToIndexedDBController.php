@@ -265,6 +265,7 @@ class DatabaseToIndexedDBController extends Controller
     public function getBookLibrary(Request $request, string $bookId): JsonResponse
     {
         try {
+            Log::info('getBookLibrary called', ['book_id' => $bookId]);
             $library = $this->getLibrary($bookId);
             
             if (!$library) {

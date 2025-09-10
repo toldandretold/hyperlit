@@ -211,12 +211,26 @@ function detectFootnote(element) {
  * Detect citation content
  */
 function detectCitation(element) {
+  // Check if element is a citation link
   if (element.tagName === 'A' && element.classList.contains('in-text-citation')) {
     const href = element.getAttribute('href');
     if (href && href.startsWith('#')) {
       return {
         type: 'citation',
         element: element,
+        referenceId: href.substring(1)
+      };
+    }
+  }
+  
+  // Also check if we're inside a citation element (for when clicking on highlighted citations)
+  const parentCitation = element.closest('a.in-text-citation');
+  if (parentCitation) {
+    const href = parentCitation.getAttribute('href');
+    if (href && href.startsWith('#')) {
+      return {
+        type: 'citation',
+        element: parentCitation,
         referenceId: href.substring(1)
       };
     }
@@ -242,6 +256,13 @@ async function detectHighlights(element, providedHighlightIds = null) {
       if (parentMark) {
         highlightIds = Array.from(parentMark.classList).filter(cls => cls.startsWith('HL_'));
         highlightElement = parentMark;
+      } else {
+        // Check if there are mark elements inside this element
+        const childMark = element.querySelector('mark');
+        if (childMark) {
+          highlightIds = Array.from(childMark.classList).filter(cls => cls.startsWith('HL_'));
+          highlightElement = childMark;
+        }
       }
     }
   }
@@ -261,14 +282,41 @@ async function detectHighlights(element, providedHighlightIds = null) {
  * Detect hypercite content
  */
 async function detectHypercites(element) {
+  let hyperciteElement = null;
+  
   // Check for underlined elements with hypercite classes
   if (element.tagName === 'U' && (element.classList.contains('couple') || element.classList.contains('poly') || element.classList.contains('single'))) {
+    hyperciteElement = element;
+  } else {
+    // Check if we're inside a hypercite element (for when clicking on highlighted hypercites)
+    const parentHypercite = element.closest('u.couple, u.poly, u.single');
+    if (parentHypercite) {
+      hyperciteElement = parentHypercite;
+    } else {
+      // Check if there are hypercite elements inside this element
+      const childHypercite = element.querySelector('u.couple, u.poly, u.single');
+      if (childHypercite) {
+        hyperciteElement = childHypercite;
+      }
+    }
+  }
+  
+  if (hyperciteElement) {
+    // Handle overlapping hypercites by extracting the actual IDs
+    let hyperciteIds = [];
+    if (hyperciteElement.hasAttribute('data-overlapping')) {
+      hyperciteIds = hyperciteElement.getAttribute('data-overlapping').split(',');
+    } else {
+      hyperciteIds = [hyperciteElement.id];
+    }
+    
     return {
       type: 'hypercite',
-      element: element,
-      hyperciteId: element.id,
-      relationshipStatus: element.classList.contains('couple') ? 'couple' : 
-                          element.classList.contains('poly') ? 'poly' : 'single'
+      element: hyperciteElement,
+      hyperciteId: hyperciteElement.id, // Keep the container ID for element reference
+      hyperciteIds: hyperciteIds, // Add array of actual hypercite IDs
+      relationshipStatus: hyperciteElement.classList.contains('couple') ? 'couple' : 
+                          hyperciteElement.classList.contains('poly') ? 'poly' : 'single'
     };
   }
   
@@ -281,10 +329,63 @@ async function detectHypercites(element) {
 async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
   console.log("🔨 Building unified content for types:", contentTypes.map(ct => ct.type));
   
+  // Fetch timestamps for each content type to sort chronologically
+  const contentTypesWithTimestamps = await Promise.all(
+    contentTypes.map(async (contentType) => {
+      let timestamp = 0; // Default to 0 for items without timestamps (footnotes, citations)
+      
+      try {
+        if (contentType.type === 'highlight') {
+          // Get timestamp from highlight data
+          const db = await openDatabase();
+          const tx = db.transaction("hyperlights", "readonly");
+          const store = tx.objectStore("hyperlights");
+          const idx = store.index("hyperlight_id");
+          
+          if (contentType.highlightIds && contentType.highlightIds.length > 0) {
+            const req = idx.get(contentType.highlightIds[0]);
+            const result = await new Promise((resolve) => {
+              req.onsuccess = () => resolve(req.result);
+              req.onerror = () => resolve(null);
+            });
+            if (result && result.time_since) {
+              timestamp = result.time_since;
+            }
+          }
+        } else if (contentType.type === 'hypercite') {
+          // Get timestamp from hypercite data
+          const db = await openDatabase();
+          const tx = db.transaction("hypercites", "readonly");
+          const store = tx.objectStore("hypercites");
+          const index = store.index("hyperciteId");
+          
+          const req = index.get(contentType.hyperciteId);
+          const result = await new Promise((resolve) => {
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => resolve(null);
+          });
+          if (result && result.time_since) {
+            timestamp = result.time_since;
+          }
+        }
+        // Footnotes and citations don't have creation timestamps, so they stay at 0
+      } catch (error) {
+        console.warn(`Error getting timestamp for ${contentType.type}:`, error);
+      }
+      
+      return { ...contentType, timestamp };
+    })
+  );
+  
+  // Sort by timestamp (oldest first, with 0 timestamps appearing first)
+  contentTypesWithTimestamps.sort((a, b) => a.timestamp - b.timestamp);
+  
+  console.log("🕐 Content types sorted by timestamp:", contentTypesWithTimestamps.map(ct => ({ type: ct.type, timestamp: ct.timestamp })));
+  
   let contentHtml = '';
   
-  // Process each content type in priority order
-  for (const contentType of contentTypes) {
+  // Process each content type in chronological order
+  for (const contentType of contentTypesWithTimestamps) {
     console.log(`🔨 Processing ${contentType.type} content...`);
     
     switch (contentType.type) {
@@ -343,7 +444,7 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
  */
 async function buildFootnoteContent(contentType) {
   try {
-    const { elementId } = contentType;
+    const { elementId, fnCountId } = contentType;
     
     // Extract footnote ID (remove "ref" suffix if present)
     let footnoteId = elementId;
@@ -363,18 +464,22 @@ async function buildFootnoteContent(contentType) {
     });
     
     if (result && result.content) {
+      // Remove or replace block-level tags to keep content inline
+      const inlineContent = result.content
+        .replace(/<\/?p[^>]*>/g, '') // Remove <p> tags
+        .replace(/<\/?div[^>]*>/g, ''); // Remove <div> tags
+      
       return `
         <div class="footnotes-section">
-          <h3>Footnote:</h3>
           <div class="footnote-content">
-            <div class="footnote-text">${result.content}</div>
+            <div class="footnote-text" style="display: flex; align-items: flex-start;"><sup style="margin-right: 1em; flex-shrink: 0;">${fnCountId}</sup><span style="flex: 1;">${inlineContent}</span></div>
           </div>
-          <hr>
+          <hr style="margin: 2em 0; opacity: 0.5;">
         </div>`;
     } else {
       return `
         <div class="footnotes-section">
-          <h3>Footnote:</h3>
+          <sup>${fnCountId}</sup>
           <div class="error">Footnote not found: ${footnoteId}</div>
           <hr>
         </div>`;
@@ -383,7 +488,7 @@ async function buildFootnoteContent(contentType) {
     console.error('Error building footnote content:', error);
     return `
       <div class="footnotes-section">
-        <h3>Footnote:</h3>
+        <sup>${fnCountId || '?'}</sup>
         <div class="error">Error loading footnote</div>
         <hr>
       </div>`;
@@ -411,18 +516,16 @@ async function buildCitationContent(contentType) {
     if (result && result.content) {
       return `
         <div class="citations-section">
-          <h3>Citation:</h3>
           <div class="citation-content">
             <div class="citation-text">${result.content}</div>
           </div>
-          <hr>
+          <hr style="margin: 2em 0; opacity: 0.5;">
         </div>`;
     } else {
       return `
         <div class="citations-section">
-          <h3>Citation:</h3>
           <div class="error">Reference not found: ${referenceId}</div>
-          <hr>
+          <hr style="margin: 2em 0; opacity: 0.5;">
         </div>`;
     }
   } catch (error) {
@@ -471,16 +574,15 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
       console.warn("⚠️ No valid highlight results found");
       return `
         <div class="highlights-section">
-          <h3>Highlights:</h3>
           <div class="error">No highlight data found</div>
           <hr>
         </div>`;
     }
 
-    let html = `<div class="highlights-section">\n<h3>Highlights:</h3>\n`;
+    let html = `<div class="highlights-section">\n`;
     let firstUserAnnotation = null;
 
-    validResults.forEach((h) => {
+    validResults.forEach((h, index) => {
       const isUserHighlight = h.creator === currentUserId || h.creator_token === currentUserId;
       const isNewlyCreated = newHighlightIds.includes(h.hyperlight_id);
       const isEditable = isUserHighlight || isNewlyCreated;
@@ -499,6 +601,11 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
       html += `    ${h.annotation || ""}\n`;
       html += `  </div>\n`;
       html += `  <br>\n`;
+      
+      // Add hr between highlights (but not after the last one)
+      if (index < validResults.length - 1) {
+        html += `  <hr style="margin: 1em 0;">\n`;
+      }
 
       // Track first user annotation for cursor placement
       if (isEditable && !firstUserAnnotation) {
@@ -506,7 +613,7 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
       }
     });
     
-    html += `<hr>\n</div>\n`;
+    html += `<hr style="margin: 1em 0;">\n</div>\n`;
     
     // Store first user annotation for post-open actions
     if (firstUserAnnotation) {
@@ -519,7 +626,6 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
     console.error('Error building highlight content:', error);
     return `
       <div class="highlights-section">
-        <h3>Highlights:</h3>
         <div class="error">Error loading highlights</div>
         <hr>
       </div>`;
@@ -531,14 +637,14 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
  */
 async function buildHyperciteContent(contentType) {
   try {
-    const { hyperciteId, relationshipStatus } = contentType;
-    console.log(`🔗 Building hypercite content for ID: ${hyperciteId}, status: ${relationshipStatus}`);
+    const { hyperciteId, hyperciteIds, relationshipStatus } = contentType;
+    console.log(`🔗 Building hypercite content for ID: ${hyperciteId}, IDs: ${JSON.stringify(hyperciteIds)}, status: ${relationshipStatus}`);
     
     if (relationshipStatus === 'single') {
       console.log(`📝 Single hypercite - returning simple content`);
       return `
         <div class="hypercites-section">
-          <h3>Hypercite:</h3>
+          <b>Hypercite</b>
           <div class="hypercite-single">This is a single hypercite (not cited elsewhere)</div>
           <hr>
         </div>`;
@@ -549,26 +655,48 @@ async function buildHyperciteContent(contentType) {
     const store = tx.objectStore("hypercites");
     const index = store.index("hyperciteId");
 
-    const getRequest = index.get(hyperciteId);
-    const hyperciteData = await new Promise((resolve, reject) => {
-      getRequest.onsuccess = () => resolve(getRequest.result);
-      getRequest.onerror = () => reject(getRequest.error);
-    });
+    // Use the hyperciteIds array if available, otherwise fall back to single hyperciteId
+    const idsToProcess = hyperciteIds || [hyperciteId];
+    const hyperciteDataArray = [];
+    
+    // Fetch data for all hypercite IDs
+    for (const id of idsToProcess) {
+      const getRequest = index.get(id);
+      const hyperciteData = await new Promise((resolve, reject) => {
+        getRequest.onsuccess = () => resolve(getRequest.result);
+        getRequest.onerror = () => reject(getRequest.error);
+      });
+      
+      if (hyperciteData) {
+        hyperciteDataArray.push(hyperciteData);
+      }
+    }
 
-    if (!hyperciteData) {
+    if (hyperciteDataArray.length === 0) {
       return `
         <div class="hypercites-section">
-          <h3>Hypercite:</h3>
+          <b>Hypercite</b>
           <div class="error">Hypercite data not found</div>
           <hr>
         </div>`;
     }
 
-    let html = `<div class="hypercites-section">\n<h3>Cited By:</h3>\n`;
+    let html = `<div class="hypercites-section">\n<b>Cited By</b>\n`;
     
-    if (Array.isArray(hyperciteData.citedIN) && hyperciteData.citedIN.length > 0) {
+    // Collect all citedIN links from all hypercites
+    const allCitedINLinks = [];
+    for (const hyperciteData of hyperciteDataArray) {
+      if (Array.isArray(hyperciteData.citedIN) && hyperciteData.citedIN.length > 0) {
+        allCitedINLinks.push(...hyperciteData.citedIN);
+      }
+    }
+    
+    // Remove duplicates
+    const uniqueCitedINLinks = [...new Set(allCitedINLinks)];
+    
+    if (uniqueCitedINLinks.length > 0) {
       const linksHTML = await Promise.all(
-        hyperciteData.citedIN.map(async (citationID) => {
+        uniqueCitedINLinks.map(async (citationID) => {
           // Extract book ID from citation URL
           let bookID;
           const citationParts = citationID.split("#");
@@ -607,15 +735,41 @@ async function buildHyperciteContent(contentType) {
                   : formattedCitation;
 
                 resolve(
-                  `<p>${citationText} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></p>`
+                  `<blockquote>${citationText} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></blockquote>`
+                );
+              } else {
+                // Fallback: try to fetch from server
+                const serverLibraryData = await fetchLibraryFromServer(bookID);
+                if (serverLibraryData && serverLibraryData.bibtex) {
+                  const formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
+                  const citationText = isHyperlightURL 
+                    ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}` 
+                    : formattedCitation;
+
+                  resolve(
+                    `<blockquote>${citationText} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></blockquote>`
+                  );
+                } else {
+                  resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
+                }
+              }
+            };
+
+            libraryRequest.onerror = async () => {
+              // Fallback: try to fetch from server
+              const serverLibraryData = await fetchLibraryFromServer(bookID);
+              if (serverLibraryData && serverLibraryData.bibtex) {
+                const formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
+                const citationText = isHyperlightURL 
+                  ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}` 
+                  : formattedCitation;
+
+                resolve(
+                  `<blockquote>${citationText} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></blockquote>`
                 );
               } else {
                 resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
               }
-            };
-
-            libraryRequest.onerror = () => {
-              resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
             };
           });
         })
@@ -633,10 +787,55 @@ async function buildHyperciteContent(contentType) {
     console.error('Error building hypercite content:', error);
     return `
       <div class="hypercites-section">
-        <h3>Hypercite:</h3>
+        <b>Hypercite:</b>
         <div class="error">Error loading hypercite data</div>
         <hr>
       </div>`;
+  }
+}
+
+/**
+ * Fetch library record from server as fallback
+ */
+async function fetchLibraryFromServer(bookId) {
+  try {
+    const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/library`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+      },
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Server request failed: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // The API returns {success: true, library: {...}, book_id: ...}
+    if (data && data.success && data.library) {
+      if (data.library.bibtex) {
+        return data.library;
+      } else if (data.library.title || data.library.author) {
+        // Create basic bibtex from available fields
+        const basicBibtex = `@misc{${bookId},
+  author = {${data.library.author || 'Unknown'}},
+  title = {${data.library.title || 'Untitled'}},
+  year = {${new Date().getFullYear()}},
+}`;
+        return {
+          ...data.library,
+          bibtex: basicBibtex
+        };
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Failed to fetch library record from server:', error);
+    return null;
   }
 }
 
