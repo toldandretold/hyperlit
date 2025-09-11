@@ -1,7 +1,8 @@
-import { parseHyperciteHref } from './hyperCites.js';
+import { parseHyperciteHref, attachUnderlineClickListeners } from './hyperCites.js';
 import { extractQuotedText } from './paste.js';
 import { openDatabase, updateCitationForExistingHypercite, queueForSync } from './cache-indexedDB.js';
 import { book } from './app.js';
+import { broadcastToOpenTabs } from './BroadcastListener.js';
 
 /**
  * This is the main paste handler for the annotation area.
@@ -96,6 +97,11 @@ async function processPastedHyperciteInAnnotation(clipboardHtml, highlightId) {
   // Manually insert the clean HTML.
   document.execCommand("insertHTML", false, referenceHtml);
 
+  // Attach click listeners to the newly inserted hypercite link
+  setTimeout(() => {
+    attachUnderlineClickListeners();
+  }, 100);
+
   // Update the original hypercite in the database.
   try {
     const updateResult = await updateCitationForExistingHypercite(
@@ -105,6 +111,8 @@ async function processPastedHyperciteInAnnotation(clipboardHtml, highlightId) {
     );
     if (updateResult && updateResult.success) {
       console.log(`Successfully linked: ${citationIDa} cited in ${citationIDb}`);
+      // Broadcast the update to trigger DOM updates on the current page
+      broadcastToOpenTabs(book, updateResult.startLine);
     }
   } catch (error) {
     console.error("Error during hypercite paste update:", error);
