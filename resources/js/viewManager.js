@@ -51,7 +51,9 @@ window.addEventListener("pageshow", (event) => {
       // Small delay to ensure DOM is fully restored
       setTimeout(async () => {
         try {
+
           console.log("🔧 Reinitializing ALL interactive features after cache restore...");
+
           const currentBookId = book;
           
           // ✅ CRITICAL: Use the same helper function from initializePage.js
@@ -93,6 +95,7 @@ window.addEventListener("pageshow", (event) => {
             
             console.log("✅ Fallback initialization completed");
           }
+
           
           // Reinitialize nav buttons if they exist and aren't already active
           const navButtonsContainer = document.querySelector('#nav-buttons');

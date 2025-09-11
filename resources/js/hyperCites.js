@@ -1087,7 +1087,9 @@ async function createOverlappingPolyContainer(allCitedINLinks, validHypercites) 
   const containerContent = `
     <div class="scroller">
       <div class="hypercites-section">
+
         <h1>Cited By</h1>
+
         <div class="citation-links">
           ${linksHTML}
         </div>
@@ -1763,6 +1765,7 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
     }
   }
   
+
   // Wait for the specified delay, then apply highlighting with smooth transition
   setTimeout(() => {
     console.log(`✨ Starting hypercite highlighting animation for: ${targetHyperciteId}`);
@@ -1793,6 +1796,7 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
     }, 5000);
     
   }, delay);
+
 }
 
 /**

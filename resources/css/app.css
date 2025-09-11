@@ -67,20 +67,25 @@ u.couple, u.poly {
 /* Hypercite navigation states */
 u.hypercite-target {
     --hypercite-intensity: 1.0 !important; /* Max brightness for target */
+
     transition: all 500ms ease-in-out; /* Smooth transition for highlighting */
 }
 
 /* Single hypercites get dimmed to 50% of their already dim state */
 u.single.hypercite-dimmed {
     --hypercite-intensity: 0.1 !important; /* 50% of 0.2 = 0.1 */
+
     transition: all 500ms ease-in-out; /* Smooth transition for dimming */
+
 }
 
 /* Couple/poly hypercites get dimmed to about 70% of their current intensity */
 u.couple.hypercite-dimmed,
 u.poly.hypercite-dimmed {
     --hypercite-intensity: 0.3 !important; /* Dimmed from 0.4+ down to 0.3 */
+
     transition: all 500ms ease-in-out; /* Smooth transition for dimming */
+
 }
 
 /* Special styling for single hypercites when they're the target */
@@ -95,12 +100,14 @@ u.single.hypercite-target {
     background-repeat: no-repeat !important;
     background-size: 100% 2.5px !important;
     padding-bottom: 3px !important;
+
     transition: all 500ms ease-in-out; /* Smooth transition for target highlighting */
 }
 
 /* Base transitions for all hypercite types */
 u.single, u.couple, u.poly {
     transition: all 500ms ease-in-out; /* Smooth transitions for all state changes */
+
 }
 
 
