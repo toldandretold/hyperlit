@@ -379,6 +379,11 @@ function disableEditMode() {
 
   stopObserving();
   
+  // Save any pending changes before disabling edit mode
+  import('./divEditor.js').then(({ flushAllPendingSaves }) => {
+    flushAllPendingSaves();
+  });
+  
   // Safely clear NodeIdManager if it exists
   if (window.NodeIdManager && typeof NodeIdManager.usedIds !== 'undefined') {
     console.log("Clearing NodeIdManager cache");
