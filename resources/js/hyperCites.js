@@ -1087,7 +1087,7 @@ async function createOverlappingPolyContainer(allCitedINLinks, validHypercites) 
   const containerContent = `
     <div class="scroller">
       <div class="hypercites-section">
- 
+
         <h1>Cited By</h1>
 
         <div class="citation-links">
@@ -1122,6 +1122,46 @@ export function attachUnderlineClickListeners() {
     uElement.addEventListener("click", async (event) => {
       await handleUnderlineClick(uElement, event);
     });
+  });
+
+  // Also attach click listeners to hypercite links within contenteditable areas
+  attachHyperciteLinkListeners();
+}
+
+/**
+ * Function to attach click listeners to hypercite links in contenteditable areas
+ */
+function attachHyperciteLinkListeners() {
+  // Select all hypercite links with open-icon class within hyperlit-container
+  const hyperciteLinks = document.querySelectorAll('#hyperlit-container a[id^="hypercite_"] sup.open-icon, #hyperlit-container a[id^="hypercite_"] span.open-icon');
+  console.log(`Found ${hyperciteLinks.length} hypercite links in hyperlit-container.`);
+
+  hyperciteLinks.forEach((linkElement) => {
+    // Get the parent <a> element
+    const anchorElement = linkElement.parentElement;
+    if (!anchorElement || anchorElement.tagName !== 'A') return;
+
+    // Make the link visually clickable
+    anchorElement.style.cursor = "pointer";
+    linkElement.style.cursor = "pointer";
+
+    // Remove existing listeners to avoid duplicates
+    const newClickHandler = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      
+      const href = anchorElement.getAttribute('href');
+      if (href) {
+        console.log(`Hypercite link clicked in annotation: ${href}`);
+        // Navigate to the link
+        window.open(href, '_blank');
+      }
+    };
+
+    // Store the handler reference for potential cleanup
+    anchorElement._hyperciteClickHandler = newClickHandler;
+    anchorElement.addEventListener('click', newClickHandler);
+    linkElement.addEventListener('click', newClickHandler);
   });
 }
 
@@ -1697,9 +1737,12 @@ export async function handleHyperciteDeletion(hyperciteElement) {
 /**
  * Highlight target hypercite and dim others when navigating to a specific hypercite
  * @param {string} targetHyperciteId - The ID of the hypercite being navigated to
+
+ * @param {number} delay - Delay in milliseconds before highlighting starts (default: 300ms)
  */
-export function highlightTargetHypercite(targetHyperciteId) {
-  console.log(`🎯 Highlighting target hypercite: ${targetHyperciteId}`);
+export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
+  console.log(`🎯 Highlighting target hypercite: ${targetHyperciteId} (with ${delay}ms delay)`);
+
   
   // Find all hypercite elements (u tags with couple, poly, or single classes)
   const allHypercites = document.querySelectorAll('u.single, u.couple, u.poly');
@@ -1724,29 +1767,38 @@ export function highlightTargetHypercite(targetHyperciteId) {
     }
   }
   
-  // Apply target highlighting to ALL elements containing this hypercite
-  if (targetElements.length > 0) {
-    targetElements.forEach(element => {
-      element.classList.add('hypercite-target');
-    });
-    console.log(`✅ Added target highlighting to ${targetElements.length} segments for: ${targetHyperciteId}`);
-  } else {
-    console.warn(`⚠️ Could not find target hypercite element: ${targetHyperciteId}`);
-  }
-  
-  // Dim all other hypercites (but not the target elements)
-  allHypercites.forEach(element => {
-    if (!targetElements.includes(element)) {
-      element.classList.add('hypercite-dimmed');
-    }
-  });
-  
-  console.log(`🔅 Dimmed ${allHypercites.length - 1} non-target hypercites`);
-  
-  // Remove highlighting after 5 seconds
+
+  // Wait for the specified delay, then apply highlighting with smooth transition
   setTimeout(() => {
-    restoreNormalHyperciteDisplay();
-  }, 5000);
+    console.log(`✨ Starting hypercite highlighting animation for: ${targetHyperciteId}`);
+    
+    // Apply target highlighting to ALL elements containing this hypercite
+    if (targetElements.length > 0) {
+      targetElements.forEach(element => {
+        element.classList.add('hypercite-target');
+      });
+      console.log(`✅ Added target highlighting to ${targetElements.length} segments for: ${targetHyperciteId}`);
+    } else {
+      console.warn(`⚠️ Could not find target hypercite element: ${targetHyperciteId}`);
+    }
+    
+    // Dim all other hypercites (but not the target elements)
+    allHypercites.forEach(element => {
+      if (!targetElements.includes(element)) {
+        element.classList.add('hypercite-dimmed');
+      }
+    });
+    
+    console.log(`🔅 Dimmed ${allHypercites.length - targetElements.length} non-target hypercites`);
+    
+    // Remove highlighting after 5 seconds with smooth transition back
+    setTimeout(() => {
+      console.log(`🌅 Starting fade-out animation for: ${targetHyperciteId}`);
+      restoreNormalHyperciteDisplay();
+    }, 5000);
+    
+  }, delay);
+
 }
 
 /**

@@ -256,16 +256,64 @@ function attachGlobalLinkClickHandler() {
       if (!isHypercite && !isTocLink) {
         console.log(`🎯 Global link click detected: ${link.href}`);
         
-        // Check if this is a same-page anchor link
+        // Check if this is internal book navigation (same book, possibly different highlight/section)
         const linkUrl = new URL(link.href, window.location.origin);
         const currentUrl = new URL(window.location.href);
+        
+        // Check for same-page anchor links
         const isSamePage = linkUrl.pathname === currentUrl.pathname && 
                           linkUrl.search === currentUrl.search && 
                           linkUrl.hash !== '';
         
-        if (isSamePage) {
-          // For same-page anchor links, no overlay needed - just internal navigation
-          console.log(`✅ Same-page anchor link detected: ${linkUrl.hash} - no overlay needed`);
+        // Check for same-book navigation (links that start with the same book path)
+        const currentBookPath = `/${book}`;
+        const isInternalBookNavigation = linkUrl.pathname.startsWith(currentBookPath) && 
+                                        linkUrl.hash !== '';
+        
+        if (isSamePage || isInternalBookNavigation) {
+          // For internal book navigation, no overlay needed - just internal navigation
+          const navigationType = isSamePage ? "same-page" : "same-book";
+          console.log(`✅ Internal ${navigationType} navigation detected: ${linkUrl.hash} - no overlay needed`);
+          
+          // Check if this is internal navigation - prevent default and use our navigation
+          const targetId = linkUrl.hash.substring(1);
+          const isInternalTarget = targetId.startsWith('hypercite_') || targetId.startsWith('HL_') || /^\d+$/.test(targetId);
+          
+          if (isInternalTarget) {
+            event.preventDefault();
+            console.log(`🎯 Preventing default for internal link, using custom navigation to: ${targetId}`);
+            
+            // For links with highlight in path (like /book_123/HL_456#hypercite_789)
+            // extract the highlight ID from the path if present
+            let primaryTarget = targetId; // The hash fragment (e.g., hypercite_789)
+            const pathMatch = linkUrl.pathname.match(/\/(HL_\w+)(?:\/|$)/);
+            
+            if (pathMatch && pathMatch[1]) {
+              // If there's a highlight in the path, just navigate to the highlight
+              // The hypercite will be accessible within the highlight container
+              console.log(`🎯 Detected highlight in path: ${pathMatch[1]}, hash target: ${targetId}`);
+              console.log(`🎯 Navigating to highlight only - hypercite will be accessible in container`);
+              primaryTarget = pathMatch[1]; // Navigate to the highlight only
+            }
+            
+            // Import and call navigateToInternalId
+            import('./scrolling.js').then(({ navigateToInternalId }) => {
+              import('./initializePage.js').then(({ currentLazyLoader }) => {
+                if (currentLazyLoader) {
+                  // Update URL manually since we prevented default
+                  window.history.pushState(null, '', `${linkUrl.pathname}${linkUrl.search}${linkUrl.hash}`);
+                  
+                  // Navigate to the primary target (highlight or direct hash)
+                  navigateToInternalId(primaryTarget, currentLazyLoader, false);
+                  
+                  // For highlight navigation, don't do secondary hypercite navigation
+                  // The hypercite will be accessible within the opened highlight container
+                } else {
+                  console.warn('currentLazyLoader not available for internal navigation');
+                }
+              });
+            });
+          }
         } else {
           // Show overlay for external/different page links
           const targetDisplay = link.textContent.trim() || link.href;
@@ -311,6 +359,22 @@ function attachGlobalLinkClickHandler() {
       
       if (isInternalNavigation) {
         console.log(`✅ Browser navigation to internal target: ${targetId} - no overlay needed`);
+        
+        // If this is a hypercite, use our custom navigation with highlighting
+        if (targetId.startsWith('hypercite_')) {
+          console.log(`🎯 Browser navigation to hypercite, using custom navigation: ${targetId}`);
+          
+          // Import and call navigateToInternalId
+          import('./scrolling.js').then(({ navigateToInternalId }) => {
+            import('./initializePage.js').then(({ currentLazyLoader }) => {
+              if (currentLazyLoader) {
+                navigateToInternalId(targetId, currentLazyLoader, false);
+              } else {
+                console.warn('currentLazyLoader not available for hypercite browser navigation');
+              }
+            });
+          });
+        }
       } else {
         // Only show overlay for external hash navigation
         showNavigationLoading(targetId);

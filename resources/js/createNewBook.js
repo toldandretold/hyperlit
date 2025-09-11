@@ -41,6 +41,8 @@ export async function fireAndForgetSync(
   // This function now returns a promise that resolves when the critical sync is done.
   return new Promise(async (resolve, reject) => {
     try {
+      // Store the sync start time to avoid overwriting newer local changes
+      const syncStartTime = Date.now();
       await updateBookTimestamp(bookId);
 
       if (isNewBook) {
@@ -52,21 +54,53 @@ export async function fireAndForgetSync(
 
         if (syncResult.success && syncResult.library) {
           console.log(
-            "✅ Sync successful. Updating local library record with server data:",
+            "✅ Sync successful. Checking for local changes before updating:",
             syncResult.library
           );
           const db = await openDatabase();
           const tx = db.transaction("library", "readwrite");
-          await tx.objectStore("library").put(syncResult.library);
+          const store = tx.objectStore("library");
+          
+          // Get current local record to check for modifications
+          const currentLocal = await store.get(bookId);
+          
+          // Don't overwrite changes made after sync started
+          if (currentLocal && currentLocal.timestamp > syncStartTime) {
+            console.log("🔄 Local changes detected after sync started - preserving all local changes");
+            resolve(); // Skip any server updates
+            return;
+          }
+          
+          if (currentLocal && currentLocal.timestamp > syncResult.library.timestamp) {
+            // Local record has been modified since sync started - preserve local changes
+            console.log("🔄 Local record is newer - preserving local changes and updating server fields only");
+            
+            // Update only server-specific fields while preserving local content changes
+            const mergedRecord = {
+              ...currentLocal, // Keep local changes (title, timestamp, etc.)
+              creator: syncResult.library.creator, // Update server ownership fields
+              creator_token: syncResult.library.creator_token,
+              updated_at: syncResult.library.updated_at,
+              created_at: syncResult.library.created_at
+            };
+            
+            await store.put(mergedRecord);
+            console.log("✅ Local library record updated with server ownership, local changes preserved.");
+          } else {
+            // No local changes, safe to use server data
+            console.log("✅ No local changes detected - using server data");
+            await store.put(syncResult.library);
+            console.log("✅ Local library record updated with server data.");
+          }
+          
           await tx.done;
-          console.log("✅ Local library record updated with correct owner.");
         }
 
         // The critical part is done. We can resolve the promise now.
         resolve();
 
         // The non-critical part (syncing node chunks) can continue in the background.
-        await syncNodeChunksForNewBook(bookId, payload?.nodeChunks);
+        await syncNodeChunksForNewBook(bookId, payload?.nodeChunks, syncStartTime);
       } else {
         // For existing books, the sync is the whole operation.
         await syncIndexedDBtoPostgreSQL(bookId);
@@ -333,30 +367,42 @@ async function retryFailedSyncs() {
  * @param {string} bookId
  * @param {Array<object>} [chunksData] - Optional pre-fetched node chunks
  */
-async function syncNodeChunksForNewBook(bookId, chunksData = null) {
+async function syncNodeChunksForNewBook(bookId, chunksData = null, syncStartTime = null) {
   try {
-    let nodeChunks = chunksData;
-
-    // If no data was passed, fall back to reading from IndexedDB
-    if (!nodeChunks) {
-      console.log("No payload for chunks, reading from IndexedDB...");
+    // Check if book content was modified after sync started by checking library timestamp
+    if (syncStartTime) {
+      console.log("🔍 Checking library timestamp to detect if content was modified after sync started...");
       const db = await openDatabase();
-      const tx = db.transaction(["nodeChunks"], "readonly");
-      const index = tx.objectStore("nodeChunks").index("book");
-      nodeChunks = await index.getAll(bookId);
+      const tx = db.transaction(["library"], "readonly");
+      const libraryRecord = await tx.objectStore("library").get(bookId);
       await tx.done;
+
+      if (libraryRecord && libraryRecord.timestamp > syncStartTime) {
+        console.log("🔄 Book content has been modified after sync started - skipping node chunk sync to preserve local changes", {
+          syncStartTime,
+          libraryTimestamp: libraryRecord.timestamp
+        });
+        return { success: true, message: "Node chunks sync skipped - local changes detected" };
+      }
     }
 
-    if (nodeChunks.length === 0) {
+    // Always read current data from IndexedDB to avoid stale sync
+    console.log("📚 Reading current nodeChunks from IndexedDB to avoid syncing stale data...");
+    const db = await openDatabase();
+    const tx = db.transaction(["nodeChunks"], "readonly");
+    const index = tx.objectStore("nodeChunks").index("book");
+    const currentNodeChunks = await index.getAll(bookId);
+    await tx.done;
+
+    if (currentNodeChunks.length === 0) {
       console.log("No node chunks to sync for book:", bookId);
       return { success: true, message: "No node chunks to sync" };
     }
 
     console.log(
-      `📤 Calling syncNodeChunksToPostgreSQL with ${nodeChunks.length} chunks`
+      `📤 Calling syncNodeChunksToPostgreSQL with ${currentNodeChunks.length} current chunks`
     );
-    // Your existing function should work perfectly with this data
-    return await syncNodeChunksToPostgreSQL(bookId, nodeChunks);
+    return await syncNodeChunksToPostgreSQL(bookId, currentNodeChunks);
   } catch (error) {
     console.error("❌ Error in syncNodeChunksForNewBook:", error);
     throw error;
