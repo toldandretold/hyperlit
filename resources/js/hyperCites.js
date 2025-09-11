@@ -1087,7 +1087,9 @@ async function createOverlappingPolyContainer(allCitedINLinks, validHypercites) 
   const containerContent = `
     <div class="scroller">
       <div class="hypercites-section">
+
         <h1>Cited By</h1>
+
         <div class="citation-links">
           ${linksHTML}
         </div>
@@ -1735,10 +1737,12 @@ export async function handleHyperciteDeletion(hyperciteElement) {
 /**
  * Highlight target hypercite and dim others when navigating to a specific hypercite
  * @param {string} targetHyperciteId - The ID of the hypercite being navigated to
+
  * @param {number} delay - Delay in milliseconds before highlighting starts (default: 300ms)
  */
 export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
   console.log(`🎯 Highlighting target hypercite: ${targetHyperciteId} (with ${delay}ms delay)`);
+
   
   // Find all hypercite elements (u tags with couple, poly, or single classes)
   const allHypercites = document.querySelectorAll('u.single, u.couple, u.poly');
@@ -1763,6 +1767,7 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
     }
   }
   
+
   // Wait for the specified delay, then apply highlighting with smooth transition
   setTimeout(() => {
     console.log(`✨ Starting hypercite highlighting animation for: ${targetHyperciteId}`);
@@ -1793,6 +1798,7 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
     }, 5000);
     
   }, delay);
+
 }
 
 /**
