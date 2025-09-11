@@ -33,6 +33,7 @@ p {
     font-weight: 350;
     letter-spacing: -.02em;
     word-spacing: -0.02em;
+    line-height: 1.4; /* set so that sup tags do not make some lines higher than others */
   
 }
 
