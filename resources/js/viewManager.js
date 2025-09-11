@@ -51,7 +51,6 @@ window.addEventListener("pageshow", (event) => {
       // Small delay to ensure DOM is fully restored
       setTimeout(async () => {
         try {
-
           console.log("🔧 Reinitializing ALL interactive features after cache restore...");
 
           const currentBookId = book;
@@ -68,6 +67,7 @@ window.addEventListener("pageshow", (event) => {
             }
           } catch (importError) {
             console.warn("⚠️ Could not import centralized initializer, using fallback:", importError);
+
             
             // Fallback to manual initialization
             const [
@@ -82,6 +82,7 @@ window.addEventListener("pageshow", (event) => {
               import('./hyperCites.js')
             ]);
             
+
             // Initialize all features
             footnotesModule.initializeFootnoteCitationListeners();
             if (footnotesModule.refManager && footnotesModule.refManager.rebindElements) {
