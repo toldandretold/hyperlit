@@ -150,17 +150,34 @@ public function upsert(Request $request)
                     $title = implode(' ', array_slice($words, 0, 15)) . '...';
                 }
                 
+                // Preserve newer timestamps - never downgrade
+                $newTimestamp = $data['timestamp'] ?? $libraryRecord->timestamp;
+                if ($libraryRecord->timestamp && $newTimestamp && $libraryRecord->timestamp > $newTimestamp) {
+                    $newTimestamp = $libraryRecord->timestamp;
+                    Log::info('Preserving existing newer timestamp in upsert', [
+                        'book' => $bookId,
+                        'existing_timestamp' => $libraryRecord->timestamp,
+                        'client_timestamp' => $data['timestamp']
+                    ]);
+                }
+                
                 $updateData = [
                     'title' => $title,
                     'author' => $data['author'] ?? $libraryRecord->author,
                     'type' => $data['type'] ?? $libraryRecord->type,
-                    'timestamp' => $data['timestamp'] ?? $libraryRecord->timestamp,
+                    'timestamp' => $newTimestamp,
                     'bibtex' => $data['bibtex'] ?? $libraryRecord->bibtex,
                     'raw_json' => json_encode($data),
                 ];
             } else {
+                // For non-owners, still preserve newer timestamps
+                $newTimestamp = $data['timestamp'] ?? $libraryRecord->timestamp;
+                if ($libraryRecord->timestamp && $newTimestamp && $libraryRecord->timestamp > $newTimestamp) {
+                    $newTimestamp = $libraryRecord->timestamp;
+                }
+                
                 $updateData = [
-                    'timestamp' => $data['timestamp'] ?? $libraryRecord->timestamp,
+                    'timestamp' => $newTimestamp,
                 ];
             }
 
@@ -257,8 +274,27 @@ public function bulkCreate(Request $request)
                     'auth_user' => Auth::user() ? ['id' => Auth::user()->id, 'name' => Auth::user()->name] : null,
                 ]);
                 
-                // Use updateOrCreate to be more robust. It will create the record if it
-                // doesn't exist, or update it if a duplicate request is sent.
+                // Use updateOrCreate to be more robust, but preserve newer timestamps
+                $existingRecord = PgLibrary::where('book', $record['book'])->first();
+                
+                if ($existingRecord && $existingRecord->timestamp && $record['timestamp']) {
+                    // If both have timestamps, preserve the newer one AND its related data
+                    if ($existingRecord->timestamp > $record['timestamp']) {
+                        $record['timestamp'] = $existingRecord->timestamp;
+                        $record['title'] = $existingRecord->title;
+                        $record['bibtex'] = $existingRecord->bibtex;
+                        // Also preserve the raw_json to maintain consistency
+                        $record['raw_json'] = $existingRecord->raw_json;
+                        
+                        Log::info('Preserving existing newer timestamp and content', [
+                            'book' => $record['book'],
+                            'existing_timestamp' => $existingRecord->timestamp,
+                            'client_timestamp' => $item['timestamp'],
+                            'preserved_title' => $existingRecord->title
+                        ]);
+                    }
+                }
+                
                 $createdRecord = PgLibrary::updateOrCreate(
                     ['book' => $record['book']], // The unique key to find the record
                     $record                     // The data to insert or update with
