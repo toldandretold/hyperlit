@@ -803,33 +803,6 @@ async function processChunkMutations(chunk, mutations) {
       if (allAreIcons) {
         continue;
       }
-    } 
-
-    // 1) Title-sync logic for H1#1
-    const h1 = document.getElementById("1");
-    if (h1) {
-      // characterData inside H1
-      if (
-        mutation.type === "characterData" &&
-        mutation.target.parentNode?.closest('h1[id="1"]')
-      ) {
-        const newTitle = h1.innerText.trim();
-        updateLibraryTitle(book, newTitle).catch(console.error);
-        // 🔄 CONVERTED TO DEBOUNCED:
-        queueNodeForSave(h1.id, 'update');
-      }
-      // childList under H1 (e.g. paste)
-      if (
-        mutation.type === "childList" &&
-        Array.from(mutation.addedNodes).some((n) =>
-          n.closest && n.closest('h1[id="1"]')
-        )
-      ) {
-        const newTitle = h1.innerText.trim();
-        updateLibraryTitle(book, newTitle).catch(console.error);
-        // 🔄 CONVERTED TO DEBOUNCED:
-        queueNodeForSave(h1.id, 'update');
-      }
     }
 
     // 2) Process added nodes
@@ -1102,10 +1075,13 @@ export async function updateLibraryTitle(bookId, newTitle) {
       }
       rec.title = newTitle;
 
-      // 2) Regenerate the bibtex string so it stays in sync
+      // 2) Update timestamp to mark as recently modified
+      rec.timestamp = Date.now();
+
+      // 3) Regenerate the bibtex string so it stays in sync
       rec.bibtex = buildBibtexEntry(rec);
 
-      // 3) Write back the record
+      // 4) Write back the record
       const putReq = store.put(rec);
       putReq.onsuccess = () => resolve(rec);
       putReq.onerror   = (e) => reject(e.target.error);

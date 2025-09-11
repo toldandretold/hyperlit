@@ -693,8 +693,59 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
   // --- 3. PERFORM THE PASTE ---
   event.preventDefault(); // Take control from the browser!
 
-  // Let the browser do the heavy lifting of splitting nodes and inserting content.
-  document.execCommand("insertHTML", false, finalHtmlToInsert);
+  // Check if we're pasting into an H1 - always use manual insertion to prevent nesting
+  const isH1Destination = currentBlock && currentBlock.tagName === 'H1';
+  
+  if (isH1Destination) {
+    console.log(`H1 destination detected with ${nodeCount} nodes - using manual insertion to prevent nesting`);
+    
+    // Parse the HTML content to extract individual blocks
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = finalHtmlToInsert;
+    const blocks = Array.from(tempDiv.children);
+    
+    if (blocks.length > 0) {
+      // 1. Replace H1 content with first block's content (but keep it as H1)
+      const firstBlock = blocks[0];
+      if (firstBlock.tagName === 'H1') {
+        // If first pasted block is also H1, use its content
+        currentBlock.innerHTML = firstBlock.innerHTML;
+      } else {
+        // Convert first pasted block content to H1 content
+        currentBlock.innerHTML = firstBlock.innerHTML;
+      }
+      
+      // 2. Insert remaining blocks AFTER the H1 as siblings
+      let insertAfter = currentBlock;
+      for (let i = 1; i < blocks.length; i++) {
+        const blockToInsert = blocks[i].cloneNode(true);
+        insertAfter.parentNode.insertBefore(blockToInsert, insertAfter.nextSibling);
+        insertAfter = blockToInsert;
+      }
+      
+      console.log(`Manually inserted ${blocks.length} blocks: 1 into H1, ${blocks.length - 1} as siblings`);
+      
+      // 3. Manually trigger title sync for H1#1 changes (since we bypassed mutation observer)
+      if (currentBlock.id === '1') {
+        console.log('Triggering manual title sync for H1#1 after paste');
+        const newTitle = currentBlock.innerText.trim();
+        
+        // Import and call updateLibraryTitle directly
+        import('./divEditor.js').then(({ updateLibraryTitle }) => {
+          updateLibraryTitle(book, newTitle).catch(console.error);
+        });
+        
+        // Also trigger a manual input event to ensure initTitleSync picks it up
+        setTimeout(() => {
+          const inputEvent = new Event('input', { bubbles: true });
+          currentBlock.dispatchEvent(inputEvent);
+        }, 0);
+      }
+    }
+  } else {
+    // Normal paste - use execCommand (safe for small pastes or non-H1 destinations)
+    document.execCommand("insertHTML", false, finalHtmlToInsert);
+  }
 
   // --- 4. FIX-UP: ASSIGN IDS TO NEWLY CREATED ELEMENTS ---
   console.log("Fix-up phase: Scanning for new nodes to assign IDs.");

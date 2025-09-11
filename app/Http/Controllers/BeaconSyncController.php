@@ -107,11 +107,31 @@ class BeaconSyncController extends Controller
                 }
 
                 if (!empty($updates['library'])) {
-                    // ✅ FIX: Add 'raw_json' here too
+                    // Check existing record to preserve newer timestamps
+                    $existingLibrary = PgLibrary::where('book', $bookId)->first();
+                    
                     $libraryData = array_merge($updates['library'], [
                         $ownerKey => $ownerValue,
                         'raw_json' => json_encode($updates['library'])
                     ]);
+                    
+                    // Preserve newer timestamps - never downgrade
+                    if ($existingLibrary && $existingLibrary->timestamp && $libraryData['timestamp']) {
+                        if ($existingLibrary->timestamp > $libraryData['timestamp']) {
+                            // Keep existing newer timestamp and related fields
+                            $libraryData['timestamp'] = $existingLibrary->timestamp;
+                            $libraryData['title'] = $existingLibrary->title;
+                            $libraryData['bibtex'] = $existingLibrary->bibtex;
+                            
+                            Log::info('Beacon sync: Preserving newer library data', [
+                                'book' => $bookId,
+                                'existing_timestamp' => $existingLibrary->timestamp,
+                                'beacon_timestamp' => $updates['library']['timestamp'],
+                                'preserved_title' => $existingLibrary->title
+                            ]);
+                        }
+                    }
+                    
                     PgLibrary::updateOrCreate(
                         ['book' => $bookId],
                         $libraryData
