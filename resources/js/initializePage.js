@@ -235,7 +235,6 @@ export async function loadHyperText(bookId) {
     console.log("🔍 Checking if nodeChunks are in IndexedDB...");
     const cached = await getNodeChunksFromIndexedDB(currentBook);
     if (cached && cached.length) {
-      // ... (no change to this block)
       updatePageLoadProgress(30, "Loading from cache...");
       console.log(`✅ Found ${cached.length} cached nodeChunks`);
       window.nodeChunks = cached;
@@ -248,6 +247,10 @@ export async function loadHyperText(bookId) {
       await new Promise(resolve => setTimeout(resolve, 100));
       updatePageLoadProgress(90, "Initializing interface...");
       initializeLazyLoader(openHyperlightID, currentBook);
+      
+      // ✅ CRITICAL FIX: Initialize interactive features for cached content
+      await initializeInteractiveFeatures(currentBook);
+      
       checkAndUpdateIfNeeded(currentBook, currentLazyLoader);
       return;
     }
@@ -257,7 +260,6 @@ export async function loadHyperText(bookId) {
     console.log("🔍 Trying to load chunks from database...");
     const dbResult = await syncBookDataFromDatabase(currentBook);
     if (dbResult && dbResult.success) {
-      // ... (no change to this block)
       updatePageLoadProgress(50, "Loading from database...");
       const dbChunks = await getNodeChunksFromIndexedDB(currentBook);
       if (dbChunks && dbChunks.length) {
@@ -267,6 +269,10 @@ export async function loadHyperText(bookId) {
         await buildUserHighlightCache(currentBook);
         updatePageLoadProgress(90, "Initializing interface...");
         initializeLazyLoader(openHyperlightID, currentBook);
+        
+        // ✅ CRITICAL FIX: Initialize interactive features for database content
+        await initializeInteractiveFeatures(currentBook);
+        
         return;
       }
     }
@@ -283,13 +289,17 @@ export async function loadHyperText(bookId) {
         await buildUserHighlightCache(currentBook);
         updatePageLoadProgress(90, "Initializing interface...");
         initializeLazyLoader(openHyperlightID, currentBook);
+        
+        // ✅ CRITICAL FIX: Initialize interactive features for JSON content
+        await initializeInteractiveFeatures(currentBook);
+        
         return;
       }
     } catch (error) {
       console.log("ℹ️ JSON loading failed. Falling back to markdown parsing...");
     }
 
-    // 4. Final Fallback: Generate from markdown (No change)
+    // 4. Final Fallback: Generate from markdown
     updatePageLoadProgress(40, "Generating from markdown...");
     console.log("🆕 Not in cache, DB, or JSON – generating from markdown");
     window.nodeChunks = await generateNodeChunksFromMarkdown(currentBook);
@@ -298,6 +308,10 @@ export async function loadHyperText(bookId) {
     await buildUserHighlightCache(currentBook);
     updatePageLoadProgress(90, "Initializing interface...");
     initializeLazyLoader(OpenHyperlightID || null, currentBook);
+    
+    // ✅ CRITICAL FIX: Initialize interactive features for generated content
+    await initializeInteractiveFeatures(currentBook);
+    
     return;
   } catch (err) {
     console.error("❌ A critical error occurred during content loading:", err);
@@ -307,6 +321,39 @@ export async function loadHyperText(bookId) {
   }
 }
 
+
+// Helper function: Initialize all interactive features after content loads
+export async function initializeInteractiveFeatures(bookId) {
+  console.log("🎯 Initializing interactive features for", bookId);
+  
+  // Import required modules
+  const [
+    { generateTableOfContents },
+    { attachMarkListeners, initializeHighlightingControls },
+    { initializeHypercitingControls },
+    { initializeFootnoteCitationListeners, refManager }
+  ] = await Promise.all([
+    import('./toc.js'),
+    import('./hyperLights.js'),
+    import('./hyperCites.js'),
+    import('./footnotes-citations.js')
+  ]);
+
+  // Initialize all features
+  generateTableOfContents("toc-container", "toc-toggle-button");
+  attachMarkListeners();
+  initializeHighlightingControls(bookId);
+  initializeHypercitingControls(bookId);
+  initializeFootnoteCitationListeners();
+  
+  // Rebind reference container manager if it exists
+  if (refManager && refManager.rebindElements) {
+    refManager.rebindElements();
+    console.log("✅ Reference container manager rebound");
+  }
+  
+  console.log("✅ All interactive features initialized");
+}
 
 // Helper function: Cache buster for forced reloads
 function buildUrl(path, forceReload = false) {

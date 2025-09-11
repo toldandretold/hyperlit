@@ -38,45 +38,66 @@ import {
 let activeNavButtons = null;
 let activeKeyboardManager = null;
 
-// Handle page restoration from browser cache (bfcache) - critical for mobile
+// Handle page restoration from browser cache (bfcache) - critical for mobile and desktop
 window.addEventListener("pageshow", (event) => {
   if (event.persisted) {
     console.log("🔄 Page restored from bfcache - reinitializing interactive features");
     const pageType = document.body.getAttribute("data-page");
     
-    if (pageType === "reader") {
+    // ✅ EXPANDED: Handle both reader pages AND homepage with reader content
+    const hasReaderContent = pageType === "reader" || document.querySelector('.main-content, .book-content');
+    
+    if (hasReaderContent) {
       // Small delay to ensure DOM is fully restored
-      setTimeout(() => {
+      setTimeout(async () => {
         try {
-          console.log("🔧 Reinitializing interactive features after cache restore...");
+
+          console.log("🔧 Reinitializing ALL interactive features after cache restore...");
+
           const currentBookId = book;
           
-          // Import and reinitialize footnote/citation listeners
-          import('./footnotes-citations.js').then(module => {
-            module.initializeFootnoteCitationListeners();
-            console.log("✅ Footnote/citation listeners reinitialized");
-            
-            // Also rebind the reference container manager
-            if (module.refManager && module.refManager.rebindElements) {
-              module.refManager.rebindElements();
-              console.log("✅ Reference container manager rebound");
+          // ✅ CRITICAL: Use the same helper function from initializePage.js
+          // Import the helper function and use it for consistent initialization
+          try {
+            const { initializeInteractiveFeatures } = await import('./initializePage.js');
+            if (typeof initializeInteractiveFeatures === 'function') {
+              await initializeInteractiveFeatures(currentBookId);
+              console.log("✅ Used centralized interactive features initialization");
+            } else {
+              throw new Error("initializeInteractiveFeatures not available");
             }
-          });
+          } catch (importError) {
+            console.warn("⚠️ Could not import centralized initializer, using fallback:", importError);
+            
+            // Fallback to manual initialization
+            const [
+              footnotesModule,
+              { generateTableOfContents },
+              { attachMarkListeners, initializeHighlightingControls },
+              { initializeHypercitingControls }
+            ] = await Promise.all([
+              import('./footnotes-citations.js'),
+              import('./toc.js'),
+              import('./hyperLights.js'),
+              import('./hyperCites.js')
+            ]);
+            
+            // Initialize all features
+            footnotesModule.initializeFootnoteCitationListeners();
+            if (footnotesModule.refManager && footnotesModule.refManager.rebindElements) {
+              footnotesModule.refManager.rebindElements();
+            }
+            
+            generateTableOfContents("toc-container", "toc-toggle-button");
+            attachMarkListeners();
+            initializeHighlightingControls(currentBookId);
+            initializeHypercitingControls(currentBookId);
+            
+            console.log("✅ Fallback initialization completed");
+          }
+
           
-          // Reinitialize TOC
-          generateTableOfContents("toc-container", "toc-toggle-button");
-          console.log("✅ TOC reinitialized");
-          
-          // Reinitialize hyperlight listeners
-          attachMarkListeners();
-          initializeHighlightingControls(currentBookId);
-          console.log("✅ Hyperlight listeners reinitialized");
-          
-          // Reinitialize hyperciting
-          initializeHypercitingControls(currentBookId);
-          console.log("✅ Hyperciting controls reinitialized");
-          
-          // Reinitialize nav buttons if they exist
+          // Reinitialize nav buttons if they exist and aren't already active
           const navButtonsContainer = document.querySelector('#nav-buttons');
           if (navButtonsContainer && !activeNavButtons) {
             activeNavButtons = new NavButtons({
@@ -87,12 +108,41 @@ window.addEventListener("pageshow", (event) => {
             console.log("✅ Nav buttons reinitialized");
           }
           
-          console.log("🎉 All interactive features reinitialized after cache restore");
+          console.log("🎉 All interactive features reinitialized after bfcache restore");
           
         } catch (error) {
           console.error("❌ Error reinitializing after cache restore:", error);
         }
-      }, 150); // Slightly longer delay for mobile
+      }, 200); // Slightly longer delay for mobile
+    }
+  }
+});
+
+// Additional handler for visibility change - covers cases where bfcache doesn't fire
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    const pageType = document.body.getAttribute("data-page");
+    const hasReaderContent = pageType === "reader" || document.querySelector('.main-content, .book-content');
+    
+    if (hasReaderContent) {
+      // Check if interactive features are working
+      setTimeout(() => {
+        const tocToggle = document.getElementById('toc-toggle-button');
+        const highlightButtons = document.querySelectorAll('.highlight-control-button');
+        
+        if (tocToggle && !tocToggle.onclick && !tocToggle.getAttribute('data-initialized')) {
+          console.log("🔍 Detected missing TOC functionality after visibility change - reinitializing");
+          
+          import('./initializePage.js').then(({ initializeInteractiveFeatures }) => {
+            const currentBookId = book;
+            initializeInteractiveFeatures(currentBookId).then(() => {
+              console.log("✅ Interactive features reinitialized after visibility change");
+            }).catch(error => {
+              console.error("❌ Error reinitializing after visibility change:", error);
+            });
+          });
+        }
+      }, 300);
     }
   }
 });

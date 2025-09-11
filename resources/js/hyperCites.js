@@ -1737,12 +1737,10 @@ export async function handleHyperciteDeletion(hyperciteElement) {
 /**
  * Highlight target hypercite and dim others when navigating to a specific hypercite
  * @param {string} targetHyperciteId - The ID of the hypercite being navigated to
-
  * @param {number} delay - Delay in milliseconds before highlighting starts (default: 300ms)
  */
 export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
   console.log(`🎯 Highlighting target hypercite: ${targetHyperciteId} (with ${delay}ms delay)`);
-
   
   // Find all hypercite elements (u tags with couple, poly, or single classes)
   const allHypercites = document.querySelectorAll('u.single, u.couple, u.poly');
