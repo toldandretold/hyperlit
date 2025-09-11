@@ -682,7 +682,6 @@ async function buildHyperciteContent(contentType) {
         </div>`;
     }
 
-
     let html = `<div class="hypercites-section">\n<h1>Cited By</h1>\n`;
 
     
