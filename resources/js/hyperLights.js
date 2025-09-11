@@ -499,7 +499,7 @@ function handleSelection() {
     return;
   }
 
-  let selectedText = window.getSelection().toString();
+  let selectedText = window.getSelection().toString().trim();
   const highlights = document.querySelectorAll('mark');
   let isOverlapping = false;
 
@@ -606,7 +606,7 @@ async function createHighlightHandler(event, bookId) {
     return;
   }
 
-  let selectedText = selection.toString();
+  let selectedText = selection.toString().trim();
   if (!selectedText) {
     console.error("⚠️ No valid text selected.");
     return;
@@ -766,7 +766,7 @@ async function deleteHighlightHandler(event, bookId) {
   console.log("Delete button clicked.");
 
   let selection = window.getSelection();
-  let selectedText = selection.toString();
+  let selectedText = selection.toString().trim();
 
   if (!selectedText) {
     console.error("No text selected to delete.");
