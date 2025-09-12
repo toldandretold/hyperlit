@@ -69,7 +69,7 @@ u.hypercite-target {
     --hypercite-intensity: 1.0 !important; /* Max brightness for target */
 
     transition: all 2000ms ease-in-out; /* Smooth transition for highlighting */
-
+}
 
 /* Single hypercites get dimmed to 50% of their already dim state */
 u.single.hypercite-dimmed {
