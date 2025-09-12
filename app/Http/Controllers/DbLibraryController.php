@@ -767,5 +767,3 @@ public function bulkCreate(Request $request)
 
 } 
 
-
-

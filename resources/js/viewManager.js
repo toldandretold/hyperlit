@@ -81,7 +81,6 @@ window.addEventListener("pageshow", (event) => {
               import('./hyperLights.js'),
               import('./hyperCites.js')
             ]);
-            
 
             // Initialize all features
             footnotesModule.initializeFootnoteCitationListeners();
