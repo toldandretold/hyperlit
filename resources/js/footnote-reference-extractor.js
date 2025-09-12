@@ -31,13 +31,59 @@ function extractFootnotesFromHTML(htmlContent, bookId, formatType = 'general') {
 
   // 2. Find all potential footnote definitions from <p> tags.
   const potentialParagraphDefs = new Map();
-  tempDiv.querySelectorAll('p').forEach(p => {
-    const pText = p.textContent.trim();
-    const match = pText.match(/^(\d+)[\.\)]/); // Match "1." or "1)" at the start
-    if (match && pText.length > match[0].length) {
-      potentialParagraphDefs.set(match[1], p);
-    }
-  });
+  
+  if (formatType === 'taylor-francis') {
+    // For T&F, look for paragraphs after "Notes" or "Footnotes" headings
+    console.log('📝 T&F: Looking for footnotes after Notes/Footnotes headings');
+    
+    const headings = tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    headings.forEach(heading => {
+      const headingText = heading.textContent.trim().toLowerCase();
+      if (headingText.includes('notes') || headingText.includes('footnotes')) {
+        console.log(`📝 T&F: Found footnotes section heading: "${heading.textContent.trim()}"`);
+        
+        // Find all paragraphs after this heading (until next heading or end)
+        let nextElement = heading.nextElementSibling;
+        while (nextElement) {
+          // Stop if we hit another heading
+          if (nextElement.tagName && /^H[1-6]$/.test(nextElement.tagName)) {
+            break;
+          }
+          
+          if (nextElement.tagName === 'P') {
+            const pText = nextElement.textContent.trim();
+            // Look for paragraphs starting with numbers (1, 2, 3, etc.)
+            const match = pText.match(/^(\d+)[\.\)\s]/);
+            if (match && pText.length > match[0].length) {
+              potentialParagraphDefs.set(match[1], nextElement);
+              console.log(`📝 T&F: Found footnote ${match[1]} after Notes heading: "${pText.substring(0, 50)}..."`);
+            }
+          } else if (nextElement.tagName === 'DIV') {
+            // Also check paragraphs inside divs
+            nextElement.querySelectorAll('p').forEach(p => {
+              const pText = p.textContent.trim();
+              const match = pText.match(/^(\d+)[\.\)\s]/);
+              if (match && pText.length > match[0].length) {
+                potentialParagraphDefs.set(match[1], p);
+                console.log(`📝 T&F: Found footnote ${match[1]} in div after Notes: "${pText.substring(0, 50)}..."`);
+              }
+            });
+          }
+          
+          nextElement = nextElement.nextElementSibling;
+        }
+      }
+    });
+  } else {
+    // For other formats, use the original stricter pattern
+    tempDiv.querySelectorAll('p').forEach(p => {
+      const pText = p.textContent.trim();
+      const match = pText.match(/^(\d+)[\.\)]/); // Match "1." or "1)" at the start
+      if (match && pText.length > match[0].length) {
+        potentialParagraphDefs.set(match[1], p);
+      }
+    });
+  }
 
   // 3. Sanity Check: Only proceed if every reference has a potential definition.
   let allParaRefsHaveDefs = refIdentifiers.size > 0;
@@ -306,6 +352,102 @@ function extractReferencesFromHTML(htmlContent, bookId, formatType = 'general') 
   
   console.log(`📚 Extracting references using ${formatType} format strategy`);
   
+  // Taylor & Francis specific extraction
+  if (formatType === 'taylor-francis') {
+    // Look for bibliography items that were processed (they should be removed from main content by now)
+    // But check the original htmlContent for any remaining <li id="CIT..."> items
+    const originalDiv = document.createElement('div');
+    originalDiv.innerHTML = htmlContent;
+    
+    // Look for bibliography items with CIT IDs first
+    const bibliographyItems = originalDiv.querySelectorAll('li[id^="CIT"]');
+    bibliographyItems.forEach(item => {
+      const citationId = item.id; // e.g., "CIT0061"
+      const fullText = item.textContent.trim();
+      
+      // Extract author and year from full citation  
+      const authorYearMatch = fullText.match(/^([^.]+?)[\. ]*\(?([12]\d{3}[a-z]?)\)?\.?\s/);
+      if (authorYearMatch) {
+        const author = authorYearMatch[1].trim();
+        const year = authorYearMatch[2];
+        
+        const refKeys = generateRefKeys(`${author} ${year}`, '', formatType);
+        // Also add citation ID-based keys for linking
+        refKeys.push(citationId.toLowerCase() + year);
+        refKeys.push(citationId.toLowerCase().replace('cit', '') + year);
+        
+        if (refKeys.length > 0) {
+          const referenceId = refKeys[0];
+          
+          references.push({
+            referenceId: referenceId,
+            content: fullText,
+            type: 'taylor-francis-cit',
+            refKeys: refKeys
+          });
+          
+          refKeys.forEach(key => {
+            referenceMappings.set(key, referenceId);
+          });
+          
+          console.log(`📚 T&F: Generated key "${referenceId}" from CIT item`);
+        }
+      }
+    });
+    
+    // Also look for regular list items in bibliography sections (no CIT IDs)
+    const bibliographyLists = originalDiv.querySelectorAll('ul li, ol li');
+    bibliographyLists.forEach((item, index) => {
+      // Skip if it already has a CIT ID (already processed above)
+      if (item.id && item.id.startsWith('CIT')) return;
+      
+      const fullText = item.textContent.trim();
+      if (!fullText) return;
+      
+      // Extract author and year from full citation  
+      const authorYearMatch = fullText.match(/^([^.]+?)[\. ]*\(?([12]\d{3}[a-z]?)\)?\.?\s/);
+      if (authorYearMatch) {
+        const author = authorYearMatch[1].trim();
+        const year = authorYearMatch[2];
+        
+        const refKeys = generateRefKeys(`${author} ${year}`, '', formatType);
+        
+        if (refKeys.length > 0) {
+          const referenceId = refKeys[0];
+          
+          references.push({
+            referenceId: referenceId,
+            content: fullText,
+            type: 'taylor-francis-list',
+            refKeys: refKeys
+          });
+          
+          refKeys.forEach(key => {
+            referenceMappings.set(key, referenceId);
+          });
+          
+          console.log(`📚 T&F: Generated key "${referenceId}" from list item ${index + 1}`);
+        }
+      }
+    });
+    
+    // Also look for citation patterns in the processed text (after conversion)
+    const citationPattern = /\(([^)]*?\d{4}[^)]*?)\)/g;
+    let match;
+    const textContent = tempDiv.textContent;
+    
+    while ((match = citationPattern.exec(textContent)) !== null) {
+      const citationContent = match[1];
+      const refKeys = generateRefKeys(citationContent, '', formatType);
+      
+      refKeys.forEach(key => {
+        if (!referenceMappings.has(key)) {
+          console.log(`📚 T&F: Found in-text citation pattern: ${citationContent}`);
+        }
+      });
+    }
+  }
+  
   // 1. Look for references in <a> tags with real links
   const linkElements = tempDiv.querySelectorAll('a[href]');
   linkElements.forEach(link => {
@@ -526,6 +668,28 @@ function generateRefKeys(text, contextText = '', formatType = 'general') {
   const hasAuthor = /[a-zA-Z]/.test(authorsText);
   let authorSource = hasAuthor ? authorsText : contextText;
   
+  // Taylor & Francis-specific handling: extract from citation IDs
+  if (formatType === 'taylor-francis') {
+    // For T&F, we often have citation patterns like "CIT0061" and years
+    const tfCitationMatch = text.match(/CIT(\d+)/);
+    if (tfCitationMatch && year) {
+      const citationId = tfCitationMatch[1];
+      addKey('cit' + citationId + year);
+      addKey('citation' + citationId + year);
+      console.log(`📚 T&F: Generated keys for citation ID ${citationId} with year ${year}`);
+    }
+    
+    // Also try standard author extraction for T&F bibliography entries
+    if (hasAuthor) {
+      const tfAuthorMatch = authorsText.match(/([A-Z][a-zA-Z']+)/);
+      if (tfAuthorMatch) {
+        const surname = tfAuthorMatch[1];
+        addKey(surname.toLowerCase() + year);
+        console.log(`📚 T&F: Generated key "${surname.toLowerCase() + year}" from author`);
+      }
+    }
+  }
+  
   // OUP-specific handling: bibliography format is "Surname Firstname"
   if (formatType === 'oup' && hasAuthor) {
     // For OUP bibliography entries, extract surname first
@@ -714,6 +878,11 @@ function preprocessHTMLContent(htmlContent) {
 export function processInTextCitations(htmlContent, referenceMappings, allReferences = [], formatType = 'general') {
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = htmlContent;
+  
+  // Taylor & Francis specific processing
+  if (formatType === 'taylor-francis') {
+    console.log(`📚 T&F: Processing in-text citations with ${referenceMappings.size} reference mappings`);
+  }
   
   // Find citation patterns (Author Year) or (Year)
   const walker = document.createTreeWalker(
@@ -1045,6 +1214,45 @@ export async function processContentForFootnotesAndReferences(htmlContent, bookI
     console.log('🔧 Preprocessing HTML content...');
     contentToProcess = preprocessHTMLContent(htmlContent);
     console.log('🔧 HTML preprocessing complete');
+  }
+  
+  // Taylor & Francis specific: Clean up Citation patterns and footnotes BEFORE extracting references
+  if (formatType === 'taylor-francis') {
+    console.log('🧹 T&F: Cleaning Citation patterns and footnotes BEFORE reference extraction');
+    const beforeCleanup = contentToProcess;
+    console.log('🔍 T&F: Content before cleanup (first 200 chars):', beforeCleanup.substring(0, 200));
+    
+    // 1. Replace "Citation" followed by digits with just the digits
+    contentToProcess = contentToProcess.replace(/Citation(\d+)/g, '$1');
+    
+    // 2. Clean up footnote links - remove the <a> wrapper and "Footnote" text, keep only the <sup>
+    // First, let's see what footnotes we can find
+    const footnoteMatches = contentToProcess.match(/<a[^>]*data-ref-type="fn"[^>]*>Footnote.*?<\/a>/g);
+    console.log('🔍 T&F: Found footnote patterns:', footnoteMatches ? footnoteMatches.length : 0);
+    if (footnoteMatches) {
+      footnoteMatches.forEach((match, index) => {
+        console.log(`🔍 T&F: Footnote ${index + 1}:`, match.substring(0, 100));
+      });
+    }
+    
+    // Handle the full T&F footnote structure with all attributes
+    // Match <sup> tags that might be empty or have content
+    contentToProcess = contentToProcess.replace(
+      /<a[^>]*data-ref-type="fn"[^>]*>Footnote(<sup[^>]*>.*?<\/sup>)<\/a>/g, 
+      '$1'
+    );
+    
+    // Also handle any remaining "Footnote" text that might be standalone
+    contentToProcess = contentToProcess.replace(/Footnote(<sup[^>]*>.*?<\/sup>)/g, '$1');
+    
+    // Debug: Check if footnotes were actually cleaned up
+    const remainingFootnotes = contentToProcess.match(/<a[^>]*data-ref-type="fn"[^>]*>Footnote.*?<\/a>/g);
+    console.log('🔍 T&F: Remaining footnote patterns after cleanup:', remainingFootnotes ? remainingFootnotes.length : 0);
+    
+    const cleanupChanged = beforeCleanup !== contentToProcess;
+    console.log('🔍 T&F: Citation and footnote cleanup changed content:', cleanupChanged);
+    console.log('🔍 T&F: Content after cleanup (first 200 chars):', contentToProcess.substring(0, 200));
+    console.log('✅ T&F: Citation and footnote cleanup complete - now references can be properly extracted');
   }
   
   // Extract footnotes and references with the appropriate method

@@ -261,6 +261,7 @@ function assimilateHTML(rawHtml) {
     });
   }
 
+  
   function parseOupContent(body) {
     console.log("Parsing with OUP-specific strategy.");
     
@@ -309,6 +310,66 @@ function assimilateHTML(rawHtml) {
     parseGeneralContent(body);
   }
 
+  function parseTaylorFrancisContent(body) {
+    console.log("Parsing with Taylor & Francis structure strategy.");
+    
+    // Find and mark footnote paragraphs with special class
+    // Look for Notes sections and summation-section divs
+    const notesHeadings = body.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    notesHeadings.forEach(heading => {
+      if (/notes/i.test(heading.textContent.trim()) || heading.id === 'inline_frontnotes') {
+        console.log(`📝 T&F: Found Notes heading: "${heading.textContent.trim()}"`);
+        
+        // Mark all following paragraphs as footnotes until we hit another heading
+        let nextElement = heading.nextElementSibling;
+        while (nextElement) {
+          if (nextElement.tagName && /^H[1-6]$/.test(nextElement.tagName)) {
+            // Hit another heading, stop
+            break;
+          }
+          
+          if (nextElement.tagName === 'P') {
+            const pText = nextElement.textContent.trim();
+            // Check if it starts with a number (footnote pattern)
+            if (/^(\d+)[\.\)\s]/.test(pText)) {
+              nextElement.classList.add('footnote');
+              console.log(`📝 T&F: Marked paragraph as footnote: "${pText.substring(0, 50)}..."`);
+            }
+          } else if (nextElement.tagName === 'DIV') {
+            // Look inside divs (like summation-section)
+            const paragraphs = nextElement.querySelectorAll('p');
+            paragraphs.forEach(p => {
+              const pText = p.textContent.trim();
+              if (/^(\d+)[\.\)\s]/.test(pText)) {
+                p.classList.add('footnote');
+                console.log(`📝 T&F: Marked paragraph in div as footnote: "${pText.substring(0, 50)}..."`);
+              }
+            });
+          }
+          
+          nextElement = nextElement.nextElementSibling;
+        }
+      }
+    });
+    
+    // Also check for summation-section divs specifically
+    const summationSections = body.querySelectorAll('.summation-section, div[id^="EN"]');
+    summationSections.forEach(section => {
+      console.log(`📝 T&F: Found footnote section: ${section.className || section.id}`);
+      const paragraphs = section.querySelectorAll('p');
+      paragraphs.forEach(p => {
+        const pText = p.textContent.trim();
+        if (/^(\d+)[\.\)\s]/.test(pText)) {
+          p.classList.add('footnote');
+          console.log(`📝 T&F: Marked paragraph in section as footnote: "${pText.substring(0, 50)}..."`);
+        }
+      });
+    });
+    
+    // Apply general content parsing to handle structure
+    parseGeneralContent(body);
+  }
+
   function parseGeneralContent(body) {
     console.log("Parsing with General (Structure Preserving) strategy.");
     function wrapLooseNodes(container) {
@@ -341,17 +402,22 @@ function assimilateHTML(rawHtml) {
 
   // --- ROUTER ---
   let formatType = 'general';
+  const isTaylorFrancis = body.querySelector('.ref-lnk.lazy-ref.bibr, .NLM_sec, .hlFld-Abstract, li[id^="CIT"]');
   const isSage = body.querySelector('.citations, .ref, [role="listitem"]');
   const isOup = body.querySelector('[content-id^="bib"], .js-splitview-ref-item, .footnote[content-id^="fn"]');
 
-  if (isOup) {
+  if (isTaylorFrancis) {
+    formatType = 'taylor-francis';
+    console.log('📚 Detected Taylor & Francis format - applying citation cleanup');
+    parseTaylorFrancisContent(body);
+  } else if (isOup) {
     formatType = 'oup';
     parseOupContent(body);
   } else if (isSage) {
     formatType = 'sage';
     parseGeneralContent(body);
   } else {
-    parseSageBibliography(body);
+    parseGeneralContent(body);
   }
 
   // 5) Cleanup (unchanged)
@@ -403,6 +469,7 @@ async function handlePaste(event) {
       .replace(/"/g, '"')  // Replace other smart double quotes
       .replace(/`/g, "'"); // Replace backticks with regular single quotes
     
+    
     let htmlContent = "";
     let formatType = 'general'; // Default format
 
@@ -413,6 +480,7 @@ async function handlePaste(event) {
       htmlContent = assimilated.html;
       formatType = assimilated.format;
       console.log(`Assimilation complete. Detected format: ${formatType}`);
+      
     }
     // FALLBACK TO MARKDOWN/PLAINTEXT PATH
     else {
