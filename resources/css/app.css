@@ -76,7 +76,7 @@ u.single.hypercite-dimmed {
     --hypercite-intensity: 0.1 !important; /* 50% of 0.2 = 0.1 */
   
     transition: all 2000ms ease-in-out; /* Smooth transition for dimming */
-
+}
 
 /* Couple/poly hypercites get dimmed to about 70% of their current intensity */
 u.couple.hypercite-dimmed,
