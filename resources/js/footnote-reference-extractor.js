@@ -349,30 +349,64 @@ function extractReferencesFromHTML(htmlContent, bookId) {
     }
   });
   
-  // 3. Fallback: Look for reference-like paragraphs (same as original logic)
-  const paragraphs = tempDiv.querySelectorAll('p');
-  paragraphs.forEach(p => {
+  // 3. Fallback: Look for reference-like paragraphs with improved logic
+  const allElements = Array.from(tempDiv.children);
+  let referenceSectionStartIndex = -1;
+
+  const refHeadings = /^(references|bibliography)$/i;
+  for (let i = 0; i < allElements.length; i++) {
+      const el = allElements[i];
+      if (/^H[1-6]$/.test(el.tagName) && refHeadings.test(el.textContent.trim())) {
+          referenceSectionStartIndex = i;
+          break;
+      }
+  }
+
+  let elementsToScan = [];
+  if (referenceSectionStartIndex !== -1) {
+      elementsToScan = allElements.slice(referenceSectionStartIndex + 1).filter(el => el.tagName === 'P');
+  } else {
+      elementsToScan = Array.from(tempDiv.querySelectorAll('p')).reverse();
+  }
+
+  const inTextCitePattern = /\(([^)]*?\d{4}[^)]*?)\)/;
+
+  elementsToScan.forEach(p => {
     const text = p.textContent.trim();
-    
-    // Check if this looks like a reference (starts with capital, contains year)
-    if (/^[A-Z]/.test(text) && /\d{4}/.test(text)) {
-      const refKeys = generateRefKeys(text);
-      if (refKeys.length > 0) {
-        const referenceId = refKeys[0];
-        
-        // Skip if we already have this reference from links
-        if (!referenceMappings.has(refKeys[0])) {
-          references.push({
-            referenceId: referenceId,
-            content: p.outerHTML,
-            originalText: text,
-            type: 'html-paragraph'
-          });
-          
-          refKeys.forEach(key => {
-            referenceMappings.set(key, referenceId);
-          });
+    if (!text) return;
+
+    // Stricter check: A reference list item should not contain an in-text citation.
+    const citeMatch = text.match(inTextCitePattern);
+    if (citeMatch) {
+        const content = citeMatch[1];
+        // Allow if it's just the year, e.g., Author. (2017). Title.
+        // Reject if it's more complex, e.g., (see Smith, 2019) or (2017: 143)
+        if (content.includes(',') || content.includes(':') || /[a-zA-Z]{2,}/.test(content)) {
+            return; // This is a body paragraph, not a reference item.
         }
+    }
+
+    // Original check for reference-like structure (year appears early)
+    const yearMatch = text.match(/(\d{4}[a-z]?)/);
+    if (!yearMatch || yearMatch.index > 150) {
+        return;
+    }
+
+    const refKeys = generateRefKeys(text);
+    if (refKeys.length > 0) {
+      const referenceId = refKeys[0];
+      
+      if (!referenceMappings.has(referenceId)) {
+        references.push({
+          referenceId: referenceId,
+          content: p.outerHTML,
+          originalText: text,
+          type: 'html-paragraph'
+        });
+        
+        refKeys.forEach(key => {
+          referenceMappings.set(key, referenceId);
+        });
       }
     }
   });
@@ -394,28 +428,66 @@ export function extractReferences(htmlContent, bookId, isHTMLContent = false) {
   const references = [];
   const referenceMappings = new Map(); // citation_key -> reference_id
   
-  // Find paragraphs that look like references (contain 4-digit years)
-  const paragraphs = tempDiv.querySelectorAll('p');
-  paragraphs.forEach(p => {
-    const text = p.textContent.trim();
-    
-    // Check if this looks like a reference (starts with capital, contains year)
-    if (/^\s*[A-Z]/.test(text) && /\d{4}/.test(text)) {
-      const refKeys = generateRefKeys(text);
-      if (refKeys.length > 0) {
-        const referenceId = refKeys[0]; // Use first key as primary ID
-        
-        references.push({
-          referenceId: referenceId,
-          content: p.outerHTML,
-          originalText: text
-        });
-        
-        // Map all generated keys to this reference
-        refKeys.forEach(key => {
-          referenceMappings.set(key, referenceId);
-        });
+  const allElements = Array.from(tempDiv.children);
+  let referenceSectionStartIndex = -1;
+  
+  // Find a "References" or "Bibliography" heading
+  const refHeadings = /^(references|bibliography)$/i;
+  for (let i = 0; i < allElements.length; i++) {
+      const el = allElements[i];
+      if (/^H[1-6]$/.test(el.tagName) && refHeadings.test(el.textContent.trim())) {
+          referenceSectionStartIndex = i;
+          break;
       }
+  }
+
+  let elementsToScan = [];
+  if (referenceSectionStartIndex !== -1) {
+      // We found a heading, only scan elements after it
+      elementsToScan = allElements.slice(referenceSectionStartIndex + 1).filter(el => el.tagName === 'P');
+  } else {
+      // No heading, fall back to scanning all paragraphs, but reversed (bottom-up)
+      elementsToScan = Array.from(tempDiv.querySelectorAll('p')).reverse();
+  }
+
+  const inTextCitePattern = /\(([^)]*?\d{4}[^)]*?)\)/;
+  
+  elementsToScan.forEach(p => {
+    const text = p.textContent.trim();
+    if (!text) return;
+
+    // Stricter check: A reference list item should not contain an in-text citation.
+    const citeMatch = text.match(inTextCitePattern);
+    if (citeMatch) {
+        const content = citeMatch[1];
+        // Allow if it's just the year, e.g., Author. (2017). Title.
+        // Reject if it's more complex, e.g., (see Smith, 2019) or (2017: 143)
+        if (content.includes(',') || content.includes(':') || /[a-zA-Z]{2,}/.test(content)) {
+            return; // This is a body paragraph, not a reference item.
+        }
+    }
+
+    // Original check for reference-like structure (year appears early)
+    const yearMatch = text.match(/(\d{4}[a-z]?)/);
+    if (!yearMatch || yearMatch.index > 150) {
+        return;
+    }
+
+    const refKeys = generateRefKeys(text);
+    if (refKeys.length > 0) {
+      const referenceId = refKeys[0]; // Use first key as primary ID
+      
+      if (referenceMappings.has(referenceId)) return;
+
+      references.push({
+        referenceId: referenceId,
+        content: p.outerHTML,
+        originalText: text
+      });
+      
+      refKeys.forEach(key => {
+        referenceMappings.set(key, referenceId);
+      });
     }
   });
   
@@ -436,43 +508,84 @@ function generateRefKeys(text, contextText = '') {
   const year = yearMatch[1];
   const authorsText = text.split(year)[0];
   
-  const keys = new Set();
+  const keys = [];
+  const addKey = (key) => { if (key && !keys.includes(key)) keys.push(key); };
+
   const hasAuthor = /[a-zA-Z]/.test(authorsText);
   const authorSource = hasAuthor ? authorsText : contextText;
   
   if (authorSource) {
     let sourceText = authorSource;
     
-    // If no author in original text, use context
-    if (!hasAuthor) {
-      const candidates = sourceText.match(/\b[A-Z][a-zA-Z']+\b/g);
-      if (candidates) sourceText = candidates[candidates.length - 1];
+    // If no author in original text, use context to find it
+    if (!hasAuthor && contextText) {
+      const words = contextText.trim().split(/\s+/);
+      const nameParts = [];
+      for (let i = words.length - 1; i >= 0; i--) {
+        const word = words[i].replace(/,$/, ''); // Clean trailing comma
+        // A word is part of a name if it's capitalized or a common particle.
+        if (/^[A-Z]/.test(word) || /^(van|der|de|la|von)$/i.test(word)) {
+          nameParts.unshift(word);
+        } else {
+          // We hit a non-name word, so stop.
+          break;
+        }
+        // Stop after a reasonable number of words to avoid grabbing whole sentences.
+        if (nameParts.length >= 4) break;
+      }
+      
+      if (nameParts.length > 0) {
+        sourceText = nameParts.join(' ');
+      } else {
+        // Fallback to original logic if new logic finds nothing.
+        const candidates = sourceText.match(/\b[A-Z][a-zA-Z']+\b/g);
+        if (candidates) sourceText = candidates[candidates.length - 1];
+      }
     }
     
-    // Extract surnames
+    // Handle acronyms first as they are specific
+    const acronyms = sourceText.match(/\b[A-Z]{2,}\b/g) || [];
+    acronyms.forEach(acronym => {
+        addKey(acronym.toLowerCase() + year);
+    });
+
+    // Then handle regular names
     const surnames = (sourceText.match(/\b[A-Z][a-zA-Z']+\b/g) || [])
       .filter(s => !['And', 'The', 'For', 'In', 'An', 'On', 'As', 'Ed', 'Of', 'See', 'Also'].includes(s))
+      .filter(s => !acronyms.includes(s)) // Don't re-process acronyms as surnames
       .map(s => s.toLowerCase().replace("'s", ""));
-    
+
     if (surnames.length > 0) {
-      keys.add(surnames[0] + year);
+      // Key 1: Sorted-concatenated (most consistent)
       const sortedSurnames = [...surnames].sort();
-      keys.add(sortedSurnames.join('') + year);
+      addKey(sortedSurnames.join('') + year);
+
+      // Key 2: Concatenated as-is (for orgs like Black Panther)
+      if (surnames.length > 1 && !sourceText.includes(',')) {
+        addKey(surnames.join('') + year);
+      }
+
+      // Key 3: Primary surname
+      if (sourceText.includes(',')) {
+        addKey(surnames[0] + year); // "Last, First"
+      } else if (surnames.length > 0) {
+        addKey(surnames[surnames.length - 1] + year); // "First Last"
+      }
+    }
+
+    // NEW: Always add an initials-based key for linking acronyms
+    const initials = sourceText.match(/\b[A-Z]/g)?.join('');
+    if (initials && initials.length >= 2) {
+        addKey(initials.toLowerCase() + year);
     }
   }
-  
-  // Handle acronyms
-  const acronyms = authorSource.match(/\b[A-Z]{2,}\b/g) || [];
-  acronyms.forEach(acronym => {
-    keys.add(acronym.toLowerCase() + year);
-  });
   
   // Special cases
   if (text.includes('United Nations General Assembly')) {
-    keys.add('un' + year);
+    addKey('un' + year);
   }
   
-  return Array.from(keys);
+  return keys;
 }
 
 // ========================================================================
@@ -571,7 +684,7 @@ function preprocessHTMLContent(htmlContent) {
 /**
  * Process and link in-text citations in pasted content
  */
-export function processInTextCitations(htmlContent, referenceMappings) {
+export function processInTextCitations(htmlContent, referenceMappings, allReferences = []) {
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = htmlContent;
   
@@ -607,32 +720,75 @@ export function processInTextCitations(htmlContent, referenceMappings) {
       subCitations.forEach((subCite, index) => {
         const trimmed = subCite.trim();
         if (!trimmed) return;
+
+        // Handle indirect citations like (Cited in Smith, 2020)
+        let processedCite = trimmed;
+        const prefixes = ['Cited in ', 'Quoted in ', 'see ', 'e.g., ', 'cf. '];
+        for (const prefix of prefixes) {
+            if (processedCite.toLowerCase().startsWith(prefix.toLowerCase())) {
+                processedCite = processedCite.substring(prefix.length);
+                break;
+            }
+        }
         
-        const keys = generateRefKeys(trimmed, text.substring(0, match.index));
+        const keys = generateRefKeys(processedCite, text.substring(0, match.index));
         let linked = false;
-        
+        let referenceId = null; // To store the found ID
+
         for (const key of keys) {
           if (referenceMappings.has(key)) {
-            const yearMatch = trimmed.match(/(\d{4}[a-z]?)/);
-            if (yearMatch) {
-              const authorPart = trimmed.substring(0, yearMatch.index);
-              const yearPart = yearMatch[1];
-              const trailingPart = trimmed.substring(yearMatch.index + yearMatch[0].length);
-              
-              linkedParts.push(
-                authorPart,
-                `<a href="#${referenceMappings.get(key)}" class="in-text-citation">${yearPart}</a>`,
-                trailingPart
-              );
-            } else {
-              linkedParts.push(`<a href="#${referenceMappings.get(key)}" class="in-text-citation">${trimmed}</a>`);
-            }
+            referenceId = referenceMappings.get(key);
             linked = true;
             break;
           }
         }
         
-        if (!linked) linkedParts.push(trimmed);
+        // Acronym fallback logic
+        if (!linked) {
+            const yearMatch = processedCite.match(/(\d{4}[a-z]?)/);
+            const authorMatch = processedCite.match(/^([A-Z]{2,})/);
+
+            if (yearMatch && authorMatch && allReferences.length > 0) {
+                const year = yearMatch[1];
+                const acronym = authorMatch[1];
+
+                for (const reference of allReferences) {
+                    if (reference.originalText.includes(year)) {
+                        const authorPart = reference.originalText.split(year)[0];
+                        const initials = authorPart.match(/\b[A-Z]/g)?.join('');
+                        
+                        if (initials === acronym) {
+                            referenceId = reference.referenceId;
+                            linked = true;
+                            break; 
+                        }
+                    }
+                }
+            }
+        }
+
+        if (linked) {
+            const yearMatch = processedCite.match(/(\d{4}[a-z]?)/);
+            if (yearMatch) {
+              const authorPart = processedCite.substring(0, yearMatch.index);
+              const yearPart = yearMatch[1];
+              const trailingPart = processedCite.substring(yearMatch.index + yearMatch[0].length);
+              
+              // Re-add the prefix if it was stripped, so it stays visible
+              const originalPrefix = trimmed.substring(0, trimmed.length - processedCite.length);
+
+              linkedParts.push(
+                originalPrefix + authorPart,
+                `<a href="#${referenceId}" class="in-text-citation">${yearPart}</a>`,
+                trailingPart
+              );
+            } else {
+              linkedParts.push(`<a href="#${referenceId}" class="in-text-citation">${trimmed}</a>`);
+            }
+        } else {
+            linkedParts.push(trimmed);
+        }
+
         if (index < subCitations.length - 1) linkedParts.push('; ');
       });
       
