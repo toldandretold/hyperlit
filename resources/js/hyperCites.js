@@ -1765,7 +1765,6 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
     }
   }
   
-
   // Wait for the specified delay, then apply highlighting with smooth transition
   setTimeout(() => {
     console.log(`✨ Starting hypercite highlighting animation for: ${targetHyperciteId}`);
