@@ -158,14 +158,14 @@ function assimilateHTML(rawHtml) {
       "sup", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote",
       "ul", "ol", "li",
     ],
-    ADD_ATTR: ["id", "href"],
+    ADD_ATTR: ["id", "href", "content-id"],
   });
 
   // 2) Parse
   const doc = new DOMParser().parseFromString(cleanHtml, "text/html");
   const body = doc.body;
 
-  // --- Helper Functions (unchanged) ---
+  // --- Helper Functions ---
   function replaceTag(el, newTagName) {
     const newEl = doc.createElement(newTagName);
     for (const { name, value } of el.attributes) {
@@ -200,7 +200,6 @@ function assimilateHTML(rawHtml) {
       "BLOCKQUOTE", "UL", "OL", "PRE", "DIV",
     ];
 
-    // Step A: Find all internal links and their targets.
     body.querySelectorAll('a[href*="#"]').forEach((link) => {
       try {
         const url = new URL(link.href);
@@ -220,56 +219,144 @@ function assimilateHTML(rawHtml) {
       } catch (e) { /* ignore invalid URLs */ }
     });
 
-    // Step B: Process the found links with conditional logic.
     linksToProcess.forEach((data, targetId) => {
       const { targetElement, links } = data;
       const newPrefixedId = `${idPrefix}${targetId}`;
 
-      // *** THE NEW CONDITIONAL LOGIC ***
       if (blockTags.includes(targetElement.tagName)) {
-        // It's a block element: INJECT a new anchor to hold the ID.
-        console.log(`Injecting anchor for block target: #${targetId}`);
         const anchor = doc.createElement("a");
         anchor.id = newPrefixedId;
         targetElement.prepend(anchor);
         targetElement.removeAttribute("id");
       } else {
-        // It's an inline element (<a>, <sup>, etc.): PREFIX the ID directly.
-        console.log(`Prefixing ID for inline target: #${targetId}`);
         targetElement.id = newPrefixedId;
       }
 
-      // Step C: Update all links to point to the new prefixed ID.
       links.forEach((link) => {
         link.setAttribute("href", `#${newPrefixedId}`);
       });
     });
   })();
 
-  // 4) Structural transformation (unchanged)
-  const nodesToProcess = Array.from(body.querySelectorAll("*"));
-  for (let i = nodesToProcess.length - 1; i >= 0; i--) {
-    const node = nodesToProcess[i];
-    if (["SPAN", "FONT"].includes(node.tagName)) {
-      if (!node.classList.contains("open-icon")) unwrap(node);
-      continue;
+  // 4) Structural transformation (NEW: Router-based strategy with OUP)
+
+  function parseSageBibliography(body) {
+    console.log("Parsing with Aggressive Flattening strategy.");
+    const biblioItems = body.querySelectorAll('.ref, [role="listitem"], .js-splitview-ref-item');
+    
+    biblioItems.forEach(item => {
+        const clone = item.cloneNode(true);
+        clone.querySelectorAll('.external-links, .to-citation__wrapper, .citation-links').forEach(el => el.remove());
+        
+        const contentSource = clone.querySelector('.citation-content, .mixed-citation') || clone;
+        let content = contentSource.innerHTML;
+
+        content = content.replace(/<div[^>]*>/g, ' ').replace(/<\/div>/g, ' ');
+        content = content.replace(/<\/?p[^>]*>/g, ' ');
+        content = content.replace(/<\/?span[^>]*>/g, '');
+        
+        const p = document.createElement('p');
+        p.innerHTML = content.replace(/\s+/g, ' ').trim();
+        item.replaceWith(p);
+    });
+  }
+
+  function parseOupContent(body) {
+    console.log("Parsing with OUP-specific strategy.");
+    
+    // Handle OUP footnotes: convert complex nested structure to simple number + content
+    const footnotes = body.querySelectorAll('[content-id^="fn"].footnote');
+    
+    footnotes.forEach(footnote => {
+      // Extract the footnote number from the nested structure
+      const numberSpan = footnote.querySelector('.end-note-link');
+      const number = numberSpan ? numberSpan.textContent.trim() : '';
+      
+      // Extract the footnote content from the nested paragraph
+      const contentParagraph = footnote.querySelector('.footnote-compatibility');
+      const content = contentParagraph ? contentParagraph.innerHTML.trim() : '';
+      
+      if (number && content) {
+        // Create a single clean paragraph: number + content
+        const p = document.createElement('p');
+        p.innerHTML = `${number}. ${content}`;
+        footnote.replaceWith(p);
+        console.log(`📝 OUP: Merged footnote ${number} with content`);
+      } else {
+        console.warn(`📝 OUP: Failed to extract number (${number}) or content (${content.substring(0, 50)}) from footnote`);
+      }
+    });
+
+    // Handle other OUP bibliography items
+    const biblioItems = body.querySelectorAll('.ref, [role="listitem"], .js-splitview-ref-item');
+    biblioItems.forEach(item => {
+        const clone = item.cloneNode(true);
+        clone.querySelectorAll('.external-links, .to-citation__wrapper, .citation-links').forEach(el => el.remove());
+        
+        const contentSource = clone.querySelector('.citation-content, .mixed-citation') || clone;
+        let content = contentSource.innerHTML;
+
+        content = content.replace(/<div[^>]*>/g, ' ').replace(/<\/div>/g, ' ');
+        content = content.replace(/<\/?p[^>]*>/g, ' ');
+        content = content.replace(/<\/?span[^>]*>/g, '');
+        
+        const p = document.createElement('p');
+        p.innerHTML = content.replace(/\s+/g, ' ').trim();
+        item.replaceWith(p);
+    });
+
+    // Apply general cleanup for any remaining nested structures
+    parseGeneralContent(body);
+  }
+
+  function parseGeneralContent(body) {
+    console.log("Parsing with General (Structure Preserving) strategy.");
+    function wrapLooseNodes(container) {
+        const blockTags = /^(P|H[1-6]|BLOCKQUOTE|UL|OL|LI|PRE|DIV|TABLE|FIGURE)$/;
+        const nodesToProcess = Array.from(container.childNodes);
+        let currentWrapper = null;
+        for (const node of nodesToProcess) {
+            const isBlock = node.nodeType === Node.ELEMENT_NODE && blockTags.test(node.tagName);
+            if (isBlock) {
+                currentWrapper = null;
+                continue;
+            }
+            if (node.nodeType === Node.TEXT_NODE && node.textContent.trim() === '') {
+                continue;
+            }
+            if (!currentWrapper) {
+                currentWrapper = document.createElement('p');
+                container.insertBefore(currentWrapper, node);
+            }
+            currentWrapper.appendChild(node);
+        }
     }
-    const tagsToRecastAsP = [
-      "DIV", "ARTICLE", "SECTION", "MAIN",
-      "HEADER", "FOOTER", "ASIDE", "NAV", "BUTTON",
-    ];
-    if (tagsToRecastAsP.includes(node.tagName)) {
-      replaceTag(node, "p");
-    }
+    const containers = Array.from(body.querySelectorAll('div, article, section, main, header, footer, aside, nav, button'));
+    containers.reverse().forEach(container => {
+        wrapLooseNodes(container);
+        unwrap(container);
+    });
+    body.querySelectorAll('font').forEach(unwrap);
+  }
+
+  // --- ROUTER ---
+  let formatType = 'general';
+  const isSage = body.querySelector('.citations, .ref, [role="listitem"]');
+  const isOup = body.querySelector('[content-id^="bib"], .js-splitview-ref-item, .footnote[content-id^="fn"]');
+
+  if (isOup) {
+    formatType = 'oup';
+    parseOupContent(body);
+  } else if (isSage) {
+    formatType = 'sage';
+    parseGeneralContent(body);
+  } else {
+    parseSageBibliography(body);
   }
 
   // 5) Cleanup (unchanged)
   body.querySelectorAll("p, blockquote, h1, h2, h3, li").forEach((el) => {
-    if (
-      !el.textContent.trim() &&
-      !el.querySelector("img") &&
-      !el.querySelector("a[id^='pasted-']")
-    ) {
+    if (!el.textContent.trim() && !el.querySelector("img") && !el.querySelector("a[id^='pasted-']")) {
       el.remove();
     }
   });
@@ -281,7 +368,7 @@ function assimilateHTML(rawHtml) {
     }
   });
 
-  return body.innerHTML;
+  return { html: body.innerHTML, format: formatType };
 }
 
 async function handlePaste(event) {
@@ -317,40 +404,48 @@ async function handlePaste(event) {
       .replace(/`/g, "'"); // Replace backticks with regular single quotes
     
     let htmlContent = "";
-    const isMarkdown = detectMarkdown(plainText);
+    let formatType = 'general'; // Default format
 
-    if (isMarkdown) {
-      console.log("Entering markdown branch");
-      event.preventDefault(); // This is now safe to call
-      
-      if (plainText.length > 1000) {
-        const progressModal = await showProgressModal();
-        try {
-          const dirty = await processMarkdownInChunks(plainText, (p, c, t) =>
-            progressModal.updateProgress(p, c, t)
-          );
+    // PRIORITIZE HTML PATH
+    if (rawHtml.trim()) {
+      console.log("HTML found on clipboard, prioritizing HTML path.");
+      const assimilated = assimilateHTML(rawHtml);
+      htmlContent = assimilated.html;
+      formatType = assimilated.format;
+      console.log(`Assimilation complete. Detected format: ${formatType}`);
+    }
+    // FALLBACK TO MARKDOWN/PLAINTEXT PATH
+    else {
+      const isMarkdown = detectMarkdown(plainText);
+      if (isMarkdown) {
+        console.log("No HTML found, entering markdown branch");
+        event.preventDefault(); // This is now safe to call
+        
+        if (plainText.length > 1000) {
+          const progressModal = await showProgressModal();
+          try {
+            const dirty = await processMarkdownInChunks(plainText, (p, c, t) =>
+              progressModal.updateProgress(p, c, t)
+            );
+            htmlContent = DOMPurify.sanitize(dirty, { USE_PROFILES: { html: true } });
+            progressModal.complete();
+          } catch (error) {
+            console.error("Error during chunked conversion:", error);
+            progressModal.modal.remove();
+            return;
+          }
+        } else {
+          const dirty = marked(plainText);
           htmlContent = DOMPurify.sanitize(dirty, { USE_PROFILES: { html: true } });
-          progressModal.complete();
-        } catch (error) {
-          console.error("Error during chunked conversion:", error);
-          progressModal.modal.remove();
-          return;
         }
-      } else {
-        const dirty = marked(plainText);
-        htmlContent = DOMPurify.sanitize(dirty, { USE_PROFILES: { html: true } });
       }
-    } else if (rawHtml.trim()) {
-      console.log("Assimilating pasted HTML...");
-      htmlContent = assimilateHTML(rawHtml);
-      console.log("Assimilation complete. Cleaned HTML:", htmlContent);
     }
 
     // 3) Get our reliable estimate.
     const estimatedNodes = estimatePasteNodeCount(htmlContent || plainText);
     console.log("PASTE EVENT:", {
       length: plainText.length,
-      isMarkdown,
+      isMarkdown: detectMarkdown(plainText), // Re-check for logging
       estimatedNodes,
     });
 
@@ -378,7 +473,8 @@ async function handlePaste(event) {
       event,
       insertionPoint,
       contentToProcess,
-      !!htmlContent
+      !!htmlContent,
+      formatType // Pass the detected format
     );
 
     if (!newAndUpdatedNodes || newAndUpdatedNodes.length === 0) {
@@ -905,7 +1001,8 @@ async function handleJsonPaste(
   event,
   insertionPoint,
   pastedContent,
-  isHtmlContent = false
+  isHtmlContent = false,
+  formatType = 'general' // Add formatType argument
 ) {
   event.preventDefault();
 
@@ -915,58 +1012,13 @@ async function handleJsonPaste(
   let extractedReferences = [];
   
   try {
-    if (isHtmlContent) {
-      console.log('🔍 Processing pasted HTML for footnotes and references...');
-      // Pre-process HTML to help extractor handle various formats
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = pastedContent;
-      
-      tempDiv.querySelectorAll('sup').forEach(sup => {
-        const textContent = sup.textContent.trim();
-        if (/^\d+$/.test(textContent)) {
-          sup.setAttribute('fn-count-id', textContent);
-          if (!sup.querySelector('a')) {
-            sup.innerHTML = `<a href="#" class="footnote-ref">${textContent}</a>`;
-          } else {
-            sup.querySelector('a').className = 'footnote-ref';
-            sup.querySelector('a').textContent = textContent;
-          }
-        }
-      });
+    // Pass the formatType to the processor
+    const result = await processContentForFootnotesAndReferences(pastedContent, insertionPoint.book, isHtmlContent, formatType);
+    processedContent = result.processedContent;
+    extractedFootnotes = result.footnotes;
+    extractedReferences = result.references;
+    console.log(`✅ Extracted ${extractedFootnotes.length} footnotes and ${extractedReferences.length} references.`);
 
-      tempDiv.querySelectorAll('*').forEach(element => {
-        if (element.innerHTML?.includes('<br')) {
-          const parts = element.innerHTML.split(/<br\s*\/?>/i);
-          if (parts.length > 1) {
-            const parentElement = element.parentNode;
-            parts.forEach(part => {
-              if (part.trim()) {
-                const newP = document.createElement('p');
-                newP.innerHTML = part.trim();
-                parentElement.insertBefore(newP, element);
-              }
-            });
-            element.remove();
-          }
-        }
-      });
-      
-      const preprocessedContent = tempDiv.innerHTML;
-      const result = await processContentForFootnotesAndReferences(preprocessedContent, insertionPoint.book, true);
-      processedContent = result.processedContent;
-      extractedFootnotes = result.footnotes;
-      extractedReferences = result.references;
-      console.log(`✅ Extracted ${extractedFootnotes.length} footnotes and ${extractedReferences.length} references from HTML.`);
-
-    } else {
-      // It's plain text, but we still want to run the extractor on it
-      console.log('🔍 Processing pasted PLAIN TEXT for footnotes and references...');
-      const result = await processContentForFootnotesAndReferences(pastedContent, insertionPoint.book, false);
-      processedContent = result.processedContent;
-      extractedFootnotes = result.footnotes;
-      extractedReferences = result.references;
-      console.log(`✅ Extracted ${extractedFootnotes.length} footnotes and ${extractedReferences.length} references from plain text.`);
-    }
   } catch (error) {
       console.error('❌ Error processing footnotes/references:', error);
       processedContent = pastedContent; // Fallback to original content on error
@@ -974,12 +1026,9 @@ async function handleJsonPaste(
 
   // --- 2. DATA LAYER: Calculate all database changes ---
   const { book, beforeNodeId, afterNodeId } = insertionPoint;
-  console.log('🔍 DEBUG: About to parseHtmlToBlocks, processedContent contains <sup>:', processedContent.includes('<sup>'));
   const textBlocks = isHtmlContent
     ? parseHtmlToBlocks(processedContent)
     : processedContent.split(/\n\s*\n/).filter((blk) => blk.trim());
-  console.log('🔍 DEBUG: After parseHtmlToBlocks, textBlocks sample:', textBlocks[0]?.substring(0, 200) + (textBlocks[0]?.length > 200 ? "..." : ""));
-  console.log('🔍 DEBUG: textBlocks contain <sup>:', textBlocks.some(block => block.includes('<sup>')));
   if (!textBlocks.length) return [];
 
   const { jsonObjects: newJsonObjects, state } = convertToJsonObjects(
@@ -1016,39 +1065,29 @@ async function handleJsonPaste(
       }
       const newStart = maxNewLine + idx + 1;
       const updatedContent = origChunk.content.replace(
-        /id="[^"]*"/,
+        /id="\d+"/g,
         `id="${newStart}"`
       );
       nodesInCurrentChunk++;
       return {
         ...origChunk,
         startLine: newStart,
-        chunk_id: parseFloat(currentChunkId),
+        chunk_id: currentChunkId,
         content: updatedContent,
       };
     });
     toWrite = [...newChunks, ...tailChunks];
-  }
-
-  // --- 2. DATABASE LAYER: Execute the transaction & queue for sync ---
-  if (afterNodeId != null) {
     await deleteNodeChunksAfter(book, afterNodeId);
   }
-  await writeNodeChunks(toWrite);
-  console.log("📦 IndexedDB has been updated with new and renumbered chunks!");
-  
-  // MODIFIED: Pass the full 'chunk' object to the queue.
-  toWrite.forEach((chunk) => {
-    queueForSync("nodeChunks", chunk.startLine, "update", chunk);
-  });
-  
-  console.log(
-    `✅ Queued ${toWrite.length} total affected chunks for sync.`
-  );
 
-  // --- 3. RETURN THE DATA ---
+  console.log("Writing chunks to IndexedDB:", toWrite.length);
+  await writeNodeChunks(toWrite);
+  await queueForSync(book);
+  console.log("Successfully merged paste with tail chunks");
+
   return toWrite;
 }
+
 /**
  * Handle pasting of hypercites
  * @returns {boolean} true if handled as hypercite, false otherwise
@@ -1320,54 +1359,44 @@ function parseHtmlToBlocks(htmlContent) {
   
   const blocks = [];
   
-  // Convert div tags to p tags for better bibliography handling
-  tempDiv.querySelectorAll('div').forEach(div => {
-    // Only convert divs that contain text content (likely bibliography entries)
-    if (div.textContent.trim()) {
-      const p = document.createElement('p');
-      // Copy all attributes except class/style which might interfere
-      Array.from(div.attributes).forEach(attr => {
-        if (attr.name !== 'class' && attr.name !== 'style') {
-          p.setAttribute(attr.name, attr.value);
-        }
-      });
-      // Move all child nodes
-      while (div.firstChild) {
-        p.appendChild(div.firstChild);
+  // The complex div-to-p logic has been moved to assimilateHTML.
+  // This function now focuses on splitting into blocks and wrapping loose text.
+  
+  // Get direct children, INCLUDING text nodes
+  Array.from(tempDiv.childNodes).forEach(node => {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      // This is a block-level element
+      const child = node;
+      child.removeAttribute('id'); // Remove any conflicting IDs
+      
+      // Check if this element contains multiple <br> separated entries (common in bibliographies)
+      const innerHTML = child.innerHTML;
+      const brSeparatedParts = innerHTML.split(/<br\s*\/?>/i);
+      
+      if (brSeparatedParts.length > 1) {
+        // Split on <br> tags - each part becomes a separate block
+        brSeparatedParts.forEach(part => {
+          const trimmedPart = part.trim();
+          if (trimmedPart) {
+            // Create a new element of the same type with the split content
+            const newElement = document.createElement(child.tagName.toLowerCase());
+            newElement.innerHTML = trimmedPart;
+            blocks.push(newElement.outerHTML);
+          }
+        });
+      } else {
+        // No <br> tags - use the whole element as one block
+        blocks.push(child.outerHTML);
       }
-      div.parentNode.replaceChild(p, div);
+    } else if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+      // This is a "loose" text node that resulted from unwrapping. Wrap it in a <p> tag.
+      blocks.push(`<p>${node.textContent.trim()}</p>`);
     }
   });
   
-  // Get direct children (block-level elements)
-  Array.from(tempDiv.children).forEach(child => {
-    // Remove any existing IDs to prevent conflicts
-    child.removeAttribute('id');
-    
-    // Check if this element contains multiple <br> separated entries (common in bibliographies)
-    const innerHTML = child.innerHTML;
-    const brSeparatedParts = innerHTML.split(/<br\s*\/?>/i);
-    
-    if (brSeparatedParts.length > 1) {
-      // Split on <br> tags - each part becomes a separate block
-      brSeparatedParts.forEach(part => {
-        const trimmedPart = part.trim();
-        if (trimmedPart) {
-          // Create a new element of the same type with the split content
-          const newElement = document.createElement(child.tagName.toLowerCase());
-          newElement.innerHTML = trimmedPart;
-          blocks.push(newElement.outerHTML);
-        }
-      });
-    } else {
-      // No <br> tags - use the whole element as one block
-      blocks.push(child.outerHTML);
-    }
-  });
-  
-  // If no block children, treat the whole thing as one block
-  if (blocks.length === 0) {
-    blocks.push(htmlContent);
+  // If no block children were found, but there's content, wrap the whole thing in a <p>.
+  if (blocks.length === 0 && htmlContent.trim()) {
+    blocks.push(`<p>${htmlContent}</p>`);
   }
   
   return blocks;

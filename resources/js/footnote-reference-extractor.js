@@ -8,27 +8,82 @@ import { openDatabase } from './cache-indexedDB.js';
 /**
  * Extract footnotes from HTML content - specifically for HTML pastes
  */
-function extractFootnotesFromHTML(htmlContent, bookId) {
+function extractFootnotesFromHTML(htmlContent, bookId, formatType = 'general') {
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = htmlContent;
   
   const footnotes = [];
   const footnoteMappings = new Map();
   
-  // 1. Handle existing <sup> tags with footnote references
+  console.log(`📝 Extracting footnotes using ${formatType} format strategy`);
+
+  // --- NEW HEURISTIC-BASED PARAGRAPH STRATEGY ---
+
+  // 1. Find all reference callers (the <sup> tags) to see what we need to find.
   const supElements = tempDiv.querySelectorAll('sup');
+  const refIdentifiers = new Set();
   supElements.forEach(sup => {
-    const identifier = sup.textContent.trim();
-    const link = sup.querySelector('a');
-    
-    if (/^\d+$/.test(identifier)) {
+    const identifier = sup.textContent.trim() || sup.getAttribute('fn-count-id');
+    if (identifier && /^\d+$/.test(identifier)) {
+      refIdentifiers.add(identifier);
+    }
+  });
+
+  // 2. Find all potential footnote definitions from <p> tags.
+  const potentialParagraphDefs = new Map();
+  tempDiv.querySelectorAll('p').forEach(p => {
+    const pText = p.textContent.trim();
+    const match = pText.match(/^(\d+)[\.\)]/); // Match "1." or "1)" at the start
+    if (match && pText.length > match[0].length) {
+      potentialParagraphDefs.set(match[1], p);
+    }
+  });
+
+  // 3. Sanity Check: Only proceed if every reference has a potential definition.
+  let allParaRefsHaveDefs = refIdentifiers.size > 0;
+  for (const refId of refIdentifiers) {
+    if (!potentialParagraphDefs.has(refId)) {
+      allParaRefsHaveDefs = false;
+      break;
+    }
+  }
+
+  if (allParaRefsHaveDefs) {
+    // The check passed. Assume these paragraphs are the footnotes.
+    for (const identifier of refIdentifiers) {
+      const pElement = potentialParagraphDefs.get(identifier);
+      if (!pElement) continue; // Should not happen due to check above, but for safety.
+
+      // Extract content, removing the "1. " prefix.
+      const content = pElement.innerHTML.trim().replace(/^\s*\d+[\.\)]\s*/, '');
+      
       const uniqueId = `${bookId}Fn${Date.now()}${identifier}`;
       const uniqueRefId = `${bookId}Fnref${Date.now()}${identifier}`;
-      
-      // Try multiple strategies to find footnote content
+
+      footnotes.push({
+        footnoteId: uniqueId,
+        content: content,
+        originalIdentifier: identifier,
+        refId: uniqueRefId,
+        type: 'html-paragraph-heuristic'
+      });
+      footnoteMappings.set(identifier, { uniqueId, uniqueRefId });
+
+      // Remove the element so it doesn't appear in the main body.
+      pElement.remove();
+    }
+    // If we succeeded with this robust method, return straight away.
+    return { footnotes, footnoteMappings };
+  }
+
+  // --- FALLBACK to original logic if the new heuristic fails ---
+
+  // Fallback 1: Handle existing <sup> tags with direct links
+  supElements.forEach(sup => {
+    const identifier = sup.textContent.trim();
+    if (/^\d+$/.test(identifier) && !footnoteMappings.has(identifier)) {
+      const link = sup.querySelector('a');
       let content = '';
-      
-      // Strategy 1: Follow the link if it exists
       if (link && link.href && link.href.includes('#')) {
         const targetId = link.href.split('#')[1];
         const targetElement = tempDiv.querySelector(`#${targetId}`);
@@ -40,68 +95,16 @@ function extractFootnotesFromHTML(htmlContent, bookId) {
         }
       }
       
-      // Strategy 2: Look for footnotes in common patterns if no linked content
-      if (!content) {
-        // Look for footnote content in various patterns
-        const patterns = [
-          // Pattern 1: Look for "1. footnote content" or "1) footnote content"
-          new RegExp(`^\\s*${identifier}[\\.\\)]\\s*(.+)`, 'm'),
-          // Pattern 2: Look in a footnotes section
-          new RegExp(`\\n\\s*${identifier}[\\.\\)]?\\s*([^\\n]+)`, 'm'),
-          // Pattern 3: Look for footnote in list items
-          new RegExp(`<li[^>]*>\\s*${identifier}[\\.\\)]?\\s*([\\s\\S]*?)</li>`, 'i')
-        ];
-        
-        const allText = tempDiv.textContent;
-        const allHTML = tempDiv.innerHTML;
-        
-        for (const pattern of patterns) {
-          const match = pattern.test(allText) ? allText.match(pattern) : allHTML.match(pattern);
-          if (match && match[1]) {
-            content = match[1].trim();
-            break;
-          }
-        }
+      if (content) {
+        const uniqueId = `${bookId}Fn${Date.now()}${identifier}`;
+        const uniqueRefId = `${bookId}Fnref${Date.now()}${identifier}`;
+        footnotes.push({ footnoteId: uniqueId, content, originalIdentifier: identifier, refId: uniqueRefId, type: 'html-sup-link' });
+        footnoteMappings.set(identifier, { uniqueId, uniqueRefId });
       }
-      
-      // Strategy 3: Look in document structure for footnotes section
-      if (!content) {
-        const footnotesSections = tempDiv.querySelectorAll('.footnotes, #footnotes, [class*="footnote"], [id*="footnote"]');
-        for (const section of footnotesSections) {
-          const sectionText = section.textContent;
-          const match = sectionText.match(new RegExp(`${identifier}[\\.\\)]?\\s*([^\\n]+)`, 'm'));
-          if (match) {
-            content = match[1].trim();
-            break;
-          }
-        }
-      }
-      
-      // Strategy 4: Create a reasonable placeholder based on context
-      if (!content) {
-        // Look at surrounding text for context clues
-        const supParent = sup.parentElement;
-        if (supParent) {
-          const contextText = supParent.textContent.substring(0, 100);
-          content = `Footnote ${identifier} (referenced in: "${contextText}...")`;
-        } else {
-          content = `Footnote ${identifier}`;
-        }
-      }
-      
-      footnotes.push({
-        footnoteId: uniqueId,
-        content: content,
-        originalIdentifier: identifier,
-        refId: uniqueRefId,
-        type: 'html-sup'
-      });
-      
-      footnoteMappings.set(identifier, { uniqueId, uniqueRefId });
     }
   });
-  
-  // 2. Look for traditional HTML footnote structure (ol/ul with li elements)
+
+  // Fallback 2: Look for traditional HTML footnote structure (ol/ul with li elements)
   const footnoteItems = tempDiv.querySelectorAll('ol li, ul li');
   footnoteItems.forEach((li, index) => {
     const backLink = li.querySelector('a[class*="footnote-back"], a[href*="#fnref"]');
@@ -110,40 +113,47 @@ function extractFootnotesFromHTML(htmlContent, bookId) {
       const idMatch = href.match(/#fnref(\d+)/);
       const identifier = idMatch ? idMatch[1] : String(index + 1);
       
-      // Skip if we already processed this footnote from sup tags
-      if (footnoteMappings.has(identifier)) return;
-      
-      const uniqueId = `${bookId}Fn${Date.now()}${identifier}`;
-      const uniqueRefId = `${bookId}Fnref${Date.now()}${identifier}`;
-      
-      // Extract content (remove back-link)
-      const tempLi = li.cloneNode(true);
-      const tempBackLink = tempLi.querySelector('a[class*="footnote-back"], a[href*="#fnref"]');
-      if (tempBackLink) tempBackLink.remove();
-      const content = tempLi.innerHTML.trim();
-      
-      footnotes.push({
-        footnoteId: uniqueId,
-        content: content,
-        originalIdentifier: identifier,
-        refId: uniqueRefId,
-        type: 'html-traditional'
-      });
-      
-      footnoteMappings.set(identifier, { uniqueId, uniqueRefId });
+      if (!footnoteMappings.has(identifier)) {
+        const uniqueId = `${bookId}Fn${Date.now()}${identifier}`;
+        const uniqueRefId = `${bookId}Fnref${Date.now()}${identifier}`;
+        const tempLi = li.cloneNode(true);
+        const tempBackLink = tempLi.querySelector('a[class*="footnote-back"], a[href*="#fnref"]');
+        if (tempBackLink) tempBackLink.remove();
+        const content = tempLi.innerHTML.trim();
+        
+        footnotes.push({ footnoteId: uniqueId, content, originalIdentifier: identifier, refId: uniqueRefId, type: 'html-traditional' });
+        footnoteMappings.set(identifier, { uniqueId, uniqueRefId });
+      }
     }
   });
-  
+
+  // Final Fallback: Create placeholders for any remaining sups that have no content
+  supElements.forEach(sup => {
+      const identifier = sup.textContent.trim();
+      if (/^\d+$/.test(identifier) && !footnoteMappings.has(identifier)) {
+          const uniqueId = `${bookId}Fn${Date.now()}${identifier}`;
+          const uniqueRefId = `${bookId}Fnref${Date.now()}${identifier}`;
+          const supParent = sup.parentElement;
+          let content = `Footnote ${identifier}`;
+          if (supParent) {
+              const contextText = supParent.textContent.substring(0, 100);
+              content = `Footnote ${identifier} (referenced in: "${contextText}...")`;
+          }
+          footnotes.push({ footnoteId: uniqueId, content, originalIdentifier: identifier, refId: uniqueRefId, type: 'placeholder' });
+          footnoteMappings.set(identifier, { uniqueId, uniqueRefId });
+      }
+  });
+
   return { footnotes, footnoteMappings };
 }
 
 /**
  * Extract footnotes from pasted content (based on process_document.py logic)
  */
-export function extractFootnotes(htmlContent, bookId, isHTMLContent = false) {
+export function extractFootnotes(htmlContent, bookId, isHTMLContent = false, formatType = 'general') {
   // Route to HTML-specific extraction if this is HTML content
   if (isHTMLContent) {
-    return extractFootnotesFromHTML(htmlContent, bookId);
+    return extractFootnotesFromHTML(htmlContent, bookId, formatType);
   }
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = htmlContent;
@@ -287,12 +297,14 @@ function isRealLink(href) {
 /**
  * Extract references from HTML content - specifically for HTML pastes
  */
-function extractReferencesFromHTML(htmlContent, bookId) {
+function extractReferencesFromHTML(htmlContent, bookId, formatType = 'general') {
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = htmlContent;
   
   const references = [];
   const referenceMappings = new Map();
+  
+  console.log(`📚 Extracting references using ${formatType} format strategy`);
   
   // 1. Look for references in <a> tags with real links
   const linkElements = tempDiv.querySelectorAll('a[href]');
@@ -303,7 +315,7 @@ function extractReferencesFromHTML(htmlContent, bookId) {
       
       // Check if this looks like a reference (contains year)
       if (/\d{4}/.test(text)) {
-        const refKeys = generateRefKeys(text);
+        const refKeys = generateRefKeys(text, '', formatType);
         if (refKeys.length > 0) {
           const referenceId = refKeys[0];
           
@@ -331,7 +343,7 @@ function extractReferencesFromHTML(htmlContent, bookId) {
     const citationMatch = text.match(/^\s*\(([^)]*?\d{4}[^)]*?)\)\s*$/);
     if (citationMatch) {
       const citationContent = citationMatch[1];
-      const refKeys = generateRefKeys(citationContent);
+      const refKeys = generateRefKeys(citationContent, '', formatType);
       if (refKeys.length > 0) {
         const referenceId = refKeys[0];
         
@@ -392,7 +404,7 @@ function extractReferencesFromHTML(htmlContent, bookId) {
         return;
     }
 
-    const refKeys = generateRefKeys(text);
+    const refKeys = generateRefKeys(text, '', formatType);
     if (refKeys.length > 0) {
       const referenceId = refKeys[0];
       
@@ -417,10 +429,10 @@ function extractReferencesFromHTML(htmlContent, bookId) {
 /**
  * Extract references/bibliography from pasted content
  */
-export function extractReferences(htmlContent, bookId, isHTMLContent = false) {
+export function extractReferences(htmlContent, bookId, isHTMLContent = false, formatType = 'general') {
   // Route to HTML-specific extraction if this is HTML content
   if (isHTMLContent) {
-    return extractReferencesFromHTML(htmlContent, bookId);
+    return extractReferencesFromHTML(htmlContent, bookId, formatType);
   }
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = htmlContent;
@@ -473,7 +485,7 @@ export function extractReferences(htmlContent, bookId, isHTMLContent = false) {
         return;
     }
 
-    const refKeys = generateRefKeys(text);
+    const refKeys = generateRefKeys(text, '', formatType);
     if (refKeys.length > 0) {
       const referenceId = refKeys[0]; // Use first key as primary ID
       
@@ -497,7 +509,7 @@ export function extractReferences(htmlContent, bookId, isHTMLContent = false) {
 /**
  * Generate reference keys (adapted from Python version)
  */
-function generateRefKeys(text, contextText = '') {
+function generateRefKeys(text, contextText = '', formatType = 'general') {
   // Remove year-only citations in brackets [2024]
   const processedText = text.replace(/\[\d{4}\]\s*/g, '');
   
@@ -512,7 +524,25 @@ function generateRefKeys(text, contextText = '') {
   const addKey = (key) => { if (key && !keys.includes(key)) keys.push(key); };
 
   const hasAuthor = /[a-zA-Z]/.test(authorsText);
-  const authorSource = hasAuthor ? authorsText : contextText;
+  let authorSource = hasAuthor ? authorsText : contextText;
+  
+  // OUP-specific handling: bibliography format is "Surname Firstname"
+  if (formatType === 'oup' && hasAuthor) {
+    // For OUP bibliography entries, extract surname first
+    const oupMatch = authorsText.match(/^([A-Z][a-zA-Z']+)\s+([A-Z][a-zA-Z']+)/);
+    if (oupMatch) {
+      const [, surname, firstname] = oupMatch;
+      // Create keys using just the surname (matches in-text citations)
+      addKey(surname.toLowerCase() + year);
+      console.log(`📚 OUP: Generated key "${surname.toLowerCase() + year}" from "${surname} ${firstname}"`);
+      
+      // Also add a key with both names for completeness
+      addKey(surname.toLowerCase() + firstname.toLowerCase() + year);
+      
+      // Return early for OUP since we've handled it specially
+      return keys;
+    }
+  }
   
   if (authorSource) {
     let sourceText = authorSource;
@@ -616,15 +646,12 @@ function preprocessHTMLContent(htmlContent) {
                           /\([^)]*\d{4}[^)]*\)/.test(text);
     
     if (isCitationLink) {
-      // Convert citation links to spans for text-based processing
-      const span = document.createElement('span');
-      span.className = 'citation-text';
-      span.textContent = text;
-      // Preserve original attributes as data attributes for potential later use
-      if (link.hasAttribute('data-open')) {
-        span.setAttribute('data-original-ref', link.getAttribute('data-open'));
+      // Unwrap the link by replacing it with its own children (usually just a text node).
+      // This leaves the citation text in place for the next processing step.
+      while (link.firstChild) {
+        link.parentNode.insertBefore(link.firstChild, link);
       }
-      link.replaceWith(span);
+      link.remove();
     } else if (!href || href === '#' || href.startsWith('javascript:') || href === '') {
       // Handle empty/javascript links - just convert to text
       link.replaceWith(document.createTextNode(text));
@@ -684,7 +711,7 @@ function preprocessHTMLContent(htmlContent) {
 /**
  * Process and link in-text citations in pasted content
  */
-export function processInTextCitations(htmlContent, referenceMappings, allReferences = []) {
+export function processInTextCitations(htmlContent, referenceMappings, allReferences = [], formatType = 'general') {
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = htmlContent;
   
@@ -731,7 +758,7 @@ export function processInTextCitations(htmlContent, referenceMappings, allRefere
             }
         }
         
-        const keys = generateRefKeys(processedCite, text.substring(0, match.index));
+        const keys = generateRefKeys(processedCite, text.substring(0, match.index), formatType);
         let linked = false;
         let referenceId = null; // To store the found ID
 
@@ -1006,9 +1033,10 @@ export async function saveReferencesToIndexedDB(references, bookId) {
  * Process pasted content for footnotes and references
  * Returns processed HTML with linked footnotes/citations
  */
-export async function processContentForFootnotesAndReferences(htmlContent, bookId, isHTMLContent = false) {
+export async function processContentForFootnotesAndReferences(htmlContent, bookId, isHTMLContent = false, formatType = 'general') {
   console.log('🔍 Processing pasted content for footnotes and references...');
   console.log('🔍 Content type:', isHTMLContent ? 'HTML' : 'Markdown/Plain text');
+  console.log('🔍 Format type:', formatType);
   
   let contentToProcess = htmlContent;
   
@@ -1020,8 +1048,8 @@ export async function processContentForFootnotesAndReferences(htmlContent, bookI
   }
   
   // Extract footnotes and references with the appropriate method
-  const { footnotes, footnoteMappings } = extractFootnotes(contentToProcess, bookId, isHTMLContent);
-  const { references, referenceMappings } = extractReferences(contentToProcess, bookId, isHTMLContent);
+  const { footnotes, footnoteMappings } = extractFootnotes(contentToProcess, bookId, isHTMLContent, formatType);
+  const { references, referenceMappings } = extractReferences(contentToProcess, bookId, isHTMLContent, formatType);
   
   console.log(`Found ${footnotes.length} footnotes and ${references.length} references`);
   if (footnotes.length > 0) {
@@ -1035,7 +1063,7 @@ export async function processContentForFootnotesAndReferences(htmlContent, bookI
   let processedContent = contentToProcess;
   
   if (referenceMappings.size > 0) {
-    processedContent = processInTextCitations(processedContent, referenceMappings);
+    processedContent = processInTextCitations(processedContent, referenceMappings, references, formatType);
   }
   
   if (footnoteMappings.size > 0) {
