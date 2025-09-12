@@ -12,8 +12,24 @@ class TextController extends Controller
 {
     public function show(Request $request, $book)
     {
+        // If the path matches a username (allow basic slug variants),
+        // (re)generate a user-home pseudo-book in DB and point $book to that.
+        $possible = urldecode($book);
+        $normalized = str_replace(['_', '-'], ' ', $possible);
+        $username = null;
+        if (\App\Models\User::where('name', $possible)->exists()) {
+            $username = $possible;
+        } elseif (\App\Models\User::where('name', $normalized)->exists()) {
+            $username = $normalized;
+        }
 
-       
+        if ($username !== null) {
+            $generator = new \App\Http\Controllers\UserHomeServerController();
+            $generator->generateUserHomeBook($username);
+            // Use the generated pseudo-book id going forward
+            $book = $username;
+        }
+
 
         $editMode = $request->boolean('edit') || $request->routeIs('book.edit');
 

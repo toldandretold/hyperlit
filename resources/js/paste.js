@@ -1217,7 +1217,6 @@ async function handleHypercitePaste(event) {
   let quotedText = "";
 
   // Method 1: Try regex to extract quoted text from raw HTML
-  // Updated regex to handle mixed quote types (regular + smart quotes)
   const quoteMatch = clipboardHtml.match(/[''""]([^]*?)[''""](?=<a|$)/);
   if (quoteMatch) {
     quotedText = quoteMatch[1];
@@ -1251,9 +1250,11 @@ async function handleHypercitePaste(event) {
     console.log("🔍 Found quoted text via fallback:", quotedText);
   }
 
+
   // Clean up the quoted text - handle both ASCII and smart quotes, including mixed types
   // Remove any quote character from start and end separately to handle mixed quote types
   quotedText = quotedText.replace(/^[''""]/, '').replace(/[''""]$/, ''); // Remove quotes
+
   console.log("🔍 Final cleaned quoted text:", `"${quotedText}"`);
   
   // Create the reference HTML with no space between text and sup
@@ -1338,7 +1339,9 @@ async function handleHypercitePaste(event) {
 export function extractQuotedText(pasteWrapper) {
   let quotedText = "";
   const fullText = pasteWrapper.textContent;
+
   // Updated regex to handle mixed quote types - match any opening quote with any closing quote
+
   const quoteMatch = fullText.match(/^[''""]([^]*?)[''""](?=\s*↗|$)/);
   
   if (quoteMatch && quoteMatch[1]) {
@@ -1348,8 +1351,10 @@ export function extractQuotedText(pasteWrapper) {
     const textNodes = Array.from(pasteWrapper.childNodes)
       .filter(node => node.nodeType === Node.TEXT_NODE);
     if (textNodes.length > 0) {
+
       // Handle mixed quote types by removing any quote from start and end separately
       quotedText = textNodes[0].textContent.replace(/^[''""]/, '').replace(/[''""]$/, '');
+
     }
   }
   
