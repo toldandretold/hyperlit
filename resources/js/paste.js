@@ -914,48 +914,35 @@ async function handleJsonPaste(
   let extractedFootnotes = [];
   let extractedReferences = [];
   
-  if (isHtmlContent) {
-    console.log('🔍 Processing pasted HTML for footnotes and references...');
-    console.log('🔍 DEBUG: Content before preprocessing:', pastedContent.substring(0, 500) + (pastedContent.length > 500 ? "..." : ""));
-    console.log('🔍 DEBUG: Before preprocessing contains <sup>:', pastedContent.includes('<sup>'));
-    try {
-      // Pre-process HTML to help extractor handle <br>-separated bibliography
-      let preprocessedContent = pastedContent;
-      
-      // Convert <br>-separated content to proper paragraphs for the extractor
+  try {
+    if (isHtmlContent) {
+      console.log('🔍 Processing pasted HTML for footnotes and references...');
+      // Pre-process HTML to help extractor handle various formats
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = pastedContent;
       
-      // Process <sup> tags to add fn-count-id attributes for footnotes
       tempDiv.querySelectorAll('sup').forEach(sup => {
         const textContent = sup.textContent.trim();
-        // If the sup contains only digits, add fn-count-id attribute
         if (/^\d+$/.test(textContent)) {
           sup.setAttribute('fn-count-id', textContent);
-          // Clean up the inner HTML to just contain the number in a link if not already
           if (!sup.querySelector('a')) {
             sup.innerHTML = `<a href="#" class="footnote-ref">${textContent}</a>`;
           } else {
-            // If there's already a link, add the class
-            const existingLink = sup.querySelector('a');
-            existingLink.className = 'footnote-ref';
-            existingLink.textContent = textContent;
+            sup.querySelector('a').className = 'footnote-ref';
+            sup.querySelector('a').textContent = textContent;
           }
         }
       });
-      
-      // Find elements with multiple <br> tags (likely bibliography)
+
       tempDiv.querySelectorAll('*').forEach(element => {
-        if (element.innerHTML && element.innerHTML.includes('<br')) {
+        if (element.innerHTML?.includes('<br')) {
           const parts = element.innerHTML.split(/<br\s*\/?>/i);
           if (parts.length > 1) {
-            // Replace this element with individual paragraphs
             const parentElement = element.parentNode;
             parts.forEach(part => {
-              const trimmedPart = part.trim();
-              if (trimmedPart) {
+              if (part.trim()) {
                 const newP = document.createElement('p');
-                newP.innerHTML = trimmedPart;
+                newP.innerHTML = part.trim();
                 parentElement.insertBefore(newP, element);
               }
             });
@@ -964,21 +951,25 @@ async function handleJsonPaste(
         }
       });
       
-      preprocessedContent = tempDiv.innerHTML;
-      console.log('🔍 DEBUG: After preprocessing:', preprocessedContent.substring(0, 500) + (preprocessedContent.length > 500 ? "..." : ""));
-      console.log('🔍 DEBUG: After preprocessing contains <sup>:', preprocessedContent.includes('<sup>'));
-      
+      const preprocessedContent = tempDiv.innerHTML;
       const result = await processContentForFootnotesAndReferences(preprocessedContent, insertionPoint.book, true);
       processedContent = result.processedContent;
       extractedFootnotes = result.footnotes;
       extractedReferences = result.references;
-      console.log('🔍 DEBUG: After extractor processing:', processedContent.substring(0, 500) + (processedContent.length > 500 ? "..." : ""));
-      console.log('🔍 DEBUG: After extractor contains <sup>:', processedContent.includes('<sup>'));
-      console.log(`✅ Extracted ${extractedFootnotes.length} footnotes and ${extractedReferences.length} references`);
-    } catch (error) {
-      console.error('❌ Error processing footnotes/references:', error);
-      // Continue with original content if processing fails
+      console.log(`✅ Extracted ${extractedFootnotes.length} footnotes and ${extractedReferences.length} references from HTML.`);
+
+    } else {
+      // It's plain text, but we still want to run the extractor on it
+      console.log('🔍 Processing pasted PLAIN TEXT for footnotes and references...');
+      const result = await processContentForFootnotesAndReferences(pastedContent, insertionPoint.book, false);
+      processedContent = result.processedContent;
+      extractedFootnotes = result.footnotes;
+      extractedReferences = result.references;
+      console.log(`✅ Extracted ${extractedFootnotes.length} footnotes and ${extractedReferences.length} references from plain text.`);
     }
+  } catch (error) {
+      console.error('❌ Error processing footnotes/references:', error);
+      processedContent = pastedContent; // Fallback to original content on error
   }
 
   // --- 2. DATA LAYER: Calculate all database changes ---
