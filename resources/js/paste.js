@@ -25,6 +25,7 @@ import {
 } from './operationState.js';
 import { queueNodeForSave } from './divEditor.js';
 import { broadcastToOpenTabs } from './BroadcastListener.js';
+import { processContentForFootnotesAndReferences } from './footnote-reference-extractor.js';
 
 // Configure marked options
 marked.setOptions({
@@ -297,15 +298,31 @@ async function handlePaste(event) {
     setTimeout(() => (pasteHandled = false), 0);
 
     // 2) Grab and process clipboard data
-    const plainText = event.clipboardData.getData("text/plain");
-    const rawHtml = event.clipboardData.getData("text/html") || "";
+    let plainText = event.clipboardData.getData("text/plain");
+    let rawHtml = event.clipboardData.getData("text/html") || "";
+    
+    // Strip all smart quotes and backticks immediately to prevent any issues
+    plainText = plainText
+      .replace(/'/g, "'")  // Replace smart single quotes with regular ones
+      .replace(/'/g, "'")  // Replace other smart single quotes
+      .replace(/"/g, '"')  // Replace smart double quotes
+      .replace(/"/g, '"')  // Replace other smart double quotes
+      .replace(/`/g, "'"); // Replace backticks with regular single quotes
+    
+    rawHtml = rawHtml
+      .replace(/'/g, "'")  // Replace smart single quotes with regular ones
+      .replace(/'/g, "'")  // Replace other smart single quotes
+      .replace(/"/g, '"')  // Replace smart double quotes
+      .replace(/"/g, '"')  // Replace other smart double quotes
+      .replace(/`/g, "'"); // Replace backticks with regular single quotes
+    
     let htmlContent = "";
     const isMarkdown = detectMarkdown(plainText);
 
     if (isMarkdown) {
       console.log("Entering markdown branch");
       event.preventDefault(); // This is now safe to call
-      // ... (the rest of your markdown processing logic is correct) ...
+      
       if (plainText.length > 1000) {
         const progressModal = await showProgressModal();
         try {
@@ -515,7 +532,7 @@ async function processMarkdownInChunks(text, onProgress) {
     const progress = ((i + 1) / chunks.length) * 100;
     onProgress(progress, i + 1, chunks.length);
     
-    // Process chunk
+    // Process chunk (smart quotes already normalized at paste entry)
     const chunkHtml = marked(chunks[i]);
     result += chunkHtml;
     
@@ -892,11 +909,86 @@ async function handleJsonPaste(
 ) {
   event.preventDefault();
 
-  // --- 1. DATA LAYER: Calculate all database changes ---
+  // --- 1. PROCESS FOOTNOTES AND REFERENCES ---
+  let processedContent = pastedContent;
+  let extractedFootnotes = [];
+  let extractedReferences = [];
+  
+  if (isHtmlContent) {
+    console.log('🔍 Processing pasted HTML for footnotes and references...');
+    console.log('🔍 DEBUG: Content before preprocessing:', pastedContent.substring(0, 500) + (pastedContent.length > 500 ? "..." : ""));
+    console.log('🔍 DEBUG: Before preprocessing contains <sup>:', pastedContent.includes('<sup>'));
+    try {
+      // Pre-process HTML to help extractor handle <br>-separated bibliography
+      let preprocessedContent = pastedContent;
+      
+      // Convert <br>-separated content to proper paragraphs for the extractor
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = pastedContent;
+      
+      // Process <sup> tags to add fn-count-id attributes for footnotes
+      tempDiv.querySelectorAll('sup').forEach(sup => {
+        const textContent = sup.textContent.trim();
+        // If the sup contains only digits, add fn-count-id attribute
+        if (/^\d+$/.test(textContent)) {
+          sup.setAttribute('fn-count-id', textContent);
+          // Clean up the inner HTML to just contain the number in a link if not already
+          if (!sup.querySelector('a')) {
+            sup.innerHTML = `<a href="#" class="footnote-ref">${textContent}</a>`;
+          } else {
+            // If there's already a link, add the class
+            const existingLink = sup.querySelector('a');
+            existingLink.className = 'footnote-ref';
+            existingLink.textContent = textContent;
+          }
+        }
+      });
+      
+      // Find elements with multiple <br> tags (likely bibliography)
+      tempDiv.querySelectorAll('*').forEach(element => {
+        if (element.innerHTML && element.innerHTML.includes('<br')) {
+          const parts = element.innerHTML.split(/<br\s*\/?>/i);
+          if (parts.length > 1) {
+            // Replace this element with individual paragraphs
+            const parentElement = element.parentNode;
+            parts.forEach(part => {
+              const trimmedPart = part.trim();
+              if (trimmedPart) {
+                const newP = document.createElement('p');
+                newP.innerHTML = trimmedPart;
+                parentElement.insertBefore(newP, element);
+              }
+            });
+            element.remove();
+          }
+        }
+      });
+      
+      preprocessedContent = tempDiv.innerHTML;
+      console.log('🔍 DEBUG: After preprocessing:', preprocessedContent.substring(0, 500) + (preprocessedContent.length > 500 ? "..." : ""));
+      console.log('🔍 DEBUG: After preprocessing contains <sup>:', preprocessedContent.includes('<sup>'));
+      
+      const result = await processContentForFootnotesAndReferences(preprocessedContent, insertionPoint.book, true);
+      processedContent = result.processedContent;
+      extractedFootnotes = result.footnotes;
+      extractedReferences = result.references;
+      console.log('🔍 DEBUG: After extractor processing:', processedContent.substring(0, 500) + (processedContent.length > 500 ? "..." : ""));
+      console.log('🔍 DEBUG: After extractor contains <sup>:', processedContent.includes('<sup>'));
+      console.log(`✅ Extracted ${extractedFootnotes.length} footnotes and ${extractedReferences.length} references`);
+    } catch (error) {
+      console.error('❌ Error processing footnotes/references:', error);
+      // Continue with original content if processing fails
+    }
+  }
+
+  // --- 2. DATA LAYER: Calculate all database changes ---
   const { book, beforeNodeId, afterNodeId } = insertionPoint;
+  console.log('🔍 DEBUG: About to parseHtmlToBlocks, processedContent contains <sup>:', processedContent.includes('<sup>'));
   const textBlocks = isHtmlContent
-    ? parseHtmlToBlocks(pastedContent)
-    : pastedContent.split(/\n\s*\n/).filter((blk) => blk.trim());
+    ? parseHtmlToBlocks(processedContent)
+    : processedContent.split(/\n\s*\n/).filter((blk) => blk.trim());
+  console.log('🔍 DEBUG: After parseHtmlToBlocks, textBlocks sample:', textBlocks[0]?.substring(0, 200) + (textBlocks[0]?.length > 200 ? "..." : ""));
+  console.log('🔍 DEBUG: textBlocks contain <sup>:', textBlocks.some(block => block.includes('<sup>')));
   if (!textBlocks.length) return [];
 
   const { jsonObjects: newJsonObjects, state } = convertToJsonObjects(
@@ -1027,7 +1119,7 @@ async function handleHypercitePaste(event) {
   let quotedText = "";
 
   // Method 1: Try regex to extract quoted text from raw HTML
-  // Updated regex to handle smart quotes and allow quotes within content
+  // Updated regex to handle mixed quote types (regular + smart quotes)
   const quoteMatch = clipboardHtml.match(/[''""]([^]*?)[''""](?=<a|$)/);
   if (quoteMatch) {
     quotedText = quoteMatch[1];
@@ -1061,8 +1153,9 @@ async function handleHypercitePaste(event) {
     console.log("🔍 Found quoted text via fallback:", quotedText);
   }
 
-  // Clean up the quoted text - handle both ASCII and smart quotes
-  quotedText = quotedText.replace(/^[''""]|[''""]$/g, ''); // Remove quotes
+  // Clean up the quoted text - handle both ASCII and smart quotes, including mixed types
+  // Remove any quote character from start and end separately to handle mixed quote types
+  quotedText = quotedText.replace(/^[''""]/, '').replace(/[''""]$/, ''); // Remove quotes
   console.log("🔍 Final cleaned quoted text:", `"${quotedText}"`);
   
   // Create the reference HTML with no space between text and sup
@@ -1147,7 +1240,7 @@ async function handleHypercitePaste(event) {
 export function extractQuotedText(pasteWrapper) {
   let quotedText = "";
   const fullText = pasteWrapper.textContent;
-  // Updated regex to handle smart quotes and allow quotes within content
+  // Updated regex to handle mixed quote types - match any opening quote with any closing quote
   const quoteMatch = fullText.match(/^[''""]([^]*?)[''""](?=\s*↗|$)/);
   
   if (quoteMatch && quoteMatch[1]) {
@@ -1157,7 +1250,8 @@ export function extractQuotedText(pasteWrapper) {
     const textNodes = Array.from(pasteWrapper.childNodes)
       .filter(node => node.nodeType === Node.TEXT_NODE);
     if (textNodes.length > 0) {
-      quotedText = textNodes[0].textContent.replace(/^[''""]([^]*?)[''""]$/, "$1");
+      // Handle mixed quote types by removing any quote from start and end separately
+      quotedText = textNodes[0].textContent.replace(/^[''""]/, '').replace(/[''""]$/, '');
     }
   }
   
@@ -1199,7 +1293,7 @@ function detectMarkdown(text) {
     /^\* /m,                         // Unordered lists
     /^\d+\. /m,                      // Ordered lists
     /^\> /m,                         // Blockquotes
-    /`[^`]+`/,                       // Inline code
+    /`[^`]+`/,                       // Inline code (actual backticks only)
     /^```/m,                         // Code blocks
     /\[.+\]\(.+\)/,                  // Links (removed ^ anchor)
     /^!\[.*\]\(.+\)/m,               // Images
@@ -1212,6 +1306,11 @@ function detectMarkdown(text) {
   const matches = markdownPatterns.filter((pattern, index) => {
     const match = pattern.test(text);
     console.log(`Pattern ${index} (${pattern}):`, match);
+    // Special debug for inline code pattern
+    if (index === 6 && match) {
+      const codeMatch = text.match(pattern);
+      console.log(`🔍 Inline code match found:`, codeMatch);
+    }
     return match;
   });
   
@@ -1230,11 +1329,49 @@ function parseHtmlToBlocks(htmlContent) {
   
   const blocks = [];
   
+  // Convert div tags to p tags for better bibliography handling
+  tempDiv.querySelectorAll('div').forEach(div => {
+    // Only convert divs that contain text content (likely bibliography entries)
+    if (div.textContent.trim()) {
+      const p = document.createElement('p');
+      // Copy all attributes except class/style which might interfere
+      Array.from(div.attributes).forEach(attr => {
+        if (attr.name !== 'class' && attr.name !== 'style') {
+          p.setAttribute(attr.name, attr.value);
+        }
+      });
+      // Move all child nodes
+      while (div.firstChild) {
+        p.appendChild(div.firstChild);
+      }
+      div.parentNode.replaceChild(p, div);
+    }
+  });
+  
   // Get direct children (block-level elements)
   Array.from(tempDiv.children).forEach(child => {
     // Remove any existing IDs to prevent conflicts
     child.removeAttribute('id');
-    blocks.push(child.outerHTML);
+    
+    // Check if this element contains multiple <br> separated entries (common in bibliographies)
+    const innerHTML = child.innerHTML;
+    const brSeparatedParts = innerHTML.split(/<br\s*\/?>/i);
+    
+    if (brSeparatedParts.length > 1) {
+      // Split on <br> tags - each part becomes a separate block
+      brSeparatedParts.forEach(part => {
+        const trimmedPart = part.trim();
+        if (trimmedPart) {
+          // Create a new element of the same type with the split content
+          const newElement = document.createElement(child.tagName.toLowerCase());
+          newElement.innerHTML = trimmedPart;
+          blocks.push(newElement.outerHTML);
+        }
+      });
+    } else {
+      // No <br> tags - use the whole element as one block
+      blocks.push(child.outerHTML);
+    }
   });
   
   // If no block children, treat the whole thing as one block
