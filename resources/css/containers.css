@@ -22,7 +22,8 @@ black #221F20;
   padding-left: 1em;
   padding-right: 2em;
   border-radius: 1em 1em;
-
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 #source-container .scroller {
@@ -223,6 +224,8 @@ black #221F20;
   padding-right: 2em;
   border-radius: 1em 1em;
   font-size: 16px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 .dragging {
         cursor: grabbing;
