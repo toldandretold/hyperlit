@@ -816,6 +816,51 @@ async function processChunkMutations(chunk, mutations) {
             return; // Skip to the next node
           }
 
+          // 🔥 BROWSER BULLSHIT ANNIHILATION: Kill spans and styled formatting elements
+          if (node.tagName === 'SPAN') {
+            console.log(`🔥 DESTROYING SPAN tag - NO SPANS ALLOWED`);
+            
+            // Preserve text content but remove the span wrapper
+            if (node.textContent.trim()) {
+              const textNode = document.createTextNode(node.textContent);
+              node.parentNode.insertBefore(textNode, node);
+            }
+            
+            node.remove();
+            return; // Skip all further processing for this node
+          }
+
+          // 🔥 Kill I/B/EM/STRONG tags with suspicious inline styles (browser-generated)
+          if (['I', 'B', 'EM', 'STRONG'].includes(node.tagName) && node.style && node.style.length > 0) {
+            // Check for browser-generated style patterns
+            const hasSuspiciousStyles = node.style.fontSize || 
+                                      node.style.fontWeight || 
+                                      node.style.letterSpacing ||
+                                      node.style.wordSpacing;
+            
+            if (hasSuspiciousStyles) {
+              console.log(`🔥 DESTROYING browser-generated ${node.tagName} with inline styles`);
+              
+              // Create a clean version without the inline styles but preserve the tag
+              const cleanElement = document.createElement(node.tagName.toLowerCase());
+              
+              // Copy attributes except style
+              Array.from(node.attributes).forEach(attr => {
+                if (attr.name !== 'style') {
+                  cleanElement.setAttribute(attr.name, attr.value);
+                }
+              });
+              
+              // Move text content
+              cleanElement.textContent = node.textContent;
+              
+              // Replace the styled element with the clean one
+              node.parentNode.insertBefore(cleanElement, node);
+              node.remove();
+              return; // Skip all further processing for this node
+            }
+          }
+
           ensureNodeHasValidId(node);
           documentChanged = true;
           addedNodes.add(node);
