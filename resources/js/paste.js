@@ -434,6 +434,7 @@ function assimilateHTML(rawHtml) {
     }
   });
 
+
   // 6) Final cleanup: Wrap any remaining loose inline elements
   const looseInlineElements = Array.from(body.childNodes).filter(node => 
     node.nodeType === Node.ELEMENT_NODE && 
@@ -446,6 +447,7 @@ function assimilateHTML(rawHtml) {
     element.parentNode.insertBefore(wrapper, element);
     wrapper.appendChild(element);
   });
+
 
   return { html: body.innerHTML, format: formatType };
 }
@@ -1129,6 +1131,7 @@ async function handleJsonPaste(
   }
 
   // --- 3. DATA LAYER: Calculate all database changes ---
+
   const { book, beforeNodeId, afterNodeId } = insertionPoint;
   const textBlocks = isHtmlContent
     ? parseHtmlToBlocks(processedContent)
@@ -1194,6 +1197,7 @@ async function handleJsonPaste(
     }
   });
   
+
   console.log("Successfully merged paste with tail chunks");
 
   return toWrite;
@@ -1260,7 +1264,9 @@ async function handleHypercitePaste(event) {
   let quotedText = "";
 
   // Method 1: Try regex to extract quoted text from raw HTML
+
   // Updated regex to handle mixed quote types (regular + smart quotes)
+
   const quoteMatch = clipboardHtml.match(/[''""]([^]*?)[''""](?=<a|$)/);
   if (quoteMatch) {
     quotedText = quoteMatch[1];
@@ -1297,6 +1303,7 @@ async function handleHypercitePaste(event) {
   // Clean up the quoted text - handle both ASCII and smart quotes, including mixed types
   // Remove any quote character from start and end separately to handle mixed quote types
   quotedText = quotedText.replace(/^[''""]/, '').replace(/[''""]$/, ''); // Remove quotes
+
   console.log("🔍 Final cleaned quoted text:", `"${quotedText}"`);
   
   // Create the reference HTML with no space between text and sup
@@ -1382,6 +1389,7 @@ export function extractQuotedText(pasteWrapper) {
   let quotedText = "";
   const fullText = pasteWrapper.textContent;
   // Updated regex to handle mixed quote types - match any opening quote with any closing quote
+
   const quoteMatch = fullText.match(/^[''""]([^]*?)[''""](?=\s*↗|$)/);
   
   if (quoteMatch && quoteMatch[1]) {
@@ -1393,6 +1401,7 @@ export function extractQuotedText(pasteWrapper) {
     if (textNodes.length > 0) {
       // Handle mixed quote types by removing any quote from start and end separately
       quotedText = textNodes[0].textContent.replace(/^[''""]/, '').replace(/[''""]$/, '');
+
     }
   }
   
@@ -1511,9 +1520,11 @@ function parseHtmlToBlocks(htmlContent) {
     } else if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
       // This is a "loose" text node that resulted from unwrapping. Wrap it in a <p> tag.
       blocks.push(`<p>${node.textContent.trim()}</p>`);
+
     } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName && !isBlockElement(node.tagName)) {
       // This is a loose inline element (a, span, i, b, etc.) - wrap it in a <p> tag.
       blocks.push(`<p>${node.outerHTML}</p>`);
+
     }
   });
   

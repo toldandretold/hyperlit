@@ -1308,6 +1308,7 @@ export async function processContentForFootnotesAndReferences(htmlContent, bookI
     }
   }
   
+
   return {
     processedContent,
     footnotes,
@@ -1389,4 +1390,5 @@ async function syncReferencesToPostgreSQL(references, bookId) {
     console.error('❌ Failed to sync references to PostgreSQL:', error);
     throw error;
   }
+
 }
