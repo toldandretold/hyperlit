@@ -1284,6 +1284,30 @@ export async function processContentForFootnotesAndReferences(htmlContent, bookI
     saveReferencesToIndexedDB(references, bookId)
   ]);
   
+  // Direct sync to PostgreSQL (mass upsert)
+  const syncPromises = [];
+  
+  if (footnotes.length > 0) {
+    syncPromises.push(
+      syncFootnotesToPostgreSQL(footnotes, bookId)
+    );
+  }
+  
+  if (references.length > 0) {
+    syncPromises.push(
+      syncReferencesToPostgreSQL(references, bookId)
+    );
+  }
+  
+  if (syncPromises.length > 0) {
+    try {
+      await Promise.all(syncPromises);
+      console.log(`✅ Synced ${footnotes.length} footnotes and ${references.length} references to PostgreSQL`);
+    } catch (error) {
+      console.error('❌ Failed to sync footnotes/references to PostgreSQL:', error);
+    }
+  }
+  
   return {
     processedContent,
     footnotes,
@@ -1291,4 +1315,78 @@ export async function processContentForFootnotesAndReferences(htmlContent, bookI
     footnoteMappings,
     referenceMappings
   };
+}
+
+// ========================================================================
+// POSTGRESQL SYNC FUNCTIONS
+// ========================================================================
+
+/**
+ * Sync footnotes directly to PostgreSQL
+ */
+async function syncFootnotesToPostgreSQL(footnotes, bookId) {
+  if (!footnotes || footnotes.length === 0) return;
+  
+  try {
+    const response = await fetch('/api/db/footnotes/upsert', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        book: bookId,
+        data: footnotes.map(footnote => ({
+          footnoteId: footnote.footnoteId,
+          content: footnote.content
+        }))
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    console.log(`✅ PostgreSQL footnotes sync: ${result.message}`);
+    return result;
+    
+  } catch (error) {
+    console.error('❌ Failed to sync footnotes to PostgreSQL:', error);
+    throw error;
+  }
+}
+
+/**
+ * Sync references directly to PostgreSQL  
+ */
+async function syncReferencesToPostgreSQL(references, bookId) {
+  if (!references || references.length === 0) return;
+  
+  try {
+    const response = await fetch('/api/db/references/upsert', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        book: bookId,
+        data: references.map(reference => ({
+          referenceId: reference.referenceId,
+          content: reference.content
+        }))
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    console.log(`✅ PostgreSQL references sync: ${result.message}`);
+    return result;
+    
+  } catch (error) {
+    console.error('❌ Failed to sync references to PostgreSQL:', error);
+    throw error;
+  }
 }

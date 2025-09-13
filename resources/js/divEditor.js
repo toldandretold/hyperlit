@@ -61,6 +61,7 @@ const removedNodeIds = new Set(); // Track IDs of removed nodes.
 let observer;
 let documentChanged = false;
 let debounceTimer = null;
+let spanCleanupInterval;
 
 let observedChunks = new Map(); // chunkId -> chunk element
 let deletionHandler = null;
@@ -306,6 +307,35 @@ export function startObserving(editableDiv) {
   initializeCurrentChunks(editableDiv);
 
   enterKeyHandler = new EnterKeyHandler();
+
+  // 🔥 PERIODIC SPAN ANNIHILATION - runs every 3 seconds
+  function periodicSpanCleanup() {
+    const spans = document.querySelectorAll('span[style]');
+    if (spans.length > 0) {
+      console.log(`🔥 PERIODIC CLEANUP: Found ${spans.length} styled spans to destroy`);
+      spans.forEach(span => {
+        console.log(`🔥 PERIODIC: Destroying span with style`, span);
+        
+        // Preserve text content but remove the span wrapper
+        if (span.textContent.trim()) {
+          const textNode = document.createTextNode(span.textContent);
+          if (span.parentNode && document.contains(span.parentNode)) {
+            span.parentNode.insertBefore(textNode, span);
+          }
+        }
+        
+        if (document.contains(span)) {
+          span.remove();
+        }
+      });
+    }
+  }
+
+  // Start periodic cleanup
+  if (spanCleanupInterval) {
+    clearInterval(spanCleanupInterval);
+  }
+  spanCleanupInterval = setInterval(periodicSpanCleanup, 3000);
 
   // Create observer for the main-content container
   observer = new MutationObserver(async (mutations) => {
@@ -781,6 +811,29 @@ async function processChunkMutations(chunk, mutations) {
         }
       }
     }
+    
+    // 🔥 Handle attribute mutations that might be creating styled elements
+    if (mutation.type === "attributes" && mutation.target.nodeType === Node.ELEMENT_NODE) {
+      const element = mutation.target;
+      
+      // If a SPAN gets a style attribute, destroy it immediately
+      if (element.tagName === 'SPAN' && mutation.attributeName === 'style') {
+        console.log(`🔥 DESTROYING SPAN that gained style attribute`, element);
+        
+        // Preserve text content but remove the span wrapper
+        if (element.textContent.trim()) {
+          const textNode = document.createTextNode(element.textContent);
+          if (element.parentNode && document.contains(element.parentNode)) {
+            element.parentNode.insertBefore(textNode, element);
+          }
+        }
+        
+        if (document.contains(element)) {
+          element.remove();
+        }
+        continue; // Skip to next mutation
+      }
+    }
 
     // Skip any childList where all added nodes are arrow-icons
     if (mutation.type === "childList") {
@@ -950,6 +1003,12 @@ export function stopObserving() {
   if (observer) {
     observer.disconnect();
     observer = null;
+  }
+  
+  // Clean up periodic span cleanup
+  if (spanCleanupInterval) {
+    clearInterval(spanCleanupInterval);
+    spanCleanupInterval = null;
   }
 
   if (enterKeyHandler) {
