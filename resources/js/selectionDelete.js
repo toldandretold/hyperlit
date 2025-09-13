@@ -48,11 +48,27 @@ export class SelectionDeletionHandler {
     
     // 🔥 CAPTURE IDs immediately while elements still exist
     const affectedElementIds = affectedElements.map(el => el.id).filter(id => id);
+
+    // ---- NEW LOGIC ----
+    const boundaryElementIds = new Set();
+    let startNode = range.startContainer;
+    let endNode = range.endContainer;
+    // Walk up to find the parent element with a numeric ID
+    while (startNode && (!startNode.id || !/^\d+(\.\d+)?$/.test(startNode.id))) {
+        startNode = startNode.parentElement;
+    }
+    while (endNode && (!endNode.id || !/^\d+(\.\d+)?$/.test(endNode.id))) {
+        endNode = endNode.parentElement;
+    }
+    if (startNode && startNode.id) boundaryElementIds.add(startNode.id);
+    if (endNode && endNode.id) boundaryElementIds.add(endNode.id);
+    // ---- END NEW LOGIC ----
     
     this.pendingDeletion = {
       commonAncestor: range.commonAncestorContainer,
       affectedElements: affectedElements,
       affectedElementIds: affectedElementIds, // ✅ Add this line
+      boundaryElementIds: Array.from(boundaryElementIds),
       timestamp: Date.now()
     };
     
@@ -68,9 +84,20 @@ export class SelectionDeletionHandler {
       NodeFilter.SHOW_ELEMENT,
       {
         acceptNode: (node) => {
-          return range.intersectsNode(node) ? 
-            NodeFilter.FILTER_ACCEPT : 
-            NodeFilter.FILTER_REJECT;
+          // Check if node is fully contained in the range, not just intersecting
+          try {
+            const nodeRange = document.createRange();
+            nodeRange.selectNodeContents(node);
+            return range.compareBoundaryPoints(Range.START_TO_START, nodeRange) <= 0 &&
+                   range.compareBoundaryPoints(Range.END_TO_END, nodeRange) >= 0 ? 
+              NodeFilter.FILTER_ACCEPT : 
+              NodeFilter.FILTER_REJECT;
+          } catch (e) {
+            // Fallback to intersection if range comparison fails
+            return range.intersectsNode(node) ? 
+              NodeFilter.FILTER_ACCEPT : 
+              NodeFilter.FILTER_REJECT;
+          }
         }
       }
     );
@@ -88,39 +115,44 @@ export class SelectionDeletionHandler {
   
   // In SelectionDeletionHandler
   handlePostDeletion() {
-  if (!this.pendingDeletion) {
-    console.log("❌ No pendingDeletion found");
-    return;
-  }
-  
-  console.log('Handling post-deletion cleanup');
-  console.log('🔍 pendingDeletion:', this.pendingDeletion);
-  
-  // Check if we have the affectedElementIds
-  const nodeIdsToDelete = this.pendingDeletion.affectedElementIds || [];
-  console.log('🔍 nodeIdsToDelete:', nodeIdsToDelete);
-  
-  if (nodeIdsToDelete.length === 0) {
-    console.log("❌ No node IDs to delete - checking affectedElements");
-    
-    // Fallback: extract IDs from affectedElements
-    const fallbackIds = this.pendingDeletion.affectedElements
-      .map(el => el.id)
-      .filter(id => id);
-    
-    console.log('🔍 fallbackIds:', fallbackIds);
-    
-    if (fallbackIds.length > 0) {
-      console.log(`🗑️ Using fallback IDs: ${fallbackIds.length} elements`);
-      this.batchDeleteFromIndexedDB(fallbackIds);
+    if (!this.pendingDeletion) {
+      console.log("❌ No pendingDeletion found");
+      return;
     }
-  } else {
-    console.log(`🗑️ Batch deleting ${nodeIdsToDelete.length} elements from IndexedDB`);
-    this.batchDeleteFromIndexedDB(nodeIdsToDelete);
+
+    console.log('Handling post-deletion cleanup');
+    console.log('🔍 pendingDeletion:', this.pendingDeletion);
+
+    const nodeIdsToDelete = this.pendingDeletion.affectedElementIds || [];
+    const boundaryElementIds = this.pendingDeletion.boundaryElementIds || [];
+
+    // 1. Delete the fully contained nodes
+    if (nodeIdsToDelete.length > 0) {
+      console.log(`🗑️ Batch deleting ${nodeIdsToDelete.length} fully selected elements from IndexedDB`);
+      this.batchDeleteFromIndexedDB(nodeIdsToDelete);
+    }
+
+    // 2. Update the partially affected boundary nodes
+    const nodesToUpdate = boundaryElementIds
+      .filter(id => !nodeIdsToDelete.includes(id)) // Don't update an element that was already fully deleted
+      .map(id => ({ id, action: 'update' })); // Create a payload compatible with batchUpdate
+
+    if (nodesToUpdate.length > 0) {
+      console.log(`🔄 Updating ${nodesToUpdate.length} partially selected boundary elements in IndexedDB`);
+      // Dynamically import and call batchUpdateIndexedDBRecords
+      import('./cache-indexedDB.js').then(module => {
+        if (module.batchUpdateIndexedDBRecords) {
+          module.batchUpdateIndexedDBRecords(nodesToUpdate);
+        } else {
+          console.error('batchUpdateIndexedDBRecords function not found in cache-indexedDB.js');
+        }
+      }).catch(error => {
+        console.error('Error updating boundary elements:', error);
+      });
+    }
+
+    this.pendingDeletion = null;
   }
-  
-  this.pendingDeletion = null;
-}
 
 batchDeleteFromIndexedDB(nodeIds) {
   console.log('🔍 About to call batchDeleteIndexedDBRecords with:', nodeIds);

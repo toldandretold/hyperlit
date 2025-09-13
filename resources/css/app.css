@@ -8,8 +8,21 @@ black #221F20;
 @import url('/public/fonts/inter/inter.css');
 
 body {
-
     font-size: 28px;
+    overflow-x: hidden;
+}
+
+/* Prevent horizontal overflow globally */
+* {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* Ensure main content container doesn't overflow */
+.main-content, .reader-content-wrapper {
+    overflow-x: hidden;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 #conversion-message {
@@ -173,6 +186,20 @@ blockquote {
 
    body {
     font-size: 18px; /* Reduced from 25px */
+    overflow-x: hidden; /* Prevent horizontal scroll */
+  }
+  
+  /* Ensure all content wraps on mobile */
+  * {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+  }
+  
+  /* Force links to break on mobile */
+  a {
+    word-break: break-all;
+    overflow-wrap: anywhere;
   }
   
   /* You may also want to adjust other elements proportionally */
@@ -182,6 +209,8 @@ blockquote {
   
   code {
     font-size: 16px; /* Reduced from 20px */
+    word-break: break-all;
+    white-space: pre-wrap;
   }
   
   sup {
@@ -275,6 +304,9 @@ a {
     color: #4EACAE;
     text-decoration: none;
     outline: none;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
 }
 
 

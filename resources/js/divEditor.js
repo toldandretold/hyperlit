@@ -387,14 +387,14 @@ export function startObserving(editableDiv) {
   });
 
   
-  // In your startObserving function
-  deletionHandler = new SelectionDeletionHandler(editableDiv, {
-    onDeleted: (nodeId) => {
-      console.log(`Selection deletion handler queueing: ${nodeId}`);
-      pendingSaves.deletions.add(nodeId);
-      debouncedBatchDelete();
-    }
-  });
+  // COMMENTED OUT FOR TESTING - SelectionDeletionHandler might be causing incorrect deletions
+  // deletionHandler = new SelectionDeletionHandler(editableDiv, {
+  //   onDeleted: (nodeId) => {
+  //     console.log(`Selection deletion handler queueing: ${nodeId}`);
+  //     pendingSaves.deletions.add(nodeId);
+  //     debouncedBatchDelete();
+  //   }
+  // });
 
   // Observe the main-content/editableDiv container
   observer.observe(editableDiv, {
