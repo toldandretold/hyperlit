@@ -61,6 +61,7 @@ const removedNodeIds = new Set(); // Track IDs of removed nodes.
 let observer;
 let documentChanged = false;
 let debounceTimer = null;
+let spanCleanupInterval;
 
 let observedChunks = new Map(); // chunkId -> chunk element
 let deletionHandler = null;
@@ -306,6 +307,35 @@ export function startObserving(editableDiv) {
   initializeCurrentChunks(editableDiv);
 
   enterKeyHandler = new EnterKeyHandler();
+
+  // 🔥 PERIODIC SPAN ANNIHILATION - runs every 3 seconds
+  function periodicSpanCleanup() {
+    const spans = document.querySelectorAll('span[style]');
+    if (spans.length > 0) {
+      console.log(`🔥 PERIODIC CLEANUP: Found ${spans.length} styled spans to destroy`);
+      spans.forEach(span => {
+        console.log(`🔥 PERIODIC: Destroying span with style`, span);
+        
+        // Preserve text content but remove the span wrapper
+        if (span.textContent.trim()) {
+          const textNode = document.createTextNode(span.textContent);
+          if (span.parentNode && document.contains(span.parentNode)) {
+            span.parentNode.insertBefore(textNode, span);
+          }
+        }
+        
+        if (document.contains(span)) {
+          span.remove();
+        }
+      });
+    }
+  }
+
+  // Start periodic cleanup
+  if (spanCleanupInterval) {
+    clearInterval(spanCleanupInterval);
+  }
+  spanCleanupInterval = setInterval(periodicSpanCleanup, 3000);
 
   // Create observer for the main-content container
   observer = new MutationObserver(async (mutations) => {
@@ -781,6 +811,29 @@ async function processChunkMutations(chunk, mutations) {
         }
       }
     }
+    
+    // 🔥 Handle attribute mutations that might be creating styled elements
+    if (mutation.type === "attributes" && mutation.target.nodeType === Node.ELEMENT_NODE) {
+      const element = mutation.target;
+      
+      // If a SPAN gets a style attribute, destroy it immediately
+      if (element.tagName === 'SPAN' && mutation.attributeName === 'style') {
+        console.log(`🔥 DESTROYING SPAN that gained style attribute`, element);
+        
+        // Preserve text content but remove the span wrapper
+        if (element.textContent.trim()) {
+          const textNode = document.createTextNode(element.textContent);
+          if (element.parentNode && document.contains(element.parentNode)) {
+            element.parentNode.insertBefore(textNode, element);
+          }
+        }
+        
+        if (document.contains(element)) {
+          element.remove();
+        }
+        continue; // Skip to next mutation
+      }
+    }
 
     // Skip any childList where all added nodes are arrow-icons
     if (mutation.type === "childList") {
@@ -814,6 +867,51 @@ async function processChunkMutations(chunk, mutations) {
           if (node.id && node.id.startsWith('hypercite_')) {
             console.log(`✍️ Ignoring standalone hypercite mutation for ${node.id}. It will be saved with its parent.`);
             return; // Skip to the next node
+          }
+
+          // 🔥 BROWSER BULLSHIT ANNIHILATION: Kill spans and styled formatting elements
+          if (node.tagName === 'SPAN') {
+            console.log(`🔥 DESTROYING SPAN tag - NO SPANS ALLOWED`);
+            
+            // Preserve text content but remove the span wrapper
+            if (node.textContent.trim()) {
+              const textNode = document.createTextNode(node.textContent);
+              node.parentNode.insertBefore(textNode, node);
+            }
+            
+            node.remove();
+            return; // Skip all further processing for this node
+          }
+
+          // 🔥 Kill I/B/EM/STRONG tags with suspicious inline styles (browser-generated)
+          if (['I', 'B', 'EM', 'STRONG'].includes(node.tagName) && node.style && node.style.length > 0) {
+            // Check for browser-generated style patterns
+            const hasSuspiciousStyles = node.style.fontSize || 
+                                      node.style.fontWeight || 
+                                      node.style.letterSpacing ||
+                                      node.style.wordSpacing;
+            
+            if (hasSuspiciousStyles) {
+              console.log(`🔥 DESTROYING browser-generated ${node.tagName} with inline styles`);
+              
+              // Create a clean version without the inline styles but preserve the tag
+              const cleanElement = document.createElement(node.tagName.toLowerCase());
+              
+              // Copy attributes except style
+              Array.from(node.attributes).forEach(attr => {
+                if (attr.name !== 'style') {
+                  cleanElement.setAttribute(attr.name, attr.value);
+                }
+              });
+              
+              // Move text content
+              cleanElement.textContent = node.textContent;
+              
+              // Replace the styled element with the clean one
+              node.parentNode.insertBefore(cleanElement, node);
+              node.remove();
+              return; // Skip all further processing for this node
+            }
           }
 
           ensureNodeHasValidId(node);
@@ -905,6 +1003,12 @@ export function stopObserving() {
   if (observer) {
     observer.disconnect();
     observer = null;
+  }
+  
+  // Clean up periodic span cleanup
+  if (spanCleanupInterval) {
+    clearInterval(spanCleanupInterval);
+    spanCleanupInterval = null;
   }
 
   if (enterKeyHandler) {

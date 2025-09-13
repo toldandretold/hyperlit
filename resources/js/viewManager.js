@@ -27,6 +27,7 @@ import {
   initializeSelectionHandler,
   destroySelectionHandler,
 } from "./selectionHandler.js";
+import { SelectionDeletionHandler } from "./selectionDelete.js";
 import {
   loadHyperText,
   pendingFirstChunkLoadedPromise,
@@ -37,6 +38,7 @@ import {
 // State management and cleanup are correct.
 let activeNavButtons = null;
 let activeKeyboardManager = null;
+let activeSelectionDeletionHandler = null;
 
 // Handle page restoration from browser cache (bfcache) - critical for mobile and desktop
 window.addEventListener("pageshow", (event) => {
@@ -52,7 +54,6 @@ window.addEventListener("pageshow", (event) => {
       setTimeout(async () => {
         try {
           console.log("🔧 Reinitializing ALL interactive features after cache restore...");
-
           const currentBookId = book;
           
           // ✅ CRITICAL: Use the same helper function from initializePage.js
@@ -67,7 +68,6 @@ window.addEventListener("pageshow", (event) => {
             }
           } catch (importError) {
             console.warn("⚠️ Could not import centralized initializer, using fallback:", importError);
-
             
             // Fallback to manual initialization
             const [
@@ -155,6 +155,10 @@ function cleanupReaderView() {
   if (activeKeyboardManager) {
     activeKeyboardManager.destroy();
     activeKeyboardManager = null;
+  }
+  if (activeSelectionDeletionHandler) {
+    activeSelectionDeletionHandler.destroy();
+    activeSelectionDeletionHandler = null;
   }
   destroyEditToolbar();
   stopObserving();
@@ -484,6 +488,20 @@ export async function initializeReaderView() {
     initializeHighlightingControls(currentBookId);
     initializeHypercitingControls(currentBookId);
     initializeSelectionHandler();
+    
+    // Initialize SelectionDeletionHandler for handling selection deletions
+    const editorContainer = document.querySelector('.main-content');
+    if (editorContainer) {
+      activeSelectionDeletionHandler = new SelectionDeletionHandler(editorContainer, {
+        onDeleted: (nodeId) => {
+          console.log(`✅ SelectionDeletionHandler: Node ${nodeId} deleted`);
+        }
+      });
+      console.log("✅ SelectionDeletionHandler initialized");
+    } else {
+      console.warn("❌ Could not find .main-content for SelectionDeletionHandler");
+    }
+    
     initEditToolbar({
       toolbarId: "edit-toolbar",
       editableSelector: ".main-content[contenteditable='true']",

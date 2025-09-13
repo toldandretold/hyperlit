@@ -683,7 +683,6 @@ async function buildHyperciteContent(contentType) {
     }
 
     let html = `<div class="hypercites-section">\n<h1>Cited By</h1>\n`;
-
     
     // Collect all citedIN links from all hypercites
     const allCitedINLinks = [];

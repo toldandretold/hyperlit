@@ -77,7 +77,8 @@ export class SelectionDeletionHandler {
     
     let node;
     while (node = walker.nextNode()) {
-      if (node.hasAttribute('data-block-id')) {
+      // Check for numerical IDs instead of data-block-id
+      if (node.id && /^\d+$/.test(node.id)) {
         elements.push(node);
       }
     }
