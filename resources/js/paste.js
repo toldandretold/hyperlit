@@ -1200,6 +1200,7 @@ async function handleJsonPaste(
 
   console.log("Successfully merged paste with tail chunks");
 
+
   return toWrite;
 }
 
@@ -1264,8 +1265,6 @@ async function handleHypercitePaste(event) {
   let quotedText = "";
 
   // Method 1: Try regex to extract quoted text from raw HTML
-
-  // Updated regex to handle mixed quote types (regular + smart quotes)
 
   const quoteMatch = clipboardHtml.match(/[''""]([^]*?)[''""](?=<a|$)/);
   if (quoteMatch) {

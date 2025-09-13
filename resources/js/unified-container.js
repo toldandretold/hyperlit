@@ -580,7 +580,6 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
     }
 
     let html = `<div class="highlights-section">\n<br>\n<h1>Hyperlights</h1>\n<br>\n`;
-
     let firstUserAnnotation = null;
 
     validResults.forEach((h, index) => {
