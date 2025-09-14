@@ -434,7 +434,6 @@ function assimilateHTML(rawHtml) {
     }
   });
 
-
   // 6) Final cleanup: Wrap any remaining loose inline elements
   const looseInlineElements = Array.from(body.childNodes).filter(node => 
     node.nodeType === Node.ELEMENT_NODE && 
@@ -447,7 +446,6 @@ function assimilateHTML(rawHtml) {
     element.parentNode.insertBefore(wrapper, element);
     wrapper.appendChild(element);
   });
-
 
   return { html: body.innerHTML, format: formatType };
 }
@@ -1131,7 +1129,6 @@ async function handleJsonPaste(
   }
 
   // --- 3. DATA LAYER: Calculate all database changes ---
-
   const { book, beforeNodeId, afterNodeId } = insertionPoint;
   const textBlocks = isHtmlContent
     ? parseHtmlToBlocks(processedContent)
@@ -1196,8 +1193,7 @@ async function handleJsonPaste(
       queueForSync("nodeChunks", chunk.startLine, "update", chunk);
     }
   });
-  
-
+ 
   console.log("Successfully merged paste with tail chunks");
 
 
@@ -1523,7 +1519,6 @@ function parseHtmlToBlocks(htmlContent) {
     } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName && !isBlockElement(node.tagName)) {
       // This is a loose inline element (a, span, i, b, etc.) - wrap it in a <p> tag.
       blocks.push(`<p>${node.outerHTML}</p>`);
-
     }
   });
   

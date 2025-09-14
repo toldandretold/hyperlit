@@ -81,7 +81,7 @@ window.addEventListener("pageshow", (event) => {
               import('./hyperLights.js'),
               import('./hyperCites.js')
             ]);
-
+            
             // Initialize all features
             footnotesModule.initializeFootnoteCitationListeners();
             if (footnotesModule.refManager && footnotesModule.refManager.rebindElements) {
@@ -95,7 +95,6 @@ window.addEventListener("pageshow", (event) => {
             
             console.log("✅ Fallback initialization completed");
           }
-
           
           // Reinitialize nav buttons if they exist and aren't already active
           const navButtonsContainer = document.querySelector('#nav-buttons');
