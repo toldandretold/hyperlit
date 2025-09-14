@@ -17,6 +17,77 @@ function extractFootnotesFromHTML(htmlContent, bookId, formatType = 'general') {
   
   console.log(`📝 Extracting footnotes using ${formatType} format strategy`);
 
+  // --- MARKDOWN FOOTNOTE HANDLING (for markdown converted to HTML) ---
+  // First, find all [^1] and [1] references in text to know what footnotes we need
+  const allTextContent = tempDiv.textContent;
+  const footnoteRefs = new Set();
+  const refPattern = /\[\^?(\d+)\]/g;
+  let refMatch;
+  while ((refMatch = refPattern.exec(allTextContent)) !== null) {
+    footnoteRefs.add(refMatch[1]);
+  }
+  
+  if (footnoteRefs.size > 0) {
+    console.log(`📝 Found markdown footnote references: [${Array.from(footnoteRefs).join(', ')}]`);
+    
+    // Look for footnote definitions [^1]: content in paragraphs
+    const allParagraphs = tempDiv.querySelectorAll('p');
+    allParagraphs.forEach(p => {
+      const text = p.textContent.trim();
+      
+      // Match patterns like [^1]: content or [1]: content at the start of paragraphs
+      const markdownFootnoteMatch = text.match(/^\[\^?(\d+)\]\s*:\s*(.+)$/s);
+      
+      if (markdownFootnoteMatch) {
+        const identifier = markdownFootnoteMatch[1];
+        const content = markdownFootnoteMatch[2].trim();
+        
+        console.log(`📝 FOUND markdown footnote definition: [^${identifier}]: ${content.substring(0, 50)}...`);
+        
+        if (identifier && content) {
+          const uniqueId = `${bookId}Fn${Date.now()}${identifier}`;
+          const uniqueRefId = `${bookId}Fnref${Date.now()}${identifier}`;
+          
+          // Process the content HTML (may contain links), remove the [^1]: part
+          const processedContent = p.innerHTML.replace(/^\[\^?\d+\]\s*:\s*/, '');
+          
+          footnotes.push({
+            footnoteId: uniqueId,
+            content: processedContent,
+            originalIdentifier: identifier,
+            refId: uniqueRefId,
+            type: 'markdown-html'
+          });
+          
+          footnoteMappings.set(identifier, { uniqueId, uniqueRefId });
+          
+          // Remove this paragraph from the DOM so it doesn't appear in main content
+          p.remove();
+          console.log(`📝 Mapped markdown footnote ${identifier} to ${uniqueId}`);
+        }
+      }
+    });
+    
+    // If we found references but no definitions, create placeholders
+    footnoteRefs.forEach(identifier => {
+      if (!footnoteMappings.has(identifier)) {
+        const uniqueId = `${bookId}Fn${Date.now()}${identifier}`;
+        const uniqueRefId = `${bookId}Fnref${Date.now()}${identifier}`;
+        
+        footnotes.push({
+          footnoteId: uniqueId,
+          content: `Footnote ${identifier} (definition not found)`,
+          originalIdentifier: identifier,
+          refId: uniqueRefId,
+          type: 'markdown-placeholder'
+        });
+        
+        footnoteMappings.set(identifier, { uniqueId, uniqueRefId });
+        console.log(`📝 Created placeholder for markdown footnote ${identifier}`);
+      }
+    });
+  }
+
   // --- NEW HEURISTIC-BASED PARAGRAPH STRATEGY ---
 
   // 1. Find all reference callers (the <sup> tags) to see what we need to find.
@@ -238,16 +309,84 @@ export function extractFootnotes(htmlContent, bookId, isHTMLContent = false, for
     }
   });
   
-  // 2. Handle markdown-style footnotes [^1]: content
+  // 2. Handle markdown footnotes that weren't processed by marked()
+  // First, find all [^1] and [1] references in text to know what footnotes we need  
   const allText = tempDiv.textContent;
-  const footnotePattern = /^\s*(\[\^?(\d+)\]|\^(\d+))\s*[:.]\s*(.*?)(?=^\s*(\[\^?\d+\]|\^\d+)|$)/gms;
+  const footnoteRefs = new Set();
+  const refPattern = /\[\^?(\d+)\]/g;
   let match;
+  while ((match = refPattern.exec(allText)) !== null) {
+    footnoteRefs.add(match[1]);
+  }
   
-  while ((match = footnotePattern.exec(allText)) !== null) {
-    const identifier = match[2] || match[3]; // Extract digit from either group
-    const content = match[4].trim();
+  console.log(`📝 Found footnote references: [${Array.from(footnoteRefs).join(', ')}]`);
+  
+  // Now look for footnote definitions [^1]: content in paragraphs
+  const allParagraphs = tempDiv.querySelectorAll('p');
+  allParagraphs.forEach(p => {
+    const text = p.textContent.trim();
     
-    if (identifier && content) {
+    // Match patterns like [^1]: content or [1]: content at the start of paragraphs
+    const markdownFootnoteMatch = text.match(/^\[\^?(\d+)\]\s*:\s*(.+)$/s);
+    
+    if (markdownFootnoteMatch) {
+      const identifier = markdownFootnoteMatch[1];
+      const content = markdownFootnoteMatch[2].trim();
+      
+      console.log(`📝 FOUND footnote definition: [^${identifier}]: ${content.substring(0, 50)}...`);
+      
+      if (identifier && content) {
+        const uniqueId = `${bookId}Fn${Date.now()}${identifier}`;
+        const uniqueRefId = `${bookId}Fnref${Date.now()}${identifier}`;
+        
+        // Process the content HTML (may contain links), remove the [^1]: part
+        const processedContent = p.innerHTML.replace(/^\[\^?\d+\]\s*:\s*/, '');
+        
+        footnotes.push({
+          footnoteId: uniqueId,
+          content: processedContent,
+          originalIdentifier: identifier,
+          refId: uniqueRefId,
+          type: 'markdown-html'
+        });
+        
+        footnoteMappings.set(identifier, { uniqueId, uniqueRefId });
+        
+        // Remove this paragraph from the DOM so it doesn't appear in main content
+        p.remove();
+        console.log(`📝 Mapped footnote ${identifier} to ${uniqueId}`);
+      }
+    }
+  });
+  
+  // If we found references but no definitions, create placeholders
+  footnoteRefs.forEach(identifier => {
+    if (!footnoteMappings.has(identifier)) {
+      const uniqueId = `${bookId}Fn${Date.now()}${identifier}`;
+      const uniqueRefId = `${bookId}Fnref${Date.now()}${identifier}`;
+      
+      footnotes.push({
+        footnoteId: uniqueId,
+        content: `Footnote ${identifier} (definition not found)`,
+        originalIdentifier: identifier,
+        refId: uniqueRefId,
+        type: 'markdown-placeholder'
+      });
+      
+      footnoteMappings.set(identifier, { uniqueId, uniqueRefId });
+      console.log(`📝 Created placeholder for footnote ${identifier}`);
+    }
+  });
+  
+  // Fallback: Handle markdown-style footnotes in plain text (original logic)
+  const footnotePattern = /^\s*(\[\^?(\d+)\]|\^(\d+))\s*[:.]\s*(.*?)(?=^\s*(\[\^?\d+\]|\^\d+)|$)/gms;
+  let fallbackMatch;
+  
+  while ((fallbackMatch = footnotePattern.exec(allText)) !== null) {
+    const identifier = fallbackMatch[2] || fallbackMatch[3]; // Extract digit from either group
+    const content = fallbackMatch[4].trim();
+    
+    if (identifier && content && !footnoteMappings.has(identifier)) {
       const uniqueId = `${bookId}Fn${Date.now()}${identifier}`;
       const uniqueRefId = `${bookId}Fnref${Date.now()}${identifier}`;
       
@@ -1069,8 +1208,8 @@ export function processFootnoteReferences(htmlContent, footnoteMappings) {
     const text = textNode.textContent;
     const replacements = [];
     
-    // Handle markdown-style references [^1]
-    const footnoteRefPattern = /\[\^?(\w+)\]/g;
+    // Handle markdown-style references [^1] and [1] - improved pattern
+    const footnoteRefPattern = /\[\^?(\d+)\]/g;
     let match;
     
     while ((match = footnoteRefPattern.exec(text)) !== null) {
@@ -1089,6 +1228,10 @@ export function processFootnoteReferences(htmlContent, footnoteMappings) {
           end: match.index + match[0].length,
           replacement: supHTML
         });
+        
+        console.log(`🔗 Linking footnote reference [${match[0]}] to ${mapping.uniqueId}`);
+      } else {
+        console.log(`⚠️ No mapping found for footnote reference [${match[0]}]`);
       }
     }
     
