@@ -217,4 +217,45 @@ class AuthController extends Controller
             'lax'                // sameSite
         );
     }
+
+    public function associateContent(Request $request)
+    {
+        $request->validate([
+            'anonymous_token' => 'required|string|uuid',
+        ]);
+
+        $user = $request->user();
+        $anonymousToken = $request->input('anonymous_token');
+
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        // CORRECTED: Update only the models that have creator_token, based on the schema.
+        $modelsToUpdate = [
+            \App\Models\PgLibrary::class,
+            \App\Models\PgHyperlight::class,
+            \App\Models\PgHypercite::class,
+        ];
+
+        try {
+            DB::transaction(function () use ($modelsToUpdate, $anonymousToken, $user) {
+                foreach ($modelsToUpdate as $modelClass) {
+                    // CORRECTED: Only update the creator column, leaving creator_token intact.
+                    $modelClass::where('creator_token', $anonymousToken)
+                        ->update([
+                            'creator' => $user->name,
+                        ]);
+                }
+            });
+
+            return response()->json(['success' => true, 'message' => 'Content successfully associated.']);
+
+        } catch (\Exception $e) {
+            // Log the specific error for debugging
+            \Log::error('Content association failed: ' . $e->getMessage() . '\n' . $e->getTraceAsString());
+            
+            return response()->json(['success' => false, 'message' => 'An error occurred during content association.'], 500);
+        }
+    }
 }

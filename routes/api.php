@@ -19,6 +19,8 @@ use App\Http\Controllers\AuthController;
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/register', [AuthController::class, 'register']);
 
+Route::post('/auth/associate-content', [AuthController::class, 'associateContent'])->middleware('auth:sanctum');
+
 Route::get('/auth/session-info', [AuthController::class, 'getSessionInfo']);
 
 Route::post('/anonymous-session', [AuthController::class, 'createAnonymousSession']);

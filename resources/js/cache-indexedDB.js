@@ -2016,6 +2016,44 @@ export async function syncHyperciteToPostgreSQL(hypercites) {
   return out;
 }
 
+/**
+ * Clears all data from all object stores in the IndexedDB.
+ * This is useful for logging out or resetting the application state.
+ */
+export async function clearDatabase() {
+  console.log("🧹 Clearing all IndexedDB data...");
+  try {
+    const db = await openDatabase();
+    const storeNames = Array.from(db.objectStoreNames);
+    
+    if (storeNames.length === 0) {
+      console.log(" IndexedDB is already empty.");
+      return;
+    }
+
+    const tx = db.transaction(storeNames, "readwrite");
+    const promises = storeNames.map(name => {
+      return new Promise((resolve, reject) => {
+        const store = tx.objectStore(name);
+        const request = store.clear();
+        request.onsuccess = () => {
+          console.log(`  - Cleared store: ${name}`);
+          resolve();
+        };
+        request.onerror = (event) => {
+          console.error(`  - Failed to clear store: ${name}`, event.target.error);
+          reject(event.target.error);
+        };
+      });
+    });
+
+    await Promise.all(promises);
+    console.log("✅ All IndexedDB data has been cleared.");
+  } catch (error) {
+    console.error("❌ Error during IndexedDB clearing:", error);
+  }
+}
+
 async function addCitationToHypercite(book, startLine, hyperciteId, newCitation) {
   return new Promise((resolve, reject) => {
     const dbName = "MarkdownDB";
