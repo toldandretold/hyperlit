@@ -94,6 +94,11 @@ Route::middleware(['author', 'throttle:30,1'])->group(function () {
     );
 
     Route::post(
+        '/db/hyperlights/hide',
+        [DbHyperlightController::class, 'hide']
+    );
+
+    Route::post(
         '/db/hypercites/upsert',
         [DbHyperciteController::class, 'upsert']
     );

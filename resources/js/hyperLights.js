@@ -1348,6 +1348,112 @@ export async function deleteHighlightById(highlightId) {
 }
 
 /**
+ * Hide a highlight by ID - same as delete but syncs as hide operation
+ * Removes from IndexedDB and DOM but sets hidden=true in database instead of deleting
+ */
+export async function hideHighlightById(highlightId) {
+  console.log(`🙈 Hiding highlight by ID: ${highlightId}`);
+  
+  try {
+    // Get the highlight data first to determine the book
+    const { openDatabase } = await import('./cache-indexedDB.js');
+    const db = await openDatabase();
+    const tx = db.transaction("hyperlights", "readonly");
+    const store = tx.objectStore("hyperlights");
+    const idx = store.index("hyperlight_id");
+    
+    const getRequest = idx.get(highlightId);
+    let highlightData = null;
+    
+    await new Promise((resolve, reject) => {
+      getRequest.onsuccess = () => {
+        highlightData = getRequest.result;
+        resolve();
+      };
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+    
+    if (!highlightData) {
+      throw new Error(`Highlight not found: ${highlightId}`);
+    }
+    
+    const bookId = highlightData.book;
+    console.log(`📚 Found highlight in book: ${bookId}`);
+    
+    // Remove the highlight class from DOM marks, but preserve other classes (same as delete)
+    const markElements = document.querySelectorAll(`mark.${highlightId}`);
+    const affectedNodeIds = new Set();
+    
+    markElements.forEach(mark => {
+      // Remove just this highlight's class
+      mark.classList.remove(highlightId);
+      
+      // If this was the main mark (with id), remove the id too
+      if (mark.id === highlightId) {
+        mark.removeAttribute('id');
+      }
+      
+      // If no more highlight classes remain, remove the mark entirely
+      const remainingHighlights = Array.from(mark.classList).filter(cls => cls.startsWith('HL_'));
+      
+      if (remainingHighlights.length === 0) {
+        // No more highlights on this mark - replace with text
+        const parent = mark.parentNode;
+        parent.replaceChild(document.createTextNode(mark.textContent), mark);
+        parent.normalize();
+      } else {
+        // Still has other highlights - just update the styling
+        console.log(`Mark still has highlights: ${remainingHighlights.join(', ')}`);
+        // Update highlight count and intensity if needed
+        const highlightCount = remainingHighlights.length;
+        mark.setAttribute('data-highlight-count', highlightCount);
+        const intensity = Math.min(highlightCount / 5, 1);
+        mark.style.setProperty('--highlight-intensity', intensity);
+      }
+      
+      // Track which nodes were affected for re-applying highlights
+      const container = mark.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id]');
+      if (container && container.id) {
+        affectedNodeIds.add(container.id);
+      }
+    });
+    
+    // For hide: Only remove from IndexedDB locally, DON'T touch PostgreSQL nodeChunks
+    // Remove from local IndexedDB hyperlights table
+    const hiddenHyperlight = await removeHighlightFromHyperlights(highlightId);
+    
+    // Remove from local IndexedDB nodeChunks (but don't sync this change to PostgreSQL)
+    await removeHighlightFromNodeChunks(bookId, highlightId);
+    
+    // Update book timestamp locally
+    const { updateBookTimestamp } = await import('./cache-indexedDB.js');
+    await updateBookTimestamp(bookId);
+    
+    // Queue ONLY the hide operation for sync to PostgreSQL - no nodeChunk updates
+    const { queueForSync } = await import('./cache-indexedDB.js');
+    if (hiddenHyperlight) {
+      // Pass the highlight data for the sync to work
+      queueForSync("hyperlights", highlightId, "hide", hiddenHyperlight);
+    }
+    
+    // DON'T queue nodeChunk updates - PostgreSQL nodeChunks should keep the highlight data
+    
+    console.log(`✅ Successfully hidden highlight: ${highlightId}`);
+    console.log(`📝 Affected nodes: ${Array.from(affectedNodeIds).join(', ')}`);
+    
+    return {
+      success: true,
+      affectedNodes: Array.from(affectedNodeIds),
+      hiddenHighlight: hiddenHyperlight
+    };
+    
+  } catch (error) {
+    console.error(`❌ Error hiding highlight ${highlightId}:`, error);
+    throw error;
+  }
+}
+
+/**
  * Re-processes highlights for specific affected nodes after highlight deletion
  * This ensures overlapping highlights are correctly recalculated and displayed
  */

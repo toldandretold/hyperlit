@@ -598,6 +598,17 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
         </div>`;
     }
 
+    // Check if current user can edit any of the books these highlights belong to
+    const { canUserEditBook } = await import('./auth.js');
+    const bookPermissions = new Map();
+    
+    // Get unique book IDs and check permissions
+    const uniqueBooks = [...new Set(validResults.map(h => h.book))];
+    for (const bookId of uniqueBooks) {
+      const canEdit = await canUserEditBook(bookId);
+      bookPermissions.set(bookId, canEdit);
+    }
+
     let html = `<div class="highlights-section">\n<br>\n<h1>Hyperlights</h1>\n<br>\n`;
     let firstUserAnnotation = null;
 
@@ -614,14 +625,27 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
       
       // Add delete button if user has permission
       if (isUserHighlight) {
-        html += `      <button class="delete-highlight-btn" data-highlight-id="${h.hyperlight_id}" data-action="delete" title="Delete highlight" type="button">\n`;
+        // User's own highlight - full delete
+        html += `      <button class="delete-highlight-btn" data-highlight-id="${h.hyperlight_id}" data-action="delete" title="Delete your highlight (hidden for everyone)" type="button">\n`;
         html += `        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">\n`;
         html += `          <path d="M3 6h18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>\n`;
         html += `          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>\n`;
         html += `        </svg>\n`;
         html += `      </button>\n`;
+      } else {
+        // Other's highlight - check if current user can edit this book (same logic as editButton.js)
+        const canEditThisBook = bookPermissions.get(h.book);
+        
+        if (canEditThisBook) {
+          // User can edit this book - show hide button for others' highlights
+          html += `      <button class="delete-highlight-btn" data-highlight-id="${h.hyperlight_id}" data-action="hide" title="Delete highlight (will be hidden for everyone)" type="button">\n`;
+          html += `        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">\n`;
+          html += `          <path d="M3 6h18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>\n`;
+          html += `          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>\n`;
+          html += `        </svg>\n`;
+          html += `      </button>\n`;
+        }
       }
-      // TODO: Add hide button for book owners (need to check book ownership)
       
       html += `    </div>\n`;
       html += `  </div>\n`;
@@ -1027,10 +1051,12 @@ async function handleHighlightDelete(event) {
       // Full delete - import delete functionality from hyperLights.js
       const { deleteHighlightById } = await import('./hyperLights.js');
       await deleteHighlightById(highlightId);
+    } else if (action === 'hide') {
+      // Hide - same as delete but sync as hide operation instead of delete
+      const { hideHighlightById } = await import('./hyperLights.js');
+      await hideHighlightById(highlightId);
     } else {
-      // Hide - set hidden flag to true
-      // TODO: Implement hide functionality
-      console.log('Hide functionality not yet implemented');
+      console.log('Unknown action:', action);
     }
     
     // Check if there are any remaining highlights in the container
@@ -1051,6 +1077,68 @@ async function handleHighlightDelete(event) {
     // On error, we should refresh the container to restore the deleted UI element
     // This is a fallback in case the backend operation failed
     location.reload();
+  }
+}
+
+/**
+ * Hide a highlight by setting the hidden flag in the database
+ */
+async function hideHighlight(highlightId) {
+  try {
+    console.log(`🙈 Hiding highlight: ${highlightId}`);
+    
+    // Get highlight data to determine book
+    const { openDatabase } = await import('./cache-indexedDB.js');
+    const db = await openDatabase();
+    const tx = db.transaction("hyperlights", "readonly");
+    const store = tx.objectStore("hyperlights");
+    const idx = store.index("hyperlight_id");
+    
+    const highlightData = await new Promise((resolve, reject) => {
+      const request = idx.get(highlightId);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    
+    if (!highlightData) {
+      throw new Error(`Highlight not found: ${highlightId}`);
+    }
+    
+    const bookId = highlightData.book;
+    console.log(`📚 Hiding highlight in book: ${bookId}`);
+    
+    // Send hide request to server
+    const response = await fetch('/api/db/hyperlights/hide', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+      },
+      body: JSON.stringify({
+        data: [{
+          book: bookId,
+          hyperlight_id: highlightId
+        }]
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.message || 'Hide operation failed');
+    }
+    
+    console.log(`✅ Successfully hidden highlight: ${highlightId}`);
+    
+    // Note: We don't need to remove from IndexedDB for hide operation
+    // The highlight should remain in IndexedDB but be filtered out during rendering
+    
+  } catch (error) {
+    console.error(`❌ Error hiding highlight ${highlightId}:`, error);
+    throw error;
   }
 }
 

@@ -20,13 +20,15 @@ class PgHyperlight extends Model
         'creator',
         'creator_token',
         'time_since',
-        'raw_json'
+        'raw_json',
+        'hidden'
     ];
 
     protected $casts = [
         'raw_json' => 'array',
         'endChar' => 'integer',
-        'startChar' => 'integer'
+        'startChar' => 'integer',
+        'hidden' => 'boolean'
     ];
 }
  
