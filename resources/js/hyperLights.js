@@ -20,6 +20,9 @@ import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitConta
 let highlightId; 
 let highlightLazyLoader;
 
+// Track whether document listeners are attached
+let documentListenersAttached = false;
+
 // Legacy container manager - now using unified system
 let highlightManager = null;
 
@@ -568,9 +571,15 @@ export function initializeHighlightingControls(currentBookId) {
   }
 
   // --- Attach Listeners for Showing/Hiding the Buttons ---
-  // These can be re-attached safely.
-  document.addEventListener("mouseup", handleSelection);
-  document.addEventListener("touchend", () => setTimeout(handleSelection, 100));
+  // Check if document listeners are already attached
+  if (!documentListenersAttached) {
+    document.addEventListener("mouseup", handleSelection);
+    document.addEventListener("touchend", () => setTimeout(handleSelection, 100));
+    documentListenersAttached = true;
+    console.log("✅ Document-level highlighting listeners attached");
+  } else {
+    console.log("🚫 Document-level highlighting listeners already attached, skipping");
+  }
 
   // --- Attach Listeners for the Action Buttons ---
   // We pass the currentBookId into the handlers to avoid stale state.
@@ -883,16 +892,41 @@ export function attachPlaceholderBehavior(highlightId) {
 
 // Helper function to bind click and touchstart events
 export function addTouchAndClickListener(element, handler) {
-  element.addEventListener("mousedown", function (event) {
+  // Check if we've already attached listeners to prevent duplicates
+  if (element._listenersAttached) {
+    console.log("🚫 Listeners already attached to element, skipping");
+    return;
+  }
+  
+  // Add a flag to prevent duplicate processing within a short time window
+  let isProcessing = false;
+  
+  const wrappedHandler = function(event) {
+    if (isProcessing) {
+      console.log("🚫 Handler already processing, ignoring duplicate event");
+      return;
+    }
+    
+    isProcessing = true;
     event.preventDefault();
     event.stopPropagation();
-    handler(event);
-  });
-  element.addEventListener("touchstart", function (event) {
-    event.preventDefault();
-    event.stopPropagation();
-    handler(event);
-  });
+    
+    try {
+      handler(event);
+    } finally {
+      // Reset the flag after a short delay
+      setTimeout(() => {
+        isProcessing = false;
+      }, 1000); // 1 second cooldown
+    }
+  };
+  
+  // Add the listeners
+  element.addEventListener("mousedown", wrappedHandler);
+  element.addEventListener("touchstart", wrappedHandler);
+  
+  // Mark that we've attached listeners using a custom property
+  element._listenersAttached = true;
 }
 
 

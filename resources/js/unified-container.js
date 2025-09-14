@@ -8,6 +8,9 @@ import { getCurrentUserId } from "./auth.js";
 // Create the unified container manager
 let hyperlitManager = null;
 
+// Debounce mechanism to prevent duplicate calls
+let isProcessingClick = false;
+
 export function initializeHyperlitManager() {
   console.log("🔄 Initializing Unified Hyperlit Container Manager...");
   
@@ -50,6 +53,12 @@ export function openHyperlitContainer(content) {
     return;
   }
   
+  // Clear any existing content first to prevent duplicates
+  const existingScroller = container.querySelector('.scroller');
+  if (existingScroller) {
+    existingScroller.innerHTML = '';
+  }
+  
   // Open the container using the manager FIRST
   console.log("📂 Opening container with manager first...");
   hyperlitManager.openContainer();
@@ -59,17 +68,14 @@ export function openHyperlitContainer(content) {
     const scroller = container.querySelector('.scroller');
     if (scroller) {
       console.log(`📝 Setting content in scroller AFTER opening (${content.length} chars)`);
+      // Clear content again just before setting to ensure no duplicates
+      scroller.innerHTML = '';
       scroller.innerHTML = content;
       console.log(`✅ Content set after opening. Scroller innerHTML length: ${scroller.innerHTML.length}`);
-      
-      // Double-check the content is actually there
-      setTimeout(() => {
-        const recheckScroller = document.querySelector('#hyperlit-container .scroller');
-        console.log(`🔍 Final recheck - Scroller innerHTML length: ${recheckScroller ? recheckScroller.innerHTML.length : 'SCROLLER NOT FOUND'}`);
-        console.log(`🔍 Final recheck - Scroller content:`, recheckScroller ? recheckScroller.innerHTML : 'NO CONTENT');
-      }, 50);
     } else {
       console.warn("⚠️ No scroller found in hyperlit-container after opening, setting content directly");
+      // Clear and set content directly
+      container.innerHTML = '';
       container.innerHTML = content;
     }
   }, 50);
@@ -112,6 +118,14 @@ function formatRelativeTime(timeSince) {
  * @param {Array} newHighlightIds - Optional array of new highlight IDs
  */
 export async function handleUnifiedContentClick(element, highlightIds = null, newHighlightIds = []) {
+  // Prevent duplicate processing
+  if (isProcessingClick) {
+    console.log("🚫 Click already being processed, ignoring duplicate");
+    return;
+  }
+  
+  isProcessingClick = true;
+  
   try {
     console.log("🎯 Unified content click handler triggered", element);
     
@@ -138,6 +152,11 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     
   } catch (error) {
     console.error("❌ Error in unified content handler:", error);
+  } finally {
+    // Reset the processing flag after a short delay
+    setTimeout(() => {
+      isProcessingClick = false;
+    }, 500);
   }
 }
 
