@@ -8,8 +8,10 @@ import { getCurrentUserId } from "./auth.js";
 // Create the unified container manager
 let hyperlitManager = null;
 
+
 // Debounce mechanism to prevent duplicate calls
 let isProcessingClick = false;
+
 
 export function initializeHyperlitManager() {
   console.log("🔄 Initializing Unified Hyperlit Container Manager...");
@@ -53,12 +55,14 @@ export function openHyperlitContainer(content) {
     return;
   }
   
+
   // Clear any existing content first to prevent duplicates
   const existingScroller = container.querySelector('.scroller');
   if (existingScroller) {
     existingScroller.innerHTML = '';
   }
   
+
   // Open the container using the manager FIRST
   console.log("📂 Opening container with manager first...");
   hyperlitManager.openContainer();
@@ -68,6 +72,7 @@ export function openHyperlitContainer(content) {
     const scroller = container.querySelector('.scroller');
     if (scroller) {
       console.log(`📝 Setting content in scroller AFTER opening (${content.length} chars)`);
+
       // Clear content again just before setting to ensure no duplicates
       scroller.innerHTML = '';
       scroller.innerHTML = content;
@@ -126,6 +131,7 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
   
   isProcessingClick = true;
   
+
   try {
     console.log("🎯 Unified content click handler triggered", element);
     
@@ -157,6 +163,7 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     setTimeout(() => {
       isProcessingClick = false;
     }, 500);
+
   }
 }
 
@@ -870,23 +877,22 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
       const { attachAnnotationListener } = await import('./annotation-saver.js');
       const { addHighlightContainerPasteListener } = await import('./hyperLightsListener.js');
       const { attachPlaceholderBehavior } = await import('./hyperLights.js');
-      
       const { highlightIds } = highlightType;
-    const currentUserId = await getCurrentUserId();
+      const currentUserId = await getCurrentUserId();
     
-    // Get highlight data to determine which are editable
-    const db = await openDatabase();
-    const tx = db.transaction("hyperlights", "readonly");
-    const store = tx.objectStore("hyperlights");
-    const idx = store.index("hyperlight_id");
+      // Get highlight data to determine which are editable
+      const db = await openDatabase();
+      const tx = db.transaction("hyperlights", "readonly");
+      const store = tx.objectStore("hyperlights");
+      const idx = store.index("hyperlight_id");
 
-    const reads = highlightIds.map((id) =>
-      new Promise((res, rej) => {
-        const req = idx.get(id);
-        req.onsuccess = () => res(req.result);
-        req.onerror = () => rej(req.error);
-      })
-    );
+      const reads = highlightIds.map((id) =>
+        new Promise((res, rej) => {
+          const req = idx.get(id);
+          req.onsuccess = () => res(req.result);
+          req.onerror = () => rej(req.error);
+        })
+      );
 
     const results = await Promise.all(reads);
     let firstUserAnnotation = null;
@@ -905,7 +911,7 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
             addHighlightContainerPasteListener(highlight.hyperlight_id);
             attachPlaceholderBehavior(highlight.hyperlight_id);
           }, 100);
-          
+
           if (!firstUserAnnotation) {
             firstUserAnnotation = highlight.hyperlight_id;
           }
@@ -944,6 +950,7 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
     } catch (error) {
       console.error('Error in highlight post-actions:', error);
     }
+
   }
 }
 

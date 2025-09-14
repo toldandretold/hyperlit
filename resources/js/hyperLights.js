@@ -20,8 +20,10 @@ import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitConta
 let highlightId; 
 let highlightLazyLoader;
 
+
 // Track whether document listeners are attached
 let documentListenersAttached = false;
+
 
 // Legacy container manager - now using unified system
 let highlightManager = null;
@@ -502,7 +504,7 @@ function handleSelection() {
     return;
   }
 
-  let selectedText = window.getSelection().toString().trim();
+  let selectedText = window.getSelection().toString();
   const highlights = document.querySelectorAll('mark');
   let isOverlapping = false;
 
@@ -615,7 +617,7 @@ async function createHighlightHandler(event, bookId) {
     return;
   }
 
-  let selectedText = selection.toString().trim();
+  let selectedText = selection.toString();
   if (!selectedText) {
     console.error("⚠️ No valid text selected.");
     return;
@@ -775,7 +777,7 @@ async function deleteHighlightHandler(event, bookId) {
   console.log("Delete button clicked.");
 
   let selection = window.getSelection();
-  let selectedText = selection.toString().trim();
+  let selectedText = selection.toString();
 
   if (!selectedText) {
     console.error("No text selected to delete.");

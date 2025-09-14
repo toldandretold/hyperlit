@@ -44,6 +44,43 @@ class DbLibraryController extends Controller
         ]);
     }
 
+    /**
+     * Delete a book and all associated records. Only the owner (creator) may delete.
+     */
+    public function destroy(Request $request, string $book)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $record = DB::table('library')->where('book', $book)->first();
+        if (!$record) {
+            return response()->json(['success' => false, 'message' => 'Book not found'], 404);
+        }
+
+        if ($record->creator !== $user->name) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        DB::beginTransaction();
+        try {
+            DB::table('node_chunks')->where('book', $book)->delete();
+            DB::table('footnotes')->where('book', $book)->delete();
+            DB::table('bibliography')->where('book', $book)->delete();
+            DB::table('hyperlights')->where('book', $book)->delete();
+            DB::table('hypercites')->where('book', $book)->delete();
+            DB::table('library')->where('book', $book)->delete();
+
+            DB::commit();
+            return response()->json(['success' => true]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Delete book failed', ['book' => $book, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Delete failed'], 500);
+        }
+    }
+
 
      private function isValidAnonymousToken($token)
     {
@@ -148,6 +185,7 @@ public function upsert(Request $request)
                 $words = explode(' ', $title);
                 if (count($words) > 15) {
                     $title = implode(' ', array_slice($words, 0, 15)) . '...';
+
                 }
                 
                 // Preserve newer timestamps - never downgrade
@@ -159,6 +197,7 @@ public function upsert(Request $request)
                         'existing_timestamp' => $libraryRecord->timestamp,
                         'client_timestamp' => $data['timestamp']
                     ]);
+
                 }
                 
                 $updateData = [
@@ -235,6 +274,7 @@ public function bulkCreate(Request $request)
                     if (count($words) > 15) {
                         $title = implode(' ', array_slice($words, 0, 15)) . '...';
                     }
+
                 }
                 
                 $record = [
@@ -724,4 +764,5 @@ public function bulkCreate(Request $request)
                 ], 500);
             }
         }
+
 } 
