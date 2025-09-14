@@ -8,6 +8,11 @@ import { getCurrentUserId } from "./auth.js";
 // Create the unified container manager
 let hyperlitManager = null;
 
+
+// Debounce mechanism to prevent duplicate calls
+let isProcessingClick = false;
+
+
 export function initializeHyperlitManager() {
   console.log("🔄 Initializing Unified Hyperlit Container Manager...");
   
@@ -50,6 +55,14 @@ export function openHyperlitContainer(content) {
     return;
   }
   
+
+  // Clear any existing content first to prevent duplicates
+  const existingScroller = container.querySelector('.scroller');
+  if (existingScroller) {
+    existingScroller.innerHTML = '';
+  }
+  
+
   // Open the container using the manager FIRST
   console.log("📂 Opening container with manager first...");
   hyperlitManager.openContainer();
@@ -59,17 +72,15 @@ export function openHyperlitContainer(content) {
     const scroller = container.querySelector('.scroller');
     if (scroller) {
       console.log(`📝 Setting content in scroller AFTER opening (${content.length} chars)`);
+
+      // Clear content again just before setting to ensure no duplicates
+      scroller.innerHTML = '';
       scroller.innerHTML = content;
       console.log(`✅ Content set after opening. Scroller innerHTML length: ${scroller.innerHTML.length}`);
-      
-      // Double-check the content is actually there
-      setTimeout(() => {
-        const recheckScroller = document.querySelector('#hyperlit-container .scroller');
-        console.log(`🔍 Final recheck - Scroller innerHTML length: ${recheckScroller ? recheckScroller.innerHTML.length : 'SCROLLER NOT FOUND'}`);
-        console.log(`🔍 Final recheck - Scroller content:`, recheckScroller ? recheckScroller.innerHTML : 'NO CONTENT');
-      }, 50);
     } else {
       console.warn("⚠️ No scroller found in hyperlit-container after opening, setting content directly");
+      // Clear and set content directly
+      container.innerHTML = '';
       container.innerHTML = content;
     }
   }, 50);
@@ -112,6 +123,15 @@ function formatRelativeTime(timeSince) {
  * @param {Array} newHighlightIds - Optional array of new highlight IDs
  */
 export async function handleUnifiedContentClick(element, highlightIds = null, newHighlightIds = []) {
+  // Prevent duplicate processing
+  if (isProcessingClick) {
+    console.log("🚫 Click already being processed, ignoring duplicate");
+    return;
+  }
+  
+  isProcessingClick = true;
+  
+
   try {
     console.log("🎯 Unified content click handler triggered", element);
     
@@ -138,6 +158,12 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     
   } catch (error) {
     console.error("❌ Error in unified content handler:", error);
+  } finally {
+    // Reset the processing flag after a short delay
+    setTimeout(() => {
+      isProcessingClick = false;
+    }, 500);
+
   }
 }
 
@@ -850,25 +876,23 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
       // Import the required functions
       const { attachAnnotationListener } = await import('./annotation-saver.js');
       const { addHighlightContainerPasteListener } = await import('./hyperLightsListener.js');
-      // Note: attachPlaceholderBehavior might not exist yet, so we'll skip it for now
-      
+      const { attachPlaceholderBehavior } = await import('./hyperLights.js');
       const { highlightIds } = highlightType;
-
-    const currentUserId = await getCurrentUserId();
+      const currentUserId = await getCurrentUserId();
     
-    // Get highlight data to determine which are editable
-    const db = await openDatabase();
-    const tx = db.transaction("hyperlights", "readonly");
-    const store = tx.objectStore("hyperlights");
-    const idx = store.index("hyperlight_id");
+      // Get highlight data to determine which are editable
+      const db = await openDatabase();
+      const tx = db.transaction("hyperlights", "readonly");
+      const store = tx.objectStore("hyperlights");
+      const idx = store.index("hyperlight_id");
 
-    const reads = highlightIds.map((id) =>
-      new Promise((res, rej) => {
-        const req = idx.get(id);
-        req.onsuccess = () => res(req.result);
-        req.onerror = () => rej(req.error);
-      })
-    );
+      const reads = highlightIds.map((id) =>
+        new Promise((res, rej) => {
+          const req = idx.get(id);
+          req.onsuccess = () => res(req.result);
+          req.onerror = () => rej(req.error);
+        })
+      );
 
     const results = await Promise.all(reads);
     let firstUserAnnotation = null;
@@ -885,7 +909,7 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
           setTimeout(() => {
             attachAnnotationListener(highlight.hyperlight_id);
             addHighlightContainerPasteListener(highlight.hyperlight_id);
-            // Skip attachPlaceholderBehavior for now since it might not exist
+            attachPlaceholderBehavior(highlight.hyperlight_id);
           }, 100);
 
           if (!firstUserAnnotation) {

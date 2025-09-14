@@ -17,7 +17,6 @@ function extractFootnotesFromHTML(htmlContent, bookId, formatType = 'general') {
   
   console.log(`📝 Extracting footnotes using ${formatType} format strategy`);
 
-
   // --- MARKDOWN FOOTNOTE HANDLING (for markdown converted to HTML) ---
   // First, find all [^1] and [1] references in text to know what footnotes we need
   const allTextContent = tempDiv.textContent;
@@ -390,7 +389,6 @@ export function extractFootnotes(htmlContent, bookId, isHTMLContent = false, for
     const content = fallbackMatch[4].trim();
     
     if (identifier && content && !footnoteMappings.has(identifier)) {
-
       const uniqueId = `${bookId}Fn${Date.now()}${identifier}`;
       const uniqueRefId = `${bookId}Fnref${Date.now()}${identifier}`;
       
@@ -1237,7 +1235,6 @@ export function processFootnoteReferences(htmlContent, footnoteMappings) {
         console.log(`🔗 Linking footnote reference [${match[0]}] to ${mapping.uniqueId}`);
       } else {
         console.log(`⚠️ No mapping found for footnote reference [${match[0]}]`);
-
       }
     }
     
@@ -1457,7 +1454,6 @@ export async function processContentForFootnotesAndReferences(htmlContent, bookI
     }
   }
   
-
   return {
     processedContent,
     footnotes,
