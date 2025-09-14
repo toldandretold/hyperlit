@@ -609,7 +609,21 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
       const relativeTime = formatRelativeTime(h.time_since);
 
       html += `  <div class="author" id="${h.hyperlight_id}">\n`;
-      html += `    <b>${authorName}</b><i class="time">・${relativeTime}</i>\n`;
+      html += `    <div style="display: flex; justify-content: space-between; align-items: center;">\n`;
+      html += `      <div><b>${authorName}</b><i class="time">・${relativeTime}</i></div>\n`;
+      
+      // Add delete button if user has permission
+      if (isUserHighlight) {
+        html += `      <button class="delete-highlight-btn" data-highlight-id="${h.hyperlight_id}" data-action="delete" title="Delete highlight" type="button">\n`;
+        html += `        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">\n`;
+        html += `          <path d="M3 6h18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>\n`;
+        html += `          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>\n`;
+        html += `        </svg>\n`;
+        html += `      </button>\n`;
+      }
+      // TODO: Add hide button for book owners (need to check book ownership)
+      
+      html += `    </div>\n`;
       html += `  </div>\n`;
       html += `  <blockquote class="highlight-text" contenteditable="${isEditable}" `;
       html += `data-highlight-id="${h.hyperlight_id}">\n`;
@@ -941,9 +955,102 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
       }, 150);
     }
     
+    // Attach delete button listeners
+    setTimeout(() => {
+      const deleteButtons = document.querySelectorAll('.delete-highlight-btn');
+      deleteButtons.forEach(button => {
+        button.addEventListener('click', handleHighlightDelete);
+      });
+    }, 200);
+    
     } catch (error) {
       console.error('Error in highlight post-actions:', error);
     }
+  }
+}
+
+/**
+ * Handle highlight delete button click
+ */
+async function handleHighlightDelete(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  const button = event.currentTarget;
+  const highlightId = button.getAttribute('data-highlight-id');
+  const action = button.getAttribute('data-action'); // 'delete' or 'hide'
+  
+  if (!highlightId) {
+    console.error('No highlight ID found for delete action');
+    return;
+  }
+  
+  // Confirm delete action
+  const actionText = action === 'delete' ? 'delete this highlight' : 'hide this highlight';
+  if (!confirm(`Are you sure you want to ${actionText}?`)) {
+    return;
+  }
+  
+  try {
+    console.log(`🗑️ ${action === 'delete' ? 'Deleting' : 'Hiding'} highlight: ${highlightId}`);
+    
+    // Remove the highlight section from the container UI immediately
+    const highlightSection = document.querySelector(`#hyperlit-container .author[id="${highlightId}"]`);
+    let highlightElements = [];
+    
+    if (highlightSection) {
+      // Collect all elements belonging to this highlight (author, blockquote, annotation, hr)
+      let currentElement = highlightSection;
+      while (currentElement) {
+        highlightElements.push(currentElement);
+        const nextElement = currentElement.nextElementSibling;
+        
+        // Stop when we hit another author div or reach the end
+        if (nextElement && nextElement.classList.contains('author') && nextElement.id !== highlightId) {
+          break;
+        }
+        if (nextElement && nextElement.tagName === 'HR') {
+          highlightElements.push(nextElement);
+          break;
+        }
+        if (!nextElement) {
+          break;
+        }
+        currentElement = nextElement;
+      }
+      
+      // Remove all collected elements
+      highlightElements.forEach(el => el.remove());
+    }
+    
+    if (action === 'delete') {
+      // Full delete - import delete functionality from hyperLights.js
+      const { deleteHighlightById } = await import('./hyperLights.js');
+      await deleteHighlightById(highlightId);
+    } else {
+      // Hide - set hidden flag to true
+      // TODO: Implement hide functionality
+      console.log('Hide functionality not yet implemented');
+    }
+    
+    // Check if there are any remaining highlights in the container
+    const remainingHighlights = document.querySelectorAll('#hyperlit-container .author[id^="HL_"]');
+    
+    if (remainingHighlights.length === 0) {
+      // No more highlights - close the container
+      closeHyperlitContainer();
+    } else {
+      // Update the container height if needed
+      console.log(`✅ Highlight removed. ${remainingHighlights.length} highlights remaining.`);
+    }
+    
+  } catch (error) {
+    console.error(`Error ${action === 'delete' ? 'deleting' : 'hiding'} highlight:`, error);
+    alert(`Failed to ${action} highlight. Please try again.`);
+    
+    // On error, we should refresh the container to restore the deleted UI element
+    // This is a fallback in case the backend operation failed
+    location.reload();
   }
 }
 
