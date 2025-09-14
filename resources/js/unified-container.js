@@ -869,7 +869,7 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
       // Import the required functions
       const { attachAnnotationListener } = await import('./annotation-saver.js');
       const { addHighlightContainerPasteListener } = await import('./hyperLightsListener.js');
-      // Note: attachPlaceholderBehavior might not exist yet, so we'll skip it for now
+      const { attachPlaceholderBehavior } = await import('./hyperLights.js');
       
       const { highlightIds } = highlightType;
     const currentUserId = await getCurrentUserId();
@@ -903,7 +903,7 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
           setTimeout(() => {
             attachAnnotationListener(highlight.hyperlight_id);
             addHighlightContainerPasteListener(highlight.hyperlight_id);
-            // Skip attachPlaceholderBehavior for now since it might not exist
+            attachPlaceholderBehavior(highlight.hyperlight_id);
           }, 100);
           
           if (!firstUserAnnotation) {
