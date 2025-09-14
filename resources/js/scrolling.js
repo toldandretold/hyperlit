@@ -1287,6 +1287,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       setTimeout(() => {
         console.log(`Highlighting target hypercite after navigation: ${targetId}`);
         highlightTargetHypercite(targetId, 500); // 500ms delay to let user see normal layout first
+
       }, 300);
     }
 
