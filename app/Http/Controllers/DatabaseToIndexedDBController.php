@@ -314,6 +314,8 @@ class DatabaseToIndexedDBController extends Controller
                     'raw_json' => json_decode($hyperlight->raw_json ?? '{}', true),
                     'time_since' => $hyperlight->time_since,
                     'is_user_highlight' => $isUserHighlight, // Add this flag
+                    'creator' => $hyperlight->creator,
+                    'creator_token' => $hyperlight->creator_token
                 ];
             })
             ->toArray();
