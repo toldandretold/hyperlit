@@ -205,6 +205,13 @@ public function upsert(Request $request)
                     'type' => $data['type'] ?? $libraryRecord->type,
                     'timestamp' => $newTimestamp,
                     'bibtex' => $data['bibtex'] ?? $libraryRecord->bibtex,
+                    'url' => $data['url'] ?? $libraryRecord->url,
+                    'year' => $data['year'] ?? $libraryRecord->year,
+                    'journal' => $data['journal'] ?? $libraryRecord->journal,
+                    'pages' => $data['pages'] ?? $libraryRecord->pages,
+                    'publisher' => $data['publisher'] ?? $libraryRecord->publisher,
+                    'school' => $data['school'] ?? $libraryRecord->school,
+                    'note' => $data['note'] ?? $libraryRecord->note,
                     'raw_json' => json_encode($data),
                 ];
             } else {

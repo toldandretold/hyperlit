@@ -25,16 +25,16 @@ class AuthController extends Controller
             ]);
         }
 
-        if ($request->expectsJson() || $request->wantsJson()) {
-            return response()->json([
-                'success' => true,
-                'user' => Auth::user(),
-                'message' => 'Login successful'
-            ]);
-        }
 
-        $username = Auth::user()->name;
-        return redirect()->intended('/' . urlencode($username));
+        // Check for anonymous content to transfer
+        $anonymousContent = $this->checkAnonymousContent($request);
+
+        return response()->json([
+            'success' => true,
+            'user' => Auth::user(),
+            'message' => 'Login successful',
+            'anonymous_content' => $anonymousContent
+        ]);
     }
 
     public function register(Request $request)
@@ -265,5 +265,76 @@ class AuthController extends Controller
         }
     }
 
+    private function checkAnonymousContent(Request $request)
+    {
+        // Get the anonymous token from cookie
+        $anonymousToken = $request->cookie('anon_token');
+        
+        if (!$anonymousToken || !$this->isValidAnonymousToken($anonymousToken)) {
+            return null;
+        }
+
+        $content = [
+            'token' => $anonymousToken,
+            'books' => [],
+            'highlights' => [],
+            'cites' => []
+        ];
+
+        try {
+            // Check for books (library entries) with this anonymous token
+            $booksCount = DB::table('library')
+                ->where('creator_token', $anonymousToken)
+                ->whereNull('creator') // Only get books not already assigned to a user
+                ->count();
+            
+            if ($booksCount > 0) {
+                $content['books'] = DB::table('library')
+                    ->where('creator_token', $anonymousToken)
+                    ->whereNull('creator')
+                    ->get(['book', 'title'])
+                    ->toArray();
+            }
+
+            // Check for highlights with this anonymous token (only those not already assigned to a user)
+            $highlightsCount = DB::table('hyperlights')
+                ->where('creator_token', $anonymousToken)
+                ->whereNull('creator') // Only get highlights not already assigned to a user
+                ->count();
+            
+            if ($highlightsCount > 0) {
+                $content['highlights'] = DB::table('hyperlights')
+                    ->where('creator_token', $anonymousToken)
+                    ->whereNull('creator')
+                    ->get(['id', 'book', 'highlightedText'])
+                    ->toArray();
+            }
+
+            // Check for citations with this anonymous token (only those not already assigned to a user)
+            $citesCount = DB::table('hypercites')
+                ->where('creator_token', $anonymousToken)
+                ->whereNull('creator') // Only get citations not already assigned to a user
+                ->count();
+            
+            if ($citesCount > 0) {
+                $content['cites'] = DB::table('hypercites')
+                    ->where('creator_token', $anonymousToken)
+                    ->whereNull('creator')
+                    ->get(['id', 'book', 'hypercitedText'])
+                    ->toArray();
+            }
+
+            // Only return content info if there's actually content to transfer
+            if ($booksCount === 0 && $highlightsCount === 0 && $citesCount === 0) {
+                return null;
+            }
+
+            return $content;
+
+        } catch (\Exception $e) {
+            \Log::error('Error checking anonymous content: ' . $e->getMessage());
+            return null;
+        }
+    }
 }
 

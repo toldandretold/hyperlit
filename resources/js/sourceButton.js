@@ -52,6 +52,7 @@ async function buildSourceHtml(currentBookId) {
   title = {${record.title || 'Untitled'}},
   year = {${year}},
 ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteField}}`;
+
   }
   
   const citation = (await formatBibtexToCitation(bibtex)).trim();
@@ -69,7 +70,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     console.error("❌ EDIT BUTTON DEBUG - Auth check failed:", error);
     canEdit = false;
   }
-
+  
   // Only show edit button if user can edit
   const editButtonHtml = canEdit ? `
     <!-- Edit Button in bottom right corner -->
@@ -161,7 +162,6 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
 
 
     ${editButtonHtml}
-
 
     </div>
 
@@ -809,19 +809,15 @@ export class SourceContainerManager extends ContainerManager {
       // Collect form data
       const formData = this.collectFormData();
       
-
-      // Generate new BibTeX from the form data (unless user provided their own)
-      let finalBibtex = formData.bibtex;
-      if (!finalBibtex || finalBibtex.trim() === '') {
-        finalBibtex = await generateBibtexFromForm(formData);
-      }
+      // Always regenerate BibTeX from form data to ensure all fields are included
+      const finalBibtex = await generateBibtexFromForm(formData);
+      console.log("🔄 Regenerated BibTeX from form data:", finalBibtex);
 
       
       // Update the record with new data AND regenerated BibTeX
       const updatedRecord = {
         ...originalRecord,
         ...formData,
-
         bibtex: finalBibtex,
         timestamp: Date.now(), // Update timestamp when record is modified
 
@@ -875,7 +871,8 @@ export class SourceContainerManager extends ContainerManager {
       },
       credentials: 'include',
       body: JSON.stringify({
-        records: [libraryRecord] // The upsert endpoint expects an array of records
+        data: libraryRecord // The upsert endpoint expects a single record in the data field
+
       })
     });
 

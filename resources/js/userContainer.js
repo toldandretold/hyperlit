@@ -213,9 +213,13 @@ export class UserContainerManager extends ContainerManager {
     const email = document.getElementById("loginEmail").value;
     const password = document.getElementById("loginPassword").value;
 
+    console.log("🔄 Starting login process...");
+
     try {
       await fetch("/sanctum/csrf-cookie", { credentials: "include" });
       const csrfToken = this.getCsrfTokenFromCookie();
+
+      console.log("🔑 CSRF token obtained, making login request...");
 
       const response = await fetch("/api/login", {
         method: "POST",
@@ -229,33 +233,31 @@ export class UserContainerManager extends ContainerManager {
         body: JSON.stringify({ email, password }),
       });
 
+      console.log("📡 Login response received:", response.status);
+
       const data = await response.json();
+      console.log("📄 Login response data:", data);
 
       if (response.ok && data.success) {
+        console.log("✅ Login successful, setting user...");
         setCurrentUser(data.user);
         this.user = data.user;
-        await this.handleAnonymousBookTransfer();
 
-        // THIS IS THE KEY CHANGE: Clean up the alert box if it exists.
-        const customAlert = document.querySelector(".custom-alert");
-        if (customAlert) {
-          const overlay = document.querySelector(".custom-alert-overlay");
-          if (overlay) overlay.remove();
-          customAlert.remove();
-        }
-
-        // The rest of the logic now works for both scenarios.
-        if (typeof this.postLoginAction === "function") {
-          this.postLoginAction();
-          this.postLoginAction = null;
+        // Check if there's anonymous content to transfer
+        if (data.anonymous_content) {
+          console.log("📦 Anonymous content found:", data.anonymous_content);
+          this.showAnonymousContentTransfer(data.anonymous_content);
         } else {
-          this.showUserProfile();
+          console.log("📭 No anonymous content, proceeding normally...");
+          // No anonymous content, proceed normally
+          this.proceedAfterLogin();
         }
       } else {
+        console.error("❌ Login failed:", data);
         this.showLoginError(data.errors || data.message || "Login failed");
       }
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("❌ Login error:", error);
       this.showLoginError("Network error occurred");
     }
   }
@@ -426,6 +428,10 @@ export class UserContainerManager extends ContainerManager {
       this.container.style.padding = "20px";
     } else if (mode === "profile") {
       targetWidth = "300px";
+      targetHeight = "auto";
+      this.container.style.padding = "20px";
+    } else if (mode === "transfer-prompt") {
+      targetWidth = "320px";
       targetHeight = "auto";
       this.container.style.padding = "20px";
     }
@@ -681,6 +687,137 @@ export class UserContainerManager extends ContainerManager {
         throw new Error(`Backend transfer failed: ${response.status}`);
       }
     }
+
+  showAnonymousContentTransfer(anonymousContent) {
+    console.log("🎯 showAnonymousContentTransfer called with:", anonymousContent);
+    
+    // Clean up any existing alert boxes
+    const customAlert = document.querySelector(".custom-alert");
+    if (customAlert) {
+      const overlay = document.querySelector(".custom-alert-overlay");
+      if (overlay) overlay.remove();
+      customAlert.remove();
+    }
+
+    // Use the user container instead of source-container
+    if (!this.isOpen) {
+      console.log("📦 User container not open, opening it first");
+      // Container isn't open, so we need to open it to show the prompt
+      this.openContainer("transfer-prompt");
+    }
+
+    // Create summary of content
+    const totalBooks = anonymousContent.books?.length || 0;
+    const totalHighlights = anonymousContent.highlights?.length || 0;
+    const totalCites = anonymousContent.cites?.length || 0;
+    
+    console.log("📊 Content counts:", { totalBooks, totalHighlights, totalCites });
+    
+    let contentSummary = [];
+    if (totalBooks > 0) contentSummary.push(`${totalBooks} book${totalBooks > 1 ? 's' : ''}`);
+    if (totalHighlights > 0) contentSummary.push(`${totalHighlights} highlight${totalHighlights > 1 ? 's' : ''}`);
+    if (totalCites > 0) contentSummary.push(`${totalCites} citation${totalCites > 1 ? 's' : ''}`);
+
+    console.log("📝 Content summary:", contentSummary);
+
+    const htmlContent = `
+      <div class="user-form">
+        <h3 style="color: #EF8D34; margin-bottom: 15px;">Welcome back!</h3>
+        <p style="margin-bottom: 20px; line-height: 1.4; color: #CBCCCC;">
+          You created ${contentSummary.join(', ')} while logged out. Would you like to bring them into your account?
+        </p>
+        <button id="confirmContentTransfer" style="width: 100%; padding: 10px; background: #4EACAE; color: #221F20; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">
+          Yes, bring them in
+        </button>
+        <button id="skipContentTransfer" style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer;">
+          Skip for now
+        </button>
+      </div>
+    `;
+    
+    console.log("🎨 Setting user container content...");
+    this.container.innerHTML = htmlContent;
+    console.log("✅ User container content set, adding event listeners...");
+
+    // Add event listeners
+    const confirmButton = document.getElementById('confirmContentTransfer');
+    const skipButton = document.getElementById('skipContentTransfer');
+    
+    console.log("🔘 Buttons found:", { confirmButton, skipButton });
+    
+    if (confirmButton) {
+      confirmButton.onclick = () => {
+        console.log("✅ User confirmed content transfer");
+        this.transferAnonymousContent(anonymousContent.token);
+        // After transfer, show the user profile in the same container
+        setTimeout(() => this.showUserProfile(), 500);
+      };
+    }
+
+    if (skipButton) {
+      skipButton.onclick = () => {
+        console.log("⏭️ User skipped content transfer");
+        // Go directly to user profile in the same container
+        this.showUserProfile();
+      };
+    }
+    
+    console.log("🎯 showAnonymousContentTransfer completed successfully");
+  }
+
+  hideSourceContainer() {
+    const sourceContainer = document.getElementById('source-container');
+    if (sourceContainer) {
+      sourceContainer.classList.add('hidden');
+      sourceContainer.style.width = '0px';
+      sourceContainer.style.height = '0px';
+      sourceContainer.style.opacity = '0';
+      sourceContainer.innerHTML = '';
+    }
+  }
+
+  async transferAnonymousContent(token) {
+    try {
+      const csrfToken = this.getCsrfTokenFromCookie();
+      const response = await fetch('/api/auth/associate-content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-XSRF-TOKEN': csrfToken
+        },
+        credentials: 'include',
+        body: JSON.stringify({ anonymous_token: token })
+      });
+
+      if (response.ok) {
+        console.log("✅ Content association successful.");
+      } else {
+        console.error("❌ API Error during content association:", await response.text());
+      }
+    } catch (error) {
+      console.error("❌ Fetch error during content association:", error);
+    }
+  }
+
+  proceedAfterLogin() {
+    // Clean up any alert boxes
+    const customAlert = document.querySelector(".custom-alert");
+    if (customAlert) {
+      const overlay = document.querySelector(".custom-alert-overlay");
+      if (overlay) overlay.remove();
+      customAlert.remove();
+    }
+
+    // Proceed with normal post-login flow
+    if (typeof this.postLoginAction === "function") {
+      this.postLoginAction();
+      this.postLoginAction = null;
+    } else {
+      this.showUserProfile();
+    }
+  }
 }
 
 const userManager = new UserContainerManager(
