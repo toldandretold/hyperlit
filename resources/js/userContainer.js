@@ -199,13 +199,9 @@ export class UserContainerManager extends ContainerManager {
     const email = document.getElementById("loginEmail").value;
     const password = document.getElementById("loginPassword").value;
 
-    console.log("🔄 Starting login process...");
-
     try {
       await fetch("/sanctum/csrf-cookie", { credentials: "include" });
       const csrfToken = this.getCsrfTokenFromCookie();
-
-      console.log("🔑 CSRF token obtained, making login request...");
 
       const response = await fetch("/api/login", {
         method: "POST",
@@ -219,31 +215,24 @@ export class UserContainerManager extends ContainerManager {
         body: JSON.stringify({ email, password }),
       });
 
-      console.log("📡 Login response received:", response.status);
-
       const data = await response.json();
-      console.log("📄 Login response data:", data);
 
       if (response.ok && data.success) {
-        console.log("✅ Login successful, setting user...");
         setCurrentUser(data.user);
         this.user = data.user;
 
         // Check if there's anonymous content to transfer
         if (data.anonymous_content) {
-          console.log("📦 Anonymous content found:", data.anonymous_content);
           this.showAnonymousContentTransfer(data.anonymous_content);
         } else {
-          console.log("📭 No anonymous content, proceeding normally...");
           // No anonymous content, proceed normally
           this.proceedAfterLogin();
         }
       } else {
-        console.error("❌ Login failed:", data);
         this.showLoginError(data.errors || data.message || "Login failed");
       }
     } catch (error) {
-      console.error("❌ Login error:", error);
+      console.error("Login error:", error);
       this.showLoginError("Network error occurred");
     }
   }
@@ -675,8 +664,6 @@ export class UserContainerManager extends ContainerManager {
     }
 
   showAnonymousContentTransfer(anonymousContent) {
-    console.log("🎯 showAnonymousContentTransfer called with:", anonymousContent);
-    
     // Clean up any existing alert boxes
     const customAlert = document.querySelector(".custom-alert");
     if (customAlert) {
@@ -687,7 +674,6 @@ export class UserContainerManager extends ContainerManager {
 
     // Use the user container instead of source-container
     if (!this.isOpen) {
-      console.log("📦 User container not open, opening it first");
       // Container isn't open, so we need to open it to show the prompt
       this.openContainer("transfer-prompt");
     }
@@ -697,14 +683,10 @@ export class UserContainerManager extends ContainerManager {
     const totalHighlights = anonymousContent.highlights?.length || 0;
     const totalCites = anonymousContent.cites?.length || 0;
     
-    console.log("📊 Content counts:", { totalBooks, totalHighlights, totalCites });
-    
     let contentSummary = [];
     if (totalBooks > 0) contentSummary.push(`${totalBooks} book${totalBooks > 1 ? 's' : ''}`);
     if (totalHighlights > 0) contentSummary.push(`${totalHighlights} highlight${totalHighlights > 1 ? 's' : ''}`);
     if (totalCites > 0) contentSummary.push(`${totalCites} citation${totalCites > 1 ? 's' : ''}`);
-
-    console.log("📝 Content summary:", contentSummary);
 
     const htmlContent = `
       <div class="user-form">
@@ -721,19 +703,14 @@ export class UserContainerManager extends ContainerManager {
       </div>
     `;
     
-    console.log("🎨 Setting user container content...");
     this.container.innerHTML = htmlContent;
-    console.log("✅ User container content set, adding event listeners...");
 
     // Add event listeners
     const confirmButton = document.getElementById('confirmContentTransfer');
     const skipButton = document.getElementById('skipContentTransfer');
     
-    console.log("🔘 Buttons found:", { confirmButton, skipButton });
-    
     if (confirmButton) {
       confirmButton.onclick = () => {
-        console.log("✅ User confirmed content transfer");
         this.transferAnonymousContent(anonymousContent.token);
         // After transfer, show the user profile in the same container
         setTimeout(() => this.showUserProfile(), 500);
@@ -742,13 +719,10 @@ export class UserContainerManager extends ContainerManager {
 
     if (skipButton) {
       skipButton.onclick = () => {
-        console.log("⏭️ User skipped content transfer");
         // Go directly to user profile in the same container
         this.showUserProfile();
       };
     }
-    
-    console.log("🎯 showAnonymousContentTransfer completed successfully");
   }
 
   hideSourceContainer() {
