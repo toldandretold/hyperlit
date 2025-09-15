@@ -357,13 +357,13 @@ async function hasAnonymousContent(token) {
 
 // Call this after successful login to update state
 export function setCurrentUser(user) {
+
   // Set the new user state
   currentUserInfo = user;
   anonymousToken = null;
   authInitialized = true;
-  
-  // Note: Anonymous content checking is now handled by the backend during login
-  // and processed in userContainer.js
+ 
+
 }
 
 

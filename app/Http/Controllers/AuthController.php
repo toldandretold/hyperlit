@@ -25,6 +25,7 @@ class AuthController extends Controller
             ]);
         }
 
+
         // Check for anonymous content to transfer
         $anonymousContent = $this->checkAnonymousContent($request);
 
@@ -222,6 +223,7 @@ class AuthController extends Controller
         );
     }
 
+
     public function associateContent(Request $request)
     {
         $request->validate([
@@ -335,3 +337,4 @@ class AuthController extends Controller
         }
     }
 }
+

@@ -309,6 +309,7 @@ export function extractFootnotes(htmlContent, bookId, isHTMLContent = false, for
     }
   });
   
+
   // 2. Handle markdown footnotes that weren't processed by marked()
   // First, find all [^1] and [1] references in text to know what footnotes we need  
   const allText = tempDiv.textContent;
@@ -1210,6 +1211,7 @@ export function processFootnoteReferences(htmlContent, footnoteMappings) {
     
     // Handle markdown-style references [^1] and [1] - improved pattern
     const footnoteRefPattern = /\[\^?(\d+)\]/g;
+
     let match;
     
     while ((match = footnoteRefPattern.exec(text)) !== null) {
@@ -1532,4 +1534,5 @@ async function syncReferencesToPostgreSQL(references, bookId) {
     console.error('❌ Failed to sync references to PostgreSQL:', error);
     throw error;
   }
+
 }

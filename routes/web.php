@@ -15,6 +15,11 @@ use App\Http\Controllers\ConversionController;
 use App\Http\Controllers\DbLibraryController;
 use Illuminate\Validation\ValidationException;
 
+use App\Http\Controllers\ConversionController;
+use App\Http\Controllers\DbLibraryController;
+use Illuminate\Validation\ValidationException;
+
+
 
 
 require __DIR__.'/auth.php';
@@ -34,11 +39,9 @@ Route::get('/test-log', function () {
 Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML'])->name('hyperlights.show');
 
 
-
-
-
 // File import route - use existing CiteCreator controller
 Route::post('/import-file', [App\Http\Controllers\CiteCreator::class, 'store'])->name('import.file');
+
 
 // jason book route
 Route::get('/{book}/main-text-footnotes.json', function ($book) {

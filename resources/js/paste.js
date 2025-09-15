@@ -1196,6 +1196,7 @@ async function handleJsonPaste(
   
   console.log("Successfully merged paste with tail chunks");
 
+
   return toWrite;
 }
 
@@ -1259,8 +1260,6 @@ async function handleHypercitePaste(event) {
   // Extract quoted text - IMPROVED VERSION
   let quotedText = "";
 
-  // Method 1: Try regex to extract quoted text from raw HTML
-  // Updated regex to handle mixed quote types (regular + smart quotes)
   const quoteMatch = clipboardHtml.match(/[''""]([^]*?)[''""](?=<a|$)/);
   if (quoteMatch) {
     quotedText = quoteMatch[1];
@@ -1297,6 +1296,7 @@ async function handleHypercitePaste(event) {
   // Clean up the quoted text - handle both ASCII and smart quotes, including mixed types
   // Remove any quote character from start and end separately to handle mixed quote types
   quotedText = quotedText.replace(/^[''""]/, '').replace(/[''""]$/, ''); // Remove quotes
+
   console.log("🔍 Final cleaned quoted text:", `"${quotedText}"`);
   
   // Create the reference HTML with no space between text and sup
@@ -1382,6 +1382,7 @@ export function extractQuotedText(pasteWrapper) {
   let quotedText = "";
   const fullText = pasteWrapper.textContent;
   // Updated regex to handle mixed quote types - match any opening quote with any closing quote
+
   const quoteMatch = fullText.match(/^[''""]([^]*?)[''""](?=\s*↗|$)/);
   
   if (quoteMatch && quoteMatch[1]) {
@@ -1393,6 +1394,7 @@ export function extractQuotedText(pasteWrapper) {
     if (textNodes.length > 0) {
       // Handle mixed quote types by removing any quote from start and end separately
       quotedText = textNodes[0].textContent.replace(/^[''""]/, '').replace(/[''""]$/, '');
+
     }
   }
   
@@ -1511,6 +1513,7 @@ function parseHtmlToBlocks(htmlContent) {
     } else if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
       // This is a "loose" text node that resulted from unwrapping. Wrap it in a <p> tag.
       blocks.push(`<p>${node.textContent.trim()}</p>`);
+
     } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName && !isBlockElement(node.tagName)) {
       // This is a loose inline element (a, span, i, b, etc.) - wrap it in a <p> tag.
       blocks.push(`<p>${node.outerHTML}</p>`);
