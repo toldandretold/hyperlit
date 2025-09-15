@@ -1193,7 +1193,7 @@ async function handleJsonPaste(
       queueForSync("nodeChunks", chunk.startLine, "update", chunk);
     }
   });
- 
+  
   console.log("Successfully merged paste with tail chunks");
 
 

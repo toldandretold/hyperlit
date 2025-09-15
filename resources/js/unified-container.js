@@ -8,7 +8,6 @@ import { getCurrentUserId } from "./auth.js";
 // Create the unified container manager
 let hyperlitManager = null;
 
-
 // Debounce mechanism to prevent duplicate calls
 let isProcessingClick = false;
 
@@ -605,6 +604,19 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
         </div>`;
     }
 
+
+    // Check if current user can edit any of the books these highlights belong to
+    const { canUserEditBook } = await import('./auth.js');
+    const bookPermissions = new Map();
+    
+    // Get unique book IDs and check permissions
+    const uniqueBooks = [...new Set(validResults.map(h => h.book))];
+    for (const bookId of uniqueBooks) {
+      const canEdit = await canUserEditBook(bookId);
+      bookPermissions.set(bookId, canEdit);
+    }
+
+
     let html = `<div class="highlights-section">\n<br>\n<h1>Hyperlights</h1>\n<br>\n`;
     let firstUserAnnotation = null;
 
@@ -616,7 +628,35 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
       const relativeTime = formatRelativeTime(h.time_since);
 
       html += `  <div class="author" id="${h.hyperlight_id}">\n`;
-      html += `    <b>${authorName}</b><i class="time">・${relativeTime}</i>\n`;
+      html += `    <div style="display: flex; justify-content: space-between; align-items: center;">\n`;
+      html += `      <div><b>${authorName}</b><i class="time">・${relativeTime}</i></div>\n`;
+      
+      // Add delete button if user has permission
+      if (isUserHighlight) {
+        // User's own highlight - full delete
+        html += `      <button class="delete-highlight-btn" data-highlight-id="${h.hyperlight_id}" data-action="delete" title="Delete your highlight (hidden for everyone)" type="button">\n`;
+        html += `        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">\n`;
+        html += `          <path d="M3 6h18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>\n`;
+        html += `          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>\n`;
+        html += `        </svg>\n`;
+        html += `      </button>\n`;
+      } else {
+        // Other's highlight - check if current user can edit this book (same logic as editButton.js)
+        const canEditThisBook = bookPermissions.get(h.book);
+        
+        if (canEditThisBook) {
+          // User can edit this book - show hide button for others' highlights
+          html += `      <button class="delete-highlight-btn" data-highlight-id="${h.hyperlight_id}" data-action="hide" title="Delete highlight (will be hidden for everyone)" type="button">\n`;
+          html += `        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">\n`;
+          html += `          <path d="M3 6h18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>\n`;
+          html += `          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>\n`;
+          html += `        </svg>\n`;
+          html += `      </button>\n`;
+        }
+      }
+      
+      html += `    </div>\n`;
+
       html += `  </div>\n`;
       html += `  <blockquote class="highlight-text" contenteditable="${isEditable}" `;
       html += `data-highlight-id="${h.hyperlight_id}">\n`;
@@ -877,22 +917,25 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
       const { attachAnnotationListener } = await import('./annotation-saver.js');
       const { addHighlightContainerPasteListener } = await import('./hyperLightsListener.js');
       const { attachPlaceholderBehavior } = await import('./hyperLights.js');
-      const { highlightIds } = highlightType;
-      const currentUserId = await getCurrentUserId();
-    
-      // Get highlight data to determine which are editable
-      const db = await openDatabase();
-      const tx = db.transaction("hyperlights", "readonly");
-      const store = tx.objectStore("hyperlights");
-      const idx = store.index("hyperlight_id");
 
-      const reads = highlightIds.map((id) =>
-        new Promise((res, rej) => {
-          const req = idx.get(id);
-          req.onsuccess = () => res(req.result);
-          req.onerror = () => rej(req.error);
-        })
-      );
+      
+      const { highlightIds } = highlightType;
+    const currentUserId = await getCurrentUserId();
+    
+    // Get highlight data to determine which are editable
+    const db = await openDatabase();
+    const tx = db.transaction("hyperlights", "readonly");
+    const store = tx.objectStore("hyperlights");
+    const idx = store.index("hyperlight_id");
+
+    const reads = highlightIds.map((id) =>
+      new Promise((res, rej) => {
+        const req = idx.get(id);
+        req.onsuccess = () => res(req.result);
+        req.onerror = () => rej(req.error);
+      })
+    );
+
 
     const results = await Promise.all(reads);
     let firstUserAnnotation = null;
@@ -947,9 +990,167 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
       }, 150);
     }
     
+
+    // Attach delete button listeners
+    setTimeout(() => {
+      const deleteButtons = document.querySelectorAll('.delete-highlight-btn');
+      deleteButtons.forEach(button => {
+        button.addEventListener('click', handleHighlightDelete);
+      });
+    }, 200);
+    
     } catch (error) {
       console.error('Error in highlight post-actions:', error);
     }
+  }
+}
+
+/**
+ * Handle highlight delete button click
+ */
+async function handleHighlightDelete(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  const button = event.currentTarget;
+  const highlightId = button.getAttribute('data-highlight-id');
+  const action = button.getAttribute('data-action'); // 'delete' or 'hide'
+  
+  if (!highlightId) {
+    console.error('No highlight ID found for delete action');
+    return;
+  }
+  
+  // Confirm delete action
+  const actionText = action === 'delete' ? 'delete this highlight' : 'hide this highlight';
+  if (!confirm(`Are you sure you want to ${actionText}?`)) {
+    return;
+  }
+  
+  try {
+    console.log(`🗑️ ${action === 'delete' ? 'Deleting' : 'Hiding'} highlight: ${highlightId}`);
+    
+    // Remove the highlight section from the container UI immediately
+    const highlightSection = document.querySelector(`#hyperlit-container .author[id="${highlightId}"]`);
+    let highlightElements = [];
+    
+    if (highlightSection) {
+      // Collect all elements belonging to this highlight (author, blockquote, annotation, hr)
+      let currentElement = highlightSection;
+      while (currentElement) {
+        highlightElements.push(currentElement);
+        const nextElement = currentElement.nextElementSibling;
+        
+        // Stop when we hit another author div or reach the end
+        if (nextElement && nextElement.classList.contains('author') && nextElement.id !== highlightId) {
+          break;
+        }
+        if (nextElement && nextElement.tagName === 'HR') {
+          highlightElements.push(nextElement);
+          break;
+        }
+        if (!nextElement) {
+          break;
+        }
+        currentElement = nextElement;
+      }
+      
+      // Remove all collected elements
+      highlightElements.forEach(el => el.remove());
+    }
+    
+    if (action === 'delete') {
+      // Full delete - import delete functionality from hyperLights.js
+      const { deleteHighlightById } = await import('./hyperLights.js');
+      await deleteHighlightById(highlightId);
+    } else if (action === 'hide') {
+      // Hide - same as delete but sync as hide operation instead of delete
+      const { hideHighlightById } = await import('./hyperLights.js');
+      await hideHighlightById(highlightId);
+    } else {
+      console.log('Unknown action:', action);
+    }
+    
+    // Check if there are any remaining highlights in the container
+    const remainingHighlights = document.querySelectorAll('#hyperlit-container .author[id^="HL_"]');
+    
+    if (remainingHighlights.length === 0) {
+      // No more highlights - close the container
+      closeHyperlitContainer();
+    } else {
+      // Update the container height if needed
+      console.log(`✅ Highlight removed. ${remainingHighlights.length} highlights remaining.`);
+    }
+    
+  } catch (error) {
+    console.error(`Error ${action === 'delete' ? 'deleting' : 'hiding'} highlight:`, error);
+    alert(`Failed to ${action} highlight. Please try again.`);
+    
+    // On error, we should refresh the container to restore the deleted UI element
+    // This is a fallback in case the backend operation failed
+    location.reload();
+  }
+}
+
+/**
+ * Hide a highlight by setting the hidden flag in the database
+ */
+async function hideHighlight(highlightId) {
+  try {
+    console.log(`🙈 Hiding highlight: ${highlightId}`);
+    
+    // Get highlight data to determine book
+    const { openDatabase } = await import('./cache-indexedDB.js');
+    const db = await openDatabase();
+    const tx = db.transaction("hyperlights", "readonly");
+    const store = tx.objectStore("hyperlights");
+    const idx = store.index("hyperlight_id");
+    
+    const highlightData = await new Promise((resolve, reject) => {
+      const request = idx.get(highlightId);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    
+    if (!highlightData) {
+      throw new Error(`Highlight not found: ${highlightId}`);
+    }
+    
+    const bookId = highlightData.book;
+    console.log(`📚 Hiding highlight in book: ${bookId}`);
+    
+    // Send hide request to server
+    const response = await fetch('/api/db/hyperlights/hide', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+      },
+      body: JSON.stringify({
+        data: [{
+          book: bookId,
+          hyperlight_id: highlightId
+        }]
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.message || 'Hide operation failed');
+    }
+    
+    console.log(`✅ Successfully hidden highlight: ${highlightId}`);
+    
+    // Note: We don't need to remove from IndexedDB for hide operation
+    // The highlight should remain in IndexedDB but be filtered out during rendering
+    
+  } catch (error) {
+    console.error(`❌ Error hiding highlight ${highlightId}:`, error);
+    throw error;
 
   }
 }

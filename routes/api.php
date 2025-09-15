@@ -19,6 +19,8 @@ use App\Http\Controllers\AuthController;
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/register', [AuthController::class, 'register']);
 
+Route::post('/auth/associate-content', [AuthController::class, 'associateContent'])->middleware('auth:sanctum');
+
 Route::get('/auth/session-info', [AuthController::class, 'getSessionInfo']);
 
 Route::post('/anonymous-session', [AuthController::class, 'createAnonymousSession']);
@@ -91,6 +93,11 @@ Route::middleware(['author', 'throttle:30,1'])->group(function () {
     Route::post(
         '/db/hyperlights/delete',
         [DbHyperlightController::class, 'delete']
+    );
+
+    Route::post(
+        '/db/hyperlights/hide',
+        [DbHyperlightController::class, 'hide']
     );
 
     Route::post(

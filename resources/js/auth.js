@@ -1,4 +1,4 @@
-import { getLibraryObjectFromIndexedDB } from './cache-indexedDB.js';
+import { getLibraryObjectFromIndexedDB, clearDatabase } from './cache-indexedDB.js';
  
 // Internal state
 let currentUserInfo = null;
@@ -79,6 +79,49 @@ async function initializeAuth() {
   }
 }
 
+/**
+ * Handles the full logout process.
+ * Makes a POST request to the server's logout endpoint, then clears all local data.
+ */
+export async function logout() {
+  console.log("🔄 Logging out...");
+  try {
+    const response = await fetch('/logout', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': window.csrfToken
+      },
+    });
+    if (!response.ok) console.error('Logout request failed.', response);
+  } catch (error) {
+    console.error('Error during logout fetch:', error);
+  } finally {
+    await clearCurrentUser(); // Wipes IndexedDB
+    await clearBrowserCache(); // Wipes CacheStorage
+    window.location.href = '/'; // Redirect to home for a fresh start
+  }
+}
+
+
+
+/**
+ * Clears all caches managed by the CacheStorage API.
+ */
+async function clearBrowserCache() {
+  if ('caches' in window) {
+    try {
+      console.log('🧹 Clearing browser caches...');
+      const keys = await caches.keys();
+      await Promise.all(keys.map(key => caches.delete(key)));
+      console.log('✅ Browser caches cleared.');
+    } catch (error) {
+      console.error('❌ Error clearing browser caches:', error);
+    }
+  }
+}
+
 // Helper function to get CSRF token from cookie
 function getCsrfTokenFromCookie() {
   const value = `; ${document.cookie}`;
@@ -154,6 +197,9 @@ export async function getAnonymousToken() {
 // In auth.js
 
 // In auth.js
+
+
+
 
 export async function canUserEditBook(bookId) {
   try {
@@ -242,14 +288,52 @@ export async function refreshAuth() {
 
 // Call this after successful login to update state
 export function setCurrentUser(user) {
+  const tokenToAssociate = anonymousToken; // Capture the anonymous token BEFORE it's cleared.
+
+  // Set the new user state
   currentUserInfo = user;
   anonymousToken = null;
   authInitialized = true;
+
+  // Check if there was an anonymous token and ask the user to associate content.
+  if (tokenToAssociate) {
+    if (window.confirm("You just wrote some hypertext while logged out. Do you want to bring that into your account?")) {
+      console.log("🤝 User agreed to associate content. Calling API...");
+      // Use an async IIFE to avoid making setCurrentUser async, which could be a breaking change.
+      (async () => {
+        try {
+          const response = await fetch('/api/auth/associate-content', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+              'X-CSRF-TOKEN': window.csrfToken
+            },
+            body: JSON.stringify({ anonymous_token: tokenToAssociate })
+          });
+          if (response.ok) {
+            console.log("✅ Content association successful.");
+          } else {
+            console.error("❌ API Error during content association:", await response.text());
+          }
+        } catch (error) {
+          console.error("❌ Fetch error during content association:", error);
+        }
+      })();
+    }
+  }
 }
 
 // Call this after logout to reset state
-export function clearCurrentUser() {
+export async function clearCurrentUser() {
   resetAuth();
+  // NEW: Clear all local data on logout
+  await clearDatabase();
+  console.log("🔒 User state cleared and local database wiped.");
   // Re-initialize to get new anonymous session
   initializeAuth();
 }
+
+
+

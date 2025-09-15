@@ -1107,4 +1107,40 @@ black #221F20;
   display: flex;
   gap: 8px;
   margin-top: 1em;
+
+}
+
+/* Delete button in highlight containers */
+.delete-highlight-btn {
+  font-size: 15px;
+  background: none;
+  border: none;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  position: relative;
+}
+
+.delete-highlight-btn svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+}
+
+.delete-highlight-btn svg path {
+  stroke: #cbcccc;
+}
+
+.delete-highlight-btn:hover {
+  background: #cbcccc;
+  border-radius: 2px;
+}
+
+.delete-highlight-btn:hover svg path {
+  stroke: #221f20;
+
 }

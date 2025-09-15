@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class DatabaseToIndexedDBController extends Controller
 {
@@ -15,8 +16,10 @@ class DatabaseToIndexedDBController extends Controller
     public function getBookData(Request $request, string $bookId): JsonResponse
     {
         try {
-            // Get node chunks for this book
-            $nodeChunks = $this->getNodeChunks($bookId);
+            $visibleHyperlightIds = $this->getVisibleHyperlightIds($bookId);
+
+            // Get node chunks for this book, filtering the highlights within them
+            $nodeChunks = $this->getNodeChunks($bookId, $visibleHyperlightIds);
             
             if (empty($nodeChunks)) {
                 return response()->json([
@@ -75,16 +78,107 @@ class DatabaseToIndexedDBController extends Controller
         }
     }
 
+    private function getVisibleHyperlightIds(string $bookId): array
+    {
+        $user = Auth::user();
+        $anonymousToken = request()->cookie('anon_token');
+
+        $query = DB::table('hyperlights')
+            ->where('book', $bookId)
+            ->where(function($q) use ($user, $anonymousToken) {
+                $q->where('hidden', false);
+
+                if ($user) {
+                    $q->orWhere('creator', $user->name);
+                }
+
+                if ($anonymousToken) {
+                    $q->orWhere('creator_token', $anonymousToken);
+                }
+            });
+
+        return $query->pluck('hyperlight_id')->toArray();
+    }
+
     /**
      * Get node chunks for a book - matches your IndexedDB structure
      */
-    private function getNodeChunks(string $bookId): array
+    private function getNodeChunks(string $bookId, array $visibleHyperlightIds): array
     {
+        Log::info('🔍 getNodeChunks started', [
+            'book_id' => $bookId,
+            'visible_highlight_ids_count' => count($visibleHyperlightIds),
+            'visible_highlight_ids' => $visibleHyperlightIds
+        ]);
+
+        // Get processed highlights with is_user_highlight flag
+        $processedHighlights = $this->getHyperlights($bookId);
+        Log::info('🔍 getNodeChunks: processed highlights retrieved', [
+            'processed_highlights_count' => count($processedHighlights),
+            'sample_highlight' => count($processedHighlights) > 0 ? $processedHighlights[0] : null
+        ]);
+
+        $highlightLookup = [];
+        foreach ($processedHighlights as $highlight) {
+            $highlightLookup[$highlight['hyperlight_id']] = $highlight;
+        }
+        Log::info('🔍 getNodeChunks: highlight lookup created', [
+            'lookup_keys' => array_keys($highlightLookup)
+        ]);
+
         $chunks = DB::table('node_chunks')
             ->where('book', $bookId)
             ->orderBy('chunk_id')
             ->get()
-            ->map(function ($chunk) {
+            ->map(function ($chunk) use ($visibleHyperlightIds, $highlightLookup, $bookId) {
+                $chunkHyperlights = json_decode($chunk->hyperlights ?? '[]', true);
+                Log::info('🔍 Processing chunk', [
+                    'chunk_id' => $chunk->chunk_id,
+                    'raw_hyperlights_count' => count($chunkHyperlights),
+                    'raw_hyperlights' => $chunkHyperlights
+                ]);
+
+                $visibleChunkHyperlights = array_filter($chunkHyperlights, function($hl) use ($visibleHyperlightIds) {
+                    $isVisible = isset($hl['highlightID']) && in_array($hl['highlightID'], $visibleHyperlightIds);
+                    Log::info('🔍 Checking highlight visibility', [
+                        'highlight_id' => $hl['highlightID'] ?? 'missing',
+                        'is_visible' => $isVisible
+                    ]);
+                    return $isVisible;
+                });
+
+                Log::info('🔍 Visible chunk highlights after filtering', [
+                    'chunk_id' => $chunk->chunk_id,
+                    'visible_count' => count($visibleChunkHyperlights),
+                    'visible_highlights' => $visibleChunkHyperlights
+                ]);
+
+                // Enrich highlights with is_user_highlight flag from processed highlights
+                $enrichedHyperlights = array_map(function($hl) use ($highlightLookup) {
+                    $highlightId = $hl['highlightID'] ?? null;
+                    $foundInLookup = $highlightId && isset($highlightLookup[$highlightId]);
+                    $isUserHighlight = $foundInLookup ? $highlightLookup[$highlightId]['is_user_highlight'] : false;
+                    
+                    Log::info('🔍 Enriching highlight', [
+                        'highlight_id' => $highlightId,
+                        'found_in_lookup' => $foundInLookup,
+                        'is_user_highlight' => $isUserHighlight
+                    ]);
+
+                    if ($foundInLookup) {
+                        $hl['is_user_highlight'] = $highlightLookup[$highlightId]['is_user_highlight'];
+                    } else {
+                        $hl['is_user_highlight'] = false; // Default to false if not found
+                    }
+                    return $hl;
+                }, $visibleChunkHyperlights);
+
+                Log::info('🔍 Final enriched highlights for chunk', [
+                    'chunk_id' => $chunk->chunk_id,
+                    'enriched_count' => count($enrichedHyperlights),
+                    'enriched_highlights' => $enrichedHyperlights
+                ]);
+
                 return [
                     'book' => $chunk->book,
                     'chunk_id' => (int) $chunk->chunk_id,
@@ -94,12 +188,17 @@ class DatabaseToIndexedDBController extends Controller
                     'type' => $chunk->type,
                     'footnotes' => json_decode($chunk->footnotes ?? '[]', true),
                     'hypercites' => json_decode($chunk->hypercites ?? '[]', true),
-                    'hyperlights' => json_decode($chunk->hyperlights ?? '[]', true),
-                    // Include raw_json if needed for debugging
+                    'hyperlights' => array_values($enrichedHyperlights),
                     'raw_json' => json_decode($chunk->raw_json ?? '{}', true),
                 ];
             })
             ->toArray();
+
+        Log::info('🔍 getNodeChunks completed', [
+            'book_id' => $bookId,
+            'total_chunks' => count($chunks),
+            'chunks_with_highlights' => count(array_filter($chunks, function($c) { return count($c['hyperlights']) > 0; }))
+        ]);
 
         return $chunks;
     }
@@ -158,29 +257,78 @@ class DatabaseToIndexedDBController extends Controller
      * Get hyperlights for a book
      */
     private function getHyperlights(string $bookId): array
-        {
-            $hyperlights = DB::table('hyperlights')
-                ->where('book', $bookId)
-                ->orderBy('hyperlight_id')
-                ->get()
-                ->map(function ($hyperlight) {
-                    return [
-                        'book' => $hyperlight->book,
-                        'hyperlight_id' => $hyperlight->hyperlight_id,
-                        'annotation' => $hyperlight->annotation,
-                        'endChar' => $hyperlight->endChar,
-                        'highlightedHTML' => $hyperlight->highlightedHTML,
-                        'highlightedText' => $hyperlight->highlightedText,
-                        'startChar' => $hyperlight->startChar,
-                        'startLine' => $hyperlight->startLine,
-                        'raw_json' => json_decode($hyperlight->raw_json ?? '{}', true),
-                        'time_since' => $hyperlight->time_since, // Add this line
-                    ];
-                })
-                ->toArray();
+    {
+        $user = Auth::user();
+        $anonymousToken = request()->cookie('anon_token');
 
-            return $hyperlights;
-        }
+        Log::info('🔍 getHyperlights started', [
+            'book_id' => $bookId,
+            'user_id' => $user ? $user->id : null,
+            'user_name' => $user ? $user->name : null,
+            'is_logged_in' => !is_null($user),
+            'anonymous_token' => $anonymousToken ? 'present' : 'null'
+        ]);
+
+        $hyperlights = DB::table('hyperlights')
+            ->where('book', $bookId)
+            ->where(function($query) use ($user, $anonymousToken) {
+                $query->where('hidden', false);
+
+                if ($user) {
+                    $query->orWhere('creator', $user->name);
+                }
+
+                if ($anonymousToken) {
+                    $query->orWhere('creator_token', $anonymousToken);
+                }
+            })
+            ->orderBy('hyperlight_id')
+            ->get()
+            ->map(function ($hyperlight) use ($user, $anonymousToken, $bookId) {
+                // Determine if this highlight belongs to the current user
+                $isUserHighlight = false;
+                if ($user && $hyperlight->creator === $user->name) {
+                    $isUserHighlight = true;
+                } elseif ($anonymousToken && $hyperlight->creator_token === $anonymousToken) {
+                    $isUserHighlight = true;
+                }
+                
+                Log::info('🔍 Processing hyperlight in getHyperlights', [
+                    'hyperlight_id' => $hyperlight->hyperlight_id,
+                    'creator' => $hyperlight->creator,
+                    'creator_token' => $hyperlight->creator_token ? 'present' : 'null',
+                    'current_user_name' => $user ? $user->name : 'null',
+                    'current_anon_token' => $anonymousToken ? 'present' : 'null',
+                    'is_user_highlight' => $isUserHighlight
+                ]);
+                
+                return [
+                    'book' => $hyperlight->book,
+                    'hyperlight_id' => $hyperlight->hyperlight_id,
+                    'annotation' => $hyperlight->annotation,
+                    'endChar' => $hyperlight->endChar,
+                    'highlightedHTML' => $hyperlight->highlightedHTML,
+                    'highlightedText' => $hyperlight->highlightedText,
+                    'startChar' => $hyperlight->startChar,
+                    'startLine' => $hyperlight->startLine,
+                    'raw_json' => json_decode($hyperlight->raw_json ?? '{}', true),
+                    'time_since' => $hyperlight->time_since,
+                    'is_user_highlight' => $isUserHighlight, // Add this flag
+                    'creator' => $hyperlight->creator,
+                    'creator_token' => $hyperlight->creator_token
+                ];
+            })
+            ->toArray();
+        
+        Log::info('🔍 getHyperlights completed', [
+            'book_id' => $bookId,
+            'total_count' => count($hyperlights),
+            'user_highlights_count' => count(array_filter($hyperlights, function($h) { return $h['is_user_highlight']; })),
+            'sample_highlight' => count($hyperlights) > 0 ? $hyperlights[0] : null
+        ]);
+
+        return $hyperlights;
+    }
 
     /**
      * Get hypercites for a book
@@ -209,10 +357,7 @@ class DatabaseToIndexedDBController extends Controller
         return $hypercites;
     }
 
-        /**
-         * Get library data for a book
-         */
-        /**
+    /**
      * Get library data for a book
      */
    private function getLibrary(string $bookId): ?array
@@ -225,7 +370,6 @@ class DatabaseToIndexedDBController extends Controller
             return null;
         }
 
-        // Debug log to see what's in the database
         Log::info('Library record from database', [
             'book_id' => $bookId,
             'timestamp' => $library->timestamp,
@@ -252,14 +396,13 @@ class DatabaseToIndexedDBController extends Controller
             'type' => $library->type,
             'url' => $library->url,
             'year' => $library->year,
-            'creator' => $library->creator,           // ← Add this
-            'creator_token' => $library->creator_token, // ← Add this
+            'creator' => $library->creator,
+            'creator_token' => $library->creator_token,
             'raw_json' => json_decode($library->raw_json ?? '{}', true),
         ];
     }
 
-      
-        /**
+    /**
      * Get just library data for a specific book
      */
     public function getBookLibrary(Request $request, string $bookId): JsonResponse
@@ -275,7 +418,6 @@ class DatabaseToIndexedDBController extends Controller
                 ], 404);
             }
 
-            // Debug what we're about to return
             Log::info('Returning library data to client', [
                 'book_id' => $bookId,
                 'timestamp_in_response' => $library['timestamp'] ?? 'NOT_SET',
@@ -301,13 +443,13 @@ class DatabaseToIndexedDBController extends Controller
             ], 500);
         }
     }
+
     /**
      * Get just metadata for cache validation
      */
     public function getBookMetadata(Request $request, string $bookId): JsonResponse
     {
         try {
-            // Check if book exists by looking for node_chunks
             $chunkCount = DB::table('node_chunks')
                 ->where('book', $bookId)
                 ->count();
@@ -318,7 +460,6 @@ class DatabaseToIndexedDBController extends Controller
                 ], 404);
             }
 
-            // Get latest update timestamp
             $latestUpdate = DB::table('node_chunks')
                 ->where('book', $bookId)
                 ->max('updated_at');

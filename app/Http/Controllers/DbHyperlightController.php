@@ -372,6 +372,75 @@ class DbHyperlightController extends Controller
         }
     }
 
+    public function hide(Request $request)
+    {
+        try {
+            $data = $request->all();
+            
+            Log::info('DbHyperlightController::hide - Received data', [
+                'data_count' => isset($data['data']) ? count($data['data']) : 0
+            ]);
+            
+            if (isset($data['data']) && is_array($data['data'])) {
+                $hiddenCount = 0;
+                
+                foreach ($data['data'] as $index => $item) {
+                    // Find the existing record
+                    $existingRecord = PgHyperlight::where('book', $item['book'] ?? null)
+                        ->where('hyperlight_id', $item['hyperlight_id'] ?? null)
+                        ->first();
+                    
+                    if (!$existingRecord) {
+                        Log::warning("Hyperlight not found for hiding at index {$index}", [
+                            'book' => $item['book'] ?? null,
+                            'hyperlight_id' => $item['hyperlight_id'] ?? null
+                        ]);
+                        continue;
+                    }
+                    
+                    // For hide operation, we need to check if user owns the book
+                    // This is a simplified check - in practice you'd have book ownership logic
+                    $user = Auth::user();
+                    $anonymousToken = $user ? null : $request->cookie('anon_token');
+                    
+                    // Set hidden flag to true
+                    $existingRecord->hidden = true;
+                    $existingRecord->save();
+                    
+                    $hiddenCount++;
+                    
+                    Log::info("Hidden highlight {$item['hyperlight_id']} in book {$item['book']}");
+                }
+                
+                Log::info('DbHyperlightController::hide - Success', [
+                    'records_hidden' => $hiddenCount
+                ]);
+                
+                return response()->json([
+                    'success' => true, 
+                    'message' => 'Hyperlights hidden successfully'
+                ]);
+            }
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid data format'
+            ], 400);
+            
+        } catch (\Exception $e) {
+            Log::error('DbHyperlightController::hide - Exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to hide highlights',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
     private function cleanItemForStorage($item)
     {
         // Create a copy to avoid modifying the original

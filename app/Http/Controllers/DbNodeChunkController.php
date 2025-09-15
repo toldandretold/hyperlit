@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PgNodeChunk;
 use App\Models\PgLibrary;
+use App\Models\PgHyperlight;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -261,6 +262,10 @@ class DbNodeChunkController extends Controller
 
 // In app/Http/Controllers/DbNodeChunkController.php
 
+// In app/Http/Controllers/DbNodeChunkController.php
+
+// In app/Http/Controllers/DbNodeChunkController.php
+
 public function targetedUpsert(Request $request)
 {
     try {
@@ -284,8 +289,12 @@ public function targetedUpsert(Request $request)
             'user_has_ownership_permission' => $hasPermission
         ]);
         
-        foreach ($data['data'] as $index => $item) {
-            if (($item['book'] ?? null) !== $bookId) { continue; }
+        foreach ($data['data'] as $item) {
+            if (($item['book'] ?? null) !== $bookId) {
+                Log::warning('Skipping item with mismatched book ID.', ['item_book' => $item['book'] ?? 'none', 'expected_book' => $bookId]);
+                continue;
+            }
+
             if (isset($item['_action']) && $item['_action'] === 'delete') {
                 if ($hasPermission) {
                     PgNodeChunk::where('book', $item['book'])->where('startLine', $item['startLine'])->delete();
@@ -293,51 +302,71 @@ public function targetedUpsert(Request $request)
                 continue;
             }
 
-            $existingChunk = PgNodeChunk::where('book', 'like', $item['book'])
+            $existingChunk = PgNodeChunk::where('book', $item['book'])
                 ->where('startLine', $item['startLine'])
                 ->first();
 
+            // --- REVISED LOGIC ---
+
+            $updateData = [];
+            // For owners, prepare all possible updatable fields.
             if ($hasPermission) {
-                // OWNER: Can update all fields.
                 $updateData = [
                     'chunk_id' => $item['chunk_id'] ?? ($existingChunk->chunk_id ?? null),
                     'content' => $item['content'] ?? ($existingChunk->content ?? null),
                     'footnotes' => $item['footnotes'] ?? ($existingChunk->footnotes ?? []),
-                    'hypercites' => $item['hypercites'] ?? ($existingChunk->hypercites ?? []),
-                    'hyperlights' => $item['hyperlights'] ?? ($existingChunk->hyperlights ?? []),
                     'plainText' => $item['plainText'] ?? ($existingChunk->plainText ?? null),
                     'type' => $item['type'] ?? ($existingChunk->type ?? null),
-                    'raw_json' => $this->cleanItemForStorage($item),
                 ];
-            } else {
-                // ===================== THE DEFINITIVE FIX =====================
-                // NON-OWNER (PUBLIC): Merge public fields.
-                
-                // Get the raw_json, which Laravel has already cast to an array.
-                $currentRawJson = $existingChunk ? $existingChunk->raw_json : [];
-                
-                // Safeguard in case the cast fails or data is null/malformed.
-                if (!is_array($currentRawJson)) { $currentRawJson = []; }
-
-                // Merge new public data into the existing raw_json data.
-                $currentRawJson['hyperlights'] = $item['hyperlights'] ?? $currentRawJson['hyperlights'] ?? [];
-                $currentRawJson['hypercites'] = $item['hypercites'] ?? $currentRawJson['hypercites'] ?? [];
-
-                $updateData = [
-                    // Use the merged data for the dedicated columns.
-                    'hyperlights' => $currentRawJson['hyperlights'],
-                    'hypercites' => $currentRawJson['hypercites'],
-                    // Provide the complete, updated raw_json.
-                    'raw_json' => $this->cleanItemForStorage($currentRawJson),
-                ];
-                // ===================== END OF FIX =====================
             }
             
+            // Safely merge hyperlights (for ALL users to prevent data loss).
+            $dbHighlights = $existingChunk->hyperlights ?? []; // Eloquent casts this to a PHP array
+            $clientHighlights = $item['hyperlights'] ?? [];
+
+            // Use highlightID as a key for merging to prevent duplicates and handle updates.
+            $mergedHighlightsMap = array_reduce($dbHighlights, function ($carry, $highlight) {
+                if (!empty($highlight['highlightID'])) {
+                    $carry[$highlight['highlightID']] = $highlight;
+                }
+                return $carry;
+            }, []);
+
+            foreach ($clientHighlights as $clientHighlight) {
+                unset($clientHighlight['is_user_highlight']);
+                if (empty($clientHighlight['highlightID'])) continue;
+
+                if (isset($clientHighlight['_deleted']) && $clientHighlight['_deleted'] === true) {
+                    unset($mergedHighlightsMap[$clientHighlight['highlightID']]);
+                } else {
+                    $mergedHighlightsMap[$clientHighlight['highlightID']] = $clientHighlight;
+                }
+            }
+            
+            // The final PHP array of highlights.
+            $finalMergedHighlights = array_values($mergedHighlightsMap);
+
+            // Assign the PHP arrays directly to the update payload. Eloquent will handle encoding.
+            $updateData['hyperlights'] = $finalMergedHighlights;
+            $updateData['hypercites'] = $item['hypercites'] ?? ($existingChunk->hypercites ?? []);
+            
+            // Rebuild the raw_json field with the most up-to-date, merged data.
+            $rawJson = $existingChunk->raw_json ?? $this->cleanItemForStorage($item);
+            
+            // Overwrite the raw_json fields with our authoritative, merged data.
+            // array_merge will combine the base data with our specific updates.
+            $rawJson = array_merge($rawJson, $updateData);
+            
+            // Assign the final PHP array for raw_json. Eloquent will handle encoding.
+            $updateData['raw_json'] = $this->cleanItemForStorage($rawJson);
+            
+            // --- END REVISED LOGIC ---
+
             $updateData['updated_at'] = now();
 
             PgNodeChunk::updateOrCreate(
                 ['book' => $item['book'], 'startLine' => $item['startLine']],
-                $updateData
+                $updateData // Pass the full PHP array payload
             );
         }
         
@@ -354,6 +383,51 @@ public function targetedUpsert(Request $request)
         return response()->json(['success' => false, 'message' => 'Failed to sync data (targeted)', 'error' => $e->getMessage()], 500);
     }
 }
+
+    /**
+     * Get highlights that should be hidden from the current user but preserved in the node
+     */
+    private function getHiddenHighlightsForNode($bookId, $existingHighlights, Request $request)
+    {
+        if (empty($existingHighlights)) {
+            return [];
+        }
+        
+        $user = Auth::user();
+        $anonymousToken = $request->cookie('anon_token');
+        
+        $hiddenHighlights = [];
+        
+        foreach ($existingHighlights as $highlight) {
+            $highlightId = $highlight['highlightID'] ?? null;
+            if (!$highlightId) continue;
+            
+            // Check if this highlight should be hidden from current user
+            $hyperlightRecord = PgHyperlight::where('book', $bookId)
+                ->where('hyperlight_id', $highlightId)
+                ->first();
+                
+            if (!$hyperlightRecord) continue;
+            
+            $shouldHide = false;
+            
+            // If highlight is marked as hidden
+            if ($hyperlightRecord->hidden) {
+                // Only show to the creator of the highlight
+                if ($user) {
+                    $shouldHide = ($hyperlightRecord->creator !== $user->name);
+                } else {
+                    $shouldHide = ($hyperlightRecord->creator_token !== $anonymousToken);
+                }
+            }
+            
+            if ($shouldHide) {
+                $hiddenHighlights[] = $highlight;
+            }
+        }
+        
+        return $hiddenHighlights;
+    }
 
     private function cleanItemForStorage($item)
     {

@@ -13,7 +13,7 @@ import {
   scheduleAutoClear 
 } from './chunkLoadingState.js';
 import { setupUserScrollDetection, shouldSkipScrollRestoration } from './scrolling.js';
-import { getUserHighlightCache } from "./userCache.js";
+// import { getUserHighlightCache } from "./userCache.js"; // No longer needed
 import { scrollElementIntoMainContent } from "./scrolling.js";
 
 // --- A simple throttle helper to limit scroll firing
@@ -592,9 +592,14 @@ instance.restoreScrollPosition = async () => {
 // Keep createChunkElement function signature unchanged
 function createChunkElement(nodes, instance) {
   // <-- Correct, simple signature
-  console.log("createChunkElement called with nodes:", nodes.length);
+  console.log("🏗️ createChunkElement called", {
+    nodes_count: nodes.length,
+    chunk_id: nodes.length > 0 ? nodes[0].chunk_id : 'unknown',
+    bookId: instance.bookId
+  });
+  
   if (!nodes || nodes.length === 0) {
-    console.warn("No nodes provided to createChunkElement.");
+    console.warn("❌ createChunkElement: No nodes provided");
     return null;
   }
 
@@ -603,21 +608,52 @@ function createChunkElement(nodes, instance) {
   chunkWrapper.setAttribute("data-chunk-id", chunkId);
   chunkWrapper.classList.add("chunk");
 
-  nodes.forEach((node) => {
+  console.log(`🏗️ Processing ${nodes.length} nodes for chunk ${chunkId}`);
+
+  nodes.forEach((node, nodeIndex) => {
+    console.log(`🏗️ Processing node ${nodeIndex + 1}/${nodes.length}`, {
+      startLine: node.startLine,
+      has_hyperlights: !!(node.hyperlights && node.hyperlights.length > 0),
+      hyperlights_count: node.hyperlights ? node.hyperlights.length : 0,
+      has_hypercites: !!(node.hypercites && node.hypercites.length > 0)
+    });
+    
     let html = renderBlockToHtml(node);
+    console.log(`🏗️ Initial HTML for node ${nodeIndex + 1}: length=${html.length}`);
+    
     if (node.hyperlights && node.hyperlights.length > 0) {
+      console.log(`🏗️ Applying ${node.hyperlights.length} highlights to node ${nodeIndex + 1}`, {
+        highlights: node.hyperlights.map(h => ({
+          id: h.hyperlight_id || h.highlightID,
+          is_user_highlight: h.is_user_highlight,
+          creator: h.creator,
+          creator_token: h.creator_token,
+          startChar: h.startChar || h.charStart,
+          endChar: h.endChar || h.charEnd
+        }))
+      });
+      
       html = applyHighlights(html, node.hyperlights, instance.bookId);
+      console.log(`🏗️ HTML after highlights for node ${nodeIndex + 1}: length=${html.length}`);
     }
+    
     if (node.hypercites && node.hypercites.length > 0) {
+      console.log(`🏗️ Applying ${node.hypercites.length} hypercites to node ${nodeIndex + 1}`);
       html = applyHypercites(html, node.hypercites);
+      console.log(`🏗️ HTML after hypercites for node ${nodeIndex + 1}: length=${html.length}`);
     }
+    
     const temp = document.createElement("div");
     temp.innerHTML = html;
     if (temp.firstChild) {
+      console.log(`🏗️ Appending processed node ${nodeIndex + 1} to chunk wrapper`);
       chunkWrapper.appendChild(temp.firstChild);
+    } else {
+      console.warn(`⚠️ Node ${nodeIndex + 1} produced no DOM content`);
     }
   });
 
+  console.log(`✅ createChunkElement completed for chunk ${chunkId}`);
   return chunkWrapper;
 }
 
@@ -765,28 +801,71 @@ function createHyperciteSegments(hypercites) {
 
 
 
-// Update the applyHighlights function to accept bookId and use the cache
+// Update the applyHighlights function to use server-provided is_user_highlight flag
 export function applyHighlights(html, highlights, bookId) {
-  if (!highlights || highlights.length === 0) return html;
+  console.log('🎨 applyHighlights called', {
+    bookId,
+    highlights_count: highlights ? highlights.length : 0,
+    highlights_sample: highlights && highlights.length > 0 ? highlights[0] : null,
+    html_length: html.length
+  });
 
-  // Get user's highlight IDs from cache (synchronous since cache is already built)
-  const userHighlightIds = getUserHighlightCache(bookId);
+  if (!highlights || highlights.length === 0) {
+    console.log('🎨 applyHighlights: No highlights to apply');
+    return html;
+  }
+
+  // Enhanced logging for each highlight
+  console.log('🎨 Detailed highlight analysis:');
+  highlights.forEach((highlight, index) => {
+    console.log(`  Highlight ${index + 1}:`, {
+      id: highlight.hyperlight_id || highlight.highlightID,
+      is_user_highlight: highlight.is_user_highlight,
+      creator: highlight.creator,
+      creator_token: highlight.creator_token,
+      startChar: highlight.startChar || highlight.charStart,
+      endChar: highlight.endChar || highlight.charEnd,
+      text_length: (highlight.endChar || highlight.charEnd) - (highlight.startChar || highlight.charStart)
+    });
+  });
 
   const tempElement = document.createElement("div");
   tempElement.innerHTML = html;
+  console.log('🎨 Created temp element, original text length:', tempElement.textContent.length);
   
   const segments = createHighlightSegments(highlights);
+  console.log('🎨 applyHighlights: Created segments', {
+    segments_count: segments.length,
+    segments: segments.map(s => ({
+      charStart: s.charStart,
+      charEnd: s.charEnd,
+      length: s.charEnd - s.charStart,
+      highlightIDs: s.highlightIDs
+    }))
+  });
   
   // Keep reverse order but recalculate positions each time
   segments.sort((a, b) => b.charStart - a.charStart);
+  console.log('🎨 Processing segments in reverse order (last to first)');
 
-  for (const segment of segments) {
-    console.log(`Applying segment from ${segment.charStart} to ${segment.charEnd}`, segment);
+  for (const [segmentIndex, segment] of segments.entries()) {
+    console.log(`🎨 Processing segment ${segmentIndex + 1}/${segments.length} from ${segment.charStart} to ${segment.charEnd}`, {
+      segment_length: segment.charEnd - segment.charStart,
+      highlightIDs: segment.highlightIDs
+    });
     
     // Recalculate positions based on current DOM state
     const positions = findPositionsInDOM(tempElement, segment.charStart, segment.charEnd);
     
     if (positions) {
+      console.log(`🎨 Found DOM positions for segment ${segmentIndex + 1}:`, {
+        startNode_type: positions.startNode.nodeType,
+        startNode_content: positions.startNode.textContent.substring(0, 50) + '...',
+        startOffset: positions.startOffset,
+        endNode_type: positions.endNode.nodeType,
+        endOffset: positions.endOffset
+      });
+      
       const markElement = document.createElement("mark");
       
       // Always set data-highlight-count and intensity
@@ -794,22 +873,46 @@ export function applyHighlights(html, highlights, bookId) {
       const intensity = Math.min(segment.highlightIDs.length / 5, 1); // Cap at 5 highlights
       markElement.style.setProperty('--highlight-intensity', intensity);
       
-      // Check if any highlight in this segment belongs to current user
-      const hasUserHighlight = segment.highlightIDs.some(id => userHighlightIds.has(id));
+      // Check if any highlight in this segment belongs to current user using server flag
+      const userHighlightDetails = segment.highlightIDs.map(id => {
+        const highlight = highlights.find(h => (h.hyperlight_id || h.highlightID) === id);
+        return {
+          id,
+          highlight_found: !!highlight,
+          is_user_highlight: highlight ? highlight.is_user_highlight : false,
+          creator: highlight ? highlight.creator : null,
+          creator_token: highlight ? highlight.creator_token : null
+        };
+      });
+      
+      console.log(`🎨 User highlight analysis for segment ${segmentIndex + 1}:`, userHighlightDetails);
+      
+      const hasUserHighlight = userHighlightDetails.some(detail => detail.is_user_highlight);
       
       if (segment.highlightIDs.length === 1) {
         markElement.id = segment.highlightIDs[0];
         markElement.className = segment.highlightIDs[0];
+        console.log(`🎨 Single highlight segment: id=${markElement.id}, class=${markElement.className}`);
       } else {
         markElement.id = "HL_overlap";
         markElement.className = segment.highlightIDs.join(" ");
+        console.log(`🎨 Overlapping highlights segment: id=${markElement.id}, classes=${markElement.className}`);
       }
       
       // Add user-specific class for styling
       if (hasUserHighlight) {
         markElement.classList.add('user-highlight');
-        console.log(`🎨 Added user-highlight class to segment with IDs: ${segment.highlightIDs.join(', ')}`);
+        console.log(`✅ Added user-highlight class to segment ${segmentIndex + 1} with IDs: ${segment.highlightIDs.join(', ')}`);
+      } else {
+        console.log(`❌ No user-highlight class for segment ${segmentIndex + 1} - not user's highlight`);
       }
+      
+      console.log(`🎨 Final mark element for segment ${segmentIndex + 1}:`, {
+        id: markElement.id,
+        className: markElement.className,
+        hasUserHighlight,
+        intensity
+      });
       
       // Use surroundContents instead of extractContents
       try {
@@ -817,8 +920,9 @@ export function applyHighlights(html, highlights, bookId) {
         range.setStart(positions.startNode, positions.startOffset);
         range.setEnd(positions.endNode, positions.endOffset);
         range.surroundContents(markElement);
+        console.log(`✅ Successfully applied highlight to segment ${segmentIndex + 1}`);
       } catch (error) {
-        console.error("Error with surroundContents, falling back:", error);
+        console.error(`❌ Error with surroundContents for segment ${segmentIndex + 1}, falling back:`, error);
         wrapRangeWithElement(
           positions.startNode,
           positions.startOffset,
@@ -826,11 +930,25 @@ export function applyHighlights(html, highlights, bookId) {
           positions.endOffset,
           markElement
         );
+        console.log(`✅ Fallback wrapping successful for segment ${segmentIndex + 1}`);
       }
+    } else {
+      console.warn(`⚠️ Could not find DOM positions for segment ${segmentIndex + 1} (${segment.charStart}-${segment.charEnd})`);
     }
   }
 
-  return tempElement.innerHTML;
+  const finalHtml = tempElement.innerHTML;
+  console.log(`✅ applyHighlights completed`, {
+    original_length: html.length,
+    final_length: finalHtml.length,
+    segments_processed: segments.length,
+    user_highlight_segments: segments.filter(s => s.highlightIDs.some(id => {
+      const highlight = highlights.find(h => (h.hyperlight_id || h.highlightID) === id);
+      return highlight && highlight.is_user_highlight;
+    })).length
+  });
+  
+  return finalHtml;
 }
 
 
@@ -839,8 +957,8 @@ function createHighlightSegments(highlights) {
   const boundaries = new Set();
   
   highlights.forEach(highlight => {
-    boundaries.add(highlight.charStart);
-    boundaries.add(highlight.charEnd);
+    boundaries.add(highlight.startChar || highlight.charStart);
+    boundaries.add(highlight.endChar || highlight.charEnd);
   });
   
   const sortedBoundaries = Array.from(boundaries).sort((a, b) => a - b);
@@ -852,15 +970,17 @@ function createHighlightSegments(highlights) {
     const segmentEnd = sortedBoundaries[i + 1];
     
     // Find which highlights cover this segment
-    const coveringHighlights = highlights.filter(highlight => 
-      highlight.charStart <= segmentStart && highlight.charEnd >= segmentEnd
-    );
+    const coveringHighlights = highlights.filter(highlight => {
+      const startChar = highlight.startChar || highlight.charStart;
+      const endChar = highlight.endChar || highlight.charEnd;
+      return startChar <= segmentStart && endChar >= segmentEnd;
+    });
     
     if (coveringHighlights.length > 0) {
       segments.push({
         charStart: segmentStart,
         charEnd: segmentEnd,
-        highlightIDs: coveringHighlights.map(h => h.highlightID)
+        highlightIDs: coveringHighlights.map(h => h.hyperlight_id || h.highlightID)
       });
     }
   }
