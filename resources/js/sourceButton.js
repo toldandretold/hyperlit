@@ -798,11 +798,9 @@ export class SourceContainerManager extends ContainerManager {
       // Collect form data
       const formData = this.collectFormData();
       
-      // Generate new BibTeX from the form data (unless user provided their own)
-      let finalBibtex = formData.bibtex;
-      if (!finalBibtex || finalBibtex.trim() === '') {
-        finalBibtex = await generateBibtexFromForm(formData);
-      }
+      // Always regenerate BibTeX from form data to ensure all fields are included
+      const finalBibtex = await generateBibtexFromForm(formData);
+      console.log("🔄 Regenerated BibTeX from form data:", finalBibtex);
       
       // Update the record with new data AND regenerated BibTeX
       const updatedRecord = {
@@ -857,7 +855,7 @@ export class SourceContainerManager extends ContainerManager {
       },
       credentials: 'include',
       body: JSON.stringify({
-        records: [libraryRecord] // The upsert endpoint expects an array of records
+        data: libraryRecord // The upsert endpoint expects a single record in the data field
       })
     });
 
