@@ -11,6 +11,7 @@ let hyperlitManager = null;
 // Debounce mechanism to prevent duplicate calls
 let isProcessingClick = false;
 
+
 export function initializeHyperlitManager() {
   console.log("🔄 Initializing Unified Hyperlit Container Manager...");
   
@@ -53,12 +54,14 @@ export function openHyperlitContainer(content) {
     return;
   }
   
+
   // Clear any existing content first to prevent duplicates
   const existingScroller = container.querySelector('.scroller');
   if (existingScroller) {
     existingScroller.innerHTML = '';
   }
   
+
   // Open the container using the manager FIRST
   console.log("📂 Opening container with manager first...");
   hyperlitManager.openContainer();
@@ -68,6 +71,7 @@ export function openHyperlitContainer(content) {
     const scroller = container.querySelector('.scroller');
     if (scroller) {
       console.log(`📝 Setting content in scroller AFTER opening (${content.length} chars)`);
+
       // Clear content again just before setting to ensure no duplicates
       scroller.innerHTML = '';
       scroller.innerHTML = content;
@@ -126,6 +130,7 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
   
   isProcessingClick = true;
   
+
   try {
     console.log("🎯 Unified content click handler triggered", element);
     
@@ -157,6 +162,7 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     setTimeout(() => {
       isProcessingClick = false;
     }, 500);
+
   }
 }
 
@@ -598,6 +604,7 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
         </div>`;
     }
 
+
     // Check if current user can edit any of the books these highlights belong to
     const { canUserEditBook } = await import('./auth.js');
     const bookPermissions = new Map();
@@ -608,6 +615,7 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
       const canEdit = await canUserEditBook(bookId);
       bookPermissions.set(bookId, canEdit);
     }
+
 
     let html = `<div class="highlights-section">\n<br>\n<h1>Hyperlights</h1>\n<br>\n`;
     let firstUserAnnotation = null;
@@ -648,6 +656,7 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
       }
       
       html += `    </div>\n`;
+
       html += `  </div>\n`;
       html += `  <blockquote class="highlight-text" contenteditable="${isEditable}" `;
       html += `data-highlight-id="${h.hyperlight_id}">\n`;
@@ -908,6 +917,7 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
       const { attachAnnotationListener } = await import('./annotation-saver.js');
       const { addHighlightContainerPasteListener } = await import('./hyperLightsListener.js');
       const { attachPlaceholderBehavior } = await import('./hyperLights.js');
+
       
       const { highlightIds } = highlightType;
     const currentUserId = await getCurrentUserId();
@@ -926,6 +936,7 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
       })
     );
 
+
     const results = await Promise.all(reads);
     let firstUserAnnotation = null;
 
@@ -943,7 +954,7 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
             addHighlightContainerPasteListener(highlight.hyperlight_id);
             attachPlaceholderBehavior(highlight.hyperlight_id);
           }, 100);
-          
+
           if (!firstUserAnnotation) {
             firstUserAnnotation = highlight.hyperlight_id;
           }
@@ -979,6 +990,7 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
       }, 150);
     }
     
+
     // Attach delete button listeners
     setTimeout(() => {
       const deleteButtons = document.querySelectorAll('.delete-highlight-btn');
@@ -1139,6 +1151,7 @@ async function hideHighlight(highlightId) {
   } catch (error) {
     console.error(`❌ Error hiding highlight ${highlightId}:`, error);
     throw error;
+
   }
 }
 

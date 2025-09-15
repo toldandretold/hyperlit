@@ -25,11 +25,16 @@ class AuthController extends Controller
             ]);
         }
 
-        return response()->json([
-            'success' => true,
-            'user' => Auth::user(),
-            'message' => 'Login successful'
-        ]);
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'user' => Auth::user(),
+                'message' => 'Login successful'
+            ]);
+        }
+
+        $username = Auth::user()->name;
+        return redirect()->intended('/' . urlencode($username));
     }
 
     public function register(Request $request)
@@ -218,6 +223,7 @@ class AuthController extends Controller
         );
     }
 
+
     public function associateContent(Request $request)
     {
         $request->validate([
@@ -259,3 +265,4 @@ class AuthController extends Controller
         }
     }
 }
+
