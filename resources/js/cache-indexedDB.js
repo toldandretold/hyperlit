@@ -331,6 +331,11 @@ export const debouncedMasterSync = debounce(async () => {
           case "hyperlights": syncPayload.deletions.hyperlights.push({ ...item.data, _action: "delete" }); break;
           case "hypercites": syncPayload.deletions.hypercites.push({ ...item.data, _action: "delete" }); break;
         }
+      } else if (item.type === "hide" && item.data) {
+        // Add hide operations to deletions but with hide action
+        if (item.store === "hyperlights") {
+          syncPayload.deletions.hyperlights.push({ ...item.data, _action: "hide" });
+        }
       }
     }
     await executeSyncPayload(syncPayload);
@@ -500,27 +505,55 @@ export async function syncHyperlightDeletionsToPostgreSQL(deletedHyperlights) {
   if (!deletedHyperlights || deletedHyperlights.length === 0) return;
   const bookId = deletedHyperlights[0].book;
 
-  console.log(`🔄 Syncing ${deletedHyperlights.length} hyperlight deletions...`);
-  const res = await fetch("/api/db/hyperlights/delete", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-CSRF-TOKEN":
-        document.querySelector('meta[name="csrf-token"]')?.content,
-    },
-    credentials: "include",
-    body: JSON.stringify({
-      book: bookId,
-      data: deletedHyperlights,
-    }),
-  });
+  // Separate hide operations from delete operations
+  const deleteOperations = deletedHyperlights.filter(h => h._action === "delete");
+  const hideOperations = deletedHyperlights.filter(h => h._action === "hide");
 
-  if (!res.ok) {
-    throw new Error(
-      `Hyperlight deletion sync failed (${res.status}): ${await res.text()}`
-    );
+  console.log(`🔄 Syncing ${deleteOperations.length} hyperlight deletions and ${hideOperations.length} hide operations...`);
+
+  // Process delete operations
+  if (deleteOperations.length > 0) {
+    const deleteRes = await fetch("/api/db/hyperlights/delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN":
+          document.querySelector('meta[name="csrf-token"]')?.content,
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        book: bookId,
+        data: deleteOperations,
+      }),
+    });
+
+    if (!deleteRes.ok) {
+      throw new Error(`HTTP error! status: ${deleteRes.status}`);
+    }
   }
-  console.log("✅ Hyperlight deletions synced");
+
+  // Process hide operations
+  if (hideOperations.length > 0) {
+    const hideRes = await fetch("/api/db/hyperlights/hide", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN":
+          document.querySelector('meta[name="csrf-token"]')?.content,
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        book: bookId,
+        data: hideOperations,
+      }),
+    });
+
+    if (!hideRes.ok) {
+      throw new Error(`HTTP error! status: ${hideRes.status}`);
+    }
+  }
+
+  console.log("✅ Hyperlight deletions and hide operations synced");
 }
 
 /**
@@ -1981,6 +2014,44 @@ export async function syncHyperciteToPostgreSQL(hypercites) {
   const out = await res.json();
   console.log("✅ Hypercite synced:", out);
   return out;
+}
+
+/**
+ * Clears all data from all object stores in the IndexedDB.
+ * This is useful for logging out or resetting the application state.
+ */
+export async function clearDatabase() {
+  console.log("🧹 Clearing all IndexedDB data...");
+  try {
+    const db = await openDatabase();
+    const storeNames = Array.from(db.objectStoreNames);
+    
+    if (storeNames.length === 0) {
+      console.log(" IndexedDB is already empty.");
+      return;
+    }
+
+    const tx = db.transaction(storeNames, "readwrite");
+    const promises = storeNames.map(name => {
+      return new Promise((resolve, reject) => {
+        const store = tx.objectStore(name);
+        const request = store.clear();
+        request.onsuccess = () => {
+          console.log(`  - Cleared store: ${name}`);
+          resolve();
+        };
+        request.onerror = (event) => {
+          console.error(`  - Failed to clear store: ${name}`, event.target.error);
+          reject(event.target.error);
+        };
+      });
+    });
+
+    await Promise.all(promises);
+    console.log("✅ All IndexedDB data has been cleared.");
+  } catch (error) {
+    console.error("❌ Error during IndexedDB clearing:", error);
+  }
 }
 
 async function addCitationToHypercite(book, startLine, hyperciteId, newCitation) {

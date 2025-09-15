@@ -153,7 +153,8 @@ CREATE TABLE public.hypercites (
     created_at timestamp(0) without time zone,
     updated_at timestamp(0) without time zone,
     creator character varying(255),
-    creator_token uuid
+    creator_token uuid,
+    time_since bigint
 );
 
 
@@ -184,7 +185,7 @@ CREATE TABLE public.hyperlights (
     id bigint NOT NULL,
     book character varying(255) NOT NULL,
     hyperlight_id character varying(255) NOT NULL,
-    annotation text,
+    annotation character varying(1000),
     "endChar" integer,
     "highlightedHTML" text,
     "highlightedText" text,
@@ -195,7 +196,8 @@ CREATE TABLE public.hyperlights (
     updated_at timestamp(0) without time zone,
     creator character varying(255),
     creator_token uuid,
-    time_since bigint
+    time_since bigint,
+    hidden boolean DEFAULT false NOT NULL
 );
 
 
@@ -352,7 +354,8 @@ CREATE TABLE public.node_chunks (
     "plainText" text,
     type character varying(255),
     created_at timestamp(0) without time zone,
-    updated_at timestamp(0) without time zone
+    updated_at timestamp(0) without time zone,
+    node_id character varying(255)
 );
 
 
@@ -659,6 +662,14 @@ ALTER TABLE ONLY public.migrations
 
 
 --
+-- Name: node_chunks node_chunks_node_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.node_chunks
+    ADD CONSTRAINT node_chunks_node_id_unique UNIQUE (node_id);
+
+
+--
 -- Name: node_chunks node_chunks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -758,6 +769,13 @@ CREATE INDEX library_creator_token_index ON public.library USING btree (creator_
 
 
 --
+-- Name: node_chunks_node_id_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX node_chunks_node_id_index ON public.node_chunks USING btree (node_id);
+
+
+--
 -- Name: personal_access_tokens_tokenable_type_tokenable_id_index; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -832,6 +850,11 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 25	2025_08_08_004059_update_footnotes_table_for_individual_records	18
 26	2025_08_08_011834_rename_references_table_to_bibliography	19
 27	2025_09_04_090941_add_private_column_to_library_table	20
+28	2025_09_10_001000_add_node_id_to_node_chunks_table	21
+29	2025_09_10_002000_update_annotation_columns	22
+30	2025_09_10_121143_add_time_since_to_hypercites_table	23
+31	2025_09_14_121243_add_hidden_field_to_pg_hyperlights_table	24
+
 \.
 
 
@@ -839,7 +862,9 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 -- Name: migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.migrations_id_seq', 27, true);
+
+SELECT pg_catalog.setval('public.migrations_id_seq', 31, true);
+
 
 
 --

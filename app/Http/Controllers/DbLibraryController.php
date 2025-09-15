@@ -185,7 +185,6 @@ public function upsert(Request $request)
                 $words = explode(' ', $title);
                 if (count($words) > 15) {
                     $title = implode(' ', array_slice($words, 0, 15)) . '...';
-
                 }
                 
                 // Preserve newer timestamps - never downgrade
@@ -766,3 +765,4 @@ public function bulkCreate(Request $request)
         }
 
 } 
+
