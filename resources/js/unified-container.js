@@ -12,6 +12,15 @@ let hyperlitManager = null;
 let isProcessingClick = false;
 
 export function initializeHyperlitManager() {
+  // Ensure DOM is ready before initializing
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeHyperlitManagerInternal);
+    return;
+  }
+  initializeHyperlitManagerInternal();
+}
+
+function initializeHyperlitManagerInternal() {
   console.log("🔄 Initializing Unified Hyperlit Container Manager...");
   
   // Check if container exists in the DOM (should be there from blade template)

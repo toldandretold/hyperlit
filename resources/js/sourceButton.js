@@ -40,14 +40,55 @@ async function buildSourceHtml(currentBookId) {
   // If no bibtex exists, generate one from available record data
   if (!bibtex && record) {
     const year = new Date(record.timestamp).getFullYear();
+    const urlField = record.url ? `  url = {${record.url}},\n` : '';
+    const publisherField = record.publisher ? `  publisher = {${record.publisher}},\n` : '';
+    const journalField = record.journal ? `  journal = {${record.journal}},\n` : '';
+    const pagesField = record.pages ? `  pages = {${record.pages}},\n` : '';
+    const schoolField = record.school ? `  school = {${record.school}},\n` : '';
+    const noteField = record.note ? `  note = {${record.note}},\n` : '';
+    
     bibtex = `@${record.type || 'book'}{${record.citationID || record.book},
   author = {${record.author || record.creator || 'Unknown Author'}},
   title = {${record.title || 'Untitled'}},
   year = {${year}},
-}`;
+${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteField}}`;
   }
   
   const citation = (await formatBibtexToCitation(bibtex)).trim();
+  
+  // Check if user can edit this book with extensive logging
+  console.log("🔍 EDIT BUTTON DEBUG - Starting auth check for book:", book);
+  console.log("🔍 EDIT BUTTON DEBUG - Record data:", record);
+  
+  let canEdit;
+  try {
+    canEdit = await canUserEditBook(book);
+    console.log("🔑 EDIT BUTTON DEBUG - Auth check result:", canEdit);
+    console.log("🔑 EDIT BUTTON DEBUG - Auth check type:", typeof canEdit);
+  } catch (error) {
+    console.error("❌ EDIT BUTTON DEBUG - Auth check failed:", error);
+    canEdit = false;
+  }
+  
+  // Only show edit button if user can edit
+  const editButtonHtml = canEdit ? `
+    <!-- Edit Button in bottom right corner -->
+    <button id="edit-source" style="position: absolute; bottom: 10px; right: 10px; z-index: 1002;">
+      <svg 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke-width="2" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        style="pointer-events: none;"
+      >
+        <path d="M12 20h9" stroke="#CBCCCC" />
+        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" stroke="#CBCCCC" />
+      </svg>
+    </button>` : '';
+
+  console.log("🔍 EDIT BUTTON DEBUG - Will show edit button:", !!canEdit);
+  console.log("🔍 EDIT BUTTON DEBUG - Edit button HTML length:", editButtonHtml.length);
 
   return `
     <div class="scroller" id="source-content">
@@ -117,20 +158,7 @@ async function buildSourceHtml(currentBookId) {
     </div>
   </button>
 
-    <!-- Edit Button in bottom right corner -->
-    <button id="edit-source" style="position: absolute; bottom: 10px; right: 10px; width: 20px; height: 20px; background: #221F20; border: none; cursor: pointer; padding: 0px; stroke: #CBCCCC; box-sizing: border-box; display: flex; align-items: center; justify-content: center; z-index: 1002;">
-      <svg 
-        viewBox="0 0 24 24" 
-        fill="none" 
-        stroke-width="2" 
-        stroke-linecap="round" 
-        stroke-linejoin="round"
-        style="pointer-events: none;"
-      >
-        <path d="M12 20h9" stroke="#CBCCCC" />
-        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" stroke="#CBCCCC" />
-      </svg>
-    </button>
+    ${editButtonHtml}
 
     </div>
 
@@ -295,9 +323,30 @@ export class SourceContainerManager extends ContainerManager {
     const docxBtn = this.container.querySelector("#download-docx");
     const editBtn = this.container.querySelector("#edit-source");
     
+    console.log("🔍 EDIT BUTTON DEBUG - Container HTML preview:", this.container.innerHTML.substring(0, 500));
+    console.log("🔍 EDIT BUTTON DEBUG - Button elements found:", { mdBtn: !!mdBtn, docxBtn: !!docxBtn, editBtn: !!editBtn });
+    console.log("🔍 EDIT BUTTON DEBUG - Edit button element:", editBtn);
+    console.log("🔍 EDIT BUTTON DEBUG - Edit button visibility:", editBtn ? window.getComputedStyle(editBtn).visibility : 'N/A');
+    
     if (mdBtn) mdBtn.addEventListener("click", () => exportBookAsMarkdown(book));
     if (docxBtn) docxBtn.addEventListener("click", () => exportBookAsDocxStyled(book));
-    if (editBtn) editBtn.addEventListener("click", () => this.handleEditClick());
+    if (editBtn) {
+      editBtn.addEventListener("click", () => this.handleEditClick());
+      // Ensure edit button is always visible with force styling
+      editBtn.style.display = "flex !important";
+      editBtn.style.visibility = "visible !important";
+      editBtn.style.opacity = "1 !important";
+      editBtn.style.zIndex = "1002 !important";
+      editBtn.style.position = "absolute !important";
+      editBtn.style.bottom = "10px !important";
+      editBtn.style.right = "10px !important";
+      editBtn.style.border = "0 !important";
+      editBtn.style.background = "#221F20 !important";
+      console.log("✅ Edit button configured and made visible with force styling");
+      console.log("Edit button computed styles:", window.getComputedStyle(editBtn));
+    } else {
+      console.warn("❌ Edit button not found in container!");
+    }
 
     // Get current button position
     const rect = this.button.getBoundingClientRect();
@@ -334,10 +383,21 @@ export class SourceContainerManager extends ContainerManager {
       this.container.style.width = `${w}px`;
       this.container.style.height = `${h}px`;
       this.container.style.opacity = "1";
+      // Ensure overflow is visible so edit button shows
+      this.container.style.overflow = "visible";
       this.isOpen = true;
       window.activeContainer = this.container.id;
       this.updateState();
-      this.container.addEventListener("transitionend", () => { this.isAnimating = false; }, { once: true });
+      this.container.addEventListener("transitionend", () => { 
+        this.isAnimating = false;
+        // Double-check edit button visibility after animation
+        const editBtn = this.container.querySelector("#edit-source");
+        if (editBtn) {
+          editBtn.style.display = "flex";
+          editBtn.style.visibility = "visible";
+          console.log("🔧 Edit button visibility ensured after animation");
+        }
+      }, { once: true });
     });
   }
 
@@ -500,6 +560,70 @@ export class SourceContainerManager extends ContainerManager {
     }
   }
 
+  populateFieldsFromBibtex() {
+    const bibtexField = this.container.querySelector('#edit-bibtex');
+    if (!bibtexField) return;
+    
+    const bibtexText = bibtexField.value.trim();
+    if (!bibtexText) return;
+
+    const patterns = {
+      title: /title\s*=\s*[{"]([^}"]+)[}"]/i,
+      author: /author\s*=\s*[{"]([^}"]+)[}"]/i,
+      journal: /journal\s*=\s*[{"]([^}"]+)[}"]/i,
+      year: /year\s*=\s*[{"]?(\d+)[}"]?/i,
+      pages: /pages\s*=\s*[{"]([^}"]+)[}"]/i,
+      publisher: /publisher\s*=\s*[{"]([^}"]+)[}"]/i,
+      school: /school\s*=\s*[{"]([^}"]+)[}"]/i,
+      note: /note\s*=\s*[{"]([^}"]+)[}"]/i,
+      url: /url\s*=\s*[{"]([^}"]+)[}"]/i
+    };
+
+    let changed = false;
+    Object.entries(patterns).forEach(([field, pattern]) => {
+      const match = bibtexText.match(pattern);
+      if (match) {
+        const element = this.container.querySelector(`#edit-${field}`);
+        if (element) {
+          let newVal = match[1].trim();
+          
+          // Auto-format URL if it's a URL field
+          if (field === 'url' && newVal && !newVal.match(/^https?:\/\//i)) {
+            newVal = `https://${newVal}`;
+          }
+          
+          if (element.value !== newVal) {
+            element.value = newVal;
+            changed = true;
+          }
+        }
+      }
+    });
+
+    // If fields were updated programmatically, trigger their validation listeners
+    if (changed) {
+      const title = this.container.querySelector('#edit-title');
+      if (title) title.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+
+  validateUrl(value) {
+    if (!value) return { valid: true, message: '' }; // Optional field
+    
+    // Auto-format URL if it doesn't have a protocol
+    let formattedUrl = value.trim();
+    if (formattedUrl && !formattedUrl.match(/^https?:\/\//i)) {
+      formattedUrl = `https://${formattedUrl}`;
+    }
+    
+    try {
+      new URL(formattedUrl);
+      return { valid: true, message: 'Valid URL', formattedValue: formattedUrl };
+    } catch (e) {
+      return { valid: false, message: 'Please enter a valid URL (e.g., example.com or https://example.com)' };
+    }
+  }
+
   expandForEditForm() {
     // Expand the container to a larger size to accommodate the form
     // NARROWER EDIT FORM: Keep it narrower than before
@@ -524,6 +648,8 @@ export class SourceContainerManager extends ContainerManager {
     const form = this.container.querySelector("#edit-source-form");
     const cancelBtn = this.container.querySelector("#cancel-edit");
     const typeRadios = this.container.querySelectorAll('input[name="type"]');
+    const bibtexField = this.container.querySelector("#edit-bibtex");
+    const urlField = this.container.querySelector("#edit-url");
     
     // Type change listeners for radio buttons
     typeRadios.forEach(radio => {
@@ -533,6 +659,75 @@ export class SourceContainerManager extends ContainerManager {
         }
       });
     });
+    
+    // URL field auto-formatting
+    if (urlField) {
+      urlField.addEventListener('blur', () => {
+        const result = this.validateUrl(urlField.value);
+        
+        // Auto-format the URL in the input field if validation succeeded
+        if (result.valid && result.formattedValue && result.formattedValue !== urlField.value) {
+          urlField.value = result.formattedValue;
+        }
+      });
+    }
+    
+    // BibTeX field listeners (same as newBookForm.js)
+    if (bibtexField) {
+      // Helper to trigger validation after autofill
+      const triggerAutoValidation = () => {
+        const titleField = this.container.querySelector("#edit-title");
+        if (titleField) titleField.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+
+      bibtexField.addEventListener('paste', (e) => {
+        setTimeout(() => {
+          const bibtexText = bibtexField.value;
+          const typeMatch = bibtexText.match(/@(\w+)\s*\{/i);
+          
+          if (typeMatch) {
+            const bibType = typeMatch[1].toLowerCase();
+            const radio = this.container.querySelector(`input[name="type"][value="${bibType}"]`);
+            
+            if (radio) {
+              radio.checked = true;
+              this.showOptionalFieldsForType(bibType, record);
+            } else {
+              const miscRadio = this.container.querySelector('input[name="type"][value="misc"]');
+              if (miscRadio) {
+                miscRadio.checked = true;
+                this.showOptionalFieldsForType('misc', record);
+              }
+            }
+            
+            setTimeout(() => {
+              this.populateFieldsFromBibtex();
+              triggerAutoValidation();
+            }, 50);
+          }
+        }, 0);
+      });
+
+      bibtexField.addEventListener('input', () => {
+        clearTimeout(bibtexField.debounceTimer);
+        bibtexField.debounceTimer = setTimeout(() => {
+          const bibtexText = bibtexField.value;
+          const typeMatch = bibtexText.match(/@(\w+)\s*\{/i);
+          
+          if (typeMatch) {
+            const bibType = typeMatch[1].toLowerCase();
+            const radio = this.container.querySelector(`input[name="type"][value="${bibType}"]`);
+            
+            if (radio) {
+              radio.checked = true;
+              this.showOptionalFieldsForType(bibType, record);
+              this.populateFieldsFromBibtex();
+              triggerAutoValidation();
+            }
+          }
+        }, 300);
+      });
+    }
     
     // Cancel button
     if (cancelBtn) {
@@ -603,15 +798,18 @@ export class SourceContainerManager extends ContainerManager {
       // Collect form data
       const formData = this.collectFormData();
       
-      // Generate new BibTeX from the form data
-      const generatedBibtex = await generateBibtexFromForm(formData);
+      // Generate new BibTeX from the form data (unless user provided their own)
+      let finalBibtex = formData.bibtex;
+      if (!finalBibtex || finalBibtex.trim() === '') {
+        finalBibtex = await generateBibtexFromForm(formData);
+      }
       
       // Update the record with new data AND regenerated BibTeX
       const updatedRecord = {
         ...originalRecord,
         ...formData,
-        bibtex: generatedBibtex, // Use the newly generated BibTeX
-        timestamp: originalRecord.timestamp, // Keep original timestamp
+        bibtex: finalBibtex,
+        timestamp: Date.now(), // Update timestamp when record is modified
         book: originalRecord.book, // Keep original book ID
       };
       
@@ -622,7 +820,16 @@ export class SourceContainerManager extends ContainerManager {
       await store.put(updatedRecord);
       
       console.log("Library record updated successfully:", updatedRecord);
-      console.log("Generated BibTeX:", generatedBibtex);
+      console.log("Final BibTeX:", finalBibtex);
+      
+      // Sync to backend database
+      try {
+        await this.syncLibraryRecordToBackend(updatedRecord);
+        console.log("✅ Library record synced to backend successfully");
+      } catch (syncError) {
+        console.warn("⚠️ Backend sync failed, but local update succeeded:", syncError);
+        // Don't fail the entire operation if backend sync fails
+      }
       
       // Hide the form and refresh the container content
       this.hideEditForm();
@@ -636,6 +843,30 @@ export class SourceContainerManager extends ContainerManager {
       console.error("Error updating library record:", error);
       alert("Error updating library record: " + error.message);
     }
+  }
+
+  async syncLibraryRecordToBackend(libraryRecord) {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    
+    const response = await fetch('/api/db/library/upsert', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-CSRF-TOKEN': csrfToken,
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        records: [libraryRecord] // The upsert endpoint expects an array of records
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Backend sync failed: ${response.status} - ${errorText}`);
+    }
+
+    return await response.json();
   }
 
   collectFormData() {
@@ -653,12 +884,12 @@ export class SourceContainerManager extends ContainerManager {
       data.type = checkedTypeRadio.value;
     }
     
-    // Also collect optional fields that might not be in the main form
-    const optionalFields = ["journal", "pages", "publisher", "school", "note", "url"];
-    optionalFields.forEach(fieldName => {
+    // Collect all fields including BibTeX
+    const allFields = ["title", "author", "year", "url", "bibtex", "journal", "pages", "publisher", "school", "note"];
+    allFields.forEach(fieldName => {
       const field = this.container.querySelector(`#edit-${fieldName}`);
-      if (field && field.value) {
-        data[fieldName] = field.value;
+      if (field) {
+        data[fieldName] = field.value || '';
       }
     });
     
