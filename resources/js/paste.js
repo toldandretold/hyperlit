@@ -1260,8 +1260,6 @@ async function handleHypercitePaste(event) {
   // Extract quoted text - IMPROVED VERSION
   let quotedText = "";
 
-  // Method 1: Try regex to extract quoted text from raw HTML
-
   const quoteMatch = clipboardHtml.match(/[''""]([^]*?)[''""](?=<a|$)/);
   if (quoteMatch) {
     quotedText = quoteMatch[1];

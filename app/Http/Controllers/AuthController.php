@@ -264,5 +264,6 @@ class AuthController extends Controller
             return response()->json(['success' => false, 'message' => 'An error occurred during content association.'], 500);
         }
     }
+
 }
 

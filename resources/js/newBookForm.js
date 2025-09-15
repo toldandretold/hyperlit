@@ -29,6 +29,10 @@ function showFieldsForType(type) {
         field.previousElementSibling.style.display = 'none';
     });
 
+    // Always show common fields like URL
+    const urlField = document.getElementById('url');
+    if (urlField) urlField.style.display = 'block';
+
     if (type === 'article') {
         document.getElementById('journal').style.display = 'block';
         document.querySelector('label[for="journal"]').style.display = 'block';
@@ -73,7 +77,13 @@ function populateFieldsFromBibtex() {
             const fieldName = field === 'id' ? 'citation_id' : field;
             const element = document.getElementById(fieldName);
             if (element) {
-                const newVal = match[1].trim();
+                let newVal = match[1].trim();
+                
+                // Auto-format URL if it's a URL field
+                if (field === 'url' && newVal && !newVal.match(/^https?:\/\//i)) {
+                    newVal = `https://${newVal}`;
+                }
+                
                 if (element.value !== newVal) {
                     element.value = newVal;
                     changed = true;
@@ -571,7 +581,7 @@ async function submitToLaravelAndLoad(formData, submitButton) {
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
 
   try {
-    const response = await fetch("/cite-creator", {
+    const response = await fetch("/import-file", {
       method: "POST",
       body: formData,
       credentials: "include",
@@ -812,6 +822,23 @@ function setupRealTimeValidation() {
                 return { valid: false, message: `Year must be between 1000 and ${currentYear + 10}` };
             }
             return { valid: true, message: 'Valid year' };
+        },
+
+        validateUrl: (value) => {
+            if (!value) return { valid: true, message: '' }; // Optional field
+            
+            // Auto-format URL if it doesn't have a protocol
+            let formattedUrl = value.trim();
+            if (formattedUrl && !formattedUrl.match(/^https?:\/\//i)) {
+                formattedUrl = `https://${formattedUrl}`;
+            }
+            
+            try {
+                new URL(formattedUrl);
+                return { valid: true, message: 'Valid URL', formattedValue: formattedUrl };
+            } catch (e) {
+                return { valid: false, message: 'Please enter a valid URL (e.g., example.com or https://example.com)' };
+            }
         }
     };
     
@@ -960,6 +987,49 @@ function setupRealTimeValidation() {
                     newMsgElement.className = `validation-message ${result.valid ? 'success' : 'error'}`;
                     newMsgElement.textContent = result.message;
                     yearField.parentNode.appendChild(newMsgElement);
+                } else {
+                    msgElement.className = `validation-message ${result.valid ? 'success' : 'error'}`;
+                    msgElement.textContent = result.message;
+                }
+            }
+        });
+    }
+
+    const urlField = document.getElementById('url');
+    if (urlField) {
+        urlField.addEventListener('blur', function() {
+            const result = validators.validateUrl(this.value);
+            
+            // Auto-format the URL in the input field if validation succeeded
+            if (result.valid && result.formattedValue && result.formattedValue !== this.value) {
+                this.value = result.formattedValue;
+            }
+            
+            if (result.message) {
+                // Only show URL validation if there's an actual message (error or success)
+                const msgElement = document.querySelector('#url').parentNode.querySelector('.validation-message');
+                if (!msgElement) {
+                    const newMsgElement = document.createElement('div');
+                    newMsgElement.className = `validation-message ${result.valid ? 'success' : 'error'}`;
+                    newMsgElement.textContent = result.message;
+                    urlField.parentNode.appendChild(newMsgElement);
+                } else {
+                    msgElement.className = `validation-message ${result.valid ? 'success' : 'error'}`;
+                    msgElement.textContent = result.message;
+                }
+            }
+        });
+        
+        urlField.addEventListener('input', function() {
+            const result = validators.validateUrl(this.value);
+            if (result.message) {
+                // Show validation during typing (but don't auto-format until blur)
+                const msgElement = document.querySelector('#url').parentNode.querySelector('.validation-message');
+                if (!msgElement) {
+                    const newMsgElement = document.createElement('div');
+                    newMsgElement.className = `validation-message ${result.valid ? 'success' : 'error'}`;
+                    newMsgElement.textContent = result.message;
+                    urlField.parentNode.appendChild(newMsgElement);
                 } else {
                     msgElement.className = `validation-message ${result.valid ? 'success' : 'error'}`;
                     msgElement.textContent = result.message;
