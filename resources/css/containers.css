@@ -27,9 +27,14 @@ black #221F20;
 }
 
 #source-container .scroller {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: auto;
   padding: 1em;
-  overflow-y: auto;  /* if you want vertical scroll */
-  max-height: 100%;   /* prevents overflow beyond the container */
+  border-radius: 1em 1em;
 }
 
 

@@ -2,7 +2,6 @@
 
 @section('styles')
     @vite(['resources/css/app.css', 'resources/css/reader.css', 'resources/css/highlight-div.css', 'resources/css/containers.css', 'resources/css/buttons.css', 'resources/css/form.css', 'resources/css/alert.css', 'resources/css/layout.css'])
-    <meta name="process-cite-route" content="{{ route('processCite') }}">
 @endsection
 
 @section('content')
@@ -164,52 +163,6 @@
   <button id="importBook" type="button">import</button>
 </div>
 
-<div id="importCitation-container">
-  <form id="cite-form" action="{{ route('processCite') }}" method="POST" enctype="multipart/form-data">
-    @csrf
-    <label for="markdown_file">Upload Markdown or EPUB File:</label>
-    <input type="file" id="markdown_file" name="markdown_file" accept=".md,.epub,.doc,.docx">
-    <div id="file-validation" class="validation-message"></div>
-    <label for="bibtex">Paste BibTeX Details:</label>
-    <textarea id="bibtex" name="bibtex"></textarea>
-    <label for="type">Type:</label>
-    <label><input type="radio" name="type" value="article"> Article</label>
-    <label><input type="radio" name="type" value="book"> Book</label>
-    <label><input type="radio" name="type" value="phdthesis"> PhD Thesis</label>
-    <label><input type="radio" name="type" value="misc"> Miscellaneous</label>
-    <div id="common-fields">
-        <label for="citation_id">Citation ID:</label>
-        <input type="text" id="citation_id" name="citation_id">
-        <div id="citation_id-validation" class="validation-message"></div>
-        <label for="author">Author:</label>
-        <input type="text" id="author" name="author">
-        <label for="title">Title:</label>
-        <input type="text" id="title" name="title">
-        <div id="title-validation" class="validation-message"></div>
-        <label for="year">Year:</label>
-        <input type="number" id="year" name="year">
-        <label for="url">URL:</label>
-        <input type="text" id="url" name="url">
-        <label for="pages" class="optional-field" style="display:none;">Pages:</label>
-        <input type="text" id="pages" name="pages" class="optional-field" style="display:none;">
-        <label for="journal" class="optional-field" style="display:none;">Journal:</label>
-        <input type="text" id="journal" name="journal" class="optional-field" style="display:none;">
-        <label for="publisher" class="optional-field" style="display:none;">Publisher:</label>
-        <input type="text" id="publisher" name="publisher" class="optional-field" style="display:none;">
-        <label for="school" class="optional-field" style="display:none;">School:</label>
-        <input type="text" id="school" name="school" class="optional-field" style="display:none;">
-        <label for="note" class="optional-field" style="display:none;">Note:</label>
-        <input type="text" id="note" name="note" class="optional-field" style="display:none;">
-    </div>
-    <!-- Form validation summary -->
-    <div id="form-validation-summary" style="display: none; background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
-        <strong>Please fix the following errors:</strong>
-        <ul id="validation-list"></ul>
-    </div>
-    <button type="submit" id="createButton" class="formButton">Create</button>
-    <button type="button" id="clearButton" class="formButton">Clear</button>
-  </form>
-</div>
 
 <div id="toc-overlay"></div>
 <div id="ref-overlay"></div>

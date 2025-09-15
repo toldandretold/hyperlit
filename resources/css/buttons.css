@@ -55,7 +55,8 @@ black #221F20;
   cursor: pointer;
 }
 
-#editButton {
+#editButton,
+#edit-source {
   width: 20px;
   height: 20px;
   background: #221F20;
@@ -71,11 +72,13 @@ black #221F20;
   cursor: pointer !important;
 }
 
-#editButton svg {
+#editButton svg,
+#edit-source svg {
   pointer-events: none !important; /* Prevent SVG from blocking clicks */
 }
 
-#editButton path {
+#editButton path,
+#edit-source path {
   pointer-events: none !important; /* Prevent path elements from blocking clicks */
 }
 
@@ -302,6 +305,7 @@ black #221F20;
   border-radius: 0.25em;
   cursor: pointer;
 }
+
 
 /* Edit toolbar container */
 #edit-toolbar {

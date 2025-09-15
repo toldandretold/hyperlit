@@ -204,15 +204,10 @@ export class NewBookContainerManager extends ContainerManager {
     .querySelector('meta[name="csrf-token"]')
     .getAttribute("content");
 
-  // Get the route URL that has been processed by Laravel.
-  const processCiteRoute = document
-    .querySelector('meta[name="process-cite-route"]')
-    .getAttribute("content");
-
-  // The form HTML content with the processed route:
+  // The form HTML content:
   const formHTML = `
       <div class="scroller">
-      <form id="cite-form" action="${processCiteRoute}" method="POST" enctype="multipart/form-data">
+      <form id="cite-form" action="/import-file" method="POST" enctype="multipart/form-data">
         <div class="form-header">
           <h2 style="color: #EF8D34;">Import File</h2>
           <p class="form-subtitle">Required fields marked with <span class="required-indicator">*</span></p>
@@ -342,11 +337,33 @@ export class NewBookContainerManager extends ContainerManager {
       });
     });
 
-    // Set default type
+    // Set default type and ensure URL field is visible
     if (typeRadios.length > 0) {
-      typeRadios[0].checked = true;
-      this.toggleOptionalFields("article");
+      // Find the checked radio or default to first one
+      const checkedRadio = document.querySelector('input[name="type"]:checked');
+      if (checkedRadio) {
+        this.toggleOptionalFields(checkedRadio.value);
+      } else {
+        typeRadios[0].checked = true;
+        this.toggleOptionalFields(typeRadios[0].value);
+      }
     }
+    
+    // Always ensure URL field is visible after initialization
+    setTimeout(() => {
+      const urlField = document.getElementById('url');
+      if (urlField) {
+        urlField.style.display = 'block';
+        
+        // Add URL auto-formatting
+        urlField.addEventListener('blur', function() {
+          let url = this.value.trim();
+          if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+            this.value = 'https://' + url;
+          }
+        });
+      }
+    }, 50);
 
     this.loadFormData();
 
@@ -422,6 +439,10 @@ export class NewBookContainerManager extends ContainerManager {
     optionalFields.forEach((field) => {
       field.style.display = "none";
     });
+
+    // Always show common fields like URL
+    const urlField = document.getElementById('url');
+    if (urlField) urlField.style.display = 'block';
 
     // Show fields based on type
     switch (type) {

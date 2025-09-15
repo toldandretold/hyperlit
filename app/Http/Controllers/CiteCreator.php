@@ -381,10 +381,18 @@ class CiteCreator extends Controller
                     'title' => $request->input('title'),
                     'author' => $request->input('author'),
                     'type' => $request->input('type') ?? 'book',
+                    'year' => $request->input('year'),
+                    'url' => $request->input('url'),
+                    'pages' => $request->input('pages'),
+                    'journal' => $request->input('journal'),
+                    'publisher' => $request->input('publisher'),
+                    'school' => $request->input('school'),
+                    'note' => $request->input('note'),
+                    'bibtex' => $request->input('bibtex'),
                     'timestamp' => round(microtime(true) * 1000),
                     'creator' => $creatorInfo['creator'],
                     'creator_token' => $creatorInfo['creator_token'],
-                    'raw_json' => []
+                    'raw_json' => json_encode($request->all())
                 ]
             );
             
