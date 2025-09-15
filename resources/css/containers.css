@@ -1112,6 +1112,7 @@ black #221F20;
   display: flex;
   gap: 8px;
   margin-top: 1em;
+
 }
 
 /* Delete button in highlight containers */
@@ -1146,4 +1147,5 @@ black #221F20;
 
 .delete-highlight-btn:hover svg path {
   stroke: #221f20;
+
 }
