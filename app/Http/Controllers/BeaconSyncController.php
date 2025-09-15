@@ -26,9 +26,8 @@ class BeaconSyncController extends Controller
         if ($user) {
             // Logged-in user
             $ownerKey = 'creator';
-            // Your DbNodeChunkController uses $user->name, but user ID is more standard.
-            // Let's stick with ID for consistency, but you can change to name if needed.
-            $ownerValue = $user->id; 
+            // Use $user->name for consistency with DbLibraryController
+            $ownerValue = $user->name; 
             Log::info('Beacon sync initiated by user: ' . $ownerValue);
         } elseif ($anonymousToken) {
             // Anonymous user with a token
