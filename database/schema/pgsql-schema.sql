@@ -854,6 +854,7 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 29	2025_09_10_002000_update_annotation_columns	22
 30	2025_09_10_121143_add_time_since_to_hypercites_table	23
 31	2025_09_14_121243_add_hidden_field_to_pg_hyperlights_table	24
+
 \.
 
 
@@ -862,6 +863,7 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 --
 
 SELECT pg_catalog.setval('public.migrations_id_seq', 31, true);
+
 
 
 --

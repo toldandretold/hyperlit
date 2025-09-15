@@ -86,6 +86,20 @@ export class UserContainerManager extends ContainerManager {
       if (e.target.id === "user-overlay" && this.isOpen) {
         this.closeContainer();
       }
+
+      if (e.target.id === "myBooksBtn") {
+        e.preventDefault();
+        if (this.user && this.user.name) {
+          window.location.href = "/" + encodeURIComponent(this.user.name);
+        } else {
+          this.setPostLoginAction(() => {
+            if (this.user && this.user.name) {
+              window.location.href = "/" + encodeURIComponent(this.user.name);
+            }
+          });
+          this.showLoginForm();
+        }
+      }
     });
   }
 
@@ -164,7 +178,7 @@ export class UserContainerManager extends ContainerManager {
             <button style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer; margin-bottom: 8px;">
               Account Settings
             </button>
-            <button style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer; margin-bottom: 8px;">
+            <button id="myBooksBtn" style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer; margin-bottom: 8px;">
               My Books
             </button>
             <button id="logout" 
@@ -199,9 +213,13 @@ export class UserContainerManager extends ContainerManager {
     const email = document.getElementById("loginEmail").value;
     const password = document.getElementById("loginPassword").value;
 
+    console.log("🔄 Starting login process...");
+
     try {
       await fetch("/sanctum/csrf-cookie", { credentials: "include" });
       const csrfToken = this.getCsrfTokenFromCookie();
+
+      console.log("🔑 CSRF token obtained, making login request...");
 
       const response = await fetch("/api/login", {
         method: "POST",
@@ -215,9 +233,13 @@ export class UserContainerManager extends ContainerManager {
         body: JSON.stringify({ email, password }),
       });
 
+      console.log("📡 Login response received:", response.status);
+
       const data = await response.json();
+      console.log("📄 Login response data:", data);
 
       if (response.ok && data.success) {
+        console.log("✅ Login successful, setting user...");
         setCurrentUser(data.user);
         this.user = data.user;
 
@@ -225,14 +247,16 @@ export class UserContainerManager extends ContainerManager {
         if (data.anonymous_content) {
           this.showAnonymousContentTransfer(data.anonymous_content);
         } else {
+
           // No anonymous content, proceed normally
           this.proceedAfterLogin();
         }
       } else {
+        console.error("❌ Login failed:", data);
         this.showLoginError(data.errors || data.message || "Login failed");
       }
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("❌ Login error:", error);
       this.showLoginError("Network error occurred");
     }
   }
@@ -664,6 +688,7 @@ export class UserContainerManager extends ContainerManager {
     }
 
   showAnonymousContentTransfer(anonymousContent) {
+
     // Clean up any existing alert boxes
     const customAlert = document.querySelector(".custom-alert");
     if (customAlert) {
@@ -674,6 +699,7 @@ export class UserContainerManager extends ContainerManager {
 
     // Use the user container instead of source-container
     if (!this.isOpen) {
+
       // Container isn't open, so we need to open it to show the prompt
       this.openContainer("transfer-prompt");
     }
@@ -705,12 +731,15 @@ export class UserContainerManager extends ContainerManager {
     
     this.container.innerHTML = htmlContent;
 
+
     // Add event listeners
     const confirmButton = document.getElementById('confirmContentTransfer');
     const skipButton = document.getElementById('skipContentTransfer');
     
+
     if (confirmButton) {
       confirmButton.onclick = () => {
+
         this.transferAnonymousContent(anonymousContent.token);
         // After transfer, show the user profile in the same container
         setTimeout(() => this.showUserProfile(), 500);
@@ -719,6 +748,7 @@ export class UserContainerManager extends ContainerManager {
 
     if (skipButton) {
       skipButton.onclick = () => {
+
         // Go directly to user profile in the same container
         this.showUserProfile();
       };

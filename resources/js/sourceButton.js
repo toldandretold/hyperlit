@@ -52,6 +52,7 @@ async function buildSourceHtml(currentBookId) {
   title = {${record.title || 'Untitled'}},
   year = {${year}},
 ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteField}}`;
+
   }
   
   const citation = (await formatBibtexToCitation(bibtex)).trim();
@@ -89,6 +90,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
 
   console.log("🔍 EDIT BUTTON DEBUG - Will show edit button:", !!canEdit);
   console.log("🔍 EDIT BUTTON DEBUG - Edit button HTML length:", editButtonHtml.length);
+
 
   return `
     <div class="scroller" id="source-content">
@@ -157,6 +159,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     </svg>
     </div>
   </button>
+
 
     ${editButtonHtml}
 
@@ -323,6 +326,7 @@ export class SourceContainerManager extends ContainerManager {
     const docxBtn = this.container.querySelector("#download-docx");
     const editBtn = this.container.querySelector("#edit-source");
     
+
     console.log("🔍 EDIT BUTTON DEBUG - Container HTML preview:", this.container.innerHTML.substring(0, 500));
     console.log("🔍 EDIT BUTTON DEBUG - Button elements found:", { mdBtn: !!mdBtn, docxBtn: !!docxBtn, editBtn: !!editBtn });
     console.log("🔍 EDIT BUTTON DEBUG - Edit button element:", editBtn);
@@ -347,6 +351,7 @@ export class SourceContainerManager extends ContainerManager {
     } else {
       console.warn("❌ Edit button not found in container!");
     }
+
 
     // Get current button position
     const rect = this.button.getBoundingClientRect();
@@ -560,6 +565,7 @@ export class SourceContainerManager extends ContainerManager {
     }
   }
 
+
   populateFieldsFromBibtex() {
     const bibtexField = this.container.querySelector('#edit-bibtex');
     if (!bibtexField) return;
@@ -624,6 +630,7 @@ export class SourceContainerManager extends ContainerManager {
     }
   }
 
+
   expandForEditForm() {
     // Expand the container to a larger size to accommodate the form
     // NARROWER EDIT FORM: Keep it narrower than before
@@ -648,8 +655,10 @@ export class SourceContainerManager extends ContainerManager {
     const form = this.container.querySelector("#edit-source-form");
     const cancelBtn = this.container.querySelector("#cancel-edit");
     const typeRadios = this.container.querySelectorAll('input[name="type"]');
+
     const bibtexField = this.container.querySelector("#edit-bibtex");
     const urlField = this.container.querySelector("#edit-url");
+
     
     // Type change listeners for radio buttons
     typeRadios.forEach(radio => {
@@ -660,6 +669,7 @@ export class SourceContainerManager extends ContainerManager {
       });
     });
     
+
     // URL field auto-formatting
     if (urlField) {
       urlField.addEventListener('blur', () => {
@@ -729,6 +739,7 @@ export class SourceContainerManager extends ContainerManager {
       });
     }
     
+
     // Cancel button
     if (cancelBtn) {
       cancelBtn.addEventListener("click", (e) => {
@@ -801,6 +812,7 @@ export class SourceContainerManager extends ContainerManager {
       // Always regenerate BibTeX from form data to ensure all fields are included
       const finalBibtex = await generateBibtexFromForm(formData);
       console.log("🔄 Regenerated BibTeX from form data:", finalBibtex);
+
       
       // Update the record with new data AND regenerated BibTeX
       const updatedRecord = {
@@ -808,6 +820,7 @@ export class SourceContainerManager extends ContainerManager {
         ...formData,
         bibtex: finalBibtex,
         timestamp: Date.now(), // Update timestamp when record is modified
+
         book: originalRecord.book, // Keep original book ID
       };
       
@@ -818,6 +831,7 @@ export class SourceContainerManager extends ContainerManager {
       await store.put(updatedRecord);
       
       console.log("Library record updated successfully:", updatedRecord);
+
       console.log("Final BibTeX:", finalBibtex);
       
       // Sync to backend database
@@ -828,6 +842,7 @@ export class SourceContainerManager extends ContainerManager {
         console.warn("⚠️ Backend sync failed, but local update succeeded:", syncError);
         // Don't fail the entire operation if backend sync fails
       }
+
       
       // Hide the form and refresh the container content
       this.hideEditForm();
@@ -843,6 +858,7 @@ export class SourceContainerManager extends ContainerManager {
     }
   }
 
+
   async syncLibraryRecordToBackend(libraryRecord) {
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
     
@@ -856,6 +872,7 @@ export class SourceContainerManager extends ContainerManager {
       credentials: 'include',
       body: JSON.stringify({
         data: libraryRecord // The upsert endpoint expects a single record in the data field
+
       })
     });
 
@@ -866,6 +883,7 @@ export class SourceContainerManager extends ContainerManager {
 
     return await response.json();
   }
+
 
   collectFormData() {
     const form = this.container.querySelector("#edit-source-form");
@@ -882,12 +900,14 @@ export class SourceContainerManager extends ContainerManager {
       data.type = checkedTypeRadio.value;
     }
     
+
     // Collect all fields including BibTeX
     const allFields = ["title", "author", "year", "url", "bibtex", "journal", "pages", "publisher", "school", "note"];
     allFields.forEach(fieldName => {
       const field = this.container.querySelector(`#edit-${fieldName}`);
       if (field) {
         data[fieldName] = field.value || '';
+
       }
     });
     
