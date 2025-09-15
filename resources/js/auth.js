@@ -286,44 +286,86 @@ export async function refreshAuth() {
   await initializeAuth();
 }
 
+// Helper function to check if user has anonymous content
+async function hasAnonymousContent(token) {
+  console.log('🔍 Checking for anonymous content with token:', token);
+  return new Promise((resolve) => {
+    const request = indexedDB.open('MarkdownDB');
+    request.onsuccess = (event) => {
+      const db = event.target.result;
+      let foundContent = false;
+      let completedChecks = 0;
+      const totalChecks = 2;
+
+      const checkComplete = () => {
+        completedChecks++;
+        if (completedChecks === totalChecks) {
+          console.log('✅ Content check complete. Found content:', foundContent);
+          resolve(foundContent);
+        }
+      };
+
+      // Check library object store
+      const libraryTransaction = db.transaction(['library'], 'readonly');
+      const libraryStore = libraryTransaction.objectStore('library');
+      const libraryRequest = libraryStore.getAll();
+      
+      libraryRequest.onsuccess = () => {
+        const books = libraryRequest.result;
+        console.log('📚 All books in library:', books);
+        const matchingBooks = books.filter(book => book.creator_token === token && (!book.creator || book.creator === null));
+        console.log('📚 Books with matching creator_token:', matchingBooks);
+        if (matchingBooks.length > 0) {
+          foundContent = true;
+        }
+        checkComplete();
+      };
+      
+      libraryRequest.onerror = () => {
+        console.error('❌ Error checking library:', libraryRequest.error);
+        checkComplete();
+      };
+
+      // Check hyperlights object store
+      const highlightsTransaction = db.transaction(['hyperlights'], 'readonly');
+      const highlightsStore = highlightsTransaction.objectStore('hyperlights');
+      const highlightsRequest = highlightsStore.getAll();
+      
+      highlightsRequest.onsuccess = () => {
+        const highlights = highlightsRequest.result;
+        console.log('💡 All highlights in hyperlights:', highlights);
+        const matchingHighlights = highlights.filter(highlight => highlight.creator_token === token);
+        console.log('💡 Highlights with matching creator_token:', matchingHighlights);
+        if (matchingHighlights.length > 0) {
+          foundContent = true;
+        }
+        checkComplete();
+      };
+      
+      highlightsRequest.onerror = () => {
+        console.error('❌ Error checking hyperlights:', highlightsRequest.error);
+        checkComplete();
+      };
+    };
+    
+    request.onerror = () => {
+      console.error('❌ Error opening database:', request.error);
+      resolve(false);
+    };
+  });
+}
+
 // Call this after successful login to update state
 export function setCurrentUser(user) {
-  const tokenToAssociate = anonymousToken; // Capture the anonymous token BEFORE it's cleared.
 
   // Set the new user state
   currentUserInfo = user;
   anonymousToken = null;
   authInitialized = true;
+ 
 
-  // Check if there was an anonymous token and ask the user to associate content.
-  if (tokenToAssociate) {
-    if (window.confirm("You just wrote some hypertext while logged out. Do you want to bring that into your account?")) {
-      console.log("🤝 User agreed to associate content. Calling API...");
-      // Use an async IIFE to avoid making setCurrentUser async, which could be a breaking change.
-      (async () => {
-        try {
-          const response = await fetch('/api/auth/associate-content', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'X-Requested-With': 'XMLHttpRequest',
-              'X-CSRF-TOKEN': window.csrfToken
-            },
-            body: JSON.stringify({ anonymous_token: tokenToAssociate })
-          });
-          if (response.ok) {
-            console.log("✅ Content association successful.");
-          } else {
-            console.error("❌ API Error during content association:", await response.text());
-          }
-        } catch (error) {
-          console.error("❌ Fetch error during content association:", error);
-        }
-      })();
-    }
-  }
 }
+
 
 // Call this after logout to reset state
 export async function clearCurrentUser() {

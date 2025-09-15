@@ -88,7 +88,6 @@ function extractFootnotesFromHTML(htmlContent, bookId, formatType = 'general') {
     });
   }
 
-
   // --- NEW HEURISTIC-BASED PARAGRAPH STRATEGY ---
 
   // 1. Find all reference callers (the <sup> tags) to see what we need to find.

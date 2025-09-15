@@ -19,6 +19,7 @@ export async function formatBibtexToCitation(bibtex) {
 
   // Pull out all fields
   const fields = parseBibtex(bibtex);
+  console.log("🔍 Parsed BibTeX fields:", fields);
   const rawAuthor = fields.author || "";
   const currentUserId = await getCurrentUserId();
 
@@ -48,8 +49,12 @@ export async function formatBibtexToCitation(bibtex) {
 
   // Title formatting (quotes for articles, italics for books)
   let formattedTitle = isArticle ? `"${title}"` : `<i>${title}</i>`;
+  console.log("🔗 URL found in BibTeX:", url);
   if (url) {
     formattedTitle = `<a href="${url}" target="_blank">${formattedTitle}</a>`;
+    console.log("✅ Title formatted with link:", formattedTitle);
+  } else {
+    console.log("❌ No URL found, title will not be linked");
   }
 
   // Publisher italics for articles

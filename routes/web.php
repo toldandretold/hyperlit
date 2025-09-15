@@ -11,6 +11,9 @@ use App\Models\User;
 use App\Events\ProcessComplete;
 use App\Http\Controllers\FootnotesController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\ConversionController;
+use App\Http\Controllers\DbLibraryController;
+use Illuminate\Validation\ValidationException;
 
 use App\Http\Controllers\ConversionController;
 use App\Http\Controllers\DbLibraryController;
@@ -36,20 +39,8 @@ Route::get('/test-log', function () {
 Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML'])->name('hyperlights.show');
 
 
-
-
-Route::middleware(['author', 'throttle:30,1'])->group(function () {
-  
-  Route::post('/import-file', [App\Http\Controllers\CiteCreator::class, 'store'])->name('import.file');
-
-    Route::post('/cite-creator', [CiteCreator::class, 'store'])->name('processCite');
-
-    Route::post('/create-main-text-md', [CiteCreator::class, 'createNewMarkdown']);
-
- });
-
-// Delete book (owner only)
-Route::delete('/books/{book}', [DbLibraryController::class, 'destroy'])->middleware('auth');
+// File import route - use existing CiteCreator controller
+Route::post('/import-file', [App\Http\Controllers\CiteCreator::class, 'store'])->name('import.file');
 
 
 // jason book route

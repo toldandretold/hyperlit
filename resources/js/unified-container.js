@@ -70,7 +70,6 @@ export function openHyperlitContainer(content) {
   if (existingScroller) {
     existingScroller.innerHTML = '';
   }
-  
 
   // Open the container using the manager FIRST
   console.log("📂 Opening container with manager first...");
