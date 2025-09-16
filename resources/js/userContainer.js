@@ -35,9 +35,7 @@ export class UserContainerManager extends ContainerManager {
     if (user) {
       this.user = user;
       // You can optionally update the UI here if needed, e.g., change button text
-      console.log("UserContainerManager initialized with user:", this.user.name);
     } else {
-      console.log("UserContainerManager initialized with no user.");
     }
   }
 
@@ -213,13 +211,11 @@ export class UserContainerManager extends ContainerManager {
     const email = document.getElementById("loginEmail").value;
     const password = document.getElementById("loginPassword").value;
 
-    console.log("🔄 Starting login process...");
 
     try {
       await fetch("/sanctum/csrf-cookie", { credentials: "include" });
       const csrfToken = this.getCsrfTokenFromCookie();
 
-      console.log("🔑 CSRF token obtained, making login request...");
 
       const response = await fetch("/api/login", {
         method: "POST",
@@ -233,22 +229,17 @@ export class UserContainerManager extends ContainerManager {
         body: JSON.stringify({ email, password }),
       });
 
-      console.log("📡 Login response received:", response.status);
 
       const data = await response.json();
-      console.log("📄 Login response data:", data);
 
       if (response.ok && data.success) {
-        console.log("✅ Login successful, setting user...");
         setCurrentUser(data.user);
         this.user = data.user;
 
         // Check if there's anonymous content to transfer
         if (data.anonymous_content) {
-          console.log("📦 Anonymous content found:", data.anonymous_content);
           this.showAnonymousContentTransfer(data.anonymous_content);
         } else {
-          console.log("📭 No anonymous content, proceeding normally...");
           // No anonymous content, proceed normally
           this.proceedAfterLogin();
         }
@@ -501,7 +492,6 @@ export class UserContainerManager extends ContainerManager {
   }
 
   async getAnonymousBooks(anonId) {
-    console.log('Looking for anonymous books with anonId:', anonId);
     
     return new Promise((resolve, reject) => {
       const request = indexedDB.open('MarkdownDB');
@@ -513,16 +503,13 @@ export class UserContainerManager extends ContainerManager {
         
         getAllRequest.onsuccess = () => {
           const allBooks = getAllRequest.result;
-          console.log('All books in database:', allBooks);
           
           const books = allBooks.filter(book => {
             const hasMatchingToken = book.creator_token === anonId;
             const hasNoCreator = !book.creator || book.creator === null;
-            console.log(`Book ${book.book}: creator_token=${book.creator_token}, creator=${book.creator}, matches=${hasMatchingToken && hasNoCreator}`);
             return hasMatchingToken && hasNoCreator;
           });
           
-          console.log('Filtered anonymous books:', books);
           resolve(books);
         };
         
@@ -584,15 +571,11 @@ export class UserContainerManager extends ContainerManager {
 
   async transferBooksToUser(books, anonId) {
     const userName = this.user.name;  // Use username from logged-in user
-    console.log('Transferring books to username:', userName);
-    console.log('Books to transfer:', books);
     
     for (const bookRecord of books) {
       try {
         // Use the 'book' property as the ID (e.g., "book_1751354106780")
         const bookId = bookRecord.book;
-        console.log('Book record:', bookRecord);
-        console.log('Extracted bookId:', bookId);
         
         if (!bookId) {
           console.error('No valid ID found for book:', bookRecord);
@@ -613,7 +596,6 @@ export class UserContainerManager extends ContainerManager {
   }
 
  async updateBookOwnership(bookId, userName) {
-    console.log('updateBookOwnership called with:', { bookId, userName });
     
     return new Promise((resolve, reject) => {
       const request = indexedDB.open('MarkdownDB');
@@ -630,18 +612,15 @@ export class UserContainerManager extends ContainerManager {
         const getRequest = store.get(bookId);
         getRequest.onsuccess = () => {
           const book = getRequest.result;
-          console.log('Retrieved book:', book);
           
           if (book) {
             // Add the username as creator (keeping creator_token as is)
             book.creator = userName;  // Store username in creator field
             book.updated_at = new Date().toISOString();
             
-            console.log('Updating book with new creator:', book);
             
             const putRequest = store.put(book);
             putRequest.onsuccess = () => {
-              console.log('Book ownership updated successfully');
               resolve();
             };
             putRequest.onerror = () => {
@@ -689,7 +668,6 @@ export class UserContainerManager extends ContainerManager {
     }
 
   showAnonymousContentTransfer(anonymousContent) {
-    console.log("🎯 showAnonymousContentTransfer called with:", anonymousContent);
     
     // Clean up any existing alert boxes
     const customAlert = document.querySelector(".custom-alert");
@@ -701,7 +679,6 @@ export class UserContainerManager extends ContainerManager {
 
     // Use the user container instead of source-container
     if (!this.isOpen) {
-      console.log("📦 User container not open, opening it first");
       // Container isn't open, so we need to open it to show the prompt
       this.openContainer("transfer-prompt");
     }
@@ -711,14 +688,12 @@ export class UserContainerManager extends ContainerManager {
     const totalHighlights = anonymousContent.highlights?.length || 0;
     const totalCites = anonymousContent.cites?.length || 0;
     
-    console.log("📊 Content counts:", { totalBooks, totalHighlights, totalCites });
     
     let contentSummary = [];
     if (totalBooks > 0) contentSummary.push(`${totalBooks} book${totalBooks > 1 ? 's' : ''}`);
     if (totalHighlights > 0) contentSummary.push(`${totalHighlights} highlight${totalHighlights > 1 ? 's' : ''}`);
     if (totalCites > 0) contentSummary.push(`${totalCites} citation${totalCites > 1 ? 's' : ''}`);
 
-    console.log("📝 Content summary:", contentSummary);
 
     const htmlContent = `
       <div class="user-form">
@@ -735,19 +710,15 @@ export class UserContainerManager extends ContainerManager {
       </div>
     `;
     
-    console.log("🎨 Setting user container content...");
     this.container.innerHTML = htmlContent;
-    console.log("✅ User container content set, adding event listeners...");
 
     // Add event listeners
     const confirmButton = document.getElementById('confirmContentTransfer');
     const skipButton = document.getElementById('skipContentTransfer');
     
-    console.log("🔘 Buttons found:", { confirmButton, skipButton });
     
     if (confirmButton) {
       confirmButton.onclick = () => {
-        console.log("✅ User confirmed content transfer");
         this.transferAnonymousContent(anonymousContent.token);
         // After transfer, show the user profile in the same container
         setTimeout(() => this.showUserProfile(), 500);
@@ -756,13 +727,11 @@ export class UserContainerManager extends ContainerManager {
 
     if (skipButton) {
       skipButton.onclick = () => {
-        console.log("⏭️ User skipped content transfer");
         // Go directly to user profile in the same container
         this.showUserProfile();
       };
     }
     
-    console.log("🎯 showAnonymousContentTransfer completed successfully");
   }
 
   hideSourceContainer() {
@@ -792,7 +761,6 @@ export class UserContainerManager extends ContainerManager {
       });
 
       if (response.ok) {
-        console.log("✅ Content association successful.");
       } else {
         console.error("❌ API Error during content association:", await response.text());
       }
