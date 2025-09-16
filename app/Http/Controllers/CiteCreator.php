@@ -86,7 +86,7 @@ class CiteCreator extends Controller
                 function ($attribute, $value, $fail) {
                     if ($value) {
                         $extension = strtolower($value->getClientOriginalExtension());
-                        $allowedExtensions = ['md', 'doc', 'docx', 'epub'];
+                        $allowedExtensions = ['md', 'doc', 'docx', 'epub', 'html'];
                         
                         Log::info('File validation debug', [
                             'original_name' => $value->getClientOriginalName(),
@@ -96,7 +96,7 @@ class CiteCreator extends Controller
                         ]);
                         
                         if (!in_array($extension, $allowedExtensions)) {
-                            $fail('The markdown file field must be a file of type: md, doc, docx, epub.');
+                            $fail('The markdown file field must be a file of type: md, doc, docx, epub, html.');
                         }
                     }
                 }
@@ -162,12 +162,26 @@ class CiteCreator extends Controller
                     'processing_duration_ms' => round((microtime(true) - $processingStart) * 1000, 2)
                 ]);
             } elseif ($extension === 'epub') {
-                Log::info('Starting EPUB processing', [
+                $isDocxProcessing = true; // Set the flag to wait for nodeChunks.json
+                Log::info('Starting EPUB processing pipeline', [
                     'citation_id' => $citation_id,
                     'processing_start_time' => $processingStart
                 ]);
-                $this->processEpubFile($originalFilePath, $path);
-                Log::info('EPUB processing completed', [
+                // This method now handles the full conversion from EPUB to nodeChunks.json
+                $this->processEpubFile($originalFilePath, $path, $citation_id);
+                Log::info('EPUB processing pipeline completed', [
+                    'citation_id' => $citation_id,
+                    'processing_duration_ms' => round((microtime(true) - $processingStart) * 1000, 2)
+                ]);
+            } elseif ($extension === 'html') {
+                $isDocxProcessing = true; // Set the flag to wait for nodeChunks.json
+                Log::info('Starting HTML processing pipeline', [
+                    'citation_id' => $citation_id,
+                    'processing_start_time' => $processingStart
+                ]);
+                // Process HTML file directly to JSON
+                $this->processHtmlFile($originalFilePath, $path, $citation_id);
+                Log::info('HTML processing pipeline completed', [
                     'citation_id' => $citation_id,
                     'processing_duration_ms' => round((microtime(true) - $processingStart) * 1000, 2)
                 ]);
@@ -456,53 +470,45 @@ class CiteCreator extends Controller
         }
 
         try {
-            $cleanScriptPath = base_path('app/python/clean.py');
-            $combineScriptPath = base_path('app/python/combine.py');
+            $processorScriptPath = base_path('app/Python/epub_processor.py');
             
-            // Verify script files exist
-            if (!file_exists($cleanScriptPath) || !file_exists($combineScriptPath)) {
-                throw new \RuntimeException('Python scripts not found');
+            // Verify script file exists
+            if (!file_exists($processorScriptPath)) {
+                throw new \RuntimeException('Python script epub_processor.py not found');
             }
 
-            Log::info('Python scripts execution started', [
+            Log::info('Python epub_processor.py execution started', [
                 'epub_path' => basename($epubPath)
             ]);
 
-            // Run clean.py with timeout and proper error handling
-            $cleanProcess = new Process([
+            // Run epub_processor.py with timeout and proper error handling
+            $process = new Process([
                 'python3', 
-                $cleanScriptPath, 
+                $processorScriptPath, 
                 $epubPath
             ]);
-            $cleanProcess->setTimeout(300);
-            $cleanProcess->run();
+            $process->setTimeout(300);
+            $process->run();
 
-            if (!$cleanProcess->isSuccessful()) {
-                Log::error('Clean.py script failed', [
-                    'exit_code' => $cleanProcess->getExitCode(),
-                    'error_output' => $cleanProcess->getErrorOutput()
+            // Always log the output for debugging purposes
+            $stdout = $process->getOutput();
+            $stderr = $process->getErrorOutput();
+            if (!empty($stdout) || !empty($stderr)) {
+                Log::debug('Output from epub_processor.py', [
+                    'stdout' => $stdout,
+                    'stderr' => $stderr
                 ]);
-                throw new ProcessFailedException($cleanProcess);
             }
 
-            // Run combine.py
-            $combineProcess = new Process([
-                'python3', 
-                $combineScriptPath, 
-                $epubPath
-            ]);
-            $combineProcess->setTimeout(300);
-            $combineProcess->run();
-
-            if (!$combineProcess->isSuccessful()) {
-                Log::error('Combine.py script failed', [
-                    'exit_code' => $combineProcess->getExitCode(),
-                    'error_output' => $combineProcess->getErrorOutput()
+            if (!$process->isSuccessful()) {
+                Log::error('epub_processor.py script failed', [
+                    'exit_code' => $process->getExitCode(),
+                    'error_output' => $stderr // Already captured
                 ]);
-                throw new ProcessFailedException($combineProcess);
+                throw new ProcessFailedException($process);
             }
 
-            Log::info('Python scripts completed successfully');
+            Log::info('Python epub_processor.py completed successfully');
 
         } catch (ProcessFailedException $e) {
             Log::error('Python script execution failed', [
@@ -568,7 +574,8 @@ class CiteCreator extends Controller
             'text/plain',
             'application/msword',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'application/epub+zip'
+            'application/epub+zip',
+            'text/html'
         ];
 
         if (!in_array($file->getMimeType(), $allowedMimes)) {
@@ -590,6 +597,8 @@ class CiteCreator extends Controller
                 return $this->validateDocFile($file);
             case 'md':
                 return $this->validateMarkdownFile($file);
+            case 'html':
+                return $this->validateHtmlFile($file);
         }
 
         return true;
@@ -672,6 +681,231 @@ class CiteCreator extends Controller
         return true;
     }
 
+    private function validateHtmlFile($file): bool
+    {
+        $handle = fopen($file->getPathname(), 'r');
+        $content = fread($handle, 4096); // Read more for HTML files
+        fclose($handle);
+        
+        // More comprehensive security patterns for HTML
+        $suspiciousPatterns = [
+            '/<script[^>]*>/i',
+            '/javascript:/i',
+            '/vbscript:/i',
+            '/data:/i',
+            '/on\w+\s*=/i', // Any on* event handlers (onclick, onload, etc.)
+            '/<iframe/i',
+            '/<object/i',
+            '/<embed/i',
+            '/<form/i',
+            '/<input/i',
+            '/<meta[^>]*http-equiv[^>]*refresh/i',
+            '/expression\s*\(/i', // CSS expressions
+            '/url\s*\(\s*["\']?javascript:/i',
+            '/<link[^>]*href[^>]*javascript:/i',
+            '/<style[^>]*>[^<]*javascript:/i'
+        ];
+        
+        foreach ($suspiciousPatterns as $pattern) {
+            if (preg_match($pattern, $content)) {
+                Log::warning('HTML validation failed: suspicious content detected', [
+                    'pattern_matched' => $pattern,
+                    'file_name' => $file->getClientOriginalName()
+                ]);
+                return false;
+            }
+        }
+        
+        // Validate basic HTML structure
+        if (!preg_match('/<html/i', $content) && !preg_match('/<body/i', $content) && !preg_match('/<div/i', $content)) {
+            Log::debug('HTML validation: No recognizable HTML structure found');
+            // Don't fail for this - could be HTML fragments
+        }
+        
+        return true;
+    }
+
+    private function sanitizeHtmlFile(string $filePath): void
+    {
+        $originalContent = File::get($filePath);
+        
+        // Save content before sanitization for comparison
+        $beforeLength = strlen($originalContent);
+        
+        // Remove potentially dangerous HTML tags and attributes
+        $content = strip_tags($originalContent, '<html><head><body><div><span><p><h1><h2><h3><h4><h5><h6><br><strong><b><em><i><ul><ol><li><a><img><blockquote><code><pre><table><tr><td><th><thead><tbody><hr><sup><sub>');
+        
+        // Remove javascript: and data: URLs
+        $content = preg_replace('/(?:javascript|data|vbscript):[^"\'\\s>]*/i', '', $content);
+        
+        // Remove all event handlers (onclick, onload, etc.)
+        $content = preg_replace('/\son\w+\s*=\s*["\'][^"\']*["\']/i', '', $content);
+        
+        // Remove style attributes that might contain expressions
+        $content = preg_replace('/\sstyle\s*=\s*["\'][^"\']*expression[^"\']*["\']/i', '', $content);
+        
+        // Log what sanitization removed
+        $afterLength = strlen($content);
+        
+        Log::info('HTML sanitization results', [
+            'file_path' => basename($filePath),
+            'before_length' => $beforeLength,
+            'after_length' => $afterLength,
+            'removed_chars' => $beforeLength - $afterLength,
+            'content_changed' => $originalContent !== $content
+        ]);
+        
+        if ($originalContent !== $content) {
+            // Save sanitized version for comparison
+            $debugSanitizedPath = dirname($filePath) . '/debug_sanitized.html';
+            File::put($debugSanitizedPath, $content);
+            Log::warning('HTML sanitization changed content, saved debug copy to: ' . $debugSanitizedPath);
+        }
+        
+        File::put($filePath, $content);
+    }
+
+    private function processHtmlFile(string $htmlFilePath, string $outputPath, string $citation_id): void
+    {
+        $processStart = microtime(true);
+        $pythonScriptPath = base_path('app/Python/process_document.py');
+
+        Log::info('processHtmlFile started', [
+            'citation_id' => $citation_id,
+            'input_file' => basename($htmlFilePath),
+            'process_start_time' => $processStart
+        ]);
+
+        try {
+            // Step 1: Save original HTML for comparison
+            $debugStart = microtime(true);
+            $originalHtmlContent = File::get($htmlFilePath);
+            $debugHtmlPath = "{$outputPath}/debug_original.html";
+            File::put($debugHtmlPath, $originalHtmlContent);
+            
+            Log::info('Debug files created', [
+                'citation_id' => $citation_id,
+                'debug_duration_ms' => round((microtime(true) - $debugStart) * 1000, 2)
+            ]);
+            
+            Log::info("Original HTML saved for debugging:", [
+                'debug_file' => $debugHtmlPath,
+                'html_preview' => substr($originalHtmlContent, 0, 1000),
+                'full_length' => strlen($originalHtmlContent),
+                'contains_script_tags' => substr_count(strtolower($originalHtmlContent), '<script'),
+                'contains_footnotes' => preg_match_all('/\[(?:\^|\d+)\]/', $originalHtmlContent, $matches)
+            ]);
+            
+            // Step 2: Sanitize the HTML file
+            $sanitizeStart = microtime(true);
+            $this->sanitizeHtmlFile($htmlFilePath);
+            Log::info('HTML sanitization completed', [
+                'citation_id' => $citation_id,
+                'sanitize_duration_ms' => round((microtime(true) - $sanitizeStart) * 1000, 2)
+            ]);
+            
+            // Step 3: Preprocess HTML - normalize IDs and extract footnotes
+            $preprocessStart = microtime(true);
+            $preprocessorPath = base_path('app/Python/preprocess_html.py');
+            $preprocessedHtmlPath = "{$outputPath}/preprocessed.html";
+            
+            Log::info("Running HTML preprocessor...", [
+                'citation_id' => $citation_id,
+                'preprocessor' => basename($preprocessorPath),
+                'input' => basename($htmlFilePath),
+                'output' => basename($preprocessedHtmlPath)
+            ]);
+            
+            $preprocessProcess = new Process([
+                'python3',
+                $preprocessorPath,
+                $htmlFilePath,
+                $preprocessedHtmlPath
+            ]);
+            $preprocessProcess->setTimeout(300);
+            $preprocessProcess->run();
+            
+            $preprocessDuration = round((microtime(true) - $preprocessStart) * 1000, 2);
+            
+            if (!$preprocessProcess->isSuccessful()) {
+                Log::error("HTML preprocessing failed", [
+                    'citation_id' => $citation_id,
+                    'preprocess_duration_ms' => $preprocessDuration,
+                    'stdout' => $preprocessProcess->getOutput(),
+                    'stderr' => $preprocessProcess->getErrorOutput()
+                ]);
+                throw new ProcessFailedException($preprocessProcess);
+            }
+            
+            Log::info("HTML preprocessing completed", [
+                'citation_id' => $citation_id,
+                'preprocess_duration_ms' => $preprocessDuration,
+                'stdout' => $preprocessProcess->getOutput()
+            ]);
+            
+            // Step 4: Run the dedicated HTML footnote processor
+            $pythonScriptStart = microtime(true);
+            $htmlProcessorPath = base_path('app/Python/html_footnote_processor.py');
+            
+            Log::info("Running dedicated HTML footnote processor...", [
+                'citation_id' => $citation_id,
+                'script' => basename($htmlProcessorPath),
+                'html_input' => basename($preprocessedHtmlPath),
+                'output_dir' => basename($outputPath),
+                'book_id' => $citation_id,
+                'python_start_time' => $pythonScriptStart
+            ]);
+
+            $pythonProcess = new Process([
+                'python3',
+                $htmlProcessorPath,
+                $preprocessedHtmlPath,
+                $outputPath,
+                $citation_id // Pass citation_id as book_id
+            ]);
+            $pythonProcess->setTimeout(300);
+            $pythonProcess->run();
+            
+            $pythonScriptDuration = round((microtime(true) - $pythonScriptStart) * 1000, 2);
+
+            if (!$pythonProcess->isSuccessful()) {
+                Log::error("Python script execution failed", [
+                    'citation_id' => $citation_id,
+                    'python_duration_ms' => $pythonScriptDuration,
+                    'stdout' => $pythonProcess->getOutput(),
+                    'stderr' => $pythonProcess->getErrorOutput()
+                ]);
+                throw new ProcessFailedException($pythonProcess);
+            }
+            Log::info("Python script executed successfully", [
+                'citation_id' => $citation_id,
+                'python_duration_ms' => $pythonScriptDuration
+            ]);
+
+        } catch (ProcessFailedException $exception) {
+            $totalProcessDuration = round((microtime(true) - $processStart) * 1000, 2);
+            Log::error("HTML processing failed for {$citation_id}", [
+                'error' => $exception->getMessage(),
+                'total_process_duration_ms' => $totalProcessDuration,
+                'stdout' => $exception->getProcess()->getOutput(),
+                'stderr' => $exception->getProcess()->getErrorOutput(),
+            ]);
+            throw $exception;
+        } finally {
+            // Clean up intermediate files
+            $preprocessedHtmlPath = "{$outputPath}/preprocessed.html";
+            if (File::exists($preprocessedHtmlPath)) {
+                File::delete($preprocessedHtmlPath);
+            }
+            
+            $totalProcessDuration = round((microtime(true) - $processStart) * 1000, 2);
+            Log::info("processHtmlFile completed", [
+                'citation_id' => $citation_id,
+                'total_process_duration_ms' => $totalProcessDuration
+            ]);
+        }
+    }
+
     private function sanitizeMarkdownFile(string $filePath): void
     {
         $originalContent = File::get($filePath);
@@ -710,7 +944,7 @@ class CiteCreator extends Controller
         File::put($filePath, $content);
     }
 
-    private function processEpubFile(string $originalFilePath, string $path): void
+    private function processEpubFile(string $originalFilePath, string $path, string $citation_id): void
     {
         $epubPath = "{$path}/epub_original";
         
@@ -720,27 +954,21 @@ class CiteCreator extends Controller
 
         $zip = new \ZipArchive();
         if ($zip->open($originalFilePath) === TRUE) {
+            $numFiles = $zip->numFiles; // Get file count before closing
             $skippedFiles = 0;
-            
-            // Extract with size limits to prevent zip bombs
-            for ($i = 0; $i < $zip->numFiles; $i++) {
+
+            // Pre-extraction validation
+            for ($i = 0; $i < $numFiles; $i++) {
                 $stat = $zip->statIndex($i);
-                
-                // Skip files that are too large (prevent zip bombs)
+                if (!$stat) continue;
+
                 if ($stat['size'] > 10 * 1024 * 1024) { // 10MB per file
-                    Log::warning('Skipping large file in EPUB', [
-                        'filename' => $stat['name'],
-                        'size' => $stat['size']
-                    ]);
+                    Log::warning('Skipping large file in EPUB', ['filename' => $stat['name'], 'size' => $stat['size']]);
                     $skippedFiles++;
                     continue;
                 }
-                
-                // Skip files with suspicious paths
                 if (strpos($stat['name'], '..') !== false || strpos($stat['name'], '/') === 0) {
-                    Log::warning('Skipping suspicious file path in EPUB', [
-                        'filename' => $stat['name']
-                    ]);
+                    Log::warning('Skipping suspicious file path in EPUB', ['filename' => $stat['name']]);
                     $skippedFiles++;
                     continue;
                 }
@@ -752,12 +980,56 @@ class CiteCreator extends Controller
             $this->setSecurePermissions($epubPath);
             
             Log::info('EPUB extraction completed', [
-                'total_files' => $zip->numFiles,
+                'total_files' => $numFiles, // Use stored file count
                 'skipped_files' => $skippedFiles,
                 'extracted_to' => basename($epubPath)
             ]);
             
+            // Step 1: Run epub_processor.py to convert EPUB to a single HTML file
             $this->runPythonScripts($path);
+
+            // Step 2: Process the generated HTML to create node chunks, footnotes, etc.
+            $htmlPath = "{$path}/main-text.html";
+            if (File::exists($htmlPath)) {
+                $documentProcessorScript = base_path('app/Python/process_document.py');
+                
+                Log::info("Running document processor on EPUB-generated HTML", [
+                    'citation_id' => $citation_id,
+                    'script' => basename($documentProcessorScript),
+                    'html_input' => basename($htmlPath)
+                ]);
+
+                $process = new Process([
+                    'python3',
+                    $documentProcessorScript,
+                    $htmlPath,
+                    $path, // output directory
+                    $citation_id
+                ]);
+                $process->setTimeout(300);
+                $process->run();
+
+                if (!$process->isSuccessful()) {
+                    Log::error("Python script process_document.py failed for EPUB", [
+                        'citation_id' => $citation_id,
+                        'stdout' => $process->getOutput(),
+                        'stderr' => $process->getErrorOutput()
+                    ]);
+                    throw new ProcessFailedException($process);
+                }
+                Log::info("Python script process_document.py executed successfully for EPUB", ['citation_id' => $citation_id]);
+
+                // Clean up the intermediate html file
+                // File::delete($htmlPath);
+
+            } else {
+                Log::error('main-text.html not found after EPUB processing.', [
+                    'citation_id' => $citation_id,
+                    'expected_path' => $htmlPath
+                ]);
+                throw new \RuntimeException("main-text.html not found after EPUB processing.");
+            }
+
         } else {
             Log::error('Failed to open EPUB file', [
                 'file_path' => basename($originalFilePath)

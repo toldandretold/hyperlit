@@ -122,11 +122,11 @@ function validateFileInput() {
     
     const file = fileInput.files[0];
     const fileName = file.name.toLowerCase();
-    const validExtensions = ['.md', '.epub', '.doc', '.docx'];
+    const validExtensions = ['.md', '.epub', '.doc', '.docx', '.html'];
     const isValidType = validExtensions.some(ext => fileName.endsWith(ext));
     
     if (!isValidType) {
-        errorMsg.textContent = 'Please select a valid file (.md, .epub, .doc, or .docx)';
+        errorMsg.textContent = 'Please select a valid file (.md, .epub, .doc, .docx, or .html)';
         errorMsg.style.display = 'block';
         return false;
     }
@@ -424,7 +424,23 @@ function setupFormSubmission() {
         }
 
         try {
-            const formData = new FormData(this);
+            // Manual FormData construction for robustness
+            const form = this;
+            const formData = new FormData();
+            
+            // Append all other form fields
+            new FormData(form).forEach((value, key) => {
+                if (key !== 'markdown_file') {
+                    formData.append(key, value);
+                }
+            });
+
+            // Explicitly append the file
+            const fileInput = form.querySelector('#markdown_file');
+            if (fileInput && fileInput.files.length > 0) {
+                formData.append('markdown_file', fileInput.files[0]);
+            }
+
             await submitToLaravelAndLoad(formData, submitButton);
         } finally {
             // If navigation did not occur, allow another try
@@ -799,12 +815,12 @@ function setupRealTimeValidation() {
             }
             
             const file = fileInput.files[0];
-            const validExtensions = ['.md', '.epub', '.doc', '.docx'];
+            const validExtensions = ['.md', '.epub', '.doc', '.docx', '.html'];
             const fileName = file.name.toLowerCase();
             const isValidType = validExtensions.some(ext => fileName.endsWith(ext));
             
             if (!isValidType) {
-                return { valid: false, message: 'Please select a .md, .epub, .doc, or .docx file' };
+                return { valid: false, message: 'Please select a .md, .epub, .doc, .docx, or .html file' };
             }
             
             if (file.size > 50 * 1024 * 1024) { // 50MB
