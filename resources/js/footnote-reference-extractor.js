@@ -14,6 +14,7 @@ function extractFootnotesFromHTML(htmlContent, bookId, formatType = 'general') {
   
   const footnotes = [];
   const footnoteMappings = new Map();
+  const footnoteRefs = new Set(); // Move to function scope
   
   console.log(`📝 Extracting footnotes using ${formatType} format strategy`);
 
@@ -21,7 +22,6 @@ function extractFootnotesFromHTML(htmlContent, bookId, formatType = 'general') {
   if (formatType !== 'taylor-francis') {
     // First, find all [^1] and [1] references in text to know what footnotes we need
     const allTextContent = tempDiv.textContent;
-    const footnoteRefs = new Set();
     const refPattern = /\[\^?(\d+)\]/g;
     let refMatch;
     while ((refMatch = refPattern.exec(allTextContent)) !== null) {
