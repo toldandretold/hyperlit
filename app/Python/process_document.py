@@ -568,25 +568,31 @@ def main(html_file_path, output_dir, book_id):
         chunk_id = (start_line_counter - 1) // CHUNK_SIZE
         node_key = f"{book_id}_{start_line_counter}"
         
-        # Force footnote li elements and bibliography p elements to get startLine IDs, keep others' existing IDs
-        if node.name == 'li' and node.find('a', attrs={'fn-count-id': True}):
-            original_id = node.get('id')  # Store the original footnote ID (e.g., "fn1")
-            node['id'] = start_line_counter  # Set numerical ID for startLine
-            # Add anchor tag with original footnote ID at the beginning
-            if original_id:
+        # Store original ID if it exists (for anchor preservation)
+        original_id = node.get('id') if node.has_attr('id') else None
+        
+        # Remove ALL class attributes from the node and its children to clean up EPUB styling
+        if node.has_attr('class'):
+            del node['class']
+        
+        # Also remove class attributes from all nested elements
+        for nested_element in node.find_all():
+            if nested_element.has_attr('class'):
+                del nested_element['class']
+        
+        # FORCE all elements to get numerical IDs (overwrite any existing non-numerical IDs)
+        node['id'] = start_line_counter
+        
+        # For specific element types, preserve the original ID as an anchor for backwards compatibility
+        if original_id and (
+            (node.name == 'li' and node.find('a', attrs={'fn-count-id': True})) or
+            (node.name == 'p' and node.find('a', class_='bib-entry')) or
+            (node.name and node.name.startswith('h'))
+        ):
+            # Only add anchor if original_id was not already numerical
+            if not original_id.isdigit():
                 original_anchor = soup.new_tag('a', id=original_id)
                 node.insert(0, original_anchor)
-        elif node.name == 'p' and node.find('a', class_='bib-entry'):
-            node['id'] = start_line_counter
-        elif node.name and node.name.startswith('h'):  # Handle heading elements
-            original_id = node.get('id')  # Store the original heading ID (e.g., "my-heading-text")
-            node['id'] = start_line_counter  # Set numerical ID for startLine
-            # Add anchor tag with original heading ID at the beginning for backwards compatibility
-            if original_id:
-                original_anchor = soup.new_tag('a', id=original_id)
-                node.insert(0, original_anchor)
-        elif not node.has_attr('id'):
-            node['id'] = start_line_counter
         
         references_in_node = [a['href'].lstrip('#') for a in node.find_all('a', class_='in-text-citation')]
         footnotes_in_node = [a.get('fn-count-id', '') for a in node.find_all('sup') if a.get('fn-count-id')]

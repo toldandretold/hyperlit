@@ -149,8 +149,18 @@ h2 {
 
 }
 
-h3, h4, h5, h6 {
+h3 {
     font-size: 1em;
+    color: #CBCCCC;
+    margin-top: 1.6em;
+    margin-bottom: .4em;
+    letter-spacing: -0.01em;
+    font-weight: 550;
+    
+}
+
+h4, h5, h6 {
+    font-size: .8em;
     color: #CBCCCC;
     margin-top: 1.6em;
     margin-bottom: .4em;
