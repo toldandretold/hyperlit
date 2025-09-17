@@ -132,6 +132,7 @@ def create_node_chunks(soup, book_id):
         chunk_id = (i - 1) // chunk_size
         node_key = f"{book_id}_{i}"
         
+
         # ✅ FIX: Force DOM ID to match startLine
         # Debug logging to file
         debug_msg = f"Processing element: {element.name}, startLine: {i}, content: {str(element)[:50]}\n"

@@ -581,37 +581,9 @@ def main(html_file_path, output_dir, book_id):
                 del nested_element['class']
         
         # FORCE all elements to get numerical IDs (overwrite any existing non-numerical IDs)
-        # Use multiple approaches to ensure ID is set for all element types
-        if hasattr(node, 'name') and node.name:
-            # Debug logging to file
-            debug_msg = f"Processing node: {node.name}, startLine: {start_line_counter}, content: {str(node)[:50]}\n"
-            with open('/tmp/hyperlit_debug.log', 'a') as f:
-                f.write(debug_msg)
-            
-            # Initialize attrs dict if it doesn't exist
-            if not hasattr(node, 'attrs') or node.attrs is None:
-                node.attrs = {}
-            # Set the ID using direct attribute assignment
-            node.attrs['id'] = str(start_line_counter)
-            # Also try the dictionary-style assignment as backup
-            try:
-                node['id'] = str(start_line_counter)
-            except:
-                pass
-            
-            # Verify the ID was actually set
-            final_id = node.get('id') if hasattr(node, 'get') else None
-            if final_id != str(start_line_counter):
-                error_msg = f"WARNING: ID assignment failed for {node.name} tag. Expected: {start_line_counter}, Got: {final_id}\n"
-                error_msg += f"Node content: {str(node)[:100]}\n\n"
-                with open('/tmp/hyperlit_debug.log', 'a') as f:
-                    f.write(error_msg)
-                # Force it one more time
-                node.attrs['id'] = str(start_line_counter)
-        else:
-            # For NavigableString or other non-element nodes, skip ID assignment
-            print(f"Skipping ID assignment for non-element node: {type(node)}")
-            continue
+
+        node['id'] = start_line_counter
+
         
         # For specific element types, preserve the original ID as an anchor for backwards compatibility
         if original_id and (
@@ -623,11 +595,6 @@ def main(html_file_path, output_dir, book_id):
             if not original_id.isdigit():
                 original_anchor = soup.new_tag('a', id=original_id)
                 node.insert(0, original_anchor)
-        
-        # CRITICAL FIX: Force regenerate the HTML content to reflect the updated ID
-        # This ensures the content string matches the startLine
-        content_html = str(node)
-        print(f"DEBUG: Final content HTML: {content_html[:100]}...")
         
         references_in_node = [a['href'].lstrip('#') for a in node.find_all('a', class_='in-text-citation')]
         footnotes_in_node = [a.get('fn-count-id', '') for a in node.find_all('sup') if a.get('fn-count-id')]
