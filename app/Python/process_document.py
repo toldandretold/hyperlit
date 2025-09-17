@@ -581,7 +581,9 @@ def main(html_file_path, output_dir, book_id):
                 del nested_element['class']
         
         # FORCE all elements to get numerical IDs (overwrite any existing non-numerical IDs)
+
         node['id'] = start_line_counter
+
         
         # For specific element types, preserve the original ID as an anchor for backwards compatibility
         if original_id and (
@@ -598,7 +600,7 @@ def main(html_file_path, output_dir, book_id):
         footnotes_in_node = [a.get('fn-count-id', '') for a in node.find_all('sup') if a.get('fn-count-id')]
         node_object = {
             "id": node_key, "book": book_id, "chunk_id": chunk_id, 
-            "startLine": start_line_counter, "content": str(node), 
+            "startLine": start_line_counter, "content": content_html, 
             "references": references_in_node, "footnotes": footnotes_in_node, 
             "hypercites": [], "hyperlights": []
         }
