@@ -132,6 +132,35 @@ def create_node_chunks(soup, book_id):
         chunk_id = (i - 1) // chunk_size
         node_key = f"{book_id}_{i}"
         
+        # ✅ FIX: Force DOM ID to match startLine
+        # Debug logging to file
+        debug_msg = f"Processing element: {element.name}, startLine: {i}, content: {str(element)[:50]}\n"
+        with open('/tmp/hyperlit_debug.log', 'a') as f:
+            f.write(debug_msg)
+        
+        # Set the ID to match startLine
+        if hasattr(element, 'name') and element.name:
+            # Initialize attrs dict if it doesn't exist
+            if not hasattr(element, 'attrs') or element.attrs is None:
+                element.attrs = {}
+            # Set the ID using direct attribute assignment
+            element.attrs['id'] = str(i)
+            # Also try the dictionary-style assignment as backup
+            try:
+                element['id'] = str(i)
+            except:
+                pass
+            
+            # Verify the ID was actually set
+            final_id = element.get('id') if hasattr(element, 'get') else None
+            if final_id != str(i):
+                error_msg = f"WARNING: ID assignment failed for {element.name} tag. Expected: {i}, Got: {final_id}\n"
+                error_msg += f"Element content: {str(element)[:100]}\n\n"
+                with open('/tmp/hyperlit_debug.log', 'a') as f:
+                    f.write(error_msg)
+                # Force it one more time
+                element.attrs['id'] = str(i)
+        
         # Extract footnotes and references from this element
         footnotes_in_node = []
         for sup in element.find_all('sup'):
