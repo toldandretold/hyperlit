@@ -611,42 +611,21 @@ function createChunkElement(nodes, instance) {
   console.log(`🏗️ Processing ${nodes.length} nodes for chunk ${chunkId}`);
 
   nodes.forEach((node, nodeIndex) => {
-    console.log(`🏗️ Processing node ${nodeIndex + 1}/${nodes.length}`, {
-      startLine: node.startLine,
-      has_hyperlights: !!(node.hyperlights && node.hyperlights.length > 0),
-      hyperlights_count: node.hyperlights ? node.hyperlights.length : 0,
-      has_hypercites: !!(node.hypercites && node.hypercites.length > 0)
-    });
+    
     
     let html = renderBlockToHtml(node);
-    console.log(`🏗️ Initial HTML for node ${nodeIndex + 1}: length=${html.length}`);
     
     if (node.hyperlights && node.hyperlights.length > 0) {
-      console.log(`🏗️ Applying ${node.hyperlights.length} highlights to node ${nodeIndex + 1}`, {
-        highlights: node.hyperlights.map(h => ({
-          id: h.hyperlight_id || h.highlightID,
-          is_user_highlight: h.is_user_highlight,
-          creator: h.creator,
-          creator_token: h.creator_token,
-          startChar: h.startChar || h.charStart,
-          endChar: h.endChar || h.charEnd
-        }))
-      });
-      
       html = applyHighlights(html, node.hyperlights, instance.bookId);
-      console.log(`🏗️ HTML after highlights for node ${nodeIndex + 1}: length=${html.length}`);
     }
     
     if (node.hypercites && node.hypercites.length > 0) {
-      console.log(`🏗️ Applying ${node.hypercites.length} hypercites to node ${nodeIndex + 1}`);
       html = applyHypercites(html, node.hypercites);
-      console.log(`🏗️ HTML after hypercites for node ${nodeIndex + 1}: length=${html.length}`);
     }
     
     const temp = document.createElement("div");
     temp.innerHTML = html;
     if (temp.firstChild) {
-      console.log(`🏗️ Appending processed node ${nodeIndex + 1} to chunk wrapper`);
       chunkWrapper.appendChild(temp.firstChild);
     } else {
       console.warn(`⚠️ Node ${nodeIndex + 1} produced no DOM content`);
@@ -744,19 +723,15 @@ export function applyHypercites(html, hypercites) {
       }
       
       try {
-        const range = document.createRange();
-        range.setStart(positions.startNode, positions.startOffset);
-        range.setEnd(positions.endNode, positions.endOffset);
-        range.surroundContents(underlineElement);
-      } catch (error) {
-        console.error("Error with surroundContents for hypercite:", error);
         wrapRangeWithElement(
           positions.startNode,
           positions.startOffset,
           positions.endNode,
           positions.endOffset,
-          underlineElement
+          markElement
         );
+      } catch (error) {
+        console.error("❌ Highlight wrapping failed completely", error);
       }
     }
   }
@@ -931,23 +906,14 @@ export function applyHighlights(html, highlights, bookId) {
       });
       
       // Use surroundContents instead of extractContents
-      try {
-        const range = document.createRange();
-        range.setStart(positions.startNode, positions.startOffset);
-        range.setEnd(positions.endNode, positions.endOffset);
-        range.surroundContents(markElement);
-        console.log(`✅ Successfully applied highlight to segment ${segmentIndex + 1}`);
-      } catch (error) {
-        console.error(`❌ Error with surroundContents for segment ${segmentIndex + 1}, falling back:`, error);
-        wrapRangeWithElement(
-          positions.startNode,
-          positions.startOffset,
-          positions.endNode,
-          positions.endOffset,
-          markElement
-        );
-        console.log(`✅ Fallback wrapping successful for segment ${segmentIndex + 1}`);
-      }
+      wrapRangeWithElement(
+      positions.startNode,
+      positions.startOffset,
+      positions.endNode,
+      positions.endOffset,
+      markElement
+    );
+    console.log(`✅ Applied highlight to segment ${segmentIndex + 1} using tolerant wrapper`);
     } else {
       console.warn(`⚠️ Could not find DOM positions for segment ${segmentIndex + 1} (${segment.charStart}-${segment.charEnd})`);
     }
@@ -1048,19 +1014,13 @@ function wrapRangeWithElement(startNode, startOffset, endNode, endOffset, wrapEl
     const range = document.createRange();
     range.setStart(startNode, startOffset);
     range.setEnd(endNode, endOffset);
-    
-    // Instead of extractContents, surround the contents
-    range.surroundContents(wrapElement);
+
+    // ✅ Do the tolerant extract/insert directly
+    const contents = range.extractContents();
+    wrapElement.appendChild(contents);
+    range.insertNode(wrapElement);
   } catch (error) {
-    console.error("Error wrapping range with element:", error);
-    // Fallback to original method if surroundContents fails
-    try {
-      const contents = range.extractContents();
-      wrapElement.appendChild(contents);
-      range.insertNode(wrapElement);
-    } catch (fallbackError) {
-      console.error("Fallback wrapping also failed:", fallbackError);
-    }
+    console.error("❌ Fallback wrapping failed completely:", error);
   }
 }
 
