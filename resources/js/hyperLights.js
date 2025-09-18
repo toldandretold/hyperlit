@@ -630,6 +630,15 @@ export function initializeHighlightingControls(currentBookId) {
   console.log("✅ Highlighting controls are live.");
 }
 
+// Cleanup function to remove document-level listeners
+export function cleanupHighlightingControls() {
+  if (documentListenersAttached) {
+    document.removeEventListener("mouseup", handleSelection);
+    document.removeEventListener("touchend", () => setTimeout(handleSelection, 100));
+    documentListenersAttached = false;
+    console.log("🧹 Document-level highlighting listeners removed");
+  }
+}
 
 async function createHighlightHandler(event, bookId) {
   let selection = window.getSelection();

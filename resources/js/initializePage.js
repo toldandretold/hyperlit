@@ -134,15 +134,31 @@ async function retryFailedBatches() {
   }
 }
 
+// Track if online listener is attached
+let onlineListenerAttached = false;
+
 // ✅ STEP 3: A setup function to attach the event listeners
 export function setupOnlineSyncListener() {
   // Immediately check for failed batches when the app loads
   retryFailedBatches();
 
-  // Add a listener to automatically retry when the browser comes back online
-  window.addEventListener("online", retryFailedBatches);
+  // Only add listener if not already attached
+  if (!onlineListenerAttached) {
+    window.addEventListener("online", retryFailedBatches);
+    onlineListenerAttached = true;
+    console.log("👂 Online sync listener is active.");
+  } else {
+    console.log("👂 Online sync listener already active, skipping.");
+  }
+}
 
-  console.log("👂 Online sync listener is active.");
+// Cleanup function to remove online listener
+export function cleanupOnlineSyncListener() {
+  if (onlineListenerAttached) {
+    window.removeEventListener("online", retryFailedBatches);
+    onlineListenerAttached = false;
+    console.log("🧹 Online sync listener removed.");
+  }
 }
 
 

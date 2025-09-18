@@ -70,7 +70,22 @@ export default class NavButtons {
    * Remove event listeners.
    */
   destroy() {
-    // ... your destroy logic ...
+    if (!this.isInitialized) return;
+    
+    console.log("🧹 NavButtons: Destroying and removing event listeners");
+    
+    // Remove all event listeners
+    document.removeEventListener("click", this.handleClick);
+    window.removeEventListener("resize", this.updatePosition);
+    window.removeEventListener("keyboardDidShow", this.handleKeyboardChange);
+    window.removeEventListener("keyboardDidHide", this.handleKeyboardChange);
+    
+    // Clear element references
+    this.elements = [];
+    this.loadingElements = [];
+    
+    this.isInitialized = false;
+    console.log("✅ NavButtons: Destroyed successfully");
   }
 
 
