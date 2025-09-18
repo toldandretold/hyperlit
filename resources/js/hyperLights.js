@@ -519,8 +519,12 @@ async function createHighlightHandler(event, bookId) {
       // Mark this highlight as a newly created user highlight for proper CSS application
       addNewlyCreatedHighlight(highlightId);
       
-      await lazyLoader.refresh();
-      
+      try {
+        await reprocessHighlightsForNodes(bookId, Array.from(affectedIds));
+      } catch (err) {
+        console.error("❌ Failed to reprocess highlights on affected nodes:", err);
+      }
+            
       // Clean up the newly created flag after a delay (backend should have processed by then)
       setTimeout(() => {
         removeNewlyCreatedHighlight(highlightId);
@@ -1416,13 +1420,3 @@ export async function reprocessHighlightsForNodes(bookId, affectedNodeIds) {
     throw error;
   }
 }
-
-
-
-
-
-
-
-
-
-
