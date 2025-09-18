@@ -21,9 +21,15 @@ import { pendingFirstChunkLoadedPromise } from "./initializePage.js";
 
 // Progress bar control functions
 export function updatePageLoadProgress(percent, message = null) {
+  const overlay = document.getElementById('initial-navigation-overlay');
   const progressBar = document.getElementById('page-load-progress-bar');
   const progressText = document.getElementById('page-load-progress-text');
   const progressDetails = document.getElementById('page-load-progress-details');
+
+  // ✅ Make the overlay visible whenever progress is updated.
+  if (overlay) {
+    overlay.style.display = 'block';
+  }
   
   if (progressBar) {
     // Ensure progress never goes below 5% so we always see some color
