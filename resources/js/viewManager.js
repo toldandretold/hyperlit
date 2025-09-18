@@ -1,10 +1,11 @@
 
 
 import { book, setCurrentBook } from "./app.js";
+import { getCurrentUser, getAnonymousToken } from "./auth.js";
+import { checkEditPermissionsAndUpdateUI } from "./editButton.js";
 
 import { stopObserving, initTitleSync } from "./divEditor.js";
 import { initEditToolbar, destroyEditToolbar } from "./editToolbar.js";
-import NavButtons from "./nav-buttons.js";
 import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
 import {
   attachMarkListeners,
@@ -34,11 +35,35 @@ import {
   resolveFirstChunkPromise,
   resetCurrentLazyLoader
 } from "./initializePage.js";
+import { closeHyperlitContainer } from './unified-container.js';
 
 // State management and cleanup are correct.
-let activeNavButtons = null;
 let activeKeyboardManager = null;
 let activeSelectionDeletionHandler = null;
+
+// Track when this page was loaded to compare with cache invalidation timestamp
+let pageLoadTimestamp = null;
+
+// Helper function to get current auth state
+async function getCurrentAuthState() {
+  try {
+    const currentUser = await getCurrentUser();
+    const currentToken = await getAnonymousToken();
+    
+    return {
+      isLoggedIn: !!currentUser,
+      userId: currentUser ? (currentUser.name || currentUser.username || currentUser.email) : null,
+      anonymousToken: currentToken
+    };
+  } catch (error) {
+    console.error("❌ Error getting auth state:", error);
+    return null;
+  }
+}
+
+// Note: Cache invalidation functions removed as they may be unnecessary for SPA navigation
+
+// Note: refreshHighlightsWithCurrentAuth function removed as it was unused
 
 // Handle page restoration from browser cache (bfcache) - critical for mobile and desktop
 window.addEventListener("pageshow", (event) => {
@@ -53,104 +78,57 @@ window.addEventListener("pageshow", (event) => {
       // Small delay to ensure DOM is fully restored
       setTimeout(async () => {
         try {
-          console.log("🔧 Reinitializing ALL interactive features after cache restore...");
-          const currentBookId = book;
+          console.log("🔧 Checking if cache invalidation required after browser navigation...");
           
-          // ✅ CRITICAL: Use the same helper function from initializePage.js
-          // Import the helper function and use it for consistent initialization
-          try {
-            const { initializeInteractiveFeatures } = await import('./initializePage.js');
-            if (typeof initializeInteractiveFeatures === 'function') {
-              await initializeInteractiveFeatures(currentBookId);
-              console.log("✅ Used centralized interactive features initialization");
-            } else {
-              throw new Error("initializeInteractiveFeatures not available");
-            }
-          } catch (importError) {
-            console.warn("⚠️ Could not import centralized initializer, using fallback:", importError);
-            
-            // Fallback to manual initialization
-            const [
-              footnotesModule,
-              { generateTableOfContents },
-              { attachMarkListeners, initializeHighlightingControls },
-              { initializeHypercitingControls }
-            ] = await Promise.all([
-              import('./footnotes-citations.js'),
-              import('./toc.js'),
-              import('./hyperLights.js'),
-              import('./hyperCites.js')
-            ]);
-            
-            // Initialize all features
-            footnotesModule.initializeFootnoteCitationListeners();
-            if (footnotesModule.refManager && footnotesModule.refManager.rebindElements) {
-              footnotesModule.refManager.rebindElements();
-            }
-            
-            generateTableOfContents("toc-container", "toc-toggle-button");
-            attachMarkListeners();
-            initializeHighlightingControls(currentBookId);
-            initializeHypercitingControls(currentBookId);
-            
-            console.log("✅ Fallback initialization completed");
-          }
-          
-          // Reinitialize nav buttons if they exist and aren't already active
-          const navButtonsContainer = document.querySelector('#nav-buttons');
-          if (navButtonsContainer && !activeNavButtons) {
-            activeNavButtons = new NavButtons({
-              elementIds: ["nav-buttons", "logoContainer", "topRightContainer"],
-              tapThreshold: 15,
-            });
-            activeNavButtons.init();
-            console.log("✅ Nav buttons reinitialized");
-          }
-          
-          console.log("🎉 All interactive features reinitialized after bfcache restore");
+          // Just ensure interactive features are working
+          await checkEditPermissionsAndUpdateUI();
           
         } catch (error) {
-          console.error("❌ Error reinitializing after cache restore:", error);
+          console.error("❌ Error handling browser navigation:", error);
         }
-      }, 200); // Slightly longer delay for mobile
-    }
-  }
-});
-
-// Additional handler for visibility change - covers cases where bfcache doesn't fire
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) {
-    const pageType = document.body.getAttribute("data-page");
-    const hasReaderContent = pageType === "reader" || document.querySelector('.main-content, .book-content');
-    
-    if (hasReaderContent) {
-      // Check if interactive features are working
-      setTimeout(() => {
-        const tocToggle = document.getElementById('toc-toggle-button');
-        const highlightButtons = document.querySelectorAll('.highlight-control-button');
-        
-        if (tocToggle && !tocToggle.onclick && !tocToggle.getAttribute('data-initialized')) {
-          console.log("🔍 Detected missing TOC functionality after visibility change - reinitializing");
-          
-          import('./initializePage.js').then(({ initializeInteractiveFeatures }) => {
-            const currentBookId = book;
-            initializeInteractiveFeatures(currentBookId).then(() => {
-              console.log("✅ Interactive features reinitialized after visibility change");
-            }).catch(error => {
-              console.error("❌ Error reinitializing after visibility change:", error);
-            });
-          });
-        }
-      }, 300);
+      }, 200);
     }
   }
 });
 
 function cleanupReaderView() {
   console.log("🧹 Cleaning up previous reader view...");
-  if (activeNavButtons) {
-    activeNavButtons = null;
+
+  // Close any open containers before destroying the view
+  closeHyperlitContainer();
+
+  // Remove any navigation overlays that might be blocking button clicks
+  const navigationOverlays = document.querySelectorAll('.navigation-overlay');
+  navigationOverlays.forEach(overlay => {
+    console.log("🎯 Removing leftover navigation overlay:", overlay);
+    overlay.remove();
+  });
+  
+  // Also ensure initial overlay is hidden
+  const initialOverlay = document.getElementById('initial-navigation-overlay');
+  if (initialOverlay) {
+    initialOverlay.style.display = 'none';
+    console.log("🎯 Hidden initial navigation overlay");
   }
+
+  // Clean up global event handlers
+  if (globalLinkClickHandler) {
+    document.removeEventListener('click', globalLinkClickHandler);
+    globalLinkClickHandler = null;
+  }
+  if (globalVisibilityHandler) {
+    document.removeEventListener('visibilitychange', globalVisibilityHandler);
+    globalVisibilityHandler = null;
+  }
+  if (globalFocusHandler) {
+    window.removeEventListener('focus', globalFocusHandler);
+    globalFocusHandler = null;
+  }
+  if (globalPopstateHandler) {
+    window.removeEventListener('popstate', globalPopstateHandler);
+    globalPopstateHandler = null;
+  }
+
   if (activeKeyboardManager) {
     activeKeyboardManager.destroy();
     activeKeyboardManager = null;
@@ -259,7 +237,7 @@ export async function initializeImportedReaderView(bookId) {
   console.log("✅ Imported book fully initialized via standard reader flow");
 }
 
-export async function transitionToReaderView(bookId) {
+export async function transitionToReaderView(bookId, hash = '') {
   try {
     cleanupReaderView();
 
@@ -284,7 +262,8 @@ export async function transitionToReaderView(bookId) {
     document.title = newDoc.title;
 
     setCurrentBook(bookId);
-    history.pushState({}, "", `/${bookId}/edit?target=1&edit=1`);
+    const newUrl = `/${bookId}/edit?target=1&edit=1${hash}`;
+    history.pushState({}, "", newUrl);
 
     // Call the simple initializer.
     await initializeReaderView();
@@ -295,9 +274,29 @@ export async function transitionToReaderView(bookId) {
 }
 
 
+// Track the global link click handler for cleanup
+let globalLinkClickHandler = null;
+let globalVisibilityHandler = null;
+let globalFocusHandler = null;
+let globalPopstateHandler = null;
+
 // Global link click handler to show overlay for all links
 function attachGlobalLinkClickHandler() {
-  document.addEventListener('click', (event) => {
+  // Remove existing handlers if they exist
+  if (globalLinkClickHandler) {
+    document.removeEventListener('click', globalLinkClickHandler);
+  }
+  if (globalVisibilityHandler) {
+    document.removeEventListener('visibilitychange', globalVisibilityHandler);
+  }
+  if (globalFocusHandler) {
+    window.removeEventListener('focus', globalFocusHandler);
+  }
+  if (globalPopstateHandler) {
+    window.removeEventListener('popstate', globalPopstateHandler);
+  }
+
+  globalLinkClickHandler = (event) => {
     // Find the closest anchor tag (in case user clicked on child element)
     const link = event.target.closest('a');
     
@@ -306,100 +305,135 @@ function attachGlobalLinkClickHandler() {
       const isHypercite = link.closest('u.couple, u.poly');
       const isTocLink = link.closest('#toc-container');
       
-      if (!isHypercite && !isTocLink) {
-        console.log(`🎯 Global link click detected: ${link.href}`);
+      if (isHypercite || isTocLink) {
+        return; // Let other handlers manage these
+      }
+
+      const linkUrl = new URL(link.href, window.location.origin);
+      const currentUrl = new URL(window.location.href);
+
+      // Check if it's a true external link (different domain)
+      if (linkUrl.origin !== currentUrl.origin) {
+        // The container-manager should have already set target="_blank"
+        // so we don't need to do anything here.
+        console.log(`🎯 Global link: Allowing external navigation to ${linkUrl.href}`);
+        return;
+      }
+
+      // At this point, it's a same-origin link.
+
+      const currentBookPath = `/${book}`;
+      const isSamePageAnchor = linkUrl.pathname === currentUrl.pathname && linkUrl.hash !== '';
+      const isSameBookNavigation = linkUrl.pathname.startsWith(currentBookPath) && linkUrl.hash !== '';
+
+      if (isSamePageAnchor || isSameBookNavigation) {
+        // It's a same-book navigation (e.g., to an anchor).
+        event.preventDefault();
+        console.log(`🎯 Global link: Handling same-book navigation to ${link.href}`);
         
-        // Check if this is internal book navigation (same book, possibly different highlight/section)
-        const linkUrl = new URL(link.href, window.location.origin);
-        const currentUrl = new URL(window.location.href);
+        // Check if this is a same-book hyperlight URL pattern: /book/HL_123#hypercite_abc
+        const pathSegments = linkUrl.pathname.split('/').filter(Boolean);
+        const isHyperlightURL = pathSegments.length > 1 && pathSegments[1].startsWith('HL_');
         
-        // Check for same-page anchor links
-        const isSamePage = linkUrl.pathname === currentUrl.pathname && 
-                          linkUrl.search === currentUrl.search && 
-                          linkUrl.hash !== '';
-        
-        // Check for same-book navigation (links that start with the same book path)
-        const currentBookPath = `/${book}`;
-        const isInternalBookNavigation = linkUrl.pathname.startsWith(currentBookPath) && 
-                                        linkUrl.hash !== '';
-        
-        if (isSamePage || isInternalBookNavigation) {
-          // For internal book navigation, no overlay needed - just internal navigation
-          const navigationType = isSamePage ? "same-page" : "same-book";
-          console.log(`✅ Internal ${navigationType} navigation detected: ${linkUrl.hash} - no overlay needed`);
+        if (isHyperlightURL) {
+          const highlightId = pathSegments[1]; // HL_123
+          const hyperciteId = linkUrl.hash.substring(1); // hypercite_abc (remove #)
           
-          // Check if this is internal navigation - prevent default and use our navigation
-          const targetId = linkUrl.hash.substring(1);
-          const isInternalTarget = targetId.startsWith('hypercite_') || targetId.startsWith('HL_') || /^\d+$/.test(targetId);
+          console.log(`🎯 Same-book hyperlight navigation: ${highlightId} -> ${hyperciteId}`);
           
-          if (isInternalTarget) {
-            event.preventDefault();
-            console.log(`🎯 Preventing default for internal link, using custom navigation to: ${targetId}`);
-            
-            // For links with highlight in path (like /book_123/HL_456#hypercite_789)
-            // extract the highlight ID from the path if present
-            let primaryTarget = targetId; // The hash fragment (e.g., hypercite_789)
-            const pathMatch = linkUrl.pathname.match(/\/(HL_\w+)(?:\/|$)/);
-            
-            if (pathMatch && pathMatch[1]) {
-              // If there's a highlight in the path, just navigate to the highlight
-              // The hypercite will be accessible within the highlight container
-              console.log(`🎯 Detected highlight in path: ${pathMatch[1]}, hash target: ${targetId}`);
-              console.log(`🎯 Navigating to highlight only - hypercite will be accessible in container`);
-              primaryTarget = pathMatch[1]; // Navigate to the highlight only
-            }
-            
-            // Import and call navigateToInternalId
-            import('./scrolling.js').then(({ navigateToInternalId }) => {
-              import('./initializePage.js').then(({ currentLazyLoader }) => {
-                if (currentLazyLoader) {
-                  // Update URL manually since we prevented default
-                  window.history.pushState(null, '', `${linkUrl.pathname}${linkUrl.search}${linkUrl.hash}`);
-                  
-                  // Navigate to the primary target (highlight or direct hash)
-                  navigateToInternalId(primaryTarget, currentLazyLoader, false);
-                  
-                  // For highlight navigation, don't do secondary hypercite navigation
-                  // The hypercite will be accessible within the opened highlight container
+          import('./hyperCites.js').then(({ navigateToHyperciteTarget }) => {
+            import('./initializePage.js').then(({ currentLazyLoader }) => {
+              if (currentLazyLoader) {
+                window.history.pushState(null, '', link.href);
+                if (hyperciteId) {
+                  navigateToHyperciteTarget(highlightId, hyperciteId, currentLazyLoader);
                 } else {
-                  console.warn('currentLazyLoader not available for internal navigation');
+                  // Just navigate to highlight if no hypercite
+                  import('./scrolling.js').then(({ navigateToInternalId }) => {
+                    navigateToInternalId(highlightId, currentLazyLoader, false);
+                  });
+                }
+              }
+            });
+          });
+        } else {
+          // Regular same-book navigation
+          const targetId = linkUrl.hash.substring(1);
+          import('./scrolling.js').then(({ navigateToInternalId }) => {
+            import('./initializePage.js').then(({ currentLazyLoader }) => {
+              if (currentLazyLoader) {
+                window.history.pushState(null, '', link.href);
+                navigateToInternalId(targetId, currentLazyLoader, false);
+              }
+            });
+          });
+        }
+      } else {
+        // It's a different book on the same origin. Handle as an SPA transition.
+        event.preventDefault();
+        
+        const pathSegments = linkUrl.pathname.split('/').filter(Boolean);
+        const targetBookId = pathSegments[0];
+        const targetHash = linkUrl.hash;
+
+        // Check if this is a hyperlight URL pattern: /book/HL_123#hypercite_abc
+        const isHyperlightURL = pathSegments.length > 1 && pathSegments[1].startsWith('HL_');
+        
+        if (isHyperlightURL) {
+          const highlightId = pathSegments[1]; // HL_123
+          const hyperciteId = targetHash.substring(1); // hypercite_abc (remove #)
+          
+          console.log(`🎯 Global link: Hyperlight SPA transition to ${targetBookId}/${highlightId}${targetHash}`);
+          showNavigationLoading(`hyperlight: ${highlightId}`);
+          
+          // Use the special hyperlight+hypercite navigation
+          transitionToReaderView(targetBookId, '').then(() => {
+            // After page loads, navigate to the hyperlight+hypercite
+            import('./hyperCites.js').then(({ navigateToHyperciteTarget }) => {
+              import('./initializePage.js').then(({ currentLazyLoader }) => {
+                if (currentLazyLoader && hyperciteId) {
+                  console.log(`🎯 SPA: Sequential navigation to ${highlightId} then ${hyperciteId}`);
+                  navigateToHyperciteTarget(highlightId, hyperciteId, currentLazyLoader, false);
+                } else if (currentLazyLoader) {
+                  // Just navigate to highlight if no hypercite
+                  import('./scrolling.js').then(({ navigateToInternalId }) => {
+                    navigateToInternalId(highlightId, currentLazyLoader, false);
+                  });
                 }
               });
             });
-          }
+          });
+        } else if (targetBookId) {
+          console.log(`🎯 Global link: Starting SPA transition to book: ${targetBookId}${targetHash}`);
+          showNavigationLoading(`book: ${targetBookId}`);
+          transitionToReaderView(targetBookId, targetHash);
         } else {
-          // Show overlay for external/different page links
-          const targetDisplay = link.textContent.trim() || link.href;
-          showNavigationLoading(`link: ${targetDisplay}`);
+          console.warn('Could not determine target book ID for SPA transition. Falling back to full page load.');
+          window.location.href = link.href;
         }
       }
     }
-  });
+  };
   
   // Clear overlay when page becomes visible again (handles back button cache issues)
-  // But NOT if we just clicked a link and are about to navigate away
   let recentLinkClick = false;
-  document.addEventListener('click', () => {
-    recentLinkClick = true;
-    setTimeout(() => { recentLinkClick = false; }, 1000);
-  });
   
-  document.addEventListener('visibilitychange', () => {
+  globalVisibilityHandler = () => {
     if (!document.hidden && !recentLinkClick) {
       // Page is visible again, clear any stuck overlay
       // But only if we didn't just click a link (which would be navigating away)
       console.log('🎯 Visibility change - clearing overlay (not from recent link click)');
       hideNavigationLoading();
     }
-  });
+  };
   
   // Also handle page focus as fallback
-  window.addEventListener('focus', () => {
+  globalFocusHandler = () => {
     hideNavigationLoading();
-  });
+  };
   
   // Handle browser back/forward navigation
-  window.addEventListener('popstate', (event) => {
+  globalPopstateHandler = (event) => {
     console.log(`🎯 Browser navigation detected (back/forward)`);
     
     // Check if there's a hash in the current URL
@@ -436,12 +470,24 @@ function attachGlobalLinkClickHandler() {
     // Don't show overlay for general back/forward navigation
     // The page will either load from cache (no need for overlay) or
     // load fresh (will get overlay from initial page load system)
+  };
+
+  // Add all the event listeners
+  document.addEventListener('click', globalLinkClickHandler);
+  document.addEventListener('click', () => {
+    recentLinkClick = true;
+    setTimeout(() => { recentLinkClick = false; }, 1000);
   });
+  document.addEventListener('visibilitychange', globalVisibilityHandler);
+  window.addEventListener('focus', globalFocusHandler);
+  window.addEventListener('popstate', globalPopstateHandler);
 }
 
 export async function initializeReaderView() {
   const currentBookId = book;
   console.log(`🚀 Initializing Reader View for book: ${currentBookId}`);
+  
+  // Note: Cache invalidation checking removed for performance
   
   // Reset lazy loader to ensure we create a fresh one with the correct book ID
   resetCurrentLazyLoader();
@@ -475,11 +521,13 @@ export async function initializeReaderView() {
 
   setTimeout(() => {
     console.log("✅ DOM settled. Initializing static UI components...");
-    activeNavButtons = new NavButtons({
-      elementIds: ["nav-buttons", "logoContainer", "topRightContainer"],
-      tapThreshold: 15,
+    // Use the persistent NavButtons instance from reader-DOMContentLoaded.js
+    import('./reader-DOMContentLoaded.js').then(module => {
+      if (module.navButtons) {
+        module.navButtons.rebindElements();
+        console.log("✅ Rebound persistent NavButtons instance");
+      }
     });
-    activeNavButtons.init();
     initializeEditButtonListeners();
     initializeSourceButtonListener();
     updateEditButtonVisibility(currentBookId);
@@ -523,6 +571,10 @@ export async function initializeReaderView() {
   setupUnloadSync();
   generateTableOfContents("toc-container", "toc-toggle-button");
   
+  // ✅ CRITICAL: Check auth state and update edit button permissions after reader initialization
+  await checkEditPermissionsAndUpdateUI();
+  console.log("✅ Auth state checked and edit permissions updated in reader view");
+  
   // 🔥 Initialize footnote and citation listeners AFTER content loads
   // This ensures the DOM elements exist before we attach listeners
   setTimeout(async () => {
@@ -537,7 +589,30 @@ export async function initializeReaderView() {
       refManager.rebindElements();
       console.log("✅ Reference container manager rebound after content load");
     }
-  }, 1000);
+
+    const { hyperlitManager } = await import('./unified-container.js');
+    if (hyperlitManager && hyperlitManager.rebindElements) {
+        hyperlitManager.rebindElements();
+        console.log("✅ Hyperlit container manager rebound after content load");
+    }
+    
+  }, 500);
+  
+  // 🎯 IMMEDIATE CLEANUP: Remove overlays as soon as navigation is complete
+  // Listen for the navigation completion and clean up immediately
+  const cleanupOverlays = () => {
+    const leftoverOverlays = document.querySelectorAll('.navigation-overlay');
+    leftoverOverlays.forEach(overlay => {
+      console.log("🎯 IMMEDIATE: Removing navigation overlay:", overlay);
+      overlay.remove();
+    });
+    if (leftoverOverlays.length > 0) {
+      console.log(`🎯 IMMEDIATE CLEANUP: Removed ${leftoverOverlays.length} overlays`);
+    }
+  };
+  
+  // Clean up overlays when content is ready
+  setTimeout(cleanupOverlays, 100);
 }
 
 
