@@ -728,7 +728,7 @@ export function applyHypercites(html, hypercites) {
           positions.startOffset,
           positions.endNode,
           positions.endOffset,
-          markElement
+          underlineElement
         );
       } catch (error) {
         console.error("❌ Highlight wrapping failed completely", error);
