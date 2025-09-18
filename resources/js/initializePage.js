@@ -222,25 +222,31 @@ export async function loadFromJSONFiles(bookId) {
 }
 
 // ✅ MODIFIED: Your main loading function now calls the new loader.
-export async function loadHyperText(bookId) {
+export async function loadHyperText(bookId, progressCallback = null) {
   resetFirstChunkPromise();
   const currentBook = bookId || book;
   console.log(`📖 Opening: ${currentBook}`);
   setupOnlineSyncListener();
   const openHyperlightID = OpenHyperlightID || null;
 
-  // Import progress functions
+  // Import progress functions or use provided callback
   let updatePageLoadProgress, hidePageLoadProgress;
-  try {
-    const progressModule = await import('./reader-DOMContentLoaded.js');
-    updatePageLoadProgress = progressModule.updatePageLoadProgress;
-    hidePageLoadProgress = progressModule.hidePageLoadProgress;
-    console.log('🎯 Progress functions imported successfully');
-  } catch (e) {
-    console.warn('Could not import progress functions:', e);
-    // Create dummy functions if import fails
-    updatePageLoadProgress = () => {};
-    hidePageLoadProgress = () => {};
+  if (progressCallback) {
+    updatePageLoadProgress = progressCallback;
+    hidePageLoadProgress = () => {}; // SPA handles hiding separately
+    console.log('🎯 Using provided progress callback for SPA navigation');
+  } else {
+    try {
+      const progressModule = await import('./reader-DOMContentLoaded.js');
+      updatePageLoadProgress = progressModule.updatePageLoadProgress;
+      hidePageLoadProgress = progressModule.hidePageLoadProgress;
+      console.log('🎯 Progress functions imported successfully');
+    } catch (e) {
+      console.warn('Could not import progress functions:', e);
+      // Create dummy functions if import fails
+      updatePageLoadProgress = () => {};
+      hidePageLoadProgress = () => {};
+    }
   }
 
 

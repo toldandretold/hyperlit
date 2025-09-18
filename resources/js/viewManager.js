@@ -97,6 +97,9 @@ function cleanupReaderView() {
   // Close any open containers before destroying the view
   closeHyperlitContainer();
 
+  // SPA TRANSITION FIX: Do not remove the navigation overlay here.
+  // It is shown just before the transition and must persist.
+  /*
   // Remove any navigation overlays that might be blocking button clicks
   const navigationOverlays = document.querySelectorAll('.navigation-overlay');
   navigationOverlays.forEach(overlay => {
@@ -110,6 +113,7 @@ function cleanupReaderView() {
     initialOverlay.style.display = 'none';
     console.log("🎯 Hidden initial navigation overlay");
   }
+  */
 
   // Clean up global event handlers
   if (globalLinkClickHandler) {
@@ -237,7 +241,7 @@ export async function initializeImportedReaderView(bookId) {
   console.log("✅ Imported book fully initialized via standard reader flow");
 }
 
-export async function transitionToReaderView(bookId, hash = '') {
+export async function transitionToReaderView(bookId, hash = '', progressCallback = null) {
   try {
     cleanupReaderView();
 
@@ -248,14 +252,21 @@ export async function transitionToReaderView(bookId, hash = '') {
     const parser = new DOMParser();
     const newDoc = parser.parseFromString(htmlString, "text/html");
 
-    // 🔥 SIMPLE FIX: Remove the overlay from the fetched HTML before injecting it
-    const overlayInFetchedHTML = newDoc.getElementById('initial-navigation-overlay');
-    if (overlayInFetchedHTML) {
-      overlayInFetchedHTML.remove();
-      console.log('🎯 TransitionToReader: Removed overlay from fetched HTML before injection');
+    // ✅ SPA TRANSITION REFACTOR: Instead of replacing the entire body,
+    // we now only replace the content of the #page-wrapper element.
+    // This is more efficient and preserves the navigation overlay.
+    const pageWrapper = document.getElementById('page-wrapper');
+    const newPageWrapper = newDoc.getElementById('page-wrapper');
+
+    if (pageWrapper && newPageWrapper) {
+      pageWrapper.innerHTML = newPageWrapper.innerHTML;
+    } else {
+      // Fallback to old method if wrappers aren't found
+      console.warn("Could not find #page-wrapper, falling back to body replacement.");
+      document.body.innerHTML = newDoc.body.innerHTML;
     }
 
-    document.body.innerHTML = newDoc.body.innerHTML;
+    // Sync body attributes and title
     for (const { name, value } of newDoc.body.attributes) {
       document.body.setAttribute(name, value);
     }
@@ -265,8 +276,20 @@ export async function transitionToReaderView(bookId, hash = '') {
     const newUrl = `/${bookId}/edit?target=1&edit=1${hash}`;
     history.pushState({}, "", newUrl);
 
-    // Call the simple initializer.
-    await initializeReaderView();
+    // Initialize the reader view and wait for content loading to complete
+    await initializeReaderView(progressCallback);
+    
+    // ✅ Additional safety: Wait for the first chunk promise to ensure content is ready
+    try {
+      const { pendingFirstChunkLoadedPromise } = await import('./initializePage.js');
+      if (pendingFirstChunkLoadedPromise) {
+        console.log(`🎯 TransitionToReader: Ensuring ${bookId} content is fully loaded`);
+        await pendingFirstChunkLoadedPromise;
+        console.log(`✅ TransitionToReader: ${bookId} content confirmed ready`);
+      }
+    } catch (error) {
+      console.warn('Could not wait for first chunk promise in transitionToReaderView:', error);
+    }
   } catch (error) {
     console.error("SPA Transition Failed:", error);
     window.location.href = `/${bookId}/edit?target=1&edit=1`;
@@ -301,11 +324,22 @@ function attachGlobalLinkClickHandler() {
     const link = event.target.closest('a');
     
     if (link && link.href) {
-      // Skip if this is a hypercite or TOC link (they handle their own overlays)
-      const isHypercite = link.closest('u.couple, u.poly');
+      const isHypercite = link.closest('u.couple, u.poly') || link.classList.contains('hypercite-target');
       const isTocLink = link.closest('#toc-container');
       
       if (isHypercite || isTocLink) {
+        const linkUrl = new URL(link.href, window.location.origin);
+        const currentBookPath = `/${book}`;
+
+        // Check if it's a cross-book navigation
+        if (linkUrl.origin === window.location.origin && !linkUrl.pathname.startsWith(currentBookPath)) {
+            const pathSegments = linkUrl.pathname.split('/').filter(Boolean);
+            const targetBookId = pathSegments[0] || 'book';
+            console.log(`[PROGRESS-FIX] Cross-book hypercite detected. Showing progress bar for ${targetBookId}.`);
+            import('./reader-DOMContentLoaded.js').then(({ updatePageLoadProgress }) => {
+                updatePageLoadProgress(5, `Loading ${targetBookId}...`);
+            });
+        }
         return; // Let other handlers manage these
       }
 
@@ -384,29 +418,128 @@ function attachGlobalLinkClickHandler() {
           const hyperciteId = targetHash.substring(1); // hypercite_abc (remove #)
           
           console.log(`🎯 Global link: Hyperlight SPA transition to ${targetBookId}/${highlightId}${targetHash}`);
-          showNavigationLoading(`hyperlight: ${highlightId}`);
           
-          // Use the special hyperlight+hypercite navigation
-          transitionToReaderView(targetBookId, '').then(() => {
-            // After page loads, navigate to the hyperlight+hypercite
-            import('./hyperCites.js').then(({ navigateToHyperciteTarget }) => {
-              import('./initializePage.js').then(({ currentLazyLoader }) => {
-                if (currentLazyLoader && hyperciteId) {
-                  console.log(`🎯 SPA: Sequential navigation to ${highlightId} then ${hyperciteId}`);
-                  navigateToHyperciteTarget(highlightId, hyperciteId, currentLazyLoader, false);
-                } else if (currentLazyLoader) {
-                  // Just navigate to highlight if no hypercite
-                  import('./scrolling.js').then(({ navigateToInternalId }) => {
-                    navigateToInternalId(highlightId, currentLazyLoader, false);
+          // ✅ Use proper progress system instead of basic overlay
+          import('./reader-DOMContentLoaded.js').then(({ updatePageLoadProgress }) => {
+            updatePageLoadProgress(5, `Loading ${targetBookId}...`);
+          }).catch(() => {
+            // Fallback to basic overlay if progress system unavailable
+            showNavigationLoading(`hyperlight: ${highlightId}`);
+          });
+          
+          // Create progress callback for this hyperlight SPA navigation
+          const hyperlightProgressCallback = (percent, message) => {
+            import('./reader-DOMContentLoaded.js').then(({ updatePageLoadProgress }) => {
+              updatePageLoadProgress(percent, message || `Loading ${targetBookId} for ${highlightId}...`);
+            }).catch(() => {
+              console.warn('Progress system unavailable for hyperlight SPA navigation');
+            });
+          };
+
+          // Use the special hyperlight+hypercite navigation with proper timing
+          transitionToReaderView(targetBookId, '', hyperlightProgressCallback).then(async () => {
+            // ✅ Wait for content to be fully loaded before internal navigation
+            import('./initializePage.js').then(async ({ pendingFirstChunkLoadedPromise }) => {
+              console.log(`🎯 SPA: Waiting for content to load before navigating to ${highlightId}${targetHash}`);
+              
+              try {
+                // Wait for the content to be ready
+                await pendingFirstChunkLoadedPromise;
+                console.log(`✅ SPA: Content loaded, now navigating to ${highlightId}${targetHash}`);
+                
+                // Hide progress system now that content is ready
+                import('./reader-DOMContentLoaded.js').then(({ hidePageLoadProgress }) => {
+                  hidePageLoadProgress();
+                }).catch(() => {
+                  // Fallback to basic overlay if progress system unavailable
+                  hideNavigationLoading();
+                });
+                
+                // Now safely navigate to the target
+                import('./hyperCites.js').then(({ navigateToHyperciteTarget }) => {
+                  import('./initializePage.js').then(({ currentLazyLoader }) => {
+                    if (currentLazyLoader && hyperciteId) {
+                      console.log(`🎯 SPA: Sequential navigation to ${highlightId} then ${hyperciteId}`);
+                      navigateToHyperciteTarget(highlightId, hyperciteId, currentLazyLoader, false);
+                    } else if (currentLazyLoader) {
+                      // Just navigate to highlight if no hypercite
+                      import('./scrolling.js').then(({ navigateToInternalId }) => {
+                        navigateToInternalId(highlightId, currentLazyLoader, false);
+                      });
+                    }
                   });
-                }
-              });
+                });
+              } catch (error) {
+                console.error(`❌ SPA: Content loading failed for ${targetBookId}:`, error);
+                import('./reader-DOMContentLoaded.js').then(({ hidePageLoadProgress }) => {
+                  hidePageLoadProgress();
+                }).catch(() => {
+                  hideNavigationLoading();
+                });
+              }
             });
           });
         } else if (targetBookId) {
           console.log(`🎯 Global link: Starting SPA transition to book: ${targetBookId}${targetHash}`);
-          showNavigationLoading(`book: ${targetBookId}`);
-          transitionToReaderView(targetBookId, targetHash);
+          
+          // ✅ Use proper progress system instead of basic overlay
+          import('./reader-DOMContentLoaded.js').then(({ updatePageLoadProgress }) => {
+            updatePageLoadProgress(5, `Loading ${targetBookId}...`);
+          }).catch(() => {
+            // Fallback to basic overlay if progress system unavailable
+            showNavigationLoading(`book: ${targetBookId}`);
+          });
+          
+          // Create progress callback for this SPA navigation
+          let progressRef = null;
+          const spaProgressCallback = (percent, message) => {
+            import('./reader-DOMContentLoaded.js').then(({ updatePageLoadProgress }) => {
+              updatePageLoadProgress(percent, message || `Loading ${targetBookId}...`);
+            }).catch(() => {
+              console.warn('Progress system unavailable for SPA navigation');
+            });
+          };
+
+          transitionToReaderView(targetBookId, targetHash, spaProgressCallback).then(async () => {
+            // ✅ Wait for content to be fully loaded before completing navigation
+            import('./initializePage.js').then(async ({ pendingFirstChunkLoadedPromise }) => {
+              console.log(`🎯 SPA: Waiting for ${targetBookId} content to load`);
+              
+              try {
+                // Wait for the content to be ready
+                await pendingFirstChunkLoadedPromise;
+                console.log(`✅ SPA: ${targetBookId} content loaded successfully`);
+                
+                // Hide progress system now that content is ready
+                import('./reader-DOMContentLoaded.js').then(({ hidePageLoadProgress }) => {
+                  hidePageLoadProgress();
+                }).catch(() => {
+                  // Fallback to basic overlay if progress system unavailable
+                  hideNavigationLoading();
+                });
+                
+                // If there's a hash to navigate to, do it now
+                if (targetHash) {
+                  const targetId = targetHash.substring(1);
+                  import('./scrolling.js').then(({ navigateToInternalId }) => {
+                    import('./initializePage.js').then(({ currentLazyLoader }) => {
+                      if (currentLazyLoader) {
+                        console.log(`🎯 SPA: Navigating to ${targetId} after content load`);
+                        navigateToInternalId(targetId, currentLazyLoader, false);
+                      }
+                    });
+                  });
+                }
+              } catch (error) {
+                console.error(`❌ SPA: Content loading failed for ${targetBookId}:`, error);
+                import('./reader-DOMContentLoaded.js').then(({ hidePageLoadProgress }) => {
+                  hidePageLoadProgress();
+                }).catch(() => {
+                  hideNavigationLoading();
+                });
+              }
+            });
+          });
         } else {
           console.warn('Could not determine target book ID for SPA transition. Falling back to full page load.');
           window.location.href = link.href;
@@ -483,7 +616,7 @@ function attachGlobalLinkClickHandler() {
   window.addEventListener('popstate', globalPopstateHandler);
 }
 
-export async function initializeReaderView() {
+export async function initializeReaderView(progressCallback = null) {
   const currentBookId = book;
   console.log(`🚀 Initializing Reader View for book: ${currentBookId}`);
   
@@ -517,7 +650,7 @@ export async function initializeReaderView() {
     console.log("📋 Imported book detected - using existing content");
   }
 
-  const loadPromise = loadHyperText(currentBookId);
+  const loadPromise = loadHyperText(currentBookId, progressCallback);
 
   setTimeout(() => {
     console.log("✅ DOM settled. Initializing static UI components...");
@@ -598,21 +731,6 @@ export async function initializeReaderView() {
     
   }, 500);
   
-  // 🎯 IMMEDIATE CLEANUP: Remove overlays as soon as navigation is complete
-  // Listen for the navigation completion and clean up immediately
-  const cleanupOverlays = () => {
-    const leftoverOverlays = document.querySelectorAll('.navigation-overlay');
-    leftoverOverlays.forEach(overlay => {
-      console.log("🎯 IMMEDIATE: Removing navigation overlay:", overlay);
-      overlay.remove();
-    });
-    if (leftoverOverlays.length > 0) {
-      console.log(`🎯 IMMEDIATE CLEANUP: Removed ${leftoverOverlays.length} overlays`);
-    }
-  };
-  
-  // Clean up overlays when content is ready
-  setTimeout(cleanupOverlays, 100);
 }
 
 
