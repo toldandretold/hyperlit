@@ -621,17 +621,9 @@ async function loadNodeChunksToIndexedDB(db, nodeChunks) {
         (chunk.raw_json ? JSON.parse(chunk.raw_json) : null) : chunk.raw_json
     };
     
-    console.log(`📝 Processed chunk ${chunkIndex + 1}:`, {
-      chunk_id: processedChunk.chunk_id,
-      startLine: processedChunk.startLine,
-      hyperlights_count: processedChunk.hyperlights ? processedChunk.hyperlights.length : 0,
-      hypercites_count: processedChunk.hypercites ? processedChunk.hypercites.length : 0
-    });
-    
     await new Promise((resolve, reject) => {
       const request = store.put(processedChunk);
       request.onsuccess = () => {
-        console.log(`✅ Successfully stored chunk ${chunkIndex + 1} in IndexedDB`);
         resolve();
       };
       request.onerror = () => {
@@ -855,17 +847,3 @@ async function loadLibraryToIndexedDB(db, library) {
   
   console.log("✅ Loaded library data");
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
