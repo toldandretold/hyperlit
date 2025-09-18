@@ -1194,7 +1194,8 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
       container.prepend(instance.topSentinel);
     }
     
-    attachUnderlineClickListeners();
+    attachMarkListeners(chunkElement);
+    attachUnderlineClickListeners(chunkElement);
     
     // 🚨 CLEAR LOADING STATE AFTER DOM CHANGES
     setTimeout(() => {
@@ -1252,7 +1253,7 @@ function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
     instance.onFirstChunkLoadedCallback = null; // Set it to null so it only fires once.
   }
 
-  attachUnderlineClickListeners();
+  attachUnderlineClickListeners(element);
 
   setTimeout(() => {
     clearChunkLoadingInProgress(chunkId);

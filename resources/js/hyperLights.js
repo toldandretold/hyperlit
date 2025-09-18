@@ -62,9 +62,9 @@ function initOrUpdateHighlightLazyLoader(chunks) {
 }
 
 // ========= Mark Listeners =========
-export function attachMarkListeners() {
+export function attachMarkListeners(scope = document) {
     // Get all mark elements (both with ID and with just class)
-    const markTags = document.querySelectorAll("mark");
+    const markTags = scope.querySelectorAll("mark");
     console.log(`Attempting to attach listeners to ${markTags.length} mark elements`);
     
     markTags.forEach(function(mark) {

@@ -1107,24 +1107,29 @@ async function createOverlappingPolyContainer(allCitedINLinks, validHypercites) 
 /**
  * Function to attach click listeners to underlined citations
  */
-export function attachUnderlineClickListeners() {
-  // Select all underlined elements with either couple or poly class
-  const uElements = document.querySelectorAll("u.couple, u.poly");
-  console.log(
-    `attachUnderlineClickListeners: Found ${uElements.length} underlined elements.`
-  );
+export function attachUnderlineClickListeners(scope = document) {
+  // Select all underlined elements that don't have a listener attached yet
+  const uElements = scope.querySelectorAll("u.couple:not([data-hypercite-listener]), u.poly:not([data-hypercite-listener])");
+  
+  if (uElements.length > 0) {
+    console.log(
+      `attachUnderlineClickListeners: Found ${uElements.length} new underlined elements to attach listeners to.`
+    );
 
-  uElements.forEach((uElement, index) => {
-    console.log(`Processing element ${index + 1}:`, uElement);
-    uElement.style.cursor = "pointer";
+    uElements.forEach((uElement) => {
+      uElement.style.cursor = "pointer";
+      uElement.dataset.hyperciteListener = "true"; // Mark as processed
 
-    uElement.addEventListener("click", async (event) => {
-      await handleUnderlineClick(uElement, event);
+      uElement.addEventListener("click", async (event) => {
+        await handleUnderlineClick(uElement, event);
+      });
     });
-  });
+  }
 
-  // Also attach click listeners to hypercite links within contenteditable areas
-  attachHyperciteLinkListeners();
+  // Only scan for annotation links when doing a full-document scan, not on a per-chunk basis.
+  if (scope === document) {
+    attachHyperciteLinkListeners();
+  }
 }
 
 /**
@@ -1133,34 +1138,36 @@ export function attachUnderlineClickListeners() {
 function attachHyperciteLinkListeners() {
   // Select all hypercite links with open-icon class within hyperlit-container
   const hyperciteLinks = document.querySelectorAll('#hyperlit-container a[id^="hypercite_"] sup.open-icon, #hyperlit-container a[id^="hypercite_"] span.open-icon');
-  console.log(`Found ${hyperciteLinks.length} hypercite links in hyperlit-container.`);
+  
+  if (hyperciteLinks.length === 0) return;
+
+  console.log(`Found ${hyperciteLinks.length} hypercite links in hyperlit-container to process.`);
 
   hyperciteLinks.forEach((linkElement) => {
-    // Get the parent <a> element
     const anchorElement = linkElement.parentElement;
     if (!anchorElement || anchorElement.tagName !== 'A') return;
 
-    // Make the link visually clickable
+    // Prevent attaching duplicate listeners
+    if (anchorElement.dataset.hyperciteLinkListener) {
+      return;
+    }
+    anchorElement.dataset.hyperciteLinkListener = 'true';
+
     anchorElement.style.cursor = "pointer";
     linkElement.style.cursor = "pointer";
 
-    // Remove existing listeners to avoid duplicates
-    const newClickHandler = (event) => {
+    const clickHandler = (event) => {
       event.preventDefault();
       event.stopPropagation();
       
       const href = anchorElement.getAttribute('href');
       if (href) {
         console.log(`Hypercite link clicked in annotation: ${href}`);
-        // Navigate to the link
         window.open(href, '_blank');
       }
     };
 
-    // Store the handler reference for potential cleanup
-    anchorElement._hyperciteClickHandler = newClickHandler;
-    anchorElement.addEventListener('click', newClickHandler);
-    linkElement.addEventListener('click', newClickHandler);
+    anchorElement.addEventListener('click', clickHandler);
   });
 }
 
