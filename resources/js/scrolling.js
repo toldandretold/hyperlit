@@ -1159,14 +1159,9 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       progressIndicator.updateProgress(60, `Loading ${chunksToLoad.length} chunks...`);
     }
 
-    const loadedChunksPromises = chunksToLoad.map(chunkId => {
-      return new Promise((resolve) => {
-        lazyLoader.loadChunk(chunkId, "down");
-        resolve();
-      });
-    });
-    
-    await Promise.all(loadedChunksPromises);
+    // ✅ Just load synchronously, since loadChunk returns immediately
+    const loadedChunks = chunksToLoad.map(chunkId => lazyLoader.loadChunk(chunkId, "down"));
+
     lazyLoader.repositionSentinels();
     
     if (progressIndicator) {

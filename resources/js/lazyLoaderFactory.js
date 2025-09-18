@@ -1072,16 +1072,18 @@ export function loadNextChunkFixed(currentLastChunkId, instance) {
     scheduleAutoClear(nextChunkId, 1000); // Auto-clear after 1 second
     
     const container = instance.container;
-    const chunkElement = createChunkElement(nextNodes, instance, instance.config?.onFirstChunkLoaded);
-    container.appendChild(chunkElement);
-    instance.currentlyLoadedChunks.add(nextChunkId);
-    
-    if (instance.bottomSentinel) {
-      instance.bottomSentinel.remove();
-      container.appendChild(instance.bottomSentinel);
-    }
-    
-    attachUnderlineClickListeners();
+      const chunkElement = createChunkElement(nextNodes, instance);
+      container.appendChild(chunkElement);
+      instance.currentlyLoadedChunks.add(nextChunkId);
+      
+      // ✅ Attach listeners only to this chunk
+      attachMarkListeners(chunkElement);
+      attachUnderlineClickListeners(chunkElement);
+      
+      if (instance.bottomSentinel) {
+        instance.bottomSentinel.remove();
+        container.appendChild(instance.bottomSentinel);
+      }
     
     // 🚨 CLEAR LOADING STATE AFTER DOM CHANGES
     // Use a small delay to ensure all mutations are processed
@@ -1188,16 +1190,19 @@ function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   scheduleAutoClear(chunkId, 1000);
 
   // createChunkElement is called with its simple, correct signature.
-  const element = createChunkElement(nextNodes, instance);
+   const chunkElement = createChunkElement(nextNodes, instance);
 
   if (direction === "up") {
-    instance.container.insertBefore(element, instance.container.firstChild);
+    instance.container.insertBefore(chunkElement, instance.container.firstChild);
   } else {
-    instance.container.appendChild(element);
+    instance.container.appendChild(chunkElement);
   }
-
+  
   instance.currentlyLoadedChunks.add(chunkId);
-  attachMarkers(instance.container);
+
+  // ✅ Attach listeners only to this chunk
+  attachMarkListeners(chunkElement);
+  attachUnderlineClickListeners(chunkElement);
 
   if (chunkId === 0) {
     repositionFixedSentinelsForBlockInternal(instance, attachMarkers);
@@ -1213,13 +1218,13 @@ function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
     instance.onFirstChunkLoadedCallback = null; // Set it to null so it only fires once.
   }
 
-  attachUnderlineClickListeners(element);
 
   setTimeout(() => {
     clearChunkLoadingInProgress(chunkId);
   }, 100);
 
   console.log(`Chunk ${chunkId} loaded.`);
+  return chunkElement; // ✅ return DOM element
 }
 
 
