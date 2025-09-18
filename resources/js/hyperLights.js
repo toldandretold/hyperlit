@@ -599,8 +599,7 @@ async function deleteHighlightHandler(event, bookId) {
         }
       }
 
-      let parent = mark.parentNode;
-      parent.replaceChild(document.createTextNode(mark.textContent), mark);
+      unwrapMark(mark);
     }
   });
 
@@ -1176,12 +1175,9 @@ export async function deleteHighlightById(highlightId) {
       // If no more highlight classes remain, remove the mark entirely
       const remainingHighlights = Array.from(mark.classList).filter(cls => cls.startsWith('HL_'));
       
-      if (remainingHighlights.length === 0) {
-        // No more highlights on this mark - replace with text
-        const parent = mark.parentNode;
-        parent.replaceChild(document.createTextNode(mark.textContent), mark);
-        parent.normalize();
-      } else {
+        if (remainingHighlights.length === 0) {
+          unwrapMark(mark);
+        } else {
         // Still has other highlights - just update the styling
         console.log(`Mark still has highlights: ${remainingHighlights.join(', ')}`);
         // Update highlight count and intensity if needed
@@ -1281,9 +1277,7 @@ export async function hideHighlightById(highlightId) {
       const remainingHighlights = Array.from(mark.classList).filter(cls => cls.startsWith('HL_'));
       
       if (remainingHighlights.length === 0) {
-        // No more highlights on this mark - replace with text
-        const parent = mark.parentNode;
-        parent.replaceChild(document.createTextNode(mark.textContent), mark);
+        unwrapMark(mark);
         parent.normalize();
       } else {
         // Still has other highlights - just update the styling
@@ -1389,9 +1383,8 @@ export async function reprocessHighlightsForNodes(bookId, affectedNodeIds) {
       // Remove all existing marks from this node
       const existingMarks = nodeElement.querySelectorAll('mark[class*="HL_"]');
       existingMarks.forEach(mark => {
-        const parent = mark.parentNode;
-        parent.replaceChild(document.createTextNode(mark.textContent), mark);
-        parent.normalize();
+        unwrapMark(mark);
+        mark.parentNode?.normalize();
       });
       
       // Get the clean HTML and re-apply highlights with correct segmentation
@@ -1418,5 +1411,19 @@ export async function reprocessHighlightsForNodes(bookId, affectedNodeIds) {
   } catch (error) {
     console.error(`❌ Error reprocessing highlights:`, error);
     throw error;
+  }
+}
+
+function unwrapMark(mark) {
+  if (!mark || !mark.parentNode) return;
+  const parent = mark.parentNode;
+  while (mark.firstChild) {
+    parent.insertBefore(mark.firstChild, mark);
+  }
+  parent.removeChild(mark);
+
+  // ✅ normalize here, since parent is available
+  if (typeof parent.normalize === "function") {
+    parent.normalize();
   }
 }
