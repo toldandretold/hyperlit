@@ -847,27 +847,3 @@ async function loadLibraryToIndexedDB(db, library) {
   
   console.log("✅ Loaded library data");
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

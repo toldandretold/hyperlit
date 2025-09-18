@@ -1420,13 +1420,3 @@ export async function reprocessHighlightsForNodes(bookId, affectedNodeIds) {
     throw error;
   }
 }
-
-
-
-
-
-
-
-
-
-
