@@ -259,8 +259,7 @@ export async function loadHyperText(bookId) {
       updatePageLoadProgress(90, "Initializing interface...");
       initializeLazyLoader(openHyperlightID, currentBook);
       
-      // ✅ CRITICAL FIX: Initialize interactive features for cached content
-      await initializeInteractiveFeatures(currentBook);
+      // Note: Interactive features initialization handled by viewManager.js
       
       checkAndUpdateIfNeeded(currentBook, currentLazyLoader);
       return;
@@ -279,8 +278,7 @@ export async function loadHyperText(bookId) {
         updatePageLoadProgress(90, "Initializing interface...");
         initializeLazyLoader(openHyperlightID, currentBook);
         
-        // ✅ CRITICAL FIX: Initialize interactive features for database content
-        await initializeInteractiveFeatures(currentBook);
+        // Note: Interactive features initialization handled by viewManager.js
         
         return;
       }
@@ -297,8 +295,7 @@ export async function loadHyperText(bookId) {
         updatePageLoadProgress(90, "Initializing interface...");
         initializeLazyLoader(openHyperlightID, currentBook);
         
-        // ✅ CRITICAL FIX: Initialize interactive features for JSON content
-        await initializeInteractiveFeatures(currentBook);
+        // Note: Interactive features initialization handled by viewManager.js
         
         return;
       }
@@ -314,8 +311,7 @@ export async function loadHyperText(bookId) {
     updatePageLoadProgress(90, "Initializing interface...");
     initializeLazyLoader(OpenHyperlightID || null, currentBook);
     
-    // ✅ CRITICAL FIX: Initialize interactive features for generated content
-    await initializeInteractiveFeatures(currentBook);
+    // Note: Interactive features initialization handled by viewManager.js
     
     return;
   } catch (err) {
@@ -327,43 +323,9 @@ export async function loadHyperText(bookId) {
 }
 
 
-// Helper function: Initialize all interactive features after content loads
-export async function initializeInteractiveFeatures(bookId) {
-  console.log("🎯 Initializing interactive features for", bookId);
-  
-  // Import required modules
-  const [
-    { generateTableOfContents },
-    { attachMarkListeners, initializeHighlightingControls },
-    { initializeHypercitingControls },
-    { initializeFootnoteCitationListeners, refManager }
-  ] = await Promise.all([
-    import('./toc.js'),
-    import('./hyperLights.js'),
-    import('./hyperCites.js'),
-    import('./footnotes-citations.js')
-  ]);
+// Note: initializeInteractiveFeatures function removed as it duplicates viewManager.js functionality
 
-  // Initialize all features
-  generateTableOfContents("toc-container", "toc-toggle-button");
-  attachMarkListeners();
-  initializeHighlightingControls(bookId);
-  initializeHypercitingControls(bookId);
-  initializeFootnoteCitationListeners();
-  
-  // Rebind reference container manager if it exists
-  if (refManager && refManager.rebindElements) {
-    refManager.rebindElements();
-    console.log("✅ Reference container manager rebound");
-  }
-  
-  console.log("✅ All interactive features initialized");
-}
-
-// Helper function: Cache buster for forced reloads
-function buildUrl(path, forceReload = false) {
-  return forceReload ? `${path}?v=${Date.now()}` : path;
-}
+// Note: buildUrl helper function removed as it appears unused
 
 // Updated to accept bookId parameter
 async function fetchMainTextMarkdown(bookId, forceReload = false) {

@@ -635,42 +635,63 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
       const isEditable = isUserHighlight || isNewlyCreated;
       const authorName = h.creator || "Anon";
       const relativeTime = formatRelativeTime(h.time_since);
+      const truncatedText = h.highlightedText.length > 140 ? h.highlightedText.substring(0, 140) + '...' : h.highlightedText;
 
-      html += `  <div class="author" id="${h.hyperlight_id}">\n`;
-      html += `    <div style="display: flex; justify-content: space-between; align-items: center;">\n`;
-      html += `      <div><b>${authorName}</b><i class="time">・${relativeTime}</i></div>\n`;
+      html += `  <div class="author" id="${h.hyperlight_id}">
+`;
+      html += `    <div style="display: flex; justify-content: space-between; align-items: center;">
+`;
+      html += `      <div><b>${authorName}</b><i class="time">・${relativeTime}</i></div>
+`;
       
       // Add delete button if user has permission
       if (isUserHighlight) {
         // User's own highlight - full delete
-        html += `      <button class="delete-highlight-btn" data-highlight-id="${h.hyperlight_id}" data-action="delete" title="Delete your highlight (hidden for everyone)" type="button">\n`;
-        html += `        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">\n`;
-        html += `          <path d="M3 6h18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>\n`;
-        html += `          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>\n`;
-        html += `        </svg>\n`;
-        html += `      </button>\n`;
+        html += `      <button class="delete-highlight-btn" data-highlight-id="${h.hyperlight_id}" data-action="delete" title="Delete your highlight (hidden for everyone)" type="button">
+`;
+        html += `        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+`;
+        html += `          <path d="M3 6h18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+`;
+        html += `          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+`;
+        html += `        </svg>
+`;
+        html += `      </button>
+`;
       } else {
         // Other's highlight - check if current user can edit this book (same logic as editButton.js)
         const canEditThisBook = bookPermissions.get(h.book);
         
         if (canEditThisBook) {
           // User can edit this book - show hide button for others' highlights
-          html += `      <button class="delete-highlight-btn" data-highlight-id="${h.hyperlight_id}" data-action="hide" title="Delete highlight (will be hidden for everyone)" type="button">\n`;
-          html += `        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">\n`;
-          html += `          <path d="M3 6h18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>\n`;
-          html += `          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>\n`;
-          html += `        </svg>\n`;
-          html += `      </button>\n`;
+          html += `      <button class="delete-highlight-btn" data-highlight-id="${h.hyperlight_id}" data-action="hide" title="Delete highlight (will be hidden for everyone)" type="button">
+`;
+          html += `        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+`;
+          html += `          <path d="M3 6h18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+`;
+          html += `          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+`;
+          html += `        </svg>
+`;
+          html += `      </button>
+`;
         }
       }
       
-      html += `    </div>\n`;
+      html += `    </div>
+`;
 
-      html += `  </div>\n`;
-      html += `  <blockquote class="highlight-text" contenteditable="${isEditable}" `;
-      html += `data-highlight-id="${h.hyperlight_id}">\n`;
-      html += `    "${h.highlightedText}"\n`;
-      html += `  </blockquote>\n`;
+      html += `  </div>
+`;
+      html += `  <blockquote class="highlight-text" contenteditable="${isEditable}" `; 
+      html += `data-highlight-id="${h.hyperlight_id}">
+`;
+      html += `    "${truncatedText}"
+`;
+      html += `  </blockquote>
+`;
       html += `  <div class="annotation" contenteditable="${isEditable}" `;
       html += `data-highlight-id="${h.hyperlight_id}">\n`;
       html += `    ${h.annotation || ""}\n`;

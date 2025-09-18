@@ -1473,23 +1473,10 @@ export function cleanupHypercitingControls() {
   console.log("✅ Hyperciting controls cleanup completed");
 }
 
-// Legacy container manager - now using unified system
-let hyperciteManager = null;
-
-function initializeHyperciteContainerManager() {
-  console.log("🔄 Initializing Hypercite Container Manager (now using unified system)...");
-  initializeHyperlitManager();
-}
-
-export function openHyperciteContainer(content) {
-  // Redirect to unified container
-  openHyperlitContainer(content);
-}
-
-export function closeHyperciteContainer() {
-  // Redirect to unified container
-  closeHyperlitContainer();
-}
+// Legacy container functions - redirected to unified system
+const initializeHyperciteContainerManager = initializeHyperlitManager;
+export const openHyperciteContainer = openHyperlitContainer;
+export const closeHyperciteContainer = closeHyperlitContainer;
 
 
 // Helper: Parse hypercite URL to extract components
@@ -1684,8 +1671,8 @@ function determineRelationshipStatus(citedINLength) {
  * @param {IDBDatabase} db - The IndexedDB database
  * @param {Object} hyperciteData - The updated hypercite data
  */
-// Renamed for clarity to avoid confusion with the one in cache-indexedDB.js
-async function updateHyperciteInDB(db, hyperciteData) {
+// Update hypercite in IndexedDB
+async function updateHyperciteInIndexedDB(db, hyperciteData) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("hypercites", "readwrite");
     const store = tx.objectStore("hypercites");

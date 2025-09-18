@@ -61,123 +61,9 @@ async function getCurrentAuthState() {
   }
 }
 
-// Function to record when this page loaded
-function recordPageLoadTimestamp() {
-  pageLoadTimestamp = Date.now();
-  console.log(`📋 Page load timestamp recorded: ${pageLoadTimestamp}`);
-}
+// Note: Cache invalidation functions removed as they may be unnecessary for SPA navigation
 
-// Function to check if cache has been invalidated since this page loaded
-function checkCacheInvalidation() {
-  try {
-    const invalidationTimestamp = localStorage.getItem('auth_cache_invalidation');
-    
-    if (!invalidationTimestamp) {
-      console.log("✅ No cache invalidation timestamp found - cache is valid");
-      return false;
-    }
-    
-    const invalidationTime = parseInt(invalidationTimestamp);
-    
-    if (!pageLoadTimestamp) {
-      console.log("⚠️ No page load timestamp - recording current time and assuming cache valid");
-      recordPageLoadTimestamp();
-      return false;
-    }
-    
-    // If cache was invalidated AFTER this page loaded, we need to refresh
-    const needsRefresh = invalidationTime > pageLoadTimestamp;
-    
-    if (needsRefresh) {
-      console.log(`🔄 Cache invalidation detected:`);
-      console.log(`  Page loaded at: ${pageLoadTimestamp}`);
-      console.log(`  Cache invalidated at: ${invalidationTime}`);
-      console.log(`  This page needs fresh data!`);
-    } else {
-      console.log(`✅ Cache is valid:`);
-      console.log(`  Page loaded at: ${pageLoadTimestamp}`);
-      console.log(`  Last invalidation: ${invalidationTime}`);
-    }
-    
-    return needsRefresh;
-  } catch (error) {
-    console.error("❌ Error checking cache invalidation:", error);
-    return false;
-  }
-}
-
-// Function to refresh highlights with current auth context
-async function refreshHighlightsWithCurrentAuth() {
-  try {
-    console.log("🎨 Refreshing highlights with current auth context");
-    
-    // Get all existing mark elements
-    const existingMarks = document.querySelectorAll('mark[class*="HL_"]');
-    console.log(`🎨 Found ${existingMarks.length} existing highlights to refresh`);
-    
-    if (existingMarks.length === 0) {
-      console.log("🎨 No highlights found to refresh");
-      return;
-    }
-    
-    // Get current book ID
-    const currentBook = book;
-    if (!currentBook) {
-      console.warn("🎨 No current book ID found");
-      return;
-    }
-    
-    // Import necessary modules
-    const { getNodeChunksFromIndexedDB } = await import('./cache-indexedDB.js');
-    const { applyHighlights } = await import('./lazyLoaderFactory.js');
-    
-    // Get fresh data from IndexedDB (which should have been updated with current auth context)
-    const nodeChunks = await getNodeChunksFromIndexedDB(currentBook);
-    if (!nodeChunks || nodeChunks.length === 0) {
-      console.warn("🎨 No node chunks found in IndexedDB");
-      return;
-    }
-    
-    // For each existing mark, find its container and re-apply highlights
-    const processedContainers = new Set();
-    
-    for (const mark of existingMarks) {
-      // Find the container element (the one with a numerical ID)
-      const container = mark.closest('[id]');
-      if (!container || processedContainers.has(container.id)) {
-        continue;
-      }
-      
-      // Find the corresponding node chunk
-      const nodeId = parseFloat(container.id);
-      const nodeChunk = nodeChunks.find(chunk => chunk.startLine === nodeId);
-      
-      if (nodeChunk && nodeChunk.hyperlights && nodeChunk.hyperlights.length > 0) {
-        console.log(`🎨 Refreshing highlights in container ${container.id}`);
-        
-        // Get the original content without highlights
-        const originalContent = nodeChunk.content;
-        
-        // Re-apply highlights with current auth context
-        const refreshedContent = applyHighlights(originalContent, nodeChunk.hyperlights, currentBook);
-        
-        // Update the container's content
-        container.innerHTML = refreshedContent;
-        
-        processedContainers.add(container.id);
-      }
-    }
-    
-    // Re-attach mark listeners to the refreshed elements
-    const { attachMarkListeners } = await import('./hyperLights.js');
-    attachMarkListeners();
-    
-    console.log(`✅ Refreshed highlights in ${processedContainers.size} containers`);
-    
-  } catch (error) {
-    console.error("❌ Error refreshing highlights:", error);
-  }
-}
+// Note: refreshHighlightsWithCurrentAuth function removed as it was unused
 
 // Handle page restoration from browser cache (bfcache) - critical for mobile and desktop
 window.addEventListener("pageshow", (event) => {
@@ -194,18 +80,8 @@ window.addEventListener("pageshow", (event) => {
         try {
           console.log("🔧 Checking if cache invalidation required after browser navigation...");
           
-          // Check if cache has been invalidated due to auth changes
-          const needsRefresh = checkCacheInvalidation();
-          
-          if (needsRefresh) {
-            console.log("🔄 Cache invalidation detected - forcing page reload for fresh auth context");
-            window.location.reload();
-            return;
-          } else {
-            console.log("✅ Cache valid - normal SPA navigation");
-            // Just ensure interactive features are working
-            await checkEditPermissionsAndUpdateUI();
-          }
+          // Just ensure interactive features are working
+          await checkEditPermissionsAndUpdateUI();
           
         } catch (error) {
           console.error("❌ Error handling browser navigation:", error);
@@ -540,12 +416,7 @@ function attachGlobalLinkClickHandler() {
   };
   
   // Clear overlay when page becomes visible again (handles back button cache issues)
-  // But NOT if we just clicked a link and are about to navigate away
   let recentLinkClick = false;
-  const recentLinkClickHandler = () => {
-    recentLinkClick = true;
-    setTimeout(() => { recentLinkClick = false; }, 1000);
-  };
   
   globalVisibilityHandler = () => {
     if (!document.hidden && !recentLinkClick) {
@@ -603,7 +474,10 @@ function attachGlobalLinkClickHandler() {
 
   // Add all the event listeners
   document.addEventListener('click', globalLinkClickHandler);
-  document.addEventListener('click', recentLinkClickHandler);
+  document.addEventListener('click', () => {
+    recentLinkClick = true;
+    setTimeout(() => { recentLinkClick = false; }, 1000);
+  });
   document.addEventListener('visibilitychange', globalVisibilityHandler);
   window.addEventListener('focus', globalFocusHandler);
   window.addEventListener('popstate', globalPopstateHandler);
@@ -613,16 +487,7 @@ export async function initializeReaderView() {
   const currentBookId = book;
   console.log(`🚀 Initializing Reader View for book: ${currentBookId}`);
   
-  // Record when this page loaded for cache invalidation checking
-  recordPageLoadTimestamp();
-  
-  // Check if cache has been invalidated and reload if needed
-  const needsRefresh = checkCacheInvalidation();
-  if (needsRefresh) {
-    console.log("🔄 Cache invalidation detected during initialization - reloading for fresh data");
-    window.location.reload();
-    return;
-  }
+  // Note: Cache invalidation checking removed for performance
   
   // Reset lazy loader to ensure we create a fresh one with the correct book ID
   resetCurrentLazyLoader();
