@@ -201,6 +201,33 @@ export async function getAnonymousToken() {
 
 
 
+/**
+ * Helper function to check if user has edit permission for a record
+ * Uses prioritized authentication: username first, then anonymous token only if no username
+ * @param {Object} record - Record with creator and creator_token fields
+ * @param {string|null} currentUserId - Current user ID (username for logged in, token for anon)
+ * @param {boolean} isLoggedIn - Whether user is currently logged in
+ * @returns {boolean} - Whether user has permission
+ */
+export function checkUserPermission(record, currentUserId, isLoggedIn = true) {
+  if (!record) return false;
+  
+  // If record has a username (creator), ONLY use username-based auth
+  if (record.creator) {
+    console.log(`🔐 Record has username creator: ${record.creator}, checking against logged-in user: ${currentUserId}`);
+    return isLoggedIn && record.creator === currentUserId;
+  }
+  
+  // If no username, use token-based auth (only for anonymous users)
+  if (record.creator_token) {
+    console.log(`👤 Record has token creator: ${record.creator_token}, checking against anon user: ${currentUserId}`);
+    return !isLoggedIn && record.creator_token === currentUserId;
+  }
+  
+  console.log("❌ Record has no creator or creator_token");
+  return false;
+}
+
 export async function canUserEditBook(bookId) {
   try {
     // ✅ NEW DIAGNOSTIC LOG: Let's see what's in sessionStorage right now.
@@ -241,25 +268,14 @@ export async function canUserEditBook(bookId) {
       return false;
     }
 
-    // 2) check login state
+    // 2) check login state and use prioritized auth logic
     const user = await getCurrentUser();
     if (user) {
       const userId = user.name || user.username || user.email;
-      const ok = record.creator === userId;
-      console.log(
-        "🔐 Logged in:",
-        userId,
-        "creator:",
-        record.creator,
-        "ok=",
-        ok
-      );
-      return ok;
+      return checkUserPermission(record, userId, true);
+    } else {
+      return checkUserPermission(record, anonymousToken, false);
     }
-
-    // 3) anonymous path — use server token
-    console.log("👤 Anon edit check:", anonymousToken, record.creator_token);
-    return anonymousToken !== null && record.creator_token === anonymousToken;
   } catch (err) {
     console.error("❌ Error in canUserEditBook:", err);
     return false;

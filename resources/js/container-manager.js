@@ -4,6 +4,7 @@ import { saveAnnotationToIndexedDB } from "./annotation-saver.js";
 import { navigateToInternalId } from "./scrolling.js";
 import { currentLazyLoader } from "./initializePage.js";
 import { isProcessing, isComplete } from './editIndicator.js'
+import { book } from './app.js';
 
 export class ContainerManager {
   constructor(containerId, overlayId, buttonId = null, frozenContainerIds = []) {
@@ -45,29 +46,38 @@ export class ContainerManager {
     // If the container exists, store its initial content and set up its internal link listener
     if (this.container) {
       this.initialContent = this.container.innerHTML;
-      // This is YOUR original, working link-click listener logic.
+      
       this.container.addEventListener("click", (e) => {
         const link = e.target.closest("a");
-        if (!link) return;
+        if (!link || !link.href) return;
+
         const href = link.getAttribute("href");
-        if (!href) return;
-        this.closeContainer();
-        
         let targetUrl;
         try {
           targetUrl = new URL(href, window.location.origin);
         } catch (error) {
           console.error("ContainerManager: Invalid URL encountered:", href, error);
-          return; 
+          return;
         }
 
+        // Handle true external links (different domain) by opening in a new tab
         if (targetUrl.origin !== window.location.origin) {
           link.target = '_blank';
           link.rel = 'noopener noreferrer';
-          return; 
+          return; // Stop processing, don't close container
+        }
+
+        // For same-origin links, check if it's for the same book or a different one
+        const pathSegments = targetUrl.pathname.split('/').filter(Boolean);
+        const linkBookId = pathSegments[0];
+        
+        // If the link is for the same book, it's an internal jump. Close the container.
+        if (linkBookId === book) {
+          this.closeContainer();
         }
         
-        console.log("ContainerManager: Allowing internal link to be handled by app.js listener:", href);
+        // If it's for a different book, do nothing. Let the event bubble to viewManager
+        // to handle the SPA transition. Closing the container here causes a freeze.
       });
     }
 

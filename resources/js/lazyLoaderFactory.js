@@ -13,8 +13,8 @@ import {
   scheduleAutoClear 
 } from './chunkLoadingState.js';
 import { setupUserScrollDetection, shouldSkipScrollRestoration } from './scrolling.js';
-// import { getUserHighlightCache } from "./userCache.js"; // No longer needed
 import { scrollElementIntoMainContent } from "./scrolling.js";
+import { isNewlyCreatedHighlight } from './operationState.js';
 
 // --- A simple throttle helper to limit scroll firing
 function throttle(fn, delay) {
@@ -821,11 +821,13 @@ export function applyHighlights(html, highlights, bookId) {
     console.log(`  Highlight ${index + 1}:`, {
       id: highlight.hyperlight_id || highlight.highlightID,
       is_user_highlight: highlight.is_user_highlight,
+      has_is_user_highlight_property: 'is_user_highlight' in highlight,
       creator: highlight.creator,
       creator_token: highlight.creator_token,
       startChar: highlight.startChar || highlight.charStart,
       endChar: highlight.endChar || highlight.charEnd,
-      text_length: (highlight.endChar || highlight.charEnd) - (highlight.startChar || highlight.charStart)
+      text_length: (highlight.endChar || highlight.charEnd) - (highlight.startChar || highlight.charStart),
+      full_highlight_object: highlight
     });
   });
 
@@ -873,21 +875,35 @@ export function applyHighlights(html, highlights, bookId) {
       const intensity = Math.min(segment.highlightIDs.length / 5, 1); // Cap at 5 highlights
       markElement.style.setProperty('--highlight-intensity', intensity);
       
-      // Check if any highlight in this segment belongs to current user using server flag
+      // Check if any highlight in this segment belongs to current user using server flag OR is newly created
       const userHighlightDetails = segment.highlightIDs.map(id => {
         const highlight = highlights.find(h => (h.hyperlight_id || h.highlightID) === id);
+        
+        // Check if this is a newly created highlight (before backend processing)
+        const isNewlyCreated = isNewlyCreatedHighlight(id);
+        
+        console.log(`🔍 Looking for highlight ${id}:`, {
+          found: !!highlight,
+          highlight_data: highlight,
+          has_is_user_highlight_flag: highlight ? ('is_user_highlight' in highlight) : false,
+          is_user_highlight_value: highlight ? highlight.is_user_highlight : 'N/A',
+          is_newly_created: isNewlyCreated
+        });
+        
         return {
           id,
           highlight_found: !!highlight,
-          is_user_highlight: highlight ? highlight.is_user_highlight : false,
+          is_user_highlight: highlight ? highlight.is_user_highlight : isNewlyCreated,
           creator: highlight ? highlight.creator : null,
-          creator_token: highlight ? highlight.creator_token : null
+          creator_token: highlight ? highlight.creator_token : null,
+          is_newly_created: isNewlyCreated
         };
       });
       
       console.log(`🎨 User highlight analysis for segment ${segmentIndex + 1}:`, userHighlightDetails);
       
       const hasUserHighlight = userHighlightDetails.some(detail => detail.is_user_highlight);
+      console.log(`🎨 Final hasUserHighlight decision for segment ${segmentIndex + 1}:`, hasUserHighlight);
       
       if (segment.highlightIDs.length === 1) {
         markElement.id = segment.highlightIDs[0];
@@ -1178,7 +1194,8 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
       container.prepend(instance.topSentinel);
     }
     
-    attachUnderlineClickListeners();
+    attachMarkListeners(chunkElement);
+    attachUnderlineClickListeners(chunkElement);
     
     // 🚨 CLEAR LOADING STATE AFTER DOM CHANGES
     setTimeout(() => {
@@ -1236,7 +1253,7 @@ function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
     instance.onFirstChunkLoadedCallback = null; // Set it to null so it only fires once.
   }
 
-  attachUnderlineClickListeners();
+  attachUnderlineClickListeners(element);
 
   setTimeout(() => {
     clearChunkLoadingInProgress(chunkId);

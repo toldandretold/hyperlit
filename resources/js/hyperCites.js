@@ -873,7 +873,7 @@ async function handleOverlappingPoly(hyperciteIds, event) {
  * @param {string} internalId - Optional internal ID to navigate to after highlight
  * @param {Object} lazyLoader - The lazy loader instance
  */
-async function navigateToHyperciteTarget(highlightId, internalId, lazyLoader) {
+export async function navigateToHyperciteTarget(highlightId, internalId, lazyLoader, showOverlay = false) {
   try {
     console.log(`🎯 Starting hypercite navigation to highlight: ${highlightId}, internal: ${internalId}`);
     
@@ -887,7 +887,7 @@ async function navigateToHyperciteTarget(highlightId, internalId, lazyLoader) {
     if (internalId) {
       // Sequential navigation: highlight first, then internal ID
       console.log(`📍 Step 1: Navigating to highlight ${highlightId}`);
-      navigateToInternalId(highlightId, lazyLoader);
+      navigateToInternalId(highlightId, lazyLoader, showOverlay);
       
       // Wait for the highlight to be ready before proceeding
       await waitForElementReady(highlightId, {
@@ -900,13 +900,33 @@ async function navigateToHyperciteTarget(highlightId, internalId, lazyLoader) {
       
       // Small delay to let highlight open animation start
       setTimeout(() => {
-        navigateToInternalId(internalId, lazyLoader);
+        // Check if hypercite exists inside the opened hyperlit container
+        const hyperciteInContainer = document.querySelector(`#hyperlit-container #${internalId}`);
+        if (hyperciteInContainer) {
+          console.log(`🎯 Found hypercite ${internalId} inside hyperlit container, scrolling within container`);
+          // Scroll within the hyperlit container
+          const container = document.getElementById('hyperlit-container');
+          const scroller = container.querySelector('.scroller');
+          if (scroller) {
+            hyperciteInContainer.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'center',
+              inline: 'nearest'
+            });
+            // Highlight the hypercite
+            highlightTargetHypercite(internalId, 500);
+          }
+        } else {
+          console.log(`🎯 Hypercite ${internalId} not found in container, using standard navigation`);
+          // Fall back to standard navigation (though this shouldn't happen for hypercites in highlights)
+          navigateToInternalId(internalId, lazyLoader, showOverlay);
+        }
       }, 300);
       
     } else {
       // Just navigate to the highlight
       console.log(`📍 Navigating directly to highlight ${highlightId}`);
-      navigateToInternalId(highlightId, lazyLoader);
+      navigateToInternalId(highlightId, lazyLoader, showOverlay);
     }
     
   } catch (error) {
@@ -1107,24 +1127,29 @@ async function createOverlappingPolyContainer(allCitedINLinks, validHypercites) 
 /**
  * Function to attach click listeners to underlined citations
  */
-export function attachUnderlineClickListeners() {
-  // Select all underlined elements with either couple or poly class
-  const uElements = document.querySelectorAll("u.couple, u.poly");
-  console.log(
-    `attachUnderlineClickListeners: Found ${uElements.length} underlined elements.`
-  );
+export function attachUnderlineClickListeners(scope = document) {
+  // Select all underlined elements that don't have a listener attached yet
+  const uElements = scope.querySelectorAll("u.couple:not([data-hypercite-listener]), u.poly:not([data-hypercite-listener])");
+  
+  if (uElements.length > 0) {
+    console.log(
+      `attachUnderlineClickListeners: Found ${uElements.length} new underlined elements to attach listeners to.`
+    );
 
-  uElements.forEach((uElement, index) => {
-    console.log(`Processing element ${index + 1}:`, uElement);
-    uElement.style.cursor = "pointer";
+    uElements.forEach((uElement) => {
+      uElement.style.cursor = "pointer";
+      uElement.dataset.hyperciteListener = "true"; // Mark as processed
 
-    uElement.addEventListener("click", async (event) => {
-      await handleUnderlineClick(uElement, event);
+      uElement.addEventListener("click", async (event) => {
+        await handleUnderlineClick(uElement, event);
+      });
     });
-  });
+  }
 
-  // Also attach click listeners to hypercite links within contenteditable areas
-  attachHyperciteLinkListeners();
+  // Only scan for annotation links when doing a full-document scan, not on a per-chunk basis.
+  if (scope === document) {
+    attachHyperciteLinkListeners();
+  }
 }
 
 /**
@@ -1133,34 +1158,36 @@ export function attachUnderlineClickListeners() {
 function attachHyperciteLinkListeners() {
   // Select all hypercite links with open-icon class within hyperlit-container
   const hyperciteLinks = document.querySelectorAll('#hyperlit-container a[id^="hypercite_"] sup.open-icon, #hyperlit-container a[id^="hypercite_"] span.open-icon');
-  console.log(`Found ${hyperciteLinks.length} hypercite links in hyperlit-container.`);
+  
+  if (hyperciteLinks.length === 0) return;
+
+  console.log(`Found ${hyperciteLinks.length} hypercite links in hyperlit-container to process.`);
 
   hyperciteLinks.forEach((linkElement) => {
-    // Get the parent <a> element
     const anchorElement = linkElement.parentElement;
     if (!anchorElement || anchorElement.tagName !== 'A') return;
 
-    // Make the link visually clickable
+    // Prevent attaching duplicate listeners
+    if (anchorElement.dataset.hyperciteLinkListener) {
+      return;
+    }
+    anchorElement.dataset.hyperciteLinkListener = 'true';
+
     anchorElement.style.cursor = "pointer";
     linkElement.style.cursor = "pointer";
 
-    // Remove existing listeners to avoid duplicates
-    const newClickHandler = (event) => {
+    const clickHandler = (event) => {
       event.preventDefault();
       event.stopPropagation();
       
       const href = anchorElement.getAttribute('href');
       if (href) {
         console.log(`Hypercite link clicked in annotation: ${href}`);
-        // Navigate to the link
         window.open(href, '_blank');
       }
     };
 
-    // Store the handler reference for potential cleanup
-    anchorElement._hyperciteClickHandler = newClickHandler;
-    anchorElement.addEventListener('click', newClickHandler);
-    linkElement.addEventListener('click', newClickHandler);
+    anchorElement.addEventListener('click', clickHandler);
   });
 }
 
@@ -1415,24 +1442,41 @@ export function initializeHypercitingControls(currentBookId) {
   console.log("✅ Hyperciting controls are live and correctly bound.");
 }
 
-
-// Legacy container manager - now using unified system
-let hyperciteManager = null;
-
-function initializeHyperciteContainerManager() {
-  console.log("🔄 Initializing Hypercite Container Manager (now using unified system)...");
-  initializeHyperlitManager();
+// Cleanup function to remove hypercite event listeners
+export function cleanupHypercitingControls() {
+  console.log("🧹 Cleaning up hyperciting controls...");
+  
+  // Clean up copy button listeners
+  const copyButton = document.getElementById("copy-hypercite");
+  if (copyButton && activeHyperciteListeners) {
+    copyButton.removeEventListener("mousedown", activeHyperciteListeners.mousedown);
+    copyButton.removeEventListener("click", activeHyperciteListeners.click);
+    copyButton.removeEventListener("touchend", activeHyperciteListeners.touchend);
+    activeHyperciteListeners = null;
+    console.log("🧹 Removed copy button listeners");
+  }
+  
+  // Clean up underline click listeners
+  const hyperciteElements = document.querySelectorAll("u.couple[data-hypercite-listener], u.poly[data-hypercite-listener]");
+  hyperciteElements.forEach(element => {
+    element.removeAttribute("data-hypercite-listener");
+    // Note: We can't remove the specific listener since it's anonymous, but removing the attribute
+    // will prevent the "already attached" check from working, allowing fresh listeners
+  });
+  
+  // Clean up hypercite link listeners
+  const hyperciteLinks = document.querySelectorAll('#hyperlit-container a[data-hypercite-link-listener]');
+  hyperciteLinks.forEach(link => {
+    link.removeAttribute("data-hypercite-link-listener");
+  });
+  
+  console.log("✅ Hyperciting controls cleanup completed");
 }
 
-export function openHyperciteContainer(content) {
-  // Redirect to unified container
-  openHyperlitContainer(content);
-}
-
-export function closeHyperciteContainer() {
-  // Redirect to unified container
-  closeHyperlitContainer();
-}
+// Legacy container functions - redirected to unified system
+const initializeHyperciteContainerManager = initializeHyperlitManager;
+export const openHyperciteContainer = openHyperlitContainer;
+export const closeHyperciteContainer = closeHyperlitContainer;
 
 
 // Helper: Parse hypercite URL to extract components
@@ -1627,8 +1671,8 @@ function determineRelationshipStatus(citedINLength) {
  * @param {IDBDatabase} db - The IndexedDB database
  * @param {Object} hyperciteData - The updated hypercite data
  */
-// Renamed for clarity to avoid confusion with the one in cache-indexedDB.js
-async function updateHyperciteInDB(db, hyperciteData) {
+// Update hypercite in IndexedDB
+async function updateHyperciteInIndexedDB(db, hyperciteData) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("hypercites", "readwrite");
     const store = tx.objectStore("hypercites");

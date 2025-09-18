@@ -166,3 +166,29 @@ export function setPasteInProgress(value) {
   console.log(`🚩 Paste In Progress state set to: ${value}`);
   pasteInProgress = value;
 }
+
+// Track newly created highlights for proper CSS application during lazy loader refresh
+let newlyCreatedHighlights = new Set();
+
+export function addNewlyCreatedHighlight(highlightId) {
+  newlyCreatedHighlights.add(highlightId);
+  console.log(`🎨 Added ${highlightId} to newly created highlights. Total: ${newlyCreatedHighlights.size}`);
+}
+
+export function isNewlyCreatedHighlight(highlightId) {
+  return newlyCreatedHighlights.has(highlightId);
+}
+
+export function removeNewlyCreatedHighlight(highlightId) {
+  const removed = newlyCreatedHighlights.delete(highlightId);
+  if (removed) {
+    console.log(`🎨 Removed ${highlightId} from newly created highlights. Remaining: ${newlyCreatedHighlights.size}`);
+  }
+  return removed;
+}
+
+export function clearNewlyCreatedHighlights() {
+  const count = newlyCreatedHighlights.size;
+  newlyCreatedHighlights.clear();
+  console.log(`🎨 Cleared all ${count} newly created highlights`);
+}

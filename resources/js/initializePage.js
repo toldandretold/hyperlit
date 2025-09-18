@@ -25,7 +25,6 @@ import { parseMarkdownIntoChunksInitial } from "./convert-markdown.js";
 
 import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 // Add to your imports at the top
-import { buildUserHighlightCache, clearUserHighlightCache } from "./userCache.js";
 
 import { undoLastBatch, redoLastBatch } from './historyManager.js';
 
@@ -135,15 +134,31 @@ async function retryFailedBatches() {
   }
 }
 
+// Track if online listener is attached
+let onlineListenerAttached = false;
+
 // ✅ STEP 3: A setup function to attach the event listeners
 export function setupOnlineSyncListener() {
   // Immediately check for failed batches when the app loads
   retryFailedBatches();
 
-  // Add a listener to automatically retry when the browser comes back online
-  window.addEventListener("online", retryFailedBatches);
+  // Only add listener if not already attached
+  if (!onlineListenerAttached) {
+    window.addEventListener("online", retryFailedBatches);
+    onlineListenerAttached = true;
+    console.log("👂 Online sync listener is active.");
+  } else {
+    console.log("👂 Online sync listener already active, skipping.");
+  }
+}
 
-  console.log("👂 Online sync listener is active.");
+// Cleanup function to remove online listener
+export function cleanupOnlineSyncListener() {
+  if (onlineListenerAttached) {
+    window.removeEventListener("online", retryFailedBatches);
+    onlineListenerAttached = false;
+    console.log("🧹 Online sync listener removed.");
+  }
 }
 
 
@@ -241,15 +256,10 @@ export async function loadHyperText(bookId) {
       
       // Add small delays to make progress visible
       await new Promise(resolve => setTimeout(resolve, 100));
-      updatePageLoadProgress(60, "Building highlights cache...");
-      await buildUserHighlightCache(currentBook);
-      
-      await new Promise(resolve => setTimeout(resolve, 100));
       updatePageLoadProgress(90, "Initializing interface...");
       initializeLazyLoader(openHyperlightID, currentBook);
       
-      // ✅ CRITICAL FIX: Initialize interactive features for cached content
-      await initializeInteractiveFeatures(currentBook);
+      // Note: Interactive features initialization handled by viewManager.js
       
       checkAndUpdateIfNeeded(currentBook, currentLazyLoader);
       return;
@@ -265,13 +275,10 @@ export async function loadHyperText(bookId) {
       if (dbChunks && dbChunks.length) {
         console.log(`✅ Loaded ${dbChunks.length} nodeChunks from database`);
         window.nodeChunks = dbChunks;
-        updatePageLoadProgress(80, "Building highlights cache...");
-        await buildUserHighlightCache(currentBook);
         updatePageLoadProgress(90, "Initializing interface...");
         initializeLazyLoader(openHyperlightID, currentBook);
         
-        // ✅ CRITICAL FIX: Initialize interactive features for database content
-        await initializeInteractiveFeatures(currentBook);
+        // Note: Interactive features initialization handled by viewManager.js
         
         return;
       }
@@ -285,13 +292,10 @@ export async function loadHyperText(bookId) {
       if (jsonChunks && jsonChunks.length) {
         console.log("✅ Content loaded from JSON; now initializing UI");
         window.nodeChunks = jsonChunks;
-        updatePageLoadProgress(80, "Building highlights cache...");
-        await buildUserHighlightCache(currentBook);
         updatePageLoadProgress(90, "Initializing interface...");
         initializeLazyLoader(openHyperlightID, currentBook);
         
-        // ✅ CRITICAL FIX: Initialize interactive features for JSON content
-        await initializeInteractiveFeatures(currentBook);
+        // Note: Interactive features initialization handled by viewManager.js
         
         return;
       }
@@ -304,13 +308,10 @@ export async function loadHyperText(bookId) {
     console.log("🆕 Not in cache, DB, or JSON – generating from markdown");
     window.nodeChunks = await generateNodeChunksFromMarkdown(currentBook);
     console.log("✅ Content generated + saved; now initializing UI");
-    updatePageLoadProgress(80, "Building highlights cache...");
-    await buildUserHighlightCache(currentBook);
     updatePageLoadProgress(90, "Initializing interface...");
     initializeLazyLoader(OpenHyperlightID || null, currentBook);
     
-    // ✅ CRITICAL FIX: Initialize interactive features for generated content
-    await initializeInteractiveFeatures(currentBook);
+    // Note: Interactive features initialization handled by viewManager.js
     
     return;
   } catch (err) {
@@ -322,43 +323,9 @@ export async function loadHyperText(bookId) {
 }
 
 
-// Helper function: Initialize all interactive features after content loads
-export async function initializeInteractiveFeatures(bookId) {
-  console.log("🎯 Initializing interactive features for", bookId);
-  
-  // Import required modules
-  const [
-    { generateTableOfContents },
-    { attachMarkListeners, initializeHighlightingControls },
-    { initializeHypercitingControls },
-    { initializeFootnoteCitationListeners, refManager }
-  ] = await Promise.all([
-    import('./toc.js'),
-    import('./hyperLights.js'),
-    import('./hyperCites.js'),
-    import('./footnotes-citations.js')
-  ]);
+// Note: initializeInteractiveFeatures function removed as it duplicates viewManager.js functionality
 
-  // Initialize all features
-  generateTableOfContents("toc-container", "toc-toggle-button");
-  attachMarkListeners();
-  initializeHighlightingControls(bookId);
-  initializeHypercitingControls(bookId);
-  initializeFootnoteCitationListeners();
-  
-  // Rebind reference container manager if it exists
-  if (refManager && refManager.rebindElements) {
-    refManager.rebindElements();
-    console.log("✅ Reference container manager rebound");
-  }
-  
-  console.log("✅ All interactive features initialized");
-}
-
-// Helper function: Cache buster for forced reloads
-function buildUrl(path, forceReload = false) {
-  return forceReload ? `${path}?v=${Date.now()}` : path;
-}
+// Note: buildUrl helper function removed as it appears unused
 
 // Updated to accept bookId parameter
 async function fetchMainTextMarkdown(bookId, forceReload = false) {
