@@ -14,6 +14,7 @@ import {
 } from './chunkLoadingState.js';
 import { setupUserScrollDetection, shouldSkipScrollRestoration } from './scrolling.js';
 import { scrollElementIntoMainContent } from "./scrolling.js";
+import { isNewlyCreatedHighlight } from './operationState.js';
 
 // --- A simple throttle helper to limit scroll firing
 function throttle(fn, delay) {
@@ -874,21 +875,28 @@ export function applyHighlights(html, highlights, bookId) {
       const intensity = Math.min(segment.highlightIDs.length / 5, 1); // Cap at 5 highlights
       markElement.style.setProperty('--highlight-intensity', intensity);
       
-      // Check if any highlight in this segment belongs to current user using server flag
+      // Check if any highlight in this segment belongs to current user using server flag OR is newly created
       const userHighlightDetails = segment.highlightIDs.map(id => {
         const highlight = highlights.find(h => (h.hyperlight_id || h.highlightID) === id);
+        
+        // Check if this is a newly created highlight (before backend processing)
+        const isNewlyCreated = isNewlyCreatedHighlight(id);
+        
         console.log(`🔍 Looking for highlight ${id}:`, {
           found: !!highlight,
           highlight_data: highlight,
           has_is_user_highlight_flag: highlight ? ('is_user_highlight' in highlight) : false,
-          is_user_highlight_value: highlight ? highlight.is_user_highlight : 'N/A'
+          is_user_highlight_value: highlight ? highlight.is_user_highlight : 'N/A',
+          is_newly_created: isNewlyCreated
         });
+        
         return {
           id,
           highlight_found: !!highlight,
-          is_user_highlight: highlight ? highlight.is_user_highlight : false,
+          is_user_highlight: highlight ? highlight.is_user_highlight : isNewlyCreated,
           creator: highlight ? highlight.creator : null,
-          creator_token: highlight ? highlight.creator_token : null
+          creator_token: highlight ? highlight.creator_token : null,
+          is_newly_created: isNewlyCreated
         };
       });
       

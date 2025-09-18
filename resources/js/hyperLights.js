@@ -810,6 +810,36 @@ async function createHighlightHandler(event, bookId) {
   attachMarkListeners();
   window.getSelection().removeAllRanges();
   document.getElementById("hyperlight-buttons").style.display = "none";
+  
+  // Trigger chunk refresh to apply proper CSS classes to the new highlight
+  try {
+    const { currentLazyLoader, lazyLoaders } = await import('./initializePage.js');
+    const { book } = await import('./app.js');
+    const { addNewlyCreatedHighlight, removeNewlyCreatedHighlight } = await import('./operationState.js');
+    
+    // Try to get the appropriate lazy loader instance
+    const lazyLoader = currentLazyLoader || lazyLoaders[bookId] || lazyLoaders[book];
+    
+    if (lazyLoader && typeof lazyLoader.refresh === 'function') {
+      console.log('🔄 Triggering lazy loader refresh for new highlight');
+      
+      // Mark this highlight as a newly created user highlight for proper CSS application
+      addNewlyCreatedHighlight(highlightId);
+      
+      await lazyLoader.refresh();
+      
+      // Clean up the newly created flag after a delay (backend should have processed by then)
+      setTimeout(() => {
+        removeNewlyCreatedHighlight(highlightId);
+      }, 10000); // 10 seconds should be enough for backend processing
+      
+    } else {
+      console.warn('⚠️ No lazy loader available for refresh - new highlight may not have proper CSS');
+    }
+  } catch (error) {
+    console.warn('⚠️ Failed to refresh chunks after highlight creation:', error);
+  }
+  
   await openHighlightById(highlightId, true, [highlightId]);
 }
 
@@ -1198,7 +1228,8 @@ async function updateNodeHighlight(
           hyperlights: [{
             highlightID: highlightId,
             charStart: highlightStartOffset,
-            charEnd: highlightEndOffset
+            charEnd: highlightEndOffset,
+            is_user_highlight: true
           }]
         };
         
@@ -1217,7 +1248,8 @@ async function updateNodeHighlight(
         node.hyperlights.push({
           highlightID: highlightId,
           charStart: highlightStartOffset,
-          charEnd: highlightEndOffset
+          charEnd: highlightEndOffset,
+          is_user_highlight: true
         });
       }
       
