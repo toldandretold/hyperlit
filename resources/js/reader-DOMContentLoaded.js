@@ -158,7 +158,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   console.log("✅ IndexedDB initialized.");
 
   if (pageType === "reader") {
-    await initializeReaderView();
+    // Use the new navigation system for reader initialization
+    const { NavigationManager } = await import('./navigation/NavigationManager.js');
+    await NavigationManager.handleFreshPageLoad();
 
     // Delegate delete click for user-home list
     document.addEventListener('click', async (e) => {

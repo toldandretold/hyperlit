@@ -3,7 +3,7 @@ import './debugLog.js';
 import { generateBibtexFromForm } from './bibtexProcessor.js';
 import { getCurrentUser, getAnonymousToken } from './auth.js';
 import { loadFromJSONFiles, loadHyperText } from './initializePage.js';
-import { transitionToReaderView, initializeImportedReaderView, initializeImportedBook } from "./viewManager.js";
+// Navigation imports moved to new system - see submitToLaravelAndLoad function
 
 // Add the helper functions from createNewBook.js
 function generateUUID() {
@@ -594,98 +594,13 @@ async function submitToLaravelAndLoad(formData, submitButton) {
   console.log("🔥 DEBUG: submitToLaravelAndLoad STARTED");
   console.log("Submitting to Laravel controller for file processing...");
 
-  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-
   try {
-    const response = await fetch("/import-file", {
-      method: "POST",
-      body: formData,
-      credentials: "include",
-      headers: {
-        Accept: "application/json",
-        "X-CSRF-TOKEN": csrfToken,
-      },
-    });
-
-    if (!response.ok) {
-      // ✅ Get the actual error details from Laravel
-      const errorText = await response.text();
-      let errorDetails;
-      
-      try {
-        const errorJson = JSON.parse(errorText);
-        console.error("❌ Server validation errors:", errorJson);
-        
-        // Laravel validation errors are usually in errorJson.errors
-        if (errorJson.errors) {
-          const validationErrors = Object.entries(errorJson.errors)
-            .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
-            .join('\n');
-          errorDetails = `Validation failed:\n${validationErrors}`;
-        } else {
-          errorDetails = errorJson.message || errorText;
-        }
-      } catch (e) {
-        console.error("❌ Server error (not JSON):", errorText);
-        errorDetails = errorText;
-      }
-      
-      throw new Error(`Server responded with ${response.status}: ${errorDetails}`);
-    }
-
-    const result = await response.json();
-    console.log("✅ Import completed:", result);
-    console.log("🔥 DEBUG: About to check for result.bookId");
-
-    if (!result.bookId) {
-      throw new Error("No bookId returned from backend");
-    }
-    console.log("🔥 DEBUG: bookId confirmed:", result.bookId);
-
-    // Save the authoritative library record that came from the server
-    if (result.library) {
-      const db = await openDatabase();
-      const tx = db.transaction("library", "readwrite");
-      tx.objectStore("library").put(result.library);
-      await tx.done;
-      console.log("✅ Server's library record saved to IndexedDB");
-    }
-
-    // Pre-load the book's content into IndexedDB so the transition is instant.
-    console.log(
-      `📥 Fetching pre-generated JSON for imported book: ${result.bookId}`
-    );
-    // Try to preload JSON for faster transition; if it fails, continue anyway
-    try {
-      await loadFromJSONFiles(result.bookId);
-    } catch (e) {
-      console.warn('Preloading JSON failed; continuing with reader fallback', e);
-    }
-
-    // ===================== THE FIX: STEP 2 =====================
-    // Clear any persisted draft data now that a book was successfully created
-    try {
-      localStorage.removeItem('formData');
-      localStorage.removeItem('newbook-form-data');
-      console.log('🧹 Cleared saved import form draft after successful creation');
-    } catch (e) {
-      console.warn('Unable to clear saved form data', e);
-    }
-
-    // 🔥 CRITICAL: Set the same sessionStorage flag that create new book uses
-    // This tells layout.blade.php to hide the overlay immediately on page load
-    sessionStorage.setItem("pending_import_book", result.bookId);
-    console.log(`🎯 Set pending_import_book flag for overlay management: ${result.bookId}`);
-
-    // INSTEAD: Call the SPA transition function that you already built and know works.
-    // This will smoothly replace the form page with the reader view.
-    console.log(
-      `🚀 Handing off to the working SPA transition for book: ${result.bookId}`
-    );
-    console.log(`🔥 DEBUG: About to call initializeImportedBook with ${result.bookId}`);
-    await initializeImportedBook(result.bookId);
-    console.log(`🔥 DEBUG: initializeImportedBook completed for ${result.bookId}`);
-    // ===========================================================
+    // Use the new ImportBookTransition pathway
+    const { ImportBookTransition } = await import('./navigation/pathways/ImportBookTransition.js');
+    
+    const result = await ImportBookTransition.handleFormSubmissionAndTransition(formData, submitButton);
+    console.log(`🔥 DEBUG: ImportBookTransition completed for ${result.bookId}`);
+    
   } catch (error) {
     console.error("❌ Import failed:", error);
     alert("Import failed: " + error.message);
@@ -695,7 +610,6 @@ async function submitToLaravelAndLoad(formData, submitButton) {
       submitButton.textContent = "Submit";
     }
   }
-  // The 'finally' block is removed because on success, the button no longer exists.
 }
 
 // Clear button handler
