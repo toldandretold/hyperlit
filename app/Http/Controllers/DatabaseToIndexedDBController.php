@@ -88,12 +88,25 @@ class DatabaseToIndexedDBController extends Controller
             ->where(function($q) use ($user, $anonymousToken) {
                 $q->where('hidden', false);
 
+                // Prioritized auth: username first, then token only if no username
                 if ($user) {
-                    $q->orWhere('creator', $user->name);
-                }
-
-                if ($anonymousToken) {
-                    $q->orWhere('creator_token', $anonymousToken);
+                    // Logged-in user: show highlights with matching username OR highlights with no username but matching token
+                    $q->orWhere(function($subQ) use ($user, $anonymousToken) {
+                        $subQ->where('creator', $user->name);
+                        // Also show highlights that were created anonymously but user took ownership
+                        if ($anonymousToken) {
+                            $subQ->orWhere(function($tokenQ) use ($anonymousToken) {
+                                $tokenQ->whereNull('creator')
+                                       ->where('creator_token', $anonymousToken);
+                            });
+                        }
+                    });
+                } elseif ($anonymousToken) {
+                    // Anonymous user: only show highlights with no username but matching token
+                    $q->orWhere(function($subQ) use ($anonymousToken) {
+                        $subQ->whereNull('creator')
+                             ->where('creator_token', $anonymousToken);
+                    });
                 }
             });
 
@@ -286,11 +299,15 @@ class DatabaseToIndexedDBController extends Controller
             ->get()
             ->map(function ($hyperlight) use ($user, $anonymousToken, $bookId) {
                 // Determine if this highlight belongs to the current user
+                // Prioritized auth: if highlight has username (creator), ONLY use username-based auth
                 $isUserHighlight = false;
-                if ($user && $hyperlight->creator === $user->name) {
-                    $isUserHighlight = true;
-                } elseif ($anonymousToken && $hyperlight->creator_token === $anonymousToken) {
-                    $isUserHighlight = true;
+                
+                if ($hyperlight->creator) {
+                    // Highlight has username - ONLY check username-based auth (ignore token)
+                    $isUserHighlight = $user && $hyperlight->creator === $user->name;
+                } elseif ($hyperlight->creator_token) {
+                    // Highlight has no username, only token - check token-based auth for anonymous users
+                    $isUserHighlight = !$user && $anonymousToken && $hyperlight->creator_token === $anonymousToken;
                 }
                 
                 Log::info('🔍 Processing hyperlight in getHyperlights', [

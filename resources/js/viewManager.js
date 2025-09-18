@@ -1,6 +1,8 @@
 
 
 import { book, setCurrentBook } from "./app.js";
+import { getCurrentUser, getAnonymousToken } from "./auth.js";
+import { checkEditPermissionsAndUpdateUI } from "./editButton.js";
 
 import { stopObserving, initTitleSync } from "./divEditor.js";
 import { initEditToolbar, destroyEditToolbar } from "./editToolbar.js";
@@ -40,6 +42,144 @@ let activeNavButtons = null;
 let activeKeyboardManager = null;
 let activeSelectionDeletionHandler = null;
 
+// Track when this page was loaded to compare with cache invalidation timestamp
+let pageLoadTimestamp = null;
+
+// Helper function to get current auth state
+async function getCurrentAuthState() {
+  try {
+    const currentUser = await getCurrentUser();
+    const currentToken = await getAnonymousToken();
+    
+    return {
+      isLoggedIn: !!currentUser,
+      userId: currentUser ? (currentUser.name || currentUser.username || currentUser.email) : null,
+      anonymousToken: currentToken
+    };
+  } catch (error) {
+    console.error("❌ Error getting auth state:", error);
+    return null;
+  }
+}
+
+// Function to record when this page loaded
+function recordPageLoadTimestamp() {
+  pageLoadTimestamp = Date.now();
+  console.log(`📋 Page load timestamp recorded: ${pageLoadTimestamp}`);
+}
+
+// Function to check if cache has been invalidated since this page loaded
+function checkCacheInvalidation() {
+  try {
+    const invalidationTimestamp = localStorage.getItem('auth_cache_invalidation');
+    
+    if (!invalidationTimestamp) {
+      console.log("✅ No cache invalidation timestamp found - cache is valid");
+      return false;
+    }
+    
+    const invalidationTime = parseInt(invalidationTimestamp);
+    
+    if (!pageLoadTimestamp) {
+      console.log("⚠️ No page load timestamp - recording current time and assuming cache valid");
+      recordPageLoadTimestamp();
+      return false;
+    }
+    
+    // If cache was invalidated AFTER this page loaded, we need to refresh
+    const needsRefresh = invalidationTime > pageLoadTimestamp;
+    
+    if (needsRefresh) {
+      console.log(`🔄 Cache invalidation detected:`);
+      console.log(`  Page loaded at: ${pageLoadTimestamp}`);
+      console.log(`  Cache invalidated at: ${invalidationTime}`);
+      console.log(`  This page needs fresh data!`);
+    } else {
+      console.log(`✅ Cache is valid:`);
+      console.log(`  Page loaded at: ${pageLoadTimestamp}`);
+      console.log(`  Last invalidation: ${invalidationTime}`);
+    }
+    
+    return needsRefresh;
+  } catch (error) {
+    console.error("❌ Error checking cache invalidation:", error);
+    return false;
+  }
+}
+
+// Function to refresh highlights with current auth context
+async function refreshHighlightsWithCurrentAuth() {
+  try {
+    console.log("🎨 Refreshing highlights with current auth context");
+    
+    // Get all existing mark elements
+    const existingMarks = document.querySelectorAll('mark[class*="HL_"]');
+    console.log(`🎨 Found ${existingMarks.length} existing highlights to refresh`);
+    
+    if (existingMarks.length === 0) {
+      console.log("🎨 No highlights found to refresh");
+      return;
+    }
+    
+    // Get current book ID
+    const currentBook = book;
+    if (!currentBook) {
+      console.warn("🎨 No current book ID found");
+      return;
+    }
+    
+    // Import necessary modules
+    const { getNodeChunksFromIndexedDB } = await import('./cache-indexedDB.js');
+    const { applyHighlights } = await import('./lazyLoaderFactory.js');
+    
+    // Get fresh data from IndexedDB (which should have been updated with current auth context)
+    const nodeChunks = await getNodeChunksFromIndexedDB(currentBook);
+    if (!nodeChunks || nodeChunks.length === 0) {
+      console.warn("🎨 No node chunks found in IndexedDB");
+      return;
+    }
+    
+    // For each existing mark, find its container and re-apply highlights
+    const processedContainers = new Set();
+    
+    for (const mark of existingMarks) {
+      // Find the container element (the one with a numerical ID)
+      const container = mark.closest('[id]');
+      if (!container || processedContainers.has(container.id)) {
+        continue;
+      }
+      
+      // Find the corresponding node chunk
+      const nodeId = parseFloat(container.id);
+      const nodeChunk = nodeChunks.find(chunk => chunk.startLine === nodeId);
+      
+      if (nodeChunk && nodeChunk.hyperlights && nodeChunk.hyperlights.length > 0) {
+        console.log(`🎨 Refreshing highlights in container ${container.id}`);
+        
+        // Get the original content without highlights
+        const originalContent = nodeChunk.content;
+        
+        // Re-apply highlights with current auth context
+        const refreshedContent = applyHighlights(originalContent, nodeChunk.hyperlights, currentBook);
+        
+        // Update the container's content
+        container.innerHTML = refreshedContent;
+        
+        processedContainers.add(container.id);
+      }
+    }
+    
+    // Re-attach mark listeners to the refreshed elements
+    const { attachMarkListeners } = await import('./hyperLights.js');
+    attachMarkListeners();
+    
+    console.log(`✅ Refreshed highlights in ${processedContainers.size} containers`);
+    
+  } catch (error) {
+    console.error("❌ Error refreshing highlights:", error);
+  }
+}
+
 // Handle page restoration from browser cache (bfcache) - critical for mobile and desktop
 window.addEventListener("pageshow", (event) => {
   if (event.persisted) {
@@ -53,95 +193,25 @@ window.addEventListener("pageshow", (event) => {
       // Small delay to ensure DOM is fully restored
       setTimeout(async () => {
         try {
-          console.log("🔧 Reinitializing ALL interactive features after cache restore...");
-          const currentBookId = book;
+          console.log("🔧 Checking if cache invalidation required after browser navigation...");
           
-          // ✅ CRITICAL: Use the same helper function from initializePage.js
-          // Import the helper function and use it for consistent initialization
-          try {
-            const { initializeInteractiveFeatures } = await import('./initializePage.js');
-            if (typeof initializeInteractiveFeatures === 'function') {
-              await initializeInteractiveFeatures(currentBookId);
-              console.log("✅ Used centralized interactive features initialization");
-            } else {
-              throw new Error("initializeInteractiveFeatures not available");
-            }
-          } catch (importError) {
-            console.warn("⚠️ Could not import centralized initializer, using fallback:", importError);
-            
-            // Fallback to manual initialization
-            const [
-              footnotesModule,
-              { generateTableOfContents },
-              { attachMarkListeners, initializeHighlightingControls },
-              { initializeHypercitingControls }
-            ] = await Promise.all([
-              import('./footnotes-citations.js'),
-              import('./toc.js'),
-              import('./hyperLights.js'),
-              import('./hyperCites.js')
-            ]);
-            
-            // Initialize all features
-            footnotesModule.initializeFootnoteCitationListeners();
-            if (footnotesModule.refManager && footnotesModule.refManager.rebindElements) {
-              footnotesModule.refManager.rebindElements();
-            }
-            
-            generateTableOfContents("toc-container", "toc-toggle-button");
-            attachMarkListeners();
-            initializeHighlightingControls(currentBookId);
-            initializeHypercitingControls(currentBookId);
-            
-            console.log("✅ Fallback initialization completed");
+          // Check if cache has been invalidated due to auth changes
+          const needsRefresh = checkCacheInvalidation();
+          
+          if (needsRefresh) {
+            console.log("🔄 Cache invalidation detected - forcing page reload for fresh auth context");
+            window.location.reload();
+            return;
+          } else {
+            console.log("✅ Cache valid - normal SPA navigation");
+            // Just ensure interactive features are working
+            await checkEditPermissionsAndUpdateUI();
           }
-          
-          // Reinitialize nav buttons if they exist and aren't already active
-          const navButtonsContainer = document.querySelector('#nav-buttons');
-          if (navButtonsContainer && !activeNavButtons) {
-            activeNavButtons = new NavButtons({
-              elementIds: ["nav-buttons", "logoContainer", "topRightContainer"],
-              tapThreshold: 15,
-            });
-            activeNavButtons.init();
-            console.log("✅ Nav buttons reinitialized");
-          }
-          
-          console.log("🎉 All interactive features reinitialized after bfcache restore");
           
         } catch (error) {
-          console.error("❌ Error reinitializing after cache restore:", error);
+          console.error("❌ Error handling browser navigation:", error);
         }
-      }, 200); // Slightly longer delay for mobile
-    }
-  }
-});
-
-// Additional handler for visibility change - covers cases where bfcache doesn't fire
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) {
-    const pageType = document.body.getAttribute("data-page");
-    const hasReaderContent = pageType === "reader" || document.querySelector('.main-content, .book-content');
-    
-    if (hasReaderContent) {
-      // Check if interactive features are working
-      setTimeout(() => {
-        const tocToggle = document.getElementById('toc-toggle-button');
-        const highlightButtons = document.querySelectorAll('.highlight-control-button');
-        
-        if (tocToggle && !tocToggle.onclick && !tocToggle.getAttribute('data-initialized')) {
-          console.log("🔍 Detected missing TOC functionality after visibility change - reinitializing");
-          
-          import('./initializePage.js').then(({ initializeInteractiveFeatures }) => {
-            const currentBookId = book;
-            initializeInteractiveFeatures(currentBookId).then(() => {
-              console.log("✅ Interactive features reinitialized after visibility change");
-            }).catch(error => {
-              console.error("❌ Error reinitializing after visibility change:", error);
-            });
-          });
-        }
-      }, 300);
+      }, 200);
     }
   }
 });
@@ -443,6 +513,17 @@ export async function initializeReaderView() {
   const currentBookId = book;
   console.log(`🚀 Initializing Reader View for book: ${currentBookId}`);
   
+  // Record when this page loaded for cache invalidation checking
+  recordPageLoadTimestamp();
+  
+  // Check if cache has been invalidated and reload if needed
+  const needsRefresh = checkCacheInvalidation();
+  if (needsRefresh) {
+    console.log("🔄 Cache invalidation detected during initialization - reloading for fresh data");
+    window.location.reload();
+    return;
+  }
+  
   // Reset lazy loader to ensure we create a fresh one with the correct book ID
   resetCurrentLazyLoader();
 
@@ -522,6 +603,10 @@ export async function initializeReaderView() {
   initializeBroadcastListener();
   setupUnloadSync();
   generateTableOfContents("toc-container", "toc-toggle-button");
+  
+  // ✅ CRITICAL: Check auth state and update edit button permissions after reader initialization
+  await checkEditPermissionsAndUpdateUI();
+  console.log("✅ Auth state checked and edit permissions updated in reader view");
   
   // 🔥 Initialize footnote and citation listeners AFTER content loads
   // This ensures the DOM elements exist before we attach listeners

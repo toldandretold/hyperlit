@@ -13,7 +13,6 @@ import {
   scheduleAutoClear 
 } from './chunkLoadingState.js';
 import { setupUserScrollDetection, shouldSkipScrollRestoration } from './scrolling.js';
-// import { getUserHighlightCache } from "./userCache.js"; // No longer needed
 import { scrollElementIntoMainContent } from "./scrolling.js";
 
 // --- A simple throttle helper to limit scroll firing
@@ -821,11 +820,13 @@ export function applyHighlights(html, highlights, bookId) {
     console.log(`  Highlight ${index + 1}:`, {
       id: highlight.hyperlight_id || highlight.highlightID,
       is_user_highlight: highlight.is_user_highlight,
+      has_is_user_highlight_property: 'is_user_highlight' in highlight,
       creator: highlight.creator,
       creator_token: highlight.creator_token,
       startChar: highlight.startChar || highlight.charStart,
       endChar: highlight.endChar || highlight.charEnd,
-      text_length: (highlight.endChar || highlight.charEnd) - (highlight.startChar || highlight.charStart)
+      text_length: (highlight.endChar || highlight.charEnd) - (highlight.startChar || highlight.charStart),
+      full_highlight_object: highlight
     });
   });
 
@@ -876,6 +877,12 @@ export function applyHighlights(html, highlights, bookId) {
       // Check if any highlight in this segment belongs to current user using server flag
       const userHighlightDetails = segment.highlightIDs.map(id => {
         const highlight = highlights.find(h => (h.hyperlight_id || h.highlightID) === id);
+        console.log(`🔍 Looking for highlight ${id}:`, {
+          found: !!highlight,
+          highlight_data: highlight,
+          has_is_user_highlight_flag: highlight ? ('is_user_highlight' in highlight) : false,
+          is_user_highlight_value: highlight ? highlight.is_user_highlight : 'N/A'
+        });
         return {
           id,
           highlight_found: !!highlight,
@@ -888,6 +895,7 @@ export function applyHighlights(html, highlights, bookId) {
       console.log(`🎨 User highlight analysis for segment ${segmentIndex + 1}:`, userHighlightDetails);
       
       const hasUserHighlight = userHighlightDetails.some(detail => detail.is_user_highlight);
+      console.log(`🎨 Final hasUserHighlight decision for segment ${segmentIndex + 1}:`, hasUserHighlight);
       
       if (segment.highlightIDs.length === 1) {
         markElement.id = segment.highlightIDs[0];

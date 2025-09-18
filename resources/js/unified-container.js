@@ -630,7 +630,7 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
     let firstUserAnnotation = null;
 
     validResults.forEach((h, index) => {
-      const isUserHighlight = h.creator === currentUserId || h.creator_token === currentUserId;
+      const isUserHighlight = h.creator ? h.creator === currentUserId : (!h.creator && h.creator_token === currentUserId);
       const isNewlyCreated = newHighlightIds.includes(h.hyperlight_id);
       const isEditable = isUserHighlight || isNewlyCreated;
       const authorName = h.creator || "Anon";
@@ -952,7 +952,7 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
     // Attach listeners for editable highlights
     results.forEach((highlight) => {
       if (highlight) {
-        const isUserHighlight = highlight.creator === currentUserId || highlight.creator_token === currentUserId;
+        const isUserHighlight = highlight.creator ? highlight.creator === currentUserId : (!highlight.creator && highlight.creator_token === currentUserId);
         const isNewlyCreated = newHighlightIds.includes(highlight.hyperlight_id);
         const isEditable = isUserHighlight || isNewlyCreated;
 

@@ -8,6 +8,8 @@ import {
   getCurrentUser,
   getAnonymousToken,
 } from "./auth.js";
+import { clearDatabase } from "./cache-indexedDB.js";
+import { syncBookDataFromDatabase } from "./postgreSQL.js";
 
 export class UserContainerManager extends ContainerManager {
   constructor(containerId, overlayId, buttonId, frozenContainerIds = []) {
@@ -240,7 +242,9 @@ export class UserContainerManager extends ContainerManager {
         if (data.anonymous_content) {
           this.showAnonymousContentTransfer(data.anonymous_content);
         } else {
-          // No anonymous content, proceed normally
+          // No anonymous content, so REFRESH to get correct auth context everywhere
+          console.log("✅ Login successful - clearing all cached data for fresh auth context");
+          await this.clearAllCachedData();
           this.proceedAfterLogin();
         }
       } else {
@@ -318,6 +322,15 @@ export class UserContainerManager extends ContainerManager {
         // MODIFIED: Centralize state clearing
         clearCurrentUser();
         this.user = null;
+        
+        // Clear all cached data after logout for fresh anonymous context
+        console.log("✅ Logout successful - clearing all cached data for fresh anonymous context");
+        try {
+          await this.clearAllCachedData();
+        } catch (error) {
+          console.error("❌ Error clearing cached data after logout:", error);
+        }
+        
         this.closeContainer();
       } else {
         console.error("Logout failed:", response.status);
@@ -718,17 +731,33 @@ export class UserContainerManager extends ContainerManager {
     
     
     if (confirmButton) {
-      confirmButton.onclick = () => {
-        this.transferAnonymousContent(anonymousContent.token);
+      confirmButton.onclick = async () => {
+        await this.transferAnonymousContent(anonymousContent.token);
+        // ALWAYS REFRESH on login - auth context has changed
+        console.log("✅ Content transferred - clearing all cached data for fresh auth context");
+        await this.clearAllCachedData();
         // After transfer, show the user profile in the same container
         setTimeout(() => this.showUserProfile(), 500);
       };
     }
 
     if (skipButton) {
-      skipButton.onclick = () => {
-        // Go directly to user profile in the same container
-        this.showUserProfile();
+      skipButton.onclick = async () => {
+        // REFRESH when rejecting transfer (auth change from anonymous to logged-in)
+        console.log("🧹 User skipped transfer - clearing all cached data for auth change");
+        
+        try {
+          // Use the nuclear option - clear everything and set invalidation timestamp
+          await this.clearAllCachedData();
+          
+          // Go directly to user profile in the same container
+          this.showUserProfile();
+          
+        } catch (error) {
+          console.error("❌ Error during cache clearing:", error);
+          // Force reload anyway to ensure clean state
+          window.location.reload(true);
+        }
       };
     }
     
@@ -766,6 +795,153 @@ export class UserContainerManager extends ContainerManager {
       }
     } catch (error) {
       console.error("❌ Fetch error during content association:", error);
+    }
+  }
+
+  async forceServerDataRefresh() {
+    try {
+      console.log("🔄 Forcing server data refresh with new auth context");
+      
+      // Refresh data from server for the current book if available
+      if (book && book.id) {
+        console.log(`🔄 Refreshing book data from server: ${book.id}`);
+        await syncBookDataFromDatabase(book.id);
+        console.log("✅ Book data refreshed from server with correct auth context");
+        // Force content re-render with new auth context
+        await this.triggerContentRefresh(book.id);
+      } else if (book) {
+        // book might be a string directly, not an object with .id
+        console.log(`🔄 Refreshing book data from server: ${book}`);
+        await syncBookDataFromDatabase(book);
+        console.log("✅ Book data refreshed from server with correct auth context");
+        // Force content re-render with new auth context
+        await this.triggerContentRefresh(book);
+      } else {
+        console.log("ℹ️ No current book to refresh");
+      }
+      
+    } catch (error) {
+      console.error("❌ Error during server data refresh:", error);
+      // If server refresh fails, force a page reload as fallback
+      console.log("🔄 Server refresh failed, falling back to page reload");
+      window.location.reload();
+    }
+  }
+
+  async triggerContentRefresh(bookId) {
+    try {
+      console.log(`🎨 Triggering content refresh for ${bookId} with new auth context`);
+      
+      // Import the lazy loader to refresh content
+      const { currentLazyLoader } = await import('./initializePage.js');
+      if (currentLazyLoader && typeof currentLazyLoader.refresh === 'function') {
+        console.log("🔄 Refreshing lazy loader content with new data");
+        await currentLazyLoader.refresh();
+        console.log("✅ Content refreshed successfully");
+      } else {
+        console.log("⚠️ Lazy loader not available or no refresh method, forcing page reload");
+        window.location.reload();
+      }
+      
+    } catch (error) {
+      console.error("❌ Error during content refresh:", error);
+      // If content refresh fails, force a page reload as fallback
+      window.location.reload();
+    }
+  }
+
+  async clearAllCachedData() {
+    try {
+      console.log("🧹 NUCLEAR OPTION: Clearing ALL cached data due to auth change");
+      
+      // 1. Set cache invalidation timestamp - this will force ALL pages to refresh
+      const invalidationTimestamp = Date.now();
+      localStorage.setItem('auth_cache_invalidation', invalidationTimestamp);
+      console.log(`🕒 Set cache invalidation timestamp: ${invalidationTimestamp}`);
+      
+      // 2. Clear IndexedDB completely
+      await clearDatabase();
+      console.log("✅ IndexedDB cleared");
+      
+      // 3. Clear browser cache storage
+      await this.clearBrowserCache();
+      console.log("✅ Browser cache cleared");
+      
+      // 4. Clear localStorage except the invalidation timestamp and critical data
+      const criticalKeys = ['auth_cache_invalidation'];
+      const preservedData = {};
+      criticalKeys.forEach(key => {
+        if (localStorage.getItem(key)) {
+          preservedData[key] = localStorage.getItem(key);
+        }
+      });
+      localStorage.clear();
+      // Restore critical data
+      Object.entries(preservedData).forEach(([key, value]) => {
+        localStorage.setItem(key, value);
+      });
+      console.log("✅ localStorage cleared (preserved critical keys)");
+      
+      // 5. Clear sessionStorage (except critical session data)
+      const criticalSessionKeys = ['pending_new_book_sync', 'imported_book_flag'];
+      const sessionData = {};
+      criticalSessionKeys.forEach(key => {
+        if (sessionStorage.getItem(key)) {
+          sessionData[key] = sessionStorage.getItem(key);
+        }
+      });
+      sessionStorage.clear();
+      // Restore critical session data
+      Object.entries(sessionData).forEach(([key, value]) => {
+        sessionStorage.setItem(key, value);
+      });
+      console.log("✅ sessionStorage cleared (preserved critical keys)");
+      
+      console.log("💥 ALL CACHED DATA CLEARED + INVALIDATION TIMESTAMP SET");
+      console.log("🎯 Any page that loads will check this timestamp and refresh if needed");
+      
+    } catch (error) {
+      console.error("❌ Error during complete cache clearing:", error);
+      // Nuclear fallback: reload the page
+      console.log("🔄 Cache clearing failed, forcing page reload");
+      window.location.reload();
+    }
+  }
+
+  async clearAndRefreshDatabase() {
+    try {
+      // Clear all IndexedDB data
+      await clearDatabase();
+      console.log("🧹 IndexedDB cleared successfully");
+      
+      // Clear browser cache storage
+      await this.clearBrowserCache();
+      
+      // Force server refresh
+      await this.forceServerDataRefresh();
+      
+    } catch (error) {
+      console.error("❌ Error during database refresh:", error);
+      // If there's an error, still try to reload the page
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    }
+  }
+
+  /**
+   * Clears all caches managed by the CacheStorage API.
+   */
+  async clearBrowserCache() {
+    if ('caches' in window) {
+      try {
+        console.log('🧹 Clearing browser caches...');
+        const keys = await caches.keys();
+        await Promise.all(keys.map(key => caches.delete(key)));
+        console.log('✅ Browser caches cleared.');
+      } catch (error) {
+        console.error('❌ Error clearing browser caches:', error);
+      }
     }
   }
 

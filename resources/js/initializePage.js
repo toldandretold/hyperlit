@@ -25,7 +25,6 @@ import { parseMarkdownIntoChunksInitial } from "./convert-markdown.js";
 
 import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 // Add to your imports at the top
-import { buildUserHighlightCache, clearUserHighlightCache } from "./userCache.js";
 
 import { undoLastBatch, redoLastBatch } from './historyManager.js';
 
@@ -241,10 +240,6 @@ export async function loadHyperText(bookId) {
       
       // Add small delays to make progress visible
       await new Promise(resolve => setTimeout(resolve, 100));
-      updatePageLoadProgress(60, "Building highlights cache...");
-      await buildUserHighlightCache(currentBook);
-      
-      await new Promise(resolve => setTimeout(resolve, 100));
       updatePageLoadProgress(90, "Initializing interface...");
       initializeLazyLoader(openHyperlightID, currentBook);
       
@@ -265,8 +260,6 @@ export async function loadHyperText(bookId) {
       if (dbChunks && dbChunks.length) {
         console.log(`✅ Loaded ${dbChunks.length} nodeChunks from database`);
         window.nodeChunks = dbChunks;
-        updatePageLoadProgress(80, "Building highlights cache...");
-        await buildUserHighlightCache(currentBook);
         updatePageLoadProgress(90, "Initializing interface...");
         initializeLazyLoader(openHyperlightID, currentBook);
         
@@ -285,8 +278,6 @@ export async function loadHyperText(bookId) {
       if (jsonChunks && jsonChunks.length) {
         console.log("✅ Content loaded from JSON; now initializing UI");
         window.nodeChunks = jsonChunks;
-        updatePageLoadProgress(80, "Building highlights cache...");
-        await buildUserHighlightCache(currentBook);
         updatePageLoadProgress(90, "Initializing interface...");
         initializeLazyLoader(openHyperlightID, currentBook);
         
@@ -304,8 +295,6 @@ export async function loadHyperText(bookId) {
     console.log("🆕 Not in cache, DB, or JSON – generating from markdown");
     window.nodeChunks = await generateNodeChunksFromMarkdown(currentBook);
     console.log("✅ Content generated + saved; now initializing UI");
-    updatePageLoadProgress(80, "Building highlights cache...");
-    await buildUserHighlightCache(currentBook);
     updatePageLoadProgress(90, "Initializing interface...");
     initializeLazyLoader(OpenHyperlightID || null, currentBook);
     
