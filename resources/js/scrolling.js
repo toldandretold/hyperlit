@@ -1315,12 +1315,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
       // 🎯 Hide loading indicator
       hideNavigationLoading();
       
-      // 🧹 Clear hypercite hash from URL after successful navigation
-      if (targetId && (targetId.startsWith('hypercite_') || targetId.startsWith('HL_'))) {
-        console.log(`🧹 Clearing hypercite hash from URL: #${targetId}`);
-        const currentPath = window.location.pathname + window.location.search;
-        window.history.replaceState(null, document.title, currentPath);
-      }
+      
     }, cleanupDelay);
   } else {
     console.error(`❌ Navigation failed - no ready target element found for: ${targetId}`);

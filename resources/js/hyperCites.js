@@ -707,9 +707,14 @@ async function CoupleClick(uElement) {
           const highlightId = hlMatch[0]; // "HL_1749896203081"
           const internalId = url.hash ? url.hash.slice(1) : null;
           
-          // Update URL
+          // Only update URL if we're in same-book navigation (not cross-book)
+          // Cross-book navigation is handled by BookToBookTransition
           const newPath = `/${currentBook}/${highlightId}` + (internalId ? `#${internalId}` : "");
-          window.history.pushState(null, "", newPath);
+          const currentUrl = window.location.pathname + window.location.hash;
+          if (currentUrl !== newPath) {
+            console.log(`🔗 Updating URL for same-book hypercite: ${newPath}`);
+            window.history.pushState(null, "", newPath);
+          }
           
           // 🚀 NEW: Use proper sequential navigation with DOM readiness
           await navigateToHyperciteTarget(highlightId, internalId, currentLazyLoader);
@@ -722,8 +727,13 @@ async function CoupleClick(uElement) {
           const internalId = url.hash ? url.hash.slice(1) : null;
           
           if (internalId) {
-            // Update URL and navigate to internal ID
-            window.history.pushState(null, "", `/${currentBook}#${internalId}`);
+            // Only update URL if we're not already there
+            const newPath = `/${currentBook}#${internalId}`;
+            const currentUrl = window.location.pathname + window.location.hash;
+            if (currentUrl !== newPath) {
+              console.log(`🔗 Updating URL for same-book internal: ${newPath}`);
+              window.history.pushState(null, "", newPath);
+            }
             navigateToInternalId(internalId, currentLazyLoader, false); // Don't show overlay - internal navigation
             return;
           }
@@ -753,6 +763,8 @@ async function CoupleClick(uElement) {
  * @param {Event} event - The click event
  */
 async function handleUnderlineClick(uElement, event) {
+  console.log("🔥 handleUnderlineClick called with element:", uElement.id || uElement.tagName);
+  
   // Check if this is an overlapping hypercite
   if (uElement.id === "hypercite_overlapping") {
     await handleOverlappingHyperciteClick(uElement, event);
@@ -760,6 +772,7 @@ async function handleUnderlineClick(uElement, event) {
   }
 
   // Use unified container system for all hypercite clicks
+  console.log("🔄 Calling handleUnifiedContentClick from hyperCites.js");
   await handleUnifiedContentClick(uElement);
 }
 
@@ -771,7 +784,7 @@ async function handleUnderlineClick(uElement, event) {
 async function handleOverlappingHyperciteClick(uElement, event) {
   console.log("Overlapping hypercite clicked:", uElement);
 
-  // Get the overlapping hypercite IDs from data-overlapping attribute
+  // Update URL for back button support - use the first hypercite ID
   const overlappingData = uElement.getAttribute("data-overlapping");
   if (!overlappingData) {
     console.error("❌ No data-overlapping attribute found");
@@ -781,14 +794,36 @@ async function handleOverlappingHyperciteClick(uElement, event) {
   const hyperciteIds = overlappingData.split(",").map(id => id.trim());
   console.log("Overlapping hypercite IDs:", hyperciteIds);
 
-  const className = uElement.className;
+  // Add URL update for back button functionality
+  if (hyperciteIds.length > 0) {
+    const firstHyperciteId = hyperciteIds[0].replace('hypercite_', '');
+    const newUrl = `${window.location.pathname}${window.location.search}#hypercite_${firstHyperciteId}`;
+    console.log(`📍 Updating URL for overlapping hypercite navigation: ${newUrl}`);
+    
+    try {
+      history.pushState({ type: 'overlapping_hypercite', hyperciteIds: hyperciteIds }, '', newUrl);
+      console.log(`📊 Added overlapping hypercite to history - length: ${window.history.length}`);
+    } catch (error) {
+      console.warn('Failed to update URL for overlapping hypercite:', error);
+    }
+  }
+
+  // Check for specific classes instead of exact className match
+  console.log(`🔍 Checking classes on element:`, {
+    className: uElement.className,
+    classList: Array.from(uElement.classList),
+    hasCouple: uElement.classList.contains("couple"),
+    hasPoly: uElement.classList.contains("poly")
+  });
   
-  if (className === "couple") {
+  if (uElement.classList.contains("couple")) {
+    console.log("📝 Handling overlapping couple");
     await handleOverlappingCouple(hyperciteIds);
-  } else if (className === "poly") {
+  } else if (uElement.classList.contains("poly")) {
+    console.log("📝 Handling overlapping poly");
     await handleOverlappingPoly(hyperciteIds, event);
   } else {
-    console.log("Overlapping hypercite with single class - no action needed");
+    console.log("❌ Overlapping hypercite with unrecognized classes - no action taken");
   }
 }
 
@@ -967,9 +1002,13 @@ async function navigateToHyperciteLink(link) {
       const highlightId = hlMatch[0]; // "HL_1749896203081"
       const internalId = url.hash ? url.hash.slice(1) : null;
       
-      // Update URL
+      // Only update URL if we're not already there
       const newPath = `/${currentBook}/${highlightId}` + (internalId ? `#${internalId}` : "");
-      window.history.pushState(null, "", newPath);
+      const currentUrl = window.location.pathname + window.location.hash;
+      if (currentUrl !== newPath) {
+        console.log(`🔗 Updating URL for same-book hypercite: ${newPath}`);
+        window.history.pushState(null, "", newPath);
+      }
       
       // 🚀 NEW: Use proper sequential navigation with DOM readiness
       await navigateToHyperciteTarget(highlightId, internalId, currentLazyLoader);
@@ -982,8 +1021,14 @@ async function navigateToHyperciteLink(link) {
       const internalId = url.hash ? url.hash.slice(1) : null;
       
       if (internalId) {
-        // Update URL and navigate to internal ID
-        window.history.pushState(null, "", `/${currentBook}#${internalId}`);
+        // Only update URL if we're not already there
+        const newPath = `/${currentBook}#${internalId}`;
+        const currentUrl = window.location.pathname + window.location.hash;
+        if (currentUrl !== newPath) {
+          console.log(`🔗 Updating URL for same-book internal: ${newPath}`);
+          window.history.pushState(null, "", newPath);
+        }
+
         navigateToInternalId(internalId, currentLazyLoader, false); // Don't show overlay - internal navigation
         return;
       }

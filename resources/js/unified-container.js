@@ -52,7 +52,7 @@ function initializeHyperlitManagerInternal() {
   console.log("✅ Unified Hyperlit Container Manager initialized");
 }
 
-export function openHyperlitContainer(content) {
+export function openHyperlitContainer(content, isBackNavigation = false) {
   if (!hyperlitManager) {
     initializeHyperlitManager();
   }
@@ -73,6 +73,10 @@ export function openHyperlitContainer(content) {
 
   // Open the container using the manager FIRST
   console.log("📂 Opening container with manager first...");
+  
+  // Set the back navigation flag on the manager
+  hyperlitManager.isBackNavigation = isBackNavigation;
+  
   hyperlitManager.openContainer();
   
   // THEN set the content after the container is opened
@@ -142,36 +146,65 @@ function formatRelativeTime(timeSince) {
  * @param {Array} highlightIds - Optional array of highlight IDs if already known
  * @param {Array} newHighlightIds - Optional array of new highlight IDs
  */
-export async function handleUnifiedContentClick(element, highlightIds = null, newHighlightIds = []) {
-  // Prevent duplicate processing
+export async function handleUnifiedContentClick(element, highlightIds = null, newHighlightIds = [], skipUrlUpdate = false, isBackNavigation = false, directHyperciteId = null) {
+  const logElement = element ? (element.id || element.tagName) : (directHyperciteId || 'No element');
+  console.log("🎯 handleUnifiedContentClick called with:", { element: logElement, isBackNavigation, directHyperciteId });
+
   if (isProcessingClick) {
     console.log("🚫 Click already being processed, ignoring duplicate");
     return;
   }
-  
   isProcessingClick = true;
-  
 
   try {
-    console.log("🎯 Unified content click handler triggered", element);
-    
-    // Detect all content types on this element
-    const contentTypes = await detectContentTypes(element, highlightIds);
+    let contentTypes = [];
+
+    // If this is a history navigation, we have no element, only an ID.
+    // We can skip the broad detection and go straight to finding the hypercite.
+    if (!element && directHyperciteId) {
+        console.log(`🎯 History navigation detected for: ${directHyperciteId}. Detecting hypercite content directly.`);
+        const hyperciteData = await detectHypercites(null, directHyperciteId);
+        if (hyperciteData) {
+            contentTypes.push(hyperciteData);
+        }
+    } else if (element) {
+        // This is a standard click, run the full detection.
+        console.log("🎯 Click navigation detected. Running full content detection.");
+        contentTypes = await detectContentTypes(element, highlightIds, directHyperciteId);
+    } else {
+        console.warn("handleUnifiedContentClick called with no element or direct ID. Aborting.");
+        isProcessingClick = false;
+        return;
+    }
     
     if (contentTypes.length === 0) {
-      console.log("No hyperlit content detected on element");
+      console.log("No hyperlit content detected.");
+      isProcessingClick = false;
       return;
     }
     
     console.log(`📊 Detected content types: ${contentTypes.map(c => c.type).join(', ')}`);
     
+    // Only manage history if not skipping URL update (i.e., not from popstate)
+    if (!skipUrlUpdate) {
+      const hyperciteContent = contentTypes.find(ct => ct.type === 'hypercite');
+      if (hyperciteContent && hyperciteContent.hyperciteId) {
+        const cleanId = hyperciteContent.hyperciteId.replace(/^hypercite_/, '');
+        const newUrlWithHash = `${window.location.pathname}${window.location.search}#hypercite_${cleanId}`;
+        
+        // Don't create history entries here - let the navigation system handle it
+        console.log(`📊 Hypercite container opened for ${newUrlWithHash} (no history entry created)`);
+        // Note: URL management is handled by BookToBookTransition or LinkNavigationHandler
+      }
+    }
+    
     // Build unified content
     const unifiedContent = await buildUnifiedContent(contentTypes, newHighlightIds);
     
-    console.log(`📦 Built unified content (${unifiedContent.length} chars):`, unifiedContent);
+    console.log(`📦 Built unified content (${unifiedContent.length} chars)`);
     
     // Open the unified container
-    openHyperlitContainer(unifiedContent);
+    openHyperlitContainer(unifiedContent, isBackNavigation);
     
     // Handle any post-open actions (like cursor placement for editable content)
     await handlePostOpenActions(contentTypes, newHighlightIds);
@@ -181,6 +214,7 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
   } finally {
     // Reset the processing flag after a short delay
     setTimeout(() => {
+      console.log("🔄 Resetting isProcessingClick flag");
       isProcessingClick = false;
     }, 500);
 
@@ -193,7 +227,7 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
  * @param {Array} providedHighlightIds - Optional highlight IDs if already known
  * @returns {Array} Array of content type objects
  */
-async function detectContentTypes(element, providedHighlightIds = null) {
+async function detectContentTypes(element, providedHighlightIds = null, directHyperciteId = null) {
   const contentTypes = [];
   
   // 1. Check for footnotes (highest priority)
@@ -215,7 +249,7 @@ async function detectContentTypes(element, providedHighlightIds = null) {
   }
   
   // 4. Check for hypercites
-  const hyperciteData = await detectHypercites(element);
+  const hyperciteData = await detectHypercites(element, directHyperciteId);
   if (hyperciteData) {
     contentTypes.push(hyperciteData);
   }
@@ -327,42 +361,77 @@ async function detectHighlights(element, providedHighlightIds = null) {
 /**
  * Detect hypercite content
  */
-async function detectHypercites(element) {
+async function detectHypercites(element, directHyperciteId = null) {
   let hyperciteElement = null;
-  
-  // Check for underlined elements with hypercite classes
-  if (element.tagName === 'U' && (element.classList.contains('couple') || element.classList.contains('poly') || element.classList.contains('single'))) {
-    hyperciteElement = element;
+  let hyperciteIdFromElement = null;
+  let relationshipStatus = 'single'; // Default to single
+
+  if (directHyperciteId) {
+    hyperciteIdFromElement = directHyperciteId;
+    hyperciteElement = document.getElementById(directHyperciteId); // Try to find it
   } else {
-    // Check if we're inside a hypercite element (for when clicking on highlighted hypercites)
-    const parentHypercite = element.closest('u.couple, u.poly, u.single');
-    if (parentHypercite) {
-      hyperciteElement = parentHypercite;
+    // Existing logic to find hypercite element from click
+    if (element.tagName === 'U' && (element.classList.contains('couple') || element.classList.contains('poly') || element.classList.contains('single'))) {
+      hyperciteElement = element;
     } else {
-      // Check if there are hypercite elements inside this element
-      const childHypercite = element.querySelector('u.couple, u.poly, u.single');
-      if (childHypercite) {
-        hyperciteElement = childHypercite;
+      const parentHypercite = element.closest('u.couple, u.poly, u.single');
+      if (parentHypercite) {
+        hyperciteElement = parentHypercite;
+      } else {
+        const childHypercite = element.querySelector('u.couple, u.poly, u.single');
+        if (childHypercite) {
+          hyperciteElement = childHypercite;
+        }
       }
     }
+    if (hyperciteElement) {
+      hyperciteIdFromElement = hyperciteElement.id;
+    }
   }
-  
-  if (hyperciteElement) {
-    // Handle overlapping hypercites by extracting the actual IDs
+
+  if (hyperciteIdFromElement) {
     let hyperciteIds = [];
-    if (hyperciteElement.hasAttribute('data-overlapping')) {
+    // If we have an element, check for data-overlapping
+    if (hyperciteElement && hyperciteElement.hasAttribute('data-overlapping')) {
       hyperciteIds = hyperciteElement.getAttribute('data-overlapping').split(',');
-    } else {
-      hyperciteIds = [hyperciteElement.id];
+    }
+    else {
+      hyperciteIds = [hyperciteIdFromElement];
+    }
+
+    // Determine relationshipStatus:
+    // 1. From DOM element classes if available
+    if (hyperciteElement) {
+      if (hyperciteElement.classList.contains('couple')) {
+        relationshipStatus = 'couple';
+      } else if (hyperciteElement.classList.contains('poly')) {
+        relationshipStatus = 'poly';
+      } else if (hyperciteElement.classList.contains('single')) {
+        relationshipStatus = 'single';
+      }
+    } 
+    // 2. Fallback to IndexedDB if element not found or no class found on element
+    if (!hyperciteElement || (relationshipStatus === 'single' && !hyperciteElement.classList.contains('single'))) { // Only fetch from DB if element not found OR if element is 'single' but might be more
+      const db = await openDatabase();
+      const tx = db.transaction("hypercites", "readonly");
+      const store = tx.objectStore("hypercites");
+      const index = store.index("hyperciteId");
+      const req = index.get(hyperciteIdFromElement);
+      const result = await new Promise((resolve) => {
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      });
+      if (result && result.relationshipStatus) {
+        relationshipStatus = result.relationshipStatus;
+      }
     }
     
     return {
       type: 'hypercite',
-      element: hyperciteElement,
-      hyperciteId: hyperciteElement.id, // Keep the container ID for element reference
-      hyperciteIds: hyperciteIds, // Add array of actual hypercite IDs
-      relationshipStatus: hyperciteElement.classList.contains('couple') ? 'couple' : 
-                          hyperciteElement.classList.contains('poly') ? 'poly' : 'single'
+      element: hyperciteElement, // May be null if directHyperciteId was used and element not found
+      hyperciteId: hyperciteIdFromElement,
+      hyperciteIds: hyperciteIds,
+      relationshipStatus: relationshipStatus
     };
   }
   
@@ -638,7 +707,11 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
     }
 
 
-    let html = `<div class="highlights-section">\n<br>\n<h1>Hyperlights</h1>\n<br>\n`;
+    let html = `<div class="highlights-section">
+<br>
+<h1>Hyperlights</h1>
+<br>
+`;
     let firstUserAnnotation = null;
 
     validResults.forEach((h, index) => {
@@ -683,11 +756,11 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
 `;
           html += `          <path d="M3 6h18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
 `;
-          html += `          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+        html += `          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
 `;
-          html += `        </svg>
+        html += `        </svg>
 `;
-          html += `      </button>
+        html += `      </button>
 `;
         }
       }
@@ -704,15 +777,20 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
 `;
       html += `  </blockquote>
 `;
-      html += `  <div class="annotation" contenteditable="${isEditable}" `;
-      html += `data-highlight-id="${h.hyperlight_id}">\n`;
-      html += `    ${h.annotation || ""}\n`;
-      html += `  </div>\n`;
-      html += `  <br>\n`;
+      html += `  <div class="annotation" contenteditable="${isEditable}" `; 
+      html += `data-highlight-id="${h.hyperlight_id}">
+`;
+      html += `    ${h.annotation || ""}
+`;
+      html += `  </div>
+`;
+      html += `  <br>
+`;
       
       // Add hr between highlights (but not after the last one)
       if (index < validResults.length - 1) {
-        html += `  <hr style="margin: 1em 0;">\n`;
+        html += `  <hr style="margin: 1em 0;">
+`;
       }
 
       // Track first user annotation for cursor placement
@@ -721,7 +799,9 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
       }
     });
     
-    html += `<hr style="margin: 1em 0;">\n</div>\n`;
+    html += `<hr style="margin: 1em 0;">
+</div>
+`;
     
     // Store first user annotation for post-open actions
     if (firstUserAnnotation) {
@@ -734,7 +814,7 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
     console.error('Error building highlight content:', error);
     return `
       <div class="highlights-section">
-        <div class="error">Error loading highlights</div>
+        <div class="error">No highlight data found</div>
         <hr>
       </div>`;
   }
@@ -789,7 +869,9 @@ async function buildHyperciteContent(contentType) {
         </div>`;
     }
 
-    let html = `<div class="hypercites-section">\n<h1>Cited By</h1>\n`;
+    let html = `<div class="hypercites-section">
+<h1>Cited By</h1>
+`;
     
     // Collect all citedIN links from all hypercites
     const allCitedINLinks = [];
@@ -883,12 +965,18 @@ async function buildHyperciteContent(contentType) {
         })
       );
       
-      html += `<div class="citation-links">\n${linksHTML.join("")}\n</div>\n`;
+      html += `<div class="citation-links">
+${linksHTML.join("")}
+</div>
+`;
     } else {
-      html += `<p>No citations available.</p>\n`;
+      html += `<p>No citations available.</p>
+`;
     }
     
-    html += `<hr>\n</div>\n`;
+    html += `<hr>
+</div>
+`;
     
     return html;
   } catch (error) {
@@ -1197,5 +1285,5 @@ async function hideHighlight(highlightId) {
   }
 }
 
-// Export backward compatibility functions
+
 export { hyperlitManager };
