@@ -1,0 +1,389 @@
+/**
+ * NewBookTransition - PATHWAY 2
+ * Handles creating new books and transitioning from home.blade.php to reader.blade.php
+ * This pathway requires full body replacement and enters edit mode
+ */
+import { ProgressManager } from '../ProgressManager.js';
+import { showSpinner, showTick } from '../../editIndicator.js';
+import { waitForElementReady } from '../../domReadiness.js';
+
+export class NewBookTransition {
+  /**
+   * Execute new book creation and transition
+   */
+  static async execute(options = {}) {
+    const { 
+      bookId, 
+      pendingSyncData, 
+      progressCallback,
+      shouldEnterEditMode = true 
+    } = options;
+    
+    console.log('📝 NewBookTransition: Starting new book transition', { bookId, shouldEnterEditMode });
+    
+    // Show orange indicator once cloudRef element is ready
+    this.ensureOrangeIndicator();
+    
+    try {
+      // Use provided progress callback or create our own
+      const progress = progressCallback || ProgressManager.createProgressCallback('spa');
+      
+      progress(10, 'Preparing new book...');
+      
+      // Clean up any previous reader state
+      await this.cleanupPreviousState();
+      
+      progress(30, 'Syncing pending changes...');
+      
+      // 🔥 CRITICAL: Force any pending syncs to complete before fetching from backend
+      // This ensures the backend has the latest content before we fetch it
+      await this.ensurePendingSyncsComplete();
+      
+      progress(40, 'Fetching reader interface...');
+      
+      // Fetch the reader page HTML
+      const readerHtml = await this.fetchReaderPageHtml(bookId);
+      
+      progress(60, 'Updating page structure...');
+      
+      // Replace the entire body content (home → reader transition)
+      await this.replaceBodyContent(readerHtml, bookId);
+      
+      progress(75, 'Initializing reader...');
+      
+      // Initialize the reader view
+      await this.initializeReader(bookId, progress);
+      
+      progress(90, 'Setting up edit mode...');
+      
+      // Enter edit mode if requested
+      if (shouldEnterEditMode) {
+        await this.enterEditMode();
+      }
+      
+      // Update the URL
+      this.updateUrl(bookId, shouldEnterEditMode);
+      
+      progress(100, 'Complete!');
+      await ProgressManager.hide();
+      
+      console.log('✅ NewBookTransition: New book transition complete');
+      
+    } catch (error) {
+      console.error('❌ NewBookTransition: Transition failed:', error);
+      
+      // Fallback to full page navigation
+      const fallbackUrl = `/${bookId}/edit?target=1${shouldEnterEditMode ? '&edit=1' : ''}`;
+      console.log('🔄 NewBookTransition: Falling back to full page navigation:', fallbackUrl);
+      window.location.href = fallbackUrl;
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Ensure orange indicator shows by waiting for cloudRef element to be ready
+   */
+  static async ensureOrangeIndicator() {
+    try {
+      console.log('🟠 NewBookTransition: Ensuring orange indicator shows');
+      
+      // First try to set orange on existing element
+      showSpinner();
+      
+      // Wait for DOM replacement to complete and cloudRef to be ready
+      setTimeout(async () => {
+        try {
+          await waitForElementReady('cloudRef', { maxAttempts: 10, checkInterval: 100 });
+          
+          // Now force orange color on the properly loaded element
+          const layer1 = document.querySelector('#Layer_1 .cls-1');
+          if (layer1) {
+            layer1.style.fill = '#EF8D34';
+            console.log('✅ Orange indicator set after DOM ready');
+          }
+        } catch (error) {
+          console.warn('⚠️ Could not ensure orange indicator:', error);
+        }
+      }, 100); // Small delay to allow DOM replacement to start
+      
+    } catch (error) {
+      console.warn('⚠️ Error ensuring orange indicator:', error);
+    }
+  }
+
+  /**
+   * Ensure any pending sync operations complete before transitioning
+   * This prevents data loss when user edits then immediately navigates
+   */
+  static async ensurePendingSyncsComplete() {
+    console.log('🔄 NewBookTransition: Ensuring pending syncs complete...');
+    
+    try {
+      // Import the debounced sync function and pending syncs map
+      const { debouncedMasterSync, pendingSyncs } = await import('../../cache-indexedDB.js');
+      const { showTick } = await import('../../editIndicator.js');
+      
+      // If there are pending syncs, force them to complete immediately
+      if (pendingSyncs.size > 0) {
+        console.log(`🔄 NewBookTransition: Found ${pendingSyncs.size} pending syncs, forcing completion...`);
+        
+        // Cancel the debounced timer and execute immediately
+        debouncedMasterSync.cancel();
+        await debouncedMasterSync();
+        
+        console.log('✅ NewBookTransition: Pending syncs completed');
+        
+        // Show green tick - backend sync confirmed
+        showTick();
+      } else {
+        console.log('✅ NewBookTransition: No pending syncs to complete');
+      }
+    } catch (error) {
+      console.warn('⚠️ NewBookTransition: Error ensuring sync completion:', error);
+      // Don't throw - transition should continue even if sync check fails
+    }
+  }
+
+  /**
+   * Clean up any previous reader state
+   */
+  static async cleanupPreviousState() {
+    console.log('🧹 NewBookTransition: Cleaning up previous state');
+    
+    try {
+      // Import and call the existing cleanup function
+      const { cleanupReaderView } = await import('../../viewManager.js');
+      cleanupReaderView();
+    } catch (error) {
+      console.warn('cleanupReaderView failed, doing manual cleanup:', error);
+      
+      // Fallback: do minimal cleanup manually
+      try {
+        const { closeHyperlitContainer } = await import('../../unified-container.js');
+        closeHyperlitContainer();
+      } catch (containerError) {
+        console.warn('Could not close hyperlit container:', containerError);
+      }
+    }
+  }
+
+  /**
+   * Fetch the reader page HTML
+   */
+  static async fetchReaderPageHtml(bookId) {
+    console.log(`📥 NewBookTransition: Fetching reader HTML for ${bookId}`);
+    
+    const response = await fetch(`/${bookId}/edit?target=1`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch reader page HTML: ${response.status}`);
+    }
+    
+    const htmlString = await response.text();
+    console.log(`✅ NewBookTransition: Fetched HTML (${htmlString.length} characters)`);
+    
+    return htmlString;
+  }
+
+  /**
+   * Replace body content with reader HTML
+   */
+  static async replaceBodyContent(htmlString, bookId) {
+    console.log('🔄 NewBookTransition: Replacing body content (home → reader)');
+    
+    const parser = new DOMParser();
+    const newDoc = parser.parseFromString(htmlString, 'text/html');
+    
+    // Remove any overlay from the fetched HTML to prevent conflicts
+    const overlayInFetchedHTML = newDoc.getElementById('initial-navigation-overlay');
+    if (overlayInFetchedHTML) {
+      overlayInFetchedHTML.remove();
+      console.log('🎯 NewBookTransition: Removed overlay from fetched HTML');
+    }
+    
+    // Replace the entire body content
+    document.body.innerHTML = newDoc.body.innerHTML;
+    
+    // Sync all body attributes
+    for (const { name, value } of newDoc.body.attributes) {
+      document.body.setAttribute(name, value);
+    }
+    
+    // Ensure data-page is set to "reader"
+    document.body.setAttribute('data-page', 'reader');
+    console.log('🎯 NewBookTransition: Set data-page="reader"');
+    
+    // Update document title
+    document.title = newDoc.title;
+    
+    // Reset contentEditable state after HTML replacement
+    const editableDiv = document.getElementById(bookId);
+    if (editableDiv) {
+      editableDiv.contentEditable = "false";
+      console.log("🧹 NewBookTransition: Reset contentEditable after HTML replacement");
+    }
+    
+    // Enforce editable state
+    try {
+      const { enforceEditableState } = await import('../../editButton.js');
+      enforceEditableState();
+    } catch (error) {
+      console.warn('Could not enforce editable state:', error);
+    }
+  }
+
+  /**
+   * Initialize the reader view
+   */
+  static async initializeReader(bookId, progressCallback) {
+    console.log(`🚀 NewBookTransition: Initializing reader for ${bookId}`);
+    
+    try {
+      // Set the current book
+      const { setCurrentBook } = await import('../../app.js');
+      setCurrentBook(bookId);
+      
+      // Initialize the reader view using the existing system
+      const { initializeReaderView } = await import('../../viewManager.js');
+      await initializeReaderView(progressCallback);
+      
+      // Ensure NavButtons positioning and container managers are updated after DOM replacement
+      setTimeout(async () => {
+        try {
+          // Rebind NavButtons for positioning
+          const readerModule = await import('../../reader-DOMContentLoaded.js');
+          if (readerModule.navButtons) {
+            readerModule.navButtons.rebindElements();
+            readerModule.navButtons.updatePosition(); // Explicitly trigger positioning
+            console.log("✅ NewBookTransition: Rebound NavButtons and updated positioning");
+          }
+          
+          // Rebind container managers that were mentioned in viewManager.js
+          try {
+            const { refManager } = await import('../../footnotes-citations.js');
+            if (refManager && refManager.rebindElements) {
+              refManager.rebindElements();
+              console.log("✅ NewBookTransition: Rebound reference container manager");
+            }
+          } catch (error) {
+            console.warn('Could not rebind reference container manager:', error);
+          }
+          
+          try {
+            const { hyperlitManager } = await import('../../unified-container.js');
+            if (hyperlitManager && hyperlitManager.rebindElements) {
+              hyperlitManager.rebindElements();
+              console.log("✅ NewBookTransition: Rebound hyperlit container manager");
+            }
+          } catch (error) {
+            console.warn('Could not rebind hyperlit container manager:', error);
+          }
+        } catch (error) {
+          console.warn('Could not rebind UI elements:', error);
+        }
+      }, 100); // Small delay to ensure DOM is settled
+      
+    } catch (error) {
+      console.error('❌ NewBookTransition: Reader initialization failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Enter edit mode
+   */
+  static async enterEditMode() {
+    console.log('📝 NewBookTransition: Entering edit mode');
+    
+    try {
+      const { enableEditMode } = await import('../../editButton.js');
+      await enableEditMode(null, false); // false = don't force redirect
+      
+      console.log('✅ NewBookTransition: Edit mode enabled');
+      
+    } catch (error) {
+      console.error('❌ NewBookTransition: Failed to enter edit mode:', error);
+      // Don't throw - edit mode failure shouldn't break the entire transition
+    }
+  }
+
+  /**
+   * Update the browser URL
+   */
+  static updateUrl(bookId, inEditMode = false) {
+    const newUrl = `/${bookId}/edit?target=1${inEditMode ? '&edit=1' : ''}`;
+    
+    try {
+      history.pushState({}, '', newUrl);
+      console.log(`🔗 NewBookTransition: Updated URL to ${newUrl}`);
+    } catch (error) {
+      console.warn('Could not update URL:', error);
+    }
+  }
+
+  /**
+   * Create a new book and transition to it
+   * This is the main entry point from newBookButton.js
+   */
+  static async createAndTransition() {
+    console.log('📝 NewBookTransition: Starting create and transition');
+    
+    try {
+      // Import and create the new book
+      const { createNewBook } = await import('../../createNewBook.js');
+      const pendingSyncData = await createNewBook();
+      
+      if (!pendingSyncData) {
+        throw new Error('Failed to create new book data');
+      }
+      
+      // Start background sync
+      const { fireAndForgetSync } = await import('../../createNewBook.js');
+      const { setInitialBookSyncPromise } = await import('../../operationState.js');
+      
+      const syncPromise = fireAndForgetSync(
+        pendingSyncData.bookId,
+        pendingSyncData.isNewBook,
+        pendingSyncData
+      );
+      setInitialBookSyncPromise(syncPromise);
+      
+      // Execute the transition
+      await this.execute({
+        bookId: pendingSyncData.bookId,
+        pendingSyncData,
+        shouldEnterEditMode: true
+      });
+      
+      // 🔥 CRITICAL: Ensure the initial H1 node gets included in first debounced sync
+      // This prevents the initial "Untitled" H1 from being lost if user starts editing immediately
+      setTimeout(async () => {
+        try {
+          console.log('🎯 NewBookTransition: Ensuring initial H1 node is queued for sync');
+          
+          // Force a sync of the initial content to ensure the H1 doesn't get lost
+          const { syncIndexedDBtoPostgreSQL } = await import('../../postgreSQL.js');
+          await syncIndexedDBtoPostgreSQL(pendingSyncData.bookId);
+          
+          console.log('✅ NewBookTransition: Initial content sync completed');
+          
+          // Show green tick - H1 saved to backend
+          const { showTick } = await import('../../editIndicator.js');
+          showTick();
+          
+        } catch (error) {
+          console.warn('Initial content sync failed (will retry later):', error);
+          // Show error indicator
+          const { showError } = await import('../../editIndicator.js');
+          showError();
+        }
+      }, 2000); // Wait 2 seconds after transition completes
+      
+      return pendingSyncData;
+      
+    } catch (error) {
+      console.error('❌ NewBookTransition: Create and transition failed:', error);
+      throw error;
+    }
+  }
+}
