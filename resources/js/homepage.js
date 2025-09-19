@@ -36,12 +36,7 @@ export async function initializeHomepage() {
   updatePageLoadProgress(90, "Finishing setup...");
   await new Promise(resolve => setTimeout(resolve, 100));
 
-  // This is correct. Create a new manager for this page.
-  const navButtons = new NavButtons({
-    elementIds: ["userButtonContainer", "topRightContainer"],
-    tapThreshold: 15,
-  });
-  navButtons.init();
+  // NavButtons are handled by reader-DOMContentLoaded.js which is loaded by home.blade.php
 
   // Hide the progress overlay
   await hidePageLoadProgress();

@@ -8,7 +8,7 @@ import { book } from "./app.js";
 
 import { openDatabase } from "./cache-indexedDB.js";
 import { fireAndForgetSync } from "./createNewBook.js";
-import { initializeReaderView } from "./viewManager.js";
+import { universalPageInitializer } from "./viewManager.js";
 import { initializeHomepage } from "./homepage.js";
 import { initializeFootnoteCitationListeners } from "./footnotes-citations.js";
 // ✅ This import is correct. We just need to use it.
@@ -91,6 +91,9 @@ export const navButtons = new NavButtons({
   ],
   tapThreshold: 15,
 });
+
+// Initialize the nav buttons event listeners immediately
+navButtons.init();
 
 function handlePendingNewBookSync() {
   const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");

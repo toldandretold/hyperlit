@@ -223,22 +223,11 @@ export class BookToBookTransition {
       setCurrentBook(bookId);
       
       // Initialize reader view but skip overlay restoration for book-to-book
-      const { initializeReaderView } = await import('../../viewManager.js');
-      await initializeReaderView(progressCallback);
+      const { universalPageInitializer } = await import('../../viewManager.js');
+      await universalPageInitializer(progressCallback);
       
-      // Ensure NavButtons positioning is updated after content replacement
-      setTimeout(async () => {
-        try {
-          const readerModule = await import('../../reader-DOMContentLoaded.js');
-          if (readerModule.navButtons) {
-            readerModule.navButtons.rebindElements();
-            readerModule.navButtons.updatePosition(); // Explicitly trigger positioning
-            console.log("✅ BookToBookTransition: Rebound NavButtons and updated positioning");
-          }
-        } catch (error) {
-          console.warn('Could not rebind NavButtons:', error);
-        }
-      }, 100); // Small delay to ensure DOM is settled
+      // All UI rebinding is now handled by universalPageInitializer
+      console.log("✅ BookToBookTransition: UI initialization delegated to universalPageInitializer");
       
     } catch (error) {
       console.error('❌ BookToBookTransition: Reader initialization failed:', error);

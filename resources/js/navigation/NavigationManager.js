@@ -130,7 +130,12 @@ export class NavigationManager {
    * Legacy compatibility methods for existing code
    */
   static async initializeReaderView(progressCallback = null) {
-    console.log('🔄 NavigationManager: Legacy initializeReaderView call');
+    console.log('🔄 NavigationManager: Legacy initializeReaderView call (deprecated)');
+    return await this.navigate('fresh-page-load', { progressCallback });
+  }
+  
+  static async universalPageInitializer(progressCallback = null) {
+    console.log('🔄 NavigationManager: universalPageInitializer call');
     return await this.navigate('fresh-page-load', { progressCallback });
   }
 

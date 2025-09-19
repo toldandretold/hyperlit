@@ -245,8 +245,8 @@ export async function initializeImportedReaderView(bookId) {
   console.log("✅ Imported book: Content already in DOM, resolving first chunk promise");
   resolveFirstChunkPromise();
 
-  // ✅ Call the ACTUAL initializeReaderView function 
-  await initializeReaderView();
+  // ✅ Call the ACTUAL universalPageInitializer function 
+  await universalPageInitializer();
 
   // ✅ NOW call handleAutoEdit since the page is fully initialized
   console.log("🎯 Checking for auto-edit after imported book initialization");
@@ -305,7 +305,7 @@ export async function transitionToReaderView(bookId, hash = '', progressCallback
     history.pushState({}, "", newUrl);
 
     // Initialize the reader view and wait for content loading to complete
-    await initializeReaderView(progressCallback);
+    await universalPageInitializer(progressCallback);
     
     // ✅ Additional safety: Wait for the first chunk promise to ensure content is ready
     try {
@@ -644,9 +644,9 @@ function attachGlobalLinkClickHandler() {
   window.addEventListener('popstate', globalPopstateHandler);
 }
 
-export async function initializeReaderView(progressCallback = null) {
+export async function universalPageInitializer(progressCallback = null) {
   const currentBookId = book;
-  console.log(`🚀 Initializing Reader View for book: ${currentBookId}`);
+  console.log(`🚀 Universal Page Initializer for book: ${currentBookId}`);
   
   // Note: Cache invalidation checking removed for performance
   
@@ -685,9 +685,16 @@ export async function initializeReaderView(progressCallback = null) {
     // Use the persistent NavButtons instance from reader-DOMContentLoaded.js
     import('./reader-DOMContentLoaded.js').then(module => {
       if (module.navButtons) {
+        console.log("🔍 NavButtons before destroy - isInitialized:", module.navButtons.isInitialized);
+        // Always destroy and reinitialize to ensure clean state after DOM changes
+        module.navButtons.destroy();
+        console.log("🔍 NavButtons after destroy - isInitialized:", module.navButtons.isInitialized);
         module.navButtons.rebindElements();
-        module.navButtons.updatePosition(); // Explicitly trigger positioning
-        console.log("✅ Rebound persistent NavButtons instance and updated positioning");
+        console.log("🔍 NavButtons calling init() - isInitialized:", module.navButtons.isInitialized);
+        module.navButtons.init();
+        console.log("🔍 NavButtons after init() - isInitialized:", module.navButtons.isInitialized);
+        module.navButtons.updatePosition();
+        console.log("✅ Reinitialized NavButtons instance for universalPageInitializer");
       }
     });
     initializeEditButtonListeners();
