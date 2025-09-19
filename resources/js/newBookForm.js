@@ -603,7 +603,21 @@ async function submitToLaravelAndLoad(formData, submitButton) {
     
   } catch (error) {
     console.error("❌ Import failed:", error);
-    alert("Import failed: " + error.message);
+    
+    // Show more helpful error messages based on error type
+    let userMessage = "Import failed: " + error.message;
+    
+    if (error.isProcessingError) {
+      userMessage = "Document processing failed. This is likely a backend issue.\n\n" + 
+                   "Please check:\n" +
+                   "• Document format and complexity\n" +
+                   "• Backend processing logs\n" +
+                   "• Try with a simpler test document\n\n" +
+                   "Technical details:\n" + error.message;
+    }
+    
+    alert(userMessage);
+    
     // Re-enable the button only on failure, since on success we navigate away.
     if (submitButton) {
       submitButton.disabled = false;
