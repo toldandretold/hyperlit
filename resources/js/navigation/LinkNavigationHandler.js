@@ -12,16 +12,15 @@ export class LinkNavigationHandler {
   static globalPopstateHandler = null;
   static isReloading = false;
 
+
   /**
    * Attach global link click handler for intelligent navigation
    */
   static attachGlobalLinkClickHandler() {
     // Remove existing handlers if they exist
     this.removeGlobalHandlers();
-
     // Reset reload flag when handlers are attached (page is loaded)
     this.isReloading = false;
-
     this.globalLinkClickHandler = (event) => {
       this.handleLinkClick(event);
     };
@@ -206,7 +205,6 @@ export class LinkNavigationHandler {
             console.log(`🔗 Updating URL for same-book hyperlight: ${url.href}`);
             window.history.pushState(null, '', url.href);
           }
-
           if (hyperciteId) {
             navigateToHyperciteTarget(hyperlightId, hyperciteId, currentLazyLoader);
           } else {
@@ -229,7 +227,6 @@ export class LinkNavigationHandler {
             console.log(`🔗 Updating URL for same-book navigation: ${url.href}`);
             window.history.pushState(null, '', url.href);
           }
-
           navigateToInternalId(targetId, currentLazyLoader, false);
         }
       }
@@ -261,7 +258,6 @@ export class LinkNavigationHandler {
         window.location.href = linkUrl.href;
         return;
       }
-
       // Check if this is a hyperlight URL
       const isHyperlightURL = pathSegments.length > 1 && pathSegments[1].startsWith('HL_');
       

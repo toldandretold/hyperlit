@@ -7,7 +7,6 @@ import { ProgressManager } from '../ProgressManager.js';
 
 export class BookToBookTransition {
   static isTransitioning = false;
-  
   /**
    * Execute book-to-book transition
    */
@@ -28,8 +27,7 @@ export class BookToBookTransition {
       progressCallback
     } = options;
 
-    // URL will be updated at the end after all initialization is complete
-    
+    // URL will be updated at the end after all initialization is complete    
     console.log('📖 BookToBookTransition: Starting book-to-book transition', { 
       fromBook, toBook, hash, hyperlightId, hyperciteId 
     });
@@ -467,7 +465,6 @@ export class BookToBookTransition {
     
     return smartCallback;
   }
-
 
   /**
    * Create regular progress callback for non-cached content
