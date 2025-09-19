@@ -91,7 +91,7 @@ window.addEventListener("pageshow", (event) => {
   }
 });
 
-function cleanupReaderView() {
+export function cleanupReaderView() {
   console.log("🧹 Cleaning up previous reader view...");
 
   // Close any open containers before destroying the view
@@ -146,8 +146,24 @@ function cleanupReaderView() {
   destroySelectionHandler();
 }
 
+// ============================================================================
+// LEGACY COMPATIBILITY LAYER
+// These functions maintain the existing API but route to the new navigation system
+// ============================================================================
+
 export async function initializeImportedBook(bookId) {
-  console.log(`🔥 DEBUG: initializeImportedBook CALLED for ${bookId}`);
+  console.log(`🔥 DEBUG: initializeImportedBook CALLED for ${bookId} (via legacy API)`);
+  
+  try {
+    const { NavigationManager } = await import('./navigation/NavigationManager.js');
+    return await NavigationManager.handleImportBook({ bookId });
+  } catch (error) {
+    console.error('❌ Legacy initializeImportedBook routing failed, falling back to original:', error);
+    // Fallback to original implementation below
+  }
+  
+  // Original implementation as fallback
+  console.log(`🔥 DEBUG: initializeImportedBook FALLBACK for ${bookId}`);
   try {
     console.log(`🎯 IMPORT: Starting initializeImportedBook for ${bookId}`);
     cleanupReaderView();
@@ -242,6 +258,18 @@ export async function initializeImportedReaderView(bookId) {
 }
 
 export async function transitionToReaderView(bookId, hash = '', progressCallback = null) {
+  console.log(`🔥 DEBUG: transitionToReaderView CALLED for ${bookId} (via legacy API)`);
+  
+  try {
+    const { NavigationManager } = await import('./navigation/NavigationManager.js');
+    return await NavigationManager.transitionToReaderView(bookId, hash, progressCallback);
+  } catch (error) {
+    console.error('❌ Legacy transitionToReaderView routing failed, falling back to original:', error);
+    // Fallback to original implementation below
+  }
+  
+  // Original implementation as fallback
+  console.log(`🔥 DEBUG: transitionToReaderView FALLBACK for ${bookId}`);
   try {
     cleanupReaderView();
 
@@ -699,7 +727,9 @@ export async function initializeReaderView(progressCallback = null) {
   });
   restoreScrollPosition();
   attachMarkListeners();
-  attachGlobalLinkClickHandler();
+  // Use the new LinkNavigationHandler instead of inline logic
+  const { LinkNavigationHandler } = await import('./navigation/LinkNavigationHandler.js');
+  LinkNavigationHandler.attachGlobalLinkClickHandler();
   initializeBroadcastListener();
   setupUnloadSync();
   generateTableOfContents("toc-container", "toc-toggle-button");

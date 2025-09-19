@@ -556,7 +556,7 @@ def main(html_file_path, output_dir, book_id):
     # PASS 3: GENERATE FINAL JSON OUTPUT
     # ========================================================================
     print("\n--- PASS 3: Generating Final JSON Output ---")
-    book_id = f"book_{int(time.time() * 1000)}"
+    # Use the passed book_id parameter instead of generating a new one
     node_chunks_data = []
     start_line_counter = 0
     CHUNK_SIZE = 50
@@ -600,9 +600,11 @@ def main(html_file_path, output_dir, book_id):
         footnotes_in_node = [a.get('fn-count-id', '') for a in node.find_all('sup') if a.get('fn-count-id')]
         node_object = {
             "id": node_key, "book": book_id, "chunk_id": chunk_id, 
-            "startLine": start_line_counter, "content": content_html, 
+            "startLine": start_line_counter, "content": str(node), 
             "references": references_in_node, "footnotes": footnotes_in_node, 
-            "hypercites": [], "hyperlights": []
+            "hypercites": [], "hyperlights": [],
+            "plainText": node.get_text(strip=True),
+            "type": node.name if hasattr(node, 'name') else 'p'
         }
         node_chunks_data.append(node_object)
 

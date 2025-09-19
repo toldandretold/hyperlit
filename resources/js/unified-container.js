@@ -96,9 +96,21 @@ export function openHyperlitContainer(content) {
 
 export function closeHyperlitContainer() {
   if (!hyperlitManager) {
-    initializeHyperlitManager();
+    try {
+      initializeHyperlitManager();
+    } catch (error) {
+      console.warn('Could not initialize hyperlitManager for closing:', error);
+      return; // Exit early if initialization fails
+    }
   }
-  hyperlitManager.closeContainer();
+  
+  if (hyperlitManager && hyperlitManager.closeContainer) {
+    try {
+      hyperlitManager.closeContainer();
+    } catch (error) {
+      console.warn('Could not close hyperlit container:', error);
+    }
+  }
 }
 
 // Helper function to format relative time
