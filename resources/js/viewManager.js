@@ -686,7 +686,8 @@ export async function initializeReaderView(progressCallback = null) {
     import('./reader-DOMContentLoaded.js').then(module => {
       if (module.navButtons) {
         module.navButtons.rebindElements();
-        console.log("✅ Rebound persistent NavButtons instance");
+        module.navButtons.updatePosition(); // Explicitly trigger positioning
+        console.log("✅ Rebound persistent NavButtons instance and updated positioning");
       }
     });
     initializeEditButtonListeners();
