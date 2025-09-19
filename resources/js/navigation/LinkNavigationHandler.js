@@ -10,6 +10,7 @@ export class LinkNavigationHandler {
   static globalVisibilityHandler = null;
   static globalFocusHandler = null;
   static globalPopstateHandler = null;
+  static isReloading = false;
 
   /**
    * Attach global link click handler for intelligent navigation
@@ -17,6 +18,9 @@ export class LinkNavigationHandler {
   static attachGlobalLinkClickHandler() {
     // Remove existing handlers if they exist
     this.removeGlobalHandlers();
+
+    // Reset reload flag when handlers are attached (page is loaded)
+    this.isReloading = false;
 
     this.globalLinkClickHandler = (event) => {
       this.handleLinkClick(event);
@@ -194,7 +198,15 @@ export class LinkNavigationHandler {
         const { currentLazyLoader } = await import('../initializePage.js');
         
         if (currentLazyLoader) {
-          window.history.pushState(null, '', link.href);
+          const url = new URL(link.href);
+          
+          // Only update URL if we're not already there
+          const currentUrl = window.location.pathname + window.location.hash;
+          if (currentUrl !== url.href) {
+            console.log(`🔗 Updating URL for same-book hyperlight: ${url.href}`);
+            window.history.pushState(null, '', url.href);
+          }
+
           if (hyperciteId) {
             navigateToHyperciteTarget(hyperlightId, hyperciteId, currentLazyLoader);
           } else {
@@ -209,7 +221,15 @@ export class LinkNavigationHandler {
         const { currentLazyLoader } = await import('../initializePage.js');
         
         if (currentLazyLoader) {
-          window.history.pushState(null, '', link.href);
+          const url = new URL(link.href);
+          
+          // Only update URL if we're not already there
+          const currentUrl = window.location.pathname + window.location.hash;
+          if (currentUrl !== url.href) {
+            console.log(`🔗 Updating URL for same-book navigation: ${url.href}`);
+            window.history.pushState(null, '', url.href);
+          }
+
           navigateToInternalId(targetId, currentLazyLoader, false);
         }
       }
@@ -228,6 +248,19 @@ export class LinkNavigationHandler {
       const pathSegments = linkUrl.pathname.split('/').filter(Boolean);
       const targetBookId = pathSegments[0];
       const targetHash = linkUrl.hash;
+
+      // Handle homepage navigation
+      if (!targetBookId && (linkUrl.pathname === '/' || linkUrl.pathname === '')) {
+        console.log('🏠 Homepage navigation detected - updating URL and reloading');
+        
+        // Update URL first to enable back button
+        history.pushState({}, '', linkUrl.href);
+        
+        // For now, do a page reload to homepage
+        // TODO: Could implement proper SPA homepage transition here
+        window.location.href = linkUrl.href;
+        return;
+      }
 
       // Check if this is a hyperlight URL
       const isHyperlightURL = pathSegments.length > 1 && pathSegments[1].startsWith('HL_');
@@ -291,40 +324,68 @@ export class LinkNavigationHandler {
    * Handle browser back/forward navigation
    */
   static async handlePopstate(event) {
+    // Prevent reload loops
+    if (this.isReloading) {
+      console.log('🔗 LinkNavigationHandler: Already reloading, ignoring popstate');
+      return;
+    }
+
     console.log('🔗 LinkNavigationHandler: Browser navigation detected (back/forward)');
+    console.log('📊 Popstate event details:', {
+      state: event.state,
+      currentURL: window.location.href,
+      historyLength: window.history.length
+    });
+
+    // Simplified approach: check if we need to reload based on URL vs current content
+    const { book: currentBookVariable } = await import('../app.js');
+    const urlBookId = this.extractBookSlugFromPath(window.location.pathname);
     
-    // Check if there's a hash in the current URL
-    const targetId = window.location.hash.substring(1);
-    if (targetId) {
-      // Check if this is internal navigation
-      const isInternalNavigation = targetId.startsWith('hypercite_') || 
-                                  targetId.startsWith('HL_') || 
-                                  /^\d+$/.test(targetId);
-      
-      if (isInternalNavigation) {
-        console.log(`✅ Browser navigation to internal target: ${targetId} - no overlay needed`);
-        
-        // If this is a hypercite, use our custom navigation
-        if (targetId.startsWith('hypercite_')) {
-          console.log(`🎯 Browser navigation to hypercite: ${targetId}`);
-          
-          try {
-            const { navigateToInternalId } = await import('../scrolling.js');
-            const { currentLazyLoader } = await import('../initializePage.js');
-            
-            if (currentLazyLoader) {
-              navigateToInternalId(targetId, currentLazyLoader, false);
-            }
-          } catch (error) {
-            console.warn('currentLazyLoader not available for hypercite browser navigation');
-          }
+    // If the URL book doesn't match the current loaded book content, reload
+    if (urlBookId !== currentBookVariable) {
+      console.log(`URL shows ${urlBookId} but content is ${currentBookVariable}. Reloading.`);
+      this.isReloading = true;
+      window.location.reload();
+      return;
+    }
+    
+    // Same book - close any open containers and navigate to hash if present
+    try {
+      const { closeHyperlitContainer } = await import('../unified-container.js');
+      closeHyperlitContainer();
+    } catch (error) {
+      // ignore
+    }
+    
+    // Navigate to hash if present
+    if (window.location.hash) {
+      const targetId = window.location.hash.substring(1);
+      try {
+        const { navigateToInternalId } = await import('../scrolling.js');
+        const { currentLazyLoader } = await import('../initializePage.js');
+        if (currentLazyLoader) {
+          navigateToInternalId(targetId, currentLazyLoader, false);
         }
-      } else {
-        // Only show overlay for external hash navigation
-        const { showNavigationLoading } = await import('../scrolling.js');
-        showNavigationLoading(targetId);
+      } catch (error) {
+        console.warn('Failed to navigate to hash:', error);
       }
     }
+  }
+
+  /**
+   * Check if a path is a book page URL
+   */
+  static isBookPageUrl(path) {
+    // Match patterns like /book-slug/edit or /book-slug/
+    return /^\/[^\/]+\/(edit|reader)?(\?.*)?$/.test(path) || /^\/[^\/]+\/?$/.test(path);
+  }
+
+  /**
+   * Extract book slug from path
+   */
+  static extractBookSlugFromPath(path) {
+    const match = path.match(/^\/([^\/]+)/);
+    return match ? match[1] : null;
   }
 
   /**

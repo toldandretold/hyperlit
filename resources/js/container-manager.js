@@ -49,7 +49,16 @@ export class ContainerManager {
       
       this.container.addEventListener("click", (e) => {
         const link = e.target.closest("a");
-        if (!link || !link.href) return;
+        if (!link || !link.href) {
+          console.log(`🔗 ContainerManager: Click detected but no link found. Target:`, e.target);
+          return;
+        }
+        
+        console.log(`🔗 ContainerManager: Link clicked:`, {
+          href: link.href,
+          className: link.className,
+          innerHTML: link.innerHTML
+        });
 
         const href = link.getAttribute("href");
         let targetUrl;
@@ -74,10 +83,23 @@ export class ContainerManager {
         // If the link is for the same book, it's an internal jump. Close the container.
         if (linkBookId === book) {
           this.closeContainer();
+        } else if (linkBookId && linkBookId !== book) {
+          // Cross-book navigation: prevent default and handle with SPA navigation
+          e.preventDefault();
+          e.stopPropagation(); // Prevent other handlers from processing this click
+          console.log(`🔗 ContainerManager: Cross-book navigation detected to ${targetUrl.href}`);
+          
+          // Import and use the LinkNavigationHandler for proper SPA navigation
+          import('./navigation/LinkNavigationHandler.js').then(({ LinkNavigationHandler }) => {
+            LinkNavigationHandler.handleBookToBookNavigation(link, targetUrl);
+          }).catch(error => {
+            console.error('Failed to handle cross-book navigation:', error);
+            // Fallback to normal navigation
+            window.location.href = targetUrl.href;
+          });
         }
         
-        // If it's for a different book, do nothing. Let the event bubble to viewManager
-        // to handle the SPA transition. Closing the container here causes a freeze.
+        // For other cases, let the event bubble normally
       });
     }
 
@@ -223,7 +245,12 @@ export class ContainerManager {
     }
     
     this.updateState();
-    this.container.focus();
+    
+    // Only focus the container if it's not a back button navigation
+    // to avoid interfering with browser navigation
+    if (!this.isBackNavigation) {
+      this.container.focus();
+    }
   }
 
   closeContainer() {

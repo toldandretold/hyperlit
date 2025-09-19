@@ -6,10 +6,19 @@
 import { ProgressManager } from '../ProgressManager.js';
 
 export class BookToBookTransition {
+  static isTransitioning = false;
+  
   /**
    * Execute book-to-book transition
    */
   static async execute(options = {}) {
+    // Prevent multiple simultaneous transitions
+    if (this.isTransitioning) {
+      console.log('🚫 BookToBookTransition: Already transitioning, ignoring duplicate request');
+      return;
+    }
+    
+    this.isTransitioning = true;
     const { 
       fromBook,
       toBook, 
@@ -18,60 +27,54 @@ export class BookToBookTransition {
       hyperciteId = null,
       progressCallback
     } = options;
+
+    // URL will be updated at the end after all initialization is complete
     
     console.log('📖 BookToBookTransition: Starting book-to-book transition', { 
       fromBook, toBook, hash, hyperlightId, hyperciteId 
     });
     
     try {
-      // Check for cached content upfront to avoid showing progress unnecessarily
-      const isCached = await this.checkIfContentIsCached(toBook);
+      // Use provided progress callback or create book-to-book specific one
+      const progress = progressCallback || this.createBookToBookProgressCallback(toBook);
       
-      // Use provided progress callback or create one based on cache status
-      const progress = progressCallback || (isCached ? this.createNoOpProgressCallback() : this.createBookToBookProgressCallback(toBook));
-      
-      if (!isCached) {
-        progress(5, `Loading ${toBook}...`);
-      }
+      progress(5, `Loading ${toBook}...`);
       
       // Clean up current reader state (but preserve navigation)
       await this.cleanupCurrentReader();
       
-      if (!isCached) progress(20, 'Fetching book content...');
+      progress(20, 'Fetching book content...');
       
       // Fetch the target book's HTML
       const readerHtml = await this.fetchReaderPageHtml(toBook);
       
-      if (!isCached) progress(40, 'Updating content...');
+      progress(40, 'Updating content...');
       
       // Replace only the page content (not the entire body)
       await this.replacePageContent(readerHtml, toBook);
       
-      if (!isCached) progress(60, 'Initializing reader...');
+      progress(60, 'Initializing reader...');
       
       // Initialize the new reader view
       await this.initializeReader(toBook, progress);
       
-      if (!isCached) progress(80, 'Finalizing navigation...');
+      progress(80, 'Finalizing navigation...');
       
       // Handle any hash-based navigation (hyperlights, hypercites, etc.)
       await this.handleHashNavigation(hash, hyperlightId, hyperciteId, toBook);
       
-      // Update the URL
+      // Final URL update after all initialization and navigation is complete
       this.updateUrl(toBook, hash);
       
-      if (!isCached) progress(100, 'Complete!');
+      progress(100, 'Complete!');
       
-      // Only hide progress with delay if progress was actually shown
-      if (progress.wasProgressSuppressed && progress.wasProgressSuppressed()) {
-        // Progress was suppressed, no need to hide it with delay
-        console.log('📖 BookToBookTransition: Skipping progress hide delay (was suppressed)');
-      } else {
-        // Hide progress after a short delay to show completion
-        setTimeout(async () => {
+      // Hide progress after a short delay to show completion
+      setTimeout(async () => {
+        const { ProgressManager } = window;
+        if (ProgressManager) {
           await ProgressManager.hide();
-        }, 300);
-      }
+        }
+      }, 300);
       
       console.log('✅ BookToBookTransition: Book-to-book transition complete');
       
@@ -87,6 +90,9 @@ export class BookToBookTransition {
       window.location.href = fallbackUrl;
       
       throw error;
+    } finally {
+      // Always reset the transitioning flag
+      this.isTransitioning = false;
     }
   }
 
@@ -327,11 +333,19 @@ export class BookToBookTransition {
    * Update the browser URL
    */
   static updateUrl(bookId, hash = '') {
-    const newUrl = `/${bookId}/edit?target=1&edit=1${hash}`;
+    const newUrl = `/${bookId}${hash}`;
     
     try {
-      history.pushState({}, '', newUrl);
-      console.log(`🔗 BookToBookTransition: Updated URL to ${newUrl}`);
+      const currentUrl = window.location.pathname + window.location.hash;
+      
+      // Only update URL if we're not already there
+      if (currentUrl !== newUrl) {
+        console.log(`🔗 BookToBookTransition: Navigating to ${newUrl}`);
+        // Replace current history entry instead of pushing new one
+        history.replaceState(null, '', newUrl);
+      } else {
+        console.log(`🔗 BookToBookTransition: Already at ${newUrl}`);
+      }
     } catch (error) {
       console.warn('Could not update URL:', error);
     }
@@ -454,31 +468,6 @@ export class BookToBookTransition {
     return smartCallback;
   }
 
-  /**
-   * Check if content is cached in IndexedDB upfront
-   */
-  static async checkIfContentIsCached(bookSlug) {
-    try {
-      const { getNodeChunksFromIndexedDB } = await import('../../cache-indexedDB.js');
-      const cached = await getNodeChunksFromIndexedDB(bookSlug);
-      const isCached = cached && cached.length > 0;
-      console.log(`📖 BookToBookTransition: Cache check for ${bookSlug}: ${isCached ? 'HIT' : 'MISS'}`);
-      return isCached;
-    } catch (error) {
-      console.warn('BookToBookTransition: Cache check failed, assuming not cached:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Create a no-op progress callback for cached content
-   */
-  static createNoOpProgressCallback() {
-    return (percent, message) => {
-      // Silent no-op for cached content
-      console.log(`📖 BookToBookTransition: Progress suppressed (cached): ${percent}% - ${message}`);
-    };
-  }
 
   /**
    * Create regular progress callback for non-cached content
