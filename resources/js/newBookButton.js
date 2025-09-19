@@ -1,6 +1,6 @@
 import { ContainerManager } from "./container-manager.js";
 import { openDatabase } from "./cache-indexedDB.js";
-import { transitionToReaderView } from './viewManager.js';
+// Navigation imports moved to new system - see createBookHandler function
 import { ensureAuthInitialized } from "./auth.js";
 
 import { createNewBook, fireAndForgetSync } from "./createNewBook.js";
@@ -121,24 +121,15 @@ export class NewBookContainerManager extends ContainerManager {
     this.createBookHandler = async () => {
       console.log("Create new book clicked");
       this.closeContainer();
-      const pendingSyncData = await createNewBook();
-
-      if (pendingSyncData) {
-        const syncPromise = fireAndForgetSync(
-        pendingSyncData.bookId,
-        pendingSyncData.isNewBook,
-        pendingSyncData
-      );
-        setInitialBookSyncPromise(syncPromise);
-
-        // ✅ STEP 1: Transition to the reader view WITHOUT any special options.
-        // This will just load the blank page structure.
-        await transitionToReaderView(pendingSyncData.bookId);
-
-        // ✅ STEP 2: AFTER the transition is complete and the new view is stable,
-        // explicitly call enableEditMode. This is now a separate, deliberate action.
-        console.log("📘 New book from scratch: Forcing edit mode.");
-        enableEditMode(null, true);
+      
+      try {
+        // Use the new NewBookTransition pathway
+        const { NewBookTransition } = await import('./navigation/pathways/NewBookTransition.js');
+        await NewBookTransition.createAndTransition();
+        console.log("📘 New book transition completed successfully");
+      } catch (error) {
+        console.error("❌ New book creation failed:", error);
+        // Could show user feedback here
       }
     };
 
