@@ -4,6 +4,7 @@
  * Only replaces content, preserves navigation elements and uses specialized progress handling
  */
 import { ProgressManager } from '../ProgressManager.js';
+import { waitForNavigationTarget, waitForElementReady } from '../../domReadiness.js';
 
 export class BookToBookTransition {
   static isTransitioning = false;
@@ -65,14 +66,7 @@ export class BookToBookTransition {
       this.updateUrl(toBook, hash);
       
       progress(100, 'Complete!');
-      
-      // Hide progress after a short delay to show completion
-      setTimeout(async () => {
-        const { ProgressManager } = window;
-        if (ProgressManager) {
-          await ProgressManager.hide();
-        }
-      }, 300);
+      await ProgressManager.hide();
       
       console.log('✅ BookToBookTransition: Book-to-book transition complete');
       
@@ -277,12 +271,33 @@ export class BookToBookTransition {
   }
 
   /**
-   * Navigate to a hypercite target
+   * Navigate to a hypercite target with deterministic element detection
    */
   static async navigateToHyperciteTarget(hyperlightId, hyperciteId) {
     console.log(`🎯 BookToBookTransition: Navigating to hyperlight ${hyperlightId} -> hypercite ${hyperciteId}`);
     
     try {
+      // Wait for both the hyperlight and hypercite elements to be ready
+      const mainContainer = document.getElementById('main') || document.body;
+      
+      console.log(`⏳ BookToBookTransition: Waiting for hyperlight ${hyperlightId} and hypercite ${hyperciteId} to be ready`);
+      
+      // Wait for hyperlight first
+      await waitForElementReady(hyperlightId, {
+        maxAttempts: 40,
+        checkInterval: 50,
+        container: mainContainer
+      });
+      
+      // Then wait for hypercite
+      await waitForElementReady(hyperciteId, {
+        maxAttempts: 40,
+        checkInterval: 50,
+        container: mainContainer
+      });
+      
+      console.log(`✅ BookToBookTransition: Both hyperlight ${hyperlightId} and hypercite ${hyperciteId} are ready`);
+      
       const { navigateToHyperciteTarget } = await import('../../hyperCites.js');
       const { currentLazyLoader } = await import('../../initializePage.js');
       
@@ -293,16 +308,37 @@ export class BookToBookTransition {
       }
     } catch (error) {
       console.error('Failed to navigate to hypercite target:', error);
+      // Don't throw - attempt navigation anyway as fallback
+      try {
+        const { navigateToHyperciteTarget } = await import('../../hyperCites.js');
+        const { currentLazyLoader } = await import('../../initializePage.js');
+        
+        if (currentLazyLoader) {
+          navigateToHyperciteTarget(hyperlightId, hyperciteId, currentLazyLoader, false);
+        }
+      } catch (fallbackError) {
+        console.error('Fallback hypercite navigation also failed:', fallbackError);
+      }
     }
   }
 
   /**
-   * Navigate to an internal ID
+   * Navigate to an internal ID with deterministic element detection
    */
   static async navigateToInternalId(targetId) {
     console.log(`🎯 BookToBookTransition: Navigating to internal ID: ${targetId}`);
     
     try {
+      // Wait for the target element to be fully ready before attempting navigation
+      const mainContainer = document.getElementById('main') || document.body;
+      const targetElement = await waitForElementReady(targetId, {
+        maxAttempts: 40, // Allow more time for lazy loading
+        checkInterval: 50,
+        container: mainContainer
+      });
+      
+      console.log(`✅ BookToBookTransition: Target element ${targetId} is ready, proceeding with navigation`);
+      
       const { navigateToInternalId } = await import('../../scrolling.js');
       const { currentLazyLoader } = await import('../../initializePage.js');
       
@@ -313,6 +349,17 @@ export class BookToBookTransition {
       }
     } catch (error) {
       console.error('Failed to navigate to internal ID:', error);
+      // Don't throw - attempt navigation anyway as fallback
+      try {
+        const { navigateToInternalId } = await import('../../scrolling.js');
+        const { currentLazyLoader } = await import('../../initializePage.js');
+        
+        if (currentLazyLoader) {
+          navigateToInternalId(targetId, currentLazyLoader, false);
+        }
+      } catch (fallbackError) {
+        console.error('Fallback navigation also failed:', fallbackError);
+      }
     }
   }
 

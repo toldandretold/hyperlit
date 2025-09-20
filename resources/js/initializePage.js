@@ -413,6 +413,13 @@ export let currentLazyLoader = null;
 export function resetCurrentLazyLoader() {
   if (currentLazyLoader) {
     console.log("🧹 Resetting current lazy loader for fresh content");
+    
+    // Properly disconnect the old lazy loader to remove its event listeners
+    if (typeof currentLazyLoader.disconnect === 'function') {
+      currentLazyLoader.disconnect();
+      console.log("🧹 Disconnected old lazy loader and removed its event listeners");
+    }
+    
     currentLazyLoader = null;
   }
 }

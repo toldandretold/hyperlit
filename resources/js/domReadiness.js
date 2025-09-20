@@ -268,7 +268,7 @@ async function waitForFontsReady() {
  * Wait for potential layout-shifting operations to complete
  * @returns {Promise<void>}
  */
-async function waitForLayoutStabilization() {
+export async function waitForLayoutStabilization() {
   return new Promise(resolve => {
     console.log(`📐 Waiting for layout stabilization...`);
     

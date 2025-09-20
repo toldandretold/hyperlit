@@ -37,8 +37,7 @@ export class LinkNavigationHandler {
       this.handlePopstate(event);
     };
 
-    // Add all the event listeners
-    document.addEventListener('click', this.globalLinkClickHandler);
+    // Add all the event listeners (except click - now handled by lazyLoaderFactory)
     document.addEventListener('click', this.trackRecentLinkClick);
     document.addEventListener('visibilitychange', this.globalVisibilityHandler);
     window.addEventListener('focus', this.globalFocusHandler);
@@ -52,7 +51,7 @@ export class LinkNavigationHandler {
    */
   static removeGlobalHandlers() {
     if (this.globalLinkClickHandler) {
-      document.removeEventListener('click', this.globalLinkClickHandler);
+      // Click handler now managed by lazyLoaderFactory
     }
     if (this.globalVisibilityHandler) {
       document.removeEventListener('visibilitychange', this.globalVisibilityHandler);
@@ -246,17 +245,22 @@ export class LinkNavigationHandler {
       const targetBookId = pathSegments[0];
       const targetHash = linkUrl.hash;
 
-      // Handle homepage navigation
+      // Handle homepage navigation using SPA pathway
       if (!targetBookId && (linkUrl.pathname === '/' || linkUrl.pathname === '')) {
-        console.log('🏠 Homepage navigation detected - updating URL and reloading');
+        console.log('🏠 Homepage navigation detected - using book-to-home SPA pathway');
         
-        // Update URL first to enable back button
-        history.pushState({}, '', linkUrl.href);
+        event.preventDefault();
+        event.stopPropagation();
         
-        // For now, do a page reload to homepage
-        // TODO: Could implement proper SPA homepage transition here
-        window.location.href = linkUrl.href;
-        return;
+        // Get current book for context
+        const currentPageType = document.body.getAttribute('data-page');
+        const fromBook = currentPageType === 'reader' ? window.book : null;
+        
+        // Use the book-to-home SPA pathway
+        const { NavigationManager } = await import('./NavigationManager.js');
+        await NavigationManager.navigate('book-to-home', { fromBook });
+        
+        return true;
       }
       // Check if this is a hyperlight URL
       const isHyperlightURL = pathSegments.length > 1 && pathSegments[1].startsWith('HL_');
@@ -273,12 +277,24 @@ export class LinkNavigationHandler {
           hyperciteId: hyperciteId || null
         });
       } else if (targetBookId) {
-        console.log(`🎯 Standard book-to-book navigation: ${targetBookId}${targetHash}`);
+        // Check current page type to determine the correct transition pathway
+        const currentPageType = document.body.getAttribute('data-page');
         
-        await NavigationManager.navigate('book-to-book', {
-          toBook: targetBookId,
-          hash: targetHash
-        });
+        if (currentPageType === 'home') {
+          console.log(`🏠➡️📖 Home-to-book navigation: ${targetBookId}${targetHash}`);
+          
+          await NavigationManager.navigate('home-to-book', {
+            toBook: targetBookId,
+            hash: targetHash
+          });
+        } else {
+          console.log(`🎯 Standard book-to-book navigation: ${targetBookId}${targetHash}`);
+          
+          await NavigationManager.navigate('book-to-book', {
+            toBook: targetBookId,
+            hash: targetHash
+          });
+        }
       } else {
         console.warn('Could not determine target book ID for navigation');
         window.location.href = link.href;

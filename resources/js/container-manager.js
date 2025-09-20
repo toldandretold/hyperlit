@@ -47,59 +47,41 @@ export class ContainerManager {
     if (this.container) {
       this.initialContent = this.container.innerHTML;
       
+      // Container-specific click handling (non-link functionality only)
       this.container.addEventListener("click", (e) => {
+        // Link navigation is now handled by the centralized handler in lazyLoaderFactory
+        // This handler only manages container-specific behavior
+        
         const link = e.target.closest("a");
-        if (!link || !link.href) {
-          console.log(`🔗 ContainerManager: Click detected but no link found. Target:`, e.target);
-          return;
-        }
-        
-        console.log(`🔗 ContainerManager: Link clicked:`, {
-          href: link.href,
-          className: link.className,
-          innerHTML: link.innerHTML
-        });
-
-        const href = link.getAttribute("href");
-        let targetUrl;
-        try {
-          targetUrl = new URL(href, window.location.origin);
-        } catch (error) {
-          console.error("ContainerManager: Invalid URL encountered:", href, error);
-          return;
-        }
-
-        // Handle true external links (different domain) by opening in a new tab
-        if (targetUrl.origin !== window.location.origin) {
-          link.target = '_blank';
-          link.rel = 'noopener noreferrer';
-          return; // Stop processing, don't close container
-        }
-
-        // For same-origin links, check if it's for the same book or a different one
-        const pathSegments = targetUrl.pathname.split('/').filter(Boolean);
-        const linkBookId = pathSegments[0];
-        
-        // If the link is for the same book, it's an internal jump. Close the container.
-        if (linkBookId === book) {
-          this.closeContainer();
-        } else if (linkBookId && linkBookId !== book) {
-          // Cross-book navigation: prevent default and handle with SPA navigation
-          e.preventDefault();
-          e.stopPropagation(); // Prevent other handlers from processing this click
-          console.log(`🔗 ContainerManager: Cross-book navigation detected to ${targetUrl.href}`);
+        if (link && link.href) {
+          // This is a link click - check if we need to close the container for internal links
+          console.log(`🔗 ContainerManager: Link clicked, checking if container should close`);
           
-          // Import and use the LinkNavigationHandler for proper SPA navigation
-          import('./navigation/LinkNavigationHandler.js').then(({ LinkNavigationHandler }) => {
-            LinkNavigationHandler.handleBookToBookNavigation(link, targetUrl);
-          }).catch(error => {
-            console.error('Failed to handle cross-book navigation:', error);
-            // Fallback to normal navigation
-            window.location.href = targetUrl.href;
-          });
+          try {
+            const href = link.getAttribute("href");
+            const targetUrl = new URL(href, window.location.origin);
+            
+            // Only handle container closure logic, not navigation
+            if (targetUrl.origin === window.location.origin) {
+              const pathSegments = targetUrl.pathname.split('/').filter(Boolean);
+              const linkBookId = pathSegments[0];
+              
+              // If the link is for the same book, it's an internal jump. Close the container.
+              if (linkBookId === book) {
+                console.log(`🔗 ContainerManager: Internal link detected, closing container`);
+                this.closeContainer();
+              }
+              // For cross-book navigation, let the centralized handler manage navigation
+            }
+          } catch (error) {
+            console.error("ContainerManager: Error processing link:", error);
+          }
+          
+          return; // Let the centralized handler manage the actual navigation
         }
         
-        // For other cases, let the event bubble normally
+        // Handle other container-specific click behavior here if needed
+        console.log(`🔗 ContainerManager: Non-link click in container`);
       });
     }
 
