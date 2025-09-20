@@ -4,7 +4,7 @@
  * Only replaces content, preserves navigation elements and uses specialized progress handling
  */
 import { ProgressManager } from '../ProgressManager.js';
-import { waitForNavigationTarget, waitForElementReady } from '../../domReadiness.js';
+import { waitForNavigationTarget, waitForElementReady, waitForElementReadyWithProgress, waitForMultipleElementsReadyWithProgress } from '../../domReadiness.js';
 
 export class BookToBookTransition {
   static isTransitioning = false;
@@ -80,13 +80,17 @@ export class BookToBookTransition {
       progress(80, 'Finalizing navigation...');
       
       // Handle any hash-based navigation (hyperlights, hypercites, etc.)
-      await this.handleHashNavigation(hash, hyperlightId, hyperciteId, toBook);
+      // This may hide the progress bar early if elements are ready
+      const progressHidden = await this.handleHashNavigation(hash, hyperlightId, hyperciteId, toBook, progress);
       
       // Final URL update after all initialization and navigation is complete
       this.updateUrl(toBook, hash);
       
-      progress(100, 'Complete!');
-      await ProgressManager.hide();
+      // Only show completion progress if not already hidden
+      if (!progressHidden) {
+        progress(100, 'Complete!');
+        await ProgressManager.hide();
+      }
       
       console.log('✅ BookToBookTransition: Book-to-book transition complete');
       
@@ -251,11 +255,12 @@ export class BookToBookTransition {
 
   /**
    * Handle hash-based navigation (hyperlights, hypercites, internal links)
+   * @returns {boolean} - True if progress bar was hidden during navigation
    */
-  static async handleHashNavigation(hash, hyperlightId, hyperciteId, bookId) {
+  static async handleHashNavigation(hash, hyperlightId, hyperciteId, bookId, progress) {
     if (!hash && !hyperlightId && !hyperciteId) {
       console.log('📖 BookToBookTransition: No hash navigation needed');
-      return;
+      return false;
     }
     
     console.log('🎯 BookToBookTransition: Handling hash navigation', { 
@@ -273,27 +278,33 @@ export class BookToBookTransition {
       
       // Handle different types of navigation
       if (hyperlightId && hyperciteId) {
-        // Hyperlight + hypercite navigation
-        await this.navigateToHyperciteTarget(hyperlightId, hyperciteId);
+        // Hyperlight + hypercite navigation - progress will be hidden when elements are ready
+        await this.navigateToHyperciteTarget(hyperlightId, hyperciteId, progress);
+        return true; // Progress was hidden by the navigation
       } else if (hyperlightId) {
-        // Just hyperlight navigation
-        await this.navigateToInternalId(hyperlightId);
+        // Just hyperlight navigation - progress will be hidden when element is ready
+        await this.navigateToInternalId(hyperlightId, progress);
+        return true; // Progress was hidden by the navigation
       } else if (hash) {
-        // General hash navigation
+        // General hash navigation - progress will be hidden when element is ready
         const targetId = hash.startsWith('#') ? hash.substring(1) : hash;
-        await this.navigateToInternalId(targetId);
+        await this.navigateToInternalId(targetId, progress);
+        return true; // Progress was hidden by the navigation
       }
+      
+      return false; // No navigation performed
       
     } catch (error) {
       console.error('❌ BookToBookTransition: Hash navigation failed:', error);
       // Don't throw - navigation failure shouldn't break the entire transition
+      return false; // Progress was not hidden due to error
     }
   }
 
   /**
-   * Navigate to a hypercite target with deterministic element detection
+   * Navigate to a hypercite target with deterministic element detection and progress optimization
    */
-  static async navigateToHyperciteTarget(hyperlightId, hyperciteId) {
+  static async navigateToHyperciteTarget(hyperlightId, hyperciteId, progress) {
     console.log(`🎯 BookToBookTransition: Navigating to hyperlight ${hyperlightId} -> hypercite ${hyperciteId}`);
     
     try {
@@ -302,18 +313,13 @@ export class BookToBookTransition {
       
       console.log(`⏳ BookToBookTransition: Waiting for hyperlight ${hyperlightId} and hypercite ${hyperciteId} to be ready`);
       
-      // Wait for hyperlight first
-      await waitForElementReady(hyperlightId, {
+      // Use multiple element waiting with progress - progress bar disappears when both are visually ready
+      await waitForMultipleElementsReadyWithProgress([hyperlightId, hyperciteId], progress, {
         maxAttempts: 40,
         checkInterval: 50,
-        container: mainContainer
-      });
-      
-      // Then wait for hypercite
-      await waitForElementReady(hyperciteId, {
-        maxAttempts: 40,
-        checkInterval: 50,
-        container: mainContainer
+        container: mainContainer,
+        hideProgressAtPercent: 95,
+        hideProgressMessage: 'Navigation ready'
       });
       
       console.log(`✅ BookToBookTransition: Both hyperlight ${hyperlightId} and hypercite ${hyperciteId} are ready`);
@@ -343,18 +349,22 @@ export class BookToBookTransition {
   }
 
   /**
-   * Navigate to an internal ID with deterministic element detection
+   * Navigate to an internal ID with deterministic element detection and progress optimization
    */
-  static async navigateToInternalId(targetId) {
+  static async navigateToInternalId(targetId, progress) {
     console.log(`🎯 BookToBookTransition: Navigating to internal ID: ${targetId}`);
     
     try {
       // Wait for the target element to be fully ready before attempting navigation
       const mainContainer = document.getElementById('main') || document.body;
-      const targetElement = await waitForElementReady(targetId, {
+      
+      // Use progress-aware waiting - progress bar disappears when element is visually ready
+      const targetElement = await waitForElementReadyWithProgress(targetId, progress, {
         maxAttempts: 40, // Allow more time for lazy loading
         checkInterval: 50,
-        container: mainContainer
+        container: mainContainer,
+        hideProgressAtPercent: 95,
+        hideProgressMessage: 'Navigation ready'
       });
       
       console.log(`✅ BookToBookTransition: Target element ${targetId} is ready, proceeding with navigation`);
@@ -406,7 +416,7 @@ export class BookToBookTransition {
   }
 
   /**
-   * Handle hyperlight URL navigation (special case of book-to-book)
+   * Handle hyperlight URL navigation (special case of book-to-book) with smart progress management
    */
   static async handleHyperlightNavigation(options = {}) {
     const { 
@@ -421,8 +431,8 @@ export class BookToBookTransition {
       fromBook, toBook, hyperlightId, hyperciteId 
     });
     
-    // Create specialized progress callback for hyperlight navigation
-    const progress = progressCallback || ProgressManager.createProgressCallback('book-to-book', toBook);
+    // Use smart progress callback that can suppress for cached content or hide early for ready elements
+    const progress = progressCallback || this.createSmartProgressCallback(toBook);
     
     // Execute transition with specific hyperlight handling
     return await this.execute({

@@ -156,6 +156,52 @@ export function waitForElementReady(targetId, options = {}) {
 }
 
 /**
+ * Waits for an element to be ready with progress bar integration
+ * Hides progress bar when element becomes visually ready, before navigation
+ * @param {string} targetId - The ID of the element to wait for
+ * @param {Function} progressCallback - Progress callback function
+ * @param {Object} options - Configuration options
+ * @returns {Promise<HTMLElement>} - Resolves with the element when ready
+ */
+export function waitForElementReadyWithProgress(targetId, progressCallback, options = {}) {
+  const {
+    hideProgressAtPercent = 95,  // Hide progress when element is ready but before navigation
+    hideProgressMessage = 'Element ready',
+    ...waitOptions
+  } = options;
+  
+  console.log(`⏳ Waiting for ${targetId} with progress integration`);
+  
+  let progressHidden = false;
+  
+  return waitForElementReady(targetId, {
+    ...waitOptions,
+    onProgress: ({ attempts, targetId, found }) => {
+      if (found && !progressHidden) {
+        // Element exists - check if it's visually ready
+        const element = document.querySelector(`#${CSS.escape(targetId)}`);
+        if (element && isElementFullyRendered(element)) {
+          // 🎯 CRITICAL: Element is visually ready - hide progress bar NOW
+          console.log(`✅ Hiding progress - ${targetId} is visually ready`);
+          progressCallback(hideProgressAtPercent, `${targetId} ${hideProgressMessage}`);
+          
+          // Import and hide progress manager
+          import('./navigation/ProgressManager.js').then(({ ProgressManager }) => {
+            ProgressManager.hide();
+          }).catch(err => {
+            console.warn('Could not hide progress manager:', err);
+          });
+          
+          progressHidden = true;
+          return true; // Signal that we can proceed
+        }
+      }
+      return false;
+    }
+  });
+}
+
+/**
  * Waits for multiple elements to be ready simultaneously
  * @param {string[]} targetIds - Array of element IDs to wait for
  * @param {Object} options - Configuration options
@@ -168,6 +214,62 @@ export function waitForMultipleElementsReady(targetIds, options = {}) {
   
   return Promise.all(promises).then(elements => {
     console.log(`✅ All elements ready: ${targetIds.join(', ')}`);
+    return elements;
+  });
+}
+
+/**
+ * Waits for multiple elements with progress integration
+ * Hides progress when all elements are visually ready
+ * @param {string[]} targetIds - Array of element IDs to wait for
+ * @param {Function} progressCallback - Progress callback function
+ * @param {Object} options - Configuration options
+ * @returns {Promise<HTMLElement[]>} - Resolves with array of elements when all ready
+ */
+export function waitForMultipleElementsReadyWithProgress(targetIds, progressCallback, options = {}) {
+  const {
+    hideProgressAtPercent = 95,
+    hideProgressMessage = 'Elements ready',
+    ...waitOptions
+  } = options;
+  
+  console.log(`⏳ Waiting for multiple elements with progress: ${targetIds.join(', ')}`);
+  
+  let progressHidden = false;
+  let readyCount = 0;
+  
+  const promises = targetIds.map(id => 
+    waitForElementReady(id, {
+      ...waitOptions,
+      onProgress: ({ attempts, targetId, found }) => {
+        if (found && !progressHidden) {
+          const element = document.querySelector(`#${CSS.escape(targetId)}`);
+          if (element && isElementFullyRendered(element)) {
+            readyCount++;
+            
+            // Hide progress when all elements are ready
+            if (readyCount >= targetIds.length) {
+              console.log(`✅ Hiding progress - all ${targetIds.length} elements are visually ready`);
+              progressCallback(hideProgressAtPercent, hideProgressMessage);
+              
+              import('./navigation/ProgressManager.js').then(({ ProgressManager }) => {
+                ProgressManager.hide();
+              }).catch(err => {
+                console.warn('Could not hide progress manager:', err);
+              });
+              
+              progressHidden = true;
+            }
+            return true;
+          }
+        }
+        return false;
+      }
+    })
+  );
+  
+  return Promise.all(promises).then(elements => {
+    console.log(`✅ All elements ready with progress: ${targetIds.join(', ')}`);
     return elements;
   });
 }
