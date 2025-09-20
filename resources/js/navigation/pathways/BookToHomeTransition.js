@@ -36,10 +36,31 @@ export class BookToHomeTransition {
       // Replace the entire body content (reader → home template switch)
       await this.replaceBodyContent(homeHtml);
       
+      progress(70, 'Waiting for DOM stabilization...');
+      
+      // Wait for DOM to be ready for content insertion
+      const { waitForLayoutStabilization } = await import('../../domReadiness.js');
+      await waitForLayoutStabilization();
+      
       progress(80, 'Initializing homepage...');
       
       // Initialize the homepage
       await this.initializeHomepage(progress);
+      
+      progress(90, 'Ensuring homepage readiness...');
+      
+      // Wait for homepage content to be fully ready (homepage may have lazy loaders for book cards)
+      const { waitForContentReady } = await import('../../domReadiness.js');
+      try {
+        await waitForContentReady('most-recent', {
+          maxWaitTime: 5000,
+          requireLazyLoader: false // Homepage might not have lazy loaders
+        });
+      } catch (error) {
+        console.warn('Homepage content readiness check failed, continuing:', error);
+        // Continue anyway since homepage doesn't always have lazy-loaded content
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
       
       // Update the URL
       this.updateUrl();

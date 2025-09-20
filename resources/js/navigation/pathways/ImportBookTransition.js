@@ -37,6 +37,12 @@ export class ImportBookTransition {
       // Replace the entire body content (form → reader transition)
       await this.replaceBodyContent(readerHtml, bookId);
       
+      progress(60, 'Waiting for DOM stabilization...');
+      
+      // Wait for DOM to be ready for content insertion
+      const { waitForLayoutStabilization } = await import('../../domReadiness.js');
+      await waitForLayoutStabilization();
+      
       // Set up session storage for imported book handling
       this.setupImportedBookSession(bookId);
       
@@ -44,6 +50,15 @@ export class ImportBookTransition {
       
       // Initialize the imported reader view
       await this.initializeImportedReader(bookId, progress);
+      
+      progress(80, 'Ensuring content readiness...');
+      
+      // Wait for content to be fully ready after initialization
+      const { waitForContentReady } = await import('../../domReadiness.js');
+      await waitForContentReady(bookId, {
+        maxWaitTime: 10000,
+        requireLazyLoader: true
+      });
       
       progress(90, 'Setting up edit mode...');
       

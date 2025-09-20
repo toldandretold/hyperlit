@@ -56,6 +56,15 @@ export class NewBookTransition {
       // Initialize the reader view
       await this.initializeReader(bookId, progress);
       
+      progress(85, 'Ensuring content readiness...');
+      
+      // Wait for content to be fully ready after initialization
+      const { waitForContentReady } = await import('../../domReadiness.js');
+      await waitForContentReady(bookId, {
+        maxWaitTime: 10000,
+        requireLazyLoader: true
+      });
+      
       progress(90, 'Setting up edit mode...');
       
       // Enter edit mode if requested

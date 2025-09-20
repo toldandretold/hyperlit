@@ -37,10 +37,25 @@ export class HomeToBookTransition {
       // Replace the entire body content (home → reader template switch)
       await this.replaceBodyContent(readerHtml);
       
+      progress(70, 'Waiting for DOM stabilization...');
+      
+      // Wait for DOM to be ready for content insertion
+      const { waitForLayoutStabilization } = await import('../../domReadiness.js');
+      await waitForLayoutStabilization();
+      
       progress(80, 'Initializing reader...');
       
       // Initialize the reader
       await this.initializeReader(toBook, progress);
+      
+      progress(85, 'Ensuring content readiness...');
+      
+      // Wait for content to be fully ready after initialization
+      const { waitForContentReady } = await import('../../domReadiness.js');
+      await waitForContentReady(toBook, {
+        maxWaitTime: 10000,
+        requireLazyLoader: true
+      });
       
       // Update the URL
       this.updateUrl(toBook, hash);

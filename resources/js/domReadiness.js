@@ -328,4 +328,160 @@ export async function waitForNavigationTarget(targetId, container, expectedChunk
   }
 }
 
+/**
+ * Wait for content to be fully loaded and ready for use
+ * This ensures nodeChunks are available and lazy loader is properly initialized
+ * @param {string} bookId - The book ID to wait for
+ * @param {Object} options - Configuration options
+ * @returns {Promise<void>} - Resolves when content is ready
+ */
+export async function waitForContentReady(bookId, options = {}) {
+  const {
+    maxWaitTime = 15000,    // Maximum time to wait (15 seconds)
+    checkInterval = 100,    // Check every 100ms
+    requireLazyLoader = true // Whether to require lazy loader to be ready
+  } = options;
+  
+  return new Promise((resolve, reject) => {
+    const startTime = Date.now();
+    let attempts = 0;
+    
+    console.log(`⏳ Waiting for content to be ready for book: ${bookId}`);
+    
+    const checkContentReady = () => {
+      attempts++;
+      const elapsed = Date.now() - startTime;
+      
+      // Check if we've exceeded max wait time
+      if (elapsed > maxWaitTime) {
+        reject(new Error(`Content readiness timeout for ${bookId} after ${elapsed}ms (${attempts} attempts)`));
+        return;
+      }
+      
+      // Check 1: nodeChunks must be available
+      if (!window.nodeChunks || window.nodeChunks.length === 0) {
+        if (attempts % 10 === 0) {
+          console.log(`⏳ Still waiting for nodeChunks... (attempt ${attempts}, ${elapsed}ms)`);
+        }
+        setTimeout(checkContentReady, checkInterval);
+        return;
+      }
+      
+      // Check 2: Lazy loader must be initialized if required
+      if (requireLazyLoader) {
+        // Import dynamically to avoid circular dependencies
+        import('./initializePage.js').then(({ currentLazyLoader }) => {
+          if (!currentLazyLoader) {
+            if (attempts % 10 === 0) {
+              console.log(`⏳ Still waiting for lazy loader... (attempt ${attempts}, ${elapsed}ms)`);
+            }
+            setTimeout(checkContentReady, checkInterval);
+            return;
+          }
+          
+          // Check 3: Lazy loader must have the correct book ID
+          if (currentLazyLoader.bookId !== bookId) {
+            if (attempts % 10 === 0) {
+              console.log(`⏳ Lazy loader book ID mismatch (${currentLazyLoader.bookId} !== ${bookId}) (attempt ${attempts}, ${elapsed}ms)`);
+            }
+            setTimeout(checkContentReady, checkInterval);
+            return;
+          }
+          
+          // Check 4: Container must exist in DOM
+          const container = document.getElementById(bookId);
+          if (!container) {
+            if (attempts % 10 === 0) {
+              console.log(`⏳ Still waiting for container #${bookId}... (attempt ${attempts}, ${elapsed}ms)`);
+            }
+            setTimeout(checkContentReady, checkInterval);
+            return;
+          }
+          
+          // All checks passed!
+          console.log(`✅ Content ready for ${bookId} after ${attempts} attempts (${elapsed}ms)`);
+          console.log(`   - nodeChunks: ${window.nodeChunks.length} chunks available`);
+          console.log(`   - lazyLoader: initialized with book ${currentLazyLoader.bookId}`);
+          console.log(`   - container: #${bookId} found in DOM`);
+          resolve();
+          
+        }).catch(error => {
+          console.warn('Error importing initializePage.js:', error);
+          // Continue without lazy loader check
+          if (attempts % 10 === 0) {
+            console.log(`⏳ Lazy loader check failed, continuing... (attempt ${attempts}, ${elapsed}ms)`);
+          }
+          setTimeout(checkContentReady, checkInterval);
+        });
+      } else {
+        // Skip lazy loader check, just verify container exists
+        const container = document.getElementById(bookId);
+        if (!container) {
+          if (attempts % 10 === 0) {
+            console.log(`⏳ Still waiting for container #${bookId}... (attempt ${attempts}, ${elapsed}ms)`);
+          }
+          setTimeout(checkContentReady, checkInterval);
+          return;
+        }
+        
+        // All checks passed (without lazy loader)
+        console.log(`✅ Content ready for ${bookId} after ${attempts} attempts (${elapsed}ms) - no lazy loader required`);
+        console.log(`   - nodeChunks: ${window.nodeChunks.length} chunks available`);
+        console.log(`   - container: #${bookId} found in DOM`);
+        resolve();
+      }
+    };
+    
+    // Start checking immediately
+    checkContentReady();
+  });
+}
+
+/**
+ * Comprehensive content and navigation readiness check
+ * Combines layout stabilization, content readiness, and optional navigation target waiting
+ * @param {string} bookId - The book ID 
+ * @param {Object} options - Configuration options
+ * @returns {Promise<void>} - Resolves when everything is ready
+ */
+export async function waitForCompleteReadiness(bookId, options = {}) {
+  const {
+    targetId = null,        // Optional navigation target to wait for
+    maxWaitTime = 20000,    // Total maximum wait time
+    requireLazyLoader = true
+  } = options;
+  
+  console.log(`🎯 Starting complete readiness check for ${bookId}`, { targetId, maxWaitTime });
+  
+  try {
+    // Step 1: Wait for layout stabilization
+    console.log(`📐 Step 1: Layout stabilization`);
+    await waitForLayoutStabilization();
+    
+    // Step 2: Wait for content to be ready
+    console.log(`📄 Step 2: Content readiness`);
+    await waitForContentReady(bookId, { 
+      maxWaitTime: maxWaitTime * 0.7, // Use 70% of total time for content
+      requireLazyLoader 
+    });
+    
+    // Step 3: If navigation target specified, wait for it
+    if (targetId) {
+      console.log(`🎯 Step 3: Navigation target readiness`);
+      const container = document.getElementById(bookId) || document.body;
+      await waitForElementReady(targetId, {
+        maxAttempts: (maxWaitTime * 0.3) / 50, // Use remaining 30% of time
+        checkInterval: 50,
+        container
+      });
+    }
+    
+    console.log(`✅ Complete readiness achieved for ${bookId}${targetId ? ` (target: ${targetId})` : ''}`);
+    
+  } catch (error) {
+    console.error(`❌ Complete readiness failed for ${bookId}:`, error);
+    throw error;
+  }
+}
+
 export { isElementFullyRendered };

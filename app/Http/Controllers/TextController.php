@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\ConversionController;
 use League\CommonMark\CommonMarkConverter;
 
@@ -24,9 +25,16 @@ class TextController extends Controller
         }
 
         if ($username !== null) {
-            $generator = new \App\Http\Controllers\UserHomeServerController();
-            $generator->generateUserHomeBook($username);
-            // Use the generated pseudo-book id going forward
+            $bookCount = DB::table('library')->where('creator', $username)->where('book', '!=', $username)->count();
+            $nodeCount = DB::table('node_chunks')->where('book', $username)->where('startLine', '>', 0)->count();
+
+            // Generate the user-home book if it doesn't exist OR if the counts are out of sync.
+            if ($nodeCount === 0 || $bookCount !== $nodeCount) {
+                Log::info('Regenerating user page due to count mismatch or non-existence.', ['username' => $username, 'book_count' => $bookCount, 'node_count' => $nodeCount]);
+                $generator = new \App\Http\Controllers\UserHomeServerController();
+                $generator->generateUserHomeBook($username);
+            }
+            
             $book = $username;
         }
 

@@ -52,10 +52,30 @@ export class BookToBookTransition {
       // Replace only the page content (not the entire body)
       await this.replacePageContent(readerHtml, toBook);
       
+      progress(50, 'Waiting for DOM stabilization...');
+      
+      // Wait for DOM to be ready for content insertion
+      const { waitForLayoutStabilization } = await import('../../domReadiness.js');
+      await waitForLayoutStabilization();
+      
       progress(60, 'Initializing reader...');
       
       // Initialize the new reader view
       await this.initializeReader(toBook, progress);
+      
+      progress(75, 'Ensuring content readiness...');
+      
+      // Wait for content to be fully ready after initialization
+      const { waitForContentReady } = await import('../../domReadiness.js');
+      await waitForContentReady(toBook, {
+        maxWaitTime: 10000,
+        requireLazyLoader: true
+      });
+      
+      progress(78, 'Loading initial content...');
+      
+      // Manually trigger first chunk load to ensure content appears
+      await this.ensureInitialContentLoaded(toBook);
       
       progress(80, 'Finalizing navigation...');
       
@@ -500,6 +520,58 @@ export class BookToBookTransition {
     smartCallback.wasProgressSuppressed = () => progressSuppressed;
     
     return smartCallback;
+  }
+
+  /**
+   * Ensure initial content is actually loaded into the DOM
+   */
+  static async ensureInitialContentLoaded(bookId) {
+    console.log(`📄 BookToBookTransition: Ensuring initial content loaded for ${bookId}`);
+    
+    try {
+      // Check if content is already in the DOM
+      const container = document.getElementById(bookId);
+      if (!container) {
+        console.warn(`Container #${bookId} not found`);
+        return;
+      }
+      
+      const existingChunks = container.querySelectorAll('[data-chunk-id]');
+      if (existingChunks.length > 0) {
+        console.log(`✅ Content already loaded: ${existingChunks.length} chunks found`);
+        return;
+      }
+      
+      // Get the lazy loader and manually load first chunk
+      const { currentLazyLoader } = await import('../../initializePage.js');
+      if (!currentLazyLoader) {
+        console.warn('No lazy loader available for manual chunk loading');
+        return;
+      }
+      
+      // Find the first chunk to load
+      if (window.nodeChunks && window.nodeChunks.length > 0) {
+        const firstChunk = window.nodeChunks.find(chunk => chunk.chunk_id === 0) || window.nodeChunks[0];
+        if (firstChunk) {
+          console.log(`📄 Manually loading first chunk ${firstChunk.chunk_id} for ${bookId}`);
+          currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
+          
+          // Wait a moment for the chunk to be inserted
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          // Verify it was loaded
+          const loadedChunks = container.querySelectorAll('[data-chunk-id]');
+          if (loadedChunks.length > 0) {
+            console.log(`✅ Initial content loaded successfully: ${loadedChunks.length} chunks`);
+          } else {
+            console.warn(`❌ Initial content load may have failed`);
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error ensuring initial content loaded:', error);
+    }
   }
 
   /**
