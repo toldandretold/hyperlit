@@ -179,7 +179,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
         const csrfMeta = document.querySelector('meta[name="csrf-token"]');
         const csrfToken = csrfMeta ? csrfMeta.content : null;
-        const resp = await fetch(`/books/${encodeURIComponent(bookId)}`, {
+                const resp = await fetch(`/api/books/${encodeURIComponent(bookId)}`, {
           method: 'DELETE',
           headers: {
             'Accept': 'application/json',
