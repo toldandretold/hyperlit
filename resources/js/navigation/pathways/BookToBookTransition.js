@@ -8,16 +8,28 @@ import { waitForNavigationTarget, waitForElementReady, waitForElementReadyWithPr
 
 export class BookToBookTransition {
   static isTransitioning = false;
+  static currentTransitionPromise = null;
+  static abortController = null;
   /**
    * Execute book-to-book transition
    */
   static async execute(options = {}) {
-    // Prevent multiple simultaneous transitions
-    if (this.isTransitioning) {
-      console.log('🚫 BookToBookTransition: Already transitioning, ignoring duplicate request');
-      return;
+    // Handle concurrent transitions more gracefully
+    if (this.isTransitioning && this.currentTransitionPromise) {
+      console.log('🔄 BookToBookTransition: Transition in progress, waiting for completion...');
+      try {
+        await this.currentTransitionPromise;
+      } catch (error) {
+        console.warn('Previous transition failed, proceeding with new one:', error);
+      }
     }
     
+    // Abort any ongoing transition
+    if (this.abortController) {
+      this.abortController.abort();
+    }
+    
+    this.abortController = new AbortController();
     this.isTransitioning = true;
     const { 
       fromBook,
@@ -33,82 +45,92 @@ export class BookToBookTransition {
       fromBook, toBook, hash, hyperlightId, hyperciteId 
     });
     
-    try {
-      // Use provided progress callback or create book-to-book specific one
-      const progress = progressCallback || this.createBookToBookProgressCallback(toBook);
-      
-      progress(5, `Loading ${toBook}...`);
-      
-      // Clean up current reader state (but preserve navigation)
-      await this.cleanupCurrentReader();
-      
-      progress(20, 'Fetching book content...');
-      
-      // Fetch the target book's HTML
-      const readerHtml = await this.fetchReaderPageHtml(toBook);
-      
-      progress(40, 'Updating content...');
-      
-      // Replace only the page content (not the entire body)
-      await this.replacePageContent(readerHtml, toBook);
-      
-      progress(50, 'Waiting for DOM stabilization...');
-      
-      // Wait for DOM to be ready for content insertion
-      const { waitForLayoutStabilization } = await import('../../domReadiness.js');
-      await waitForLayoutStabilization();
-      
-      progress(60, 'Initializing reader...');
-      
-      // Initialize the new reader view
-      await this.initializeReader(toBook, progress);
-      
-      progress(75, 'Ensuring content readiness...');
-      
-      // Wait for content to be fully ready after initialization
-      const { waitForContentReady } = await import('../../domReadiness.js');
-      await waitForContentReady(toBook, {
-        maxWaitTime: 10000,
-        requireLazyLoader: true
-      });
-      
-      progress(78, 'Loading initial content...');
-      
-      // Manually trigger first chunk load to ensure content appears
-      await this.ensureInitialContentLoaded(toBook);
-      
-      progress(80, 'Finalizing navigation...');
-      
-      // Handle any hash-based navigation (hyperlights, hypercites, etc.)
-      // This may hide the progress bar early if elements are ready
-      const progressHidden = await this.handleHashNavigation(hash, hyperlightId, hyperciteId, toBook, progress);
-      
-      // Final URL update after all initialization and navigation is complete
-      this.updateUrl(toBook, hash);
-      
-      // Only show completion progress if not already hidden
-      if (!progressHidden) {
-        progress(100, 'Complete!');
+    // Create the transition promise for concurrent handling
+    this.currentTransitionPromise = (async () => {
+      try {
+        // ALWAYS create and show progress immediately, before any async operations
+        const progress = progressCallback || this.createDeterministicProgressCallback(toBook);
+        
+        // Guarantee immediate visibility
+        ProgressManager.showBookToBookTransition(5, `Loading ${toBook}...`, toBook);
+        
+        // Clean up current reader state (but preserve navigation)
+        await this.cleanupCurrentReader();
+        
+        progress(20, 'Fetching book content...');
+        
+        // Fetch the target book's HTML
+        const readerHtml = await this.fetchReaderPageHtml(toBook);
+        
+        progress(40, 'Updating content...');
+        
+        // Replace only the page content (not the entire body)
+        await this.replacePageContent(readerHtml, toBook);
+        
+        progress(50, 'Waiting for DOM stabilization...');
+        
+        // Wait for DOM to be ready for content insertion
+        const { waitForLayoutStabilization } = await import('../../domReadiness.js');
+        await waitForLayoutStabilization();
+        
+        progress(60, 'Initializing reader...');
+        
+        // Initialize the new reader view
+        await this.initializeReader(toBook, progress);
+        
+        progress(75, 'Ensuring content readiness...');
+        
+        // Wait for content to be fully ready after initialization
+        const { waitForContentReady } = await import('../../domReadiness.js');
+        await waitForContentReady(toBook, {
+          maxWaitTime: 10000,
+          requireLazyLoader: true
+        });
+        
+        progress(78, 'Loading initial content...');
+        
+        // Manually trigger first chunk load to ensure content appears
+        await this.ensureInitialContentLoaded(toBook);
+        
+        progress(80, 'Finalizing navigation...');
+        
+        // Update URL early to keep browser history in sync
+        this.updateUrlWithStatePreservation(toBook, hash);
+        
+        // Handle any hash-based navigation (hyperlights, hypercites, etc.)
+        // This may hide the progress bar early if elements are ready
+        const progressHidden = await this.handleHashNavigation(hash, hyperlightId, hyperciteId, toBook, progress);
+        
+        // Only show completion progress if not already hidden
+        if (!progressHidden) {
+          progress(100, 'Complete!');
+          await ProgressManager.hide();
+        }
+        
+        console.log('✅ BookToBookTransition: Book-to-book transition complete');
+        
+      } catch (error) {
+        console.error('❌ BookToBookTransition: Transition failed:', error);
+        
+        // Hide progress on error
         await ProgressManager.hide();
+        
+        // Fallback to full page navigation
+        const fallbackUrl = `/${toBook}/edit?target=1&edit=1${hash}`;
+        console.log('🔄 BookToBookTransition: Falling back to full page navigation:', fallbackUrl);
+        window.location.href = fallbackUrl;
+        
+        throw error;
       }
-      
-      console.log('✅ BookToBookTransition: Book-to-book transition complete');
-      
-    } catch (error) {
-      console.error('❌ BookToBookTransition: Transition failed:', error);
-      
-      // Hide progress on error
-      await ProgressManager.hide();
-      
-      // Fallback to full page navigation
-      const fallbackUrl = `/${toBook}/edit?target=1&edit=1${hash}`;
-      console.log('🔄 BookToBookTransition: Falling back to full page navigation:', fallbackUrl);
-      window.location.href = fallbackUrl;
-      
-      throw error;
+    })();
+    
+    try {
+      return await this.currentTransitionPromise;
     } finally {
-      // Always reset the transitioning flag
+      // Always reset the transitioning flag and cleanup
       this.isTransitioning = false;
+      this.currentTransitionPromise = null;
+      this.abortController = null;
     }
   }
 
@@ -394,9 +416,9 @@ export class BookToBookTransition {
   }
 
   /**
-   * Update the browser URL
+   * Update the browser URL while preserving container state for back button
    */
-  static updateUrl(bookId, hash = '') {
+  static updateUrlWithStatePreservation(bookId, hash = '') {
     const newUrl = `/${bookId}${hash}`;
     
     try {
@@ -405,14 +427,50 @@ export class BookToBookTransition {
       // Only update URL if we're not already there
       if (currentUrl !== newUrl) {
         console.log(`🔗 BookToBookTransition: Navigating to ${newUrl}`);
-        // Replace current history entry instead of pushing new one
-        history.replaceState(null, '', newUrl);
+        
+        // For book-to-book navigation, create a new history entry so back/forward works
+        const currentState = history.state || {};
+        
+        // Add book transition metadata while preserving container state
+        const newState = {
+          ...currentState,
+          bookTransition: {
+            fromBook: this.getCurrentBookId(),
+            toBook: bookId,
+            timestamp: Date.now()
+          }
+        };
+        
+        // Use pushState to create proper navigation history
+        history.pushState(newState, '', newUrl);
       } else {
         console.log(`🔗 BookToBookTransition: Already at ${newUrl}`);
       }
     } catch (error) {
       console.warn('Could not update URL:', error);
     }
+  }
+
+  /**
+   * Legacy method for compatibility - now delegates to state-preserving version
+   */
+  static updateUrl(bookId, hash = '') {
+    return this.updateUrlWithStatePreservation(bookId, hash);
+  }
+
+  /**
+   * Get current book ID from DOM or URL
+   */
+  static getCurrentBookId() {
+    // Try to get from current URL first
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    if (pathSegments.length > 0 && !pathSegments[0].startsWith('HL_')) {
+      return pathSegments[0];
+    }
+    
+    // Fallback to DOM detection
+    const bookElement = document.querySelector('[id]:not([id^="HL_"]):not([id^="hypercite_"])');
+    return bookElement ? bookElement.id : 'unknown';
   }
 
   /**
@@ -431,8 +489,8 @@ export class BookToBookTransition {
       fromBook, toBook, hyperlightId, hyperciteId 
     });
     
-    // Use smart progress callback that can suppress for cached content or hide early for ready elements
-    const progress = progressCallback || this.createSmartProgressCallback(toBook);
+    // Use deterministic progress callback that shows progress immediately
+    const progress = progressCallback || this.createDeterministicProgressCallback(toBook);
     
     // Execute transition with specific hyperlight handling
     return await this.execute({
@@ -477,59 +535,16 @@ export class BookToBookTransition {
   }
 
   /**
-   * Create a smart progress callback that suppresses progress bar for cached books
+   * Create a deterministic progress callback that shows progress immediately
    */
-  static createSmartProgressCallback(toBook) {
-    let progressSuppressed = false;
-    let actualProgressCallback = null;
-    let earlyProgressCalls = [];
+  static createDeterministicProgressCallback(toBook) {
+    // Always show progress immediately, never suppress
+    const progressCallback = ProgressManager.createProgressCallback('book-to-book', toBook);
     
-    const smartCallback = (percent, message) => {
-      // Check if this is a "cache hit" message pattern
-      if (message && (
-        message.includes('Loading from cache') || 
-        message.includes('cached nodeChunks') ||
-        message.includes('Checking local cache')
-      )) {
-        console.log(`📖 BookToBookTransition: Suppressing progress bar - ${toBook} loading from cache`);
-        progressSuppressed = true;
-        // Clear any early progress calls since we're suppressing
-        earlyProgressCalls = [];
-        return; // Don't show progress for cached content
-      }
-      
-      // If progress is suppressed, don't do anything
-      if (progressSuppressed) {
-        return;
-      }
-      
-      // If we haven't determined cache status yet, store the call
-      if (!actualProgressCallback && !progressSuppressed) {
-        earlyProgressCalls.push({ percent, message });
-        
-        // Only create the actual callback if we get significant progress calls
-        // Delay creation to see if cache detection happens first
-        if (earlyProgressCalls.length > 2) {
-          actualProgressCallback = ProgressManager.createProgressCallback('book-to-book', toBook);
-          // Replay stored calls
-          earlyProgressCalls.forEach(({ percent: p, message: m }) => {
-            actualProgressCallback(p, m);
-          });
-          earlyProgressCalls = [];
-        }
-        return;
-      }
-      
-      // Only show progress if not suppressed and we have a callback
-      if (!progressSuppressed && actualProgressCallback) {
-        actualProgressCallback(percent, message);
-      }
-    };
+    // Show initial progress immediately
+    progressCallback(5, `Loading ${toBook}...`);
     
-    // Add a property to check if progress was suppressed
-    smartCallback.wasProgressSuppressed = () => progressSuppressed;
-    
-    return smartCallback;
+    return progressCallback;
   }
 
   /**
