@@ -409,6 +409,10 @@ class CiteCreator extends Controller
                     'raw_json' => json_encode($request->all())
                 ]
             );
+
+            if ($creatorInfo['creator'] && $createdRecord) {
+                // This logic has been moved to DbLibraryController@bulkCreate
+            }
             
             Log::info('PgLibrary record created/updated', [
                 'citation_id' => $citation_id,

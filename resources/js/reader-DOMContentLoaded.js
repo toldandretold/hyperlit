@@ -8,7 +8,7 @@ import { book } from "./app.js";
 
 import { openDatabase } from "./cache-indexedDB.js";
 import { fireAndForgetSync } from "./createNewBook.js";
-import { initializeReaderView } from "./viewManager.js";
+import { universalPageInitializer } from "./viewManager.js";
 import { initializeHomepage } from "./homepage.js";
 import { initializeFootnoteCitationListeners } from "./footnotes-citations.js";
 // ✅ This import is correct. We just need to use it.
@@ -92,6 +92,9 @@ export const navButtons = new NavButtons({
   tapThreshold: 15,
 });
 
+// Initialize the nav buttons event listeners immediately
+navButtons.init();
+
 function handlePendingNewBookSync() {
   const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");
   if (pendingSyncJSON) {
@@ -162,45 +165,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     const { NavigationManager } = await import('./navigation/NavigationManager.js');
     await NavigationManager.handleFreshPageLoad();
 
-    // Delegate delete click for user-home list
-    document.addEventListener('click', async (e) => {
-      const target = e.target.closest('.delete-book');
-      if (!target) return;
-      e.preventDefault();
-      const bookId = target.getAttribute('data-book');
-      if (!bookId) return;
-      if (!confirm(`Delete "${bookId}" and all associated data?`)) return;
-
-      try {
-        // Ensure CSRF cookie is present
-        await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
-        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-        const csrfToken = csrfMeta ? csrfMeta.content : null;
-        const resp = await fetch(`/books/${encodeURIComponent(bookId)}`, {
-          method: 'DELETE',
-          headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': csrfToken,
-          },
-          credentials: 'include',
-        });
-        if (!resp.ok) {
-          const txt = await resp.text();
-          throw new Error(`${resp.status} ${txt}`);
-        }
-        const data = await resp.json();
-        if (data.success) {
-          // Reload the page to regenerate the user-home list
-          window.location.reload();
-        } else {
-          alert(data.message || 'Delete failed');
-        }
-      } catch (err) {
-        console.error('Delete failed:', err);
-        alert('Delete failed');
-      }
-    });
+    const { getCurrentUser } = await import('./auth.js');
+    const user = await getCurrentUser();
+    if (user && user.name === book) {
+        const { initializeUserProfilePage } = await import('./userProfilePage.js');
+        initializeUserProfilePage();
+    }
     
     // Initialize footnote and citation click listeners
     initializeFootnoteCitationListeners();

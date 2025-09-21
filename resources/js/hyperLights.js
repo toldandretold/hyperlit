@@ -143,8 +143,20 @@ export async function openHighlightById(
   // Redirect to unified system
   const highlightIds = Array.isArray(rawIds) ? rawIds : [rawIds];
   const element = document.querySelector(`mark.${highlightIds[0]}`);
+  
   if (element) {
+    console.log(`🎯 Found mark element for ${highlightIds[0]}, using element-based approach`);
     await handleUnifiedContentClick(element, highlightIds, newHighlightIds);
+  } else {
+    console.log(`🎯 Mark element not found for ${highlightIds[0]}, using direct highlight ID approach`);
+    // Element doesn't exist yet (async loading), but we still have the highlight IDs
+    // Create a dummy element object that detectHighlights can work with
+    const dummyElement = { 
+      classList: { filter: () => highlightIds },
+      tagName: 'MARK',
+      _isDummy: true 
+    };
+    await handleUnifiedContentClick(dummyElement, highlightIds, newHighlightIds);
   }
 }
 

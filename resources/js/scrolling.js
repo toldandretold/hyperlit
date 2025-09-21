@@ -1242,15 +1242,26 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     console.log(`🎯 FINAL SCROLL: Navigating to confirmed ready element: ${targetId}`);
     const scrollableParent = lazyLoader.scrollableParent;
     
-    // Check if element is already visible in a good position
+    // Check if element is actually visible in the viewport
     const elementRect = targetElement.getBoundingClientRect();
     const containerRect = scrollableParent.getBoundingClientRect();
     const currentPosition = elementRect.top - containerRect.top;
-    const isAlreadyVisible = elementRect.top >= containerRect.top && 
-                            elementRect.bottom <= containerRect.bottom;
+    
+    // Check visibility in the actual viewport (not just container bounds)
+    const isInViewport = elementRect.top >= 0 && 
+                        elementRect.bottom <= window.innerHeight &&
+                        elementRect.left >= 0 && 
+                        elementRect.right <= window.innerWidth;
+    
+    // Also check if it's within the container bounds
+    const isInContainer = elementRect.top >= containerRect.top && 
+                         elementRect.bottom <= containerRect.bottom;
+    
+    // Element is truly visible if it's both in viewport AND container
+    const isAlreadyVisible = isInViewport && isInContainer;
     const isReasonablyPositioned = currentPosition >= 0 && currentPosition <= 300; // Within first 300px of container
     
-    console.log(`🎯 Element visibility check: visible=${isAlreadyVisible}, position=${currentPosition}px, reasonablyPositioned=${isReasonablyPositioned}`);
+    console.log(`🎯 Element visibility check: inViewport=${isInViewport}, inContainer=${isInContainer}, visible=${isAlreadyVisible}, position=${currentPosition}px, reasonablyPositioned=${isReasonablyPositioned}`);
     
     // Only scroll if element is not visible or poorly positioned
     if (!isAlreadyVisible || !isReasonablyPositioned) {

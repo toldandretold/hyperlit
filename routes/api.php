@@ -126,6 +126,8 @@ Route::middleware(['author', 'throttle:30,1'])->group(function () {
         [BeaconSyncController::class, 'handleSync']
         );
 
+    Route::delete('/books/{book}', [DbLibraryController::class, 'destroy'])->middleware('auth:sanctum');
+
      Route::get(
         '/db/hypercites/find/{book}/{hyperciteId}',
         [DbHyperciteController::class, 'find']

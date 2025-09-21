@@ -707,14 +707,7 @@ async function CoupleClick(uElement) {
           const highlightId = hlMatch[0]; // "HL_1749896203081"
           const internalId = url.hash ? url.hash.slice(1) : null;
           
-          // Only update URL if we're in same-book navigation (not cross-book)
-          // Cross-book navigation is handled by BookToBookTransition
-          const newPath = `/${currentBook}/${highlightId}` + (internalId ? `#${internalId}` : "");
-          const currentUrl = window.location.pathname + window.location.hash;
-          if (currentUrl !== newPath) {
-            console.log(`🔗 Updating URL for same-book hypercite: ${newPath}`);
-            window.history.pushState(null, "", newPath);
-          }
+          // URL updates now handled by LinkNavigationHandler - no duplicate pushState calls
           
           // 🚀 NEW: Use proper sequential navigation with DOM readiness
           await navigateToHyperciteTarget(highlightId, internalId, currentLazyLoader);
@@ -727,13 +720,7 @@ async function CoupleClick(uElement) {
           const internalId = url.hash ? url.hash.slice(1) : null;
           
           if (internalId) {
-            // Only update URL if we're not already there
-            const newPath = `/${currentBook}#${internalId}`;
-            const currentUrl = window.location.pathname + window.location.hash;
-            if (currentUrl !== newPath) {
-              console.log(`🔗 Updating URL for same-book internal: ${newPath}`);
-              window.history.pushState(null, "", newPath);
-            }
+            // URL updates now handled by LinkNavigationHandler - no duplicate pushState calls
             navigateToInternalId(internalId, currentLazyLoader, false); // Don't show overlay - internal navigation
             return;
           }
@@ -801,7 +788,10 @@ async function handleOverlappingHyperciteClick(uElement, event) {
     console.log(`📍 Updating URL for overlapping hypercite navigation: ${newUrl}`);
     
     try {
-      history.pushState({ type: 'overlapping_hypercite', hyperciteIds: hyperciteIds }, '', newUrl);
+      // Preserve existing state when updating URL for overlapping hypercite
+      const currentState = history.state || {};
+      const newState = { ...currentState, overlapping_hypercite: { hyperciteIds: hyperciteIds } };
+      history.pushState(newState, '', newUrl);
       console.log(`📊 Added overlapping hypercite to history - length: ${window.history.length}`);
     } catch (error) {
       console.warn('Failed to update URL for overlapping hypercite:', error);
@@ -1002,13 +992,7 @@ async function navigateToHyperciteLink(link) {
       const highlightId = hlMatch[0]; // "HL_1749896203081"
       const internalId = url.hash ? url.hash.slice(1) : null;
       
-      // Only update URL if we're not already there
-      const newPath = `/${currentBook}/${highlightId}` + (internalId ? `#${internalId}` : "");
-      const currentUrl = window.location.pathname + window.location.hash;
-      if (currentUrl !== newPath) {
-        console.log(`🔗 Updating URL for same-book hypercite: ${newPath}`);
-        window.history.pushState(null, "", newPath);
-      }
+      // URL updates now handled by LinkNavigationHandler - no duplicate pushState calls
       
       // 🚀 NEW: Use proper sequential navigation with DOM readiness
       await navigateToHyperciteTarget(highlightId, internalId, currentLazyLoader);
@@ -1021,13 +1005,7 @@ async function navigateToHyperciteLink(link) {
       const internalId = url.hash ? url.hash.slice(1) : null;
       
       if (internalId) {
-        // Only update URL if we're not already there
-        const newPath = `/${currentBook}#${internalId}`;
-        const currentUrl = window.location.pathname + window.location.hash;
-        if (currentUrl !== newPath) {
-          console.log(`🔗 Updating URL for same-book internal: ${newPath}`);
-          window.history.pushState(null, "", newPath);
-        }
+        // URL updates now handled by LinkNavigationHandler - no duplicate pushState calls
 
         navigateToInternalId(internalId, currentLazyLoader, false); // Don't show overlay - internal navigation
         return;

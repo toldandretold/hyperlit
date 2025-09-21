@@ -72,6 +72,17 @@ class DbLibraryController extends Controller
             DB::table('hypercites')->where('book', $book)->delete();
             DB::table('library')->where('book', $book)->delete();
 
+            if ($record->creator) {
+                DB::table('node_chunks')
+                    ->where('book', $record->creator)
+                    ->where('node_id', $book)
+                    ->delete();
+
+                DB::table('library')
+                    ->where('book', $record->creator)
+                    ->update(['timestamp' => round(microtime(true) * 1000)]);
+            }
+
             DB::commit();
             return response()->json(['success' => true]);
         } catch (\Exception $e) {
@@ -229,6 +240,10 @@ public function upsert(Request $request)
             // Apply the update (this is fast)
             $libraryRecord->update($updateData);
 
+            if ($isOwner && $libraryRecord->creator) {
+                app(UserHomeServerController::class)->updateBookOnUserPage($libraryRecord->creator, $libraryRecord);
+            }
+
             Log::info('Library record updated successfully', [
                 'book' => $bookId, 
                 'is_owner' => $isOwner,
@@ -345,6 +360,10 @@ public function bulkCreate(Request $request)
                     ['book' => $record['book']], // The unique key to find the record
                     $record                     // The data to insert or update with
                 );
+
+                if ($createdRecord->wasRecentlyCreated && $creatorInfo['creator']) {
+                    app(UserHomeServerController::class)->addBookToUserPage($creatorInfo['creator'], $createdRecord);
+                }
 
                 return response()->json([
                     'success' => true,

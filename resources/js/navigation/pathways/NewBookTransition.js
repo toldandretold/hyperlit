@@ -21,38 +21,49 @@ export class NewBookTransition {
     
     console.log('📝 NewBookTransition: Starting new book transition', { bookId, shouldEnterEditMode });
     
-    // Show orange indicator once cloudRef element is ready
-    this.ensureOrangeIndicator();
-    
     try {
       // Use provided progress callback or create our own
       const progress = progressCallback || ProgressManager.createProgressCallback('spa');
       
       progress(10, 'Preparing new book...');
       
-      // Clean up any previous reader state
-      await this.cleanupPreviousState();
+      // Start parallel operations early
+      const orangeIndicatorPromise = this.ensureOrangeIndicator();
+      const cleanupPromise = this.cleanupPreviousState();
+      const syncPromise = this.ensurePendingSyncsComplete();
+      
+      // Wait for cleanup to complete before starting fetch
+      await cleanupPromise;
       
       progress(30, 'Syncing pending changes...');
       
-      // 🔥 CRITICAL: Force any pending syncs to complete before fetching from backend
-      // This ensures the backend has the latest content before we fetch it
-      await this.ensurePendingSyncsComplete();
-      
-      progress(40, 'Fetching reader interface...');
-      
-      // Fetch the reader page HTML
-      const readerHtml = await this.fetchReaderPageHtml(bookId);
+      // Start fetch while syncs are completing (can run in parallel)
+      const [, readerHtml] = await Promise.all([
+        syncPromise,
+        this.fetchReaderPageHtml(bookId)
+      ]);
       
       progress(60, 'Updating page structure...');
       
       // Replace the entire body content (home → reader transition)
       await this.replaceBodyContent(readerHtml, bookId);
       
+      // Ensure orange indicator is set before proceeding
+      await orangeIndicatorPromise;
+      
       progress(75, 'Initializing reader...');
       
       // Initialize the reader view
       await this.initializeReader(bookId, progress);
+      
+      progress(85, 'Ensuring content readiness...');
+      
+      // Wait for content to be fully ready after initialization
+      const { waitForContentReady } = await import('../../domReadiness.js');
+      await waitForContentReady(bookId, {
+        maxWaitTime: 10000,
+        requireLazyLoader: true
+      });
       
       progress(90, 'Setting up edit mode...');
       
@@ -82,7 +93,7 @@ export class NewBookTransition {
   }
 
   /**
-   * Ensure orange indicator shows by waiting for cloudRef element to be ready
+   * Ensure orange indicator shows using deterministic DOM watching
    */
   static async ensureOrangeIndicator() {
     try {
@@ -91,25 +102,95 @@ export class NewBookTransition {
       // First try to set orange on existing element
       showSpinner();
       
-      // Wait for DOM replacement to complete and cloudRef to be ready
-      setTimeout(async () => {
-        try {
-          await waitForElementReady('cloudRef', { maxAttempts: 10, checkInterval: 100 });
-          
-          // Now force orange color on the properly loaded element
+      // Use deterministic DOM watching instead of polling
+      return new Promise((resolve) => {
+        const setOrangeIndicator = () => {
           const layer1 = document.querySelector('#Layer_1 .cls-1');
           if (layer1) {
             layer1.style.fill = '#EF8D34';
-            console.log('✅ Orange indicator set after DOM ready');
+            console.log('✅ Orange indicator set deterministically');
+            return true;
           }
-        } catch (error) {
-          console.warn('⚠️ Could not ensure orange indicator:', error);
+          return false;
+        };
+        
+        // Try immediately in case element already exists
+        if (setOrangeIndicator()) {
+          resolve();
+          return;
         }
-      }, 100); // Small delay to allow DOM replacement to start
+        
+        // Watch for DOM changes to detect when cloudRef is ready
+        const observer = new MutationObserver((mutations) => {
+          if (setOrangeIndicator()) {
+            observer.disconnect();
+            resolve();
+          }
+        });
+        
+        observer.observe(document.body, { 
+          childList: true, 
+          subtree: true 
+        });
+        
+        // Fallback timeout to prevent infinite waiting
+        setTimeout(() => {
+          observer.disconnect();
+          console.warn('⚠️ Orange indicator timeout, but continuing...');
+          resolve();
+        }, 5000);
+      });
       
     } catch (error) {
       console.warn('⚠️ Error ensuring orange indicator:', error);
     }
+  }
+
+  /**
+   * Wait for DOM to be stable after major changes
+   * Uses MutationObserver to detect when DOM stops changing
+   */
+  static waitForDOMStable(timeoutMs = 5000) {
+    return new Promise((resolve) => {
+      let stabilityTimer;
+      let timeoutTimer;
+      
+      const cleanup = () => {
+        if (observer) observer.disconnect();
+        if (stabilityTimer) clearTimeout(stabilityTimer);
+        if (timeoutTimer) clearTimeout(timeoutTimer);
+      };
+      
+      const markStable = () => {
+        cleanup();
+        console.log('✅ DOM stable - ready for initialization');
+        resolve();
+      };
+      
+      // Set overall timeout
+      timeoutTimer = setTimeout(() => {
+        cleanup();
+        console.warn('⚠️ DOM stability timeout, but continuing...');
+        resolve();
+      }, timeoutMs);
+      
+      const observer = new MutationObserver(() => {
+        // Reset stability timer on any DOM change
+        if (stabilityTimer) clearTimeout(stabilityTimer);
+        
+        // Mark stable if no changes for 100ms
+        stabilityTimer = setTimeout(markStable, 100);
+      });
+      
+      observer.observe(document.body, { 
+        childList: true, 
+        subtree: true,
+        attributes: false // Don't watch attributes to reduce noise
+      });
+      
+      // Start the initial stability timer
+      stabilityTimer = setTimeout(markStable, 100);
+    });
   }
 
   /**
@@ -244,48 +325,31 @@ export class NewBookTransition {
       setCurrentBook(bookId);
       
       // Initialize the reader view using the existing system
-      const { initializeReaderView } = await import('../../viewManager.js');
-      await initializeReaderView(progressCallback);
+      const { universalPageInitializer } = await import('../../viewManager.js');
+      await universalPageInitializer(progressCallback);
       
-      // Ensure NavButtons positioning and container managers are updated after DOM replacement
-      setTimeout(async () => {
-        try {
-          // Rebind NavButtons for positioning
-          const readerModule = await import('../../reader-DOMContentLoaded.js');
-          if (readerModule.navButtons) {
-            readerModule.navButtons.rebindElements();
-            readerModule.navButtons.updatePosition(); // Explicitly trigger positioning
-            console.log("✅ NewBookTransition: Rebound NavButtons and updated positioning");
-          }
-          
-          // Rebind container managers that were mentioned in viewManager.js
-          try {
-            const { refManager } = await import('../../footnotes-citations.js');
-            if (refManager && refManager.rebindElements) {
-              refManager.rebindElements();
-              console.log("✅ NewBookTransition: Rebound reference container manager");
-            }
-          } catch (error) {
-            console.warn('Could not rebind reference container manager:', error);
-          }
-          
-          try {
-            const { hyperlitManager } = await import('../../unified-container.js');
-            if (hyperlitManager && hyperlitManager.rebindElements) {
-              hyperlitManager.rebindElements();
-              console.log("✅ NewBookTransition: Rebound hyperlit container manager");
-            }
-          } catch (error) {
-            console.warn('Could not rebind hyperlit container manager:', error);
-          }
-        } catch (error) {
-          console.warn('Could not rebind UI elements:', error);
-        }
-      }, 100); // Small delay to ensure DOM is settled
+      // Wait for DOM to be stable, then rebind UI elements deterministically
+      this.rebindUIElementsWhenReady();
       
     } catch (error) {
       console.error('❌ NewBookTransition: Reader initialization failed:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Rebind UI elements after DOM is stable using deterministic detection
+   */
+  static async rebindUIElementsWhenReady() {
+    try {
+      // Wait for DOM to stabilize after the reader initialization
+      await this.waitForDOMStable();
+      
+      // All UI rebinding is now handled by universalPageInitializer
+      console.log("✅ NewBookTransition: UI initialization delegated to universalPageInitializer");
+      
+    } catch (error) {
+      console.warn('Could not rebind UI elements:', error);
     }
   }
 
