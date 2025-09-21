@@ -1329,41 +1329,92 @@ function attachDataContentIdLinkListeners() {
     }
     
     // Create new listener
-    link._smartContentListener = function(event) {
+    link._smartContentListener = async function(event) {
       console.log(`🔗 Smart content listener triggered for:`, this.href, `isProcessingClick: ${isProcessingClick}`);
       const contextId = findClosestContentId(this);
       if (contextId) {
-        console.log(`🔗 Link clicked in context: ${contextId} - saving state and closing container`);
+        console.log(`🔗 Link clicked in context: ${contextId} - checking if same-book navigation`);
         
-        // Save the context we're navigating FROM in the current history state
-        const currentState = history.state || {};
-        const newState = {
-          ...currentState,
-          hyperlitContainer: {
-            contentTypes: [{ 
-              type: contextId.startsWith('HL_') ? 'highlight' : 
-                    contextId.startsWith('hypercite_') ? 'hypercite' :
-                    contextId.startsWith('footnote_') ? 'footnote' : 'citation',
-              [contextId.startsWith('HL_') ? 'highlightIds' : 
-                contextId.startsWith('hypercite_') ? 'hyperciteId' :
-                contextId.startsWith('footnote_') ? 'elementId' : 'referenceId']: 
-                contextId.startsWith('HL_') ? [contextId] : contextId
-            }],
-            timestamp: Date.now()
+        try {
+          // Import navigation logic to check if this is same-book navigation
+          const { LinkNavigationHandler } = await import('./navigation/LinkNavigationHandler.js');
+          const { book } = await import('./app.js');
+          
+          const linkUrl = new URL(this.href, window.location.origin);
+          const currentUrl = new URL(window.location.href);
+          const currentBookPath = `/${book}`;
+          
+          const isSameBook = LinkNavigationHandler.isSameBookNavigation(linkUrl, currentUrl, currentBookPath);
+          
+          if (isSameBook) {
+            console.log(`🔗 Same-book navigation detected - handling directly without reload`);
+            event.preventDefault();
+            event.stopPropagation();
+            
+            // Save the context we're navigating FROM in the current history state
+            const currentState = history.state || {};
+            const newState = {
+              ...currentState,
+              hyperlitContainer: {
+                contentTypes: [{ 
+                  type: contextId.startsWith('HL_') ? 'highlight' : 
+                        contextId.startsWith('hypercite_') ? 'hypercite' :
+                        contextId.startsWith('footnote_') ? 'footnote' : 'citation',
+                  [contextId.startsWith('HL_') ? 'highlightIds' : 
+                    contextId.startsWith('hypercite_') ? 'hyperciteId' :
+                    contextId.startsWith('footnote_') ? 'elementId' : 'referenceId']: 
+                    contextId.startsWith('HL_') ? [contextId] : contextId
+                }],
+                timestamp: Date.now()
+              }
+            };
+            
+            // Replace current state to preserve context for back button
+            history.replaceState(newState, '');
+            
+            // Close container and handle same-book navigation directly
+            closeHyperlitContainer();
+            
+            // Handle the same-book navigation using LinkNavigationHandler
+            await LinkNavigationHandler.handleSameBookNavigation(this, linkUrl);
+            
+            return; // Don't let the link continue to global handler
+          } else {
+            console.log(`🔗 Cross-book navigation detected - saving state and allowing normal flow`);
+            
+            // Save context for back button
+            const currentState = history.state || {};
+            const newState = {
+              ...currentState,
+              hyperlitContainer: {
+                contentTypes: [{ 
+                  type: contextId.startsWith('HL_') ? 'highlight' : 
+                        contextId.startsWith('hypercite_') ? 'hypercite' :
+                        contextId.startsWith('footnote_') ? 'footnote' : 'citation',
+                  [contextId.startsWith('HL_') ? 'highlightIds' : 
+                    contextId.startsWith('hypercite_') ? 'hyperciteId' :
+                    contextId.startsWith('footnote_') ? 'elementId' : 'referenceId']: 
+                    contextId.startsWith('HL_') ? [contextId] : contextId
+                }],
+                timestamp: Date.now()
+              }
+            };
+            
+            history.replaceState(newState, '');
+            closeHyperlitContainer();
+            
+            // Let the link continue to global handler for cross-book navigation
           }
-        };
-        
-        // Replace current state to preserve context for back button
-        history.replaceState(newState, '');
-        
-        // Close container immediately - let LazyLoader + LinkNavigationHandler handle the navigation
-        console.log(`🔗 Closing container - letting normal link flow continue`);
-        closeHyperlitContainer();
+        } catch (error) {
+          console.error('🔗 Error in smart content listener:', error);
+          // Fallback to original behavior
+          closeHyperlitContainer();
+        }
       } else {
         console.log(`🔗 No context ID found for link:`, this.href);
       }
       
-      // DON'T prevent default - let LazyLoader + LinkNavigationHandler process the link normally
+      // For cross-book navigation, don't prevent default - let normal flow continue
     };
     
     // Attach the listener

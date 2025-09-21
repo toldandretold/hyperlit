@@ -75,63 +75,42 @@ export class LinkNavigationHandler {
    * Handle individual link clicks with intelligent routing
    */
   static async handleLinkClick(event) {
-    // Find the closest anchor tag
     const link = event.target.closest('a');
-    
     if (!link || !link.href) return;
 
     const linkUrl = new URL(link.href, window.location.origin);
     const currentUrl = new URL(window.location.href);
+
+    // --- SYNCHRONOUS DECISION --- 
+    // Decide if this is an SPA-handled link without awaiting anything.
+    const isExternal = linkUrl.origin !== currentUrl.origin;
+    const shouldSkip = this.shouldSkipLinkHandling(link, linkUrl, currentUrl);
     
-    // Before any navigation, check if we should preserve current container state
-    try {
-      const { getCurrentContainerState } = await import('../unified-container.js');
-      const containerState = getCurrentContainerState();
-      
-      if (containerState) {
-        console.log('📊 Container is open, preserving state before navigation');
-        const currentState = history.state || {};
-        const newState = {
-          ...currentState,
-          hyperlitContainer: containerState
-        };
-        history.replaceState(newState, '', window.location.href);
+    // If it's not external and not a special link handled elsewhere, it's for us.
+    if (!isExternal && !shouldSkip) {
+      event.preventDefault();
+      console.log('🔗 LinkNavigationHandler: Intercepted link for SPA routing.', link.href);
+
+      // --- ASYNCHRONOUS PROCESSING ---
+      // Now that the default navigation is stopped, we can perform async operations.
+      try {
+        const { book } = await import('../app.js');
+        const currentBookPath = `/${book}`;
+
+        if (this.isSameBookNavigation(linkUrl, currentUrl, currentBookPath)) {
+          await this.handleSameBookNavigation(link, linkUrl);
+        } else if (this.isDifferentBookNavigation(linkUrl, currentBookPath)) {
+          await this.handleBookToBookNavigation(link, linkUrl);
+        } else {
+          // This case should not be reached if logic is correct, but as a fallback:
+          console.log(`🔗 LinkNavigationHandler: Link was not routed, falling back to full navigation.`);
+          window.location.href = link.href;
+        }
+      } catch (error) {
+        console.error('❌ SPA navigation failed, falling back to full navigation:', error);
+        window.location.href = link.href;
       }
-    } catch (error) {
-      console.warn('Failed to preserve container state before navigation:', error);
     }
-
-    // Skip handling for special link types
-    if (this.shouldSkipLinkHandling(link, linkUrl, currentUrl)) {
-      return;
-    }
-
-    // Check if it's a true external link
-    if (linkUrl.origin !== currentUrl.origin) {
-      console.log(`🔗 LinkNavigationHandler: Allowing external navigation to ${linkUrl.href}`);
-      return;
-    }
-
-    // Get current book context
-    const { book } = await import('../app.js');
-    const currentBookPath = `/${book}`;
-
-    // Handle same-book navigation
-    if (this.isSameBookNavigation(linkUrl, currentUrl, currentBookPath)) {
-      event.preventDefault();
-      await this.handleSameBookNavigation(link, linkUrl);
-      return;
-    }
-
-    // Handle book-to-book navigation
-    if (this.isDifferentBookNavigation(linkUrl, currentBookPath)) {
-      event.preventDefault();
-      await this.handleBookToBookNavigation(link, linkUrl);
-      return;
-    }
-
-    // Let other links proceed normally
-    console.log(`🔗 LinkNavigationHandler: Allowing normal navigation to ${link.href}`);
   }
 
   /**
@@ -181,7 +160,28 @@ export class LinkNavigationHandler {
    */
   static isSameBookNavigation(linkUrl, currentUrl, currentBookPath) {
     const isSamePageAnchor = linkUrl.pathname === currentUrl.pathname && linkUrl.hash !== '';
-    const isSameBookNavigation = linkUrl.pathname.startsWith(currentBookPath) && linkUrl.hash !== '';
+    
+    // Enhanced same-book detection for hyperlight URLs
+    const currentPathIsHyperlight = this.isHyperlightUrl(currentUrl.pathname);
+    const targetPathIsBook = linkUrl.pathname === currentBookPath;
+    const targetPathIsHyperlight = this.isHyperlightUrl(linkUrl.pathname);
+    
+    // Extract base book path from current URL if it's a hyperlight URL
+    const currentBasePath = currentPathIsHyperlight ? 
+      this.extractBookPathFromHyperlightUrl(currentUrl.pathname) : 
+      currentUrl.pathname;
+    
+    const linkBasePath = targetPathIsHyperlight ? 
+      this.extractBookPathFromHyperlightUrl(linkUrl.pathname) : 
+      linkUrl.pathname;
+    
+    // Same book if:
+    // 1. Exact same page anchor
+    // 2. Both paths resolve to same book (handling hyperlight URLs)
+    // 3. Target is book root and current is hyperlight of same book
+    const isSameBookNavigation = (currentBasePath === linkBasePath) || 
+      (currentPathIsHyperlight && targetPathIsBook && currentBasePath === currentBookPath) ||
+      (linkUrl.pathname.startsWith(currentBookPath) && linkUrl.hash !== '');
     
     return isSamePageAnchor || isSameBookNavigation;
   }
@@ -190,7 +190,12 @@ export class LinkNavigationHandler {
    * Check if this is different book navigation
    */
   static isDifferentBookNavigation(linkUrl, currentBookPath) {
-    return linkUrl.pathname && !linkUrl.pathname.startsWith(currentBookPath);
+    // Extract base book path if current URL is a hyperlight URL
+    const linkBasePath = this.isHyperlightUrl(linkUrl.pathname) ? 
+      this.extractBookPathFromHyperlightUrl(linkUrl.pathname) : 
+      linkUrl.pathname;
+      
+    return linkBasePath && !linkBasePath.startsWith(currentBookPath);
   }
 
   /**
@@ -403,7 +408,8 @@ export class LinkNavigationHandler {
       console.warn('Failed to restore hyperlit container from history:', error);
     }
     
-    // If no container to restore, close any open containers and navigate to hash if present
+    // If no container to restore, close any open containers and scroll to the hash if present.
+    // This prevents a loop where a container is re-opened from the hash after a back navigation.
     try {
       const { closeHyperlitContainer } = await import('../unified-container.js');
       closeHyperlitContainer();
@@ -411,26 +417,10 @@ export class LinkNavigationHandler {
       // ignore
     }
     
-    // Navigate to hash if present (for cases where no container was restored)
+    // Always attempt to scroll to the hash on the main page if one exists.
     if (window.location.hash) {
       const targetId = window.location.hash.substring(1);
-      
-      // Check if this is a hyperlit content hash (hypercite_, HL_, footnote_, citation_)
-      if (this.isHyperlitContentHash(targetId)) {
-        console.log(`🎯 Detected hyperlit content hash: ${targetId}`);
-        try {
-          const { handleUnifiedContentClick } = await import('../unified-container.js');
-          
-          // Restore specific hyperlit content based on hash
-          await handleUnifiedContentClick(null, null, [], true, true, targetId);
-          return; // Don't do regular navigation
-        } catch (error) {
-          console.warn('Failed to restore hyperlit content from hash:', error);
-          // Fall through to regular navigation as fallback
-        }
-      }
-      
-      // Regular hash navigation
+      console.log(`🎯 Popstate with no state: navigating to hash #${targetId} on main page.`);
       try {
         const { navigateToInternalId } = await import('../scrolling.js');
         const { currentLazyLoader } = await import('../initializePage.js');
@@ -470,6 +460,23 @@ export class LinkNavigationHandler {
   static extractBookSlugFromPath(path) {
     const match = path.match(/^\/([^\/]+)/);
     return match ? match[1] : null;
+  }
+
+  /**
+   * Check if a path is a hyperlight URL
+   */
+  static isHyperlightUrl(pathname) {
+    // Check if path matches /book/HL_something pattern
+    return /\/[^\/]+\/HL_/.test(pathname);
+  }
+
+  /**
+   * Extract book path from hyperlight URL
+   */
+  static extractBookPathFromHyperlightUrl(pathname) {
+    // Extract /book from /book/HL_something
+    const match = pathname.match(/^(\/[^\/]+)\/HL_/);
+    return match ? match[1] : pathname;
   }
 
   /**
