@@ -82,6 +82,24 @@ export class LinkNavigationHandler {
 
     const linkUrl = new URL(link.href, window.location.origin);
     const currentUrl = new URL(window.location.href);
+    
+    // Before any navigation, check if we should preserve current container state
+    try {
+      const { getCurrentContainerState } = await import('../unified-container.js');
+      const containerState = getCurrentContainerState();
+      
+      if (containerState) {
+        console.log('📊 Container is open, preserving state before navigation');
+        const currentState = history.state || {};
+        const newState = {
+          ...currentState,
+          hyperlitContainer: containerState
+        };
+        history.replaceState(newState, '', window.location.href);
+      }
+    } catch (error) {
+      console.warn('Failed to preserve container state before navigation:', error);
+    }
 
     // Skip handling for special link types
     if (this.shouldSkipLinkHandling(link, linkUrl, currentUrl)) {
@@ -200,7 +218,8 @@ export class LinkNavigationHandler {
           
           // Only update URL if we're not already there
           const currentUrl = window.location.pathname + window.location.hash;
-          if (currentUrl !== url.href) {
+          const targetUrl = url.pathname + url.hash;
+          if (currentUrl !== targetUrl) {
             console.log(`🔗 Updating URL for same-book hyperlight: ${url.href}`);
             window.history.pushState(null, '', url.href);
           }
@@ -222,10 +241,20 @@ export class LinkNavigationHandler {
           
           // Only update URL if we're not already there
           const currentUrl = window.location.pathname + window.location.hash;
-          if (currentUrl !== url.href) {
+          const targetUrl = url.pathname + url.hash;
+          if (currentUrl !== targetUrl) {
             console.log(`🔗 Updating URL for same-book navigation: ${url.href}`);
+            console.log(`🔗 Current URL before update: ${window.location.href}`);
             window.history.pushState(null, '', url.href);
+            console.log(`🔗 URL after pushState: ${window.location.href}`);
+            console.log(`🔗 History length: ${window.history.length}`);
+            
+            // DEBUG: Check if something is immediately overriding our URL
+            setTimeout(() => {
+              console.log(`🔗 URL after 100ms delay: ${window.location.href}`);
+            }, 100);
           }
+          
           navigateToInternalId(targetId, currentLazyLoader, false);
         }
       }
@@ -361,7 +390,20 @@ export class LinkNavigationHandler {
       return;
     }
     
-    // Same book - close any open containers and navigate to hash if present
+    // Try to restore container state from history first
+    try {
+      const { restoreHyperlitContainerFromHistory } = await import('../unified-container.js');
+      const containerRestored = await restoreHyperlitContainerFromHistory();
+      
+      if (containerRestored) {
+        console.log('✅ Successfully restored hyperlit container from browser history');
+        return; // Don't need to do anything else if container was restored
+      }
+    } catch (error) {
+      console.warn('Failed to restore hyperlit container from history:', error);
+    }
+    
+    // If no container to restore, close any open containers and navigate to hash if present
     try {
       const { closeHyperlitContainer } = await import('../unified-container.js');
       closeHyperlitContainer();
@@ -369,9 +411,26 @@ export class LinkNavigationHandler {
       // ignore
     }
     
-    // Navigate to hash if present
+    // Navigate to hash if present (for cases where no container was restored)
     if (window.location.hash) {
       const targetId = window.location.hash.substring(1);
+      
+      // Check if this is a hyperlit content hash (hypercite_, HL_, footnote_, citation_)
+      if (this.isHyperlitContentHash(targetId)) {
+        console.log(`🎯 Detected hyperlit content hash: ${targetId}`);
+        try {
+          const { handleUnifiedContentClick } = await import('../unified-container.js');
+          
+          // Restore specific hyperlit content based on hash
+          await handleUnifiedContentClick(null, null, [], true, true, targetId);
+          return; // Don't do regular navigation
+        } catch (error) {
+          console.warn('Failed to restore hyperlit content from hash:', error);
+          // Fall through to regular navigation as fallback
+        }
+      }
+      
+      // Regular hash navigation
       try {
         const { navigateToInternalId } = await import('../scrolling.js');
         const { currentLazyLoader } = await import('../initializePage.js');
@@ -382,6 +441,19 @@ export class LinkNavigationHandler {
         console.warn('Failed to navigate to hash:', error);
       }
     }
+  }
+
+  /**
+   * Check if a hash represents hyperlit content
+   */
+  static isHyperlitContentHash(hash) {
+    if (!hash) return false;
+    
+    // Check for hyperlit content patterns
+    return hash.startsWith('hypercite_') || 
+           hash.startsWith('HL_') || 
+           hash.startsWith('footnote_') || 
+           hash.startsWith('citation_');
   }
 
   /**

@@ -52,33 +52,11 @@ export class ContainerManager {
         // Link navigation is now handled by the centralized handler in lazyLoaderFactory
         // This handler only manages container-specific behavior
         
-        const link = e.target.closest("a");
-        if (link && link.href) {
-          // This is a link click - check if we need to close the container for internal links
-          console.log(`🔗 ContainerManager: Link clicked, checking if container should close`);
-          
-          try {
-            const href = link.getAttribute("href");
-            const targetUrl = new URL(href, window.location.origin);
-            
-            // Only handle container closure logic, not navigation
-            if (targetUrl.origin === window.location.origin) {
-              const pathSegments = targetUrl.pathname.split('/').filter(Boolean);
-              const linkBookId = pathSegments[0];
-              
-              // If the link is for the same book, it's an internal jump. Close the container.
-              if (linkBookId === book) {
-                console.log(`🔗 ContainerManager: Internal link detected, closing container`);
-                this.closeContainer();
-              }
-              // For cross-book navigation, let the centralized handler manage navigation
-            }
-          } catch (error) {
-            console.error("ContainerManager: Error processing link:", error);
-          }
-          
-          return; // Let the centralized handler manage the actual navigation
-        }
+        // ContainerManager no longer handles automatic closing based on links
+        // All link navigation and container state management is handled by:
+        // - unified-container.js for hyperlit content
+        // - LinkNavigationHandler.js for navigation routing
+        // ContainerManager only handles explicit user close actions
         
         // Handle other container-specific click behavior here if needed
         console.log(`🔗 ContainerManager: Non-link click in container`);
@@ -269,6 +247,12 @@ export class ContainerManager {
   }
 
   cleanupURL() {
+    // Don't cleanup URL if there's a hash - navigation should preserve it
+    if (window.location.hash) {
+      console.log('🔗 ContainerManager: Skipping URL cleanup - preserving hash:', window.location.hash);
+      return;
+    }
+    
     const pathParts = window.location.pathname.split('/').filter(part => part.length > 0);
     if (pathParts.length > 0) {
       const bookName = pathParts[0];

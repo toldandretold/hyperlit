@@ -57,6 +57,11 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
     initializeHyperlitManager();
   }
   
+  // Reset the processing flag when opening a new container
+  // This prevents navigation clicks from being blocked by previous operations
+  isProcessingClick = false;
+  console.log("🔄 Reset isProcessingClick flag for new container");
+  
   // Get the container (should exist after initialization)
   const container = document.getElementById("hyperlit-container");
   if (!container) {
@@ -148,24 +153,52 @@ function formatRelativeTime(timeSince) {
  */
 export async function handleUnifiedContentClick(element, highlightIds = null, newHighlightIds = [], skipUrlUpdate = false, isBackNavigation = false, directHyperciteId = null) {
   const logElement = element ? (element.id || element.tagName) : (directHyperciteId || 'No element');
-  console.log("🎯 handleUnifiedContentClick called with:", { element: logElement, isBackNavigation, directHyperciteId });
+  console.log("🎯 handleUnifiedContentClick called with:", { element: logElement, isBackNavigation, directHyperciteId, isProcessingClick });
 
   if (isProcessingClick) {
-    console.log("🚫 Click already being processed, ignoring duplicate");
+    console.log("🚫 Click already being processed, ignoring duplicate. Current flag state:", isProcessingClick);
+    console.log("🚫 Call stack:", new Error().stack);
     return;
   }
+  console.log("✅ Setting isProcessingClick to true");
   isProcessingClick = true;
 
   try {
     let contentTypes = [];
 
     // If this is a history navigation, we have no element, only an ID.
-    // We can skip the broad detection and go straight to finding the hypercite.
+    // We can skip the broad detection and go straight to finding the content.
     if (!element && directHyperciteId) {
-        console.log(`🎯 History navigation detected for: ${directHyperciteId}. Detecting hypercite content directly.`);
-        const hyperciteData = await detectHypercites(null, directHyperciteId);
-        if (hyperciteData) {
+        console.log(`🎯 History navigation detected for: ${directHyperciteId}. Detecting content directly.`);
+        
+        // Determine content type from the ID and detect accordingly
+        if (directHyperciteId.startsWith('hypercite_')) {
+          const hyperciteData = await detectHypercites(null, directHyperciteId);
+          if (hyperciteData) {
             contentTypes.push(hyperciteData);
+          }
+        } else if (directHyperciteId.startsWith('HL_')) {
+          const highlightData = await detectHighlights(null, [directHyperciteId]);
+          if (highlightData) {
+            contentTypes.push(highlightData);
+          }
+        } else if (directHyperciteId.startsWith('footnote_')) {
+          const footnoteId = directHyperciteId.replace('footnote_', '');
+          const footnoteData = {
+            type: 'footnote',
+            element: null,
+            elementId: footnoteId,
+            fnCountId: null // Will be determined during content building
+          };
+          contentTypes.push(footnoteData);
+        } else if (directHyperciteId.startsWith('citation_')) {
+          const referenceId = directHyperciteId.replace('citation_', '');
+          const citationData = {
+            type: 'citation',
+            element: null,
+            referenceId: referenceId
+          };
+          contentTypes.push(citationData);
         }
     } else if (element) {
         // This is a standard click, run the full detection.
@@ -185,16 +218,52 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     
     console.log(`📊 Detected content types: ${contentTypes.map(c => c.type).join(', ')}`);
     
-    // Only manage history if not skipping URL update (i.e., not from popstate)
-    if (!skipUrlUpdate) {
-      const hyperciteContent = contentTypes.find(ct => ct.type === 'hypercite');
-      if (hyperciteContent && hyperciteContent.hyperciteId) {
-        const cleanId = hyperciteContent.hyperciteId.replace(/^hypercite_/, '');
-        const newUrlWithHash = `${window.location.pathname}${window.location.search}#hypercite_${cleanId}`;
+    // Store container state in history for back button support
+    if (!skipUrlUpdate && !isBackNavigation) {
+      const containerState = {
+        contentTypes: contentTypes.map(ct => ({
+          type: ct.type,
+          hyperciteId: ct.hyperciteId,
+          highlightIds: ct.highlightIds,
+          fnCountId: ct.fnCountId,
+          elementId: ct.elementId,
+          referenceId: ct.referenceId,
+          relationshipStatus: ct.relationshipStatus
+        })),
+        newHighlightIds,
+        timestamp: Date.now()
+      };
+      
+      // Store in current history state for potential restoration
+      const currentState = history.state || {};
+      const newState = {
+        ...currentState,
+        hyperlitContainer: containerState
+      };
+      
+      console.log('📊 Storing hyperlit container state in history:', containerState);
+      
+      // Determine if we should update URL (only for single content types)
+      const urlHash = determineSingleContentHash(contentTypes);
+      if (urlHash) {
+        // Check if we already have a specific hypercite target that should be preserved
+        const currentHash = window.location.hash.substring(1); // Remove #
+        const hasHyperciteTarget = currentHash && currentHash.startsWith('hypercite_');
         
-        // Don't create history entries here - let the navigation system handle it
-        console.log(`📊 Hypercite container opened for ${newUrlWithHash} (no history entry created)`);
-        // Note: URL management is handled by BookToBookTransition or LinkNavigationHandler
+        if (hasHyperciteTarget && contentTypes[0].type === 'highlight') {
+          // We're opening a highlight container but there's a specific hypercite target
+          // Preserve the original hypercite hash for in-container scrolling
+          console.log(`📊 Preserving hypercite target in URL: #${currentHash}`);
+          history.replaceState(newState, '');
+        } else {
+          const newUrl = `${window.location.pathname}${window.location.search}#${urlHash}`;
+          console.log(`📊 Updating URL for single content: ${newUrl}`);
+          history.pushState(newState, '', newUrl);
+        }
+      } else {
+        // Multiple content types or no hash needed - keep current URL
+        console.log('📊 Multiple content types detected - keeping current URL');
+        history.replaceState(newState, '');
       }
     }
     
@@ -391,12 +460,27 @@ async function detectHypercites(element, directHyperciteId = null) {
 
   if (hyperciteIdFromElement) {
     let hyperciteIds = [];
-    // If we have an element, check for data-overlapping
-    if (hyperciteElement && hyperciteElement.hasAttribute('data-overlapping')) {
-      hyperciteIds = hyperciteElement.getAttribute('data-overlapping').split(',');
-    }
-    else {
+    let primaryHyperciteId = hyperciteIdFromElement;
+    
+    // Check if this is an overlapping hypercite
+    if (hyperciteElement && hyperciteElement.id === 'hypercite_overlapping' && hyperciteElement.hasAttribute('data-overlapping')) {
+      // Extract actual hypercite IDs from data-overlapping attribute
+      const overlappingData = hyperciteElement.getAttribute('data-overlapping');
+      hyperciteIds = overlappingData.split(',').map(id => id.trim());
+      
+      // For overlapping hypercites, we need to determine which hypercite to use as primary
+      // Use the first one as primary for data-content-id purposes
+      primaryHyperciteId = hyperciteIds[0];
+      
+      console.log(`🔄 Detected overlapping hypercite with IDs: ${JSON.stringify(hyperciteIds)}, using primary: ${primaryHyperciteId}`);
+    } else if (hyperciteElement && hyperciteElement.hasAttribute('data-overlapping')) {
+      // Regular overlapping case
+      hyperciteIds = hyperciteElement.getAttribute('data-overlapping').split(',').map(id => id.trim());
+      primaryHyperciteId = hyperciteIds[0];
+    } else {
+      // Single hypercite
       hyperciteIds = [hyperciteIdFromElement];
+      primaryHyperciteId = hyperciteIdFromElement;
     }
 
     // Determine relationshipStatus:
@@ -416,7 +500,7 @@ async function detectHypercites(element, directHyperciteId = null) {
       const tx = db.transaction("hypercites", "readonly");
       const store = tx.objectStore("hypercites");
       const index = store.index("hyperciteId");
-      const req = index.get(hyperciteIdFromElement);
+      const req = index.get(primaryHyperciteId);
       const result = await new Promise((resolve) => {
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => resolve(null);
@@ -429,7 +513,7 @@ async function detectHypercites(element, directHyperciteId = null) {
     return {
       type: 'hypercite',
       element: hyperciteElement, // May be null if directHyperciteId was used and element not found
-      hyperciteId: hyperciteIdFromElement,
+      hyperciteId: primaryHyperciteId, // Use primary hypercite ID instead of element ID
       hyperciteIds: hyperciteIds,
       relationshipStatus: relationshipStatus
     };
@@ -492,8 +576,26 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
     })
   );
   
-  // Sort by timestamp (oldest first, with 0 timestamps appearing first)
-  contentTypesWithTimestamps.sort((a, b) => a.timestamp - b.timestamp);
+  // Sort by content type priority: footnotes/citations first, then hypercites, then highlights
+  const typePriority = {
+    'footnote': 1,
+    'citation': 2, 
+    'hypercite': 3,
+    'highlight': 4
+  };
+  
+  contentTypesWithTimestamps.sort((a, b) => {
+    const priorityA = typePriority[a.type] || 999;
+    const priorityB = typePriority[b.type] || 999;
+    
+    // First sort by type priority
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+    
+    // Within same type, sort by timestamp (oldest first)
+    return a.timestamp - b.timestamp;
+  });
   
   console.log("🕐 Content types sorted by timestamp:", contentTypesWithTimestamps.map(ct => ({ type: ct.type, timestamp: ct.timestamp })));
   
@@ -559,12 +661,25 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
  */
 async function buildFootnoteContent(contentType) {
   try {
-    const { elementId, fnCountId } = contentType;
+    const { elementId, fnCountId, element } = contentType;
     
-    // Extract footnote ID (remove "ref" suffix if present)
-    let footnoteId = elementId;
-    if (footnoteId.includes('ref')) {
-      footnoteId = footnoteId.replace('ref', '');
+    // Get the actual footnoteId from the link's href, not the elementId
+    let footnoteId = null;
+    
+    // Look for the footnote link inside the sup element
+    const footnoteLink = element.querySelector('a.footnote-ref');
+    if (footnoteLink && footnoteLink.href) {
+      // Extract footnoteId from href like "#test555gdzzdddcsxkkFn1758412345001"
+      footnoteId = footnoteLink.href.split('#')[1];
+      console.log(`🔍 Found footnote link with href: ${footnoteLink.href}, extracted footnoteId: ${footnoteId}`);
+    }
+    
+    // Fallback: try the old method if no link found
+    if (!footnoteId) {
+      footnoteId = elementId;
+      if (footnoteId && footnoteId.includes('ref')) {
+        footnoteId = footnoteId.replace('ref', '');
+      }
     }
     
     const db = await openDatabase();
@@ -585,7 +700,7 @@ async function buildFootnoteContent(contentType) {
         .replace(/<\/?div[^>]*>/g, ''); // Remove <div> tags
       
       return `
-        <div class="footnotes-section">
+        <div class="footnotes-section" data-content-id="${footnoteId}">
           <div class="footnote-content">
             <div class="footnote-text" style="display: flex; align-items: flex-start;"><sup style="margin-right: 1em; flex-shrink: 0;">${fnCountId}</sup><span style="flex: 1;">${inlineContent}</span></div>
           </div>
@@ -593,7 +708,7 @@ async function buildFootnoteContent(contentType) {
         </div>`;
     } else {
       return `
-        <div class="footnotes-section">
+        <div class="footnotes-section" data-content-id="${footnoteId}">
           <sup>${fnCountId}</sup>
           <div class="error">Footnote not found: ${footnoteId}</div>
           <hr>
@@ -602,7 +717,7 @@ async function buildFootnoteContent(contentType) {
   } catch (error) {
     console.error('Error building footnote content:', error);
     return `
-      <div class="footnotes-section">
+      <div class="footnotes-section" data-content-id="${footnoteId || 'unknown'}">
         <sup>${fnCountId || '?'}</sup>
         <div class="error">Error loading footnote</div>
         <hr>
@@ -630,7 +745,7 @@ async function buildCitationContent(contentType) {
     
     if (result && result.content) {
       return `
-        <div class="citations-section">
+        <div class="citations-section" data-content-id="${referenceId}">
           <div class="citation-content">
             <div class="citation-text">${result.content}</div>
           </div>
@@ -638,7 +753,7 @@ async function buildCitationContent(contentType) {
         </div>`;
     } else {
       return `
-        <div class="citations-section">
+        <div class="citations-section" data-content-id="${referenceId}">
           <div class="error">Reference not found: ${referenceId}</div>
           <hr style="margin: 2em 0; opacity: 0.5;">
         </div>`;
@@ -646,7 +761,7 @@ async function buildCitationContent(contentType) {
   } catch (error) {
     console.error('Error building citation content:', error);
     return `
-      <div class="citations-section">
+      <div class="citations-section" data-content-id="error">
         <h3>Citation:</h3>
         <div class="error">Error loading reference</div>
         <hr>
@@ -771,14 +886,14 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
       html += `  </div>
 `;
       html += `  <blockquote class="highlight-text" contenteditable="${isEditable}" `; 
-      html += `data-highlight-id="${h.hyperlight_id}">
+      html += `data-highlight-id="${h.hyperlight_id}" data-content-id="${h.hyperlight_id}">
 `;
       html += `    "${truncatedText}"
 `;
       html += `  </blockquote>
 `;
       html += `  <div class="annotation" contenteditable="${isEditable}" `; 
-      html += `data-highlight-id="${h.hyperlight_id}">
+      html += `data-highlight-id="${h.hyperlight_id}" data-content-id="${h.hyperlight_id}">
 `;
       html += `    ${h.annotation || ""}
 `;
@@ -826,6 +941,8 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
 async function buildHyperciteContent(contentType) {
   try {
     const { hyperciteId, hyperciteIds, relationshipStatus } = contentType;
+    // Use the original clicked hyperciteId as the data-content-id for all links
+    const originalHyperciteId = hyperciteId || (hyperciteIds && hyperciteIds[0]) || 'unknown';
     console.log(`🔗 Building hypercite content for ID: ${hyperciteId}, IDs: ${JSON.stringify(hyperciteIds)}, status: ${relationshipStatus}`);
     
     if (relationshipStatus === 'single') {
@@ -873,20 +990,29 @@ async function buildHyperciteContent(contentType) {
 <h1>Cited By</h1>
 `;
     
-    // Collect all citedIN links from all hypercites
-    const allCitedINLinks = [];
+    // Collect all citedIN links with their corresponding hypercite IDs
+    const citedINLinksWithIds = [];
     for (const hyperciteData of hyperciteDataArray) {
       if (Array.isArray(hyperciteData.citedIN) && hyperciteData.citedIN.length > 0) {
-        allCitedINLinks.push(...hyperciteData.citedIN);
+        hyperciteData.citedIN.forEach(link => {
+          citedINLinksWithIds.push({
+            link: link,
+            hyperciteId: hyperciteData.hyperciteId
+          });
+        });
       }
     }
     
-    // Remove duplicates
-    const uniqueCitedINLinks = [...new Set(allCitedINLinks)];
+    // Remove duplicates based on link URL (but keep the hyperciteId association)
+    const uniqueCitedINLinks = citedINLinksWithIds.filter((item, index, self) => 
+      index === self.findIndex(t => t.link === item.link)
+    );
     
     if (uniqueCitedINLinks.length > 0) {
       const linksHTML = await Promise.all(
-        uniqueCitedINLinks.map(async (citationID) => {
+        uniqueCitedINLinks.map(async (citationItem) => {
+          const { link: citationID, hyperciteId } = citationItem;
+          
           // Extract book ID from citation URL
           let bookID;
           const citationParts = citationID.split("#");
@@ -925,7 +1051,7 @@ async function buildHyperciteContent(contentType) {
                   : formattedCitation;
 
                 resolve(
-                  `<blockquote>${citationText} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></blockquote>`
+                  `<blockquote>${citationText} <a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}"><span class="open-icon">↗</span></a></blockquote>`
                 );
               } else {
                 // Fallback: try to fetch from server
@@ -937,10 +1063,10 @@ async function buildHyperciteContent(contentType) {
                     : formattedCitation;
 
                   resolve(
-                    `<blockquote>${citationText} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></blockquote>`
+                    `<blockquote>${citationText} <a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}"><span class="open-icon">↗</span></a></blockquote>`
                   );
                 } else {
-                  resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
+                  resolve(`<a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}">${citationID}</a>`);
                 }
               }
             };
@@ -955,10 +1081,10 @@ async function buildHyperciteContent(contentType) {
                   : formattedCitation;
 
                 resolve(
-                  `<blockquote>${citationText} <a href="${citationID}" class="citation-link"><span class="open-icon">↗</span></a></blockquote>`
+                  `<blockquote>${citationText} <a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}"><span class="open-icon">↗</span></a></blockquote>`
                 );
               } else {
-                resolve(`<a href="${citationID}" class="citation-link">${citationID}</a>`);
+                resolve(`<a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}">${citationID}</a>`);
               }
             };
           });
@@ -988,6 +1114,48 @@ ${linksHTML.join("")}
         <hr>
       </div>`;
   }
+}
+
+/**
+ * Determine URL hash for single content types
+ * Returns null for multiple content types (overlapping content)
+ */
+function determineSingleContentHash(contentTypes) {
+  if (contentTypes.length !== 1) {
+    return null; // Multiple content types - don't update URL
+  }
+  
+  const contentType = contentTypes[0];
+  
+  switch (contentType.type) {
+    case 'hypercite':
+      if (contentType.hyperciteId) {
+        // Remove hypercite_ prefix if present, then add it back for consistency
+        const cleanId = contentType.hyperciteId.replace(/^hypercite_/, '');
+        return `hypercite_${cleanId}`;
+      }
+      break;
+      
+    case 'highlight':
+      if (contentType.highlightIds && contentType.highlightIds.length === 1) {
+        return contentType.highlightIds[0]; // Already has HL_ prefix
+      }
+      break;
+      
+    case 'footnote':
+      if (contentType.elementId) {
+        return `footnote_${contentType.elementId}`;
+      }
+      break;
+      
+    case 'citation':
+      if (contentType.referenceId) {
+        return `citation_${contentType.referenceId}`;
+      }
+      break;
+  }
+  
+  return null;
 }
 
 /**
@@ -1132,6 +1300,127 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
     } catch (error) {
       console.error('Error in highlight post-actions:', error);
     }
+  }
+  
+  // Always attach data-content-id link listeners for URL updates
+  setTimeout(() => {
+    attachDataContentIdLinkListeners();
+  }, 100);
+}
+
+/**
+ * Attach listeners to all links inside hyperlit-container for smart URL updates
+ */
+function attachDataContentIdLinkListeners() {
+  const allLinks = document.querySelectorAll('#hyperlit-container a[href]');
+  
+  console.log(`🔗 Found ${allLinks.length} links in hyperlit container for smart URL updates`);
+  
+  allLinks.forEach(link => {
+    // Skip if already processed to prevent duplicate listeners
+    if (link._smartContentListenerAttached) {
+      console.log(`🔗 Skipping link - already has smart listener:`, link.href);
+      return;
+    }
+    
+    // Remove existing listener if present
+    if (link._smartContentListener) {
+      link.removeEventListener('click', link._smartContentListener);
+    }
+    
+    // Create new listener
+    link._smartContentListener = function(event) {
+      console.log(`🔗 Smart content listener triggered for:`, this.href, `isProcessingClick: ${isProcessingClick}`);
+      const contextId = findClosestContentId(this);
+      if (contextId) {
+        console.log(`🔗 Link clicked in context: ${contextId} - saving state and closing container`);
+        
+        // Save the context we're navigating FROM in the current history state
+        const currentState = history.state || {};
+        const newState = {
+          ...currentState,
+          hyperlitContainer: {
+            contentTypes: [{ 
+              type: contextId.startsWith('HL_') ? 'highlight' : 
+                    contextId.startsWith('hypercite_') ? 'hypercite' :
+                    contextId.startsWith('footnote_') ? 'footnote' : 'citation',
+              [contextId.startsWith('HL_') ? 'highlightIds' : 
+                contextId.startsWith('hypercite_') ? 'hyperciteId' :
+                contextId.startsWith('footnote_') ? 'elementId' : 'referenceId']: 
+                contextId.startsWith('HL_') ? [contextId] : contextId
+            }],
+            timestamp: Date.now()
+          }
+        };
+        
+        // Replace current state to preserve context for back button
+        history.replaceState(newState, '');
+        
+        // Close container immediately - let LazyLoader + LinkNavigationHandler handle the navigation
+        console.log(`🔗 Closing container - letting normal link flow continue`);
+        closeHyperlitContainer();
+      } else {
+        console.log(`🔗 No context ID found for link:`, this.href);
+      }
+      
+      // DON'T prevent default - let LazyLoader + LinkNavigationHandler process the link normally
+    };
+    
+    // Attach the listener
+    link.addEventListener('click', link._smartContentListener);
+    
+    // Mark as processed
+    link._smartContentListenerAttached = true;
+    console.log(`🔗 Attached smart listener to:`, link.href);
+  });
+}
+
+/**
+ * Find the closest data-content-id by traversing up the DOM
+ */
+function findClosestContentId(element) {
+  // Special case: if this is a hypercite link with an ID, use that as the content ID
+  if (element.id && element.id.startsWith('hypercite_')) {
+    console.log(`🎯 Found hypercite link with ID: ${element.id}`);
+    return element.id;
+  }
+  
+  // First check if the link itself has data-content-id
+  if (element.hasAttribute('data-content-id')) {
+    return element.getAttribute('data-content-id');
+  }
+  
+  // Then traverse up to find the closest parent with data-content-id
+  let current = element.parentElement;
+  while (current && current !== document.body) {
+    if (current.hasAttribute('data-content-id')) {
+      const contentId = current.getAttribute('data-content-id');
+      console.log(`🎯 Found closest context: ${contentId} on element:`, current.className || current.tagName);
+      return contentId;
+    }
+    current = current.parentElement;
+  }
+  
+  console.warn('🚫 No data-content-id found for link:', element.href);
+  return null;
+}
+
+/**
+ * Determine hash from content ID
+ */
+function determineHashFromContentId(contentId) {
+  // Handle different content ID patterns
+  if (contentId.startsWith('hypercite_')) {
+    return contentId; // Already in correct format
+  } else if (contentId.startsWith('HL_')) {
+    return contentId; // Already in correct format  
+  } else if (contentId.startsWith('footnote_')) {
+    return contentId; // Already in correct format
+  } else if (contentId.startsWith('citation_')) {
+    return contentId; // Already in correct format
+  } else {
+    // Plain ID - try to determine type by context or assume citation
+    return `citation_${contentId}`;
   }
 }
 
@@ -1285,5 +1574,90 @@ async function hideHighlight(highlightId) {
   }
 }
 
+
+/**
+ * Restore hyperlit container from history state
+ * Called when user navigates back to a page that had an open container
+ */
+export async function restoreHyperlitContainerFromHistory() {
+  const historyState = history.state;
+  
+  if (!historyState || !historyState.hyperlitContainer) {
+    console.log('📊 No hyperlit container state found in history');
+    return false;
+  }
+  
+  const containerState = historyState.hyperlitContainer;
+  console.log('📊 Restoring hyperlit container from history:', containerState);
+  
+  try {
+    // Reconstruct content types from stored state
+    const contentTypes = [];
+    
+    for (const storedType of containerState.contentTypes) {
+      let contentType = { ...storedType };
+      
+      // For hypercites, we might need to refetch some data
+      if (storedType.type === 'hypercite' && storedType.hyperciteId) {
+        const hyperciteData = await detectHypercites(null, storedType.hyperciteId);
+        if (hyperciteData) {
+          contentType = hyperciteData;
+        }
+      }
+      
+      // For highlights, refetch if we have IDs
+      if (storedType.type === 'highlight' && storedType.highlightIds) {
+        const highlightData = await detectHighlights(null, storedType.highlightIds);
+        if (highlightData) {
+          contentType = highlightData;
+        }
+      }
+      
+      contentTypes.push(contentType);
+    }
+    
+    if (contentTypes.length > 0) {
+      // Build and open the container
+      const unifiedContent = await buildUnifiedContent(contentTypes, containerState.newHighlightIds || []);
+      openHyperlitContainer(unifiedContent, true); // isBackNavigation = true
+      
+      // Handle post-open actions
+      await handlePostOpenActions(contentTypes, containerState.newHighlightIds || []);
+      
+      console.log('✅ Successfully restored hyperlit container from history');
+      return true;
+    }
+  } catch (error) {
+    console.error('❌ Error restoring hyperlit container from history:', error);
+  }
+  
+  return false;
+}
+
+/**
+ * Get current container state for preservation during navigation
+ * Returns null if no container is open
+ */
+export function getCurrentContainerState() {
+  if (!hyperlitManager || !document.getElementById('hyperlit-container')?.style.display || 
+      document.getElementById('hyperlit-container').style.display === 'none') {
+    return null;
+  }
+  
+  // Try to extract state from current container content
+  // This is a fallback method - ideally state should be tracked during opening
+  const container = document.getElementById('hyperlit-container');
+  if (!container) return null;
+  
+  const state = {
+    isOpen: true,
+    timestamp: Date.now(),
+    // Could extract more detailed state here if needed
+    hasContent: container.innerHTML.length > 0
+  };
+  
+  console.log('📊 Current container state:', state);
+  return state;
+}
 
 export { hyperlitManager };
