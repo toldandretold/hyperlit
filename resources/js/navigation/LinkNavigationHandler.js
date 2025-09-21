@@ -395,7 +395,36 @@ export class LinkNavigationHandler {
       return;
     }
     
-    // Try to restore container state from history first
+    // Check if this is a hyperlight URL that needs special handling
+    const currentPath = window.location.pathname;
+    const currentHash = window.location.hash.substring(1); // Remove #
+    
+    if (this.isHyperlightUrl(currentPath) && currentHash) {
+      console.log(`🎯 Back button with hyperlight URL: ${currentPath} -> ${currentHash}`);
+      
+      try {
+        // Extract hyperlight ID from path
+        const pathSegments = currentPath.split('/').filter(Boolean);
+        const hyperlightId = pathSegments.find(segment => segment.startsWith('HL_'));
+        
+        if (hyperlightId) {
+          console.log(`🎯 Restoring hyperlight container: ${hyperlightId} with target: ${currentHash}`);
+          
+          // Use the existing hyperlight navigation system
+          const { navigateToHyperciteTarget } = await import('../hyperCites.js');
+          const { currentLazyLoader } = await import('../initializePage.js');
+          
+          if (currentLazyLoader && currentHash.startsWith('hypercite_')) {
+            navigateToHyperciteTarget(hyperlightId, currentHash, currentLazyLoader);
+            return; // Successfully handled
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to handle hyperlight URL in popstate:', error);
+      }
+    }
+    
+    // Try to restore container state from history for non-hyperlight URLs
     try {
       const { restoreHyperlitContainerFromHistory } = await import('../unified-container.js');
       const containerRestored = await restoreHyperlitContainerFromHistory();
