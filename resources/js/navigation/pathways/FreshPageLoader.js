@@ -19,12 +19,15 @@ export class FreshPageLoader {
       // Use provided progress callback or create our own
       const progress = progressCallback || ProgressManager.createProgressCallback('initial');
       
-      // Import the existing reader initialization system
-      const { initializeReaderView } = await import('../../viewManager.js');
+      // Import the universal page initialization system
+      const { universalPageInitializer } = await import('../../viewManager.js');
       
-      // Delegate to the existing reader initialization
-      // This maintains compatibility with the current system
-      await initializeReaderView(progress);
+      // Delegate to the universal page initializer
+      // This handles all UI initialization including NavButtons
+      await universalPageInitializer(progress);
+      
+      // All UI initialization is now handled by universalPageInitializer
+      console.log("✅ FreshPageLoader: UI initialization delegated to universalPageInitializer");
       
       console.log('✅ FreshPageLoader: Fresh page initialization complete');
       

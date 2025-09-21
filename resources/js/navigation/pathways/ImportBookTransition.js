@@ -37,6 +37,12 @@ export class ImportBookTransition {
       // Replace the entire body content (form → reader transition)
       await this.replaceBodyContent(readerHtml, bookId);
       
+      progress(60, 'Waiting for DOM stabilization...');
+      
+      // Wait for DOM to be ready for content insertion
+      const { waitForLayoutStabilization } = await import('../../domReadiness.js');
+      await waitForLayoutStabilization();
+      
       // Set up session storage for imported book handling
       this.setupImportedBookSession(bookId);
       
@@ -44,6 +50,15 @@ export class ImportBookTransition {
       
       // Initialize the imported reader view
       await this.initializeImportedReader(bookId, progress);
+      
+      progress(80, 'Ensuring content readiness...');
+      
+      // Wait for content to be fully ready after initialization
+      const { waitForContentReady } = await import('../../domReadiness.js');
+      await waitForContentReady(bookId, {
+        maxWaitTime: 10000,
+        requireLazyLoader: true
+      });
       
       progress(90, 'Setting up edit mode...');
       
@@ -194,22 +209,11 @@ export class ImportBookTransition {
       }
       
       // Initialize the reader view using the existing system
-      const { initializeReaderView } = await import('../../viewManager.js');
-      await initializeReaderView(progressCallback);
+      const { universalPageInitializer } = await import('../../viewManager.js');
+      await universalPageInitializer(progressCallback);
       
-      // Ensure NavButtons positioning is updated after DOM replacement
-      setTimeout(async () => {
-        try {
-          const readerModule = await import('../../reader-DOMContentLoaded.js');
-          if (readerModule.navButtons) {
-            readerModule.navButtons.rebindElements();
-            readerModule.navButtons.updatePosition(); // Explicitly trigger positioning
-            console.log("✅ ImportBookTransition: Rebound NavButtons and updated positioning");
-          }
-        } catch (error) {
-          console.warn('Could not rebind NavButtons:', error);
-        }
-      }, 100); // Small delay to ensure DOM is settled
+      // All UI rebinding is now handled by universalPageInitializer
+      console.log("✅ ImportBookTransition: UI initialization delegated to universalPageInitializer");
       
     } catch (error) {
       console.error('❌ ImportBookTransition: Reader initialization failed:', error);

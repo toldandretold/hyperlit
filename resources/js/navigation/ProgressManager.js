@@ -8,6 +8,7 @@ export class ProgressManager {
   static progressBarElement = null;
   static progressTextElement = null;
   static progressDetailsElement = null;
+  static _isHidingInProgress = false;
 
   /**
    * Initialize progress elements (lazy loading)
@@ -31,6 +32,8 @@ export class ProgressManager {
     if (this.overlayElement) {
       this.overlayElement.style.display = 'block';
       this.overlayElement.style.visibility = 'visible';
+      // Ensure overlay doesn't block browser navigation events
+      this.overlayElement.style.pointerEvents = 'none';
     }
     
     this.updateProgress(percent, message);
@@ -48,6 +51,8 @@ export class ProgressManager {
     if (this.overlayElement && this.overlayElement.style.display === 'none') {
       this.overlayElement.style.display = 'block';
       this.overlayElement.style.visibility = 'visible';
+      // Ensure overlay doesn't block browser navigation events
+      this.overlayElement.style.pointerEvents = 'none';
     }
     
     this.updateProgress(percent, message);
@@ -63,12 +68,22 @@ export class ProgressManager {
     
     const displayMessage = bookId ? `Loading ${bookId}...` : message;
     
-    // Import the navigation loading system if available
+    // FORCE immediate display - don't wait for dynamic imports
+    if (this.overlayElement) {
+      this.overlayElement.style.display = 'block';
+      this.overlayElement.style.visibility = 'visible';
+      // Ensure overlay doesn't block browser navigation events
+      this.overlayElement.style.pointerEvents = 'none';
+    }
+    
+    this.updateProgress(percent, displayMessage);
+    
+    // Try to use navigation loading system as enhancement, but don't wait for it
     import('../scrolling.js').then(({ showNavigationLoading }) => {
       showNavigationLoading(displayMessage);
     }).catch(() => {
-      // Fallback to standard progress system
-      this.showSPATransition(percent, displayMessage);
+      // Already showing progress above, so this is just an enhancement
+      console.log('Navigation loading system not available, using standard progress');
     });
     
     console.log(`📊 Book-to-book transition progress: ${percent}% - ${displayMessage}`);
@@ -99,30 +114,40 @@ export class ProgressManager {
    * Hide all progress indicators with smooth completion animation
    */
   static async hide() {
-    this.initializeElements();
-    
-    // Try to use the centralized hide function first
-    try {
-      const { hidePageLoadProgress } = await import('../reader-DOMContentLoaded.js');
-      await hidePageLoadProgress();
-      console.log('📊 Progress hidden via centralized system');
+    if (this._isHidingInProgress) {
+      console.log('📊 Progress hide already in progress, skipping');
       return;
-    } catch (error) {
-      console.warn('Could not use centralized progress hiding, using fallback');
     }
+    this._isHidingInProgress = true;
     
-    // Fallback hiding logic
-    await this.hideWithAnimation();
-    
-    // Also hide navigation loading if active
     try {
-      const { hideNavigationLoading } = await import('../scrolling.js');
-      hideNavigationLoading();
-    } catch (error) {
-      // Ignore if scrolling module not available
+      this.initializeElements();
+      
+      // Try to use the centralized hide function first
+      try {
+        const { hidePageLoadProgress } = await import('../reader-DOMContentLoaded.js');
+        await hidePageLoadProgress();
+        console.log('📊 Progress hidden via centralized system');
+        return;
+      } catch (error) {
+        console.warn('Could not use centralized progress hiding, using fallback');
+      }
+      
+      // Fallback hiding logic
+      await this.hideWithAnimation();
+      
+      // Also hide navigation loading if active
+      try {
+        const { hideNavigationLoading } = await import('../scrolling.js');
+        hideNavigationLoading();
+      } catch (error) {
+        // Ignore if scrolling module not available
+      }
+      
+      console.log('📊 Progress hidden via fallback system');
+    } finally {
+      this._isHidingInProgress = false;
     }
-    
-    console.log('📊 Progress hidden via fallback system');
   }
 
   /**

@@ -115,9 +115,9 @@ export function cleanupReaderView() {
   }
   */
 
-  // Clean up global event handlers
+  // Clean up global event handlers (click handler now managed by lazyLoaderFactory)
   if (globalLinkClickHandler) {
-    document.removeEventListener('click', globalLinkClickHandler);
+    // Click handler now managed by lazyLoaderFactory
     globalLinkClickHandler = null;
   }
   if (globalVisibilityHandler) {
@@ -245,8 +245,8 @@ export async function initializeImportedReaderView(bookId) {
   console.log("✅ Imported book: Content already in DOM, resolving first chunk promise");
   resolveFirstChunkPromise();
 
-  // ✅ Call the ACTUAL initializeReaderView function 
-  await initializeReaderView();
+  // ✅ Call the ACTUAL universalPageInitializer function 
+  await universalPageInitializer();
 
   // ✅ NOW call handleAutoEdit since the page is fully initialized
   console.log("🎯 Checking for auto-edit after imported book initialization");
@@ -305,7 +305,7 @@ export async function transitionToReaderView(bookId, hash = '', progressCallback
     history.pushState({}, "", newUrl);
 
     // Initialize the reader view and wait for content loading to complete
-    await initializeReaderView(progressCallback);
+    await universalPageInitializer(progressCallback);
     
     // ✅ Additional safety: Wait for the first chunk promise to ensure content is ready
     try {
@@ -333,9 +333,9 @@ let globalPopstateHandler = null;
 
 // Global link click handler to show overlay for all links
 function attachGlobalLinkClickHandler() {
-  // Remove existing handlers if they exist
+  // Remove existing handlers if they exist (click handler now managed by lazyLoaderFactory)
   if (globalLinkClickHandler) {
-    document.removeEventListener('click', globalLinkClickHandler);
+    // Click handler now managed by lazyLoaderFactory
   }
   if (globalVisibilityHandler) {
     document.removeEventListener('visibilitychange', globalVisibilityHandler);
@@ -633,8 +633,7 @@ function attachGlobalLinkClickHandler() {
     // load fresh (will get overlay from initial page load system)
   };
 
-  // Add all the event listeners
-  document.addEventListener('click', globalLinkClickHandler);
+  // Add all the event listeners (click handler now managed by lazyLoaderFactory)
   document.addEventListener('click', () => {
     recentLinkClick = true;
     setTimeout(() => { recentLinkClick = false; }, 1000);
@@ -644,9 +643,9 @@ function attachGlobalLinkClickHandler() {
   window.addEventListener('popstate', globalPopstateHandler);
 }
 
-export async function initializeReaderView(progressCallback = null) {
+export async function universalPageInitializer(progressCallback = null) {
   const currentBookId = book;
-  console.log(`🚀 Initializing Reader View for book: ${currentBookId}`);
+  console.log(`🚀 Universal Page Initializer for book: ${currentBookId}`);
   
   // Note: Cache invalidation checking removed for performance
   
@@ -678,45 +677,64 @@ export async function initializeReaderView(progressCallback = null) {
     console.log("📋 Imported book detected - using existing content");
   }
 
+  // Start loading content and wait for both content loading and DOM stabilization
   const loadPromise = loadHyperText(currentBookId, progressCallback);
-
-  setTimeout(() => {
-    console.log("✅ DOM settled. Initializing static UI components...");
+  
+  // Wait for DOM to be properly stable before initializing UI components
+  const { waitForLayoutStabilization } = await import('./domReadiness.js');
+  
+  // Wait for both content loading and layout stabilization to complete
+  await Promise.all([loadPromise, waitForLayoutStabilization()]);
+  
+  console.log("✅ DOM settled. Initializing static UI components...");
     // Use the persistent NavButtons instance from reader-DOMContentLoaded.js
     import('./reader-DOMContentLoaded.js').then(module => {
       if (module.navButtons) {
+        console.log("🔍 NavButtons before destroy - isInitialized:", module.navButtons.isInitialized);
+        // Always destroy and reinitialize to ensure clean state after DOM changes
+        module.navButtons.destroy();
+        console.log("🔍 NavButtons after destroy - isInitialized:", module.navButtons.isInitialized);
         module.navButtons.rebindElements();
-        module.navButtons.updatePosition(); // Explicitly trigger positioning
-        console.log("✅ Rebound persistent NavButtons instance and updated positioning");
+        console.log("🔍 NavButtons calling init() - isInitialized:", module.navButtons.isInitialized);
+        module.navButtons.init();
+        console.log("🔍 NavButtons after init() - isInitialized:", module.navButtons.isInitialized);
+        module.navButtons.updatePosition();
+        console.log("✅ Reinitialized NavButtons instance for universalPageInitializer");
       }
     });
-    initializeEditButtonListeners();
-    initializeSourceButtonListener();
-    updateEditButtonVisibility(currentBookId);
-    initializeHighlightManager();
-    initializeHighlightingControls(currentBookId);
-    initializeHypercitingControls(currentBookId);
-    initializeSelectionHandler();
+    // Check page type to only initialize reader-specific components on reader pages
+    const currentPageType = document.body.getAttribute('data-page');
+    console.log(`🎯 Page type detected: ${currentPageType}`);
     
-    // Initialize SelectionDeletionHandler for handling selection deletions
-    const editorContainer = document.querySelector('.main-content');
-    if (editorContainer) {
-      activeSelectionDeletionHandler = new SelectionDeletionHandler(editorContainer, {
-        onDeleted: (nodeId) => {
-          console.log(`✅ SelectionDeletionHandler: Node ${nodeId} deleted`);
-        }
+    
+      console.log("🔧 Initializing reader-specific components...");
+      initializeEditButtonListeners();
+      initializeSourceButtonListener();
+      updateEditButtonVisibility(currentBookId);
+      initializeHighlightManager();
+      initializeHighlightingControls(currentBookId);
+      initializeHypercitingControls(currentBookId);
+      initializeSelectionHandler();
+      
+      // Initialize SelectionDeletionHandler for handling selection deletions
+      const editorContainer = document.querySelector('.main-content');
+      if (editorContainer) {
+        activeSelectionDeletionHandler = new SelectionDeletionHandler(editorContainer, {
+          onDeleted: (nodeId) => {
+            console.log(`✅ SelectionDeletionHandler: Node ${nodeId} deleted`);
+          }
+        });
+        console.log("✅ SelectionDeletionHandler initialized");
+      } else {
+        console.warn("❌ Could not find .main-content for SelectionDeletionHandler");
+      }
+      
+      initEditToolbar({
+        toolbarId: "edit-toolbar",
+        editableSelector: ".main-content[contenteditable='true']",
+        currentBookId: currentBookId,
       });
-      console.log("✅ SelectionDeletionHandler initialized");
-    } else {
-      console.warn("❌ Could not find .main-content for SelectionDeletionHandler");
-    }
     
-    initEditToolbar({
-      toolbarId: "edit-toolbar",
-      editableSelector: ".main-content[contenteditable='true']",
-      currentBookId: currentBookId,
-    });
-  }, 0);
 
   await loadPromise;
   console.log("✅ Content loading process complete.");

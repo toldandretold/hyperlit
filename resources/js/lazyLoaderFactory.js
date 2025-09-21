@@ -108,6 +108,38 @@ export function createLazyLoader(config) {
     setupUserScrollDetection(document.documentElement);
   }
 
+  // 🔗 CENTRALIZED LINK HANDLING - scoped to this lazy loader instance
+  const globalLinkHandler = async (event) => {
+    const link = event.target.closest('a');
+    if (!link || !link.href) return;
+
+    console.log('🔗 LazyLoader: Global link clicked:', {
+      href: link.href,
+      bookId: instance.bookId
+    });
+
+    try {
+      // Import and delegate to LinkNavigationHandler for processing
+      const { LinkNavigationHandler } = await import('./navigation/LinkNavigationHandler.js');
+      const handled = await LinkNavigationHandler.handleLinkClick(event);
+      
+      if (handled) {
+        event.preventDefault();
+        event.stopPropagation();
+      } else if (handled === false) {
+        // LinkNavigationHandler explicitly said not to handle this (e.g., homepage navigation)
+        // Let the default browser behavior occur for proper history management
+        console.log('🔗 LazyLoader: Delegating to browser default navigation');
+      }
+    } catch (error) {
+      console.error('🔗 LazyLoader: Link handling failed:', error);
+    }
+  };
+
+  // Add the centralized link handler
+  document.addEventListener('click', globalLinkHandler);
+  instance.globalLinkHandler = globalLinkHandler; // Store for cleanup
+
   if (instance.isRestoringFromCache) {
     console.log("Skipping lazy loading due to cache restoration.");
     attachMarkers(container);
@@ -474,6 +506,13 @@ instance.restoreScrollPosition = async () => {
 
   instance.disconnect = () => {
     observer.disconnect();
+    
+    // 🔗 Remove the centralized link handler
+    if (instance.globalLinkHandler) {
+      document.removeEventListener('click', instance.globalLinkHandler);
+      console.log("🔗 LazyLoader: Global link handler removed");
+    }
+    
     console.log("Observer disconnected.");
   };
 

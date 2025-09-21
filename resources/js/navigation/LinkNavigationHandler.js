@@ -37,8 +37,7 @@ export class LinkNavigationHandler {
       this.handlePopstate(event);
     };
 
-    // Add all the event listeners
-    document.addEventListener('click', this.globalLinkClickHandler);
+    // Add all the event listeners (except click - now handled by lazyLoaderFactory)
     document.addEventListener('click', this.trackRecentLinkClick);
     document.addEventListener('visibilitychange', this.globalVisibilityHandler);
     window.addEventListener('focus', this.globalFocusHandler);
@@ -52,7 +51,7 @@ export class LinkNavigationHandler {
    */
   static removeGlobalHandlers() {
     if (this.globalLinkClickHandler) {
-      document.removeEventListener('click', this.globalLinkClickHandler);
+      // Click handler now managed by lazyLoaderFactory
     }
     if (this.globalVisibilityHandler) {
       document.removeEventListener('visibilitychange', this.globalVisibilityHandler);
@@ -76,45 +75,42 @@ export class LinkNavigationHandler {
    * Handle individual link clicks with intelligent routing
    */
   static async handleLinkClick(event) {
-    // Find the closest anchor tag
     const link = event.target.closest('a');
-    
     if (!link || !link.href) return;
 
     const linkUrl = new URL(link.href, window.location.origin);
     const currentUrl = new URL(window.location.href);
 
-    // Skip handling for special link types
-    if (this.shouldSkipLinkHandling(link, linkUrl, currentUrl)) {
-      return;
-    }
-
-    // Check if it's a true external link
-    if (linkUrl.origin !== currentUrl.origin) {
-      console.log(`🔗 LinkNavigationHandler: Allowing external navigation to ${linkUrl.href}`);
-      return;
-    }
-
-    // Get current book context
-    const { book } = await import('../app.js');
-    const currentBookPath = `/${book}`;
-
-    // Handle same-book navigation
-    if (this.isSameBookNavigation(linkUrl, currentUrl, currentBookPath)) {
+    // --- SYNCHRONOUS DECISION --- 
+    // Decide if this is an SPA-handled link without awaiting anything.
+    const isExternal = linkUrl.origin !== currentUrl.origin;
+    const shouldSkip = this.shouldSkipLinkHandling(link, linkUrl, currentUrl);
+    
+    // If it's not external and not a special link handled elsewhere, it's for us.
+    if (!isExternal && !shouldSkip) {
       event.preventDefault();
-      await this.handleSameBookNavigation(link, linkUrl);
-      return;
-    }
+      console.log('🔗 LinkNavigationHandler: Intercepted link for SPA routing.', link.href);
 
-    // Handle book-to-book navigation
-    if (this.isDifferentBookNavigation(linkUrl, currentBookPath)) {
-      event.preventDefault();
-      await this.handleBookToBookNavigation(link, linkUrl);
-      return;
-    }
+      // --- ASYNCHRONOUS PROCESSING ---
+      // Now that the default navigation is stopped, we can perform async operations.
+      try {
+        const { book } = await import('../app.js');
+        const currentBookPath = `/${book}`;
 
-    // Let other links proceed normally
-    console.log(`🔗 LinkNavigationHandler: Allowing normal navigation to ${link.href}`);
+        if (this.isSameBookNavigation(linkUrl, currentUrl, currentBookPath)) {
+          await this.handleSameBookNavigation(link, linkUrl);
+        } else if (this.isDifferentBookNavigation(linkUrl, currentBookPath)) {
+          await this.handleBookToBookNavigation(link, linkUrl);
+        } else {
+          // This case should not be reached if logic is correct, but as a fallback:
+          console.log(`🔗 LinkNavigationHandler: Link was not routed, falling back to full navigation.`);
+          window.location.href = link.href;
+        }
+      } catch (error) {
+        console.error('❌ SPA navigation failed, falling back to full navigation:', error);
+        window.location.href = link.href;
+      }
+    }
   }
 
   /**
@@ -164,7 +160,28 @@ export class LinkNavigationHandler {
    */
   static isSameBookNavigation(linkUrl, currentUrl, currentBookPath) {
     const isSamePageAnchor = linkUrl.pathname === currentUrl.pathname && linkUrl.hash !== '';
-    const isSameBookNavigation = linkUrl.pathname.startsWith(currentBookPath) && linkUrl.hash !== '';
+    
+    // Enhanced same-book detection for hyperlight URLs
+    const currentPathIsHyperlight = this.isHyperlightUrl(currentUrl.pathname);
+    const targetPathIsBook = linkUrl.pathname === currentBookPath;
+    const targetPathIsHyperlight = this.isHyperlightUrl(linkUrl.pathname);
+    
+    // Extract base book path from current URL if it's a hyperlight URL
+    const currentBasePath = currentPathIsHyperlight ? 
+      this.extractBookPathFromHyperlightUrl(currentUrl.pathname) : 
+      currentUrl.pathname;
+    
+    const linkBasePath = targetPathIsHyperlight ? 
+      this.extractBookPathFromHyperlightUrl(linkUrl.pathname) : 
+      linkUrl.pathname;
+    
+    // Same book if:
+    // 1. Exact same page anchor
+    // 2. Both paths resolve to same book (handling hyperlight URLs)
+    // 3. Target is book root and current is hyperlight of same book
+    const isSameBookNavigation = (currentBasePath === linkBasePath) || 
+      (currentPathIsHyperlight && targetPathIsBook && currentBasePath === currentBookPath) ||
+      (linkUrl.pathname.startsWith(currentBookPath) && linkUrl.hash !== '');
     
     return isSamePageAnchor || isSameBookNavigation;
   }
@@ -173,7 +190,12 @@ export class LinkNavigationHandler {
    * Check if this is different book navigation
    */
   static isDifferentBookNavigation(linkUrl, currentBookPath) {
-    return linkUrl.pathname && !linkUrl.pathname.startsWith(currentBookPath);
+    // Extract base book path if current URL is a hyperlight URL
+    const linkBasePath = this.isHyperlightUrl(linkUrl.pathname) ? 
+      this.extractBookPathFromHyperlightUrl(linkUrl.pathname) : 
+      linkUrl.pathname;
+      
+    return linkBasePath && !linkBasePath.startsWith(currentBookPath);
   }
 
   /**
@@ -201,7 +223,8 @@ export class LinkNavigationHandler {
           
           // Only update URL if we're not already there
           const currentUrl = window.location.pathname + window.location.hash;
-          if (currentUrl !== url.href) {
+          const targetUrl = url.pathname + url.hash;
+          if (currentUrl !== targetUrl) {
             console.log(`🔗 Updating URL for same-book hyperlight: ${url.href}`);
             window.history.pushState(null, '', url.href);
           }
@@ -223,10 +246,20 @@ export class LinkNavigationHandler {
           
           // Only update URL if we're not already there
           const currentUrl = window.location.pathname + window.location.hash;
-          if (currentUrl !== url.href) {
+          const targetUrl = url.pathname + url.hash;
+          if (currentUrl !== targetUrl) {
             console.log(`🔗 Updating URL for same-book navigation: ${url.href}`);
+            console.log(`🔗 Current URL before update: ${window.location.href}`);
             window.history.pushState(null, '', url.href);
+            console.log(`🔗 URL after pushState: ${window.location.href}`);
+            console.log(`🔗 History length: ${window.history.length}`);
+            
+            // DEBUG: Check if something is immediately overriding our URL
+            setTimeout(() => {
+              console.log(`🔗 URL after 100ms delay: ${window.location.href}`);
+            }, 100);
           }
+          
           navigateToInternalId(targetId, currentLazyLoader, false);
         }
       }
@@ -246,17 +279,22 @@ export class LinkNavigationHandler {
       const targetBookId = pathSegments[0];
       const targetHash = linkUrl.hash;
 
-      // Handle homepage navigation
+      // Handle homepage navigation using SPA pathway
       if (!targetBookId && (linkUrl.pathname === '/' || linkUrl.pathname === '')) {
-        console.log('🏠 Homepage navigation detected - updating URL and reloading');
+        console.log('🏠 Homepage navigation detected - using book-to-home SPA pathway');
         
-        // Update URL first to enable back button
-        history.pushState({}, '', linkUrl.href);
+        event.preventDefault();
+        event.stopPropagation();
         
-        // For now, do a page reload to homepage
-        // TODO: Could implement proper SPA homepage transition here
-        window.location.href = linkUrl.href;
-        return;
+        // Get current book for context
+        const currentPageType = document.body.getAttribute('data-page');
+        const fromBook = currentPageType === 'reader' ? window.book : null;
+        
+        // Use the book-to-home SPA pathway
+        const { NavigationManager } = await import('./NavigationManager.js');
+        await NavigationManager.navigate('book-to-home', { fromBook });
+        
+        return true;
       }
       // Check if this is a hyperlight URL
       const isHyperlightURL = pathSegments.length > 1 && pathSegments[1].startsWith('HL_');
@@ -273,12 +311,24 @@ export class LinkNavigationHandler {
           hyperciteId: hyperciteId || null
         });
       } else if (targetBookId) {
-        console.log(`🎯 Standard book-to-book navigation: ${targetBookId}${targetHash}`);
+        // Check current page type to determine the correct transition pathway
+        const currentPageType = document.body.getAttribute('data-page');
         
-        await NavigationManager.navigate('book-to-book', {
-          toBook: targetBookId,
-          hash: targetHash
-        });
+        if (currentPageType === 'home') {
+          console.log(`🏠➡️📖 Home-to-book navigation: ${targetBookId}${targetHash}`);
+          
+          await NavigationManager.navigate('home-to-book', {
+            toBook: targetBookId,
+            hash: targetHash
+          });
+        } else {
+          console.log(`🎯 Standard book-to-book navigation: ${targetBookId}${targetHash}`);
+          
+          await NavigationManager.navigate('book-to-book', {
+            toBook: targetBookId,
+            hash: targetHash
+          });
+        }
       } else {
         console.warn('Could not determine target book ID for navigation');
         window.location.href = link.href;
@@ -345,7 +395,50 @@ export class LinkNavigationHandler {
       return;
     }
     
-    // Same book - close any open containers and navigate to hash if present
+    // Check if this is a hyperlight URL that needs special handling
+    const currentPath = window.location.pathname;
+    const currentHash = window.location.hash.substring(1); // Remove #
+    
+    if (this.isHyperlightUrl(currentPath) && currentHash) {
+      console.log(`🎯 Back button with hyperlight URL: ${currentPath} -> ${currentHash}`);
+      
+      try {
+        // Extract hyperlight ID from path
+        const pathSegments = currentPath.split('/').filter(Boolean);
+        const hyperlightId = pathSegments.find(segment => segment.startsWith('HL_'));
+        
+        if (hyperlightId) {
+          console.log(`🎯 Restoring hyperlight container: ${hyperlightId} with target: ${currentHash}`);
+          
+          // Use the existing hyperlight navigation system
+          const { navigateToHyperciteTarget } = await import('../hyperCites.js');
+          const { currentLazyLoader } = await import('../initializePage.js');
+          
+          if (currentLazyLoader && currentHash.startsWith('hypercite_')) {
+            navigateToHyperciteTarget(hyperlightId, currentHash, currentLazyLoader);
+            return; // Successfully handled
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to handle hyperlight URL in popstate:', error);
+      }
+    }
+    
+    // Try to restore container state from history for non-hyperlight URLs
+    try {
+      const { restoreHyperlitContainerFromHistory } = await import('../unified-container.js');
+      const containerRestored = await restoreHyperlitContainerFromHistory();
+      
+      if (containerRestored) {
+        console.log('✅ Successfully restored hyperlit container from browser history');
+        return; // Don't need to do anything else if container was restored
+      }
+    } catch (error) {
+      console.warn('Failed to restore hyperlit container from history:', error);
+    }
+    
+    // If no container to restore, close any open containers and scroll to the hash if present.
+    // This prevents a loop where a container is re-opened from the hash after a back navigation.
     try {
       const { closeHyperlitContainer } = await import('../unified-container.js');
       closeHyperlitContainer();
@@ -353,9 +446,10 @@ export class LinkNavigationHandler {
       // ignore
     }
     
-    // Navigate to hash if present
+    // Always attempt to scroll to the hash on the main page if one exists.
     if (window.location.hash) {
       const targetId = window.location.hash.substring(1);
+      console.log(`🎯 Popstate with no state: navigating to hash #${targetId} on main page.`);
       try {
         const { navigateToInternalId } = await import('../scrolling.js');
         const { currentLazyLoader } = await import('../initializePage.js');
@@ -366,6 +460,19 @@ export class LinkNavigationHandler {
         console.warn('Failed to navigate to hash:', error);
       }
     }
+  }
+
+  /**
+   * Check if a hash represents hyperlit content
+   */
+  static isHyperlitContentHash(hash) {
+    if (!hash) return false;
+    
+    // Check for hyperlit content patterns
+    return hash.startsWith('hypercite_') || 
+           hash.startsWith('HL_') || 
+           hash.startsWith('footnote_') || 
+           hash.startsWith('citation_');
   }
 
   /**
@@ -382,6 +489,23 @@ export class LinkNavigationHandler {
   static extractBookSlugFromPath(path) {
     const match = path.match(/^\/([^\/]+)/);
     return match ? match[1] : null;
+  }
+
+  /**
+   * Check if a path is a hyperlight URL
+   */
+  static isHyperlightUrl(pathname) {
+    // Check if path matches /book/HL_something pattern
+    return /\/[^\/]+\/HL_/.test(pathname);
+  }
+
+  /**
+   * Extract book path from hyperlight URL
+   */
+  static extractBookPathFromHyperlightUrl(pathname) {
+    // Extract /book from /book/HL_something
+    const match = pathname.match(/^(\/[^\/]+)\/HL_/);
+    return match ? match[1] : pathname;
   }
 
   /**
