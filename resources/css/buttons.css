@@ -117,6 +117,20 @@ black #221F20;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  position: relative; /* Enable positioning for pseudo-element */
+}
+
+/* Expanded clickable area for .open buttons (like newBook) */
+.open::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  left: -15px;
+  right: -15px;
+  bottom: -15px;
+  z-index: 1;
+  /* Uncomment next line for debugging - shows the expanded click area */
+  /* background: rgba(255, 255, 0, 0.2); */
 }
 
 #cloudRef {
@@ -124,6 +138,20 @@ black #221F20;
   padding: 0;
   background: none;
   cursor: pointer;
+  position: relative; /* Enable positioning for pseudo-element */
+}
+
+/* Expanded clickable area for source button */
+#cloudRef::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  left: -15px;
+  right: -15px;
+  bottom: -15px;
+  z-index: 1;
+  /* Uncomment next line for debugging - shows the expanded click area */
+  /* background: rgba(0, 0, 255, 0.2); */
 }
 
 #cloudRef svg {
@@ -204,6 +232,20 @@ black #221F20;
   transition: transform 0.1s ease, filter 0.1s ease, left 0.3s ease; /* Added left transition */
   appearance: none;
   flex-shrink: 0;
+  position: relative; /* Enable positioning for pseudo-element */
+}
+
+/* Expanded clickable area for logo container */
+#logoContainer::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  left: -15px;
+  right: -15px;
+  bottom: -15px;
+  z-index: 1;
+  /* Uncomment next line for debugging - shows the expanded click area */
+  /* background: rgba(0, 255, 0, 0.2); */
 }
 
 #logoContainer img {
@@ -234,6 +276,20 @@ black #221F20;
   z-index: 999;
   transition: opacity 0.3s ease;
   flex-shrink: 0;
+  position: relative; /* Enable positioning for pseudo-element */
+}
+
+/* Expanded clickable area for user button */
+#userButtonContainer::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  left: -15px;
+  right: -15px;
+  bottom: -15px;
+  z-index: 1;
+  /* Uncomment next line for debugging - shows the expanded click area */
+  /* background: rgba(255, 0, 0, 0.2); */
 }
 
 #topRightContainer {
