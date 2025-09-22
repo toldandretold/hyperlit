@@ -716,6 +716,15 @@ export async function universalPageInitializer(progressCallback = null) {
       initializeHypercitingControls(currentBookId);
       initializeSelectionHandler();
       
+      // Initialize user profile page functionality if user owns this book
+      const { getCurrentUser } = await import('./auth.js');
+      const user = await getCurrentUser();
+      if (user && user.name === currentBookId) {
+        const { initializeUserProfilePage } = await import('./userProfilePage.js');
+        initializeUserProfilePage();
+        console.log("✅ User profile page functionality initialized");
+      }
+      
       // Initialize SelectionDeletionHandler for handling selection deletions
       const editorContainer = document.querySelector('.main-content');
       if (editorContainer) {
