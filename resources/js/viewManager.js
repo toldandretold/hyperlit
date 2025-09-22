@@ -719,7 +719,7 @@ export async function universalPageInitializer(progressCallback = null) {
       // Initialize user profile page functionality if user owns this book
       const { getCurrentUser } = await import('./auth.js');
       const user = await getCurrentUser();
-      console.log(`🔍 USER PROFILE CHECK: user=${JSON.stringify(user)}, currentBookId=${currentBookId}`);
+      console.log(`🔍 USER PROFILE CHECK: user=${user?.name || 'null'}, currentBookId=${currentBookId}`);
       if (user && user.name === currentBookId) {
         const { initializeUserProfilePage } = await import('./userProfilePage.js');
         initializeUserProfilePage();

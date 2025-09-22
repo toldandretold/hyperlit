@@ -9,6 +9,18 @@ export function initializeUserProfilePage() {
     }
     
     console.log("🔧 Initializing user profile page click handlers");
+    
+    // Debug: Check if delete buttons exist in DOM
+    const deleteButtons = document.querySelectorAll('.delete-book');
+    const libraryCards = document.querySelectorAll('.libraryCard');
+    console.log(`🔍 Found ${deleteButtons.length} delete buttons and ${libraryCards.length} library cards in DOM`);
+    
+    if (deleteButtons.length === 0 && libraryCards.length > 0) {
+        console.log("❌ DELETE BUTTONS MISSING: Library cards exist but no delete buttons found!");
+        console.log("📝 This indicates the server-side generation is not including delete buttons");
+        console.log("🔧 Check if backend changes were deployed and user is properly authenticated server-side");
+    }
+    
     userProfilePageInitialized = true;
     
     document.addEventListener('click', async (e) => {
