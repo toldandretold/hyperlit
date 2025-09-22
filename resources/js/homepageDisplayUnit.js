@@ -2,6 +2,9 @@ import { loadHyperText, resetCurrentLazyLoader } from './initializePage.js';
 import { setCurrentBook } from './app.js';
 import { showNavigationLoading, hideNavigationLoading } from './scrolling.js';
 
+let resizeHandler = null;
+const buttonHandlers = new Map();
+
 // Fix header spacing dynamically based on actual header height
 function fixHeaderSpacing() {
   const header = document.querySelector('.fixed-header');
@@ -40,17 +43,21 @@ function alignHeaderContent() {
 }
 
 export function initializeHomepageButtons() {
+  // First, ensure any old listeners are cleaned up
+  destroyHomepageDisplayUnit();
+
   // Fix header spacing on initialization
   fixHeaderSpacing();
   
   // Align header content with text content
   alignHeaderContent();
   
-  // Run again on window resize to handle responsive changes
-  window.addEventListener('resize', () => {
+  // Set up and store the resize handler
+  resizeHandler = () => {
     fixHeaderSpacing();
     alignHeaderContent();
-  });
+  };
+  window.addEventListener('resize', resizeHandler);
   
   // Initialize the default active content on page load  
   const activeButton = document.querySelector('.arranger-button.active');
@@ -60,23 +67,36 @@ export function initializeHomepageButtons() {
   }
   
   document.querySelectorAll('.arranger-button').forEach(button => {
-    button.addEventListener('click', async function() {
+    const handler = async function() {
       const targetId = this.dataset.content;
       
-      // Don't reinitialize if this button is already active
       if (this.classList.contains('active')) {
         console.log(`📄 ${targetId} is already active, skipping reinitialization`);
         return;
       }
       
-      // Update button states
       document.querySelectorAll('.arranger-button').forEach(btn => btn.classList.remove('active'));
       this.classList.add('active');
       
-      // Show loading overlay and transition to new content
       await transitionToBookContent(targetId, true);
-    });
+    };
+    button.addEventListener('click', handler);
+    buttonHandlers.set(button, handler); // Store handler for cleanup
   });
+}
+
+export function destroyHomepageDisplayUnit() {
+  if (resizeHandler) {
+    window.removeEventListener('resize', resizeHandler);
+    resizeHandler = null;
+    console.log('🧹 Homepage resize listener removed.');
+  }
+
+  buttonHandlers.forEach((handler, button) => {
+    button.removeEventListener('click', handler);
+  });
+  buttonHandlers.clear();
+  console.log('🧹 Homepage arranger button listeners removed.');
 }
 
 async function transitionToBookContent(bookId, showLoader = true) {
@@ -131,3 +151,4 @@ async function transitionToBookContent(bookId, showLoader = true) {
     // Could show an error state here
   }
 }
+

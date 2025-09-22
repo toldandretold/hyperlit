@@ -1729,3 +1729,14 @@ export function getCurrentContainerState() {
 }
 
 export { hyperlitManager };
+
+// Destroy function for cleanup during navigation
+export function destroyHyperlitManager() {
+  if (hyperlitManager) {
+    console.log('🧹 Destroying hyperlit container manager');
+    hyperlitManager.destroy();
+    hyperlitManager = null;
+    return true;
+  }
+  return false;
+}

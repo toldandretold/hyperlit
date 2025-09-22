@@ -20,6 +20,16 @@ export const isRefOpen = refManager.isOpen;
 // Export the manager itself so it can be rebound after SPA transitions
 export { refManager };
 
+// Destroy function for cleanup during navigation
+export function destroyRefManager() {
+  if (refManager) {
+    console.log('🧹 Destroying reference container manager');
+    refManager.destroy();
+    return true;
+  }
+  return false;
+}
+
 // Function to open the reference container with content (now redirects to unified system)
 export function openReferenceContainer(content) {
   console.log('🔧 DEBUG: openReferenceContainer called - redirecting to unified container');

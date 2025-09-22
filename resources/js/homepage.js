@@ -28,6 +28,31 @@ export async function initializeHomepage() {
   updatePageLoadProgress(40, "Setting up interface...");
   await new Promise(resolve => setTimeout(resolve, 100));
   
+  // Rebind button managers after SPA transition to ensure they reference correct DOM elements
+  try {
+    // Import and rebind userContainer manager
+    const userContainerModule = await import('./userContainer.js');
+    if (userContainerModule.default && userContainerModule.default.rebindElements) {
+      userContainerModule.default.rebindElements();
+      console.log('✅ User button rebound after SPA transition');
+      
+      // Re-initialize user state after SPA transition
+      if (userContainerModule.default.initializeUser) {
+        await userContainerModule.default.initializeUser();
+        console.log('✅ User state re-initialized after SPA transition');
+      }
+    }
+    
+    // Import and rebind newBookButton manager  
+    const newBookModule = await import('./newBookButton.js');
+    if (newBookModule.default && newBookModule.default.rebindElements) {
+      newBookModule.default.rebindElements();
+      console.log('✅ New book button rebound after SPA transition');
+    }
+  } catch (error) {
+    console.warn('Could not rebind button managers:', error);
+  }
+  
   // Initialize homepage buttons - this will handle loading the initial content
   initializeHomepageButtons();
   
