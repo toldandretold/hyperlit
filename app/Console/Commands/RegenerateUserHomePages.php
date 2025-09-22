@@ -37,8 +37,9 @@ class RegenerateUserHomePages extends Command
             $username = $user->name;
             $this->line("Processing user: {$username}");
 
-            // Regenerate the user's home page book
-            $result = $controller->generateUserHomeBook($username);
+            // Regenerate the user's home page book with owner permissions
+            // In console context, explicitly pass true since user owns their own page
+            $result = $controller->generateUserHomeBook($username, true);
 
             if ($result['success']) {
                 $this->info("  -> Successfully regenerated page for {$username}. Chunks created: " . ($result['count'] ?? 'N/A'));
