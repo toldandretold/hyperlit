@@ -556,6 +556,7 @@ async function showCustomAlert(title, message, options = {}) {
 
   const user = await getCurrentUser();
   const isLoggedIn = user !== null;
+  console.log(`🔍 User login status for alert: ${isLoggedIn ? 'logged in' : 'not logged in'}`);
 
   // Initial alert content
   let buttonsHtml = "";
