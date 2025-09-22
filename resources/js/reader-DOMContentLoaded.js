@@ -165,12 +165,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const { NavigationManager } = await import('./navigation/NavigationManager.js');
     await NavigationManager.handleFreshPageLoad();
 
-    const { getCurrentUser } = await import('./auth.js');
-    const user = await getCurrentUser();
-    if (user && user.name === book) {
-        const { initializeUserProfilePage } = await import('./userProfilePage.js');
-        initializeUserProfilePage();
-    }
+    // User profile page initialization is now handled in viewManager.js universalPageInitializer
     
     // Initialize footnote and citation click listeners
     initializeFootnoteCitationListeners();
