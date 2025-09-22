@@ -96,12 +96,96 @@ export default class NavButtons {
   }
 
   /**
+   * Checks if a click is near important buttons (logo, user, source, edit, TOC)
+   * Returns true if the click is within an expanded area around these buttons
+   */
+  isClickNearImportantButton(event) {
+    const logoContainer = document.getElementById('logoContainer');
+    const userButton = document.getElementById('userButton');
+    const userButtonContainer = document.getElementById('userButtonContainer');
+    const cloudRef = document.getElementById('cloudRef');
+    const editButton = document.getElementById('editButton');
+    const tocToggleButton = document.getElementById('toc-toggle-button');
+    
+    // Get click coordinates
+    const clickX = event.clientX || (event.touches && event.touches[0] ? event.touches[0].clientX : 0);
+    const clickY = event.clientY || (event.touches && event.touches[0] ? event.touches[0].clientY : 0);
+    
+    // Define expanded click area (padding around buttons)
+    const padding = 20; // pixels of extra clickable area around buttons
+    
+    // Check logo container
+    if (logoContainer) {
+      const logoRect = logoContainer.getBoundingClientRect();
+      if (clickX >= logoRect.left - padding && 
+          clickX <= logoRect.right + padding && 
+          clickY >= logoRect.top - padding && 
+          clickY <= logoRect.bottom + padding) {
+        return true;
+      }
+    }
+    
+    // Check user button (try both the button itself and its container)
+    const userElement = userButtonContainer || userButton;
+    if (userElement) {
+      const userRect = userElement.getBoundingClientRect();
+      if (clickX >= userRect.left - padding && 
+          clickX <= userRect.right + padding && 
+          clickY >= userRect.top - padding && 
+          clickY <= userRect.bottom + padding) {
+        return true;
+      }
+    }
+    
+    // Check source button (cloudRef)
+    if (cloudRef) {
+      const cloudRect = cloudRef.getBoundingClientRect();
+      if (clickX >= cloudRect.left - padding && 
+          clickX <= cloudRect.right + padding && 
+          clickY >= cloudRect.top - padding && 
+          clickY <= cloudRect.bottom + padding) {
+        return true;
+      }
+    }
+    
+    // Check edit button
+    if (editButton) {
+      const editRect = editButton.getBoundingClientRect();
+      if (clickX >= editRect.left - padding && 
+          clickX <= editRect.right + padding && 
+          clickY >= editRect.top - padding && 
+          clickY <= editRect.bottom + padding) {
+        return true;
+      }
+    }
+    
+    // Check TOC toggle button
+    if (tocToggleButton) {
+      const tocRect = tocToggleButton.getBoundingClientRect();
+      if (clickX >= tocRect.left - padding && 
+          clickX <= tocRect.right + padding && 
+          clickY >= tocRect.top - padding && 
+          clickY <= tocRect.bottom + padding) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
+  /**
    * Checks if an event should be ignored.
    */
 shouldIgnoreEvent(event) {
   // Always ignore edit toolbar - let it handle its own events without toggling nav
   if (event.target.closest('#edit-toolbar')) {
     console.log('NavButtons: Ignoring edit toolbar event - target:', event.target, 'type:', event.type);
+    return true;
+  }
+  
+  // Check if click is near important buttons (more forgiving click area)
+  if (this.isClickNearImportantButton(event)) {
+    console.log('NavButtons: Click near important button - ignoring to allow button interaction');
     return true;
   }
   
