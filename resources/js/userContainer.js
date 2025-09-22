@@ -237,6 +237,7 @@ export class UserContainerManager extends ContainerManager {
       if (response.ok && data.success) {
         setCurrentUser(data.user);
         this.user = data.user;
+        console.log("✅ Login successful for user:", data.user?.name || "user");
 
         // Check if there's anonymous content to transfer
         if (data.anonymous_content) {
@@ -288,6 +289,7 @@ export class UserContainerManager extends ContainerManager {
         // MODIFIED: Update state in both places
         setCurrentUser(data.user);
         this.user = data.user;
+        console.log("✅ Registration successful for user:", data.user?.name || "user");
         this.showUserProfile();
       } else {
         this.showRegisterError(
@@ -505,7 +507,7 @@ export class UserContainerManager extends ContainerManager {
   }
 
   async getAnonymousBooks(anonId) {
-    
+    console.log('🔍 Checking for anonymous books with token: [token]');
     return new Promise((resolve, reject) => {
       const request = indexedDB.open('MarkdownDB');
       request.onsuccess = (event) => {

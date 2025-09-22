@@ -10,7 +10,7 @@ use App\Models\PgLibrary;
 
 class UserHomeServerController extends Controller
 {
-    public function generateUserHomeBook(string $username): array
+    public function generateUserHomeBook(string $username, bool $currentUserIsOwner = null): array
     {
         $records = DB::table('library')
             ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at'])
@@ -48,7 +48,8 @@ class UserHomeServerController extends Controller
         $chunks[] = $headerChunk;
         
         $positionId = 100;
-        $isOwner = Auth::check() && Auth::user()->name === $username;
+        // Use passed parameter if provided, otherwise check current auth state
+        $isOwner = $currentUserIsOwner !== null ? $currentUserIsOwner : (Auth::check() && Auth::user()->name === $username);
 
         foreach ($records as $i => $record) {
             $newChunk = $this->generateLibraryCardChunk($record, $username, $positionId, $isOwner, false, $i);
@@ -83,6 +84,7 @@ class UserHomeServerController extends Controller
         if ($newStartLine < 1) {
             $this->generateUserHomeBook($username);
         } else {
+            // For addBookToUserPage, always use current auth state
             $isOwner = Auth::check() && Auth::user()->name === $username;
             $chunk = $this->generateLibraryCardChunk($bookRecord, $username, $newStartLine, $isOwner, false, -1);
             DB::table('node_chunks')->insert($chunk);
