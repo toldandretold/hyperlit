@@ -8,7 +8,7 @@ let initializeAuthPromise = null;
 
 // Export a getter function
 export function getCurrentUserInfo() {
-  console.log('AUTH_GETTER: getCurrentUserInfo() called. Returning:', currentUserInfo);
+  console.log('AUTH_GETTER: getCurrentUserInfo() called. Returning:', currentUserInfo?.name || (currentUserInfo ? "user" : "null"));
   return currentUserInfo;
 }
 
@@ -54,11 +54,11 @@ async function initializeAuth() {
     if (data.authenticated) {
       currentUserInfo = data.user;
       anonymousToken = null;
-      console.log("✅ User authenticated:", currentUserInfo);
+      console.log("✅ User authenticated:", currentUserInfo?.name || "user");
     } else if (data.anonymous_token) {
       currentUserInfo = null;
       anonymousToken = data.anonymous_token;
-      console.log("✅ Anonymous session established:", anonymousToken);
+      console.log("✅ Anonymous session established:", "[token]");
     } else {
       // This case should ideally not be reached if the backend is correct.
       console.error("❌ Server did not provide user or anonymous token.");
@@ -150,7 +150,7 @@ export function getAuthorId() {
   console.log(`🔍 getAuthorId() - checking for anonymous token`);
   
   if (anonymousToken) {
-    console.log(`✅ getAuthorId() - using server token: ${anonymousToken}`);
+    console.log(`✅ getAuthorId() - using server token: [token]`);
     return anonymousToken;
   }
   
@@ -164,7 +164,7 @@ export function getAuthorId() {
     return null;
   }
   
-  console.log(`⚠️ getAuthorId() - using legacy localStorage ID: ${id}`);
+  console.log(`⚠️ getAuthorId() - using legacy localStorage ID: [legacy_id]`);
   return id;
 }
 
@@ -304,7 +304,7 @@ export async function refreshAuth() {
 
 // Helper function to check if user has anonymous content
 async function hasAnonymousContent(token) {
-  console.log('🔍 Checking for anonymous content with token:', token);
+  console.log('🔍 Checking for anonymous content with token: [token]');
   return new Promise((resolve) => {
     const request = indexedDB.open('MarkdownDB');
     request.onsuccess = (event) => {

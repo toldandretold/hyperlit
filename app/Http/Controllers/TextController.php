@@ -30,9 +30,10 @@ class TextController extends Controller
 
             // Generate the user-home book if it doesn't exist OR if the counts are out of sync.
             if ($nodeCount === 0 || $bookCount !== $nodeCount) {
-                Log::info('Regenerating user page due to count mismatch or non-existence.', ['username' => $username, 'book_count' => $bookCount, 'node_count' => $nodeCount]);
+                $isCurrentUserOwner = \Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->name === $username;
+                Log::info('Regenerating user page due to count mismatch or non-existence.', ['username' => $username, 'book_count' => $bookCount, 'node_count' => $nodeCount, 'is_owner' => $isCurrentUserOwner]);
                 $generator = new \App\Http\Controllers\UserHomeServerController();
-                $generator->generateUserHomeBook($username);
+                $generator->generateUserHomeBook($username, $isCurrentUserOwner);
             }
             
             $book = $username;

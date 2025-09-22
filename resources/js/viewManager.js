@@ -719,10 +719,13 @@ export async function universalPageInitializer(progressCallback = null) {
       // Initialize user profile page functionality if user owns this book
       const { getCurrentUser } = await import('./auth.js');
       const user = await getCurrentUser();
+      console.log(`🔍 USER PROFILE CHECK: user=${JSON.stringify(user)}, currentBookId=${currentBookId}`);
       if (user && user.name === currentBookId) {
         const { initializeUserProfilePage } = await import('./userProfilePage.js');
         initializeUserProfilePage();
         console.log("✅ User profile page functionality initialized");
+      } else {
+        console.log(`❌ USER PROFILE NOT INITIALIZED: user.name="${user?.name}" !== currentBookId="${currentBookId}"`);
       }
       
       // Initialize SelectionDeletionHandler for handling selection deletions
