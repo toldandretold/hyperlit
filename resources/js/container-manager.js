@@ -239,6 +239,25 @@ export class ContainerManager {
       if (userButtonContainer) userButtonContainer.classList.remove("hidden-nav");
     }
     
+    // Handle hyperlit container URL cleanup when closing via overlay/direct close
+    if (this.container.id === "hyperlit-container") {
+      const currentUrl = window.location;
+      if (currentUrl.hash && (currentUrl.hash.startsWith('#HL_') || currentUrl.hash.startsWith('#hypercite_') || 
+                             currentUrl.hash.startsWith('#footnote_') || currentUrl.hash.startsWith('#citation_'))) {
+        // Remove hyperlit-related hash from URL
+        const cleanUrl = `${currentUrl.pathname}${currentUrl.search}`;
+        console.log('🔗 ContainerManager: Cleaning up hyperlit hash from URL:', currentUrl.hash, '→', cleanUrl);
+        
+        // Push new clean state to history
+        const currentState = history.state || {};
+        const newState = {
+          ...currentState,
+          hyperlitContainer: null // Clear container state
+        };
+        history.pushState(newState, '', cleanUrl);
+      }
+    }
+    
     this.updateState();
     this.container.classList.remove("open");
     this.container.classList.add("hidden");
@@ -247,11 +266,10 @@ export class ContainerManager {
   }
 
   cleanupURL() {
-    // Don't cleanup URL if there's a hash - navigation should preserve it
-    if (window.location.hash) {
-      console.log('🔗 ContainerManager: Skipping URL cleanup - preserving hash:', window.location.hash);
-      return;
-    }
+    // Skip URL cleanup - this is now handled by closeHyperlitContainer() 
+    // to ensure proper history state management
+    console.log('🔗 ContainerManager: Skipping URL cleanup - handled by unified container');
+    return;
     
     const pathParts = window.location.pathname.split('/').filter(part => part.length > 0);
     if (pathParts.length > 0) {

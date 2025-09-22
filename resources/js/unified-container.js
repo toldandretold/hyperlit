@@ -115,6 +115,23 @@ export function closeHyperlitContainer() {
   
   if (hyperlitManager && hyperlitManager.closeContainer) {
     try {
+      // Clean up URL hash and history state when closing container
+      const currentUrl = window.location;
+      if (currentUrl.hash && (currentUrl.hash.startsWith('#HL_') || currentUrl.hash.startsWith('#hypercite_') || 
+                             currentUrl.hash.startsWith('#footnote_') || currentUrl.hash.startsWith('#citation_'))) {
+        // Remove hyperlit-related hash from URL
+        const cleanUrl = `${currentUrl.pathname}${currentUrl.search}`;
+        console.log('🔗 Cleaning up hyperlit hash from URL:', currentUrl.hash, '→', cleanUrl);
+        
+        // Push new clean state to history
+        const currentState = history.state || {};
+        const newState = {
+          ...currentState,
+          hyperlitContainer: null // Clear container state
+        };
+        history.pushState(newState, '', cleanUrl);
+      }
+      
       hyperlitManager.closeContainer();
     } catch (error) {
       console.warn('Could not close hyperlit container:', error);
