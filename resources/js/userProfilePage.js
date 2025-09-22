@@ -1,6 +1,16 @@
 // resources/js/userProfilePage.js
 
+let userProfilePageInitialized = false;
+
 export function initializeUserProfilePage() {
+    if (userProfilePageInitialized) {
+        console.log("✅ User profile page already initialized, skipping");
+        return;
+    }
+    
+    console.log("🔧 Initializing user profile page click handlers");
+    userProfilePageInitialized = true;
+    
     document.addEventListener('click', async (e) => {
         const target = e.target.closest('.delete-book');
         if (!target) return;
