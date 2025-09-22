@@ -292,7 +292,7 @@ export class LinkNavigationHandler {
         
         // Use the book-to-home SPA pathway
         const { NavigationManager } = await import('./NavigationManager.js');
-        await NavigationManager.navigate('book-to-home', { fromBook });
+        await NavigationManager.navigate('book-to-home', { fromBook, replaceHistory: true });
         
         return true;
       }
@@ -383,15 +383,30 @@ export class LinkNavigationHandler {
       historyLength: window.history.length
     });
 
-    // Simplified approach: check if we need to reload based on URL vs current content
+    // Check if we need to navigate between different content using SPA transitions
     const { book: currentBookVariable } = await import('../app.js');
     const urlBookId = this.extractBookSlugFromPath(window.location.pathname);
     
-    // If the URL book doesn't match the current loaded book content, reload
+    // If the URL book doesn't match the current loaded book content, use SPA navigation
     if (urlBookId !== currentBookVariable) {
-      console.log(`URL shows ${urlBookId} but content is ${currentBookVariable}. Reloading.`);
-      this.isReloading = true;
-      window.location.reload();
+      console.log(`URL shows ${urlBookId} but content is ${currentBookVariable}. Using SPA navigation.`);
+      
+      // Determine which type of SPA transition to use
+      if (!urlBookId || urlBookId === 'most-recent') {
+        // Navigate to homepage
+        console.log('🏠 Using BookToHomeTransition for back navigation to home');
+        const { BookToHomeTransition } = await import('./pathways/BookToHomeTransition.js');
+        await BookToHomeTransition.execute({ fromBook: currentBookVariable });
+      } else {
+        // Navigate to different book
+        console.log(`📖 Using BookToBookTransition for back navigation: ${currentBookVariable} → ${urlBookId}`);
+        const { BookToBookTransition } = await import('./pathways/BookToBookTransition.js');
+        await BookToBookTransition.execute({ 
+          fromBook: currentBookVariable, 
+          toBook: urlBookId, 
+          hash: window.location.hash 
+        });
+      }
       return;
     }
     

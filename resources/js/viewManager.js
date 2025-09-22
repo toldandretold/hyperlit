@@ -15,7 +15,7 @@ import {
 import { initializeHypercitingControls } from "./hyperCites.js";
 import { initializeBroadcastListener } from "./BroadcastListener.js";
 import { setupUnloadSync } from "./cache-indexedDB.js";
-import { generateTableOfContents } from "./toc.js";
+import { generateTableOfContents, destroyTocManager, initializeTocManager } from "./toc.js";
 import { KeyboardManager } from "./keyboardManager.js";
 import {
   initializeEditButtonListeners,
@@ -69,6 +69,10 @@ async function getCurrentAuthState() {
 window.addEventListener("pageshow", (event) => {
   if (event.persisted) {
     console.log("🔄 Page restored from bfcache - reinitializing interactive features");
+    
+    // Sync SPA history state with bfcache restored page
+    syncHistoryStateAfterBfcache();
+    
     const pageType = document.body.getAttribute("data-page");
     
     // ✅ EXPANDED: Handle both reader pages AND homepage with reader content
@@ -144,6 +148,7 @@ export function cleanupReaderView() {
   destroyEditToolbar();
   stopObserving();
   destroySelectionHandler();
+  destroyTocManager();
 }
 
 // ============================================================================
@@ -702,51 +707,62 @@ export async function universalPageInitializer(progressCallback = null) {
         console.log("✅ Reinitialized NavButtons instance for universalPageInitializer");
       }
     });
-    // Check page type to only initialize reader-specific components on reader pages
+    // Check page type and initialize all components for both page types
     const currentPageType = document.body.getAttribute('data-page');
     console.log(`🎯 Page type detected: ${currentPageType}`);
     
+    // Initialize components that work on both page types
+    console.log("🔧 Initializing universal components...");
+    await initializeUniversalComponents(currentPageType);
     
-      console.log("🔧 Initializing reader-specific components...");
-      initializeEditButtonListeners();
-      initializeSourceButtonListener();
-      updateEditButtonVisibility(currentBookId);
-      initializeHighlightManager();
-      initializeHighlightingControls(currentBookId);
-      initializeHypercitingControls(currentBookId);
-      initializeSelectionHandler();
-      
-      // Initialize user profile page functionality if user owns this book
-      const { getCurrentUser } = await import('./auth.js');
-      const user = await getCurrentUser();
-      console.log(`🔍 USER PROFILE CHECK: user=${user?.name || 'null'}, currentBookId=${currentBookId}`);
-      if (user && user.name === currentBookId) {
-        const { initializeUserProfilePage } = await import('./userProfilePage.js');
-        initializeUserProfilePage();
-        console.log("✅ User profile page functionality initialized");
-      } else {
-        console.log(`❌ USER PROFILE NOT INITIALIZED: user.name="${user?.name}" !== currentBookId="${currentBookId}"`);
-      }
-      
-      // Initialize SelectionDeletionHandler for handling selection deletions
-      const editorContainer = document.querySelector('.main-content');
-      if (editorContainer) {
-        activeSelectionDeletionHandler = new SelectionDeletionHandler(editorContainer, {
-          onDeleted: (nodeId) => {
-            console.log(`✅ SelectionDeletionHandler: Node ${nodeId} deleted`);
-          }
-        });
-        console.log("✅ SelectionDeletionHandler initialized");
-      } else {
-        console.warn("❌ Could not find .main-content for SelectionDeletionHandler");
-      }
-      
-      initEditToolbar({
-        toolbarId: "edit-toolbar",
-        editableSelector: ".main-content[contenteditable='true']",
-        currentBookId: currentBookId,
+    // For homepage, the homepage initialization above should handle everything
+    // including content loading, so we can skip the reader-specific initialization
+    if (currentPageType === 'home') {
+      console.log("🏠 Homepage initialization complete, skipping reader-specific components");
+      return; // Exit early for homepage - everything is handled by initializeHomepage()
+    }
+    
+    // Initialize ALL components for both homepage and reader pages
+    // Components will handle their own conditional logic internally based on DOM availability
+    console.log("🔧 Initializing all components for SPA compatibility...");
+    initializeEditButtonListeners();
+    initializeSourceButtonListener();
+    updateEditButtonVisibility(currentBookId);
+    initializeHighlightManager();
+    initializeHighlightingControls(currentBookId);
+    initializeHypercitingControls(currentBookId);
+    initializeSelectionHandler();
+    
+    // Initialize user profile page functionality if user owns this book
+    const { getCurrentUser } = await import('./auth.js');
+    const user = await getCurrentUser();
+    console.log(`🔍 USER PROFILE CHECK: user=${user?.name || 'null'}, currentBookId=${currentBookId}`);
+    if (user && user.name === currentBookId) {
+      const { initializeUserProfilePage } = await import('./userProfilePage.js');
+      initializeUserProfilePage();
+      console.log("✅ User profile page functionality initialized");
+    } else {
+      console.log(`❌ USER PROFILE NOT INITIALIZED: user.name="${user?.name}" !== currentBookId="${currentBookId}"`);
+    }
+    
+    // Initialize SelectionDeletionHandler for handling selection deletions
+    const editorContainer = document.querySelector('.main-content');
+    if (editorContainer) {
+      activeSelectionDeletionHandler = new SelectionDeletionHandler(editorContainer, {
+        onDeleted: (nodeId) => {
+          console.log(`✅ SelectionDeletionHandler: Node ${nodeId} deleted`);
+        }
       });
+      console.log("✅ SelectionDeletionHandler initialized");
+    } else {
+      console.log(`ℹ️ No .main-content found for SelectionDeletionHandler (page type: ${currentPageType})`);
+    }
     
+    initEditToolbar({
+      toolbarId: "edit-toolbar",
+      editableSelector: ".main-content[contenteditable='true']",
+      currentBookId: currentBookId,
+    });
 
   await loadPromise;
   console.log("✅ Content loading process complete.");
@@ -763,7 +779,7 @@ export async function universalPageInitializer(progressCallback = null) {
   LinkNavigationHandler.attachGlobalLinkClickHandler();
   initializeBroadcastListener();
   setupUnloadSync();
-  generateTableOfContents("toc-container", "toc-toggle-button");
+  initializeTocManager();
   
   // ✅ CRITICAL: Check auth state and update edit button permissions after reader initialization
   await checkEditPermissionsAndUpdateUI();
@@ -792,6 +808,120 @@ export async function universalPageInitializer(progressCallback = null) {
     
   }, 500);
   
+}
+
+/**
+ * Sync SPA history state when page is restored from bfcache
+ * This prevents history stack confusion and back/forward loops
+ */
+function syncHistoryStateAfterBfcache() {
+  try {
+    console.log("🔄 Syncing SPA history state after bfcache restoration");
+    
+    const currentUrl = window.location.href;
+    const currentPath = window.location.pathname;
+    const currentHash = window.location.hash;
+    
+    // Determine what type of page we're on
+    const pageType = document.body.getAttribute('data-page');
+    console.log(`🔄 bfcache restored page type: ${pageType}, URL: ${currentUrl}`);
+    
+    // Create a clean history state that matches the current page
+    const cleanState = {
+      timestamp: Date.now(),
+      restoredFromBfcache: true,
+      pageType: pageType
+    };
+    
+    // If this is a reader page, add book transition metadata
+    if (pageType === 'reader') {
+      // Extract book ID from URL
+      const pathSegments = currentPath.split('/').filter(Boolean);
+      const bookId = pathSegments[0] || 'unknown';
+      
+      cleanState.bookTransition = {
+        toBook: bookId,
+        timestamp: Date.now(),
+        method: 'bfcache-restore'
+      };
+      
+      // If there's a hash, check if it's a hyperlit container
+      if (currentHash) {
+        const hashId = currentHash.substring(1);
+        if (hashId.startsWith('HL_') || hashId.startsWith('hypercite_') || 
+            hashId.startsWith('footnote_') || hashId.startsWith('citation_')) {
+          
+          // Create container state for the hash
+          cleanState.hyperlitContainer = {
+            contentTypes: [{
+              type: hashId.startsWith('HL_') ? 'highlight' : 
+                    hashId.startsWith('hypercite_') ? 'hypercite' :
+                    hashId.startsWith('footnote_') ? 'footnote' : 'citation',
+              [hashId.startsWith('HL_') ? 'highlightIds' : 
+                hashId.startsWith('hypercite_') ? 'hyperciteId' :
+                hashId.startsWith('footnote_') ? 'elementId' : 'referenceId']: 
+                hashId.startsWith('HL_') ? [hashId] : hashId
+            }],
+            timestamp: Date.now(),
+            restoredFromBfcache: true
+          };
+          
+          console.log(`🔄 Restored hyperlit container state for: ${hashId}`);
+        }
+      }
+    }
+    
+    // Replace the current history state with the clean one
+    // This ensures the back button works correctly after bfcache restoration
+    history.replaceState(cleanState, '', currentUrl);
+    
+    console.log("✅ History state synchronized after bfcache restoration:", cleanState);
+    
+  } catch (error) {
+    console.error("❌ Error syncing history state after bfcache:", error);
+  }
+}
+
+/**
+ * Initialize components that work on both homepage and reader pages
+ */
+async function initializeUniversalComponents(pageType) {
+  try {
+    console.log(`🔧 Initializing universal components for page type: ${pageType}`);
+    
+    // SPA Transition Fix: If the transition pathway has already initialized
+    // containers, skip doing it again here to prevent state corruption.
+    if (window.containersAlreadyInitialized) {
+        console.log('🏠 [SPA] Skipping container/homepage initialization as it was handled by the transition.');
+    } else {
+        // Initialize user container - works on both homepage and reader pages
+        try {
+          // Import the user container module to trigger its initialization
+          await import('./userContainer.js');
+          console.log('✅ User container initialized for universal access');
+        } catch (error) {
+          console.warn('Could not initialize user container:', error);
+        }
+        
+        // Initialize homepage-specific components if we're on the homepage
+        if (pageType === 'home') {
+          try {
+            console.log('🏠 Initializing homepage-specific components...');
+            const { initializeHomepage } = await import('./homepage.js');
+            await initializeHomepage();
+            console.log('✅ Homepage components initialized successfully');
+          } catch (error) {
+            console.error('❌ Error initializing homepage components:', error);
+          }
+        }
+    }
+    
+    // Add other universal components here that should work on both page types
+    // For example: search functionality, theme switcher, etc.
+    
+  } catch (error) {
+    console.error('❌ Error initializing universal components:', error);
+  }
 }
 
 

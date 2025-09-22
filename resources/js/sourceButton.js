@@ -939,6 +939,16 @@ const sourceManager = new SourceContainerManager(
 );
 export default sourceManager;
 
+// Destroy function for cleanup during navigation
+export function destroySourceManager() {
+  if (sourceManager) {
+    console.log('🧹 Destroying source container manager');
+    sourceManager.destroy();
+    return true;
+  }
+  return false;
+}
+
 
 let _TurndownService = null;
 async function loadTurndown() {

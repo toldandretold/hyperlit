@@ -94,11 +94,25 @@ export class ImportBookTransition {
     console.log('🧹 ImportBookTransition: Cleaning up previous state');
     
     try {
-      // Import and call the existing cleanup function
+      // Import and destroy homepage-specific components
+      const { destroyUserContainer } = await import('../../userContainer.js');
+      const { destroyNewBookContainer } = await import('../../newBookButton.js');
+      if (destroyUserContainer) destroyUserContainer();
+      if (destroyNewBookContainer) destroyNewBookContainer();
+      console.log('🧹 ImportBookTransition: Homepage containers destroyed.');
+
+      const { destroyHomepageDisplayUnit } = await import('../../homepageDisplayUnit.js');
+      if (destroyHomepageDisplayUnit) destroyHomepageDisplayUnit();
+
+      // Also explicitly reset all edit mode state flags as a safeguard
+      const { resetEditModeState } = await import('../../editButton.js');
+      resetEditModeState();
+
+      // Also clean up the reader view in case of an inconsistent state
       const { cleanupReaderView } = await import('../../viewManager.js');
       cleanupReaderView();
     } catch (error) {
-      console.warn('Could not import cleanupReaderView, continuing:', error);
+      console.warn('⚠️ Cleanup failed, but continuing transition:', error);
     }
   }
 

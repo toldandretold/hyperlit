@@ -18,6 +18,7 @@ export class UserContainerManager extends ContainerManager {
     this.setupUserContainerStyles();
     this.isAnimating = false;
     this.button = document.getElementById(buttonId);
+    this.boundClickHandler = this.handleDocumentClick.bind(this); // Create a bound reference
     this.setupUserListeners();
     this.user = null;
 
@@ -60,8 +61,15 @@ export class UserContainerManager extends ContainerManager {
   }
 
   setupUserListeners() {
-    // This remains the same
-    document.addEventListener("click", (e) => {
+    document.addEventListener("click", this.boundClickHandler);
+  }
+
+  destroy() {
+    document.removeEventListener("click", this.boundClickHandler);
+    console.log('🧹 UserContainerManager: Document click listener removed.');
+  }
+
+  handleDocumentClick(e) {
       if (e.target.id === "loginSubmit") {
         e.preventDefault();
         this.handleLogin();
@@ -90,17 +98,16 @@ export class UserContainerManager extends ContainerManager {
       if (e.target.id === "myBooksBtn") {
         e.preventDefault();
         if (this.user && this.user.name) {
-          window.location.href = "/" + encodeURIComponent(this.user.name);
+          this.navigateToUserBooks(this.user.name);
         } else {
           this.setPostLoginAction(() => {
             if (this.user && this.user.name) {
-              window.location.href = "/" + encodeURIComponent(this.user.name);
+              this.navigateToUserBooks(this.user.name);
             }
           });
           this.showLoginForm();
         }
       }
-    });
   }
 
 
@@ -170,6 +177,10 @@ export class UserContainerManager extends ContainerManager {
   }
 
   showUserProfile() {
+    console.log(`🔧 UserContainer: showUserProfile called for user ${this.user?.name}`);
+    console.log(`🔧 UserContainer: Container element:`, this.container);
+    console.log(`🔧 UserContainer: isOpen=${this.isOpen}`);
+    
     const profileHTML = `
       <div class="user-profile">
         <h3 style="color: #EF8D34; margin-bottom: 15px;">Welcome, ${this.user.name}!</h3>
@@ -190,12 +201,18 @@ export class UserContainerManager extends ContainerManager {
       </div>
     `;
     
+    console.log(`🔧 UserContainer: Generated profile HTML (${profileHTML.length} chars)`);
+    
     if (!this.isOpen) {
+      console.log(`🔧 UserContainer: Container closed, setting innerHTML and opening`);
       this.container.innerHTML = profileHTML;
       this.openContainer("profile");
     } else {
+      console.log(`🔧 UserContainer: Container already open, just updating innerHTML`);
       this.container.innerHTML = profileHTML;
     }
+    
+    console.log(`🔧 UserContainer: showUserProfile completed`);
   }
 
   getCsrfTokenFromCookie() {
@@ -393,30 +410,43 @@ export class UserContainerManager extends ContainerManager {
   }
 
   toggleContainer() {
+    console.log(`🔧 UserContainer: toggleContainer called, isOpen=${this.isOpen}, user=${this.user?.name || 'null'}`);
+    
     if (this.isOpen) {
+      console.log(`🔧 UserContainer: Container is open, closing it`);
       this.closeContainer();
     } else {
       if (this.user) {
+        console.log(`🔧 UserContainer: User logged in, showing profile for ${this.user.name}`);
         this.showUserProfile();
       } else {
+        console.log(`🔧 UserContainer: No user, showing login form`);
         this.showLoginForm();
       }
     }
   }
 
   openContainer(mode = "login") {
-    if (this.isAnimating) return;
+    console.log(`🔧 UserContainer: openContainer called with mode=${mode}`);
+    console.log(`🔧 UserContainer: isAnimating=${this.isAnimating}, container=`, this.container);
+    
+    if (this.isAnimating) {
+      console.log(`🔧 UserContainer: Already animating, returning early`);
+      return;
+    }
     this.isAnimating = true;
 
     // MODIFIED: This logic correctly handles both scenarios
     // If the button exists, position the container relative to it.
     if (this.button) {
+      console.log(`🔧 UserContainer: Positioning relative to button`);
       const rect = this.button.getBoundingClientRect();
       this.container.style.top = `${rect.bottom + 8}px`;
       this.container.style.left = `${rect.left}px`;
       // Ensure any previous transform is cleared for correct positioning
       this.container.style.transform = "";
     } else {
+      console.log(`🔧 UserContainer: No button found, centering on screen`);
       // NEW: If no button, center the container on the screen.
       this.container.style.top = "50%";
       this.container.style.left = "50%";
@@ -442,22 +472,42 @@ export class UserContainerManager extends ContainerManager {
       this.container.style.padding = "20px";
     }
 
+    console.log(`🔧 UserContainer: About to start requestAnimationFrame with targetWidth=${targetWidth}, targetHeight=${targetHeight}`);
+    
     requestAnimationFrame(() => {
-      this.container.style.width = targetWidth;
-      this.container.style.height = targetHeight;
-      this.container.style.opacity = "1";
+      console.log(`🔧 UserContainer: Inside requestAnimationFrame callback`);
+      
+      try {
+        this.container.style.width = targetWidth;
+        this.container.style.height = targetHeight;
+        this.container.style.opacity = "1";
+        console.log(`🔧 UserContainer: Styles applied`);
 
-      this.isOpen = true;
-      window.activeContainer = this.container.id;
-      this.updateState();
+        this.isOpen = true;
+        window.activeContainer = this.container.id;
+        this.updateState();
+        console.log(`🔧 UserContainer: State updated, isOpen=${this.isOpen}`);
 
-      this.container.addEventListener(
-        "transitionend",
-        () => {
+        const resetAnimation = () => {
           this.isAnimating = false;
-        },
-        { once: true }
-      );
+          console.log(`🔧 UserContainer: Animation reset via transitionend`);
+        };
+
+        this.container.addEventListener("transitionend", resetAnimation, { once: true });
+        console.log(`🔧 UserContainer: Transitionend listener attached`);
+        
+        // Fallback timeout in case transitionend doesn't fire
+        setTimeout(() => {
+          if (this.isAnimating) {
+            this.isAnimating = false;
+            console.log(`🔧 UserContainer: Animation reset via timeout fallback`);
+          }
+        }, 1000);
+        
+      } catch (error) {
+        console.error(`❌ UserContainer: Error in requestAnimationFrame:`, error);
+        this.isAnimating = false;
+      }
     });
   }
 
@@ -964,13 +1014,81 @@ export class UserContainerManager extends ContainerManager {
       this.showUserProfile();
     }
   }
+
+  /**
+   * Navigate to user's books page using SPA transition
+   */
+  async navigateToUserBooks(username) {
+    try {
+      console.log(`📚 UserContainer: Navigating to user books for ${username} using SPA`);
+      
+      // Close the user container first
+      this.closeContainer();
+      
+      // Use HomeToBookTransition for smooth navigation
+      const { HomeToBookTransition } = await import('./navigation/pathways/HomeToBookTransition.js');
+      await HomeToBookTransition.execute({ 
+        toBook: encodeURIComponent(username),
+        hash: '',
+        replaceHistory: true // Replace current history entry to avoid double-back issue
+      });
+      
+      console.log(`✅ UserContainer: Successfully navigated to ${username}'s books`);
+    } catch (error) {
+      console.error('❌ UserContainer: SPA navigation failed, falling back to page reload:', error);
+      // Fallback to original behavior
+      window.location.href = "/" + encodeURIComponent(username);
+    }
+  }
 }
 
-const userManager = new UserContainerManager(
-  "user-container",
-  "user-overlay",
-  "userButton",
-  ["main-content"]
-);
+// Container manager instance
+let userManager = null;
+
+// Initialize function that can be called after DOM changes
+export function initializeUserContainer() {
+  if (document.getElementById("userButton")) {
+    if (!userManager) {
+      userManager = new UserContainerManager(
+        "user-container",
+        "user-overlay", 
+        "userButton",
+        ["main-content"]
+      );
+      console.log('✅ UserContainer: Initialized new manager');
+    } else {
+      // Manager exists, just update button reference
+      userManager.button = document.getElementById("userButton");
+      userManager.rebindElements();
+      console.log('✅ UserContainer: Updated existing manager');
+    }
+    return userManager;
+  } else {
+    console.log('ℹ️ UserContainer: Button not found, skipping initialization');
+    return null;
+  }
+}
+
+// Auto-initialize if button exists on initial load
+if (document.getElementById("userButton")) {
+  userManager = initializeUserContainer();
+}
+
+// Destroy function for cleanup during navigation
+export function destroyUserContainer() {
+  if (userManager) {
+    console.log('🧹 Destroying user container manager');
+    // Clean up any open containers
+    if (userManager.isOpen) {
+      userManager.closeContainer();
+    }
+    // Call the new destroy method to remove listeners
+    userManager.destroy();
+    // Nullify the singleton instance
+    userManager = null;
+    return true;
+  }
+  return false;
+}
 
 export default userManager;

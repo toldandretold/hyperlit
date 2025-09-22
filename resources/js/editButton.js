@@ -27,6 +27,12 @@ window.isEditing = false;
 // Add this at the top with your other variables
 let editModeCheckInProgress = false;
 
+export function resetEditModeState() {
+    console.log(`🧹 Resetting all edit mode state. Was isEditing=${window.isEditing}, was checkInProgress=${editModeCheckInProgress}`);
+    window.isEditing = false;
+    editModeCheckInProgress = false;
+}
+
 export function handleAutoEdit() {
   const urlParams = new URLSearchParams(window.location.search);
   const isEditQ = urlParams.get("edit") === "1"; // ✅ Match the top logic
@@ -359,14 +365,21 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
 }
 
 function disableEditMode() {
+  window.isEditing = false; // Reset state immediately
+  console.log("🧹 Edit mode state flag reset to false.");
+
   // ✅ QUERY FOR ELEMENTS AT THE TIME OF EXECUTION
   const editBtn = document.getElementById("editButton");
   const editableDiv = document.getElementById(book);
 
-  if (!editableDiv) return; // Safety check
+  if (!editableDiv) {
+    console.warn("Editable div not found during disableEditMode, but state was reset.");
+    return; 
+  }
 
-  window.isEditing = false;
-  editBtn.classList.remove("inverted");
+  if (editBtn) {
+    editBtn.classList.remove("inverted");
+  }
 
   enforceEditableState();
   editableDiv.contentEditable = "false";

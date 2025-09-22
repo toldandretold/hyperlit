@@ -233,19 +233,21 @@ export class NewBookTransition {
     console.log('🧹 NewBookTransition: Cleaning up previous state');
     
     try {
-      // Import and call the existing cleanup function
+      // Import and destroy homepage-specific components
+      const { destroyUserContainer } = await import('../../userContainer.js');
+      const { destroyNewBookContainer } = await import('../../newBookButton.js');
+      if (destroyUserContainer) destroyUserContainer();
+      if (destroyNewBookContainer) destroyNewBookContainer();
+      console.log('🧹 NewBookTransition: Homepage containers destroyed.');
+
+      const { destroyHomepageDisplayUnit } = await import('../../homepageDisplayUnit.js');
+      if (destroyHomepageDisplayUnit) destroyHomepageDisplayUnit();
+
+      // Also clean up the reader view in case of an inconsistent state
       const { cleanupReaderView } = await import('../../viewManager.js');
       cleanupReaderView();
     } catch (error) {
-      console.warn('cleanupReaderView failed, doing manual cleanup:', error);
-      
-      // Fallback: do minimal cleanup manually
-      try {
-        const { closeHyperlitContainer } = await import('../../unified-container.js');
-        closeHyperlitContainer();
-      } catch (containerError) {
-        console.warn('Could not close hyperlit container:', containerError);
-      }
+      console.warn('⚠️ Cleanup failed, but continuing transition:', error);
     }
   }
 

@@ -39,23 +39,34 @@ export class NewBookContainerManager extends ContainerManager {
 
     // Resize listener will be initialized lazily when import form is opened
 
-    // Override visibility change handling for mobile
-    document.addEventListener('visibilitychange', () => {
+    this.boundVisibilityChangeHandler = this.handleVisibilityChange.bind(this);
+    this.boundFocusHandler = this.handleFocus.bind(this);
+
+    document.addEventListener('visibilitychange', this.boundVisibilityChangeHandler);
+    window.addEventListener('focus', this.boundFocusHandler);
+  }
+
+  handleVisibilityChange() {
       if (!document.hidden && this.recentExternalLinkClick) {
         console.log('🔥 MOBILE: Page visible again after external link click - preserving form state');
         this.recentExternalLinkClick = false;
         return; // Don't let other handlers close the form
       }
-    });
+  }
 
-    // Handle page focus for mobile browsers
-    window.addEventListener('focus', () => {
+  handleFocus() {
       if (this.recentExternalLinkClick) {
         console.log('🔥 MOBILE: Page focused after external link click - preserving form state');
         this.recentExternalLinkClick = false;
         return;
       }
-    });
+  }
+
+  destroy() {
+    document.removeEventListener('visibilitychange', this.boundVisibilityChangeHandler);
+    window.removeEventListener('focus', this.boundFocusHandler);
+    this.cleanupResizeListener();
+    console.log('🧹 NewBookContainerManager: All global listeners removed.');
   }
 
   setupResizeListener() {
@@ -858,16 +869,57 @@ clearSavedFormData() {
 
 }
 
-// Initialize the new book container manager
-const newBookManager = new NewBookContainerManager(
-  "newbook-container", // You'll need to create this container in your HTML
-  "ref-overlay", // Using the same overlay as the source container
-  "newBook", // The ID of your "+" button
-  ["main-content"] // Same frozen containers
-);
+// Container manager instance
+let newBookManager = null;
 
-// Make available globally for mobile link handling
-window.newBookManager = newBookManager;
+// Initialize function that can be called after DOM changes
+export function initializeNewBookContainer() {
+  if (document.getElementById("newBook")) {
+    if (!newBookManager) {
+      newBookManager = new NewBookContainerManager(
+        "newbook-container",
+        "ref-overlay",
+        "newBook",
+        ["main-content"]
+      );
+      console.log('✅ NewBookContainer: Initialized new manager');
+    } else {
+      // Manager exists, just update button reference
+      newBookManager.button = document.getElementById("newBook");
+      newBookManager.rebindElements();
+      console.log('✅ NewBookContainer: Updated existing manager');
+    }
+    
+    // Make available globally for mobile link handling
+    window.newBookManager = newBookManager;
+    return newBookManager;
+  } else {
+    console.log('ℹ️ NewBookContainer: Button not found, skipping initialization');
+    return null;
+  }
+}
+
+// Auto-initialize if button exists on initial load
+if (document.getElementById("newBook")) {
+  newBookManager = initializeNewBookContainer();
+}
+
+// Destroy function for cleanup during navigation
+export function destroyNewBookContainer() {
+  if (newBookManager) {
+    console.log('🧹 Destroying new book container manager');
+    // Clean up any open containers
+    if (newBookManager.isOpen) {
+      newBookManager.closeContainer();
+    }
+    // Call the new destroy method to remove listeners
+    newBookManager.destroy();
+    // Nullify the singleton instance
+    newBookManager = null;
+    return true;
+  }
+  return false;
+}
 
 // Export the manager instance for use in other files if needed
 export default newBookManager;
