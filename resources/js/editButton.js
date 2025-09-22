@@ -537,12 +537,6 @@ export async function checkEditPermissionsAndUpdateUI() {
   
   if (!editBtn) return;
   
-  if (!currentUser) {
-    // User not logged in - show edit button (will trigger login flow when clicked)
-    restoreEditButtonFromLock();
-    return;
-  }
-  
   // User is logged in - check permissions
   const canEdit = await canUserEditBook(book);
   
