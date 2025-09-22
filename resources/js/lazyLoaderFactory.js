@@ -1209,10 +1209,10 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
 }
 
 function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
-  console.log(`Loading chunk ${chunkId} in direction: ${direction}`);
+  // console.log(`Loading chunk ${chunkId} in direction: ${direction}`);
 
   if (instance.currentlyLoadedChunks.has(chunkId)) {
-    console.log(`Chunk ${chunkId} already loaded; skipping.`);
+    //console.log(`Chunk ${chunkId} already loaded; skipping.`);
     return;
   }
 

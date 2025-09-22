@@ -1,4 +1,5 @@
 import { book } from "./app.js";
+import { getCurrentUserId } from "./auth.js";
 import { 
   updateIndexedDBRecord, 
   deleteIndexedDBRecordWithRetry,
@@ -1149,6 +1150,7 @@ async function ensureLibraryRecord(bookId) {
     const tx = db.transaction("library", "readwrite");
     const store = tx.objectStore("library");
     const newRec = {
+      book: bookId,  // This is the keyPath field required by IndexedDB
       citationID: bookId,
       title: "",
       author: await getCurrentUserId() || "anon",

@@ -141,15 +141,16 @@ export class BookToBookTransition {
     console.log('🧹 BookToBookTransition: Cleaning up current reader (preserving navigation)');
     
     try {
-      // Close any open containers
-      const { closeHyperlitContainer } = await import('../../unified-container.js');
-      closeHyperlitContainer();
+      // Import and call the existing cleanup function from viewManager
+      const { cleanupReaderView } = await import('../../viewManager.js');
+      cleanupReaderView();
+
+      // Explicitly reset all edit mode state flags as a safeguard
+      const { resetEditModeState } = await import('../../editButton.js');
+      resetEditModeState();
       
-      // Clean up accumulated navigation overlays
+      // The original cleanup for overlays is still useful here
       this.cleanupNavigationOverlays();
-      
-      // Clean up global event handlers (but not navigation ones)
-      // This is a selective cleanup - we keep the navigation overlay
       
     } catch (error) {
       console.warn('Some cleanup steps failed, continuing:', error);

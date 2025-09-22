@@ -37,18 +37,34 @@ export class ContainerManager {
   rebindElements() {
     console.log(`Rebinding elements and listeners for manager of #${this.containerId}`);
     
+    // Store old element references for cleanup
+    const oldContainer = this.container;
+    const oldOverlay = this.overlay;
+    const oldButton = this.button;
+    
     // Find all the elements using the stored IDs
     this.container = document.getElementById(this.containerId);
     this.overlay = document.getElementById(this.overlayId);
     this.button = this.buttonId ? document.getElementById(this.buttonId) : null;
     this.frozenElements = this.frozenContainerIds.map(id => document.getElementById(id)).filter(Boolean);
+    
+    // Clean up old event listeners if elements have changed
+    if (oldContainer && oldContainer !== this.container && this.containerClickHandler) {
+      oldContainer.removeEventListener("click", this.containerClickHandler);
+    }
+    if (oldOverlay && oldOverlay !== this.overlay && this.overlayClickHandler) {
+      oldOverlay.removeEventListener("click", this.overlayClickHandler);
+    }
+    if (oldButton && oldButton !== this.button && this.buttonClickHandler) {
+      oldButton.removeEventListener("click", this.buttonClickHandler);
+    }
 
     // If the container exists, store its initial content and set up its internal link listener
     if (this.container) {
       this.initialContent = this.container.innerHTML;
       
-      // Container-specific click handling (non-link functionality only)
-      this.container.addEventListener("click", (e) => {
+      // Create and store container click handler
+      this.containerClickHandler = (e) => {
         // Link navigation is now handled by the centralized handler in lazyLoaderFactory
         // This handler only manages container-specific behavior
         
@@ -60,30 +76,72 @@ export class ContainerManager {
         
         // Handle other container-specific click behavior here if needed
         console.log(`🔗 ContainerManager: Non-link click in container`);
-      });
+      };
+      
+      this.container.addEventListener("click", this.containerClickHandler);
     }
 
     // If the overlay exists, set up its click handler
     if (this.overlay) {
-      this.overlay.addEventListener("click", (e) => {
+      this.overlayClickHandler = (e) => {
         e.stopPropagation();
         e.preventDefault();
+        console.log(`🔗 ContainerManager: Overlay clicked for #${this.containerId}`);
         if (this.isOpen) {
           this.closeContainer();
         }
-      });
+      };
+      
+      this.overlay.addEventListener("click", this.overlayClickHandler);
     }
 
     // If the button exists, set up its click handler
     if (this.button) {
-      this.button.addEventListener("click", (e) => {
+      console.log(`🔧 ContainerManager: Setting up click handler for button #${this.buttonId}`);
+      console.log(`🔧 Button element:`, this.button);
+      
+      this.buttonClickHandler = (e) => {
         e.stopPropagation();
         e.preventDefault();
+        console.log(`🔗 ContainerManager: Button clicked for #${this.containerId}`);
         this.toggleContainer();
-      });
+      };
+      
+      this.button.addEventListener("click", this.buttonClickHandler);
+      console.log(`✅ ContainerManager: Click handler attached to #${this.buttonId}`);
+    } else {
+      console.warn(`❌ ContainerManager: Button #${this.buttonId} not found during rebind`);
     }
 
+    // Reset container state after rebinding
+    this.resetContainerState();
+    
     console.log(`Rebind complete. Found container:`, this.container, `Found button:`, this.button);
+  }
+  
+  /**
+   * Reset container to its initial closed state
+   * Call this after SPA transitions to clear any stale CSS state
+   */
+  resetContainerState() {
+    if (!this.container) return;
+    
+    // Reset all inline styles that might interfere with proper opening
+    this.container.style.display = '';
+    this.container.style.opacity = '';
+    this.container.style.width = '';
+    this.container.style.height = '';
+    this.container.style.visibility = '';
+    this.container.style.padding = '';
+    this.container.style.transform = '';
+    this.container.style.top = '';
+    this.container.style.left = '';
+    
+    // Ensure container starts in closed state
+    this.container.classList.add('hidden');
+    this.isOpen = false;
+    
+    console.log(`🔄 Container state reset for #${this.containerId}`);
   }
 
   // =================================================================
@@ -239,6 +297,25 @@ export class ContainerManager {
       if (userButtonContainer) userButtonContainer.classList.remove("hidden-nav");
     }
     
+    // Handle hyperlit container URL cleanup when closing via overlay/direct close
+    if (this.container.id === "hyperlit-container") {
+      const currentUrl = window.location;
+      if (currentUrl.hash && (currentUrl.hash.startsWith('#HL_') || currentUrl.hash.startsWith('#hypercite_') || 
+                             currentUrl.hash.startsWith('#footnote_') || currentUrl.hash.startsWith('#citation_'))) {
+        // Remove hyperlit-related hash from URL
+        const cleanUrl = `${currentUrl.pathname}${currentUrl.search}`;
+        console.log('🔗 ContainerManager: Cleaning up hyperlit hash from URL:', currentUrl.hash, '→', cleanUrl);
+        
+        // Push new clean state to history
+        const currentState = history.state || {};
+        const newState = {
+          ...currentState,
+          hyperlitContainer: null // Clear container state
+        };
+        history.pushState(newState, '', cleanUrl);
+      }
+    }
+    
     this.updateState();
     this.container.classList.remove("open");
     this.container.classList.add("hidden");
@@ -247,11 +324,10 @@ export class ContainerManager {
   }
 
   cleanupURL() {
-    // Don't cleanup URL if there's a hash - navigation should preserve it
-    if (window.location.hash) {
-      console.log('🔗 ContainerManager: Skipping URL cleanup - preserving hash:', window.location.hash);
-      return;
-    }
+    // Skip URL cleanup - this is now handled by closeHyperlitContainer() 
+    // to ensure proper history state management
+    console.log('🔗 ContainerManager: Skipping URL cleanup - handled by unified container');
+    return;
     
     const pathParts = window.location.pathname.split('/').filter(part => part.length > 0);
     if (pathParts.length > 0) {
@@ -267,5 +343,42 @@ export class ContainerManager {
     } else {
       this.openContainer();
     }
+  }
+
+  /**
+   * Properly destroy this container manager and clean up all event listeners
+   * Call this during SPA transitions to prevent listener accumulation
+   */
+  destroy() {
+    console.log(`🧹 ContainerManager: Destroying manager for #${this.containerId}`);
+    
+    // Remove all event listeners
+    if (this.container && this.containerClickHandler) {
+      this.container.removeEventListener("click", this.containerClickHandler);
+      this.containerClickHandler = null;
+    }
+    
+    if (this.overlay && this.overlayClickHandler) {
+      this.overlay.removeEventListener("click", this.overlayClickHandler);
+      this.overlayClickHandler = null;
+    }
+    
+    if (this.button && this.buttonClickHandler) {
+      this.button.removeEventListener("click", this.buttonClickHandler);
+      this.buttonClickHandler = null;
+    }
+    
+    // Close container if it's open
+    if (this.isOpen) {
+      this.closeContainer();
+    }
+    
+    // Clear references
+    this.container = null;
+    this.overlay = null;
+    this.button = null;
+    this.frozenElements = [];
+    
+    console.log(`✅ ContainerManager: Destroyed manager for #${this.containerId}`);
   }
 } 

@@ -564,13 +564,13 @@ async function loadNodeChunksToIndexedDB(db, nodeChunks) {
   let userHighlightCount = 0;
   
   for (const [chunkIndex, chunk] of nodeChunks.entries()) {
-    console.log(`📝 Processing chunk ${chunkIndex + 1}/${nodeChunks.length}`, {
+     /* console.log(`📝 Processing chunk ${chunkIndex + 1}/${nodeChunks.length}`, {
       chunk_id: chunk.chunk_id,
       startLine: chunk.startLine,
       startLine_type: typeof chunk.startLine,
       has_hyperlights: !!(chunk.hyperlights),
       hyperlights_type: typeof chunk.hyperlights
-    });
+    }); */
     
     // ✅ Convert startLine AND parse JSON fields
     let parsedHyperlights = null;
@@ -834,7 +834,7 @@ async function loadLibraryToIndexedDB(db, library) {
     return;
   }
   
-  console.log("📝 Loading library data...");
+  // console.log("📝 Loading library data...");
   
   const tx = db.transaction('library', 'readwrite');
   const store = tx.objectStore('library');

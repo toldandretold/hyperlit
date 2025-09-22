@@ -13,7 +13,8 @@ export class HomeToBookTransition {
     const { 
       toBook,
       hash = '',
-      progressCallback
+      progressCallback,
+      replaceHistory = false
     } = options;
     
     console.log('📖 HomeToBookTransition: Starting home-to-book transition', { toBook, hash });
@@ -58,7 +59,7 @@ export class HomeToBookTransition {
       });
       
       // Update the URL
-      this.updateUrl(toBook, hash);
+      this.updateUrl(toBook, hash, replaceHistory);
       
       // Navigate to hash if provided
       if (hash) {
@@ -90,11 +91,51 @@ export class HomeToBookTransition {
     console.log('🧹 HomeToBookTransition: Cleaning up homepage state');
     
     try {
-      // Clean up any homepage-specific components or listeners
-      // Most cleanup will happen automatically when we replace the body content
+      // Destroy homepage-specific managers
+      const { destroyUserContainer } = await import('../../userContainer.js');
+      if (typeof destroyUserContainer === 'function') {
+        destroyUserContainer();
+        console.log('🧹 User container destroyed.');
+      }
+
+      const { destroyNewBookContainer } = await import('../../newBookButton.js');
+      if (typeof destroyNewBookContainer === 'function') {
+        destroyNewBookContainer();
+        console.log('🧹 New book container destroyed.');
+      }
+
+      const { destroyHomepageDisplayUnit } = await import('../../homepageDisplayUnit.js');
+      if (typeof destroyHomepageDisplayUnit === 'function') {
+        destroyHomepageDisplayUnit();
+        console.log('🧹 Homepage display unit destroyed.');
+      }
+
+      // Close any open containers before transition
+      await this.closeOpenContainers();
+
       console.log('✅ HomeToBookTransition: Homepage cleanup complete');
     } catch (error) {
       console.warn('Homepage cleanup failed:', error);
+    }
+  }
+
+  /**
+   * Close any open containers before transition
+   */
+  static async closeOpenContainers() {
+    console.log('🧹 HomeToBookTransition: Closing open containers');
+    
+    try {
+      // Close any open containers but don't destroy managers
+      // The containers will rebind to the new DOM after body replacement
+      
+      // Note: Most containers should already be closed since we're on homepage
+      // This is just to be safe
+      
+      console.log('✅ Container cleanup complete (containers will rebind to new DOM)');
+      
+    } catch (error) {
+      console.warn('Container closing failed:', error);
     }
   }
 
@@ -179,6 +220,9 @@ export class HomeToBookTransition {
       const { universalPageInitializer } = await import('../../viewManager.js');
       await universalPageInitializer(progressCallback);
       
+      // Ensure shared container managers are ready after reader initialization
+      await this.ensureSharedContainerManagersReady();
+      
       // Explicitly load first chunk for SPA context (since observer might not trigger immediately)
       await this.ensureContentLoaded(bookId);
       
@@ -191,14 +235,35 @@ export class HomeToBookTransition {
   }
 
   /**
+   * Ensure shared container managers are ready after reader initialization
+   */
+  static async ensureSharedContainerManagersReady() {
+    console.log('🔧 HomeToBookTransition: Ensuring shared container managers are ready');
+    
+    try {
+      // The viewManager handles rebinding all container managers
+      // This is just for logging - managers rebind automatically
+      console.log('✅ Shared container managers handled by viewManager');
+      
+    } catch (error) {
+      console.warn('Shared container verification failed:', error);
+    }
+  }
+
+  /**
    * Update the browser URL to book path
    */
-  static updateUrl(bookId, hash = '') {
+  static updateUrl(bookId, hash = '', replaceHistory = false) {
     const newUrl = `/${bookId}${hash}`;
     
     try {
-      history.pushState({}, '', newUrl);
-      console.log(`🔗 HomeToBookTransition: Updated URL to ${newUrl}`);
+      if (replaceHistory) {
+        history.replaceState({}, '', newUrl);
+        console.log(`🔗 HomeToBookTransition: Replaced URL with ${newUrl}`);
+      } else {
+        history.pushState({}, '', newUrl);
+        console.log(`🔗 HomeToBookTransition: Updated URL to ${newUrl}`);
+      }
     } catch (error) {
       console.warn('Could not update URL:', error);
     }

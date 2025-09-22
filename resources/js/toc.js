@@ -13,6 +13,8 @@ export const tocOverlay = document.getElementById("toc-overlay");
 export const tocButton = document.getElementById("toc-toggle-button");
 
 // Create a custom TOC manager that generates content before opening
+let tocManager = null;
+
 class TocContainerManager extends ContainerManager {
   async openContainer() {
     console.log("📋 TOC opening - generating content first...");
@@ -21,14 +23,25 @@ class TocContainerManager extends ContainerManager {
   }
 }
 
-// Create a container manager instance for the TOC.  
-// Only freeze main-content, keep nav buttons visible like highlights
-const tocManager = new TocContainerManager(
-  "toc-container",
-  "toc-overlay",
-  "toc-toggle-button",
-  ["main-content"]
-);
+export function initializeTocManager() {
+  if (!document.getElementById("toc-toggle-button")) {
+    console.log("ℹ️ TOC button not found, skipping initialization.");
+    return;
+  }
+
+  if (!tocManager) {
+    tocManager = new TocContainerManager(
+      "toc-container",
+      "toc-overlay",
+      "toc-toggle-button",
+      ["main-content"]
+    );
+    console.log('✅ TOC Manager Initialized');
+  } else {
+    tocManager.rebindElements();
+    console.log('✅ TOC Manager Re-bound');
+  }
+}
 
 // TOC cache management
 let tocCache = {
@@ -118,6 +131,7 @@ async function scanForHeadings() {
 export async function generateTableOfContents(containerIdLegacy, buttonIdLegacy) {
   console.log("📋 generateTableOfContents called");
   
+  const tocContainer = document.getElementById("toc-container"); // Get fresh reference
   if (!tocContainer) {
     console.error("TOC container not found!");
     return;
@@ -153,6 +167,9 @@ export async function generateTableOfContents(containerIdLegacy, buttonIdLegacy)
  * Attach click handler for TOC navigation (separated for reuse)
  */
 function attachTocClickHandler() {
+  const tocContainer = document.getElementById("toc-container"); // Get fresh reference
+  if (!tocContainer) return;
+
   // Remove existing listeners to avoid duplicates
   const existingHandler = tocContainer._tocClickHandler;
   if (existingHandler) {
@@ -248,6 +265,26 @@ export function closeTOC() {
  */
 export function toggleTOC() {
   tocManager.toggleContainer();
+}
+
+/**
+ * Destroy function for cleanup during navigation
+ */
+export function destroyTocManager() {
+  if (tocManager) {
+    console.log('🧹 Destroying TOC container manager');
+    tocManager.destroy();
+    tocManager = null; // Nullify the instance
+    // Clear TOC cache as well
+    tocCache = {
+      data: null,
+      lastScanTime: 0,
+      bookId: null,
+      headingCount: 0
+    };
+    return true;
+  }
+  return false;
 }
 
 /**

@@ -50,7 +50,9 @@ class EditToolbar {
 
     this.toolbar = document.getElementById(this.toolbarId);
     if (!this.toolbar) {
-      throw new Error(`Element with id "${this.toolbarId}" not found.`);
+      console.log(`ℹ️ EditToolbar: Element with id "${this.toolbarId}" not found. Skipping toolbar initialization.`);
+      this.isDisabled = true;
+      return;
     }
 
     this.boldButton = document.getElementById("boldButton");
@@ -84,6 +86,10 @@ class EditToolbar {
   }
 
   init() {
+    if (this.isDisabled) {
+      console.log('ℹ️ EditToolbar: Skipping init() - toolbar is disabled due to missing elements');
+      return;
+    }
     this.attachButtonHandlers();
     this.hide();
     // ✅ NEW: Set the initial book ID in historyManager
@@ -99,6 +105,7 @@ class EditToolbar {
    * @param {string} bookId The ID of the currently loaded book.
    */
   setBookId(bookId) {
+    if (this.isDisabled) return;
     this.currentBookId = bookId;
     setCurrentBookId(bookId); // Update the history manager
     this.updateHistoryButtonStates(); // Refresh button states
@@ -271,6 +278,7 @@ class EditToolbar {
    * Update the active/disabled states of undo/redo buttons.
    */
   async updateHistoryButtonStates() {
+    if (this.isDisabled) return;
     console.log("Updating history button states...");
 
     // ✅ RE-ACQUIRE REFERENCES TO THE BUTTONS HERE
@@ -1442,6 +1450,7 @@ class EditToolbar {
    * Show the toolbar
    */
   show() {
+    if (this.isDisabled) return;
     if (this.isVisible) return;
 
     console.log("👁️ EditToolbar: Showing toolbar");
@@ -1454,6 +1463,7 @@ class EditToolbar {
    * Hide the toolbar
    */
   hide() {
+    if (this.isDisabled) return;
     if (!this.isVisible) return;
 
     this.toolbar.classList.remove("visible");

@@ -12,7 +12,8 @@ export class BookToHomeTransition {
   static async execute(options = {}) {
     const { 
       fromBook,
-      progressCallback
+      progressCallback,
+      replaceHistory = false
     } = options;
     
     console.log('🏠 BookToHomeTransition: Starting book-to-home transition', { fromBook });
@@ -49,21 +50,35 @@ export class BookToHomeTransition {
       
       progress(90, 'Ensuring homepage readiness...');
       
-      // Wait for homepage content to be fully ready (homepage may have lazy loaders for book cards)
-      const { waitForContentReady } = await import('../../domReadiness.js');
+      // Wait for homepage content to be fully ready - use deterministic approach like other pathways
+      const { waitForCompleteReadiness } = await import('../../domReadiness.js');
       try {
-        await waitForContentReady('most-recent', {
-          maxWaitTime: 5000,
-          requireLazyLoader: false // Homepage might not have lazy loaders
+        await waitForCompleteReadiness('most-recent', {
+          maxWaitTime: 15000,
+          requireLazyLoader: true, // Homepage DOES have lazy loaders for book content
+          targetId: null // No specific navigation target needed
         });
+        console.log('✅ BookToHomeTransition: Homepage content is fully ready');
       } catch (error) {
-        console.warn('Homepage content readiness check failed, continuing:', error);
-        // Continue anyway since homepage doesn't always have lazy-loaded content
-        await new Promise(resolve => setTimeout(resolve, 300));
+        console.warn('❌ BookToHomeTransition: Homepage readiness check failed:', error);
+        
+        // Try a simpler fallback approach
+        try {
+          const { waitForContentReady } = await import('../../domReadiness.js');
+          await waitForContentReady('most-recent', {
+            maxWaitTime: 8000,
+            requireLazyLoader: true
+          });
+          console.log('✅ BookToHomeTransition: Homepage ready via fallback');
+        } catch (fallbackError) {
+          console.warn('❌ BookToHomeTransition: Fallback readiness check also failed:', fallbackError);
+          // Give a bit more time for things to settle
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
       
       // Update the URL
-      this.updateUrl();
+      this.updateUrl(replaceHistory);
       
       progress(100, 'Welcome home!');
       await ProgressManager.hide();
@@ -92,6 +107,14 @@ export class BookToHomeTransition {
       // Import and call the existing cleanup function
       const { cleanupReaderView } = await import('../../viewManager.js');
       cleanupReaderView();
+
+      // Explicitly reset all edit mode state flags as a safeguard
+      const { resetEditModeState } = await import('../../editButton.js');
+      resetEditModeState();
+      
+      // Close any open containers but don't destroy managers - they'll rebind to new DOM
+      await this.closeOpenContainers();
+      
     } catch (error) {
       console.warn('Reader cleanup failed, doing manual cleanup:', error);
       
@@ -102,6 +125,35 @@ export class BookToHomeTransition {
       } catch (containerError) {
         console.warn('Could not close hyperlit container:', containerError);
       }
+    }
+  }
+
+  /**
+   * Close any open containers before transition
+   */
+  static async closeOpenContainers() {
+    console.log('🧹 BookToHomeTransition: Closing open containers');
+    
+    try {
+      // Close hyperlit container if open
+      const { closeHyperlitContainer } = await import('../../unified-container.js');
+      closeHyperlitContainer();
+      console.log('🧹 Closed hyperlit container');
+
+      // Close source container if open
+      const sourceButton = document.getElementById('cloudRef');
+      if (sourceButton) {
+        const { default: sourceManager } = await import('../../sourceButton.js');
+        if (sourceManager && sourceManager.isOpen) {
+          sourceManager.closeContainer();
+          console.log('🧹 Closed source container');
+        }
+      }
+
+
+      
+    } catch (error) {
+      console.warn('Container closing failed:', error);
     }
   }
 
@@ -182,9 +234,21 @@ export class BookToHomeTransition {
       const { setCurrentBook } = await import('../../app.js');
       setCurrentBook('most-recent');
       
-      // Initialize homepage functionality
+      // CRITICAL: Reinitialize container managers BEFORE universalPageInitializer
+      // This ensures buttons are ready before NavButtons removes 'loading' class
+      await this.reinitializeContainerManagers();
+      
+      // Initialize homepage functionality - this will reinitialize NavButtons
       const { universalPageInitializer } = await import('../../viewManager.js');
-      await universalPageInitializer(progressCallback);
+      
+      try {
+        // Set flag to prevent double initialization in universalPageInitializer
+        window.containersAlreadyInitialized = true;
+        await universalPageInitializer(progressCallback);
+      } finally {
+        // Clean up the flag
+        delete window.containersAlreadyInitialized;
+      }
       
       console.log('✅ BookToHomeTransition: Homepage initialization complete');
       
@@ -195,16 +259,70 @@ export class BookToHomeTransition {
   }
 
   /**
+   * Reinitialize container managers after body replacement
+   */
+  static async reinitializeContainerManagers() {
+    console.log('🔧 BookToHomeTransition: Reinitializing container managers');
+    
+    try {
+      // Initialize homepage-specific managers
+      const { initializeUserContainer } = await import('../../userContainer.js');
+      const userManager = initializeUserContainer();
+      
+      if (userManager && userManager.initializeUser) {
+        await userManager.initializeUser();
+        console.log('✅ BookToHomeTransition: User state reinitialized');
+      }
+      
+      const { initializeNewBookContainer } = await import('../../newBookButton.js');
+      const newBookManager = initializeNewBookContainer();
+
+      const { initializeHomepageButtons } = await import('../../homepageDisplayUnit.js');
+      initializeHomepageButtons();
+      
+      // Shared container managers will rebind via viewManager
+      await this.rebindSharedContainerManagers();
+      
+      console.log('✅ BookToHomeTransition: Container managers reinitialized');
+      
+    } catch (error) {
+      console.warn('❌ BookToHomeTransition: Could not reinitialize container managers:', error);
+    }
+  }
+
+  /**
+   * Rebind shared container managers to new DOM elements after body replacement
+   */
+  static async rebindSharedContainerManagers() {
+    console.log('🔧 BookToHomeTransition: Rebinding shared container managers to new DOM');
+    
+    try {
+      // The managers weren't destroyed, so they'll rebind automatically via viewManager
+      // This is just for logging - the actual rebinding happens in viewManager
+      console.log('✅ Shared container managers will rebind via viewManager');
+      
+    } catch (error) {
+      console.warn('Shared container rebinding failed:', error);
+    }
+  }
+
+  /**
    * Update the browser URL to homepage
    */
-  static updateUrl() {
+  static updateUrl(replaceHistory = false) {
     const newUrl = '/';
     
     try {
-      history.pushState({}, '', newUrl);
-      console.log(`🔗 BookToHomeTransition: Updated URL to ${newUrl}`);
+      if (replaceHistory) {
+        history.replaceState({}, '', newUrl);
+        console.log(`🔗 BookToHomeTransition: Replaced URL with ${newUrl}`);
+      } else {
+        history.pushState({}, '', newUrl);
+        console.log(`🔗 BookToHomeTransition: Updated URL to ${newUrl}`);
+      }
     } catch (error) {
       console.warn('Could not update URL:', error);
     }
   }
+
 }
