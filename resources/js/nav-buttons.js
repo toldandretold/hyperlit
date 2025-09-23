@@ -183,11 +183,13 @@ shouldIgnoreEvent(event) {
     return true;
   }
   
+  /*
   // Check if click is near important buttons (more forgiving click area)
   if (this.isClickNearImportantButton(event)) {
     console.log('NavButtons: Click near important button - ignoring to allow button interaction');
     return true;
   }
+  */
   
   // Ignore other UI elements
   if (
@@ -287,7 +289,12 @@ shouldIgnoreEvent(event) {
    * On click (desktop), toggle the navigation container.
    */
   handleClick(event) {
-    if (this.shouldIgnoreEvent(event)) return;
+    console.log(`🔗 NavButtons: handleClick triggered`, event.target, event.target.id, event.target.tagName);
+    if (this.shouldIgnoreEvent(event)) {
+      console.log(`🔗 NavButtons: Event ignored by shouldIgnoreEvent`);
+      return;
+    }
+    console.log(`🔗 NavButtons: Toggling nav elements`);
     this.elements.forEach((element) => {
       element.classList.toggle("hidden-nav");
     });

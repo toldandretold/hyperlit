@@ -265,9 +265,14 @@ export class BookToHomeTransition {
     console.log('🔧 BookToHomeTransition: Reinitializing container managers');
     
     try {
+      // Check if userButton exists before initializing
+      const userButton = document.getElementById('userButton');
+      console.log('🔧 BookToHomeTransition: userButton exists?', !!userButton, userButton);
+      
       // Initialize homepage-specific managers
       const { initializeUserContainer } = await import('../../userContainer.js');
       const userManager = initializeUserContainer();
+      console.log('🔧 BookToHomeTransition: User manager created?', !!userManager, userManager);
       
       if (userManager && userManager.initializeUser) {
         await userManager.initializeUser();
