@@ -75,7 +75,7 @@ export class ContainerManager {
         // ContainerManager only handles explicit user close actions
         
         // Handle other container-specific click behavior here if needed
-        console.log(`🔗 ContainerManager: Non-link click in container`);
+        console.log(`🔗 ContainerManager: Non-link click in container`, e.target, e.target.id, e.target.tagName);
       };
       
       this.container.addEventListener("click", this.containerClickHandler);
@@ -381,4 +381,4 @@ export class ContainerManager {
     
     console.log(`✅ ContainerManager: Destroyed manager for #${this.containerId}`);
   }
-} 
+}
