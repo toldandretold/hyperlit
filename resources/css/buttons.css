@@ -120,8 +120,11 @@ black #221F20;
   position: relative; /* Enable positioning for pseudo-element */
 }
 
-/* Expanded clickable area for .open buttons (like newBook) */
-.open::before {
+/* Expanded clickable area for specific navigation buttons only */
+#newBook.open::before,
+#userButton.open::before,
+#editButton.open::before,
+#toc-toggle-button.open::before {
   content: '';
   position: absolute;
   top: -15px;

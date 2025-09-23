@@ -70,32 +70,41 @@ export class UserContainerManager extends ContainerManager {
   }
 
   handleDocumentClick(e) {
-      if (e.target.id === "loginSubmit") {
+      console.log(`🔗 UserContainer: Document click handler triggered`, e.target, e.target.id, e.target.tagName);
+      
+      if (e.target.closest("#loginSubmit")) {
+        console.log(`🔗 UserContainer: Login submit clicked`);
         e.preventDefault();
         this.handleLogin();
       }
-      if (e.target.id === "registerSubmit") {
+      if (e.target.closest("#registerSubmit")) {
+        console.log(`🔗 UserContainer: Register submit clicked`);
         e.preventDefault();
         this.handleRegister();
       }
-      if (e.target.id === "showRegister") {
+      if (e.target.closest("#showRegister")) {
+        console.log(`🔗 UserContainer: Show register clicked`);
         e.preventDefault();
         this.showRegisterForm();
       }
-      if (e.target.id === "showLogin") {
+      if (e.target.closest("#showLogin")) {
+        console.log(`🔗 UserContainer: Show login clicked`);
         e.preventDefault();
         this.showLoginForm();
       }
-      if (e.target.id === "logout") {
+      if (e.target.closest("#logout")) {
+        console.log(`🔗 UserContainer: Logout clicked`);
         e.preventDefault();
         this.handleLogout();
       }
 
-      if (e.target.id === "user-overlay" && this.isOpen) {
+      if (e.target.closest("#user-overlay") && this.isOpen) {
+        console.log(`🔗 UserContainer: User overlay clicked`);
         this.closeContainer();
       }
 
-      if (e.target.id === "myBooksBtn") {
+      if (e.target.closest("#myBooksBtn")) {
+        console.log(`🔗 UserContainer: My books button clicked`);
         e.preventDefault();
         if (this.user && this.user.name) {
           this.navigateToUserBooks(this.user.name);
@@ -212,6 +221,42 @@ export class UserContainerManager extends ContainerManager {
       this.container.innerHTML = profileHTML;
     }
     
+    // NEW: Directly attach event listeners to the buttons we just created
+    const logoutBtn = this.container.querySelector('#logout');
+    if (logoutBtn) {
+        console.log('🔧 Attaching direct listener to #logout button.', logoutBtn);
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // Stop the click from bubbling further
+            console.log('✅ LOGOUT BUTTON DIRECT LISTENER CLICKED');
+            this.handleLogout();
+        });
+    } else {
+        console.log('❌ LOGOUT BUTTON NOT FOUND IN CONTAINER');
+    }
+
+    const myBooksBtn = this.container.querySelector('#myBooksBtn');
+    if (myBooksBtn) {
+        console.log('🔧 Attaching direct listener to #myBooksBtn.', myBooksBtn);
+        myBooksBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // Stop the click from bubbling further
+            console.log('✅ MY BOOKS BUTTON DIRECT LISTENER CLICKED');
+            if (this.user && this.user.name) {
+              this.navigateToUserBooks(this.user.name);
+            } else {
+              this.setPostLoginAction(() => {
+                if (this.user && this.user.name) {
+                  this.navigateToUserBooks(this.user.name);
+                }
+              });
+              this.showLoginForm();
+            }
+        });
+    } else {
+        console.log('❌ MY BOOKS BUTTON NOT FOUND IN CONTAINER');
+    }
+
     console.log(`🔧 UserContainer: showUserProfile completed`);
   }
 
@@ -410,6 +455,12 @@ export class UserContainerManager extends ContainerManager {
   }
 
   toggleContainer() {
+    // Add a guard to prevent rapid re-triggering during animation
+    if (this.isAnimating) {
+      console.log('UserContainer: Animation in progress, ignoring toggle request.');
+      return;
+    }
+
     console.log(`🔧 UserContainer: toggleContainer called, isOpen=${this.isOpen}, user=${this.user?.name || 'null'}`);
     
     if (this.isOpen) {
