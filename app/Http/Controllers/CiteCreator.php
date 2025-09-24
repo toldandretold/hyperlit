@@ -74,30 +74,84 @@ class CiteCreator extends Controller
         ]);
 
         $validationStart = microtime(true);
+        
+        // DEBUG: Log what we're actually receiving
+        $files = null;
+        if ($request->hasFile('markdown_file')) {
+            $files = $request->file('markdown_file');
+            Log::info('DEBUG: markdown_file detection', [
+                'citation_id' => $request->input('citation_id'),
+                'has_file' => true,
+                'is_array' => is_array($files),
+                'file_count' => is_array($files) ? count($files) : 1,
+                'type' => gettype($files)
+            ]);
+        } elseif ($request->hasFile('markdown_file.0')) {
+            // Check if files are sent as array with numeric indices
+            $files = [];
+            $i = 0;
+            while ($request->hasFile("markdown_file.{$i}")) {
+                $files[] = $request->file("markdown_file.{$i}");
+                $i++;
+            }
+            Log::info('DEBUG: markdown_file array detection', [
+                'citation_id' => $request->input('citation_id'),
+                'method' => 'numeric_indices',
+                'file_count' => count($files)
+            ]);
+        } else {
+            // Try accessing as array directly
+            $fileArray = $request->file('markdown_file') ?? [];
+            if (is_array($fileArray) && !empty($fileArray)) {
+                $files = $fileArray;
+                Log::info('DEBUG: markdown_file direct array', [
+                    'citation_id' => $request->input('citation_id'),
+                    'method' => 'direct_array',
+                    'file_count' => count($files)
+                ]);
+            } else {
+                Log::info('DEBUG: No files detected', [
+                    'citation_id' => $request->input('citation_id'),
+                    'has_markdown_file' => $request->hasFile('markdown_file'),
+                    'all_files' => array_keys($request->allFiles())
+                ]);
+            }
+        }
+        
         $request->validate([
             'citation_id' => 'required|string|regex:/^[a-zA-Z0-9_-]+$/',
             'title' => 'required|string|max:255',
             'author' => 'nullable|string|max:255',
             'year' => 'nullable|integer|min:1000|max:' . (date('Y') + 10),
-            'markdown_file' => [
+            'markdown_file' => 'nullable|array',
+            'markdown_file.*' => [
                 'nullable',
                 'file',
-                'max:50000',
                 function ($attribute, $value, $fail) {
-                    if ($value) {
-                        $extension = strtolower($value->getClientOriginalExtension());
-                        $allowedExtensions = ['md', 'doc', 'docx', 'epub', 'html'];
-                        
-                        Log::info('File validation debug', [
-                            'original_name' => $value->getClientOriginalName(),
-                            'extension' => $extension,
-                            'mime_type' => $value->getMimeType(),
-                            'size' => $value->getSize()
-                        ]);
-                        
-                        if (!in_array($extension, $allowedExtensions)) {
-                            $fail('The markdown file field must be a file of type: md, doc, docx, epub, html.');
-                        }
+                    if (!$value || !$value->isValid()) {
+                        return; // Skip invalid uploads
+                    }
+                    
+                    $extension = strtolower($value->getClientOriginalExtension());
+                    
+                    // Allow both single file extensions and image extensions
+                    $allowedExtensions = ['md', 'doc', 'docx', 'epub', 'html', 'zip', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+                    
+                    Log::info('Individual file validation', [
+                        'file' => $value->getClientOriginalName(),
+                        'extension' => $extension,
+                        'size' => $value->getSize()
+                    ]);
+                    
+                    if (!in_array($extension, $allowedExtensions)) {
+                        $fail('File must be .md, .doc, .docx, .epub, .html, .zip, or image file (.jpg, .png, .gif, .svg, .webp).');
+                        return;
+                    }
+                    
+                    // Check file size (50MB max)
+                    if ($value->getSize() > 50 * 1024 * 1024) {
+                        $fail('File must be less than 50MB.');
+                        return;
                     }
                 }
             ]
@@ -125,16 +179,51 @@ class CiteCreator extends Controller
 
         if ($request->hasFile('markdown_file')) {
             $fileProcessStart = microtime(true);
-            $file = $request->file('markdown_file');
-            $extension = strtolower($file->getClientOriginalExtension());
-            $originalFilename = "original.{$extension}";
-            $originalFilePath = "{$path}/{$originalFilename}";
-
-            // Store file size before moving the file
-            $fileSize = $file->getSize();
+            $files = $request->file('markdown_file');
             
-            $file->move($path, $originalFilename);
-            chmod($originalFilePath, 0644);
+            // Check if this is a true folder upload (multiple files with .md + images) or single file
+            if (is_array($files) && count($files) > 1) {
+                // Check if this looks like a folder upload (has .md files + other files)
+                $hasMd = false;
+                $hasImages = false;
+                
+                foreach ($files as $file) {
+                    $ext = strtolower($file->getClientOriginalExtension());
+                    if ($ext === 'md') $hasMd = true;
+                    if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'])) $hasImages = true;
+                }
+                
+                if ($hasMd) {
+                    // This is a genuine folder upload with .md files
+                    $this->processFolderFiles($files, $path, $citation_id);
+                    $isDocxProcessing = true; // Set flag to wait for nodeChunks.json
+                    
+                    Log::info('Folder upload processing completed', [
+                        'citation_id' => $citation_id,
+                        'file_count' => count($files),
+                        'processing_duration_ms' => round((microtime(true) - $fileProcessStart) * 1000, 2)
+                    ]);
+                } else {
+                    // Multiple files but no .md files - treat as single file upload (take first)
+                    $file = $files[0];
+                    $extension = strtolower($file->getClientOriginalExtension());
+                }
+            } else {
+                // Handle single file upload
+                $file = is_array($files) ? $files[0] : $files;
+                $extension = strtolower($file->getClientOriginalExtension());
+            }
+            
+            // Process single file if not handled by folder upload above
+            if (!$isDocxProcessing) {
+                $originalFilename = "original.{$extension}";
+                $originalFilePath = "{$path}/{$originalFilename}";
+
+                // Store file size before moving the file
+                $fileSize = $file->getSize();
+                
+                $file->move($path, $originalFilename);
+                chmod($originalFilePath, 0644);
 
             Log::info('File upload completed', [
                 'citation_id' => $citation_id,
@@ -197,8 +286,21 @@ class CiteCreator extends Controller
 
                 // Dispatch the new job to handle the conversion in the background
                 PandocConversionJob::dispatch($citation_id, $originalFilePath);
+            } elseif ($extension === 'zip') {
+                $isDocxProcessing = true; // Set flag to wait for nodeChunks.json
+                Log::info('Starting ZIP folder processing pipeline', [
+                    'citation_id' => $citation_id,
+                    'processing_start_time' => $processingStart
+                ]);
+                // Process ZIP file containing MD + images
+                $this->processFolderUpload($originalFilePath, $path, $citation_id);
+                Log::info('ZIP folder processing pipeline completed', [
+                    'citation_id' => $citation_id,
+                    'processing_duration_ms' => round((microtime(true) - $processingStart) * 1000, 2)
+                ]);
             }
-        } else {
+        } // End single file processing
+    } else {
             $basicMarkdownStart = microtime(true);
             Log::info('No file uploaded, creating basic markdown file', [
                 'citation_id' => $citation_id,
@@ -579,7 +681,9 @@ class CiteCreator extends Controller
             'application/msword',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'application/epub+zip',
-            'text/html'
+            'text/html',
+            'application/zip',
+            'application/x-zip-compressed'
         ];
 
         if (!in_array($file->getMimeType(), $allowedMimes)) {
@@ -603,6 +707,8 @@ class CiteCreator extends Controller
                 return $this->validateMarkdownFile($file);
             case 'html':
                 return $this->validateHtmlFile($file);
+            case 'zip':
+                return $this->validateZipFile($file);
         }
 
         return true;
@@ -1042,6 +1148,147 @@ class CiteCreator extends Controller
         }
     }
 
+    private function processFolderUpload(string $originalFilePath, string $path, string $citation_id): void
+    {
+        $processStart = microtime(true);
+        $extractPath = "{$path}/folder_extracted";
+        
+        Log::info('processFolderUpload started', [
+            'citation_id' => $citation_id,
+            'zip_file' => basename($originalFilePath),
+            'process_start_time' => $processStart
+        ]);
+        
+        // Create extraction directory
+        if (!File::exists($extractPath)) {
+            File::makeDirectory($extractPath, 0755, true);
+        }
+        
+        try {
+            // Extract ZIP file
+            $zip = new \ZipArchive();
+            if ($zip->open($originalFilePath) === TRUE) {
+                $numFiles = $zip->numFiles;
+                $skippedFiles = 0;
+                $markdownFile = null;
+                $imageFiles = [];
+                
+                // Pre-validation: scan for MD file and images
+                for ($i = 0; $i < $numFiles; $i++) {
+                    $stat = $zip->statIndex($i);
+                    if (!$stat) continue;
+                    
+                    $filename = $stat['name'];
+                    $filesize = $stat['size'];
+                    
+                    // Security checks
+                    if ($filesize > 50 * 1024 * 1024) { // 50MB per file
+                        Log::warning('Skipping large file in ZIP', ['filename' => $filename, 'size' => $filesize]);
+                        $skippedFiles++;
+                        continue;
+                    }
+                    
+                    if (strpos($filename, '..') !== false || strpos($filename, '/') === 0) {
+                        Log::warning('Skipping suspicious file path in ZIP', ['filename' => $filename]);
+                        $skippedFiles++;
+                        continue;
+                    }
+                    
+                    // Check file types
+                    $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                    if ($extension === 'md') {
+                        if ($markdownFile === null) {
+                            $markdownFile = $filename;
+                        } else {
+                            Log::warning('Multiple MD files found, using first: ' . $markdownFile);
+                        }
+                    } elseif (in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'])) {
+                        $imageFiles[] = $filename;
+                    }
+                }
+                
+                // Validate we have required files
+                if (!$markdownFile) {
+                    throw new \RuntimeException("No markdown (.md) file found in ZIP");
+                }
+                
+                Log::info('ZIP file analysis completed', [
+                    'citation_id' => $citation_id,
+                    'markdown_file' => $markdownFile,
+                    'image_count' => count($imageFiles),
+                    'skipped_files' => $skippedFiles
+                ]);
+                
+                // Extract all files
+                $zip->extractTo($extractPath);
+                $zip->close();
+                
+                // Set secure permissions
+                $this->setSecurePermissions($extractPath);
+                
+                // Create media directory in final location
+                $mediaDir = "{$path}/media";
+                if (!File::exists($mediaDir)) {
+                    File::makeDirectory($mediaDir, 0755, true);
+                }
+                
+                // Process images with security validation
+                foreach ($imageFiles as $imageFile) {
+                    $sourcePath = "{$extractPath}/{$imageFile}";
+                    $targetPath = "{$mediaDir}/" . basename($imageFile);
+                    
+                    if (File::exists($sourcePath)) {
+                        // Validate image file
+                        if ($this->validateImageFile($sourcePath)) {
+                            File::copy($sourcePath, $targetPath);
+                            chmod($targetPath, 0644);
+                            Log::debug('Image copied', ['from' => $imageFile, 'to' => basename($targetPath)]);
+                        } else {
+                            Log::warning('Image validation failed, skipping', ['file' => $imageFile]);
+                        }
+                    }
+                }
+                
+                // Process the markdown file
+                $markdownPath = "{$extractPath}/{$markdownFile}";
+                if (File::exists($markdownPath)) {
+                    // Update image references in markdown to point to media/ directory
+                    $this->updateMarkdownImagePaths($markdownPath, $imageFiles, $citation_id);
+                    
+                    // Process markdown using existing pipeline
+                    $this->processMarkdownFile($markdownPath, $path, $citation_id);
+                } else {
+                    throw new \RuntimeException("Markdown file not found after extraction: {$markdownFile}");
+                }
+                
+                // Clean up extraction directory
+                $this->recursiveDelete($extractPath);
+                
+            } else {
+                throw new \RuntimeException("Failed to open ZIP file");
+            }
+            
+        } catch (\Exception $e) {
+            Log::error("Folder upload processing failed", [
+                'citation_id' => $citation_id,
+                'error' => $e->getMessage(),
+                'process_duration_ms' => round((microtime(true) - $processStart) * 1000, 2)
+            ]);
+            
+            // Clean up on failure
+            if (File::exists($extractPath)) {
+                $this->recursiveDelete($extractPath);
+            }
+            
+            throw $e;
+        }
+        
+        Log::info('processFolderUpload completed successfully', [
+            'citation_id' => $citation_id,
+            'total_duration_ms' => round((microtime(true) - $processStart) * 1000, 2)
+        ]);
+    }
+
     private function setSecurePermissions(string $directory): void
     {
         $iterator = new \RecursiveIteratorIterator(
@@ -1122,6 +1369,14 @@ class CiteCreator extends Controller
             Log::info('Markdown sanitization completed', [
                 'citation_id' => $citation_id,
                 'sanitize_duration_ms' => round((microtime(true) - $sanitizeStart) * 1000, 2)
+            ]);
+            
+            // Step 2.5: Fix image references BEFORE markdown-to-HTML conversion
+            $preConversionStart = microtime(true);
+            $this->fixImageReferencesInMarkdown($markdownFilePath, $citation_id);
+            Log::info('Pre-conversion image fix completed', [
+                'citation_id' => $citation_id,
+                'pre_conversion_duration_ms' => round((microtime(true) - $preConversionStart) * 1000, 2)
             ]);
             
             Log::info('Step 1: Converting Markdown to HTML...', [
@@ -1236,5 +1491,467 @@ class CiteCreator extends Controller
                 'total_process_duration_ms' => $totalProcessDuration
             ]);
         }
+    }
+
+    private function processFolderFiles(array $files, string $path, string $citation_id): void
+    {
+        $processStart = microtime(true);
+        $markdownFiles = [];
+        $imageFiles = [];
+        
+        Log::info('processFolderFiles started', [
+            'citation_id' => $citation_id,
+            'file_count' => count($files),
+            'process_start_time' => $processStart
+        ]);
+        
+        // Create media directory
+        $mediaDir = "{$path}/media";
+        if (!File::exists($mediaDir)) {
+            File::makeDirectory($mediaDir, 0755, true);
+        }
+        
+        // Separate markdown and image files
+        foreach ($files as $file) {
+            $extension = strtolower($file->getClientOriginalExtension());
+            $fileName = $file->getClientOriginalName();
+            
+            if ($extension === 'md') {
+                $markdownFiles[] = $file;
+            } elseif (in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'])) {
+                $imageFiles[] = $file;
+            }
+        }
+        
+        if (empty($markdownFiles)) {
+            throw new \RuntimeException("No markdown files found in folder upload");
+        }
+        
+        // Use the first markdown file (or could merge multiple)
+        $markdownFile = $markdownFiles[0];
+        $markdownPath = "{$path}/folder_markdown.md";
+        
+        // Move markdown file
+        $markdownFile->move($path, 'folder_markdown.md');
+        chmod($markdownPath, 0644);
+        
+        Log::info('Markdown file processed', [
+            'citation_id' => $citation_id,
+            'markdown_file' => $markdownFile->getClientOriginalName(),
+            'image_count' => count($imageFiles)
+        ]);
+        
+        // Process image files
+        foreach ($imageFiles as $imageFile) {
+            $filename = $imageFile->getClientOriginalName();
+            $targetPath = "{$mediaDir}/{$filename}";
+            
+            // Validate image file using temporary path
+            if ($this->validateImageFileFromUpload($imageFile)) {
+                $imageFile->move($mediaDir, $filename);
+                chmod($targetPath, 0644);
+                Log::debug('Image file processed', ['file' => $filename]);
+            } else {
+                Log::warning('Image file validation failed, skipping', ['file' => $filename]);
+            }
+        }
+        
+        // Update image references in markdown
+        if (File::exists($markdownPath)) {
+            $imageFilenames = array_map(function($file) {
+                return $file->getClientOriginalName();
+            }, $imageFiles);
+            
+            $this->updateMarkdownImagePaths($markdownPath, $imageFilenames, $citation_id);
+            
+            // Process markdown using existing pipeline
+            $this->processMarkdownFile($markdownPath, $path, $citation_id);
+        }
+        
+        Log::info('processFolderFiles completed', [
+            'citation_id' => $citation_id,
+            'total_duration_ms' => round((microtime(true) - $processStart) * 1000, 2)
+        ]);
+    }
+
+    private function validateZipFile($file): bool
+    {
+        $zip = new \ZipArchive();
+        $result = $zip->open($file->getPathname());
+        
+        if ($result !== TRUE) {
+            Log::debug('ZIP validation failed: cannot open as ZIP', [
+                'zip_error_code' => $result
+            ]);
+            return false;
+        }
+
+        $numFiles = $zip->numFiles;
+        $hasMarkdown = false;
+        $suspiciousFiles = 0;
+        $totalSize = 0;
+
+        // Scan all files in ZIP
+        for ($i = 0; $i < $numFiles; $i++) {
+            $stat = $zip->statIndex($i);
+            if (!$stat) continue;
+
+            $filename = $stat['name'];
+            $filesize = $stat['size'];
+            $totalSize += $filesize;
+
+            // Check for path traversal
+            if (strpos($filename, '..') !== false || strpos($filename, '/') === 0) {
+                Log::warning('ZIP validation failed: suspicious path', ['filename' => $filename]);
+                $suspiciousFiles++;
+                continue;
+            }
+
+            // Check file extension
+            $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+            
+            if ($extension === 'md') {
+                $hasMarkdown = true;
+            } elseif (in_array($extension, ['exe', 'bat', 'sh', 'php', 'js', 'vbs', 'scr'])) {
+                Log::warning('ZIP validation failed: executable file detected', ['filename' => $filename]);
+                $suspiciousFiles++;
+            }
+
+            // Check individual file size (50MB max)
+            if ($filesize > 50 * 1024 * 1024) {
+                Log::warning('ZIP validation failed: file too large', ['filename' => $filename, 'size' => $filesize]);
+                $suspiciousFiles++;
+            }
+        }
+
+        $zip->close();
+
+        // Validation rules
+        if (!$hasMarkdown) {
+            Log::debug('ZIP validation failed: no markdown file found');
+            return false;
+        }
+
+        if ($suspiciousFiles > 0) {
+            Log::warning('ZIP validation failed: suspicious files detected', ['count' => $suspiciousFiles]);
+            return false;
+        }
+
+        // Check total uncompressed size (200MB max)
+        if ($totalSize > 200 * 1024 * 1024) {
+            Log::warning('ZIP validation failed: total size too large', ['total_size' => $totalSize]);
+            return false;
+        }
+
+        return true;
+    }
+
+    private function validateImageFile(string $filePath): bool
+    {
+        // Check file exists and is readable
+        if (!file_exists($filePath) || !is_readable($filePath)) {
+            Log::warning('Image file not readable', ['path' => basename($filePath)]);
+            return false;
+        }
+
+        // Check file size (10MB max for images)
+        $fileSize = filesize($filePath);
+        if ($fileSize > 10 * 1024 * 1024) {
+            Log::warning('Image file too large', ['path' => basename($filePath), 'size' => $fileSize]);
+            return false;
+        }
+
+        // Validate MIME type
+        $mimeType = mime_content_type($filePath);
+        $allowedMimes = [
+            'image/jpeg',
+            'image/png', 
+            'image/gif',
+            'image/webp',
+            'image/svg+xml'
+        ];
+
+        if (!in_array($mimeType, $allowedMimes)) {
+            Log::warning('Invalid image MIME type', ['path' => basename($filePath), 'mime' => $mimeType]);
+            return false;
+        }
+
+        // For SVG, do additional content validation
+        if ($mimeType === 'image/svg+xml') {
+            return $this->validateSvgFile($filePath);
+        }
+
+        // Try to verify it's actually an image by reading image info
+        try {
+            $imageInfo = getimagesize($filePath);
+            if ($imageInfo === false) {
+                Log::warning('Invalid image file', ['path' => basename($filePath)]);
+                return false;
+            }
+        } catch (\Exception $e) {
+            Log::warning('Image validation exception', ['path' => basename($filePath), 'error' => $e->getMessage()]);
+            return false;
+        }
+
+        return true;
+    }
+
+    private function validateImageFileFromUpload($uploadedFile): bool
+    {
+        // Check file size (10MB max for images)
+        $fileSize = $uploadedFile->getSize();
+        if ($fileSize > 10 * 1024 * 1024) {
+            Log::warning('Uploaded image file too large', [
+                'name' => $uploadedFile->getClientOriginalName(), 
+                'size' => $fileSize
+            ]);
+            return false;
+        }
+
+        // Validate MIME type
+        $mimeType = $uploadedFile->getMimeType();
+        $allowedMimes = [
+            'image/jpeg',
+            'image/png', 
+            'image/gif',
+            'image/webp',
+            'image/svg+xml'
+        ];
+
+        if (!in_array($mimeType, $allowedMimes)) {
+            Log::warning('Invalid uploaded image MIME type', [
+                'name' => $uploadedFile->getClientOriginalName(),
+                'mime' => $mimeType
+            ]);
+            return false;
+        }
+
+        // For SVG, do additional content validation
+        if ($mimeType === 'image/svg+xml') {
+            return $this->validateSvgFileFromUpload($uploadedFile);
+        }
+
+        return true;
+    }
+
+    private function validateSvgFileFromUpload($uploadedFile): bool
+    {
+        $content = $uploadedFile->getContent();
+        if ($content === false) {
+            return false;
+        }
+
+        // Check for suspicious SVG content
+        $suspiciousPatterns = [
+            '/<script/i',
+            '/javascript:/i',
+            '/vbscript:/i',
+            '/on\w+\s*=/i', // Event handlers
+            '/<iframe/i',
+            '/<object/i',
+            '/<embed/i',
+            '/<form/i',
+            '/expression\s*\(/i'
+        ];
+
+        foreach ($suspiciousPatterns as $pattern) {
+            if (preg_match($pattern, $content)) {
+                Log::warning('Suspicious SVG content detected in upload', [
+                    'name' => $uploadedFile->getClientOriginalName(),
+                    'pattern' => $pattern
+                ]);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function validateSvgFile(string $filePath): bool
+    {
+        $content = file_get_contents($filePath);
+        if ($content === false) {
+            return false;
+        }
+
+        // Check for suspicious SVG content
+        $suspiciousPatterns = [
+            '/<script/i',
+            '/javascript:/i',
+            '/vbscript:/i',
+            '/on\w+\s*=/i', // Event handlers
+            '/<iframe/i',
+            '/<object/i',
+            '/<embed/i',
+            '/<form/i',
+            '/expression\s*\(/i'
+        ];
+
+        foreach ($suspiciousPatterns as $pattern) {
+            if (preg_match($pattern, $content)) {
+                Log::warning('Suspicious SVG content detected', [
+                    'path' => basename($filePath),
+                    'pattern' => $pattern
+                ]);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function updateMarkdownImagePaths(string $markdownPath, array $imageFiles, string $citation_id): void
+    {
+        $content = File::get($markdownPath);
+        $updatedContent = $content;
+        $updatedCount = 0;
+        $renamedFiles = 0;
+
+        // Create a map of image filenames and rename files with underscores
+        $imageMap = [];
+        $imageDir = dirname($markdownPath) . '/media/';
+        
+        foreach ($imageFiles as $imagePath) {
+            $filename = basename($imagePath);
+            $originalFilename = $filename;
+            
+            // If filename contains underscores, rename the actual file
+            if (strpos($filename, '_') !== false) {
+                $safeFilename = str_replace('_', '-', $filename);
+                $originalPath = $imageDir . $filename;
+                $safePath = $imageDir . $safeFilename;
+                
+                if (file_exists($originalPath)) {
+                    if (rename($originalPath, $safePath)) {
+                        $imageMap[$originalFilename] = $safeFilename; // Map original to safe name
+                        $imageMap[$safeFilename] = $safeFilename;     // Direct mapping too
+                        $renamedFiles++;
+                        
+                        Log::debug('Renamed image file to avoid underscores', [
+                            'citation_id' => $citation_id,
+                            'from' => $filename,
+                            'to' => $safeFilename
+                        ]);
+                    } else {
+                        Log::warning('Failed to rename image file', [
+                            'citation_id' => $citation_id,
+                            'from' => $originalPath,
+                            'to' => $safePath
+                        ]);
+                        $imageMap[$filename] = $filename; // Keep original if rename failed
+                    }
+                } else {
+                    $imageMap[$filename] = $safeFilename; // Assume it should be renamed
+                }
+            } else {
+                $imageMap[$filename] = $filename; // No underscores, keep original
+            }
+            
+            // Also map the filename without leading underscore if it exists
+            if (strpos($originalFilename, '_') === 0) {
+                $withoutUnderscore = ltrim($originalFilename, '_');
+                $imageMap[$withoutUnderscore] = $imageMap[$originalFilename];
+            }
+        }
+        
+        Log::info('Image filename mapping created', [
+            'citation_id' => $citation_id,
+            'renamed_files' => $renamedFiles,
+            'image_map' => $imageMap
+        ]);
+
+        // Pattern to match markdown image references: ![alt](image.jpg)
+        $pattern = '/!\[([^\]]*)\]\(([^)]+)\)/';
+        
+        $updatedContent = preg_replace_callback($pattern, function($matches) use ($imageMap, &$updatedCount, $citation_id) {
+            $altText = $matches[1];
+            $imagePath = $matches[2];
+            $filename = basename($imagePath);
+
+            // Check if this image exists in our uploaded images
+            if (isset($imageMap[$filename])) {
+                $actualFilename = $imageMap[$filename]; // Get the actual filename (might be different if mapped)
+                $newPath = "/{$citation_id}/media/{$actualFilename}"; // Use absolute path with book name
+                $updatedCount++;
+                
+                Log::debug('Updated image reference', [
+                    'citation_id' => $citation_id,
+                    'from' => $imagePath,
+                    'to' => $newPath,
+                    'actual_filename' => $actualFilename
+                ]);
+                
+                // Use HTML img tag directly instead of markdown to avoid underscore issues
+                $htmlImg = "<img src=\"{$newPath}\" alt=\"{$altText}\" />";
+                
+                return $htmlImg;
+            } else {
+                Log::warning('Image reference not found in uploaded files', [
+                    'citation_id' => $citation_id,
+                    'reference' => $imagePath,
+                    'filename' => $filename
+                ]);
+                // Keep original reference
+                return $matches[0];
+            }
+        }, $updatedContent);
+
+        // Save updated markdown
+        File::put($markdownPath, $updatedContent);
+
+        Log::info('Markdown image paths updated', [
+            'citation_id' => $citation_id,
+            'updated_references' => $updatedCount
+        ]);
+        
+        // Debug: Show a sample of the updated markdown around images
+        if ($updatedCount > 0) {
+            $lines = explode("\n", $updatedContent);
+            $imageLines = [];
+            foreach ($lines as $lineNum => $line) {
+                // Look for both markdown images and HTML img tags
+                if (strpos($line, '![') !== false || strpos($line, '<img') !== false || strpos($line, 'images/') !== false) {
+                    $imageLines[] = "Line " . ($lineNum + 1) . ": " . $line;
+                    if (count($imageLines) >= 3) break; // Show first 3 image lines
+                }
+            }
+            Log::info('Sample image references in updated markdown', [
+                'citation_id' => $citation_id,
+                'sample_lines' => $imageLines,
+                'updated_count' => $updatedCount
+            ]);
+        }
+    }
+
+    private function fixImageReferencesInMarkdown(string $markdownPath, string $citation_id): void
+    {
+        // This method is now simplified since we rename actual image files 
+        // in updateMarkdownImagePaths to avoid underscore issues entirely
+        Log::info('Pre-conversion image fix step (now handled by file renaming)', [
+            'citation_id' => $citation_id,
+            'note' => 'Image files are renamed to replace underscores with hyphens during processing'
+        ]);
+    }
+
+    private function recursiveDelete(string $directory): void
+    {
+        if (!is_dir($directory)) {
+            return;
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($directory, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+
+        foreach ($iterator as $file) {
+            if ($file->isDir()) {
+                rmdir($file->getPathname());
+            } else {
+                unlink($file->getPathname());
+            }
+        }
+
+        rmdir($directory);
     }
 }

@@ -66,6 +66,9 @@ class PandocConversionJob implements ShouldQueue
                 throw new ProcessFailedException($pandocProcess);
             }
             Log::info("Pandoc conversion successful.");
+            
+            // Step 1.5: Process extracted images and fix HTML paths
+            $this->processExtractedImages($basePath, $htmlOutputPath, $this->citation_id);
 
             // Step 2: Run the Python script on the generated HTML
             $pythonBin = env('PYTHON_PATH', 'python3');
@@ -107,5 +110,115 @@ class PandocConversionJob implements ShouldQueue
                 Log::info("Cleaned up intermediate file: {$htmlOutputPath}");
             }
         }
+    }
+
+    /**
+     * Process extracted images and fix HTML paths to use web routes
+     */
+    private function processExtractedImages(string $basePath, string $htmlPath, string $citationId): void
+    {
+        // Step 1: Rename image files with underscores to use hyphens
+        $this->renameImageFiles($basePath);
+        
+        // Step 2: Fix HTML paths to use web routes
+        $this->fixImagePathsInHtml($htmlPath, $citationId);
+    }
+
+    /**
+     * Rename image files with underscores to use hyphens instead
+     */
+    private function renameImageFiles(string $basePath): void
+    {
+        $mediaDir = $basePath . '/media';
+        if (!File::exists($mediaDir)) {
+            Log::info('No media directory found, skipping image renaming');
+            return;
+        }
+
+        $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+        $renamedCount = 0;
+
+        foreach (File::files($mediaDir) as $file) {
+            $filename = $file->getFilename();
+            $extension = strtolower($file->getExtension());
+
+            if (in_array($extension, $imageExtensions) && strpos($filename, '_') !== false) {
+                $safeFilename = str_replace('_', '-', $filename);
+                $originalPath = $file->getPathname();
+                $safePath = $mediaDir . '/' . $safeFilename;
+
+                if (rename($originalPath, $safePath)) {
+                    $renamedCount++;
+                    Log::debug('Renamed image file', [
+                        'from' => $filename,
+                        'to' => $safeFilename
+                    ]);
+                }
+            }
+        }
+
+        Log::info('Image file renaming completed', [
+            'media_dir' => $mediaDir,
+            'renamed_count' => $renamedCount
+        ]);
+    }
+
+    /**
+     * Fix image paths in HTML to use web routes instead of file system paths
+     */
+    private function fixImagePathsInHtml(string $htmlPath, string $citationId): void
+    {
+        if (!File::exists($htmlPath)) {
+            Log::warning("HTML file not found for image path fixing: {$htmlPath}");
+            return;
+        }
+
+        $htmlContent = File::get($htmlPath);
+        $updatedCount = 0;
+
+        // Pattern to match img tags with absolute file system paths
+        $pattern = '/<img([^>]*src="[^"]*' . preg_quote($citationId, '/') . '\/media\/[^"]*"[^>]*)>/';
+        
+        $htmlContent = preg_replace_callback($pattern, function($matches) use (&$updatedCount, $citationId) {
+            $imgTag = $matches[0];
+            
+            // Extract the src attribute and convert to web path
+            $updatedTag = preg_replace_callback('/src="([^"]*)"/', function($srcMatch) use ($citationId) {
+                $srcPath = $srcMatch[1];
+                
+                // If it contains the full file system path, convert to web route
+                if (strpos($srcPath, '/media/') !== false) {
+                    $filename = basename($srcPath);
+                    // Also rename files with underscores to hyphens
+                    $safeFilename = str_replace('_', '-', $filename);
+                    $newSrc = "/{$citationId}/media/{$safeFilename}";
+                    
+                    Log::debug('Fixed image path in HTML', [
+                        'original' => $srcPath,
+                        'fixed' => $newSrc,
+                        'citation_id' => $citationId
+                    ]);
+                    
+                    return 'src="' . $newSrc . '"';
+                }
+                
+                return $srcMatch[0]; // No change needed
+            }, $imgTag);
+            
+            if ($updatedTag !== $imgTag) {
+                $updatedCount++;
+            }
+            
+            return $updatedTag;
+        }, $htmlContent);
+
+        // Save updated HTML
+        File::put($htmlPath, $htmlContent);
+
+        Log::info('Fixed image paths in HTML', [
+            'citation_id' => $citationId,
+            'html_file' => $htmlPath,
+            'updated_images' => $updatedCount
+        ]);
     }
 }
