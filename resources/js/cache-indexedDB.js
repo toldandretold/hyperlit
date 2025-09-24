@@ -892,6 +892,12 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
   // Process <u> tags for hypercites
   const uTags = node.getElementsByTagName("u");
   Array.from(uTags).forEach((uTag) => {
+    // FIX: Only process <u> tags that are actual hypercites (have a specific ID format)
+    // This prevents plain, non-hypercite <u> tags from being processed and causing errors.
+    if (!uTag.id || !uTag.id.startsWith('hypercite_')) {
+      return; // Skip this tag if it's not a valid hypercite
+    }
+
     const startPos = findElementPosition(uTag, node);
     const uLength = uTag.textContent.length;
     
