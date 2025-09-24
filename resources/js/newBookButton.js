@@ -178,6 +178,7 @@ export class NewBookContainerManager extends ContainerManager {
             // Call the initialization function from the imported module
             module.initializeCitationFormListeners();
             
+            
             // Set up the form submission handler explicitly
             console.log("🔥 DEBUG: About to call setupFormSubmissionHandler");
             module.setupFormSubmissionHandler();
@@ -220,8 +221,8 @@ export class NewBookContainerManager extends ContainerManager {
         <!-- File Upload Section -->
         <div class="form-section">
           <label for="markdown_file" class="required">File <span class="required-indicator">*</span></label>
-          <input type="file" id="markdown_file" name="markdown_file" accept=".md,.epub,.doc,.docx" required>
-          <div class="field-hint">Upload .md, .docx, or .epub file</div>
+          <input type="file" id="markdown_file" name="markdown_file[]" accept=".md,.epub,.doc,.docx,.html,.jpg,.jpeg,.png,.gif,.webp,.svg" webkitdirectory multiple>
+          <div class="field-hint">Upload a document file</div>
           <div id="file-validation" class="validation-message"></div>
         </div>
 

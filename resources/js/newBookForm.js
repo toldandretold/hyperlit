@@ -120,13 +120,52 @@ function validateFileInput() {
         return false;
     }
     
+    // Handle folder upload (multiple files)
+    if (fileInput.files.length > 1) {
+        let hasMarkdown = false;
+        let hasInvalidFiles = false;
+        const validImageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+        const validFileExts = ['.md', ...validImageExts];
+        
+        for (let i = 0; i < fileInput.files.length; i++) {
+            const file = fileInput.files[i];
+            const fileName = file.name.toLowerCase();
+            const hasValidExt = validFileExts.some(ext => fileName.endsWith(ext));
+            
+            if (!hasValidExt) {
+                hasInvalidFiles = true;
+                break;
+            }
+            
+            if (fileName.endsWith('.md')) {
+                hasMarkdown = true;
+            }
+        }
+        
+        if (!hasMarkdown) {
+            errorMsg.textContent = 'Folder must contain at least one .md file';
+            errorMsg.style.display = 'block';
+            return false;
+        }
+        
+        if (hasInvalidFiles) {
+            errorMsg.textContent = 'Folder should only contain .md and image files';
+            errorMsg.style.display = 'block';
+            return false;
+        }
+        
+        errorMsg.style.display = 'none';
+        return true;
+    }
+    
+    // Handle single file upload  
     const file = fileInput.files[0];
     const fileName = file.name.toLowerCase();
     const validExtensions = ['.md', '.epub', '.doc', '.docx', '.html'];
     const isValidType = validExtensions.some(ext => fileName.endsWith(ext));
     
     if (!isValidType) {
-        errorMsg.textContent = 'Please select a valid file (.md, .epub, .doc, .docx, or .html)';
+        errorMsg.textContent = 'Please select a valid file (.md, .epub, .doc, .docx, .html)';
         errorMsg.style.display = 'block';
         return false;
     }
@@ -435,10 +474,13 @@ function setupFormSubmission() {
                 }
             });
 
-            // Explicitly append the file
+            // Explicitly append the file(s)
             const fileInput = form.querySelector('#markdown_file');
             if (fileInput && fileInput.files.length > 0) {
-                formData.append('markdown_file', fileInput.files[0]);
+                // Handle multiple files (folder upload) or single file
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    formData.append('markdown_file[]', fileInput.files[i]);
+                }
             }
 
             await submitToLaravelAndLoad(formData, submitButton);

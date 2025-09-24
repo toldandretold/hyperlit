@@ -50,6 +50,26 @@ Route::get('/{book}/main-text-footnotes.json', function ($book) {
     return response()->file($filePath, ['Content-Type' => 'application/json']);
 })->where('book', '[a-zA-Z0-9\-]+');
 
+// Media serving route for all images (folder uploads use media/, docx uses media/)
+Route::get('/{book}/media/{filename}', function ($book, $filename) {
+    $filePath = resource_path("markdown/{$book}/media/{$filename}");
+
+    if (!file_exists($filePath)) {
+        abort(404, 'Image not found.');
+    }
+
+    // Get MIME type for proper content type
+    $mimeType = mime_content_type($filePath);
+    
+    return response()->file($filePath, [
+        'Content-Type' => $mimeType,
+        'Cache-Control' => 'public, max-age=3600'
+    ]);
+})->where([
+    'book' => '[a-zA-Z0-9\-_]+',
+    'filename' => '[a-zA-Z0-9\-_.]+\.(jpg|jpeg|png|gif|webp|svg)'
+]);
+
 
 // exact match /{book}/edit
 
