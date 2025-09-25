@@ -8,6 +8,155 @@ from bs4 import BeautifulSoup, NavigableString
 
 # --- UTILITY FUNCTIONS ---
 
+def analyze_document_structure(soup):
+    """Analyze document to determine if footnotes are sectioned or all at end"""
+    all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr'])
+    
+    # Find all footnote definitions
+    footnote_definitions = []
+    footnote_references = []
+    
+    for i, element in enumerate(all_elements):
+        text = element.get_text().strip()
+        
+        # Check for footnote definitions
+        if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+            footnote_definitions.append({
+                'element': element,
+                'index': i,
+                'text': text,
+                'number': re.search(r'(\d+)', text).group(1) if re.search(r'(\d+)', text) else None
+            })
+        
+        # Check for footnote references (not at start of paragraph)
+        elif re.search(r'\[\^?\d+\]', text) and not re.search(r'^\s*\[\^?\d+\]\s*[:.]\s*', text):
+            footnote_references.append({
+                'element': element,
+                'index': i,
+                'text': text
+            })
+    
+    print(f"Found {len(footnote_definitions)} footnote definitions and {len(footnote_references)} potential references")
+    
+    if not footnote_definitions:
+        return 'no_footnotes', {}
+    
+    # Calculate where footnote definitions are located relative to document length
+    total_elements = len(all_elements)
+    definition_positions = [fd['index'] for fd in footnote_definitions]
+    avg_definition_position = sum(definition_positions) / len(definition_positions) if definition_positions else 0
+    position_ratio = avg_definition_position / total_elements if total_elements > 0 else 0
+    
+    # Check if footnotes are clustered at the end (last 20% of document)
+    footnotes_at_end = position_ratio > 0.8
+    
+    # Check for section headers followed by footnotes
+    has_section_pattern = False
+    headers = [elem for elem in all_elements if elem.name and elem.name.startswith('h')]
+    
+    for header in headers:
+        if 'notes' in header.get_text().lower():
+            has_section_pattern = True
+            break
+    
+    # Check for header + footnotes + hr separator patterns
+    has_structured_sections = False
+    for i, element in enumerate(all_elements):
+        if element.name and element.name.startswith('h'):
+            # Look ahead for footnotes followed by hr
+            footnote_count = 0
+            hr_found = False
+            for j in range(i + 1, min(i + 50, len(all_elements))):  # Look ahead 50 elements max
+                next_elem = all_elements[j]
+                next_text = next_elem.get_text().strip()
+                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', next_text):
+                    footnote_count += 1
+                elif next_elem.name == 'hr' and footnote_count > 0:
+                    has_structured_sections = True
+                    break
+                elif next_elem.name and next_elem.name.startswith('h'):
+                    break
+    
+    # NEW: Check for footnote numbering resets (key pattern for sectioned docs)
+    has_footnote_resets = False
+    footnote_numbers_seen = set()
+    duplicate_numbers = set()
+    
+    for fd in footnote_definitions:
+        if fd['number']:
+            num = fd['number']
+            if num in footnote_numbers_seen:
+                duplicate_numbers.add(num)
+                has_footnote_resets = True
+            footnote_numbers_seen.add(num)
+    
+    print(f"🔍 Footnote reset analysis: duplicate numbers found: {duplicate_numbers}")
+    
+    # NEW: Check for HR separators distributed throughout document (not just at end)
+    hr_elements = [elem for elem in all_elements if elem.name == 'hr']
+    has_distributed_hrs = False
+    if len(hr_elements) >= 2:
+        hr_positions = [all_elements.index(hr) for hr in hr_elements]
+        # If HRs are spread throughout (not all in last 20% of document)
+        early_hrs = [pos for pos in hr_positions if pos < total_elements * 0.8]
+        if len(early_hrs) >= 2:
+            has_distributed_hrs = True
+    
+    print(f"🔍 HR distribution analysis: {len(hr_elements)} HRs found, {len(hr_elements) if has_distributed_hrs else 0} distributed throughout")
+    
+    # Check if this is a "references throughout + definitions at end" pattern
+    references_throughout_definitions_at_end = False
+    if footnotes_at_end and len(footnote_references) > 0 and len(footnote_definitions) > 10:
+        # Check if references are spread throughout (not just at end)
+        ref_positions = [fr['index'] for fr in footnote_references]
+        avg_ref_position = sum(ref_positions) / len(ref_positions) if ref_positions else 0
+        ref_position_ratio = avg_ref_position / total_elements if total_elements > 0 else 0
+        
+        # If references average position is much earlier than definitions (< 0.6 vs > 0.8)
+        if ref_position_ratio < 0.6 and position_ratio > 0.8:
+            references_throughout_definitions_at_end = True
+    
+    # Decision logic
+    strategy_info = {
+        'total_elements': total_elements,
+        'footnote_count': len(footnote_definitions),
+        'reference_count': len(footnote_references),
+        'position_ratio': position_ratio,
+        'footnotes_at_end': footnotes_at_end,
+        'has_section_pattern': has_section_pattern,
+        'has_structured_sections': has_structured_sections,
+        'references_throughout_definitions_at_end': references_throughout_definitions_at_end,
+        'has_footnote_resets': has_footnote_resets,
+        'has_distributed_hrs': has_distributed_hrs,
+        'duplicate_numbers': list(duplicate_numbers)
+    }
+    
+    # Updated decision logic with footnote reset detection as primary indicator
+    if has_footnote_resets and has_distributed_hrs:
+        strategy = 'sectioned'
+        print("🔍 STRATEGY: SECTIONED - Footnote numbering resets detected with HR separators")
+    elif has_footnote_resets and len(hr_elements) > 0:
+        strategy = 'sectioned'
+        print("🔍 STRATEGY: SECTIONED - Footnote numbering resets detected")
+    elif references_throughout_definitions_at_end:
+        strategy = 'whole_document'
+        print("🔍 STRATEGY: WHOLE DOCUMENT - References throughout text, definitions at end")
+    elif has_structured_sections:
+        strategy = 'sectioned'
+        print("🔍 STRATEGY: SECTIONED - Found header + footnotes + hr patterns")
+    elif footnotes_at_end and not has_section_pattern and not has_footnote_resets:
+        strategy = 'whole_document'
+        print("🔍 STRATEGY: WHOLE DOCUMENT - Footnotes clustered at end")
+    elif has_section_pattern and not references_throughout_definitions_at_end:
+        strategy = 'sectioned'
+        print("🔍 STRATEGY: SECTIONED - Found 'Notes' headers")
+    else:
+        strategy = 'whole_document'
+        print("🔍 STRATEGY: WHOLE DOCUMENT - Default fallback")
+    
+    print(f"📊 Document analysis: {strategy_info}")
+    return strategy, strategy_info
+
 def detect_footnote_sections(soup):
     """Detect footnote sections by scanning forward and identifying text ranges"""
     all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr'])
@@ -194,23 +343,65 @@ def detect_footnote_sections(soup):
     
     # Handle case where there are footnotes but no section headers
     if not sections:
-        footnotes = []
-        for element in all_elements:
-            text = element.get_text().strip()
-            if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
-                footnotes.append(element)
+        # NEW: Try to detect HR-separated footnote groups
+        hr_positions = [i for i, elem in enumerate(all_elements) if elem.name == 'hr']
         
-        if footnotes:
-            sections = [{
-                'id': 'default_section',
-                'header': None,
-                'footnotes': footnotes,
-                'text_start_idx': 0,
-                'text_end_idx': len(all_elements),
-                'footnotes_start_idx': 0,
-                'footnotes_end_idx': len(all_elements)
-            }]
-            print(f"Created default section with {len(footnotes)} footnotes")
+        if len(hr_positions) >= 2:
+            print(f"Attempting HR-based section detection with {len(hr_positions)} separators")
+            sections = []
+            section_counter = 0
+            
+            # Create sections between HR separators
+            section_starts = [0] + [pos + 1 for pos in hr_positions[:-1]]  # Start after each HR except last
+            section_ends = hr_positions  # End at each HR
+            
+            for i, (start_idx, end_idx) in enumerate(zip(section_starts, section_ends)):
+                footnotes = []
+                
+                # Collect footnotes in this range
+                for j in range(start_idx, end_idx):
+                    if j >= len(all_elements):
+                        break
+                    element = all_elements[j]
+                    text = element.get_text().strip()
+                    
+                    if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+                        footnotes.append(element)
+                        print(f"  Found footnote in HR section {i+1}: {text[:30]}...")
+                
+                if footnotes:
+                    section_counter += 1
+                    section_data = {
+                        'id': f'hr_section_{section_counter}',
+                        'header': None,
+                        'footnotes': footnotes,
+                        'text_start_idx': start_idx,
+                        'text_end_idx': end_idx,
+                        'footnotes_start_idx': start_idx,
+                        'footnotes_end_idx': end_idx
+                    }
+                    sections.append(section_data)
+                    print(f"Created HR-based section {section_counter} with {len(footnotes)} footnotes (range {start_idx}-{end_idx})")
+        
+        # Fallback to default section if HR-based detection didn't work
+        if not sections:
+            footnotes = []
+            for element in all_elements:
+                text = element.get_text().strip()
+                if re.search(r'^\s*(\[\^?\d+\]|\^\d+)\s*[:.]\s*\S', text):
+                    footnotes.append(element)
+            
+            if footnotes:
+                sections = [{
+                    'id': 'default_section',
+                    'header': None,
+                    'footnotes': footnotes,
+                    'text_start_idx': 0,
+                    'text_end_idx': len(all_elements),
+                    'footnotes_start_idx': 0,
+                    'footnotes_end_idx': len(all_elements)
+                }]
+                print(f"Created fallback default section with {len(footnotes)} footnotes")
     
     print(f"Total sections detected: {len(sections)}")
     # Also return the elements list for position-based matching
@@ -243,6 +434,47 @@ def generate_ref_keys(text, context_text=""):
     for acronym in acronyms: keys.add(acronym.lower() + year)
     if "United Nations General Assembly" in text: keys.add("un" + year)
     return list(keys)
+
+def process_whole_document_footnotes(soup, book_id):
+    """Process footnotes when all definitions are at document end"""
+    all_elements = soup.find_all(['p', 'div', 'li'])
+    footnote_map = {}
+    footnotes_data = []
+    
+    print("--- Processing whole-document footnotes ---")
+    
+    # Find all footnote definitions
+    for element in all_elements:
+        text = element.get_text().strip()
+        # Extract footnote number from various patterns including [^1]:
+        number_match = re.search(r'^\s*(\[\^?(\d+)\]|\^(\d+))\s*[:.]\s*(.*)', text, re.DOTALL)
+        if number_match:
+            # Extract the digit from either group 2 or group 3
+            identifier = number_match.group(2) or number_match.group(3)
+            content = number_match.group(4).strip()
+            
+            print(f"Processing whole-doc footnote {identifier}: {content[:50]}...")
+            
+            # Generate unique IDs
+            unique_fn_id = f"{book_id}_Fn{int(time.time() * 1000)}{identifier}"
+            unique_fnref_id = f"{book_id}_Fnref{int(time.time() * 1000)}{identifier}"
+            
+            # Add anchor with unique ID
+            anchor_tag = soup.new_tag('a', id=unique_fn_id)
+            anchor_tag['fn-count-id'] = identifier
+            element.insert(0, anchor_tag)
+            
+            footnote_map[identifier] = {
+                'unique_fn_id': unique_fn_id,
+                'unique_fnref_id': unique_fnref_id,
+                'content': content,
+                'element': element
+            }
+            
+            footnotes_data.append({"footnoteId": unique_fn_id, "content": content})
+    
+    print(f"Found {len(footnote_map)} footnote definitions in whole-document mode")
+    return footnote_map, footnotes_data
 
 def is_likely_reference(p_tag):
     if not p_tag: return False
@@ -288,10 +520,21 @@ def main(html_file_path, output_dir, book_id):
     
     print(f"Found and processed {len(references_data)} reference entries (kept in DOM).")
 
-    # --- 1B: Process Footnotes (SECTION-AWARE) ---
-    footnote_sections, all_elements = detect_footnote_sections(soup)
-    sectioned_footnote_map = {}
-    all_footnotes_data = []
+    # --- 1B: Process Footnotes (ROUTER-BASED) ---
+    strategy, strategy_info = analyze_document_structure(soup)
+    
+    if strategy == 'whole_document':
+        # Use simple whole-document footnote processing
+        global_footnote_map, footnotes_data = process_whole_document_footnotes(soup, book_id)
+        sectioned_footnote_map = {'whole_document': global_footnote_map}
+        all_footnotes_data = footnotes_data
+        footnote_sections = []
+        all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr'])
+    else:
+        # Use section-aware footnote processing
+        footnote_sections, all_elements = detect_footnote_sections(soup)
+        sectioned_footnote_map = {}
+        all_footnotes_data = []
     
     # Process traditional footnotes container first
     fn_container = soup.find('section', class_='footnotes')
@@ -445,7 +688,20 @@ def main(html_file_path, output_dir, book_id):
                 new_content.append(NavigableString(text[last_index:]))
                 text_node.replace_with(*new_content)
 
-    # --- 2B: Link Footnotes (SECTION-AWARE) ---
+    # --- 2B: Link Footnotes (STRATEGY-AWARE) ---
+    def find_footnote_data(identifier, current_element=None):
+        """Find footnote data using the appropriate strategy"""
+        if strategy == 'whole_document':
+            # Simple lookup in whole-document map
+            if identifier in global_footnote_map:
+                print(f"Found footnote {identifier} in whole-document mode")
+                return global_footnote_map[identifier]
+            print(f"Could not find footnote {identifier} in whole-document mode (available: {list(global_footnote_map.keys())[:10]}...)")
+            return None
+        else:
+            # Section-aware lookup (original logic)
+            return find_footnote_in_sections(identifier, current_element)
+    
     def find_footnote_in_sections(identifier, current_element):
         """Find footnote data by determining which section's text area this element is in"""
         # Get position of current element in document
@@ -487,7 +743,7 @@ def main(html_file_path, output_dir, book_id):
         identifier = identifier_match.group(1)
         text_content = a_tag.get_text(strip=True)
 
-        footnote_data = find_footnote_in_sections(identifier, a_tag)
+        footnote_data = find_footnote_data(identifier, a_tag)
         if footnote_data and text_content == identifier:
             new_sup = soup.new_tag('sup', id=footnote_data['unique_fnref_id'])
             new_sup['fn-count-id'] = identifier
@@ -502,7 +758,7 @@ def main(html_file_path, output_dir, book_id):
     for sup_tag in soup.find_all('sup'):
         if sup_tag.find('a', class_='footnote-ref'): continue
         identifier = sup_tag.get_text(strip=True)
-        footnote_data = find_footnote_in_sections(identifier, sup_tag)
+        footnote_data = find_footnote_data(identifier, sup_tag)
         if footnote_data:
             sup_tag['id'] = footnote_data['unique_fnref_id']
             sup_tag['fn-count-id'] = identifier
@@ -533,7 +789,7 @@ def main(html_file_path, output_dir, book_id):
                         print(f"Skipping footnote definition pattern: {match.group(0)}:")
                         continue
                     
-                    footnote_data = find_footnote_in_sections(identifier, text_node.parent)
+                    footnote_data = find_footnote_data(identifier, text_node.parent)
                     if footnote_data:
                         new_content.append(NavigableString(text[last_index:match.start()]))
                         new_sup = soup.new_tag('sup', id=footnote_data['unique_fnref_id'])
