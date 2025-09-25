@@ -18,6 +18,12 @@ body {
     box-sizing: border-box;
 }
 
+/* Ensure images resize proportionally */
+img {
+    max-width: 100%;
+    height: auto; /* This maintains aspect ratio */
+}
+
 /* Ensure main content container doesn't overflow */
 .main-content, .reader-content-wrapper {
     overflow-x: hidden;
@@ -33,6 +39,9 @@ body {
 ul {
     margin-block-start: .2em;
     margin-block-end: 2em;
+    padding-left: 0; /* Remove padding since we're using inside positioning */
+    margin-left: 0; /* Remove default browser margin */
+    list-style-position: inside; /* Keep bullets inside the content area */
 }
 
 
@@ -308,6 +317,19 @@ sup[fn-count-id]:active,
     
 li {
     color: #CBCCCC;
+    margin-bottom: 0.3em; /* Space between list items */
+    margin-left: 1em; /* Small indent for the entire list item */
+    padding-left: 0; /* No additional padding */
+    line-height: 1.4; /* Match paragraph line height */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Fix paragraphs inside list items */
+li p {
+    margin-top: 0; /* Remove top margin */
+    margin-bottom: 0; /* Remove bottom margin */
+    padding-left: 0; /* Remove any padding */
 }
 
 a {
