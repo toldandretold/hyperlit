@@ -163,69 +163,63 @@ export function createLazyLoader(config) {
   };
 
   // --- SCROLL POSITION SAVING LOGIC ---
- instance.saveScrollPosition = () => {
-    // 🚨 SCROLL LOCK PROTECTION: Don't save scroll position during navigation or when locked
-    if (instance.scrollLocked || instance.isNavigatingToInternalId) {
-      const reason = instance.scrollLocked ? `scroll locked (${instance.scrollLockReason})` : 'navigation in progress';
-      console.log(`🔧 SAVE SCROLL: ${reason}, SKIPPING scroll position save`);
-      return;
-    }
-    
-    // 🔄 NEW: Don't save scroll position during post-navigation cooldown
-    if (instance.scrollSaveCooldown) {
-      console.log(`🔧 SAVE SCROLL: cooldown period active, SKIPPING scroll position save`);
-      return;
-    }
-    
-    console.log("🔧 SAVE SCROLL: Running saveScrollPosition");
-    
-    // Query for all elements having an id attribute.
-    // Use instance.container here:
-    const elements = Array.from(instance.container.querySelectorAll("[id]")); 
-    if (elements.length === 0) return;
-    
-    let scrollSourceElement = instance.scrollableParent;
-    let scrollSourceRect;
 
-    if (scrollSourceElement === window) {
-      scrollSourceElement = document.documentElement;
-      scrollSourceRect = { top: 0, left: 0, bottom: window.innerHeight, right: window.innerWidth };
-    } else {
-      // Use instance.scrollableParent for getBoundingClientRect:
-      scrollSourceRect = instance.scrollableParent.getBoundingClientRect(); 
+  // Core saving logic. Can be called directly when a save is required.
+  const forceSavePosition = () => {
+    // More efficient query for valid, trackable elements.
+    const elements = instance.container.querySelectorAll("p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]");
+    if (elements.length === 0) return;
+
+    const scrollSourceRect = instance.scrollableParent === window
+      ? { top: 0 } // Viewport top is always 0
+      : instance.scrollableParent.getBoundingClientRect();
+
+    // Find the first element that is at or below the container's top edge.
+    let topVisible = null;
+    for (const el of elements) {
+      if (el.getBoundingClientRect().top >= scrollSourceRect.top) {
+        topVisible = el;
+        break;
+      }
     }
-    
-    const topVisible = elements.find((el) => {
-      const rect = el.getBoundingClientRect();
-      return rect.top >= scrollSourceRect.top;
-    });
 
     if (topVisible) {
       const detectedId = topVisible.id;
+      // The query is specific, but we double-check for a numerical ID.
       if (/^\d+(\.\d+)?$/.test(detectedId)) {
         const scrollData = { elementId: detectedId };
         const storageKey = getLocalStorageKey("scrollPosition", instance.bookId);
         const stringifiedData = JSON.stringify(scrollData);
-        sessionStorage.setItem(storageKey, stringifiedData);
-        localStorage.setItem(storageKey, stringifiedData);
-        console.log("🔧 SAVE SCROLL: Saved scroll data:", scrollData);
-      } else {
-        console.log(
-          `🔧 SAVE SCROLL: Element id "${detectedId}" is not numerical. Skip saving scroll data.`
-        );
+
+        // Only write to storage if the position has actually changed.
+        if (sessionStorage.getItem(storageKey) !== stringifiedData) {
+          sessionStorage.setItem(storageKey, stringifiedData);
+          localStorage.setItem(storageKey, stringifiedData);
+          console.log("🔧 SAVE SCROLL: Saved scroll position to element:", detectedId);
+        }
       }
     }
   };
 
+  // Guarded wrapper for the scroll event listener to use during manual scrolling.
+  instance.saveScrollPosition = () => {
+    // During user scrolling, respect the lock to prevent saving during navigation.
+    if (instance.scrollLocked) {
+      return;
+    }
+    forceSavePosition();
+  };
+
   document.dispatchEvent(new Event("pageReady"));
-  
-   if (instance.scrollableParent === window) {
-    window.addEventListener("scroll", throttle(instance.saveScrollPosition, 200));
+
+  // Attach the throttled, guarded listener for regular user scrolling.
+  if (instance.scrollableParent === window) {
+    window.addEventListener("scroll", throttle(instance.saveScrollPosition, 250));
   } else {
-    instance.scrollableParent.addEventListener("scroll", throttle(instance.saveScrollPosition, 200));
+    instance.scrollableParent.addEventListener("scroll", throttle(instance.saveScrollPosition, 250));
   }
 
-instance.restoreScrollPosition = async () => {
+  instance.restoreScrollPosition = async () => {
     // Check if user is currently scrolling
     if (shouldSkipScrollRestoration("instance restoreScrollPosition")) {
       return;
@@ -535,17 +529,13 @@ instance.restoreScrollPosition = async () => {
     instance.scrollLockReason = null;
     if (wasLocked) {
       console.log(`🔓 Scroll unlocked (was: ${reason})`);
-      
-      // 🔄 NEW: Add cooldown period for scroll position saving after navigation
-      instance.scrollSaveCooldown = true;
+
+      // After a navigation lock is released, force a save of the final position.
+      // Use a timeout to ensure the scroll has settled after any animations.
       setTimeout(() => {
-        instance.scrollSaveCooldown = false;
-        console.log(`🔄 Scroll position saving cooldown ended`);
-      }, 1000); // 1 second cooldown
-      
-      // Simple unlock notification
-      const currentScrollTop = instance.scrollableParent.scrollTop;
-      console.log(`📍 Scroll position at unlock: ${currentScrollTop}px - user has full control`);
+        console.log(`🎯 Forcing scroll position save after navigation.`);
+        forceSavePosition();
+      }, 250);
     }
   };
 
