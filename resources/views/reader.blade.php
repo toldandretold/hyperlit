@@ -387,7 +387,10 @@
 
 
   <!-- toggle hidden containers -->
-  <div id="toc-container" class="hidden"></div>
+  <div id="toc-container" class="hidden">
+    <div class="mask-top"></div>
+    <div class="mask-bottom"></div>
+  </div>
   <div id="highlight-container" class="hidden"></div>
   <div id="hypercite-container" class="hidden"></div>
   <div id="hyperlit-container" class="container-panel hidden">
