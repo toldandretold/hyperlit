@@ -142,7 +142,10 @@
   </button>
 </div>
 
-<div id="toc-container" class="hidden"></div>
+<div id="toc-container" class="hidden">
+  <div class="mask-top"></div>
+  <div class="mask-bottom"></div>
+</div>
 <div id="highlight-container" class="hidden" contenteditable="true"></div>
 <div id="hypercite-container" class="hidden"></div>
 <div id="source-container" class="hidden"></div>
