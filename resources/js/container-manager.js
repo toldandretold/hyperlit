@@ -126,6 +126,9 @@ export class ContainerManager {
   resetContainerState() {
     if (!this.container) return;
     
+    // Preserve current open state by checking DOM classes
+    const wasOpen = this.container.classList.contains('open');
+    
     // Reset all inline styles that might interfere with proper opening
     this.container.style.display = '';
     this.container.style.opacity = '';
@@ -137,11 +140,19 @@ export class ContainerManager {
     this.container.style.top = '';
     this.container.style.left = '';
     
-    // Ensure container starts in closed state
-    this.container.classList.add('hidden');
-    this.isOpen = false;
-    
-    console.log(`🔄 Container state reset for #${this.containerId}`);
+    if (wasOpen) {
+      // Container was open - preserve open state
+      this.container.classList.remove('hidden');
+      this.container.classList.add('open');
+      this.isOpen = true;
+      console.log(`🔄 Container state preserved as OPEN for #${this.containerId}`);
+    } else {
+      // Container was closed - ensure closed state
+      this.container.classList.add('hidden');
+      this.container.classList.remove('open');
+      this.isOpen = false;
+      console.log(`🔄 Container state reset to CLOSED for #${this.containerId}`);
+    }
   }
 
   // =================================================================
