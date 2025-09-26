@@ -30,6 +30,9 @@ class TocContainerManager extends ContainerManager {
     setTimeout(() => {
         console.log('✅ TOC open transition started, inserting bookmark.');
         updateOrInsertBookmark(this.container, tocCache.data);
+        
+        // Set initial scroll position without animation
+        setInitialBookmarkPosition(this.container);
     }, 0);
   }
 }
@@ -512,28 +515,25 @@ function updateOrInsertBookmark(container, tocData) {
     
     console.log("📖 Inserting bookmark with calculated size and position.");
     scroller.insertBefore(bookmarkElement, insertionRefNode); // If insertionRefNode is null, it appends to the end.
-
-    // 6. Scroll to the newly inserted bookmark
-    scrollToBookmark(scroller);
 }
 
 
 /**
- * Auto-scroll TOC to the bookmark position
+ * Set initial TOC scroll position to bookmark without animation
  */
-function scrollToBookmark(scroller) {
-  const bookmark = scroller.querySelector(".toc-bookmark");
-  if (bookmark) {
-    // Calculate position to center the bookmark in the scroller
+function setInitialBookmarkPosition(container) {
+  const scroller = container.querySelector('.scroller');
+  const bookmark = scroller?.querySelector(".toc-bookmark");
+  
+  if (bookmark && scroller) {
+    // Calculate position to show bookmark in upper third of the scroller
     const scrollerHeight = scroller.clientHeight;
     const bookmarkOffset = bookmark.offsetTop;
-    const targetScroll = Math.max(0, bookmarkOffset - (scrollerHeight / 2));
+    const targetScroll = Math.max(0, bookmarkOffset - (scrollerHeight / 3));
     
-    scroller.scrollTo({
-      top: targetScroll,
-      behavior: "smooth"
-    });
+    // Set position instantly without animation
+    scroller.scrollTop = targetScroll;
     
-    console.log("📖 Auto-scrolled TOC to bookmark position");
+    console.log("📖 Set initial TOC position to bookmark");
   }
 }
