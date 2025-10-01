@@ -30,6 +30,7 @@ class TocContainerManager extends ContainerManager {
     if (window.containerCustomizer) window.containerCustomizer.loadCustomizations();
     
     // Set up all state BEFORE making container visible
+
     this.isOpen = true;
     window.activeContainer = this.container.id;
     
@@ -57,6 +58,7 @@ class TocContainerManager extends ContainerManager {
     if (!this.isBackNavigation) {
       this.container.focus();
     }
+
   }
 }
 
@@ -249,6 +251,7 @@ export function renderTOC(container, tocData) {
   }
 
   console.log('🎯 Using pre-rendered scroller - zero DOM manipulation needed');
+
 
   // Clear existing content and repopulate (no DOM structure changes)
   scroller.innerHTML = '';
