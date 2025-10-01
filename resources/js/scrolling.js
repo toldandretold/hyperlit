@@ -334,16 +334,24 @@ async function fallbackScrollPosition(lazyLoader) {
 
 export async function restoreScrollPosition() {
   console.log("restoring scroll position...");
-  
+
   // Check if user is currently scrolling
   if (shouldSkipScrollRestoration("restoreScrollPosition")) {
     return;
   }
-  
+
   if (!currentLazyLoader) {
     console.error("Lazy loader instance not available!");
     return;
   }
+
+  // 🚀 FIX: Skip if we're already navigating to a target
+  // This prevents race conditions with BookToBookTransition and other navigation pathways
+  if (currentLazyLoader.isNavigatingToInternalId) {
+    console.log(`⏭️ RESTORE SCROLL: Navigation already in progress, skipping restore`);
+    return;
+  }
+
   console.log(
     "📌 Attempting to restore scroll position for container:",
     currentLazyLoader.bookId
@@ -358,9 +366,14 @@ export async function restoreScrollPosition() {
 
   // Read target id from URL hash first.
   let targetId = window.location.hash.substring(1);
-  const hasExplicitTarget = !!targetId; // Track if we have an explicit navigation target
-  
-  console.log(`🔍 URL hash target: "${targetId}", explicit: ${hasExplicitTarget}`);
+
+  // 🚀 FIX: Check if we've already navigated to this hash (using history state)
+  // If we have, treat it like we have no explicit target (allow scroll position to override)
+  const historyState = window.history.state;
+  const alreadyNavigatedToHash = historyState && historyState.navigatedToHash === targetId;
+  const hasExplicitTarget = !!targetId && !alreadyNavigatedToHash;
+
+  console.log(`🔍 RESTORE SCROLL: URL hash: "${targetId}", alreadyNavigated: ${alreadyNavigatedToHash}, explicit: ${hasExplicitTarget}`);
   
   // Show overlay for external navigation targets
   let overlayShown = false;
@@ -384,28 +397,40 @@ export async function restoreScrollPosition() {
   }
 
   // Only use saved scroll position if there's no explicit target in URL
-  if (!hasExplicitTarget) {
+  // AND we're not currently navigating to an internal ID
+  if (!hasExplicitTarget && !currentLazyLoader.isNavigatingToInternalId) {
+    console.log(`🔍 RESTORE SCROLL: No explicit target, checking saved positions...`);
     try {
       const scrollKey = getLocalStorageKey("scrollPosition", currentLazyLoader.bookId);
-      
+
       // Try session storage first
       const sessionData = sessionStorage.getItem(scrollKey);
       if (sessionData && sessionData !== "0") {
         const parsed = JSON.parse(sessionData);
-        if (parsed?.elementId) targetId = parsed.elementId;
+        if (parsed?.elementId) {
+          targetId = parsed.elementId;
+          console.log(`📍 RESTORE SCROLL: Using saved session position: ${targetId}`);
+        }
       }
-      
+
       // Fallback to localStorage
       if (!targetId) {
         const localData = localStorage.getItem(scrollKey);
         if (localData && localData !== "0") {
           const parsed = JSON.parse(localData);
-          if (parsed?.elementId) targetId = parsed.elementId;
+          if (parsed?.elementId) {
+            targetId = parsed.elementId;
+            console.log(`📍 RESTORE SCROLL: Using saved local position: ${targetId}`);
+          }
         }
       }
     } catch (e) {
       console.warn("Error reading saved scroll position", e);
     }
+  } else if (currentLazyLoader.isNavigatingToInternalId) {
+    console.log(`🎯 RESTORE SCROLL: Internal navigation in progress, IGNORING saved scroll positions`);
+  } else {
+    console.log(`🎯 RESTORE SCROLL: Explicit target found, IGNORING any saved scroll positions`);
   }
 
   if (!targetId) {
@@ -585,7 +610,12 @@ export function navigateToInternalId(targetId, lazyLoader, showOverlay = true) {
     return;
   }
   console.log("Initiating navigation to internal ID:", targetId);
-  
+
+  // 🚀 CRITICAL: Set flag IMMEDIATELY to prevent race conditions
+  // This prevents restoreScrollPosition() from interfering
+  lazyLoader.isNavigatingToInternalId = true;
+  console.log(`🔒 Set isNavigatingToInternalId = true for ${targetId}`);
+
   // 🎯 Show loading indicator with progress tracking (only if requested)
   const progressIndicator = showOverlay ? showNavigationLoading(targetId) : { updateProgress: () => {}, setMessage: () => {} };
   
@@ -951,16 +981,31 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     setTimeout(() => {
       console.log(`🏁 Navigation complete for ${targetId}`);
       lazyLoader.isNavigatingToInternalId = false;
-      
+
       // 🔓 Unlock scroll position
       if (lazyLoader.unlockScroll) {
         lazyLoader.unlockScroll();
       }
-      
+
       // 🎯 Hide loading indicator
       hideNavigationLoading();
-      
-      
+
+      // 🚀 FIX: Mark this hash as "navigated to" in history state
+      // This prevents refresh from going back to hash (allows scroll position to override)
+      if (window.location.hash.substring(1) === targetId) {
+        try {
+          const currentState = window.history.state || {};
+          window.history.replaceState(
+            { ...currentState, navigatedToHash: targetId },
+            '',
+            window.location.href
+          );
+          console.log(`✅ Marked hash ${targetId} as navigated in history state`);
+        } catch (error) {
+          console.warn('Could not update history state:', error);
+        }
+      }
+
     }, cleanupDelay);
   } else {
     console.error(`❌ Navigation failed - no ready target element found for: ${targetId}`);

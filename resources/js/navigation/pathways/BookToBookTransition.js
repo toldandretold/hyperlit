@@ -74,10 +74,12 @@ export class BookToBookTransition {
         await waitForLayoutStabilization();
         
         progress(60, 'Initializing reader...');
-        
+
         // Initialize the new reader view
-        await this.initializeReader(toBook, progress);
-        
+        // Pass hash navigation flag to prevent scroll position interference
+        const hasHashNavigation = !!(hash || hyperlightId || hyperciteId);
+        await this.initializeReader(toBook, progress, hasHashNavigation);
+
         progress(75, 'Ensuring content readiness...');
         
         // Wait for content to be fully ready after initialization
@@ -265,21 +267,31 @@ export class BookToBookTransition {
   /**
    * Initialize the reader for the new book
    */
-  static async initializeReader(bookId, progressCallback) {
-    console.log(`🚀 BookToBookTransition: Initializing reader for ${bookId}`);
-    
+  static async initializeReader(bookId, progressCallback, hasHashNavigation = false) {
+    console.log(`🚀 BookToBookTransition: Initializing reader for ${bookId}, hasHashNavigation: ${hasHashNavigation}`);
+
     try {
       // Set the current book
       const { setCurrentBook } = await import('../../app.js');
       setCurrentBook(bookId);
-      
+
+      // 🚀 CRITICAL: If we have hash navigation, set the flag BEFORE universalPageInitializer
+      // This prevents restoreScrollPosition() from interfering
+      if (hasHashNavigation) {
+        const { currentLazyLoader } = await import('../../initializePage.js');
+        if (currentLazyLoader) {
+          console.log(`🔒 Pre-setting isNavigatingToInternalId = true (hash navigation pending)`);
+          currentLazyLoader.isNavigatingToInternalId = true;
+        }
+      }
+
       // Initialize reader view but skip overlay restoration for book-to-book
       const { universalPageInitializer } = await import('../../viewManager.js');
       await universalPageInitializer(progressCallback);
-      
+
       // All UI rebinding is now handled by universalPageInitializer
       console.log("✅ BookToBookTransition: UI initialization delegated to universalPageInitializer");
-      
+
     } catch (error) {
       console.error('❌ BookToBookTransition: Reader initialization failed:', error);
       throw error;

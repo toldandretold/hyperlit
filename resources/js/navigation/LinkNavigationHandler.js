@@ -380,17 +380,40 @@ export class LinkNavigationHandler {
     console.log('📊 Popstate event details:', {
       state: event.state,
       currentURL: window.location.href,
-      historyLength: window.history.length
+      historyLength: window.history.length,
+      hasHash: !!window.location.hash,
+      hash: window.location.hash
     });
+
+    // 🚀 CRITICAL: Clear saved scroll positions when navigating with hash to prevent interference
+    if (window.location.hash) {
+      console.log(`🧹 POPSTATE: Clearing saved scroll positions because hash present: ${window.location.hash}`);
+      const { getLocalStorageKey } = await import('../cache-indexedDB.js');
+      const { book: currentBookVariable } = await import('../app.js');
+      const scrollKey = getLocalStorageKey("scrollPosition", currentBookVariable);
+      sessionStorage.removeItem(scrollKey);
+      // Don't clear localStorage - only session storage to prevent this navigation's interference
+
+      // 🚀 CRITICAL: Clear the "navigatedToHash" flag so back/forward buttons work
+      // When user presses back/forward, we ALWAYS want to navigate to the hash
+      if (window.history.state && window.history.state.navigatedToHash) {
+        console.log(`🧹 POPSTATE: Clearing navigatedToHash flag for fresh navigation`);
+        window.history.replaceState(
+          { ...window.history.state, navigatedToHash: null },
+          '',
+          window.location.href
+        );
+      }
+    }
 
     // Check if we need to navigate between different content using SPA transitions
     const { book: currentBookVariable } = await import('../app.js');
     const urlBookId = this.extractBookSlugFromPath(window.location.pathname);
-    
+
     // If the URL book doesn't match the current loaded book content, use SPA navigation
     if (urlBookId !== currentBookVariable) {
       console.log(`URL shows ${urlBookId} but content is ${currentBookVariable}. Using SPA navigation.`);
-      
+
       // Determine which type of SPA transition to use
       if (!urlBookId || urlBookId === 'most-recent') {
         // Navigate to homepage
@@ -401,10 +424,10 @@ export class LinkNavigationHandler {
         // Navigate to different book
         console.log(`📖 Using BookToBookTransition for back navigation: ${currentBookVariable} → ${urlBookId}`);
         const { BookToBookTransition } = await import('./pathways/BookToBookTransition.js');
-        await BookToBookTransition.execute({ 
-          fromBook: currentBookVariable, 
-          toBook: urlBookId, 
-          hash: window.location.hash 
+        await BookToBookTransition.execute({
+          fromBook: currentBookVariable,
+          toBook: urlBookId,
+          hash: window.location.hash
         });
       }
       return;

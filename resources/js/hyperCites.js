@@ -1862,20 +1862,20 @@ export async function handleHyperciteDeletion(hyperciteElement) {
  */
 export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
   console.log(`🎯 Highlighting target hypercite: ${targetHyperciteId} (with ${delay}ms delay)`);
-  
+
   // Find all hypercite elements (u tags with couple, poly, or single classes)
   const allHypercites = document.querySelectorAll('u.single, u.couple, u.poly');
-  
+
   // Find ALL segments for this hypercite (both individual and overlapping)
   let targetElements = [];
-  
+
   // 1. Check for direct element (individual segment)
   const directElement = document.getElementById(targetHyperciteId);
   if (directElement) {
     console.log(`🎯 Found direct element for ${targetHyperciteId}:`, directElement);
     targetElements.push(directElement);
   }
-  
+
   // 2. Check ALL overlapping elements for segments containing this hypercite
   const overlappingElements = document.querySelectorAll('u[data-overlapping]');
   for (const element of overlappingElements) {
@@ -1885,36 +1885,43 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
       targetElements.push(element);
     }
   }
-  
+
   // Wait for the specified delay, then apply highlighting with smooth transition
   setTimeout(() => {
     console.log(`✨ Starting hypercite highlighting animation for: ${targetHyperciteId}`);
-    
+
     // Apply target highlighting to ALL elements containing this hypercite
     if (targetElements.length > 0) {
       targetElements.forEach(element => {
         element.classList.add('hypercite-target');
+
+        // 🎯 NEW: Also highlight any arrow icons within this hypercite
+        const arrowIcons = element.querySelectorAll('.open-icon, sup.open-icon, span.open-icon');
+        arrowIcons.forEach(arrow => {
+          arrow.classList.add('arrow-target');
+          console.log(`✨ Added arrow highlight to icon in ${targetHyperciteId}`);
+        });
       });
       console.log(`✅ Added target highlighting to ${targetElements.length} segments for: ${targetHyperciteId}`);
     } else {
       console.warn(`⚠️ Could not find target hypercite element: ${targetHyperciteId}`);
     }
-    
+
     // Dim all other hypercites (but not the target elements)
     allHypercites.forEach(element => {
       if (!targetElements.includes(element)) {
         element.classList.add('hypercite-dimmed');
       }
     });
-    
+
     console.log(`🔅 Dimmed ${allHypercites.length - targetElements.length} non-target hypercites`);
-    
+
     // Remove highlighting after 5 seconds with smooth transition back
     setTimeout(() => {
       console.log(`🌅 Starting fade-out animation for: ${targetHyperciteId}`);
       restoreNormalHyperciteDisplay();
     }, 5000);
-    
+
   }, delay);
 
 }
@@ -1924,13 +1931,19 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
  */
 export function restoreNormalHyperciteDisplay() {
   console.log(`🔄 Restoring normal hypercite display`);
-  
+
   const allHypercites = document.querySelectorAll('u.hypercite-target, u.hypercite-dimmed');
   allHypercites.forEach(element => {
     element.classList.remove('hypercite-target', 'hypercite-dimmed');
   });
-  
-  console.log(`✅ Restored normal display for ${allHypercites.length} hypercites`);
+
+  // 🎯 NEW: Also remove arrow highlighting
+  const allArrows = document.querySelectorAll('.arrow-target');
+  allArrows.forEach(arrow => {
+    arrow.classList.remove('arrow-target');
+  });
+
+  console.log(`✅ Restored normal display for ${allHypercites.length} hypercites and ${allArrows.length} arrows`);
 }
 
 
