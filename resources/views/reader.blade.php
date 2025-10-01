@@ -37,8 +37,7 @@
   <div id="topRightContainer" class="loading">
       <button type="button" id="cloudRef">
           <svg
-            id="Layer_1"
-            data-name="Layer 1"
+            id="cloudRef-svg"
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 503.23 309.68"
             width="36"
@@ -107,10 +106,9 @@
 
   <!-- Hypercite Button (fill attribute removed from path) -->
   <button id="copy-hypercite" type="button">
-    <svg 
-    id="Layer_1" 
-    xmlns="http://www.w3.org/2000/svg" 
-    version="1.1" 
+    <svg
+    xmlns="http://www.w3.org/2000/svg"
+    version="1.1"
     viewBox="0 0 36 36">
   <defs>
     <style>

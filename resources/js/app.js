@@ -1,5 +1,14 @@
 console.log('App.js is loaded');
 
+// Load navigation health check in development
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+  import('./navigation/healthCheck.js').then(() => {
+    console.log('🏥 Health check loaded. Run window.checkNavigationHealth() in console to diagnose issues.');
+  }).catch(() => {
+    // Silently fail if health check not available
+  });
+}
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker

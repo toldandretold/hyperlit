@@ -5,11 +5,14 @@
 import { ProgressManager } from './ProgressManager.js';
 
 export class NavigationManager {
+  static navigationCount = 0;
+
   /**
    * Route navigation request to appropriate pathway
    */
   static async navigate(pathway, options = {}) {
-    console.log(`🧭 NavigationManager: Routing to ${pathway}`, options);
+    this.navigationCount++;
+    console.log(`🧭 NavigationManager: Routing to ${pathway} (transition #${this.navigationCount})`, options);
     
     try {
       switch (pathway) {

@@ -805,9 +805,17 @@ export async function universalPageInitializer(progressCallback = null) {
         hyperlitManager.rebindElements();
         console.log("✅ Hyperlit container manager rebound after content load");
     }
-    
+
   }, 500);
-  
+
+  // ✅ CRITICAL: Complete the progress bar to 100%
+  // Note: We don't hide the overlay here - let the navigation pathway handle that
+  // to avoid race conditions with multiple hide calls
+  if (progressCallback) {
+    progressCallback(100, "Complete");
+    console.log("✅ Progress callback completed with 100%");
+  }
+
 }
 
 /**
