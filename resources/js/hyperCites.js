@@ -1576,7 +1576,71 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
     // Step 6: Update the DOM element's class if it exists
     updateDOMElementClass(targetHyperciteId, newRelationshipStatus);
 
-    // Step 7: Update book timestamp
+    // Step 7: Update the nodeChunk's hypercites array
+    // Since hypercite records don't store startLine, we need to search all nodeChunks
+    const nodeChunksTx = db.transaction(['nodeChunks'], 'readwrite');
+    const nodeChunksStore = nodeChunksTx.objectStore('nodeChunks');
+    const bookIndex = nodeChunksStore.index('book');
+
+    // Get all nodeChunks for this book
+    const allNodeChunks = await new Promise((resolve, reject) => {
+      const request = bookIndex.getAll(targetHypercite.book);
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+
+    console.log(`🔍 Searching ${allNodeChunks.length} nodeChunks for hypercite ${targetHyperciteId}`);
+
+    // Find the nodeChunk that contains this hypercite
+    let foundNodeChunk = null;
+    let foundHyperciteIndex = -1;
+
+    for (const nodeChunk of allNodeChunks) {
+      if (nodeChunk.hypercites && Array.isArray(nodeChunk.hypercites)) {
+        const index = nodeChunk.hypercites.findIndex(hc => hc.hyperciteId === targetHyperciteId);
+        if (index !== -1) {
+          foundNodeChunk = nodeChunk;
+          foundHyperciteIndex = index;
+          console.log(`✅ Found hypercite in nodeChunk at startLine ${nodeChunk.startLine}, index ${index}`);
+          break;
+        }
+      }
+    }
+
+    if (foundNodeChunk && foundHyperciteIndex !== -1) {
+      // Update the hypercite in the nodeChunk's array
+      foundNodeChunk.hypercites[foundHyperciteIndex] = {
+        ...foundNodeChunk.hypercites[foundHyperciteIndex],
+        citedIN: updatedCitedIN,
+        relationshipStatus: newRelationshipStatus
+      };
+
+      // Update the nodeChunk in IndexedDB
+      const updateRequest = nodeChunksStore.put(foundNodeChunk);
+      await new Promise((resolve, reject) => {
+        updateRequest.onsuccess = () => resolve();
+        updateRequest.onerror = () => reject(updateRequest.error);
+      });
+
+      console.log(`✅ Updated nodeChunk hypercites array for startLine ${foundNodeChunk.startLine}`);
+
+      // Queue the UPDATED nodeChunk for sync to PostgreSQL
+      queueForSync(
+        "nodeChunks",
+        foundNodeChunk.startLine,
+        "update",
+        foundNodeChunk
+      );
+    } else {
+      console.warn(`⚠️ Hypercite ${targetHyperciteId} not found in any nodeChunk`);
+    }
+
+    await new Promise((resolve, reject) => {
+      nodeChunksTx.oncomplete = () => resolve();
+      nodeChunksTx.onerror = () => reject(nodeChunksTx.error);
+    });
+
+    // Step 8: Update book timestamp
     await updateBookTimestamp(targetHypercite.book);
 
     queueForSync(
@@ -1585,22 +1649,6 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
       "update",
       updatedHypercite
     );
-
-    // Also queue the nodeChunk that contains the hypercite, if it exists
-    if (updatedHypercite.startLine) {
-      const nodeChunkToSync = await getNodeChunkFromIndexedDB(
-        updatedHypercite.book,
-        updatedHypercite.startLine
-      );
-      if (nodeChunkToSync) {
-        queueForSync(
-          "nodeChunks",
-          nodeChunkToSync.startLine,
-          "update",
-          nodeChunkToSync
-        );
-      }
-    }
 
     console.log("✅ Delink process completed successfully");
   } catch (error) {
