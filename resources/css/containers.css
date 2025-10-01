@@ -26,6 +26,12 @@ black #221F20;
   overflow-wrap: break-word;
 }
 
+/* When hidden, ensure container stays off-screen */
+#toc-container.hidden {
+  display: block; /* Override Tailwind's display: none */
+  transform: translateX(calc(-100% - 2em)); /* Keep off-screen */
+}
+
 #source-container .scroller {
   position: absolute;
   top: 0;

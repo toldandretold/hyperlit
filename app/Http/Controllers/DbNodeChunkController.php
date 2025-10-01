@@ -270,30 +270,42 @@ public function targetedUpsert(Request $request)
 {
     try {
         $data = $request->all();
-        
+
         if (!isset($data['data']) || !is_array($data['data']) || empty($data['data'])) {
             return response()->json(['success' => false, 'message' => 'Invalid data format'], 400);
         }
-        
-        $firstItem = $data['data'][0];
-        $bookId = $firstItem['book'] ?? null;
-        
-        if (!$bookId) {
-            return response()->json(['success' => false, 'message' => 'Book ID is required'], 400);
-        }
 
-        $hasPermission = $this->checkBookPermission($request, $bookId);
-
-        Log::info('Targeted upsert permissions check', [
-            'book' => $bookId,
-            'user_has_ownership_permission' => $hasPermission
-        ]);
-        
+        // Group items by book to handle multi-book updates (e.g., hypercite delinks)
+        $itemsByBook = [];
         foreach ($data['data'] as $item) {
-            if (($item['book'] ?? null) !== $bookId) {
-                Log::warning('Skipping item with mismatched book ID.', ['item_book' => $item['book'] ?? 'none', 'expected_book' => $bookId]);
+            $book = $item['book'] ?? null;
+            if (!$book) {
+                Log::warning('Skipping item without book ID', ['item' => $item]);
                 continue;
             }
+
+            if (!isset($itemsByBook[$book])) {
+                $itemsByBook[$book] = [];
+            }
+            $itemsByBook[$book][] = $item;
+        }
+
+        Log::info('Targeted upsert processing', [
+            'books' => array_keys($itemsByBook),
+            'total_items' => count($data['data'])
+        ]);
+
+        // Process each book's items
+        foreach ($itemsByBook as $bookId => $items) {
+            $hasPermission = $this->checkBookPermission($request, $bookId);
+
+            Log::info('Targeted upsert permissions check', [
+                'book' => $bookId,
+                'user_has_ownership_permission' => $hasPermission,
+                'items_count' => count($items)
+            ]);
+
+            foreach ($items as $item) {
 
             if (isset($item['_action']) && $item['_action'] === 'delete') {
                 if ($hasPermission) {
@@ -305,6 +317,14 @@ public function targetedUpsert(Request $request)
             $existingChunk = PgNodeChunk::where('book', $item['book'])
                 ->where('startLine', $item['startLine'])
                 ->first();
+
+            Log::debug('Existing chunk loaded', [
+                'book' => $item['book'],
+                'startLine' => $item['startLine'],
+                'exists' => $existingChunk !== null,
+                'hypercites_raw' => $existingChunk ? $existingChunk->getAttributes()['hypercites'] ?? 'NULL_ATTR' : 'NO_CHUNK',
+                'hypercites_cast' => $existingChunk ? $existingChunk->hypercites : 'NO_CHUNK'
+            ]);
 
             // --- REVISED LOGIC ---
 
@@ -342,13 +362,30 @@ public function targetedUpsert(Request $request)
                     $mergedHighlightsMap[$clientHighlight['highlightID']] = $clientHighlight;
                 }
             }
-            
+
             // The final PHP array of highlights.
             $finalMergedHighlights = array_values($mergedHighlightsMap);
 
             // Assign the PHP arrays directly to the update payload. Eloquent will handle encoding.
             $updateData['hyperlights'] = $finalMergedHighlights;
+
+            // DEBUG: Log hypercites update
+            Log::debug('Hypercites update debug', [
+                'startLine' => $item['startLine'],
+                'incoming_hypercites' => $item['hypercites'] ?? 'NOT_SET',
+                'existing_hypercites' => $existingChunk->hypercites ?? 'NOT_SET',
+                'incoming_is_set' => isset($item['hypercites']),
+                'incoming_is_array' => isset($item['hypercites']) ? is_array($item['hypercites']) : false,
+                'incoming_count' => isset($item['hypercites']) && is_array($item['hypercites']) ? count($item['hypercites']) : 'N/A'
+            ]);
+
             $updateData['hypercites'] = $item['hypercites'] ?? ($existingChunk->hypercites ?? []);
+
+            Log::debug('Hypercites final value', [
+                'startLine' => $item['startLine'],
+                'final_hypercites' => $updateData['hypercites'],
+                'final_count' => is_array($updateData['hypercites']) ? count($updateData['hypercites']) : 'NOT_ARRAY'
+            ]);
             
             // Rebuild the raw_json field with the most up-to-date, merged data.
             $rawJson = $existingChunk->raw_json ?? $this->cleanItemForStorage($item);
@@ -364,12 +401,27 @@ public function targetedUpsert(Request $request)
 
             $updateData['updated_at'] = now();
 
-            PgNodeChunk::updateOrCreate(
+            Log::debug('About to updateOrCreate', [
+                'book' => $item['book'],
+                'startLine' => $item['startLine'],
+                'updateData_keys' => array_keys($updateData),
+                'updateData_hypercites' => $updateData['hypercites']
+            ]);
+
+            $result = PgNodeChunk::updateOrCreate(
                 ['book' => $item['book'], 'startLine' => $item['startLine']],
                 $updateData // Pass the full PHP array payload
             );
+
+            Log::debug('After updateOrCreate', [
+                'book' => $item['book'],
+                'startLine' => $item['startLine'],
+                'saved_hypercites' => $result->hypercites,
+                'saved_hypercites_count' => is_array($result->hypercites) ? count($result->hypercites) : 'NOT_ARRAY'
+            ]);
+            }
         }
-        
+
         Log::info('Targeted upsert completed successfully');
         return response()->json(['success' => true, 'message' => "Node chunks updated successfully (targeted)"]);
 

@@ -388,8 +388,9 @@
 
   <!-- toggle hidden containers -->
   <div id="toc-container" class="hidden">
-    <div class="mask-top"></div>
-    <div class="mask-bottom"></div>
+    <div class="scroller"></div>
+    <div class="mask-top" style="position: absolute !important; top: 0 !important; left: 0 !important; right: 0 !important; height: 1em !important; pointer-events: none !important; background-color: #221F20 !important; z-index: 9999 !important; box-shadow: inset 0px -4px 4px -4px #221F20 !important; opacity: 1 !important; visibility: visible !important; display: block !important; transition: none !important; animation: none !important; transform: none !important; will-change: auto !important;"></div>
+    <div class="mask-bottom" style="position: absolute !important; bottom: 0 !important; left: 0 !important; right: 0 !important; height: 1em !important; pointer-events: none !important; background-color: #221F20 !important; z-index: 9999 !important; opacity: 1 !important; visibility: visible !important; display: block !important; transition: none !important; animation: none !important; transform: none !important; will-change: auto !important;"></div>
   </div>
   <div id="highlight-container" class="hidden"></div>
   <div id="hypercite-container" class="hidden"></div>
