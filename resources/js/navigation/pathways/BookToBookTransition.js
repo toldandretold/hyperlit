@@ -74,10 +74,12 @@ export class BookToBookTransition {
         await waitForLayoutStabilization();
         
         progress(60, 'Initializing reader...');
-        
+
         // Initialize the new reader view
-        await this.initializeReader(toBook, progress);
-        
+        // Pass hash navigation flag to prevent scroll position interference
+        const hasHashNavigation = !!(hash || hyperlightId || hyperciteId);
+        await this.initializeReader(toBook, progress, hasHashNavigation);
+
         progress(75, 'Ensuring content readiness...');
         
         // Wait for content to be fully ready after initialization
@@ -265,21 +267,29 @@ export class BookToBookTransition {
   /**
    * Initialize the reader for the new book
    */
-  static async initializeReader(bookId, progressCallback) {
-    console.log(`🚀 BookToBookTransition: Initializing reader for ${bookId}`);
-    
+  static async initializeReader(bookId, progressCallback, hasHashNavigation = false) {
+    console.log(`🚀 BookToBookTransition: Initializing reader for ${bookId}, hasHashNavigation: ${hasHashNavigation}`);
+
     try {
       // Set the current book
       const { setCurrentBook } = await import('../../app.js');
       setCurrentBook(bookId);
-      
+
+      // 🚀 CRITICAL: If we have hash navigation, set the global skip flag BEFORE universalPageInitializer
+      // This persists across lazy loader resets and prevents restoreScrollPosition() from interfering
+      if (hasHashNavigation) {
+        const { setSkipScrollRestoration } = await import('../../operationState.js');
+        console.log(`🔒 Pre-setting skipScrollRestoration = true (hash navigation pending)`);
+        setSkipScrollRestoration(true);
+      }
+
       // Initialize reader view but skip overlay restoration for book-to-book
       const { universalPageInitializer } = await import('../../viewManager.js');
       await universalPageInitializer(progressCallback);
-      
+
       // All UI rebinding is now handled by universalPageInitializer
       console.log("✅ BookToBookTransition: UI initialization delegated to universalPageInitializer");
-      
+
     } catch (error) {
       console.error('❌ BookToBookTransition: Reader initialization failed:', error);
       throw error;
@@ -338,30 +348,22 @@ export class BookToBookTransition {
    * Navigate to a hypercite target with deterministic element detection and progress optimization
    */
   static async navigateToHyperciteTarget(hyperlightId, hyperciteId, progress) {
-    console.log(`🎯 BookToBookTransition: Navigating to hyperlight ${hyperlightId} -> hypercite ${hyperciteId}`);
-    
+    console.log(`🎯 BookToBookTransition: Delegating to navigateToHyperciteTarget for ${hyperlightId} -> ${hyperciteId}`);
+
     try {
-      // Wait for both the hyperlight and hypercite elements to be ready
-      const mainContainer = document.getElementById('main') || document.body;
-      
-      console.log(`⏳ BookToBookTransition: Waiting for hyperlight ${hyperlightId} and hypercite ${hyperciteId} to be ready`);
-      
-      // Use multiple element waiting with progress - progress bar disappears when both are visually ready
-      await waitForMultipleElementsReadyWithProgress([hyperlightId, hyperciteId], progress, {
-        maxAttempts: 40,
-        checkInterval: 50,
-        container: mainContainer,
-        hideProgressAtPercent: 95,
-        hideProgressMessage: 'Navigation ready'
-      });
-      
-      console.log(`✅ BookToBookTransition: Both hyperlight ${hyperlightId} and hypercite ${hyperciteId} are ready`);
-      
       const { navigateToHyperciteTarget } = await import('../../hyperCites.js');
       const { currentLazyLoader } = await import('../../initializePage.js');
-      
+
+      // Let navigateToHyperciteTarget handle all the logic: waiting, scrolling, and opening
+      // Don't wait here - it causes double-waiting and prevents proper scrolling
       if (currentLazyLoader) {
-        navigateToHyperciteTarget(hyperlightId, hyperciteId, currentLazyLoader, false);
+        await navigateToHyperciteTarget(hyperlightId, hyperciteId, currentLazyLoader, false);
+
+        // Hide progress indicator once navigation is complete
+        if (progress && typeof progress.updateProgress === 'function') {
+          progress.updateProgress(100);
+          setTimeout(() => progress.hide(), 100);
+        }
       } else {
         console.warn('currentLazyLoader not available for hypercite navigation');
       }
@@ -371,9 +373,9 @@ export class BookToBookTransition {
       try {
         const { navigateToHyperciteTarget } = await import('../../hyperCites.js');
         const { currentLazyLoader } = await import('../../initializePage.js');
-        
+
         if (currentLazyLoader) {
-          navigateToHyperciteTarget(hyperlightId, hyperciteId, currentLazyLoader, false);
+          await navigateToHyperciteTarget(hyperlightId, hyperciteId, currentLazyLoader, false);
         }
       } catch (fallbackError) {
         console.error('Fallback hypercite navigation also failed:', fallbackError);
