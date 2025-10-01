@@ -192,3 +192,16 @@ export function clearNewlyCreatedHighlights() {
   newlyCreatedHighlights.clear();
   console.log(`🎨 Cleared all ${count} newly created highlights`);
 }
+
+// Track whether we should skip scroll restoration (e.g., during hash navigation)
+let skipScrollRestoration = false;
+
+export function setSkipScrollRestoration(value) {
+  skipScrollRestoration = value;
+  console.log(`🔒 Skip scroll restoration set to: ${value}`);
+  return skipScrollRestoration;
+}
+
+export function shouldSkipScrollRestoration() {
+  return skipScrollRestoration;
+}
