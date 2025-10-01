@@ -20,18 +20,16 @@ class TocContainerManager extends ContainerManager {
     // First, render the TOC with preserved masks.
     await generateTableOfContents(); 
     
-    // Force masks to be visible immediately before any animations
-    const maskTop = this.container.querySelector('.mask-top');
-    const maskBottom = this.container.querySelector('.mask-bottom');
-    if (maskTop) maskTop.style.cssText = 'opacity: 1 !important; visibility: visible !important; display: block !important;';
-    if (maskBottom) maskBottom.style.cssText = 'opacity: 1 !important; visibility: visible !important; display: block !important;';
+    // DEBUG: Log what initialContent contains
+    console.log('🚨 INITIAL CONTENT:', this.initialContent);
+    console.log('🚨 CONTAINER BEFORE OPEN:', this.container.innerHTML.substring(0, 300));
     
-    // Then, start the container's open animation WITHOUT content clearing
-    // We skip super.openContainer() and manually do the opening logic
+    // Masks are now fully styled in HTML - no JavaScript manipulation needed
+    
+    // Prepare container for opening but keep it hidden until fully ready
     if (window.containerCustomizer) window.containerCustomizer.loadCustomizations();
     
-    this.container.classList.remove("hidden");
-    this.container.classList.add("open");
+    // Set up all state BEFORE making container visible
     this.isOpen = true;
     window.activeContainer = this.container.id;
     
@@ -47,17 +45,18 @@ class TocContainerManager extends ContainerManager {
     
     this.updateState();
     
+    // Add bookmark and set scroll position BEFORE showing container
+    updateOrInsertBookmark(this.container, tocCache.data);
+    setInitialBookmarkPosition(this.container);
+    
+    // NOW make container visible with open class applied immediately
+    this.container.classList.remove("hidden");
+    this.container.classList.add("open");
+    
     // Only focus the container if it's not a back button navigation
     if (!this.isBackNavigation) {
       this.container.focus();
     }
-
-    // Immediately add bookmark and set scroll position
-    setTimeout(() => {
-        // Insert bookmark and set scroll position immediately
-        updateOrInsertBookmark(this.container, tocCache.data);
-        setInitialBookmarkPosition(this.container);
-    }, 0);
   }
 }
 
@@ -241,15 +240,18 @@ function attachTocClickHandler() {
  * @param {Array<Object>} tocData - The TOC data array.
  */
 export function renderTOC(container, tocData) {
-  // Remove only the scroller, leave masks untouched
-  const existingScroller = container.querySelector('.scroller');
-  if (existingScroller) {
-    existingScroller.remove();
+  // Scroller is now pre-rendered in HTML - just find it
+  const scroller = container.querySelector('.scroller');
+  
+  if (!scroller) {
+    console.error('❌ Scroller not found in TOC container - check reader.blade.php');
+    return;
   }
 
-  // Create a wrapper for the scrollable content.
-  const scroller = document.createElement("div");
-  scroller.classList.add("scroller");
+  console.log('🎯 Using pre-rendered scroller - zero DOM manipulation needed');
+
+  // Clear existing content and repopulate (no DOM structure changes)
+  scroller.innerHTML = '';
 
   // Create the TOC entries inside the scroller.
   tocData.forEach((item, index) => {
@@ -267,38 +269,21 @@ export function renderTOC(container, tocData) {
     anchor.appendChild(heading);
     scroller.appendChild(anchor);
   });
-
-  // Insert the scrollable container BEFORE the masks (so masks stay on top)
-  const firstMask = container.querySelector('.mask-top');
-  if (firstMask) {
-    container.insertBefore(scroller, firstMask);
-    
-    // Force masks to be immediately visible with !important styles
-    const maskTop = container.querySelector('.mask-top');
-    const maskBottom = container.querySelector('.mask-bottom');
-    
-    if (maskTop) {
-      maskTop.style.cssText = 'opacity: 1 !important; visibility: visible !important; display: block !important;';
-    }
-    if (maskBottom) {
-      maskBottom.style.cssText = 'opacity: 1 !important; visibility: visible !important; display: block !important;';
-    }
-  } else {
-    // Fallback if no masks exist
-    container.appendChild(scroller);
-    
-    // Create masks if they don't exist
-    const maskTop = document.createElement("div");
-    maskTop.classList.add("mask-top");
-    maskTop.style.cssText = 'opacity: 1 !important; visibility: visible !important; display: block !important;';
-
-    const maskBottom = document.createElement("div");
-    maskBottom.classList.add("mask-bottom");
-    maskBottom.style.cssText = 'opacity: 1 !important; visibility: visible !important; display: block !important;';
-
-    container.appendChild(maskTop);
-    container.appendChild(maskBottom);
+  
+  console.log('🚨 FINAL CONTAINER (truncated):', container.innerHTML.substring(0, 200));
+  
+  // Let's check the masks are actually visible
+  const finalMaskTop = container.querySelector('.mask-top');
+  const finalMaskBottom = container.querySelector('.mask-bottom');
+  if (finalMaskTop && finalMaskBottom) {
+    console.log('🚨 FINAL MASK STYLES:');
+    console.log('Top mask opacity:', finalMaskTop.style.opacity, 'visibility:', finalMaskTop.style.visibility);
+    console.log('Bottom mask opacity:', finalMaskBottom.style.opacity, 'visibility:', finalMaskBottom.style.visibility);
+    console.log('Top mask computed:', window.getComputedStyle(finalMaskTop).opacity, window.getComputedStyle(finalMaskTop).visibility);
+    console.log('Bottom mask computed:', window.getComputedStyle(finalMaskBottom).opacity, window.getComputedStyle(finalMaskBottom).visibility);
   }
+  
+  // Masks are now fully styled in HTML - no JavaScript manipulation needed
 }
 
 

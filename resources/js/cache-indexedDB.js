@@ -191,7 +191,10 @@ export async function executeSyncPayload(payload) {
       ...payload.updates.nodeChunks.map(toPublicChunk).filter(Boolean),
       ...payload.deletions.nodeChunks,
     ];
+
     if (allNodeChunks.length > 0) {
+      // Backend now handles multi-book requests, so send all nodeChunks together
+      console.log(`📚 Syncing ${allNodeChunks.length} nodeChunks (may include multiple books)`);
       promises.push(syncNodeChunksToPostgreSQL(bookId, allNodeChunks));
     }
   }

@@ -1954,66 +1954,99 @@ async function handleHyperciteRemoval(removedNode) {
     return !document.getElementById(hyperciteId);
   };
 
-  // Check if the removed node is a hypercite element
-  if (removedNode.nodeType === Node.ELEMENT_NODE && 
-      removedNode.tagName === 'A' && 
-      removedNode.id && 
-      removedNode.id.startsWith('hypercite_') && 
+  // ✅ CHECK 1: Anchor tags that LINK TO hypercites (pasted citations)
+  if (removedNode.nodeType === Node.ELEMENT_NODE &&
+      removedNode.tagName === 'A' &&
       removedNode.href) {
-    
-    console.log(`🔗 Hypercite element potentially removed: ${removedNode.id}`);
-    
-    // 🆕 VERIFICATION: Check immediately and after a brief delay
-    const immediateCheck = await verifyRemoval(removedNode.id);
-    const delayedCheck = immediateCheck ? await verifyRemoval(removedNode.id, 50) : false;
-    
-    if (!delayedCheck) {
-      console.log(`✅ Hypercite ${removedNode.id} still exists in DOM - skipping delink`);
-      return;
-    }
-    
-    console.log(`🗑️ Confirmed: Hypercite ${removedNode.id} truly removed from DOM`);
-    console.log(`📍 Href: ${removedNode.href}`);
-    
-    try {
-      if (window.testDelinkHypercite) {
-        await window.testDelinkHypercite(removedNode.id, removedNode.href);
-      } else {
-        const { delinkHypercite } = await import('./hyperCites.js');
-        await delinkHypercite(removedNode.id, removedNode.href);
+
+    // Check if this is a link to a hypercite (contains #hypercite_)
+    const href = removedNode.href;
+    const hyperciteMatch = href.match(/#(hypercite_[a-z0-9]+)/);
+
+    if (hyperciteMatch) {
+      const targetHyperciteId = hyperciteMatch[1];
+
+      // Verify the link is truly deleted (not just moved)
+      const immediateCheck = await verifyRemoval(removedNode.id || targetHyperciteId);
+      const delayedCheck = immediateCheck ? await verifyRemoval(removedNode.id || targetHyperciteId, 50) : false;
+
+      if (!delayedCheck) {
+        console.log(`✅ Hypercite link ${targetHyperciteId} still exists in DOM - skipping delink`);
+        return;
       }
-    } catch (error) {
-      console.error('❌ Error handling hypercite removal:', error);
+
+      console.log(`🔗 Hypercite citation link deleted, target: ${targetHyperciteId}`);
+      console.log(`📍 Href: ${href}`);
+
+      try {
+        // Extract just the hypercite ID from the removed node (if it has one)
+        // The delinkHypercite function needs just the ID, not the full URL
+        const deletedLinkId = removedNode.id || targetHyperciteId;
+
+        if (window.testDelinkHypercite) {
+          await window.testDelinkHypercite(deletedLinkId, href);
+        } else {
+          const { delinkHypercite } = await import('./hyperCites.js');
+          await delinkHypercite(deletedLinkId, href);
+        }
+      } catch (error) {
+        console.error('❌ Error handling hypercite link removal:', error);
+      }
+
+      return; // Exit early, we've handled this case
     }
   }
-  
-  // Handle nested hypercites with the same verification
+
+  // ✅ CHECK 2: Source hypercite <u> wrappers being deleted
+  // TODO: Phase 2 - Replace with tombstone anchor instead of allowing deletion
+  if (removedNode.nodeType === Node.ELEMENT_NODE &&
+      removedNode.tagName === 'U' &&
+      removedNode.id &&
+      removedNode.id.startsWith('hypercite_')) {
+
+    console.log(`⚠️ Source hypercite <u> wrapper deleted: ${removedNode.id}`);
+    console.log(`📌 TODO: This should be prevented and replaced with tombstone <a> tag`);
+    // For now, just log it - Phase 2 will handle this properly
+
+    return;
+  }
+
+  // ✅ CHECK 3: Handle nested hypercite links within deleted containers
   if (removedNode.nodeType === Node.ELEMENT_NODE && removedNode.querySelectorAll) {
-    const hypercites = removedNode.querySelectorAll('a[id^="hypercite_"][href]');
-    
-    if (hypercites.length > 0) {
-      console.log(`🔗 Found ${hypercites.length} hypercites within removed element`);
-      
-      for (const hypercite of hypercites) {
-        const immediateCheck = await verifyRemoval(hypercite.id);
-        const delayedCheck = immediateCheck ? await verifyRemoval(hypercite.id, 50) : false;
-        
-        if (!delayedCheck) {
-          console.log(`✅ Nested hypercite ${hypercite.id} still exists in DOM - skipping delink`);
-          continue;
-        }
-        
-        console.log(`🗑️ Confirmed: Nested hypercite ${hypercite.id} truly removed from DOM`);
-        
-        try {
-          if (window.testDelinkHypercite) {
-            await window.testDelinkHypercite(hypercite.id, hypercite.href);
-          } else {
-            const { delinkHypercite } = await import('./hyperCites.js');
-            await delinkHypercite(hypercite.id, hypercite.href);
+    const hyperciteLinks = removedNode.querySelectorAll('a[href*="#hypercite_"]');
+
+    if (hyperciteLinks.length > 0) {
+      console.log(`🔗 Found ${hyperciteLinks.length} hypercite links within removed element`);
+
+      for (const link of hyperciteLinks) {
+        const href = link.href;
+        const hyperciteMatch = href.match(/#(hypercite_[a-z0-9]+)/);
+
+        if (hyperciteMatch) {
+          const targetHyperciteId = hyperciteMatch[1];
+
+          // Verify deletion
+          const immediateCheck = await verifyRemoval(link.id || targetHyperciteId);
+          const delayedCheck = immediateCheck ? await verifyRemoval(link.id || targetHyperciteId, 50) : false;
+
+          if (!delayedCheck) {
+            console.log(`✅ Nested hypercite link ${targetHyperciteId} still exists - skipping`);
+            continue;
           }
-        } catch (error) {
-          console.error('❌ Error handling nested hypercite removal:', error);
+
+          try {
+            // Extract just the hypercite ID from the removed link (if it has one)
+            const deletedLinkId = link.id || targetHyperciteId;
+
+            if (window.testDelinkHypercite) {
+              await window.testDelinkHypercite(deletedLinkId, href);
+            } else {
+              const { delinkHypercite } = await import('./hyperCites.js');
+              await delinkHypercite(deletedLinkId, href);
+            }
+          } catch (error) {
+            console.error('❌ Error handling nested hypercite link removal:', error);
+          }
         }
       }
     }
