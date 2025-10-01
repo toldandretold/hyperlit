@@ -1890,6 +1890,12 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
   setTimeout(() => {
     console.log(`✨ Starting hypercite highlighting animation for: ${targetHyperciteId}`);
 
+    // 🔥 FIX: Remove any existing highlight classes first to ensure animation restarts
+    restoreNormalHyperciteDisplay();
+
+    // Force a reflow to ensure browser recognizes the class removal before re-adding
+    void document.body.offsetHeight;
+
     // Apply target highlighting to ALL elements containing this hypercite
     if (targetElements.length > 0) {
       targetElements.forEach(element => {

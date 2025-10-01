@@ -9,12 +9,13 @@ import {
 import { parseMarkdownIntoChunksInitial } from "./convert-markdown.js";
 import { currentLazyLoader, pendingFirstChunkLoadedPromise } from "./initializePage.js";
 import { repositionSentinels } from "./lazyLoaderFactory.js"; // if exported
-import { 
-  waitForNavigationTarget, 
-  waitForElementReady, 
-  waitForChunkLoadingComplete 
+import {
+  waitForNavigationTarget,
+  waitForElementReady,
+  waitForChunkLoadingComplete
 } from "./domReadiness.js";
 import { highlightTargetHypercite } from "./hyperCites.js";
+import { shouldSkipScrollRestoration as shouldSkipScrollRestorationGlobal, setSkipScrollRestoration } from "./operationState.js";
 
 // ========= Scrolling Helper Functions =========
 
@@ -356,6 +357,22 @@ export async function restoreScrollPosition() {
     "📌 Attempting to restore scroll position for container:",
     currentLazyLoader.bookId
   );
+
+  // 🚀 FIX: Check global flag to skip scroll restoration (set by BookToBookTransition for hash navigation)
+  if (shouldSkipScrollRestorationGlobal()) {
+    console.log(`⏭️ RESTORE SCROLL: Skip flag is set, clearing and returning`);
+    setSkipScrollRestoration(false); // Clear the flag for next time
+    return;
+  }
+
+  // 🚀 FIX: Check if we're on a hyperlight URL path (like /book/HL_xxxxx)
+  // If so, skip scroll restoration - BookToBookTransition will handle navigation
+  const pathSegments = window.location.pathname.split('/').filter(Boolean);
+  const isHyperlightPath = pathSegments.length >= 2 && pathSegments[1]?.startsWith('HL_');
+  if (isHyperlightPath) {
+    console.log(`⏭️ RESTORE SCROLL: Hyperlight path detected (${pathSegments[1]}), skipping scroll restoration`);
+    return;
+  }
 
   // If we're navigating to an internal ID (like a highlight), prioritize that
   if (currentLazyLoader.isNavigatingToInternalId && OpenHyperlightID) {
