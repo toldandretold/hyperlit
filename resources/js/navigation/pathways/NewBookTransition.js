@@ -26,36 +26,41 @@ export class NewBookTransition {
       const progress = progressCallback || ProgressManager.createProgressCallback('spa');
       
       progress(10, 'Preparing new book...');
-      
+
       // Start parallel operations early
       const orangeIndicatorPromise = this.ensureOrangeIndicator();
       const cleanupPromise = this.cleanupPreviousState();
       const syncPromise = this.ensurePendingSyncsComplete();
-      
+
       // Wait for cleanup to complete before starting fetch
       await cleanupPromise;
-      
+
       progress(30, 'Syncing pending changes...');
-      
+
       // Start fetch while syncs are completing (can run in parallel)
       const [, readerHtml] = await Promise.all([
         syncPromise,
         this.fetchReaderPageHtml(bookId)
       ]);
-      
+
       progress(60, 'Updating page structure...');
-      
+
       // Replace the entire body content (home → reader transition)
       await this.replaceBodyContent(readerHtml, bookId);
-      
+
       // Ensure orange indicator is set before proceeding
       await orangeIndicatorPromise;
       
       progress(75, 'Initializing reader...');
-      
+
       // Initialize the reader view
-      await this.initializeReader(bookId, progress);
-      
+      // Create a scoped progress callback that maps 0-100% to 75-85%
+      const scopedProgress = (percent, message) => {
+        const scopedPercent = 75 + (percent * 0.10); // Map 0-100% to 75-85%
+        progress(scopedPercent, message);
+      };
+      await this.initializeReader(bookId, scopedProgress);
+
       progress(85, 'Ensuring content readiness...');
       
       // Wait for content to be fully ready after initialization
@@ -98,28 +103,28 @@ export class NewBookTransition {
   static async ensureOrangeIndicator() {
     try {
       console.log('🟠 NewBookTransition: Ensuring orange indicator shows');
-      
+
       // First try to set orange on existing element
       showSpinner();
-      
+
       // Use deterministic DOM watching instead of polling
       return new Promise((resolve) => {
         const setOrangeIndicator = () => {
-          const layer1 = document.querySelector('#Layer_1 .cls-1');
-          if (layer1) {
-            layer1.style.fill = '#EF8D34';
+          const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1');
+          if (cloudSvgPath) {
+            cloudSvgPath.style.fill = '#EF8D34';
             console.log('✅ Orange indicator set deterministically');
             return true;
           }
           return false;
         };
-        
+
         // Try immediately in case element already exists
         if (setOrangeIndicator()) {
           resolve();
           return;
         }
-        
+
         // Watch for DOM changes to detect when cloudRef is ready
         const observer = new MutationObserver((mutations) => {
           if (setOrangeIndicator()) {
@@ -127,20 +132,20 @@ export class NewBookTransition {
             resolve();
           }
         });
-        
-        observer.observe(document.body, { 
-          childList: true, 
-          subtree: true 
+
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true
         });
-        
-        // Fallback timeout to prevent infinite waiting
+
+        // Fallback timeout to prevent infinite waiting (reduced to 1 second)
         setTimeout(() => {
           observer.disconnect();
           console.warn('⚠️ Orange indicator timeout, but continuing...');
           resolve();
-        }, 5000);
+        }, 1000);
       });
-      
+
     } catch (error) {
       console.warn('⚠️ Error ensuring orange indicator:', error);
     }
@@ -273,19 +278,28 @@ export class NewBookTransition {
    */
   static async replaceBodyContent(htmlString, bookId) {
     console.log('🔄 NewBookTransition: Replacing body content (home → reader)');
-    
+
     const parser = new DOMParser();
     const newDoc = parser.parseFromString(htmlString, 'text/html');
-    
+
+    // 🎯 CRITICAL: Preserve the existing navigation overlay
+    const existingOverlay = document.getElementById('initial-navigation-overlay');
+
     // Remove any overlay from the fetched HTML to prevent conflicts
     const overlayInFetchedHTML = newDoc.getElementById('initial-navigation-overlay');
     if (overlayInFetchedHTML) {
       overlayInFetchedHTML.remove();
       console.log('🎯 NewBookTransition: Removed overlay from fetched HTML');
     }
-    
+
     // Replace the entire body content
     document.body.innerHTML = newDoc.body.innerHTML;
+
+    // 🎯 CRITICAL: Re-insert the preserved overlay if it existed
+    if (existingOverlay) {
+      document.body.insertBefore(existingOverlay, document.body.firstChild);
+      console.log('🎯 NewBookTransition: Preserved navigation overlay across body replacement');
+    }
     
     // Sync all body attributes
     for (const { name, value } of newDoc.body.attributes) {

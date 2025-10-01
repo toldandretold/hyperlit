@@ -77,15 +77,11 @@ export class ProgressManager {
     }
     
     this.updateProgress(percent, displayMessage);
-    
-    // Try to use navigation loading system as enhancement, but don't wait for it
-    import('../scrolling.js').then(({ showNavigationLoading }) => {
-      showNavigationLoading(displayMessage);
-    }).catch(() => {
-      // Already showing progress above, so this is just an enhancement
-      console.log('Navigation loading system not available, using standard progress');
-    });
-    
+
+    // Note: We don't call showNavigationLoading() here because we're already using
+    // the initial-navigation-overlay above. Calling both creates duplicate overlays
+    // that don't get properly cleaned up and cause black screen issues.
+
     console.log(`📊 Book-to-book transition progress: ${percent}% - ${displayMessage}`);
   }
 
@@ -122,29 +118,27 @@ export class ProgressManager {
     
     try {
       this.initializeElements();
-      
+
       // Try to use the centralized hide function first
       try {
         const { hidePageLoadProgress } = await import('../reader-DOMContentLoaded.js');
         await hidePageLoadProgress();
         console.log('📊 Progress hidden via centralized system');
-        return;
       } catch (error) {
         console.warn('Could not use centralized progress hiding, using fallback');
+        // Fallback hiding logic
+        await this.hideWithAnimation();
+        console.log('📊 Progress hidden via fallback system');
       }
-      
-      // Fallback hiding logic
-      await this.hideWithAnimation();
-      
-      // Also hide navigation loading if active
+
+      // 🎯 CRITICAL: Always clean up navigation loading overlays, regardless of which path succeeded
       try {
         const { hideNavigationLoading } = await import('../scrolling.js');
-        hideNavigationLoading();
+        await hideNavigationLoading();
       } catch (error) {
         // Ignore if scrolling module not available
       }
-      
-      console.log('📊 Progress hidden via fallback system');
+
     } finally {
       this._isHidingInProgress = false;
     }

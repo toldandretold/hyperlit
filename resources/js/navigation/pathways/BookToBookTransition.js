@@ -215,17 +215,27 @@ export class BookToBookTransition {
       console.log('🎯 BookToBookTransition: Replacing #page-wrapper content');
       currentPageWrapper.innerHTML = newPageWrapper.innerHTML;
     } else {
-      // Fallback: replace entire body but this is less ideal
+      // Fallback: replace entire body but preserve navigation overlay
       console.warn('🎯 BookToBookTransition: #page-wrapper not found, falling back to body replacement');
-      
-      // Remove any overlay from fetched HTML
+
+      // 🎯 CRITICAL: Preserve the existing navigation overlay
+      const existingOverlay = document.getElementById('initial-navigation-overlay');
+
+      // Remove any overlay from fetched HTML (we'll keep the existing one)
       const overlayInFetchedHTML = newDoc.getElementById('initial-navigation-overlay');
       if (overlayInFetchedHTML) {
         overlayInFetchedHTML.remove();
         console.log('🎯 BookToBookTransition: Removed overlay from fetched HTML');
       }
-      
+
+      // Replace body content
       document.body.innerHTML = newDoc.body.innerHTML;
+
+      // 🎯 CRITICAL: Re-insert the preserved overlay if it existed
+      if (existingOverlay) {
+        document.body.insertBefore(existingOverlay, document.body.firstChild);
+        console.log('🎯 BookToBookTransition: Preserved navigation overlay across body replacement');
+      }
     }
     
     // Sync body attributes
