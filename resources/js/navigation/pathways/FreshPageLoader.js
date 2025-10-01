@@ -28,11 +28,17 @@ export class FreshPageLoader {
       
       // All UI initialization is now handled by universalPageInitializer
       console.log("✅ FreshPageLoader: UI initialization delegated to universalPageInitializer");
-      
+
+      // Hide the progress overlay now that initialization is complete
+      await ProgressManager.hide();
+      console.log("✅ FreshPageLoader: Progress overlay hidden");
+
       console.log('✅ FreshPageLoader: Fresh page initialization complete');
-      
+
     } catch (error) {
       console.error('❌ FreshPageLoader: Initialization failed:', error);
+      // Hide progress even on error
+      await ProgressManager.hide();
       throw error;
     }
   }

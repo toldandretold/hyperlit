@@ -445,11 +445,18 @@ let navigationModal = null;
 
 export function showNavigationLoading(targetId) {
   console.log(`🎯 LOADING: Starting navigation to ${targetId}`);
-  
+
   // Store in sessionStorage so overlay persists across page transitions
   sessionStorage.setItem('navigationOverlayActive', 'true');
   sessionStorage.setItem('navigationTargetId', targetId);
-  
+
+  // 🧹 CRITICAL: Remove any stale navigation overlays from previous SPA transitions
+  const staleOverlays = document.querySelectorAll('.navigation-overlay:not(#initial-navigation-overlay)');
+  if (staleOverlays.length > 0) {
+    console.warn(`🧹 Removing ${staleOverlays.length} stale navigation overlays`);
+    staleOverlays.forEach(overlay => overlay.remove());
+  }
+
   // Try to use existing blade template overlay first
   const initialOverlay = document.getElementById('initial-navigation-overlay');
   if (initialOverlay) {
@@ -459,22 +466,26 @@ export function showNavigationLoading(targetId) {
     // Fallback: create overlay if blade template overlay doesn't exist
     navigationModal = document.createElement("div");
     navigationModal.className = "navigation-overlay";
-    
-    // Add styles
-    const style = document.createElement('style');
-    style.textContent = `
-      .navigation-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.3);
-        z-index: 10000;
-      }
-    `;
-    
-    document.head.appendChild(style);
+
+    // Add styles (only if not already added)
+    if (!document.getElementById('navigation-overlay-styles')) {
+      const style = document.createElement('style');
+      style.id = 'navigation-overlay-styles';
+      style.textContent = `
+        .navigation-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.3);
+          z-index: 10000;
+          pointer-events: none; /* Don't block clicks - overlay is visual only */
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
     document.body.appendChild(navigationModal);
   }
   

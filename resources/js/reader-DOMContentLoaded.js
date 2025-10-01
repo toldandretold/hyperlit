@@ -44,15 +44,27 @@ export function updatePageLoadProgress(percent, message = null) {
   }
 }
 
+// Guard to prevent multiple simultaneous hide operations
+let _isHidingProgress = false;
+
 export async function hidePageLoadProgress() {
-  const progressBar = document.getElementById('page-load-progress-bar');
-  const progressText = document.getElementById('page-load-progress-text');
-  const progressDetails = document.getElementById('page-load-progress-details');
-  const overlay = document.getElementById('initial-navigation-overlay');
-  
-  // Always do the completion animation for visual satisfaction
-  if (progressBar && overlay && overlay.style.display !== 'none') {
-    const currentWidth = parseInt(progressBar.style.width) || 5;
+  // Prevent multiple simultaneous hide operations
+  if (_isHidingProgress) {
+    console.log('📊 hidePageLoadProgress: Already hiding, skipping duplicate call');
+    return;
+  }
+
+  _isHidingProgress = true;
+
+  try {
+    const progressBar = document.getElementById('page-load-progress-bar');
+    const progressText = document.getElementById('page-load-progress-text');
+    const progressDetails = document.getElementById('page-load-progress-details');
+    const overlay = document.getElementById('initial-navigation-overlay');
+
+    // Always do the completion animation for visual satisfaction
+    if (progressBar && overlay && overlay.style.display !== 'none') {
+      const currentWidth = parseInt(progressBar.style.width) || 5;
     
     // Always hide the text elements before the final animation for clean visual
     if (progressText) progressText.style.opacity = '0';
@@ -73,12 +85,15 @@ export async function hidePageLoadProgress() {
     // Always shoot to 100% for the satisfying completion sweep
     progressBar.style.width = '100%';
     
-    // Wait for the CSS transition to complete
-    await new Promise(resolve => setTimeout(resolve, 400));
-  }
-  
-  if (overlay) {
-    overlay.style.display = 'none';
+      // Wait for the CSS transition to complete
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
+
+    if (overlay) {
+      overlay.style.display = 'none';
+    }
+  } finally {
+    _isHidingProgress = false;
   }
 }
 
@@ -161,29 +176,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   console.log("✅ IndexedDB initialized.");
 
   if (pageType === "reader") {
-    // Use the new navigation system for reader initialization
+    // ✅ Delegate fully to the new navigation system
+    // NavigationManager handles ALL initialization including progress completion
     const { NavigationManager } = await import('./navigation/NavigationManager.js');
     await NavigationManager.handleFreshPageLoad();
 
-    // User profile page initialization is now handled in viewManager.js universalPageInitializer
-    
-    // Initialize footnote and citation click listeners
+    // Initialize footnote and citation click listeners after page loads
     initializeFootnoteCitationListeners();
     console.log("✅ Footnote and citation listeners initialized");
-    
-    // Hide overlay once content is fully loaded (only if we showed it)
-    if (!isNewBookCreation) {
-      try {
-        await pendingFirstChunkLoadedPromise;
-        console.log("✅ Content fully loaded, hiding overlay");
-        await hidePageLoadProgress();
-      } catch (error) {
-        console.warn("⚠️ Content loading promise failed, hiding overlay anyway:", error);
-        await hidePageLoadProgress();
-      }
-    } else {
-      console.log("✅ New book creation - no overlay to hide");
-    }
+
+    // Note: Progress hiding is now handled by universalPageInitializer in viewManager.js
+    // No need for duplicate cleanup here
+
   } else if (pageType === "home") {
     await initializeHomepage();
   }

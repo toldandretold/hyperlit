@@ -24,10 +24,10 @@ function resetIndicator() {
   isProcessing = false
   isComplete   = false
   emitProcessingChange()
-  
-  const layer1 = document.querySelector('#Layer_1 .cls-1')
-  if (layer1) layer1.removeAttribute('style')
-  
+
+  const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1')
+  if (cloudSvgPath) cloudSvgPath.removeAttribute('style')
+
   // RESTORE topRightContainer visibility
   if (topRightContainer && topRightVisibilityBeforeEdit !== null) {
     if (topRightVisibilityBeforeEdit === false) {
@@ -47,12 +47,12 @@ export function showSpinner() {
   resetIndicator()
   isProcessing = true
   emitProcessingChange()
-  
-  const layer1 = document.querySelector('#Layer_1 .cls-1')
-  if (layer1) {
-    layer1.style.fill = '#EF8D34'
+
+  const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1')
+  if (cloudSvgPath) {
+    cloudSvgPath.style.fill = '#EF8D34'
   }
-  
+
   // SAVE current topRightContainer state and make it visible
   if (topRightContainer) {
     topRightVisibilityBeforeEdit = !topRightContainer.classList.contains('hidden-nav')
@@ -60,7 +60,7 @@ export function showSpinner() {
     console.log('🟠 Saved topRight visibility before edit:', topRightVisibilityBeforeEdit)
     console.log('🟠 Made topRightContainer visible for editing')
   }
-  
+
   console.log('Indicator → orange (saving)')
 }
 
@@ -69,9 +69,9 @@ export function showTick() {
   if (!isProcessing || isComplete) return
   isComplete = true
 
-  const layer1 = document.querySelector('#Layer_1 .cls-1')
-  if (layer1) {
-    layer1.style.fill = '#10a64a'
+  const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1')
+  if (cloudSvgPath) {
+    cloudSvgPath.style.fill = '#10a64a'
   }
   console.log('Indicator → green (synced to server)')
 
@@ -87,9 +87,9 @@ export function showError() {
   if (!isProcessing) return
   isComplete = true
 
-  const layer1 = document.querySelector('#Layer_1 .cls-1')
-  if (layer1) {
-    layer1.style.fill = '#dc3545'
+  const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1')
+  if (cloudSvgPath) {
+    cloudSvgPath.style.fill = '#dc3545'
   }
   console.log('Indicator → red (sync error)')
 

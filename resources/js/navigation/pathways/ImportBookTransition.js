@@ -138,19 +138,28 @@ export class ImportBookTransition {
    */
   static async replaceBodyContent(htmlString, bookId) {
     console.log('🔄 ImportBookTransition: Replacing body content (import form → reader)');
-    
+
     const parser = new DOMParser();
     const newDoc = parser.parseFromString(htmlString, 'text/html');
-    
+
+    // 🎯 CRITICAL: Preserve the existing navigation overlay
+    const existingOverlay = document.getElementById('initial-navigation-overlay');
+
     // Remove any overlay from the fetched HTML to prevent conflicts
     const overlayInFetchedHTML = newDoc.getElementById('initial-navigation-overlay');
     if (overlayInFetchedHTML) {
       overlayInFetchedHTML.remove();
       console.log('🎯 ImportBookTransition: Removed overlay from fetched HTML');
     }
-    
+
     // Replace the entire body content
     document.body.innerHTML = newDoc.body.innerHTML;
+
+    // 🎯 CRITICAL: Re-insert the preserved overlay if it existed
+    if (existingOverlay) {
+      document.body.insertBefore(existingOverlay, document.body.firstChild);
+      console.log('🎯 ImportBookTransition: Preserved navigation overlay across body replacement');
+    }
     
     // Sync all body attributes
     for (const { name, value } of newDoc.body.attributes) {
