@@ -308,6 +308,12 @@ export function startObserving(editableDiv) {
   // Initialize tracking for all current chunks
   initializeCurrentChunks(editableDiv);
 
+  // Check if handler already exists (indicates double initialization)
+  if (enterKeyHandler) {
+    console.warn('⚠️ EnterKeyHandler already exists! Destroying old one before creating new.');
+    enterKeyHandler.destroy();
+  }
+
   enterKeyHandler = new EnterKeyHandler();
 
   // 🔥 PERIODIC SPAN ANNIHILATION - runs every 3 seconds
@@ -694,8 +700,14 @@ function handleNewChunk(chunk) {
 
 async function processChunkMutations(chunk, mutations) {
   const chunkId = chunk.getAttribute('data-chunk-id');
-  
+
   console.log(`🔄 Processing ${mutations.length} mutations for chunk ${chunkId}`);
+
+  // Skip all mutation processing during renumbering (DOM updates are programmatic)
+  if (window.renumberingInProgress) {
+    console.log(`⚠️ Skipping mutation processing for chunk ${chunkId} during renumbering`);
+    return;
+  }
 
   // *** CRITICAL ADDITION HERE ***
   // If chunk overflow is in progress, handle it directly and prevent other mutation processing

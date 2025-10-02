@@ -135,6 +135,7 @@ export async function withPending(fn) {
 
 export let currentObservedChunk = null;
 export let chunkOverflowInProgress = false;
+export let renumberingInProgress = false;
 
 
 // Function to update the currentObservedChunk
@@ -145,6 +146,11 @@ export function setCurrentObservedChunk(chunk) {
 // Function to update the flag
 export function setChunkOverflowInProgress(value) {
   chunkOverflowInProgress = value;
+  return value;
+}
+// Function to update renumbering flag
+export function setRenumberingInProgress(value) {
+  renumberingInProgress = value;
   return value;
 }
 

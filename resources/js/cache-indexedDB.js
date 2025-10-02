@@ -171,6 +171,19 @@ export function queueForSync(store, id, type = "update", data = null, originalDa
   debouncedMasterSync();
 }
 
+export function clearPendingSyncsForBook(bookId) {
+  const keysToDelete = [];
+  for (const [key, value] of pendingSyncs.entries()) {
+    // Check if this sync is for the specified book
+    if (value.data?.book === bookId) {
+      keysToDelete.push(key);
+    }
+  }
+  keysToDelete.forEach(key => pendingSyncs.delete(key));
+  console.log(`🧹 Cleared ${keysToDelete.length} pending syncs for book: ${bookId}`);
+  return keysToDelete.length;
+}
+
 export async function updateHistoryLog(logEntry) {
   const db = await openDatabase();
   const tx = db.transaction("historyLog", "readwrite");
@@ -1750,7 +1763,8 @@ export function toPublicChunk(chunk) {
   return {
     book:        chunk.book,
     startLine:   chunk.startLine,
-    content:     chunk.content, // ✅ The correct version
+    node_id:     chunk.node_id ?? null, // ✅ Include node_id for renumbering support
+    content:     chunk.content,
     hyperlights: chunk.hyperlights ?? [],
     hypercites:  chunk.hypercites  ?? [],
     chunk_id:    chunk.chunk_id

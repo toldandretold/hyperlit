@@ -153,7 +153,11 @@ async function renumberAllNodes() {
 
     console.log(`🔄 RENUMBERING: Generated ${updates.length} updates`);
 
-    // 3. Update DOM elements if they're currently visible (using node_id as stable reference)
+    // 3. Set flag to ignore mutation observer during DOM/DB updates
+    window.renumberingInProgress = true;
+    console.log('🔒 RENUMBERING: Mutation observer disabled');
+
+    // 4. Update DOM elements if they're currently visible (using node_id as stable reference)
     let domUpdateCount = 0;
     updates.forEach(update => {
       const element = document.querySelector(`[data-node-id="${update.node_id}"]`);
@@ -164,15 +168,24 @@ async function renumberAllNodes() {
     });
     console.log(`✅ RENUMBERING: Updated ${domUpdateCount} DOM elements`);
 
-    // 4. Update IndexedDB with new startLines
+    // 5. Update IndexedDB with new startLines
     await renumberNodeChunksInIndexedDB(updates, book);
     console.log('✅ RENUMBERING: IndexedDB updated');
 
-    // 5. Sync to PostgreSQL
+    // 6. Sync to PostgreSQL
     await syncIndexedDBtoPostgreSQL(book);
     console.log('✅ RENUMBERING: PostgreSQL synced');
 
-    // 6. Hide modal and continue (no reload needed - DOM and data already updated)
+    // 7. Clear any pending syncs queued during the process (they have stale pre-renumber data)
+    const { clearPendingSyncsForBook } = await import('./cache-indexedDB.js');
+    const clearedCount = clearPendingSyncsForBook(book);
+    console.log(`✅ RENUMBERING: Cleared ${clearedCount} stale pending syncs`);
+
+    // 8. Re-enable mutation observer
+    window.renumberingInProgress = false;
+    console.log('🔓 RENUMBERING: Mutation observer re-enabled');
+
+    // 8. Hide modal and continue (no reload needed - DOM and data already updated)
     console.log('🎉 RENUMBERING COMPLETE');
     hideRenumberModal();
     isRenumberingInProgress = false;
@@ -182,6 +195,9 @@ async function renumberAllNodes() {
 
   } catch (error) {
     console.error('❌ RENUMBERING FAILED:', error);
+    // Re-enable mutation observer even on failure
+    window.renumberingInProgress = false;
+    console.log('🔓 RENUMBERING: Mutation observer re-enabled (after error)');
     return false;
   }
 }
