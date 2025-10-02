@@ -232,6 +232,13 @@ export function generateUniqueId() {
   return id;
 }
 
+// Generate a unique node_id for persistent identification across renumbering
+export function generateNodeId(bookId) {
+  const id = `${bookId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  console.log(`🆔 generateNodeId: Created node_id: ${id}`);
+  return id;
+}
+
 // Utility: Check if an id is duplicate within the document.
 export function isDuplicateId(id) {
   const elements = document.querySelectorAll(`#${CSS.escape(id)}`);

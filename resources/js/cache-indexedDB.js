@@ -595,10 +595,20 @@ export async function addNewBookToIndexedDB(
       const store = tx.objectStore("nodeChunks");
       const numericStartLine = parseNodeId(startLine);
 
+      // ✅ Try to extract node_id from content's data-node-id attribute
+      let extractedNodeId = null;
+      if (content) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = content;
+        const firstElement = tempDiv.firstElementChild;
+        extractedNodeId = firstElement?.getAttribute('data-node-id');
+      }
+
       const nodeChunkRecord = {
         book: bookId,
         startLine: numericStartLine,
         chunk_id: chunkId,
+        node_id: extractedNodeId || null, // ✅ ADD node_id field
         content: content,
         hyperlights: [],
         hypercites: [], // Preserved your original object structure
@@ -999,6 +1009,9 @@ export function updateIndexedDBRecord(record) {
     // 🔥 USE YOUR EXISTING FUNCTION TO PROPERLY PROCESS THE NODE
     const processedData = node ? processNodeContentHighlightsAndCites(node) : null;
 
+    // ✅ EXTRACT node_id from data-node-id attribute
+    const nodeIdFromDOM = node ? node.getAttribute('data-node-id') : null;
+
     // Fetch the existing chunk record
     const getReq = chunksStore.get(compositeKey);
 
@@ -1029,6 +1042,12 @@ export function updateIndexedDBRecord(record) {
           console.log(`Updated chunk_id to ${record.chunk_id} for node ${nodeId}`);
         }
 
+        // ✅ UPDATE node_id from DOM if available
+        if (nodeIdFromDOM) {
+          toSave.node_id = nodeIdFromDOM;
+          console.log(`Updated node_id to ${nodeIdFromDOM} for node ${nodeId}`);
+        }
+
       } else {
         // Case: No existing record, create a new one
         console.log("No existing nodeChunk record, creating new one.");
@@ -1036,6 +1055,7 @@ export function updateIndexedDBRecord(record) {
           book: bookId,
           startLine: numericNodeId,
           chunk_id: record.chunk_id !== undefined ? record.chunk_id : 0,
+          node_id: nodeIdFromDOM || null, // ✅ ADD node_id field
           content: processedData ? processedData.content : record.html,
           hyperlights: processedData ? processedData.hyperlights : [],
           hypercites: processedData ? processedData.hypercites : []
@@ -1190,6 +1210,9 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
         ? processNodeContentHighlightsAndCites(node, existingHypercites)
         : null;
 
+      // ✅ EXTRACT node_id from data-node-id attribute
+      const nodeIdFromDOM = node ? node.getAttribute('data-node-id') : null;
+
       let toSave;
       if (existing) {
         toSave = { ...existing };
@@ -1202,11 +1225,16 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
         }
         if (record.chunk_id !== undefined)
           toSave.chunk_id = record.chunk_id;
+        // ✅ UPDATE node_id from DOM if available
+        if (nodeIdFromDOM) {
+          toSave.node_id = nodeIdFromDOM;
+        }
       } else {
         toSave = {
           book: bookId,
           startLine: finalNumericNodeId,
           chunk_id: record.chunk_id !== undefined ? record.chunk_id : 0,
+          node_id: nodeIdFromDOM || null, // ✅ ADD node_id field
           content: processedData ? processedData.content : record.html || "",
           hyperlights: processedData ? processedData.hyperlights : [],
           hypercites: processedData ? processedData.hypercites : [],
@@ -1764,18 +1792,43 @@ export function updateCitationForExistingHypercite(
       console.error("❌ Error during sync attempt:", error);
     }
 
-    // 4) UPDATE TIMESTAMPS
-    const affectedBooks = new Set([booka]);
+    // 4) UPDATE TIMESTAMPS FOR BOTH AFFECTED BOOKS
+    const affectedBooks = new Set([booka]); // Book A (where cited text lives)
+
     if (citationIDb) {
-      const urlParts = citationIDb.split("/");
-      if (urlParts.length > 1) {
-        const targetBook = urlParts[1].split("#")[0];
-        if (targetBook) affectedBooks.add(targetBook);
+      // Extract book ID from citation URL with robust parsing
+      // Handle formats: /bookB#id, /bookB/HL_123#id, bookB#id
+      let citationBookId = null;
+
+      // Remove any hash fragment first to isolate the path
+      const pathOnly = citationIDb.split("#")[0];
+      const urlParts = pathOnly.split("/").filter(part => part); // Remove empty parts
+
+      if (urlParts.length > 0) {
+        // First non-empty part is the book ID
+        // For /bookB or /bookB/HL_123, take first part
+        citationBookId = urlParts[0];
+        console.log(`📍 Extracted citation book ID: ${citationBookId} from ${citationIDb}`);
+        affectedBooks.add(citationBookId);
       }
     }
+
+    console.log(`📝 Updating timestamps for affected books:`, Array.from(affectedBooks));
+
     for (const bookId of affectedBooks) {
       await updateBookTimestamp(bookId);
+      // Queue library update for sync
+      const libraryRecord = await getLibraryObjectFromIndexedDB(bookId);
+      if (libraryRecord) {
+        queueForSync("library", bookId, "update", libraryRecord);
+      }
     }
+
+    // 🔥 CRITICAL FIX: Flush sync queue immediately (like in NewHyperciteIndexedDB)
+    // This ensures timestamps are persisted before user navigates away
+    console.log("⚡ Flushing sync queue immediately for hypercite link...");
+    await debouncedMasterSync.flush();
+    console.log("✅ Sync queue flushed.");
 
     // 5) RETURN SUCCESS
     return {

@@ -132,6 +132,7 @@ class DbNodeChunkController extends Controller
                         'book' => $item['book'] ?? null,
                         'chunk_id' => $item['chunk_id'] ?? 0,
                         'startLine' => $item['startLine'] ?? null,
+                        'node_id' => $item['node_id'] ?? null,
                         'content' => $item['content'] ?? null,
                         'footnotes' => json_encode($item['footnotes'] ?? []),
                         'hypercites' => json_encode($item['hypercites'] ?? []),
@@ -211,6 +212,7 @@ class DbNodeChunkController extends Controller
                         'book' => $item['book'] ?? $book,
                         'chunk_id' => $item['chunk_id'] ?? 0,
                         'startLine' => $item['startLine'] ?? null,
+                        'node_id' => $item['node_id'] ?? null,
                         'content' => $item['content'] ?? null,
                         'footnotes' => json_encode($item['footnotes'] ?? []),
                         'hypercites' => json_encode($item['hypercites'] ?? []),
@@ -333,6 +335,7 @@ public function targetedUpsert(Request $request)
             if ($hasPermission) {
                 $updateData = [
                     'chunk_id' => $item['chunk_id'] ?? ($existingChunk->chunk_id ?? null),
+                    'node_id' => $item['node_id'] ?? ($existingChunk->node_id ?? null),
                     'content' => $item['content'] ?? ($existingChunk->content ?? null),
                     'footnotes' => $item['footnotes'] ?? ($existingChunk->footnotes ?? []),
                     'plainText' => $item['plainText'] ?? ($existingChunk->plainText ?? null),

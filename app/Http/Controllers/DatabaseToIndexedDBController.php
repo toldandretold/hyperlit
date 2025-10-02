@@ -114,10 +114,224 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
+     * Migrate node_id field for all chunks in a book
+     * Extracts from HTML content or generates new ones
+     */
+    private function migrateNodeIds(string $bookId): void
+    {
+        // Quick check: if all chunks have node_id, skip migration entirely
+        $chunksWithoutNodeId = DB::table('node_chunks')
+            ->where('book', $bookId)
+            ->whereNull('node_id')
+            ->count();
+
+        if ($chunksWithoutNodeId === 0) {
+            // All chunks already have node_id, skip expensive checks
+            return;
+        }
+
+        Log::info('🔄 Starting node_id migration check', ['book_id' => $bookId]);
+
+        // Get all chunks for this book
+        $chunks = DB::table('node_chunks')
+            ->where('book', $bookId)
+            ->get();
+
+        $toUpsert = [];
+
+        foreach ($chunks as $chunk) {
+            $extractedNodeId = $this->extractNodeIdFromHtml($chunk->content);
+            $needsUpdate = false;
+            $nodeId = null;
+
+            // CASE 1: No node_id in database field
+            if (empty($chunk->node_id)) {
+                $needsUpdate = true;
+                $nodeId = $extractedNodeId ?: $this->generateNodeId($bookId);
+            }
+            // CASE 2: Has node_id in DB but missing in HTML
+            elseif (!$extractedNodeId) {
+                $needsUpdate = true;
+                $nodeId = $chunk->node_id;
+            }
+            // CASE 3: Has both but they don't match - use DB as source of truth
+            elseif ($chunk->node_id !== $extractedNodeId) {
+                $needsUpdate = true;
+                $nodeId = $chunk->node_id;
+            }
+
+            if ($needsUpdate && $nodeId) {
+                // Add data-node-id to HTML content
+                $updatedContent = $this->addNodeIdToHtml($chunk->content, $nodeId);
+
+                // Update raw_json content and add node_id field
+                $rawJson = json_decode($chunk->raw_json, true);
+                if ($rawJson && is_array($rawJson)) {
+                    $rawJson['content'] = $updatedContent;
+                    $rawJson['node_id'] = $nodeId;
+                    $updatedRawJson = json_encode($rawJson);
+                } else {
+                    $updatedRawJson = $chunk->raw_json;
+                }
+
+                $toUpsert[] = [
+                    'book' => $chunk->book,
+                    'startLine' => $chunk->startLine,
+                    'chunk_id' => $chunk->chunk_id ?? null,
+                    'node_id' => $nodeId,
+                    'content' => $updatedContent,
+                    'raw_json' => $updatedRawJson,
+                    'footnotes' => $chunk->footnotes ?? '[]',
+                    'hyperlights' => $chunk->hyperlights ?? '[]',
+                    'hypercites' => $chunk->hypercites ?? '[]',
+                    'updated_at' => now()
+                ];
+            }
+        }
+
+        if (!empty($toUpsert)) {
+            Log::info('🔄 Migrating node_ids via single UPDATE', [
+                'book_id' => $bookId,
+                'chunks_to_update' => count($toUpsert)
+            ]);
+
+            // Build CASE statements for single UPDATE query
+            $whenNodeId = [];
+            $whenContent = [];
+            $whenRawJson = [];
+            $startLines = [];
+
+            foreach ($toUpsert as $update) {
+                $startLine = $update['startLine'];
+                $nodeId = DB::connection()->getPdo()->quote($update['node_id']);
+                $content = DB::connection()->getPdo()->quote($update['content']);
+                $rawJson = DB::connection()->getPdo()->quote($update['raw_json']);
+
+                $whenNodeId[] = "WHEN {$startLine} THEN {$nodeId}";
+                $whenContent[] = "WHEN {$startLine} THEN {$content}";
+                $whenRawJson[] = "WHEN {$startLine} THEN {$rawJson}";
+                $startLines[] = $startLine;
+            }
+
+            $whenNodeIdSql = implode(' ', $whenNodeId);
+            $whenContentSql = implode(' ', $whenContent);
+            $whenRawJsonSql = implode(' ', $whenRawJson);
+            $startLinesList = implode(',', $startLines);
+
+            $sql = "UPDATE node_chunks SET
+                node_id = CASE \"startLine\" {$whenNodeIdSql} END,
+                content = CASE \"startLine\" {$whenContentSql} END,
+                raw_json = (CASE \"startLine\" {$whenRawJsonSql} END)::jsonb,
+                updated_at = NOW()
+                WHERE book = ? AND \"startLine\" IN ({$startLinesList})";
+
+            DB::update($sql, [$bookId]);
+
+            // Update library timestamp to mark migration complete
+            DB::table('library')
+                ->where('book', $bookId)
+                ->update(['timestamp' => round(microtime(true) * 1000)]);
+
+            Log::info('✅ node_id migration completed', [
+                'book_id' => $bookId,
+                'chunks_updated' => count($toUpsert)
+            ]);
+        } else {
+            Log::info('✅ No migration needed - all chunks have node_ids', [
+                'book_id' => $bookId
+            ]);
+        }
+    }
+
+    /**
+     * Extract node_id from HTML content's data-node-id attribute
+     */
+    private function extractNodeIdFromHtml(?string $html): ?string
+    {
+        if (empty($html)) {
+            return null;
+        }
+
+        // Use DOMDocument to parse HTML and extract data-node-id
+        $dom = new \DOMDocument();
+
+        // Suppress warnings for malformed HTML
+        libxml_use_internal_errors(true);
+
+        // Load HTML with UTF-8 encoding
+        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+
+        libxml_clear_errors();
+
+        // Get the first element
+        $firstElement = $dom->firstChild;
+
+        if ($firstElement && $firstElement instanceof \DOMElement) {
+            $nodeId = $firstElement->getAttribute('data-node-id');
+            return !empty($nodeId) ? $nodeId : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Generate a unique node_id in format: {book}_{timestamp}_{random}
+     */
+    private function generateNodeId(string $bookId): string
+    {
+        $timestamp = round(microtime(true) * 1000); // milliseconds
+        $random = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz0123456789'), 0, 9);
+        return "{$bookId}_{$timestamp}_{$random}";
+    }
+
+    /**
+     * Add data-node-id attribute to HTML content
+     * Uses regex for reliability with HTML fragments
+     */
+    private function addNodeIdToHtml(?string $html, string $nodeId): string
+    {
+        if (empty($html)) {
+            return $html;
+        }
+
+        // Check if it already has the attribute
+        if (strpos($html, 'data-node-id') !== false) {
+            return $html; // Already has it
+        }
+
+        // Use regex to add data-node-id to the first opening tag
+        // Matches: <tagname (any attributes)>
+        // Replaces with: <tagname data-node-id="..." (any attributes)>
+        $pattern = '/^(<[a-z][a-z0-9]*)([\s>])/i';
+        $replacement = '$1 data-node-id="' . htmlspecialchars($nodeId, ENT_QUOTES) . '"$2';
+
+        $updatedHtml = preg_replace($pattern, $replacement, $html, 1);
+
+        if ($updatedHtml !== null && $updatedHtml !== $html) {
+            Log::debug('Added data-node-id to HTML', [
+                'node_id' => $nodeId,
+                'original' => substr($html, 0, 100),
+                'updated' => substr($updatedHtml, 0, 100)
+            ]);
+            return $updatedHtml;
+        }
+
+        // Fallback: return original
+        Log::warning('Could not add data-node-id to HTML', [
+            'node_id' => $nodeId,
+            'html' => substr($html, 0, 100)
+        ]);
+        return $html;
+    }
+
+    /**
      * Get node chunks for a book - matches your IndexedDB structure
      */
     private function getNodeChunks(string $bookId, array $visibleHyperlightIds): array
     {
+        // ✅ RUN MIGRATION FIRST (before loading chunks)
+        $this->migrateNodeIds($bookId);
+
         Log::info('🔍 getNodeChunks started', [
             'book_id' => $bookId,
             'visible_highlight_ids_count' => count($visibleHyperlightIds),
@@ -196,6 +410,7 @@ class DatabaseToIndexedDBController extends Controller
                     'book' => $chunk->book,
                     'chunk_id' => (int) $chunk->chunk_id,
                     'startLine' => (float) $chunk->startLine,
+                    'node_id' => $chunk->node_id,
                     'content' => $chunk->content,
                     'plainText' => $chunk->plainText,
                     'type' => $chunk->type,

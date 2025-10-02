@@ -7,10 +7,10 @@ import {
   getHyperciteFromIndexedDB
 } from "./cache-indexedDB.js";
 import { attachUnderlineClickListeners } from "./hyperCites.js";
-import { 
-  setChunkLoadingInProgress, 
-  clearChunkLoadingInProgress, 
-  scheduleAutoClear 
+import {
+  setChunkLoadingInProgress,
+  clearChunkLoadingInProgress,
+  scheduleAutoClear
 } from './chunkLoadingState.js';
 import { setupUserScrollDetection, shouldSkipScrollRestoration } from './scrolling.js';
 import { scrollElementIntoMainContent } from "./scrolling.js";
@@ -640,21 +640,28 @@ function createChunkElement(nodes, instance) {
   console.log(`🏗️ Processing ${nodes.length} nodes for chunk ${chunkId}`);
 
   nodes.forEach((node, nodeIndex) => {
-    
-    
+    // ✅ Server handles migration - node_id should already exist
+    // If not, log warning but continue (should not happen after migration)
+    if (!node.node_id) {
+      console.warn(`⚠️ Node ${node.startLine} missing node_id after server migration!`);
+    }
+
     let html = renderBlockToHtml(node);
-    
+
     if (node.hyperlights && node.hyperlights.length > 0) {
       html = applyHighlights(html, node.hyperlights, instance.bookId);
     }
-    
+
     if (node.hypercites && node.hypercites.length > 0) {
       html = applyHypercites(html, node.hypercites);
     }
-    
+
     const temp = document.createElement("div");
     temp.innerHTML = html;
     if (temp.firstChild) {
+      // ✅ data-node-id should already be in HTML from server
+      // But ensure numerical id is set
+      temp.firstChild.setAttribute('id', node.startLine);
       chunkWrapper.appendChild(temp.firstChild);
     } else {
       console.warn(`⚠️ Node ${nodeIndex + 1} produced no DOM content`);
