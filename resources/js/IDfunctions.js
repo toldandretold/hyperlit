@@ -2,6 +2,7 @@ import { updateIndexedDBRecordForNormalization } from "./cache-indexedDB.js";
 import { getAllNodeChunksForBook, renumberNodeChunksInIndexedDB } from "./cache-indexedDB.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 import { book } from "./app.js";
+import { showTick, showError } from "./editIndicator.js";
 
 // Renumbering system: When IDs get crowded, renumber with 100-gaps
 // Uses node_id as stable reference to preserve node identity
@@ -176,6 +177,9 @@ async function renumberAllNodes() {
     await syncIndexedDBtoPostgreSQL(book);
     console.log('✅ RENUMBERING: PostgreSQL synced');
 
+    // Show green tick to indicate successful sync
+    showTick();
+
     // 7. Clear any pending syncs queued during the process (they have stale pre-renumber data)
     const { clearPendingSyncsForBook } = await import('./cache-indexedDB.js');
     const clearedCount = clearPendingSyncsForBook(book);
@@ -195,6 +199,8 @@ async function renumberAllNodes() {
 
   } catch (error) {
     console.error('❌ RENUMBERING FAILED:', error);
+    // Show red error indicator
+    showError();
     // Re-enable mutation observer even on failure
     window.renumberingInProgress = false;
     console.log('🔓 RENUMBERING: Mutation observer re-enabled (after error)');
