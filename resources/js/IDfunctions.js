@@ -1,4 +1,221 @@
-import { updateIndexedDBRecordForNormalization } from "./cache-indexedDB.js";// Utility: Generate a fallback unique ID if needed (used as a last resort).
+import { updateIndexedDBRecordForNormalization } from "./cache-indexedDB.js";
+import { getAllNodeChunksForBook, renumberNodeChunksInIndexedDB } from "./cache-indexedDB.js";
+import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
+import { book } from "./app.js";
+
+// Renumbering system: When IDs get crowded, renumber with 100-gaps
+// Uses node_id as stable reference to preserve node identity
+
+// Track if renumbering is in progress
+let isRenumberingInProgress = false;
+let renumberingPromise = null;
+
+// Create renumbering modal (similar to paste.js conversion modal)
+const renumberModal = document.createElement("div");
+renumberModal.id = "renumber-modal";
+renumberModal.style.cssText = `
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(34, 31, 32, 0.95);
+  z-index: 10000;
+  color: #CBCCCC;
+  pointer-events: all;
+`;
+renumberModal.innerHTML = `
+  <div style="
+    background: #CBCCCC;
+    padding: 2em 3em;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    font: 16px sans-serif;
+    color: #221F20;
+    text-align: center;
+  ">
+    <p id="renumber-message" style="margin:0 0 1em 0; font-weight: bold;">
+      Renumbering document nodes...
+    </p>
+    <p id="renumber-details" style="margin:0; font-size: 14px; color: #666;">
+      Please wait...
+    </p>
+  </div>
+`;
+
+// Append modal when DOM is ready
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    document.body.appendChild(renumberModal);
+  });
+} else {
+  if (document.body) {
+    document.body.appendChild(renumberModal);
+  }
+}
+
+async function showRenumberModal(message, details = '') {
+  renumberModal.querySelector("#renumber-message").textContent = message;
+  renumberModal.querySelector("#renumber-details").textContent = details;
+  renumberModal.style.display = "flex";
+  // Wait two frames to ensure it's painted
+  await new Promise(requestAnimationFrame);
+  await new Promise(requestAnimationFrame);
+}
+
+function hideRenumberModal() {
+  renumberModal.style.display = "none";
+}
+
+/**
+ * Trigger renumbering with UI modal (non-blocking)
+ */
+async function triggerRenumberingWithModal() {
+  // Prevent multiple renumbering operations - return existing promise
+  if (isRenumberingInProgress && renumberingPromise) {
+    console.log('⏸️ Renumbering already in progress - returning existing promise');
+    return renumberingPromise;
+  }
+
+  isRenumberingInProgress = true;
+
+  // Create promise that resolves when renumbering completes
+  renumberingPromise = (async () => {
+    try {
+      await showRenumberModal('Renumbering document...', 'Reorganizing node IDs with 100-unit gaps');
+      await renumberAllNodes();
+      // renumberAllNodes() handles modal hiding and flag reset on success
+      return true;
+    } catch (error) {
+      console.error('❌ Renumbering failed:', error);
+      hideRenumberModal();
+      isRenumberingInProgress = false;
+      renumberingPromise = null;
+      alert('Renumbering failed. Please try again.');
+      throw error;
+    }
+  })();
+
+  return renumberingPromise;
+}
+
+/**
+ * Renumber all nodes in the current book with 100-unit gaps
+ * Called when we'd be forced to create a decimal ID
+ */
+async function renumberAllNodes() {
+  console.log('🔄 RENUMBERING: Starting system-wide ID renormalization');
+
+  try {
+    // 0. Flush all pending saves to IndexedDB first
+    console.log('💾 Flushing all pending saves before renumbering...');
+    const { flushAllPendingSaves } = await import('./divEditor.js');
+    await flushAllPendingSaves();
+    console.log('✅ All pending saves flushed');
+
+    // 1. Get all nodes from IndexedDB, sorted by current startLine
+    const allNodes = await getAllNodeChunksForBook(book);
+    if (!allNodes || allNodes.length === 0) {
+      console.warn('⚠️ RENUMBERING: No nodes found for book:', book);
+      return false;
+    }
+
+    // Sort by current startLine to preserve order
+    allNodes.sort((a, b) => a.startLine - b.startLine);
+
+    console.log(`🔄 RENUMBERING: Processing ${allNodes.length} nodes`);
+
+    // 2. Build mapping: node_id → new startLine (with 100-gaps)
+    const updates = [];
+    allNodes.forEach((node, index) => {
+      const newStartLine = (index + 1) * 100; // 100, 200, 300, etc.
+      const oldStartLine = node.startLine;
+
+      // Update HTML content to reflect new ID (like paste.js does)
+      // This updates the stored HTML regardless of whether node is in DOM
+      const updatedContent = node.content.replace(
+        /id="[\d.]+"/g,
+        `id="${newStartLine}"`
+      );
+
+      updates.push({
+        book: book,
+        oldStartLine: oldStartLine,
+        newStartLine: newStartLine,
+        node_id: node.node_id,
+        content: updatedContent,
+        chunk_id: Math.floor(index / 100), // Recalculate chunk_id
+        hyperlights: node.hyperlights || [],
+        hypercites: node.hypercites || [],
+        footnotes: node.footnotes || []
+      });
+    });
+
+    console.log(`🔄 RENUMBERING: Generated ${updates.length} updates`);
+
+    // 3. Update DOM elements if they're currently visible (using node_id as stable reference)
+    let domUpdateCount = 0;
+    updates.forEach(update => {
+      const element = document.querySelector(`[data-node-id="${update.node_id}"]`);
+      if (element) {
+        element.id = update.newStartLine.toString();
+        domUpdateCount++;
+      }
+    });
+    console.log(`✅ RENUMBERING: Updated ${domUpdateCount} DOM elements`);
+
+    // 4. Update IndexedDB with new startLines
+    await renumberNodeChunksInIndexedDB(updates, book);
+    console.log('✅ RENUMBERING: IndexedDB updated');
+
+    // 5. Sync to PostgreSQL
+    await syncIndexedDBtoPostgreSQL(book);
+    console.log('✅ RENUMBERING: PostgreSQL synced');
+
+    // 6. Hide modal and continue (no reload needed - DOM and data already updated)
+    console.log('🎉 RENUMBERING COMPLETE');
+    hideRenumberModal();
+    isRenumberingInProgress = false;
+    renumberingPromise = null;
+
+    return true;
+
+  } catch (error) {
+    console.error('❌ RENUMBERING FAILED:', error);
+    return false;
+  }
+}
+
+/**
+ * Detect if we need to renumber (decimals getting too deep)
+ * Only trigger renumbering when decimals exceed MAX_DECIMAL_DEPTH
+ */
+function needsRenumbering(beforeId, afterId) {
+  const MAX_DECIMAL_DEPTH = 3; // Allow up to 3 decimal places (e.g., 1.123)
+
+  if (!beforeId || !afterId) return false;
+
+  const beforeNum = parseFloat(beforeId);
+  const afterNum = parseFloat(afterId);
+
+  if (isNaN(beforeNum) || isNaN(afterNum)) return false;
+
+  // Check current decimal depth
+  const beforeDecimal = beforeId.toString().split('.')[1] || '';
+  const afterDecimal = afterId.toString().split('.')[1] || '';
+  const currentMaxDepth = Math.max(beforeDecimal.length, afterDecimal.length);
+
+  // If we're already at max depth, trigger renumbering
+  if (currentMaxDepth >= MAX_DECIMAL_DEPTH) {
+    console.log(`🔍 RENUMBER TRIGGER: Decimal depth ${currentMaxDepth} >= ${MAX_DECIMAL_DEPTH}`);
+    return true;
+  }
+
+  // Allow normal decimal generation if under the limit
+  return false;
+}
+
+// Utility: Generate a fallback unique ID if needed (used as a last resort).
 
 export function compareDecimalStrings(a, b) {
   console.log(`Comparing decimal strings: "${a}" vs "${b}"`);
@@ -45,8 +262,35 @@ export function compareDecimalStrings(a, b) {
 }
 
 
+/**
+ * Set both id and data-node-id on an element
+ * This ensures new elements can be tracked through renumbering
+ */
+export function setElementIds(element, beforeId, afterId, bookId) {
+  // Generate and set the numerical ID
+  element.id = generateIdBetween(beforeId, afterId);
+
+  // Generate and set the permanent node_id if it doesn't exist
+  if (!element.getAttribute('data-node-id')) {
+    element.setAttribute('data-node-id', generateNodeId(bookId));
+  }
+
+  return element.id;
+}
+
 export function generateIdBetween(beforeId, afterId) {
   console.log("Generating ID between:", { beforeId, afterId });
+
+  // RENUMBERING CHECK: Detect if we'd be forced to create a deep decimal
+  // Trigger renumbering in background, but continue with normal ID generation
+  if (needsRenumbering(beforeId, afterId)) {
+    console.log('🔄 RENUMBERING NEEDED - Triggering background renumbering');
+    // Fire and forget - renumbering will pick up this new node after it's saved
+    triggerRenumberingWithModal().catch(err => {
+      console.error('Background renumbering failed:', err);
+    });
+    // Continue with normal ID generation - don't block the user
+  }
 
   // 1) No beforeId → just pick something before afterId
   if (!beforeId) {
@@ -58,13 +302,16 @@ export function generateIdBetween(beforeId, afterId) {
       : Math.max(1, Math.floor(afterNum) - 1).toString();
   }
 
-  // 2) No afterId → increment or fallback to decimal
+  // 2) No afterId → increment with 100-unit gap
   if (!afterId) {
     console.log("EXIT: No afterId");
     const beforeNum = parseFloat(beforeId);
     if (isNaN(beforeNum)) return `${beforeId}_1`;
 
-    const nextInteger = Math.floor(beforeNum) + 1;
+    // Use 100-unit gaps to maintain renumbering pattern
+    const beforeFloor = Math.floor(beforeNum);
+    const nextInteger = beforeFloor + 100;
+
     // isDuplicateId check is kept as per your original code
     if (isDuplicateId(nextInteger.toString())) {
       console.warn(
@@ -81,6 +328,7 @@ export function generateIdBetween(beforeId, afterId) {
       return `${intPart}.${decPart.slice(0, -1)}${last + 1}`;
     }
 
+    console.log(`EXIT: No afterId, using 100-gap: ${nextInteger}`);
     return nextInteger.toString();
   }
 
@@ -110,15 +358,23 @@ export function generateIdBetween(beforeId, afterId) {
       return `${i}.1`;
     }
 
-    // ✨ --- START OF THE FIX --- ✨
-    // This new block handles the missing case by checking for an integer gap first.
-    // It solves "1" vs "2.01" -> "2" and "3.5" vs "5" -> "4".
+    // ✨ NEW: Check for integer gap >= 2, use midpoint
+    if (Number.isInteger(beforeNum) && Number.isInteger(afterNum)) {
+      const gap = afterNum - beforeNum;
+      if (gap >= 2) {
+        const midpoint = Math.floor((beforeNum + afterNum) / 2);
+        console.log(`EXIT: Integer gap ${gap}, using midpoint: ${midpoint}`);
+        return midpoint.toString();
+      }
+    }
+
+    // ✨ Check for integer gap when one is decimal
+    // If there's room for an integer between them, use it
     const nextIntAfterBefore = Math.floor(beforeNum) + 1;
     if (compareDecimalStrings(nextIntAfterBefore.toString(), afterId) < 0) {
       console.log(`EXIT: Using next available integer: ${nextIntAfterBefore}`);
       return nextIntAfterBefore.toString();
     }
-    // ✨ ---  END OF THE FIX  --- ✨
 
     const beforeParts = beforeId.split(".");
     const afterParts = afterId.split(".");
@@ -128,20 +384,29 @@ export function generateIdBetween(beforeId, afterId) {
 
     // CASE 1) same integer part, both have decimals
     if (beforeParts[0] === afterParts[0] && lenB > 0 && lenA > 0) {
-      // ... (This logic is correct for its purpose and is now protected by the fix above)
       console.log("Case 1: same int & both decimals");
       const intPart = beforeParts[0];
       const beforeDec = beforeParts[1];
       const afterDec = afterParts[1];
-      if (lenA === lenB) return `${beforeId}1`;
-      if (lenA > lenB) return `${beforeId}${"0".repeat(lenA - lenB)}1`;
-      const paddedAfterDec = afterDec.padEnd(lenB, "0");
-      const beforeNumDec = parseInt(beforeDec, 10);
-      const afterNumDec = parseInt(paddedAfterDec, 10);
-      if (afterNumDec - beforeNumDec > 1) {
-        let newDec = (beforeNumDec + 1).toString().padStart(lenB, "0");
+
+      // Pad both to the LONGER length to compare properly
+      // 1.18 and 1.2 → treat as 1.18 vs 1.20
+      const workingLength = Math.max(lenB, lenA);
+      const paddedBeforeDec = beforeDec.padEnd(workingLength, "0");
+      const paddedAfterDec = afterDec.padEnd(workingLength, "0");
+      const beforeDecNum = parseInt(paddedBeforeDec, 10);
+      const afterDecNum = parseInt(paddedAfterDec, 10);
+
+      if (afterDecNum - beforeDecNum > 1) {
+        // Room to increment: 1.18 and 1.2 → 1.19
+        let newDec = (beforeDecNum + 1).toString().padStart(workingLength, "0");
+        console.log(`EXIT: Room to increment decimal: ${intPart}.${newDec}`);
         return `${intPart}.${newDec}`;
       }
+
+      // No room to increment, need to append a digit
+      // 1.18 and 1.19 → 1.181
+      console.log("EXIT: No room to increment, appending digit");
       return `${beforeId}1`;
     }
 

@@ -10,6 +10,7 @@ import {
 import { buildBibtexEntry } from "./bibtexProcessor.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 import { getCurrentUser, getAnonymousToken } from "./auth.js";
+import { generateNodeId } from "./IDfunctions.js";
 
 
 
@@ -206,11 +207,15 @@ export async function createNewBook() {
     };
     newLibraryRecord.bibtex = buildBibtexEntry(newLibraryRecord);
 
+    // Generate node_id for the initial H1 element
+    const initialNodeId = generateNodeId(bookId);
+
     const initialNodeChunk = {
       book: bookId,
-      startLine: 1,
+      startLine: 100,
       chunk_id: 0,
-      content: '<h1 id="1">Untitled</h1>',
+      content: `<h1 id="100" data-node-id="${initialNodeId}">Untitled</h1>`,
+      node_id: initialNodeId,
       hyperlights: [],
       hypercites: [],
     };

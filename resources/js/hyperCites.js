@@ -436,10 +436,16 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
           "No existing nodeChunk record, creating new one with startLine:",
           numericStartLine,
         );
+
+        // ✅ Extract node_id from DOM element if available
+        const blockElement = document.getElementById(block.nodeId);
+        const nodeIdFromDOM = blockElement?.getAttribute('data-node-id');
+
         updatedNodeChunkRecord = {
           book: book,
           startLine: numericStartLine,
           chunk_id: numericStartLine,
+          node_id: nodeIdFromDOM || null, // ✅ ADD node_id field
           hypercites: [
             {
               hyperciteId: hyperciteId,

@@ -26,6 +26,7 @@ import { showSpinner, showTick, isProcessing } from './editIndicator.js';
 
 import { buildBibtexEntry } from "./bibtexProcessor.js";
 import { generateIdBetween,
+         setElementIds,
          isNumericalId,
          ensureNodeHasValidId,
           } from "./IDfunctions.js";
@@ -1319,10 +1320,10 @@ function createAndInsertParagraph(blockElement, chunkContainer, content, selecti
     nextElement = nextElement.nextElementSibling;
   }
   
-  // ALWAYS use generateIdBetween for consistency. It should handle the null case.
+  // ALWAYS use setElementIds to set both id and data-node-id
   const nextElementId = nextElement ? nextElement.id : null;
-  newParagraph.id = generateIdBetween(blockElement.id, nextElementId);
-  
+  setElementIds(newParagraph, blockElement.id, nextElementId, book);
+
   // 5. Insert the paragraph at the correct position in the DOM
   if (blockElement.nextSibling) {
     container.insertBefore(newParagraph, blockElement.nextSibling);
@@ -1485,13 +1486,13 @@ class EnterKeyHandler {
 
             // Special case: if heading is ID "1" and no previous element, use "0" as beforeId
             if (!prevElement && blockElement.id === "1") {
-              newParagraph.id = generateIdBetween("0", "1");
+              setElementIds(newParagraph, "0", "1", book);
             } else if (prevElement && prevElement.id) {
               // Generate ID between previous and current
-              newParagraph.id = generateIdBetween(prevElement.id, blockElement.id);
+              setElementIds(newParagraph, prevElement.id, blockElement.id, book);
             } else {
               // Generate ID before current
-              newParagraph.id = generateIdBetween(null, blockElement.id);
+              setElementIds(newParagraph, null, blockElement.id, book);
             }
 
             // 3. Insert the new paragraph before the heading
@@ -1776,8 +1777,8 @@ class EnterKeyHandler {
               // 7. Generate IDs and insert into the DOM
               const nextSibling = blockElement.nextElementSibling;
               const nextSiblingId = nextSibling ? nextSibling.id : null;
-              newParagraph.id = generateIdBetween(blockElement.id, nextSiblingId);
-              newSplitBlock.id = generateIdBetween(newParagraph.id, nextSiblingId);
+              setElementIds(newParagraph, blockElement.id, nextSiblingId, book);
+              setElementIds(newSplitBlock, newParagraph.id, nextSiblingId, book);
               blockElement.after(newParagraph, newSplitBlock);
 
               // 8. Save new elements and position cursor

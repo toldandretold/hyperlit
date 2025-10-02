@@ -13,6 +13,7 @@ import {
 } from "./cache-indexedDB.js";
 import {
   generateIdBetween,
+  setElementIds,
   findPreviousElementId,
   findNextElementId,
 } from "./IDfunctions.js";
@@ -878,9 +879,12 @@ class EditToolbar {
             );
             const pElement = document.createElement("p");
             pElement.innerHTML = headingElement.innerHTML;
-            const newPId =
-              headingElement.id || generateIdBetween(beforeId, afterId);
-            pElement.id = newPId;
+            const newPId = headingElement.id;
+            if (newPId) {
+              pElement.id = newPId;
+            } else {
+              setElementIds(pElement, beforeId, afterId, this.currentBookId);
+            }
             headingElement.parentNode.replaceChild(pElement, headingElement);
             this.setCursorAtTextOffset(pElement, currentOffset);
             modifiedElementId = newPId;
@@ -897,9 +901,12 @@ class EditToolbar {
             );
             const h2Element = document.createElement("h2");
             h2Element.innerHTML = blockParent.innerHTML;
-            const newH2Id =
-              blockParent.id || generateIdBetween(beforeId, afterId);
-            h2Element.id = newH2Id;
+            const newH2Id = blockParent.id;
+            if (newH2Id) {
+              h2Element.id = newH2Id;
+            } else {
+              setElementIds(h2Element, beforeId, afterId, this.currentBookId);
+            }
             blockParent.parentNode.replaceChild(h2Element, blockParent);
             this.setCursorAtTextOffset(h2Element, currentOffset);
             modifiedElementId = newH2Id;
@@ -941,7 +948,7 @@ class EditToolbar {
                 newBlockElement.appendChild(codeElement);
               }
 
-              newBlockElement.id = generateIdBetween(beforeId, afterId);
+              setElementIds(newBlockElement, beforeId, afterId, this.currentBookId);
 
               const parent = affectedBlocks[0].parentNode;
               parent.insertBefore(newBlockElement, affectedBlocks[0]);
@@ -981,7 +988,6 @@ class EditToolbar {
               if (containingBlock) {
                 const beforeId = findPreviousElementId(containingBlock);
                 const afterId = findNextElementId(containingBlock);
-                const newId = generateIdBetween(beforeId, afterId);
 
                 document.execCommand("formatBlock", false, type);
 
@@ -989,8 +995,8 @@ class EditToolbar {
                   document.getElementById(beforeId)?.nextElementSibling ||
                   document.getElementById(afterId)?.previousElementSibling;
                 if (newElem) {
-                  newElem.id = newId;
-                  modifiedElementId = newId;
+                  setElementIds(newElem, beforeId, afterId, this.currentBookId);
+                  modifiedElementId = newElem.id;
                   newElement = newElem;
                   await this.saveToIndexedDB(
                     modifiedElementId,
@@ -1032,7 +1038,7 @@ class EditToolbar {
                   content = content.slice(0, -4);
                 }
                 p.innerHTML = content || "\u00A0";
-                p.id = generateIdBetween(lastId, afterOriginalId);
+                setElementIds(p, lastId, afterOriginalId, this.currentBookId);
                 firstNewP = p;
                 fragment.appendChild(p);
                 createdP_ids_with_html.push({
@@ -1056,7 +1062,7 @@ class EditToolbar {
                         console.warn("Failed to parse HTML from code block:", paragraphHTML);
                         p.textContent = paragraphHTML.trim();
                       }
-                      p.id = generateIdBetween(lastId, afterOriginalId);
+                      setElementIds(p, lastId, afterOriginalId, this.currentBookId);
                       lastId = p.id;
                       if (index === 0) firstNewP = p;
                       fragment.appendChild(p);
@@ -1079,7 +1085,7 @@ class EditToolbar {
                         console.warn("Failed to parse HTML from code block:", line);
                         p.textContent = line || "\u00A0";
                       }
-                      p.id = generateIdBetween(lastId, afterOriginalId);
+                      setElementIds(p, lastId, afterOriginalId, this.currentBookId);
                       lastId = p.id;
                       if (index === 0) firstNewP = p;
                       fragment.appendChild(p);
@@ -1108,7 +1114,7 @@ class EditToolbar {
                 // Handle empty case (unwrap an empty block)
                 const p = document.createElement("p");
                 p.innerHTML = "&nbsp;";
-                p.id = generateIdBetween(beforeOriginalId, afterOriginalId);
+                setElementIds(p, beforeOriginalId, afterOriginalId, this.currentBookId);
                 blockToUnwrap.parentNode.replaceChild(p, blockToUnwrap);
                 newElement = p;
                 modifiedElementId = p.id;
@@ -1143,7 +1149,7 @@ class EditToolbar {
                 newBlockElement.appendChild(code);
               }
 
-              newBlockElement.id = generateIdBetween(beforeId, afterId);
+              setElementIds(newBlockElement, beforeId, afterId, this.currentBookId);
               blockParentToToggle.parentNode.replaceChild(
                 newBlockElement,
                 blockParentToToggle
@@ -1390,15 +1396,7 @@ class EditToolbar {
     const pElement = document.createElement("p");
     pElement.innerHTML = headingElement.innerHTML;
 
-    const newPId = generateIdBetween(beforeOriginalId, afterOriginalId);
-    if (!newPId) {
-      console.error(
-        "unwrapSelectedTextFromHeading: Failed to generate a new ID for the paragraph."
-      );
-      pElement.id = `temp_${Date.now()}`;
-    } else {
-      pElement.id = newPId;
-    }
+    setElementIds(pElement, beforeOriginalId, afterOriginalId, this.currentBookId);
 
     try {
       headingElement.parentNode.replaceChild(pElement, headingElement);
@@ -1671,7 +1669,7 @@ class EditToolbar {
 
     const beforeId = findPreviousElementId(listWithId);
     const afterId = findNextElementId(listWithId);
-    newBlock.id = generateIdBetween(beforeId, afterId);
+    setElementIds(newBlock, beforeId, afterId, this.currentBookId);
 
     // Removed originalRootListHtmlBeforeSplit capture (history is handled by queueForSync flow)
 
@@ -1728,7 +1726,7 @@ class EditToolbar {
       if (itemsAfter.length > 0) {
         const newList = document.createElement(parentList.tagName);
         const afterBlockId = findNextElementId(newBlock);
-        newList.id = generateIdBetween(newBlock.id, afterBlockId);
+        setElementIds(newList, newBlock.id, afterBlockId, this.currentBookId);
 
         itemsAfter.forEach((item) => newList.appendChild(item));
 
@@ -1769,7 +1767,7 @@ class EditToolbar {
 
           const newList = document.createElement(rootListWithId.tagName);
           const afterBlockId = findNextElementId(newBlock);
-          newList.id = generateIdBetween(newBlock.id, afterBlockId);
+          setElementIds(newList, newBlock.id, afterBlockId, this.currentBookId);
 
           newList.appendChild(newTopLevelItem);
           newBlock.parentNode.insertBefore(newList, newBlock.nextSibling);

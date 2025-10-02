@@ -1,4 +1,4 @@
-import { getNextIntegerId, generateIdBetween } from './IDfunctions.js';
+import { getNextIntegerId, generateIdBetween, setElementIds } from './IDfunctions.js';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { 
@@ -968,8 +968,7 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
       elementToProcess.matches("p, h1, h2, h3, h4, h5, h6, div, pre, blockquote") &&
       (!elementToProcess.id || !/^\d+(\.\d+)*$/.test(elementToProcess.id))
     ) {
-      const newId = generateIdBetween(lastKnownId, nextStableNodeId);
-      elementToProcess.id = newId;
+      const newId = setElementIds(elementToProcess, lastKnownId, nextStableNodeId, book);
       console.log(`Assigned new ID ${newId} to pasted element.`);
 
       // This is a newly created element.

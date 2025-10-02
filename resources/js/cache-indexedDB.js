@@ -717,24 +717,120 @@ export async function getNodeChunksFromIndexedDB(bookId = "latest") {
   const db = await openDatabase();
   const tx = db.transaction("nodeChunks", "readonly");
   const store = tx.objectStore("nodeChunks");
-  
+
   return new Promise((resolve, reject) => {
     // Use the book index for more efficient lookup
     const index = store.index("book");
     const request = index.getAll(bookId);
-    
+
     request.onsuccess = () => {
       let results = request.result || [];
-      
+
       // Sort the results by chunk_id for proper lazy loading order
       results.sort((a, b) => a.chunk_id - b.chunk_id);
 
       console.log(`✅ Retrieved ${results.length} nodeChunks for book: ${bookId}`);
       resolve(results);
     };
-    
+
     request.onerror = () => {
       reject("❌ Error loading nodeChunks from IndexedDB");
+    };
+  });
+}
+
+/**
+ * Get all node chunks for a book, sorted by startLine
+ * Used for renumbering operations
+ */
+export async function getAllNodeChunksForBook(bookId) {
+  console.log("Fetching ALL nodeChunks for renumbering, book:", bookId);
+
+  const db = await openDatabase();
+  const tx = db.transaction("nodeChunks", "readonly");
+  const store = tx.objectStore("nodeChunks");
+
+  return new Promise((resolve, reject) => {
+    const index = store.index("book");
+    const request = index.getAll(bookId);
+
+    request.onsuccess = () => {
+      let results = request.result || [];
+
+      // Sort by startLine to preserve document order
+      results.sort((a, b) => a.startLine - b.startLine);
+
+      console.log(`✅ Retrieved ${results.length} nodeChunks for renumbering`);
+      resolve(results);
+    };
+
+    request.onerror = () => {
+      console.error("❌ Error loading nodeChunks for renumbering");
+      reject("❌ Error loading nodeChunks from IndexedDB");
+    };
+  });
+}
+
+/**
+ * Renumber all nodes in IndexedDB by deleting old records and creating new ones
+ * Used during system-wide renumbering operations
+ */
+export async function renumberNodeChunksInIndexedDB(updates, bookId) {
+  console.log(`🔄 Renumbering ${updates.length} nodes in IndexedDB`);
+
+  const db = await openDatabase();
+  const tx = db.transaction("nodeChunks", "readwrite");
+  const store = tx.objectStore("nodeChunks");
+
+  return new Promise((resolve, reject) => {
+    // Step 1: Delete all old records
+    const deletePromises = updates.map(update => {
+      return new Promise((resolveDelete, rejectDelete) => {
+        const deleteReq = store.delete([bookId, update.oldStartLine]);
+        deleteReq.onsuccess = () => resolveDelete();
+        deleteReq.onerror = () => rejectDelete(deleteReq.error);
+      });
+    });
+
+    Promise.all(deletePromises).then(() => {
+      console.log('✅ Deleted old records');
+
+      // Step 2: Add all new records
+      const addPromises = updates.map(update => {
+        return new Promise((resolveAdd, rejectAdd) => {
+          const newRecord = {
+            book: bookId,
+            startLine: update.newStartLine,
+            chunk_id: update.chunk_id,
+            content: update.content,
+            node_id: update.node_id,
+            hyperlights: update.hyperlights || [],
+            hypercites: update.hypercites || [],
+            footnotes: update.footnotes || []
+          };
+
+          const addReq = store.add(newRecord);
+          addReq.onsuccess = () => resolveAdd();
+          addReq.onerror = () => rejectAdd(addReq.error);
+        });
+      });
+
+      return Promise.all(addPromises);
+    }).then(() => {
+      console.log('✅ Added new renumbered records');
+      resolve();
+    }).catch(error => {
+      console.error('❌ Renumbering error:', error);
+      reject(error);
+    });
+
+    tx.oncomplete = () => {
+      console.log('✅ Renumbering transaction complete');
+    };
+
+    tx.onerror = (e) => {
+      console.error('❌ Renumbering transaction error:', e.target.error);
+      reject(e.target.error);
     };
   });
 }
@@ -1213,6 +1309,12 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
       // ✅ EXTRACT node_id from data-node-id attribute
       const nodeIdFromDOM = node ? node.getAttribute('data-node-id') : null;
 
+      // 🔍 DEBUG: Log node_id extraction
+      console.log(`[node_id DEBUG] record.id=${record.id}, finalNodeId=${nodeId}, node=${node?.tagName}, nodeIdFromDOM=${nodeIdFromDOM}`);
+      if (node && !nodeIdFromDOM) {
+        console.warn(`⚠️ Node found but no data-node-id attribute! Element:`, node.outerHTML.substring(0, 200));
+      }
+
       let toSave;
       if (existing) {
         toSave = { ...existing };
@@ -1240,6 +1342,9 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
           hypercites: processedData ? processedData.hypercites : [],
         };
       }
+
+      // 🔍 DEBUG: Log what's being saved
+      console.log(`[node_id DEBUG] Saving to IndexedDB:`, { startLine: toSave.startLine, node_id: toSave.node_id, hasContent: !!toSave.content });
 
       chunksStore.put(toSave);
       allSavedNodeChunks.push(toSave);

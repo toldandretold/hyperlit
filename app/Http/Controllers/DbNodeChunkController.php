@@ -316,9 +316,21 @@ public function targetedUpsert(Request $request)
                 continue;
             }
 
-            $existingChunk = PgNodeChunk::where('book', $item['book'])
-                ->where('startLine', $item['startLine'])
-                ->first();
+            // Try to find by node_id first (for renumbering support)
+            // If node_id exists, it's the authoritative identifier
+            $existingChunk = null;
+            if (!empty($item['node_id'])) {
+                $existingChunk = PgNodeChunk::where('book', $item['book'])
+                    ->where('node_id', $item['node_id'])
+                    ->first();
+            }
+
+            // Fall back to startLine lookup (for backwards compatibility)
+            if (!$existingChunk) {
+                $existingChunk = PgNodeChunk::where('book', $item['book'])
+                    ->where('startLine', $item['startLine'])
+                    ->first();
+            }
 
             Log::debug('Existing chunk loaded', [
                 'book' => $item['book'],
@@ -392,7 +404,15 @@ public function targetedUpsert(Request $request)
             
             // Rebuild the raw_json field with the most up-to-date, merged data.
             $rawJson = $existingChunk->raw_json ?? $this->cleanItemForStorage($item);
-            
+
+            // Ensure $rawJson is an array (in case cast didn't work or old data exists)
+            if (is_string($rawJson)) {
+                $rawJson = json_decode($rawJson, true) ?? [];
+            }
+            if (!is_array($rawJson)) {
+                $rawJson = [];
+            }
+
             // Overwrite the raw_json fields with our authoritative, merged data.
             // array_merge will combine the base data with our specific updates.
             $rawJson = array_merge($rawJson, $updateData);
@@ -404,17 +424,30 @@ public function targetedUpsert(Request $request)
 
             $updateData['updated_at'] = now();
 
-            Log::debug('About to updateOrCreate', [
+            Log::debug('About to save/update', [
                 'book' => $item['book'],
                 'startLine' => $item['startLine'],
+                'node_id' => $item['node_id'] ?? 'none',
+                'existing_found_by' => $existingChunk ? 'node_id or startLine' : 'none',
                 'updateData_keys' => array_keys($updateData),
                 'updateData_hypercites' => $updateData['hypercites']
             ]);
 
-            $result = PgNodeChunk::updateOrCreate(
-                ['book' => $item['book'], 'startLine' => $item['startLine']],
-                $updateData // Pass the full PHP array payload
-            );
+            // If we found existing chunk (by node_id or startLine), update it
+            // This handles renumbering: node_id stays same, startLine changes
+            if ($existingChunk) {
+                // Update all fields including startLine
+                $existingChunk->fill($updateData);
+                $existingChunk->startLine = $item['startLine']; // Explicitly update startLine
+                $existingChunk->save();
+                $result = $existingChunk;
+            } else {
+                // Create new record
+                $result = PgNodeChunk::create(array_merge(
+                    ['book' => $item['book'], 'startLine' => $item['startLine']],
+                    $updateData
+                ));
+            }
 
             Log::debug('After updateOrCreate', [
                 'book' => $item['book'],
