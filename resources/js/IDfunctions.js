@@ -189,7 +189,47 @@ async function renumberAllNodes() {
     window.renumberingInProgress = false;
     console.log('🔓 RENUMBERING: Mutation observer re-enabled');
 
-    // 8. Hide modal and continue (no reload needed - DOM and data already updated)
+    // 8. Update lazy loader's in-memory cache and re-render loaded chunks
+    console.log('🔄 RENUMBERING: Updating lazy loader cache from IndexedDB');
+    const { currentLazyLoader } = await import('./initializePage.js');
+    if (currentLazyLoader) {
+      // Update the in-memory nodeChunks array
+      currentLazyLoader.nodeChunks = await getAllNodeChunksForBook(book);
+      console.log('✅ RENUMBERING: Lazy loader cache updated with fresh data');
+
+      // Get currently loaded chunks and re-render them with updated IDs
+      const loadedChunks = Array.from(document.querySelectorAll('[data-chunk-id]'));
+      console.log(`🔄 RENUMBERING: Re-rendering ${loadedChunks.length} loaded chunks`);
+
+      // Import necessary functions
+      const { attachMarkListeners } = await import('./hyperLights.js');
+      const { attachUnderlineClickListeners } = await import('./hyperCites.js');
+
+      // Need to use dynamic import for createChunkElement
+      const lazyLoaderModule = await import('./lazyLoaderFactory.js');
+
+      for (const chunkEl of loadedChunks) {
+        const chunkId = parseFloat(chunkEl.getAttribute('data-chunk-id'));
+        const chunkNodes = currentLazyLoader.nodeChunks.filter(n => n.chunk_id === chunkId);
+
+        if (chunkNodes.length > 0) {
+          const newChunkEl = lazyLoaderModule.createChunkElement(chunkNodes, currentLazyLoader);
+
+          // Replace old chunk with new one (preserves scroll position)
+          chunkEl.replaceWith(newChunkEl);
+
+          // Re-attach listeners
+          attachMarkListeners(newChunkEl);
+          attachUnderlineClickListeners(newChunkEl);
+        }
+      }
+
+      console.log('✅ RENUMBERING: All loaded chunks re-rendered with new IDs');
+    } else {
+      console.warn('⚠️ RENUMBERING: Could not update cache - currentLazyLoader not available');
+    }
+
+    // 9. Hide modal and continue
     console.log('🎉 RENUMBERING COMPLETE');
     hideRenumberModal();
     isRenumberingInProgress = false;

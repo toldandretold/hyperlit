@@ -586,7 +586,7 @@ export function createLazyLoader(config) {
       loadChunkInternal(chunkToLoadId, "down", instance, attachMarkers);
     }
 
-    // 8. ✅ NEW: Set focus after a short delay to allow for rendering
+    // 8. ✅ NEW: Scroll to and focus the target element after rendering
     setTimeout(() => {
       let elementToFocus = targetElementId ? document.getElementById(targetElementId) : null;
 
@@ -597,8 +597,13 @@ export function createLazyLoader(config) {
       }
 
       if (elementToFocus) {
-        console.log(`✨ Setting focus to element:`, elementToFocus);
-        elementToFocus.focus(); // Essential for contenteditable
+        console.log(`✨ Scrolling to and focusing element:`, elementToFocus);
+
+        // Scroll the element into view first
+        scrollElementIntoMainContent(elementToFocus, instance.container, 50);
+
+        // Then set focus for contenteditable
+        elementToFocus.focus();
 
         // Place the cursor at the end of the element
         const selection = window.getSelection();
@@ -608,7 +613,7 @@ export function createLazyLoader(config) {
         selection.removeAllRanges();
         selection.addRange(range);
       }
-    }, 100);
+    }, 150); // Slightly longer delay to ensure scrolling completes
   };
 
   
@@ -619,7 +624,7 @@ export function createLazyLoader(config) {
  * Helper: Creates a chunk element given an array of node objects.
  */
 // Keep createChunkElement function signature unchanged
-function createChunkElement(nodes, instance) {
+export function createChunkElement(nodes, instance) {
   // <-- Correct, simple signature
   console.log("🏗️ createChunkElement called", {
     nodes_count: nodes.length,
