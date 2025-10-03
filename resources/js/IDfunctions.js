@@ -71,7 +71,7 @@ function hideRenumberModal() {
 /**
  * Trigger renumbering with UI modal (non-blocking)
  */
-async function triggerRenumberingWithModal() {
+export async function triggerRenumberingWithModal(delayMs = 100) {
   // Prevent multiple renumbering operations - return existing promise
   if (isRenumberingInProgress && renumberingPromise) {
     console.log('⏸️ Renumbering already in progress - returning existing promise');
@@ -83,6 +83,12 @@ async function triggerRenumberingWithModal() {
   // Create promise that resolves when renumbering completes
   renumberingPromise = (async () => {
     try {
+      // Wait for specified delay to allow mutation observer to process new elements
+      if (delayMs > 0) {
+        console.log(`⏰ Waiting ${delayMs}ms for mutation observer to process new elements...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+
       await showRenumberModal('Renumbering document...', 'Reorganizing node IDs with 100-unit gaps');
       await renumberAllNodes();
       // renumberAllNodes() handles modal hiding and flag reset on success
@@ -160,14 +166,33 @@ async function renumberAllNodes() {
 
     // 4. Update DOM elements if they're currently visible (using node_id as stable reference)
     let domUpdateCount = 0;
+    let missingElements = 0;
+
+    // Also check for DOM elements that aren't in the updates array
+    const allDomElements = document.querySelectorAll('[data-node-id]');
+    const updatesNodeIds = new Set(updates.map(u => u.node_id));
+
+    allDomElements.forEach(el => {
+      const nodeId = el.getAttribute('data-node-id');
+      if (!updatesNodeIds.has(nodeId)) {
+        console.warn(`⚠️ DOM element with node_id ${nodeId} (id="${el.id}") NOT in updates array - was not saved to IndexedDB yet`);
+      }
+    });
+
     updates.forEach(update => {
       const element = document.querySelector(`[data-node-id="${update.node_id}"]`);
       if (element) {
+        const oldId = element.id;
         element.id = update.newStartLine.toString();
         domUpdateCount++;
+        if (oldId.includes('.')) {
+          console.log(`🔄 Updated decimal ID: ${oldId} → ${update.newStartLine}`);
+        }
+      } else {
+        missingElements++;
       }
     });
-    console.log(`✅ RENUMBERING: Updated ${domUpdateCount} DOM elements`);
+    console.log(`✅ RENUMBERING: Updated ${domUpdateCount} DOM elements (${missingElements} not in DOM)`);
 
     // 5. Update IndexedDB with new startLines
     await renumberNodeChunksInIndexedDB(updates, book);
@@ -189,42 +214,13 @@ async function renumberAllNodes() {
     window.renumberingInProgress = false;
     console.log('🔓 RENUMBERING: Mutation observer re-enabled');
 
-    // 8. Update lazy loader's in-memory cache and re-render loaded chunks
+    // 8. Update lazy loader's in-memory cache (DOM is already updated in step 4)
     console.log('🔄 RENUMBERING: Updating lazy loader cache from IndexedDB');
     const { currentLazyLoader } = await import('./initializePage.js');
     if (currentLazyLoader) {
-      // Update the in-memory nodeChunks array
+      // Just update the in-memory nodeChunks array - DOM elements already updated in step 4
       currentLazyLoader.nodeChunks = await getAllNodeChunksForBook(book);
       console.log('✅ RENUMBERING: Lazy loader cache updated with fresh data');
-
-      // Get currently loaded chunks and re-render them with updated IDs
-      const loadedChunks = Array.from(document.querySelectorAll('[data-chunk-id]'));
-      console.log(`🔄 RENUMBERING: Re-rendering ${loadedChunks.length} loaded chunks`);
-
-      // Import necessary functions
-      const { attachMarkListeners } = await import('./hyperLights.js');
-      const { attachUnderlineClickListeners } = await import('./hyperCites.js');
-
-      // Need to use dynamic import for createChunkElement
-      const lazyLoaderModule = await import('./lazyLoaderFactory.js');
-
-      for (const chunkEl of loadedChunks) {
-        const chunkId = parseFloat(chunkEl.getAttribute('data-chunk-id'));
-        const chunkNodes = currentLazyLoader.nodeChunks.filter(n => n.chunk_id === chunkId);
-
-        if (chunkNodes.length > 0) {
-          const newChunkEl = lazyLoaderModule.createChunkElement(chunkNodes, currentLazyLoader);
-
-          // Replace old chunk with new one (preserves scroll position)
-          chunkEl.replaceWith(newChunkEl);
-
-          // Re-attach listeners
-          attachMarkListeners(newChunkEl);
-          attachUnderlineClickListeners(newChunkEl);
-        }
-      }
-
-      console.log('✅ RENUMBERING: All loaded chunks re-rendered with new IDs');
     } else {
       console.warn('⚠️ RENUMBERING: Could not update cache - currentLazyLoader not available');
     }
@@ -343,16 +339,15 @@ export function setElementIds(element, beforeId, afterId, bookId) {
 export function generateIdBetween(beforeId, afterId) {
   console.log("Generating ID between:", { beforeId, afterId });
 
-  // RENUMBERING CHECK: Detect if we'd be forced to create a deep decimal
-  // Trigger renumbering in background, but continue with normal ID generation
-  if (needsRenumbering(beforeId, afterId)) {
-    console.log('🔄 RENUMBERING NEEDED - Triggering background renumbering');
-    // Fire and forget - renumbering will pick up this new node after it's saved
-    triggerRenumberingWithModal().catch(err => {
-      console.error('Background renumbering failed:', err);
-    });
-    // Continue with normal ID generation - don't block the user
+  // RENUMBERING CHECK: Don't trigger here - let caller handle it after element is saved
+  // Store the flag so caller can trigger renumbering deterministically
+  const shouldRenumber = needsRenumbering(beforeId, afterId);
+  if (shouldRenumber) {
+    console.log('🔄 RENUMBERING NEEDED - Will trigger after element is saved');
   }
+
+  // Store renumbering flag on window for caller to check
+  window.__pendingRenumbering = shouldRenumber;
 
   // 1) No beforeId → just pick something before afterId
   if (!beforeId) {

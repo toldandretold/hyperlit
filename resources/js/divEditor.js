@@ -1345,6 +1345,24 @@ function createAndInsertParagraph(blockElement, chunkContainer, content, selecti
   
   console.log(`Created new paragraph with ID ${newParagraph.id} after ${blockElement.id}`);
 
+  // Check if renumbering was flagged during ID generation
+  if (window.__pendingRenumbering) {
+    console.log('🔄 Renumbering flagged - queueing new element and triggering renumbering');
+
+    // Immediately queue this new element for saving (don't wait for mutation observer)
+    queueNodeForSave(newParagraph.id, 'add');
+
+    // Import and trigger renumbering (no delay needed - element is already queued)
+    import('./IDfunctions.js').then(({ triggerRenumberingWithModal }) => {
+      triggerRenumberingWithModal(0).catch(err => {
+        console.error('Background renumbering failed:', err);
+      });
+    });
+
+    // Clear the flag
+    window.__pendingRenumbering = false;
+  }
+
   // 6. Move cursor and scroll (your existing logic is fine)
   const target = newParagraph.firstChild?.nodeType === Node.TEXT_NODE
     ? newParagraph.firstChild
