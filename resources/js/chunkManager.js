@@ -278,8 +278,6 @@ export async function handleChunkOverflow(currentChunk, mutations) {
       const movedNode = targetChunk.querySelector(`#${CSS.escape(id)}`);
       const currentHtml = movedNode ? movedNode.outerHTML : html;
       
-      console.log(`Re-creating node ${id} in IndexedDB with chunk_id ${newChunkId}`);
-      
       // Create a new record in IndexedDB with the new chunk_id
       savePromises.push(
         updateIndexedDBRecord({
@@ -315,7 +313,7 @@ export async function handleChunkOverflow(currentChunk, mutations) {
     overflowNodeData.forEach(({ id }) => {
       movedNodesByOverflow.add(id);
     });
-    console.log("Moved nodes added to movedNodesByOverflow set:", Array.from(movedNodesByOverflow));
+    //console.log("Moved nodes added to movedNodesByOverflow set:", Array.from(movedNodesByOverflow));
     // IMPROVED CURSOR POSITIONING FOR ENTER KEY PRESSES:
     
     // First check: If this appears to be an Enter key press (looking for newly created empty paragraph)

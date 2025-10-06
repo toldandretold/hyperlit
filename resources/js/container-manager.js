@@ -65,18 +65,35 @@ export class ContainerManager {
       
       // Create and store container click handler
       this.containerClickHandler = (e) => {
-        // Link navigation is now handled by the centralized handler in lazyLoaderFactory
-        // This handler only manages container-specific behavior
-        
-        // ContainerManager no longer handles automatic closing based on links
-        // All link navigation and container state management is handled by:
-        // - unified-container.js for hyperlit content
-        // - LinkNavigationHandler.js for navigation routing
-        // ContainerManager only handles explicit user close actions
+        // This handler is intentionally left sparse for link clicks.
+        // Link navigation is managed by a global, layered system to support SPA functionality.
+        // This container-specific handler should only contain logic for non-navigation clicks.
+
+        /*
+         * ## Link Handling Architecture ##
+         *
+         * 1. Global Listener ('lazyLoaderFactory.js'):
+         *    - A global 'click' event listener is attached to the document.
+         *    - It acts as the primary entry point for all link clicks, delegating them to the central router.
+         *
+         * 2. Central Router ('navigation/LinkNavigationHandler.js'):
+         *    - This module is the core of navigation. It inspects the link's destination.
+         *    - It determines whether the navigation is within the same book (e.g., to an anchor),
+         *      a transition to another book, or a link that should be ignored by the SPA router (e.g., external links).
+         *
+         * 3. In-Container Handlers ('unified-container.js'):
+         *    - Specific containers, particularly the '#hyperlit-container' which shows footnotes, highlights, etc.,
+         *      have their own link click handlers for links *within* them.
+         *    - These handlers provide context-specific behavior (like closing the container) before
+         *      using the Central Router ('LinkNavigationHandler') to execute the navigation.
+         *
+         * This 'ContainerManager' class is generic and does not handle link-based navigation itself.
+         * That logic is centralized to ensure consistent SPA behavior across the application.
+        */
         
         // Handle other container-specific click behavior here if needed
-        console.log(`🔗 ContainerManager: Non-link click in container`, e.target, e.target.id, e.target.tagName);
-      };
+        // console.log(`🔗 ContainerManager: Non-link click in container`, e.target, e.target.id, e.target.tagName);
+      }; 
       
       this.container.addEventListener("click", this.containerClickHandler);
     }
@@ -98,7 +115,7 @@ export class ContainerManager {
     // If the button exists, set up its click handler
     if (this.button) {
       console.log(`🔧 ContainerManager: Setting up click handler for button #${this.buttonId}`);
-      console.log(`🔧 Button element:`, this.button);
+      //console.log(`🔧 Button element:`, this.button);
       
       this.buttonClickHandler = (e) => {
         e.stopPropagation();
@@ -116,7 +133,7 @@ export class ContainerManager {
     // Reset container state after rebinding
     this.resetContainerState();
     
-    console.log(`Rebind complete. Found container:`, this.container, `Found button:`, this.button);
+    //console.log(`Rebind complete. Found container:`, this.container, `Found button:`, this.button);
   }
   
   /**

@@ -166,7 +166,6 @@ export function queueForSync(store, id, type = "update", data = null, originalDa
     return;
   }
   pendingSyncs.set(key, { store, id, type, data, originalData }); // <-- STORE originalData
-  console.log(`Queued for sync: ${key} (Type: ${type})`);
   clearRedoHistory(book || "latest");
   debouncedMasterSync();
 }
@@ -206,8 +205,8 @@ export async function executeSyncPayload(payload) {
     ];
 
     if (allNodeChunks.length > 0) {
-      // Backend now handles multi-book requests, so send all nodeChunks together
-      console.log(`📚 Syncing ${allNodeChunks.length} nodeChunks (may include multiple books)`);
+      // Backend now handles multi-book requests, so send all nodes together
+      console.log(`📚 Syncing ${allNodeChunks.length} nodes from nodeChunks object store in IndexedDB to node_chunks table in PostgreSQL (may include multiple books)`);
       promises.push(syncNodeChunksToPostgreSQL(bookId, allNodeChunks));
     }
   }
@@ -311,7 +310,6 @@ export const debouncedMasterSync = debounce(async () => {
     payload: historyLogPayload,
   };
 
-  console.log(`DEBUG: Final historyLog payload before saving:`, JSON.stringify(historyLogPayload, null, 2));
 
   const db = await openDatabase();
   const tx = db.transaction("historyLog", "readwrite");
@@ -682,7 +680,7 @@ export async function saveAllNodeChunksToIndexedDB(
 
     return new Promise((resolve, reject) => {
       tx.oncomplete = async () => {
-        console.log("✅ nodeChunks successfully saved for book:", bookId);
+        console.log("✅ Nodes successfully saved to nodeChunks object store in IndexedDB for book:", bookId);
         try {
           await updateBookTimestamp(bookId);
           await syncIndexedDBtoPostgreSQL(bookId);
@@ -701,7 +699,7 @@ export async function saveAllNodeChunksToIndexedDB(
         }
       };
       tx.onerror = () => {
-        console.error("❌ Error saving nodeChunks to IndexedDB");
+        console.error("❌ Error saving nodes to nodeChunks object store in IndexedDB");
         reject();
       };
     });
@@ -725,7 +723,7 @@ export function createNodeChunksKey(bookId, startLine) {
 
 
 export async function getNodeChunksFromIndexedDB(bookId = "latest") {
-  console.log("Fetching nodeChunks for book:", bookId);
+  console.log("Fetching nodes from nodeChunks object store in IndexedDB for book:", bookId);
 
   const db = await openDatabase();
   const tx = db.transaction("nodeChunks", "readonly");
@@ -742,12 +740,12 @@ export async function getNodeChunksFromIndexedDB(bookId = "latest") {
       // Sort the results by chunk_id for proper lazy loading order
       results.sort((a, b) => a.chunk_id - b.chunk_id);
 
-      console.log(`✅ Retrieved ${results.length} nodeChunks for book: ${bookId}`);
+      console.log(`✅ Retrieved ${results.length} nodes from nodeChunks object store in IndexedDB for book: ${bookId}`);
       resolve(results);
     };
 
     request.onerror = () => {
-      reject("❌ Error loading nodeChunks from IndexedDB");
+      reject("❌ Error loading nodes from nodeChunks object store in IndexedDB");
     };
   });
 }
@@ -757,7 +755,7 @@ export async function getNodeChunksFromIndexedDB(bookId = "latest") {
  * Used for renumbering operations
  */
 export async function getAllNodeChunksForBook(bookId) {
-  console.log("Fetching ALL nodeChunks for renumbering, book:", bookId);
+  console.log("Fetching ALL nodes from nodeChunks object store in IndexedDB for renumbering, book:", bookId);
 
   const db = await openDatabase();
   const tx = db.transaction("nodeChunks", "readonly");
@@ -773,13 +771,13 @@ export async function getAllNodeChunksForBook(bookId) {
       // Sort by startLine to preserve document order
       results.sort((a, b) => a.startLine - b.startLine);
 
-      console.log(`✅ Retrieved ${results.length} nodeChunks for renumbering`);
+      console.log(`✅ Retrieved ${results.length} nodes from nodeChunks object store in IndexedDB for renumbering`);
       resolve(results);
     };
 
     request.onerror = () => {
-      console.error("❌ Error loading nodeChunks for renumbering");
-      reject("❌ Error loading nodeChunks from IndexedDB");
+      console.error("❌ Error loading nodes from nodeChunks object store in IndexedDB for renumbering");
+      reject("❌ Error loading nodes from nodeChunks object store in IndexedDB");
     };
   });
 }
@@ -956,8 +954,6 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
   const hyperlights = [];
   const hypercites = [];
   
-  console.log("Processing node:", node.outerHTML);
-  
   // Create a text representation of the node to calculate positions
   const textContent = node.textContent;
   
@@ -1070,8 +1066,6 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
     hyperlights,
     hypercites,
   };
-  
-  console.log("Processed result:", result);
   return result;
 }
 
@@ -1096,9 +1090,6 @@ export function updateIndexedDBRecord(record) {
     }
 
     const numericNodeId = parseNodeId(nodeId);
-    console.log(
-      `Updating IndexedDB record for node ${nodeId} (numeric: ${numericNodeId})`
-    );
 
     const db = await openDatabase();
     const tx = db.transaction(
@@ -1809,7 +1800,7 @@ export function updateCitationForExistingHypercite(
     let affectedStartLine = null;
     const nodeChunks = await getNodeChunksFromIndexedDB(booka);
     if (!nodeChunks?.length) {
-      console.warn(`No nodeChunks found for book ${booka}`);
+      console.warn(`No nodes found in nodeChunks object store in IndexedDB for book ${booka}`);
       return { success: false, startLine: null, newStatus: null };
     }
 
@@ -2110,10 +2101,10 @@ export async function writeNodeChunks(chunks) {
     };
   });
 }
-// 🆕 Function to sync nodeChunks to PostgreSQL
+// 🆕 Function to sync nodes to PostgreSQL
 export async function syncNodeChunksToPostgreSQL(bookId, nodeChunks = []) {
   if (!nodeChunks.length) {
-    console.log("ℹ️  syncNodeChunksToPostgreSQL: nothing to sync");
+    console.log("ℹ️ Sync nodes from nodeChunks object store in IndexedDB to node_chunks table in PostgreSQL: nothing to sync");
     return { success: true };
   }
 
@@ -2124,14 +2115,6 @@ export async function syncNodeChunksToPostgreSQL(bookId, nodeChunks = []) {
     data: nodeChunks
   };
 
-  // 🆕 DEBUG LOGGING
-  console.log("🔍 DEBUG - Raw nodeChunk from IndexedDB:", JSON.stringify(nodeChunks[0], null, 2));
-  console.log("🔍 DEBUG - Transformed payload:", JSON.stringify(payload, null, 2));
-  console.log("🔍 DEBUG - First hypercite in payload:", JSON.stringify(payload.data[0]?.hypercites?.[0], null, 2));
-
-  console.log(
-    `🔄 Syncing ${nodeChunks.length} nodeChunks for book ${bookId}…`
-  );
 
   const res = await fetch("/api/db/node-chunks/targeted-upsert", {
     method: "POST",
@@ -2148,12 +2131,12 @@ export async function syncNodeChunksToPostgreSQL(bookId, nodeChunks = []) {
 
   if (!res.ok) {
     const txt = await res.text();
-    console.error("❌ NodeChunk sync error:", txt);
+    console.error("❌ Error syncing nodes from nodeChunks object store in IndexedDB to node_chunks table in PostgreSQL:", txt);
     return { success: false, message: txt };
   }
 
   const out = await res.json();
-  console.log("✅ nodeChunks synced:", out);
+  console.log("✅ Nodes synced from nodeChunks object store in IndexedDB to node_chunks table in PostgreSQL:", out);
   return out;
 }
 
@@ -2900,13 +2883,13 @@ async function resolveHypercite(bookId, hyperciteId) {
     const serverNodeChunks = data.nodeChunks; // Note the plural
 
     if (!serverHypercite || !serverNodeChunks || serverNodeChunks.length === 0) {
-        console.error("❌ Server response was missing hypercite or nodeChunks data.");
+        console.error("❌ Server response was missing hypercite or nodes data from PostgreSQL.");
         return null;
     }
 
-    console.log(`✅ Resolved hypercite and ${serverNodeChunks.length} nodeChunks from server. Caching all...`);
+    console.log(`✅ Resolved hypercite and ${serverNodeChunks.length} nodes from node_chunks table in PostgreSQL. Caching all to IndexedDB...`);
 
-    // ✅ CACHE BOTH THE HYPERCITE AND ALL THE NODECHUNKS
+    // ✅ CACHE BOTH THE HYPERCITE AND ALL THE NODES
     const db = await openDatabase();
     const tx = db.transaction(["hypercites", "nodeChunks"], "readwrite");
     const hypercitesStore = tx.objectStore("hypercites");
@@ -2915,13 +2898,13 @@ async function resolveHypercite(bookId, hyperciteId) {
     // Put the single hypercite record
     hypercitesStore.put(serverHypercite);
 
-    // Bulk-write all the node chunks
+    // Bulk-write all the nodes to nodeChunks object store
     for (const chunk of serverNodeChunks) {
         nodeChunksStore.put(chunk);
     }
 
     await tx.done;
-    console.log("✅ Successfully cached all records in IndexedDB.");
+    console.log("✅ Successfully cached hypercite and nodes into IndexedDB object stores.");
 
     // Return just the hypercite, as the calling function expects.
     return serverHypercite;

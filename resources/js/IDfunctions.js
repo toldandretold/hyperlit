@@ -557,7 +557,6 @@ export function generateUniqueId() {
 // Generate a unique node_id for persistent identification across renumbering
 export function generateNodeId(bookId) {
   const id = `${bookId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  console.log(`🆔 generateNodeId: Created node_id: ${id}`);
   return id;
 }
 

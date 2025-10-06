@@ -457,9 +457,6 @@ function filterChunkMutations(mutations) {
     // Check if mutation target is within a chunk (not a sentinel)
     const chunk = findContainingChunk(mutation.target);
 
-    console.log("Mutation target:", mutation.target);
-    console.log("Found chunk:", chunk);
-    console.log("Mutation type:", mutation.type);
     
     // If we found a chunk, include the mutation
     if (chunk !== null) {

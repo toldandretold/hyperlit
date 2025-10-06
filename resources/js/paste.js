@@ -1,4 +1,4 @@
-import { getNextIntegerId, generateIdBetween, setElementIds } from './IDfunctions.js';
+import { getNextIntegerId, generateIdBetween, setElementIds, generateNodeId } from './IDfunctions.js';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { 
@@ -17,6 +17,7 @@ import { getNodeChunksAfter,
 import { syncIndexedDBtoPostgreSQL } from './postgreSQL.js';
 import { initializeMainLazyLoader } from './initializePage.js';
 import { parseHyperciteHref } from './hyperCites.js';
+import { navigateToInternalId } from './scrolling.js';
 import {
   getHandleHypercitePaste,
   setHandleHypercitePaste,
@@ -451,9 +452,13 @@ function assimilateHTML(rawHtml) {
 }
 
 async function handlePaste(event) {
+  // 🎯 Generate unique paste operation ID for tracing
+  const pasteOpId = `paste_${Date.now()}`;
+  console.log(`🎯 [${pasteOpId}] Starting paste operation`);
+
   // Set the flag immediately to disable the MutationObserver
   setPasteInProgress(true);
-  
+
   // Also set flag to disable safety mechanism
   isPasteOperationInProgress = true;
 
@@ -488,31 +493,33 @@ async function handlePaste(event) {
 
     // PRIORITIZE HTML PATH
     if (rawHtml.trim()) {
-      console.log("HTML found on clipboard, prioritizing HTML path.");
       const assimilated = assimilateHTML(rawHtml);
       htmlContent = assimilated.html;
       formatType = assimilated.format;
-      console.log(`Assimilation complete. Detected format: ${formatType}`);
+      console.log(`🎯 [${pasteOpId}] Format detected: ${formatType}`);
       
     }
     // FALLBACK TO MARKDOWN/PLAINTEXT PATH
     else {
       const isMarkdown = detectMarkdown(plainText);
       if (isMarkdown) {
-        console.log("No HTML found, entering markdown branch");
+        console.log(`🎯 [${pasteOpId}] Markdown detected, converting to HTML`);
         event.preventDefault(); // This is now safe to call
-        
+
         if (plainText.length > 1000) {
           const progressModal = await showProgressModal();
+          // Store modal reference for later cleanup (after paste completes)
+          window._activeProgressModal = progressModal;
           try {
             const dirty = await processMarkdownInChunks(plainText, (p, c, t) =>
               progressModal.updateProgress(p, c, t)
             );
             htmlContent = DOMPurify.sanitize(dirty, { USE_PROFILES: { html: true } });
-            progressModal.complete();
+            // Don't complete modal yet - wait until after paste and scroll complete
           } catch (error) {
             console.error("Error during chunked conversion:", error);
             progressModal.modal.remove();
+            window._activeProgressModal = null;
             return;
           }
         } else {
@@ -524,11 +531,7 @@ async function handlePaste(event) {
 
     // 3) Get our reliable estimate.
     const estimatedNodes = estimatePasteNodeCount(htmlContent || plainText);
-    console.log("PASTE EVENT:", {
-      length: plainText.length,
-      isMarkdown: detectMarkdown(plainText), // Re-check for logging
-      estimatedNodes,
-    });
+    console.log(`🎯 [${pasteOpId}] Content analyzed: ${plainText.length} chars, ~${estimatedNodes} nodes`);
 
     // 4) Perform routing checks for special paste types.
     if (await handleHypercitePaste(event)) return; // Make sure this is awaited if it's async
@@ -545,7 +548,7 @@ async function handlePaste(event) {
 
     const insertionPoint = getInsertionPoint(chunkElement);
     if (!insertionPoint) {
-      console.error("Could not determine insertion point. Aborting paste.");
+      console.error(`🎯 [${pasteOpId}] Could not determine insertion point. Aborting paste.`);
       return;
     }
     const contentToProcess = htmlContent || plainText;
@@ -559,15 +562,106 @@ async function handlePaste(event) {
     );
 
     if (!newAndUpdatedNodes || newAndUpdatedNodes.length === 0) {
-      console.log("Paste resulted in no new nodes. Aborting render.");
+      console.log(`🎯 [${pasteOpId}] Paste resulted in no new nodes. Aborting render.`);
       return;
     }
 
     const loader = initializeMainLazyLoader();
-    await loader.updateAndRenderFromPaste(
-      newAndUpdatedNodes,
-      insertionPoint.beforeNodeId
-    );
+
+    console.log(`🔄 [${pasteOpId}] Updating lazy loader cache...`);
+
+    // 1. Update cache from IndexedDB (truth source)
+    loader.nodeChunks = await loader.getNodeChunks();
+    console.log(`✅ [${pasteOpId}] Lazy loader cache updated: ${loader.nodeChunks.length} nodes`);
+
+    // 2. Clear all chunks below insertion point from DOM
+    const insertionElement = document.getElementById(insertionPoint.beforeNodeId);
+    if (insertionElement) {
+      console.log(`🧹 [${pasteOpId}] Clearing chunks below insertion point...`);
+      let sibling = insertionElement.nextElementSibling;
+      let clearedCount = 0;
+
+      while (sibling) {
+        const next = sibling.nextElementSibling; // Save before removal
+
+        if (sibling.hasAttribute('data-chunk-id')) {
+          const chunkId = sibling.dataset.chunkId;
+          loader.currentlyLoadedChunks.delete(chunkId);
+          sibling.remove();
+          clearedCount++;
+        }
+
+        sibling = next;
+      }
+
+      console.log(`✅ [${pasteOpId}] Cleared ${clearedCount} chunks from DOM`);
+    }
+
+    // 3. Find first pasted node
+    const firstPastedNode = newAndUpdatedNodes[0];
+    const targetChunkId = firstPastedNode.chunk_id;
+    const firstPastedId = firstPastedNode.startLine.toString();
+
+    console.log(`🎯 [${pasteOpId}] First pasted element: ${firstPastedId} in chunk ${targetChunkId}`);
+
+    // 4. Reload target chunk if already loaded (contains old data + new pasted content)
+    if (loader.currentlyLoadedChunks.has(targetChunkId)) {
+      console.log(`🔄 [${pasteOpId}] Reloading chunk ${targetChunkId} with fresh pasted content`);
+      const oldChunkElement = loader.container.querySelector(`[data-chunk-id="${targetChunkId}"]`);
+      if (oldChunkElement) {
+        oldChunkElement.remove();
+      }
+      loader.currentlyLoadedChunks.delete(targetChunkId);
+    }
+
+    // 5. Load chunk containing first pasted content
+    console.log(`📦 [${pasteOpId}] Loading chunk ${targetChunkId}`);
+    loader.loadChunk(targetChunkId, "down");
+
+    // 5a. Reposition sentinels to ensure lazy loading continues working
+    console.log(`🔄 [${pasteOpId}] Repositioning sentinels for continued lazy loading`);
+    const { repositionSentinels } = await import('./lazyLoaderFactory.js');
+    repositionSentinels(loader, true);
+
+    // 6. Scroll to first pasted element (use requestAnimationFrame to ensure chunk rendered)
+    requestAnimationFrame(() => {
+      const targetElement = document.getElementById(firstPastedId);
+
+      if (targetElement) {
+        console.log(`✨ [${pasteOpId}] Scrolling to first pasted element: ${firstPastedId}`);
+
+        // Instant scroll to top of viewport
+        targetElement.scrollIntoView({ block: 'start', behavior: 'instant' });
+
+        // Set focus
+        targetElement.focus();
+
+        // Place cursor at end
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(targetElement);
+        range.collapse(false); // Collapse to end
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        console.log(`✅ [${pasteOpId}] Scrolled to and focused pasted element`);
+      } else {
+        console.warn(`⚠️ [${pasteOpId}] Could not find pasted element: ${firstPastedId}`);
+      }
+
+      // 7. Hide modal after scroll completes
+      setTimeout(() => {
+        if (window._activeProgressModal) {
+          window._activeProgressModal.complete();
+          window._activeProgressModal = null;
+          console.log(`🎯 [${pasteOpId}] Progress modal completed`);
+        }
+      }, 100);
+    });
+
+    console.log(`🎯 [${pasteOpId}] Paste render complete - chunks loaded`);
+
+    console.log(`🎯 [${pasteOpId}] Paste operation complete`);
 
   } finally {
     // THIS IS ESSENTIAL: No matter what happens, re-enable the observer.
@@ -578,98 +672,56 @@ async function handlePaste(event) {
 }
 
 function getInsertionPoint(chunkElement) {
-  console.log('=== getInsertionPoint START ===');
-  
   const selection = window.getSelection();
   const range = selection.getRangeAt(0);
   const currentNode = range.startContainer;
-  
-  console.log('Selection details:', {
-    currentNode: currentNode,
-    nodeType: currentNode.nodeType,
-    textContent: currentNode.textContent?.substring(0, 50)
-  });
-  
+
   // Find the current node element (handle text nodes)
-  let currentNodeElement = currentNode.nodeType === Node.TEXT_NODE 
-    ? currentNode.parentElement 
+  let currentNodeElement = currentNode.nodeType === Node.TEXT_NODE
+    ? currentNode.parentElement
     : currentNode;
-  
-  console.log('Initial currentNodeElement:', {
-    element: currentNodeElement,
-    id: currentNodeElement?.id,
-    tagName: currentNodeElement?.tagName
-  });
-  
+
   // Traverse up to find parent with numerical ID (including decimals)
   while (currentNodeElement && currentNodeElement !== chunkElement) {
     const id = currentNodeElement.id;
-    console.log('Checking element:', {
-      element: currentNodeElement,
-      id: id,
-      tagName: currentNodeElement.tagName,
-      matchesRegex: id && /^\d+(\.\d+)*$/.test(id)
-    });
-    
+
     // Check if ID exists and is numerical (including decimals)
     if (id && /^\d+(\.\d+)*$/.test(id)) {
-      console.log('Found target element with numerical ID:', id);
       break; // Found our target element
     }
-    
+
     // Move up to parent
     currentNodeElement = currentNodeElement.parentElement;
   }
-  
+
   // If we didn't find a numerical ID, we might be at chunk level or need fallback
   if (!currentNodeElement || !currentNodeElement.id || !/^\d+(\.\d+)*$/.test(currentNodeElement.id)) {
     console.warn('Could not find parent element with numerical ID');
     return null;
   }
-  
+
   const currentNodeId = currentNodeElement.id;
   const chunkId = chunkElement.dataset.chunkId || chunkElement.id;
-  
-  console.log('Found current node:', {
-    currentNodeId,
-    chunkId,
-    element: currentNodeElement
-  });
-  
+
   // Current node becomes the beforeNodeId (we're inserting after it)
   const beforeNodeId = currentNodeId;
-  
+
   // Find the next element with a numerical ID (this is the afterNodeId)
   let afterElement = currentNodeElement.nextElementSibling;
-  console.log('Starting search for afterElement from:', afterElement);
-  
+
   while (afterElement) {
-    console.log('Examining potential afterElement:', {
-      element: afterElement,
-      id: afterElement.id,
-      tagName: afterElement.tagName,
-      hasNumericalId: afterElement.id && /^\d+(\.\d+)*$/.test(afterElement.id)
-    });
-    
     if (afterElement.id && /^\d+(\.\d+)*$/.test(afterElement.id)) {
-      console.log('Found afterElement with numerical ID:', afterElement.id);
       break;
     }
-    
+
     afterElement = afterElement.nextElementSibling;
   }
-  
+
   const afterNodeId = afterElement?.id || null;
-  
-  console.log('Final before/after determination:', {
-    beforeNodeId,
-    afterNodeId,
-    afterElement: afterElement
-  });
-  
+
   // Use existing chunk tracking
   const currentChunkNodeCount = chunkNodeCounts[chunkId] || 0;
-  
+
   const result = {
     chunkId: chunkId,
     currentNodeId: currentNodeId,
@@ -679,8 +731,8 @@ function getInsertionPoint(chunkElement) {
     insertionStartLine: parseInt(currentNodeId), // startLine = node ID
     book: book // Available as const
   };
-  
-  console.log('=== getInsertionPoint RESULT ===', result);
+
+  console.log(`Insertion point: before=${beforeNodeId}, after=${afterNodeId || 'end'}, chunk=${chunkId}`);
   return result;
 }
 
@@ -724,7 +776,6 @@ async function processMarkdownInChunks(text, onProgress) {
 //     and the final state it left off in
 
 function convertToJsonObjects(textBlocks, insertionPoint) {
-  console.log('=== convertToJsonObjects START ===');
   const jsonObjects = [];
 
   let currentChunkId       = insertionPoint.chunkId;
@@ -739,18 +790,23 @@ function convertToJsonObjects(textBlocks, insertionPoint) {
       nodesInCurrentChunk = 0;
     }
 
-    // new node id
-    const newNodeId = getNextIntegerId(beforeId);
+    // Generate new node ID with 100-unit gaps (like renumbering system)
+    const beforeNum = Math.floor(parseFloat(beforeId));
+    const newNodeId = (beforeNum + 100).toString();
+
+    // Generate stable node_id for this pasted node
+    const nodeId = generateNodeId(insertionPoint.book);
 
     const trimmed     = block.trim();
-    const htmlContent = convertTextToHtml(trimmed, newNodeId);
+    const htmlContent = convertTextToHtml(trimmed, newNodeId, nodeId);
 
     const key = `${insertionPoint.book},${newNodeId}`;
     jsonObjects.push({
       [key]: {
         content:   htmlContent,
         startLine: parseFloat(newNodeId),
-        chunk_id:  parseFloat(currentChunkId)
+        chunk_id:  parseFloat(currentChunkId),
+        node_id:   nodeId  // Store node_id for tracking through renumbering
       }
     });
 
@@ -759,7 +815,6 @@ function convertToJsonObjects(textBlocks, insertionPoint) {
     nodesInCurrentChunk++;
   });
 
-  console.log('=== convertToJsonObjects END ===');
   return {
     jsonObjects,
     state: {
@@ -1045,25 +1100,26 @@ function estimatePasteNodeCount(content) {
   }
 }
 
-function convertTextToHtml(content, nodeId) {
+function convertTextToHtml(content, startLineId, nodeId) {
   // Check if content is already HTML
   if (content.trim().startsWith('<') && content.trim().endsWith('>')) {
-    // It's HTML - add/update the ID on the first element
+    // It's HTML - add/update the ID and data-node-id on the first element
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = content;
-    
-    // Find the first element and give it the nodeId
+
+    // Find the first element and give it the IDs
     const firstElement = tempDiv.querySelector('*');
     if (firstElement) {
-      firstElement.id = nodeId;
+      firstElement.id = startLineId;
+      firstElement.setAttribute('data-node-id', nodeId);
       return tempDiv.innerHTML;
     }
-    
+
     // Fallback if no elements found
     return content;
   } else {
-    // It's plain text - wrap in paragraph
-    return `<p id="${nodeId}">${content}</p>`;
+    // It's plain text - wrap in paragraph with both id and data-node-id
+    return `<p id="${startLineId}" data-node-id="${nodeId}">${content}</p>`;
   }
 }
 
@@ -1140,12 +1196,13 @@ async function handleJsonPaste(
   );
   const newChunks = newJsonObjects.map((obj) => {
     const key = Object.keys(obj)[0];
-    const { content, startLine, chunk_id } = obj[key];
+    const { content, startLine, chunk_id, node_id } = obj[key];
     return {
       book: insertionPoint.book,
       startLine,
       chunk_id,
       content,
+      node_id,  // Include node_id for stable tracking
       hyperlights: [],
       hypercites: [],
       footnotes: [],
@@ -1166,7 +1223,8 @@ async function handleJsonPaste(
         currentChunkId = getNextIntegerId(currentChunkId);
         nodesInCurrentChunk = 0;
       }
-      const newStart = maxNewLine + idx + 1;
+      // Use 100-unit gaps for tail renumbering too (consistent with paste and renumbering system)
+      const newStart = maxNewLine + ((idx + 1) * 100);
       const updatedContent = origChunk.content.replace(
         /id="\d+"/g,
         `id="${newStart}"`
@@ -1183,18 +1241,41 @@ async function handleJsonPaste(
     await deleteNodeChunksAfter(book, afterNodeId);
   }
 
-  console.log("Writing chunks to IndexedDB:", toWrite.length);
+  console.log(`Writing ${toWrite.length} chunks to IndexedDB`);
   await writeNodeChunks(toWrite);
-  
-  // Queue each chunk for PostgreSQL sync
-  toWrite.forEach((chunk) => {
-    if (chunk && chunk.startLine) {
-      queueForSync("nodeChunks", chunk.startLine, "update", chunk);
-    }
-  });
-  
-  console.log("Successfully merged paste with tail chunks");
 
+  // For paste operations, sync immediately to PostgreSQL using bulk upsert
+  // (Don't use debounced queue - that's for individual edits)
+  console.log(`📤 Immediately syncing ${toWrite.length} pasted chunks to PostgreSQL...`);
+  try {
+    const response = await fetch('/api/db/node-chunks/upsert', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        book: insertionPoint.book,
+        data: toWrite
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('❌ Failed to sync paste to PostgreSQL:', error);
+    } else {
+      const result = await response.json();
+      console.log('✅ Paste synced to PostgreSQL:', result);
+    }
+  } catch (error) {
+    console.error('❌ Error syncing paste to PostgreSQL:', error);
+  }
+
+  // Invalidate TOC cache after paste (heading IDs have changed)
+  const { invalidateTocCache } = await import('./toc.js');
+  invalidateTocCache();
+  console.log('🔄 TOC cache invalidated after paste');
 
   return toWrite;
 }

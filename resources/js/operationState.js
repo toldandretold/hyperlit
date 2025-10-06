@@ -92,7 +92,6 @@ function notifySpinnerOrTick() {
  */
 export function incrementPendingOperations() {
   pendingOperations++;
-  console.log("⏳ Pending operations:", pendingOperations);
   if (pendingOperations === 1) {
     notifySpinnerOrTick();
   }
@@ -109,7 +108,7 @@ export function decrementPendingOperations() {
     return 0;
   }
   pendingOperations--;
-  console.log("✅ Pending operations:", pendingOperations);
+  //console.log("✅ Pending operations:", pendingOperations);
   if (pendingOperations === 0) {
     notifySpinnerOrTick();
   }
