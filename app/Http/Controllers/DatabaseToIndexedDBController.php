@@ -114,8 +114,8 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
-     * Migrate node_id field for all chunks in a book
-     * Extracts from HTML content or generates new ones
+     * Migrate node_id field for chunks missing it
+     * Strategy: Full renumbering if decimals detected, otherwise sparse fill
      */
     private function migrateNodeIds(string $bookId): void
     {
@@ -130,115 +130,212 @@ class DatabaseToIndexedDBController extends Controller
             return;
         }
 
-        Log::info('🔄 Starting node_id migration check', ['book_id' => $bookId]);
+        // Check if any startLine has decimals (indicates messy paste operations)
+        $hasDecimals = DB::table('node_chunks')
+            ->where('book', $bookId)
+            ->whereRaw('"startLine" != FLOOR("startLine")')
+            ->exists();
 
-        // Get all chunks for this book
+        if ($hasDecimals) {
+            // Book has decimals → needs full renumbering for clean slate
+            $this->fullRenumberMigration($bookId);
+        } else {
+            // Book is clean → just fill missing node_ids
+            $this->sparseFillNodeIds($bookId, $chunksWithoutNodeId);
+        }
+    }
+
+    /**
+     * Sparse fill: Only update chunks missing node_id (no renumbering)
+     */
+    private function sparseFillNodeIds(string $bookId, int $missingCount): void
+    {
+        Log::info('🔄 Starting sparse node_id fill (no renumbering)', [
+            'book_id' => $bookId,
+            'missing_count' => $missingCount
+        ]);
+
+        // Get ONLY chunks missing node_id
         $chunks = DB::table('node_chunks')
             ->where('book', $bookId)
+            ->whereNull('node_id')
             ->get();
 
-        $toUpsert = [];
+        $toUpdate = [];
 
         foreach ($chunks as $chunk) {
+            // Extract node_id from HTML or generate new one
             $extractedNodeId = $this->extractNodeIdFromHtml($chunk->content);
-            $needsUpdate = false;
-            $nodeId = null;
+            $nodeId = $extractedNodeId ?: $this->generateNodeId($bookId);
 
-            // CASE 1: No node_id in database field
-            if (empty($chunk->node_id)) {
-                $needsUpdate = true;
-                $nodeId = $extractedNodeId ?: $this->generateNodeId($bookId);
-            }
-            // CASE 2: Has node_id in DB but missing in HTML
-            elseif (!$extractedNodeId) {
-                $needsUpdate = true;
-                $nodeId = $chunk->node_id;
-            }
-            // CASE 3: Has both but they don't match - use DB as source of truth
-            elseif ($chunk->node_id !== $extractedNodeId) {
-                $needsUpdate = true;
-                $nodeId = $chunk->node_id;
+            // Ensure HTML has the data-node-id attribute (add if missing)
+            $updatedContent = $this->addNodeIdToHtml($chunk->content, $nodeId);
+
+            // Update raw_json
+            $rawJson = json_decode($chunk->raw_json, true);
+            if ($rawJson && is_array($rawJson)) {
+                $rawJson['content'] = $updatedContent;
+                $rawJson['node_id'] = $nodeId;
+                $updatedRawJson = json_encode($rawJson);
+            } else {
+                $updatedRawJson = $chunk->raw_json;
             }
 
-            if ($needsUpdate && $nodeId) {
-                // Add data-node-id to HTML content
-                $updatedContent = $this->addNodeIdToHtml($chunk->content, $nodeId);
+            $toUpdate[] = [
+                'book' => $chunk->book,
+                'startLine' => $chunk->startLine,
+                'node_id' => $nodeId,
+                'content' => $updatedContent,
+                'raw_json' => $updatedRawJson,
+            ];
+        }
 
-                // Update raw_json content and add node_id field
-                $rawJson = json_decode($chunk->raw_json, true);
-                if ($rawJson && is_array($rawJson)) {
-                    $rawJson['content'] = $updatedContent;
-                    $rawJson['node_id'] = $nodeId;
-                    $updatedRawJson = json_encode($rawJson);
-                } else {
-                    $updatedRawJson = $chunk->raw_json;
-                }
-
-                $toUpsert[] = [
-                    'book' => $chunk->book,
-                    'startLine' => $chunk->startLine,
-                    'chunk_id' => $chunk->chunk_id ?? null,
-                    'node_id' => $nodeId,
-                    'content' => $updatedContent,
-                    'raw_json' => $updatedRawJson,
-                    'footnotes' => $chunk->footnotes ?? '[]',
-                    'hyperlights' => $chunk->hyperlights ?? '[]',
-                    'hypercites' => $chunk->hypercites ?? '[]',
-                    'updated_at' => now()
-                ];
+        // Choose strategy based on count
+        if (count($toUpdate) > 100) {
+            // Bulk update with UPDATE FROM VALUES (fast for many rows)
+            $this->bulkUpdateNodeIds($toUpdate);
+        } else {
+            // Individual updates (fine for small counts)
+            foreach ($toUpdate as $update) {
+                DB::table('node_chunks')
+                    ->where('book', $update['book'])
+                    ->where('startLine', $update['startLine'])
+                    ->update([
+                        'node_id' => $update['node_id'],
+                        'content' => $update['content'],
+                        'raw_json' => DB::raw("'" . str_replace("'", "''", $update['raw_json']) . "'::jsonb"),
+                        'updated_at' => now()
+                    ]);
             }
         }
 
-        if (!empty($toUpsert)) {
-            Log::info('🔄 Migrating node_ids via single UPDATE', [
-                'book_id' => $bookId,
-                'chunks_to_update' => count($toUpsert)
-            ]);
+        Log::info('✅ node_id migration completed (sparse fill)', [
+            'book_id' => $bookId,
+            'chunks_updated' => count($toUpdate)
+        ]);
+    }
 
-            // Build CASE statements for single UPDATE query
-            $whenNodeId = [];
-            $whenContent = [];
-            $whenRawJson = [];
-            $startLines = [];
+    /**
+     * Bulk update using UPDATE FROM VALUES (efficient for many rows)
+     */
+    private function bulkUpdateNodeIds(array $updates): void
+    {
+        if (empty($updates)) return;
 
-            foreach ($toUpsert as $update) {
-                $startLine = $update['startLine'];
-                $nodeId = DB::connection()->getPdo()->quote($update['node_id']);
-                $content = DB::connection()->getPdo()->quote($update['content']);
-                $rawJson = DB::connection()->getPdo()->quote($update['raw_json']);
+        $pdo = DB::connection()->getPdo();
+        $values = [];
 
-                $whenNodeId[] = "WHEN {$startLine} THEN {$nodeId}";
-                $whenContent[] = "WHEN {$startLine} THEN {$content}";
-                $whenRawJson[] = "WHEN {$startLine} THEN {$rawJson}";
-                $startLines[] = $startLine;
+        foreach ($updates as $update) {
+            $book = $pdo->quote($update['book']);
+            $startLine = $update['startLine'];
+            $nodeId = $pdo->quote($update['node_id']);
+            $content = $pdo->quote($update['content']);
+            $rawJson = $pdo->quote($update['raw_json']);
+
+            $values[] = "({$book}, {$startLine}, {$nodeId}, {$content}, {$rawJson})";
+        }
+
+        $valuesSql = implode(', ', $values);
+
+        $sql = "UPDATE node_chunks AS nc
+            SET
+                node_id = v.node_id,
+                content = v.content,
+                raw_json = v.raw_json::jsonb,
+                updated_at = NOW()
+            FROM (VALUES {$valuesSql}) AS v(book, startLine, node_id, content, raw_json)
+            WHERE nc.book = v.book AND nc.\"startLine\" = v.startLine::numeric";
+
+        DB::statement($sql);
+    }
+
+    /**
+     * Full renumbering: Clean slate with 100-unit gaps
+     * Used when book has decimal startLines from paste operations
+     */
+    private function fullRenumberMigration(string $bookId): void
+    {
+        Log::info('🔄 Starting full renumbering migration (decimals detected)', [
+            'book_id' => $bookId
+        ]);
+
+        // Get ALL chunks for this book, ordered by startLine
+        $chunks = DB::table('node_chunks')
+            ->where('book', $bookId)
+            ->orderBy('startLine')
+            ->get();
+
+        $toInsert = [];
+        $nodesPerChunk = 100; // Each chunk contains 100 nodes
+
+        foreach ($chunks as $index => $chunk) {
+            // Calculate new values with 100-unit gaps
+            $newStartLine = ($index + 1) * 100; // 100, 200, 300...
+
+            // Calculate chunk_id: group every 100 nodes into a chunk
+            // Nodes 0-99 → chunk 0, nodes 100-199 → chunk 100, etc.
+            $chunkIndex = floor($index / $nodesPerChunk);
+            $newChunkId = $chunkIndex * 100;    // 0, 100, 200...
+
+            // Always generate fresh node_id during renumbering
+            $nodeId = $this->generateNodeId($bookId);
+
+            // Update content's id and data-node-id to match new startLine
+            $updatedContent = $this->updateContentId($chunk->content, $newStartLine, $nodeId);
+
+            // Update raw_json
+            $rawJson = json_decode($chunk->raw_json, true);
+            if ($rawJson && is_array($rawJson)) {
+                $rawJson['content'] = $updatedContent;
+                $rawJson['node_id'] = $nodeId;
+                $rawJson['startLine'] = $newStartLine;
+                $rawJson['chunk_id'] = $newChunkId;
+                $updatedRawJson = json_encode($rawJson);
+            } else {
+                $updatedRawJson = $chunk->raw_json;
             }
 
-            $whenNodeIdSql = implode(' ', $whenNodeId);
-            $whenContentSql = implode(' ', $whenContent);
-            $whenRawJsonSql = implode(' ', $whenRawJson);
-            $startLinesList = implode(',', $startLines);
+            $toInsert[] = [
+                'book' => $chunk->book,
+                'startLine' => $newStartLine,
+                'chunk_id' => $newChunkId,
+                'node_id' => $nodeId,
+                'content' => $updatedContent,
+                'plainText' => $chunk->plainText ?? null,
+                'type' => $chunk->type ?? null,
+                'footnotes' => $chunk->footnotes ?? '[]',
+                'hyperlights' => $chunk->hyperlights ?? '[]',
+                'hypercites' => $chunk->hypercites ?? '[]',
+                'raw_json' => $updatedRawJson,
+                'created_at' => $chunk->created_at ?? now(),
+                'updated_at' => now(),
+            ];
+        }
 
-            $sql = "UPDATE node_chunks SET
-                node_id = CASE \"startLine\" {$whenNodeIdSql} END,
-                content = CASE \"startLine\" {$whenContentSql} END,
-                raw_json = (CASE \"startLine\" {$whenRawJsonSql} END)::jsonb,
-                updated_at = NOW()
-                WHERE book = ? AND \"startLine\" IN ({$startLinesList})";
+        // Use DELETE + INSERT (much faster than UPDATE for bulk renumbering)
+        if (!empty($toInsert)) {
+            DB::transaction(function () use ($bookId, $toInsert) {
+                // Delete all old rows
+                DB::table('node_chunks')
+                    ->where('book', $bookId)
+                    ->delete();
 
-            DB::update($sql, [$bookId]);
+                // Bulk insert new rows (500 at a time to avoid memory issues)
+                foreach (array_chunk($toInsert, 500) as $chunk) {
+                    DB::table('node_chunks')->insert($chunk);
+                }
+            });
 
-            // Update library timestamp to mark migration complete
+            // Update library timestamp
             DB::table('library')
                 ->where('book', $bookId)
                 ->update(['timestamp' => round(microtime(true) * 1000)]);
 
-            Log::info('✅ node_id migration completed', [
+            Log::info('✅ Full renumbering completed', [
                 'book_id' => $bookId,
-                'chunks_updated' => count($toUpsert)
-            ]);
-        } else {
-            Log::info('✅ No migration needed - all chunks have node_ids', [
-                'book_id' => $bookId
+                'nodes_renumbered' => count($toInsert),
+                'startLine_range' => '100-' . (count($toInsert) * 100),
+                'chunk_id_range' => '0-' . ((floor((count($toInsert) - 1) / 100)) * 100)
             ]);
         }
     }
@@ -282,6 +379,55 @@ class DatabaseToIndexedDBController extends Controller
         $timestamp = round(microtime(true) * 1000); // milliseconds
         $random = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz0123456789'), 0, 9);
         return "{$bookId}_{$timestamp}_{$random}";
+    }
+
+    /**
+     * Update content's id attribute and data-node-id to match new startLine
+     * Used during renumbering migration
+     */
+    private function updateContentId(?string $html, int $newStartLine, string $nodeId): string
+    {
+        if (empty($html)) {
+            return $html;
+        }
+
+        // Pattern to match the first opening tag with optional existing id and data-node-id
+        $pattern = '/^(<[a-z][a-z0-9]*)((?:\s+[^>]*)?)(>)/i';
+
+        $replacement = function($matches) use ($newStartLine, $nodeId) {
+            $tagStart = $matches[1];
+            $attributes = $matches[2];
+            $tagEnd = $matches[3];
+
+            // Remove existing id and data-node-id attributes
+            $attributes = preg_replace('/\s+id="[^"]*"/', '', $attributes);
+            $attributes = preg_replace('/\s+data-node-id="[^"]*"/', '', $attributes);
+
+            // Add new id and data-node-id
+            $newAttributes = ' id="' . $newStartLine . '" data-node-id="' . htmlspecialchars($nodeId, ENT_QUOTES) . '"' . $attributes;
+
+            return $tagStart . $newAttributes . $tagEnd;
+        };
+
+        $updatedHtml = preg_replace_callback($pattern, $replacement, $html, 1);
+
+        if ($updatedHtml !== null && $updatedHtml !== $html) {
+            Log::debug('Updated content ID during renumbering', [
+                'new_startLine' => $newStartLine,
+                'node_id' => $nodeId,
+                'original' => substr($html, 0, 100),
+                'updated' => substr($updatedHtml, 0, 100)
+            ]);
+            return $updatedHtml;
+        }
+
+        // Fallback: return original
+        Log::warning('Could not update content ID', [
+            'new_startLine' => $newStartLine,
+            'node_id' => $nodeId,
+            'html' => substr($html, 0, 100)
+        ]);
+        return $html;
     }
 
     /**
