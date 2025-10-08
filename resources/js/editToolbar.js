@@ -410,25 +410,41 @@ class EditToolbar {
     if (!this.currentSelection) return;
 
     const parentElement = this.getSelectionParentElement();
+    const isTextSelected = !this.currentSelection.isCollapsed;
+
+    // Check if selection/cursor is in paragraph context (for blockquote/code)
+    let isInParagraphContext = true;
+    if (isTextSelected && this.currentSelection.rangeCount > 0) {
+      // Multi-block selection: check all blocks are paragraphs
+      const range = this.currentSelection.getRangeAt(0);
+      const affectedBlocks = this.getBlockElementsInRange(range);
+      if (affectedBlocks.length > 0) {
+        isInParagraphContext = affectedBlocks.every(block => block.tagName === 'P');
+      }
+    } else {
+      // Cursor-only: check current block is a paragraph (or already blockquote/code)
+      const blockParent = this.findClosestBlockParent(parentElement);
+      if (blockParent) {
+        isInParagraphContext = blockParent.tagName === 'P' ||
+                               blockParent.tagName === 'BLOCKQUOTE' ||
+                               blockParent.tagName === 'PRE';
+      }
+    }
 
     // Update bold button state
+    // NOTE: Don't use queryCommandState("bold") as it returns true for headings (CSS bold)
     if (this.boldButton) {
-      this.boldButton.classList.toggle(
-        "active",
-        document.queryCommandState("bold") ||
-          this.hasParentWithTag(parentElement, "STRONG") ||
-          this.hasParentWithTag(parentElement, "B")
-      );
+      const isBold = this.hasParentWithTag(parentElement, "STRONG") ||
+                     this.hasParentWithTag(parentElement, "B");
+      this.boldButton.classList.toggle("active", isBold);
     }
 
     // Update italic button state
+    // NOTE: Don't use queryCommandState("italic") as it may return false positives
     if (this.italicButton) {
-      this.italicButton.classList.toggle(
-        "active",
-        document.queryCommandState("italic") ||
-          this.hasParentWithTag(parentElement, "EM") ||
-          this.hasParentWithTag(parentElement, "I")
-      );
+      const isItalic = this.hasParentWithTag(parentElement, "EM") ||
+                       this.hasParentWithTag(parentElement, "I");
+      this.italicButton.classList.toggle("active", isItalic);
     }
 
     // Update heading button state
@@ -446,19 +462,25 @@ class EditToolbar {
 
     // Update blockquote button state
     if (this.blockquoteButton) {
-      this.blockquoteButton.classList.toggle(
-        "active",
-        this.hasParentWithTag(parentElement, "BLOCKQUOTE")
-      );
+      const isActive = this.hasParentWithTag(parentElement, "BLOCKQUOTE");
+      this.blockquoteButton.classList.toggle("active", isActive);
+
+      // Disable if not in paragraph context (applies to both selection and cursor)
+      const shouldDisable = !isInParagraphContext && !isActive;
+      this.blockquoteButton.classList.toggle("disabled", shouldDisable);
+      this.blockquoteButton.disabled = shouldDisable;
     }
 
     // Update code button state
     if (this.codeButton) {
-      this.codeButton.classList.toggle(
-        "active",
-        this.hasParentWithTag(parentElement, "CODE") ||
-          this.hasParentWithTag(parentElement, "PRE")
-      );
+      const isActive = this.hasParentWithTag(parentElement, "CODE") ||
+                       this.hasParentWithTag(parentElement, "PRE");
+      this.codeButton.classList.toggle("active", isActive);
+
+      // Disable if not in paragraph context (applies to both selection and cursor)
+      const shouldDisable = !isInParagraphContext && !isActive;
+      this.codeButton.classList.toggle("disabled", shouldDisable);
+      this.codeButton.disabled = shouldDisable;
     }
   }
 
@@ -567,24 +589,52 @@ class EditToolbar {
       switch (type) {
         case "bold":
           if (isTextSelected) {
-            document.execCommand("bold", false, null);
-            const parentAfterBold = this.getSelectionParentElement();
-            const blockParent = this.findClosestBlockParent(parentAfterBold);
-            if (blockParent && blockParent.id) {
+            // Check if we're in a heading (execCommand gets confused due to CSS bold)
+            const blockParent = this.findClosestBlockParent(parentElement);
+            const isInHeading = blockParent && /^H[1-6]$/.test(blockParent.tagName);
+
+            if (isInHeading) {
+              // Manual <strong> wrapping for headings
+              const range = this.currentSelection.getRangeAt(0);
+              const selectedText = range.extractContents();
+              const strong = document.createElement("strong");
+              strong.appendChild(selectedText);
+              range.insertNode(strong);
+
+              // Restore selection
+              const newRange = document.createRange();
+              newRange.selectNodeContents(strong);
+              this.currentSelection.removeAllRanges();
+              this.currentSelection.addRange(newRange);
+
               modifiedElementId = blockParent.id;
               newElement = blockParent;
+            } else {
+              // Use native execCommand for paragraphs/blockquotes
+              document.execCommand("bold", false, null);
+              const parentAfterBold = this.getSelectionParentElement();
+              const blockParentAfter = this.findClosestBlockParent(parentAfterBold);
+              if (blockParentAfter && blockParentAfter.id) {
+                modifiedElementId = blockParentAfter.id;
+                newElement = blockParentAfter;
+              }
             }
           } else {
+            // Cursor-only bold (no selection)
             const currentOffset = this.getTextOffsetInElement(
               parentElement,
               this.currentSelection.focusNode,
               this.currentSelection.focusOffset
             );
 
+            const blockParent = this.findClosestBlockParent(parentElement);
+            const isInHeading = blockParent && /^H[1-6]$/.test(blockParent.tagName);
+
             if (
               this.hasParentWithTag(parentElement, "STRONG") ||
               this.hasParentWithTag(parentElement, "B")
             ) {
+              // UNWRAP: Remove existing bold
               const boldElement =
                 this.findParentWithTag(parentElement, "STRONG") ||
                 this.findParentWithTag(parentElement, "B");
@@ -595,13 +645,14 @@ class EditToolbar {
                 const parentNode = boldElement.parentNode;
                 parentNode.replaceChild(newTextNode, boldElement);
                 this.setCursorAtTextOffset(parentNode, currentOffset);
-                const blockParent = this.findClosestBlockParent(parentNode);
-                if (blockParent && blockParent.id) {
-                  modifiedElementId = blockParent.id;
-                  newElement = blockParent;
+                const blockParentAfter = this.findClosestBlockParent(parentNode);
+                if (blockParentAfter && blockParentAfter.id) {
+                  modifiedElementId = blockParentAfter.id;
+                  newElement = blockParentAfter;
                 }
               }
             } else {
+              // WRAP: Add bold to current text node
               let node = this.currentSelection.focusNode;
               if (node.nodeType !== Node.TEXT_NODE) {
                 const walker = document.createTreeWalker(
@@ -612,20 +663,35 @@ class EditToolbar {
               }
 
               if (node && node.nodeType === Node.TEXT_NODE) {
-                const range = document.createRange();
-                range.selectNodeContents(node);
-                this.currentSelection.removeAllRanges();
-                this.currentSelection.addRange(range);
-                document.execCommand("bold", false, null);
-                const newBoldNode =
-                  this.findParentWithTag(node.parentNode, "STRONG") ||
-                  this.findParentWithTag(node.parentNode, "B");
-                if (newBoldNode) {
-                  this.setCursorAtTextOffset(newBoldNode, currentOffset);
-                  const blockParent = this.findClosestBlockParent(newBoldNode);
-                  if (blockParent && blockParent.id) {
-                    modifiedElementId = blockParent.id;
-                    newElement = blockParent;
+                if (isInHeading) {
+                  // Manual <strong> wrapping for headings
+                  const range = document.createRange();
+                  range.selectNodeContents(node);
+                  const selectedText = range.extractContents();
+                  const strong = document.createElement("strong");
+                  strong.appendChild(selectedText);
+                  range.insertNode(strong);
+
+                  this.setCursorAtTextOffset(strong, currentOffset);
+                  modifiedElementId = blockParent.id;
+                  newElement = blockParent;
+                } else {
+                  // Use execCommand for paragraphs
+                  const range = document.createRange();
+                  range.selectNodeContents(node);
+                  this.currentSelection.removeAllRanges();
+                  this.currentSelection.addRange(range);
+                  document.execCommand("bold", false, null);
+                  const newBoldNode =
+                    this.findParentWithTag(node.parentNode, "STRONG") ||
+                    this.findParentWithTag(node.parentNode, "B");
+                  if (newBoldNode) {
+                    this.setCursorAtTextOffset(newBoldNode, currentOffset);
+                    const blockParentAfter = this.findClosestBlockParent(newBoldNode);
+                    if (blockParentAfter && blockParentAfter.id) {
+                      modifiedElementId = blockParentAfter.id;
+                      newElement = blockParentAfter;
+                    }
                   }
                 }
               }
@@ -855,6 +921,10 @@ class EditToolbar {
 
               this.selectAcrossElements(modifiedElementsForSelection);
 
+              // Update button states after selection is set
+              this.currentSelection = window.getSelection();
+              this.updateButtonStates();
+
               // No direct history payload creation here. batchUpdateIndexedDBRecords will trigger queueForSync.
               if (recordsToUpdate.length > 0) {
                 batchUpdateIndexedDBRecords(recordsToUpdate);
@@ -890,6 +960,10 @@ class EditToolbar {
             modifiedElementId = newPId;
             newElement = pElement;
 
+            // Update button states after cursor is set
+            this.currentSelection = window.getSelection();
+            this.updateButtonStates();
+
             // No direct history payload here. saveToIndexedDB will trigger queueForSync.
           } else if (blockParent) {
             const beforeId = findPreviousElementId(blockParent);
@@ -912,6 +986,10 @@ class EditToolbar {
             modifiedElementId = newH2Id;
             newElement = h2Element;
 
+            // Update button states after cursor is set
+            this.currentSelection = window.getSelection();
+            this.updateButtonStates();
+
             // No direct history payload here. saveToIndexedDB will trigger queueForSync.
           }
           break;
@@ -922,24 +1000,27 @@ class EditToolbar {
             const range = this.currentSelection.getRangeAt(0);
             const affectedBlocks = this.getBlockElementsInRange(range);
 
-            if (affectedBlocks.length > 0) {
-              const beforeId = findPreviousElementId(affectedBlocks[0]);
+            // DEFENSE-IN-DEPTH: Only allow paragraph elements for blockquote/code conversion
+            const paragraphBlocks = affectedBlocks.filter(block => block.tagName === 'P');
+
+            if (paragraphBlocks.length > 0) {
+              const beforeId = findPreviousElementId(paragraphBlocks[0]);
               const afterId = findNextElementId(
-                affectedBlocks[affectedBlocks.length - 1]
+                paragraphBlocks[paragraphBlocks.length - 1]
               );
 
               let newBlockElement;
               if (type === "blockquote") {
                 newBlockElement = document.createElement("blockquote");
                 // Preserve HTML formatting by using innerHTML instead of textContent
-                const combinedHTML = affectedBlocks
+                const combinedHTML = paragraphBlocks
                   .map((block) => block.innerHTML)
                   .join(" ");
                 newBlockElement.innerHTML = combinedHTML.trim() + "<br>";
               } else {
                 // For code blocks, show the actual HTML markup
                 // Use a special marker to preserve original paragraph boundaries
-                const combinedHTML = affectedBlocks
+                const combinedHTML = paragraphBlocks
                   .map((block) => block.innerHTML)
                   .join("\n<!-- PARAGRAPH_BREAK -->\n");
                 newBlockElement = document.createElement("pre");
@@ -950,13 +1031,13 @@ class EditToolbar {
 
               setElementIds(newBlockElement, beforeId, afterId, this.currentBookId);
 
-              const parent = affectedBlocks[0].parentNode;
-              parent.insertBefore(newBlockElement, affectedBlocks[0]);
+              const parent = paragraphBlocks[0].parentNode;
+              parent.insertBefore(newBlockElement, paragraphBlocks[0]);
 
-              const deletedOriginalIds = affectedBlocks.map(
+              const deletedOriginalIds = paragraphBlocks.map(
                 (block) => block.id
               );
-              affectedBlocks.forEach((block) => block.remove());
+              paragraphBlocks.forEach((block) => block.remove());
 
               this.currentSelection.selectAllChildren(newBlockElement);
               modifiedElementId = newBlockElement.id;
@@ -1014,6 +1095,15 @@ class EditToolbar {
             const isBlockquote =
               blockParentToToggle?.tagName === "BLOCKQUOTE";
             const isCode = blockParentToToggle?.tagName === "PRE";
+
+            // DEFENSE-IN-DEPTH: Only allow paragraph wrapping (or unwrapping existing blockquote/code)
+            if (blockParentToToggle &&
+                blockParentToToggle.tagName !== 'P' &&
+                !isBlockquote &&
+                !isCode) {
+              console.warn(`Cannot convert ${blockParentToToggle.tagName} to ${type} - only paragraphs allowed`);
+              return;
+            }
 
             if (
               (type === "blockquote" && isBlockquote) ||
