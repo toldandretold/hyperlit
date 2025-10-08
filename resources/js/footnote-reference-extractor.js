@@ -84,7 +84,6 @@ function extractFootnotesFromHTML(htmlContent, bookId, formatType = 'general') {
           });
           
           footnoteMappings.set(identifier, { uniqueId, uniqueRefId });
-          console.log(`📝 Created placeholder for markdown footnote ${identifier}`);
         }
       });
     }
@@ -160,12 +159,11 @@ function extractFootnotesFromHTML(htmlContent, bookId, formatType = 'general') {
     tempDiv.querySelectorAll('p').forEach((p, index) => {
       const pText = p.textContent.trim();
       const match = pText.match(/^(\d+)[\.\)\s:]/); // Match "1.", "1)", "1 ", or "1:" at the start
-      console.log(`📝 Paragraph ${index + 1}: "${pText.substring(0, 50)}..." → Match: ${match ? match[1] : 'NO MATCH'}`);
       if (match && pText.length > match[0].length) {
         potentialParagraphDefs.set(match[1], p);
-        console.log(`✅ Added footnote ${match[1]} to potentialParagraphDefs`);
+        //console.log(`✅ Added footnote ${match[1]} to potentialParagraphDefs`);
       } else if (match) {
-        console.log(`❌ Rejected footnote ${match[1]} - no content after number`);
+        //console.log(`❌ Rejected footnote ${match[1]} - no content after number`);
       }
     });
     
@@ -1264,10 +1262,8 @@ export function processFootnoteReferences(htmlContent, footnoteMappings) {
           replacement: supHTML
         });
         
-        console.log(`🔗 Linking footnote reference [${match[0]}] to ${mapping.uniqueId}`);
-      } else {
-        console.log(`⚠️ No mapping found for footnote reference [${match[0]}]`);
-      }
+        
+      } 
     }
     
     // Handle plain text footnote numbers AFTER punctuation

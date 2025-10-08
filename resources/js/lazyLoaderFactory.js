@@ -7,10 +7,10 @@ import {
   getHyperciteFromIndexedDB
 } from "./cache-indexedDB.js";
 import { attachUnderlineClickListeners } from "./hyperCites.js";
-import { 
-  setChunkLoadingInProgress, 
-  clearChunkLoadingInProgress, 
-  scheduleAutoClear 
+import {
+  setChunkLoadingInProgress,
+  clearChunkLoadingInProgress,
+  scheduleAutoClear
 } from './chunkLoadingState.js';
 import { setupUserScrollDetection, shouldSkipScrollRestoration } from './scrolling.js';
 import { scrollElementIntoMainContent } from "./scrolling.js";
@@ -51,7 +51,7 @@ export function createLazyLoader(config) {
   } = config;
 
   if (!nodeChunks || nodeChunks.length === 0) {
-    console.error("nodeChunks is empty. Aborting lazy loader.");
+    console.error("No nodes available for lazy loader. Aborting lazy loader.");
     return null;
   }
 
@@ -333,15 +333,15 @@ export function createLazyLoader(config) {
     try {
       // 1. GET THE TRUTH: The data in IndexedDB is now correct.
       //    Fetch the complete, fresh list of all node chunks.
-      console.log("🔄 Fetching complete and fresh node list from IndexedDB...");
+      console.log("🔄 Fetching complete and fresh node list from nodeChunks object store in IndexedDB...");
       instance.nodeChunks = await instance.getNodeChunks();
       if (!instance.nodeChunks || instance.nodeChunks.length === 0) {
-        console.error("❌ Aborting render: Failed to fetch any node chunks.");
+        console.error("❌ Aborting render: Failed to fetch any nodes from nodeChunks object store in IndexedDB.");
         return;
       }
 
-      // 2. CLEAN SLATE: Remove all previously rendered chunks from the DOM.
-      console.log("🔄 Clearing existing rendered chunks from the DOM.");
+      // 2. CLEAN SLATE: Remove all previously rendered chunks of nodes from the DOM.
+      console.log("🔄 Clearing existing rendered chunks of nodes from the DOM.");
       instance.container
         .querySelectorAll("[data-chunk-id]")
         .forEach((el) => el.remove());
@@ -349,24 +349,46 @@ export function createLazyLoader(config) {
       // 3. RESET TRACKING: Clear the set of loaded chunks.
       instance.currentlyLoadedChunks.clear();
 
-      // 4. FIND THE STARTING POINT: Determine which chunk to load first.
-      //    We want to load the chunk containing the first piece of new content.
+      // 4. FIND THE STARTING POINT: Determine which chunk of nodes to load first.
+      //    We want to load the chunk of nodes containing the first piece of new content.
       const firstNewNode = newAndUpdatedNodes[0];
       const chunkToLoadId = firstNewNode.chunk_id;
-      console.log(`🔄 Determined initial chunk to load: ${chunkToLoadId}`);
+      console.log(`🔄 Determined initial chunk of nodes to load: ${chunkToLoadId}`);
 
       // 5. RENDER: Load the target chunk. The lazy loader will handle the rest.
       loadChunkInternal(chunkToLoadId, "down", instance, attachMarkers);
 
-      // 6. RESTORE FOCUS: After a brief delay for rendering, find the first
-      //    newly pasted element and place the cursor at the end of it.
-      setTimeout(() => {
+      // 6. RESTORE FOCUS: Immediately after chunk loads, scroll to first pasted element
+      // Use requestAnimationFrame to ensure DOM is painted, then scroll immediately
+      requestAnimationFrame(() => {
         const firstNewElementId = firstNewNode.startLine;
         const targetElement = document.getElementById(firstNewElementId);
 
         if (targetElement) {
-          console.log(`✨ Setting focus to new element: ${firstNewElementId}`);
-          targetElement.focus(); // Set focus for contenteditable
+          console.log(`✨ Scrolling to and focusing pasted element: ${firstNewElementId}`);
+
+          // Scroll element to TOP of viewport for clear visibility after paste
+          const scrollParent = instance.scrollableParent === window
+            ? document.documentElement
+            : instance.scrollableParent;
+
+          const targetRect = targetElement.getBoundingClientRect();
+          const containerRect = instance.container.getBoundingClientRect();
+          const offset = 100; // Large top offset so element is clearly visible
+
+          if (instance.scrollableParent === window) {
+            window.scrollTo({
+              top: window.scrollY + targetRect.top - offset,
+              behavior: 'instant' // No animation - instant jump to pasted content
+            });
+          } else {
+            scrollParent.scrollTop = targetRect.top - containerRect.top + scrollParent.scrollTop - offset;
+          }
+
+          console.log(`📍 Scrolled to pasted element at offset: ${offset}px from top`);
+
+          // Set focus for contenteditable
+          targetElement.focus();
 
           // Place cursor at the end of the newly pasted content
           const selection = window.getSelection();
@@ -375,12 +397,22 @@ export function createLazyLoader(config) {
           range.collapse(false); // false = collapse to the end
           selection.removeAllRanges();
           selection.addRange(range);
+
+          console.log('🔍 PASTE DIAGNOSTICS - Lazy Loader State:', {
+            scrollLocked: instance.scrollLocked,
+            scrollLockReason: instance.scrollLockReason,
+            isNavigatingToInternalId: instance.isNavigatingToInternalId,
+            currentlyLoadedChunks: Array.from(instance.currentlyLoadedChunks),
+            observerActive: !!instance.observer,
+            topSentinelInDOM: document.contains(instance.topSentinel),
+            bottomSentinelInDOM: document.contains(instance.bottomSentinel)
+          });
         } else {
           console.warn(
             `Could not find element ${firstNewElementId} to set focus.`
           );
         }
-      }, 150); // A slightly longer timeout to be safe.
+      });
     } catch (error) {
       console.error("❌ Error in updateAndRenderFromPaste:", error);
       // Consider a full page refresh or error message as a fallback
@@ -448,40 +480,38 @@ export function createLazyLoader(config) {
   // Create the IntersectionObserver.
   const observer = new IntersectionObserver((entries) => {
     console.log("🔍 Observer triggered, entries:", entries.length);
-    
+
     // 🔒 CHECK SCROLL LOCK: Don't trigger lazy loading during navigation
     if (instance.scrollLocked || instance.isNavigatingToInternalId) {
       const reason = instance.scrollLocked ? `scroll locked (${instance.scrollLockReason})` : 'navigation in progress';
-      console.log(`🔍 OBSERVER: ${reason}, SKIPPING lazy loading`);
+      console.log(`🔍 OBSERVER BLOCKED: ${reason}`, {
+        scrollLocked: instance.scrollLocked,
+        scrollLockReason: instance.scrollLockReason,
+        isNavigatingToInternalId: instance.isNavigatingToInternalId,
+        entries: entries.map(e => ({ target: e.target.id, isIntersecting: e.isIntersecting })),
+        timestamp: Date.now()
+      });
       return;
     }
     
     entries.forEach((entry) => {
-      console.log(`🔍 Observer entry: target=${entry.target.id}, isIntersecting=${entry.isIntersecting}`);
       if (!entry.isIntersecting) return;
-      
+
       if (entry.target.id === topSentinel.id) {
-        console.log("🔍 TOP SENTINEL triggered");
         const firstChunkEl = container.querySelector("[data-chunk-id]");
         if (firstChunkEl) {
           const firstChunkId = parseFloat(firstChunkEl.getAttribute("data-chunk-id"));
-          console.log(`🔍 First chunk ID: ${firstChunkId}, checking if we should load chunk ${firstChunkId - 1}`);
           if (firstChunkId > 0 && !instance.currentlyLoadedChunks.has(firstChunkId - 1)) {
-            console.log(
-              `🚨 OBSERVER: Top sentinel triggered; loading previous chunk ${firstChunkId - 1} - THIS WILL ADJUST SCROLL!`
-            );
+            console.log(`🔍 OBSERVER ACTIVE: Loading previous chunk of nodes #${firstChunkId - 1}`);
             loadPreviousChunkFixed(firstChunkId, instance);
-          } else {
-            console.log("🔍 Top sentinel: either at first chunk or already loaded.");
           }
         }
       }
       if (entry.target.id === bottomSentinel.id) {
-        console.log("🔍 BOTTOM SENTINEL triggered");
         const lastChunkEl = getLastChunkElement();
         if (lastChunkEl) {
           const lastChunkId = parseFloat(lastChunkEl.getAttribute("data-chunk-id"), 10);
-          console.log(`🚨 OBSERVER: Bottom sentinel triggered, loading next chunk after ${lastChunkId}`);
+          console.log(`🔍 OBSERVER ACTIVE: Loading next chunk of nodes after #${lastChunkId}`);
           loadNextChunkFixed(lastChunkId, instance);
         }
       }
@@ -576,17 +606,17 @@ export function createLazyLoader(config) {
       const targetChunk = instance.nodeChunks.find(c => c.startLine == targetElementId);
       if (targetChunk) {
         chunkToLoadId = targetChunk.chunk_id;
-        console.log(`🎯 Found target chunk ${chunkToLoadId} for element ${targetElementId}`);
+        console.log(`🎯 Found target chunk of nodes #${chunkToLoadId} for element ${targetElementId}`);
       }
     }
 
     // 7. Load the determined chunk
     if (chunkToLoadId !== null) {
-      console.log(`🔄 Refresh loading initial chunk: ${chunkToLoadId}`);
+      console.log(`🔄 Refresh loading initial chunk of nodes #${chunkToLoadId}`);
       loadChunkInternal(chunkToLoadId, "down", instance, attachMarkers);
     }
 
-    // 8. ✅ NEW: Set focus after a short delay to allow for rendering
+    // 8. ✅ NEW: Scroll to and focus the target element after rendering
     setTimeout(() => {
       let elementToFocus = targetElementId ? document.getElementById(targetElementId) : null;
 
@@ -597,8 +627,13 @@ export function createLazyLoader(config) {
       }
 
       if (elementToFocus) {
-        console.log(`✨ Setting focus to element:`, elementToFocus);
-        elementToFocus.focus(); // Essential for contenteditable
+        console.log(`✨ Scrolling to and focusing element:`, elementToFocus);
+
+        // Scroll the element into view first
+        scrollElementIntoMainContent(elementToFocus, instance.container, 50);
+
+        // Then set focus for contenteditable
+        elementToFocus.focus();
 
         // Place the cursor at the end of the element
         const selection = window.getSelection();
@@ -608,7 +643,18 @@ export function createLazyLoader(config) {
         selection.removeAllRanges();
         selection.addRange(range);
       }
-    }, 100);
+
+      // 🔍 DIAGNOSTICS: Log lazy loader state after refresh
+      console.log('🔍 REFRESH DIAGNOSTICS - Lazy Loader State:', {
+        scrollLocked: instance.scrollLocked,
+        scrollLockReason: instance.scrollLockReason,
+        isNavigatingToInternalId: instance.isNavigatingToInternalId,
+        currentlyLoadedChunks: Array.from(instance.currentlyLoadedChunks),
+        observerActive: !!instance.observer,
+        topSentinelInDOM: document.contains(instance.topSentinel),
+        bottomSentinelInDOM: document.contains(instance.bottomSentinel)
+      });
+    }, 150); // Slightly longer delay to ensure scrolling completes
   };
 
   
@@ -619,7 +665,7 @@ export function createLazyLoader(config) {
  * Helper: Creates a chunk element given an array of node objects.
  */
 // Keep createChunkElement function signature unchanged
-function createChunkElement(nodes, instance) {
+export function createChunkElement(nodes, instance) {
   // <-- Correct, simple signature
   console.log("🏗️ createChunkElement called", {
     nodes_count: nodes.length,
@@ -637,31 +683,38 @@ function createChunkElement(nodes, instance) {
   chunkWrapper.setAttribute("data-chunk-id", chunkId);
   chunkWrapper.classList.add("chunk");
 
-  console.log(`🏗️ Processing ${nodes.length} nodes for chunk ${chunkId}`);
+  console.log(`🏗️ Processing ${nodes.length} nodes for chunk of nodes #${chunkId}`);
 
   nodes.forEach((node, nodeIndex) => {
-    
-    
+    // ✅ Server handles migration - node_id should already exist
+    // If not, log warning but continue (should not happen after migration)
+    if (!node.node_id) {
+      console.warn(`⚠️ Node ${node.startLine} missing node_id after server migration!`);
+    }
+
     let html = renderBlockToHtml(node);
-    
+
     if (node.hyperlights && node.hyperlights.length > 0) {
       html = applyHighlights(html, node.hyperlights, instance.bookId);
     }
-    
+
     if (node.hypercites && node.hypercites.length > 0) {
       html = applyHypercites(html, node.hypercites);
     }
-    
+
     const temp = document.createElement("div");
     temp.innerHTML = html;
     if (temp.firstChild) {
+      // ✅ data-node-id should already be in HTML from server
+      // But ensure numerical id is set
+      temp.firstChild.setAttribute('id', node.startLine);
       chunkWrapper.appendChild(temp.firstChild);
     } else {
       console.warn(`⚠️ Node ${nodeIndex + 1} produced no DOM content`);
     }
   });
 
-  console.log(`✅ createChunkElement completed for chunk ${chunkId}`);
+  console.log(`✅ createChunkElement completed for chunk of nodes #${chunkId}`);
   return chunkWrapper;
 }
 
@@ -1083,18 +1136,18 @@ export function loadNextChunkFixed(currentLastChunkId, instance) {
   
   if (nextChunkId !== null) {
     if (instance.container.querySelector(`[data-chunk-id="${nextChunkId}"]`)) {
-      console.log(`Next chunk ${nextChunkId} already loaded.`);
+      console.log(`Next chunk of nodes #${nextChunkId} already loaded.`);
       return;
     }
     
     nextNodes = instance.nodeChunks.filter(node => parseFloat(node.chunk_id) === nextChunkId);
-    
+
     if (nextNodes.length === 0) {
-      console.warn(`No data found for chunk ${nextChunkId}.`);
+      console.warn(`No data found for chunk of nodes #${nextChunkId}.`);
       return;
     }
-    
-    console.log(`Loading next chunk: ${nextChunkId}`);
+
+    console.log(`Loading next chunk of nodes #${nextChunkId}`);
     
     // 🚨 SET LOADING STATE BEFORE DOM CHANGES
     setChunkLoadingInProgress(nextChunkId);
@@ -1119,9 +1172,9 @@ export function loadNextChunkFixed(currentLastChunkId, instance) {
     setTimeout(() => {
       clearChunkLoadingInProgress(nextChunkId);
     }, 100);
-    
+
   } else {
-    console.log("No next chunk available.");
+    console.log("No next chunk of nodes available.");
   }
 }
 
@@ -1142,18 +1195,18 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
   
   if (prevChunkId !== null) {
     if (instance.container.querySelector(`[data-chunk-id="${prevChunkId}"]`)) {
-      console.log(`Previous chunk ${prevChunkId} already loaded.`);
+      console.log(`Previous chunk of nodes #${prevChunkId} already loaded.`);
       return;
     }
-    
+
     prevNodes = instance.nodeChunks.filter(node => parseFloat(node.chunk_id) === prevChunkId);
-    
+
     if (prevNodes.length === 0) {
-      console.warn(`No data found for chunk ${prevChunkId}.`);
+      console.warn(`No data found for chunk of nodes #${prevChunkId}.`);
       return;
     }
-    
-    console.log(`Loading previous chunk: ${prevChunkId}`);
+
+    console.log(`Loading previous chunk of nodes #${prevChunkId}`);
     
     // 🚨 SET LOADING STATE BEFORE DOM CHANGES
     setChunkLoadingInProgress(prevChunkId);
@@ -1192,17 +1245,18 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
     setTimeout(() => {
       clearChunkLoadingInProgress(prevChunkId);
     }, 100);
-    
+
+
   } else {
-    console.log("No previous chunk available.");
+    console.log("No previous chunk of nodes available.");
   }
 }
 
 function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
-  // console.log(`Loading chunk ${chunkId} in direction: ${direction}`);
+  // console.log(`Loading chunk of nodes #${chunkId} in direction: ${direction}`);
 
   if (instance.currentlyLoadedChunks.has(chunkId)) {
-    //console.log(`Chunk ${chunkId} already loaded; skipping.`);
+    //console.log(`Chunk of nodes #${chunkId} already loaded; skipping.`);
     return;
   }
 
@@ -1211,7 +1265,7 @@ function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   );
 
   if (!nextNodes || nextNodes.length === 0) {
-    console.warn(`No data found for chunk ${chunkId}.`);
+    console.warn(`No data found for chunk of nodes #${chunkId}.`);
     return;
   }
 
@@ -1252,7 +1306,7 @@ function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
     clearChunkLoadingInProgress(chunkId);
   }, 100);
 
-  console.log(`Chunk ${chunkId} loaded.`);
+  console.log(`Chunk of nodes #${chunkId} loaded into DOM.`);
   return chunkElement; // ✅ return DOM element
 }
 
@@ -1313,9 +1367,9 @@ function insertChunkInOrderInternal(newChunk, instance) {
       inserted = true;
       break;
     }
-  } 
+  }
   if (!inserted) container.appendChild(newChunk);
-  console.log(`Inserted chunk ${newChunkId} in order.`);
+  console.log(`Inserted chunk of nodes #${newChunkId} into DOM in order.`);
 }
 
 /**

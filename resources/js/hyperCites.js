@@ -436,10 +436,16 @@ async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
           "No existing nodeChunk record, creating new one with startLine:",
           numericStartLine,
         );
+
+        // ✅ Extract node_id from DOM element if available
+        const blockElement = document.getElementById(block.nodeId);
+        const nodeIdFromDOM = blockElement?.getAttribute('data-node-id');
+
         updatedNodeChunkRecord = {
           book: book,
           startLine: numericStartLine,
           chunk_id: numericStartLine,
+          node_id: nodeIdFromDOM || null, // ✅ ADD node_id field
           hypercites: [
             {
               hyperciteId: hyperciteId,
@@ -1640,8 +1646,20 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
       nodeChunksTx.onerror = () => reject(nodeChunksTx.error);
     });
 
-    // Step 8: Update book timestamp
-    await updateBookTimestamp(targetHypercite.book);
+    // Step 8: Update book timestamps for BOTH affected books
+    const affectedBooks = new Set([targetHypercite.book]); // Book A (where cited text lives)
+
+    // Also update the book where the deletion occurred (Book B)
+    const currentBook = book; // From app.js import
+    if (currentBook && currentBook !== targetHypercite.book) {
+      affectedBooks.add(currentBook);
+    }
+
+    console.log(`📝 Updating timestamps for affected books:`, Array.from(affectedBooks));
+
+    for (const bookId of affectedBooks) {
+      await updateBookTimestamp(bookId);
+    }
 
     queueForSync(
       "hypercites",
@@ -1649,6 +1667,12 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
       "update",
       updatedHypercite
     );
+
+    // 🔥 CRITICAL FIX: Flush sync queue immediately to persist timestamp updates
+    // This ensures changes are saved before user navigates away
+    console.log("⚡ Flushing sync queue immediately for hypercite deletion...");
+    await debouncedMasterSync.flush();
+    console.log("✅ Sync queue flushed.");
 
     console.log("✅ Delink process completed successfully");
 

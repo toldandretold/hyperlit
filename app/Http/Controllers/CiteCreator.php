@@ -417,44 +417,129 @@ class CiteCreator extends Controller
                     'deleted_count' => $deletedCount,
                     'delete_duration_ms' => $deleteDuration
                 ]);
-                
-                // Prepare data for bulk insert
+
+                Log::info('CHECKPOINT 1: Right after delete, about to start renumbering', [
+                    'citation_id' => $citation_id,
+                    'nodeChunksData_count' => count($nodeChunksData),
+                    'nodeChunksData_is_array' => is_array($nodeChunksData),
+                    'file' => 'CiteCreator.php',
+                    'line' => __LINE__
+                ]);
+
+                // Prepare data for bulk insert with proper numbering
                 $bulkInsertStart = microtime(true);
                 $insertData = [];
                 $now = now();
-                
-                foreach ($nodeChunksData as $chunk) {
+                $nodesPerChunk = 100; // Group every 100 nodes into a chunk
+
+                Log::info('CHECKPOINT 2: Variables initialized, starting renumbering', [
+                    'citation_id' => $citation_id,
+                    'total_nodes' => count($nodeChunksData),
+                    'bulkInsertStart' => $bulkInsertStart,
+                    'nodesPerChunk' => $nodesPerChunk,
+                    'file' => 'CiteCreator.php',
+                    'line' => __LINE__
+                ]);
+
+                foreach ($nodeChunksData as $index => $chunk) {
+                    if ($index === 0) {
+                        Log::info('CHECKPOINT 3: Inside foreach loop, first iteration', [
+                            'citation_id' => $citation_id,
+                            'index' => $index,
+                            'chunk_keys' => array_keys($chunk),
+                            'file' => 'CiteCreator.php',
+                            'line' => __LINE__
+                        ]);
+                    }
+
+                    // Calculate clean values with 100-unit gaps
+                    $newStartLine = ($index + 1) * 100;  // 100, 200, 300...
+                    $chunkIndex = floor($index / $nodesPerChunk);
+                    $newChunkId = $chunkIndex * 100;      // 0, 100, 200...
+
+                    // Generate unique node_id
+                    $nodeId = $this->generateNodeId($citation_id);
+
+                    // Add node_id to content if not present
+                    $content = $this->ensureNodeIdInContent($chunk['content'], $newStartLine, $nodeId);
+
+                    // Log first 3 nodes for debugging
+                    if ($index < 3) {
+                        Log::info('CHECKPOINT 4: Node renumbering details', [
+                            'citation_id' => $citation_id,
+                            'index' => $index,
+                            'old_startLine' => $chunk['startLine'] ?? 'missing',
+                            'new_startLine' => $newStartLine,
+                            'old_chunk_id' => $chunk['chunk_id'] ?? 'missing',
+                            'new_chunk_id' => $newChunkId,
+                            'node_id' => $nodeId,
+                            'content_preview' => substr($content, 0, 100),
+                            'file' => 'CiteCreator.php',
+                            'line' => __LINE__
+                        ]);
+                    }
+
+                    // Update raw_json with new values
+                    $rawJson = $chunk;
+                    $rawJson['startLine'] = $newStartLine;
+                    $rawJson['chunk_id'] = $newChunkId;
+                    $rawJson['node_id'] = $nodeId;
+                    $rawJson['content'] = $content;
+
                     $insertData[] = [
                         'book' => $citation_id,
-                        'startLine' => $chunk['startLine'],
-                        'chunk_id' => $chunk['chunk_id'],
-                        'content' => $chunk['content'],
+                        'startLine' => $newStartLine,
+                        'chunk_id' => $newChunkId,
+                        'node_id' => $nodeId,
+                        'content' => $content,
                         'footnotes' => json_encode($chunk['footnotes'] ?? []),
                         'hyperlights' => json_encode($chunk['hyperlights'] ?? []),
                         'hypercites' => json_encode($chunk['hypercites'] ?? []),
                         'plainText' => $chunk['plainText'] ?? '',
                         'type' => $chunk['type'] ?? 'p',
-                        'raw_json' => json_encode($chunk),
+                        'raw_json' => json_encode($rawJson),
                         'created_at' => $now,
                         'updated_at' => $now
                     ];
                 }
-                
+
+                Log::info('CHECKPOINT 5: Foreach loop completed, renumbering done', [
+                    'citation_id' => $citation_id,
+                    'nodes_processed' => count($insertData),
+                    'startLine_range' => '100-' . (count($insertData) * 100),
+                    'chunk_range' => '0-' . ((floor((count($insertData) - 1) / 100)) * 100),
+                    'renumber_duration_ms' => round((microtime(true) - $bulkInsertStart) * 1000, 2),
+                    'insertData_sample_keys' => !empty($insertData) ? array_keys($insertData[0]) : [],
+                    'file' => 'CiteCreator.php',
+                    'line' => __LINE__
+                ]);
+
                 // Bulk insert in batches of 500 to avoid memory issues
                 $batchSize = 500;
                 $totalInserted = 0;
                 $batches = array_chunk($insertData, $batchSize);
-                
+
+                Log::info('CHECKPOINT 6: About to start batch insert', [
+                    'citation_id' => $citation_id,
+                    'total_batches' => count($batches),
+                    'batch_size' => $batchSize,
+                    'total_records_to_insert' => count($insertData),
+                    'file' => 'CiteCreator.php',
+                    'line' => __LINE__
+                ]);
+
                 foreach ($batches as $batchIndex => $batch) {
                     $batchStart = microtime(true);
                     PgNodeChunk::insert($batch);
                     $totalInserted += count($batch);
-                    
-                    Log::info('Batch inserted', [
+
+                    Log::info('CHECKPOINT 7: Batch inserted', [
                         'citation_id' => $citation_id,
                         'batch_number' => $batchIndex + 1,
                         'batch_size' => count($batch),
-                        'batch_duration_ms' => round((microtime(true) - $batchStart) * 1000, 2)
+                        'batch_duration_ms' => round((microtime(true) - $batchStart) * 1000, 2),
+                        'file' => 'CiteCreator.php',
+                        'line' => __LINE__
                     ]);
                 }
                 
@@ -468,8 +553,27 @@ class CiteCreator extends Controller
                     'bulk_insert_duration_ms' => $bulkInsertDuration,
                     'chunk_save_duration_ms' => round((microtime(true) - $chunkSaveStart) * 1000, 2)
                 ]);
+
+                // CRITICAL: Update the JSON file with renumbered values so frontend doesn't overwrite
+                $jsonUpdateStart = microtime(true);
+                $renumberedJson = [];
+                foreach ($insertData as $record) {
+                    $rawJson = json_decode($record['raw_json'], true);
+                    $renumberedJson[] = $rawJson;
+                }
+
+                File::put($nodeChunksPath, json_encode($renumberedJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+                Log::info('CHECKPOINT 8: JSON file updated with renumbered values', [
+                    'citation_id' => $citation_id,
+                    'json_path' => $nodeChunksPath,
+                    'records_written' => count($renumberedJson),
+                    'json_update_duration_ms' => round((microtime(true) - $jsonUpdateStart) * 1000, 2),
+                    'file' => 'CiteCreator.php',
+                    'line' => __LINE__
+                ]);
             }
-            
+
             $totalDbDuration = round((microtime(true) - $dbSaveStart) * 1000, 2);
             Log::info('Database save process completed', [
                 'citation_id' => $citation_id,
@@ -1953,5 +2057,47 @@ class CiteCreator extends Controller
         }
 
         rmdir($directory);
+    }
+
+    /**
+     * Generate a unique node_id in format: {book}_{timestamp}_{random}
+     */
+    private function generateNodeId(string $bookId): string
+    {
+        $timestamp = round(microtime(true) * 1000); // milliseconds
+        $random = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz0123456789'), 0, 9);
+        return "{$bookId}_{$timestamp}_{$random}";
+    }
+
+    /**
+     * Ensure content has both id and data-node-id attributes
+     */
+    private function ensureNodeIdInContent(string $content, int $startLine, string $nodeId): string
+    {
+        if (empty($content)) {
+            return $content;
+        }
+
+        // Pattern to match the first opening tag
+        $pattern = '/^(<[a-z][a-z0-9]*)((?:\s+[^>]*)?)(>)/i';
+
+        $replacement = function($matches) use ($startLine, $nodeId) {
+            $tagStart = $matches[1];
+            $attributes = $matches[2];
+            $tagEnd = $matches[3];
+
+            // Remove existing id and data-node-id attributes
+            $attributes = preg_replace('/\s+id="[^"]*"/', '', $attributes);
+            $attributes = preg_replace('/\s+data-node-id="[^"]*"/', '', $attributes);
+
+            // Add new id and data-node-id
+            $newAttributes = ' id="' . $startLine . '" data-node-id="' . htmlspecialchars($nodeId, ENT_QUOTES) . '"' . $attributes;
+
+            return $tagStart . $newAttributes . $tagEnd;
+        };
+
+        $updatedContent = preg_replace_callback($pattern, $replacement, $content, 1);
+
+        return $updatedContent !== null ? $updatedContent : $content;
     }
 }

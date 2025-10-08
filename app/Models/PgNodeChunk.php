@@ -12,6 +12,7 @@ class PgNodeChunk extends Model
         'book',
         'chunk_id',
         'startLine',
+        'node_id',
         'content',
         'footnotes',
         'hypercites',

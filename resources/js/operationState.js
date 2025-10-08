@@ -92,7 +92,6 @@ function notifySpinnerOrTick() {
  */
 export function incrementPendingOperations() {
   pendingOperations++;
-  console.log("⏳ Pending operations:", pendingOperations);
   if (pendingOperations === 1) {
     notifySpinnerOrTick();
   }
@@ -109,7 +108,7 @@ export function decrementPendingOperations() {
     return 0;
   }
   pendingOperations--;
-  console.log("✅ Pending operations:", pendingOperations);
+  //console.log("✅ Pending operations:", pendingOperations);
   if (pendingOperations === 0) {
     notifySpinnerOrTick();
   }
@@ -135,6 +134,7 @@ export async function withPending(fn) {
 
 export let currentObservedChunk = null;
 export let chunkOverflowInProgress = false;
+export let renumberingInProgress = false;
 
 
 // Function to update the currentObservedChunk
@@ -145,6 +145,11 @@ export function setCurrentObservedChunk(chunk) {
 // Function to update the flag
 export function setChunkOverflowInProgress(value) {
   chunkOverflowInProgress = value;
+  return value;
+}
+// Function to update renumbering flag
+export function setRenumberingInProgress(value) {
+  renumberingInProgress = value;
   return value;
 }
 

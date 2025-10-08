@@ -36,11 +36,11 @@ let firstChunkLoadedResolver;
 
 export function resolveFirstChunkPromise() {
   if (firstChunkLoadedResolver && typeof firstChunkLoadedResolver === 'function') {
-    console.log("✅ Manually resolving first chunk promise");
+    console.log("✅ Manually resolving first chunk of nodes promise");
     firstChunkLoadedResolver();
     firstChunkLoadedResolver = null; // Clear it after use
   } else {
-    console.log("⚠️ First chunk resolver not available - will resolve when created");
+    console.log("⚠️ First chunk of nodes resolver not available - will resolve when created");
     // Set a flag to resolve it immediately when the promise is created
     window._resolveFirstChunkWhenReady = true;
   }
@@ -49,15 +49,15 @@ export function resolveFirstChunkPromise() {
 function resetFirstChunkPromise() {
     pendingFirstChunkLoadedPromise = new Promise(resolve => {
         firstChunkLoadedResolver = resolve;
-        
+
         // ✅ If we were asked to resolve immediately, do it now
         if (window._resolveFirstChunkWhenReady) {
-            console.log("✅ Resolving first chunk promise immediately as requested");
+            console.log("✅ Resolving first chunk of nodes promise immediately as requested");
             resolve();
             window._resolveFirstChunkWhenReady = false;
         }
     });
-    console.log("PROMISE STATE: A new firstChunkPromise has been created and is pending.");
+    console.log("PROMISE STATE: A new first chunk of nodes promise has been created and is pending.");
 }
 
 async function retryFailedBatches() {
@@ -200,9 +200,9 @@ export async function loadFromJSONFiles(bookId) {
     ]);
 
     console.log(`✅ Successfully fetched all JSON files for ${bookId}.`);
-    console.log(`   - Found ${nodeChunks.length} nodeChunks.`);
-    console.log(`   - Found ${footnotes.length} footnotes.`);
-    console.log(`   - Found ${references.length} references.`);
+    console.log(`   - Found ${nodeChunks.length} nodes in nodeChunks.json.`);
+    console.log(`   - Found ${footnotes.length} footnotes in footnotes.json.`);
+    console.log(`   - Found ${references.length} references in references.json.`);
 
     // Save all the fetched data to IndexedDB concurrently
     await Promise.all([
@@ -253,11 +253,11 @@ export async function loadHyperText(bookId, progressCallback = null) {
   try {
     // 1. Check for node chunks in IndexedDB (No change)
     updatePageLoadProgress(10, "Checking local cache...");
-    console.log("🔍 Checking if nodeChunks are in IndexedDB...");
+    console.log("🔍 Checking if nodes are in nodeChunks object store in IndexedDB...");
     const cached = await getNodeChunksFromIndexedDB(currentBook);
     if (cached && cached.length) {
       updatePageLoadProgress(30, "Loading from cache...");
-      console.log(`✅ Found ${cached.length} cached nodeChunks`);
+      console.log(`✅ Found ${cached.length} nodes in nodeChunks object store in IndexedDB`);
       window.nodeChunks = cached;
       
       // Add small delays to make progress visible
@@ -273,13 +273,13 @@ export async function loadHyperText(bookId, progressCallback = null) {
 
     // 2. Try Database Sync (No change)
     updatePageLoadProgress(20, "Connecting to database...");
-    console.log("🔍 Trying to load chunks from database...");
+    console.log("🔍 Trying to load nodes from node_chunks table in PostgreSQL...");
     const dbResult = await syncBookDataFromDatabase(currentBook);
     if (dbResult && dbResult.success) {
       updatePageLoadProgress(50, "Loading from database...");
       const dbChunks = await getNodeChunksFromIndexedDB(currentBook);
       if (dbChunks && dbChunks.length) {
-        console.log(`✅ Loaded ${dbChunks.length} nodeChunks from database`);
+        console.log(`✅ Loaded ${dbChunks.length} nodes from node_chunks table in PostgreSQL into nodeChunks object store in IndexedDB`);
         window.nodeChunks = dbChunks;
         updatePageLoadProgress(90, "Initializing interface...");
         initializeLazyLoader(openHyperlightID, currentBook);
@@ -345,30 +345,30 @@ async function fetchMainTextMarkdown(bookId, forceReload = false) {
 // Updated to accept bookId parameter
 async function generateNodeChunksFromMarkdown(bookId, forceReload = false) {
   const markdown = await fetchMainTextMarkdown(bookId);
-  
+
   // Parse markdown into nodeChunks
   const nodeChunks = parseMarkdownIntoChunksInitial(markdown);
-  console.log(`✅ Generated ${nodeChunks.length} nodeChunks from markdown for ${bookId}`);
+  console.log(`✅ Generated ${nodeChunks.length} nodes from markdown file for ${bookId}`);
 
   // Add detailed footnote logging
   const totalFootnotes = nodeChunks.reduce((sum, chunk) => sum + chunk.footnotes.length, 0);
-  console.log(`📝 Found ${totalFootnotes} footnotes across all chunks for ${bookId}`);
+  console.log(`📝 Found ${totalFootnotes} footnotes across all nodes for ${bookId}`);
 
   // Log some sample footnotes if any exist
   if (totalFootnotes > 0) {
-    // Find chunks with footnotes
+    // Find nodes with footnotes
     const chunksWithFootnotes = nodeChunks.filter(chunk => chunk.footnotes.length > 0);
-    
-    console.log(`📋 Footnote distribution: ${chunksWithFootnotes.length} chunks contain footnotes`);
-    
-    // Log details of the first few chunks with footnotes
+
+    console.log(`📋 Footnote distribution: ${chunksWithFootnotes.length} nodes contain footnotes`);
+
+    // Log details of the first few nodes with footnotes
     const samplesToShow = Math.min(3, chunksWithFootnotes.length);
-    
-    console.log(`🔍 Showing footnote details for ${samplesToShow} sample chunks:`);
+
+    console.log(`🔍 Showing footnote details for ${samplesToShow} sample nodes:`);
     
     for (let i = 0; i < samplesToShow; i++) {
       const chunk = chunksWithFootnotes[i];
-      console.log(`\n📄 Chunk #${chunk.chunk_id} (Node #${chunk.startLine}, type: ${chunk.type}):`);
+      console.log(`\n📄 Node #${chunk.startLine} (chunk of nodes #${chunk.chunk_id}, type: ${chunk.type}):`);
       console.log(`   Text preview: "${chunk.plainText.substring(0, 50)}${chunk.plainText.length > 50 ? '...' : ''}"`);
       
       chunk.footnotes.forEach((footnote, index) => {
@@ -481,7 +481,7 @@ export async function initializeLazyLoaderForContainer(bookId) {
     }
     
     if (!nodeChunks || !nodeChunks.length) {
-      console.error(`❌ No nodeChunks available for ${bookId}`);
+      console.error(`❌ No nodes available in nodeChunks object store in IndexedDB for ${bookId}`);
       return null;
     }
     
@@ -494,10 +494,10 @@ export async function initializeLazyLoaderForContainer(bookId) {
       bookId: bookId
     });
     
-    // Load the first chunk to initialize content
+    // Load the first chunk of nodes to initialize content
     const firstChunk = nodeChunks.find(chunk => chunk.chunk_id === 0) || nodeChunks[0];
     if (firstChunk && lazyLoaders[bookId]) {
-      console.log(`📄 Loading initial chunk ${firstChunk.chunk_id} for ${bookId}`);
+      console.log(`📄 Loading initial chunk of nodes #${firstChunk.chunk_id} into DOM for ${bookId}`);
       lazyLoaders[bookId].loadChunk(firstChunk.chunk_id, "down");
     }
     
@@ -525,13 +525,13 @@ function initializeLazyLoader(openHyperlightID, bookId) { // <-- Add bookId para
       onFirstChunkLoaded: firstChunkLoadedResolver
     });
     
-    // Only manually load first chunk for homepage contexts
+    // Only manually load first chunk of nodes for homepage contexts
     // Regular reader pages will trigger via intersection observer
     const isHomepageContext = document.querySelector('.home-content-wrapper');
     if (isHomepageContext) {
       const firstChunk = window.nodeChunks.find(chunk => chunk.chunk_id === 0) || window.nodeChunks[0];
       if (firstChunk && currentLazyLoader) {
-        console.log(`📄 Loading initial chunk ${firstChunk.chunk_id} for ${bookId} (homepage context)`);
+        console.log(`📄 Loading initial chunk of nodes #${firstChunk.chunk_id} into DOM for ${bookId} (homepage context)`);
         currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
       }
     }
