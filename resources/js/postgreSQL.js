@@ -372,6 +372,11 @@ export async function syncBookDataFromDatabase(bookId) {
     console.log("🔍 RAW API RESPONSE - first highlight:", data.hyperlights[0]);
     console.log("🔍 is_user_highlight in API response:", data.hyperlights[0]?.is_user_highlight);
     
+    const metadataForLogging = { ...data.metadata };
+    if (Object.prototype.hasOwnProperty.call(metadataForLogging, 'total_chunks')) {
+        metadataForLogging.total_nodes = metadataForLogging.total_chunks;
+        delete metadataForLogging.total_chunks;
+    }
     console.log("✅ Data received from API - detailed breakdown:", {
       nodeChunks: {
         count: data.nodeChunks?.length || 0,
@@ -550,11 +555,11 @@ async function clearBookDataFromIndexedDB(db, bookId) {
  */
 async function loadNodeChunksToIndexedDB(db, nodeChunks) {
   if (!nodeChunks || nodeChunks.length === 0) {
-    console.log("ℹ️ No node chunks to load");
+    console.log("ℹ️ No nodes to load into nodeChunks object store in IndexedDB from node_chunks table in PostgreSQL");
     return;
   }
-  
-  console.log(`📝 Loading ${nodeChunks.length} node chunks...`);
+
+  console.log(`📝 Loading ${nodeChunks.length} nodes into nodeChunks object store in IndexedDB from node_chunks table in PostgreSQL...`);
   
   const tx = db.transaction('nodeChunks', 'readwrite');
   const store = tx.objectStore('nodeChunks');
@@ -633,8 +638,8 @@ async function loadNodeChunksToIndexedDB(db, nodeChunks) {
     });
   }
   
-  console.log(`✅ Loaded ${nodeChunks.length} node chunks to IndexedDB - Summary:`, {
-    total_chunks: nodeChunks.length,
+  console.log(`✅ Loaded ${nodeChunks.length} nodes into nodeChunks object store in IndexedDB from node_chunks table in PostgreSQL - Summary:`, {
+    total_nodes: nodeChunks.length,
     chunks_with_highlights: chunksWithHighlights,
     total_embedded_highlights: totalEmbeddedHighlights,
     user_highlights_in_chunks: userHighlightCount
@@ -725,8 +730,8 @@ async function loadHyperlightsToIndexedDB(db, hyperlights) {
     return;
   }
   
-  console.log(`📝 Loading ${hyperlights.length} standalone hyperlights...`);
-  
+  console.log(`📝 Loading ${hyperlights.length} standalone hyperlights into hyperlights object store in IndexedDB from hyperlights table in PostgreSQL...`);
+
   const tx = db.transaction('hyperlights', 'readwrite');
   const store = tx.objectStore('hyperlights');
   
@@ -782,7 +787,7 @@ async function loadHyperlightsToIndexedDB(db, hyperlights) {
     });
   }
   
-  console.log(`✅ Loaded ${hyperlights.length} standalone hyperlights to IndexedDB - Summary:`, {
+  console.log(`✅ Loaded ${hyperlights.length} standalone hyperlights into hyperlights object store in IndexedDB from hyperlights table in PostgreSQL - Summary:`, {
     total: hyperlights.length,
     user_highlights: userHighlightCount,
     anonymous_highlights: anonHighlightCount
@@ -798,8 +803,8 @@ async function loadHypercitesToIndexedDB(db, hypercites) {
     return;
   }
   
-  console.log(`📝 Loading ${hypercites.length} hypercites...`);
-  
+  console.log(`📝 Loading ${hypercites.length} hypercites into hypercites object store in IndexedDB from hypercites table in PostgreSQL...`);
+
   const tx = db.transaction('hypercites', 'readwrite');
   const store = tx.objectStore('hypercites');
   
@@ -820,8 +825,8 @@ async function loadHypercitesToIndexedDB(db, hypercites) {
       };
     });
   }
-  
-  console.log(`✅ Loaded ${hypercites.length} hypercites`);
+
+  console.log(`✅ Loaded ${hypercites.length} hypercites into hypercites object store in IndexedDB from hypercites table in PostgreSQL`);
 }
 
 

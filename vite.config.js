@@ -92,7 +92,6 @@ export default defineConfig({
                 'resources/js/footnotes-citations.js',
                 'resources/js/homepage.js',                 // ✅ NEW
                 'resources/js/hyperLights.js',
-                'resources/js/IDmanager.js',
                 'resources/js/initializePage.js',
                 'resources/js/lazy-loading-div.js',
                 'resources/js/lazyLoaderFactory.js',

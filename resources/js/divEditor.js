@@ -26,6 +26,7 @@ import { showSpinner, showTick, isProcessing } from './editIndicator.js';
 
 import { buildBibtexEntry } from "./bibtexProcessor.js";
 import { generateIdBetween,
+         setElementIds,
          isNumericalId,
          ensureNodeHasValidId,
           } from "./IDfunctions.js";
@@ -307,6 +308,12 @@ export function startObserving(editableDiv) {
   // Initialize tracking for all current chunks
   initializeCurrentChunks(editableDiv);
 
+  // Check if handler already exists (indicates double initialization)
+  if (enterKeyHandler) {
+    console.warn('⚠️ EnterKeyHandler already exists! Destroying old one before creating new.');
+    enterKeyHandler.destroy();
+  }
+
   enterKeyHandler = new EnterKeyHandler();
 
   // 🔥 PERIODIC SPAN ANNIHILATION - runs every 3 seconds
@@ -450,9 +457,6 @@ function filterChunkMutations(mutations) {
     // Check if mutation target is within a chunk (not a sentinel)
     const chunk = findContainingChunk(mutation.target);
 
-    console.log("Mutation target:", mutation.target);
-    console.log("Found chunk:", chunk);
-    console.log("Mutation type:", mutation.type);
     
     // If we found a chunk, include the mutation
     if (chunk !== null) {
@@ -693,8 +697,14 @@ function handleNewChunk(chunk) {
 
 async function processChunkMutations(chunk, mutations) {
   const chunkId = chunk.getAttribute('data-chunk-id');
-  
+
   console.log(`🔄 Processing ${mutations.length} mutations for chunk ${chunkId}`);
+
+  // Skip all mutation processing during renumbering (DOM updates are programmatic)
+  if (window.renumberingInProgress) {
+    console.log(`⚠️ Skipping mutation processing for chunk ${chunkId} during renumbering`);
+    return;
+  }
 
   // *** CRITICAL ADDITION HERE ***
   // If chunk overflow is in progress, handle it directly and prevent other mutation processing
@@ -1319,10 +1329,10 @@ function createAndInsertParagraph(blockElement, chunkContainer, content, selecti
     nextElement = nextElement.nextElementSibling;
   }
   
-  // ALWAYS use generateIdBetween for consistency. It should handle the null case.
+  // ALWAYS use setElementIds to set both id and data-node-id
   const nextElementId = nextElement ? nextElement.id : null;
-  newParagraph.id = generateIdBetween(blockElement.id, nextElementId);
-  
+  setElementIds(newParagraph, blockElement.id, nextElementId, book);
+
   // 5. Insert the paragraph at the correct position in the DOM
   if (blockElement.nextSibling) {
     container.insertBefore(newParagraph, blockElement.nextSibling);
@@ -1331,6 +1341,24 @@ function createAndInsertParagraph(blockElement, chunkContainer, content, selecti
   }
   
   console.log(`Created new paragraph with ID ${newParagraph.id} after ${blockElement.id}`);
+
+  // Check if renumbering was flagged during ID generation
+  if (window.__pendingRenumbering) {
+    console.log('🔄 Renumbering flagged - queueing new element and triggering renumbering');
+
+    // Immediately queue this new element for saving (don't wait for mutation observer)
+    queueNodeForSave(newParagraph.id, 'add');
+
+    // Import and trigger renumbering (no delay needed - element is already queued)
+    import('./IDfunctions.js').then(({ triggerRenumberingWithModal }) => {
+      triggerRenumberingWithModal(0).catch(err => {
+        console.error('Background renumbering failed:', err);
+      });
+    });
+
+    // Clear the flag
+    window.__pendingRenumbering = false;
+  }
 
   // 6. Move cursor and scroll (your existing logic is fine)
   const target = newParagraph.firstChild?.nodeType === Node.TEXT_NODE
@@ -1485,13 +1513,13 @@ class EnterKeyHandler {
 
             // Special case: if heading is ID "1" and no previous element, use "0" as beforeId
             if (!prevElement && blockElement.id === "1") {
-              newParagraph.id = generateIdBetween("0", "1");
+              setElementIds(newParagraph, "0", "1", book);
             } else if (prevElement && prevElement.id) {
               // Generate ID between previous and current
-              newParagraph.id = generateIdBetween(prevElement.id, blockElement.id);
+              setElementIds(newParagraph, prevElement.id, blockElement.id, book);
             } else {
               // Generate ID before current
-              newParagraph.id = generateIdBetween(null, blockElement.id);
+              setElementIds(newParagraph, null, blockElement.id, book);
             }
 
             // 3. Insert the new paragraph before the heading
@@ -1776,8 +1804,8 @@ class EnterKeyHandler {
               // 7. Generate IDs and insert into the DOM
               const nextSibling = blockElement.nextElementSibling;
               const nextSiblingId = nextSibling ? nextSibling.id : null;
-              newParagraph.id = generateIdBetween(blockElement.id, nextSiblingId);
-              newSplitBlock.id = generateIdBetween(newParagraph.id, nextSiblingId);
+              setElementIds(newParagraph, blockElement.id, nextSiblingId, book);
+              setElementIds(newSplitBlock, newParagraph.id, nextSiblingId, book);
               blockElement.after(newParagraph, newSplitBlock);
 
               // 8. Save new elements and position cursor
