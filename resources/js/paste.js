@@ -895,23 +895,8 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
     `Small paste (≈${nodeCount} nodes); handling with browser insertion and ID fix-up.`
   );
 
-  // --- 1. PREPARE THE CONTENT ---
+  // --- 1. PREPARE THE CONTENT (initial) ---
   let finalHtmlToInsert = htmlContent;
-
-  // If we only have plain text, convert it to structured HTML.
-  // This ensures that pasting text with blank lines creates new paragraphs.
-  if (!finalHtmlToInsert && plainText) {
-    finalHtmlToInsert = plainText
-      .split(/\n\s*\n/) // Split on blank lines
-      .filter((p) => p.trim())
-      .map((p) => `<p>${p}</p>`) // Wrap each part in a <p> tag
-      .join("");
-  }
-
-  // If there's nothing to insert, we're done.
-  if (!finalHtmlToInsert) {
-    return true;
-  }
 
   // --- 2. GET INSERTION CONTEXT (BEFORE PASTING) ---
   const selection = window.getSelection();
@@ -923,7 +908,7 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
     currentElement = currentElement.parentElement;
   }
 
-  const currentBlock = currentElement.closest(
+  let currentBlock = currentElement.closest(
     "p, h1, h2, h3, h4, h5, h6, div, pre, blockquote"
   );
 
@@ -939,12 +924,50 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
     return false;
   }
 
+  // --- 2.5. FINALIZE CONTENT PREPARATION (now that we have currentBlock) ---
+
+  // If we only have plain text, convert it to structured HTML.
+  if (!finalHtmlToInsert && plainText) {
+    const parts = plainText
+      .split(/\n\s*\n/) // Split on blank lines
+      .filter((p) => p.trim());
+
+    // Don't wrap in <p> if we're already inside a block element
+    if (parts.length === 1 && currentBlock) {
+      finalHtmlToInsert = parts[0];
+    } else {
+      finalHtmlToInsert = parts.map((p) => `<p>${p}</p>`).join("");
+    }
+  }
+
+  // If pasting HTML with a single <p> wrapper into an existing <p>, unwrap it
+  if (finalHtmlToInsert && currentBlock) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = finalHtmlToInsert;
+
+    // Check if content is a single <p> tag
+    if (tempDiv.children.length === 1 && tempDiv.children[0].tagName === 'P') {
+      // Unwrap: use innerHTML of the <p> instead of the entire <p>
+      finalHtmlToInsert = tempDiv.children[0].innerHTML;
+      console.log(`Unwrapped <p> tag to prevent nesting in paste`);
+    }
+  }
+
+  // If there's nothing to insert, we're done.
+  if (!finalHtmlToInsert) {
+    return true;
+  }
+
   // --- 3. PERFORM THE PASTE ---
   event.preventDefault(); // Take control from the browser!
 
+  // Save currentBlock's data-node-id before paste (execCommand may replace the element)
+  const savedNodeId = currentBlock ? currentBlock.getAttribute('data-node-id') : null;
+  const savedBlockId = currentBlock ? currentBlock.id : null;
+
   // Check if we're pasting into an H1 - always use manual insertion to prevent nesting
   const isH1Destination = currentBlock && currentBlock.tagName === 'H1';
-  
+
   if (isH1Destination) {
     console.log(`H1 destination detected with ${nodeCount} nodes - using manual insertion to prevent nesting`);
     
@@ -1002,8 +1025,28 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
   // The original block was modified, so save it.
   queueNodeForSave(currentBlock.id, "update");
 
+  // Re-query currentBlock by ID (execCommand may have replaced it in DOM)
+  const liveCurrentBlock = savedBlockId ? document.getElementById(savedBlockId) : null;
+
+  if (liveCurrentBlock) {
+    // Restore data-node-id if element was replaced by execCommand
+    if (savedNodeId && !liveCurrentBlock.getAttribute('data-node-id')) {
+      liveCurrentBlock.setAttribute('data-node-id', savedNodeId);
+      console.log(`Restored data-node-id to element #${savedBlockId} after paste`);
+    } else if (!liveCurrentBlock.getAttribute('data-node-id')) {
+      // No saved node ID, generate a new one
+      const newNodeId = generateNodeId(book);
+      liveCurrentBlock.setAttribute('data-node-id', newNodeId);
+      console.log(`Added new data-node-id to element #${savedBlockId}`);
+    }
+    // Update reference for subsequent loop
+    currentBlock = liveCurrentBlock;
+  } else {
+    console.warn(`Could not find element #${savedBlockId} after paste - element may have been removed`);
+  }
+
   // Find the ID of the next "stable" node that already has an ID.
-  let nextStableElement = currentBlock ? currentBlock.nextElementSibling : 
+  let nextStableElement = currentBlock ? currentBlock.nextElementSibling :
     currentElement.closest(".chunk")?.firstElementChild?.nextElementSibling;
   while (
     nextStableElement &&
@@ -1018,17 +1061,27 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
   let elementToProcess = currentBlock.nextElementSibling;
 
   while (elementToProcess && elementToProcess !== nextStableElement) {
-    // Only process block-level elements that are missing a valid ID.
-    if (
-      elementToProcess.matches("p, h1, h2, h3, h4, h5, h6, div, pre, blockquote") &&
-      (!elementToProcess.id || !/^\d+(\.\d+)*$/.test(elementToProcess.id))
-    ) {
-      const newId = setElementIds(elementToProcess, lastKnownId, nextStableNodeId, book);
-      console.log(`Assigned new ID ${newId} to pasted element.`);
+    // Process all block-level elements to ensure they have both id and data-node-id
+    if (elementToProcess.matches("p, h1, h2, h3, h4, h5, h6, div, pre, blockquote")) {
+      const hasValidId = elementToProcess.id && /^\d+(\.\d+)*$/.test(elementToProcess.id);
+      const hasNodeId = elementToProcess.getAttribute('data-node-id');
 
-      // This is a newly created element.
-      queueNodeForSave(newId, "create");
-      lastKnownId = newId;
+      if (!hasValidId) {
+        // Element needs a new numerical ID (and data-node-id)
+        const newId = setElementIds(elementToProcess, lastKnownId, nextStableNodeId, book);
+        console.log(`Assigned new ID ${newId} to pasted element.`);
+        queueNodeForSave(newId, "create");
+        lastKnownId = newId;
+      } else if (!hasNodeId) {
+        // Element has valid numerical ID but missing data-node-id
+        elementToProcess.setAttribute('data-node-id', generateNodeId(book));
+        console.log(`Added data-node-id to pasted element with existing ID ${elementToProcess.id}`);
+        queueNodeForSave(elementToProcess.id, "create");
+        lastKnownId = elementToProcess.id;
+      } else {
+        // Element has both IDs, just update lastKnownId for sequencing
+        lastKnownId = elementToProcess.id;
+      }
     }
     elementToProcess = elementToProcess.nextElementSibling;
   }
@@ -1288,14 +1341,9 @@ async function handleHypercitePaste(event) {
   const clipboardHtml = event.clipboardData.getData("text/html");
   if (!clipboardHtml) return false;
 
-  console.log("🔍 DEBUG - Raw clipboard HTML:", clipboardHtml); // ADD THIS
-  
   // Parse clipboard HTML
   const pasteWrapper = document.createElement("div");
   pasteWrapper.innerHTML = clipboardHtml;
-
-  console.log("🔍 DEBUG - Parsed wrapper innerHTML:", pasteWrapper.innerHTML); // ADD THIS
-  console.log("🔍 DEBUG - Wrapper structure:", pasteWrapper); // ADD THIS
   
   // Clear any numeric IDs to prevent conflicts
   pasteWrapper.querySelectorAll('[id]').forEach(el => {
