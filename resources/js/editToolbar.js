@@ -906,6 +906,10 @@ class EditToolbar {
                 }
                 newBlockElement.innerHTML = block.innerHTML;
                 newBlockElement.id = block.id; // Keep the same ID if block is replaced
+                // Preserve data-node-id attribute if it exists
+                if (block.hasAttribute('data-node-id')) {
+                  newBlockElement.setAttribute('data-node-id', block.getAttribute('data-node-id'));
+                }
 
                 block.parentNode.replaceChild(newBlockElement, block);
                 modifiedElementsForSelection.push({
@@ -955,6 +959,10 @@ class EditToolbar {
             } else {
               setElementIds(pElement, beforeId, afterId, this.currentBookId);
             }
+            // Preserve data-node-id attribute if it exists
+            if (headingElement.hasAttribute('data-node-id')) {
+              pElement.setAttribute('data-node-id', headingElement.getAttribute('data-node-id'));
+            }
             headingElement.parentNode.replaceChild(pElement, headingElement);
             this.setCursorAtTextOffset(pElement, currentOffset);
             modifiedElementId = newPId;
@@ -980,6 +988,10 @@ class EditToolbar {
               h2Element.id = newH2Id;
             } else {
               setElementIds(h2Element, beforeId, afterId, this.currentBookId);
+            }
+            // Preserve data-node-id attribute if it exists
+            if (blockParent.hasAttribute('data-node-id')) {
+              h2Element.setAttribute('data-node-id', blockParent.getAttribute('data-node-id'));
             }
             blockParent.parentNode.replaceChild(h2Element, blockParent);
             this.setCursorAtTextOffset(h2Element, currentOffset);
