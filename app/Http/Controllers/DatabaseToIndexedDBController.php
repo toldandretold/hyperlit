@@ -388,7 +388,7 @@ class DatabaseToIndexedDBController extends Controller
     private function updateContentId(?string $html, int $newStartLine, string $nodeId): string
     {
         if (empty($html)) {
-            return $html;
+            return $html ?? '';
         }
 
         // Pattern to match the first opening tag with optional existing id and data-node-id
@@ -437,7 +437,7 @@ class DatabaseToIndexedDBController extends Controller
     private function addNodeIdToHtml(?string $html, string $nodeId): string
     {
         if (empty($html)) {
-            return $html;
+            return $html ?? '';
         }
 
         // Check if it already has the attribute

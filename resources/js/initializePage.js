@@ -271,7 +271,7 @@ export async function loadHyperText(bookId, progressCallback = null) {
       return;
     }
 
-    // 2. Try Database Sync (No change)
+    // 2. Try Database Sync
     updatePageLoadProgress(20, "Connecting to database...");
     console.log("🔍 Trying to load nodes from node_chunks table in PostgreSQL...");
     const dbResult = await syncBookDataFromDatabase(currentBook);
@@ -283,43 +283,56 @@ export async function loadHyperText(bookId, progressCallback = null) {
         window.nodeChunks = dbChunks;
         updatePageLoadProgress(90, "Initializing interface...");
         initializeLazyLoader(openHyperlightID, currentBook);
-        
+
         // Note: Interactive features initialization handled by viewManager.js
-        
+
         return;
       }
     }
 
-    // 3. Fallback: Try to load from pre-generated JSON
-    updatePageLoadProgress(30, "Loading from files...");
-    try {
-      // This now calls our new, more powerful function
-      const jsonChunks = await loadFromJSONFiles(currentBook);
-      if (jsonChunks && jsonChunks.length) {
-        console.log("✅ Content loaded from JSON; now initializing UI");
-        window.nodeChunks = jsonChunks;
-        updatePageLoadProgress(90, "Initializing interface...");
-        initializeLazyLoader(openHyperlightID, currentBook);
-        
-        // Note: Interactive features initialization handled by viewManager.js
-        
-        return;
-      }
-    } catch (error) {
-      console.log("ℹ️ JSON loading failed. Falling back to markdown parsing...");
+    // ✅ CRITICAL FIX: Only use file fallbacks if database says "book not found" (404)
+    // Do NOT use fallbacks on network/server errors to prevent data loss
+    if (dbResult && dbResult.reason === 'sync_error') {
+      console.error(`❌ Database sync failed for ${currentBook}. Will NOT fall back to stale files.`);
+      console.error(`Error: ${dbResult.error}`);
+      updatePageLoadProgress(0, "Database connection failed");
+      alert(`Cannot load book: Database connection failed.\n\nError: ${dbResult.error}\n\nPlease check your internet connection and try again.`);
+      throw new Error(`Database sync failed: ${dbResult.error}`);
     }
 
-    // 4. Final Fallback: Generate from markdown
-    updatePageLoadProgress(40, "Generating from markdown...");
-    console.log("🆕 Not in cache, DB, or JSON – generating from markdown");
-    window.nodeChunks = await generateNodeChunksFromMarkdown(currentBook);
-    console.log("✅ Content generated + saved; now initializing UI");
-    updatePageLoadProgress(90, "Initializing interface...");
-    initializeLazyLoader(OpenHyperlightID || null, currentBook);
-    
-    // Note: Interactive features initialization handled by viewManager.js
-    
-    return;
+    // 3. Fallback: Try to load from pre-generated JSON (ONLY if book not found in database)
+    if (!dbResult || dbResult.reason === 'book_not_found') {
+      updatePageLoadProgress(30, "Loading from files...");
+      console.log("📚 Book not in database, trying pre-generated JSON files...");
+      try {
+        // This now calls our new, more powerful function
+        const jsonChunks = await loadFromJSONFiles(currentBook);
+        if (jsonChunks && jsonChunks.length) {
+          console.log("✅ Content loaded from JSON; now initializing UI");
+          window.nodeChunks = jsonChunks;
+          updatePageLoadProgress(90, "Initializing interface...");
+          initializeLazyLoader(openHyperlightID, currentBook);
+
+          // Note: Interactive features initialization handled by viewManager.js
+
+          return;
+        }
+      } catch (error) {
+        console.log("ℹ️ JSON loading failed. Falling back to markdown parsing...");
+      }
+
+      // 4. Final Fallback: Generate from markdown (ONLY if book not found anywhere)
+      updatePageLoadProgress(40, "Generating from markdown...");
+      console.log("🆕 Not in cache, DB, or JSON – generating from markdown");
+      window.nodeChunks = await generateNodeChunksFromMarkdown(currentBook);
+      console.log("✅ Content generated + saved; now initializing UI");
+      updatePageLoadProgress(90, "Initializing interface...");
+      initializeLazyLoader(OpenHyperlightID || null, currentBook);
+
+      // Note: Interactive features initialization handled by viewManager.js
+
+      return;
+    }
   } catch (err) {
     console.error("❌ A critical error occurred during content loading:", err);
     if (firstChunkLoadedResolver) {
