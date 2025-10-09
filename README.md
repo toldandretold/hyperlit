@@ -10,13 +10,17 @@ Read and self-publish hypertext literature.
 
 - By focusing on hypertext (that is, not PDF), the goal is to give academic publishing the full promise of the early internet.
 
-A text does not *need* to be "academic", or have citations, to be shared on Hyperlit. That is just my (toldandretold's) initial focus, because I am a historian. I wanted a way to automatically generate two-way hyperlink citations, or what I have been calling hypercites. This is not a new idea.[^1] 
+A text does not *need* to be "academic", or have citations, to be shared on Hyperlit. That is just my (toldandretold's) initial focus, because I am a historian. 
 
-In its simplest form, a user copies text from one book, and pastes it in another. The pasted quote is automatically linked back to the cited text. This allows people to freely move between either end of a citation.
+I wanted a way to automatically generate two-way hyperlink citations, or what I have been calling hypercites. This is not a new idea.[^1] I just wanted to be able to use the idea. I want to publish my own work, and read others' work, in a system *like* wikipedia but optimised for academic citations. Clicking a citatin should take me direclty to the originally cited text in a hypertext version of the source. When reading a source, i should be able to see which parts have been cited, and click to go to those citations, in hypertext versions of those sources.
 
-In this way, academic citations become like the two-way links that were originally intended to form a *Docuverse*. I believe that global knowledge is in desperate need for a docuverse. 
+The question is how to make the process of creating these hyper-cites easy. In its simplest form, Hyperlit solves this by allowing to just copy text from one book and pastes it in another. The pasted quote is automatically linked back to the cited text, and the cited text to the citation. This allows people to freely move between either end of a citation.
 
-There is also social highlighting. That is, anyone can highlight any text. As multi-user highlights overlap, they become more opaque. This allows knowledge communities to create overlapping public annotations. These can contain useful information, including hypercites to other relevant texts, or questions, answers and debates. 
+In this way, academic citations become like the two-way links that were originally intended to form a *Docuverse*. I believe that global knowledge production is in desperate need for a "free software" docuverse. 
+
+For users who *don't care* about hyper-citing, there is also social highligting, or hyper-lighting. The idea for this is more simple. I just want users to be able to "grafitti" hypertext like real readers already do to real books in real libraries. It always bothered me that real books were, because of illegal grafitti, *more social* than most ebooks. Hyperlit solves this by allowing multi-user highlits to overlap. The more a text is highlighted, the more opaque its <mark> tag (highlight) is. 
+
+If a user clicks on a piece of text with multiple highlights, the .hyperlit-container <div> opens, showing all the annotations. This applies to cited text, and all citations too. Whatever "meta content" a user clicks on, is all put into the .hyperlit-container. If a footnote has been hyper-cited and hyper-lighted, and a user clicks it, the .hyperlit-container opens to show the content of the footnote, a link to the citation, and the annotation associated with the highlight. 
 
 
 ## Key Features
