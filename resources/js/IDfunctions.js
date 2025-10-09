@@ -758,15 +758,27 @@ export function ensureNodeHasValidId(node, options = {}) {
     // NEW: Determine proper numerical ID based on position
     if (referenceNode && typeof insertAfter === "boolean") {
       node.id = generateInsertedNodeId(referenceNode, insertAfter);
-      console.log(`Assigned new id ${node.id} based on reference insertion direction.`);
+
+      // ✅ Also set data-node-id if not present
+      if (!node.getAttribute('data-node-id')) {
+        node.setAttribute('data-node-id', generateNodeId(book));
+      }
+
+      console.log(`Assigned new id ${node.id} and data-node-id based on reference insertion direction.`);
     } else {
       // Find the node's position in the DOM and assign appropriate ID
       const beforeId = findPreviousElementId(node);
       const afterId = findNextElementId(node);
-      
+
       node.id = generateIdBetween(beforeId, afterId);
-      console.log(`Assigned positional id ${node.id} to node <${node.tagName.toLowerCase()}> (between ${beforeId} and ${afterId})`);
+
+      // ✅ Also set data-node-id if not present (same as setElementIds does)
+      if (!node.getAttribute('data-node-id')) {
+        node.setAttribute('data-node-id', generateNodeId(book));
+      }
+
+      console.log(`Assigned positional id ${node.id} and data-node-id to node <${node.tagName.toLowerCase()}> (between ${beforeId} and ${afterId})`);
     }
   }
-  
+
 }
