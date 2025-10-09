@@ -1206,15 +1206,36 @@ export async function updateLibraryTitle(bookId, newTitle) {
   });
 }
 
-/**
- * Call this in edit mode to:
- *   1) make sure library[bookId] exists
- *   2) watch <h1 id="1"> inside the div#bookId
- *   3) sync its text into library.title
- */
 
+
+/**
+ * ✅ REWRITTEN: Resilient title sync that survives DOM recreation
+ * Uses event delegation and .hypertextTitle class.
+ * It syncs a particular h1 node in the dom to the library record
+ * for that book in both indexedDB and postgreSQL...
+ * This keeps citation info synced to actual hypertext title.
+  It:
+  1. Looks for .hypertextTitle class first
+  2. Fallback to first h1 in the document 
+  3. Automatically adds hypertextTitle class to it
+  4. Future queries will find it by class
+
+  TO DO: ultimately, user may want to **turn this off**.
+  They might just want to set the bibliographic title as
+  seperate to the first H1 in the doc. More typically,
+  they will want there *not* to be a H1, but still have 
+  a bibliographical title.
+
+  To address this, a button will need to be added to the .hypertextTitle 
+  tag when user is in edit mode. Perhaps the .hypertextTitle
+  should be displayed differently to all othere tags.
+  Then, if the x button is clicked, this will divert back
+  to usual, and the class will be changed to .notHypertextTitle.
+  This is useful so that it can be stopped from being automatically
+  turned back into .hypertextTitle by the above automated process.
+ */
 export async function initTitleSync(bookId) {
-  console.log("⏱ initTitleSync()", { bookId });
+  console.log("⏱ initTitleSync() - RESILIENT VERSION", { bookId });
   const editableContainer = document.getElementById(bookId);
   if (!editableContainer) {
     console.warn(`initTitleSync: no div#${bookId}`);
@@ -1223,63 +1244,114 @@ export async function initTitleSync(bookId) {
 
   await ensureLibraryRecord(bookId);
 
-  const titleNode = editableContainer.querySelector('h1[id="1"]');
-  if (!titleNode) {
-    console.warn('initTitleSync: no <h1 id="1"> found');
-    return;
-  }
-  console.log("initTitleSync: found titleNode", titleNode);
+  // ✅ RESILIENT: Query for title each time (don't cache reference)
+  // Look for .hypertextTitle class first, then fall back to first h1 in document
+  const getTitleNode = () => {
+    let title = editableContainer.querySelector('.hypertextTitle');
+    if (!title) {
+      // Fallback: find first h1 in the document
+      title = editableContainer.querySelector('h1');
+      if (title) {
+        // Mark it as the title for future queries
+        title.classList.add('hypertextTitle');
+        console.log(`✅ Found first h1 (id="${title.id}") and marked as hypertextTitle`);
+      }
+    }
+    return title;
+  };
 
+  // Check if title exists initially
+  let titleNode = getTitleNode();
+  if (!titleNode) {
+    console.warn('initTitleSync: no title h1 found - will sync when created');
+    // Don't return - we'll still set up listeners for when it's created
+  } else {
+    console.log("initTitleSync: found titleNode", titleNode);
+  }
+
+  // ✅ RESILIENT: Debounced write function that queries for current title
   const writeTitle = debounce(
     async () => {
-      const newTitle = titleNode.innerText.trim();
+      const currentTitle = getTitleNode();
+      if (!currentTitle) {
+        console.warn("🖉 [title-sync] No title node found, skipping sync");
+        return;
+      }
+
+      const newTitle = currentTitle.innerText.trim();
       console.log("🖉 [title-sync] writeTitle firing, newTitle=", newTitle);
+
       try {
         await updateLibraryTitle(bookId, newTitle);
         console.log("✔ [title-sync] updated library.title=", newTitle);
-      } catch (err) { // <--- ADDED BRACES HERE
+      } catch (err) {
         console.error("✖ [title-sync] failed to update library.title:", err);
-      } // <--- AND HERE
+      }
     },
     DEBOUNCE_DELAYS.TITLE_SYNC,
     "titleSync"
   );
 
-  titleNode.addEventListener("input", (e) => {
-    console.log("🖉 [title-sync] input event on H1", e);
-    writeTitle();
-  });
+  // ✅ RESILIENT: Use event delegation on container (survives element recreation)
+  const handleInput = (e) => {
+    const currentTitle = getTitleNode();
+    if (!currentTitle) return;
 
-  editableContainer.addEventListener("input", (e) => {
-    if (e.target === titleNode || titleNode.contains(e.target)) {
-      console.log("🖉 [title-sync] container catch of input on H1", e);
+    // Check if the event target is the title or inside it
+    if (e.target === currentTitle ||
+        e.target.classList?.contains('hypertextTitle') ||
+        e.target.closest('.hypertextTitle') === currentTitle) {
+      console.log("🖉 [title-sync] input event on title H1", e);
       writeTitle();
     }
-  });
+  };
 
-  const titleObserver = new MutationObserver((mutationsList) => {
-    mutationsList.forEach((mutation) => {
+  // Remove any existing listener (prevent duplicates)
+  editableContainer.removeEventListener("input", handleInput);
+  editableContainer.addEventListener("input", handleInput);
+
+  // ✅ RESILIENT: Watch container for title recreation
+  const containerObserver = new MutationObserver((mutationsList) => {
+    for (const mutation of mutationsList) {
+      // Watch for added nodes (title being recreated)
+      if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
+        for (const node of mutation.addedNodes) {
+          // Check if a title node was added
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const addedTitle = node.classList?.contains('hypertextTitle')
+              ? node
+              : node.querySelector?.('.hypertextTitle');
+
+            if (addedTitle) {
+              console.log("🔄 [title-sync] Title node recreated, re-syncing...");
+              // Add class if missing
+              if (!addedTitle.classList.contains('hypertextTitle')) {
+                addedTitle.classList.add('hypertextTitle');
+              }
+            }
+          }
+        }
+      }
+
+      // Watch for text changes within title
       if (mutation.type === "characterData") {
-        const parent = mutation.target.parentNode;
-        if (
-          parent &&
-          parent.nodeType === Node.ELEMENT_NODE &&
-          parent.closest('h1[id="1"]') === titleNode
-        ) {
+        const currentTitle = getTitleNode();
+        if (currentTitle && currentTitle.contains(mutation.target)) {
           console.log("🖉 [title-sync] mutation detect (characterData)", mutation);
           writeTitle();
         }
       }
-    });
+    }
   });
 
-  titleObserver.observe(titleNode, {
+  // Observe entire container for title changes
+  containerObserver.observe(editableContainer, {
     characterData: true,
+    childList: true,
     subtree: true,
   });
 
-  console.log("🛠 Title-sync initialized for book:", bookId);
-  // return titleObserver;
+  console.log("🛠 Title-sync initialized (resilient) for book:", bookId);
 }
 
 
@@ -2175,32 +2247,50 @@ export function ensureMinimumDocumentStructure() {
   // CASE 2: No chunks OR no content nodes - create default structure
   if (chunks.length === 0 || nonSentinelNodes.length === 0) {
     console.log('📦 Creating default document structure...');
-    
+
+    // 🆕 PRESERVE TITLE CONTENT FIRST - Critical for initTitleSync()
+    // Look for .hypertextTitle first, then fall back to first h1
+    const existingTitle = mainContent.querySelector('.hypertextTitle') || mainContent.querySelector('h1');
+    const preservedTitleContent = existingTitle ? existingTitle.innerHTML : null;
+    console.log('📝 Preserved title content:', preservedTitleContent);
+
     // 🆕 PRESERVE orphaned content by temporarily removing it from DOM
     const preservedContent = orphanedContent.map(node => {
       const clone = node.cloneNode(true);
       node.remove(); // Remove from DOM but keep the clone
       return clone;
     });
-    
+
     // Clear any remaining content (except sentinels)
     Array.from(mainContent.children).forEach(child => {
       if (!child.classList.contains('sentinel')) {
         child.remove();
       }
     });
-    
+
     // Create chunk between sentinels
     const chunk = document.createElement('div');
     chunk.className = 'chunk';
     chunk.setAttribute('data-chunk-id', '0');
-    
-    // Create default h1
+
+    // Create default h1 with hypertextTitle class
     const h1 = document.createElement('h1');
-    h1.id = '1';
+    h1.className = 'hypertextTitle';
+    // Use setElementIds to set both id and data-node-id
+    setElementIds(h1, null, null, book);
+    // Force id to be "1" for title (setElementIds might generate something else)
+    if (h1.id !== '1') {
+      h1.id = '1';
+      h1.setAttribute('data-node-id', `${book}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+    }
     
-    // 🆕 ADD PRESERVED CONTENT TO THE NEW H1
-    if (preservedContent.length > 0) {
+    // 🆕 RESTORE TITLE CONTENT FIRST (highest priority)
+    if (preservedTitleContent) {
+      console.log('✅ Restoring preserved title content');
+      h1.innerHTML = preservedTitleContent;
+    }
+    // Otherwise, add preserved orphaned content
+    else if (preservedContent.length > 0) {
       console.log('📝 Restoring preserved content to new h1');
       preservedContent.forEach(node => {
         if (node.nodeType === Node.TEXT_NODE) {
@@ -2212,8 +2302,10 @@ export function ensureMinimumDocumentStructure() {
           }
         }
       });
-    } else {
-      h1.innerHTML = '<br>'; // Empty but editable
+    }
+    // Otherwise, create empty but editable h1
+    else {
+      h1.innerHTML = '<br>';
     }
     
     // Assemble structure
@@ -2253,11 +2345,19 @@ export function ensureMinimumDocumentStructure() {
   // CASE 3: Has chunks but they're empty - add content to first chunk
   if (chunks.length > 0 && nonSentinelNodes.length === 0) {
     console.log('📝 Adding content to existing empty chunk...');
-    
+
     const firstChunk = chunks[0];
     const h1 = document.createElement('h1');
-    h1.id = '1';
-    
+    h1.className = 'hypertextTitle';
+
+    // Use setElementIds to set both id and data-node-id
+    setElementIds(h1, null, null, book);
+    // Force id to be "1" for title
+    if (h1.id !== '1') {
+      h1.id = '1';
+      h1.setAttribute('data-node-id', `${book}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+    }
+
     // 🆕 ADD ORPHANED CONTENT TO THE NEW H1
     if (orphanedContent.length > 0) {
       console.log('📝 Adding orphaned content to new h1 in existing chunk');
