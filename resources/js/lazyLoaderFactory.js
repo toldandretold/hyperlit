@@ -12,7 +12,7 @@ import {
   clearChunkLoadingInProgress,
   scheduleAutoClear
 } from './chunkLoadingState.js';
-import { setupUserScrollDetection, shouldSkipScrollRestoration } from './scrolling.js';
+import { setupUserScrollDetection, shouldSkipScrollRestoration, isUserCurrentlyScrolling } from './scrolling.js';
 import { scrollElementIntoMainContent } from "./scrolling.js";
 import { isNewlyCreatedHighlight } from './operationState.js';
 
@@ -113,6 +113,14 @@ export function createLazyLoader(config) {
     const link = event.target.closest('a');
     if (!link || !link.href) return;
 
+    // 🛑 PREVENT LINK CLICKS DURING SCROLLING
+    if (isUserCurrentlyScrolling()) {
+      console.log('🔗 LazyLoader: Link click blocked - user is currently scrolling');
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
     console.log('🔗 LazyLoader: Global link clicked:', {
       href: link.href,
       bookId: instance.bookId
@@ -122,7 +130,7 @@ export function createLazyLoader(config) {
       // Import and delegate to LinkNavigationHandler for processing
       const { LinkNavigationHandler } = await import('./navigation/LinkNavigationHandler.js');
       const handled = await LinkNavigationHandler.handleLinkClick(event);
-      
+
       if (handled) {
         event.preventDefault();
         event.stopPropagation();
