@@ -10,7 +10,7 @@ Read and self-publish hypertext literature.
 
 - By focusing on hypertext (that is, not PDF), the goal is to give academic publishing the full promise of the early internet.
 
-A text does not *need* to be "academic", or have citations, to be shared here. That is just my focus, because I am a historian. I wanted a way to automatically generate two-way hyperlink citations, or what I have been calling hypercites. 
+A text does not *need* to be "academic", or have citations, to be shared on Hyperlit. That is just my (toldandretold's) initial focus, because I am a historian. I wanted a way to automatically generate two-way hyperlink citations, or what I have been calling hypercites. This is not a new idea.[^1] 
 
 In its simplest form, a user copies text from one book, and pastes it in another. The pasted quote is automatically linked back to the cited text. This allows people to freely move between either end of a citation.
 
@@ -144,3 +144,6 @@ State the license for your project. E.g., "Distributed under the MIT License."
 <!--
 Your contact information.
 -->
+
+## Notes
+[^1]: two-way hyperlinks was a core idea of Ted Nelson's ideas for a Docuverse. Linking directly to the cited text was a feature of the original hypertext editors. See: Belinda Barnet. ("Crafting the User-Centered Document Interface: The Hypertext Editing System (HES) and the File Retrieval and Editing System (FRESS)")[https://dhq.digitalhumanities.org/vol/4/1/000081/000081.html]
