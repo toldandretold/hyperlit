@@ -5,6 +5,91 @@
 .libraryCard .delete-book { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding: 2px; }
 .libraryCard .delete-book svg { width: 16px; height: 16px; stroke: currentColor; display: inline-block; vertical-align: middle; }
 
+/* Video Embed Styling */
+.video-embed {
+  position: relative;
+  margin: 1.5em 0;
+  cursor: default;
+  /* Allow selection for deletion */
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Delete button - hidden by default, shows on hover ONLY in edit mode */
+.video-delete-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  background: rgba(34, 31, 32, 0.9);
+  color: #fff;
+  border: 2px solid #EF8D34;
+  border-radius: 50%;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.2s;
+  display: none; /* Hidden by default */
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+/* Only show delete button in edit mode */
+.main-content[contenteditable="true"] .video-embed:hover .video-delete-btn {
+  display: flex;
+  opacity: 1;
+}
+
+.video-delete-btn:hover {
+  background: #EE4A95; /* Pink on hover */
+  border-color: #fff;
+  transform: scale(1.1);
+}
+
+.video-delete-btn:active {
+  transform: scale(0.95);
+}
+
+.video-wrapper {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  height: 0;
+  overflow: hidden;
+  background: #000;
+  border-radius: 4px;
+  pointer-events: none; /* Prevent text selection in iframe area */
+}
+
+.video-wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  pointer-events: auto; /* Re-enable pointer events for iframe */
+}
+
+/* External Link Styling */
+.external-link {
+  color: #4EACAE; /* Hyperlit aqua */
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.external-link:hover {
+  color: #EF8D34; /* Hyperlit orange on hover */
+  text-decoration: none;
+}
+
+.external-link:visited {
+  color: #EE4A95; /* Hyperlit pink for visited */
+}
+
 /* Disable the native iOS menu */
     html, body, * {
         -webkit-touch-callout: none; /* Disable the callout menu */

@@ -42,6 +42,95 @@ let pasteHandled = false;
 // Flag to temporarily disable safety mechanism during paste operations
 let isPasteOperationInProgress = false;
 
+/**
+ * Detect if pasted text is a URL and convert to appropriate HTML
+ * @param {string} text - The pasted text
+ * @returns {Object} - { isUrl, isYouTube, html, url }
+ */
+function detectAndConvertUrls(text) {
+  // Trim and check if it's a single line (no line breaks)
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.includes('\n') || trimmed.includes('\r')) {
+    return { isUrl: false };
+  }
+
+  // Check if it's a valid URL
+  const urlPattern = /^https?:\/\/.+/i;
+  if (!urlPattern.test(trimmed)) {
+    return { isUrl: false };
+  }
+
+  // Security: Limit URL length to prevent DoS attacks
+  const MAX_URL_LENGTH = 2048; // Standard browser limit
+  if (trimmed.length > MAX_URL_LENGTH) {
+    console.warn(`URL too long (${trimmed.length} chars), max is ${MAX_URL_LENGTH}`);
+    return { isUrl: false };
+  }
+
+  // Validate it's actually a URL
+  let url;
+  try {
+    url = new URL(trimmed);
+  } catch (e) {
+    return { isUrl: false };
+  }
+
+  // Check for YouTube URLs
+  const youtubePatterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|m\.youtube\.com\/watch\?v=|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+  ];
+
+  for (const pattern of youtubePatterns) {
+    const match = trimmed.match(pattern);
+    if (match && match[1]) {
+      const videoId = match[1];
+
+      // Generate YouTube embed HTML (IDs will be added by setElementIds later)
+      // Note: Outer div is selectable (for deletion), inner wrapper is not editable
+      const embedHtml = `<div class="video-embed">
+  <button class="video-delete-btn" contenteditable="false" aria-label="Delete video" data-action="delete-video">×</button>
+  <div class="video-wrapper" contenteditable="false">
+    <iframe src="https://www.youtube.com/embed/${videoId}"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen>
+    </iframe>
+  </div>
+</div>`;
+
+      return {
+        isUrl: true,
+        isYouTube: true,
+        html: embedHtml,
+        url: trimmed,
+        videoId
+      };
+    }
+  }
+
+  // Regular URL - create link with HTML-escaped display text
+  const escapedDisplayUrl = escapeHtml(url.href);
+  const linkHtml = `<a href="${url.href}" class="external-link" target="_blank" rel="noopener noreferrer">${escapedDisplayUrl}</a>`;
+
+  return {
+    isUrl: true,
+    isYouTube: false,
+    html: linkHtml,
+    url: url.href
+  };
+}
+
+/**
+ * Escape HTML special characters to prevent XSS
+ * @param {string} text - Text to escape
+ * @returns {string} - HTML-escaped text
+ */
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 export function isPasteOperationActive() {
   return isPasteOperationInProgress;
 }
@@ -486,8 +575,38 @@ async function handlePaste(event) {
       .replace(/"/g, '"')  // Replace smart double quotes
       .replace(/"/g, '"')  // Replace other smart double quotes
       .replace(/`/g, "'"); // Replace backticks with regular single quotes
-    
-    
+
+    // ✅ CHECK FOR URL PASTE - convert to links or embeds
+    const urlConversion = detectAndConvertUrls(plainText.trim());
+    if (urlConversion.isUrl) {
+      event.preventDefault();
+      console.log(`🔗 [${pasteOpId}] Detected ${urlConversion.isYouTube ? 'YouTube embed' : 'external link'} paste: ${urlConversion.url}`);
+
+      // For YouTube embeds (block-level), use execCommand which triggers mutation observer
+      // For links (inline), insert directly
+      if (urlConversion.isYouTube) {
+        // YouTube embed - execCommand triggers mutation observer for ID assignment
+        document.execCommand('insertHTML', false, urlConversion.html);
+
+        // The mutation observer in divEditor.js will:
+        // 1. Detect the new .video-embed element
+        // 2. Call ensureNodeHasValidId() to assign id and data-node-id
+        // 3. Queue it for saving via queueNodeForSave()
+
+        console.log(`✅ [${pasteOpId}] YouTube embed inserted - IDs assigned by mutation observer`);
+      } else {
+        // Regular link - insert inline
+        document.execCommand('insertHTML', false, urlConversion.html);
+
+        // Save the parent paragraph
+        saveCurrentParagraph();
+
+        console.log(`✅ [${pasteOpId}] External link inserted`);
+      }
+
+      return;
+    }
+
     let htmlContent = "";
     let formatType = 'general'; // Default format
 
