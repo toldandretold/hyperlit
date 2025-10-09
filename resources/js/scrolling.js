@@ -51,7 +51,7 @@ function detectUserScrollStart() {
   }, 2000);
 }
 
-function isUserCurrentlyScrolling() {
+export function isUserCurrentlyScrolling() {
   const timeSinceLastScroll = Date.now() - userScrollState.lastUserScrollTime;
   return userScrollState.isScrolling || timeSinceLastScroll < 2000;
 }
