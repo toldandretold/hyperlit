@@ -288,7 +288,7 @@ export function flushAllPendingSaves() {
 // Add page unload handler to flush saves
 window.addEventListener('beforeunload', flushAllPendingSaves);
 
-// Modified startObserving function. 
+// Modified startObserving function.
 // Note: editable div = <div class="main-content" id="book" contenteditable="true">
 export function startObserving(editableDiv) {
 
@@ -296,6 +296,79 @@ export function startObserving(editableDiv) {
 
   // Stop any existing observer first
   stopObserving();
+
+  // 🎬 VIDEO DELETE HANDLER: Handle video embed delete button clicks
+  editableDiv.addEventListener('click', (e) => {
+    const deleteBtn = e.target.closest('[data-action="delete-video"]');
+    if (deleteBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const videoEmbed = deleteBtn.closest('.video-embed');
+      if (videoEmbed && videoEmbed.id) {
+        console.log(`🗑️ Deleting video embed: ${videoEmbed.id}`);
+
+        // Check for adjacent content to focus cursor
+        let focusTarget = null;
+        let focusAtEnd = false;
+
+        const nextSibling = videoEmbed.nextElementSibling;
+        const prevSibling = videoEmbed.previousElementSibling;
+
+        // Prefer next sibling, fall back to previous
+        if (nextSibling && nextSibling.matches('p, h1, h2, h3, h4, h5, h6, div, blockquote, pre, li')) {
+          focusTarget = nextSibling;
+          focusAtEnd = false; // Place cursor at start
+        } else if (prevSibling && prevSibling.matches('p, h1, h2, h3, h4, h5, h6, div, blockquote, pre, li')) {
+          focusTarget = prevSibling;
+          focusAtEnd = true; // Place cursor at end
+        }
+
+        if (focusTarget) {
+          // Remove video and focus existing adjacent content
+          videoEmbed.remove();
+
+          const range = document.createRange();
+          const selection = window.getSelection();
+
+          // Find first text node or use element itself
+          const textNode = focusTarget.firstChild;
+          if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+            range.setStart(textNode, focusAtEnd ? textNode.length : 0);
+          } else {
+            range.selectNodeContents(focusTarget);
+            range.collapse(!focusAtEnd);
+          }
+
+          selection.removeAllRanges();
+          selection.addRange(range);
+
+          console.log(`✅ Video embed removed, cursor ${focusAtEnd ? 'at end of' : 'at start of'} ${focusTarget.tagName.toLowerCase()}`);
+        } else {
+          // No adjacent content - create replacement paragraph
+          const replacementP = document.createElement('p');
+          replacementP.id = videoEmbed.id;
+          if (videoEmbed.hasAttribute('data-node-id')) {
+            replacementP.setAttribute('data-node-id', videoEmbed.getAttribute('data-node-id'));
+          }
+          replacementP.innerHTML = '<br>';
+
+          videoEmbed.parentNode.insertBefore(replacementP, videoEmbed);
+          videoEmbed.remove();
+
+          // Set cursor to new paragraph
+          const range = document.createRange();
+          const selection = window.getSelection();
+          range.setStart(replacementP, 0);
+          range.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(range);
+
+          console.log(`✅ Video embed ${replacementP.id} replaced with paragraph (standalone video)`);
+        }
+      }
+    }
+  });
                      
   if (!editableDiv) {
     console.warn("No .main-content container found; observer not attached.");
