@@ -12,7 +12,7 @@ import {
   clearChunkLoadingInProgress,
   scheduleAutoClear
 } from './chunkLoadingState.js';
-import { setupUserScrollDetection, shouldSkipScrollRestoration, isUserCurrentlyScrolling } from './scrolling.js';
+import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock } from './scrolling.js';
 import { scrollElementIntoMainContent } from "./scrolling.js";
 import { isNewlyCreatedHighlight } from './operationState.js';
 
@@ -113,9 +113,9 @@ export function createLazyLoader(config) {
     const link = event.target.closest('a');
     if (!link || !link.href) return;
 
-    // 🛑 PREVENT LINK CLICKS DURING SCROLLING
-    if (isUserCurrentlyScrolling()) {
-      console.log('🔗 LazyLoader: Link click blocked - user is currently scrolling');
+    // 🛑 PREVENT LINK CLICKS DURING ACTIVE SCROLLING
+    if (isActivelyScrollingForLinkBlock()) {
+      console.log('🔗 LazyLoader: Link click blocked - user is actively scrolling');
       event.preventDefault();
       event.stopPropagation();
       return;
