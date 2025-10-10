@@ -24,36 +24,71 @@ let userScrollState = {
   isScrolling: false,
   lastUserScrollTime: 0,
   scrollTimeout: null,
-  isNavigating: false // NEW: Flag to ignore navigation scrolls
+  isNavigating: false, // Flag to ignore navigation scrolls
+  touchStartY: null, // Track touch start position
+  touchStartX: null
 };
 
-function detectUserScrollStart() {
+function detectUserScrollStart(event) {
   // Don't treat navigation scrolls as user scrolls
   if (userScrollState.isNavigating) {
     console.log(`🎯 NAVIGATION SCROLL - Ignoring as user scroll`);
     return;
   }
-  
+
+  // For touch events, only mark as scrolling if there's actual movement
+  if (event && event.type === 'touchstart') {
+    // Record initial touch position, but don't mark as scrolling yet
+    userScrollState.touchStartY = event.touches[0].clientY;
+    userScrollState.touchStartX = event.touches[0].clientX;
+    return; // Don't mark as scrolling on initial touch
+  }
+
+  if (event && event.type === 'touchmove') {
+    // Only mark as scrolling if touch moved significantly (more than 10px)
+    if (userScrollState.touchStartY !== null && userScrollState.touchStartX !== null) {
+      const deltaY = Math.abs(event.touches[0].clientY - userScrollState.touchStartY);
+      const deltaX = Math.abs(event.touches[0].clientX - userScrollState.touchStartX);
+
+      if (deltaY < 10 && deltaX < 10) {
+        // Not enough movement - probably a tap, not a scroll
+        return;
+      }
+    }
+  }
+
   userScrollState.isScrolling = true;
   userScrollState.lastUserScrollTime = Date.now();
-  
+
   // Clear any existing timeout
   if (userScrollState.scrollTimeout) {
     clearTimeout(userScrollState.scrollTimeout);
   }
-  
-  console.log(`🔄 USER SCROLL DETECTED - Disabling all scroll restoration for 2 seconds`);
-  
-  // Reset after 2 seconds of no scroll events
+
+  console.log(`🔄 USER SCROLL DETECTED - Disabling all scroll restoration for 1 second`);
+
+  // Reset after 1 second of no scroll events (reduced from 2 seconds)
   userScrollState.scrollTimeout = setTimeout(() => {
     userScrollState.isScrolling = false;
+    userScrollState.touchStartY = null;
+    userScrollState.touchStartX = null;
     console.log(`✅ USER SCROLL ENDED - Re-enabling scroll restoration`);
-  }, 2000);
+  }, 1000);
 }
 
 export function isUserCurrentlyScrolling() {
   const timeSinceLastScroll = Date.now() - userScrollState.lastUserScrollTime;
   return userScrollState.isScrolling || timeSinceLastScroll < 2000;
+}
+
+// Separate check for blocking link clicks - MUCH tighter timing
+// Allows: scroll → stop → immediately click
+export function isActivelyScrollingForLinkBlock() {
+  // Only block if we're in an active scroll RIGHT NOW
+  // The isScrolling flag gets cleared after 1 second of no scroll events
+  // Plus a tiny 200ms buffer to catch the tail end of momentum scrolling
+  const timeSinceLastScroll = Date.now() - userScrollState.lastUserScrollTime;
+  return userScrollState.isScrolling && timeSinceLastScroll < 200;
 }
 
 export function shouldSkipScrollRestoration(reason = "user scrolling") {
