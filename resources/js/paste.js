@@ -48,9 +48,9 @@ let isPasteOperationInProgress = false;
  * @returns {Object} - { isUrl, isYouTube, html, url }
  */
 function detectAndConvertUrls(text) {
-  // Trim and check if it's a single line (no line breaks)
-  const trimmed = text.trim();
-  if (!trimmed || trimmed.includes('\n') || trimmed.includes('\r')) {
+  // Trim and normalize whitespace (remove all newlines/returns)
+  const trimmed = text.trim().replace(/[\n\r]/g, '');
+  if (!trimmed) {
     return { isUrl: false };
   }
 
@@ -75,7 +75,29 @@ function detectAndConvertUrls(text) {
     return { isUrl: false };
   }
 
+  // Security: Only allow http/https protocols (block javascript:, data:, file:, etc.)
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    console.warn(`Blocked unsafe URL protocol: ${url.protocol}`);
+    return { isUrl: false };
+  }
+
+  // Check for image URLs
+  const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)(\?.*)?$/i;
+  if (imageExtensions.test(url.pathname)) {
+    // Escape URL for safe insertion (prevent attribute breakout)
+    const safeUrl = escapeHtml(url.href);
+    const imageHtml = `<img src="${safeUrl}" class="external-link" alt="Pasted image" />`;
+
+    return {
+      isUrl: true,
+      isImage: true,
+      html: imageHtml,
+      url: url.href
+    };
+  }
+
   // Check for YouTube URLs
+
   const youtubePatterns = [
     /(?:youtube\.com\/watch\?v=|youtu\.be\/|m\.youtube\.com\/watch\?v=|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
   ];
@@ -110,7 +132,8 @@ function detectAndConvertUrls(text) {
 
   // Regular URL - create link with HTML-escaped display text
   const escapedDisplayUrl = escapeHtml(url.href);
-  const linkHtml = `<a href="${url.href}" class="external-link" target="_blank" rel="noopener noreferrer">${escapedDisplayUrl}</a>`;
+  const escapedHrefUrl = escapeHtml(url.href);
+  const linkHtml = `<a href="${escapedHrefUrl}" class="external-link" target="_blank" rel="noopener noreferrer">${escapedDisplayUrl}</a>`;
 
   return {
     isUrl: true,
