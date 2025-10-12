@@ -266,19 +266,24 @@ shouldIgnoreEvent(event) {
     
     // Only proceed if we have stored start coordinates
     if (this.startX === undefined || this.startY === undefined) return;
-    
+
     const touch = event.changedTouches[0];
     const deltaX = Math.abs(touch.clientX - this.startX);
     const deltaY = Math.abs(touch.clientY - this.startY);
     const deltaTime = Date.now() - this.touchStartTime;
-    
+
     // Only toggle if it's a quick tap with minimal movement
     if (deltaX < this.tapThreshold && deltaY < this.tapThreshold && deltaTime < 500) {
-      this.elements.forEach((element) => {
-        element.classList.toggle("hidden-nav");
-      });
+      // Don't toggle nav visibility in edit mode
+      if (window.isEditing) {
+        console.log(`🔗 NavButtons: Ignoring touch toggle - edit mode is active`);
+      } else {
+        this.elements.forEach((element) => {
+          element.classList.toggle("hidden-nav");
+        });
+      }
     }
-    
+
     // Reset
     this.startX = undefined;
     this.startY = undefined;
@@ -294,6 +299,13 @@ shouldIgnoreEvent(event) {
       console.log(`🔗 NavButtons: Event ignored by shouldIgnoreEvent`);
       return;
     }
+
+    // Don't toggle nav visibility in edit mode
+    if (window.isEditing) {
+      console.log(`🔗 NavButtons: Ignoring toggle - edit mode is active`);
+      return;
+    }
+
     console.log(`🔗 NavButtons: Toggling nav elements`);
     this.elements.forEach((element) => {
       element.classList.toggle("hidden-nav");

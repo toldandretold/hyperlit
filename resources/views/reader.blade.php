@@ -129,11 +129,13 @@
 
   <div id="nav-buttons" class="loading"> <!-- bottom right buttons -->
       <button type="button" id="editButton">
-          <svg 
-          viewBox="0 0 24 24" 
-          fill="none" 
-          stroke-width="2" 
-          stroke-linecap="round" 
+          <svg
+          viewBox="0 0 24 24"
+          width="100%"
+          height="100%"
+          fill="none"
+          stroke-width="2"
+          stroke-linecap="round"
           stroke-linejoin="round"
               >
           <path d="M12 20h9" />
