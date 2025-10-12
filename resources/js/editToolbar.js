@@ -82,6 +82,7 @@ class EditToolbar {
     this.lastValidRange = null;
 
     this.isProcessingHistory = false;
+    this.storedHeadingElement = null; // Store heading element for X button
 
     if (this.isMobile) {
       this.mobileBackupRange = null;
@@ -300,7 +301,7 @@ class EditToolbar {
   openHeadingSubmenu() {
     if (!this.headingSubmenu) return;
 
-    // Check if currently in a heading
+    // Check if currently in a heading and STORE the heading element
     const parentElement = this.getSelectionParentElement();
     const isInHeading = parentElement && (
       this.hasParentWithTag(parentElement, "H1") ||
@@ -310,6 +311,15 @@ class EditToolbar {
       this.hasParentWithTag(parentElement, "H5") ||
       this.hasParentWithTag(parentElement, "H6")
     );
+
+    // Double-check: Store the heading element reference for Firefox (selection gets lost)
+    // This is a backup in case updateButtonStates didn't catch it
+    if (isInHeading && parentElement && !this.storedHeadingElement) {
+      const blockParent = this.findClosestBlockParent(parentElement);
+      if (blockParent && /^H[1-6]$/.test(blockParent.tagName)) {
+        this.storedHeadingElement = blockParent;
+      }
+    }
 
     // Show/hide the X (remove) button based on whether we're in a heading
     const removeBtn = this.headingSubmenu.querySelector("[data-action='remove-heading']");
@@ -328,14 +338,16 @@ class EditToolbar {
       document.addEventListener("click", this.handleClickOutsideSubmenu);
     }, 0);
 
-    // Attach option click handlers for heading levels
+    // Remove old event listeners before adding new ones (Firefox compatibility)
     const levelButtons = this.headingSubmenu.querySelectorAll("[data-heading]");
     levelButtons.forEach(btn => {
+      btn.removeEventListener("click", this.handleHeadingSelection);
       btn.addEventListener("click", this.handleHeadingSelection);
     });
 
-    // Attach click handler for remove button
+    // Attach click handler for remove button (remove old listener first)
     if (removeBtn) {
+      removeBtn.removeEventListener("click", this.handleRemoveHeading);
       removeBtn.addEventListener("click", this.handleRemoveHeading);
     }
   }
@@ -348,6 +360,7 @@ class EditToolbar {
 
     this.headingSubmenu.classList.add("hidden");
     document.removeEventListener("click", this.handleClickOutsideSubmenu);
+    this.storedHeadingElement = null; // Clear stored element
   }
 
   /**
@@ -369,6 +382,10 @@ class EditToolbar {
    * Handle selection of a heading level
    */
   handleHeadingSelection(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation(); // Firefox compatibility
+
     const level = e.currentTarget.dataset.heading; // "h1", "h2", "h3", "h4"
     this.formatBlock("heading", level);
     this.closeHeadingSubmenu();
@@ -380,6 +397,7 @@ class EditToolbar {
   handleRemoveHeading(e) {
     e.preventDefault();
     e.stopPropagation();
+    e.stopImmediatePropagation(); // Firefox compatibility
 
     // Convert heading to paragraph
     this.convertHeadingToParagraph();
@@ -390,10 +408,9 @@ class EditToolbar {
    * Convert current heading to paragraph
    */
   async convertHeadingToParagraph() {
-    const parentElement = this.getSelectionParentElement();
-    if (!parentElement) return;
+    // Use stored heading element (Firefox-safe) instead of current selection
+    const blockParent = this.storedHeadingElement;
 
-    const blockParent = this.findClosestBlockParent(parentElement);
     if (!blockParent || !/^H[1-6]$/.test(blockParent.tagName)) {
       console.warn("Not currently in a heading");
       return;
@@ -401,11 +418,10 @@ class EditToolbar {
 
     const beforeId = findPreviousElementId(blockParent);
     const afterId = findNextElementId(blockParent);
-    const currentOffset = this.getTextOffsetInElement(
-      blockParent,
-      this.currentSelection.focusNode,
-      this.currentSelection.focusOffset
-    );
+
+    // Get first text node for cursor placement (don't rely on selection)
+    const firstTextNode = this.getFirstTextNode(blockParent);
+    const currentOffset = firstTextNode ? 0 : 0;
 
     const pElement = document.createElement("p");
     pElement.innerHTML = blockParent.innerHTML;
@@ -619,6 +635,16 @@ class EditToolbar {
         this.hasParentWithTag(parentElement, "H6") ? "h6" : null;
 
       this.headingButton.classList.toggle("active", !!activeLevel);
+
+      // Store the current heading element (for Firefox X button support)
+      if (activeLevel && parentElement) {
+        const blockParent = this.findClosestBlockParent(parentElement);
+        if (blockParent && /^H[1-6]$/.test(blockParent.tagName)) {
+          this.storedHeadingElement = blockParent;
+        }
+      } else {
+        this.storedHeadingElement = null;
+      }
 
       // Update submenu button states
       if (this.headingSubmenu) {
@@ -1900,6 +1926,20 @@ class EditToolbar {
     }
 
     return lastTextNode;
+  }
+
+  /**
+   * Get the first text node in an element
+   */
+  getFirstTextNode(element) {
+    const walker = document.createTreeWalker(
+      element,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false
+    );
+
+    return walker.nextNode();
   }
 
   /**
