@@ -250,6 +250,13 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
         window.isEditing = true;
         if (editBtn) editBtn.classList.add("inverted");
 
+        // Ensure nav buttons are visible in edit mode
+        const navButtons = document.getElementById("nav-buttons");
+        if (navButtons) {
+          navButtons.classList.remove("hidden-nav");
+          console.log("👁️ Removed hidden-nav from nav-buttons for edit mode");
+        }
+
         enforceEditableState();
 
         editableDiv.contentEditable = "true";
@@ -374,12 +381,16 @@ function disableEditMode() {
 
   if (!editableDiv) {
     console.warn("Editable div not found during disableEditMode, but state was reset.");
-    return; 
+    return;
   }
 
   if (editBtn) {
     editBtn.classList.remove("inverted");
   }
+
+  // Don't modify nav button visibility when exiting edit mode
+  // Let the scroll handlers control visibility naturally
+  console.log("👁️ Exiting edit mode - nav visibility controlled by scroll handlers");
 
   enforceEditableState();
   editableDiv.contentEditable = "false";
@@ -475,13 +486,19 @@ updateEditButtonVisibility(book);
 function replaceEditButtonWithLock() {
   const editBtn = document.getElementById("editButton");
   if (!editBtn) return;
-  
+
+  // Don't replace if already in locked state
+  if (editBtn.dataset.isLocked === 'true') {
+    console.log("🔒 Button already locked, skipping");
+    return;
+  }
+
   // Store original button content and classes for potential restoration
   if (!editBtn.dataset.originalContent) {
     editBtn.dataset.originalContent = editBtn.innerHTML;
     editBtn.dataset.originalClasses = editBtn.className;
   }
-  
+
   // Replace with lock SVG
   editBtn.innerHTML = `
     <svg fill="currentColor" viewBox="0 0 574.65 574.65" width="100%" height="100%" style="width: 100%; height: 100%;">
@@ -494,15 +511,15 @@ function replaceEditButtonWithLock() {
         c0-33.595,27.338-60.922,60.933-60.922c33.612,0,60.95,27.348,60.95,60.959V189.969L348.241,189.969z"/>
     </svg>
   `;
-  
+
   // Add lock-specific styling
   editBtn.className = editBtn.dataset.originalClasses + ' locked-state';
   editBtn.dataset.isLocked = 'true';
-  
+
   // Remove any existing event listeners by cloning the element
   const newEditBtn = editBtn.cloneNode(true);
   editBtn.parentNode.replaceChild(newEditBtn, editBtn);
-  
+
   console.log("✅ Edit button replaced with lock icon");
 }
 
@@ -534,12 +551,18 @@ function restoreEditButtonFromLock() {
 export async function checkEditPermissionsAndUpdateUI() {
   const currentUser = await getCurrentUser();
   const editBtn = document.getElementById("editButton");
-  
+
   if (!editBtn) return;
-  
+
+  // Don't modify button during edit mode
+  if (window.isEditing) {
+    console.log("⚠️ Skipping permission check - edit mode is active");
+    return;
+  }
+
   // User is logged in - check permissions
   const canEdit = await canUserEditBook(book);
-  
+
   if (canEdit) {
     // User has permissions - show edit button
     restoreEditButtonFromLock();
