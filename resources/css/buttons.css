@@ -86,13 +86,16 @@ black #221F20;
 
 #editButton.inverted {
   background: #CBCCCC;
-  stroke: #221F20;
   width: 20px;
   height: 20px;
   border-radius: 4px;
   border: none;
   pointer-events: auto !important;
   cursor: pointer !important;
+}
+
+#editButton.inverted svg path {
+  stroke: #221F20;
 }
 
 #editButton.locked-state {
@@ -806,11 +809,14 @@ black #221F20;
 
   #editButton.inverted {
     background: #CBCCCC;
-    stroke: #221F20;
     width: 22px;
     height: 22px;
     border-radius: 4px;
     border: none;
+  }
+
+  #editButton.inverted svg path {
+    stroke: #221F20;
   }
 
   #editButton.locked-state {
