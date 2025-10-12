@@ -59,6 +59,7 @@ class EditToolbar {
     this.boldButton = document.getElementById("boldButton");
     this.italicButton = document.getElementById("italicButton");
     this.headingButton = document.getElementById("headingButton");
+    this.headingSubmenu = document.getElementById("heading-submenu");
     this.blockquoteButton = document.getElementById("blockquoteButton");
     this.codeButton = document.getElementById("codeButton");
     this.undoButton = document.getElementById("undoButton");
@@ -71,6 +72,9 @@ class EditToolbar {
     this.attachButtonHandlers = this.attachButtonHandlers.bind(this);
     this.updateHistoryButtonStates =
       this.updateHistoryButtonStates.bind(this); // ✅ NEW: Bind this method
+    this.handleClickOutsideSubmenu = this.handleClickOutsideSubmenu.bind(this);
+    this.handleHeadingSelection = this.handleHeadingSelection.bind(this);
+    this.handleRemoveHeading = this.handleRemoveHeading.bind(this);
 
     this.isVisible = false;
     this.currentSelection = null;
@@ -78,6 +82,7 @@ class EditToolbar {
     this.lastValidRange = null;
 
     this.isProcessingHistory = false;
+    this.storedHeadingElement = null; // Store heading element for X button
 
     if (this.isMobile) {
       this.mobileBackupRange = null;
@@ -130,7 +135,7 @@ class EditToolbar {
       {
         element: this.headingButton,
         name: "heading",
-        action: () => this.formatBlock("heading"),
+        action: () => this.toggleHeadingSubmenu(),
       },
       {
         element: this.blockquoteButton,
@@ -276,6 +281,176 @@ class EditToolbar {
   }
 
   /**
+   * Toggle the heading level submenu
+   */
+  toggleHeadingSubmenu() {
+    if (!this.headingSubmenu) return;
+
+    const isVisible = !this.headingSubmenu.classList.contains("hidden");
+
+    if (isVisible) {
+      this.closeHeadingSubmenu();
+    } else {
+      this.openHeadingSubmenu();
+    }
+  }
+
+  /**
+   * Open the heading level submenu
+   */
+  openHeadingSubmenu() {
+    if (!this.headingSubmenu) return;
+
+    // Check if currently in a heading and STORE the heading element
+    const parentElement = this.getSelectionParentElement();
+    const isInHeading = parentElement && (
+      this.hasParentWithTag(parentElement, "H1") ||
+      this.hasParentWithTag(parentElement, "H2") ||
+      this.hasParentWithTag(parentElement, "H3") ||
+      this.hasParentWithTag(parentElement, "H4") ||
+      this.hasParentWithTag(parentElement, "H5") ||
+      this.hasParentWithTag(parentElement, "H6")
+    );
+
+    // Double-check: Store the heading element reference for Firefox (selection gets lost)
+    // This is a backup in case updateButtonStates didn't catch it
+    if (isInHeading && parentElement && !this.storedHeadingElement) {
+      const blockParent = this.findClosestBlockParent(parentElement);
+      if (blockParent && /^H[1-6]$/.test(blockParent.tagName)) {
+        this.storedHeadingElement = blockParent;
+      }
+    }
+
+    // Show/hide the X (remove) button based on whether we're in a heading
+    const removeBtn = this.headingSubmenu.querySelector("[data-action='remove-heading']");
+    if (removeBtn) {
+      if (isInHeading) {
+        removeBtn.classList.add("visible");
+      } else {
+        removeBtn.classList.remove("visible");
+      }
+    }
+
+    this.headingSubmenu.classList.remove("hidden");
+
+    // Attach click-outside listener after a small delay to prevent immediate closure
+    setTimeout(() => {
+      document.addEventListener("click", this.handleClickOutsideSubmenu);
+    }, 0);
+
+    // Remove old event listeners before adding new ones (Firefox compatibility)
+    const levelButtons = this.headingSubmenu.querySelectorAll("[data-heading]");
+    levelButtons.forEach(btn => {
+      btn.removeEventListener("click", this.handleHeadingSelection);
+      btn.addEventListener("click", this.handleHeadingSelection);
+    });
+
+    // Attach click handler for remove button (remove old listener first)
+    if (removeBtn) {
+      removeBtn.removeEventListener("click", this.handleRemoveHeading);
+      removeBtn.addEventListener("click", this.handleRemoveHeading);
+    }
+  }
+
+  /**
+   * Close the heading level submenu
+   */
+  closeHeadingSubmenu() {
+    if (!this.headingSubmenu) return;
+
+    this.headingSubmenu.classList.add("hidden");
+    document.removeEventListener("click", this.handleClickOutsideSubmenu);
+    this.storedHeadingElement = null; // Clear stored element
+  }
+
+  /**
+   * Handle clicks outside the submenu to close it
+   */
+  handleClickOutsideSubmenu(e) {
+    const submenu = this.headingSubmenu;
+    const headingBtn = this.headingButton;
+
+    if (!submenu || !headingBtn) return;
+
+    // Close if click is outside both submenu and heading button
+    if (!submenu.contains(e.target) && !headingBtn.contains(e.target)) {
+      this.closeHeadingSubmenu();
+    }
+  }
+
+  /**
+   * Handle selection of a heading level
+   */
+  handleHeadingSelection(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation(); // Firefox compatibility
+
+    const level = e.currentTarget.dataset.heading; // "h1", "h2", "h3", "h4"
+    this.formatBlock("heading", level);
+    this.closeHeadingSubmenu();
+  }
+
+  /**
+   * Handle removing heading (convert to paragraph)
+   */
+  handleRemoveHeading(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation(); // Firefox compatibility
+
+    // Convert heading to paragraph
+    this.convertHeadingToParagraph();
+    this.closeHeadingSubmenu();
+  }
+
+  /**
+   * Convert current heading to paragraph
+   */
+  async convertHeadingToParagraph() {
+    // Use stored heading element (Firefox-safe) instead of current selection
+    const blockParent = this.storedHeadingElement;
+
+    if (!blockParent || !/^H[1-6]$/.test(blockParent.tagName)) {
+      console.warn("Not currently in a heading");
+      return;
+    }
+
+    const beforeId = findPreviousElementId(blockParent);
+    const afterId = findNextElementId(blockParent);
+
+    // Get first text node for cursor placement (don't rely on selection)
+    const firstTextNode = this.getFirstTextNode(blockParent);
+    const currentOffset = firstTextNode ? 0 : 0;
+
+    const pElement = document.createElement("p");
+    pElement.innerHTML = blockParent.innerHTML;
+    const newPId = blockParent.id;
+    if (newPId) {
+      pElement.id = newPId;
+    } else {
+      setElementIds(pElement, beforeId, afterId, this.currentBookId);
+    }
+
+    // Preserve data-node-id attribute if it exists
+    if (blockParent.hasAttribute('data-node-id')) {
+      pElement.setAttribute('data-node-id', blockParent.getAttribute('data-node-id'));
+    }
+
+    blockParent.parentNode.replaceChild(pElement, blockParent);
+    this.setCursorAtTextOffset(pElement, currentOffset);
+
+    // Update button states after cursor is set
+    this.currentSelection = window.getSelection();
+    this.updateButtonStates();
+
+    // Save to IndexedDB
+    if (this.currentBookId && pElement.id) {
+      await this.saveToIndexedDB(pElement.id, pElement.outerHTML);
+    }
+  }
+
+  /**
    * Update the active/disabled states of undo/redo buttons.
    */
   async updateHistoryButtonStates() {
@@ -395,6 +570,8 @@ class EditToolbar {
       this.updateHistoryButtonStates(); // Ensure history buttons are up to date on mode change
     } else {
       this.hide();
+      // Close heading submenu if open
+      this.closeHeadingSubmenu();
       // Remove selection change listener when not in edit mode
       document.removeEventListener(
         "selectionchange",
@@ -449,15 +626,32 @@ class EditToolbar {
 
     // Update heading button state
     if (this.headingButton) {
-      this.headingButton.classList.toggle(
-        "active",
-        this.hasParentWithTag(parentElement, "H1") ||
-          this.hasParentWithTag(parentElement, "H2") ||
-          this.hasParentWithTag(parentElement, "H3") ||
-          this.hasParentWithTag(parentElement, "H4") ||
-          this.hasParentWithTag(parentElement, "H5") ||
-          this.hasParentWithTag(parentElement, "H6")
-      );
+      const activeLevel =
+        this.hasParentWithTag(parentElement, "H1") ? "h1" :
+        this.hasParentWithTag(parentElement, "H2") ? "h2" :
+        this.hasParentWithTag(parentElement, "H3") ? "h3" :
+        this.hasParentWithTag(parentElement, "H4") ? "h4" :
+        this.hasParentWithTag(parentElement, "H5") ? "h5" :
+        this.hasParentWithTag(parentElement, "H6") ? "h6" : null;
+
+      this.headingButton.classList.toggle("active", !!activeLevel);
+
+      // Store the current heading element (for Firefox X button support)
+      if (activeLevel && parentElement) {
+        const blockParent = this.findClosestBlockParent(parentElement);
+        if (blockParent && /^H[1-6]$/.test(blockParent.tagName)) {
+          this.storedHeadingElement = blockParent;
+        }
+      } else {
+        this.storedHeadingElement = null;
+      }
+
+      // Update submenu button states
+      if (this.headingSubmenu) {
+        this.headingSubmenu.querySelectorAll("[data-heading]").forEach(btn => {
+          btn.classList.toggle("active", btn.dataset.heading === activeLevel);
+        });
+      }
     }
 
     // Update blockquote button state
@@ -819,10 +1013,11 @@ class EditToolbar {
     }
   }
 
-  async formatBlock(type) {
+  async formatBlock(type, headingLevel = "h2") {
     // ✅ Mark as async
     console.log("🔧 Format block called:", {
       type: type,
+      headingLevel: headingLevel,
       hasCurrentSelection: !!this.currentSelection,
       hasLastValidRange: !!this.lastValidRange,
       isCollapsed: this.currentSelection?.isCollapsed,
@@ -897,12 +1092,18 @@ class EditToolbar {
 
               for (const block of affectedBlocks) {
                 const isHeading = /^H[1-6]$/.test(block.tagName);
+                const currentTag = block.tagName.toLowerCase(); // "h1", "h2", "p", etc.
                 let newBlockElement;
 
-                if (isHeading) {
+                if (isHeading && currentTag === headingLevel) {
+                  // Same heading level - toggle to paragraph
                   newBlockElement = document.createElement("p");
+                } else if (isHeading) {
+                  // Different heading level - convert to new level
+                  newBlockElement = document.createElement(headingLevel);
                 } else {
-                  newBlockElement = document.createElement("h2");
+                  // Not a heading - convert to heading
+                  newBlockElement = document.createElement(headingLevel);
                 }
                 newBlockElement.innerHTML = block.innerHTML;
                 newBlockElement.id = block.id; // Keep the same ID if block is replaced
@@ -944,6 +1145,7 @@ class EditToolbar {
 
           if (blockParent && /^H[1-6]$/.test(blockParent.tagName)) {
             const headingElement = blockParent;
+            const currentHeadingLevel = headingElement.tagName.toLowerCase(); // "h1", "h2", etc.
             const beforeId = findPreviousElementId(headingElement);
             const afterId = findNextElementId(headingElement);
             const currentOffset = this.getTextOffsetInElement(
@@ -951,22 +1153,46 @@ class EditToolbar {
               this.currentSelection.focusNode,
               this.currentSelection.focusOffset
             );
-            const pElement = document.createElement("p");
-            pElement.innerHTML = headingElement.innerHTML;
-            const newPId = headingElement.id;
-            if (newPId) {
-              pElement.id = newPId;
+
+            // Check if clicking the same heading level (toggle to paragraph)
+            // or changing to a different heading level
+            if (currentHeadingLevel === headingLevel) {
+              // Same level - convert to paragraph (toggle off)
+              const pElement = document.createElement("p");
+              pElement.innerHTML = headingElement.innerHTML;
+              const newPId = headingElement.id;
+              if (newPId) {
+                pElement.id = newPId;
+              } else {
+                setElementIds(pElement, beforeId, afterId, this.currentBookId);
+              }
+              // Preserve data-node-id attribute if it exists
+              if (headingElement.hasAttribute('data-node-id')) {
+                pElement.setAttribute('data-node-id', headingElement.getAttribute('data-node-id'));
+              }
+              headingElement.parentNode.replaceChild(pElement, headingElement);
+              this.setCursorAtTextOffset(pElement, currentOffset);
+              modifiedElementId = newPId;
+              newElement = pElement;
             } else {
-              setElementIds(pElement, beforeId, afterId, this.currentBookId);
+              // Different level - convert to new heading level
+              const newHeadingElement = document.createElement(headingLevel);
+              newHeadingElement.innerHTML = headingElement.innerHTML;
+              const newHeadingId = headingElement.id;
+              if (newHeadingId) {
+                newHeadingElement.id = newHeadingId;
+              } else {
+                setElementIds(newHeadingElement, beforeId, afterId, this.currentBookId);
+              }
+              // Preserve data-node-id attribute if it exists
+              if (headingElement.hasAttribute('data-node-id')) {
+                newHeadingElement.setAttribute('data-node-id', headingElement.getAttribute('data-node-id'));
+              }
+              headingElement.parentNode.replaceChild(newHeadingElement, headingElement);
+              this.setCursorAtTextOffset(newHeadingElement, currentOffset);
+              modifiedElementId = newHeadingId;
+              newElement = newHeadingElement;
             }
-            // Preserve data-node-id attribute if it exists
-            if (headingElement.hasAttribute('data-node-id')) {
-              pElement.setAttribute('data-node-id', headingElement.getAttribute('data-node-id'));
-            }
-            headingElement.parentNode.replaceChild(pElement, headingElement);
-            this.setCursorAtTextOffset(pElement, currentOffset);
-            modifiedElementId = newPId;
-            newElement = pElement;
 
             // Update button states after cursor is set
             this.currentSelection = window.getSelection();
@@ -981,22 +1207,22 @@ class EditToolbar {
               this.currentSelection.focusNode,
               this.currentSelection.focusOffset
             );
-            const h2Element = document.createElement("h2");
-            h2Element.innerHTML = blockParent.innerHTML;
-            const newH2Id = blockParent.id;
-            if (newH2Id) {
-              h2Element.id = newH2Id;
+            const headingElement = document.createElement(headingLevel);
+            headingElement.innerHTML = blockParent.innerHTML;
+            const newHeadingId = blockParent.id;
+            if (newHeadingId) {
+              headingElement.id = newHeadingId;
             } else {
-              setElementIds(h2Element, beforeId, afterId, this.currentBookId);
+              setElementIds(headingElement, beforeId, afterId, this.currentBookId);
             }
             // Preserve data-node-id attribute if it exists
             if (blockParent.hasAttribute('data-node-id')) {
-              h2Element.setAttribute('data-node-id', blockParent.getAttribute('data-node-id'));
+              headingElement.setAttribute('data-node-id', blockParent.getAttribute('data-node-id'));
             }
-            blockParent.parentNode.replaceChild(h2Element, blockParent);
-            this.setCursorAtTextOffset(h2Element, currentOffset);
-            modifiedElementId = newH2Id;
-            newElement = h2Element;
+            blockParent.parentNode.replaceChild(headingElement, blockParent);
+            this.setCursorAtTextOffset(headingElement, currentOffset);
+            modifiedElementId = newHeadingId;
+            newElement = headingElement;
 
             // Update button states after cursor is set
             this.currentSelection = window.getSelection();
@@ -1576,6 +1802,7 @@ class EditToolbar {
   destroy() {
     document.removeEventListener("selectionchange", this.handleSelectionChange);
     window.removeEventListener("resize", this.handleResize);
+    document.removeEventListener("click", this.handleClickOutsideSubmenu);
 
     console.log("🧹 EditToolbar: Destroyed and cleaned up");
   }
@@ -1699,6 +1926,20 @@ class EditToolbar {
     }
 
     return lastTextNode;
+  }
+
+  /**
+   * Get the first text node in an element
+   */
+  getFirstTextNode(element) {
+    const walker = document.createTreeWalker(
+      element,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false
+    );
+
+    return walker.nextNode();
   }
 
   /**
