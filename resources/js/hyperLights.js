@@ -1,7 +1,7 @@
 import { book } from './app.js';
 import { fetchLatestUpdateInfo, handleTimestampComparison } from "./updateCheck.js";
 import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from "./lazyLoaderFactory.js";
-import { ContainerManager } from "./container-manager.js";
+import { ContainerManager } from "./containerManager.js";
 import { navigateToInternalId } from "./scrolling.js";
 import { openDatabase, 
          parseNodeId, 
@@ -9,12 +9,12 @@ import { openDatabase,
          updateBookTimestamp,
          getLibraryObjectFromIndexedDB,
          toPublicChunk,
-         queueForSync } from "./cache-indexedDB.js";
-import { attachAnnotationListener } from "./annotation-saver.js";
+         queueForSync } from "./indexedDB.js";
+import { attachAnnotationListener } from "./annotationSaver.js";
 import { addPasteListener } from "./paste.js";
 import { addHighlightContainerPasteListener } from "./hyperLightsListener.js";
 import { getCurrentUser, getCurrentUserId } from "./auth.js";
-import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './unified-container.js';
+import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './unifiedContainer.js';
 
 let highlightId; 
 let highlightLazyLoader;
@@ -1248,7 +1248,7 @@ export async function hideHighlightById(highlightId) {
   
   try {
     // Get the highlight data first to determine the book
-    const { openDatabase } = await import('./cache-indexedDB.js');
+    const { openDatabase } = await import('./indexedDB.js');
     const db = await openDatabase();
     const tx = db.transaction("hyperlights", "readonly");
     const store = tx.objectStore("hyperlights");
@@ -1316,11 +1316,11 @@ export async function hideHighlightById(highlightId) {
     await removeHighlightFromNodeChunks(bookId, highlightId);
     
     // Update book timestamp locally
-    const { updateBookTimestamp } = await import('./cache-indexedDB.js');
+    const { updateBookTimestamp } = await import('./indexedDB.js');
     await updateBookTimestamp(bookId);
     
     // Queue ONLY the hide operation for sync to PostgreSQL - no nodeChunk updates
-    const { queueForSync } = await import('./cache-indexedDB.js');
+    const { queueForSync } = await import('./indexedDB.js');
     if (hiddenHyperlight) {
       // Pass the highlight data for the sync to work
       queueForSync("hyperlights", highlightId, "hide", hiddenHyperlight);
@@ -1351,7 +1351,7 @@ export async function reprocessHighlightsForNodes(bookId, affectedNodeIds) {
   console.log(`🔄 Reprocessing highlights for nodes:`, affectedNodeIds);
   
   try {
-    const { getNodeChunksFromIndexedDB } = await import('./cache-indexedDB.js');
+    const { getNodeChunksFromIndexedDB } = await import('./indexedDB.js');
     const { applyHighlights } = await import('./lazyLoaderFactory.js');
     
     // Get the updated node chunks which should have the correct hyperlights after deletion

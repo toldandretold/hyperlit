@@ -6,7 +6,7 @@ import {
   updateBookTimestamp,
   addNewBookToIndexedDB,
   syncNodeChunksToPostgreSQL
-} from "./cache-indexedDB.js";
+} from "./indexedDB.js";
 import { buildBibtexEntry } from "./bibtexProcessor.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 import { getCurrentUser, getAnonymousToken } from "./auth.js";

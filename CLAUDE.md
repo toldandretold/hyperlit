@@ -119,7 +119,7 @@ Content is loaded on-demand using intersection observers:
 
 - `lazyLoaderFactory.js` - Main lazy loading orchestrator
 - `chunkManager.js` - Manages content chunks (typically 10 paragraphs per chunk)
-- `cache-indexedDB.js` - IndexedDB operations (DB_VERSION = 21)
+- `indexedDB.js` - IndexedDB operations (DB_VERSION = 21)
 
 Content is divided into "chunks" stored in the `node_chunks` table/store, loaded as users scroll.
 
@@ -148,7 +148,7 @@ Content is divided into "chunks" stored in the `node_chunks` table/store, loaded
 
 #### IndexedDB Stores
 
-Mirrors PostgreSQL structure for offline capability (see `cache-indexedDB.js:35`):
+Mirrors PostgreSQL structure for offline capability (see `indexedDB.js:35`):
 - `nodeChunks` - keyPath: `["book", "startLine"]`
 - `hyperlights` - keyPath: `["book", "hyperlight_id"]`
 - `hypercites` - keyPath: `["book", "hyperciteId"]`
@@ -163,7 +163,7 @@ Mirrors PostgreSQL structure for offline capability (see `cache-indexedDB.js:35`
 
 - `app.js` - Application entry point, exports global `book` variable
 - `initializePage.js` - Main initialization orchestrator
-- `reader-DOMContentLoaded.js` - DOM ready handler, initializes reader view
+- `readerDOMContentLoaded.js` - DOM ready handler, initializes reader view
 - `viewManager.js` - View state management (reader/edit modes)
 
 #### Content Management
@@ -172,8 +172,8 @@ Mirrors PostgreSQL structure for offline capability (see `cache-indexedDB.js:35`
 - `hyperCites.js` - **Two-way automatic citation system** (copy/paste citations with bidirectional linking)
 - `divEditor.js` - Rich text editing with toolbar
 - `editToolbar.js` - Editor toolbar component
-- `unified-container.js` - Unified popup container for highlights/citations/footnotes
-- `container-manager.js` - Manages container lifecycle
+- `unifiedContainer.js` - Unified popup container for highlights/citations/footnotes
+- `containerManager.js` - Manages container lifecycle
 
 #### Navigation & UI
 
@@ -184,7 +184,7 @@ Mirrors PostgreSQL structure for offline capability (see `cache-indexedDB.js:35`
 
 #### Data Synchronization
 
-- `cache-indexedDB.js` - IndexedDB CRUD operations, schema migrations
+- `indexedDB.js` - IndexedDB CRUD operations, schema migrations
 - `postgreSQL.js` - PostgreSQL sync via Laravel API
 - `operationState.js` - Tracks pending operations, prevents race conditions
 - `BroadcastListener.js` - Cross-tab synchronization
@@ -273,7 +273,7 @@ User pages are dynamically generated books showing a user's library. When access
 
 1. User clicks edit button → `viewManager.js` enables edit mode
 2. Content becomes editable via `divEditor.js` (contenteditable divs)
-3. Changes debounced and saved to IndexedDB via `cache-indexedDB.js`
+3. Changes debounced and saved to IndexedDB via `indexedDB.js`
 4. Background sync pushes to PostgreSQL via `postgreSQL.js`
 5. Success/error indicators via `editIndicator.js`
 6. History tracked in `historyLog` store for undo/redo
@@ -294,7 +294,7 @@ When adding fields to PostgreSQL tables:
 1. Create Laravel migration in `database/migrations/`
 2. Run migration: `php artisan migrate`
 3. Update corresponding model in `app/Models/`
-4. Update IndexedDB schema in `cache-indexedDB.js`:
+4. Update IndexedDB schema in `indexedDB.js`:
    - Increment `DB_VERSION`
    - Add field to store config
    - Handle migration in `onupgradeneeded`
@@ -365,7 +365,7 @@ The `vite.config.js` includes:
 
 ### IndexedDB Schema Changes
 
-Always increment `DB_VERSION` in `cache-indexedDB.js` and handle migration in the `onupgradeneeded` event. The migration system preserves existing data during upgrades (see `cache-indexedDB.js:27`).
+Always increment `DB_VERSION` in `indexedDB.js` and handle migration in the `onupgradeneeded` event. The migration system preserves existing data during upgrades (see `indexedDB.js:27`).
 
 ## Key Design Decisions
 

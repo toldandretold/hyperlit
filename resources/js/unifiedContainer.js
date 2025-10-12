@@ -1,7 +1,7 @@
-// unified-container.js - Unified system for all hyperlit content types
+// unifiedContainer.js - Unified system for all hyperlit content types
 import { book } from "./app.js";
-import { openDatabase } from "./cache-indexedDB.js";
-import { ContainerManager } from "./container-manager.js";
+import { openDatabase } from "./indexedDB.js";
+import { ContainerManager } from "./containerManager.js";
 import { formatBibtexToCitation } from "./bibtexProcessor.js";
 import { getCurrentUserId } from "./auth.js";
 
@@ -1229,7 +1229,7 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
   if (highlightType) {
     try {
       // Import the required functions
-      const { attachAnnotationListener } = await import('./annotation-saver.js');
+      const { attachAnnotationListener } = await import('./annotationSaver.js');
       const { addHighlightContainerPasteListener } = await import('./hyperLightsListener.js');
       const { attachPlaceholderBehavior } = await import('./hyperLights.js');
 
@@ -1587,7 +1587,7 @@ async function hideHighlight(highlightId) {
     console.log(`🙈 Hiding highlight: ${highlightId}`);
     
     // Get highlight data to determine book
-    const { openDatabase } = await import('./cache-indexedDB.js');
+    const { openDatabase } = await import('./indexedDB.js');
     const db = await openDatabase();
     const tx = db.transaction("hyperlights", "readonly");
     const store = tx.objectStore("hyperlights");
