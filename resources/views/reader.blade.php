@@ -268,6 +268,15 @@
       </svg>
     </button>
 
+    <!-- Heading Level Submenu -->
+    <div id="heading-submenu" class="heading-submenu hidden">
+      <button type="button" class="heading-remove-btn" data-action="remove-heading" title="Remove heading">✕</button>
+      <button type="button" class="heading-level-btn" data-heading="h1">H1</button>
+      <button type="button" class="heading-level-btn" data-heading="h2">H2</button>
+      <button type="button" class="heading-level-btn" data-heading="h3">H3</button>
+      <button type="button" class="heading-level-btn" data-heading="h4">H4</button>
+    </div>
+
     <button type="button" id="blockquoteButton">
     <svg
       viewBox="0 0 24 24"
