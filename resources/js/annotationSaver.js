@@ -1,5 +1,5 @@
 import { withPending } from "./operationState.js";
-import { openDatabase, queueForSync } from "./cache-indexedDB.js";
+import { openDatabase, queueForSync } from "./indexedDB.js";
 
 // Debounce timer variable for the highlight container.
 let annotationDebounceTimer = null;

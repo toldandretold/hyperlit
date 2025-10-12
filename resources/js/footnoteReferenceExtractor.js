@@ -1,5 +1,5 @@
-// footnote-reference-extractor.js - Extract footnotes and references from pasted content
-import { openDatabase } from './cache-indexedDB.js';
+// footnoteReferenceExtractor.js - Extract footnotes and references from pasted content
+import { openDatabase } from './indexedDB.js';
 
 // ========================================================================
 // FOOTNOTE EXTRACTION SYSTEM

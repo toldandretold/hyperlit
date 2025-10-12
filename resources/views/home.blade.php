@@ -180,6 +180,6 @@
 <script src="{{ asset('js/rangy-classapplier.min.js') }}"></script>
 <script src="{{ asset('js/rangy-highlighter.min.js') }}"></script>
 @vite([
-    'resources/js/reader-DOMContentLoaded.js'
+    'resources/js/readerDOMContentLoaded.js'
 ])
 @endsection

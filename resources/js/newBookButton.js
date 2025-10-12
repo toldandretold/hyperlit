@@ -1,5 +1,5 @@
-import { ContainerManager } from "./container-manager.js";
-import { openDatabase } from "./cache-indexedDB.js";
+import { ContainerManager } from "./containerManager.js";
+import { openDatabase } from "./indexedDB.js";
 // Navigation imports moved to new system - see createBookHandler function
 import { ensureAuthInitialized } from "./auth.js";
 

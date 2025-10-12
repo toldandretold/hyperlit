@@ -7,7 +7,7 @@ import { book } from "./app.js";
 import { incrementPendingOperations, decrementPendingOperations } from './operationState.js';
 import { addPasteListener } from './paste.js';
 import { getCurrentUser, canUserEditBook } from './auth.js';
-import { getLibraryObjectFromIndexedDB } from './cache-indexedDB.js';
+import { getLibraryObjectFromIndexedDB } from './indexedDB.js';
 import { initEditToolbar, getEditToolbar } from './editToolbar.js';
 import userManager from "./userContainer.js";
 import { pendingFirstChunkLoadedPromise } from './initializePage.js';

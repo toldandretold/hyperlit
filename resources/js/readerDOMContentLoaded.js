@@ -1,4 +1,4 @@
-// In resources/js/reader-DOMContentLoaded.js
+// In resources/js/readerDOMContentLoaded.js
 
 // =================================================================
 // THE KEY FIX: Import app.js first to set up initial state.
@@ -6,11 +6,11 @@
 import { book } from "./app.js";
 // =================================================================
 
-import { openDatabase } from "./cache-indexedDB.js";
+import { openDatabase } from "./indexedDB.js";
 import { fireAndForgetSync } from "./createNewBook.js";
 import { universalPageInitializer } from "./viewManager.js";
 import { initializeHomepage } from "./homepage.js";
-import { initializeFootnoteCitationListeners } from "./footnotes-citations.js";
+import { initializeFootnoteCitationListeners } from "./footnotesCitations.js";
 // ✅ This import is correct. We just need to use it.
 import { setInitialBookSyncPromise } from "./operationState.js";
 import { generateTableOfContents } from "./toc.js";

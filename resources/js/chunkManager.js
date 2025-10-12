@@ -1,4 +1,4 @@
-import { updateIndexedDBRecord } from './cache-indexedDB.js';
+import { updateIndexedDBRecord } from './indexedDB.js';
 import { generateIdBetween } from './IDfunctions.js';
 import { setChunkOverflowInProgress, currentObservedChunk } from './operationState.js';
 import { startObserving, stopObserving, movedNodesByOverflow } from './divEditor.js';

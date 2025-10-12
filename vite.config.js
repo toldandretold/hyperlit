@@ -85,20 +85,20 @@ export default defineConfig({
 
                 // JAVASCRIPT (sorted, with new files added)
                 'resources/js/app.js',
-                'resources/js/cache-indexedDB.js',
+                'resources/js/indexedDB.js',
                 'resources/js/chunkManager.js',
-                'resources/js/convert-markdown.js',
+                'resources/js/convertMarkdown.js',
                 'resources/js/editToolbar.js',
-                'resources/js/footnotes-citations.js',
+                'resources/js/footnotesCitations.js',
                 'resources/js/homepage.js',                 // ✅ NEW
                 'resources/js/hyperLights.js',
                 'resources/js/initializePage.js',
-                'resources/js/lazy-loading-div.js',
+                'resources/js/lazyLoadingDiv.js',
                 'resources/js/lazyLoaderFactory.js',
                 'resources/js/newBookButton.js',
                 'resources/js/newBookForm.js',
                 'resources/js/postgreSQL.js',
-                'resources/js/reader-DOMContentLoaded.js',
+                'resources/js/readerDOMContentLoaded.js',
                 'resources/js/renderOpenBooks.js',
                 'resources/js/scrolling.js',
                 'resources/js/toc.js',      // ✅ NEW

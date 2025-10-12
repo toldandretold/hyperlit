@@ -13,7 +13,7 @@ import { getNodeChunksAfter,
          deleteNodeChunksAfter,
          writeNodeChunks,
          updateCitationForExistingHypercite,
-         queueForSync } from './cache-indexedDB.js';
+         queueForSync } from './indexedDB.js';
 import { syncIndexedDBtoPostgreSQL } from './postgreSQL.js';
 import { initializeMainLazyLoader } from './initializePage.js';
 import { parseHyperciteHref } from './hyperCites.js';
@@ -26,7 +26,7 @@ import {
 } from './operationState.js';
 import { queueNodeForSave } from './divEditor.js';
 import { broadcastToOpenTabs } from './BroadcastListener.js';
-import { processContentForFootnotesAndReferences } from './footnote-reference-extractor.js';
+import { processContentForFootnotesAndReferences } from './footnoteReferenceExtractor.js';
 
 // Configure marked options
 marked.setOptions({
@@ -1367,7 +1367,7 @@ async function handleJsonPaste(
     currentElement.remove();
     
     // Delete H1 from IndexedDB
-    const { deleteIndexedDBRecord } = await import('./cache-indexedDB.js');
+    const { deleteIndexedDBRecord } = await import('./indexedDB.js');
     await deleteIndexedDBRecord(insertionPoint.book, "1");
     
     // Update insertion point to be after node 0 (so first paste becomes node 1)

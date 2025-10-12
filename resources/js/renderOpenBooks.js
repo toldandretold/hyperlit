@@ -1,5 +1,5 @@
 // renderOpenBooks.js
-import { openDatabase } from './cache-indexedDB.js';
+import { openDatabase } from './indexedDB.js';
 import { formatBibtexToCitation } from './bibtexProcessor.js';
 
 async function getAllRecords(db, storeName) {

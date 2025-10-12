@@ -63,7 +63,7 @@ export class FreshPageLoader {
 
   /**
    * Setup fresh page load listeners
-   * This should be called from reader-DOMContentLoaded.js
+   * This should be called from readerDOMContentLoaded.js
    */
   static setupFreshPageLoadHandling() {
     // Handle browser back/forward cache restoration

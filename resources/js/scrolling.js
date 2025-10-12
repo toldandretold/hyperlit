@@ -5,8 +5,8 @@ import { openHighlightById } from './hyperLights.js';
 import {
   getNodeChunksFromIndexedDB,
   getLocalStorageKey
-} from "./cache-indexedDB.js";
-import { parseMarkdownIntoChunksInitial } from "./convert-markdown.js";
+} from "./indexedDB.js";
+import { parseMarkdownIntoChunksInitial } from "./convertMarkdown.js";
 import { currentLazyLoader, pendingFirstChunkLoadedPromise } from "./initializePage.js";
 import { repositionSentinels } from "./lazyLoaderFactory.js"; // if exported
 import {
@@ -585,7 +585,7 @@ export async function hideNavigationLoading() {
   
   // Use our progress completion animation instead of directly hiding
   try {
-    const { hidePageLoadProgress } = await import('./reader-DOMContentLoaded.js');
+    const { hidePageLoadProgress } = await import('./readerDOMContentLoaded.js');
     await hidePageLoadProgress();
     console.log('🎯 Initial overlay hidden with completion animation');
   } catch (e) {
