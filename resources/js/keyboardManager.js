@@ -183,6 +183,9 @@ scrollCaretIntoView(element) {
     toolbar.style.setProperty("left", "0", "important");
     toolbar.style.setProperty("right", "0", "important");
     toolbar.style.setProperty("z-index", "999999", "important");
+
+    // Remove old listener before adding to prevent buildup
+    toolbar.removeEventListener("touchstart", this.preventToolbarScroll);
     toolbar.addEventListener("touchstart", this.preventToolbarScroll, {
       passive: false,
     });
