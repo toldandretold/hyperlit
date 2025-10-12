@@ -341,14 +341,49 @@ class EditToolbar {
     // Remove old event listeners before adding new ones (Firefox compatibility)
     const levelButtons = this.headingSubmenu.querySelectorAll("[data-heading]");
     levelButtons.forEach(btn => {
+      // Remove old listeners
       btn.removeEventListener("click", this.handleHeadingSelection);
+      btn.removeEventListener("touchstart", this.handleSubmenuTouchStart);
+      btn.removeEventListener("touchend", this.handleSubmenuTouchEnd);
+
+      // Add new listeners
       btn.addEventListener("click", this.handleHeadingSelection);
+
+      // Mobile touch handlers
+      btn.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }, { passive: false });
+
+      btn.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const level = e.currentTarget.dataset.heading;
+        this.formatBlock("heading", level);
+        this.closeHeadingSubmenu();
+      }, { passive: false });
     });
 
-    // Attach click handler for remove button (remove old listener first)
+    // Attach handlers for remove button (remove old listeners first)
     if (removeBtn) {
       removeBtn.removeEventListener("click", this.handleRemoveHeading);
+      removeBtn.removeEventListener("touchstart", this.handleSubmenuTouchStart);
+      removeBtn.removeEventListener("touchend", this.handleSubmenuTouchEnd);
+
       removeBtn.addEventListener("click", this.handleRemoveHeading);
+
+      // Mobile touch handlers for X button
+      removeBtn.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }, { passive: false });
+
+      removeBtn.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.convertHeadingToParagraph();
+        this.closeHeadingSubmenu();
+      }, { passive: false });
     }
   }
 
