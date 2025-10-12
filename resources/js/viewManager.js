@@ -692,19 +692,19 @@ export async function universalPageInitializer(progressCallback = null) {
   await Promise.all([loadPromise, waitForLayoutStabilization()]);
   
   console.log("✅ DOM settled. Initializing static UI components...");
-    // Use the persistent NavButtons instance from reader-DOMContentLoaded.js
+    // Use the persistent TogglePerimeterButtons instance from reader-DOMContentLoaded.js
     import('./reader-DOMContentLoaded.js').then(module => {
-      if (module.navButtons) {
-        console.log("🔍 NavButtons before destroy - isInitialized:", module.navButtons.isInitialized);
+      if (module.togglePerimeterButtons) {
+        console.log("🔍 TogglePerimeterButtons before destroy - isInitialized:", module.togglePerimeterButtons.isInitialized);
         // Always destroy and reinitialize to ensure clean state after DOM changes
-        module.navButtons.destroy();
-        console.log("🔍 NavButtons after destroy - isInitialized:", module.navButtons.isInitialized);
-        module.navButtons.rebindElements();
-        console.log("🔍 NavButtons calling init() - isInitialized:", module.navButtons.isInitialized);
-        module.navButtons.init();
-        console.log("🔍 NavButtons after init() - isInitialized:", module.navButtons.isInitialized);
-        module.navButtons.updatePosition();
-        console.log("✅ Reinitialized NavButtons instance for universalPageInitializer");
+        module.togglePerimeterButtons.destroy();
+        console.log("🔍 TogglePerimeterButtons after destroy - isInitialized:", module.togglePerimeterButtons.isInitialized);
+        module.togglePerimeterButtons.rebindElements();
+        console.log("🔍 TogglePerimeterButtons calling init() - isInitialized:", module.togglePerimeterButtons.isInitialized);
+        module.togglePerimeterButtons.init();
+        console.log("🔍 TogglePerimeterButtons after init() - isInitialized:", module.togglePerimeterButtons.isInitialized);
+        module.togglePerimeterButtons.updatePosition();
+        console.log("✅ Reinitialized TogglePerimeterButtons instance for universalPageInitializer");
       }
     });
     // Check page type and initialize all components for both page types

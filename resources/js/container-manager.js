@@ -211,10 +211,10 @@ export class ContainerManager {
     const topRightContainer = document.getElementById("topRightContainer");
     const userButtonContainer = document.getElementById("userButtonContainer");
     
-    if (navButtons) this.navElementsState.navButtons = !navButtons.classList.contains("hidden-nav");
-    if (logoContainer) this.navElementsState.logoContainer = !logoContainer.classList.contains("hidden-nav");
-    if (topRightContainer) this.navElementsState.topRightContainer = !topRightContainer.classList.contains("hidden-nav");
-    if (userButtonContainer) this.navElementsState.userButtonContainer = !userButtonContainer.classList.contains("hidden-nav");
+    if (navButtons) this.navElementsState.navButtons = !navButtons.classList.contains("perimeter-hidden");
+    if (logoContainer) this.navElementsState.logoContainer = !logoContainer.classList.contains("perimeter-hidden");
+    if (topRightContainer) this.navElementsState.topRightContainer = !topRightContainer.classList.contains("perimeter-hidden");
+    if (userButtonContainer) this.navElementsState.userButtonContainer = !userButtonContainer.classList.contains("perimeter-hidden");
     
     console.log("Saved nav elements state:", this.navElementsState);
   }
@@ -224,9 +224,9 @@ export class ContainerManager {
     const logoContainer = document.getElementById("logoContainer");
     const userButtonContainer = document.getElementById("userButtonContainer");
     
-    if (navButtons) navButtons.classList.toggle("hidden-nav", !this.navElementsState.navButtons);
-    if (logoContainer) logoContainer.classList.toggle("hidden-nav", !this.navElementsState.logoContainer);
-    if (userButtonContainer) userButtonContainer.classList.toggle("hidden-nav", !this.navElementsState.userButtonContainer);
+    if (navButtons) navButtons.classList.toggle("perimeter-hidden", !this.navElementsState.navButtons);
+    if (logoContainer) logoContainer.classList.toggle("perimeter-hidden", !this.navElementsState.logoContainer);
+    if (userButtonContainer) userButtonContainer.classList.toggle("perimeter-hidden", !this.navElementsState.userButtonContainer);
     
     console.log("Restored nav elements state:", this.navElementsState);
   }
@@ -236,9 +236,9 @@ export class ContainerManager {
     if (!topRight) return;
 
     if (this.isOpen && this.container.id === "source-container") {
-      topRight.classList.toggle("hidden-nav", !this.navElementsState.topRightContainer);
+      topRight.classList.toggle("perimeter-hidden", !this.navElementsState.topRightContainer);
     } else {
-      topRight.classList.remove("hidden-nav");
+      topRight.classList.remove("perimeter-hidden");
     }
   }
 
@@ -254,9 +254,9 @@ export class ContainerManager {
         const navButtons = document.getElementById("nav-buttons");
         const logoContainer = document.getElementById("logoContainer");
         const userButtonContainer = document.getElementById("userButtonContainer");
-        if (navButtons) navButtons.classList.add("hidden-nav");
-        if (logoContainer) logoContainer.classList.add("hidden-nav");
-        if (userButtonContainer) userButtonContainer.classList.add("hidden-nav");
+        if (navButtons) navButtons.classList.add("perimeter-hidden");
+        if (logoContainer) logoContainer.classList.add("perimeter-hidden");
+        if (userButtonContainer) userButtonContainer.classList.add("perimeter-hidden");
       }
     } else {
       this.container.classList.remove("open");
@@ -285,9 +285,9 @@ export class ContainerManager {
       const navButtons = document.getElementById("nav-buttons");
       const logoContainer = document.getElementById("logoContainer");
       const userButtonContainer = document.getElementById("userButtonContainer");
-      if (navButtons) navButtons.classList.add("hidden-nav");
-      if (logoContainer) logoContainer.classList.add("hidden-nav");
-      if (userButtonContainer) userButtonContainer.classList.add("hidden-nav");
+      if (navButtons) navButtons.classList.add("perimeter-hidden");
+      if (logoContainer) logoContainer.classList.add("perimeter-hidden");
+      if (userButtonContainer) userButtonContainer.classList.add("perimeter-hidden");
     }
     
     this.updateState();
@@ -320,9 +320,9 @@ export class ContainerManager {
       const navButtons = document.getElementById("nav-buttons");
       const logoContainer = document.getElementById("logoContainer");
       const userButtonContainer = document.getElementById("userButtonContainer");
-      if (navButtons) navButtons.classList.remove("hidden-nav");
-      if (logoContainer) logoContainer.classList.remove("hidden-nav");
-      if (userButtonContainer) userButtonContainer.classList.remove("hidden-nav");
+      if (navButtons) navButtons.classList.remove("perimeter-hidden");
+      if (logoContainer) logoContainer.classList.remove("perimeter-hidden");
+      if (userButtonContainer) userButtonContainer.classList.remove("perimeter-hidden");
     }
     
     // Handle hyperlit container URL cleanup when closing via overlay/direct close
