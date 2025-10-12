@@ -973,7 +973,7 @@ black #221F20;
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5) !important;
   }
 
-  /* 
+  /*
     FIX: Prevent "sticky hover" on touch devices.
     This media query targets devices that don't have a real hover capability.
     It disables the color-inversion hover effect that gets stuck on tap,
@@ -997,6 +997,24 @@ black #221F20;
     #undoButton:hover svg path,
     #redoButton:hover svg path {
       fill: #cbcccc; /* Keep undo/redo arrow "white" */
+    }
+
+    /* BUT: Allow .active state to properly invert colors on touch devices
+       Safari applies both :hover and .active when tapping, so these rules
+       override the hover rules above when .active is present */
+    #edit-toolbar button.active svg rect {
+      fill: transparent !important; /* Invert: make background transparent */
+    }
+
+    #edit-toolbar button.active svg path,
+    #edit-toolbar button.active svg line,
+    #edit-toolbar button.active svg polyline {
+      stroke: #221f20 !important; /* Invert: make strokes black */
+    }
+
+    #undoButton.active svg path,
+    #redoButton.active svg path {
+      fill: #221f20 !important; /* Invert: make filled paths black */
     }
   }
 }
