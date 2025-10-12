@@ -3,9 +3,11 @@
     "type": "module",
     "scripts": {
         "php": "php artisan serve --host=127.0.0.1 --port=8000",
+        "php:network": "php artisan serve --host=0.0.0.0 --port=8000",
         "queue": "php artisan queue:work",
         "dev": "vite",
         "dev:all": "concurrently -k -r -n PHP,QUEUE,DEV -c \"cyan,magenta,green\" \"npm:php\" \"npm:queue\" \"npm:dev\"",
+        "dev:network": "node show-ip.js && concurrently -k -r -n PHP,QUEUE,DEV -c \"cyan,magenta,green\" \"npm:php:network\" \"npm:queue\" \"npm:dev\"",
         "build": "vite build"
     },
     "devDependencies": {
