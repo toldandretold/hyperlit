@@ -500,6 +500,78 @@ black #221F20;
   stroke: none; /* Ensure no stroke is accidentally applied. */
 }
 
+/* Heading Submenu */
+.heading-submenu {
+  position: absolute;
+  background: rgba(34, 31, 32, 0.85);
+  backdrop-filter: blur(10px);
+  border: .25px solid rgba(203, 204, 204, 0.2); 
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 1001;
+  display: flex;
+  gap: 4px;
+}
+
+.heading-submenu.hidden {
+  display: none;
+}
+
+/* Desktop: vertical toolbar, submenu to the left */
+@media (min-width: 769px) {
+  .heading-submenu {
+    right: calc(100% + 8px);
+    top: 0;
+    flex-direction: column;
+  }
+}
+
+/* Mobile: horizontal toolbar, submenu above */
+@media (max-width: 768px) {
+  .heading-submenu {
+    bottom: calc(100% + 1px);
+    left: 50%;
+    transform: translateX(-50%);
+    flex-direction: row;
+  }
+}
+
+.heading-level-btn,
+.heading-remove-btn {
+  background: transparent;
+  border: none;
+  color: #CBCCCC;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.heading-remove-btn {
+  font-size: 18px;
+  padding: 6px 10px;
+  display: none; /* Hidden by default */
+}
+
+.heading-remove-btn.visible {
+  display: block;
+}
+
+.heading-level-btn:hover,
+.heading-remove-btn:hover {
+  background-color: #CBCCCC;
+  color: #221F20;
+  transform: scale(1.05);
+}
+
+.heading-level-btn.active {
+  background-color: #CBCCCC;
+  color: #221F20;
+}
+
 /* end  */
 /*
   =====================================================================
