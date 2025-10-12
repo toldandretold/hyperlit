@@ -63,13 +63,22 @@ const removedNodeIds = new Set(); // Track IDs of removed nodes.
 let observer;
 let documentChanged = false;
 let debounceTimer = null;
-let spanCleanupInterval;
 
 let observedChunks = new Map(); // chunkId -> chunk element
 let deletionHandler = null;
 
 let isObserverRestarting = false;
 let selectionChangeDebounceTimer = null;
+
+// 🔧 FIX 7a: Track pending saves monitor for cleanup
+let pendingSavesMonitor = null;
+
+// 🔧 FIX 7b: Track video delete handler for cleanup
+let videoDeleteHandler = null;
+
+// 🚀 PERFORMANCE: Debounced mutation processing
+let mutationQueue = [];
+let mutationProcessorRAF = null;
 
 
 
@@ -87,11 +96,11 @@ const debounceTimers = {
 
 // Debounce delays (in milliseconds)
 const DEBOUNCE_DELAYS = {
-  TYPING: 800,        // Wait 800ms after user stops typing
+  TYPING: 300,        // Wait 300ms after user stops typing (reduced for better responsiveness)
   MUTATIONS: 300,     // Wait 300ms after mutations stop
   SAVES: 500,         // Wait 500ms between save operations
   BULK_SAVE: 1000 , // Wait 1s for bulk operations
-  TITLE_SYNC: 500,    
+  TITLE_SYNC: 500,
 };
 
 // Track what needs to be saved
@@ -255,15 +264,23 @@ async function saveNodeToDatabase() {
 // ACTIVITY MONITORING
 // ================================================================
 
-// Monitor pending saves and log activity
-setInterval(() => {
-  const now = Date.now();
-  const timeSinceLastActivity = pendingSaves.lastActivity ? now - pendingSaves.lastActivity : null;
-  
-  if (pendingSaves.nodes.size > 0 || pendingSaves.deletions.size > 0 ) {
-    console.log(`📊 Pending saves: ${pendingSaves.nodes.size} nodes, ${pendingSaves.deletions.size} deletions (${timeSinceLastActivity}ms since last activity)`);
+// 🔧 FIX 7a: Start monitoring function (called from startObserving)
+function startPendingSavesMonitor() {
+  // Clear any existing monitor first
+  if (pendingSavesMonitor) {
+    clearInterval(pendingSavesMonitor);
   }
-}, 5000); // Log every 5 seconds if there's pending activity
+
+  // Monitor pending saves and log activity
+  pendingSavesMonitor = setInterval(() => {
+    const now = Date.now();
+    const timeSinceLastActivity = pendingSaves.lastActivity ? now - pendingSaves.lastActivity : null;
+
+    if (pendingSaves.nodes.size > 0 || pendingSaves.deletions.size > 0 ) {
+      console.log(`📊 Pending saves: ${pendingSaves.nodes.size} nodes, ${pendingSaves.deletions.size} deletions (${timeSinceLastActivity}ms since last activity)`);
+    }
+  }, 5000); // Log every 5 seconds if there's pending activity
+}
 
 // Force save all pending changes (useful for page unload)
 export function flushAllPendingSaves() {
@@ -285,8 +302,21 @@ export function flushAllPendingSaves() {
   }
 }
 
-// Add page unload handler to flush saves
-window.addEventListener('beforeunload', flushAllPendingSaves);
+// Add page unload handler to flush saves and pending mutations
+window.addEventListener('beforeunload', () => {
+  // 🚀 PERFORMANCE: Flush any queued mutations immediately
+  if (mutationQueue.length > 0) {
+    console.log('🚨 Flushing queued mutations on page unload');
+    if (mutationProcessorRAF) {
+      cancelAnimationFrame(mutationProcessorRAF);
+      mutationProcessorRAF = null;
+    }
+    processMutationQueue();
+  }
+
+  // Flush pending saves
+  flushAllPendingSaves();
+});
 
 // Modified startObserving function.
 // Note: editable div = <div class="main-content" id="book" contenteditable="true">
@@ -298,15 +328,22 @@ export function startObserving(editableDiv) {
   stopObserving();
 
   // 🎬 VIDEO DELETE HANDLER: Handle video embed delete button clicks
-  editableDiv.addEventListener('click', (e) => {
-    const deleteBtn = e.target.closest('[data-action="delete-video"]');
-    if (deleteBtn) {
-      e.preventDefault();
-      e.stopPropagation();
+  // 🔧 FIX 7b: Remove old handler if it exists
+  if (videoDeleteHandler) {
+    editableDiv.removeEventListener('click', videoDeleteHandler);
+  }
 
-      const videoEmbed = deleteBtn.closest('.video-embed');
-      if (videoEmbed && videoEmbed.id) {
-        console.log(`🗑️ Deleting video embed: ${videoEmbed.id}`);
+  // Create named function so we can remove it later
+  videoDeleteHandler = (e) => {
+    const deleteBtn = e.target.closest('[data-action="delete-video"]');
+    if (!deleteBtn) return; // Early exit for performance
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const videoEmbed = deleteBtn.closest('.video-embed');
+    if (videoEmbed && videoEmbed.id) {
+      console.log(`🗑️ Deleting video embed: ${videoEmbed.id}`);
 
         // Check for adjacent content to focus cursor
         let focusTarget = null;
@@ -367,103 +404,92 @@ export function startObserving(editableDiv) {
           console.log(`✅ Video embed ${replacementP.id} replaced with paragraph (standalone video)`);
         }
       }
-    }
-  });
-                     
-  if (!editableDiv) {
-    console.warn("No .main-content container found; observer not attached.");
-    return;
-  }
+  };
+
+  // Attach the handler
+  editableDiv.addEventListener('click', videoDeleteHandler);
 
   ensureMinimumDocumentStructure();
 
+  // 🔧 FIX 7a: Start pending saves monitor
+  startPendingSavesMonitor();
 
   // Initialize tracking for all current chunks
   initializeCurrentChunks(editableDiv);
 
-  // Check if handler already exists (indicates double initialization)
+  // 🔧 FIX 7c: Safely replace EnterKeyHandler (create new one first, then destroy old)
+  const newHandler = new EnterKeyHandler();
+
   if (enterKeyHandler) {
-    console.warn('⚠️ EnterKeyHandler already exists! Destroying old one before creating new.');
+    console.warn('⚠️ EnterKeyHandler already exists! Destroying old one after creating new.');
     enterKeyHandler.destroy();
   }
 
-  enterKeyHandler = new EnterKeyHandler();
+  enterKeyHandler = newHandler;
 
-  // 🔥 PERIODIC SPAN ANNIHILATION - runs every 3 seconds
-  function periodicSpanCleanup() {
-    const spans = document.querySelectorAll('span[style]');
-    if (spans.length > 0) {
-      console.log(`🔥 PERIODIC CLEANUP: Found ${spans.length} styled spans to destroy`);
-      spans.forEach(span => {
-        console.log(`🔥 PERIODIC: Destroying span with style`, span);
-        
-        // Preserve text content but remove the span wrapper
-        if (span.textContent.trim()) {
-          const textNode = document.createTextNode(span.textContent);
-          if (span.parentNode && document.contains(span.parentNode)) {
-            span.parentNode.insertBefore(textNode, span);
-          }
-        }
-        
-        if (document.contains(span)) {
-          span.remove();
-        }
-      });
-    }
-  }
+  // 🚀 PERFORMANCE: Process queued mutations in batches
+  async function processMutationQueue() {
+    if (mutationQueue.length === 0) return;
 
-  // Start periodic cleanup
-  if (spanCleanupInterval) {
-    clearInterval(spanCleanupInterval);
-  }
-  spanCleanupInterval = setInterval(periodicSpanCleanup, 3000);
+    // Get all queued mutations
+    const mutations = mutationQueue;
+    mutationQueue = [];
+    mutationProcessorRAF = null;
 
-  // Create observer for the main-content container
-  observer = new MutationObserver(async (mutations) => {
-
+    // Apply all the same filters as before
     if (isPasteInProgress()) {
-      console.log("🚫 Skipping mutations: Paste operation is in control.");
+      console.log("🚫 Skipping queued mutations: Paste operation is in control.");
       return;
     }
 
     if (isProgrammaticUpdateInProgress()) {
-      console.log("Skipping mutations: Programmatic update in progress.");
+      console.log("Skipping queued mutations: Programmatic update in progress.");
       return;
     }
 
-    // When to NOT observe:
     if (hypercitePasteInProgress) {
-      console.log("Skipping mutations during hypercite paste");
+      console.log("Skipping queued mutations during hypercite paste");
       return;
     }
 
     if (isChunkLoadingInProgress()) {
-      console.log(`Skipping mutations during chunk loading for chunk ${getLoadingChunkId()}`);
+      console.log(`Skipping queued mutations during chunk loading for chunk ${getLoadingChunkId()}`);
       return;
     }
 
     const toolbar = getEditToolbar();
     if (toolbar && toolbar.isFormatting) {
-      console.log("Skipping mutations during formatting");
+      console.log("Skipping queued mutations during formatting");
       return;
     }
 
-
-     if (keyboardLayoutInProgress) {
-      console.log("Skipping mutations during keyboard layout adjustment");
+    if (keyboardLayoutInProgress) {
+      console.log("Skipping queued mutations during keyboard layout adjustment");
       return;
     }
-  
+
     if (shouldSkipMutation(mutations)) {
-      console.log("Skipping mutations related to status icons");
+      console.log("Skipping queued mutations related to status icons");
       return;
     }
 
     // Filter to ignore mutations outside of <div class="chunk">
     const chunkMutations = filterChunkMutations(mutations);
-    
+
     if (chunkMutations.length > 0) {
+      console.log(`🚀 Processing batch of ${chunkMutations.length} mutations`);
       await processMutationsByChunk(chunkMutations);
+    }
+  }
+
+  // Create observer for the main-content container
+  observer = new MutationObserver((mutations) => {
+    // 🚀 PERFORMANCE: Queue mutations for batch processing
+    mutationQueue.push(...mutations);
+
+    // If not already scheduled, schedule for next animation frame
+    if (!mutationProcessorRAF) {
+      mutationProcessorRAF = requestAnimationFrame(processMutationQueue);
     }
   });
 
@@ -482,9 +508,8 @@ export function startObserving(editableDiv) {
     childList: true,
     subtree: true, // Observe all descendants
     attributes: true,
-    attributeOldValue: true,
-    characterData: true,
-    characterDataOldValue: true
+    characterData: true, // Keep enabled - mutation batching handles mobile performance
+    // Removed attributeOldValue and characterDataOldValue for better performance (not used)
   });
 
   // NEW: Set the current observed chunk after everything is set up
@@ -1088,18 +1113,38 @@ export function stopObserving() {
     observer.disconnect();
     observer = null;
   }
-  
-  // Clean up periodic span cleanup
-  if (spanCleanupInterval) {
-    clearInterval(spanCleanupInterval);
-    spanCleanupInterval = null;
-  }
 
   if (enterKeyHandler) {
     enterKeyHandler.destroy();
     enterKeyHandler = null;
   }
-  
+
+  // 🚀 PERFORMANCE: Cancel any pending mutation processing and clear queue
+  if (mutationProcessorRAF) {
+    cancelAnimationFrame(mutationProcessorRAF);
+    mutationProcessorRAF = null;
+    console.log("🚀 Cancelled pending mutation processing");
+  }
+  if (mutationQueue.length > 0) {
+    console.log(`🚀 Cleared ${mutationQueue.length} queued mutations`);
+    mutationQueue = [];
+  }
+
+  // 🔧 FIX 7a: Stop pending saves monitor
+  if (pendingSavesMonitor) {
+    clearInterval(pendingSavesMonitor);
+    pendingSavesMonitor = null;
+    console.log("📊 Pending saves monitor stopped");
+  }
+
+  // 🔧 FIX 7b: Remove video delete handler
+  const editableDiv = document.querySelector('.main-content');
+  if (videoDeleteHandler && editableDiv) {
+    editableDiv.removeEventListener('click', videoDeleteHandler);
+    videoDeleteHandler = null;
+    console.log("🎬 Video delete handler removed");
+  }
+
   observedChunks.clear();
   console.log("Multi-chunk observer stopped and tracking cleared");
   
@@ -1127,6 +1172,9 @@ export function stopObserving() {
 
 // Replace your old selectionchange listener with this one
 document.addEventListener("selectionchange", () => {
+  // Early return for performance - don't process if not editing
+  if (!window.isEditing) return;
+
   // Clear any previous timer
   clearTimeout(selectionChangeDebounceTimer);
 
@@ -1383,7 +1431,7 @@ export async function initTitleSync(bookId) {
   editableContainer.removeEventListener("input", handleInput);
   editableContainer.addEventListener("input", handleInput);
 
-  // ✅ RESILIENT: Watch container for title recreation
+  // 🔧 FIX 6: Watch container for title recreation (but scope observer to title when it exists)
   const containerObserver = new MutationObserver((mutationsList) => {
     for (const mutation of mutationsList) {
       // Watch for added nodes (title being recreated)
@@ -1396,11 +1444,19 @@ export async function initTitleSync(bookId) {
               : node.querySelector?.('.hypertextTitle');
 
             if (addedTitle) {
-              console.log("🔄 [title-sync] Title node recreated, re-syncing...");
+              console.log("🔄 [title-sync] Title node recreated, re-attaching observer...");
               // Add class if missing
               if (!addedTitle.classList.contains('hypertextTitle')) {
                 addedTitle.classList.add('hypertextTitle');
               }
+              // Re-scope observer to new title element
+              containerObserver.disconnect();
+              containerObserver.observe(addedTitle, {
+                characterData: true,
+                childList: true,
+                subtree: true,
+              });
+              console.log("✅ [title-sync] Observer re-scoped to new title element");
             }
           }
         }
@@ -1408,21 +1464,30 @@ export async function initTitleSync(bookId) {
 
       // Watch for text changes within title
       if (mutation.type === "characterData") {
-        const currentTitle = getTitleNode();
-        if (currentTitle && currentTitle.contains(mutation.target)) {
-          console.log("🖉 [title-sync] mutation detect (characterData)", mutation);
-          writeTitle();
-        }
+        console.log("🖉 [title-sync] mutation detect (characterData)", mutation);
+        writeTitle();
       }
     }
   });
 
-  // Observe entire container for title changes
-  containerObserver.observe(editableContainer, {
-    characterData: true,
-    childList: true,
-    subtree: true,
-  });
+  // 🔧 FIX 6: Scope observer to title element only (not entire container)
+  const initialTitle = getTitleNode();
+  if (initialTitle) {
+    // Observe just the title element for maximum performance
+    containerObserver.observe(initialTitle, {
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
+    console.log("✅ [title-sync] Observer scoped to title element only");
+  } else {
+    // No title yet - observe container until title is created
+    containerObserver.observe(editableContainer, {
+      childList: true,
+      subtree: true,
+    });
+    console.log("⚠️ [title-sync] No title found, observing container for title creation");
+  }
 
   console.log("🛠 Title-sync initialized (resilient) for book:", bookId);
 }
@@ -2507,3 +2572,60 @@ function checkForImminentEmptyState() {
 // UNDO //
 
 // In your main application logic file
+
+
+// ================================================================
+// TARGETED SPAN CLEANUP (replaces periodic cleanup)
+// ================================================================
+
+/**
+ * Clean up styled spans from a container.
+ * Called after specific operations (paste, import) rather than periodically.
+ *
+ * @param {HTMLElement} container - Container to clean (or null for entire document)
+ */
+export function cleanupStyledSpans(container = null) {
+  const searchRoot = container || document.querySelector('.main-content');
+  if (!searchRoot) return;
+
+  const spans = searchRoot.querySelectorAll('span[style]');
+  if (spans.length === 0) return;
+
+  console.log(`🧹 Targeted cleanup: Found ${spans.length} styled spans to remove`);
+
+  spans.forEach(span => {
+    // Preserve text content but remove the span wrapper
+    if (span.textContent.trim()) {
+      const textNode = document.createTextNode(span.textContent);
+      if (span.parentNode && document.contains(span.parentNode)) {
+        span.parentNode.insertBefore(textNode, span);
+      }
+    }
+
+    if (document.contains(span)) {
+      span.remove();
+    }
+  });
+
+  console.log(`✅ Cleaned up ${spans.length} styled spans`);
+}
+
+/**
+ * Clean up styled spans after document import.
+ * Should be called once after the entire import process completes.
+ */
+export function cleanupAfterImport() {
+  console.log('🧹 Running post-import span cleanup...');
+  cleanupStyledSpans();
+}
+
+/**
+ * Clean up styled spans after paste operation.
+ * Should be called after paste content is processed.
+ *
+ * @param {HTMLElement} pastedContainer - Container with pasted content
+ */
+export function cleanupAfterPaste(pastedContainer) {
+  console.log('🧹 Running post-paste span cleanup...');
+  cleanupStyledSpans(pastedContainer);
+}
