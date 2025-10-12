@@ -1,6 +1,6 @@
-// PASTE THIS ENTIRE CODE BLOCK INTO YOUR container-manager.js FILE
+// PASTE THIS ENTIRE CODE BLOCK INTO YOUR containerManager.js FILE
 
-import { saveAnnotationToIndexedDB } from "./annotation-saver.js";
+import { saveAnnotationToIndexedDB } from "./annotationSaver.js";
 import { navigateToInternalId } from "./scrolling.js";
 import { currentLazyLoader } from "./initializePage.js";
 import { isProcessing, isComplete } from './editIndicator.js'
@@ -81,7 +81,7 @@ export class ContainerManager {
          *    - It determines whether the navigation is within the same book (e.g., to an anchor),
          *      a transition to another book, or a link that should be ignored by the SPA router (e.g., external links).
          *
-         * 3. In-Container Handlers ('unified-container.js'):
+         * 3. In-Container Handlers ('unifiedContainer.js'):
          *    - Specific containers, particularly the '#hyperlit-container' which shows footnotes, highlights, etc.,
          *      have their own link click handlers for links *within* them.
          *    - These handlers provide context-specific behavior (like closing the container) before

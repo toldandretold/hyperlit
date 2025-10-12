@@ -1,5 +1,5 @@
 // userContainer.js
-import { ContainerManager } from "./container-manager.js";
+import { ContainerManager } from "./containerManager.js";
 import { book } from "./app.js";
 // MODIFIED: Import more functions from auth.js
 import {
@@ -8,7 +8,7 @@ import {
   getCurrentUser,
   getAnonymousToken,
 } from "./auth.js";
-import { clearDatabase } from "./cache-indexedDB.js";
+import { clearDatabase } from "./indexedDB.js";
 import { syncBookDataFromDatabase } from "./postgreSQL.js";
 
 export class UserContainerManager extends ContainerManager {

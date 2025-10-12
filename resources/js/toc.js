@@ -1,10 +1,10 @@
 // toc.js
 
 // Import your helper functions and container manager.
-import { getNodeChunksFromIndexedDB, getLocalStorageKey } from "./cache-indexedDB.js";
+import { getNodeChunksFromIndexedDB, getLocalStorageKey } from "./indexedDB.js";
 import { book } from "./app.js";
 import { navigateToInternalId, showNavigationLoading } from "./scrolling.js"; // your internal navigation function
-import { ContainerManager } from "./container-manager.js";
+import { ContainerManager } from "./containerManager.js";
 import { currentLazyLoader } from "./initializePage.js";
 
 // Get DOM elements for TOC container, overlay, and toggle button.

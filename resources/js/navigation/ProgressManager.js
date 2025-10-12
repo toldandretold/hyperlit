@@ -121,7 +121,7 @@ export class ProgressManager {
 
       // Try to use the centralized hide function first
       try {
-        const { hidePageLoadProgress } = await import('../reader-DOMContentLoaded.js');
+        const { hidePageLoadProgress } = await import('../readerDOMContentLoaded.js');
         await hidePageLoadProgress();
         console.log('📊 Progress hidden via centralized system');
       } catch (error) {

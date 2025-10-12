@@ -14,7 +14,7 @@ import {
 } from "./hyperLights.js";
 import { initializeHypercitingControls } from "./hyperCites.js";
 import { initializeBroadcastListener } from "./BroadcastListener.js";
-import { setupUnloadSync } from "./cache-indexedDB.js";
+import { setupUnloadSync } from "./indexedDB.js";
 import { generateTableOfContents, destroyTocManager, initializeTocManager } from "./toc.js";
 import { KeyboardManager } from "./keyboardManager.js";
 import {
@@ -35,7 +35,7 @@ import {
   resolveFirstChunkPromise,
   resetCurrentLazyLoader
 } from "./initializePage.js";
-import { closeHyperlitContainer } from './unified-container.js';
+import { closeHyperlitContainer } from './unifiedContainer.js';
 
 // State management and cleanup are correct.
 let activeKeyboardManager = null;
@@ -369,7 +369,7 @@ function attachGlobalLinkClickHandler() {
             const pathSegments = linkUrl.pathname.split('/').filter(Boolean);
             const targetBookId = pathSegments[0] || 'book';
             console.log(`[PROGRESS-FIX] Cross-book hypercite detected. Showing progress bar for ${targetBookId}.`);
-            import('./reader-DOMContentLoaded.js').then(({ updatePageLoadProgress }) => {
+            import('./readerDOMContentLoaded.js').then(({ updatePageLoadProgress }) => {
                 updatePageLoadProgress(5, `Loading ${targetBookId}...`);
             });
         }
@@ -453,7 +453,7 @@ function attachGlobalLinkClickHandler() {
           console.log(`🎯 Global link: Hyperlight SPA transition to ${targetBookId}/${highlightId}${targetHash}`);
           
           // ✅ Use proper progress system instead of basic overlay
-          import('./reader-DOMContentLoaded.js').then(({ updatePageLoadProgress }) => {
+          import('./readerDOMContentLoaded.js').then(({ updatePageLoadProgress }) => {
             updatePageLoadProgress(5, `Loading ${targetBookId}...`);
           }).catch(() => {
             // Fallback to basic overlay if progress system unavailable
@@ -462,7 +462,7 @@ function attachGlobalLinkClickHandler() {
           
           // Create progress callback for this hyperlight SPA navigation
           const hyperlightProgressCallback = (percent, message) => {
-            import('./reader-DOMContentLoaded.js').then(({ updatePageLoadProgress }) => {
+            import('./readerDOMContentLoaded.js').then(({ updatePageLoadProgress }) => {
               updatePageLoadProgress(percent, message || `Loading ${targetBookId} for ${highlightId}...`);
             }).catch(() => {
               console.warn('Progress system unavailable for hyperlight SPA navigation');
@@ -481,7 +481,7 @@ function attachGlobalLinkClickHandler() {
                 console.log(`✅ SPA: Content loaded, now navigating to ${highlightId}${targetHash}`);
                 
                 // Hide progress system now that content is ready
-                import('./reader-DOMContentLoaded.js').then(({ hidePageLoadProgress }) => {
+                import('./readerDOMContentLoaded.js').then(({ hidePageLoadProgress }) => {
                   hidePageLoadProgress();
                 }).catch(() => {
                   // Fallback to basic overlay if progress system unavailable
@@ -504,7 +504,7 @@ function attachGlobalLinkClickHandler() {
                 });
               } catch (error) {
                 console.error(`❌ SPA: Content loading failed for ${targetBookId}:`, error);
-                import('./reader-DOMContentLoaded.js').then(({ hidePageLoadProgress }) => {
+                import('./readerDOMContentLoaded.js').then(({ hidePageLoadProgress }) => {
                   hidePageLoadProgress();
                 }).catch(() => {
                   hideNavigationLoading();
@@ -516,7 +516,7 @@ function attachGlobalLinkClickHandler() {
           console.log(`🎯 Global link: Starting SPA transition to book: ${targetBookId}${targetHash}`);
           
           // ✅ Use proper progress system instead of basic overlay
-          import('./reader-DOMContentLoaded.js').then(({ updatePageLoadProgress }) => {
+          import('./readerDOMContentLoaded.js').then(({ updatePageLoadProgress }) => {
             updatePageLoadProgress(5, `Loading ${targetBookId}...`);
           }).catch(() => {
             // Fallback to basic overlay if progress system unavailable
@@ -526,7 +526,7 @@ function attachGlobalLinkClickHandler() {
           // Create progress callback for this SPA navigation
           let progressRef = null;
           const spaProgressCallback = (percent, message) => {
-            import('./reader-DOMContentLoaded.js').then(({ updatePageLoadProgress }) => {
+            import('./readerDOMContentLoaded.js').then(({ updatePageLoadProgress }) => {
               updatePageLoadProgress(percent, message || `Loading ${targetBookId}...`);
             }).catch(() => {
               console.warn('Progress system unavailable for SPA navigation');
@@ -544,7 +544,7 @@ function attachGlobalLinkClickHandler() {
                 console.log(`✅ SPA: ${targetBookId} content loaded successfully`);
                 
                 // Hide progress system now that content is ready
-                import('./reader-DOMContentLoaded.js').then(({ hidePageLoadProgress }) => {
+                import('./readerDOMContentLoaded.js').then(({ hidePageLoadProgress }) => {
                   hidePageLoadProgress();
                 }).catch(() => {
                   // Fallback to basic overlay if progress system unavailable
@@ -565,7 +565,7 @@ function attachGlobalLinkClickHandler() {
                 }
               } catch (error) {
                 console.error(`❌ SPA: Content loading failed for ${targetBookId}:`, error);
-                import('./reader-DOMContentLoaded.js').then(({ hidePageLoadProgress }) => {
+                import('./readerDOMContentLoaded.js').then(({ hidePageLoadProgress }) => {
                   hidePageLoadProgress();
                 }).catch(() => {
                   hideNavigationLoading();
@@ -692,8 +692,8 @@ export async function universalPageInitializer(progressCallback = null) {
   await Promise.all([loadPromise, waitForLayoutStabilization()]);
   
   console.log("✅ DOM settled. Initializing static UI components...");
-    // Use the persistent TogglePerimeterButtons instance from reader-DOMContentLoaded.js
-    import('./reader-DOMContentLoaded.js').then(module => {
+    // Use the persistent TogglePerimeterButtons instance from readerDOMContentLoaded.js
+    import('./readerDOMContentLoaded.js').then(module => {
       if (module.togglePerimeterButtons) {
         console.log("🔍 TogglePerimeterButtons before destroy - isInitialized:", module.togglePerimeterButtons.isInitialized);
         // Always destroy and reinitialize to ensure clean state after DOM changes
@@ -788,19 +788,19 @@ export async function universalPageInitializer(progressCallback = null) {
   // 🔥 Initialize footnote and citation listeners AFTER content loads
   // This ensures the DOM elements exist before we attach listeners
   setTimeout(async () => {
-    const { initializeFootnoteCitationListeners } = await import('./footnotes-citations.js');
+    const { initializeFootnoteCitationListeners } = await import('./footnotesCitations.js');
     initializeFootnoteCitationListeners();
     console.log("✅ Footnote and citation listeners initialized after content load");
     
     // 🔥 CRITICAL: Rebind the reference container manager after SPA transitions
     // The ContainerManager needs fresh DOM references after HTML replacement
-    const { refManager } = await import('./footnotes-citations.js');
+    const { refManager } = await import('./footnotesCitations.js');
     if (refManager && refManager.rebindElements) {
       refManager.rebindElements();
       console.log("✅ Reference container manager rebound after content load");
     }
 
-    const { hyperlitManager } = await import('./unified-container.js');
+    const { hyperlitManager } = await import('./unifiedContainer.js');
     if (hyperlitManager && hyperlitManager.rebindElements) {
         hyperlitManager.rebindElements();
         console.log("✅ Hyperlit container manager rebound after content load");

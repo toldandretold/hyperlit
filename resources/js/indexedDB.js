@@ -1,4 +1,4 @@
-// In cache-indexedDB.js
+// In indexedDB.js
 
 import { broadcastToOpenTabs } from "./BroadcastListener.js";
 import { withPending, getInitialBookSyncPromise } from "./operationState.js";
@@ -237,7 +237,7 @@ async function clearRedoLog() {
   return tx.done;
 }
 
-// In cache-indexedDB.js
+// In indexedDB.js
 
 export const debouncedMasterSync = debounce(async () => {
   const bookId = book || "latest";
@@ -478,7 +478,7 @@ export function setupUnloadSync() {
 
 
 
-// In cache-indexedDB.js, add these two functions:
+// In indexedDB.js, add these two functions:
 
 /**
  * Function to sync hyperlight creations/updates to PostgreSQL.
@@ -1213,8 +1213,8 @@ export function updateIndexedDBRecord(record) {
 }
 
 // New batched function to replace individual updateIndexedDBRecord calls
-// In cache-indexedDB.js
-// In cache-indexedDB.js
+// In indexedDB.js
+// In indexedDB.js
 
 export async function batchUpdateIndexedDBRecords(recordsToProcess) {
   return withPending(async () => {
@@ -1764,9 +1764,9 @@ export function toPublicChunk(chunk) {
 
 
 
-// In cache-indexedDB.js
+// In indexedDB.js
 
-// In cache-indexedDB.js
+// In indexedDB.js
 
 export function updateCitationForExistingHypercite(
   booka,
@@ -2750,7 +2750,7 @@ export async function getLibraryObjectFromIndexedDB(book) {
   }
 }
 
-// In cache-indexedDB.js
+// In indexedDB.js
 
 /**
  * TRIES to immediately sync a hypercite and its parent nodeChunk.
@@ -2846,7 +2846,7 @@ export async function syncHyperciteUpdateImmediately(
   }
 }
 
-// In cache-indexedDB.js
+// In indexedDB.js
 
 /**
  * Resolves a hypercite by first checking the local IndexedDB, and if not found,
@@ -2916,7 +2916,7 @@ async function resolveHypercite(bookId, hyperciteId) {
 }
 
 
-// In cache-indexedDB.js
+// In indexedDB.js
 
 /**
  * Saves an array of footnote objects to IndexedDB and then syncs to PostgreSQL.

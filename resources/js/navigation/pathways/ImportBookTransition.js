@@ -339,7 +339,7 @@ export class ImportBookTransition {
 
       // Save the authoritative library record from server
       if (result.library) {
-        const { openDatabase } = await import('../../cache-indexedDB.js');
+        const { openDatabase } = await import('../../indexedDB.js');
         const db = await openDatabase();
         const tx = db.transaction('library', 'readwrite');
         tx.objectStore('library').put(result.library);

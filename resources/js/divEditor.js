@@ -10,7 +10,7 @@ import {
   getNodeChunksAfter,
   deleteNodeChunksAfter,
   writeNodeChunks
-          } from "./cache-indexedDB.js";
+          } from "./indexedDB.js";
 import { 
   withPending,
   chunkOverflowInProgress,
@@ -34,7 +34,7 @@ import {
   broadcastToOpenTabs
 } from './BroadcastListener.js';
 
-import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from './convert-markdown.js';
+import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from './convertMarkdown.js';
 
 import { 
   trackChunkNodeCount, 
@@ -226,7 +226,7 @@ async function saveNodeToDatabase() {
 
     if (recordsToUpdate.length > 0) {
       // This function now correctly saves to IndexedDB AND queues the changes
-      // for the master debounced sync in cache-indexedDB.js.
+      // for the master debounced sync in indexedDB.js.
       await batchUpdateIndexedDBRecords(recordsToUpdate);
     }
     

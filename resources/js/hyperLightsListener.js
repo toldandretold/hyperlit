@@ -1,6 +1,6 @@
 import { parseHyperciteHref, attachUnderlineClickListeners } from './hyperCites.js';
 import { extractQuotedText } from './paste.js';
-import { openDatabase, updateCitationForExistingHypercite, queueForSync } from './cache-indexedDB.js';
+import { openDatabase, updateCitationForExistingHypercite, queueForSync } from './indexedDB.js';
 import { book } from './app.js';
 import { broadcastToOpenTabs } from './BroadcastListener.js';
 

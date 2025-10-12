@@ -1,4 +1,4 @@
-import { openDatabase } from './cache-indexedDB.js';
+import { openDatabase } from './indexedDB.js';
 import './debugLog.js';
 import { generateBibtexFromForm } from './bibtexProcessor.js';
 import { getCurrentUser, getAnonymousToken } from './auth.js';

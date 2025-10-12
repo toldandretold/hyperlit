@@ -1,11 +1,11 @@
-import { renderBlockToHtml } from "./convert-markdown.js";
+import { renderBlockToHtml } from "./convertMarkdown.js";
 import { attachMarkListeners } from "./hyperLights.js";
 import {
   //saveNodeChunksToIndexedDB,
   getNodeChunksFromIndexedDB,
   getLocalStorageKey,
   getHyperciteFromIndexedDB
-} from "./cache-indexedDB.js";
+} from "./indexedDB.js";
 import { attachUnderlineClickListeners } from "./hyperCites.js";
 import {
   setChunkLoadingInProgress,
