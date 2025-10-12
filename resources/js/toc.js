@@ -36,12 +36,12 @@ class TocContainerManager extends ContainerManager {
     
     if (this.container.id === "toc-container") {
       this.saveNavElementsState();
-      const navButtons = document.getElementById("nav-buttons");
+      const bottomRightButtons = document.getElementById("bottom-right-buttons");
       const logoContainer = document.getElementById("logoContainer");
       const userButtonContainer = document.getElementById("userButtonContainer");
-      if (navButtons) navButtons.classList.add("hidden-nav");
-      if (logoContainer) logoContainer.classList.add("hidden-nav");
-      if (userButtonContainer) userButtonContainer.classList.add("hidden-nav");
+      if (bottomRightButtons) bottomRightButtons.classList.add("perimeter-hidden");
+      if (logoContainer) logoContainer.classList.add("perimeter-hidden");
+      if (userButtonContainer) userButtonContainer.classList.add("perimeter-hidden");
     }
     
     this.updateState();

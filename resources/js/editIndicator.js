@@ -31,10 +31,10 @@ function resetIndicator() {
   // RESTORE topRightContainer visibility
   if (topRightContainer && topRightVisibilityBeforeEdit !== null) {
     if (topRightVisibilityBeforeEdit === false) {
-      topRightContainer.classList.add('hidden-nav')
+      topRightContainer.classList.add('perimeter-hidden')
       console.log('🟢 Hid topRightContainer after editing')
     } else {
-      topRightContainer.classList.remove('hidden-nav')
+      topRightContainer.classList.remove('perimeter-hidden')
       console.log('🟢 Kept topRightContainer visible after editing')
     }
     topRightVisibilityBeforeEdit = null
@@ -55,8 +55,8 @@ export function showSpinner() {
 
   // SAVE current topRightContainer state and make it visible
   if (topRightContainer) {
-    topRightVisibilityBeforeEdit = !topRightContainer.classList.contains('hidden-nav')
-    topRightContainer.classList.remove('hidden-nav')
+    topRightVisibilityBeforeEdit = !topRightContainer.classList.contains('perimeter-hidden')
+    topRightContainer.classList.remove('perimeter-hidden')
     console.log('🟠 Saved topRight visibility before edit:', topRightVisibilityBeforeEdit)
     console.log('🟠 Made topRightContainer visible for editing')
   }

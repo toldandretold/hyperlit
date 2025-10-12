@@ -141,7 +141,7 @@ scrollCaretIntoView(element) {
     const appContainer = document.querySelector("#app-container");
     const mainContent = document.querySelector(".main-content");
     const editToolbar = document.querySelector("#edit-toolbar");
-    const navButtons = document.querySelector("#nav-buttons");
+    const bottomRightButtons = document.querySelector("#bottom-right-buttons");
 
     if (keyboardOpen) {
       const vv = window.visualViewport;
@@ -159,21 +159,21 @@ scrollCaretIntoView(element) {
       this.createOrUpdateSpacer(keyboardHeight);
 
       this.state.keyboardTop = vv.offsetTop + vv.height;
-      this.moveToolbarAboveKeyboard(editToolbar, navButtons, mainContent);
+      this.moveToolbarAboveKeyboard(editToolbar, bottomRightButtons, mainContent);
     } else {
       if (editToolbar) {
         editToolbar.removeEventListener("touchstart", this.preventToolbarScroll);
       }
-      if (navButtons) {
-        navButtons.removeEventListener("touchstart", this.preventToolbarScroll);
+      if (bottomRightButtons) {
+        bottomRightButtons.removeEventListener("touchstart", this.preventToolbarScroll);
       }
       this.removeSpacer();
-      this.resetInlineStyles(appContainer, mainContent, editToolbar, navButtons);
+      this.resetInlineStyles(appContainer, mainContent, editToolbar, bottomRightButtons);
       this.state.keyboardTop = null;
     }
   }
 
-  moveToolbarAboveKeyboard(toolbar, navButtons, mainContent) {
+  moveToolbarAboveKeyboard(toolbar, bottomRightButtons, mainContent) {
     if (!toolbar) return;
     const toolbarHeight = toolbar.getBoundingClientRect().height;
     const top = this.state.keyboardTop - toolbarHeight;
@@ -196,12 +196,12 @@ scrollCaretIntoView(element) {
       );
     }
 
-    if (navButtons) {
-      navButtons.style.setProperty("position", "fixed", "important");
-      navButtons.style.setProperty("top", `${top - 60}px`, "important");
-      navButtons.style.setProperty("right", "5px", "important");
-      navButtons.style.setProperty("z-index", "999998", "important");
-      navButtons.addEventListener("touchstart", this.preventToolbarScroll, {
+    if (bottomRightButtons) {
+      bottomRightButtons.style.setProperty("position", "fixed", "important");
+      bottomRightButtons.style.setProperty("top", `${top - 60}px`, "important");
+      bottomRightButtons.style.setProperty("right", "5px", "important");
+      bottomRightButtons.style.setProperty("z-index", "999998", "important");
+      bottomRightButtons.addEventListener("touchstart", this.preventToolbarScroll, {
         passive: false,
       });
     }

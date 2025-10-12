@@ -250,11 +250,11 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
         window.isEditing = true;
         if (editBtn) editBtn.classList.add("inverted");
 
-        // Ensure nav buttons are visible in edit mode
-        const navButtons = document.getElementById("nav-buttons");
-        if (navButtons) {
-          navButtons.classList.remove("hidden-nav");
-          console.log("👁️ Removed hidden-nav from nav-buttons for edit mode");
+        // Ensure perimeter buttons are visible in edit mode
+        const bottomRightButtons = document.getElementById("bottom-right-buttons");
+        if (bottomRightButtons) {
+          bottomRightButtons.classList.remove("perimeter-hidden");
+          console.log("👁️ Removed perimeter-hidden from bottom-right-buttons for edit mode");
         }
 
         enforceEditableState();

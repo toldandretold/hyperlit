@@ -127,7 +127,7 @@
   </button>
 </div>
 
-  <div id="nav-buttons" class="loading"> <!-- bottom right buttons -->
+  <div id="bottom-right-buttons" class="loading"> <!-- bottom right buttons -->
       <button type="button" id="editButton">
           <svg
           viewBox="0 0 24 24"
@@ -401,8 +401,6 @@
     <div class="mask-top" style="position: absolute !important; top: 0 !important; left: 0 !important; right: 0 !important; height: 1em !important; pointer-events: none !important; background-color: #221F20 !important; z-index: 9999 !important; box-shadow: inset 0px -4px 4px -4px #221F20 !important; opacity: 1 !important; visibility: visible !important; display: block !important; transition: none !important; animation: none !important; transform: none !important; will-change: auto !important;"></div>
     <div class="mask-bottom" style="position: absolute !important; bottom: 0 !important; left: 0 !important; right: 0 !important; height: 1em !important; pointer-events: none !important; background-color: #221F20 !important; z-index: 9999 !important; opacity: 1 !important; visibility: visible !important; display: block !important; transition: none !important; animation: none !important; transform: none !important; will-change: auto !important;"></div>
   </div>
-  <div id="highlight-container" class="hidden"></div>
-  <div id="hypercite-container" class="hidden"></div>
   <div id="hyperlit-container" class="container-panel hidden">
     <div class="scroller"></div>
     <div class="mask-top"></div>
@@ -413,11 +411,7 @@
       <div class="resize-handle resize-right" title="Resize width"></div>
     </div>
   </div>
-  <div id="ref-container" class="hidden">
-    <div class="scroller"></div>
-    <div class="mask-top"></div>
-    <div class="mask-bottom"></div>
-  </div>
+ 
   <div id="source-container" class="hidden"></div>
 
           
