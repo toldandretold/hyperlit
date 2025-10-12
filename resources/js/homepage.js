@@ -2,7 +2,7 @@
 
 import './userContainer.js';
 import { initializeHomepageButtons } from './homepageDisplayUnit.js';
-import NavButtons from './nav-buttons.js';
+import TogglePerimeterButtons from './togglePerimeterButtons.js';
 import './newBookButton.js'; 
 import { initializeLazyLoaderForContainer } from './initializePage.js';
 
@@ -12,7 +12,7 @@ export async function initializeHomepage() {
   // Import progress functions
   let updatePageLoadProgress, hidePageLoadProgress;
   try {
-    const progressModule = await import('./reader-DOMContentLoaded.js');
+    const progressModule = await import('./readerDOMContentLoaded.js');
     updatePageLoadProgress = progressModule.updatePageLoadProgress;
     hidePageLoadProgress = progressModule.hidePageLoadProgress;
   } catch (e) {
@@ -61,7 +61,7 @@ export async function initializeHomepage() {
   updatePageLoadProgress(90, "Finishing setup...");
   await new Promise(resolve => setTimeout(resolve, 100));
 
-  // NavButtons are handled by reader-DOMContentLoaded.js which is loaded by home.blade.php
+  // TogglePerimeterButtons are handled by readerDOMContentLoaded.js which is loaded by home.blade.php
 
   // Hide the progress overlay
   await hidePageLoadProgress();

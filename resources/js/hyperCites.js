@@ -1,7 +1,7 @@
 import { book } from "./app.js";
 import { navigateToInternalId, showNavigationLoading } from "./scrolling.js";
 import { waitForElementReady, waitForMultipleElementsReady } from "./domReadiness.js";
-import { getLocalStorageKey } from "./cache-indexedDB.js";
+import { getLocalStorageKey } from "./indexedDB.js";
 import { openDatabase, 
          parseNodeId, 
          createNodeChunksKey, 
@@ -10,13 +10,13 @@ import { openDatabase,
          toPublicChunk,
          queueForSync,
          getNodeChunkFromIndexedDB,
-         debouncedMasterSync  } from "./cache-indexedDB.js";
-import { ContainerManager } from "./container-manager.js";
+         debouncedMasterSync  } from "./indexedDB.js";
+import { ContainerManager } from "./containerManager.js";
 import { formatBibtexToCitation } from "./bibtexProcessor.js";
 import { currentLazyLoader } from './initializePage.js';
 import { addTouchAndClickListener } from './hyperLights.js';
 import { getCurrentUser, getAuthorId, getAnonymousToken } from "./auth.js";
-import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './unified-container.js';
+import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './unifiedContainer.js';
 
 
 /**

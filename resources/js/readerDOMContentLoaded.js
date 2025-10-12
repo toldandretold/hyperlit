@@ -1,4 +1,4 @@
-// In resources/js/reader-DOMContentLoaded.js
+// In resources/js/readerDOMContentLoaded.js
 
 // =================================================================
 // THE KEY FIX: Import app.js first to set up initial state.
@@ -6,16 +6,16 @@
 import { book } from "./app.js";
 // =================================================================
 
-import { openDatabase } from "./cache-indexedDB.js";
+import { openDatabase } from "./indexedDB.js";
 import { fireAndForgetSync } from "./createNewBook.js";
 import { universalPageInitializer } from "./viewManager.js";
 import { initializeHomepage } from "./homepage.js";
-import { initializeFootnoteCitationListeners } from "./footnotes-citations.js";
+import { initializeFootnoteCitationListeners } from "./footnotesCitations.js";
 // ✅ This import is correct. We just need to use it.
 import { setInitialBookSyncPromise } from "./operationState.js";
 import { generateTableOfContents } from "./toc.js";
 import { attachMarkListeners } from "./hyperLights.js";
-import NavButtons from "./nav-buttons.js";
+import TogglePerimeterButtons from "./togglePerimeterButtons.js";
 import { showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
 import { pendingFirstChunkLoadedPromise } from "./initializePage.js";
 
@@ -97,9 +97,9 @@ export async function hidePageLoadProgress() {
   }
 }
 
-export const navButtons = new NavButtons({
+export const togglePerimeterButtons = new TogglePerimeterButtons({
   elementIds: [
-    "nav-buttons",
+    "bottom-right-buttons",
     "logoContainer",
     "topRightContainer",
     "userButtonContainer",
@@ -107,8 +107,8 @@ export const navButtons = new NavButtons({
   tapThreshold: 15,
 });
 
-// Initialize the nav buttons event listeners immediately
-navButtons.init();
+// Initialize the perimeter buttons event listeners immediately
+togglePerimeterButtons.init();
 
 function handlePendingNewBookSync() {
   const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");

@@ -74,6 +74,8 @@ black #221F20;
 
 #editButton svg,
 #edit-source svg {
+  width: 100% !important;
+  height: 100% !important;
   pointer-events: none !important; /* Prevent SVG from blocking clicks */
 }
 
@@ -303,7 +305,7 @@ black #221F20;
   transition: opacity 0.3s ease, right 0.3s ease;
 }
 
-#nav-buttons {
+#bottom-right-buttons {
   position: fixed;
   bottom: 40px;
   right: 10px;
@@ -388,7 +390,7 @@ black #221F20;
   pointer-events: auto;
 }
 
-#edit-toolbar.visible.hidden-nav {
+#edit-toolbar.visible.perimeter-hidden {
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.3s ease, right 0.3s ease;

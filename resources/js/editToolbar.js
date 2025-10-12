@@ -10,7 +10,7 @@ import {
   openDatabase,
   debouncedMasterSync,
   pendingSyncs,
-} from "./cache-indexedDB.js";
+} from "./indexedDB.js";
 import {
   generateIdBetween,
   setElementIds,
@@ -1700,7 +1700,7 @@ class EditToolbar {
 
   /**
    * Helper method to update IndexedDB record (for a single item)
-   * This now calls updateIndexedDBRecord (in cache-indexedDB.js) which queues for sync.
+   * This now calls updateIndexedDBRecord (in indexedDB.js) which queues for sync.
    * It no longer directly handles history payload or calls addHistoryBatch.
    */
   async saveToIndexedDB(id, html) {
@@ -1730,7 +1730,7 @@ class EditToolbar {
 
   /**
    * Helper method to delete a record from IndexedDB (for a single item).
-   * This now calls deleteIndexedDBRecord (in cache-indexedDB.js) which queues for sync.
+   * This now calls deleteIndexedDBRecord (in indexedDB.js) which queues for sync.
    * It no longer directly handles history payload or calls addHistoryBatch.
    */
   async deleteFromIndexedDB(id) {

@@ -1,8 +1,8 @@
 // footnotes-citations.js - New unified system for footnotes and citations
 import { book } from "./app.js";
-import { openDatabase } from "./cache-indexedDB.js";
-import { ContainerManager } from "./container-manager.js";
-import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './unified-container.js';
+import { openDatabase } from "./indexedDB.js";
+import { ContainerManager } from "./containerManager.js";
+import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './unifiedContainer.js';
 
 // Legacy container manager - now using unified system
 const refManager = new ContainerManager(

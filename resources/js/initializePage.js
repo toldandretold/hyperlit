@@ -15,13 +15,13 @@ import {
   executeSyncPayload,
   saveAllFootnotesToIndexedDB,
   saveAllReferencesToIndexedDB
-} from "./cache-indexedDB.js";
+} from "./indexedDB.js";
 
 import {
   attachMarkListeners,
 } from "./hyperLights.js";
 
-import { parseMarkdownIntoChunksInitial } from "./convert-markdown.js";
+import { parseMarkdownIntoChunksInitial } from "./convertMarkdown.js";
 
 import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 // Add to your imports at the top
@@ -237,7 +237,7 @@ export async function loadHyperText(bookId, progressCallback = null) {
     console.log('🎯 Using provided progress callback for SPA navigation');
   } else {
     try {
-      const progressModule = await import('./reader-DOMContentLoaded.js');
+      const progressModule = await import('./readerDOMContentLoaded.js');
       updatePageLoadProgress = progressModule.updatePageLoadProgress;
       hidePageLoadProgress = progressModule.hidePageLoadProgress;
       console.log('🎯 Progress functions imported successfully');

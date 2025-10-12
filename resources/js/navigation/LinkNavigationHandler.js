@@ -388,7 +388,7 @@ export class LinkNavigationHandler {
     // 🚀 CRITICAL: Clear saved scroll positions when navigating with hash to prevent interference
     if (window.location.hash) {
       console.log(`🧹 POPSTATE: Clearing saved scroll positions because hash present: ${window.location.hash}`);
-      const { getLocalStorageKey } = await import('../cache-indexedDB.js');
+      const { getLocalStorageKey } = await import('../indexedDB.js');
       const { book: currentBookVariable } = await import('../app.js');
       const scrollKey = getLocalStorageKey("scrollPosition", currentBookVariable);
       sessionStorage.removeItem(scrollKey);
@@ -464,7 +464,7 @@ export class LinkNavigationHandler {
     
     // Try to restore container state from history for non-hyperlight URLs
     try {
-      const { restoreHyperlitContainerFromHistory } = await import('../unified-container.js');
+      const { restoreHyperlitContainerFromHistory } = await import('../unifiedContainer.js');
       const containerRestored = await restoreHyperlitContainerFromHistory();
       
       if (containerRestored) {
@@ -478,7 +478,7 @@ export class LinkNavigationHandler {
     // If no container to restore, close any open containers and scroll to the hash if present.
     // This prevents a loop where a container is re-opened from the hash after a back navigation.
     try {
-      const { closeHyperlitContainer } = await import('../unified-container.js');
+      const { closeHyperlitContainer } = await import('../unifiedContainer.js');
       closeHyperlitContainer();
     } catch (error) {
       // ignore

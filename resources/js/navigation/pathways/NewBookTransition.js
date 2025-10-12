@@ -207,7 +207,7 @@ export class NewBookTransition {
     
     try {
       // Import the debounced sync function and pending syncs map
-      const { debouncedMasterSync, pendingSyncs } = await import('../../cache-indexedDB.js');
+      const { debouncedMasterSync, pendingSyncs } = await import('../../indexedDB.js');
       const { showTick } = await import('../../editIndicator.js');
       
       // If there are pending syncs, force them to complete immediately
