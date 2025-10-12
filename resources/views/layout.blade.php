@@ -5,7 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hyperlit</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <style>
+        @media screen and (max-width: 768px) {
+            html {
+                transform: none !important;
+            }
+            @supports (-webkit-touch-callout: none) {
+                /* iOS-specific orientation lock */
+                body {
+                    -webkit-transform-origin: top left;
+                    transform-origin: top left;
+                }
+            }
+        }
+    </style>
+    <script>
+        // Lock screen orientation to portrait on mobile devices
+        if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('portrait').catch(() => {
+                // Orientation lock failed (requires fullscreen on some browsers)
+            });
+        }
+    </script>
     
     @yield('styles')
 </head>
