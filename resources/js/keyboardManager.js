@@ -6,10 +6,12 @@ class KeyboardManager {
     this.initialVisualHeight = null;
     this.isKeyboardOpen = false;
     this.state = {
-      // REMOVED needsBottomFocusHandling and other unnecessary state
       focusedElement: null,
       keyboardTop: null,
     };
+
+    // Debouncing property
+    this.viewportChangeDebounceTimer = null;
 
     this.handleViewportChange = this.handleViewportChange.bind(this);
     this.preventToolbarScroll = this.preventToolbarScroll.bind(this);
@@ -19,18 +21,6 @@ class KeyboardManager {
 
     window.addEventListener("focusin", this.handleFocusIn, true);
     window.addEventListener("focusout", this.handleFocusOut, true);
-
-    window.addEventListener(
-      "focusout",
-      () => {
-        if (this.isKeyboardOpen) {
-          this.isKeyboardOpen = false;
-          this.adjustLayout(false);
-        }
-        this.state.focusedElement = null;
-      },
-      true,
-    );
   }
 
   init() {
@@ -70,26 +60,57 @@ class KeyboardManager {
     return false;
   }
 
-// MODIFIED: More responsive timing
+// Debounced handler for viewport changes
 handleViewportChange() {
+  // Clear any pending debounce
+  if (this.viewportChangeDebounceTimer) {
+    clearTimeout(this.viewportChangeDebounceTimer);
+  }
+
+  // Debounce: wait 150ms after last viewport change before processing
+  this.viewportChangeDebounceTimer = setTimeout(() => {
+    this.processViewportChange();
+  }, 150);
+}
+
+// Process viewport changes
+processViewportChange() {
   const vv = window.visualViewport;
   const referenceHeight = this.isIOS
     ? this.initialVisualHeight
     : window.innerHeight;
   const keyboardOpen = vv.height < referenceHeight * 0.9;
 
+  console.log(`📐 Viewport: height=${vv.height}px, offsetTop=${vv.offsetTop}px, keyboardOpen=${keyboardOpen}, isKeyboardOpen=${this.isKeyboardOpen}`);
+
   if (keyboardOpen !== this.isKeyboardOpen) {
+    // Keyboard opening detected
+    if (keyboardOpen && !this.isKeyboardOpen) {
+      console.log('⌨️ Keyboard opening...');
+    }
+
+    // Keyboard closing detected
+    if (!keyboardOpen && this.isKeyboardOpen) {
+      console.log('⌨️ Keyboard closed');
+    }
+
     this.isKeyboardOpen = keyboardOpen;
     this.adjustLayout(keyboardOpen);
 
     // If the keyboard just opened AND we have a focused element...
     if (keyboardOpen && this.state.focusedElement) {
-      // Reduced delay for faster response
+      const keyboardTop = vv.offsetTop + vv.height;
+      console.log(`📍 Keyboard top position: ${keyboardTop}px (vv.offsetTop=${vv.offsetTop}, vv.height=${vv.height})`);
+
+      // Fixed delay - iOS doesn't fire resize events during animation
+      const scrollDelay = 350;
+      console.log(`⌨️ Scheduling scroll with ${scrollDelay}ms delay`);
+
       setTimeout(() => {
         if (this.state.focusedElement) {
           this.scrollCaretIntoView(this.state.focusedElement);
         }
-      }, 200); // Reduced from 500ms to 200ms
+      }, scrollDelay);
     }
   }
 }
@@ -246,8 +267,15 @@ removeSpacer() {
 
   destroy() {
     console.log("⌨️ KeyboardManager destroyed.");
+
+    // Clear any pending timers
+    if (this.viewportChangeDebounceTimer) {
+      clearTimeout(this.viewportChangeDebounceTimer);
+      this.viewportChangeDebounceTimer = null;
+    }
+
     window.removeEventListener("focusin", this.handleFocusIn, true);
-    window.removeEventListener("focusout", this.handleFocusOut);
+    window.removeEventListener("focusout", this.handleFocusOut, true);
     if (window.visualViewport) {
       window.visualViewport.removeEventListener(
         "resize",
