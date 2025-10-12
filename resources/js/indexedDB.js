@@ -1060,7 +1060,15 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
     const textContent = uTag.textContent;
     uTag.parentNode.replaceChild(document.createTextNode(textContent), uTag);
   }
-  
+
+  // 🧹 ALSO REMOVE styled spans before saving (prevents them from being stored)
+  const clonedSpans = contentClone.querySelectorAll('span[style]');
+  while (clonedSpans.length > 0) {
+    const span = clonedSpans[0];
+    const textContent = span.textContent;
+    span.parentNode.replaceChild(document.createTextNode(textContent), span);
+  }
+
   const result = {
     content: contentClone.outerHTML,
     hyperlights,
