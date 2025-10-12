@@ -83,6 +83,7 @@ class EditToolbar {
 
     this.isProcessingHistory = false;
     this.storedHeadingElement = null; // Store heading element for X button
+    this.submenuButtonJustClicked = false; // Prevent double-firing on mobile
 
     if (this.isMobile) {
       this.mobileBackupRange = null;
@@ -135,7 +136,13 @@ class EditToolbar {
       {
         element: this.headingButton,
         name: "heading",
-        action: () => this.toggleHeadingSubmenu(),
+        action: () => {
+          // Don't toggle if submenu is already open (prevents double-firing on mobile)
+          if (this.headingSubmenu && !this.headingSubmenu.classList.contains("hidden")) {
+            return;
+          }
+          this.toggleHeadingSubmenu();
+        },
       },
       {
         element: this.blockquoteButton,
@@ -192,6 +199,15 @@ class EditToolbar {
             e.stopPropagation();
 
             console.log(`📱 ${name} touchend - executing action`);
+
+            // Special check for heading button: don't fire if submenu button was just clicked
+            if (name === "heading") {
+              console.log("🔍 Checking flag for heading button:", this.submenuButtonJustClicked);
+              if (this.submenuButtonJustClicked) {
+                console.log("⏭️ Skipping heading button - submenu button was just clicked");
+                return;
+              }
+            }
 
             // Small delay to ensure selection is stored
             setTimeout(() => {
@@ -338,51 +354,73 @@ class EditToolbar {
       document.addEventListener("click", this.handleClickOutsideSubmenu);
     }, 0);
 
-    // Remove old event listeners before adding new ones (Firefox compatibility)
+    // Remove old event listeners before adding new ones
     const levelButtons = this.headingSubmenu.querySelectorAll("[data-heading]");
     levelButtons.forEach(btn => {
-      // Remove old listeners
-      btn.removeEventListener("click", this.handleHeadingSelection);
-      btn.removeEventListener("touchstart", this.handleSubmenuTouchStart);
-      btn.removeEventListener("touchend", this.handleSubmenuTouchEnd);
+      // Clone and replace to remove all old listeners
+      const newBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn, btn);
 
-      // Add new listeners
-      btn.addEventListener("click", this.handleHeadingSelection);
+      // Add click listener
+      newBtn.addEventListener("click", this.handleHeadingSelection);
 
       // Mobile touch handlers
-      btn.addEventListener("touchstart", (e) => {
+      newBtn.addEventListener("touchstart", (e) => {
         e.preventDefault();
         e.stopPropagation();
       }, { passive: false });
 
-      btn.addEventListener("touchend", (e) => {
+      newBtn.addEventListener("touchend", (e) => {
         e.preventDefault();
         e.stopPropagation();
+
+        // Set flag to prevent heading button from firing
+        console.log("🚩 Setting submenuButtonJustClicked to true");
+        this.submenuButtonJustClicked = true;
+        console.log("🚩 Flag is now:", this.submenuButtonJustClicked);
+
         const level = e.currentTarget.dataset.heading;
         this.formatBlock("heading", level);
         this.closeHeadingSubmenu();
+
+        // Clear flag after delay (longer timeout to catch delayed touchend)
+        setTimeout(() => {
+          console.log("🚩 Clearing submenuButtonJustClicked");
+          this.submenuButtonJustClicked = false;
+        }, 1000);
       }, { passive: false });
     });
 
-    // Attach handlers for remove button (remove old listeners first)
+    // Attach handlers for remove button (clone to remove all old listeners)
     if (removeBtn) {
-      removeBtn.removeEventListener("click", this.handleRemoveHeading);
-      removeBtn.removeEventListener("touchstart", this.handleSubmenuTouchStart);
-      removeBtn.removeEventListener("touchend", this.handleSubmenuTouchEnd);
+      const newRemoveBtn = removeBtn.cloneNode(true);
+      removeBtn.parentNode.replaceChild(newRemoveBtn, removeBtn);
 
-      removeBtn.addEventListener("click", this.handleRemoveHeading);
+      newRemoveBtn.addEventListener("click", this.handleRemoveHeading);
 
       // Mobile touch handlers for X button
-      removeBtn.addEventListener("touchstart", (e) => {
+      newRemoveBtn.addEventListener("touchstart", (e) => {
         e.preventDefault();
         e.stopPropagation();
       }, { passive: false });
 
-      removeBtn.addEventListener("touchend", (e) => {
+      newRemoveBtn.addEventListener("touchend", (e) => {
         e.preventDefault();
         e.stopPropagation();
+
+        // Set flag to prevent heading button from firing
+        console.log("🚩 [X button] Setting submenuButtonJustClicked to true");
+        this.submenuButtonJustClicked = true;
+        console.log("🚩 [X button] Flag is now:", this.submenuButtonJustClicked);
+
         this.convertHeadingToParagraph();
         this.closeHeadingSubmenu();
+
+        // Clear flag after delay (longer timeout to catch delayed touchend)
+        setTimeout(() => {
+          console.log("🚩 [X button] Clearing submenuButtonJustClicked");
+          this.submenuButtonJustClicked = false;
+        }, 1000);
       }, { passive: false });
     }
   }
