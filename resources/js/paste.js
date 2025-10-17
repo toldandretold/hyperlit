@@ -86,7 +86,7 @@ function detectAndConvertUrls(text) {
   if (imageExtensions.test(url.pathname)) {
     // Escape URL for safe insertion (prevent attribute breakout)
     const safeUrl = escapeHtml(url.href);
-    const imageHtml = `<img src="${safeUrl}" class="external-link" alt="Pasted image" />`;
+    const imageHtml = `<img src="${safeUrl}" class="external-link" alt="Pasted image" referrerpolicy="no-referrer" />`;
 
     return {
       isUrl: true,
