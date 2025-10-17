@@ -1221,8 +1221,29 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
         queueNodeForSave(elementToProcess.id, "create");
         lastKnownId = elementToProcess.id;
       } else {
-        // Element has both IDs, just update lastKnownId for sequencing
-        lastKnownId = elementToProcess.id;
+        // Element has both IDs - CHECK if the ID is valid for this position
+        const elementId = parseFloat(elementToProcess.id);
+        const lastKnownNum = parseFloat(lastKnownId);
+        const nextStableNum = nextStableNodeId ? parseFloat(nextStableNodeId) : null;
+
+        // Validate: Is this ID in the correct sequential position?
+        const needsNewId =
+          elementId <= lastKnownNum || // ID is not greater than previous
+          (nextStableNum && elementId >= nextStableNum); // ID is not less than next
+
+        if (needsNewId) {
+          // Generate new positional ID, but PRESERVE existing data-node-id
+          const existingNodeId = elementToProcess.getAttribute('data-node-id');
+          const newId = generateIdBetween(lastKnownId, nextStableNodeId);
+          elementToProcess.id = newId;
+          console.log(`Updated pasted element ID: ${elementToProcess.id} → ${newId} (preserved data-node-id: ${existingNodeId})`);
+          queueNodeForSave(newId, 'update'); // Update since it has existing node_id
+          lastKnownId = newId;
+        } else {
+          // ID is already correct for this position
+          console.log(`Pasted element ID ${elementToProcess.id} is valid for position`);
+          lastKnownId = elementToProcess.id;
+        }
       }
     }
     elementToProcess = elementToProcess.nextElementSibling;
