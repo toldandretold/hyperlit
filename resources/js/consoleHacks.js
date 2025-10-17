@@ -65,7 +65,13 @@ async function rescueCurrentDOM() {
       var oldId = element.id;
       var nodeId = element.getAttribute('data-node-id');
       var content = element.outerHTML;
-      var updatedContent = content.replace(/id="[^"]+"/g, 'id="' + newStartLine + '"');
+
+      // Strip <mark> tags (highlights are injected on page load, shouldn't be saved)
+      var cleanContent = content.replace(/<mark[^>]*>/g, '').replace(/<\/mark>/g, '');
+
+      // Update the ID
+      var updatedContent = cleanContent.replace(/id="[^"]+"/g, 'id="' + newStartLine + '"');
+
       updates.push({
         book: currentBook,
         oldStartLine: parseFloat(oldId) || 0,
@@ -172,6 +178,28 @@ async function rescueCurrentDOM() {
     }
     var result = await response.json();
     console.log('Synced:', result);
+
+    // Update library timestamp to mark book as recently modified
+    var timestamp = Date.now();
+    var timestampResponse = await fetch('/api/db/library/update-timestamp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrfToken ? csrfToken.content : ''
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        book: currentBook,
+        timestamp: timestamp
+      })
+    });
+
+    if (timestampResponse.ok) {
+      console.log('Library timestamp updated:', timestamp);
+    } else {
+      console.warn('Failed to update library timestamp (non-critical)');
+    }
+
     window.renumberingInProgress = false;
     console.log('DONE! Reload page.');
     return true;
