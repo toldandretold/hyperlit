@@ -62,6 +62,21 @@ php artisan route:clear
 ./vendor/bin/pest tests/Unit
 ```
 
+### Data Maintenance Commands
+
+```bash
+# Strip <mark> tags from node_chunks content
+# Highlights are injected on page load from hyperlights data, not stored in content
+php artisan content:strip-mark-tags                    # Clean all books
+php artisan content:strip-mark-tags {book}             # Clean specific book
+php artisan content:strip-mark-tags {book} --dry-run   # Preview changes without applying
+
+# Example
+php artisan content:strip-mark-tags book_1760156814805 --dry-run
+```
+
+**Note**: The `StripMarkTagsFromContent` command (`app/Console/Commands/StripMarkTagsFromContent.php`) removes `<mark>` tags from both the `content` and `raw_json` columns in the `node_chunks` table. This is necessary because highlights should be dynamically injected from the `hyperlights` array data, not persisted in the content itself.
+
 ## Architecture
 
 ### Data Flow & Storage Strategy
