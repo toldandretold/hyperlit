@@ -726,6 +726,90 @@ black #221F20;
 
 /* end  */
 
+/*
+  =====================================================================
+  HYPERCITE MANAGEMENT BUTTONS (Health Check & Delete)
+  =====================================================================
+*/
+
+/* Container styling to match hyperlight buttons */
+.hypercite-management-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 0.5em;
+}
+
+/* Button base styling - matching hyperlight buttons */
+.hypercite-management-buttons button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: #221f20;
+  border: none;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+/* SVG sizing */
+.hypercite-management-buttons button svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Default icon colors */
+.hypercite-management-buttons .hypercite-health-check-btn svg {
+  fill: #cbcccc;
+}
+
+.hypercite-management-buttons .hypercite-delete-btn svg {
+  stroke: #cbcccc;
+  fill: none;
+}
+
+/* Hover effects - matching hyperlight buttons */
+.hypercite-management-buttons button:not(:disabled):not(.health-check-complete):hover {
+  transform: scale(1.1);
+  background: #cbcccc;
+}
+
+/* Health check button uses fill, delete uses stroke */
+.hypercite-management-buttons .hypercite-health-check-btn:not(:disabled):not(.health-check-complete):hover svg {
+  fill: #221f20;
+}
+
+.hypercite-management-buttons .hypercite-delete-btn:not(:disabled):hover svg {
+  stroke: #221f20;
+}
+
+/* Disable interaction after health check completes */
+.hypercite-management-buttons .health-check-complete {
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Disabled state */
+.hypercite-management-buttons button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.hypercite-management-buttons .hypercite-health-check-btn:disabled svg {
+  fill: #666666;
+}
+
+.hypercite-management-buttons .hypercite-delete-btn:disabled svg {
+  stroke: #666666;
+}
+
+/* end  */
+
 .arranger-button-container {
   padding: 0px 0;
   margin-bottom: 20px !important;

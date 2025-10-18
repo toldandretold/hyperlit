@@ -3,7 +3,7 @@ import { book } from "./app.js";
 import { openDatabase } from "./indexedDB.js";
 import { ContainerManager } from "./containerManager.js";
 import { formatBibtexToCitation } from "./bibtexProcessor.js";
-import { getCurrentUserId } from "./auth.js";
+import { getCurrentUserId, canUserEditBook } from "./auth.js";
 
 // Create the unified container manager
 let hyperlitManager = null;
@@ -315,31 +315,37 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
  */
 async function detectContentTypes(element, providedHighlightIds = null, directHyperciteId = null) {
   const contentTypes = [];
-  
+
   // 1. Check for footnotes (highest priority)
   const footnoteData = detectFootnote(element);
   if (footnoteData) {
     contentTypes.push(footnoteData);
   }
-  
+
   // 2. Check for citations
   const citationData = detectCitation(element);
   if (citationData) {
     contentTypes.push(citationData);
   }
-  
-  // 3. Check for hyperlights
+
+  // 3. Check for hypercite citation links (links pointing TO hypercites)
+  const hyperciteCitationData = detectHyperciteCitation(element);
+  if (hyperciteCitationData) {
+    contentTypes.push(hyperciteCitationData);
+  }
+
+  // 4. Check for hyperlights
   const highlightData = await detectHighlights(element, providedHighlightIds);
   if (highlightData) {
     contentTypes.push(highlightData);
   }
-  
-  // 4. Check for hypercites
+
+  // 5. Check for hypercites (source hypercites)
   const hyperciteData = await detectHypercites(element, directHyperciteId);
   if (hyperciteData) {
     contentTypes.push(hyperciteData);
   }
-  
+
   return contentTypes;
 }
 
@@ -442,6 +448,54 @@ async function detectHighlights(element, providedHighlightIds = null) {
     element: highlightElement,
     highlightIds: highlightIds
   };
+}
+
+/**
+ * Detect hypercite citation links (links pointing TO hypercites in other documents)
+ */
+function detectHyperciteCitation(element) {
+  // Check if element is an <a> tag with href containing #hypercite_
+  if (element.tagName === 'A' && element.href) {
+    const url = new URL(element.href, window.location.origin);
+    const hash = url.hash;
+
+    if (hash && hash.startsWith('#hypercite_')) {
+      const hyperciteId = hash.substring(1); // Remove #
+      const targetBookPath = url.pathname;
+      const targetBook = targetBookPath.split('/').filter(p => p).pop(); // Get last path segment
+
+      return {
+        type: 'hypercite-citation',
+        element: element,
+        targetBook: targetBook,
+        targetHyperciteId: hyperciteId,
+        targetUrl: element.href
+      };
+    }
+  }
+
+  // Also check if we're inside a hypercite citation link
+  const parentLink = element.closest('a[href*="#hypercite_"]');
+  if (parentLink) {
+    const url = new URL(parentLink.href, window.location.origin);
+    const hash = url.hash;
+
+    if (hash && hash.startsWith('#hypercite_')) {
+      const hyperciteId = hash.substring(1);
+      const targetBookPath = url.pathname;
+      const targetBook = targetBookPath.split('/').filter(p => p).pop();
+
+      return {
+        type: 'hypercite-citation',
+        element: parentLink,
+        targetBook: targetBook,
+        targetHyperciteId: hyperciteId,
+        targetUrl: parentLink.href
+      };
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -593,12 +647,13 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
     })
   );
   
-  // Sort by content type priority: footnotes/citations first, then hypercites, then highlights
+  // Sort by content type priority: hypercite-citation first, then footnotes/citations, then hypercites, then highlights
   const typePriority = {
-    'footnote': 1,
-    'citation': 2, 
-    'hypercite': 3,
-    'highlight': 4
+    'hypercite-citation': 1,
+    'footnote': 2,
+    'citation': 3,
+    'hypercite': 4,
+    'highlight': 5
   };
   
   contentTypesWithTimestamps.sort((a, b) => {
@@ -621,7 +676,7 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
   // Process each content type in chronological order
   for (const contentType of contentTypesWithTimestamps) {
     console.log(`🔨 Processing ${contentType.type} content...`);
-    
+
     switch (contentType.type) {
       case 'footnote':
         const footnoteHtml = await buildFootnoteContent(contentType);
@@ -630,7 +685,7 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
           contentHtml += footnoteHtml;
         }
         break;
-        
+
       case 'citation':
         const citationHtml = await buildCitationContent(contentType);
         if (citationHtml) {
@@ -638,7 +693,15 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
           contentHtml += citationHtml;
         }
         break;
-        
+
+      case 'hypercite-citation':
+        const hyperciteCitationHtml = await buildHyperciteCitationContent(contentType);
+        if (hyperciteCitationHtml) {
+          console.log(`✅ Added hypercite citation content (${hyperciteCitationHtml.length} chars)`);
+          contentHtml += hyperciteCitationHtml;
+        }
+        break;
+
       case 'highlight':
         const highlightHtml = await buildHighlightContent(contentType, newHighlightIds);
         if (highlightHtml) {
@@ -648,7 +711,7 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
           console.warn("⚠️ No highlight content generated");
         }
         break;
-        
+
       case 'hypercite':
         const hyperciteHtml = await buildHyperciteContent(contentType);
         if (hyperciteHtml) {
@@ -782,6 +845,64 @@ async function buildCitationContent(contentType) {
         <h3>Citation:</h3>
         <div class="error">Error loading reference</div>
         <hr>
+      </div>`;
+  }
+}
+
+/**
+ * Build hypercite citation content section (for links pointing TO hypercites)
+ */
+async function buildHyperciteCitationContent(contentType) {
+  try {
+    const { targetBook, targetHyperciteId, targetUrl } = contentType;
+
+    console.log(`🔗 Building hypercite citation for: ${targetBook}#${targetHyperciteId}`);
+
+    const db = await openDatabase();
+    const transaction = db.transaction(['library'], 'readonly');
+    const store = transaction.objectStore('library');
+
+    const result = await new Promise((resolve, reject) => {
+      const request = store.get(targetBook);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+
+    let formattedCitation = '';
+
+    if (result && result.bibtex) {
+      formattedCitation = await formatBibtexToCitation(result.bibtex);
+    } else {
+      // Fallback: try to fetch from server
+      const serverLibraryData = await fetchLibraryFromServer(targetBook);
+      if (serverLibraryData && serverLibraryData.bibtex) {
+        formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
+      } else {
+        // Last resort: use book ID
+        formattedCitation = targetBook;
+      }
+    }
+
+    return `
+      <div class="hypercite-citation-section" data-content-id="${targetHyperciteId}">
+        <h3>Reference</h3>
+        <div class="citation-text">
+          ${formattedCitation}
+        </div>
+        <div style="margin-top: 1em;">
+          <a href="${targetUrl}" class="see-in-source-btn" style="display: inline-block; padding: 0.5em 1em; background: #4EACAE; color: #221F20; text-decoration: none; border-radius: 4px;">
+            See in source text
+          </a>
+        </div>
+        <hr style="margin: 2em 0; opacity: 0.5;">
+      </div>`;
+  } catch (error) {
+    console.error('Error building hypercite citation content:', error);
+    return `
+      <div class="hypercite-citation-section">
+        <h3>Reference</h3>
+        <div class="error">Error loading citation</div>
+        <hr style="margin: 2em 0; opacity: 0.5;">
       </div>`;
   }
 }
@@ -1029,14 +1150,14 @@ async function buildHyperciteContent(contentType) {
       const linksHTML = await Promise.all(
         uniqueCitedINLinks.map(async (citationItem) => {
           const { link: citationID, hyperciteId } = citationItem;
-          
+
           // Extract book ID from citation URL
           let bookID;
           const citationParts = citationID.split("#");
           const urlPart = citationParts[0];
-          
+
           const isHyperlightURL = urlPart.includes("/HL_");
-          
+
           if (isHyperlightURL) {
             const pathParts = urlPart.split("/");
             for (let i = 0; i < pathParts.length; i++) {
@@ -1052,6 +1173,45 @@ async function buildHyperciteContent(contentType) {
             bookID = urlPart.replace("/", "");
           }
 
+          // Check if this is a simple hypercite and user owns the CITING book
+          const isSimpleHypercite = !isHyperlightURL && citationParts.length > 1;
+          let managementButtonsHtml = '';
+
+          if (isSimpleHypercite) {
+            const hyperciteIdFromUrl = citationParts[1]; // Extract hypercite_xxx from citing book URL
+
+            // Check if user can edit the CITING book (from href/citedIN)
+            const canEdit = await canUserEditBook(bookID);
+
+            if (canEdit) {
+              // Use originalHyperciteId (the source hypercite we clicked on) and book (source book)
+              managementButtonsHtml = `
+      <span class="hypercite-management-buttons">
+        <button class="hypercite-health-check-btn"
+                data-citing-book="${bookID}"
+                data-hypercite-id="${hyperciteIdFromUrl}"
+                title="Check if citation exists"
+                type="button">
+          <svg width="18" height="18" viewBox="0 0 48 48" fill="currentColor">
+            <path d="M12 10C13.1046 10 14 9.10457 14 8C14 6.89543 13.1046 6 12 6C11.2597 6 10.6134 6.4022 10.2676 7H10C8.34315 7 7 8.34315 7 10V19C6.44774 19 5.99531 19.4487 6.04543 19.9987C6.27792 22.5499 7.39568 24.952 9.22186 26.7782C10.561 28.1173 12.2098 29.0755 14 29.583V32C14 33.3064 14.835 34.4177 16.0004 34.8294C16.043 38.7969 19.2725 42 23.25 42C27.2541 42 30.5 38.7541 30.5 34.75V30.75C30.5 28.6789 32.1789 27 34.25 27C36.3211 27 38 28.6789 38 30.75V33.1707C36.8348 33.5825 36 34.6938 36 36C36 37.6569 37.3431 39 39 39C40.6569 39 42 37.6569 42 36C42 34.6938 41.1652 33.5825 40 33.1707V30.75C40 27.5744 37.4256 25 34.25 25C31.0744 25 28.5 27.5744 28.5 30.75V34.75C28.5 37.6495 26.1495 40 23.25 40C20.3769 40 18.0429 37.6921 18.0006 34.8291C19.1655 34.4171 20 33.306 20 32V29.583C21.7902 29.0755 23.4391 28.1173 24.7782 26.7782C26.6044 24.952 27.7221 22.5499 27.9546 19.9987C28.0048 19.4487 27.5523 19 27 19L27 10C27 8.34315 25.6569 7 24 7H23.7324C23.3866 6.4022 22.7403 6 22 6C20.8954 6 20 6.89543 20 8C20 9.10457 20.8954 10 22 10C22.7403 10 23.3866 9.5978 23.7324 9H24C24.5523 9 25 9.44772 25 10V19H25.2095C24.6572 19 24.2166 19.4499 24.1403 19.9969C23.9248 21.5406 23.2127 22.983 22.0979 24.0979C20.7458 25.4499 18.9121 26.2095 17 26.2095C15.088 26.2095 13.2542 25.4499 11.9022 24.0979C10.7873 22.983 10.0753 21.5406 9.8598 19.9969C9.78344 19.4499 9.34286 19 8.79057 19L9 19V10C9 9.44772 9.44772 9 10 9H10.2676C10.6134 9.5978 11.2597 10 12 10Z"/>
+          </svg>
+        </button>
+        <button class="hypercite-delete-btn"
+                data-source-book="${book}"
+                data-source-hypercite-id="${originalHyperciteId}"
+                title="Run health check first"
+                type="button"
+                disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 6h18" stroke-linecap="round" stroke-linejoin="round"></path>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+        </button>
+      </span>
+    `;
+            }
+          }
+
           // Get library data for formatted citation
           const libraryTx = db.transaction("library", "readonly");
           const libraryStore = libraryTx.objectStore("library");
@@ -1063,27 +1223,27 @@ async function buildHyperciteContent(contentType) {
 
               if (libraryData && libraryData.bibtex) {
                 const formattedCitation = await formatBibtexToCitation(libraryData.bibtex);
-                const citationText = isHyperlightURL 
-                  ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}` 
+                const citationText = isHyperlightURL
+                  ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}`
                   : formattedCitation;
 
                 resolve(
-                  `<blockquote>${citationText} <a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}"><span class="open-icon">↗</span></a></blockquote>`
+                  `<blockquote>${citationText} <a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}"><span class="open-icon">↗</span></a>${managementButtonsHtml}</blockquote>`
                 );
               } else {
                 // Fallback: try to fetch from server
                 const serverLibraryData = await fetchLibraryFromServer(bookID);
                 if (serverLibraryData && serverLibraryData.bibtex) {
                   const formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
-                  const citationText = isHyperlightURL 
-                    ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}` 
+                  const citationText = isHyperlightURL
+                    ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}`
                     : formattedCitation;
 
                   resolve(
-                    `<blockquote>${citationText} <a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}"><span class="open-icon">↗</span></a></blockquote>`
+                    `<blockquote>${citationText} <a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}"><span class="open-icon">↗</span></a>${managementButtonsHtml}</blockquote>`
                   );
                 } else {
-                  resolve(`<a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}">${citationID}</a>`);
+                  resolve(`<a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}">${citationID}${managementButtonsHtml}</a>`);
                 }
               }
             };
@@ -1093,15 +1253,15 @@ async function buildHyperciteContent(contentType) {
               const serverLibraryData = await fetchLibraryFromServer(bookID);
               if (serverLibraryData && serverLibraryData.bibtex) {
                 const formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
-                const citationText = isHyperlightURL 
-                  ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}` 
+                const citationText = isHyperlightURL
+                  ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}`
                   : formattedCitation;
 
                 resolve(
-                  `<blockquote>${citationText} <a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}"><span class="open-icon">↗</span></a></blockquote>`
+                  `<blockquote>${citationText} <a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}"><span class="open-icon">↗</span></a>${managementButtonsHtml}</blockquote>`
                 );
               } else {
-                resolve(`<a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}">${citationID}</a>`);
+                resolve(`<a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}">${citationID}${managementButtonsHtml}</a>`);
               }
             };
           });
@@ -1221,6 +1381,317 @@ async function fetchLibraryFromServer(bookId) {
 }
 
 /**
+ * Check if a hypercite exists in a specific book's nodeChunks
+ * Searches for the hypercite ID in the content HTML (pasted citations appear as <a id="hypercite_xxx">)
+ * @param {string} bookId - The book to search in
+ * @param {string} hyperciteId - The hypercite ID to search for (e.g., "hypercite_zlpx0209")
+ * @returns {Promise<{exists: boolean, chunkKey: string|null}>}
+ */
+async function checkHyperciteExists(bookId, hyperciteId) {
+  try {
+    console.log(`🔍 Checking if hypercite ${hyperciteId} exists in book ${bookId}`);
+
+    const db = await openDatabase();
+    const tx = db.transaction(['nodeChunks'], 'readonly');
+    const nodeChunksStore = tx.objectStore('nodeChunks');
+
+    // Get all nodeChunks for the book
+    const bookIndex = nodeChunksStore.index('book');
+    const nodeChunksRequest = bookIndex.getAll(bookId);
+
+    const nodeChunks = await new Promise((resolve, reject) => {
+      nodeChunksRequest.onsuccess = () => resolve(nodeChunksRequest.result || []);
+      nodeChunksRequest.onerror = () => reject(nodeChunksRequest.error);
+    });
+
+    console.log(`📚 Found ${nodeChunks.length} chunks for book ${bookId}`);
+
+    // Search through all chunks' content for the hypercite ID in HTML
+    // Pasted citations appear as: <a href="..." id="hypercite_xxx">
+    const idPattern = `id="${hyperciteId}"`;
+
+    for (const chunk of nodeChunks) {
+      if (chunk.content && typeof chunk.content === 'string') {
+        if (chunk.content.includes(idPattern)) {
+          const chunkKey = `${bookId}:${chunk.startLine}`;
+          console.log(`✅ Found hypercite ${hyperciteId} in content of chunk ${chunkKey}`);
+          return { exists: true, chunkKey };
+        }
+      }
+    }
+
+    console.log(`❌ Hypercite ${hyperciteId} not found in content of book ${bookId}`);
+    return { exists: false, chunkKey: null };
+
+  } catch (error) {
+    console.error('Error checking hypercite existence:', error);
+    return { exists: false, chunkKey: null };
+  }
+}
+
+/**
+ * Handle health check button click for hypercites
+ * @param {Event} event - The click event
+ */
+export async function handleHyperciteHealthCheck(event) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const button = event.currentTarget;
+  const citingBook = button.getAttribute('data-citing-book');
+  const hyperciteId = button.getAttribute('data-hypercite-id');
+
+  if (!citingBook || !hyperciteId) {
+    console.error('Missing data attributes on health check button');
+    return;
+  }
+
+  console.log(`🏥 Health check: book=${citingBook}, hypercite=${hyperciteId}`);
+
+  // Find the delete button (sibling)
+  const deleteButton = button.parentElement.querySelector('.hypercite-delete-btn');
+
+  // Find the SVG element
+  const svg = button.querySelector('svg');
+
+  // Check if hypercite exists
+  const result = await checkHyperciteExists(citingBook, hyperciteId);
+
+  // Add class to disable further interaction
+  button.classList.add('health-check-complete');
+
+  if (result.exists) {
+    // Citation exists - change stethoscope to green, disable delete button
+    svg.style.fill = '#22c55e';
+    button.title = result.chunkKey ? `Found in chunk ${result.chunkKey}` : 'Citation exists';
+
+    if (deleteButton) {
+      deleteButton.disabled = true;
+      deleteButton.title = "Can't delete - citation still exists";
+    }
+  } else {
+    // Citation broken - change stethoscope to red, enable delete button
+    svg.style.fill = '#ef4444';
+    button.title = 'Citation not found - may have been deleted';
+
+    if (deleteButton) {
+      deleteButton.disabled = false;
+      deleteButton.title = 'Delete this orphaned hypercite';
+    }
+  }
+
+  // Don't reset - keep the result visible until container closes
+}
+
+/**
+ * Handle delete button click for hypercites
+ * @param {Event} event - The click event
+ */
+export async function handleHyperciteDelete(event) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const button = event.currentTarget;
+  const sourceBook = button.getAttribute('data-source-book');
+  const sourceHyperciteIdStr = button.getAttribute('data-source-hypercite-id');
+
+  if (!sourceBook || !sourceHyperciteIdStr) {
+    console.error('Missing data attributes on delete button');
+    return;
+  }
+
+  // Handle comma-separated IDs (for overlapping hypercites)
+  const sourceHyperciteIds = sourceHyperciteIdStr.split(',').map(id => id.trim());
+  const isMultiple = sourceHyperciteIds.length > 1;
+
+  try {
+    // Step 1: Run health check on all citations first
+    // Get all citedIN links for these hypercites
+    const db = await openDatabase();
+    const tx = db.transaction('hypercites', 'readonly');
+    const store = tx.objectStore('hypercites');
+
+    let allCitations = [];
+    for (const sourceHyperciteId of sourceHyperciteIds) {
+      const hyperciteRequest = store.get([sourceBook, sourceHyperciteId]);
+      const hypercite = await new Promise((resolve, reject) => {
+        hyperciteRequest.onsuccess = () => resolve(hyperciteRequest.result);
+        hyperciteRequest.onerror = () => reject(hyperciteRequest.error);
+      });
+
+      if (hypercite && hypercite.citedIN && Array.isArray(hypercite.citedIN)) {
+        allCitations.push(...hypercite.citedIN.map(url => ({
+          url,
+          sourceHyperciteId
+        })));
+      }
+    }
+
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+
+    console.log(`🔍 Checking ${allCitations.length} citations for health...`);
+
+    // Check if any citations still exist
+    let foundActiveCitation = false;
+    for (const citation of allCitations) {
+      const parts = citation.url.split('#');
+      if (parts.length > 1) {
+        const bookId = parts[0].replace('/', '');
+        const hyperciteId = parts[1];
+
+        const result = await checkHyperciteExists(bookId, hyperciteId);
+        if (result.exists) {
+          foundActiveCitation = true;
+          console.log(`❌ Found active citation in ${bookId}: ${hyperciteId}`);
+          break;
+        }
+      }
+    }
+
+    // If any active citation found, refuse to delete
+    if (foundActiveCitation) {
+      alert("Can't delete a connected hypercite. Go to the pasted hypercite to delete both ends.");
+      return;
+    }
+
+    console.log(`✅ All citations are broken/orphaned. Safe to delete.`);
+
+    // Confirm deletion
+    const confirmMsg = isMultiple
+      ? `This will delete ${sourceHyperciteIds.length} orphaned hypercites. Continue?`
+      : `This will delete this orphaned hypercite. Continue?`;
+
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+
+    // Step 2: Proceed with deletion
+    console.log(`🗑️ Deleting source hypercite(s): book=${sourceBook}, hyperciteIds=${sourceHyperciteIds.join(', ')}`);
+
+    const { queueForSync, debouncedMasterSync, updateBookTimestamp } = await import('./indexedDB.js');
+
+    const updatedChunks = [];
+
+    // Process each hypercite ID
+    for (const sourceHyperciteId of sourceHyperciteIds) {
+      // 1. Find and remove hypercite from source book's nodeChunks.hypercites array
+      const nodeChunksTx = db.transaction(['nodeChunks'], 'readwrite');
+      const nodeChunksStore = nodeChunksTx.objectStore('nodeChunks');
+      const bookIndex = nodeChunksStore.index('book');
+
+      const allNodeChunks = await new Promise((resolve, reject) => {
+        const request = bookIndex.getAll(sourceBook);
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+      });
+
+      console.log(`🔍 Searching ${allNodeChunks.length} nodeChunks for hypercite ${sourceHyperciteId}`);
+
+      let foundNodeChunk = null;
+      let foundHyperciteIndex = -1;
+
+      for (const nodeChunk of allNodeChunks) {
+        if (nodeChunk.hypercites && Array.isArray(nodeChunk.hypercites)) {
+          const index = nodeChunk.hypercites.findIndex(hc => hc.hyperciteId === sourceHyperciteId);
+          if (index !== -1) {
+            foundNodeChunk = nodeChunk;
+            foundHyperciteIndex = index;
+            console.log(`✅ Found hypercite in nodeChunk at startLine ${nodeChunk.startLine}, index ${index}`);
+            break;
+          }
+        }
+      }
+
+      if (foundNodeChunk && foundHyperciteIndex !== -1) {
+        // Remove the hypercite from the array
+        foundNodeChunk.hypercites.splice(foundHyperciteIndex, 1);
+
+        // Update the nodeChunk in IndexedDB
+        const updateRequest = nodeChunksStore.put(foundNodeChunk);
+        await new Promise((resolve, reject) => {
+          updateRequest.onsuccess = () => resolve();
+          updateRequest.onerror = () => reject(updateRequest.error);
+        });
+
+        console.log(`✅ Removed hypercite from nodeChunk at startLine ${foundNodeChunk.startLine}`);
+
+        // Queue for sync to PostgreSQL
+        queueForSync('nodeChunks', foundNodeChunk.startLine, 'update', foundNodeChunk);
+        updatedChunks.push(foundNodeChunk);
+      } else {
+        console.warn(`⚠️ Hypercite ${sourceHyperciteId} not found in any nodeChunk`);
+      }
+
+      await new Promise((resolve, reject) => {
+        nodeChunksTx.oncomplete = () => resolve();
+        nodeChunksTx.onerror = () => reject(nodeChunksTx.error);
+      });
+
+      // 2. Delete from hypercites store
+      const hypercitesTx = db.transaction(['hypercites'], 'readwrite');
+      const hypercitesStore = hypercitesTx.objectStore('hypercites');
+
+      await new Promise((resolve, reject) => {
+        const deleteRequest = hypercitesStore.delete([sourceBook, sourceHyperciteId]);
+        deleteRequest.onsuccess = () => {
+          console.log(`🗑️ Deleted hypercite ${sourceHyperciteId} from hypercites store`);
+          resolve();
+        };
+        deleteRequest.onerror = () => reject(deleteRequest.error);
+      });
+
+      await new Promise((resolve, reject) => {
+        hypercitesTx.oncomplete = () => resolve();
+        hypercitesTx.onerror = () => reject(hypercitesTx.error);
+      });
+
+      // Queue deletion for sync
+      queueForSync('hypercites', sourceHyperciteId, 'delete', { book: sourceBook, hyperciteId: sourceHyperciteId });
+
+      // 3. Unwrap the <u> element in DOM if it exists
+      const uElement = document.getElementById(sourceHyperciteId);
+      if (uElement) {
+        // Unwrap: replace <u> with its text content
+        const parent = uElement.parentNode;
+        while (uElement.firstChild) {
+          parent.insertBefore(uElement.firstChild, uElement);
+        }
+        parent.removeChild(uElement);
+        console.log(`✅ Unwrapped <u> element ${sourceHyperciteId} from DOM`);
+      }
+    }
+
+    // 4. Update book timestamp
+    await updateBookTimestamp(sourceBook);
+
+    // 5. Flush sync immediately
+    console.log('⚡ Flushing sync queue immediately...');
+    await debouncedMasterSync.flush();
+    console.log('✅ Sync queue flushed');
+
+    // 6. Close container since the hypercite is now deleted
+    closeHyperlitContainer();
+    console.log('📪 Closed container after deleting source hypercite(s)');
+
+    // 7. Broadcast changes to other tabs
+    if (updatedChunks.length > 0) {
+      const { broadcastToOpenTabs } = await import('./BroadcastListener.js');
+      updatedChunks.forEach(chunk => {
+        broadcastToOpenTabs(sourceBook, chunk.startLine);
+      });
+      console.log('📡 Broadcasted deletion to other tabs');
+    }
+
+  } catch (error) {
+    console.error('❌ Error deleting source hypercite:', error);
+    alert('Failed to delete hypercite. Please try again.');
+  }
+}
+
+/**
  * Handle post-open actions like cursor placement
  */
 async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
@@ -1323,6 +1794,34 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
   setTimeout(() => {
     attachDataContentIdLinkListeners();
   }, 100);
+
+  // Attach hypercite management button listeners
+  setTimeout(() => {
+    const healthCheckButtons = document.querySelectorAll('.hypercite-health-check-btn');
+    healthCheckButtons.forEach(button => {
+      button.addEventListener('click', handleHyperciteHealthCheck);
+    });
+
+    const hyperciteDeleteButtons = document.querySelectorAll('.hypercite-delete-btn');
+    hyperciteDeleteButtons.forEach(button => {
+      button.addEventListener('click', handleHyperciteDelete);
+    });
+
+    console.log(`🔗 Attached ${healthCheckButtons.length} health check and ${hyperciteDeleteButtons.length} delete button listeners for hypercites`);
+  }, 200);
+
+  // Attach "See in source text" button listeners to close container before navigation
+  setTimeout(() => {
+    const seeInSourceButtons = document.querySelectorAll('.see-in-source-btn');
+    seeInSourceButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        console.log('🔗 See in source text clicked, closing container before navigation');
+        closeHyperlitContainer();
+      });
+    });
+
+    console.log(`🔗 Attached ${seeInSourceButtons.length} "See in source text" button listeners`);
+  }, 200);
 }
 
 /**
