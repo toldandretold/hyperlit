@@ -126,6 +126,33 @@ export function createLazyLoader(config) {
       bookId: instance.bookId
     });
 
+    // 🔗 CHECK FOR HYPERCITE CITATION LINKS (links pointing TO hypercites)
+    // These should open the unified container instead of navigating
+    // UNLESS they are:
+    // 1. Inside the hyperlit-container (already in a container, should navigate directly)
+    // 2. Have the "see-in-source-btn" class (action button from container)
+    try {
+      const url = new URL(link.href, window.location.origin);
+      const hash = url.hash;
+
+      // Check if link is inside the hyperlit-container
+      const isInsideContainer = link.closest('#hyperlit-container');
+
+      if (hash && hash.startsWith('#hypercite_') && !link.classList.contains('see-in-source-btn') && !isInsideContainer) {
+        console.log('🔗 LazyLoader: Detected hypercite citation link, opening container');
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Import and call unified container handler
+        const { handleUnifiedContentClick } = await import('./unifiedContainer.js');
+        await handleUnifiedContentClick(link);
+        return;
+      }
+    } catch (error) {
+      console.error('🔗 LazyLoader: Error checking for hypercite citation:', error);
+      // Continue to normal link handling
+    }
+
     try {
       // Import and delegate to LinkNavigationHandler for processing
       const { LinkNavigationHandler } = await import('./navigation/LinkNavigationHandler.js');
