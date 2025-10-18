@@ -315,31 +315,37 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
  */
 async function detectContentTypes(element, providedHighlightIds = null, directHyperciteId = null) {
   const contentTypes = [];
-  
+
   // 1. Check for footnotes (highest priority)
   const footnoteData = detectFootnote(element);
   if (footnoteData) {
     contentTypes.push(footnoteData);
   }
-  
+
   // 2. Check for citations
   const citationData = detectCitation(element);
   if (citationData) {
     contentTypes.push(citationData);
   }
-  
-  // 3. Check for hyperlights
+
+  // 3. Check for hypercite citation links (links pointing TO hypercites)
+  const hyperciteCitationData = detectHyperciteCitation(element);
+  if (hyperciteCitationData) {
+    contentTypes.push(hyperciteCitationData);
+  }
+
+  // 4. Check for hyperlights
   const highlightData = await detectHighlights(element, providedHighlightIds);
   if (highlightData) {
     contentTypes.push(highlightData);
   }
-  
-  // 4. Check for hypercites
+
+  // 5. Check for hypercites (source hypercites)
   const hyperciteData = await detectHypercites(element, directHyperciteId);
   if (hyperciteData) {
     contentTypes.push(hyperciteData);
   }
-  
+
   return contentTypes;
 }
 
@@ -442,6 +448,54 @@ async function detectHighlights(element, providedHighlightIds = null) {
     element: highlightElement,
     highlightIds: highlightIds
   };
+}
+
+/**
+ * Detect hypercite citation links (links pointing TO hypercites in other documents)
+ */
+function detectHyperciteCitation(element) {
+  // Check if element is an <a> tag with href containing #hypercite_
+  if (element.tagName === 'A' && element.href) {
+    const url = new URL(element.href, window.location.origin);
+    const hash = url.hash;
+
+    if (hash && hash.startsWith('#hypercite_')) {
+      const hyperciteId = hash.substring(1); // Remove #
+      const targetBookPath = url.pathname;
+      const targetBook = targetBookPath.split('/').filter(p => p).pop(); // Get last path segment
+
+      return {
+        type: 'hypercite-citation',
+        element: element,
+        targetBook: targetBook,
+        targetHyperciteId: hyperciteId,
+        targetUrl: element.href
+      };
+    }
+  }
+
+  // Also check if we're inside a hypercite citation link
+  const parentLink = element.closest('a[href*="#hypercite_"]');
+  if (parentLink) {
+    const url = new URL(parentLink.href, window.location.origin);
+    const hash = url.hash;
+
+    if (hash && hash.startsWith('#hypercite_')) {
+      const hyperciteId = hash.substring(1);
+      const targetBookPath = url.pathname;
+      const targetBook = targetBookPath.split('/').filter(p => p).pop();
+
+      return {
+        type: 'hypercite-citation',
+        element: parentLink,
+        targetBook: targetBook,
+        targetHyperciteId: hyperciteId,
+        targetUrl: parentLink.href
+      };
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -593,12 +647,13 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
     })
   );
   
-  // Sort by content type priority: footnotes/citations first, then hypercites, then highlights
+  // Sort by content type priority: hypercite-citation first, then footnotes/citations, then hypercites, then highlights
   const typePriority = {
-    'footnote': 1,
-    'citation': 2, 
-    'hypercite': 3,
-    'highlight': 4
+    'hypercite-citation': 1,
+    'footnote': 2,
+    'citation': 3,
+    'hypercite': 4,
+    'highlight': 5
   };
   
   contentTypesWithTimestamps.sort((a, b) => {
@@ -621,7 +676,7 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
   // Process each content type in chronological order
   for (const contentType of contentTypesWithTimestamps) {
     console.log(`🔨 Processing ${contentType.type} content...`);
-    
+
     switch (contentType.type) {
       case 'footnote':
         const footnoteHtml = await buildFootnoteContent(contentType);
@@ -630,7 +685,7 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
           contentHtml += footnoteHtml;
         }
         break;
-        
+
       case 'citation':
         const citationHtml = await buildCitationContent(contentType);
         if (citationHtml) {
@@ -638,7 +693,15 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
           contentHtml += citationHtml;
         }
         break;
-        
+
+      case 'hypercite-citation':
+        const hyperciteCitationHtml = await buildHyperciteCitationContent(contentType);
+        if (hyperciteCitationHtml) {
+          console.log(`✅ Added hypercite citation content (${hyperciteCitationHtml.length} chars)`);
+          contentHtml += hyperciteCitationHtml;
+        }
+        break;
+
       case 'highlight':
         const highlightHtml = await buildHighlightContent(contentType, newHighlightIds);
         if (highlightHtml) {
@@ -648,7 +711,7 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
           console.warn("⚠️ No highlight content generated");
         }
         break;
-        
+
       case 'hypercite':
         const hyperciteHtml = await buildHyperciteContent(contentType);
         if (hyperciteHtml) {
@@ -782,6 +845,64 @@ async function buildCitationContent(contentType) {
         <h3>Citation:</h3>
         <div class="error">Error loading reference</div>
         <hr>
+      </div>`;
+  }
+}
+
+/**
+ * Build hypercite citation content section (for links pointing TO hypercites)
+ */
+async function buildHyperciteCitationContent(contentType) {
+  try {
+    const { targetBook, targetHyperciteId, targetUrl } = contentType;
+
+    console.log(`🔗 Building hypercite citation for: ${targetBook}#${targetHyperciteId}`);
+
+    const db = await openDatabase();
+    const transaction = db.transaction(['library'], 'readonly');
+    const store = transaction.objectStore('library');
+
+    const result = await new Promise((resolve, reject) => {
+      const request = store.get(targetBook);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+
+    let formattedCitation = '';
+
+    if (result && result.bibtex) {
+      formattedCitation = await formatBibtexToCitation(result.bibtex);
+    } else {
+      // Fallback: try to fetch from server
+      const serverLibraryData = await fetchLibraryFromServer(targetBook);
+      if (serverLibraryData && serverLibraryData.bibtex) {
+        formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
+      } else {
+        // Last resort: use book ID
+        formattedCitation = targetBook;
+      }
+    }
+
+    return `
+      <div class="hypercite-citation-section" data-content-id="${targetHyperciteId}">
+        <h3>Reference</h3>
+        <div class="citation-text">
+          ${formattedCitation}
+        </div>
+        <div style="margin-top: 1em;">
+          <a href="${targetUrl}" class="see-in-source-btn" style="display: inline-block; padding: 0.5em 1em; background: #4EACAE; color: #221F20; text-decoration: none; border-radius: 4px;">
+            See in source text
+          </a>
+        </div>
+        <hr style="margin: 2em 0; opacity: 0.5;">
+      </div>`;
+  } catch (error) {
+    console.error('Error building hypercite citation content:', error);
+    return `
+      <div class="hypercite-citation-section">
+        <h3>Reference</h3>
+        <div class="error">Error loading citation</div>
+        <hr style="margin: 2em 0; opacity: 0.5;">
       </div>`;
   }
 }
@@ -1687,6 +1808,19 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
     });
 
     console.log(`🔗 Attached ${healthCheckButtons.length} health check and ${hyperciteDeleteButtons.length} delete button listeners for hypercites`);
+  }, 200);
+
+  // Attach "See in source text" button listeners to close container before navigation
+  setTimeout(() => {
+    const seeInSourceButtons = document.querySelectorAll('.see-in-source-btn');
+    seeInSourceButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        console.log('🔗 See in source text clicked, closing container before navigation');
+        closeHyperlitContainer();
+      });
+    });
+
+    console.log(`🔗 Attached ${seeInSourceButtons.length} "See in source text" button listeners`);
   }, 200);
 }
 
