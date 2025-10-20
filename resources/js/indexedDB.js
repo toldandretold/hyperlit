@@ -1685,12 +1685,12 @@ function updateHyperciteRecords(hypercites, store, bookId, syncArray, node) {
 
 
 // Helper function to update a specific hypercite in IndexedDB
-export async function updateHyperciteInIndexedDB(book, hyperciteId, updatedFields) {
+export async function updateHyperciteInIndexedDB(book, hyperciteId, updatedFields, skipQueue = false) {
   return new Promise((resolve, reject) => {
     const dbName = "MarkdownDB";
     const storeName = "hypercites";
-    
-    console.log(`Updating in hypercites store: ${dbName}, key: [${book}, ${hyperciteId}]`);
+
+    console.log(`Updating in hypercites store: ${dbName}, key: [${book}, ${hyperciteId}], skipQueue: ${skipQueue}`);
     
     const request = indexedDB.open(dbName);
     
@@ -1732,7 +1732,11 @@ export async function updateHyperciteInIndexedDB(book, hyperciteId, updatedField
           updateRequest.onsuccess = async() => {
             console.log(`Successfully updated hypercite for key: [${book}, ${hyperciteId}]`);
             await updateBookTimestamp(book);
-            queueForSync("hypercites", hyperciteId, "update", existingRecord);
+            if (!skipQueue) {
+              queueForSync("hypercites", hyperciteId, "update", existingRecord);
+            } else {
+              console.log(`⏭️ Skipping queue for hypercite ${hyperciteId} (batched sync)`);
+            }
             resolve(true);
           };
           
@@ -2261,7 +2265,7 @@ export async function clearDatabase() {
   }
 }
 
-async function addCitationToHypercite(book, startLine, hyperciteId, newCitation) {
+export async function addCitationToHypercite(book, startLine, hyperciteId, newCitation) {
   return new Promise((resolve, reject) => {
     const dbName = "MarkdownDB";
     const storeName = "nodeChunks";
