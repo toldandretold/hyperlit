@@ -261,7 +261,17 @@ black #221F20;
 
 }
 
-#toc-container .scroller,
+#toc-container .scroller {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: auto;
+  padding: 0 1em 1em 1em;
+  border-radius: 1em 1em;
+}
+
 #user-container .scroller {
   position: absolute;
   top: 0;
@@ -269,7 +279,7 @@ black #221F20;
   right: 0;
   bottom: 0;
   overflow: auto;
-  padding: 0 1em 1em 1em; /* Remove top padding */
+  padding: 0 1em 1em 1em;
   border-radius: 1em 1em;
 }
 
@@ -326,7 +336,8 @@ black #221F20;
   background-color: rgba(34, 31, 32, 0.60);
   backdrop-filter: blur(10px); /* Glass blur effect */
   -webkit-backdrop-filter: blur(10px); /* Safari support */
-
+  z-index: 10;
+  box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the bottom */
 }
 
 
@@ -477,8 +488,15 @@ black #221F20;
 }
 
 /* Show controls on container hover */
-#hyperlit-container:hover .container-controls {
+#hyperlit-container:hover .container-controls,
+#toc-container:hover .container-controls {
   opacity: 1;
+}
+
+/* Position toc-container handle on the right */
+#toc-container .container-controls {
+  justify-content: flex-end;
+  z-index: 15; /* Ensure it's above mask-bottom */
 }
 
 /* Drag Handle (center) - lighter */

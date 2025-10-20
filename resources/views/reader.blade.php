@@ -399,7 +399,10 @@
   <div id="toc-container" class="hidden">
     <div class="scroller"></div>
     <div class="mask-top" style="position: absolute !important; top: 0 !important; left: 0 !important; right: 0 !important; height: 1em !important; pointer-events: none !important; background-color: #221F20 !important; z-index: 9999 !important; box-shadow: inset 0px -4px 4px -4px #221F20 !important; opacity: 1 !important; visibility: visible !important; display: block !important; transition: none !important; animation: none !important; transform: none !important; will-change: auto !important;"></div>
-    <div class="mask-bottom" style="position: absolute !important; bottom: 0 !important; left: 0 !important; right: 0 !important; height: 1em !important; pointer-events: none !important; background-color: #221F20 !important; z-index: 9999 !important; opacity: 1 !important; visibility: visible !important; display: block !important; transition: none !important; animation: none !important; transform: none !important; will-change: auto !important;"></div>
+    <div class="mask-bottom" style="position: absolute !important; bottom: 0 !important; left: 0 !important; right: 0 !important; height: 20px !important; pointer-events: none !important; background-color: #221F20 !important; z-index: 10 !important; opacity: 1 !important; visibility: visible !important; display: block !important; transition: none !important; animation: none !important; transform: none !important; will-change: auto !important;"></div>
+    <div class="container-controls">
+      <div class="resize-handle resize-right" title="Resize width (drag left/right)"></div>
+    </div>
   </div>
   <div id="hyperlit-container" class="container-panel hidden">
     <div class="scroller"></div>
@@ -439,7 +442,7 @@
   </script>
 
   {{-- Now load your reader‑specific JS via Vite --}}
-  @vite(['resources/js/drag.js', 'resources/js/readerDOMContentLoaded.js'])
+  @vite(['resources/js/containerCustomization.js', 'resources/js/drag.js', 'resources/js/readerDOMContentLoaded.js'])
 @endsection
     
 

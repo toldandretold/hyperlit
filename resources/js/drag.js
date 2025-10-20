@@ -42,12 +42,15 @@ class ContainerDragger {
   }
 
   startResize(event, resizeHandle) {
-    // Find the container
-    this.currentContainer = resizeHandle.closest('#hyperlit-container');
+    // Find the container (try both hyperlit-container and toc-container)
+    this.currentContainer = resizeHandle.closest('#hyperlit-container, #toc-container');
     if (!this.currentContainer) return;
 
     this.isResizing = true;
     this.resizeDirection = resizeHandle.classList.contains('resize-left') ? 'left' : 'right';
+
+    // Detect which container we're working with
+    this.containerType = this.currentContainer.id; // 'hyperlit-container' or 'toc-container'
 
     // Record starting positions
     this.startPos = {
@@ -64,8 +67,14 @@ class ContainerDragger {
       width: rect.width
     };
 
-    // Store the right edge position (this should stay fixed)
-    this.fixedRightEdge = rect.right;
+    // Store the fixed edge position based on container type
+    if (this.containerType === 'hyperlit-container') {
+      // Right edge stays fixed
+      this.fixedRightEdge = rect.right;
+    } else if (this.containerType === 'toc-container') {
+      // Left edge stays fixed
+      this.fixedLeftEdge = rect.left;
+    }
 
     // Add resizing class
     resizeHandle.classList.add('resizing');
@@ -92,40 +101,71 @@ class ContainerDragger {
     if (!this.currentContainer) return;
 
     const deltaX = clientX - this.startPos.x;
-
-    // Use the fixed right edge we stored at the start
-    const rightEdge = this.fixedRightEdge;
-
-    // Calculate the right offset from viewport right edge
     const viewportWidth = window.innerWidth;
-    const rightOffset = viewportWidth - rightEdge;
-
-    // New left position based on mouse movement
-    let newLeft = this.startContainerPos.x + deltaX;
-
-    // Calculate new width (fixed right edge - new left position)
-    let newWidth = rightEdge - newLeft;
-
-    // Apply minimum width constraint
     const minWidth = 150;
-    if (newWidth < minWidth) {
-      newWidth = minWidth;
-      newLeft = rightEdge - minWidth;
-    }
 
-    // Apply maximum width constraint (left edge can't go closer than rightOffset from left edge)
-    const maxWidth = rightEdge - rightOffset;
-    if (newWidth > maxWidth) {
-      newWidth = maxWidth;
-      newLeft = rightEdge - maxWidth;
-    }
+    if (this.containerType === 'hyperlit-container') {
+      // HYPERLIT-CONTAINER: Right edge fixed, left edge moves
+      const rightEdge = this.fixedRightEdge;
+      const rightOffset = viewportWidth - rightEdge;
 
-    // Apply the new size using right-based positioning to match CSS
-    this.currentContainer.style.setProperty('width', `${newWidth}px`, 'important');
-    this.currentContainer.style.setProperty('max-width', 'none', 'important');
-    this.currentContainer.style.setProperty('right', `${rightOffset}px`, 'important');
-    this.currentContainer.style.setProperty('left', 'auto', 'important');
-    this.currentContainer.style.setProperty('transform', 'translateX(0)', 'important');
+      // New left position based on mouse movement
+      let newLeft = this.startContainerPos.x + deltaX;
+
+      // Calculate new width (fixed right edge - new left position)
+      let newWidth = rightEdge - newLeft;
+
+      // Apply minimum width constraint
+      if (newWidth < minWidth) {
+        newWidth = minWidth;
+        newLeft = rightEdge - minWidth;
+      }
+
+      // Apply maximum width constraint (left edge can't go closer than rightOffset from left edge)
+      const maxWidth = rightEdge - rightOffset;
+      if (newWidth > maxWidth) {
+        newWidth = maxWidth;
+        newLeft = rightEdge - maxWidth;
+      }
+
+      // Apply the new size using right-based positioning to match CSS
+      this.currentContainer.style.setProperty('width', `${newWidth}px`, 'important');
+      this.currentContainer.style.setProperty('max-width', 'none', 'important');
+      this.currentContainer.style.setProperty('right', `${rightOffset}px`, 'important');
+      this.currentContainer.style.setProperty('left', 'auto', 'important');
+      this.currentContainer.style.setProperty('transform', 'translateX(0)', 'important');
+
+    } else if (this.containerType === 'toc-container') {
+      // TOC-CONTAINER: Left edge fixed, right edge moves
+      const leftEdge = this.fixedLeftEdge;
+      const leftOffset = leftEdge;
+
+      // New right position based on mouse movement
+      let newRight = this.startContainerPos.x + this.startContainerSize.width + deltaX;
+
+      // Calculate new width (new right position - fixed left edge)
+      let newWidth = newRight - leftEdge;
+
+      // Apply minimum width constraint
+      if (newWidth < minWidth) {
+        newWidth = minWidth;
+        newRight = leftEdge + minWidth;
+      }
+
+      // Apply maximum width constraint (right edge can't go closer than leftOffset from right edge)
+      const maxWidth = viewportWidth - leftEdge - leftOffset;
+      if (newWidth > maxWidth) {
+        newWidth = maxWidth;
+        newRight = leftEdge + maxWidth;
+      }
+
+      // Apply the new size using left-based positioning to match CSS
+      this.currentContainer.style.setProperty('width', `${newWidth}px`, 'important');
+      this.currentContainer.style.setProperty('max-width', 'none', 'important');
+      this.currentContainer.style.setProperty('left', `${leftOffset}px`, 'important');
+      this.currentContainer.style.setProperty('right', 'auto', 'important');
+      this.currentContainer.style.setProperty('transform', 'translateX(0)', 'important');
+    }
   }
 
   handleMouseUp() {
@@ -147,17 +187,31 @@ class ContainerDragger {
     if (this.currentContainer && window.containerCustomizer) {
       const rect = this.currentContainer.getBoundingClientRect();
       const containerId = this.currentContainer.id;
-
       const viewportWidth = window.innerWidth;
-      const rightOffset = viewportWidth - rect.right;
 
-      const customizations = {
-        'width': `${rect.width}px`,
-        'max-width': 'none',
-        'right': `${rightOffset}px`,
-        'left': 'auto',
-        'transform': 'translateX(0)'
-      };
+      let customizations = {};
+
+      if (this.containerType === 'hyperlit-container') {
+        // Save right-based positioning
+        const rightOffset = viewportWidth - rect.right;
+        customizations = {
+          'width': `${rect.width}px`,
+          'max-width': 'none',
+          'right': `${rightOffset}px`,
+          'left': 'auto',
+          'transform': 'translateX(0)'
+        };
+      } else if (this.containerType === 'toc-container') {
+        // Save left-based positioning
+        const leftOffset = rect.left;
+        customizations = {
+          'width': `${rect.width}px`,
+          'max-width': 'none',
+          'left': `${leftOffset}px`,
+          'right': 'auto',
+          'transform': 'translateX(0)'
+        };
+      }
 
       window.containerCustomizer.updateContainer(containerId, customizations);
 
@@ -170,6 +224,7 @@ class ContainerDragger {
     this.isResizing = false;
     this.resizeDirection = null;
     this.currentContainer = null;
+    this.containerType = null;
   }
 }
 
