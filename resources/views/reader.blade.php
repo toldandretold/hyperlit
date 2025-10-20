@@ -439,7 +439,7 @@
   </script>
 
   {{-- Now load your reader‑specific JS via Vite --}}
-  @vite('resources/js/readerDOMContentLoaded.js')
+  @vite(['resources/js/drag.js', 'resources/js/readerDOMContentLoaded.js'])
 @endsection
     
 

@@ -88,6 +88,7 @@ export default defineConfig({
                 'resources/js/indexedDB.js',
                 'resources/js/chunkManager.js',
                 'resources/js/convertMarkdown.js',
+                'resources/js/drag.js',
                 'resources/js/editToolbar.js',
                 'resources/js/footnotesCitations.js',
                 'resources/js/homepage.js',                 // ✅ NEW
