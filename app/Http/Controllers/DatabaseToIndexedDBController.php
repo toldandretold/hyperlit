@@ -273,9 +273,9 @@ class DatabaseToIndexedDBController extends Controller
             $newStartLine = ($index + 1) * 100; // 100, 200, 300...
 
             // Calculate chunk_id: group every 100 nodes into a chunk
-            // Nodes 0-99 → chunk 0, nodes 100-199 → chunk 100, etc.
+            // Nodes 0-99 → chunk 0, nodes 100-199 → chunk 1, etc.
             $chunkIndex = floor($index / $nodesPerChunk);
-            $newChunkId = $chunkIndex * 100;    // 0, 100, 200...
+            $newChunkId = $chunkIndex;    // 0, 1, 2...
 
             // Always generate fresh node_id during renumbering
             $nodeId = $this->generateNodeId($bookId);
