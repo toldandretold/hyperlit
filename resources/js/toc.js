@@ -136,9 +136,11 @@ async function scanForHeadings() {
     const match = chunk.content.match(headingRegex);
     if (match) {
       const [, tagName, id, textContent] = match;
-      
-      // Clean up the text content (remove any nested HTML tags)
-      const cleanText = textContent.replace(/<[^>]*>/g, '').trim();
+
+      // Clean up the text content (remove any nested HTML tags and decode entities)
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = textContent.replace(/<[^>]*>/g, '');
+      const cleanText = tempDiv.textContent.trim();
       
       if (cleanText) {
         headings.push({

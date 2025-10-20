@@ -16,7 +16,9 @@ black #221F20;
   height: 90%;
   width: 60%;
   max-width: 30ch; /* 70ch text plus ~6ch padding (2em left + 1em right) */
-  background-color: #221F20;
+  background-color: rgba(34, 31, 32, 0.60); /* Semi-transparent version of #221F20 */
+  backdrop-filter: blur(10px); /* Glass blur effect */
+  -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 1001;
   overflow: hidden; /* Ensure content doesn't overflow the container */
   padding-left: 1em;
@@ -114,9 +116,11 @@ black #221F20;
   width: 100%;
   height: 1em; /* matches scroller's top padding */
   pointer-events: none;
-  background-color: #221F20;
+  background-color: rgba(34, 31, 32, 0.60);
+  backdrop-filter: blur(10px); /* Glass blur effect */
+  -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 10;
-  box-shadow: inset 0px -4px 4px -4px #221F20;
+  box-shadow: inset 0px -4px 4px -4px rgba(34, 31, 32, 0.60);
   border-radius: 1em 1em 0 0;
 }
 
@@ -130,9 +134,11 @@ black #221F20;
   width: 100%;
   height: 1em; /* matches scroller's bottom padding */
   pointer-events: none;
-  background-color: #221f20;
+  background-color: rgba(34, 31, 32, 0.60);
+  backdrop-filter: blur(10px); /* Glass blur effect */
+  -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 10; /* Corrected: changed en dash to hyphen */
-  box-shadow: inset 0px 4px 4px -4px #221f20;
+  box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60);
   border-radius: 0 0 1em 1em;
 }
 
@@ -215,9 +221,6 @@ black #221F20;
 
 }
 
-#ref-container,
-#highlight-container,
-#hypercite-container,
 #hyperlit-container {
   transform: translateX(calc(100% + 2em)); /* Off-screen, including the gap */
   transition: transform 0.3s ease-in-out;
@@ -228,7 +231,9 @@ black #221F20;
   height: 90%;
   width: 60%;
   max-width: 30ch; /* 70ch text plus ~6ch padding (2em left + 1em right) */
-  background-color: #221F20;
+  background-color: rgba(34, 31, 32, 0.60); /* Semi-transparent version of #221F20 */
+  backdrop-filter: blur(10px); /* Glass blur effect */
+  -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 1001;
   overflow: hidden; /* Ensure content doesn't overflow the container */
   padding-left: 1em;
@@ -246,8 +251,6 @@ black #221F20;
   font-size: 14px;
 }
 
-#ref-container blockquote,
-#highlight-container blockquote,
 #hyperlit-container blockquote {
   font-size: 14px;
   padding-top: .25em;
@@ -270,9 +273,6 @@ black #221F20;
   border-radius: 1em 1em;
 }
 
-#highlight-container .scroller,
-#ref-container .scroller,
-#hypercite-container .scroller,
 #hyperlit-container .scroller {
   position: absolute;
   top: 0;
@@ -292,16 +292,15 @@ black #221F20;
   right: 0;
   height: 1em; /* Matches the scroller's top padding */
   pointer-events: none;
-  background-color: #221F20;
+  background-color: rgba(34, 31, 32, 0.60);
+  backdrop-filter: blur(10px); /* Glass blur effect */
+  -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 10;
-  box-shadow: inset 0px -4px 4px -4px #221F20; /* Fades the text at the top */
+  box-shadow: inset 0px -4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the top */
   border-radius: 1em 1em;
 }
 
 
-#highlight-container .mask-top,
-#ref-container .mask-top,
-#hypercite-container .mask-top,
 #hyperlit-container .mask-top {
   position: absolute;
   top: 0;
@@ -309,9 +308,11 @@ black #221F20;
   right: 0;
   height: 1em; /* Matches the scroller's top padding */
   pointer-events: none;
-  background-color: #221F20;
+  background-color: rgba(34, 31, 32, 0.60);
+  backdrop-filter: blur(10px); /* Glass blur effect */
+  -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 10;
-  box-shadow: inset 0px 4px 4px -4px #221F20; /* Fades the text at the bottom */
+  box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the bottom */
 }
 
 #toc-container .mask-bottom,
@@ -322,14 +323,13 @@ black #221F20;
   right: 0;
   height: 1em; /* Matches the scroller's bottom padding */
   pointer-events: none;
-  background-color: #221F20;
-  
+  background-color: rgba(34, 31, 32, 0.60);
+  backdrop-filter: blur(10px); /* Glass blur effect */
+  -webkit-backdrop-filter: blur(10px); /* Safari support */
+
 }
 
 
-#highlight-container .mask-bottom,
-#ref-container .mask-bottom,
-#hypercite-container .mask-bottom,
 #hyperlit-container .mask-bottom {
   position: absolute;
   bottom: 0;
@@ -337,9 +337,11 @@ black #221F20;
   right: 0;
   height: 1em; /* Matches the scroller's bottom padding */
   pointer-events: none;
-  background-color: #221F20;
+  background-color: rgba(34, 31, 32, 0.60);
+  backdrop-filter: blur(10px); /* Glass blur effect */
+  -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 10;
-  box-shadow: inset 0px 4px 4px -4px #221F20; /* Fades the text at the bottom */
+  box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the bottom */
 }
 
 
@@ -355,9 +357,6 @@ black #221F20;
     transform: translateX(0);
 }
 
-#ref-container.open,
-#highlight-container.open,
-#hypercite-container.open,
 #hyperlit-container.open {
   transform: translateX(0); /* Slide in to show the gap on the right */
 }
@@ -445,7 +444,9 @@ black #221F20;
 
 
 #user-container {
-  background-color: #221F20;
+  background-color: rgba(34, 31, 32, 0.60);
+  backdrop-filter: blur(10px); /* Glass blur effect */
+  -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 1001;
   border-radius: 0.75em;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
@@ -476,9 +477,6 @@ black #221F20;
 }
 
 /* Show controls on container hover */
-#highlight-container:hover .container-controls,
-#ref-container:hover .container-controls,
-#hypercite-container:hover .container-controls,
 #hyperlit-container:hover .container-controls {
   opacity: 1;
 }
@@ -655,20 +653,31 @@ black #221F20;
 
 /* Very small screens */
 @media (max-width: 480px) {
+  /* Make containers wider on phone screens only */
+  #toc-container {
+    max-width: 75vw; /* Use most of screen width on phones */
+    width: 75vw;
+  }
+
+  #hyperlit-container {
+    max-width: 75vw; /* Use most of screen width on phones */
+    width: 75vw;
+  }
+
   .progress-modal-content {
     padding: 1em;
     border-radius: 8px;
   }
-  
+
   .progress-text {
     font-size: 13px;
   }
-  
+
   .progress-bar-container {
     height: 14px;
     margin: 0.75em 0;
   }
-  
+
   .progress-details {
     font-size: 10px;
   }
@@ -874,26 +883,14 @@ black #221F20;
 }
 
 /* Placeholder styling for annotation divs */
-#highlight-container .annotation:empty::before,
-#ref-container .annotation:empty::before,
-#hypercite-container .annotation:empty::before,
 #hyperlit-container .annotation:empty::before,
-#highlight-container .annotation.empty-annotation::before,
-#ref-container .annotation.empty-annotation::before,
-#hypercite-container .annotation.empty-annotation::before,
 #hyperlit-container .annotation.empty-annotation::before {
   content: "Write annotation here...";
   color: #888;
   pointer-events: none;
 }
 
-#highlight-container .annotation:focus::before,
-#ref-container .annotation:focus::before,
-#hypercite-container .annotation:focus::before,
 #hyperlit-container .annotation:focus::before,
-#highlight-container .annotation.empty-annotation:focus::before,
-#ref-container .annotation.empty-annotation:focus::before,
-#hypercite-container .annotation.empty-annotation:focus::before,
 #hyperlit-container .annotation.empty-annotation:focus::before {
   display: none !important;
 }
