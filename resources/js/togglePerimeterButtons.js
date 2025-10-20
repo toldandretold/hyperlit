@@ -1,8 +1,15 @@
+import { cancelForcedVisibility } from './editIndicator.js';
+
 // Export the TogglePerimeterButtons class
 export default class TogglePerimeterButtons {
   constructor(options = {}) {
     // 1. Store the configuration.
-    this.elementIds = options.elementIds || ["bottom-right-buttons"];
+    this.elementIds = options.elementIds || [
+      "bottom-right-buttons",
+      "topRightContainer",
+      "logoContainer",
+      "userButtonContainer"
+    ];
     this.tapThreshold = options.tapThreshold || 10;
     this.desktopBreakpoint = options.desktopBreakpoint || 768;
 
@@ -278,6 +285,9 @@ shouldIgnoreEvent(event) {
       if (window.isEditing) {
         console.log(`🔗 TogglePerimeterButtons: Ignoring touch toggle - edit mode is active`);
       } else {
+        // Cancel any forced visibility from edit indicator
+        cancelForcedVisibility();
+
         this.elements.forEach((element) => {
           element.classList.toggle("perimeter-hidden");
         });
@@ -307,6 +317,10 @@ shouldIgnoreEvent(event) {
     }
 
     console.log(`🔗 TogglePerimeterButtons: Toggling perimeter elements`);
+
+    // Cancel any forced visibility from edit indicator
+    cancelForcedVisibility();
+
     this.elements.forEach((element) => {
       element.classList.toggle("perimeter-hidden");
     });

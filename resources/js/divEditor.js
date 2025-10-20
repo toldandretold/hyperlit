@@ -924,22 +924,60 @@ async function processChunkMutations(chunk, mutations) {
     // 🔥 Handle attribute mutations that might be creating styled elements
     if (mutation.type === "attributes" && mutation.target.nodeType === Node.ELEMENT_NODE) {
       const element = mutation.target;
-      
+
       // If a SPAN gets a style attribute, destroy it immediately
       if (element.tagName === 'SPAN' && mutation.attributeName === 'style') {
         console.log(`🔥 DESTROYING SPAN that gained style attribute`, element);
-        
-        // Preserve text content but remove the span wrapper
-        if (element.textContent.trim()) {
-          const textNode = document.createTextNode(element.textContent);
-          if (element.parentNode && document.contains(element.parentNode)) {
-            element.parentNode.insertBefore(textNode, element);
+
+        // Save current selection/cursor position
+        const selection = window.getSelection();
+        let savedRange = null;
+        let cursorWasInSpan = false;
+        let cursorOffset = 0;
+
+        if (selection.rangeCount > 0) {
+          savedRange = selection.getRangeAt(0);
+          // Check if cursor is inside this span
+          if (element.contains(savedRange.startContainer)) {
+            cursorWasInSpan = true;
+            // Calculate offset relative to span's text content
+            const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
+            let textNode;
+            let offset = 0;
+            while (textNode = walker.nextNode()) {
+              if (textNode === savedRange.startContainer) {
+                cursorOffset = offset + savedRange.startOffset;
+                break;
+              }
+              offset += textNode.length;
+            }
           }
         }
-        
+
+        // Preserve text content but remove the span wrapper
+        let replacementTextNode = null;
+        if (element.textContent.trim()) {
+          replacementTextNode = document.createTextNode(element.textContent);
+          if (element.parentNode && document.contains(element.parentNode)) {
+            element.parentNode.insertBefore(replacementTextNode, element);
+          }
+        }
+
         if (document.contains(element)) {
           element.remove();
         }
+
+        // Restore cursor position if it was in the span
+        if (cursorWasInSpan && replacementTextNode) {
+          const newRange = document.createRange();
+          const safeOffset = Math.min(cursorOffset, replacementTextNode.length);
+          newRange.setStart(replacementTextNode, safeOffset);
+          newRange.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+          console.log(`✅ Cursor restored at offset ${safeOffset} after SPAN attribute destruction`);
+        }
+
         continue; // Skip to next mutation
       }
     }
@@ -981,14 +1019,52 @@ async function processChunkMutations(chunk, mutations) {
           // 🔥 BROWSER BULLSHIT ANNIHILATION: Kill spans and styled formatting elements
           if (node.tagName === 'SPAN') {
             console.log(`🔥 DESTROYING SPAN tag - NO SPANS ALLOWED`);
-            
-            // Preserve text content but remove the span wrapper
-            if (node.textContent.trim()) {
-              const textNode = document.createTextNode(node.textContent);
-              node.parentNode.insertBefore(textNode, node);
+
+            // Save current selection/cursor position
+            const selection = window.getSelection();
+            let savedRange = null;
+            let cursorWasInSpan = false;
+            let cursorOffset = 0;
+
+            if (selection.rangeCount > 0) {
+              savedRange = selection.getRangeAt(0);
+              // Check if cursor is inside this span
+              if (node.contains(savedRange.startContainer)) {
+                cursorWasInSpan = true;
+                // Calculate offset relative to span's text content
+                const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null, false);
+                let textNode;
+                let offset = 0;
+                while (textNode = walker.nextNode()) {
+                  if (textNode === savedRange.startContainer) {
+                    cursorOffset = offset + savedRange.startOffset;
+                    break;
+                  }
+                  offset += textNode.length;
+                }
+              }
             }
-            
+
+            // Preserve text content but remove the span wrapper
+            let replacementTextNode = null;
+            if (node.textContent.trim()) {
+              replacementTextNode = document.createTextNode(node.textContent);
+              node.parentNode.insertBefore(replacementTextNode, node);
+            }
+
             node.remove();
+
+            // Restore cursor position if it was in the span
+            if (cursorWasInSpan && replacementTextNode) {
+              const newRange = document.createRange();
+              const safeOffset = Math.min(cursorOffset, replacementTextNode.length);
+              newRange.setStart(replacementTextNode, safeOffset);
+              newRange.collapse(true);
+              selection.removeAllRanges();
+              selection.addRange(newRange);
+              console.log(`✅ Cursor restored at offset ${safeOffset} after SPAN destruction`);
+            }
+
             return; // Skip all further processing for this node
           }
 

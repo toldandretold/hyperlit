@@ -278,6 +278,10 @@ function assimilateHTML(rawHtml) {
   const doc = new DOMParser().parseFromString(cleanHtml, "text/html");
   const body = doc.body;
 
+  console.log("🔍 PASTE DEBUG: HTML structure BEFORE processing:");
+  console.log("- Direct children:", Array.from(body.children).map(el => `<${el.tagName}>`).join(', '));
+  console.log("- First 500 chars:", body.innerHTML.substring(0, 500));
+
   // --- Helper Functions ---
   function replaceTag(el, newTagName) {
     const newEl = doc.createElement(newTagName);
@@ -550,17 +554,50 @@ function assimilateHTML(rawHtml) {
   });
 
   // 6) Final cleanup: Wrap any remaining loose inline elements
-  const looseInlineElements = Array.from(body.childNodes).filter(node => 
-    node.nodeType === Node.ELEMENT_NODE && 
-    node.tagName && 
+  // BUT: Group consecutive inline elements together (don't wrap each one individually)
+  // This preserves structure when pasting a <p> with multiple inline children
+
+  const looseInlineElements = Array.from(body.childNodes).filter(node =>
+    node.nodeType === Node.ELEMENT_NODE &&
+    node.tagName &&
     !isBlockElement(node.tagName)
   );
-  
-  looseInlineElements.forEach(element => {
-    const wrapper = doc.createElement('p');
-    element.parentNode.insertBefore(wrapper, element);
-    wrapper.appendChild(element);
-  });
+
+  // Group consecutive inline elements and text nodes together in the same wrapper
+  if (looseInlineElements.length > 0) {
+    let currentWrapper = null;
+    const nodesToProcess = Array.from(body.childNodes); // Copy array to avoid mutation issues
+
+    nodesToProcess.forEach(node => {
+      // Skip if node has been moved already
+      if (!body.contains(node)) return;
+
+      // Check if this is a loose inline element
+      const isLooseInline = node.nodeType === Node.ELEMENT_NODE &&
+                           node.tagName &&
+                           !isBlockElement(node.tagName);
+
+      // Check if this is a text node with content
+      const isTextWithContent = node.nodeType === Node.TEXT_NODE &&
+                               node.textContent.trim();
+
+      if (isLooseInline || isTextWithContent) {
+        // Continue using the current wrapper or create a new one
+        if (!currentWrapper || !body.contains(currentWrapper)) {
+          currentWrapper = doc.createElement('p');
+          body.insertBefore(currentWrapper, node);
+        }
+        currentWrapper.appendChild(node);
+      } else if (node.nodeType === Node.ELEMENT_NODE && isBlockElement(node.tagName)) {
+        // Hit a block element - reset the wrapper
+        currentWrapper = null;
+      }
+    });
+  }
+
+  console.log("🔍 PASTE DEBUG: HTML structure AFTER processing:");
+  console.log("- Direct children:", Array.from(body.children).map(el => `<${el.tagName}>`).join(', '));
+  console.log("- First 500 chars:", body.innerHTML.substring(0, 500));
 
   return { html: body.innerHTML, format: formatType };
 }
