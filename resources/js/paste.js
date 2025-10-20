@@ -13,7 +13,13 @@ import { getNodeChunksAfter,
          deleteNodeChunksAfter,
          writeNodeChunks,
          updateCitationForExistingHypercite,
-         queueForSync } from './indexedDB.js';
+         queueForSync,
+         getNodeChunksFromIndexedDB,
+         addCitationToHypercite,
+         getHyperciteFromIndexedDB,
+         updateHyperciteInIndexedDB,
+         getNodeChunkFromIndexedDB,
+         toPublicChunk } from './indexedDB.js';
 import { syncIndexedDBtoPostgreSQL } from './postgreSQL.js';
 import { initializeMainLazyLoader } from './initializePage.js';
 import { parseHyperciteHref } from './hyperCites.js';
@@ -1722,38 +1728,224 @@ async function handleHypercitePaste(event) {
   saveCurrentParagraph();
 
   // Update all original hypercites' citedIN arrays
+  // Use batched sync for multiple hypercites to avoid 429 rate limiting
+  const shouldBatch = updateTasks.length > 1;
+
   try {
-    console.log(`🔄 Updating ${updateTasks.length} original hypercite(s)...`);
+    console.log(`🔄 Updating ${updateTasks.length} original hypercite(s)... (${shouldBatch ? 'BATCHED' : 'IMMEDIATE'} sync)`);
 
-    for (const task of updateTasks) {
-      const { booka, hyperciteIDa, citationIDb, citationIDa } = task;
+    if (!shouldBatch) {
+      // SINGLE HYPERCITE: Use existing immediate sync behavior
+      for (const task of updateTasks) {
+        const { booka, hyperciteIDa, citationIDb, citationIDa } = task;
 
-      try {
-        const updateResult = await updateCitationForExistingHypercite(
-          booka,
-          hyperciteIDa,
-          citationIDb
-        );
+        try {
+          const updateResult = await updateCitationForExistingHypercite(
+            booka,
+            hyperciteIDa,
+            citationIDb
+          );
 
-        if (updateResult && updateResult.success) {
-          console.log(`✅ Successfully linked: ${citationIDa} cited in ${citationIDb}`);
+          if (updateResult && updateResult.success) {
+            console.log(`✅ Successfully linked: ${citationIDa} cited in ${citationIDb}`);
 
-          // Update the DOM in the CURRENT tab
-          const localElement = document.getElementById(hyperciteIDa);
-          if (localElement) {
-            console.log(`(Paste Handler) Updating local DOM for ${hyperciteIDa} to class: ${updateResult.newStatus}`);
-            localElement.className = updateResult.newStatus;
+            // Update the DOM in the CURRENT tab
+            const localElement = document.getElementById(hyperciteIDa);
+            if (localElement) {
+              console.log(`(Paste Handler) Updating local DOM for ${hyperciteIDa} to class: ${updateResult.newStatus}`);
+              localElement.className = updateResult.newStatus;
+            }
+
+            // Broadcast to OTHER tabs
+            broadcastToOpenTabs(booka, updateResult.startLine);
+
+          } else {
+            console.warn(`⚠️ Failed to update citation for ${citationIDa}`);
+          }
+        } catch (error) {
+          console.error(`❌ Error updating hypercite ${hyperciteIDa}:`, error);
+          // Continue processing other hypercites even if one fails
+        }
+      }
+    } else {
+      // MULTIPLE HYPERCITES: Batch all updates into ONE request
+      const updatedHypercites = [];
+      const updatedNodeChunks = [];
+      const domUpdates = []; // Store DOM updates to apply after successful sync
+
+      // Process all hypercites and collect updates
+      for (const task of updateTasks) {
+        const { booka, hyperciteIDa, citationIDb, citationIDa } = task;
+
+        try {
+          // 1. Find and update the hypercite in nodeChunks
+          const nodeChunks = await getNodeChunksFromIndexedDB(booka);
+          if (!nodeChunks?.length) {
+            console.warn(`No nodes found for book ${booka}`);
+            continue;
           }
 
-          // Broadcast to OTHER tabs
-          broadcastToOpenTabs(booka, updateResult.startLine);
+          let affectedStartLine = null;
+          let updatedRelationshipStatus = "single";
 
-        } else {
-          console.warn(`⚠️ Failed to update citation for ${citationIDa}`);
+          for (const record of nodeChunks) {
+            if (!record.hypercites?.find((hc) => hc.hyperciteId === hyperciteIDa)) {
+              continue;
+            }
+            const startLine = record.startLine;
+            const result = await addCitationToHypercite(
+              booka,
+              startLine,
+              hyperciteIDa,
+              citationIDb
+            );
+            if (result.success) {
+              affectedStartLine = startLine;
+              updatedRelationshipStatus = result.relationshipStatus;
+              break;
+            }
+          }
+
+          if (!affectedStartLine) {
+            console.warn(`No matching hypercite found in book ${booka} with ID ${hyperciteIDa}`);
+            continue;
+          }
+
+          // 2. Update the hypercite record itself
+          const existingHypercite = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
+          if (!existingHypercite) {
+            console.error(`Hypercite ${hyperciteIDa} not found in book ${booka}`);
+            continue;
+          }
+
+          existingHypercite.citedIN ||= [];
+          if (!existingHypercite.citedIN.includes(citationIDb)) {
+            existingHypercite.citedIN.push(citationIDb);
+          }
+          existingHypercite.relationshipStatus = updatedRelationshipStatus;
+
+          const hyperciteSuccess = await updateHyperciteInIndexedDB(
+            booka,
+            hyperciteIDa,
+            {
+              citedIN: existingHypercite.citedIN,
+              relationshipStatus: updatedRelationshipStatus,
+              hypercitedHTML: `<u id="${hyperciteIDa}" class="${updatedRelationshipStatus}">${existingHypercite.hypercitedText}</u>`,
+            },
+            true // skipQueue: we're doing batched sync immediately
+          );
+
+          if (!hyperciteSuccess) {
+            console.error(`Failed to update hypercite ${hyperciteIDa}`);
+            continue;
+          }
+
+          // 3. Get final records for sync
+          const finalHyperciteRecord = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
+          const finalNodeChunkRecord = await getNodeChunkFromIndexedDB(booka, affectedStartLine);
+
+          if (finalHyperciteRecord && finalNodeChunkRecord) {
+            // Add to batch collections
+            updatedHypercites.push(finalHyperciteRecord);
+            updatedNodeChunks.push(toPublicChunk(finalNodeChunkRecord));
+
+            // Store DOM update for later
+            domUpdates.push({
+              hyperciteIDa,
+              newStatus: updatedRelationshipStatus,
+              startLine: affectedStartLine,
+              booka,
+              citationIDa
+            });
+
+            console.log(`✅ Prepared batch update for: ${citationIDa} cited in ${citationIDb}`);
+          }
+        } catch (error) {
+          console.error(`❌ Error processing hypercite ${hyperciteIDa}:`, error);
+          // Continue processing other hypercites even if one fails
         }
-      } catch (error) {
-        console.error(`❌ Error updating hypercite ${hyperciteIDa}:`, error);
-        // Continue processing other hypercites even if one fails
+      }
+
+      // 4. Make ONE batched API call for all hypercites
+      if (updatedHypercites.length > 0) {
+        console.log(`📤 Syncing ${updatedHypercites.length} hypercite(s) in ONE batched request...`);
+
+        try {
+          // Group hypercites by book for batching
+          const hypercitesByBook = {};
+          updatedHypercites.forEach(hc => {
+            if (!hypercitesByBook[hc.book]) {
+              hypercitesByBook[hc.book] = [];
+            }
+            hypercitesByBook[hc.book].push(hc);
+          });
+
+          // Sync each book's hypercites
+          const hyperciteSyncPromises = Object.entries(hypercitesByBook).map(([book, hypercites]) =>
+            fetch("/api/db/hypercites/upsert", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content"),
+              },
+              credentials: "include",
+              body: JSON.stringify({ book, data: hypercites }),
+            })
+          );
+
+          // Group nodeChunks by book for batching
+          const nodeChunksByBook = {};
+          updatedNodeChunks.forEach(nc => {
+            if (!nodeChunksByBook[nc.book]) {
+              nodeChunksByBook[nc.book] = [];
+            }
+            nodeChunksByBook[nc.book].push(nc);
+          });
+
+          // Sync each book's nodeChunks
+          const nodeChunkSyncPromises = Object.entries(nodeChunksByBook).map(([book, chunks]) =>
+            fetch("/api/db/node-chunks/targeted-upsert", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content"),
+              },
+              credentials: "include",
+              body: JSON.stringify({ book, data: chunks }),
+            })
+          );
+
+          // Wait for all sync operations to complete
+          const allResponses = await Promise.all([...hyperciteSyncPromises, ...nodeChunkSyncPromises]);
+
+          // Check if all requests succeeded
+          const allSucceeded = allResponses.every(res => res.ok);
+
+          if (allSucceeded) {
+            console.log(`✅ Batched sync successful for ${updatedHypercites.length} hypercite(s)`);
+
+            // 5. Apply DOM updates only after successful sync
+            domUpdates.forEach(({ hyperciteIDa, newStatus, startLine, booka }) => {
+              const localElement = document.getElementById(hyperciteIDa);
+              if (localElement) {
+                console.log(`(Paste Handler) Updating local DOM for ${hyperciteIDa} to class: ${newStatus}`);
+                localElement.className = newStatus;
+              }
+
+              // Broadcast to OTHER tabs
+              broadcastToOpenTabs(booka, startLine);
+            });
+          } else {
+            console.error('❌ Some batched sync requests failed');
+            allResponses.forEach((res, idx) => {
+              if (!res.ok) {
+                console.error(`Request ${idx + 1} failed with status: ${res.status}`);
+              }
+            });
+          }
+        } catch (error) {
+          console.error('❌ Error during batched sync:', error);
+        }
       }
     }
 
