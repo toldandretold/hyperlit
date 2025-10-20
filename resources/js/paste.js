@@ -545,6 +545,8 @@ function assimilateHTML(rawHtml) {
     if (el.id && !el.id.startsWith(idPrefix)) {
       el.removeAttribute("id");
     }
+    // ✅ Always strip data-node-id to force regeneration for correct positioning
+    el.removeAttribute("data-node-id");
   });
 
   // 6) Final cleanup: Wrap any remaining loose inline elements

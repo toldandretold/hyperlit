@@ -1144,10 +1144,12 @@ export function updateIndexedDBRecord(record) {
           toSave.content = record.html;
         }
 
-        // Add the chunk_ID update here
+        // ✅ FIX: Determine chunk_id from DOM if not provided
         if (record.chunk_id !== undefined) {
           toSave.chunk_id = record.chunk_id;
           console.log(`Updated chunk_id to ${record.chunk_id} for node ${nodeId}`);
+        } else {
+          toSave.chunk_id = determineChunkIdFromDOM(nodeId);
         }
 
         // ✅ UPDATE node_id from DOM if available
@@ -1162,7 +1164,7 @@ export function updateIndexedDBRecord(record) {
         toSave = {
           book: bookId,
           startLine: numericNodeId,
-          chunk_id: record.chunk_id !== undefined ? record.chunk_id : 0,
+          chunk_id: record.chunk_id !== undefined ? record.chunk_id : determineChunkIdFromDOM(nodeId), // ✅ FIX: Determine from DOM
           node_id: nodeIdFromDOM || null, // ✅ ADD node_id field
           content: processedData ? processedData.content : record.html,
           hyperlights: processedData ? processedData.hyperlights : [],
@@ -1337,8 +1339,12 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
         } else {
           toSave.content = record.html || existing.content;
         }
-        if (record.chunk_id !== undefined)
+        // ✅ FIX: Determine chunk_id from DOM if not provided
+        if (record.chunk_id !== undefined) {
           toSave.chunk_id = record.chunk_id;
+        } else {
+          toSave.chunk_id = determineChunkIdFromDOM(nodeId);
+        }
         // ✅ UPDATE node_id from DOM if available
         if (nodeIdFromDOM) {
           toSave.node_id = nodeIdFromDOM;
@@ -1347,7 +1353,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
         toSave = {
           book: bookId,
           startLine: finalNumericNodeId,
-          chunk_id: record.chunk_id !== undefined ? record.chunk_id : 0,
+          chunk_id: record.chunk_id !== undefined ? record.chunk_id : determineChunkIdFromDOM(nodeId), // ✅ FIX: Determine from DOM
           node_id: nodeIdFromDOM || null, // ✅ ADD node_id field
           content: processedData ? processedData.content : record.html || "",
           hyperlights: processedData ? processedData.hyperlights : [],
@@ -1750,6 +1756,35 @@ export async function updateHyperciteInIndexedDB(book, hyperciteId, updatedField
       }
     };
   });
+}
+
+/**
+ * Determine chunk_id from the DOM by finding parent .chunk element
+ * @param {string} nodeId - The ID of the node element
+ * @returns {number} - The chunk_id (defaults to 0 if not found)
+ */
+function determineChunkIdFromDOM(nodeId) {
+  const element = document.getElementById(nodeId);
+  if (!element) {
+    console.warn(`⚠️ Cannot determine chunk_id: element ${nodeId} not found in DOM, defaulting to 0`);
+    return 0;
+  }
+
+  const chunk = element.closest('.chunk');
+  if (!chunk) {
+    console.warn(`⚠️ Cannot determine chunk_id: element ${nodeId} not inside a .chunk, defaulting to 0`);
+    return 0;
+  }
+
+  const chunkIdAttr = chunk.getAttribute('data-chunk-id');
+  if (!chunkIdAttr) {
+    console.warn(`⚠️ Chunk element has no data-chunk-id attribute, defaulting to 0`);
+    return 0;
+  }
+
+  const numericChunkId = parseFloat(chunkIdAttr);
+  console.log(`✅ Determined chunk_id=${numericChunkId} for node ${nodeId} from DOM`);
+  return numericChunkId;
 }
 
 export function toPublicChunk(chunk) {
