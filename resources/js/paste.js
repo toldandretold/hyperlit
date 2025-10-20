@@ -1554,15 +1554,35 @@ async function handleHypercitePaste(event) {
     }
   });
   
-  // Look for hypercite link
-  const citeLink = pasteWrapper.querySelector(
-    'a[id^="hypercite_"] > span.open-icon'
-  )?.parentElement;
-  
+  // Look for hypercite link by href pattern (more reliable than id attribute)
+  // Browsers may not preserve id or class attributes when copying, but href is always preserved
+  const links = pasteWrapper.querySelectorAll('a[href*="#hypercite_"]');
+  let citeLink = null;
+
+  console.log('🔍 Checking for hypercite links:', {
+    foundLinks: links.length,
+    pasteWrapperHTML: pasteWrapper.innerHTML.substring(0, 200)
+  });
+
+  // Find the link that has sup/span child with arrow (class may be stripped by browser)
+  for (const link of links) {
+    const hasSupOrSpan = link.querySelector('sup, span');
+    // Remove all whitespace and zero-width spaces to handle \u200B from hypercite creation
+    const linkText = link.innerText.replace(/[\u200B\s]/g, '');
+    if (hasSupOrSpan && linkText === "↗") {
+      citeLink = link;
+      console.log('✅ Found hypercite link:', {
+        href: link.getAttribute('href'),
+        innerHTML: link.innerHTML,
+        originalText: link.innerText,
+        cleanedText: linkText
+      });
+      break;
+    }
+  }
+
   // Check if this is a hypercite link
-  if (!(citeLink && 
-      (citeLink.innerText.trim() === "↗" || 
-       (citeLink.closest("span") && citeLink.closest("span").classList.contains("open-icon"))))) {
+  if (!citeLink) {
     return false; // Not a hypercite
   }
   
