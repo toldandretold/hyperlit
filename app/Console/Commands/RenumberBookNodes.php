@@ -98,7 +98,13 @@ class RenumberBookNodes extends Command
                 'new_chunk_id' => $newChunkId,
                 'node_id' => $chunk->node_id,
                 'content' => $updatedContent,
-                'raw_json' => $updatedRawJson
+                'raw_json' => $updatedRawJson,
+                // Preserve all other columns
+                'hyperlights' => $chunk->hyperlights,
+                'hypercites' => $chunk->hypercites,
+                'footnotes' => $chunk->footnotes,
+                'created_at' => $chunk->created_at,
+                'updated_at' => $chunk->updated_at
             ];
         }
 
@@ -122,7 +128,7 @@ class RenumberBookNodes extends Command
             return 1;
         }
 
-        // Apply updates
+        // Apply updates - just UPDATE the three columns we care about
         $this->info('🔄 Renumbering nodes...');
         $bar = $this->output->createProgressBar($totalCount);
         $bar->start();
@@ -130,21 +136,18 @@ class RenumberBookNodes extends Command
         DB::beginTransaction();
 
         try {
-            // Delete all existing nodes first (to avoid unique constraint issues)
-            DB::table('node_chunks')->where('book', $bookId)->delete();
-
-            // Insert with new values
+            // Update each node with new startLine, chunk_id, and content
             foreach ($updates as $update) {
-                DB::table('node_chunks')->insert([
-                    'book' => $update['book'],
-                    'startLine' => $update['new_startLine'],
-                    'chunk_id' => $update['new_chunk_id'],
-                    'node_id' => $update['node_id'],
-                    'content' => $update['content'],
-                    'raw_json' => DB::raw("'" . str_replace("'", "''", $update['raw_json']) . "'::jsonb"),
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ]);
+                DB::table('node_chunks')
+                    ->where('book', $update['book'])
+                    ->where('startLine', $update['old_startLine'])
+                    ->update([
+                        'startLine' => $update['new_startLine'],
+                        'chunk_id' => $update['new_chunk_id'],
+                        'content' => $update['content'],
+                        'raw_json' => DB::raw("'" . str_replace("'", "''", $update['raw_json']) . "'::jsonb"),
+                        'updated_at' => now()
+                    ]);
 
                 $bar->advance();
             }
