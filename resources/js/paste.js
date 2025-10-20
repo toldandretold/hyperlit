@@ -1536,6 +1536,50 @@ async function handleJsonPaste(
 }
 
 /**
+ * Extract quoted text before a hypercite link element
+ * @param {HTMLElement} container - Container holding the link
+ * @param {HTMLElement} linkElement - The link element
+ * @returns {string} - Cleaned quoted text
+ */
+function extractQuotedTextBeforeLink(container, linkElement) {
+  // Method 1: Try to find text node immediately before the link
+  let textNode = linkElement.previousSibling;
+  let quotedText = "";
+
+  while (textNode) {
+    if (textNode.nodeType === Node.TEXT_NODE) {
+      const text = textNode.textContent.trim();
+      if (text) {
+        quotedText = text + quotedText;
+        break;
+      }
+    } else if (textNode.nodeType === Node.ELEMENT_NODE) {
+      // Check if it's a span or other element containing text
+      const textContent = textNode.textContent.trim();
+      if (textContent) {
+        quotedText = textContent + quotedText;
+        break;
+      }
+    }
+    textNode = textNode.previousSibling;
+  }
+
+  // Method 2: If no text found, try regex on container's text content
+  if (!quotedText) {
+    const fullText = container.textContent;
+    const quoteMatch = fullText.match(/[''""]([^]*?)[''""](?=\s*↗|$)/);
+    if (quoteMatch && quoteMatch[1]) {
+      quotedText = quoteMatch[1];
+    }
+  }
+
+  // Clean up quotes from start and end
+  quotedText = quotedText.replace(/^[''""]/, '').replace(/[''""]$/, '');
+
+  return quotedText;
+}
+
+/**
  * Handle pasting of hypercites
  * @returns {boolean} true if handled as hypercite, false otherwise
  */
@@ -1554,153 +1598,175 @@ async function handleHypercitePaste(event) {
     }
   });
   
-  // Look for hypercite link
-  const citeLink = pasteWrapper.querySelector(
-    'a[id^="hypercite_"] > span.open-icon'
-  )?.parentElement;
-  
-  // Check if this is a hypercite link
-  if (!(citeLink && 
-      (citeLink.innerText.trim() === "↗" || 
-       (citeLink.closest("span") && citeLink.closest("span").classList.contains("open-icon"))))) {
-    return false; // Not a hypercite
+  // Look for hypercite link by href pattern (more reliable than id attribute)
+  // Browsers may not preserve id or class attributes when copying, but href is always preserved
+  const links = pasteWrapper.querySelectorAll('a[href*="#hypercite_"]');
+  const citeLinks = []; // Collect ALL valid hypercite links
+
+  console.log('🔍 Checking for hypercite links:', {
+    foundLinks: links.length,
+    pasteWrapperHTML: pasteWrapper.innerHTML.substring(0, 200)
+  });
+
+  // Find all links that have sup/span child with arrow (class may be stripped by browser)
+  for (const link of links) {
+    const hasSupOrSpan = link.querySelector('sup, span');
+    // Remove all whitespace and zero-width spaces to handle \u200B from hypercite creation
+    const linkText = link.innerText.replace(/[\u200B\s]/g, '');
+    if (hasSupOrSpan && linkText === "↗") {
+      citeLinks.push(link);
+    }
   }
-  
+
+  // Check if this paste contains hypercite links
+  if (citeLinks.length === 0) {
+    return false; // Not a hypercite paste
+  }
+
+  console.log(`✅ Found ${citeLinks.length} hypercite link(s) in paste`);
+
   // Prevent default paste behavior
   event.preventDefault();
-  
-  console.log("Detected a hypercite in pasted content");
-  
-  const originalHref = citeLink.getAttribute("href");
-  const parsed = parseHyperciteHref(originalHref);
-  if (!parsed) return false;
-  
-  const { booka, hyperciteIDa, citationIDa } = parsed;
-  console.log("Parsed citation info:", { booka, hyperciteIDa, citationIDa });
-  
-  // Generate new hypercite ID for this instance
-  const hyperciteIDb = "hypercite_" + Math.random().toString(36).substr(2, 8);
-  
+
+  console.log(`Detected ${citeLinks.length} hypercite(s) in pasted content`);
+
   // Get current book (where paste is happening)
   const bookb = book;
-  
-  // Create the citation ID for this new instance
-  const citationIDb = `/${bookb}#${hyperciteIDb}`;
-  
-  // Extract quoted text - IMPROVED VERSION
-  let quotedText = "";
 
-  const quoteMatch = clipboardHtml.match(/[''""]([^]*?)[''""](?=<a|$)/);
-  if (quoteMatch) {
-    quotedText = quoteMatch[1];
-    console.log("🔍 Found quoted text via regex:", quotedText);
-  }
+  // Process all hypercite links and build combined HTML
+  let combinedHtml = '';
+  const updateTasks = []; // Store update promises to await later
 
-  // Method 2: If regex failed, try DOM parsing
-  if (!quotedText) {
-    // First try to find the text directly before the citation link
-    let textNode = citeLink.previousSibling;
-    while (textNode) {
-      if (textNode.nodeType === Node.TEXT_NODE) {
-        quotedText = textNode.textContent.trim() + quotedText;
-        break;
-      } else if (textNode.nodeType === Node.ELEMENT_NODE) {
-        // Check if it's a span or other element containing text
-        const textContent = textNode.textContent.trim();
-        if (textContent) {
-          quotedText = textContent + quotedText;
-          break;
-        }
-      }
-      textNode = textNode.previousSibling;
+  for (const citeLink of citeLinks) {
+    const originalHref = citeLink.getAttribute("href");
+    const parsed = parseHyperciteHref(originalHref);
+
+    if (!parsed) {
+      console.warn("Failed to parse hypercite href:", originalHref);
+      continue; // Skip this link and continue with others
     }
-    console.log("🔍 Found quoted text via DOM:", quotedText);
+
+    const { booka, hyperciteIDa, citationIDa } = parsed;
+    console.log("Parsed citation info:", { booka, hyperciteIDa, citationIDa });
+
+    // Generate new hypercite ID for this instance
+    const hyperciteIDb = "hypercite_" + Math.random().toString(36).substr(2, 8);
+
+    // Create the citation ID for this new instance
+    const citationIDb = `/${bookb}#${hyperciteIDb}`;
+
+    // Extract quoted text using helper function
+    let quotedText = extractQuotedTextBeforeLink(pasteWrapper, citeLink);
+
+    // Fallback to old extraction method if helper fails
+    if (!quotedText) {
+      quotedText = extractQuotedText(pasteWrapper);
+    }
+
+    console.log(`🔍 Extracted quoted text for link ${citeLinks.indexOf(citeLink) + 1}:`, `"${quotedText}"`);
+
+    // Add to combined HTML (with space between multiple hypercites)
+    if (combinedHtml) combinedHtml += ' ';
+    combinedHtml += `'${quotedText}'<a href="${originalHref}" id="${hyperciteIDb}">\u200B<sup class="open-icon">↗</sup></a>`;
+
+    // Store update task to process after insertion
+    updateTasks.push({
+      booka,
+      hyperciteIDa,
+      citationIDb,
+      citationIDa
+    });
   }
 
-  // Method 3: Fallback - extract all text before the link
-  if (!quotedText) {
-    quotedText = extractQuotedText(pasteWrapper);
-    console.log("🔍 Found quoted text via fallback:", quotedText);
+  // Check if we successfully processed any hypercites
+  if (!combinedHtml) {
+    console.warn("No valid hypercites were processed");
+    return false;
   }
 
-  // Clean up the quoted text - handle both ASCII and smart quotes, including mixed types
-  // Remove any quote character from start and end separately to handle mixed quote types
-  quotedText = quotedText.replace(/^[''""]/, '').replace(/[''""]$/, ''); // Remove quotes
+  console.log(`📝 Built combined HTML for ${updateTasks.length} hypercite(s)`);
 
-  console.log("🔍 Final cleaned quoted text:", `"${quotedText}"`);
-  
-  // Create the reference HTML with no space between text and sup
-  const referenceHtml = `'${quotedText}'<a href="${originalHref}" id="${hyperciteIDb}">\u200B<sup class="open-icon">↗</sup></a>`;
-  
   // Set the flag to prevent MutationObserver from processing this paste
   setHandleHypercitePaste(true);
   console.log("setHandleHypercitePaste flag to true");
   
-  // Insert the content - use a more controlled approach
+  // Insert the combined content - use a more controlled approach
   const selection = window.getSelection();
   if (selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
-    
-    // Create a document fragment with just the text and link
+
+    // Create a document fragment with all the hypercite links
     const fragment = document.createDocumentFragment();
     const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = referenceHtml;
-    
+    tempDiv.innerHTML = combinedHtml;
+
     // Move all nodes from tempDiv to fragment
     while (tempDiv.firstChild) {
       fragment.appendChild(tempDiv.firstChild);
     }
-    
+
     // Clear the range and insert our clean fragment
     range.deleteContents();
     range.insertNode(fragment);
-    
+
     // Move cursor to end of insertion
     range.collapse(false);
     selection.removeAllRanges();
     selection.addRange(range);
   } else {
     // Fallback to execCommand if selection isn't available
-    document.execCommand("insertHTML", false, referenceHtml);
+    document.execCommand("insertHTML", false, combinedHtml);
   }
   
   // Get the current paragraph to manually save it
   saveCurrentParagraph();
-  
-  // Update the original hypercite's citedIN array
+
+  // Update all original hypercites' citedIN arrays
   try {
-    // ✅ 3. AWAIT the function and capture the full result object.
-    const updateResult = await updateCitationForExistingHypercite(
-      booka, 
-      hyperciteIDa, 
-      citationIDb
-    );
+    console.log(`🔄 Updating ${updateTasks.length} original hypercite(s)...`);
 
-    if (updateResult && updateResult.success) {
-      console.log(`Successfully linked: ${citationIDa} cited in ${citationIDb}`);
+    for (const task of updateTasks) {
+      const { booka, hyperciteIDa, citationIDb, citationIDa } = task;
 
-      // ✅ 4. Perform BOTH the local DOM update and the broadcast.
-      // ACTION A: Update the DOM in the CURRENT tab.
-      const localElement = document.getElementById(hyperciteIDa);
-      if (localElement) {
-        console.log(`(Paste Handler) Updating local DOM for ${hyperciteIDa} to class: ${updateResult.newStatus}`);
-        localElement.className = updateResult.newStatus;
+      try {
+        const updateResult = await updateCitationForExistingHypercite(
+          booka,
+          hyperciteIDa,
+          citationIDb
+        );
+
+        if (updateResult && updateResult.success) {
+          console.log(`✅ Successfully linked: ${citationIDa} cited in ${citationIDb}`);
+
+          // Update the DOM in the CURRENT tab
+          const localElement = document.getElementById(hyperciteIDa);
+          if (localElement) {
+            console.log(`(Paste Handler) Updating local DOM for ${hyperciteIDa} to class: ${updateResult.newStatus}`);
+            localElement.className = updateResult.newStatus;
+          }
+
+          // Broadcast to OTHER tabs
+          broadcastToOpenTabs(booka, updateResult.startLine);
+
+        } else {
+          console.warn(`⚠️ Failed to update citation for ${citationIDa}`);
+        }
+      } catch (error) {
+        console.error(`❌ Error updating hypercite ${hyperciteIDa}:`, error);
+        // Continue processing other hypercites even if one fails
       }
-
-      // ACTION B: Broadcast to OTHER tabs.
-      broadcastToOpenTabs(booka, updateResult.startLine);
-
-    } else {
-      console.warn(`Failed to update citation for ${citationIDa}`);
     }
+
+    console.log(`✅ Completed updating ${updateTasks.length} hypercite(s)`);
+
   } catch (error) {
-    console.error("Error during hypercite paste update:", error);
+    console.error("❌ Error during hypercite paste updates:", error);
   } finally {
-    // ✅ 5. Clear the flag in the finally block to guarantee it's always reset.
+    // Clear the flag in the finally block to guarantee it's always reset
     setHandleHypercitePaste(false);
     console.log("setHandleHypercitePaste cleared");
   }
-  
+
   return true; // Successfully handled as hypercite
 }
 
