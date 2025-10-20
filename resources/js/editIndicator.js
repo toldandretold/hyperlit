@@ -99,3 +99,10 @@ export function showError() {
     console.log('Indicator → grey (ready after error)')
   }, 3000)
 }
+
+/** Cancel forced visibility (called when user toggles perimeter buttons during save) */
+export function cancelForcedVisibility() {
+  console.log('🔵 Canceling edit indicator forced visibility')
+  topRightVisibilityBeforeEdit = null
+  // Keep processing state and color - just cancel the restore behavior
+}
