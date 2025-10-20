@@ -117,7 +117,7 @@ function handleCopyEvent(event, bookId) {
   const citationIdA = bookId;
   const hrefA = `${currentSiteUrl}/${citationIdA}#${hyperciteId}`;
 
-  const clipboardHtml = `'${selectedText}'<a href="${hrefA}" id="${hyperciteId}"><span class="open-icon">↗</span></a>`;
+  const clipboardHtml = `'${selectedText}'<a href="${hrefA}" id="${hyperciteId}"><sup class="open-icon">↗</sup></a>`;
   const clipboardText = `'${selectedText}' [↗](${hrefA})`;
 
   console.log("Final clipboard HTML:", clipboardHtml);
