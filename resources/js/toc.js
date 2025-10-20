@@ -33,17 +33,11 @@ class TocContainerManager extends ContainerManager {
 
     this.isOpen = true;
     window.activeContainer = this.container.id;
-    
+
     if (this.container.id === "toc-container") {
       this.saveNavElementsState();
-      const bottomRightButtons = document.getElementById("bottom-right-buttons");
-      const logoContainer = document.getElementById("logoContainer");
-      const userButtonContainer = document.getElementById("userButtonContainer");
-      if (bottomRightButtons) bottomRightButtons.classList.add("perimeter-hidden");
-      if (logoContainer) logoContainer.classList.add("perimeter-hidden");
-      if (userButtonContainer) userButtonContainer.classList.add("perimeter-hidden");
     }
-    
+
     this.updateState();
     
     // Add bookmark and set scroll position BEFORE showing container
@@ -136,9 +130,11 @@ async function scanForHeadings() {
     const match = chunk.content.match(headingRegex);
     if (match) {
       const [, tagName, id, textContent] = match;
-      
-      // Clean up the text content (remove any nested HTML tags)
-      const cleanText = textContent.replace(/<[^>]*>/g, '').trim();
+
+      // Clean up the text content (remove any nested HTML tags and decode entities)
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = textContent.replace(/<[^>]*>/g, '');
+      const cleanText = tempDiv.textContent.trim();
       
       if (cleanText) {
         headings.push({
