@@ -226,9 +226,10 @@ black #221F20;
   transition: transform 0.3s ease-in-out;
   position: fixed;
   right: .75em; /* Positioned on the right */
-  bottom: 1em;
   top: 1em;
-  height: 90%;
+  height: auto; /* Allow height to adapt to content */
+  min-height: 10em; /* Minimum height for very small content */
+  max-height: calc(100vh - 2em); /* Maximum height (roughly 90% of viewport) */
   width: 60%;
   max-width: 30ch; /* 70ch text plus ~6ch padding (2em left + 1em right) */
   background-color: rgba(34, 31, 32, 0.60); /* Semi-transparent version of #221F20 */
@@ -242,6 +243,8 @@ black #221F20;
   font-size: 16px;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  display: flex;
+  flex-direction: column;
 }
 .dragging {
         cursor: grabbing;
@@ -284,14 +287,13 @@ black #221F20;
 }
 
 #hyperlit-container .scroller {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  flex: 1;
   overflow: auto;
   padding: 2em 1em 1em 1em; /* Increased top padding from 0 to 2em */
   border-radius: 1em 1em;
+  min-height: 0; /* Allow flex item to shrink below content size if needed */
+  width: 100%;
+  box-sizing: border-box;
 }
 
 #toc-container .mask-top,
@@ -318,9 +320,7 @@ black #221F20;
   right: 0;
   height: 1em; /* Matches the scroller's top padding */
   pointer-events: none;
-  background-color: rgba(34, 31, 32, 0.60);
-  backdrop-filter: blur(10px); /* Glass blur effect */
-  -webkit-backdrop-filter: blur(10px); /* Safari support */
+  background-color: transparent;
   z-index: 10;
   box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the bottom */
 }
@@ -348,9 +348,7 @@ black #221F20;
   right: 0;
   height: 1em; /* Matches the scroller's bottom padding */
   pointer-events: none;
-  background-color: rgba(34, 31, 32, 0.60);
-  backdrop-filter: blur(10px); /* Glass blur effect */
-  -webkit-backdrop-filter: blur(10px); /* Safari support */
+  background-color: transparent;
   z-index: 10;
   box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the bottom */
 }
@@ -900,7 +898,21 @@ black #221F20;
   margin-top: 1em;
 }
 
+/* Highlights section should take full width */
+#hyperlit-container .highlights-section {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 /* Placeholder styling for annotation divs */
+#hyperlit-container .annotation {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 1.5em;
+}
+
 #hyperlit-container .annotation:empty::before,
 #hyperlit-container .annotation.empty-annotation::before {
   content: "Write annotation here...";
