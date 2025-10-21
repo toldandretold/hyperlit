@@ -1045,28 +1045,40 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
   // Create a clone to remove the mark and u tags
   const contentClone = node.cloneNode(true);
   
-  // Remove all <mark> tags from the cloned content while preserving their text content
+  // Remove all <mark> tags from the cloned content while preserving their inner HTML
   const clonedMarkTags = contentClone.getElementsByTagName("mark");
   while (clonedMarkTags.length > 0) {
     const markTag = clonedMarkTags[0];
-    const textContent = markTag.textContent;
-    markTag.parentNode.replaceChild(document.createTextNode(textContent), markTag);
+    // Move all child nodes before the mark tag, preserving HTML structure (including <br>)
+    while (markTag.firstChild) {
+      markTag.parentNode.insertBefore(markTag.firstChild, markTag);
+    }
+    // Remove the now-empty mark tag
+    markTag.parentNode.removeChild(markTag);
   }
-  
-  // Remove all <u> tags from the cloned content while preserving their text content
+
+  // Remove all <u> tags from the cloned content while preserving their inner HTML
   const clonedUTags = contentClone.getElementsByTagName("u");
   while (clonedUTags.length > 0) {
     const uTag = clonedUTags[0];
-    const textContent = uTag.textContent;
-    uTag.parentNode.replaceChild(document.createTextNode(textContent), uTag);
+    // Move all child nodes before the u tag, preserving HTML structure (including <br>)
+    while (uTag.firstChild) {
+      uTag.parentNode.insertBefore(uTag.firstChild, uTag);
+    }
+    // Remove the now-empty u tag
+    uTag.parentNode.removeChild(uTag);
   }
 
   // 🧹 ALSO REMOVE styled spans before saving (prevents them from being stored)
   const clonedSpans = contentClone.querySelectorAll('span[style]');
   while (clonedSpans.length > 0) {
     const span = clonedSpans[0];
-    const textContent = span.textContent;
-    span.parentNode.replaceChild(document.createTextNode(textContent), span);
+    // Move all child nodes before the span, preserving HTML structure (including <br>)
+    while (span.firstChild) {
+      span.parentNode.insertBefore(span.firstChild, span);
+    }
+    // Remove the now-empty span
+    span.parentNode.removeChild(span);
   }
 
   const result = {
