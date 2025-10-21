@@ -388,42 +388,34 @@ export class BookToBookTransition {
    */
   static async navigateToInternalId(targetId, progress) {
     console.log(`🎯 BookToBookTransition: Navigating to internal ID: ${targetId}`);
-    
+
     try {
-      // Wait for the target element to be fully ready before attempting navigation
-      const mainContainer = document.getElementById('main') || document.body;
-      
-      // Use progress-aware waiting - progress bar disappears when element is visually ready
-      const targetElement = await waitForElementReadyWithProgress(targetId, progress, {
-        maxAttempts: 40, // Allow more time for lazy loading
-        checkInterval: 50,
-        container: mainContainer,
-        hideProgressAtPercent: 95,
-        hideProgressMessage: 'Navigation ready'
-      });
-      
-      console.log(`✅ BookToBookTransition: Target element ${targetId} is ready, proceeding with navigation`);
-      
+      // Get the lazy loader and call navigateToInternalId which handles:
+      // 1. Determining which chunk contains the element
+      // 2. Loading that chunk (and adjacent chunks)
+      // 3. Waiting for the element to be ready
+      // 4. Scrolling to it
       const { navigateToInternalId } = await import('../../scrolling.js');
       const { currentLazyLoader } = await import('../../initializePage.js');
-      
+
       if (currentLazyLoader) {
+        // Don't show overlay since we're in a book-to-book transition with its own progress
         navigateToInternalId(targetId, currentLazyLoader, false);
+
+        // Hide progress after a short delay to ensure navigation completes
+        if (progress) {
+          setTimeout(async () => {
+            await ProgressManager.hide();
+          }, 500);
+        }
       } else {
         console.warn('currentLazyLoader not available for internal navigation');
       }
     } catch (error) {
       console.error('Failed to navigate to internal ID:', error);
-      // Don't throw - attempt navigation anyway as fallback
-      try {
-        const { navigateToInternalId } = await import('../../scrolling.js');
-        const { currentLazyLoader } = await import('../../initializePage.js');
-        
-        if (currentLazyLoader) {
-          navigateToInternalId(targetId, currentLazyLoader, false);
-        }
-      } catch (fallbackError) {
-        console.error('Fallback navigation also failed:', fallbackError);
+      // Hide progress on error
+      if (progress) {
+        await ProgressManager.hide();
       }
     }
   }
