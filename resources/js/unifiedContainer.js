@@ -1190,6 +1190,7 @@ async function buildHyperciteContent(contentType) {
         <button class="hypercite-health-check-btn"
                 data-citing-book="${bookID}"
                 data-hypercite-id="${hyperciteIdFromUrl}"
+                data-citation-url="${citationID}"
                 title="Check if citation exists"
                 type="button">
           <svg width="18" height="18" viewBox="0 0 48 48" fill="currentColor">
@@ -1199,6 +1200,7 @@ async function buildHyperciteContent(contentType) {
         <button class="hypercite-delete-btn"
                 data-source-book="${book}"
                 data-source-hypercite-id="${originalHyperciteId}"
+                data-citation-url="${citationID}"
                 title="Run health check first"
                 type="button"
                 disabled>
@@ -1484,6 +1486,167 @@ export async function handleHyperciteHealthCheck(event) {
 }
 
 /**
+ * Remove specific broken citations from a hypercite's citedIN array
+ * @param {string} sourceBook - The book containing the source hypercite
+ * @param {Array<string>} sourceHyperciteIds - Array of source hypercite IDs
+ * @param {Array<{url: string, sourceHyperciteId: string}>} brokenCitations - Citations to remove
+ */
+async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCitations) {
+  const { queueForSync, debouncedMasterSync, updateBookTimestamp } = await import('./indexedDB.js');
+  const db = await openDatabase();
+
+  const brokenUrls = brokenCitations.map(c => c.url);
+  console.log(`🔧 Removing citations: ${JSON.stringify(brokenUrls)}`);
+
+  const updatedNodeChunks = [];
+
+  for (const sourceHyperciteId of sourceHyperciteIds) {
+    // Read hypercite from IndexedDB
+    const readTx = db.transaction('hypercites', 'readonly');
+    const readStore = readTx.objectStore('hypercites');
+    const hyperciteRequest = readStore.get([sourceBook, sourceHyperciteId]);
+
+    const hypercite = await new Promise((resolve, reject) => {
+      hyperciteRequest.onsuccess = () => resolve(hyperciteRequest.result);
+      hyperciteRequest.onerror = () => reject(hyperciteRequest.error);
+    });
+
+    await new Promise((resolve, reject) => {
+      readTx.oncomplete = () => resolve();
+      readTx.onerror = () => reject(readTx.error);
+    });
+
+    if (!hypercite) {
+      console.warn(`⚠️ Hypercite ${sourceHyperciteId} not found in IndexedDB`);
+      continue;
+    }
+
+    // Filter out broken citations from citedIN array
+    const originalLength = hypercite.citedIN ? hypercite.citedIN.length : 0;
+    hypercite.citedIN = (hypercite.citedIN || []).filter(url => !brokenUrls.includes(url));
+    const newLength = hypercite.citedIN.length;
+
+    console.log(`📊 Updated citedIN: ${originalLength} → ${newLength} citations`);
+
+    // Update relationship status based on new citedIN length
+    if (newLength === 0) {
+      hypercite.relationshipStatus = 'single';
+    } else if (newLength === 1) {
+      hypercite.relationshipStatus = 'couple';
+    } else {
+      hypercite.relationshipStatus = 'poly';
+    }
+
+    console.log(`🔄 Updated relationship status: ${hypercite.relationshipStatus}`);
+
+    // Save updated hypercite to IndexedDB
+    const writeTx = db.transaction('hypercites', 'readwrite');
+    const writeStore = writeTx.objectStore('hypercites');
+    const putRequest = writeStore.put(hypercite);
+
+    await new Promise((resolve, reject) => {
+      putRequest.onsuccess = () => {
+        console.log(`✅ Updated hypercite ${sourceHyperciteId} in IndexedDB`);
+        resolve();
+      };
+      putRequest.onerror = () => reject(putRequest.error);
+    });
+
+    await new Promise((resolve, reject) => {
+      writeTx.oncomplete = () => resolve();
+      writeTx.onerror = () => reject(writeTx.error);
+    });
+
+    // Queue for sync to PostgreSQL
+    queueForSync('hypercites', sourceHyperciteId, 'update', hypercite);
+
+    // Update DOM if element exists
+    const uElement = document.getElementById(sourceHyperciteId);
+    if (uElement) {
+      // Update class to reflect new relationship status
+      uElement.classList.remove('single', 'couple', 'poly');
+      uElement.classList.add(hypercite.relationshipStatus);
+      console.log(`✅ Updated DOM element class to ${hypercite.relationshipStatus}`);
+    }
+
+    // 🔥 NEW: Update nodeChunk's hypercites array (like delinkHypercite does)
+    // This ensures the embedded hypercite data in nodeChunks stays in sync
+    const nodeChunksTx = db.transaction(['nodeChunks'], 'readwrite');
+    const nodeChunksStore = nodeChunksTx.objectStore('nodeChunks');
+    const bookIndex = nodeChunksStore.index('book');
+
+    // Get all nodeChunks for this book
+    const allNodeChunks = await new Promise((resolve, reject) => {
+      const request = bookIndex.getAll(sourceBook);
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+
+    console.log(`🔍 Searching ${allNodeChunks.length} nodeChunks for hypercite ${sourceHyperciteId}`);
+
+    // Find the nodeChunk that contains this hypercite
+    let foundNodeChunk = null;
+    let foundHyperciteIndex = -1;
+
+    for (const nodeChunk of allNodeChunks) {
+      if (nodeChunk.hypercites && Array.isArray(nodeChunk.hypercites)) {
+        const index = nodeChunk.hypercites.findIndex(hc => hc.hyperciteId === sourceHyperciteId);
+        if (index !== -1) {
+          foundNodeChunk = nodeChunk;
+          foundHyperciteIndex = index;
+          console.log(`✅ Found hypercite in nodeChunk at startLine ${nodeChunk.startLine}, index ${index}`);
+          break;
+        }
+      }
+    }
+
+    if (foundNodeChunk && foundHyperciteIndex !== -1) {
+      // Update the hypercite in the nodeChunk's array
+      foundNodeChunk.hypercites[foundHyperciteIndex] = {
+        ...foundNodeChunk.hypercites[foundHyperciteIndex],
+        citedIN: hypercite.citedIN,
+        relationshipStatus: hypercite.relationshipStatus
+      };
+
+      // Update the nodeChunk in IndexedDB
+      const updateRequest = nodeChunksStore.put(foundNodeChunk);
+      await new Promise((resolve, reject) => {
+        updateRequest.onsuccess = () => resolve();
+        updateRequest.onerror = () => reject(updateRequest.error);
+      });
+
+      console.log(`✅ Updated nodeChunk hypercites array for startLine ${foundNodeChunk.startLine}`);
+
+      // Queue the nodeChunk for sync to PostgreSQL
+      queueForSync('nodeChunks', foundNodeChunk.startLine, 'update', foundNodeChunk);
+      updatedNodeChunks.push(foundNodeChunk);
+    } else {
+      console.warn(`⚠️ Hypercite ${sourceHyperciteId} not found in any nodeChunk`);
+    }
+
+    await new Promise((resolve, reject) => {
+      nodeChunksTx.oncomplete = () => resolve();
+      nodeChunksTx.onerror = () => reject(nodeChunksTx.error);
+    });
+  }
+
+  // Update book timestamp
+  await updateBookTimestamp(sourceBook);
+
+  // Flush sync immediately
+  console.log('⚡ Flushing sync queue immediately...');
+  await debouncedMasterSync.flush();
+  console.log('✅ Sync queue flushed');
+
+  // Broadcast changes to other tabs
+  const { broadcastToOpenTabs } = await import('./BroadcastListener.js');
+  updatedNodeChunks.forEach(chunk => {
+    broadcastToOpenTabs(sourceBook, chunk.startLine);
+  });
+  console.log('📡 Broadcasted citation removal to other tabs');
+}
+
+/**
  * Handle delete button click for hypercites
  * @param {Event} event - The click event
  */
@@ -1494,200 +1657,35 @@ export async function handleHyperciteDelete(event) {
   const button = event.currentTarget;
   const sourceBook = button.getAttribute('data-source-book');
   const sourceHyperciteIdStr = button.getAttribute('data-source-hypercite-id');
+  const citationUrl = button.getAttribute('data-citation-url');
 
-  if (!sourceBook || !sourceHyperciteIdStr) {
+  if (!sourceBook || !sourceHyperciteIdStr || !citationUrl) {
     console.error('Missing data attributes on delete button');
     return;
   }
 
   // Handle comma-separated IDs (for overlapping hypercites)
   const sourceHyperciteIds = sourceHyperciteIdStr.split(',').map(id => id.trim());
-  const isMultiple = sourceHyperciteIds.length > 1;
+
+  console.log(`🗑️ Deleting specific citation: ${citationUrl} from hypercite(s): ${sourceHyperciteIds.join(', ')}`);
+
+  // Confirm deletion
+  if (!confirm(`Delete this citation link?\n\n${citationUrl}`)) {
+    return;
+  }
 
   try {
-    // Step 1: Run health check on all citations first
-    // Get all citedIN links for these hypercites
-    const db = await openDatabase();
-    const tx = db.transaction('hypercites', 'readonly');
-    const store = tx.objectStore('hypercites');
+    // Remove this specific citation from the citedIN array
+    await removeSpecificCitations(sourceBook, sourceHyperciteIds, [{ url: citationUrl }]);
 
-    let allCitations = [];
-    for (const sourceHyperciteId of sourceHyperciteIds) {
-      const hyperciteRequest = store.get([sourceBook, sourceHyperciteId]);
-      const hypercite = await new Promise((resolve, reject) => {
-        hyperciteRequest.onsuccess = () => resolve(hyperciteRequest.result);
-        hyperciteRequest.onerror = () => reject(hyperciteRequest.error);
-      });
-
-      if (hypercite && hypercite.citedIN && Array.isArray(hypercite.citedIN)) {
-        allCitations.push(...hypercite.citedIN.map(url => ({
-          url,
-          sourceHyperciteId
-        })));
-      }
-    }
-
-    await new Promise((resolve, reject) => {
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
-
-    console.log(`🔍 Checking ${allCitations.length} citations for health...`);
-
-    // Check if any citations still exist
-    let foundActiveCitation = false;
-    for (const citation of allCitations) {
-      const parts = citation.url.split('#');
-      if (parts.length > 1) {
-        const bookId = parts[0].replace('/', '');
-        const hyperciteId = parts[1];
-
-        const result = await checkHyperciteExists(bookId, hyperciteId);
-        if (result.exists) {
-          foundActiveCitation = true;
-          console.log(`❌ Found active citation in ${bookId}: ${hyperciteId}`);
-          break;
-        }
-      }
-    }
-
-    // If any active citation found, refuse to delete
-    if (foundActiveCitation) {
-      alert("Can't delete a connected hypercite. Go to the pasted hypercite to delete both ends.");
-      return;
-    }
-
-    console.log(`✅ All citations are broken/orphaned. Safe to delete.`);
-
-    // Confirm deletion
-    const confirmMsg = isMultiple
-      ? `This will delete ${sourceHyperciteIds.length} orphaned hypercites. Continue?`
-      : `This will delete this orphaned hypercite. Continue?`;
-
-    if (!confirm(confirmMsg)) {
-      return;
-    }
-
-    // Step 2: Proceed with deletion
-    console.log(`🗑️ Deleting source hypercite(s): book=${sourceBook}, hyperciteIds=${sourceHyperciteIds.join(', ')}`);
-
-    const { queueForSync, debouncedMasterSync, updateBookTimestamp } = await import('./indexedDB.js');
-
-    const updatedChunks = [];
-
-    // Process each hypercite ID
-    for (const sourceHyperciteId of sourceHyperciteIds) {
-      // 1. Find and remove hypercite from source book's nodeChunks.hypercites array
-      const nodeChunksTx = db.transaction(['nodeChunks'], 'readwrite');
-      const nodeChunksStore = nodeChunksTx.objectStore('nodeChunks');
-      const bookIndex = nodeChunksStore.index('book');
-
-      const allNodeChunks = await new Promise((resolve, reject) => {
-        const request = bookIndex.getAll(sourceBook);
-        request.onsuccess = () => resolve(request.result || []);
-        request.onerror = () => reject(request.error);
-      });
-
-      console.log(`🔍 Searching ${allNodeChunks.length} nodeChunks for hypercite ${sourceHyperciteId}`);
-
-      let foundNodeChunk = null;
-      let foundHyperciteIndex = -1;
-
-      for (const nodeChunk of allNodeChunks) {
-        if (nodeChunk.hypercites && Array.isArray(nodeChunk.hypercites)) {
-          const index = nodeChunk.hypercites.findIndex(hc => hc.hyperciteId === sourceHyperciteId);
-          if (index !== -1) {
-            foundNodeChunk = nodeChunk;
-            foundHyperciteIndex = index;
-            console.log(`✅ Found hypercite in nodeChunk at startLine ${nodeChunk.startLine}, index ${index}`);
-            break;
-          }
-        }
-      }
-
-      if (foundNodeChunk && foundHyperciteIndex !== -1) {
-        // Remove the hypercite from the array
-        foundNodeChunk.hypercites.splice(foundHyperciteIndex, 1);
-
-        // Update the nodeChunk in IndexedDB
-        const updateRequest = nodeChunksStore.put(foundNodeChunk);
-        await new Promise((resolve, reject) => {
-          updateRequest.onsuccess = () => resolve();
-          updateRequest.onerror = () => reject(updateRequest.error);
-        });
-
-        console.log(`✅ Removed hypercite from nodeChunk at startLine ${foundNodeChunk.startLine}`);
-
-        // Queue for sync to PostgreSQL
-        queueForSync('nodeChunks', foundNodeChunk.startLine, 'update', foundNodeChunk);
-        updatedChunks.push(foundNodeChunk);
-      } else {
-        console.warn(`⚠️ Hypercite ${sourceHyperciteId} not found in any nodeChunk`);
-      }
-
-      await new Promise((resolve, reject) => {
-        nodeChunksTx.oncomplete = () => resolve();
-        nodeChunksTx.onerror = () => reject(nodeChunksTx.error);
-      });
-
-      // 2. Delete from hypercites store
-      const hypercitesTx = db.transaction(['hypercites'], 'readwrite');
-      const hypercitesStore = hypercitesTx.objectStore('hypercites');
-
-      await new Promise((resolve, reject) => {
-        const deleteRequest = hypercitesStore.delete([sourceBook, sourceHyperciteId]);
-        deleteRequest.onsuccess = () => {
-          console.log(`🗑️ Deleted hypercite ${sourceHyperciteId} from hypercites store`);
-          resolve();
-        };
-        deleteRequest.onerror = () => reject(deleteRequest.error);
-      });
-
-      await new Promise((resolve, reject) => {
-        hypercitesTx.oncomplete = () => resolve();
-        hypercitesTx.onerror = () => reject(hypercitesTx.error);
-      });
-
-      // Queue deletion for sync
-      queueForSync('hypercites', sourceHyperciteId, 'delete', { book: sourceBook, hyperciteId: sourceHyperciteId });
-
-      // 3. Unwrap the <u> element in DOM if it exists
-      const uElement = document.getElementById(sourceHyperciteId);
-      if (uElement) {
-        // Unwrap: replace <u> with its text content
-        const parent = uElement.parentNode;
-        while (uElement.firstChild) {
-          parent.insertBefore(uElement.firstChild, uElement);
-        }
-        parent.removeChild(uElement);
-        console.log(`✅ Unwrapped <u> element ${sourceHyperciteId} from DOM`);
-      }
-    }
-
-    // 4. Update book timestamp
-    await updateBookTimestamp(sourceBook);
-
-    // 5. Flush sync immediately
-    console.log('⚡ Flushing sync queue immediately...');
-    await debouncedMasterSync.flush();
-    console.log('✅ Sync queue flushed');
-
-    // 6. Close container since the hypercite is now deleted
+    // Close container and reload to show updated state
     closeHyperlitContainer();
-    console.log('📪 Closed container after deleting source hypercite(s)');
-
-    // 7. Broadcast changes to other tabs
-    if (updatedChunks.length > 0) {
-      const { broadcastToOpenTabs } = await import('./BroadcastListener.js');
-      updatedChunks.forEach(chunk => {
-        broadcastToOpenTabs(sourceBook, chunk.startLine);
-      });
-      console.log('📡 Broadcasted deletion to other tabs');
-    }
-
+    console.log('✅ Removed citation successfully');
+    return;
   } catch (error) {
-    console.error('❌ Error deleting source hypercite:', error);
-    alert('Failed to delete hypercite. Please try again.');
+    console.error('❌ Error deleting citation:', error);
+    alert('Failed to delete citation. Please try again.');
+    return;
   }
 }
 

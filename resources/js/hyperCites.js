@@ -65,6 +65,7 @@ async function fetchLibraryFromServer(bookId) {
 }
 
 let lastEventTime = 0;
+let highlightTimeout = null;
 
 function handleCopyEvent(event, bookId) {
   event.preventDefault();
@@ -1951,6 +1952,13 @@ export async function handleHyperciteDeletion(hyperciteElement) {
 export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
   console.log(`🎯 Highlighting target hypercite: ${targetHyperciteId} (with ${delay}ms delay)`);
 
+  // Clear any existing timeout from previous navigation to prevent race conditions
+  if (highlightTimeout) {
+    console.log('🧹 Clearing previous highlight timeout to prevent animation glitches');
+    clearTimeout(highlightTimeout);
+    highlightTimeout = null;
+  }
+
   // Find all hypercite elements (u tags with couple, poly, or single classes)
   const allHypercites = document.querySelectorAll('u.single, u.couple, u.poly');
 
@@ -2011,9 +2019,11 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
     console.log(`🔅 Dimmed ${allHypercites.length - targetElements.length} non-target hypercites`);
 
     // Remove highlighting after 5 seconds with smooth transition back
-    setTimeout(() => {
+    // Store timeout reference so it can be cleared by subsequent navigations
+    highlightTimeout = setTimeout(() => {
       console.log(`🌅 Starting fade-out animation for: ${targetHyperciteId}`);
       restoreNormalHyperciteDisplay();
+      highlightTimeout = null; // Clear reference after completion
     }, 5000);
 
   }, delay);
