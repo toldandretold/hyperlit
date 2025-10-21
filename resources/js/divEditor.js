@@ -1730,6 +1730,54 @@ class EnterKeyHandler {
 
     const range = selection.getRangeAt(0);
 
+    // 🔥 FIX: Prevent <br> insertion inside hypercite <sup> elements
+    // Check if cursor is inside <sup class="open-icon">
+    let checkElement = range.startContainer;
+    if (checkElement.nodeType === Node.TEXT_NODE) {
+      checkElement = checkElement.parentElement;
+    }
+
+    // Walk up the DOM tree to find if we're inside a <sup class="open-icon">
+    const openIconSup = checkElement.closest('sup.open-icon');
+    if (openIconSup) {
+      console.log('🎯 Cursor is inside <sup class="open-icon">, moving outside before Enter');
+
+      // Find the parent <a> element
+      const hyperciteLink = openIconSup.closest('a[id^="hypercite_"]');
+      if (hyperciteLink) {
+        event.preventDefault();
+
+        // Create text node to position cursor after the link
+        const zwsp = document.createTextNode('\u200B');
+        hyperciteLink.parentNode.insertBefore(zwsp, hyperciteLink.nextSibling);
+
+        // Position cursor after the hypercite link
+        const newRange = document.createRange();
+        newRange.setStart(zwsp, 1);
+        newRange.collapse(true);
+
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+
+        // Insert the line break
+        const br = document.createElement('br');
+        newRange.insertNode(br);
+
+        // Position cursor after the br
+        const finalRange = document.createRange();
+        finalRange.setStartAfter(br);
+        finalRange.collapse(true);
+
+        selection.removeAllRanges();
+        selection.addRange(finalRange);
+
+        console.log('✅ Cursor moved outside hypercite link and line break inserted');
+
+        this.enterCount = 0;
+        return; // Stop execution here
+      }
+    }
+
         let currentNode = range.startContainer;
     if (currentNode.nodeType !== Node.ELEMENT_NODE) {
       currentNode = currentNode.parentElement;
