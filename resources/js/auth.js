@@ -228,6 +228,38 @@ export function checkUserPermission(record, currentUserId, isLoggedIn = true) {
   return false;
 }
 
+/**
+ * Fetch library record from server as fallback
+ */
+async function fetchLibraryFromServer(bookId) {
+  try {
+    const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/library`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // The API returns {success: true, library: {...}, book_id: ...}
+    if (data && data.success && data.library) {
+      return data.library;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Failed to fetch library record from server:', error);
+    return null;
+  }
+}
+
 export async function canUserEditBook(bookId) {
   try {
     // ✅ NEW DIAGNOSTIC LOG: Let's see what's in sessionStorage right now.
@@ -261,14 +293,23 @@ export async function canUserEditBook(bookId) {
       await initializeAuth();
     }
 
-    // 1) fetch the library record
-    const record = await getLibraryObjectFromIndexedDB(bookId);
+    // 1) fetch the library record from IndexedDB
+    let record = await getLibraryObjectFromIndexedDB(bookId);
+
+    // 2) If not in IndexedDB, try fetching from server
     if (!record) {
-      console.log("📚 Book not found in IndexedDB");
-      return false;
+      console.log("📚 Book not found in IndexedDB, trying server...");
+      record = await fetchLibraryFromServer(bookId);
+
+      if (!record) {
+        console.log("📚 Book not found on server either");
+        return false;
+      }
+
+      console.log("✅ Found book on server");
     }
 
-    // 2) check login state and use prioritized auth logic
+    // 3) check login state and use prioritized auth logic
     const user = await getCurrentUser();
     if (user) {
       const userId = user.name || user.username || user.email;

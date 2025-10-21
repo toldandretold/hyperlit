@@ -1091,6 +1091,7 @@ async function createOverlappingPolyContainer(allCitedINLinks, validHypercites) 
         <button class="hypercite-health-check-btn"
                 data-citing-book="${bookID}"
                 data-hypercite-id="${hyperciteIdFromUrl}"
+                data-citation-url="${citationID}"
                 title="Check if citation exists"
                 type="button">
           <svg width="18" height="18" viewBox="0 0 48 48" fill="currentColor">
@@ -1100,6 +1101,7 @@ async function createOverlappingPolyContainer(allCitedINLinks, validHypercites) 
         <button class="hypercite-delete-btn"
                 data-source-book="${sourceBook}"
                 data-source-hypercite-id="${overlappingHyperciteIds.join(',')}"
+                data-citation-url="${citationID}"
                 title="Run health check first"
                 type="button"
                 disabled>
