@@ -758,12 +758,6 @@ async function CoupleClick(uElement) {
  */
 async function handleUnderlineClick(uElement, event) {
   console.log("🔥 handleUnderlineClick called with element:", uElement.id || uElement.tagName);
-  
-  // Check if this is an overlapping hypercite
-  if (uElement.id === "hypercite_overlapping") {
-    await handleOverlappingHyperciteClick(uElement, event);
-    return;
-  }
 
   // Use unified container system for all hypercite clicks
   console.log("🔄 Calling handleUnifiedContentClick from hyperCites.js");
@@ -793,7 +787,7 @@ async function handleOverlappingHyperciteClick(uElement, event) {
     const firstHyperciteId = hyperciteIds[0].replace('hypercite_', '');
     const newUrl = `${window.location.pathname}${window.location.search}#hypercite_${firstHyperciteId}`;
     console.log(`📍 Updating URL for overlapping hypercite navigation: ${newUrl}`);
-    
+
     try {
       // Preserve existing state when updating URL for overlapping hypercite
       const currentState = history.state || {};
@@ -805,22 +799,39 @@ async function handleOverlappingHyperciteClick(uElement, event) {
     }
   }
 
-  // Check for specific classes instead of exact className match
-  console.log(`🔍 Checking classes on element:`, {
-    className: uElement.className,
-    classList: Array.from(uElement.classList),
-    hasCouple: uElement.classList.contains("couple"),
-    hasPoly: uElement.classList.contains("poly")
-  });
-  
-  if (uElement.classList.contains("couple")) {
-    console.log("📝 Handling overlapping couple");
-    await handleOverlappingCouple(hyperciteIds);
-  } else if (uElement.classList.contains("poly")) {
-    console.log("📝 Handling overlapping poly");
-    await handleOverlappingPoly(hyperciteIds, event);
-  } else {
-    console.log("❌ Overlapping hypercite with unrecognized classes - no action taken");
+  // Always show container for overlapping hypercites (regardless of relationship status)
+  // Overlapping hypercites should display all citations in a container
+  console.log("📝 Showing container for overlapping hypercites");
+
+  try {
+    const db = await openDatabase();
+
+    // Look up all hypercites
+    const hypercitePromises = hyperciteIds.map(id => getHyperciteById(db, id));
+    const hypercites = await Promise.all(hypercitePromises);
+
+    // Filter out null results and collect all citedIN links
+    const validHypercites = hypercites.filter(hc => hc !== null);
+    const allCitedINLinks = [];
+
+    validHypercites.forEach(hypercite => {
+      if (hypercite.citedIN && Array.isArray(hypercite.citedIN)) {
+        allCitedINLinks.push(...hypercite.citedIN);
+      }
+    });
+
+    console.log("All citedIN links from overlapping hypercites:", allCitedINLinks);
+
+    if (allCitedINLinks.length === 0) {
+      console.error("❌ No citedIN links found in any overlapping hypercites");
+      return;
+    }
+
+    // Create the container with all links
+    await createOverlappingPolyContainer(allCitedINLinks, validHypercites);
+
+  } catch (error) {
+    console.error("❌ Error handling overlapping hypercite click:", error);
   }
 }
 
