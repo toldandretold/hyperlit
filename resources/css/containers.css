@@ -326,6 +326,8 @@ black #221F20;
   background-color: transparent;
   z-index: 10;
   box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the bottom */
+  overscroll-behavior: none; /* Prevent scroll chaining */
+  touch-action: none; /* Prevent touch scrolling */
 }
 
 #toc-container .mask-bottom,
@@ -354,6 +356,8 @@ black #221F20;
   background-color: transparent;
   z-index: 10;
   box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the bottom */
+  overscroll-behavior: none; /* Prevent scroll chaining */
+  touch-action: none; /* Prevent touch scrolling */
 }
 
 
