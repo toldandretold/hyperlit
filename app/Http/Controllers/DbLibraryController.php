@@ -223,7 +223,7 @@ public function upsert(Request $request)
                     'publisher' => $data['publisher'] ?? $libraryRecord->publisher,
                     'school' => $data['school'] ?? $libraryRecord->school,
                     'note' => $data['note'] ?? $libraryRecord->note,
-                    'raw_json' => json_encode($data),
+                    'raw_json' => json_encode($this->cleanItemForStorage($data)),
                 ];
             } else {
                 // For non-owners, still preserve newer timestamps
@@ -321,7 +321,7 @@ public function bulkCreate(Request $request)
                     'total_views' => $item['total_views'] ?? 0,
                     'total_highlights' => $item['total_highlights'] ?? 0,
                     'total_citations' => $item['total_citations'] ?? 0,
-                    'raw_json' => json_encode($item),
+                    'raw_json' => json_encode($this->cleanItemForStorage($item)),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];
@@ -714,6 +714,22 @@ public function bulkCreate(Request $request)
                 'message' => 'Validation check failed'
             ], 500);
         }
+    }
+
+    /**
+     * Clean item data before storing in raw_json to prevent recursive nesting
+     */
+    private function cleanItemForStorage($item)
+    {
+        $cleanItem = is_array($item) ? $item : (array) $item;
+
+        // Remove raw_json to prevent recursive nesting
+        unset($cleanItem['raw_json']);
+
+        // Remove any other problematic nested fields
+        unset($cleanItem['full_library_array']);
+
+        return $cleanItem;
     }
 
     /**
