@@ -11,6 +11,26 @@ let hyperlitManager = null;
 // Debounce mechanism to prevent duplicate calls
 let isProcessingClick = false;
 
+// Store initial viewport height for dynamic container sizing
+let initialViewportHeight = null;
+
+// Initialize viewport height tracking
+function initializeViewportHeight() {
+  if (window.visualViewport) {
+    initialViewportHeight = window.visualViewport.height;
+  } else {
+    initialViewportHeight = window.innerHeight;
+  }
+  console.log(`📐 Initial viewport height captured: ${initialViewportHeight}px`);
+}
+
+// Call on module load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeViewportHeight);
+} else {
+  initializeViewportHeight();
+}
+
 
 export function initializeHyperlitManager() {
   // Ensure DOM is ready before initializing
@@ -56,19 +76,32 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
   if (!hyperlitManager) {
     initializeHyperlitManager();
   }
-  
+
   // Reset the processing flag when opening a new container
   // This prevents navigation clicks from being blocked by previous operations
   isProcessingClick = false;
   console.log("🔄 Reset isProcessingClick flag for new container");
-  
+
   // Get the container (should exist after initialization)
   const container = document.getElementById("hyperlit-container");
   if (!container) {
     console.error("❌ hyperlit-container not found after initialization!");
     return;
   }
-  
+
+  // Calculate dynamic max-height based on actual viewport
+  const viewportHeight = initialViewportHeight || window.innerHeight;
+  const topMargin = 16; // 1em top spacing
+  const bottomMargin = 16; // 1em bottom spacing
+  const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const safeMobileMargin = isMobile ? 60 : 0; // Extra margin for mobile browser chrome
+
+  const maxHeight = viewportHeight - topMargin - bottomMargin - safeMobileMargin;
+
+  console.log(`📐 Setting container max-height: ${maxHeight}px (viewport: ${viewportHeight}px, mobile: ${isMobile})`);
+
+  // Apply max-height as inline style
+  container.style.maxHeight = `${maxHeight}px`;
 
   // Clear any existing content first to prevent duplicates
   const existingScroller = container.querySelector('.scroller');
@@ -78,12 +111,16 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
 
   // Open the container using the manager FIRST
   console.log("📂 Opening container with manager first...");
-  
+
   // Set the back navigation flag on the manager
   hyperlitManager.isBackNavigation = isBackNavigation;
-  
+
   hyperlitManager.openContainer();
-  
+
+  // Lock body scroll to prevent page scrolling while container is open
+  document.body.classList.add('hyperlit-container-open');
+  console.log('🔒 Body scroll locked');
+
   // THEN set the content after the container is opened
   setTimeout(() => {
     const scroller = container.querySelector('.scroller');
@@ -94,6 +131,9 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
       scroller.innerHTML = '';
       scroller.innerHTML = content;
       console.log(`✅ Content set after opening. Scroller innerHTML length: ${scroller.innerHTML.length}`);
+
+      // Attach scroll containment handlers
+      attachScrollContainment(scroller);
     } else {
       console.warn("⚠️ No scroller found in hyperlit-container after opening, setting content directly");
       // Clear and set content directly
@@ -101,6 +141,90 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
       container.innerHTML = content;
     }
   }, 50);
+}
+
+/**
+ * Prevent scroll propagation from container to page
+ */
+function attachScrollContainment(scroller) {
+  // Remove existing listeners if present
+  if (scroller._scrollHandler) {
+    scroller.removeEventListener('wheel', scroller._scrollHandler);
+    scroller.removeEventListener('touchmove', scroller._touchHandler);
+  }
+
+  // Wheel event handler (mouse/trackpad scrolling)
+  scroller._scrollHandler = function(e) {
+    const scrollTop = scroller.scrollTop;
+    const scrollHeight = scroller.scrollHeight;
+    const clientHeight = scroller.clientHeight;
+    const delta = e.deltaY;
+
+    // At top and trying to scroll up
+    if (delta < 0 && scrollTop <= 0) {
+      e.preventDefault();
+      return;
+    }
+
+    // At bottom and trying to scroll down
+    if (delta > 0 && scrollTop + clientHeight >= scrollHeight) {
+      e.preventDefault();
+      return;
+    }
+
+    // Otherwise, let the scroll happen within the container
+    e.stopPropagation();
+  };
+
+  // Touch event handler (mobile scrolling)
+  let touchStartY = 0;
+  scroller._touchHandler = function(e) {
+    if (e.type === 'touchstart') {
+      touchStartY = e.touches[0].clientY;
+      return;
+    }
+
+    const scrollTop = scroller.scrollTop;
+    const scrollHeight = scroller.scrollHeight;
+    const clientHeight = scroller.clientHeight;
+    const touchY = e.touches[0].clientY;
+    const delta = touchStartY - touchY;
+
+    // At top and trying to scroll up
+    if (delta < 0 && scrollTop <= 0) {
+      e.preventDefault();
+      return;
+    }
+
+    // At bottom and trying to scroll down
+    if (delta > 0 && scrollTop + clientHeight >= scrollHeight) {
+      e.preventDefault();
+      return;
+    }
+
+    // Otherwise, let the scroll happen within the container
+    e.stopPropagation();
+  };
+
+  scroller.addEventListener('wheel', scroller._scrollHandler, { passive: false });
+  scroller.addEventListener('touchstart', scroller._touchHandler, { passive: true });
+  scroller.addEventListener('touchmove', scroller._touchHandler, { passive: false });
+
+  console.log('✅ Scroll containment handlers attached');
+}
+
+/**
+ * Remove scroll containment handlers
+ */
+function removeScrollContainment(scroller) {
+  if (scroller && scroller._scrollHandler) {
+    scroller.removeEventListener('wheel', scroller._scrollHandler);
+    scroller.removeEventListener('touchstart', scroller._touchHandler);
+    scroller.removeEventListener('touchmove', scroller._touchHandler);
+    delete scroller._scrollHandler;
+    delete scroller._touchHandler;
+    console.log('✅ Scroll containment handlers removed');
+  }
 }
 
 export function closeHyperlitContainer() {
@@ -112,17 +236,32 @@ export function closeHyperlitContainer() {
       return; // Exit early if initialization fails
     }
   }
-  
+
   if (hyperlitManager && hyperlitManager.closeContainer) {
     try {
+      // Remove scroll containment handlers
+      const container = document.getElementById("hyperlit-container");
+      if (container) {
+        const scroller = container.querySelector('.scroller');
+        if (scroller) {
+          removeScrollContainment(scroller);
+        }
+        // Reset inline max-height style
+        container.style.maxHeight = '';
+      }
+
+      // Unlock body scroll
+      document.body.classList.remove('hyperlit-container-open');
+      console.log('🔓 Body scroll unlocked');
+
       // Clean up URL hash and history state when closing container
       const currentUrl = window.location;
-      if (currentUrl.hash && (currentUrl.hash.startsWith('#HL_') || currentUrl.hash.startsWith('#hypercite_') || 
+      if (currentUrl.hash && (currentUrl.hash.startsWith('#HL_') || currentUrl.hash.startsWith('#hypercite_') ||
                              currentUrl.hash.startsWith('#footnote_') || currentUrl.hash.startsWith('#citation_'))) {
         // Remove hyperlit-related hash from URL
         const cleanUrl = `${currentUrl.pathname}${currentUrl.search}`;
         console.log('🔗 Cleaning up hyperlit hash from URL:', currentUrl.hash, '→', cleanUrl);
-        
+
         // Push new clean state to history
         const currentState = history.state || {};
         const newState = {
@@ -131,7 +270,7 @@ export function closeHyperlitContainer() {
         };
         history.pushState(newState, '', cleanUrl);
       }
-      
+
       hyperlitManager.closeContainer();
     } catch (error) {
       console.warn('Could not close hyperlit container:', error);
