@@ -26,7 +26,7 @@ class DbHyperciteController extends Controller
                     'relationshipStatus' => $item['relationshipStatus'] ?? null,
                     'citedIN' => $item['citedIN'] ?? [],
                     'time_since' => $item['time_since'] ?? null,
-                    'raw_json' => $item,
+                    'raw_json' => $this->cleanItemForStorage($item),
                 ]);
             }
             
@@ -68,7 +68,7 @@ class DbHyperciteController extends Controller
                             'relationshipStatus' => $item['relationshipStatus'] ?? null,
                             'citedIN' => $item['citedIN'] ?? [],        // Remove json_encode()
                             'time_since' => $item['time_since'] ?? null,
-                            'raw_json' => $item,                        // Remove json_encode()
+                            'raw_json' => $this->cleanItemForStorage($item),                        // Remove json_encode()
                             'updated_at' => now(),
                         ]
                     );
@@ -128,5 +128,18 @@ class DbHyperciteController extends Controller
             'hypercite' => $hypercite,
             'nodeChunks' => $allNodeChunks, // Note the plural 'nodeChunks'
         ]);
+    }
+
+    private function cleanItemForStorage($item)
+    {
+        $cleanItem = is_array($item) ? $item : (array) $item;
+
+        // Remove raw_json to prevent recursive nesting
+        unset($cleanItem['raw_json']);
+
+        // Remove any other problematic nested fields
+        unset($cleanItem['full_library_array']);
+
+        return $cleanItem;
     }
 }
