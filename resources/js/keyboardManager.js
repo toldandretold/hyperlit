@@ -2,6 +2,9 @@
 
 class KeyboardManager {
   constructor() {
+    console.log("🔧 KeyboardManager CONSTRUCTOR CALLED");
+    console.trace("KeyboardManager instantiation stack trace:");
+
     this.isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
     this.initialVisualHeight = null;
     this.isKeyboardOpen = false;
@@ -159,12 +162,16 @@ scrollCaretIntoView(element) {
 
   // All the functions below are from YOUR working version. They are unchanged.
   adjustLayout(keyboardOpen) {
+    console.log(`🔧 KeyboardManager.adjustLayout called with keyboardOpen=${keyboardOpen}`);
+
     const appContainer = document.querySelector("#app-container");
     const mainContent = document.querySelector(".main-content");
     const editToolbar = document.querySelector("#edit-toolbar");
     const bottomRightButtons = document.querySelector("#bottom-right-buttons");
+    const hyperlitContainer = document.querySelector("#hyperlit-container");
 
     if (keyboardOpen) {
+      console.log("🔧 KeyboardManager: KEYBOARD OPENING - will modify layout");
       const vv = window.visualViewport;
 
       if (appContainer) {
@@ -181,7 +188,13 @@ scrollCaretIntoView(element) {
 
       this.state.keyboardTop = vv.offsetTop + vv.height;
       this.moveToolbarAboveKeyboard(editToolbar, bottomRightButtons, mainContent);
+
+      // Also adjust hyperlit-container if it's open
+      if (hyperlitContainer && hyperlitContainer.classList.contains('open')) {
+        this.adjustHyperlitContainerHeight(hyperlitContainer, vv);
+      }
     } else {
+      console.log("🔧 KeyboardManager: KEYBOARD CLOSING - will reset inline styles");
       if (editToolbar) {
         editToolbar.removeEventListener("touchstart", this.preventToolbarScroll);
       }
@@ -190,11 +203,19 @@ scrollCaretIntoView(element) {
       }
       this.removeSpacer();
       this.resetInlineStyles(appContainer, mainContent, editToolbar, bottomRightButtons);
+
+      // Reset hyperlit-container height if it's open
+      if (hyperlitContainer && hyperlitContainer.classList.contains('open')) {
+        this.adjustHyperlitContainerHeight(hyperlitContainer, window.visualViewport);
+      }
+
+      console.log("🔧 KeyboardManager: Inline styles reset on all elements including #bottom-right-buttons");
       this.state.keyboardTop = null;
     }
   }
 
   moveToolbarAboveKeyboard(toolbar, bottomRightButtons, mainContent) {
+    console.log("🔧 KeyboardManager.moveToolbarAboveKeyboard called");
     if (!toolbar) return;
     const toolbarHeight = toolbar.getBoundingClientRect().height;
     const top = this.state.keyboardTop - toolbarHeight;
@@ -221,14 +242,36 @@ scrollCaretIntoView(element) {
     }
 
     if (bottomRightButtons) {
+      // Check if hyperlit-container is open - if so, use lower z-index to stay below overlay/container
+      const hyperlitContainerOpen = document.body.classList.contains('hyperlit-container-open');
+      const zIndex = hyperlitContainerOpen ? "998" : "999998";
+
+      console.log(`🔧 KeyboardManager: SETTING INLINE STYLES ON #bottom-right-buttons - z-index: ${zIndex}, top: ${top - 60}px (hyperlitContainer open: ${hyperlitContainerOpen})`);
       bottomRightButtons.style.setProperty("position", "fixed", "important");
       bottomRightButtons.style.setProperty("top", `${top - 60}px`, "important");
       bottomRightButtons.style.setProperty("right", "5px", "important");
-      bottomRightButtons.style.setProperty("z-index", "999998", "important");
+      bottomRightButtons.style.setProperty("z-index", zIndex, "important");
       bottomRightButtons.addEventListener("touchstart", this.preventToolbarScroll, {
         passive: false,
       });
     }
+  }
+
+  adjustHyperlitContainerHeight(container, vv) {
+    if (!vv) {
+      // Fallback if Visual Viewport API not available
+      const maxHeight = window.innerHeight - 16 - 4; // topMargin - bottomGap
+      container.style.maxHeight = `${maxHeight}px`;
+      console.log(`🔧 KeyboardManager: Set hyperlit-container maxHeight to ${maxHeight}px (no VV API)`);
+      return;
+    }
+
+    const topMargin = 16; // 1em top spacing (matches CSS top: 1em)
+    const BOTTOM_GAP = 4; // Visual gap between container and keyboard/screen bottom
+    const maxHeight = vv.offsetTop + vv.height - topMargin - BOTTOM_GAP;
+
+    console.log(`🔧 KeyboardManager: Set hyperlit-container maxHeight to ${maxHeight}px (vv.height: ${vv.height}px, offsetTop: ${vv.offsetTop}px)`);
+    container.style.maxHeight = `${maxHeight}px`;
   }
    
 
@@ -266,13 +309,24 @@ removeSpacer() {
 }
 
   destroy() {
-    console.log("⌨️ KeyboardManager destroyed.");
+    console.log("⌨️ KeyboardManager DESTROY CALLED");
+    console.trace("KeyboardManager destroy stack trace:");
 
     // Clear any pending timers
     if (this.viewportChangeDebounceTimer) {
       clearTimeout(this.viewportChangeDebounceTimer);
       this.viewportChangeDebounceTimer = null;
     }
+
+    // Reset inline styles on all elements we modified
+    console.log("🔧 KeyboardManager.destroy: Resetting inline styles on all modified elements");
+    this.resetInlineStyles(
+      document.querySelector("#app-container"),
+      document.querySelector(".main-content"),
+      document.querySelector("#edit-toolbar"),
+      document.querySelector("#bottom-right-buttons")
+    );
+    console.log("🔧 KeyboardManager.destroy: Inline styles reset complete");
 
     window.removeEventListener("focusin", this.handleFocusIn, true);
     window.removeEventListener("focusout", this.handleFocusOut, true);
@@ -282,6 +336,7 @@ removeSpacer() {
         this.handleViewportChange,
       );
     }
+    console.log("⌨️ KeyboardManager destroyed - all cleanup complete");
   }
 }
 

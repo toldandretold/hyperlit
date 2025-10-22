@@ -294,6 +294,9 @@ black #221F20;
   min-height: 0; /* Allow flex item to shrink below content size if needed */
   width: 100%;
   box-sizing: border-box;
+  overscroll-behavior: contain; /* Prevent scroll chaining to page */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  touch-action: pan-y; /* Allow vertical touch scrolling only */
 }
 
 #toc-container .mask-top,
@@ -323,6 +326,8 @@ black #221F20;
   background-color: transparent;
   z-index: 10;
   box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the bottom */
+  overscroll-behavior: none; /* Prevent scroll chaining */
+  touch-action: none; /* Prevent touch scrolling */
 }
 
 #toc-container .mask-bottom,
@@ -351,6 +356,8 @@ black #221F20;
   background-color: transparent;
   z-index: 10;
   box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the bottom */
+  overscroll-behavior: none; /* Prevent scroll chaining */
+  touch-action: none; /* Prevent touch scrolling */
 }
 
 
@@ -396,6 +403,9 @@ black #221F20;
     visibility: hidden;
     transition: opacity 0.3s ease-in-out;
     z-index: 1000; /* Below the containers */
+    overscroll-behavior: none; /* Prevent scroll chaining */
+    touch-action: none; /* Block all touch scrolling/gestures */
+    overflow: hidden; /* Prevent overflow scrolling */
 }
 
 
@@ -483,6 +493,8 @@ black #221F20;
   z-index: 15;
   border-radius: 0 0 1em 1em;
   overflow: hidden;
+  overscroll-behavior: none; /* Prevent scroll chaining to page */
+  touch-action: none; /* Prevent touch scrolling/gestures */
 }
 
 /* Show controls on container hover */
@@ -1180,5 +1192,18 @@ black #221F20;
 
 .delete-highlight-btn:hover svg path {
   stroke: #221f20;
+}
 
+/* Lock body scroll when hyperlit container is open */
+body.hyperlit-container-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
+/* Ensure main content doesn't scroll when container is open */
+body.hyperlit-container-open .home-content-wrapper,
+body.hyperlit-container-open .reader-content-wrapper {
+  overflow: hidden;
+  touch-action: none; /* Prevent touch scrolling on main content */
 }
