@@ -14,6 +14,16 @@ let isProcessingClick = false;
 // Store initial viewport height for dynamic container sizing
 let initialViewportHeight = null;
 
+// Keyboard tracking
+let isKeyboardOpen = false;
+let keyboardHeight = 0;
+let viewportResizeHandler = null;
+let viewportDebounceTimer = null;
+let lastViewportHeight = null; // Track for detecting grow/shrink
+
+// Constants
+const BOTTOM_GAP = 4; // Visual gap between container and keyboard/screen bottom
+
 // Initialize viewport height tracking
 function initializeViewportHeight() {
   if (window.visualViewport) {
@@ -29,6 +39,139 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initializeViewportHeight);
 } else {
   initializeViewportHeight();
+}
+
+/**
+ * Handle viewport resize to detect keyboard open/close
+ * Debounced to wait for keyboard animation to complete
+ * Uses shorter debounce for keyboard close (faster visual response)
+ */
+function handleViewportResize() {
+  // Clear any pending debounce
+  if (viewportDebounceTimer) {
+    clearTimeout(viewportDebounceTimer);
+  }
+
+  // Smart debounce timing based on viewport direction
+  const vv = window.visualViewport;
+  if (vv && lastViewportHeight !== null) {
+    const isGrowing = vv.height > lastViewportHeight;
+    // Shorter debounce when viewport growing (keyboard closing) for faster response
+    const debounceTime = isGrowing ? 50 : 150;
+    viewportDebounceTimer = setTimeout(() => {
+      processViewportResize();
+    }, debounceTime);
+  } else {
+    // First time or no previous height - use standard debounce
+    viewportDebounceTimer = setTimeout(() => {
+      processViewportResize();
+    }, 150);
+  }
+
+  // Track current height for next comparison
+  if (vv) {
+    lastViewportHeight = vv.height;
+  }
+}
+
+/**
+ * Process viewport resize after debounce
+ */
+function processViewportResize() {
+  if (!window.visualViewport) return;
+
+  const container = document.getElementById("hyperlit-container");
+  if (!container || !container.classList.contains('open')) return;
+
+  const vv = window.visualViewport;
+  const currentViewportHeight = vv.height;
+  const referenceHeight = initialViewportHeight || window.innerHeight;
+
+  // Keyboard is open if viewport height is significantly smaller
+  const newKeyboardOpen = currentViewportHeight < referenceHeight * 0.75;
+
+  if (newKeyboardOpen && !isKeyboardOpen) {
+    // Keyboard just opened
+    isKeyboardOpen = true;
+    keyboardHeight = window.innerHeight - currentViewportHeight;
+    console.log(`⌨️ Keyboard opened, height: ${keyboardHeight}px`);
+    adjustContainerHeight(container);
+  } else if (!newKeyboardOpen && isKeyboardOpen) {
+    // Keyboard just closed
+    isKeyboardOpen = false;
+    keyboardHeight = 0;
+    console.log(`⌨️ Keyboard closed`);
+    adjustContainerHeight(container);
+  } else if (newKeyboardOpen && isKeyboardOpen) {
+    // Keyboard is open and viewport changed (orientation, etc)
+    keyboardHeight = window.innerHeight - currentViewportHeight;
+    adjustContainerHeight(container);
+  }
+}
+
+/**
+ * Adjust container height based on available viewport
+ * Keep top fixed, shrink from bottom when keyboard opens
+ */
+function adjustContainerHeight(container) {
+  const vv = window.visualViewport;
+
+  if (!vv) {
+    // Fallback if Visual Viewport API not available
+    const maxHeight = window.innerHeight - 16 - BOTTOM_GAP;
+    container.style.maxHeight = `${maxHeight}px`;
+    return;
+  }
+
+  const topMargin = 16; // 1em top spacing (matches CSS top: 1em)
+  // Container is position: fixed at top: 1em relative to layout viewport
+  // Visual viewport may be offset, so we need: offsetTop + vv.height - topMargin - bottomGap
+  const maxHeight = vv.offsetTop + vv.height - topMargin - BOTTOM_GAP;
+
+  console.log(`📐 Adjusting container height: ${maxHeight}px (vv.height: ${vv.height}px, offsetTop: ${vv.offsetTop}px)`);
+  container.style.maxHeight = `${maxHeight}px`;
+}
+
+/**
+ * Scroll the focused/active element into view within the container
+ */
+function scrollFocusedElementIntoView(container) {
+  const scroller = container.querySelector('.scroller');
+  if (!scroller) return;
+
+  // Find focused element within container
+  const focusedElement = container.querySelector(':focus');
+  if (!focusedElement) return;
+
+  console.log(`🎯 Scrolling focused element into view:`, focusedElement);
+
+  // Get element position relative to scroller
+  const scrollerRect = scroller.getBoundingClientRect();
+  const elementRect = focusedElement.getBoundingClientRect();
+
+  // Calculate if element is outside visible area
+  const elementTop = elementRect.top - scrollerRect.top + scroller.scrollTop;
+  const elementBottom = elementTop + elementRect.height;
+  const visibleTop = scroller.scrollTop;
+  const visibleBottom = scroller.scrollTop + scroller.clientHeight;
+
+  // Add buffer for comfortable viewing
+  const buffer = 20;
+
+  // Scroll if element is not fully visible
+  if (elementBottom + buffer > visibleBottom) {
+    // Element is below visible area
+    const scrollTarget = elementBottom - scroller.clientHeight + buffer;
+    scroller.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+    console.log(`⬇️ Scrolled down to show element`);
+  } else if (elementTop - buffer < visibleTop) {
+    // Element is above visible area
+    const scrollTarget = elementTop - buffer;
+    scroller.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+    console.log(`⬆️ Scrolled up to show element`);
+  } else {
+    console.log(`✅ Element already visible, no scroll needed`);
+  }
 }
 
 
@@ -90,15 +233,13 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
   }
 
   // Calculate dynamic max-height based on actual viewport
+  // Use initialViewportHeight (captured at page load, before keyboard)
+  // Container is position: fixed at top: 1em, so max-height = viewport - 16px - bottomGap
   const viewportHeight = initialViewportHeight || window.innerHeight;
-  const topMargin = 16; // 1em top spacing
-  const bottomMargin = 16; // 1em bottom spacing
-  const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  const safeMobileMargin = isMobile ? 60 : 0; // Extra margin for mobile browser chrome
+  const topMargin = 16; // 1em top spacing (matches CSS top: 1em)
+  const maxHeight = viewportHeight - topMargin - BOTTOM_GAP;
 
-  const maxHeight = viewportHeight - topMargin - bottomMargin - safeMobileMargin;
-
-  console.log(`📐 Setting container max-height: ${maxHeight}px (viewport: ${viewportHeight}px, mobile: ${isMobile})`);
+  console.log(`📐 Setting initial container max-height: ${maxHeight}px (viewport: ${viewportHeight}px)`);
 
   // Apply max-height as inline style
   container.style.maxHeight = `${maxHeight}px`;
@@ -120,6 +261,15 @@ export function openHyperlitContainer(content, isBackNavigation = false) {
   // Lock body scroll to prevent page scrolling while container is open
   document.body.classList.add('hyperlit-container-open');
   console.log('🔒 Body scroll locked');
+
+  // Start listening for keyboard open/close (viewport resize)
+  if (window.visualViewport) {
+    if (!viewportResizeHandler) {
+      viewportResizeHandler = handleViewportResize;
+    }
+    window.visualViewport.addEventListener('resize', viewportResizeHandler);
+    console.log('⌨️ Listening for keyboard events');
+  }
 
   // THEN set the content after the container is opened
   setTimeout(() => {
@@ -249,6 +399,23 @@ export function closeHyperlitContainer() {
         // Reset inline max-height style
         container.style.maxHeight = '';
       }
+
+      // Stop listening for keyboard events
+      if (window.visualViewport && viewportResizeHandler) {
+        window.visualViewport.removeEventListener('resize', viewportResizeHandler);
+        console.log('⌨️ Stopped listening for keyboard events');
+      }
+
+      // Clear any pending debounce timer
+      if (viewportDebounceTimer) {
+        clearTimeout(viewportDebounceTimer);
+        viewportDebounceTimer = null;
+      }
+
+      // Reset keyboard state
+      isKeyboardOpen = false;
+      keyboardHeight = 0;
+      lastViewportHeight = null;
 
       // Unlock body scroll
       document.body.classList.remove('hyperlit-container-open');
