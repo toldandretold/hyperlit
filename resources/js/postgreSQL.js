@@ -1,4 +1,4 @@
-import { openDatabase, parseNodeId } from "./indexedDB.js";
+import { openDatabase, parseNodeId, prepareLibraryForIndexedDB } from "./indexedDB.js";
 import { getCurrentUser, getAuthorId } from "./auth.js";
 
 async function syncBookDataToServer(bookName, objectStoreName, method = 'upsert') {
@@ -838,17 +838,19 @@ async function loadLibraryToIndexedDB(db, library) {
     console.log("ℹ️ No library data to load");
     return;
   }
-  
-  // console.log("📝 Loading library data...");
-  
+
+  // 🧹 Clean the library data from PostgreSQL to remove any corrupted/bloated fields
+  // This prevents corrupted data from propagating into IndexedDB
+  const cleanedLibrary = prepareLibraryForIndexedDB(library);
+
   const tx = db.transaction('library', 'readwrite');
   const store = tx.objectStore('library');
-  
+
   await new Promise((resolve, reject) => {
-    const request = store.put(library);
+    const request = store.put(cleanedLibrary);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
-  
-  console.log("✅ Loaded library data");
+
+  console.log("✅ Loaded library data (cleaned)");
 }

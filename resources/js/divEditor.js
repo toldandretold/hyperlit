@@ -1,7 +1,7 @@
 import { book } from "./app.js";
 import { getCurrentUserId } from "./auth.js";
-import { 
-  updateIndexedDBRecord, 
+import {
+  updateIndexedDBRecord,
   deleteIndexedDBRecordWithRetry,
   batchDeleteIndexedDBRecords,
   openDatabase,
@@ -9,7 +9,8 @@ import {
   batchUpdateIndexedDBRecords,
   getNodeChunksAfter,
   deleteNodeChunksAfter,
-  writeNodeChunks
+  writeNodeChunks,
+  prepareLibraryForIndexedDB
           } from "./indexedDB.js";
 import { 
   withPending,
@@ -1394,9 +1395,12 @@ export async function updateLibraryTitle(bookId, newTitle) {
       // 3) Regenerate the bibtex string so it stays in sync
       rec.bibtex = buildBibtexEntry(rec);
 
-      // 4) Write back the record
-      const putReq = store.put(rec);
-      putReq.onsuccess = () => resolve(rec);
+      // 4) Clean the record before saving to prevent payload bloat
+      const cleanedRec = prepareLibraryForIndexedDB(rec);
+
+      // 5) Write back the record
+      const putReq = store.put(cleanedRec);
+      putReq.onsuccess = () => resolve(cleanedRec);
       putReq.onerror   = (e) => reject(e.target.error);
     };
     req.onerror = (e) => reject(e.target.error);
