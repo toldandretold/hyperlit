@@ -343,21 +343,23 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
   isProcessingClick = true;
 
   try {
+    // 🚀 PERFORMANCE: Open DB once and reuse throughout
+    const db = await openDatabase();
     let contentTypes = [];
 
     // If this is a history navigation, we have no element, only an ID.
     // We can skip the broad detection and go straight to finding the content.
     if (!element && directHyperciteId) {
         console.log(`🎯 History navigation detected for: ${directHyperciteId}. Detecting content directly.`);
-        
+
         // Determine content type from the ID and detect accordingly
         if (directHyperciteId.startsWith('hypercite_')) {
-          const hyperciteData = await detectHypercites(null, directHyperciteId);
+          const hyperciteData = await detectHypercites(null, directHyperciteId, db);
           if (hyperciteData) {
             contentTypes.push(hyperciteData);
           }
         } else if (directHyperciteId.startsWith('HL_')) {
-          const highlightData = await detectHighlights(null, [directHyperciteId]);
+          const highlightData = await detectHighlights(null, [directHyperciteId], db);
           if (highlightData) {
             contentTypes.push(highlightData);
           }
@@ -382,21 +384,21 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
     } else if (element) {
         // This is a standard click, run the full detection.
         console.log("🎯 Click navigation detected. Running full content detection.");
-        contentTypes = await detectContentTypes(element, highlightIds, directHyperciteId);
+        contentTypes = await detectContentTypes(element, highlightIds, directHyperciteId, db);
     } else {
         console.warn("handleUnifiedContentClick called with no element or direct ID. Aborting.");
         isProcessingClick = false;
         return;
     }
-    
+
     if (contentTypes.length === 0) {
       console.log("No hyperlit content detected.");
       isProcessingClick = false;
       return;
     }
-    
+
     console.log(`📊 Detected content types: ${contentTypes.map(c => c.type).join(', ')}`);
-    
+
     // Store container state in history for back button support
     if (!skipUrlUpdate && !isBackNavigation) {
       const containerState = {
@@ -412,23 +414,23 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
         newHighlightIds,
         timestamp: Date.now()
       };
-      
+
       // Store in current history state for potential restoration
       const currentState = history.state || {};
       const newState = {
         ...currentState,
         hyperlitContainer: containerState
       };
-      
+
       console.log('📊 Storing hyperlit container state in history:', containerState);
-      
+
       // Determine if we should update URL (only for single content types)
       const urlHash = determineSingleContentHash(contentTypes);
       if (urlHash) {
         // Check if we already have a specific hypercite target that should be preserved
         const currentHash = window.location.hash.substring(1); // Remove #
         const hasHyperciteTarget = currentHash && currentHash.startsWith('hypercite_');
-        
+
         if (hasHyperciteTarget && contentTypes[0].type === 'highlight') {
           // We're opening a highlight container but there's a specific hypercite target
           // Preserve the original hypercite hash for in-container scrolling
@@ -445,18 +447,18 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
         history.replaceState(newState, '');
       }
     }
-    
-    // Build unified content
-    const unifiedContent = await buildUnifiedContent(contentTypes, newHighlightIds);
-    
+
+    // Build unified content (pass db for reuse)
+    const unifiedContent = await buildUnifiedContent(contentTypes, newHighlightIds, db);
+
     console.log(`📦 Built unified content (${unifiedContent.length} chars)`);
-    
+
     // Open the unified container
     openHyperlitContainer(unifiedContent, isBackNavigation);
-    
+
     // Handle any post-open actions (like cursor placement for editable content)
     await handlePostOpenActions(contentTypes, newHighlightIds);
-    
+
   } catch (error) {
     console.error("❌ Error in unified content handler:", error);
   } finally {
@@ -473,9 +475,11 @@ export async function handleUnifiedContentClick(element, highlightIds = null, ne
  * Detect all content types present on an element
  * @param {HTMLElement} element - The element to analyze
  * @param {Array} providedHighlightIds - Optional highlight IDs if already known
+ * @param {string} directHyperciteId - Optional direct hypercite ID
+ * @param {IDBDatabase} db - Reused database connection
  * @returns {Array} Array of content type objects
  */
-async function detectContentTypes(element, providedHighlightIds = null, directHyperciteId = null) {
+async function detectContentTypes(element, providedHighlightIds = null, directHyperciteId = null, db = null) {
   const contentTypes = [];
 
   // 1. Check for footnotes (highest priority)
@@ -497,13 +501,13 @@ async function detectContentTypes(element, providedHighlightIds = null, directHy
   }
 
   // 4. Check for hyperlights
-  const highlightData = await detectHighlights(element, providedHighlightIds);
+  const highlightData = await detectHighlights(element, providedHighlightIds, db);
   if (highlightData) {
     contentTypes.push(highlightData);
   }
 
   // 5. Check for hypercites (source hypercites)
-  const hyperciteData = await detectHypercites(element, directHyperciteId);
+  const hyperciteData = await detectHypercites(element, directHyperciteId, db);
   if (hyperciteData) {
     contentTypes.push(hyperciteData);
   }
@@ -575,11 +579,14 @@ function detectCitation(element) {
 
 /**
  * Detect highlight content
+ * @param {HTMLElement} element - The element to check
+ * @param {Array} providedHighlightIds - Optional pre-provided highlight IDs
+ * @param {IDBDatabase} db - Reused database connection (unused here but kept for consistency)
  */
-async function detectHighlights(element, providedHighlightIds = null) {
+async function detectHighlights(element, providedHighlightIds = null, db = null) {
   let highlightIds = providedHighlightIds;
   let highlightElement = element;
-  
+
   // If not provided, extract from element classes or parent mark element
   if (!highlightIds) {
     if (element.tagName === 'MARK') {
@@ -600,11 +607,11 @@ async function detectHighlights(element, providedHighlightIds = null) {
       }
     }
   }
-  
+
   if (!highlightIds || highlightIds.length === 0) {
     return null;
   }
-  
+
   return {
     type: 'highlight',
     element: highlightElement,
@@ -662,11 +669,15 @@ function detectHyperciteCitation(element) {
 
 /**
  * Detect hypercite content
+ * @param {HTMLElement} element - The element to check
+ * @param {string} directHyperciteId - Optional direct hypercite ID
+ * @param {IDBDatabase} db - Reused database connection
  */
-async function detectHypercites(element, directHyperciteId = null) {
+async function detectHypercites(element, directHyperciteId = null, db = null) {
   let hyperciteElement = null;
   let hyperciteIdFromElement = null;
   let relationshipStatus = 'single'; // Default to single
+  let cachedData = null; // 🚀 Cache full hypercite data to avoid re-querying
 
   if (directHyperciteId) {
     hyperciteIdFromElement = directHyperciteId;
@@ -694,17 +705,17 @@ async function detectHypercites(element, directHyperciteId = null) {
   if (hyperciteIdFromElement) {
     let hyperciteIds = [];
     let primaryHyperciteId = hyperciteIdFromElement;
-    
+
     // Check if this is an overlapping hypercite
     if (hyperciteElement && hyperciteElement.id === 'hypercite_overlapping' && hyperciteElement.hasAttribute('data-overlapping')) {
       // Extract actual hypercite IDs from data-overlapping attribute
       const overlappingData = hyperciteElement.getAttribute('data-overlapping');
       hyperciteIds = overlappingData.split(',').map(id => id.trim());
-      
+
       // For overlapping hypercites, we need to determine which hypercite to use as primary
       // Use the first one as primary for data-content-id purposes
       primaryHyperciteId = hyperciteIds[0];
-      
+
       console.log(`🔄 Detected overlapping hypercite with IDs: ${JSON.stringify(hyperciteIds)}, using primary: ${primaryHyperciteId}`);
     } else if (hyperciteElement && hyperciteElement.hasAttribute('data-overlapping')) {
       // Regular overlapping case
@@ -726,11 +737,15 @@ async function detectHypercites(element, directHyperciteId = null) {
       } else if (hyperciteElement.classList.contains('single')) {
         relationshipStatus = 'single';
       }
-    } 
+    }
     // 2. Fallback to IndexedDB if element not found or no class found on element
-    if (!hyperciteElement || (relationshipStatus === 'single' && !hyperciteElement.classList.contains('single'))) { // Only fetch from DB if element not found OR if element is 'single' but might be more
-      const db = await openDatabase();
-      const tx = db.transaction("hypercites", "readonly");
+    if (!hyperciteElement || (relationshipStatus === 'single' && !hyperciteElement.classList.contains('single'))) {
+      // 🔍 PERFORMANCE LOG: This should rarely happen - log when defensive fallback triggers
+      console.warn(`⚠️ DEFENSIVE DB FALLBACK triggered for hypercite ${primaryHyperciteId}. Element: ${!!hyperciteElement}, Status: ${relationshipStatus}`);
+
+      // Use provided db or open new one
+      const database = db || await openDatabase();
+      const tx = database.transaction("hypercites", "readonly");
       const store = tx.objectStore("hypercites");
       const index = store.index("hyperciteId");
       const req = index.get(primaryHyperciteId);
@@ -740,108 +755,126 @@ async function detectHypercites(element, directHyperciteId = null) {
       });
       if (result && result.relationshipStatus) {
         relationshipStatus = result.relationshipStatus;
+        cachedData = result; // 🚀 Cache the data for reuse
       }
     }
-    
+
     return {
       type: 'hypercite',
       element: hyperciteElement, // May be null if directHyperciteId was used and element not found
       hyperciteId: primaryHyperciteId, // Use primary hypercite ID instead of element ID
       hyperciteIds: hyperciteIds,
-      relationshipStatus: relationshipStatus
+      relationshipStatus: relationshipStatus,
+      cachedData: cachedData // 🚀 Pass cached data forward to avoid re-querying
     };
   }
-  
+
   return null;
 }
 
 /**
  * Build unified content HTML from detected content types
+ * @param {Array} contentTypes - Array of content type objects
+ * @param {Array} newHighlightIds - Array of new highlight IDs
+ * @param {IDBDatabase} db - Reused database connection
  */
-async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
+async function buildUnifiedContent(contentTypes, newHighlightIds = [], db = null) {
   console.log("🔨 Building unified content for types:", contentTypes.map(ct => ct.type));
-  
-  // Fetch timestamps for each content type to sort chronologically
-  const contentTypesWithTimestamps = await Promise.all(
-    contentTypes.map(async (contentType) => {
-      let timestamp = 0; // Default to 0 for items without timestamps (footnotes, citations)
-      
-      try {
-        if (contentType.type === 'highlight') {
-          // Get timestamp from highlight data
-          const db = await openDatabase();
-          const tx = db.transaction("hyperlights", "readonly");
-          const store = tx.objectStore("hyperlights");
-          const idx = store.index("hyperlight_id");
-          
-          if (contentType.highlightIds && contentType.highlightIds.length > 0) {
-            const req = idx.get(contentType.highlightIds[0]);
-            const result = await new Promise((resolve) => {
-              req.onsuccess = () => resolve(req.result);
-              req.onerror = () => resolve(null);
-            });
-            if (result && result.time_since) {
-              timestamp = result.time_since;
+
+  let contentTypesWithTimestamps;
+
+  // 🚀 PERFORMANCE: Skip timestamp fetching if only one content type (no sorting needed)
+  if (contentTypes.length === 1) {
+    console.log("⚡ Single content type - skipping timestamp fetch");
+    contentTypesWithTimestamps = contentTypes.map(ct => ({ ...ct, timestamp: 0 }));
+  } else {
+    // Fetch timestamps for each content type to sort chronologically
+    const database = db || await openDatabase();
+
+    contentTypesWithTimestamps = await Promise.all(
+      contentTypes.map(async (contentType) => {
+        let timestamp = 0; // Default to 0 for items without timestamps (footnotes, citations)
+
+        try {
+          if (contentType.type === 'highlight') {
+            // Get timestamp from highlight data
+            const tx = database.transaction("hyperlights", "readonly");
+            const store = tx.objectStore("hyperlights");
+            const idx = store.index("hyperlight_id");
+
+            if (contentType.highlightIds && contentType.highlightIds.length > 0) {
+              const req = idx.get(contentType.highlightIds[0]);
+              const result = await new Promise((resolve) => {
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => resolve(null);
+              });
+              if (result && result.time_since) {
+                timestamp = result.time_since;
+              }
+            }
+          } else if (contentType.type === 'hypercite') {
+            // 🚀 Use cached data if available
+            if (contentType.cachedData && contentType.cachedData.time_since) {
+              timestamp = contentType.cachedData.time_since;
+            } else {
+              // Fall back to query if not cached
+              const tx = database.transaction("hypercites", "readonly");
+              const store = tx.objectStore("hypercites");
+              const index = store.index("hyperciteId");
+
+              const req = index.get(contentType.hyperciteId);
+              const result = await new Promise((resolve) => {
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => resolve(null);
+              });
+              if (result && result.time_since) {
+                timestamp = result.time_since;
+              }
             }
           }
-        } else if (contentType.type === 'hypercite') {
-          // Get timestamp from hypercite data
-          const db = await openDatabase();
-          const tx = db.transaction("hypercites", "readonly");
-          const store = tx.objectStore("hypercites");
-          const index = store.index("hyperciteId");
-          
-          const req = index.get(contentType.hyperciteId);
-          const result = await new Promise((resolve) => {
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => resolve(null);
-          });
-          if (result && result.time_since) {
-            timestamp = result.time_since;
-          }
+          // Footnotes and citations don't have creation timestamps, so they stay at 0
+        } catch (error) {
+          console.warn(`Error getting timestamp for ${contentType.type}:`, error);
         }
-        // Footnotes and citations don't have creation timestamps, so they stay at 0
-      } catch (error) {
-        console.warn(`Error getting timestamp for ${contentType.type}:`, error);
+
+        return { ...contentType, timestamp };
+      })
+    );
+
+    // Sort by content type priority: hypercite-citation first, then footnotes/citations, then hypercites, then highlights
+    const typePriority = {
+      'hypercite-citation': 1,
+      'footnote': 2,
+      'citation': 3,
+      'hypercite': 4,
+      'highlight': 5
+    };
+
+    contentTypesWithTimestamps.sort((a, b) => {
+      const priorityA = typePriority[a.type] || 999;
+      const priorityB = typePriority[b.type] || 999;
+
+      // First sort by type priority
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
       }
-      
-      return { ...contentType, timestamp };
-    })
-  );
-  
-  // Sort by content type priority: hypercite-citation first, then footnotes/citations, then hypercites, then highlights
-  const typePriority = {
-    'hypercite-citation': 1,
-    'footnote': 2,
-    'citation': 3,
-    'hypercite': 4,
-    'highlight': 5
-  };
-  
-  contentTypesWithTimestamps.sort((a, b) => {
-    const priorityA = typePriority[a.type] || 999;
-    const priorityB = typePriority[b.type] || 999;
-    
-    // First sort by type priority
-    if (priorityA !== priorityB) {
-      return priorityA - priorityB;
-    }
-    
-    // Within same type, sort by timestamp (oldest first)
-    return a.timestamp - b.timestamp;
-  });
-  
-  console.log("🕐 Content types sorted by timestamp:", contentTypesWithTimestamps.map(ct => ({ type: ct.type, timestamp: ct.timestamp })));
-  
+
+      // Within same type, sort by timestamp (oldest first)
+      return a.timestamp - b.timestamp;
+    });
+
+    console.log("🕐 Content types sorted by timestamp:", contentTypesWithTimestamps.map(ct => ({ type: ct.type, timestamp: ct.timestamp })));
+  }
+
   let contentHtml = '';
-  
+
   // Process each content type in chronological order
   for (const contentType of contentTypesWithTimestamps) {
     console.log(`🔨 Processing ${contentType.type} content...`);
 
     switch (contentType.type) {
       case 'footnote':
-        const footnoteHtml = await buildFootnoteContent(contentType);
+        const footnoteHtml = await buildFootnoteContent(contentType, db);
         if (footnoteHtml) {
           console.log(`✅ Added footnote content (${footnoteHtml.length} chars)`);
           contentHtml += footnoteHtml;
@@ -849,7 +882,7 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
         break;
 
       case 'citation':
-        const citationHtml = await buildCitationContent(contentType);
+        const citationHtml = await buildCitationContent(contentType, db);
         if (citationHtml) {
           console.log(`✅ Added citation content (${citationHtml.length} chars)`);
           contentHtml += citationHtml;
@@ -857,7 +890,7 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
         break;
 
       case 'hypercite-citation':
-        const hyperciteCitationHtml = await buildHyperciteCitationContent(contentType);
+        const hyperciteCitationHtml = await buildHyperciteCitationContent(contentType, db);
         if (hyperciteCitationHtml) {
           console.log(`✅ Added hypercite citation content (${hyperciteCitationHtml.length} chars)`);
           contentHtml += hyperciteCitationHtml;
@@ -865,7 +898,7 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
         break;
 
       case 'highlight':
-        const highlightHtml = await buildHighlightContent(contentType, newHighlightIds);
+        const highlightHtml = await buildHighlightContent(contentType, newHighlightIds, db);
         if (highlightHtml) {
           console.log(`✅ Added highlight content (${highlightHtml.length} chars)`);
           contentHtml += highlightHtml;
@@ -875,7 +908,7 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
         break;
 
       case 'hypercite':
-        const hyperciteHtml = await buildHyperciteContent(contentType);
+        const hyperciteHtml = await buildHyperciteContent(contentType, db);
         if (hyperciteHtml) {
           console.log(`✅ Added hypercite content (${hyperciteHtml.length} chars)`);
           contentHtml += hyperciteHtml;
@@ -900,14 +933,16 @@ async function buildUnifiedContent(contentTypes, newHighlightIds = []) {
 
 /**
  * Build footnote content section
+ * @param {Object} contentType - The footnote content type object
+ * @param {IDBDatabase} db - Reused database connection
  */
-async function buildFootnoteContent(contentType) {
+async function buildFootnoteContent(contentType, db = null) {
   try {
     const { elementId, fnCountId, element } = contentType;
-    
+
     // Get the actual footnoteId from the link's href, not the elementId
     let footnoteId = null;
-    
+
     // Look for the footnote link inside the sup element
     const footnoteLink = element.querySelector('a.footnote-ref');
     if (footnoteLink && footnoteLink.href) {
@@ -915,7 +950,7 @@ async function buildFootnoteContent(contentType) {
       footnoteId = footnoteLink.href.split('#')[1];
       console.log(`🔍 Found footnote link with href: ${footnoteLink.href}, extracted footnoteId: ${footnoteId}`);
     }
-    
+
     // Fallback: try the old method if no link found
     if (!footnoteId) {
       footnoteId = elementId;
@@ -923,9 +958,9 @@ async function buildFootnoteContent(contentType) {
         footnoteId = footnoteId.replace('ref', '');
       }
     }
-    
-    const db = await openDatabase();
-    const transaction = db.transaction(["footnotes"], "readonly");
+
+    const database = db || await openDatabase();
+    const transaction = database.transaction(["footnotes"], "readonly");
     const store = transaction.objectStore("footnotes");
     
     const key = [book, footnoteId];
@@ -969,13 +1004,15 @@ async function buildFootnoteContent(contentType) {
 
 /**
  * Build citation content section
+ * @param {Object} contentType - The citation content type object
+ * @param {IDBDatabase} db - Reused database connection
  */
-async function buildCitationContent(contentType) {
+async function buildCitationContent(contentType, db = null) {
   try {
     const { referenceId } = contentType;
-    
-    const db = await openDatabase();
-    const transaction = db.transaction(["references"], "readonly");
+
+    const database = db || await openDatabase();
+    const transaction = database.transaction(["references"], "readonly");
     const store = transaction.objectStore("references");
     
     const key = [book, referenceId];
@@ -1013,15 +1050,17 @@ async function buildCitationContent(contentType) {
 
 /**
  * Build hypercite citation content section (for links pointing TO hypercites)
+ * @param {Object} contentType - The hypercite citation content type object
+ * @param {IDBDatabase} db - Reused database connection
  */
-async function buildHyperciteCitationContent(contentType) {
+async function buildHyperciteCitationContent(contentType, db = null) {
   try {
     const { targetBook, targetHyperciteId, targetUrl } = contentType;
 
     console.log(`🔗 Building hypercite citation for: ${targetBook}#${targetHyperciteId}`);
 
-    const db = await openDatabase();
-    const transaction = db.transaction(['library'], 'readonly');
+    const database = db || await openDatabase();
+    const transaction = database.transaction(['library'], 'readonly');
     const store = transaction.objectStore('library');
 
     const result = await new Promise((resolve, reject) => {
@@ -1071,17 +1110,20 @@ async function buildHyperciteCitationContent(contentType) {
 
 /**
  * Build highlight content section
+ * @param {Object} contentType - The highlight content type object
+ * @param {Array} newHighlightIds - Array of new highlight IDs
+ * @param {IDBDatabase} db - Reused database connection
  */
-async function buildHighlightContent(contentType, newHighlightIds = []) {
+async function buildHighlightContent(contentType, newHighlightIds = [], db = null) {
   try {
     const { highlightIds } = contentType;
     console.log(`🎨 Building highlight content for IDs:`, highlightIds);
-    
+
     const currentUserId = await getCurrentUserId();
     console.log(`👤 Current user ID:`, currentUserId);
-    
-    const db = await openDatabase();
-    const tx = db.transaction("hyperlights", "readonly");
+
+    const database = db || await openDatabase();
+    const tx = database.transaction("hyperlights", "readonly");
     const store = tx.objectStore("hyperlights");
     const idx = store.index("hyperlight_id");
 
@@ -1237,14 +1279,16 @@ async function buildHighlightContent(contentType, newHighlightIds = []) {
 
 /**
  * Build hypercite content section
+ * @param {Object} contentType - The hypercite content type object
+ * @param {IDBDatabase} db - Reused database connection
  */
-async function buildHyperciteContent(contentType) {
+async function buildHyperciteContent(contentType, db = null) {
   try {
-    const { hyperciteId, hyperciteIds, relationshipStatus } = contentType;
+    const { hyperciteId, hyperciteIds, relationshipStatus, cachedData } = contentType;
     // Use the original clicked hyperciteId as the data-content-id for all links
     const originalHyperciteId = hyperciteId || (hyperciteIds && hyperciteIds[0]) || 'unknown';
     console.log(`🔗 Building hypercite content for ID: ${hyperciteId}, IDs: ${JSON.stringify(hyperciteIds)}, status: ${relationshipStatus}`);
-    
+
     if (relationshipStatus === 'single') {
       console.log(`📝 Single hypercite - returning simple content`);
       return `
@@ -1254,26 +1298,33 @@ async function buildHyperciteContent(contentType) {
           <hr>
         </div>`;
     }
-    
-    const db = await openDatabase();
-    const tx = db.transaction("hypercites", "readonly");
-    const store = tx.objectStore("hypercites");
-    const index = store.index("hyperciteId");
 
-    // Use the hyperciteIds array if available, otherwise fall back to single hyperciteId
-    const idsToProcess = hyperciteIds || [hyperciteId];
+    const database = db || await openDatabase();
     const hyperciteDataArray = [];
-    
-    // Fetch data for all hypercite IDs
-    for (const id of idsToProcess) {
-      const getRequest = index.get(id);
-      const hyperciteData = await new Promise((resolve, reject) => {
-        getRequest.onsuccess = () => resolve(getRequest.result);
-        getRequest.onerror = () => reject(getRequest.error);
-      });
-      
-      if (hyperciteData) {
-        hyperciteDataArray.push(hyperciteData);
+
+    // 🚀 PERFORMANCE: Use cached data if available (from detectHypercites)
+    if (cachedData) {
+      console.log(`⚡ Using cached hypercite data - skipping query`);
+      hyperciteDataArray.push(cachedData);
+    } else {
+      // Fetch data for all hypercite IDs
+      const tx = database.transaction("hypercites", "readonly");
+      const store = tx.objectStore("hypercites");
+      const index = store.index("hyperciteId");
+
+      // Use the hyperciteIds array if available, otherwise fall back to single hyperciteId
+      const idsToProcess = hyperciteIds || [hyperciteId];
+
+      for (const id of idsToProcess) {
+        const getRequest = index.get(id);
+        const hyperciteData = await new Promise((resolve, reject) => {
+          getRequest.onsuccess = () => resolve(getRequest.result);
+          getRequest.onerror = () => reject(getRequest.error);
+        });
+
+        if (hyperciteData) {
+          hyperciteDataArray.push(hyperciteData);
+        }
       }
     }
 
@@ -1304,49 +1355,80 @@ async function buildHyperciteContent(contentType) {
     }
     
     // Remove duplicates based on link URL (but keep the hyperciteId association)
-    const uniqueCitedINLinks = citedINLinksWithIds.filter((item, index, self) => 
+    const uniqueCitedINLinks = citedINLinksWithIds.filter((item, index, self) =>
       index === self.findIndex(t => t.link === item.link)
     );
-    
+
     if (uniqueCitedINLinks.length > 0) {
-      const linksHTML = await Promise.all(
-        uniqueCitedINLinks.map(async (citationItem) => {
-          const { link: citationID, hyperciteId } = citationItem;
+      // 🚀 PERFORMANCE: Extract all bookIDs first
+      const citationMetadata = uniqueCitedINLinks.map(citationItem => {
+        const { link: citationID, hyperciteId } = citationItem;
+        const citationParts = citationID.split("#");
+        const urlPart = citationParts[0];
+        const isHyperlightURL = urlPart.includes("/HL_");
 
-          // Extract book ID from citation URL
-          let bookID;
-          const citationParts = citationID.split("#");
-          const urlPart = citationParts[0];
-
-          const isHyperlightURL = urlPart.includes("/HL_");
-
-          if (isHyperlightURL) {
-            const pathParts = urlPart.split("/");
-            for (let i = 0; i < pathParts.length; i++) {
-              if (pathParts[i].startsWith("HL_") && i > 0) {
-                bookID = pathParts[i-1];
-                break;
-              }
+        let bookID;
+        if (isHyperlightURL) {
+          const pathParts = urlPart.split("/");
+          for (let i = 0; i < pathParts.length; i++) {
+            if (pathParts[i].startsWith("HL_") && i > 0) {
+              bookID = pathParts[i-1];
+              break;
             }
-            if (!bookID) {
-              bookID = pathParts.filter(part => part && !part.startsWith("HL_"))[0] || "";
-            }
-          } else {
-            bookID = urlPart.replace("/", "");
           }
+          if (!bookID) {
+            bookID = pathParts.filter(part => part && !part.startsWith("HL_"))[0] || "";
+          }
+        } else {
+          bookID = urlPart.replace("/", "");
+        }
 
-          // Check if this is a simple hypercite and user owns the CITING book
-          const isSimpleHypercite = !isHyperlightURL && citationParts.length > 1;
+        const isSimpleHypercite = !isHyperlightURL && citationParts.length > 1;
+        const hyperciteIdFromUrl = isSimpleHypercite ? citationParts[1] : null;
+
+        return {
+          citationID,
+          hyperciteId,
+          bookID,
+          isHyperlightURL,
+          isSimpleHypercite,
+          hyperciteIdFromUrl
+        };
+      });
+
+      // 🚀 PERFORMANCE: Batch all library queries at once
+      const uniqueBookIDs = [...new Set(citationMetadata.map(m => m.bookID))];
+      console.log(`⚡ Batch fetching ${uniqueBookIDs.length} library records instead of ${citationMetadata.length} sequential queries`);
+
+      const libraryTx = database.transaction("library", "readonly");
+      const libraryStore = libraryTx.objectStore("library");
+      const libraryDataMap = new Map();
+
+      await Promise.all(uniqueBookIDs.map(bookID =>
+        new Promise((resolve) => {
+          const req = libraryStore.get(bookID);
+          req.onsuccess = () => {
+            libraryDataMap.set(bookID, req.result);
+            resolve();
+          };
+          req.onerror = () => {
+            libraryDataMap.set(bookID, null);
+            resolve();
+          };
+        })
+      ));
+
+      // 🚀 PERFORMANCE: Process all citations with cached library data
+      const linksHTML = await Promise.all(
+        citationMetadata.map(async (meta) => {
+          const { citationID, hyperciteId, bookID, isHyperlightURL, isSimpleHypercite, hyperciteIdFromUrl } = meta;
+
+          // Build management buttons HTML
           let managementButtonsHtml = '';
-
           if (isSimpleHypercite) {
-            const hyperciteIdFromUrl = citationParts[1]; // Extract hypercite_xxx from citing book URL
-
-            // Check if user can edit the CITING book (from href/citedIN)
             const canEdit = await canUserEditBook(bookID);
 
             if (canEdit) {
-              // Use originalHyperciteId (the source hypercite we clicked on) and book (source book)
               managementButtonsHtml = `
       <span class="hypercite-management-buttons">
         <button class="hypercite-health-check-btn"
@@ -1376,59 +1458,24 @@ async function buildHyperciteContent(contentType) {
             }
           }
 
-          // Get library data for formatted citation
-          const libraryTx = db.transaction("library", "readonly");
-          const libraryStore = libraryTx.objectStore("library");
-          const libraryRequest = libraryStore.get(bookID);
+          // Get library data from cached map
+          let libraryData = libraryDataMap.get(bookID);
 
-          return new Promise((resolve) => {
-            libraryRequest.onsuccess = async () => {
-              const libraryData = libraryRequest.result;
+          // Fallback to server if not in IndexedDB
+          if (!libraryData || !libraryData.bibtex) {
+            libraryData = await fetchLibraryFromServer(bookID);
+          }
 
-              if (libraryData && libraryData.bibtex) {
-                const formattedCitation = await formatBibtexToCitation(libraryData.bibtex);
-                const citationText = isHyperlightURL
-                  ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}`
-                  : formattedCitation;
+          if (libraryData && libraryData.bibtex) {
+            const formattedCitation = await formatBibtexToCitation(libraryData.bibtex);
+            const citationText = isHyperlightURL
+              ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}`
+              : formattedCitation;
 
-                resolve(
-                  `<blockquote>${citationText} <a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}"><span class="open-icon">↗</span></a>${managementButtonsHtml}</blockquote>`
-                );
-              } else {
-                // Fallback: try to fetch from server
-                const serverLibraryData = await fetchLibraryFromServer(bookID);
-                if (serverLibraryData && serverLibraryData.bibtex) {
-                  const formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
-                  const citationText = isHyperlightURL
-                    ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}`
-                    : formattedCitation;
-
-                  resolve(
-                    `<blockquote>${citationText} <a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}"><span class="open-icon">↗</span></a>${managementButtonsHtml}</blockquote>`
-                  );
-                } else {
-                  resolve(`<a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}">${citationID}${managementButtonsHtml}</a>`);
-                }
-              }
-            };
-
-            libraryRequest.onerror = async () => {
-              // Fallback: try to fetch from server
-              const serverLibraryData = await fetchLibraryFromServer(bookID);
-              if (serverLibraryData && serverLibraryData.bibtex) {
-                const formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
-                const citationText = isHyperlightURL
-                  ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}`
-                  : formattedCitation;
-
-                resolve(
-                  `<blockquote>${citationText} <a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}"><span class="open-icon">↗</span></a>${managementButtonsHtml}</blockquote>`
-                );
-              } else {
-                resolve(`<a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}">${citationID}${managementButtonsHtml}</a>`);
-              }
-            };
-          });
+            return `<blockquote>${citationText} <a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}"><span class="open-icon">↗</span></a>${managementButtonsHtml}</blockquote>`;
+          } else {
+            return `<a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}">${citationID}${managementButtonsHtml}</a>`;
+          }
         })
       );
       
