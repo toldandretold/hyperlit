@@ -739,13 +739,20 @@ export function createChunkElement(nodes, instance) {
 
     const temp = document.createElement("div");
     temp.innerHTML = html;
-    if (temp.firstChild) {
+
+    // Find the first Element child (skip text nodes)
+    let firstElement = temp.firstChild;
+    while (firstElement && firstElement.nodeType !== Node.ELEMENT_NODE) {
+      firstElement = firstElement.nextSibling;
+    }
+
+    if (firstElement) {
       // ✅ data-node-id should already be in HTML from server
       // But ensure numerical id is set
-      temp.firstChild.setAttribute('id', node.startLine);
-      chunkWrapper.appendChild(temp.firstChild);
+      firstElement.setAttribute('id', node.startLine);
+      chunkWrapper.appendChild(firstElement);
     } else {
-      console.warn(`⚠️ Node ${nodeIndex + 1} produced no DOM content`);
+      console.warn(`⚠️ Node ${nodeIndex + 1} (line ${node.startLine}) produced no Element content. HTML: ${html.substring(0, 100)}`);
     }
   });
 

@@ -1536,9 +1536,21 @@ async function handleJsonPaste(
     textBlocks,
     insertionPoint
   );
-  const newChunks = newJsonObjects.map((obj) => {
+  const newChunks = newJsonObjects.map((obj, index) => {
     const key = Object.keys(obj)[0];
     const { content, startLine, chunk_id, node_id } = obj[key];
+
+    // Validate that content starts with an HTML element, not raw text
+    const temp = document.createElement('div');
+    temp.innerHTML = content;
+    if (temp.firstChild && temp.firstChild.nodeType !== Node.ELEMENT_NODE) {
+      console.warn(`⚠️ Chunk ${index} at line ${startLine} has non-element firstChild:`, {
+        nodeType: temp.firstChild.nodeType,
+        nodeName: temp.firstChild.nodeName,
+        content: content.substring(0, 100)
+      });
+    }
+
     return {
       book: insertionPoint.book,
       startLine,
@@ -2163,16 +2175,32 @@ function parseHtmlToBlocks(htmlContent) {
       // Check if this element contains multiple <br> separated entries (common in bibliographies)
       const innerHTML = child.innerHTML;
       const brSeparatedParts = innerHTML.split(/<br\s*\/?>/i);
-      
-      if (brSeparatedParts.length > 1) {
+
+      // Don't split on <br> if:
+      // 1. The element itself is a block element that shouldn't be split (table, ul, ol, etc.)
+      // 2. The content contains nested block elements
+      const isUnsplittableBlock = /^(TABLE|UL|OL|DIV)$/.test(child.tagName);
+      const containsBlockElements = /<(?:table|div|section|ul|ol)/i.test(innerHTML);
+
+      if (brSeparatedParts.length > 1 && !isUnsplittableBlock && !containsBlockElements) {
         // Split on <br> tags - each part becomes a separate block
         brSeparatedParts.forEach(part => {
           const trimmedPart = part.trim();
           if (trimmedPart) {
-            // Create a new element of the same type with the split content
-            const newElement = document.createElement(child.tagName.toLowerCase());
-            newElement.innerHTML = trimmedPart;
-            blocks.push(newElement.outerHTML);
+            // Use a wrapper div to parse the content (browser auto-corrects invalid nesting)
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = trimmedPart;
+
+            // Extract all resulting nodes as separate blocks
+            Array.from(wrapper.childNodes).forEach(node => {
+              if (node.nodeType === Node.ELEMENT_NODE) {
+                // This is an element - use it as-is
+                blocks.push(node.outerHTML);
+              } else if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+                // Loose text - wrap in the parent element type
+                blocks.push(`<${child.tagName.toLowerCase()}>${node.textContent.trim()}</${child.tagName.toLowerCase()}>`);
+              }
+            });
           }
         });
       } else {
