@@ -5,6 +5,7 @@ import { navigateToInternalId } from "./scrolling.js";
 import { currentLazyLoader } from "./initializePage.js";
 import { isProcessing, isComplete } from './editIndicator.js'
 import { book } from './app.js';
+import { closeHyperlitContainer } from './unifiedContainer.js';
 
 export class ContainerManager {
   constructor(containerId, overlayId, buttonId = null, frozenContainerIds = []) {
@@ -105,10 +106,16 @@ export class ContainerManager {
         e.preventDefault();
         console.log(`🔗 ContainerManager: Overlay clicked for #${this.containerId}`);
         if (this.isOpen) {
-          this.closeContainer();
+          // Use specialized close function for hyperlit-container to unlock body scroll
+          if (this.containerId === 'hyperlit-container') {
+            console.log(`🔗 ContainerManager: Calling closeHyperlitContainer() to unlock body scroll`);
+            closeHyperlitContainer();
+          } else {
+            this.closeContainer();
+          }
         }
       };
-      
+
       this.overlay.addEventListener("click", this.overlayClickHandler);
     }
 
