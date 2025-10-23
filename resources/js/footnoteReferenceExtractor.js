@@ -17,6 +17,9 @@ function extractFootnotesFromHTML(htmlContent, bookId, formatType = 'general') {
   const footnoteRefs = new Set(); // Move to function scope
   
   console.log(`📝 Extracting footnotes using ${formatType} format strategy`);
+  if (formatType === 'cambridge') {
+    console.log('📝 Cambridge content was normalized to standard format - using general heuristic matching');
+  }
 
   // --- MARKDOWN FOOTNOTE HANDLING (for markdown converted to HTML) ---
   if (formatType !== 'taylor-francis') {
@@ -155,6 +158,8 @@ function extractFootnotesFromHTML(htmlContent, bookId, formatType = 'general') {
       }
     });
   } else {
+    // For Cambridge and other formats, use the general heuristic paragraph matching
+    // Cambridge content has been normalized to "N. Content" format by parseCambridgeContent()
     // For other formats, use the original stricter pattern
     tempDiv.querySelectorAll('p').forEach((p, index) => {
       const pText = p.textContent.trim();
@@ -166,19 +171,26 @@ function extractFootnotesFromHTML(htmlContent, bookId, formatType = 'general') {
         //console.log(`❌ Rejected footnote ${match[1]} - no content after number`);
       }
     });
-    
+
     console.log(`📊 Final potentialParagraphDefs size: ${potentialParagraphDefs.size}`);
     console.log(`📊 refIdentifiers size: ${refIdentifiers.size}`);
   }
 
   // 3. Sanity Check: Only proceed if every reference has a potential definition.
+  console.log(`📝 Sanity check results:`);
+  console.log(`  - refIdentifiers: ${refIdentifiers.size} (${Array.from(refIdentifiers).join(', ')})`);
+  console.log(`  - potentialParagraphDefs: ${potentialParagraphDefs.size} (${Array.from(potentialParagraphDefs.keys()).join(', ')})`);
+
   let allParaRefsHaveDefs = refIdentifiers.size > 0;
   for (const refId of refIdentifiers) {
     if (!potentialParagraphDefs.has(refId)) {
       allParaRefsHaveDefs = false;
+      console.log(`  - ❌ Reference ${refId} has no matching definition`);
       break;
     }
   }
+
+  console.log(`  - allParaRefsHaveDefs: ${allParaRefsHaveDefs}`);
 
   // Fallback: If no sup references found, use markdown references
   if (!allParaRefsHaveDefs && footnoteRefs.size > 0) {
@@ -585,18 +597,24 @@ function extractReferencesFromHTML(htmlContent, bookId, formatType = 'general') 
         
         if (refKeys.length > 0) {
           const referenceId = refKeys[0];
-          
+
+          // Skip if this referenceId already exists (prevent duplicates from body text)
+          if (referenceMappings.has(referenceId)) {
+            console.log(`📚 T&F: Skipping duplicate referenceId "${referenceId}" from list item ${index + 1}`);
+            return;
+          }
+
           references.push({
             referenceId: referenceId,
             content: fullText,
             type: 'taylor-francis-list',
             refKeys: refKeys
           });
-          
+
           refKeys.forEach(key => {
             referenceMappings.set(key, referenceId);
           });
-          
+
           console.log(`📚 T&F: Generated key "${referenceId}" from list item ${index + 1}`);
         }
       }
@@ -673,8 +691,14 @@ function extractReferencesFromHTML(htmlContent, bookId, formatType = 'general') 
       }
     }
   });
-  
+
   // 3. Fallback: Look for reference-like paragraphs with improved logic
+  // Skip for Taylor & Francis if specific extraction already found references
+  if (formatType === 'taylor-francis' && references.length > 0) {
+    console.log(`📚 T&F: Skipping greedy fallback - already found ${references.length} references via specific extraction`);
+    return { references, referenceMappings };
+  }
+
   const allElements = Array.from(tempDiv.children);
   let referenceSectionStartIndex = -1;
 
@@ -700,6 +724,32 @@ function extractReferencesFromHTML(htmlContent, bookId, formatType = 'general') 
     const text = p.textContent.trim();
     if (!text) return;
 
+    // Filter out common footer/copyright/navigation text
+    const falsePositivePatterns = [
+      /^copyright/i,
+      /^all rights reserved/i,
+      /^registered/i,
+      /^©/,
+      /^\d{4}\s*informa/i,
+      /^taylor\s*&?\s*francis/i,
+      /^published by/i,
+      /^terms and conditions/i,
+      /^privacy policy/i,
+      /^cookie policy/i,
+      /^download citation/i,
+      /^share this article/i
+    ];
+
+    if (falsePositivePatterns.some(pattern => pattern.test(text))) {
+      return; // Skip footer/copyright text
+    }
+
+    // Reject single-word + year patterns that don't look like author names
+    // e.g., "Copyright2025" or "Registered0107"
+    if (/^[a-z]+\d{4}$/i.test(text.replace(/\s+/g, ''))) {
+      return; // Single word mashed with year is not a reference
+    }
+
     // Stricter check: A reference list item should not contain an in-text citation.
     const citeMatch = text.match(inTextCitePattern);
     if (citeMatch) {
@@ -720,7 +770,7 @@ function extractReferencesFromHTML(htmlContent, bookId, formatType = 'general') 
     const refKeys = generateRefKeys(text, '', formatType);
     if (refKeys.length > 0) {
       const referenceId = refKeys[0];
-      
+
       if (!referenceMappings.has(referenceId)) {
         references.push({
           referenceId: referenceId,
@@ -728,14 +778,14 @@ function extractReferencesFromHTML(htmlContent, bookId, formatType = 'general') 
           originalText: text,
           type: 'html-paragraph'
         });
-        
+
         refKeys.forEach(key => {
           referenceMappings.set(key, referenceId);
         });
       }
     }
   });
-  
+
   return { references, referenceMappings };
 }
 
@@ -1193,7 +1243,7 @@ export function processInTextCitations(htmlContent, referenceMappings, allRefere
 /**
  * Process and link footnote references in pasted content
  */
-export function processFootnoteReferences(htmlContent, footnoteMappings) {
+export function processFootnoteReferences(htmlContent, footnoteMappings, formatType = 'general') {
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = htmlContent;
   
@@ -1267,23 +1317,32 @@ export function processFootnoteReferences(htmlContent, footnoteMappings) {
     }
     
     // Handle plain text footnote numbers AFTER punctuation
-    // Pattern: punctuation followed by number (at word boundary or end of sentence)
-    const plainFootnotePattern = /([.!?;,:])\s*(\d+)(?=\s|$|[.!?])/g;
-    
-    while ((match = plainFootnotePattern.exec(text)) !== null) {
-      const identifier = match[2];
-      const punctuation = match[1];
-      
-      if (footnoteMappings.has(identifier)) {
-        const mapping = footnoteMappings.get(identifier);
-        const supHTML = `${punctuation}<sup id="${mapping.uniqueRefId}" fn-count-id="${identifier}"><a href="#${mapping.uniqueId}" class="footnote-ref">${identifier}</a></sup>`;
-        
-        replacements.push({
-          start: match.index,
-          end: match.index + match[0].length,
-          replacement: supHTML
-        });
+    // SKIP for HTML formats where footnotes are already marked with <sup> tags
+    // (Cambridge, OUP, Taylor & Francis, etc.)
+    const skipPlainTextPattern = ['cambridge', 'oup', 'taylor-francis', 'sage'].includes(formatType);
+
+    if (!skipPlainTextPattern) {
+      // Pattern: punctuation followed by number (at word boundary or end of sentence)
+      // This is for plain text/markdown where footnotes aren't pre-marked
+      const plainFootnotePattern = /([.!?;,:])\s*(\d+)(?=\s|$|[.!?])/g;
+
+      while ((match = plainFootnotePattern.exec(text)) !== null) {
+        const identifier = match[2];
+        const punctuation = match[1];
+
+        if (footnoteMappings.has(identifier)) {
+          const mapping = footnoteMappings.get(identifier);
+          const supHTML = `${punctuation}<sup id="${mapping.uniqueRefId}" fn-count-id="${identifier}"><a href="#${mapping.uniqueId}" class="footnote-ref">${identifier}</a></sup>`;
+
+          replacements.push({
+            start: match.index,
+            end: match.index + match[0].length,
+            replacement: supHTML
+          });
+        }
       }
+    } else {
+      console.log(`📝 Skipping plain text footnote pattern for ${formatType} format (footnotes already marked)`);
     }
     
     // Apply replacements in reverse order to maintain indices
@@ -1449,9 +1508,9 @@ export async function processContentForFootnotesAndReferences(htmlContent, bookI
   if (referenceMappings.size > 0) {
     processedContent = processInTextCitations(processedContent, referenceMappings, references, formatType);
   }
-  
+
   if (footnoteMappings.size > 0) {
-    processedContent = processFootnoteReferences(processedContent, footnoteMappings);
+    processedContent = processFootnoteReferences(processedContent, footnoteMappings, formatType);
   }
   
   // Save to IndexedDB
@@ -1537,7 +1596,63 @@ async function syncFootnotesToPostgreSQL(footnotes, bookId) {
  */
 async function syncReferencesToPostgreSQL(references, bookId) {
   if (!references || references.length === 0) return;
-  
+
+  // Validate and filter references before syncing
+  const validReferences = [];
+
+  references.forEach((reference, index) => {
+    // Check if referenceId is a string
+    if (typeof reference.referenceId !== 'string') {
+      console.error(`❌ Reference ${index} has non-string referenceId:`, reference);
+      return;
+    }
+
+    // Check if content is a string
+    if (typeof reference.content !== 'string') {
+      console.error(`❌ Reference ${index} has non-string content:`, reference);
+      return;
+    }
+
+    // Check for empty values
+    if (!reference.referenceId || !reference.content) {
+      console.warn(`⚠️ Reference ${index} has empty referenceId or content:`, reference);
+      return;
+    }
+
+    validReferences.push(reference);
+  });
+
+  if (validReferences.length === 0) {
+    console.warn('⚠️ No valid references to sync after validation');
+    return;
+  }
+
+  if (validReferences.length < references.length) {
+    console.warn(`⚠️ Filtered out ${references.length - validReferences.length} invalid references`);
+  }
+
+  // Log what we're about to send
+  const dataToSend = validReferences.map((reference, index) => {
+    const mapped = {
+      referenceId: reference.referenceId,
+      content: reference.content
+    };
+
+    // Extra validation: check the mapped data
+    if (typeof mapped.referenceId !== 'string') {
+      console.error(`❌ MAPPED reference ${index} has non-string referenceId:`, mapped);
+    }
+    if (typeof mapped.content !== 'string') {
+      console.error(`❌ MAPPED reference ${index} has non-string content:`, typeof mapped.content, mapped);
+    }
+
+    return mapped;
+  });
+
+  console.log(`📤 About to sync ${dataToSend.length} references to PostgreSQL`);
+  console.log('📤 First reference:', dataToSend[0]);
+  console.log('📤 Last reference:', dataToSend[dataToSend.length - 1]);
+
   try {
     const response = await fetch('/api/db/references/upsert', {
       method: 'POST',
@@ -1546,10 +1661,7 @@ async function syncReferencesToPostgreSQL(references, bookId) {
       },
       body: JSON.stringify({
         book: bookId,
-        data: references.map(reference => ({
-          referenceId: reference.referenceId,
-          content: reference.content
-        }))
+        data: dataToSend
       })
     });
     

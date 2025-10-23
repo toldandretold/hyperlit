@@ -286,6 +286,8 @@ function assimilateHTML(rawHtml) {
 
   console.log("🔍 PASTE DEBUG: HTML structure BEFORE processing:");
   console.log("- Direct children:", Array.from(body.children).map(el => `<${el.tagName}>`).join(', '));
+  console.log("- Cambridge markers (.xref.fn, .circle-list, [id^=reference]):",
+    body.querySelectorAll('.xref.fn, .circle-list__item__grouped__content, [id^="reference-"][id$="-content"]').length);
   console.log("- First 500 chars:", body.innerHTML.substring(0, 500));
 
   // --- Helper Functions ---
@@ -387,19 +389,19 @@ function assimilateHTML(rawHtml) {
   
   function parseOupContent(body) {
     console.log("Parsing with OUP-specific strategy.");
-    
+
     // Handle OUP footnotes: convert complex nested structure to simple number + content
     const footnotes = body.querySelectorAll('[content-id^="fn"].footnote');
-    
+
     footnotes.forEach(footnote => {
       // Extract the footnote number from the nested structure
       const numberSpan = footnote.querySelector('.end-note-link');
       const number = numberSpan ? numberSpan.textContent.trim() : '';
-      
+
       // Extract the footnote content from the nested paragraph
       const contentParagraph = footnote.querySelector('.footnote-compatibility');
       const content = contentParagraph ? contentParagraph.innerHTML.trim() : '';
-      
+
       if (number && content) {
         // Create a single clean paragraph: number + content
         const p = document.createElement('p');
@@ -416,14 +418,14 @@ function assimilateHTML(rawHtml) {
     biblioItems.forEach(item => {
         const clone = item.cloneNode(true);
         clone.querySelectorAll('.external-links, .to-citation__wrapper, .citation-links').forEach(el => el.remove());
-        
+
         const contentSource = clone.querySelector('.citation-content, .mixed-citation') || clone;
         let content = contentSource.innerHTML;
 
         content = content.replace(/<div[^>]*>/g, ' ').replace(/<\/div>/g, ' ');
         content = content.replace(/<\/?p[^>]*>/g, ' ');
         content = content.replace(/<\/?span[^>]*>/g, '');
-        
+
         const p = document.createElement('p');
         p.innerHTML = content.replace(/\s+/g, ' ').trim();
         item.replaceWith(p);
@@ -431,6 +433,75 @@ function assimilateHTML(rawHtml) {
 
     // Apply general cleanup for any remaining nested structures
     parseGeneralContent(body);
+  }
+
+  function parseCambridgeContent(body) {
+    console.log("Parsing with Cambridge-specific strategy.");
+    console.log("📚 Cambridge: Initial structure check:");
+    console.log("- .xref.fn links:", body.querySelectorAll('.xref.fn').length);
+    console.log("- reference-*-content divs:", body.querySelectorAll('[id^="reference-"][id$="-content"]').length);
+
+    // STEP 1: Simplify in-text footnote links
+    // Convert <a class="xref fn"><span>Footnote </span><sup>1</sup></a> → <sup>1</sup>
+    const footnoteLinks = body.querySelectorAll('.xref.fn, a[href^="#fn"]');
+    console.log(`📚 Cambridge: Found ${footnoteLinks.length} in-text footnote links`);
+
+    footnoteLinks.forEach((link, index) => {
+      const sup = link.querySelector('sup');
+      if (sup) {
+        const identifier = sup.textContent.trim();
+        // Create a clean <sup> with fn-count-id attribute
+        const cleanSup = document.createElement('sup');
+        cleanSup.setAttribute('fn-count-id', identifier);
+        cleanSup.textContent = identifier;
+
+        // Replace the entire link with just the <sup>
+        link.replaceWith(cleanSup);
+        console.log(`📚 Cambridge: Simplified in-text ref ${index + 1}: ${identifier}`);
+      }
+    });
+
+    // STEP 2: Convert footnote definitions to simple "N. Content" paragraphs
+    // Convert <div id="reference-65-content"><p><span><sup>65</sup></span> Content</p></div> → <p>65. Content</p>
+    const footnoteContainers = body.querySelectorAll('[id^="reference-"][id$="-content"]');
+    console.log(`📚 Cambridge: Found ${footnoteContainers.length} footnote definition containers`);
+
+    footnoteContainers.forEach((container, index) => {
+      const idMatch = container.id.match(/reference-(\d+)-content/);
+      if (!idMatch) {
+        console.log(`📚 Cambridge: Container ${index + 1} has no ID pattern`);
+        return;
+      }
+
+      const footnoteNum = idMatch[1];
+
+      // Extract content from nested structure
+      const paragraph = container.querySelector('p.p, p');
+      if (!paragraph) {
+        console.log(`📚 Cambridge: No paragraph in footnote ${footnoteNum}`);
+        return;
+      }
+
+      // Clone and remove label span
+      const cleanParagraph = paragraph.cloneNode(true);
+      const labelSpan = cleanParagraph.querySelector('span.label');
+      if (labelSpan) labelSpan.remove();
+
+      const content = cleanParagraph.innerHTML.trim();
+
+      // Create simple paragraph: "N. Content"
+      const simpleParagraph = document.createElement('p');
+      simpleParagraph.innerHTML = `${footnoteNum}. ${content}`;
+
+      // Replace container with simple paragraph
+      container.replaceWith(simpleParagraph);
+      console.log(`📚 Cambridge: Converted footnote ${footnoteNum} to "N. Content" format`);
+    });
+
+    // STEP 3: Now apply general parsing - simple <sup> and <p>N. Content</p> will work with existing heuristic
+    parseGeneralContent(body);
+
+    console.log("📚 Cambridge: Conversion complete - now using standard footnote extraction");
   }
 
   function parseTaylorFrancisContent(body) {
@@ -528,18 +599,26 @@ function assimilateHTML(rawHtml) {
   const isTaylorFrancis = body.querySelector('.ref-lnk.lazy-ref.bibr, .NLM_sec, .hlFld-Abstract, li[id^="CIT"]');
   const isSage = body.querySelector('.citations, .ref, [role="listitem"]');
   const isOup = body.querySelector('[content-id^="bib"], .js-splitview-ref-item, .footnote[content-id^="fn"]');
+  const isCambridge = body.querySelector('.xref.fn, .circle-list__item__grouped__content, [id^="reference-"][id$="-content"]');
 
   if (isTaylorFrancis) {
     formatType = 'taylor-francis';
     console.log('📚 Detected Taylor & Francis format - applying citation cleanup');
     parseTaylorFrancisContent(body);
+  } else if (isCambridge) {
+    formatType = 'cambridge';
+    console.log('📚 Detected Cambridge format - applying Cambridge-specific parsing');
+    parseCambridgeContent(body);
   } else if (isOup) {
     formatType = 'oup';
+    console.log('📚 Detected OUP format - applying OUP-specific parsing');
     parseOupContent(body);
   } else if (isSage) {
     formatType = 'sage';
+    console.log('📚 Detected Sage format - applying general parsing');
     parseGeneralContent(body);
   } else {
+    console.log('📚 No specific format detected - using general parsing');
     parseGeneralContent(body);
   }
 
@@ -603,6 +682,8 @@ function assimilateHTML(rawHtml) {
 
   console.log("🔍 PASTE DEBUG: HTML structure AFTER processing:");
   console.log("- Direct children:", Array.from(body.children).map(el => `<${el.tagName}>`).join(', '));
+  console.log("- Cambridge markers remaining (.cambridge-footnote, .xref.fn):",
+    body.querySelectorAll('.cambridge-footnote, .xref.fn').length);
   console.log("- First 500 chars:", body.innerHTML.substring(0, 500));
 
   return { html: body.innerHTML, format: formatType };
@@ -1455,9 +1536,21 @@ async function handleJsonPaste(
     textBlocks,
     insertionPoint
   );
-  const newChunks = newJsonObjects.map((obj) => {
+  const newChunks = newJsonObjects.map((obj, index) => {
     const key = Object.keys(obj)[0];
     const { content, startLine, chunk_id, node_id } = obj[key];
+
+    // Validate that content starts with an HTML element, not raw text
+    const temp = document.createElement('div');
+    temp.innerHTML = content;
+    if (temp.firstChild && temp.firstChild.nodeType !== Node.ELEMENT_NODE) {
+      console.warn(`⚠️ Chunk ${index} at line ${startLine} has non-element firstChild:`, {
+        nodeType: temp.firstChild.nodeType,
+        nodeName: temp.firstChild.nodeName,
+        content: content.substring(0, 100)
+      });
+    }
+
     return {
       book: insertionPoint.book,
       startLine,
@@ -2082,16 +2175,32 @@ function parseHtmlToBlocks(htmlContent) {
       // Check if this element contains multiple <br> separated entries (common in bibliographies)
       const innerHTML = child.innerHTML;
       const brSeparatedParts = innerHTML.split(/<br\s*\/?>/i);
-      
-      if (brSeparatedParts.length > 1) {
+
+      // Don't split on <br> if:
+      // 1. The element itself is a block element that shouldn't be split (table, ul, ol, etc.)
+      // 2. The content contains nested block elements
+      const isUnsplittableBlock = /^(TABLE|UL|OL|DIV)$/.test(child.tagName);
+      const containsBlockElements = /<(?:table|div|section|ul|ol)/i.test(innerHTML);
+
+      if (brSeparatedParts.length > 1 && !isUnsplittableBlock && !containsBlockElements) {
         // Split on <br> tags - each part becomes a separate block
         brSeparatedParts.forEach(part => {
           const trimmedPart = part.trim();
           if (trimmedPart) {
-            // Create a new element of the same type with the split content
-            const newElement = document.createElement(child.tagName.toLowerCase());
-            newElement.innerHTML = trimmedPart;
-            blocks.push(newElement.outerHTML);
+            // Use a wrapper div to parse the content (browser auto-corrects invalid nesting)
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = trimmedPart;
+
+            // Extract all resulting nodes as separate blocks
+            Array.from(wrapper.childNodes).forEach(node => {
+              if (node.nodeType === Node.ELEMENT_NODE) {
+                // This is an element - use it as-is
+                blocks.push(node.outerHTML);
+              } else if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+                // Loose text - wrap in the parent element type
+                blocks.push(`<${child.tagName.toLowerCase()}>${node.textContent.trim()}</${child.tagName.toLowerCase()}>`);
+              }
+            });
           }
         });
       } else {
