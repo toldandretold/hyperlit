@@ -16,6 +16,48 @@ import { showTick, showError } from "./editIndicator.js";
 export const DB_VERSION = 21;
 
 /**
+ * Clean library item data before storing to prevent recursive nesting and oversized payloads
+ * Mirrors the PHP cleanItemForStorage() logic in DbLibraryController.php
+ *
+ * This removes problematic fields that can cause:
+ * 1. Recursive nesting (raw_json containing itself)
+ * 2. Payload bloat (full_library_array)
+ */
+export function cleanLibraryItemForStorage(item) {
+  if (!item || typeof item !== 'object') {
+    return item;
+  }
+
+  const cleanItem = { ...item };
+
+  // Remove raw_json to prevent recursive nesting
+  delete cleanItem.raw_json;
+
+  // Remove any other problematic nested fields that can cause payload bloat
+  delete cleanItem.full_library_array;
+
+  return cleanItem;
+}
+
+/**
+ * Prepare library record for IndexedDB storage
+ * Cleans the record and ensures raw_json is properly set
+ */
+export function prepareLibraryForIndexedDB(libraryRecord) {
+  if (!libraryRecord || typeof libraryRecord !== 'object') {
+    return libraryRecord;
+  }
+
+  // Clean the record
+  const cleaned = cleanLibraryItemForStorage(libraryRecord);
+
+  // Set raw_json to the cleaned version (as object, not string - IndexedDB stores it parsed)
+  cleaned.raw_json = { ...cleaned };
+
+  return cleaned;
+}
+
+/**
  * Opens (or creates) the IndexedDB database.
  * This function now implements proper schema migration using `event.oldVersion`.
  * It will preserve existing data during upgrades and only apply necessary changes.
@@ -1573,11 +1615,30 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
 }
 
 async function upsertLibraryRecord(libraryRecord) {
-  // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
-  const payload = {
-    book: libraryRecord.book,
-    data: libraryRecord
+  // 🧹 Clean the library record to prevent recursive nesting and oversized payloads
+  const cleanedRecord = {
+    ...libraryRecord,
+    raw_json: JSON.stringify(cleanLibraryItemForStorage(libraryRecord))
   };
+
+  const payload = {
+    book: cleanedRecord.book,
+    data: cleanedRecord
+  };
+
+  // 🔍 Log payload size for diagnostics
+  const payloadString = JSON.stringify(payload);
+  const payloadSizeKB = (payloadString.length / 1024).toFixed(2);
+
+  if (payloadString.length > 15 * 1024 * 1024) { // 15MB threshold (server limit is 16MB)
+    console.error(`❌ PAYLOAD TOO LARGE! ${payloadSizeKB}KB exceeds server limit`);
+    console.error(`📋 Largest fields:`, Object.entries(cleanedRecord)
+      .map(([k, v]) => ({ key: k, sizeKB: (JSON.stringify(v).length / 1024).toFixed(2) }))
+      .sort((a, b) => parseFloat(b.sizeKB) - parseFloat(a.sizeKB))
+      .slice(0, 5)
+    );
+    throw new Error(`Library record too large: ${payloadSizeKB}KB`);
+  }
 
   const res = await fetch("/api/db/library/upsert", {
     method: "POST",
@@ -1593,9 +1654,10 @@ async function upsertLibraryRecord(libraryRecord) {
   if (!res.ok) {
     const txt = await res.text();
     console.error("❌ Library sync error:", txt);
+    console.error(`❌ Failed book: ${cleanedRecord.book}, size: ${payloadSizeKB}KB`);
     throw new Error(txt);
   }
-  console.log("✅ Library record synced");
+  console.log(`✅ Library record synced (${payloadSizeKB}KB)`);
 }
 
 // 🔥 UPDATED: Function to update hyperlight records using processed data

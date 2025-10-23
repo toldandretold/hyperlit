@@ -1,5 +1,5 @@
 import { ContainerManager } from "./containerManager.js";
-import { openDatabase, getNodeChunksFromIndexedDB } from "./indexedDB.js";
+import { openDatabase, getNodeChunksFromIndexedDB, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from "./indexedDB.js";
 import { formatBibtexToCitation, generateBibtexFromForm } from "./bibtexProcessor.js";
 import { book } from "./app.js";
 import { canUserEditBook } from "./auth.js";
@@ -824,19 +824,22 @@ export class SourceContainerManager extends ContainerManager {
         book: originalRecord.book, // Keep original book ID
       };
       
+      // 🧹 Clean the record before saving to prevent payload bloat
+      const cleanedRecord = prepareLibraryForIndexedDB(updatedRecord);
+
       // Save to IndexedDB
       const db = await openDatabase();
       const tx = db.transaction("library", "readwrite");
       const store = tx.objectStore("library");
-      await store.put(updatedRecord);
-      
-      console.log("Library record updated successfully:", updatedRecord);
+      await store.put(cleanedRecord);
+
+      console.log("Library record updated successfully:", cleanedRecord);
 
       console.log("Final BibTeX:", finalBibtex);
-      
+
       // Sync to backend database
       try {
-        await this.syncLibraryRecordToBackend(updatedRecord);
+        await this.syncLibraryRecordToBackend(cleanedRecord);
         console.log("✅ Library record synced to backend successfully");
       } catch (syncError) {
         console.warn("⚠️ Backend sync failed, but local update succeeded:", syncError);
@@ -861,7 +864,13 @@ export class SourceContainerManager extends ContainerManager {
 
   async syncLibraryRecordToBackend(libraryRecord) {
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-    
+
+    // 🧹 Clean the library record and prepare raw_json for PostgreSQL
+    const cleanedForSync = {
+      ...libraryRecord,
+      raw_json: JSON.stringify(cleanLibraryItemForStorage(libraryRecord))
+    };
+
     const response = await fetch('/api/db/library/upsert', {
       method: 'POST',
       headers: {
@@ -871,7 +880,7 @@ export class SourceContainerManager extends ContainerManager {
       },
       credentials: 'include',
       body: JSON.stringify({
-        data: libraryRecord // The upsert endpoint expects a single record in the data field
+        data: cleanedForSync // The upsert endpoint expects a single record in the data field
 
       })
     });
