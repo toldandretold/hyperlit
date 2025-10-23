@@ -740,6 +740,16 @@ export function createChunkElement(nodes, instance) {
     const temp = document.createElement("div");
     temp.innerHTML = html;
 
+    // 🧹 CLEANUP: Strip navigation classes that shouldn't persist from database
+    // Target: <a>, <u>, and arrow icons (<sup>, <span> with .open-icon)
+    const navigationClasses = ['arrow-target', 'hypercite-target', 'hypercite-dimmed'];
+    const elementsWithNavClasses = temp.querySelectorAll('a, u, .open-icon, sup, span');
+    elementsWithNavClasses.forEach(el => {
+      navigationClasses.forEach(className => {
+        el.classList.remove(className);
+      });
+    });
+
     // Find the first Element child (skip text nodes)
     let firstElement = temp.firstChild;
     while (firstElement && firstElement.nodeType !== Node.ELEMENT_NODE) {
