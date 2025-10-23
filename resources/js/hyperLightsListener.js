@@ -48,10 +48,10 @@ async function processPastedHyperciteInAnnotation(clipboardHtml, highlightId) {
   pasteWrapper.innerHTML = clipboardHtml;
 
   const citeLink = pasteWrapper.querySelector(
-    'a[id^="hypercite_"] > span.open-icon'
+    'a[id^="hypercite_"] > sup.open-icon, a[id^="hypercite_"] > span.open-icon'
   )?.parentElement;
 
-  if (!(citeLink && (citeLink.innerText.trim() === "↗" || (citeLink.closest("span") && citeLink.closest("span").classList.contains("open-icon"))))) {
+  if (!(citeLink && (citeLink.innerText.trim() === "↗" || (citeLink.closest("span, sup") && (citeLink.closest("span")?.classList.contains("open-icon") || citeLink.closest("sup")?.classList.contains("open-icon")))))) {
     return false;
   }
 
