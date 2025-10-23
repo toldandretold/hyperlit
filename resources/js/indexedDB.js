@@ -1123,6 +1123,17 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
     span.parentNode.removeChild(span);
   }
 
+  // 🧹 STRIP navigation classes from ALL elements before saving
+  // These are temporary UI classes that shouldn't persist in the database
+  // Target: <a>, <u>, and arrow icons (<sup>, <span> with .open-icon)
+  const navigationClasses = ['arrow-target', 'hypercite-target', 'hypercite-dimmed'];
+  const elementsWithNavClasses = contentClone.querySelectorAll('a, u, .open-icon, sup, span');
+  elementsWithNavClasses.forEach(el => {
+    navigationClasses.forEach(className => {
+      el.classList.remove(className);
+    });
+  });
+
   const result = {
     content: contentClone.outerHTML,
     hyperlights,

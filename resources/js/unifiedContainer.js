@@ -1338,7 +1338,12 @@ async function buildHyperciteContent(contentType, db = null) {
     }
 
     let html = `<div class="hypercites-section">
-<h1>Cited By</h1>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em;">
+  <h1 style="margin: 0;">Cited By</h1>
+  <svg class="manage-citations-btn" width="18" height="18" viewBox="0 0 48 48" fill="currentColor" style="cursor: pointer;" title="Manage citations">
+    <path d="M12 10C13.1046 10 14 9.10457 14 8C14 6.89543 13.1046 6 12 6C11.2597 6 10.6134 6.4022 10.2676 7H10C8.34315 7 7 8.34315 7 10V19C6.44774 19 5.99531 19.4487 6.04543 19.9987C6.27792 22.5499 7.39568 24.952 9.22186 26.7782C10.561 28.1173 12.2098 29.0755 14 29.583V32C14 33.3064 14.835 34.4177 16.0004 34.8294C16.043 38.7969 19.2725 42 23.25 42C27.2541 42 30.5 38.7541 30.5 34.75V30.75C30.5 28.6789 32.1789 27 34.25 27C36.3211 27 38 28.6789 38 30.75V33.1707C36.8348 33.5825 36 34.6938 36 36C36 37.6569 37.3431 39 39 39C40.6569 39 42 37.6569 42 36C42 34.6938 41.1652 33.5825 40 33.1707V30.75C40 27.5744 37.4256 25 34.25 25C31.0744 25 28.5 27.5744 28.5 30.75V34.75C28.5 37.6495 26.1495 40 23.25 40C20.3769 40 18.0429 37.6921 18.0006 34.8291C19.1655 34.4171 20 33.306 20 32V29.583C21.7902 29.0755 23.4391 28.1173 24.7782 26.7782C26.6044 24.952 27.7221 22.5499 27.9546 19.9987C28.0048 19.4487 27.5523 19 27 19L27 10C27 8.34315 25.6569 7 24 7H23.7324C23.3866 6.4022 22.7403 6 22 6C20.8954 6 20 6.89543 20 8C20 9.10457 20.8954 10 22 10C22.7403 10 23.3866 9.5978 23.7324 9H24C24.5523 9 25 9.44772 25 10V19H25.2095C24.6572 19 24.2166 19.4499 24.1403 19.9969C23.9248 21.5406 23.2127 22.983 22.0979 24.0979C20.7458 25.4499 18.9121 26.2095 17 26.2095C15.088 26.2095 13.2542 25.4499 11.9022 24.0979C10.7873 22.983 10.0753 21.5406 9.8598 19.9969C9.78344 19.4499 9.34286 19 8.79057 19L9 19V10C9 9.44772 9.44772 9 10 9H10.2676C10.6134 9.5978 11.2597 10 12 10Z"/>
+  </svg>
+</div>
 `;
     
     // Collect all citedIN links with their corresponding hypercite IDs
@@ -1591,29 +1596,157 @@ async function checkHyperciteExists(bookId, hyperciteId) {
       nodeChunksRequest.onerror = () => reject(nodeChunksRequest.error);
     });
 
-    console.log(`📚 Found ${nodeChunks.length} chunks for book ${bookId}`);
+    console.log(`📚 Found ${nodeChunks.length} chunks for book ${bookId} in IndexedDB`);
 
     // Search through all chunks' content for the hypercite ID in HTML
     // Pasted citations appear as: <a href="..." id="hypercite_xxx">
     const idPattern = `id="${hyperciteId}"`;
 
+    // Check IndexedDB chunks first
     for (const chunk of nodeChunks) {
       if (chunk.content && typeof chunk.content === 'string') {
         if (chunk.content.includes(idPattern)) {
           const chunkKey = `${bookId}:${chunk.startLine}`;
-          console.log(`✅ Found hypercite ${hyperciteId} in content of chunk ${chunkKey}`);
+          console.log(`✅ Found hypercite ${hyperciteId} in IndexedDB chunk ${chunkKey}`);
           return { exists: true, chunkKey };
         }
       }
     }
 
-    console.log(`❌ Hypercite ${hyperciteId} not found in content of book ${bookId}`);
+    // If no chunks in IndexedDB or not found, fall back to PostgreSQL
+    if (nodeChunks.length === 0) {
+      console.log(`📡 No chunks in IndexedDB, checking PostgreSQL for book ${bookId}`);
+
+      try {
+        const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/data`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+          },
+          credentials: 'include'
+        });
+
+        if (!response.ok) {
+          console.warn(`⚠️ Failed to fetch book data from PostgreSQL: ${response.status}`);
+          return { exists: false, chunkKey: null };
+        }
+
+        const data = await response.json();
+        const pgChunks = data.nodeChunks || [];
+        console.log(`📚 Found ${pgChunks.length} chunks for book ${bookId} in PostgreSQL`);
+
+        // Search through PostgreSQL chunks
+        for (const chunk of pgChunks) {
+          if (chunk.content && typeof chunk.content === 'string') {
+            if (chunk.content.includes(idPattern)) {
+              const chunkKey = `${bookId}:${chunk.startLine}`;
+              console.log(`✅ Found hypercite ${hyperciteId} in PostgreSQL chunk ${chunkKey}`);
+              return { exists: true, chunkKey };
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching from PostgreSQL:', error);
+      }
+    }
+
+    console.log(`❌ Hypercite ${hyperciteId} not found in book ${bookId}`);
     return { exists: false, chunkKey: null };
 
   } catch (error) {
     console.error('Error checking hypercite existence:', error);
     return { exists: false, chunkKey: null };
   }
+}
+
+/**
+ * Handle manage citations button click - injects management buttons after auth check
+ * @param {Event} event - The click event
+ */
+async function handleManageCitationsClick(event) {
+  const svg = event.currentTarget;
+
+  // Show loading state
+  svg.style.opacity = '0.5';
+  svg.style.pointerEvents = 'none';
+  console.log('🔧 Running auth checks and injecting management buttons...');
+
+  const buttonPlaceholders = document.querySelectorAll('.hypercite-management-buttons[data-book-id]');
+
+  // Batch check permissions for all unique books
+  const bookIds = new Set();
+  buttonPlaceholders.forEach(placeholder => {
+    const bookId = placeholder.dataset.bookId;
+    if (bookId) bookIds.add(bookId);
+  });
+
+  // Batch permission checks
+  const permissionsMap = new Map();
+  await Promise.all(Array.from(bookIds).map(async (bookId) => {
+    const canEdit = await canUserEditBook(bookId);
+    permissionsMap.set(bookId, canEdit);
+  }));
+
+  // Inject buttons for all citations (everyone gets health check, only editors get delete)
+  buttonPlaceholders.forEach(placeholder => {
+    const bookId = placeholder.dataset.bookId;
+    const canEdit = permissionsMap.get(bookId);
+    const citationUrl = placeholder.dataset.citationUrl;
+    const hyperciteId = placeholder.dataset.hyperciteId;
+    const sourceHyperciteId = placeholder.dataset.sourceHyperciteId;
+
+    // Everyone gets health check button
+    let html = `
+      <button class="hypercite-health-check-btn"
+              data-citing-book="${bookId}"
+              data-hypercite-id="${hyperciteId}"
+              data-citation-url="${citationUrl}"
+              title="Check if citation exists"
+              type="button">
+        <svg width="18" height="18" viewBox="0 0 48 48" fill="currentColor">
+          <path d="M12 10C13.1046 10 14 9.10457 14 8C14 6.89543 13.1046 6 12 6C11.2597 6 10.6134 6.4022 10.2676 7H10C8.34315 7 7 8.34315 7 10V19C6.44774 19 5.99531 19.4487 6.04543 19.9987C6.27792 22.5499 7.39568 24.952 9.22186 26.7782C10.561 28.1173 12.2098 29.0755 14 29.583V32C14 33.3064 14.835 34.4177 16.0004 34.8294C16.043 38.7969 19.2725 42 23.25 42C27.2541 42 30.5 38.7541 30.5 34.75V30.75C30.5 28.6789 32.1789 27 34.25 27C36.3211 27 38 28.6789 38 30.75V33.1707C36.8348 33.5825 36 34.6938 36 36C36 37.6569 37.3431 39 39 39C40.6569 39 42 37.6569 42 36C42 34.6938 41.1652 33.5825 40 33.1707V30.75C40 27.5744 37.4256 25 34.25 25C31.0744 25 28.5 27.5744 28.5 30.75V34.75C28.5 37.6495 26.1495 40 23.25 40C20.3769 40 18.0429 37.6921 18.0006 34.8291C19.1655 34.4171 20 33.306 20 32V29.583C21.7902 29.0755 23.4391 28.1173 24.7782 26.7782C26.6044 24.952 27.7221 22.5499 27.9546 19.9987C28.0048 19.4487 27.5523 19 27 19L27 10C27 8.34315 25.6569 7 24 7H23.7324C23.3866 6.4022 22.7403 6 22 6C20.8954 6 20 6.89543 20 8C20 9.10457 20.8954 10 22 10C22.7403 10 23.3866 9.5978 23.7324 9H24C24.5523 9 25 9.44772 25 10V19H25.2095C24.6572 19 24.2166 19.4499 24.1403 19.9969C23.9248 21.5406 23.2127 22.983 22.0979 24.0979C20.7458 25.4499 18.9121 26.2095 17 26.2095C15.088 26.2095 13.2542 25.4499 11.9022 24.0979C10.7873 22.983 10.0753 21.5406 9.8598 19.9969C9.78344 19.4499 9.34286 19 8.79057 19L9 19V10C9 9.44772 9.44772 9 10 9H10.2676C10.6134 9.5978 11.2597 10 12 10Z"/>
+        </svg>
+      </button>
+    `;
+
+    // Only editors get delete button
+    if (canEdit) {
+      html += `
+      <button class="hypercite-delete-btn"
+              data-source-book="${book}"
+              data-source-hypercite-id="${sourceHyperciteId}"
+              data-citation-url="${citationUrl}"
+              title="Run health check first"
+              type="button"
+              disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 6h18" stroke-linecap="round" stroke-linejoin="round"></path>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </button>
+      `;
+    }
+
+    placeholder.innerHTML = html;
+  });
+
+  // Attach listeners to newly injected buttons
+  const healthCheckButtons = document.querySelectorAll('.hypercite-health-check-btn');
+  healthCheckButtons.forEach(btn => {
+    btn.addEventListener('click', handleHyperciteHealthCheck);
+  });
+
+  const hyperciteDeleteButtons = document.querySelectorAll('.hypercite-delete-btn');
+  hyperciteDeleteButtons.forEach(btn => {
+    btn.addEventListener('click', handleHyperciteDelete);
+  });
+
+  console.log(`🔗 Injected management buttons for ${permissionsMap.size} books (${Array.from(permissionsMap.values()).filter(Boolean).length} editable)`);
+  console.log(`🔗 Attached ${healthCheckButtons.length} health check and ${hyperciteDeleteButtons.length} delete button listeners`);
+
+  // Hide the manage SVG after injection
+  svg.style.display = 'none';
 }
 
 /**
@@ -1978,81 +2111,17 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
     attachDataContentIdLinkListeners();
   }, 100);
 
-  // 🚀 PERFORMANCE: Inject hypercite management buttons asynchronously after permission checks
+  // Attach manage citations button listener (on-demand management button injection)
   const hyperciteType = contentTypes.find(ct => ct.type === 'hypercite');
   if (hyperciteType) {
-    setTimeout(async () => {
-      const buttonPlaceholders = document.querySelectorAll('.hypercite-management-buttons[data-book-id]');
-
-      // Batch check permissions for all unique books
-      const bookIds = new Set();
-      buttonPlaceholders.forEach(placeholder => {
-        const bookId = placeholder.dataset.bookId;
-        if (bookId) bookIds.add(bookId);
-      });
-
-      // Batch permission checks
-      const permissionsMap = new Map();
-      await Promise.all(Array.from(bookIds).map(async (bookId) => {
-        const canEdit = await canUserEditBook(bookId);
-        permissionsMap.set(bookId, canEdit);
-      }));
-
-      // Inject buttons for editable books
-      buttonPlaceholders.forEach(placeholder => {
-        const bookId = placeholder.dataset.bookId;
-        const canEdit = permissionsMap.get(bookId);
-
-        if (canEdit) {
-          const citationUrl = placeholder.dataset.citationUrl;
-          const hyperciteId = placeholder.dataset.hyperciteId;
-          const sourceHyperciteId = placeholder.dataset.sourceHyperciteId;
-
-          placeholder.innerHTML = `
-        <button class="hypercite-health-check-btn"
-                data-citing-book="${bookId}"
-                data-hypercite-id="${hyperciteId}"
-                data-citation-url="${citationUrl}"
-                title="Check if citation exists"
-                type="button">
-          <svg width="18" height="18" viewBox="0 0 48 48" fill="currentColor">
-            <path d="M12 10C13.1046 10 14 9.10457 14 8C14 6.89543 13.1046 6 12 6C11.2597 6 10.6134 6.4022 10.2676 7H10C8.34315 7 7 8.34315 7 10V19C6.44774 19 5.99531 19.4487 6.04543 19.9987C6.27792 22.5499 7.39568 24.952 9.22186 26.7782C10.561 28.1173 12.2098 29.0755 14 29.583V32C14 33.3064 14.835 34.4177 16.0004 34.8294C16.043 38.7969 19.2725 42 23.25 42C27.2541 42 30.5 38.7541 30.5 34.75V30.75C30.5 28.6789 32.1789 27 34.25 27C36.3211 27 38 28.6789 38 30.75V33.1707C36.8348 33.5825 36 34.6938 36 36C36 37.6569 37.3431 39 39 39C40.6569 39 42 37.6569 42 36C42 34.6938 41.1652 33.5825 40 33.1707V30.75C40 27.5744 37.4256 25 34.25 25C31.0744 25 28.5 27.5744 28.5 30.75V34.75C28.5 37.6495 26.1495 40 23.25 40C20.3769 40 18.0429 37.6921 18.0006 34.8291C19.1655 34.4171 20 33.306 20 32V29.583C21.7902 29.0755 23.4391 28.1173 24.7782 26.7782C26.6044 24.952 27.7221 22.5499 27.9546 19.9987C28.0048 19.4487 27.5523 19 27 19L27 10C27 8.34315 25.6569 7 24 7H23.7324C23.3866 6.4022 22.7403 6 22 6C20.8954 6 20 6.89543 20 8C20 9.10457 20.8954 10 22 10C22.7403 10 23.3866 9.5978 23.7324 9H24C24.5523 9 25 9.44772 25 10V19H25.2095C24.6572 19 24.2166 19.4499 24.1403 19.9969C23.9248 21.5406 23.2127 22.983 22.0979 24.0979C20.7458 25.4499 18.9121 26.2095 17 26.2095C15.088 26.2095 13.2542 25.4499 11.9022 24.0979C10.7873 22.983 10.0753 21.5406 9.8598 19.9969C9.78344 19.4499 9.34286 19 8.79057 19L9 19V10C9 9.44772 9.44772 9 10 9H10.2676C10.6134 9.5978 11.2597 10 12 10Z"/>
-          </svg>
-        </button>
-        <button class="hypercite-delete-btn"
-                data-source-book="${book}"
-                data-source-hypercite-id="${sourceHyperciteId}"
-                data-citation-url="${citationUrl}"
-                title="Run health check first"
-                type="button"
-                disabled>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 6h18" stroke-linecap="round" stroke-linejoin="round"></path>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
-          </svg>
-        </button>
-          `;
-        }
-      });
-
-      console.log(`🔗 Injected management buttons for ${permissionsMap.size} books (${Array.from(permissionsMap.values()).filter(Boolean).length} editable)`);
-    }, 50);
+    setTimeout(() => {
+      const manageCitationsBtn = document.querySelector('.manage-citations-btn');
+      if (manageCitationsBtn) {
+        manageCitationsBtn.addEventListener('click', handleManageCitationsClick);
+        console.log('🔗 Attached manage citations button listener');
+      }
+    }, 100);
   }
-
-  // Attach hypercite management button listeners
-  setTimeout(() => {
-    const healthCheckButtons = document.querySelectorAll('.hypercite-health-check-btn');
-    healthCheckButtons.forEach(button => {
-      button.addEventListener('click', handleHyperciteHealthCheck);
-    });
-
-    const hyperciteDeleteButtons = document.querySelectorAll('.hypercite-delete-btn');
-    hyperciteDeleteButtons.forEach(button => {
-      button.addEventListener('click', handleHyperciteDelete);
-    });
-
-    console.log(`🔗 Attached ${healthCheckButtons.length} health check and ${hyperciteDeleteButtons.length} delete button listeners for hypercites`);
-  }, 200);
 
   // Attach "See in source text" button listeners to close container before navigation
   setTimeout(() => {

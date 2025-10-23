@@ -1972,8 +1972,8 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
     highlightTimeout = null;
   }
 
-  // Find all hypercite elements (u tags with couple, poly, or single classes)
-  const allHypercites = document.querySelectorAll('u.single, u.couple, u.poly');
+  // Find all hypercite elements (u tags with couple, poly, or single classes, and a tags with hypercite_ IDs)
+  const allHypercites = document.querySelectorAll('u.single, u.couple, u.poly, a[id^="hypercite_"]');
 
   // Find ALL segments for this hypercite (both individual and overlapping)
   let targetElements = [];
@@ -1995,26 +1995,52 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
     }
   }
 
+  // Clean up old classes IMMEDIATELY (before the setTimeout delay)
+  const allHighlighted = document.querySelectorAll('a.hypercite-target, a.hypercite-dimmed, u.hypercite-target, u.hypercite-dimmed');
+  allHighlighted.forEach(element => {
+    element.classList.remove('hypercite-target', 'hypercite-dimmed');
+  });
+
+  // Remove ALL arrow highlights immediately
+  const allArrows = document.querySelectorAll('.arrow-target');
+  allArrows.forEach(arrow => {
+    arrow.classList.remove('arrow-target');
+  });
+
   // Wait for the specified delay, then apply highlighting with smooth transition
   setTimeout(() => {
     console.log(`✨ Starting hypercite highlighting animation for: ${targetHyperciteId}`);
-
-    // 🔥 FIX: Remove any existing highlight classes first to ensure animation restarts
-    restoreNormalHyperciteDisplay();
-
-    // Force a reflow to ensure browser recognizes the class removal before re-adding
-    void document.body.offsetHeight;
 
     // Apply target highlighting to ALL elements containing this hypercite
     if (targetElements.length > 0) {
       targetElements.forEach(element => {
         element.classList.add('hypercite-target');
 
-        // 🎯 NEW: Also highlight any arrow icons within this hypercite
+        // Listen for animation end and remove class
+        const handleAnimationEnd = (e) => {
+          if (e.target === element) {
+            element.classList.remove('hypercite-target');
+            element.removeEventListener('animationend', handleAnimationEnd);
+            console.log(`✅ Hypercite target animation ended for ${element.id}`);
+          }
+        };
+        element.addEventListener('animationend', handleAnimationEnd);
+
+        // 🎯 Highlight arrow icons and auto-remove when animation ends
         const arrowIcons = element.querySelectorAll('.open-icon, sup.open-icon, span.open-icon');
         arrowIcons.forEach(arrow => {
           arrow.classList.add('arrow-target');
           console.log(`✨ Added arrow highlight to icon in ${targetHyperciteId}`);
+
+          // Listen for animation end and remove class
+          const handleAnimationEnd = (e) => {
+            if (e.target === arrow) {
+              arrow.classList.remove('arrow-target');
+              arrow.removeEventListener('animationend', handleAnimationEnd);
+              console.log(`✅ Arrow animation ended, class removed`);
+            }
+          };
+          arrow.addEventListener('animationend', handleAnimationEnd);
         });
       });
       console.log(`✅ Added target highlighting to ${targetElements.length} segments for: ${targetHyperciteId}`);
@@ -2026,6 +2052,15 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
     allHypercites.forEach(element => {
       if (!targetElements.includes(element)) {
         element.classList.add('hypercite-dimmed');
+
+        // Listen for animation end and remove class
+        const handleAnimationEnd = (e) => {
+          if (e.target === element) {
+            element.classList.remove('hypercite-dimmed');
+            element.removeEventListener('animationend', handleAnimationEnd);
+          }
+        };
+        element.addEventListener('animationend', handleAnimationEnd);
       }
     });
 
@@ -2049,7 +2084,8 @@ export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
 export function restoreNormalHyperciteDisplay() {
   console.log(`🔄 Restoring normal hypercite display`);
 
-  const allHypercites = document.querySelectorAll('u.hypercite-target, u.hypercite-dimmed');
+  // Select both <a> and <u> tags with these classes (anchors in annotations, underlines in text)
+  const allHypercites = document.querySelectorAll('a.hypercite-target, a.hypercite-dimmed, u.hypercite-target, u.hypercite-dimmed');
   allHypercites.forEach(element => {
     element.classList.remove('hypercite-target', 'hypercite-dimmed');
   });
