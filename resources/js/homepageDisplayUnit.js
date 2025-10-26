@@ -104,19 +104,21 @@ async function transitionToBookContent(bookId, showLoader = true) {
     if (showLoader) {
       showNavigationLoading(`Loading ${bookId}...`);
     }
-    
+
     console.log(`🔄 Transitioning homepage content to: ${bookId}`);
-    
+
     // Remove existing content containers
     document.querySelectorAll('.main-content').forEach(content => {
       console.log(`🧹 Removing existing content container: ${content.id}`);
       content.remove();
     });
-    
+
     // Create fresh container for the new content
-    const mainContainer = document.querySelector('.home-content-wrapper');
+    // Support both home and user page wrappers
+    const mainContainer = document.querySelector('.home-content-wrapper') ||
+                          document.querySelector('.user-content-wrapper');
     if (!mainContainer) {
-      throw new Error('Home content wrapper not found');
+      throw new Error('Content wrapper not found (tried .home-content-wrapper and .user-content-wrapper)');
     }
     
     const newContentDiv = document.createElement('div');

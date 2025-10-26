@@ -64,6 +64,8 @@
             console.log('🎯 Overlay visible for reader page load');
         } else if (pageType === 'home') {
             console.log('🎯 Overlay visible for home page load');
+        } else if (pageType === 'user') {
+            console.log('🎯 Overlay visible for user page load');
         } else {
             // Hide overlay for other page types
             overlay.style.display = 'none';

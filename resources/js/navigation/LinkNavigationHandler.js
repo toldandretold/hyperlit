@@ -269,72 +269,97 @@ export class LinkNavigationHandler {
   }
 
   /**
-   * Handle book-to-book navigation
+   * Handle book-to-book navigation (now structure-aware)
    */
   static async handleBookToBookNavigation(link, linkUrl) {
-    console.log(`🔗 LinkNavigationHandler: Book-to-book navigation to ${link.href}`);
-    
+    console.log(`🔗 LinkNavigationHandler: Navigation to ${link.href}`);
+
     try {
+      // Detect current and target structures
+      const currentStructure = this.getPageStructure();
+      const currentUrl = window.location.href;
+      const currentTemplate = this.getTemplateType(currentUrl);
+      const targetTemplate = this.getTemplateType(linkUrl.href);
+      const currentBookId = this.getBookIdFromUrl(currentUrl);
+      const targetBookId = this.getBookIdFromUrl(linkUrl.href);
+
+      console.log(`📊 Navigation context:`, {
+        currentStructure,
+        currentTemplate,
+        targetTemplate,
+        currentBookId,
+        targetBookId,
+        currentSubdomain: this.getSubdomain(),
+        targetSubdomain: this.getSubdomain(linkUrl.hostname)
+      });
+
       const pathSegments = linkUrl.pathname.split('/').filter(Boolean);
-      const targetBookId = pathSegments[0];
       const targetHash = linkUrl.hash;
 
-      // Handle homepage navigation using SPA pathway
-      if (!targetBookId && (linkUrl.pathname === '/' || linkUrl.pathname === '')) {
-        console.log('🏠 Homepage navigation detected - using book-to-home SPA pathway');
-        
-        event.preventDefault();
-        event.stopPropagation();
-        
-        // Get current book for context
-        const currentPageType = document.body.getAttribute('data-page');
-        const fromBook = currentPageType === 'reader' ? window.book : null;
-        
-        // Use the book-to-home SPA pathway
-        const { NavigationManager } = await import('./NavigationManager.js');
-        await NavigationManager.navigate('book-to-home', { fromBook, replaceHistory: true });
-        
-        return true;
-      }
       // Check if this is a hyperlight URL
       const isHyperlightURL = pathSegments.length > 1 && pathSegments[1].startsWith('HL_');
-      
+
       if (isHyperlightURL) {
         const hyperlightId = pathSegments[1];
         const hyperciteId = targetHash.substring(1);
-        
+
         console.log(`🎯 Cross-book hyperlight navigation: ${targetBookId}/${hyperlightId}${targetHash}`);
-        
-        await BookToBookTransition.handleHyperlightNavigation({
-          toBook: targetBookId,
-          hyperlightId,
-          hyperciteId: hyperciteId || null
-        });
-      } else if (targetBookId) {
-        // Check current page type to determine the correct transition pathway
-        const currentPageType = document.body.getAttribute('data-page');
-        
-        if (currentPageType === 'home') {
-          console.log(`🏠➡️📖 Home-to-book navigation: ${targetBookId}${targetHash}`);
-          
-          await NavigationManager.navigate('home-to-book', {
+
+        // Hyperlight navigation might change templates, check and route accordingly
+        if (currentTemplate !== targetTemplate) {
+          console.log(`📋 Template change detected during hyperlight navigation: ${currentTemplate} → ${targetTemplate}`);
+          // Let the transition handle hyperlight navigation
+          if (targetTemplate === 'home') {
+            await NavigationManager.navigate('book-to-home', { fromBook: currentBookId, hash: linkUrl.hash });
+          } else {
+            await NavigationManager.navigate('home-to-book', { toBook: targetBookId, hash: linkUrl.hash });
+          }
+        } else {
+          await BookToBookTransition.handleHyperlightNavigation({
             toBook: targetBookId,
-            hash: targetHash
+            hyperlightId,
+            hyperciteId: hyperciteId || null
+          });
+        }
+        return;
+      }
+
+      // Route based on template change
+      if (currentTemplate !== targetTemplate) {
+        console.log(`📋 Template change detected: ${currentTemplate} → ${targetTemplate}`);
+
+        if (targetTemplate === 'home') {
+          // Reader → Home or Home → Home (different subdomain)
+          console.log(`🏠 Navigating to home template: ${targetBookId}`);
+          await NavigationManager.navigate('book-to-home', {
+            fromBook: currentBookId,
+            targetUrl: linkUrl.href
           });
         } else {
-          console.log(`🎯 Standard book-to-book navigation: ${targetBookId}${targetHash}`);
-          
-          await NavigationManager.navigate('book-to-book', {
+          // Home → Reader
+          console.log(`📖 Navigating to reader template: ${targetBookId}`);
+          await NavigationManager.navigate('home-to-book', {
             toBook: targetBookId,
             hash: targetHash
           });
         }
       } else {
-        console.warn('Could not determine target book ID for navigation');
-        window.location.href = link.href;
+        // Same template navigation
+        if (currentTemplate === 'reader') {
+          console.log(`📖 Standard book-to-book navigation: ${currentBookId} → ${targetBookId}`);
+          await NavigationManager.navigate('book-to-book', {
+            toBook: targetBookId,
+            hash: targetHash
+          });
+        } else {
+          // Both use home.blade.php - just fetch new content and swap
+          console.log(`🏠 Home-to-home navigation (content swap): ${currentBookId} → ${targetBookId}`);
+          // For now, use full page navigation - can optimize later with home-to-home content swap
+          window.location.href = link.href;
+        }
       }
     } catch (error) {
-      console.error('❌ Book-to-book navigation failed:', error);
+      console.error('❌ Navigation failed:', error);
       // Fallback to full page navigation
       window.location.href = link.href;
     }
@@ -550,11 +575,139 @@ export class LinkNavigationHandler {
    * Track recent link clicks (for mobile handling)
    */
   static recentLinkClick = false;
-  
+
   static trackRecentLinkClick = () => {
     LinkNavigationHandler.recentLinkClick = true;
-    setTimeout(() => { 
-      LinkNavigationHandler.recentLinkClick = false; 
+    setTimeout(() => {
+      LinkNavigationHandler.recentLinkClick = false;
     }, 1000);
   };
+
+  /**
+   * Get subdomain from hostname
+   * Returns null for main domain, username for user subdomains
+   */
+  static getSubdomain(hostname = window.location.hostname) {
+    // Handle localhost and IP addresses
+    if (hostname === 'localhost' || hostname.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+      return null;
+    }
+
+    const parts = hostname.split('.');
+
+    // For hyperlit.test, no subdomain
+    // For sam.hyperlit.test, subdomain is 'sam'
+    if (parts.length > 2) {
+      return parts[0];
+    }
+
+    return null;
+  }
+
+  /**
+   * Check if URL is on a user subdomain
+   */
+  static isUserSubdomain(url = window.location.href) {
+    const parsedUrl = new URL(url, window.location.origin);
+    return this.getSubdomain(parsedUrl.hostname) !== null;
+  }
+
+  /**
+   * Determine template type based on subdomain and path
+   * Returns 'home' or 'reader'
+   */
+  static getTemplateType(url = window.location.href) {
+    const parsedUrl = new URL(url, window.location.origin);
+    const subdomain = this.getSubdomain(parsedUrl.hostname);
+    const path = parsedUrl.pathname;
+
+    // User subdomain root (sam.hyperlit.test/) uses home.blade.php
+    if (subdomain && path === '/') {
+      return 'home';
+    }
+
+    // Main domain root (hyperlit.test/) uses home.blade.php
+    if (!subdomain && path === '/') {
+      return 'home';
+    }
+
+    // Everything else uses reader.blade.php
+    return 'reader';
+  }
+
+  /**
+   * Check if navigation is between different templates
+   */
+  static isDifferentTemplate(fromUrl, toUrl) {
+    const fromTemplate = this.getTemplateType(fromUrl);
+    const toTemplate = this.getTemplateType(toUrl);
+    return fromTemplate !== toTemplate;
+  }
+
+  /**
+   * Get book ID from URL based on subdomain context
+   */
+  static getBookIdFromUrl(url = window.location.href) {
+    const parsedUrl = new URL(url, window.location.origin);
+    const subdomain = this.getSubdomain(parsedUrl.hostname);
+    const path = parsedUrl.pathname;
+
+    // User subdomain root = username is the book
+    if (subdomain && path === '/') {
+      return subdomain;
+    }
+
+    // Main domain root = most-recent
+    if (!subdomain && path === '/') {
+      return 'most-recent';
+    }
+
+    // Extract book from path (first segment)
+    const pathSegments = path.split('/').filter(Boolean);
+    return pathSegments[0] || 'most-recent';
+  }
+
+  /**
+   * Get page structure type based on DOM elements
+   * Returns 'reader', 'home', or 'user'
+   */
+  static getPageStructure() {
+    if (document.querySelector('.reader-content-wrapper')) {
+      return 'reader';
+    }
+    if (document.querySelector('.home-content-wrapper')) {
+      return 'home';
+    }
+    if (document.querySelector('.user-content-wrapper')) {
+      return 'user';
+    }
+
+    // Fallback to data-page attribute
+    const pageType = document.body.getAttribute('data-page');
+    if (pageType) {
+      return pageType;
+    }
+
+    console.warn('⚠️ Could not determine page structure, defaulting to reader');
+    return 'reader';
+  }
+
+  /**
+   * Check if two structures are compatible for content-only transitions
+   * home and user are compatible (both use similar layout)
+   */
+  static areStructuresCompatible(structure1, structure2) {
+    // Same structure is always compatible
+    if (structure1 === structure2) {
+      return true;
+    }
+
+    // home and user are compatible (both use home-like layout)
+    const homeCompatible = ['home', 'user'];
+    if (homeCompatible.includes(structure1) && homeCompatible.includes(structure2)) {
+      return true;
+    }
+
+    return false;
+  }
 }

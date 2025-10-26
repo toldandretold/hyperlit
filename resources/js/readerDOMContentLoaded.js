@@ -190,5 +190,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   } else if (pageType === "home") {
     await initializeHomepage();
+  } else if (pageType === "user") {
+    // User pages use same initialization as homepage (same structure)
+    await initializeHomepage();
   }
 });

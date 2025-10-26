@@ -10,6 +10,30 @@ use App\Models\PgLibrary;
 
 class UserHomeServerController extends Controller
 {
+    /**
+     * Show user's homepage (for subdomain routing)
+     */
+    public function show(string $username)
+    {
+        // Check if user exists
+        $user = \App\Models\User::where('name', $username)->first();
+
+        if (!$user) {
+            abort(404, 'User not found');
+        }
+
+        // Generate user's library book
+        $isOwner = Auth::check() && Auth::user()->name === $username;
+        $this->generateUserHomeBook($username, $isOwner);
+
+        // Return user.blade.php with user page data
+        return view('user', [
+            'pageType' => 'user',
+            'book' => $username,
+            'username' => $username,
+        ]);
+    }
+
     public function generateUserHomeBook(string $username, bool $currentUserIsOwner = null): array
     {
         $records = DB::table('library')

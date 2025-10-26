@@ -47,6 +47,7 @@ body[data-page="reader"] #app-container {
 
 /* Rule for the SCROLLING WRAPPERS */
 .home-content-wrapper,
+.user-content-wrapper,
 .reader-content-wrapper {
   margin: 0 auto;
   width: 100%;
@@ -64,9 +65,10 @@ body[data-page="reader"] .reader-content-wrapper {
   flex: 1; /* Take up remaining space */
 }
 
-/* Traditional height for home page */
-body[data-page="home"] .home-content-wrapper {
-  height: 100vh; /* Full height for home page */
+/* Traditional height for home and user pages */
+body[data-page="home"] .home-content-wrapper,
+body[data-page="user"] .user-content-wrapper {
+  height: 100vh; /* Full height for home/user pages */
 }
 
 /* ================================================== */
@@ -197,7 +199,8 @@ body[data-page="home"] .fixed-header {
 /* Header content alignment handled dynamically by JavaScript */
 
 /* 3. The Content Wrapper: The only scrollable part. */
-body[data-page="home"] .home-content-wrapper {
+body[data-page="home"] .home-content-wrapper,
+body[data-page="user"] .user-content-wrapper {
   height: 100vh;
   overflow-y: auto; /* Makes this the scrollable container */
   -webkit-overflow-scrolling: touch;
@@ -207,7 +210,8 @@ body[data-page="home"] .home-content-wrapper {
 }
 
 /* 4. Center the main content list inside the wrapper */
-body[data-page="home"] .main-content {
+body[data-page="home"] .main-content,
+body[data-page="user"] .main-content {
   max-width: 60ch;
   margin: 0 auto;
   padding: 0 20px 50px 20px; /* Bottom padding to prevent content below screen */
