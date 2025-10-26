@@ -25,7 +25,7 @@ class UserHomeServerController extends Controller
         DB::table('library')->updateOrInsert(
             ['book' => $username],
             [
-                'author' => null, 'title' => 'My Books', 'private' => true, 'creator' => $username, 'creator_token' => null,
+                'author' => null, 'title' => 'My Books', 'visibility' => 'public', 'listed' => false, 'creator' => $username, 'creator_token' => null,
                 'raw_json' => json_encode(['type' => 'user_home', 'username' => $username]),
                 'timestamp' => round(microtime(true) * 1000), 'updated_at' => now(), 'created_at' => now(),
             ]
