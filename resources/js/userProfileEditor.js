@@ -1,6 +1,7 @@
 import { openDatabase, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from './indexedDB.js';
 import { canUserEditBook } from './auth.js';
 import { book } from './app.js';
+import { fixHeaderSpacing } from './homepageDisplayUnit.js';
 
 let titleDebounceTimer = null;
 let bioDebounceTimer = null;
@@ -37,12 +38,23 @@ export async function initializeUserProfileEditor() {
       // Set defaults
       titleEl.textContent = `${book}'s library`;
       bioEl.textContent = '';
+
+      // Recalculate header spacing even with defaults
+      setTimeout(() => {
+        fixHeaderSpacing();
+      }, 0);
+
       return;
     }
 
     // Display title and bio
     titleEl.textContent = record.title || `${book}'s library`;
     bioEl.textContent = record.note || '';
+
+    // Recalculate header spacing now that content is loaded
+    setTimeout(() => {
+      fixHeaderSpacing();
+    }, 0);
 
     // Check if user can edit
     const canEdit = await canUserEditBook(book);

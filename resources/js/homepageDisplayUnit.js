@@ -6,10 +6,10 @@ let resizeHandler = null;
 const buttonHandlers = new Map();
 
 // Fix header spacing dynamically based on actual header height
-function fixHeaderSpacing() {
+export function fixHeaderSpacing() {
   const header = document.querySelector('.fixed-header');
-  const wrapper = document.querySelector('.home-content-wrapper');
-  
+  const wrapper = document.querySelector('.home-content-wrapper') || document.querySelector('.user-content-wrapper');
+
   if (header && wrapper) {
     const headerHeight = header.offsetHeight;
     // Add small buffer (10px) to ensure content doesn't touch header
@@ -69,15 +69,15 @@ export function initializeHomepageButtons() {
   document.querySelectorAll('.arranger-button').forEach(button => {
     const handler = async function() {
       const targetId = this.dataset.content;
-      
+
       if (this.classList.contains('active')) {
         console.log(`📄 ${targetId} is already active, skipping reinitialization`);
         return;
       }
-      
+
       document.querySelectorAll('.arranger-button').forEach(btn => btn.classList.remove('active'));
       this.classList.add('active');
-      
+
       await transitionToBookContent(targetId, true);
     };
     button.addEventListener('click', handler);

@@ -168,15 +168,19 @@ code {
 
 /* 1. The Side Buttons: Pinned to the screen corners. */
 body[data-page="home"] #userButtonContainer,
-body[data-page="home"] #topRightContainer {
+body[data-page="home"] #topRightContainer,
+body[data-page="user"] #userButtonContainer,
+body[data-page="user"] #topRightContainer {
   position: fixed;
   top: 10px;
   z-index: 999;
 }
-body[data-page="home"] #userButtonContainer {
+body[data-page="home"] #userButtonContainer,
+body[data-page="user"] #userButtonContainer {
   left: 10px;
 }
-body[data-page="home"] #topRightContainer {
+body[data-page="home"] #topRightContainer,
+body[data-page="user"] #topRightContainer {
   right: 10px;
 }
 
@@ -194,6 +198,22 @@ body[data-page="home"] .fixed-header {
 
   background-color: #221f20; /* Makes it a solid, opaque block */
   padding: 20px 20px 10px 20px; /* Internal spacing for the logo */
+}
+
+/* User page header - same styling as home */
+body[data-page="user"] .fixed-header {
+  position: fixed; /* Takes it out of the document flow */
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%); /* Centers the block */
+  z-index: 10;
+
+  width: 100%;
+  max-width: 60ch; /* Matches the content column width */
+  box-sizing: border-box;
+
+  background-color: #221f20; /* Makes it a solid, opaque block */
+  padding: 20px 20px 10px 20px; /* Internal spacing for user library container */
 }
 
 /* Header content alignment handled dynamically by JavaScript */

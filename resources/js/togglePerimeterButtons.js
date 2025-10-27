@@ -341,7 +341,8 @@ shouldIgnoreEvent(event) {
       window.requestAnimationFrame(() => {
         const mainContent =
           document.querySelector(".main-content") ||
-          document.querySelector(".home-content-wrapper");
+          document.querySelector(".home-content-wrapper") ||
+          document.querySelector(".user-content-wrapper");
         if (!mainContent) return;
 
         const rect = mainContent.getBoundingClientRect();

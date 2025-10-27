@@ -22,9 +22,16 @@ class UserHomeServerController extends Controller
             abort(404, 'User not found');
         }
 
-        // Generate user's library book
+        // Generate user's library books
         $isOwner = Auth::check() && Auth::user()->name === $username;
-        $this->generateUserHomeBook($username, $isOwner);
+
+        // Always generate public book
+        $this->generateUserHomeBook($username, $isOwner, 'public');
+
+        // Only generate private book if user is owner
+        if ($isOwner) {
+            $this->generateUserHomeBook($username, $isOwner, 'private');
+        }
 
         // Return user.blade.php with user page data
         return view('user', [
@@ -34,49 +41,42 @@ class UserHomeServerController extends Controller
         ]);
     }
 
-    public function generateUserHomeBook(string $username, bool $currentUserIsOwner = null): array
+    public function generateUserHomeBook(string $username, bool $currentUserIsOwner = null, string $visibility = 'public'): array
     {
+        // Determine book name based on visibility
+        $bookName = $visibility === 'private' ? $username . 'Private' : $username;
+
         $records = DB::table('library')
             ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at'])
             ->where('creator', $username)
             ->where('book', '!=', $username)
+            ->where('book', '!=', $username . 'Private')
+            ->where('visibility', $visibility)
             ->orderByDesc('created_at')
             ->get();
 
         // Preserve existing highlights and cites
-        $oldChunks = DB::table('node_chunks')->where('book', $username)->get()->keyBy('node_id');
+        $oldChunks = DB::table('node_chunks')->where('book', $bookName)->get()->keyBy('node_id');
 
         DB::table('library')->updateOrInsert(
-            ['book' => $username],
+            ['book' => $bookName],
             [
-                'author' => null, 'title' => $username . "'s library", 'visibility' => 'public', 'listed' => false, 'creator' => $username, 'creator_token' => null,
-                'raw_json' => json_encode(['type' => 'user_home', 'username' => $username]),
+                'author' => null, 'title' => $username . "'s library", 'visibility' => $visibility, 'listed' => false, 'creator' => $username, 'creator_token' => null,
+                'raw_json' => json_encode(['type' => 'user_home', 'username' => $username, 'visibility' => $visibility]),
                 'timestamp' => round(microtime(true) * 1000), 'updated_at' => now(), 'created_at' => now(),
             ]
         );
 
-        DB::table('node_chunks')->where('book', $username)->delete();
+        DB::table('node_chunks')->where('book', $bookName)->delete();
 
         $chunks = [];
-        $headerChunk = [
-            'raw_json' => json_encode(['position_type' => 'user_home_header', 'position_id' => 0]),
-            'book' => $username, 'chunk_id' => 0, 'startLine' => 0, 'node_id' => $username . '_header_node',
-            'footnotes' => null, 'hypercites' => null, 'hyperlights' => null,
-            'content' => '<h1 class="user-home-header">' . e($username) . ' Books</h1>',
-            'plainText' => 'My Books', 'type' => 'h1', 'created_at' => now(), 'updated_at' => now(),
-        ];
-        if(isset($oldChunks[$username . '_header_node'])) {
-            $headerChunk['hypercites'] = $oldChunks[$username . '_header_node']->hypercites;
-            $headerChunk['hyperlights'] = $oldChunks[$username . '_header_node']->hyperlights;
-        }
-        $chunks[] = $headerChunk;
-        
+
         $positionId = 100;
         // Use passed parameter if provided, otherwise check current auth state
         $isOwner = $currentUserIsOwner !== null ? $currentUserIsOwner : (Auth::check() && Auth::user()->name === $username);
 
         foreach ($records as $i => $record) {
-            $newChunk = $this->generateLibraryCardChunk($record, $username, $positionId, $isOwner, false, $i);
+            $newChunk = $this->generateLibraryCardChunk($record, $bookName, $positionId, $isOwner, false, $i);
             if(isset($oldChunks[$record->book])) {
                 $newChunk['hypercites'] = $oldChunks[$record->book]->hypercites;
                 $newChunk['hyperlights'] = $oldChunks[$record->book]->hyperlights;
@@ -86,7 +86,7 @@ class UserHomeServerController extends Controller
         }
 
         if ($records->isEmpty()) {
-             $chunks[] = $this->generateLibraryCardChunk(null, $username, 1, $isOwner, true, 0);
+             $chunks[] = $this->generateLibraryCardChunk(null, $bookName, 1, $isOwner, true, 0, $visibility);
         }
 
         foreach (array_chunk($chunks, 500) as $batch) {
@@ -98,21 +98,25 @@ class UserHomeServerController extends Controller
 
     public function addBookToUserPage(string $username, PgLibrary $bookRecord)
     {
+        // Determine which book to update based on visibility
+        $visibility = $bookRecord->visibility ?? 'public';
+        $bookName = $visibility === 'private' ? $username . 'Private' : $username;
+
         $minStartLine = DB::table('node_chunks')
-            ->where('book', $username)
+            ->where('book', $bookName)
             ->where('startLine', '>', 0)
             ->min('startLine');
 
         $newStartLine = ($minStartLine !== null) ? $minStartLine - 1 : 100;
 
         if ($newStartLine < 1) {
-            $this->generateUserHomeBook($username);
+            $this->generateUserHomeBook($username, null, $visibility);
         } else {
             // For addBookToUserPage, always use current auth state
             $isOwner = Auth::check() && Auth::user()->name === $username;
-            $chunk = $this->generateLibraryCardChunk($bookRecord, $username, $newStartLine, $isOwner, false, -1);
+            $chunk = $this->generateLibraryCardChunk($bookRecord, $bookName, $newStartLine, $isOwner, false, -1);
             DB::table('node_chunks')->insert($chunk);
-            DB::table('library')->where('book', $username)->update(['timestamp' => round(microtime(true) * 1000)]);
+            DB::table('library')->where('book', $bookName)->update(['timestamp' => round(microtime(true) * 1000)]);
         }
 
         return ['success' => true];
@@ -120,8 +124,12 @@ class UserHomeServerController extends Controller
 
     public function updateBookOnUserPage(string $username, PgLibrary $bookRecord)
     {
+        // Determine which book to update based on visibility
+        $visibility = $bookRecord->visibility ?? 'public';
+        $bookName = $visibility === 'private' ? $username . 'Private' : $username;
+
         $chunkToUpdate = DB::table('node_chunks')
-            ->where('book', $username)
+            ->where('book', $bookName)
             ->where('node_id', $bookRecord->book)
             ->first();
 
@@ -142,24 +150,28 @@ class UserHomeServerController extends Controller
             ]);
 
             DB::table('library')
-                ->where('book', $username)
+                ->where('book', $bookName)
                 ->update(['timestamp' => round(microtime(true) * 1000)]);
         }
 
         return ['success' => true];
     }
 
-    private function generateLibraryCardChunk($record, string $username, int $positionId, bool $isOwner, bool $isEmpty = false, int $index = 0)
+    private function generateLibraryCardChunk($record, string $bookName, int $positionId, bool $isOwner, bool $isEmpty = false, int $index = 0, string $visibility = 'public')
     {
         $now = Carbon::now();
 
         if ($isEmpty || !$record) {
+            $emptyMessage = $visibility === 'private'
+                ? '<em>no private hypertext</em>'
+                : '<em>no public hypertext</em>';
+
             return [
                 'raw_json' => json_encode(['original_book' => null, 'position_type' => 'user_home', 'position_id' => 1, 'empty' => true]),
-                'book' => $username, 'chunk_id' => 0, 'startLine' => 1, 'node_id' => $username . '_empty_node',
+                'book' => $bookName, 'chunk_id' => 0, 'startLine' => 1, 'node_id' => $bookName . '_empty_node',
                 'footnotes' => null, 'hypercites' => null, 'hyperlights' => null,
-                'content' => '<p class="libraryCard" id="1" data-node-id="empty_card">No books at the moment</p>',
-                'plainText' => 'No books at the moment', 'type' => 'p', 'created_at' => $now, 'updated_at' => $now,
+                'content' => '<p class="libraryCard" id="1" data-node-id="empty_card">' . $emptyMessage . '</p>',
+                'plainText' => strip_tags($emptyMessage), 'type' => 'p', 'created_at' => $now, 'updated_at' => $now,
             ];
         }
 
@@ -170,7 +182,7 @@ class UserHomeServerController extends Controller
                 'original_book' => $record->book, 'position_type' => 'user_home', 'position_id' => $positionId,
                 'bibtex' => $record->bibtex, 'title' => $record->title ?? null, 'author' => $record->author ?? null, 'year' => $record->year ?? null,
             ]),
-            'book' => $username,
+            'book' => $bookName,
             'chunk_id' => ($index < 0) ? 0 : floor($index / 100),
             'startLine' => $positionId,
             'node_id' => $record->book,

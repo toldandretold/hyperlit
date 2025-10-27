@@ -234,6 +234,16 @@ black #221F20;
   color: #999;
 }
 
+/* Remove outline/border on focus for contenteditable fields */
+.editable-field:focus {
+  outline: none;
+}
+
+#userLibraryTitle:focus,
+#userBio:focus {
+  outline: none;
+}
+
 #hyperlit-container {
   transform: translateX(calc(100% + 2em)); /* Off-screen, including the gap */
   transition: transform 0.3s ease-in-out;

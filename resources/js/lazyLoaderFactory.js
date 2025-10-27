@@ -69,14 +69,17 @@ export function createLazyLoader(config) {
   let scrollableParent;
   const readerWrapper = container.closest(".reader-content-wrapper");
   const homeWrapper = container.closest(".home-content-wrapper");
+  const userWrapper = container.closest(".user-content-wrapper");
 
   if (readerWrapper) {
       scrollableParent = readerWrapper;
   } else if (homeWrapper) {
       scrollableParent = homeWrapper;
+  } else if (userWrapper) {
+      scrollableParent = userWrapper;
   } else {
       scrollableParent = window;
-      console.warn("No specific .reader-content-wrapper or .home-content-wrapper found. Using window as scrollable parent.");
+      console.warn("No specific .reader-content-wrapper, .home-content-wrapper, or .user-content-wrapper found. Using window as scrollable parent.");
   }
   
   // Create the instance to track lazy-loader state.

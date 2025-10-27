@@ -538,13 +538,14 @@ function initializeLazyLoader(openHyperlightID, bookId) { // <-- Add bookId para
       onFirstChunkLoaded: firstChunkLoadedResolver
     });
     
-    // Only manually load first chunk of nodes for homepage contexts
+    // Only manually load first chunk of nodes for homepage/user page contexts
     // Regular reader pages will trigger via intersection observer
-    const isHomepageContext = document.querySelector('.home-content-wrapper');
+    const isHomepageContext = document.querySelector('.home-content-wrapper') ||
+                              document.querySelector('.user-content-wrapper');
     if (isHomepageContext) {
       const firstChunk = window.nodeChunks.find(chunk => chunk.chunk_id === 0) || window.nodeChunks[0];
       if (firstChunk && currentLazyLoader) {
-        console.log(`📄 Loading initial chunk of nodes #${firstChunk.chunk_id} into DOM for ${bookId} (homepage context)`);
+        console.log(`📄 Loading initial chunk of nodes #${firstChunk.chunk_id} into DOM for ${bookId} (homepage/user page context)`);
         currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
       }
     }

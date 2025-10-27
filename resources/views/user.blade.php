@@ -43,9 +43,9 @@
         <div id="userBio" contenteditable="false"></div>
       </div>
       <div class="arranger-buttons-container">
-        <!-- User page: public/private toggle - both load same book -->
+        <!-- User page: public/private toggle - load different books based on visibility -->
         <button class="arranger-button active" data-content="{{ $book }}" data-filter="public">Public</button>
-        <button class="arranger-button" data-content="{{ $book }}" data-filter="private">Private</button>
+        <button class="arranger-button" data-content="{{ $book }}Private" data-filter="private">Private</button>
       </div>
     </div>
     <!-- User page content container - single book, filtered by public/private -->
