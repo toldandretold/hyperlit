@@ -19,25 +19,25 @@ function fixHeaderSpacing() {
 
 // Align header content with main content text dynamically
 function alignHeaderContent() {
-  const mainContent = document.querySelector('body[data-page="home"] .main-content');
-  const imageContainer = document.getElementById('imageContainer');
+  const mainContent = document.querySelector('body[data-page="home"] .main-content, body[data-page="user"] .main-content');
+  const headerContainer = document.getElementById('imageContainer') || document.getElementById('userLibraryContainer');
   const buttonsContainer = document.querySelector('.arranger-buttons-container');
-  
-  if (mainContent && imageContainer && buttonsContainer) {
+
+  if (mainContent && headerContainer && buttonsContainer) {
     // Calculate the left edge of the actual text content
     const mainContentRect = mainContent.getBoundingClientRect();
     const mainContentPadding = parseInt(getComputedStyle(mainContent).paddingLeft);
     const textLeftEdge = mainContentRect.left + mainContentPadding;
-    
-    // Get current position of image container (without any margin)
-    imageContainer.style.marginLeft = '0px'; // Reset to get base position
-    const imageRect = imageContainer.getBoundingClientRect();
-    
-    // Calculate needed offset from the image's current position
-    const neededMargin = textLeftEdge - imageRect.left;
-    
+
+    // Get current position of header container (without any margin)
+    headerContainer.style.marginLeft = '0px'; // Reset to get base position
+    const headerRect = headerContainer.getBoundingClientRect();
+
+    // Calculate needed offset from the header's current position
+    const neededMargin = textLeftEdge - headerRect.left;
+
     // Apply the calculated margin
-    imageContainer.style.marginLeft = neededMargin + 'px';
+    headerContainer.style.marginLeft = neededMargin + 'px';
     buttonsContainer.style.marginLeft = neededMargin + 'px';
   }
 }

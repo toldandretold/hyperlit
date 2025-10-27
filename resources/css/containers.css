@@ -213,12 +213,25 @@ black #221F20;
 
 
 
-#imageContainer {
+#imageContainer,
+#userLibraryContainer {
   margin-bottom: 1em;
   margin-top: 1em;
   padding-left: 1em;
   padding-left: 40px;
 
+}
+
+/* Placeholder text for empty contenteditable fields */
+.editable-field:empty::before {
+  content: attr(data-placeholder);
+  color: #666;
+  font-style: italic;
+  pointer-events: none;
+}
+
+.editable-field:focus:empty::before {
+  color: #999;
 }
 
 #hyperlit-container {

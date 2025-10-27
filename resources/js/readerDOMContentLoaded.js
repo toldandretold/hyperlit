@@ -18,6 +18,7 @@ import { attachMarkListeners } from "./hyperLights.js";
 import TogglePerimeterButtons from "./togglePerimeterButtons.js";
 import { showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
 import { pendingFirstChunkLoadedPromise } from "./initializePage.js";
+import { initializeUserProfileEditor } from "./userProfileEditor.js";
 
 // Progress bar control functions
 export function updatePageLoadProgress(percent, message = null) {
@@ -193,5 +194,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   } else if (pageType === "user") {
     // User pages use same initialization as homepage (same structure)
     await initializeHomepage();
+    // Initialize user profile editor (title and bio fields)
+    await initializeUserProfileEditor();
   }
 });

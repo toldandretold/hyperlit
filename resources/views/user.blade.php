@@ -38,6 +38,10 @@
   -->
   <div class="user-content-wrapper">
     <div class="fixed-header">
+      <div id="userLibraryContainer" class="top-content">
+        <h1 id="userLibraryTitle" contenteditable="false"></h1>
+        <div id="userBio" contenteditable="false"></div>
+      </div>
       <div class="arranger-buttons-container">
         <!-- User page: public/private toggle - both load same book -->
         <button class="arranger-button active" data-content="{{ $book }}" data-filter="public">Public</button>
