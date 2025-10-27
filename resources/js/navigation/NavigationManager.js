@@ -1,8 +1,17 @@
 /**
  * NavigationManager - Central coordinator for all navigation pathways
  * Routes navigation requests to the appropriate pathway handler
+ *
+ * NEW SYSTEM: Structure-aware navigation with 2 universal pathways
+ * - SameTemplateTransition: Content-only for same structure (reader→reader, home→home, user→user)
+ * - DifferentTemplateTransition: Full body replacement for cross-structure transitions
+ *
+ * LEGACY SYSTEM: Maintained for backward compatibility
  */
 import { ProgressManager } from './ProgressManager.js';
+import { SameTemplateTransition } from './pathways/SameTemplateTransition.js';
+import { DifferentTemplateTransition } from './pathways/DifferentTemplateTransition.js';
+import { LinkNavigationHandler } from './LinkNavigationHandler.js';
 
 export class NavigationManager {
   static navigationCount = 0;
@@ -155,6 +164,105 @@ export class NavigationManager {
   static async smartNavigate(context = {}) {
     const pathway = this.determinePathway(context);
     return await this.navigate(pathway, context);
+  }
+
+  /**
+   * NEW SYSTEM: Structure-aware navigation
+   * Automatically determines and executes the appropriate transition based on page structures
+   */
+  static async navigateByStructure(options = {}) {
+    this.navigationCount++;
+    console.log(`🧭 NavigationManager: Structure-aware navigation (transition #${this.navigationCount})`, options);
+
+    try {
+      // Get current structure
+      const currentStructure = LinkNavigationHandler.getPageStructure();
+      console.log(`📊 Current structure: ${currentStructure}`);
+
+      // Detect target structure
+      const targetStructure = await this.detectTargetStructure(options);
+      console.log(`📊 Target structure: ${targetStructure}`);
+
+      // Check if structures are compatible (same-to-same only)
+      const compatible = LinkNavigationHandler.areStructuresCompatible(currentStructure, targetStructure);
+      console.log(`📊 Structures compatible: ${compatible}`);
+
+      if (compatible) {
+        // Same structure: content-only transition
+        console.log(`✨ Using SameTemplateTransition (${currentStructure}→${targetStructure})`);
+        return await SameTemplateTransition.execute(options);
+      } else {
+        // Different structures: full body replacement
+        console.log(`✨ Using DifferentTemplateTransition (${currentStructure}→${targetStructure})`);
+        return await DifferentTemplateTransition.execute({
+          ...options,
+          fromStructure: currentStructure,
+          toStructure: targetStructure
+        });
+      }
+    } catch (error) {
+      console.error(`❌ Structure-aware navigation failed:`, error);
+      ProgressManager.hide();
+      throw error;
+    }
+  }
+
+  /**
+   * Detect target structure from navigation options
+   */
+  static async detectTargetStructure(options = {}) {
+    const { targetUrl, toBook, targetStructure } = options;
+
+    // If explicitly provided, use it
+    if (targetStructure) {
+      return targetStructure;
+    }
+
+    // Try to detect from URL
+    if (targetUrl) {
+      return await this.detectStructureFromUrl(targetUrl);
+    }
+
+    // Try to detect from book ID
+    if (toBook) {
+      return await this.detectStructureFromUrl(`/${toBook}`);
+    }
+
+    // Default fallback
+    console.warn('Could not detect target structure, defaulting to reader');
+    return 'reader';
+  }
+
+  /**
+   * Detect structure type from URL using simple pattern matching
+   * Fast, offline-friendly, no fetching required!
+   */
+  static async detectStructureFromUrl(url) {
+    try {
+      const urlObj = new URL(url, window.location.origin);
+      const path = urlObj.pathname;
+
+      // Root path is home
+      if (path === '/' || path === '') {
+        return 'home';
+      }
+
+      const pathSegments = path.split('/').filter(Boolean);
+
+      // /u/{username} is user page
+      if (pathSegments[0] === 'u' && pathSegments.length >= 2) {
+        console.log(`✅ Detected user page structure: /u/${pathSegments[1]}`);
+        return 'user';
+      }
+
+      // Everything else is reader (/{book}, /{book}/HL_xxx, etc.)
+      console.log(`✅ Detected reader structure: ${path}`);
+      return 'reader';
+
+    } catch (error) {
+      console.warn('Could not detect structure from URL:', error);
+      return 'reader';
+    }
   }
 
   /**

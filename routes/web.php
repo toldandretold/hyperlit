@@ -71,12 +71,16 @@ Route::get('/{book}/edit', [TextController::class, 'show'])
      ->where('book', '[A-Za-z0-9_-]+')
      ->name('book.edit');
 
-// Dynamic route - checks if identifier is username, otherwise treats as book
+// User pages - /u/{username}
+Route::get('/u/{username}', function($username) {
+    return app(\App\Http\Controllers\UserHomeServerController::class)->show($username);
+})->where('username', '[A-Za-z0-9_-]+')->name('user.home');
+
+// Legacy user page route - redirects to new /u/{username} format
 Route::get('/{identifier}', function(Request $request, $identifier) {
-    // Check if it's a username
+    // Check if it's a username - redirect to new format
     if (User::where('name', $identifier)->exists()) {
-        // It's a user page - use UserHomeServerController
-        return app(\App\Http\Controllers\UserHomeServerController::class)->show($identifier);
+        return redirect("/u/{$identifier}", 301);
     }
 
     // Otherwise it's a regular book - show reader.blade.php

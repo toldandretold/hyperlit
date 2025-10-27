@@ -59,11 +59,19 @@ export function initializeHomepageButtons() {
   };
   window.addEventListener('resize', resizeHandler);
   
-  // Initialize the default active content on page load  
+  // Initialize the default active content on page load
   const activeButton = document.querySelector('.arranger-button.active');
   if (activeButton) {
     const initialTargetId = activeButton.dataset.content;
     transitionToBookContent(initialTargetId, false); // No loading overlay on initial load
+  } else {
+    // No buttons exist (e.g., non-owner viewing user page)
+    // Load the public content by default using the main-content div's ID
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent && mainContent.id) {
+      console.log(`📄 No arranger buttons found, loading default content: ${mainContent.id}`);
+      transitionToBookContent(mainContent.id, false);
+    }
   }
   
   document.querySelectorAll('.arranger-button').forEach(button => {

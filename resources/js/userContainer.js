@@ -1072,23 +1072,25 @@ export class UserContainerManager extends ContainerManager {
   async navigateToUserBooks(username) {
     try {
       console.log(`📚 UserContainer: Navigating to user books for ${username} using SPA`);
-      
+
       // Close the user container first
       this.closeContainer();
-      
-      // Use HomeToBookTransition for smooth navigation
-      const { HomeToBookTransition } = await import('./navigation/pathways/HomeToBookTransition.js');
-      await HomeToBookTransition.execute({ 
+
+      // Use NEW structure-aware navigation system
+      // This will automatically detect home→user transition and use DifferentTemplateTransition
+      const { NavigationManager } = await import('./navigation/NavigationManager.js');
+      await NavigationManager.navigateByStructure({
         toBook: encodeURIComponent(username),
-        hash: '',
-        replaceHistory: true // Replace current history entry to avoid double-back issue
+        targetUrl: `/u/${encodeURIComponent(username)}`,
+        targetStructure: 'user', // Explicitly specify user page structure
+        hash: ''
       });
-      
+
       console.log(`✅ UserContainer: Successfully navigated to ${username}'s books`);
     } catch (error) {
       console.error('❌ UserContainer: SPA navigation failed, falling back to page reload:', error);
-      // Fallback to original behavior
-      window.location.href = "/" + encodeURIComponent(username);
+      // Fallback to new /u/{username} URL format
+      window.location.href = "/u/" + encodeURIComponent(username);
     }
   }
 }

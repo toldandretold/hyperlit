@@ -42,11 +42,14 @@
         <h1 id="userLibraryTitle" contenteditable="false"></h1>
         <div id="userBio" contenteditable="false"></div>
       </div>
+      @if($isOwner)
       <div class="arranger-buttons-container">
         <!-- User page: public/private toggle - load different books based on visibility -->
+        <!-- Only visible to page owner -->
         <button class="arranger-button active" data-content="{{ $book }}" data-filter="public">Public</button>
         <button class="arranger-button" data-content="{{ $book }}Private" data-filter="private">Private</button>
       </div>
+      @endif
     </div>
     <!-- User page content container - single book, filtered by public/private -->
     <div id="{{ $book }}" class="main-content active-content"></div>

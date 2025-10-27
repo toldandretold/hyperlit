@@ -38,6 +38,7 @@ class UserHomeServerController extends Controller
             'pageType' => 'user',
             'book' => $username,
             'username' => $username,
+            'isOwner' => $isOwner,
         ]);
     }
 
