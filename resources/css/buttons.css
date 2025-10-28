@@ -59,7 +59,7 @@ black #221F20;
 #edit-source {
   width: 20px;
   height: 20px;
-  background: #221F20;
+  background: transparent;
   border: none;
   cursor: pointer;
   padding: 0px;
@@ -362,7 +362,7 @@ black #221F20;
 }
 
 .download-btn {
-  background: #221F20;
+  background: transparent;
   color: #CBCCCC;
   border: none;
   padding: 0.5em;
