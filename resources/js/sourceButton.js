@@ -410,11 +410,20 @@ export class SourceContainerManager extends ContainerManager {
     if (this.isAnimating || !this.container) return;
     this.isAnimating = true;
 
+    // 🧹 CRITICAL: Clear edit button inline styles to prevent overlay bug
+    // The edit button has inline display/visibility styles that override .hidden class
+    const editBtn = this.container.querySelector("#edit-source");
+    if (editBtn) {
+      editBtn.style.display = "";
+      editBtn.style.visibility = "";
+      console.log("🧹 SourceContainerManager: Cleared edit button inline styles");
+    }
+
     // Collapse to zero size and fade out, but keep positioned where it is
     this.container.style.width = "0";
     this.container.style.height = "0";
     this.container.style.opacity = "0";
-    
+
     this.isOpen = false;
     window.activeContainer = "main-content";
     this.updateState();

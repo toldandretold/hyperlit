@@ -6,6 +6,12 @@ import { fixHeaderSpacing } from './homepageDisplayUnit.js';
 let titleDebounceTimer = null;
 let bioDebounceTimer = null;
 
+// Store listener references to prevent duplicate attachment
+let titleInputListener = null;
+let bioInputListener = null;
+let currentTitleElement = null;
+let currentBioElement = null;
+
 /**
  * Initialize the user profile editor
  * Fetches library record and displays title/bio
@@ -87,10 +93,25 @@ export async function initializeUserProfileEditor() {
 
 /**
  * Attach debounced save listeners to title and bio fields
+ * Removes old listeners first to prevent duplicates
  */
 function attachSaveListeners(titleEl, bioEl, originalRecord) {
-  // Title field
-  titleEl.addEventListener('input', () => {
+  // 🧹 CRITICAL: Remove old listeners first to prevent duplicates
+  if (currentTitleElement && titleInputListener) {
+    currentTitleElement.removeEventListener('input', titleInputListener);
+    console.log('🧹 Removed old title input listener');
+  }
+  if (currentBioElement && bioInputListener) {
+    currentBioElement.removeEventListener('input', bioInputListener);
+    console.log('🧹 Removed old bio input listener');
+  }
+
+  // Store current elements
+  currentTitleElement = titleEl;
+  currentBioElement = bioEl;
+
+  // Title field listener
+  titleInputListener = () => {
     clearTimeout(titleDebounceTimer);
     titleDebounceTimer = setTimeout(async () => {
       const newTitle = titleEl.textContent.trim();
@@ -104,10 +125,11 @@ function attachSaveListeners(titleEl, bioEl, originalRecord) {
 
       await saveLibraryField('title', newTitle, originalRecord);
     }, 1000);
-  });
+  };
+  titleEl.addEventListener('input', titleInputListener);
 
-  // Bio field
-  bioEl.addEventListener('input', () => {
+  // Bio field listener
+  bioInputListener = () => {
     clearTimeout(bioDebounceTimer);
     bioDebounceTimer = setTimeout(async () => {
       const newBio = bioEl.textContent.trim();
@@ -121,9 +143,10 @@ function attachSaveListeners(titleEl, bioEl, originalRecord) {
 
       await saveLibraryField('note', newBio, originalRecord);
     }, 1000);
-  });
+  };
+  bioEl.addEventListener('input', bioInputListener);
 
-  console.log('✅ User profile save listeners attached');
+  console.log('✅ User profile save listeners attached (old listeners removed first)');
 }
 
 /**
@@ -205,23 +228,33 @@ async function syncLibraryRecordToBackend(libraryRecord) {
 
 /**
  * Cleanup function for navigation
+ * Removes event listeners and resets state
  */
 export function destroyUserProfileEditor() {
-  const titleEl = document.getElementById('userLibraryTitle');
-  const bioEl = document.getElementById('userBio');
-
-  if (titleEl) {
-    titleEl.contentEditable = 'false';
-    titleEl.classList.remove('editable-field');
+  // Remove event listeners if they exist
+  if (currentTitleElement && titleInputListener) {
+    currentTitleElement.removeEventListener('input', titleInputListener);
+    currentTitleElement.contentEditable = 'false';
+    currentTitleElement.classList.remove('editable-field');
   }
 
-  if (bioEl) {
-    bioEl.contentEditable = 'false';
-    bioEl.classList.remove('editable-field');
+  if (currentBioElement && bioInputListener) {
+    currentBioElement.removeEventListener('input', bioInputListener);
+    currentBioElement.contentEditable = 'false';
+    currentBioElement.classList.remove('editable-field');
   }
 
+  // Clear stored references
+  titleInputListener = null;
+  bioInputListener = null;
+  currentTitleElement = null;
+  currentBioElement = null;
+
+  // Clear any pending timers
   clearTimeout(titleDebounceTimer);
   clearTimeout(bioDebounceTimer);
+  titleDebounceTimer = null;
+  bioDebounceTimer = null;
 
-  console.log('🧹 User profile editor destroyed');
+  console.log('🧹 User profile editor destroyed (listeners removed, references cleared)');
 }

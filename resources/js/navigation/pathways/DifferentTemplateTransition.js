@@ -119,6 +119,14 @@ export class DifferentTemplateTransition {
     console.log(`🧹 DifferentTemplateTransition: Cleaning up ${fromStructure} state`);
 
     try {
+      // 🧹 Cleanup logo navigation toggle (present on all page types)
+      console.log('🧹 DifferentTemplateTransition: Cleaning up logo navigation toggle');
+      const { destroyLogoNav } = await import('../../logoNavToggle.js');
+      if (typeof destroyLogoNav === 'function') {
+        destroyLogoNav();
+        console.log('✅ DifferentTemplateTransition: Logo navigation toggle destroyed');
+      }
+
       switch (fromStructure) {
         case 'reader':
           await this.cleanupReader();
@@ -201,11 +209,15 @@ export class DifferentTemplateTransition {
     console.log('🧹 DifferentTemplateTransition: Cleaning up user state');
 
     try {
+      // 🧹 CRITICAL: Destroy user profile editor first
+      const { destroyUserProfileEditor } = await import('../../userProfileEditor.js');
+      if (typeof destroyUserProfileEditor === 'function') {
+        destroyUserProfileEditor();
+        console.log('✅ DifferentTemplateTransition: User profile editor destroyed');
+      }
+
       // User pages have same managers as home pages
       await this.cleanupHome();
-
-      // Add user-specific cleanup if needed
-      // (e.g., user profile editor cleanup)
 
     } catch (error) {
       console.warn('User cleanup failed:', error);
@@ -345,6 +357,23 @@ export class DifferentTemplateTransition {
       // Ensure content is loaded
       await this.ensureContentLoaded(bookId);
 
+      // 🔧 Reinitialize logo navigation toggle
+      console.log('🔧 DifferentTemplateTransition: Reinitializing logo navigation toggle');
+      const { initializeLogoNav } = await import('../../logoNavToggle.js');
+      if (typeof initializeLogoNav === 'function') {
+        initializeLogoNav();
+        console.log('✅ DifferentTemplateTransition: Logo navigation toggle initialized');
+      }
+
+      // 🔧 Reinitialize user container (userButton is in logoNavWrapper on all pages)
+      console.log('🔧 DifferentTemplateTransition: Reinitializing user container');
+      const { initializeUserContainer } = await import('../../userContainer.js');
+      const userManager = initializeUserContainer();
+      if (userManager && userManager.initializeUser) {
+        await userManager.initializeUser();
+      }
+      console.log('✅ DifferentTemplateTransition: User container initialized');
+
       console.log('✅ DifferentTemplateTransition: Reader initialization complete');
 
     } catch (error) {
@@ -379,6 +408,14 @@ export class DifferentTemplateTransition {
         await universalPageInitializer(progressCallback);
       } finally {
         delete window.containersAlreadyInitialized;
+      }
+
+      // 🔧 Reinitialize logo navigation toggle
+      console.log('🔧 DifferentTemplateTransition: Reinitializing logo navigation toggle');
+      const { initializeLogoNav } = await import('../../logoNavToggle.js');
+      if (typeof initializeLogoNav === 'function') {
+        initializeLogoNav();
+        console.log('✅ DifferentTemplateTransition: Logo navigation toggle initialized');
       }
 
       console.log('✅ DifferentTemplateTransition: Home initialization complete');
@@ -417,6 +454,14 @@ export class DifferentTemplateTransition {
         await universalPageInitializer(progressCallback);
       } finally {
         delete window.containersAlreadyInitialized;
+      }
+
+      // 🔧 Reinitialize logo navigation toggle
+      console.log('🔧 DifferentTemplateTransition: Reinitializing logo navigation toggle');
+      const { initializeLogoNav } = await import('../../logoNavToggle.js');
+      if (typeof initializeLogoNav === 'function') {
+        initializeLogoNav();
+        console.log('✅ DifferentTemplateTransition: Logo navigation toggle initialized');
       }
 
       console.log('✅ DifferentTemplateTransition: User initialization complete');

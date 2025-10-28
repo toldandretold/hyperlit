@@ -144,6 +144,23 @@ export class SameTemplateTransition {
 
       console.log(`🔄 SameTemplateTransition: Swapping content to ${bookId}`);
 
+      // 🧹 CRITICAL: Destroy existing homepage managers before content swap
+      console.log('🧹 SameTemplateTransition: Destroying homepage display unit listeners');
+      const { destroyHomepageDisplayUnit } = await import('../../homepageDisplayUnit.js');
+      if (typeof destroyHomepageDisplayUnit === 'function') {
+        destroyHomepageDisplayUnit();
+      }
+
+      // 🧹 CRITICAL: Destroy existing user profile editor if it exists
+      const currentStructure = document.body.getAttribute('data-page');
+      if (currentStructure === 'user') {
+        console.log('🧹 SameTemplateTransition: Destroying user profile editor listeners');
+        const { destroyUserProfileEditor } = await import('../../userProfileEditor.js');
+        if (typeof destroyUserProfileEditor === 'function') {
+          destroyUserProfileEditor();
+        }
+      }
+
       // Remove existing content containers
       document.querySelectorAll('.main-content').forEach(content => {
         console.log(`🧹 Removing existing content container: ${content.id}`);
@@ -175,11 +192,53 @@ export class SameTemplateTransition {
       // Use the same loading pipeline as regular page transitions
       await loadHyperText(bookId);
 
-      // Realign header content after new content is loaded
-      const { fixHeaderSpacing } = await import('../../homepageDisplayUnit.js');
+      // 🔧 CRITICAL: Reinitialize homepage display unit after content load
+      console.log('🔧 SameTemplateTransition: Reinitializing homepage display unit');
+      const { initializeHomepageButtons, fixHeaderSpacing } = await import('../../homepageDisplayUnit.js');
+      if (typeof initializeHomepageButtons === 'function') {
+        initializeHomepageButtons();
+      }
       if (typeof fixHeaderSpacing === 'function') {
         fixHeaderSpacing();
       }
+
+      // 🔧 CRITICAL: Reinitialize user profile editor if on user page
+      if (currentStructure === 'user') {
+        console.log('🔧 SameTemplateTransition: Reinitializing user profile editor');
+        const { initializeUserProfileEditor } = await import('../../userProfileEditor.js');
+        if (typeof initializeUserProfileEditor === 'function') {
+          await initializeUserProfileEditor(bookId);
+        }
+      }
+
+      // 🔧 CRITICAL: Reinitialize TogglePerimeterButtons
+      console.log('🔧 SameTemplateTransition: Reinitializing TogglePerimeterButtons');
+      const { togglePerimeterButtons } = await import('../../readerDOMContentLoaded.js');
+      if (togglePerimeterButtons) {
+        togglePerimeterButtons.destroy();
+        togglePerimeterButtons.rebindElements();
+        togglePerimeterButtons.init();
+        togglePerimeterButtons.updatePosition();
+        console.log('✅ SameTemplateTransition: TogglePerimeterButtons reinitialized');
+      }
+
+      // 🔧 CRITICAL: Reinitialize logo navigation toggle
+      console.log('🔧 SameTemplateTransition: Reinitializing logo navigation toggle');
+      const { destroyLogoNav, initializeLogoNav } = await import('../../logoNavToggle.js');
+      if (destroyLogoNav && initializeLogoNav) {
+        destroyLogoNav();
+        initializeLogoNav();
+        console.log('✅ SameTemplateTransition: Logo navigation toggle reinitialized');
+      }
+
+      // 🔧 CRITICAL: Reinitialize user container (userButton in logoNavWrapper on user/reader pages)
+      console.log('🔧 SameTemplateTransition: Reinitializing user container');
+      const { initializeUserContainer } = await import('../../userContainer.js');
+      const userManager = initializeUserContainer();
+      if (userManager && userManager.initializeUser) {
+        await userManager.initializeUser();
+      }
+      console.log('✅ SameTemplateTransition: User container reinitialized');
 
       console.log(`✅ Successfully loaded ${bookId} content`);
 

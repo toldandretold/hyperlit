@@ -120,13 +120,14 @@ body[data-page="reader"] .main-content {
 */
 
 /* Side Buttons - MOBILE-FIRST DEFAULTS */
-#logoContainer,
 #userButtonContainer {
   position: fixed;
   top: 15px; /* Moved down 5px to better align with topRightContainer */
   left: 10px;
   z-index: 999;
 }
+
+/* logoContainer is now inside #logoNavWrapper which handles positioning */
 
 #topRightContainer {
   position: fixed;

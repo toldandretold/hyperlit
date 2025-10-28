@@ -7,7 +7,7 @@ export default class TogglePerimeterButtons {
     this.elementIds = options.elementIds || [
       "bottom-right-buttons",
       "topRightContainer",
-      "logoContainer",
+      "logoNavWrapper",
       "userButtonContainer"
     ];
     this.tapThreshold = options.tapThreshold || 10;
@@ -15,7 +15,7 @@ export default class TogglePerimeterButtons {
 
     // Define all possible elements this manager might control.
     this.possibleLoadingElementIds = [
-      "bottom-right-buttons", "topRightContainer", "logoContainer",
+      "bottom-right-buttons", "topRightContainer", "logoNavWrapper",
       "userButtonContainer", "edit-toolbar",
     ];
 
@@ -107,26 +107,26 @@ export default class TogglePerimeterButtons {
    * Returns true if the click is within an expanded area around these buttons
    */
   isClickNearImportantButton(event) {
-    const logoContainer = document.getElementById('logoContainer');
+    const logoNavWrapper = document.getElementById('logoNavWrapper');
     const userButton = document.getElementById('userButton');
     const userButtonContainer = document.getElementById('userButtonContainer');
     const cloudRef = document.getElementById('cloudRef');
     const editButton = document.getElementById('editButton');
     const tocToggleButton = document.getElementById('toc-toggle-button');
-    
+
     // Get click coordinates
     const clickX = event.clientX || (event.touches && event.touches[0] ? event.touches[0].clientX : 0);
     const clickY = event.clientY || (event.touches && event.touches[0] ? event.touches[0].clientY : 0);
-    
+
     // Define expanded click area (padding around buttons)
     const padding = 20; // pixels of extra clickable area around buttons
-    
-    // Check logo container
-    if (logoContainer) {
-      const logoRect = logoContainer.getBoundingClientRect();
-      if (clickX >= logoRect.left - padding && 
-          clickX <= logoRect.right + padding && 
-          clickY >= logoRect.top - padding && 
+
+    // Check logo nav wrapper
+    if (logoNavWrapper) {
+      const logoRect = logoNavWrapper.getBoundingClientRect();
+      if (clickX >= logoRect.left - padding &&
+          clickX <= logoRect.right + padding &&
+          clickY >= logoRect.top - padding &&
           clickY <= logoRect.bottom + padding) {
         return true;
       }
@@ -201,7 +201,7 @@ shouldIgnoreEvent(event) {
   // Ignore other UI elements
   if (
     event.target.closest(
-      "#logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button, #cloudRef, .custom-alert, .custom-alert-overlay",
+      "#logoNavWrapper, #logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button, #cloudRef, .custom-alert, .custom-alert-overlay",
     )
   ) {
     return true;
@@ -360,7 +360,7 @@ shouldIgnoreEvent(event) {
           ) {
             element.style.right = `${Math.max(10, newPos)}px`;
           } else if (
-            element.id === "logoContainer" ||
+            element.id === "logoNavWrapper" ||
             element.id === "userButtonContainer"
           ) {
             element.style.left = `${Math.max(10, newPos)}px`;

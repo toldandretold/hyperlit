@@ -359,6 +359,20 @@ export async function syncBookDataFromDatabase(bookId) {
         console.log(`📚 Book "${bookId}" not found in database - this is normal for new books`);
         return { success: false, reason: 'book_not_found' };
       }
+
+      // 🔒 Handle private book access denied
+      if (response.status === 403) {
+        const errorData = await response.json();
+        console.log(`🔒 Access denied to book "${bookId}"`, errorData);
+
+        if (errorData.error === 'access_denied') {
+          // Import handlePrivateBookAccessDenied function
+          const { handlePrivateBookAccessDenied } = await import('./initializePage.js');
+          await handlePrivateBookAccessDenied(bookId);
+          return { success: false, reason: 'access_denied' };
+        }
+      }
+
       const errorText = await response.text();
       console.error(`❌ API request failed:`, {
         status: response.status,
