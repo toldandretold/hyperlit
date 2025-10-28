@@ -235,39 +235,55 @@ export async function updateHistoryLog(logEntry) {
 
 export async function executeSyncPayload(payload) {
   const bookId = payload.book;
-  const promises = [];
 
-  if (
-    payload.updates.nodeChunks.length > 0 ||
-    payload.deletions.nodeChunks.length > 0
-  ) {
-    const allNodeChunks = [
-      ...payload.updates.nodeChunks.map(toPublicChunk).filter(Boolean),
-      ...payload.deletions.nodeChunks,
-    ];
+  // Prepare node chunks (combine updates and deletions)
+  const allNodeChunks = [
+    ...payload.updates.nodeChunks.map(toPublicChunk).filter(Boolean),
+    ...payload.deletions.nodeChunks,
+  ];
 
-    if (allNodeChunks.length > 0) {
-      // Backend now handles multi-book requests, so send all nodes together
-      console.log(`📚 Syncing ${allNodeChunks.length} nodes from nodeChunks object store in IndexedDB to node_chunks table in PostgreSQL (may include multiple books)`);
-      promises.push(syncNodeChunksToPostgreSQL(bookId, allNodeChunks));
-    }
-  }
-  if (payload.updates.hypercites.length > 0) {
-    promises.push(syncHyperciteToPostgreSQL(payload.updates.hypercites));
-  }
-  if (payload.updates.hyperlights.length > 0) {
-    promises.push(syncHyperlightToPostgreSQL(payload.updates.hyperlights));
-  }
-  if (payload.deletions.hyperlights.length > 0) {
-    promises.push(
-      syncHyperlightDeletionsToPostgreSQL(payload.deletions.hyperlights)
-    );
-  }
-  if (payload.updates.library) {
-    promises.push(upsertLibraryRecord(payload.updates.library));
+  // Prepare the unified sync request payload
+  const unifiedPayload = {
+    book: bookId,
+    nodeChunks: allNodeChunks,
+    hypercites: payload.updates.hypercites || [],
+    hyperlights: payload.updates.hyperlights || [],
+    hyperlightDeletions: payload.deletions.hyperlights || [],
+    library: payload.updates.library || null,
+  };
+
+  // Log what we're syncing
+  const syncSummary = [];
+  if (allNodeChunks.length > 0) syncSummary.push(`${allNodeChunks.length} node chunks`);
+  if (unifiedPayload.hypercites.length > 0) syncSummary.push(`${unifiedPayload.hypercites.length} hypercites`);
+  if (unifiedPayload.hyperlights.length > 0) syncSummary.push(`${unifiedPayload.hyperlights.length} hyperlights`);
+  if (unifiedPayload.hyperlightDeletions.length > 0) syncSummary.push(`${unifiedPayload.hyperlightDeletions.length} hyperlight deletions`);
+  if (unifiedPayload.library) syncSummary.push('library record');
+
+  console.log(`🔄 Unified sync: ${syncSummary.join(', ')}`);
+
+  // Make single unified API request
+  const res = await fetch("/api/db/unified-sync", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+      "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content
+    },
+    credentials: "include",
+    body: JSON.stringify(unifiedPayload)
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    console.error("❌ Unified sync error:", txt);
+    throw new Error(`Unified sync failed: ${txt}`);
   }
 
-  await Promise.all(promises);
+  const result = await res.json();
+  console.log("✅ Unified sync completed:", result);
+  return result;
 }
 
 

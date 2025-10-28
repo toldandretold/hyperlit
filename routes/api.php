@@ -12,6 +12,7 @@ use App\Http\Controllers\HomePageServerController;
 use App\Http\Controllers\BeaconSyncController;
 use App\Http\Controllers\DbReferencesController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\UnifiedSyncController;
 
 
 
@@ -27,9 +28,15 @@ Route::post('/anonymous-session', [AuthController::class, 'createAnonymousSessio
 // Auth check (works for both authenticated and guest)
 Route::get('/auth-check', [AuthController::class, 'checkAuth']);
 
-Route::middleware(['author', 'throttle:30,1'])->group(function () {
+Route::middleware(['author', 'throttle:120,1'])->group(function () {
 
     Route::get('/db/library/test', [DbLibraryController::class, 'test']);
+
+    /* ----------------  Unified Sync Endpoint  ---------------- */
+    Route::post(
+        '/db/unified-sync',
+        [UnifiedSyncController::class, 'sync']
+    );
 
     /* ----------------  Homepage / library stats  ---------------- */
     Route::get(
