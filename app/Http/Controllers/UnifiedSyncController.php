@@ -1,0 +1,206 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use App\Models\PgNodeChunk;
+use App\Models\PgHypercite;
+use App\Models\PgHyperlight;
+use App\Models\PgLibrary;
+use Illuminate\Support\Facades\Auth;
+
+class UnifiedSyncController extends Controller
+{
+    /**
+     * Unified sync endpoint - handles all data types in a single atomic transaction
+     *
+     * Expected payload:
+     * {
+     *   "book": "book_123",
+     *   "nodeChunks": [...],
+     *   "hypercites": [...],
+     *   "hyperlights": [...],
+     *   "hyperlightDeletions": [...],
+     *   "library": {...}
+     * }
+     */
+    public function sync(Request $request)
+    {
+        try {
+            $data = $request->all();
+            $bookId = $data['book'] ?? null;
+
+            if (!$bookId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Book ID is required'
+                ], 400);
+            }
+
+            Log::info('Unified sync started', [
+                'book' => $bookId,
+                'nodeChunks_count' => isset($data['nodeChunks']) ? count($data['nodeChunks']) : 0,
+                'hypercites_count' => isset($data['hypercites']) ? count($data['hypercites']) : 0,
+                'hyperlights_count' => isset($data['hyperlights']) ? count($data['hyperlights']) : 0,
+                'hyperlightDeletions_count' => isset($data['hyperlightDeletions']) ? count($data['hyperlightDeletions']) : 0,
+                'has_library' => isset($data['library']),
+            ]);
+
+            // Wrap everything in a transaction for atomicity
+            $result = DB::transaction(function () use ($request, $data, $bookId) {
+                $results = [
+                    'nodeChunks' => null,
+                    'hypercites' => null,
+                    'hyperlights' => null,
+                    'hyperlightDeletions' => null,
+                    'library' => null,
+                ];
+
+                // 1. Sync node chunks (if present)
+                if (!empty($data['nodeChunks'])) {
+                    $nodeChunkController = new DbNodeChunkController();
+                    $nodeChunkRequest = new Request(['book' => $bookId, 'data' => $data['nodeChunks']]);
+                    $nodeChunkRequest->setUserResolver(function () use ($request) {
+                        return $request->user();
+                    });
+                    // Copy cookies
+                    foreach ($request->cookies as $key => $value) {
+                        $nodeChunkRequest->cookies->set($key, $value);
+                    }
+
+                    $response = $nodeChunkController->targetedUpsert($nodeChunkRequest);
+                    $results['nodeChunks'] = json_decode($response->getContent(), true);
+
+                    if (!($results['nodeChunks']['success'] ?? false)) {
+                        throw new \Exception('Node chunks sync failed: ' . ($results['nodeChunks']['message'] ?? 'Unknown error'));
+                    }
+                }
+
+                // 2. Sync hypercites (if present)
+                if (!empty($data['hypercites'])) {
+                    $hyperciteController = new DbHyperciteController();
+                    $hyperciteRequest = new Request(['book' => $bookId, 'data' => $data['hypercites']]);
+                    $hyperciteRequest->setUserResolver(function () use ($request) {
+                        return $request->user();
+                    });
+
+                    $response = $hyperciteController->upsert($hyperciteRequest);
+                    $results['hypercites'] = json_decode($response->getContent(), true);
+
+                    if (!($results['hypercites']['success'] ?? false)) {
+                        throw new \Exception('Hypercites sync failed: ' . ($results['hypercites']['message'] ?? 'Unknown error'));
+                    }
+                }
+
+                // 3. Sync hyperlights (if present)
+                if (!empty($data['hyperlights'])) {
+                    $hyperlightController = new DbHyperlightController();
+                    $hyperlightRequest = new Request(['book' => $bookId, 'data' => $data['hyperlights']]);
+                    $hyperlightRequest->setUserResolver(function () use ($request) {
+                        return $request->user();
+                    });
+                    foreach ($request->cookies as $key => $value) {
+                        $hyperlightRequest->cookies->set($key, $value);
+                    }
+
+                    $response = $hyperlightController->upsert($hyperlightRequest);
+                    $results['hyperlights'] = json_decode($response->getContent(), true);
+
+                    if (!($results['hyperlights']['success'] ?? false)) {
+                        throw new \Exception('Hyperlights sync failed: ' . ($results['hyperlights']['message'] ?? 'Unknown error'));
+                    }
+                }
+
+                // 4. Sync hyperlight deletions (if present)
+                if (!empty($data['hyperlightDeletions'])) {
+                    $hyperlightController = new DbHyperlightController();
+
+                    foreach ($data['hyperlightDeletions'] as $item) {
+                        $action = $item['_action'] ?? 'delete';
+
+                        if ($action === 'delete') {
+                            $deleteRequest = new Request(['book' => $item['book'], 'data' => [$item]]);
+                            $deleteRequest->setUserResolver(function () use ($request) {
+                                return $request->user();
+                            });
+                            foreach ($request->cookies as $key => $value) {
+                                $deleteRequest->cookies->set($key, $value);
+                            }
+
+                            $response = $hyperlightController->delete($deleteRequest);
+                            $deleteResult = json_decode($response->getContent(), true);
+
+                            if (!($deleteResult['success'] ?? false)) {
+                                throw new \Exception('Hyperlight deletion failed: ' . ($deleteResult['message'] ?? 'Unknown error'));
+                            }
+                        } elseif ($action === 'hide') {
+                            $hideRequest = new Request(['book' => $item['book'], 'data' => [$item]]);
+                            $hideRequest->setUserResolver(function () use ($request) {
+                                return $request->user();
+                            });
+                            foreach ($request->cookies as $key => $value) {
+                                $hideRequest->cookies->set($key, $value);
+                            }
+
+                            $response = $hyperlightController->hide($hideRequest);
+                            $hideResult = json_decode($response->getContent(), true);
+
+                            if (!($hideResult['success'] ?? false)) {
+                                throw new \Exception('Hyperlight hide failed: ' . ($hideResult['message'] ?? 'Unknown error'));
+                            }
+                        }
+                    }
+
+                    $results['hyperlightDeletions'] = ['success' => true];
+                }
+
+                // 5. Sync library record (if present)
+                if (!empty($data['library'])) {
+                    $libraryController = new DbLibraryController();
+                    $libraryRequest = new Request(['data' => $data['library']]);
+                    $libraryRequest->setUserResolver(function () use ($request) {
+                        return $request->user();
+                    });
+                    foreach ($request->cookies as $key => $value) {
+                        $libraryRequest->cookies->set($key, $value);
+                    }
+
+                    $response = $libraryController->upsert($libraryRequest);
+                    $results['library'] = json_decode($response->getContent(), true);
+
+                    if (!($results['library']['success'] ?? false)) {
+                        throw new \Exception('Library sync failed: ' . ($results['library']['message'] ?? 'Unknown error'));
+                    }
+                }
+
+                return $results;
+            });
+
+            Log::info('Unified sync completed successfully', [
+                'book' => $bookId,
+                'results' => array_map(function($r) { return $r['success'] ?? false; }, $result)
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'All data synced successfully',
+                'results' => $result
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Unified sync failed', [
+                'book' => $bookId ?? 'unknown',
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Sync failed',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+}
