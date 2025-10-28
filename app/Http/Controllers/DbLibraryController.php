@@ -223,6 +223,8 @@ public function upsert(Request $request)
                     'publisher' => $data['publisher'] ?? $libraryRecord->publisher,
                     'school' => $data['school'] ?? $libraryRecord->school,
                     'note' => $data['note'] ?? $libraryRecord->note,
+                    'visibility' => $data['visibility'] ?? $libraryRecord->visibility,
+                    'listed' => $data['listed'] ?? $libraryRecord->listed,
                     'raw_json' => json_encode($this->cleanItemForStorage($data)),
                 ];
             } else {

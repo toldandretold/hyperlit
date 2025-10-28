@@ -825,6 +825,8 @@ class DatabaseToIndexedDBController extends Controller
             'year' => $library->year,
             'creator' => $library->creator,
             'creator_token' => $library->creator_token,
+            'visibility' => $library->visibility ?? 'public',
+            'listed' => $library->listed ?? true,
             'raw_json' => json_decode($library->raw_json ?? '{}', true),
         ];
     }

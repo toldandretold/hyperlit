@@ -34,6 +34,37 @@ black #221F20;
   transform: translateX(calc(-100% - 2em)); /* Keep off-screen */
 }
 
+/* Source container - similar to hyperlit-container */
+#source-container {
+  transform: translateX(calc(100% + 2em)); /* Off-screen right, including gap */
+  transition: transform 0.3s ease-in-out;
+  position: fixed;
+  right: .75em;
+  top: 1em;
+  height: 400px; /* Fixed height for citation display */
+  max-height: calc(100vh - 2em); /* Don't exceed viewport */
+  width: 300px; /* Fixed width, narrower than hyperlit */
+  background-color: rgba(34, 31, 32, 0.60); /* Glass effect */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 1001;
+  overflow: hidden;
+  padding-left: 1em;
+  padding-right: 2em;
+  border-radius: 1em;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+#source-container.open {
+  transform: translateX(0); /* Slide in */
+}
+
+#source-container.hidden {
+  display: block; /* Override display: none */
+  transform: translateX(calc(100% + 2em)); /* Keep off-screen */
+}
+
 #source-container .scroller {
   position: absolute;
   top: 0;
@@ -43,6 +74,26 @@ black #221F20;
   overflow: auto;
   padding: 1em;
   border-radius: 1em 1em;
+}
+
+/* Privacy toggle button */
+#privacy-toggle {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease;
+}
+
+#privacy-toggle:hover {
+  opacity: 0.7;
+}
+
+#privacy-toggle svg {
+  pointer-events: none;
 }
 
 
@@ -961,13 +1012,6 @@ black #221F20;
 }
 
 /* SOURCE CONTAINER FORM STYLING - Make it match newbook-container */
-#source-container {
-  border-radius: 0.75em; /* Same as other containers */
-}
-
-#source-container .scroller {
-  padding: 1em; /* Same as other containers */
-}
 
 #source-container input,
 #source-container textarea,
