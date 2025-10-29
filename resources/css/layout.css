@@ -47,6 +47,7 @@ body[data-page="reader"] #app-container {
 
 /* Rule for the SCROLLING WRAPPERS */
 .home-content-wrapper,
+.user-content-wrapper,
 .reader-content-wrapper {
   margin: 0 auto;
   width: 100%;
@@ -64,9 +65,10 @@ body[data-page="reader"] .reader-content-wrapper {
   flex: 1; /* Take up remaining space */
 }
 
-/* Traditional height for home page */
-body[data-page="home"] .home-content-wrapper {
-  height: 100vh; /* Full height for home page */
+/* Traditional height for home and user pages */
+body[data-page="home"] .home-content-wrapper,
+body[data-page="user"] .user-content-wrapper {
+  height: 100vh; /* Full height for home/user pages */
 }
 
 /* ================================================== */
@@ -118,13 +120,14 @@ body[data-page="reader"] .main-content {
 */
 
 /* Side Buttons - MOBILE-FIRST DEFAULTS */
-#logoContainer,
 #userButtonContainer {
   position: fixed;
   top: 15px; /* Moved down 5px to better align with topRightContainer */
   left: 10px;
   z-index: 999;
 }
+
+/* logoContainer is now inside #logoNavWrapper which handles positioning */
 
 #topRightContainer {
   position: fixed;
@@ -166,15 +169,19 @@ code {
 
 /* 1. The Side Buttons: Pinned to the screen corners. */
 body[data-page="home"] #userButtonContainer,
-body[data-page="home"] #topRightContainer {
+body[data-page="home"] #topRightContainer,
+body[data-page="user"] #userButtonContainer,
+body[data-page="user"] #topRightContainer {
   position: fixed;
   top: 10px;
   z-index: 999;
 }
-body[data-page="home"] #userButtonContainer {
+body[data-page="home"] #userButtonContainer,
+body[data-page="user"] #userButtonContainer {
   left: 10px;
 }
-body[data-page="home"] #topRightContainer {
+body[data-page="home"] #topRightContainer,
+body[data-page="user"] #topRightContainer {
   right: 10px;
 }
 
@@ -194,10 +201,27 @@ body[data-page="home"] .fixed-header {
   padding: 20px 20px 10px 20px; /* Internal spacing for the logo */
 }
 
+/* User page header - same styling as home */
+body[data-page="user"] .fixed-header {
+  position: fixed; /* Takes it out of the document flow */
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%); /* Centers the block */
+  z-index: 10;
+
+  width: 100%;
+  max-width: 60ch; /* Matches the content column width */
+  box-sizing: border-box;
+
+  background-color: #221f20; /* Makes it a solid, opaque block */
+  padding: 20px 20px 10px 20px; /* Internal spacing for user library container */
+}
+
 /* Header content alignment handled dynamically by JavaScript */
 
 /* 3. The Content Wrapper: The only scrollable part. */
-body[data-page="home"] .home-content-wrapper {
+body[data-page="home"] .home-content-wrapper,
+body[data-page="user"] .user-content-wrapper {
   height: 100vh;
   overflow-y: auto; /* Makes this the scrollable container */
   -webkit-overflow-scrolling: touch;
@@ -207,7 +231,8 @@ body[data-page="home"] .home-content-wrapper {
 }
 
 /* 4. Center the main content list inside the wrapper */
-body[data-page="home"] .main-content {
+body[data-page="home"] .main-content,
+body[data-page="user"] .main-content {
   max-width: 60ch;
   margin: 0 auto;
   padding: 0 20px 50px 20px; /* Bottom padding to prevent content below screen */

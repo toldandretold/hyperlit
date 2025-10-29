@@ -16,6 +16,55 @@ class DatabaseToIndexedDBController extends Controller
     public function getBookData(Request $request, string $bookId): JsonResponse
     {
         try {
+            // 🔒 CRITICAL: Check book visibility and access permissions
+            $library = DB::table('library')->where('book', $bookId)->first();
+
+            if (!$library) {
+                return response()->json([
+                    'error' => 'Book not found',
+                    'book_id' => $bookId
+                ], 404);
+            }
+
+            // If book is private, check authorization
+            if ($library->visibility === 'private') {
+                $user = Auth::user();
+                $anonymousToken = $request->cookie('anon_token');
+
+                $authorized = false;
+
+                // Check creator (username-based auth)
+                if ($user && $library->creator === $user->name) {
+                    $authorized = true;
+                    Log::info('📗 Private book access granted via username', [
+                        'book_id' => $bookId,
+                        'user' => $user->name
+                    ]);
+                }
+                // Check creator_token (anonymous token-based auth)
+                elseif (!$user && $anonymousToken && $library->creator_token === $anonymousToken) {
+                    $authorized = true;
+                    Log::info('📗 Private book access granted via anonymous token', [
+                        'book_id' => $bookId
+                    ]);
+                }
+
+                if (!$authorized) {
+                    Log::warning('🔒 Private book access denied', [
+                        'book_id' => $bookId,
+                        'user' => $user ? $user->name : 'anonymous',
+                        'has_token' => !empty($anonymousToken)
+                    ]);
+
+                    return response()->json([
+                        'error' => 'access_denied',
+                        'message' => 'You do not have permission to access this private book',
+                        'is_private' => true,
+                        'book_id' => $bookId
+                    ], 403);
+                }
+            }
+
             $visibleHyperlightIds = $this->getVisibleHyperlightIds($bookId);
 
             // Get node chunks for this book, filtering the highlights within them
@@ -776,6 +825,8 @@ class DatabaseToIndexedDBController extends Controller
             'year' => $library->year,
             'creator' => $library->creator,
             'creator_token' => $library->creator_token,
+            'visibility' => $library->visibility ?? 'public',
+            'listed' => $library->listed ?? true,
             'raw_json' => json_decode($library->raw_json ?? '{}', true),
         ];
     }
@@ -787,6 +838,19 @@ class DatabaseToIndexedDBController extends Controller
     {
         try {
             Log::info('getBookLibrary called', ['book_id' => $bookId]);
+
+            // Library records (bibliographic metadata) are publicly accessible
+            // even for private books, as they may be cited in public documents.
+            // The privacy restriction applies to node_chunks (actual content), not citations.
+            $libraryRecord = DB::table('library')->where('book', $bookId)->first();
+
+            if (!$libraryRecord) {
+                return response()->json([
+                    'error' => 'Library record not found for book',
+                    'book_id' => $bookId
+                ], 404);
+            }
+
             $library = $this->getLibrary($bookId);
             
             if (!$library) {
@@ -828,6 +892,42 @@ class DatabaseToIndexedDBController extends Controller
     public function getBookMetadata(Request $request, string $bookId): JsonResponse
     {
         try {
+            // 🔒 CRITICAL: Check book visibility and access permissions
+            $library = DB::table('library')->where('book', $bookId)->first();
+
+            if (!$library) {
+                return response()->json([
+                    'error' => 'Book not found',
+                    'book_id' => $bookId
+                ], 404);
+            }
+
+            // If book is private, check authorization
+            if ($library->visibility === 'private') {
+                $user = Auth::user();
+                $anonymousToken = $request->cookie('anon_token');
+
+                $authorized = false;
+
+                // Check creator (username-based auth)
+                if ($user && $library->creator === $user->name) {
+                    $authorized = true;
+                }
+                // Check creator_token (anonymous token-based auth)
+                elseif (!$user && $anonymousToken && $library->creator_token === $anonymousToken) {
+                    $authorized = true;
+                }
+
+                if (!$authorized) {
+                    return response()->json([
+                        'error' => 'access_denied',
+                        'message' => 'You do not have permission to access this private book',
+                        'is_private' => true,
+                        'book_id' => $bookId
+                    ], 403);
+                }
+            }
+
             $chunkCount = DB::table('node_chunks')
                 ->where('book', $bookId)
                 ->count();

@@ -204,6 +204,7 @@ export async function createNewBook() {
       timestamp: Date.now(),
       creator: null,
       creator_token: null,
+      visibility: "private",
     };
     newLibraryRecord.bibtex = buildBibtexEntry(newLibraryRecord);
 

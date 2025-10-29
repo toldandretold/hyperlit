@@ -6,10 +6,10 @@ let resizeHandler = null;
 const buttonHandlers = new Map();
 
 // Fix header spacing dynamically based on actual header height
-function fixHeaderSpacing() {
+export function fixHeaderSpacing() {
   const header = document.querySelector('.fixed-header');
-  const wrapper = document.querySelector('.home-content-wrapper');
-  
+  const wrapper = document.querySelector('.home-content-wrapper') || document.querySelector('.user-content-wrapper');
+
   if (header && wrapper) {
     const headerHeight = header.offsetHeight;
     // Add small buffer (10px) to ensure content doesn't touch header
@@ -19,25 +19,25 @@ function fixHeaderSpacing() {
 
 // Align header content with main content text dynamically
 function alignHeaderContent() {
-  const mainContent = document.querySelector('body[data-page="home"] .main-content');
-  const imageContainer = document.getElementById('imageContainer');
+  const mainContent = document.querySelector('body[data-page="home"] .main-content, body[data-page="user"] .main-content');
+  const headerContainer = document.getElementById('imageContainer') || document.getElementById('userLibraryContainer');
   const buttonsContainer = document.querySelector('.arranger-buttons-container');
-  
-  if (mainContent && imageContainer && buttonsContainer) {
+
+  if (mainContent && headerContainer && buttonsContainer) {
     // Calculate the left edge of the actual text content
     const mainContentRect = mainContent.getBoundingClientRect();
     const mainContentPadding = parseInt(getComputedStyle(mainContent).paddingLeft);
     const textLeftEdge = mainContentRect.left + mainContentPadding;
-    
-    // Get current position of image container (without any margin)
-    imageContainer.style.marginLeft = '0px'; // Reset to get base position
-    const imageRect = imageContainer.getBoundingClientRect();
-    
-    // Calculate needed offset from the image's current position
-    const neededMargin = textLeftEdge - imageRect.left;
-    
+
+    // Get current position of header container (without any margin)
+    headerContainer.style.marginLeft = '0px'; // Reset to get base position
+    const headerRect = headerContainer.getBoundingClientRect();
+
+    // Calculate needed offset from the header's current position
+    const neededMargin = textLeftEdge - headerRect.left;
+
     // Apply the calculated margin
-    imageContainer.style.marginLeft = neededMargin + 'px';
+    headerContainer.style.marginLeft = neededMargin + 'px';
     buttonsContainer.style.marginLeft = neededMargin + 'px';
   }
 }
@@ -59,25 +59,33 @@ export function initializeHomepageButtons() {
   };
   window.addEventListener('resize', resizeHandler);
   
-  // Initialize the default active content on page load  
+  // Initialize the default active content on page load
   const activeButton = document.querySelector('.arranger-button.active');
   if (activeButton) {
     const initialTargetId = activeButton.dataset.content;
     transitionToBookContent(initialTargetId, false); // No loading overlay on initial load
+  } else {
+    // No buttons exist (e.g., non-owner viewing user page)
+    // Load the public content by default using the main-content div's ID
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent && mainContent.id) {
+      console.log(`📄 No arranger buttons found, loading default content: ${mainContent.id}`);
+      transitionToBookContent(mainContent.id, false);
+    }
   }
   
   document.querySelectorAll('.arranger-button').forEach(button => {
     const handler = async function() {
       const targetId = this.dataset.content;
-      
+
       if (this.classList.contains('active')) {
         console.log(`📄 ${targetId} is already active, skipping reinitialization`);
         return;
       }
-      
+
       document.querySelectorAll('.arranger-button').forEach(btn => btn.classList.remove('active'));
       this.classList.add('active');
-      
+
       await transitionToBookContent(targetId, true);
     };
     button.addEventListener('click', handler);
@@ -104,19 +112,21 @@ async function transitionToBookContent(bookId, showLoader = true) {
     if (showLoader) {
       showNavigationLoading(`Loading ${bookId}...`);
     }
-    
+
     console.log(`🔄 Transitioning homepage content to: ${bookId}`);
-    
+
     // Remove existing content containers
     document.querySelectorAll('.main-content').forEach(content => {
       console.log(`🧹 Removing existing content container: ${content.id}`);
       content.remove();
     });
-    
+
     // Create fresh container for the new content
-    const mainContainer = document.querySelector('.home-content-wrapper');
+    // Support both home and user page wrappers
+    const mainContainer = document.querySelector('.home-content-wrapper') ||
+                          document.querySelector('.user-content-wrapper');
     if (!mainContainer) {
-      throw new Error('Home content wrapper not found');
+      throw new Error('Content wrapper not found (tried .home-content-wrapper and .user-content-wrapper)');
     }
     
     const newContentDiv = document.createElement('div');

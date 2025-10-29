@@ -343,7 +343,15 @@ export class NewBookTransition {
       // Initialize the reader view using the existing system
       const { universalPageInitializer } = await import('../../viewManager.js');
       await universalPageInitializer(progressCallback);
-      
+
+      // 🔧 Reinitialize logo navigation toggle
+      console.log('🔧 NewBookTransition: Reinitializing logo navigation toggle');
+      const { initializeLogoNav } = await import('../../logoNavToggle.js');
+      if (typeof initializeLogoNav === 'function') {
+        initializeLogoNav();
+        console.log('✅ NewBookTransition: Logo navigation toggle initialized');
+      }
+
       // Wait for DOM to be stable, then rebind UI elements deterministically
       this.rebindUIElementsWhenReady();
       

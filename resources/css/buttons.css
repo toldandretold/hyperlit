@@ -59,7 +59,7 @@ black #221F20;
 #edit-source {
   width: 20px;
   height: 20px;
-  background: #221F20;
+  background: transparent;
   border: none;
   cursor: pointer;
   padding: 0px;
@@ -243,14 +243,14 @@ black #221F20;
   position: relative; /* Enable positioning for pseudo-element */
 }
 
-/* Expanded clickable area for logo container */
+/* Expanded clickable area for logo container (horizontal only to prevent overlap) */
 #logoContainer::before {
   content: '';
   position: absolute;
-  top: -15px;
+  top: 0;
   left: -15px;
   right: -15px;
-  bottom: -15px;
+  bottom: 0;
   z-index: 1;
   /* Uncomment next line for debugging - shows the expanded click area */
   /* background: rgba(0, 255, 0, 0.2); */
@@ -362,7 +362,7 @@ black #221F20;
 }
 
 .download-btn {
-  background: #221F20;
+  background: transparent;
   color: #CBCCCC;
   border: none;
   padding: 0.5em;

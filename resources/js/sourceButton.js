@@ -14,6 +14,18 @@ import { htmlToText }
   ExternalHyperlink
 } from 'https://cdn.skypack.dev/docx@8.3.0';
 
+// SVG icons for privacy toggle
+const PUBLIC_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2ea44f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="12" cy="12" r="10"/>
+  <line x1="2" y1="12" x2="22" y2="12"/>
+  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+</svg>`;
+
+const PRIVATE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d73a49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+</svg>`;
+
 function getRecord(db, storeName, key) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, "readonly");
@@ -56,30 +68,25 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
   }
   
   const citation = (await formatBibtexToCitation(bibtex)).trim();
-  
-  // Check if user can edit this book with extensive logging
-  console.log("🔍 EDIT BUTTON DEBUG - Starting auth check for book:", book);
-  console.log("🔍 EDIT BUTTON DEBUG - Record data:", record);
-  
+
+  // Check if user can edit this book
   let canEdit;
   try {
     canEdit = await canUserEditBook(book);
-    console.log("🔑 EDIT BUTTON DEBUG - Auth check result:", canEdit);
-    console.log("🔑 EDIT BUTTON DEBUG - Auth check type:", typeof canEdit);
   } catch (error) {
-    console.error("❌ EDIT BUTTON DEBUG - Auth check failed:", error);
+    console.error("Error checking edit permissions:", error);
     canEdit = false;
   }
-  
+
   // Only show edit button if user can edit
   const editButtonHtml = canEdit ? `
     <!-- Edit Button in bottom right corner -->
     <button id="edit-source" style="position: absolute; bottom: 10px; right: 10px; z-index: 1002;">
-      <svg 
-        viewBox="0 0 24 24" 
-        fill="none" 
-        stroke-width="2" 
-        stroke-linecap="round" 
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke-width="2"
+        stroke-linecap="round"
         stroke-linejoin="round"
         style="pointer-events: none;"
       >
@@ -88,13 +95,20 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
       </svg>
     </button>` : '';
 
-  console.log("🔍 EDIT BUTTON DEBUG - Will show edit button:", !!canEdit);
-  console.log("🔍 EDIT BUTTON DEBUG - Edit button HTML length:", editButtonHtml.length);
-
+  // Only show privacy toggle if user can edit
+  const isPrivate = record?.visibility === 'private';
+  const privacyToggleHtml = canEdit ? `
+    <!-- Privacy Toggle in top right corner -->
+    <button id="privacy-toggle"
+            data-is-private="${isPrivate}"
+            style="position: absolute; top: 10px; right: 10px; z-index: 1002;"
+            title="${isPrivate ? 'Book is Private - Click to make public' : 'Book is Public - Click to make private'}">
+      ${isPrivate ? PRIVATE_SVG : PUBLIC_SVG}
+    </button>` : '';
 
   return `
     <div class="scroller" id="source-content">
-    <div class="citation">${citation}</div>
+    <p class="citation">${citation}</p>
 
     <br/>
     
@@ -160,7 +174,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     </div>
   </button>
 
-
+    ${privacyToggleHtml}
     ${editButtonHtml}
 
     </div>
@@ -245,74 +259,29 @@ export class SourceContainerManager extends ContainerManager {
     this.setupSourceContainerStyles();
     this.isAnimating = false;
     this.button = document.getElementById(buttonId);
-    this.originalButtonRect = null;
     this.isInEditMode = false; // Track if we're currently in edit mode
   }
 
   rebindElements() {
     // Call the parent rebindElements first
     super.rebindElements();
-    
-    // THE FIX: Reapply the critical styles after finding the new DOM elements
+
+    // Reapply styles after finding new DOM elements
     this.setupSourceContainerStyles();
-    
-    // OVERRIDE: Custom overlay click handler for edit mode support
-    if (this.overlay) {
-      // Remove the parent's overlay listener and add our own
-      const newOverlay = this.overlay.cloneNode(true);
-      this.overlay.parentNode.replaceChild(newOverlay, this.overlay);
-      this.overlay = newOverlay;
-      
-      this.overlay.addEventListener("click", (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        if (this.isOpen) {
-          if (this.isInEditMode) {
-            this.hideEditForm();
-          } else {
-            this.closeContainer();
-          }
-        }
-      });
+  }
+
+  // Override parent's closeOnOverlayClick to handle edit mode
+  closeOnOverlayClick() {
+    if (this.isInEditMode) {
+      this.hideEditForm();
+    } else {
+      this.closeContainer();
     }
   }
 
   setupSourceContainerStyles() {
-    const c = this.container;
-    if (!c) return;
-    
-    // Only apply initial hidden styles if container is not currently showing edit form
-    const editFormContainer = c.querySelector("#edit-form-container");
-    const isEditFormVisible = editFormContainer && editFormContainer.style.display === "block";
-    
-    if (!isEditFormVisible) {
-      Object.assign(c.style, {
-        position: "fixed",
-        width: "0",
-        height: "0",
-        overflow: "hidden",
-        transition: "width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, top 0.3s ease-out, right 0.3s ease-out",
-        zIndex: "1001",
-        backgroundColor: "#221F20",
-        boxShadow: "0 0 15px rgba(0, 0, 0, 0.2)",
-        borderRadius: "1em",
-        opacity: "0",
-      });
-    } else {
-      // If edit form is visible, ensure container has proper styling without zero dimensions
-      Object.assign(c.style, {
-        position: "fixed",
-        overflow: "auto", // Allow scrolling for form content
-        transition: "width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, top 0.3s ease-out, right 0.3s ease-out",
-        zIndex: "1001",
-        backgroundColor: "#221F20",
-        boxShadow: "0 0 15px rgba(0, 0, 0, 0.2)",
-        borderRadius: "1em",
-        opacity: "1",
-        visibility: "visible",
-        display: "block",
-      });
-    }
+    // CSS handles all styling - this method kept for compatibility
+    // but no longer sets inline styles
   }
 
   async openContainer() {
@@ -325,118 +294,41 @@ export class SourceContainerManager extends ContainerManager {
     const mdBtn = this.container.querySelector("#download-md");
     const docxBtn = this.container.querySelector("#download-docx");
     const editBtn = this.container.querySelector("#edit-source");
-    
+    const privacyBtn = this.container.querySelector("#privacy-toggle");
 
-    console.log("🔍 EDIT BUTTON DEBUG - Container HTML preview:", this.container.innerHTML.substring(0, 500));
-    console.log("🔍 EDIT BUTTON DEBUG - Button elements found:", { mdBtn: !!mdBtn, docxBtn: !!docxBtn, editBtn: !!editBtn });
-    console.log("🔍 EDIT BUTTON DEBUG - Edit button element:", editBtn);
-    console.log("🔍 EDIT BUTTON DEBUG - Edit button visibility:", editBtn ? window.getComputedStyle(editBtn).visibility : 'N/A');
-    
     if (mdBtn) mdBtn.addEventListener("click", () => exportBookAsMarkdown(book));
     if (docxBtn) docxBtn.addEventListener("click", () => exportBookAsDocxStyled(book));
-    if (editBtn) {
-      editBtn.addEventListener("click", () => this.handleEditClick());
-      // Ensure edit button is always visible with force styling
-      editBtn.style.display = "flex !important";
-      editBtn.style.visibility = "visible !important";
-      editBtn.style.opacity = "1 !important";
-      editBtn.style.zIndex = "1002 !important";
-      editBtn.style.position = "absolute !important";
-      editBtn.style.bottom = "10px !important";
-      editBtn.style.right = "10px !important";
-      editBtn.style.border = "0 !important";
-      editBtn.style.background = "#221F20 !important";
-      console.log("✅ Edit button configured and made visible with force styling");
-      console.log("Edit button computed styles:", window.getComputedStyle(editBtn));
-    } else {
-      console.warn("❌ Edit button not found in container!");
-    }
+    if (editBtn) editBtn.addEventListener("click", () => this.handleEditClick());
+    if (privacyBtn) privacyBtn.addEventListener("click", () => this.handlePrivacyToggle());
 
-
-    // Get current button position
-    const rect = this.button.getBoundingClientRect();
-    if (!this.originalButtonRect) {
-      this.originalButtonRect = { ...rect, right: rect.right, bottom: rect.bottom };
-    }
-
-    // Remove hidden class and set up initial positioning
+    // CSS handles all positioning and animation
     this.container.classList.remove("hidden");
-    this.container.style.visibility = "visible";
-    this.container.style.display = "block";
-    this.container.style.opacity = "0"; // Start invisible, fade in like newBookButton
+    this.isOpen = true;
+    window.activeContainer = this.container.id;
+    this.updateState(); // Adds .open class via parent's updateState()
 
-    // Position container relative to button (expand from button location)
-    this.container.style.top = `${rect.bottom + 8}px`;
-    this.container.style.right = `${window.innerWidth - rect.right}px`;
-
-    // DYNAMIC WIDTH: Responsive behavior with narrower max width
-    const isMobile = window.innerWidth <= 480;
-    let w, h;
-    
-    if (isMobile) {
-      // Mobile: Use button-based width calculation
-      w = this.originalButtonRect.right - 15;
-      h = Math.min(window.innerHeight * 0.8, 400);
-    } else {
-      // Desktop: Use narrower max width than newbook container
-      w = 300; // Narrower than newbook's 400px
-      h = Math.min(window.innerHeight * 0.8, 400);
-    }
-
-    // Trigger animation with requestAnimationFrame for smooth fade-in
-    requestAnimationFrame(() => {
-      this.container.style.width = `${w}px`;
-      this.container.style.height = `${h}px`;
-      this.container.style.opacity = "1";
-      // Ensure overflow is visible so edit button shows
-      this.container.style.overflow = "visible";
-      this.isOpen = true;
-      window.activeContainer = this.container.id;
-      this.updateState();
-      this.container.addEventListener("transitionend", () => { 
-        this.isAnimating = false;
-        // Double-check edit button visibility after animation
-        const editBtn = this.container.querySelector("#edit-source");
-        if (editBtn) {
-          editBtn.style.display = "flex";
-          editBtn.style.visibility = "visible";
-          console.log("🔧 Edit button visibility ensured after animation");
-        }
-      }, { once: true });
-    });
+    this.container.addEventListener("transitionend", () => {
+      this.isAnimating = false;
+    }, { once: true });
   }
 
   closeContainer() {
     if (this.isAnimating || !this.container) return;
     this.isAnimating = true;
 
-    // Collapse to zero size and fade out, but keep positioned where it is
-    this.container.style.width = "0";
-    this.container.style.height = "0";
-    this.container.style.opacity = "0";
-    
     this.isOpen = false;
     window.activeContainer = "main-content";
-    this.updateState();
+    this.updateState(); // Removes .open class via parent's updateState()
 
     this.container.addEventListener("transitionend", () => {
-      this.container.style.visibility = "hidden";
       this.container.classList.add("hidden");
-      
-      // Only reset positioning AFTER animation is complete
-      this.container.style.left = "";
-      this.container.style.right = "";
-      this.container.style.top = "";
-      this.container.style.transform = "";
-      this.originalButtonRect = null;
-      
       this.isAnimating = false;
     }, { once: true });
   }
 
   async handleEditClick() {
     console.log("Edit button clicked");
-    
+
     // Check if user can edit this book
     const canEdit = await canUserEditBook(book);
     if (!canEdit) {
@@ -446,6 +338,54 @@ export class SourceContainerManager extends ContainerManager {
 
     // Get the library record and show the edit form
     await this.showEditForm();
+  }
+
+  async handlePrivacyToggle() {
+    const btn = this.container.querySelector("#privacy-toggle");
+    if (!btn) return;
+
+    const isCurrentlyPrivate = btn.dataset.isPrivate === "true";
+
+    const message = isCurrentlyPrivate
+      ? "Make this book public? Anyone can view it."
+      : "Make this book private? Only you can view it.";
+
+    if (!confirm(message)) return;
+
+    try {
+      // Get library record
+      const db = await openDatabase();
+      const record = await getRecord(db, "library", book);
+
+      if (!record) {
+        alert("Library record not found.");
+        return;
+      }
+
+      // Update visibility status (string: 'public' or 'private')
+      record.visibility = isCurrentlyPrivate ? 'public' : 'private';
+
+      // Save to IndexedDB
+      const tx = db.transaction("library", "readwrite");
+      const store = tx.objectStore("library");
+      await store.put(record);
+
+      // Sync to backend
+      await this.syncLibraryRecordToBackend(record);
+
+      // Update button
+      btn.dataset.isPrivate = (!isCurrentlyPrivate).toString();
+      btn.innerHTML = !isCurrentlyPrivate ? PRIVATE_SVG : PUBLIC_SVG;
+      btn.title = !isCurrentlyPrivate
+        ? 'Book is Private - Click to make public'
+        : 'Book is Public - Click to make private';
+
+      console.log(`✅ Book privacy updated to: ${!isCurrentlyPrivate ? 'private' : 'public'}`);
+
+    } catch (error) {
+      console.error("Error updating privacy status:", error);
+      alert("Error updating privacy status: " + error.message);
+    }
   }
 
   async showEditForm() {
@@ -632,21 +572,11 @@ export class SourceContainerManager extends ContainerManager {
 
 
   expandForEditForm() {
-    // Expand the container to a larger size to accommodate the form
-    // NARROWER EDIT FORM: Keep it narrower than before
+    // Expand container for edit form (override CSS width temporarily)
     const isMobile = window.innerWidth <= 480;
-    let w, h;
-    
-    if (isMobile) {
-      // Mobile: Use button-based width calculation
-      w = this.originalButtonRect.right - 15;
-      h = Math.min(window.innerHeight * 0.9, 700);
-    } else {
-      // Desktop: Use narrower width for edit form
-      w = 400; // Narrower than the previous 600px
-      h = Math.min(window.innerHeight * 0.9, 700);
-    }
-    
+    const w = isMobile ? Math.min(window.innerWidth - 30, 400) : 400;
+    const h = Math.min(window.innerHeight * 0.9, 700);
+
     this.container.style.width = `${w}px`;
     this.container.style.height = `${h}px`;
   }
@@ -770,28 +700,9 @@ export class SourceContainerManager extends ContainerManager {
       editFormContainer.style.display = "none";
       editFormContainer.classList.add("hidden");
       
-      // Reset container size to narrower width
-      // NARROWER WIDTH: Use narrower width than newbook container
-      const isMobile = window.innerWidth <= 480;
-      let w, h;
-      
-      if (isMobile) {
-        // Mobile: Use button-based width calculation
-        w = this.originalButtonRect.right - 15;
-        h = Math.min(window.innerHeight * 0.8, 400);
-      } else {
-        // Desktop: Use narrower max width
-        w = 300; // Narrower than newbook's 400px
-        h = Math.min(window.innerHeight * 0.8, 400);
-      }
-      
-      this.container.style.width = `${w}px`;
-      this.container.style.height = `${h}px`;
-      
-      // ENSURE CONTAINER IS VISIBLE: Don't call setupSourceContainerStyles as it resets dimensions
-      // Instead, just apply the necessary styles without resetting to zero
-      this.container.style.overflow = "auto"; // Allow scrolling for content
-      this.container.style.opacity = "1";
+      // Reset to CSS dimensions by removing inline width/height
+      this.container.style.width = "";
+      this.container.style.height = "";
       
       // RE-ATTACH EVENT LISTENERS: Make sure buttons work after returning from edit form
       const mdBtn = this.container.querySelector("#download-md");

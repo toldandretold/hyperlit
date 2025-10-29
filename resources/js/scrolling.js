@@ -193,7 +193,8 @@ export function scrollElementIntoMainContent(targetElement, headerOffset = 50) {
 
   // Find the actual scrollable parent (e.g., .reader-content-wrapper)
   const scrollableParent = contentContainer.closest(".reader-content-wrapper") ||
-                           contentContainer.closest(".home-content-wrapper");
+                           contentContainer.closest(".home-content-wrapper") ||
+                           contentContainer.closest(".user-content-wrapper");
 
   if (!scrollableParent) {
     console.error("ERROR: No scrollable parent wrapper found for content container!");

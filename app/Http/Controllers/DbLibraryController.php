@@ -223,6 +223,8 @@ public function upsert(Request $request)
                     'publisher' => $data['publisher'] ?? $libraryRecord->publisher,
                     'school' => $data['school'] ?? $libraryRecord->school,
                     'note' => $data['note'] ?? $libraryRecord->note,
+                    'visibility' => $data['visibility'] ?? $libraryRecord->visibility,
+                    'listed' => $data['listed'] ?? $libraryRecord->listed,
                     'raw_json' => json_encode($this->cleanItemForStorage($data)),
                 ];
             } else {
@@ -317,6 +319,7 @@ public function bulkCreate(Request $request)
                     'school' => $item['school'] ?? null,
                     'fileName' => $item['fileName'] ?? null,
                     'fileType' => $item['fileType'] ?? null,
+                    'visibility' => $item['visibility'] ?? 'private', // Default to private
                     'recent' => $item['recent'] ?? null,
                     'total_views' => $item['total_views'] ?? 0,
                     'total_highlights' => $item['total_highlights'] ?? 0,

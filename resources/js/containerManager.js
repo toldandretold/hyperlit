@@ -255,23 +255,10 @@ export class ContainerManager {
       this.container.classList.add("open");
       this.overlay.classList.add("active");
       this.frozenElements.forEach((el) => this.freezeElement(el));
-
-      if (this.container.id === "source-container") {
-        this.saveNavElementsState();
-        const navButtons = document.getElementById("nav-buttons");
-        const logoContainer = document.getElementById("logoContainer");
-        const userButtonContainer = document.getElementById("userButtonContainer");
-        if (navButtons) navButtons.classList.add("perimeter-hidden");
-        if (logoContainer) logoContainer.classList.add("perimeter-hidden");
-        if (userButtonContainer) userButtonContainer.classList.add("perimeter-hidden");
-      }
     } else {
       this.container.classList.remove("open");
       this.overlay.classList.remove("active");
       this.frozenElements.forEach((el) => this.unfreezeElement(el));
-      if (this.container.id === "source-container") {
-        this.restoreNavElementsState();
-      }
     }
   }
 

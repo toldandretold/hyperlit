@@ -35,7 +35,9 @@ class PgLibrary extends Model
         'total_citations',
         'total_highlights',
         'creator',
-        'creator_token'
+        'creator_token',
+        'visibility',
+        'listed'
     ];
 
     protected $casts = [
@@ -44,7 +46,8 @@ class PgLibrary extends Model
         'recent' => 'integer',
         'total_views' => 'integer',
         'total_citations' => 'integer',
-        'total_highlights' => 'integer'
+        'total_highlights' => 'integer',
+        'listed' => 'boolean'
     ];
 
     protected static function booted()

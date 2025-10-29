@@ -682,15 +682,28 @@ export async function universalPageInitializer(progressCallback = null) {
     console.log("📋 Imported book detected - using existing content");
   }
 
+  // 🎯 CRITICAL: Detect page type BEFORE loading content to prevent race conditions
+  const currentPageType = document.body.getAttribute('data-page');
+  console.log(`🎯 Page type detected early: ${currentPageType}`);
+
   // Start loading content and wait for both content loading and DOM stabilization
-  const loadPromise = loadHyperText(currentBookId, progressCallback);
-  
+  // ⚠️ IMPORTANT: Skip loadHyperText for home/user pages to prevent double-load race condition
+  // For home/user pages, content is already loaded by initializeHomepageButtons() → transitionToBookContent()
+  let loadPromise;
+  if (currentPageType === 'home' || currentPageType === 'user') {
+    console.log(`📄 Skipping loadHyperText for ${currentPageType} page (content already loaded by homepage system)`);
+    loadPromise = Promise.resolve(); // No-op promise
+  } else {
+    console.log(`📖 Loading content for ${currentPageType} page`);
+    loadPromise = loadHyperText(currentBookId, progressCallback);
+  }
+
   // Wait for DOM to be properly stable before initializing UI components
   const { waitForLayoutStabilization } = await import('./domReadiness.js');
-  
+
   // Wait for both content loading and layout stabilization to complete
   await Promise.all([loadPromise, waitForLayoutStabilization()]);
-  
+
   console.log("✅ DOM settled. Initializing static UI components...");
     // Use the persistent TogglePerimeterButtons instance from readerDOMContentLoaded.js
     import('./readerDOMContentLoaded.js').then(module => {
@@ -707,19 +720,16 @@ export async function universalPageInitializer(progressCallback = null) {
         console.log("✅ Reinitialized TogglePerimeterButtons instance for universalPageInitializer");
       }
     });
-    // Check page type and initialize all components for both page types
-    const currentPageType = document.body.getAttribute('data-page');
-    console.log(`🎯 Page type detected: ${currentPageType}`);
-    
+
     // Initialize components that work on both page types
     console.log("🔧 Initializing universal components...");
     await initializeUniversalComponents(currentPageType);
-    
-    // For homepage, the homepage initialization above should handle everything
-    // including content loading, so we can skip the reader-specific initialization
-    if (currentPageType === 'home') {
-      console.log("🏠 Homepage initialization complete, skipping reader-specific components");
-      return; // Exit early for homepage - everything is handled by initializeHomepage()
+
+    // For homepage and user pages, skip reader-specific initialization
+    // Content loading is handled by initializeHomepageButtons() for these page types
+    if (currentPageType === 'home' || currentPageType === 'user') {
+      console.log(`🏠 ${currentPageType} page initialization complete, skipping reader-specific components`);
+      return; // Exit early - everything is handled by homepage/user page system
     }
     
     // Initialize ALL components for both homepage and reader pages
