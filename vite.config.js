@@ -23,7 +23,8 @@ export default defineConfig({
     strictPort: true,
     cors: true,
     hmr: {
-      host: getNetworkIp(),
+      // Support both network IP and local .test domains for subdomains
+      host: process.env.VITE_HMR_HOST || getNetworkIp(),
       protocol: 'ws',
     },
     proxy: {

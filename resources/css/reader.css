@@ -116,3 +116,205 @@
 .libraryCard .delete-book:active {
   color: inherit;
 }
+
+/* Logo Navigation Toggle */
+#logoNavWrapper {
+  position: fixed;
+  top: 15px;
+  left: 10px;
+  z-index: 999;
+  transition: left 0.3s ease; /* Smooth transition when JS repositions on desktop */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#logoNavWrapper #logoContainer {
+  /* Override position from buttons.css, keep it in normal flow */
+  position: static !important;
+  left: auto !important;
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+  /* Ensure clicks work during rotation */
+  pointer-events: auto !important;
+  /* Make it position relative so z-index works */
+  position: relative !important;
+}
+
+#logoContainer.rotated {
+  transform: rotate(90deg);
+  /* Ensure rotated logo stays on top of menu items */
+  z-index: 10;
+  /* Debug: add background to see clickable area */
+  /* background: rgba(255, 0, 0, 0.2); */
+}
+
+#logoContainer.rotated img {
+  /* Ensure image stays visible during rotation */
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.logo-nav-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.logo-nav-menu.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none !important;
+  /* Ensure all children are also not clickable */
+}
+
+.logo-nav-menu.hidden * {
+  pointer-events: none !important;
+}
+
+/* Make menu buttons same size as logo button */
+#logoNavMenu #userButtonContainer {
+  /* Remove default userButtonContainer styles for this context */
+  position: static !important;
+  left: auto !important;
+  /* Match sizing of other menu buttons */
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Disable the expanded clickable area for userButton in menu */
+#logoNavMenu #userButtonContainer::before {
+  display: none !important;
+}
+
+#logoNavMenu #userButton {
+  /* Match logo button sizing from buttons.css */
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative; /* Enable positioning for pseudo-element */
+}
+
+/* Expanded clickable area for user button (horizontal only to prevent overlap) */
+#logoNavMenu #userButton::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -15px;
+  right: -15px;
+  bottom: 0;
+  z-index: 1;
+  /* Uncomment for debugging: background: rgba(255, 0, 0, 0.2); */
+}
+
+#logoNavMenu #userButton svg {
+  width: 20px;
+  height: 20px;
+}
+
+#homeButtonNav {
+  /* Match logo button sizing */
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: #cbcccc;
+  text-decoration: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative; /* Enable positioning for pseudo-element */
+}
+
+/* Expanded clickable area for home button (horizontal only to prevent overlap) */
+#homeButtonNav::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -15px;
+  right: -15px;
+  bottom: 0;
+  z-index: 1;
+  /* Uncomment for debugging: background: rgba(0, 0, 255, 0.2); */
+}
+
+#homeButtonNav svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+/* New Book button in menu */
+#logoNavMenu #newBook {
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #cbcccc;
+}
+
+#logoNavMenu #newBook .icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+/* Mobile sizing to match logo */
+@media only screen and (max-width: 768px) {
+  #logoNavMenu #userButtonContainer {
+    width: 24px;
+    height: 18px;
+  }
+
+  #logoNavMenu #userButton {
+    width: 24px;
+    height: 18px;
+  }
+
+  #logoNavMenu #userButton svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  #logoNavMenu #newBook {
+    width: 24px;
+    height: 18px;
+  }
+
+  #logoNavMenu #newBook .icon {
+    font-size: 20px;
+  }
+
+  #homeButtonNav {
+    width: 24px;
+    height: 18px;
+  }
+
+  #homeButtonNav svg {
+    width: 18px;
+    height: 18px;
+  }
+}

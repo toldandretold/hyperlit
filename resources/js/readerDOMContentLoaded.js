@@ -18,6 +18,8 @@ import { attachMarkListeners } from "./hyperLights.js";
 import TogglePerimeterButtons from "./togglePerimeterButtons.js";
 import { showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
 import { pendingFirstChunkLoadedPromise } from "./initializePage.js";
+import { initializeUserProfileEditor } from "./userProfileEditor.js";
+import { initializeLogoNav } from "./logoNavToggle.js";
 
 // Progress bar control functions
 export function updatePageLoadProgress(percent, message = null) {
@@ -100,7 +102,7 @@ export async function hidePageLoadProgress() {
 export const togglePerimeterButtons = new TogglePerimeterButtons({
   elementIds: [
     "bottom-right-buttons",
-    "logoContainer",
+    "logoNavWrapper",
     "topRightContainer",
     "userButtonContainer",
   ],
@@ -190,5 +192,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   } else if (pageType === "home") {
     await initializeHomepage();
+  } else if (pageType === "user") {
+    // User pages use same initialization as homepage (same structure)
+    await initializeHomepage();
+    // Initialize user profile editor (title and bio fields)
+    await initializeUserProfileEditor();
   }
+
+  // Initialize logo navigation toggle on all pages
+  initializeLogoNav();
+  console.log("✅ Logo navigation toggle initialized");
 });

@@ -10,8 +10,9 @@ export class BookToHomeTransition {
    * Execute book-to-home transition
    */
   static async execute(options = {}) {
-    const { 
+    const {
       fromBook,
+      targetUrl = '/',
       progressCallback,
       replaceHistory = false
     } = options;
@@ -28,10 +29,10 @@ export class BookToHomeTransition {
       await this.cleanupReaderState();
       
       progress(30, 'Fetching homepage...');
-      
-      // Fetch the homepage HTML
-      const homeHtml = await this.fetchHomepageHtml();
-      
+
+      // Fetch the homepage HTML (or user page HTML if targetUrl specified)
+      const homeHtml = await this.fetchHomepageHtml(targetUrl);
+
       progress(60, 'Updating page template...');
       
       // Replace the entire body content (reader → home template switch)
@@ -44,9 +45,9 @@ export class BookToHomeTransition {
       await waitForLayoutStabilization();
       
       progress(80, 'Initializing homepage...');
-      
-      // Initialize the homepage
-      await this.initializeHomepage(progress);
+
+      // Initialize the homepage (pass targetUrl for subdomain awareness)
+      await this.initializeHomepage(progress, targetUrl);
       
       progress(90, 'Ensuring homepage readiness...');
       
@@ -78,8 +79,8 @@ export class BookToHomeTransition {
       }
       
       // Update the URL
-      this.updateUrl(replaceHistory);
-      
+      this.updateUrl(targetUrl, replaceHistory);
+
       progress(100, 'Welcome home!');
       await ProgressManager.hide();
       
@@ -158,19 +159,19 @@ export class BookToHomeTransition {
   }
 
   /**
-   * Fetch the homepage HTML
+   * Fetch the homepage HTML (or user page HTML)
    */
-  static async fetchHomepageHtml() {
-    console.log('📥 BookToHomeTransition: Fetching homepage HTML');
-    
-    const response = await fetch('/');
+  static async fetchHomepageHtml(targetUrl = '/') {
+    console.log(`📥 BookToHomeTransition: Fetching HTML from ${targetUrl}`);
+
+    const response = await fetch(targetUrl);
     if (!response.ok) {
-      throw new Error(`Failed to fetch homepage HTML: ${response.status}`);
+      throw new Error(`Failed to fetch HTML: ${response.status}`);
     }
-    
+
     const htmlString = await response.text();
     console.log(`✅ BookToHomeTransition: Fetched HTML (${htmlString.length} characters)`);
-    
+
     return htmlString;
   }
 
@@ -226,13 +227,19 @@ export class BookToHomeTransition {
   /**
    * Initialize the homepage after template switch
    */
-  static async initializeHomepage(progressCallback) {
+  static async initializeHomepage(progressCallback, targetUrl = '/') {
     console.log('🏠 BookToHomeTransition: Initializing homepage');
-    
+
     try {
-      // Reset current book to most-recent for homepage
+      // Determine book ID from target URL (subdomain-aware)
+      const { LinkNavigationHandler } = await import('../LinkNavigationHandler.js');
+      const bookId = LinkNavigationHandler.getBookIdFromUrl(targetUrl);
+
+      console.log(`🏠 BookToHomeTransition: Setting book to ${bookId}`);
+
+      // Set current book (could be 'most-recent' or username)
       const { setCurrentBook } = await import('../../app.js');
-      setCurrentBook('most-recent');
+      setCurrentBook(bookId);
       
       // CRITICAL: Reinitialize container managers BEFORE universalPageInitializer
       // This ensures buttons are ready before NavButtons removes 'loading' class
@@ -287,7 +294,15 @@ export class BookToHomeTransition {
       
       // Shared container managers will rebind via viewManager
       await this.rebindSharedContainerManagers();
-      
+
+      // 🔧 Reinitialize logo navigation toggle
+      console.log('🔧 BookToHomeTransition: Reinitializing logo navigation toggle');
+      const { initializeLogoNav } = await import('../../logoNavToggle.js');
+      if (typeof initializeLogoNav === 'function') {
+        initializeLogoNav();
+        console.log('✅ BookToHomeTransition: Logo navigation toggle initialized');
+      }
+
       console.log('✅ BookToHomeTransition: Container managers reinitialized');
       
     } catch (error) {
@@ -312,18 +327,16 @@ export class BookToHomeTransition {
   }
 
   /**
-   * Update the browser URL to homepage
+   * Update the browser URL to homepage or user page
    */
-  static updateUrl(replaceHistory = false) {
-    const newUrl = '/';
-    
+  static updateUrl(targetUrl = '/', replaceHistory = false) {
     try {
       if (replaceHistory) {
-        history.replaceState({}, '', newUrl);
-        console.log(`🔗 BookToHomeTransition: Replaced URL with ${newUrl}`);
+        history.replaceState({}, '', targetUrl);
+        console.log(`🔗 BookToHomeTransition: Replaced URL with ${targetUrl}`);
       } else {
-        history.pushState({}, '', newUrl);
-        console.log(`🔗 BookToHomeTransition: Updated URL to ${newUrl}`);
+        history.pushState({}, '', targetUrl);
+        console.log(`🔗 BookToHomeTransition: Updated URL to ${targetUrl}`);
       }
     } catch (error) {
       console.warn('Could not update URL:', error);

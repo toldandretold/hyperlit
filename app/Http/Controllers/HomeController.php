@@ -14,6 +14,8 @@ class HomeController extends Controller
     public function index()
     {
         // We pass the 'pageType' variable so the layout template works correctly.
-        return view('home', ['pageType' => 'home']);
+        return view('home', [
+            'pageType' => 'home',
+        ]);
     }
 }

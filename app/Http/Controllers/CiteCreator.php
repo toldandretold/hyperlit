@@ -610,6 +610,7 @@ class CiteCreator extends Controller
                     'note' => $request->input('note'),
                     'bibtex' => $request->input('bibtex'),
                     'timestamp' => round(microtime(true) * 1000),
+                    'visibility' => 'private',
                     'creator' => $creatorInfo['creator'],
                     'creator_token' => $creatorInfo['creator_token'],
                     'raw_json' => json_encode($request->all())

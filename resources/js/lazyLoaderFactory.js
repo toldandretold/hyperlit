@@ -69,14 +69,17 @@ export function createLazyLoader(config) {
   let scrollableParent;
   const readerWrapper = container.closest(".reader-content-wrapper");
   const homeWrapper = container.closest(".home-content-wrapper");
+  const userWrapper = container.closest(".user-content-wrapper");
 
   if (readerWrapper) {
       scrollableParent = readerWrapper;
   } else if (homeWrapper) {
       scrollableParent = homeWrapper;
+  } else if (userWrapper) {
+      scrollableParent = userWrapper;
   } else {
       scrollableParent = window;
-      console.warn("No specific .reader-content-wrapper or .home-content-wrapper found. Using window as scrollable parent.");
+      console.warn("No specific .reader-content-wrapper, .home-content-wrapper, or .user-content-wrapper found. Using window as scrollable parent.");
   }
   
   // Create the instance to track lazy-loader state.
@@ -139,9 +142,56 @@ export function createLazyLoader(config) {
       const isInsideContainer = link.closest('#hyperlit-container');
 
       if (hash && hash.startsWith('#hypercite_') && !link.classList.contains('see-in-source-btn') && !isInsideContainer) {
-        console.log('🔗 LazyLoader: Detected hypercite citation link, opening container');
+        console.log('🔗 LazyLoader: Detected hypercite citation link');
+
+        // Prevent default navigation immediately
         event.preventDefault();
         event.stopPropagation();
+
+        // Extract target book ID from URL
+        const targetBookId = url.pathname.replace('/', '');
+
+        // Check if target book is private and if user has access
+        try {
+          const { openDatabase } = await import('./indexedDB.js');
+          const db = await openDatabase();
+          const tx = db.transaction('library', 'readonly');
+          const libraryStore = tx.objectStore('library');
+          const libraryData = await new Promise((resolve) => {
+            const req = libraryStore.get(targetBookId);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => resolve(null);
+          });
+
+          // If book is private, check access
+          if (libraryData && libraryData.visibility === 'private') {
+            console.log('🔒 Target book is private, checking access...');
+            const { canUserEditBook } = await import('./auth.js');
+            const hasAccess = await canUserEditBook(targetBookId);
+
+            if (!hasAccess) {
+              console.log('🚫 Access denied to private book, blocking container open');
+
+              // Find and animate the lock icon if this link has one nearby
+              const parentBlock = link.closest('p, blockquote, div');
+              if (parentBlock) {
+                const lockIcon = parentBlock.querySelector('.private-lock-icon');
+                if (lockIcon) {
+                  lockIcon.style.transform = 'scale(1.3)';
+                  setTimeout(() => {
+                    lockIcon.style.transform = 'scale(1)';
+                  }, 200);
+                }
+              }
+              return;
+            }
+          }
+        } catch (accessError) {
+          console.error('🔗 LazyLoader: Error checking private book access:', accessError);
+          // Continue anyway - let the container handle it
+        }
+
+        console.log('🔗 LazyLoader: Opening container for hypercite');
 
         // Import and call unified container handler
         const { handleUnifiedContentClick } = await import('./unifiedContainer.js');
