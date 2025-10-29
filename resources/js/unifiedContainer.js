@@ -1069,6 +1069,7 @@ async function buildHyperciteCitationContent(contentType, db = null) {
       request.onerror = () => reject(request.error);
     });
 
+    let libraryData = result;
     let formattedCitation = '';
 
     if (result && result.bibtex) {
@@ -1076,6 +1077,7 @@ async function buildHyperciteCitationContent(contentType, db = null) {
     } else {
       // Fallback: try to fetch from server
       const serverLibraryData = await fetchLibraryFromServer(targetBook);
+      libraryData = serverLibraryData; // Update libraryData with server result
       if (serverLibraryData && serverLibraryData.bibtex) {
         formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
       } else {
@@ -1084,15 +1086,40 @@ async function buildHyperciteCitationContent(contentType, db = null) {
       }
     }
 
+    // Check if book is private and if user has access
+    const isPrivate = libraryData && libraryData.visibility === 'private';
+    let hasAccess = true;
+
+    if (isPrivate) {
+      console.log(`🔒 Target book ${targetBook} is private, checking access...`);
+      const { canUserEditBook } = await import('./auth.js');
+      hasAccess = await canUserEditBook(targetBook);
+      console.log(`🔒 Access result: ${hasAccess ? 'ALLOWED' : 'DENIED'}`);
+    }
+
+    // Add lock icon if private (no negative margin here - single citation, no list alignment needed)
+    const lockIcon = isPrivate
+      ? '<svg class="private-lock-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d73a49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: text-bottom; margin-right: 4px; transition: transform 0.2s ease;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>'
+      : '';
+
+    // Configure button based on access
+    const buttonText = (isPrivate && !hasAccess) ? 'source text private' : 'See in source text';
+    const buttonStyle = (isPrivate && !hasAccess)
+      ? 'display: inline-block; padding: 0.5em 1em; background: #4EACAE; color: #221F20; text-decoration: none; border-radius: 4px; opacity: 0.6; cursor: not-allowed;'
+      : 'display: inline-block; padding: 0.5em 1em; background: #4EACAE; color: #221F20; text-decoration: none; border-radius: 4px;';
+    const buttonAttrs = (isPrivate && !hasAccess)
+      ? `data-private="true" data-access="denied" data-book-id="${targetBook}"`
+      : '';
+
     return `
       <div class="hypercite-citation-section" data-content-id="${targetHyperciteId}">
         <h3>Reference</h3>
         <div class="citation-text">
-          ${formattedCitation}
+          ${lockIcon}${formattedCitation}
         </div>
         <div style="margin-top: 1em;">
-          <a href="${targetUrl}" class="see-in-source-btn" style="display: inline-block; padding: 0.5em 1em; background: #4EACAE; color: #221F20; text-decoration: none; border-radius: 4px;">
-            See in source text
+          <a href="${targetUrl}" class="see-in-source-btn" ${buttonAttrs} style="${buttonStyle}">
+            ${buttonText}
           </a>
         </div>
         <hr style="margin: 2em 0; opacity: 0.5;">
@@ -1453,7 +1480,7 @@ async function buildHyperciteContent(contentType, db = null) {
             // Check if the book is private and add lock icon
             const isPrivate = libraryData.visibility === 'private';
             const lockIcon = isPrivate
-              ? '<svg class="private-lock-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d73a49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: text-bottom; margin-right: 4px; transition: transform 0.2s ease;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>'
+              ? '<svg class="private-lock-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d73a49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: text-bottom; margin-left: -20px; margin-right: 4px; transition: transform 0.2s ease;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>'
               : '';
 
             const citationText = isHyperlightURL
@@ -2143,19 +2170,6 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
       }
     }, 100);
   }
-
-  // Attach "See in source text" button listeners to close container before navigation
-  setTimeout(() => {
-    const seeInSourceButtons = document.querySelectorAll('.see-in-source-btn');
-    seeInSourceButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        console.log('🔗 See in source text clicked, closing container before navigation');
-        closeHyperlitContainer();
-      });
-    });
-
-    console.log(`🔗 Attached ${seeInSourceButtons.length} "See in source text" button listeners`);
-  }, 200);
 }
 
 /**
@@ -2193,16 +2207,23 @@ function attachDataContentIdLinkListeners() {
           event.stopPropagation();
 
           // Find and animate the lock icon
+          // Check for lock icon in blockquote (for "Cited in:" links) or citation-section (for "Reference" section)
           const blockquote = this.closest('blockquote');
+          const citationSection = this.closest('.hypercite-citation-section');
+
+          let lockIcon = null;
           if (blockquote) {
-            const lockIcon = blockquote.querySelector('.private-lock-icon');
-            if (lockIcon) {
-              // Scale animation
-              lockIcon.style.transform = 'scale(1.3)';
-              setTimeout(() => {
-                lockIcon.style.transform = 'scale(1)';
-              }, 200);
-            }
+            lockIcon = blockquote.querySelector('.private-lock-icon');
+          } else if (citationSection) {
+            lockIcon = citationSection.querySelector('.private-lock-icon');
+          }
+
+          if (lockIcon) {
+            // Scale animation
+            lockIcon.style.transform = 'scale(1.3)';
+            setTimeout(() => {
+              lockIcon.style.transform = 'scale(1)';
+            }, 200);
           }
 
           console.log('🚫 Navigation blocked: Access denied to private book');
@@ -2229,15 +2250,22 @@ function attachDataContentIdLinkListeners() {
               this.style.cursor = 'not-allowed';
 
               // Animate the lock icon
+              // Check for lock icon in blockquote (for "Cited in:" links) or citation-section (for "Reference" section)
               const blockquote = this.closest('blockquote');
+              const citationSection = this.closest('.hypercite-citation-section');
+
+              let lockIcon = null;
               if (blockquote) {
-                const lockIcon = blockquote.querySelector('.private-lock-icon');
-                if (lockIcon) {
-                  lockIcon.style.transform = 'scale(1.3)';
-                  setTimeout(() => {
-                    lockIcon.style.transform = 'scale(1)';
-                  }, 200);
-                }
+                lockIcon = blockquote.querySelector('.private-lock-icon');
+              } else if (citationSection) {
+                lockIcon = citationSection.querySelector('.private-lock-icon');
+              }
+
+              if (lockIcon) {
+                lockIcon.style.transform = 'scale(1.3)';
+                setTimeout(() => {
+                  lockIcon.style.transform = 'scale(1)';
+                }, 200);
               }
 
               console.log('🚫 Access denied after on-demand check');
