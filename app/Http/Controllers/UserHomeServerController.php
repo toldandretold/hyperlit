@@ -33,12 +33,22 @@ class UserHomeServerController extends Controller
             $this->generateUserHomeBook($username, $isOwner, 'private');
         }
 
+        // Fetch library record for title and bio
+        $libraryRecord = DB::table('library')
+            ->where('book', $username)
+            ->first();
+
+        $title = $libraryRecord ? ($libraryRecord->title ?? "{$username}'s library") : "{$username}'s library";
+        $bio = $libraryRecord ? ($libraryRecord->note ?? '') : '';
+
         // Return user.blade.php with user page data
         return view('user', [
             'pageType' => 'user',
             'book' => $username,
             'username' => $username,
             'isOwner' => $isOwner,
+            'libraryTitle' => $title,
+            'libraryBio' => $bio,
         ]);
     }
 

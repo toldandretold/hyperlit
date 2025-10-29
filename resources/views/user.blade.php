@@ -68,8 +68,8 @@
   <div class="user-content-wrapper">
     <div class="fixed-header">
       <div id="userLibraryContainer" class="top-content">
-        <h1 id="userLibraryTitle" contenteditable="false"></h1>
-        <div id="userBio" contenteditable="false"></div>
+        <h1 id="userLibraryTitle" contenteditable="false">{{ $libraryTitle }}</h1>
+        <div id="userBio" contenteditable="false">{{ $libraryBio }}</div>
       </div>
       @if($isOwner)
       <div class="arranger-buttons-container">

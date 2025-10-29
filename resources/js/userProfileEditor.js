@@ -41,9 +41,13 @@ export async function initializeUserProfileEditor() {
 
     if (!record) {
       console.warn('No library record found for book:', book);
-      // Set defaults
-      titleEl.textContent = `${book}'s library`;
-      bioEl.textContent = '';
+      // Only set defaults if not already present (server-rendered)
+      if (!titleEl.textContent.trim()) {
+        titleEl.textContent = `${book}'s library`;
+      }
+      if (!bioEl.textContent.trim()) {
+        bioEl.textContent = '';
+      }
 
       // Recalculate header spacing even with defaults
       setTimeout(() => {
@@ -53,9 +57,13 @@ export async function initializeUserProfileEditor() {
       return;
     }
 
-    // Display title and bio
-    titleEl.textContent = record.title || `${book}'s library`;
-    bioEl.textContent = record.note || '';
+    // Display title and bio only if not already present (server-rendered)
+    if (!titleEl.textContent.trim()) {
+      titleEl.textContent = record.title || `${book}'s library`;
+    }
+    if (!bioEl.textContent.trim()) {
+      bioEl.textContent = record.note || '';
+    }
 
     // Recalculate header spacing now that content is loaded
     setTimeout(() => {

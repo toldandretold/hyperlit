@@ -163,6 +163,12 @@ export class DifferentTemplateTransition {
       const { resetEditModeState } = await import('../../editButton.js');
       resetEditModeState();
 
+      // Destroy user container (reader pages also have userButton)
+      const { destroyUserContainer } = await import('../../userContainer.js');
+      if (typeof destroyUserContainer === 'function') {
+        destroyUserContainer();
+      }
+
       // Close any open containers
       await this.closeOpenContainers();
 

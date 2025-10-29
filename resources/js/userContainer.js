@@ -37,9 +37,19 @@ export class UserContainerManager extends ContainerManager {
     const user = await getCurrentUser();
     if (user) {
       this.user = user;
-      // You can optionally update the UI here if needed, e.g., change button text
+      // Update button color to indicate logged-in state
+      this.updateButtonColor();
     } else {
     }
+  }
+
+  // Update userButton SVG color based on login state
+  updateButtonColor() {
+    const userLogo = document.getElementById('userLogo');
+    if (!userLogo) return;
+
+    // Keep button white for now - placeholder for future login indicator
+    userLogo.style.fill = '';
   }
 
 
@@ -301,6 +311,9 @@ export class UserContainerManager extends ContainerManager {
         this.user = data.user;
         console.log("✅ Login successful for user:", data.user?.name || "user");
 
+        // Update button color to green
+        this.updateButtonColor();
+
         // Check if there's anonymous content to transfer
         if (data.anonymous_content) {
           this.showAnonymousContentTransfer(data.anonymous_content);
@@ -352,6 +365,10 @@ export class UserContainerManager extends ContainerManager {
         setCurrentUser(data.user);
         this.user = data.user;
         console.log("✅ Registration successful for user:", data.user?.name || "user");
+
+        // Update button color to green
+        this.updateButtonColor();
+
         this.showUserProfile();
       } else {
         this.showRegisterError(
@@ -386,7 +403,10 @@ export class UserContainerManager extends ContainerManager {
         // MODIFIED: Centralize state clearing
         clearCurrentUser();
         this.user = null;
-        
+
+        // Reset button color to default
+        this.updateButtonColor();
+
         // Clear all cached data after logout for fresh anonymous context
         console.log("✅ Logout successful - clearing all cached data for fresh anonymous context");
         try {
@@ -394,18 +414,20 @@ export class UserContainerManager extends ContainerManager {
         } catch (error) {
           console.error("❌ Error clearing cached data after logout:", error);
         }
-        
+
         this.closeContainer();
       } else {
         console.error("Logout failed:", response.status);
         clearCurrentUser();
         this.user = null;
+        this.updateButtonColor();
         this.closeContainer();
       }
     } catch (error) {
       console.error("Logout error:", error);
       clearCurrentUser();
       this.user = null;
+      this.updateButtonColor();
       this.closeContainer();
     }
   }
@@ -1104,7 +1126,7 @@ export function initializeUserContainer() {
     if (!userManager) {
       userManager = new UserContainerManager(
         "user-container",
-        "user-overlay", 
+        "user-overlay",
         "userButton",
         ["main-content"]
       );
@@ -1113,6 +1135,8 @@ export function initializeUserContainer() {
       // Manager exists, just update button reference
       userManager.button = document.getElementById("userButton");
       userManager.rebindElements();
+      // Update button color after rebind to maintain logged-in state
+      userManager.updateButtonColor();
       console.log('✅ UserContainer: Updated existing manager');
     }
     return userManager;
