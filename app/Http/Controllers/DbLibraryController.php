@@ -319,6 +319,7 @@ public function bulkCreate(Request $request)
                     'school' => $item['school'] ?? null,
                     'fileName' => $item['fileName'] ?? null,
                     'fileType' => $item['fileType'] ?? null,
+                    'visibility' => $item['visibility'] ?? 'private', // Default to private
                     'recent' => $item['recent'] ?? null,
                     'total_views' => $item['total_views'] ?? 0,
                     'total_highlights' => $item['total_highlights'] ?? 0,

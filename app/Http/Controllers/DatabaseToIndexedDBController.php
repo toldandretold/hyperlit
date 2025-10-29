@@ -839,7 +839,9 @@ class DatabaseToIndexedDBController extends Controller
         try {
             Log::info('getBookLibrary called', ['book_id' => $bookId]);
 
-            // 🔒 CRITICAL: Check book visibility and access permissions
+            // Library records (bibliographic metadata) are publicly accessible
+            // even for private books, as they may be cited in public documents.
+            // The privacy restriction applies to node_chunks (actual content), not citations.
             $libraryRecord = DB::table('library')->where('book', $bookId)->first();
 
             if (!$libraryRecord) {
@@ -847,32 +849,6 @@ class DatabaseToIndexedDBController extends Controller
                     'error' => 'Library record not found for book',
                     'book_id' => $bookId
                 ], 404);
-            }
-
-            // If book is private, check authorization
-            if ($libraryRecord->visibility === 'private') {
-                $user = Auth::user();
-                $anonymousToken = $request->cookie('anon_token');
-
-                $authorized = false;
-
-                // Check creator (username-based auth)
-                if ($user && $libraryRecord->creator === $user->name) {
-                    $authorized = true;
-                }
-                // Check creator_token (anonymous token-based auth)
-                elseif (!$user && $anonymousToken && $libraryRecord->creator_token === $anonymousToken) {
-                    $authorized = true;
-                }
-
-                if (!$authorized) {
-                    return response()->json([
-                        'error' => 'access_denied',
-                        'message' => 'You do not have permission to access this private book',
-                        'is_private' => true,
-                        'book_id' => $bookId
-                    ], 403);
-                }
             }
 
             $library = $this->getLibrary($bookId);

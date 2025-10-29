@@ -1449,11 +1449,23 @@ async function buildHyperciteContent(contentType, db = null) {
 
           if (libraryData && libraryData.bibtex) {
             const formattedCitation = await formatBibtexToCitation(libraryData.bibtex);
-            const citationText = isHyperlightURL
-              ? `a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}`
-              : formattedCitation;
 
-            return `<blockquote>${citationText} <a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}"><span class="open-icon">↗</span></a>${managementButtonsHtml}</blockquote>`;
+            // Check if the book is private and add lock icon
+            const isPrivate = libraryData.visibility === 'private';
+            const lockIcon = isPrivate
+              ? '<svg class="private-lock-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d73a49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: text-bottom; margin-right: 4px; transition: transform 0.2s ease;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>'
+              : '';
+
+            const citationText = isHyperlightURL
+              ? `${lockIcon}a <span id="citedInHyperlight">Hyperlight</span> in ${formattedCitation}`
+              : `${lockIcon}${formattedCitation}`;
+
+            // Add data attributes for private books to enable deferred auth checking
+            const privateAttrs = isPrivate
+              ? `data-private="true" data-book-id="${bookID}"`
+              : '';
+
+            return `<blockquote>${citationText} <a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}" ${privateAttrs}><span class="open-icon">↗</span></a>${managementButtonsHtml}</blockquote>`;
           } else {
             return `<a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}">${citationID}${managementButtonsHtml}</a>`;
           }
@@ -2109,6 +2121,15 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
   // Always attach data-content-id link listeners for URL updates
   setTimeout(() => {
     attachDataContentIdLinkListeners();
+
+    // Defer private book access checks to avoid blocking container opening
+    // Use requestIdleCallback for non-critical background work
+    if (window.requestIdleCallback) {
+      requestIdleCallback(() => checkPrivateBookAccess());
+    } else {
+      // Fallback for browsers without requestIdleCallback
+      setTimeout(() => checkPrivateBookAccess(), 200);
+    }
   }, 100);
 
   // Attach manage citations button listener (on-demand management button injection)
@@ -2160,10 +2181,79 @@ function attachDataContentIdLinkListeners() {
     // Create new listener
     link._smartContentListener = async function(event) {
       console.log(`🔗 Smart content listener triggered for:`, this.href, `isProcessingClick: ${isProcessingClick}`);
+
+      // Check if this is a private book link with denied access
+      const isPrivate = this.hasAttribute('data-private');
+      const accessStatus = this.getAttribute('data-access');
+
+      if (isPrivate) {
+        if (accessStatus === 'denied') {
+          // Access is denied - prevent navigation and animate lock icon
+          event.preventDefault();
+          event.stopPropagation();
+
+          // Find and animate the lock icon
+          const blockquote = this.closest('blockquote');
+          if (blockquote) {
+            const lockIcon = blockquote.querySelector('.private-lock-icon');
+            if (lockIcon) {
+              // Scale animation
+              lockIcon.style.transform = 'scale(1.3)';
+              setTimeout(() => {
+                lockIcon.style.transform = 'scale(1)';
+              }, 200);
+            }
+          }
+
+          console.log('🚫 Navigation blocked: Access denied to private book');
+          return;
+        } else if (!accessStatus) {
+          // Access not yet checked - check on demand
+          console.log('🔒 Private book access not yet checked, checking now...');
+          event.preventDefault();
+          event.stopPropagation();
+
+          try {
+            const bookId = this.getAttribute('data-book-id');
+            const { canUserEditBook } = await import('./auth.js');
+            const hasAccess = await canUserEditBook(bookId);
+
+            if (hasAccess) {
+              this.setAttribute('data-access', 'allowed');
+              console.log('✅ Access granted, proceeding with navigation');
+              // Trigger click again to proceed with navigation
+              this.click();
+            } else {
+              this.setAttribute('data-access', 'denied');
+              this.style.opacity = '0.6';
+              this.style.cursor = 'not-allowed';
+
+              // Animate the lock icon
+              const blockquote = this.closest('blockquote');
+              if (blockquote) {
+                const lockIcon = blockquote.querySelector('.private-lock-icon');
+                if (lockIcon) {
+                  lockIcon.style.transform = 'scale(1.3)';
+                  setTimeout(() => {
+                    lockIcon.style.transform = 'scale(1)';
+                  }, 200);
+                }
+              }
+
+              console.log('🚫 Access denied after on-demand check');
+            }
+          } catch (error) {
+            console.error('❌ Error checking access on click:', error);
+          }
+          return;
+        }
+        // If accessStatus === 'allowed', continue with normal navigation
+      }
+
       const contextId = findClosestContentId(this);
       if (contextId) {
         console.log(`🔗 Link clicked in context: ${contextId} - checking if same-book navigation`);
-        
+
         try {
           // Import navigation logic to check if this is same-book navigation
           const { LinkNavigationHandler } = await import('./navigation/LinkNavigationHandler.js');
@@ -2253,6 +2343,64 @@ function attachDataContentIdLinkListeners() {
     link._smartContentListenerAttached = true;
     console.log(`🔗 Attached smart listener to:`, link.href);
   });
+}
+
+/**
+ * Check access to private books and update link attributes
+ * Runs asynchronously after container opens to avoid blocking UI
+ */
+async function checkPrivateBookAccess() {
+  // Collect all private book links in the container
+  const privateLinks = document.querySelectorAll('#hyperlit-container a[data-private="true"]');
+
+  if (privateLinks.length === 0) {
+    console.log('🔓 No private book links found in container');
+    return;
+  }
+
+  console.log(`🔒 Found ${privateLinks.length} private book links, checking access...`);
+
+  // Import auth function
+  const { canUserEditBook } = await import('./auth.js');
+
+  // Collect unique book IDs
+  const uniqueBookIds = [...new Set(
+    Array.from(privateLinks).map(link => link.getAttribute('data-book-id'))
+  )].filter(Boolean);
+
+  console.log(`🔒 Checking access for ${uniqueBookIds.length} unique private books`);
+
+  // Batch check access for all unique books
+  const accessMap = new Map();
+  await Promise.all(
+    uniqueBookIds.map(async (bookId) => {
+      try {
+        const hasAccess = await canUserEditBook(bookId);
+        accessMap.set(bookId, hasAccess);
+        console.log(`🔒 Book ${bookId}: ${hasAccess ? 'ALLOWED' : 'DENIED'}`);
+      } catch (error) {
+        console.error(`❌ Error checking access for ${bookId}:`, error);
+        accessMap.set(bookId, false); // Deny on error
+      }
+    })
+  );
+
+  // Update all links with access status
+  privateLinks.forEach(link => {
+    const bookId = link.getAttribute('data-book-id');
+    const hasAccess = accessMap.get(bookId);
+
+    if (hasAccess) {
+      link.setAttribute('data-access', 'allowed');
+    } else {
+      link.setAttribute('data-access', 'denied');
+      // Subtle styling for denied links
+      link.style.opacity = '0.6';
+      link.style.cursor = 'not-allowed';
+    }
+  });
+
+  console.log('✅ Private book access check complete');
 }
 
 /**

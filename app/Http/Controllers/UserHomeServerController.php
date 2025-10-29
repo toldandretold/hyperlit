@@ -67,7 +67,15 @@ class UserHomeServerController extends Controller
             ->get();
 
         // Preserve existing highlights and cites
-        $oldChunks = DB::table('node_chunks')->where('book', $bookName)->get()->keyBy('node_id');
+        // Build lookup map by original_book from raw_json to handle new node_id pattern
+        $oldChunksRaw = DB::table('node_chunks')->where('book', $bookName)->get();
+        $oldChunks = [];
+        foreach ($oldChunksRaw as $chunk) {
+            $rawJson = json_decode($chunk->raw_json ?? '{}', true);
+            if (isset($rawJson['original_book'])) {
+                $oldChunks[$rawJson['original_book']] = $chunk;
+            }
+        }
 
         DB::table('library')->updateOrInsert(
             ['book' => $bookName],
@@ -88,6 +96,7 @@ class UserHomeServerController extends Controller
 
         foreach ($records as $i => $record) {
             $newChunk = $this->generateLibraryCardChunk($record, $bookName, $positionId, $isOwner, false, $i);
+            // Use original_book to look up preserved data
             if(isset($oldChunks[$record->book])) {
                 $newChunk['hypercites'] = $oldChunks[$record->book]->hypercites;
                 $newChunk['hyperlights'] = $oldChunks[$record->book]->hyperlights;
@@ -139,14 +148,16 @@ class UserHomeServerController extends Controller
         $visibility = $bookRecord->visibility ?? 'public';
         $bookName = $visibility === 'private' ? $username . 'Private' : $username;
 
+        // Use new node_id pattern to find the card
+        $expectedNodeId = $bookName . '_' . $bookRecord->book . '_card';
         $chunkToUpdate = DB::table('node_chunks')
             ->where('book', $bookName)
-            ->where('node_id', $bookRecord->book)
+            ->where('node_id', $expectedNodeId)
             ->first();
 
         if ($chunkToUpdate) {
             $isOwner = Auth::check() && Auth::user()->name === $username;
-            $newContent = $this->generateLibraryCardHtml($bookRecord, $chunkToUpdate->startLine, $isOwner);
+            $newContent = $this->generateLibraryCardHtml($bookRecord, $chunkToUpdate->startLine, $isOwner, $expectedNodeId);
             $newRawJson = json_encode([
                 'original_book' => $bookRecord->book, 'position_type' => 'user_home', 'position_id' => $chunkToUpdate->startLine,
                 'bibtex' => $bookRecord->bibtex, 'title' => $bookRecord->title ?? null, 'author' => $bookRecord->author ?? null, 'year' => $bookRecord->year ?? null,
@@ -177,16 +188,19 @@ class UserHomeServerController extends Controller
                 ? '<em>no private hypertext</em>'
                 : '<em>no public hypertext</em>';
 
+            $emptyNodeId = $bookName . '_empty_card';
             return [
                 'raw_json' => json_encode(['original_book' => null, 'position_type' => 'user_home', 'position_id' => 1, 'empty' => true]),
-                'book' => $bookName, 'chunk_id' => 0, 'startLine' => 1, 'node_id' => $bookName . '_empty_node',
+                'book' => $bookName, 'chunk_id' => 0, 'startLine' => 1, 'node_id' => $emptyNodeId,
                 'footnotes' => null, 'hypercites' => null, 'hyperlights' => null,
-                'content' => '<p class="libraryCard" id="1" data-node-id="empty_card">' . $emptyMessage . '</p>',
+                'content' => '<p class="libraryCard" id="1" data-node-id="' . $emptyNodeId . '">' . $emptyMessage . '</p>',
                 'plainText' => strip_tags($emptyMessage), 'type' => 'p', 'created_at' => $now, 'updated_at' => $now,
             ];
         }
 
-        $content = $this->generateLibraryCardHtml($record, $positionId, $isOwner);
+        // Generate unique node_id using pattern: {username}_{bookId}_card
+        $nodeId = $bookName . '_' . $record->book . '_card';
+        $content = $this->generateLibraryCardHtml($record, $positionId, $isOwner, $nodeId);
 
         return [
             'raw_json' => json_encode([
@@ -196,7 +210,7 @@ class UserHomeServerController extends Controller
             'book' => $bookName,
             'chunk_id' => ($index < 0) ? 0 : floor($index / 100),
             'startLine' => $positionId,
-            'node_id' => $record->book,
+            'node_id' => $nodeId,
             'footnotes' => null, 'hypercites' => null, 'hyperlights' => null,
             'content' => $content,
             'plainText' => strip_tags($this->generateCitationHtml($record)),
@@ -204,9 +218,8 @@ class UserHomeServerController extends Controller
         ];
     }
 
-    private function generateLibraryCardHtml($record, int $positionId, bool $isOwner): string
+    private function generateLibraryCardHtml($record, int $positionId, bool $isOwner, string $nodeId): string
     {
-        $nodeId = $record->book;
         $citationHtml = $this->generateCitationHtml($record);
         $content = '<p class="libraryCard" id="' . $positionId . '" data-node-id="' . $nodeId . '">' . $citationHtml . '<a href="/' . $record->book . '"><span class="open-icon">↗</span></a>';
 
