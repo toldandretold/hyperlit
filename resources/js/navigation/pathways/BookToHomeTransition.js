@@ -294,7 +294,15 @@ export class BookToHomeTransition {
       
       // Shared container managers will rebind via viewManager
       await this.rebindSharedContainerManagers();
-      
+
+      // 🔧 Reinitialize logo navigation toggle
+      console.log('🔧 BookToHomeTransition: Reinitializing logo navigation toggle');
+      const { initializeLogoNav } = await import('../../logoNavToggle.js');
+      if (typeof initializeLogoNav === 'function') {
+        initializeLogoNav();
+        console.log('✅ BookToHomeTransition: Logo navigation toggle initialized');
+      }
+
       console.log('✅ BookToHomeTransition: Container managers reinitialized');
       
     } catch (error) {

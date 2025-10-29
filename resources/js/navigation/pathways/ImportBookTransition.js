@@ -234,7 +234,15 @@ export class ImportBookTransition {
       // Initialize the reader view using the existing system
       const { universalPageInitializer } = await import('../../viewManager.js');
       await universalPageInitializer(progressCallback);
-      
+
+      // 🔧 Reinitialize logo navigation toggle
+      console.log('🔧 ImportBookTransition: Reinitializing logo navigation toggle');
+      const { initializeLogoNav } = await import('../../logoNavToggle.js');
+      if (typeof initializeLogoNav === 'function') {
+        initializeLogoNav();
+        console.log('✅ ImportBookTransition: Logo navigation toggle initialized');
+      }
+
       // All UI rebinding is now handled by universalPageInitializer
       console.log("✅ ImportBookTransition: UI initialization delegated to universalPageInitializer");
       

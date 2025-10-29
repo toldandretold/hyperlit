@@ -219,7 +219,15 @@ export class HomeToBookTransition {
       // Initialize reader functionality
       const { universalPageInitializer } = await import('../../viewManager.js');
       await universalPageInitializer(progressCallback);
-      
+
+      // 🔧 Reinitialize logo navigation toggle
+      console.log('🔧 HomeToBookTransition: Reinitializing logo navigation toggle');
+      const { initializeLogoNav } = await import('../../logoNavToggle.js');
+      if (typeof initializeLogoNav === 'function') {
+        initializeLogoNav();
+        console.log('✅ HomeToBookTransition: Logo navigation toggle initialized');
+      }
+
       // Ensure shared container managers are ready after reader initialization
       await this.ensureSharedContainerManagersReady();
       
