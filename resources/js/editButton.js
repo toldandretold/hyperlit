@@ -1,7 +1,6 @@
 import {
   startObserving,
-  stopObserving,
-  initTitleSync
+  stopObserving
 } from "./divEditor.js";
 import { book } from "./app.js";
 import { incrementPendingOperations, decrementPendingOperations } from './operationState.js';
@@ -354,7 +353,6 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
         editableDiv.focus();
         startObserving(editableDiv);
         addPasteListener(editableDiv);
-        initTitleSync(book);
 
         console.log("Edit mode enabled");
       } catch (error) {
