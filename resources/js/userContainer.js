@@ -162,7 +162,13 @@ export class UserContainerManager extends ContainerManager {
       <div class="user-form">
         <h3 style="color: #EF8D34; margin-bottom: 15px;">Register</h3>
         <form id="register-form-embedded">
-          <input type="text" id="registerName" placeholder="Name" required style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
+          <div style="margin-bottom: 10px;">
+            <input type="text" id="registerName" placeholder="Username" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
+            <div style="font-size: 11px; color: #999; margin-top: 4px; line-height: 1.3;">
+              Used publicly when sharing hypertext (e.g., /u/username)
+            </div>
+            <div id="usernameError" style="font-size: 11px; color: #EE4A95; margin-top: 4px; display: none;"></div>
+          </div>
           <input type="email" id="registerEmail" placeholder="Email" required style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
           <input type="password" id="registerPassword" placeholder="Password" required style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
           <button type="submit" id="registerSubmit" style="width: 100%; padding: 10px; background: #4EACAE; color: #221F20; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">Register</button>
@@ -170,6 +176,41 @@ export class UserContainerManager extends ContainerManager {
         </form>
       </div>
     `;
+  }
+
+  /**
+   * Validates username for URL safety
+   * Returns { valid: boolean, error: string|null }
+   */
+  validateUsername(username) {
+    if (!username || username.trim() === '') {
+      return { valid: false, error: 'Username is required' };
+    }
+
+    // Check for spaces
+    if (/\s/.test(username)) {
+      return { valid: false, error: 'Username cannot contain spaces' };
+    }
+
+    // Check length (3-30 characters)
+    if (username.length < 3) {
+      return { valid: false, error: 'Username must be at least 3 characters' };
+    }
+    if (username.length > 30) {
+      return { valid: false, error: 'Username must be 30 characters or less' };
+    }
+
+    // Check for URL-safe characters only (alphanumeric, hyphens, underscores)
+    if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+      return { valid: false, error: 'Username can only contain letters, numbers, hyphens, and underscores' };
+    }
+
+    // Check that it doesn't start or end with hyphen/underscore (optional, but good UX)
+    if (/^[-_]|[-_]$/.test(username)) {
+      return { valid: false, error: 'Username cannot start or end with - or _' };
+    }
+
+    return { valid: true, error: null };
   }
 
    showLoginForm() {
@@ -189,6 +230,28 @@ export class UserContainerManager extends ContainerManager {
     const registerHTML = this.getRegisterFormHTML();
     const container = document.querySelector(".custom-alert") || this.container;
     container.innerHTML = registerHTML;
+
+    // Attach real-time validation to username input
+    const usernameInput = document.getElementById('registerName');
+    const errorDiv = document.getElementById('usernameError');
+
+    if (usernameInput && errorDiv) {
+      usernameInput.addEventListener('input', (e) => {
+        const username = e.target.value;
+        const validation = this.validateUsername(username);
+
+        if (!validation.valid && username.length > 0) {
+          // Show error
+          errorDiv.textContent = validation.error;
+          errorDiv.style.display = 'block';
+          usernameInput.style.borderColor = '#EE4A95';
+        } else {
+          // Hide error
+          errorDiv.style.display = 'none';
+          usernameInput.style.borderColor = '#444';
+        }
+      });
+    }
 
     if (!this.isOpen && container === this.container) {
       this.openContainer("register");
@@ -338,6 +401,13 @@ export class UserContainerManager extends ContainerManager {
     const name = document.getElementById("registerName").value;
     const email = document.getElementById("registerEmail").value;
     const password = document.getElementById("registerPassword").value;
+
+    // Validate username before submitting
+    const validation = this.validateUsername(name);
+    if (!validation.valid) {
+      this.showRegisterError(validation.error);
+      return;
+    }
 
     try {
       await fetch("/sanctum/csrf-cookie", {
@@ -1089,9 +1159,20 @@ export class UserContainerManager extends ContainerManager {
   }
 
   /**
+   * Sanitize username by removing all spaces
+   * Ensures URLs like /u/MrJohns work with DB username "Mr Johns"
+   */
+  sanitizeUsername(username) {
+    return username.replace(/\s+/g, '');
+  }
+
+  /**
    * Navigate to user's books page using SPA transition
    */
   async navigateToUserBooks(username) {
+    // Sanitize username for URL (remove spaces)
+    const sanitizedUsername = this.sanitizeUsername(username);
+
     try {
       console.log(`📚 UserContainer: Navigating to user books for ${username} using SPA`);
 
@@ -1102,8 +1183,8 @@ export class UserContainerManager extends ContainerManager {
       // This will automatically detect home→user transition and use DifferentTemplateTransition
       const { NavigationManager } = await import('./navigation/NavigationManager.js');
       await NavigationManager.navigateByStructure({
-        toBook: encodeURIComponent(username),
-        targetUrl: `/u/${encodeURIComponent(username)}`,
+        toBook: encodeURIComponent(sanitizedUsername),
+        targetUrl: `/u/${encodeURIComponent(sanitizedUsername)}`,
         targetStructure: 'user', // Explicitly specify user page structure
         hash: ''
       });
@@ -1111,8 +1192,8 @@ export class UserContainerManager extends ContainerManager {
       console.log(`✅ UserContainer: Successfully navigated to ${username}'s books`);
     } catch (error) {
       console.error('❌ UserContainer: SPA navigation failed, falling back to page reload:', error);
-      // Fallback to new /u/{username} URL format
-      window.location.href = "/u/" + encodeURIComponent(username);
+      // Fallback to new /u/{username} URL format (sanitized)
+      window.location.href = "/u/" + encodeURIComponent(sanitizedUsername);
     }
   }
 }

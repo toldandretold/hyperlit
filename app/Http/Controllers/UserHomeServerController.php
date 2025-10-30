@@ -11,41 +11,65 @@ use App\Models\PgLibrary;
 class UserHomeServerController extends Controller
 {
     /**
+     * Sanitize username by removing all spaces
+     * Allows URLs like /u/MrJohns to work with DB username "Mr Johns"
+     */
+    private function sanitizeUsername(string $username): string
+    {
+        return str_replace(' ', '', $username);
+    }
+
+    /**
      * Show user's homepage (for subdomain routing)
      */
     public function show(string $username)
     {
-        // Check if user exists
+        // Check if user exists - try exact match first, then sanitized match
         $user = \App\Models\User::where('name', $username)->first();
+
+        // If no exact match, try to find by sanitized username (handles spaces)
+        if (!$user) {
+            $users = \App\Models\User::all();
+            foreach ($users as $potentialUser) {
+                if ($this->sanitizeUsername($potentialUser->name) === $this->sanitizeUsername($username)) {
+                    $user = $potentialUser;
+                    break;
+                }
+            }
+        }
 
         if (!$user) {
             abort(404, 'User not found');
         }
 
-        // Generate user's library books
-        $isOwner = Auth::check() && Auth::user()->name === $username;
+        // Use the actual DB username for all operations, but sanitized for book IDs
+        $actualUsername = $user->name;
+        $sanitizedUsername = $this->sanitizeUsername($actualUsername);
 
-        // Always generate public book
-        $this->generateUserHomeBook($username, $isOwner, 'public');
+        // Generate user's library books
+        $isOwner = Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername;
+
+        // Always generate public book - pass actual username for DB queries
+        $this->generateUserHomeBook($actualUsername, $isOwner, 'public');
 
         // Only generate private book if user is owner
         if ($isOwner) {
-            $this->generateUserHomeBook($username, $isOwner, 'private');
+            $this->generateUserHomeBook($actualUsername, $isOwner, 'private');
         }
 
-        // Fetch library record for title and bio
+        // Fetch library record for title and bio (use sanitized for book ID)
         $libraryRecord = DB::table('library')
-            ->where('book', $username)
+            ->where('book', $sanitizedUsername)
             ->first();
 
-        $title = $libraryRecord ? ($libraryRecord->title ?? "{$username}'s library") : "{$username}'s library";
+        $title = $libraryRecord ? ($libraryRecord->title ?? "{$actualUsername}'s library") : "{$actualUsername}'s library";
         $bio = $libraryRecord ? ($libraryRecord->note ?? '') : '';
 
-        // Return user.blade.php with user page data
+        // Return user.blade.php with user page data (use sanitized for book ID)
         return view('user', [
             'pageType' => 'user',
-            'book' => $username,
-            'username' => $username,
+            'book' => $sanitizedUsername,
+            'username' => $actualUsername,
             'isOwner' => $isOwner,
             'libraryTitle' => $title,
             'libraryBio' => $bio,
@@ -54,14 +78,18 @@ class UserHomeServerController extends Controller
 
     public function generateUserHomeBook(string $username, bool $currentUserIsOwner = null, string $visibility = 'public'): array
     {
-        // Determine book name based on visibility
-        $bookName = $visibility === 'private' ? $username . 'Private' : $username;
+        // Sanitize username for book IDs (removes spaces)
+        $sanitizedUsername = $this->sanitizeUsername($username);
 
+        // Determine book name based on visibility - use sanitized username
+        $bookName = $visibility === 'private' ? $sanitizedUsername . 'Private' : $sanitizedUsername;
+
+        // Query database using actual username for creator field
         $records = DB::table('library')
             ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at'])
             ->where('creator', $username)
-            ->where('book', '!=', $username)
-            ->where('book', '!=', $username . 'Private')
+            ->where('book', '!=', $sanitizedUsername)
+            ->where('book', '!=', $sanitizedUsername . 'Private')
             ->where('visibility', $visibility)
             ->orderByDesc('created_at')
             ->get();
@@ -81,7 +109,7 @@ class UserHomeServerController extends Controller
             ['book' => $bookName],
             [
                 'author' => null, 'title' => $username . "'s library", 'visibility' => $visibility, 'listed' => false, 'creator' => $username, 'creator_token' => null,
-                'raw_json' => json_encode(['type' => 'user_home', 'username' => $username, 'visibility' => $visibility]),
+                'raw_json' => json_encode(['type' => 'user_home', 'username' => $username, 'sanitized_username' => $sanitizedUsername, 'visibility' => $visibility]),
                 'timestamp' => round(microtime(true) * 1000), 'updated_at' => now(), 'created_at' => now(),
             ]
         );
@@ -91,8 +119,8 @@ class UserHomeServerController extends Controller
         $chunks = [];
 
         $positionId = 100;
-        // Use passed parameter if provided, otherwise check current auth state
-        $isOwner = $currentUserIsOwner !== null ? $currentUserIsOwner : (Auth::check() && Auth::user()->name === $username);
+        // Use passed parameter if provided, otherwise check current auth state (compare sanitized)
+        $isOwner = $currentUserIsOwner !== null ? $currentUserIsOwner : (Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername);
 
         foreach ($records as $i => $record) {
             $newChunk = $this->generateLibraryCardChunk($record, $bookName, $positionId, $isOwner, false, $i);
@@ -118,9 +146,12 @@ class UserHomeServerController extends Controller
 
     public function addBookToUserPage(string $username, PgLibrary $bookRecord)
     {
+        // Sanitize username for book IDs
+        $sanitizedUsername = $this->sanitizeUsername($username);
+
         // Determine which book to update based on visibility
         $visibility = $bookRecord->visibility ?? 'public';
-        $bookName = $visibility === 'private' ? $username . 'Private' : $username;
+        $bookName = $visibility === 'private' ? $sanitizedUsername . 'Private' : $sanitizedUsername;
 
         $minStartLine = DB::table('node_chunks')
             ->where('book', $bookName)
@@ -132,8 +163,8 @@ class UserHomeServerController extends Controller
         if ($newStartLine < 1) {
             $this->generateUserHomeBook($username, null, $visibility);
         } else {
-            // For addBookToUserPage, always use current auth state
-            $isOwner = Auth::check() && Auth::user()->name === $username;
+            // For addBookToUserPage, always use current auth state (compare sanitized)
+            $isOwner = Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername;
             $chunk = $this->generateLibraryCardChunk($bookRecord, $bookName, $newStartLine, $isOwner, false, -1);
             DB::table('node_chunks')->insert($chunk);
             DB::table('library')->where('book', $bookName)->update(['timestamp' => round(microtime(true) * 1000)]);
@@ -144,9 +175,12 @@ class UserHomeServerController extends Controller
 
     public function updateBookOnUserPage(string $username, PgLibrary $bookRecord)
     {
+        // Sanitize username for book IDs
+        $sanitizedUsername = $this->sanitizeUsername($username);
+
         // Determine which book to update based on visibility
         $visibility = $bookRecord->visibility ?? 'public';
-        $bookName = $visibility === 'private' ? $username . 'Private' : $username;
+        $bookName = $visibility === 'private' ? $sanitizedUsername . 'Private' : $sanitizedUsername;
 
         // Use new node_id pattern to find the card
         $expectedNodeId = $bookName . '_' . $bookRecord->book . '_card';
@@ -156,7 +190,7 @@ class UserHomeServerController extends Controller
             ->first();
 
         if ($chunkToUpdate) {
-            $isOwner = Auth::check() && Auth::user()->name === $username;
+            $isOwner = Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername;
             $newContent = $this->generateLibraryCardHtml($bookRecord, $chunkToUpdate->startLine, $isOwner, $expectedNodeId);
             $newRawJson = json_encode([
                 'original_book' => $bookRecord->book, 'position_type' => 'user_home', 'position_id' => $chunkToUpdate->startLine,

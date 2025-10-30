@@ -40,9 +40,23 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => [
+                'required',
+                'string',
+                'min:3',
+                'max:30',
+                'unique:users,name',
+                'alpha_dash', // Allows alphanumeric, hyphens, and underscores only
+                'regex:/^[a-zA-Z0-9][a-zA-Z0-9_-]*[a-zA-Z0-9]$/', // Cannot start/end with - or _
+            ],
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8',
+        ], [
+            'name.alpha_dash' => 'Username can only contain letters, numbers, hyphens, and underscores.',
+            'name.regex' => 'Username cannot start or end with - or _.',
+            'name.min' => 'Username must be at least 3 characters.',
+            'name.max' => 'Username must be 30 characters or less.',
+            'name.unique' => 'This username is already taken.',
         ]);
 
         $user = User::create([

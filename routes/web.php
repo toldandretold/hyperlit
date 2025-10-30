@@ -79,8 +79,26 @@ Route::get('/u/{username}', function($username) {
 // Legacy user page route - redirects to new /u/{username} format
 Route::get('/{identifier}', function(Request $request, $identifier) {
     // Check if it's a username - redirect to new format
-    if (User::where('name', $identifier)->exists()) {
-        return redirect("/u/{$identifier}", 301);
+    // Try exact match first
+    $user = User::where('name', $identifier)->first();
+
+    // If no exact match, try sanitized match (handles usernames with spaces)
+    if (!$user) {
+        $users = User::all();
+        foreach ($users as $potentialUser) {
+            $sanitizedDbName = str_replace(' ', '', $potentialUser->name);
+            $sanitizedIdentifier = str_replace(' ', '', $identifier);
+            if ($sanitizedDbName === $sanitizedIdentifier) {
+                $user = $potentialUser;
+                break;
+            }
+        }
+    }
+
+    // If we found a user, redirect to /u/{sanitized_username}
+    if ($user) {
+        $sanitizedUsername = str_replace(' ', '', $user->name);
+        return redirect("/u/{$sanitizedUsername}", 301);
     }
 
     // Otherwise it's a regular book - show reader.blade.php
