@@ -33,6 +33,7 @@ import {
 import { queueNodeForSave } from './divEditor.js';
 import { broadcastToOpenTabs } from './BroadcastListener.js';
 import { processContentForFootnotesAndReferences } from './footnoteReferenceExtractor.js';
+import { showSpinner, showTick, showError } from './editIndicator.js';
 
 // Configure marked options
 marked.setOptions({
@@ -944,6 +945,10 @@ async function handlePaste(event) {
 
     console.log(`🎯 [${pasteOpId}] Paste operation complete`);
 
+    // Show green indicator now that entire paste operation is complete
+    // (sync, DOM manipulation, lazy loading, scrolling all done)
+    showTick();
+
   } finally {
     // THIS IS ESSENTIAL: No matter what happens, re-enable the observer.
     setPasteInProgress(false);
@@ -1277,23 +1282,6 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
       }
       
       console.log(`Manually inserted ${blocks.length} blocks: 1 into H1, ${blocks.length - 1} as siblings`);
-      
-      // 3. Manually trigger title sync for H1#1 changes (since we bypassed mutation observer)
-      if (currentBlock.id === '1') {
-        console.log('Triggering manual title sync for H1#1 after paste');
-        const newTitle = currentBlock.innerText.trim();
-        
-        // Import and call updateLibraryTitle directly
-        import('./divEditor.js').then(({ updateLibraryTitle }) => {
-          updateLibraryTitle(book, newTitle).catch(console.error);
-        });
-        
-        // Also trigger a manual input event to ensure initTitleSync picks it up
-        setTimeout(() => {
-          const inputEvent = new Event('input', { bubbles: true });
-          currentBlock.dispatchEvent(inputEvent);
-        }, 0);
-      }
     }
   } else {
     // Normal paste - use execCommand (safe for small pastes or non-H1 destinations)
@@ -1518,23 +1506,34 @@ async function handleJsonPaste(
   // --- 2. HANDLE H1 REPLACEMENT LOGIC ---
   const selection = window.getSelection();
   const currentElement = document.getElementById(insertionPoint.beforeNodeId);
-  const isH1 = currentElement && currentElement.tagName === 'H1' && currentElement.id === '1';
+  const isH1 = currentElement && currentElement.tagName === 'H1';
   const isH1Selected = isH1 && selection.toString().trim().length > 0;
-  
+
   if (isH1Selected) {
-    console.log('H1 is selected - replacing it entirely with pasted content');
+    console.log(`H1#${currentElement.id} is selected - replacing it entirely with pasted content`);
+
+    // Store the H1's ID before removing it
+    const h1Id = currentElement.id;
+
+    // Find the element BEFORE this H1 (to use as new insertion point)
+    let beforeElement = currentElement.previousElementSibling;
+    while (beforeElement && (!beforeElement.id || !/^\d+(\.\d+)*$/.test(beforeElement.id))) {
+      beforeElement = beforeElement.previousElementSibling;
+    }
+
     // Remove H1 from DOM
     currentElement.remove();
-    
+
     // Delete H1 from IndexedDB
     const { deleteIndexedDBRecord } = await import('./indexedDB.js');
-    await deleteIndexedDBRecord(insertionPoint.book, "1");
-    
-    // Update insertion point to be after node 0 (so first paste becomes node 1)
-    insertionPoint.beforeNodeId = "0";
-    insertionPoint.currentNodeId = "0";
+    await deleteIndexedDBRecord(insertionPoint.book, h1Id);
+
+    // Update insertion point to be after the element before the deleted H1
+    // (so pasted content takes the place of the deleted H1)
+    insertionPoint.beforeNodeId = beforeElement ? beforeElement.id : "0";
+    insertionPoint.currentNodeId = beforeElement ? beforeElement.id : "0";
     insertionPoint.afterNodeId = insertionPoint.afterNodeId; // Keep existing afterNodeId
-    
+
     console.log('Updated insertion point for H1 replacement:', insertionPoint);
   }
 
@@ -1614,6 +1613,10 @@ async function handleJsonPaste(
   // For paste operations, sync immediately to PostgreSQL using bulk upsert
   // (Don't use debounced queue - that's for individual edits)
   console.log(`📤 Immediately syncing ${toWrite.length} pasted chunks to PostgreSQL...`);
+
+  // Show orange indicator while syncing
+  showSpinner();
+
   try {
     const response = await fetch('/api/db/node-chunks/upsert', {
       method: 'POST',
@@ -1631,12 +1634,15 @@ async function handleJsonPaste(
     if (!response.ok) {
       const error = await response.text();
       console.error('❌ Failed to sync paste to PostgreSQL:', error);
+      showError(); // Show red indicator on failure
     } else {
       const result = await response.json();
       console.log('✅ Paste synced to PostgreSQL:', result);
+      // Don't call showTick() here - wait until entire paste operation completes
     }
   } catch (error) {
     console.error('❌ Error syncing paste to PostgreSQL:', error);
+    showError(); // Show red indicator on exception
   }
 
   // Invalidate TOC cache after paste (heading IDs have changed)
