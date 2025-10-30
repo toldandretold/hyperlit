@@ -110,6 +110,7 @@ export default defineConfig({
 
                 // divEditor modules
                 'resources/js/divEditor/saveQueue.js',
+                'resources/js/divEditor/mutationProcessor.js',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.
       ],

@@ -24,6 +24,7 @@ import {
 } from './operationState.js';
 
 import { SaveQueue, debounce } from './divEditor/saveQueue.js';
+import { MutationProcessor } from './divEditor/mutationProcessor.js';
 
 // Re-export debounce for backward compatibility (used by indexedDB.js)
 export { debounce };
@@ -79,12 +80,11 @@ let selectionChangeDebounceTimer = null;
 // 🔧 FIX 7b: Track video delete handler for cleanup
 let videoDeleteHandler = null;
 
-// 🚀 PERFORMANCE: Debounced mutation processing
-let mutationQueue = [];
-let mutationProcessorRAF = null;
-
 // 💾 Save Queue instance (replaces old pendingSaves + debounce logic)
 let saveQueue = null;
+
+// 🚀 Mutation Processor instance (RAF-based mutation batching)
+let mutationProcessor = null;
 
 
 
@@ -117,13 +117,8 @@ export function flushAllPendingSaves() {
 // Add page unload handler to flush saves and pending mutations
 window.addEventListener('beforeunload', () => {
   // 🚀 PERFORMANCE: Flush any queued mutations immediately
-  if (mutationQueue.length > 0) {
-    console.log('🚨 Flushing queued mutations on page unload');
-    if (mutationProcessorRAF) {
-      cancelAnimationFrame(mutationProcessorRAF);
-      mutationProcessorRAF = null;
-    }
-    processMutationQueue();
+  if (mutationProcessor) {
+    mutationProcessor.flush();
   }
 
   // Flush pending saves
@@ -244,70 +239,17 @@ export function startObserving(editableDiv) {
 
   enterKeyHandler = newHandler;
 
-  // 🚀 PERFORMANCE: Process queued mutations in batches
-  async function processMutationQueue() {
-    if (mutationQueue.length === 0) return;
-
-    // Get all queued mutations
-    const mutations = mutationQueue;
-    mutationQueue = [];
-    mutationProcessorRAF = null;
-
-    // Apply all the same filters as before
-    if (isPasteInProgress()) {
-      console.log("🚫 Skipping queued mutations: Paste operation is in control.");
-      return;
-    }
-
-    if (isProgrammaticUpdateInProgress()) {
-      console.log("Skipping queued mutations: Programmatic update in progress.");
-      return;
-    }
-
-    if (hypercitePasteInProgress) {
-      console.log("Skipping queued mutations during hypercite paste");
-      return;
-    }
-
-    if (isChunkLoadingInProgress()) {
-      console.log(`Skipping queued mutations during chunk loading for chunk ${getLoadingChunkId()}`);
-      return;
-    }
-
-    const toolbar = getEditToolbar();
-    if (toolbar && toolbar.isFormatting) {
-      console.log("Skipping queued mutations during formatting");
-      return;
-    }
-
-    if (keyboardLayoutInProgress) {
-      console.log("Skipping queued mutations during keyboard layout adjustment");
-      return;
-    }
-
-    if (shouldSkipMutation(mutations)) {
-      console.log("Skipping queued mutations related to status icons");
-      return;
-    }
-
-    // Filter to ignore mutations outside of <div class="chunk">
-    const chunkMutations = filterChunkMutations(mutations);
-
-    if (chunkMutations.length > 0) {
-      console.log(`🚀 Processing batch of ${chunkMutations.length} mutations`);
-      await processMutationsByChunk(chunkMutations);
-    }
-  }
+  // 🚀 Initialize MutationProcessor with filter and processing functions
+  mutationProcessor = new MutationProcessor({
+    filterMutations: filterChunkMutations,
+    processMutations: processMutationsByChunk,
+    shouldSkipMutation: shouldSkipMutation
+  });
 
   // Create observer for the main-content container
   observer = new MutationObserver((mutations) => {
-    // 🚀 PERFORMANCE: Queue mutations for batch processing
-    mutationQueue.push(...mutations);
-
-    // If not already scheduled, schedule for next animation frame
-    if (!mutationProcessorRAF) {
-      mutationProcessorRAF = requestAnimationFrame(processMutationQueue);
-    }
+    // 🚀 PERFORMANCE: Queue mutations for batch processing via MutationProcessor
+    mutationProcessor.enqueue(mutations);
   });
 
   
@@ -1032,15 +974,11 @@ export function stopObserving() {
     enterKeyHandler = null;
   }
 
-  // 🚀 PERFORMANCE: Cancel any pending mutation processing and clear queue
-  if (mutationProcessorRAF) {
-    cancelAnimationFrame(mutationProcessorRAF);
-    mutationProcessorRAF = null;
-    console.log("🚀 Cancelled pending mutation processing");
-  }
-  if (mutationQueue.length > 0) {
-    console.log(`🚀 Cleared ${mutationQueue.length} queued mutations`);
-    mutationQueue = [];
+  // 🚀 Cleanup MutationProcessor
+  if (mutationProcessor) {
+    mutationProcessor.destroy();
+    mutationProcessor = null;
+    console.log("🚀 MutationProcessor destroyed");
   }
 
   // 💾 Cleanup SaveQueue
