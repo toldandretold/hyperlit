@@ -179,20 +179,27 @@ const debouncedBatchDelete = debounce(processBatchDeletions, DEBOUNCE_DELAYS.SAV
 
 async function processBatchDeletions() {
   if (pendingSaves.deletions.size === 0) return;
-  
+
   const nodeIdsToDelete = Array.from(pendingSaves.deletions);
   pendingSaves.deletions.clear();
-  
+
   console.log(`🗑️ Batch deleting ${nodeIdsToDelete.length} nodes`);
-  
+
   try {
     // Batch delete from IndexedDB
     await batchDeleteIndexedDBRecords(nodeIdsToDelete);
-    
+
     console.log(`✅ Batch deleted ${nodeIdsToDelete.length} nodes`);
 
     setTimeout(() => {
-      ensureMinimumDocumentStructure();
+      const pasteActive = isPasteOperationActive();
+      console.log(`🔍 [BATCH DELETE] Checking structure after batch delete. Paste active: ${pasteActive}`);
+      if (!pasteActive) {
+        console.log(`🔧 [BATCH DELETE] Calling ensureMinimumDocumentStructure()`);
+        ensureMinimumDocumentStructure();
+      } else {
+        console.log(`⏸️ [BATCH DELETE] Skipping structure check - paste in progress`);
+      }
     }, 100);
   } catch (error) {
     console.error('❌ Error in batch deletion:', error);
@@ -759,23 +766,34 @@ async function processMutationsByChunk(mutations) {
   // Process mutations for each chunk
   for (const [chunkId, chunkMutations] of mutationsByChunk) {
     const chunk = observedChunks.get(chunkId);
-    if (chunk && document.contains(chunk)) { // Ensure chunk is still in DOM
+
+    // 🔍 Query for fresh chunk element to avoid stale references
+    // When SPAN tags are destroyed, stored references can become detached even though
+    // the chunk element still exists in the DOM
+    const liveChunk = document.querySelector(`[data-chunk-id="${chunkId}"]`);
+
+    if (liveChunk) {
+      // Update our stored reference to the live element
+      observedChunks.set(chunkId, liveChunk);
+
+      // Process mutations with live reference
       setTimeout(async () => {
         // By wrapping this in a timeout, we yield to the main thread,
-      // allowing the browser to render the typed character immediately.
-      // This makes the UI feel much snappier during fast typing.
-      await processChunkMutations(chunk, chunkMutations);
-    }, 0);
-    } else if (chunk) {
-  // Chunk was removed, clean up - but delay it to let any pending transactions finish
-  console.log(`🗑️ Chunk ${chunkId} removed from DOM, scheduling cleanup...`);
-  
-  setTimeout(() => {
-    observedChunks.delete(chunkId);
-    delete chunkNodeCounts[chunkId];
-    console.log(`✅ Chunk ${chunkId} cleanup completed`);
-  }, 300); // Give enough time for the deletion transaction to complete
-}
+        // allowing the browser to render the typed character immediately.
+        // This makes the UI feel much snappier during fast typing.
+        await processChunkMutations(liveChunk, chunkMutations);
+      }, 0);
+    } else if (chunk && !window.isEditing) {
+      // Chunk was actually removed from DOM (not just a stale reference)
+      // Only log and cleanup if NOT in edit mode to reduce spam
+      console.log(`🗑️ Chunk ${chunkId} actually removed from DOM`);
+
+      setTimeout(() => {
+        observedChunks.delete(chunkId);
+        delete chunkNodeCounts[chunkId];
+        console.log(`✅ Chunk ${chunkId} cleanup completed`);
+      }, 300); // Give enough time for the deletion transaction to complete
+    }
   }
 }
 
@@ -877,18 +895,25 @@ async function processChunkMutations(chunk, mutations) {
             // For deletions, we can't check tagName since node is removed, so invalidate cache for any numerical ID deletion
             invalidateTocCacheForDeletion(node.id);
 
-            // Check if this is the last node in the chunk 
+            // Check if this is the last node in the chunk
             const remainingNodes = chunk.querySelectorAll('[id]').length;
-            console.log(`Chunk ${chunkId} has ${remainingNodes} remaining nodes after this deletion`);
-            
+            console.log(`🔍 [LAST NODE CHECK] Chunk ${chunkId} has ${remainingNodes} remaining nodes after deleting ${node.id}`);
+
             if (remainingNodes === 0) {
-                console.log(`🚨 Last node ${node.id} being deleted from chunk ${chunkId}`);
-                
+                console.log(`🚨 [LAST NODE] Last node ${node.id} being deleted from chunk ${chunkId}`);
+
                 // Delete immediately and restore structure
                 deleteIndexedDBRecordWithRetry(node.id).then(() => {
-                  ensureMinimumDocumentStructure();
+                  const pasteActive = isPasteOperationActive();
+                  console.log(`🔍 [LAST NODE] After deletion, paste active: ${pasteActive}`);
+                  if (!pasteActive) {
+                    console.log(`🔧 [LAST NODE] Calling ensureMinimumDocumentStructure()`);
+                    ensureMinimumDocumentStructure();
+                  } else {
+                    console.log(`⏸️ [LAST NODE] Skipping structure check - paste in progress`);
+                  }
                 });
-                
+
                 return;
               } else {
               // Normal deletion for non-last nodes
@@ -1286,42 +1311,54 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
       const range = selection.getRangeAt(0);
       
       // Check if we're about to delete the last content
-      if (checkForImminentEmptyState()) {
+      const imminentEmpty = checkForImminentEmptyState();
+      console.log(`🔍 [KEYDOWN DELETE] checkForImminentEmptyState returned: ${imminentEmpty}`);
+
+      if (imminentEmpty) {
         // Check if this deletion would leave us empty
         let willBeEmpty = false;
-        
+
         // Get the element that would be affected
         let targetElement = range.startContainer;
         if (targetElement.nodeType !== Node.ELEMENT_NODE) {
           targetElement = targetElement.parentElement;
         }
-        
+
         // Find the closest element with an ID
         let elementWithId = targetElement.closest('[id]');
-        
+        console.log(`🔍 [KEYDOWN DELETE] Target element ID: ${elementWithId?.id}`);
+
         if (elementWithId && isNumericalId(elementWithId.id)) {
           // SIMPLIFIED: Back to the original working conditions
           const textContent = elementWithId.textContent || '';
-          const isSelectingAll = !range.collapsed && 
+          const isSelectingAll = !range.collapsed &&
             range.toString().trim() === textContent.trim();
-          const isAtStartAndEmpty = range.collapsed && 
-            range.startOffset === 0 && 
+          const isAtStartAndEmpty = range.collapsed &&
+            range.startOffset === 0 &&
             textContent.trim().length <= 1; // Back to original condition
-          
+
+          console.log(`🔍 [KEYDOWN DELETE] isSelectingAll: ${isSelectingAll}, isAtStartAndEmpty: ${isAtStartAndEmpty}`);
+
           if (isSelectingAll || isAtStartAndEmpty) {
             willBeEmpty = true;
           }
         }
-        
+
         if (willBeEmpty) {
-          console.log('🚨 About to delete last content - preparing new structure');
-          
+          const pasteActive = isPasteOperationActive();
+          console.log(`🚨 [KEYDOWN DELETE] Will be empty! Paste active: ${pasteActive}`);
+
           // Prevent the deletion
           event.preventDefault();
-          
+
           // Use the ORIGINAL working restoration method
-          ensureMinimumDocumentStructure();
-          
+          if (!pasteActive) {
+            console.log(`🔧 [KEYDOWN DELETE] Calling ensureMinimumDocumentStructure()`);
+            ensureMinimumDocumentStructure();
+          } else {
+            console.log(`⏸️ [KEYDOWN DELETE] Skipping structure check - paste in progress`);
+          }
+
           return;
         }
       }
@@ -1333,245 +1370,6 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
   
  
 });
-
-/** Ensure there’s a library record for this book (or create a stub). */
-async function ensureLibraryRecord(bookId) {
-  const db = await openDatabase();
-
-  // FIRST: read‑only to check existence
-  {
-    const tx = db.transaction("library", "readonly");
-    const store = tx.objectStore("library");
-    const rec = await new Promise((res, rej) => {
-      const req = store.get(bookId);
-      req.onsuccess  = () => res(req.result);
-      req.onerror    = () => rej(req.error);
-    });
-    await tx.complete;  // make sure the readonly tx closes
-    if (rec) {
-      return rec;      // already there—no open tx left dangling
-    }
-  }
-
-  // SECOND: read‑write to create
-  {
-    const tx = db.transaction("library", "readwrite");
-    const store = tx.objectStore("library");
-    const newRec = {
-      book: bookId,  // This is the keyPath field required by IndexedDB
-      citationID: bookId,
-      title: "",
-      author: await getCurrentUserId() || "anon",
-      type: "book",
-      timestamp: new Date().toISOString(),
-    };
-    store.put(newRec);
-    await tx.complete;
-    return newRec;
-  }
-}
-
-/** Update only the title field (and regenerate bibtex) in the library record. */
-export async function updateLibraryTitle(bookId, newTitle) {
-  const db = await openDatabase();
-  const tx = db.transaction("library", "readwrite");
-  const store = tx.objectStore("library");
-
-  return new Promise((resolve, reject) => {
-    const req = store.get(bookId);
-    req.onsuccess = (e) => {
-      const rec = e.target.result;
-      if (!rec) return reject(new Error("Library record missing"));
-
-      // 1) Update title (truncate to 250 characters to leave room for "..." suffix)
-      if (newTitle && newTitle.length > 255) {
-        newTitle = newTitle.substring(0, 250) + '...';
-      }
-      rec.title = newTitle;
-
-      // 2) Update timestamp to mark as recently modified
-      rec.timestamp = Date.now();
-
-      // 3) Regenerate the bibtex string so it stays in sync
-      rec.bibtex = buildBibtexEntry(rec);
-
-      // 4) Clean the record before saving to prevent payload bloat
-      const cleanedRec = prepareLibraryForIndexedDB(rec);
-
-      // 5) Write back the record
-      const putReq = store.put(cleanedRec);
-      putReq.onsuccess = () => resolve(cleanedRec);
-      putReq.onerror   = (e) => reject(e.target.error);
-    };
-    req.onerror = (e) => reject(e.target.error);
-  });
-}
-
-
-
-/**
- * ✅ REWRITTEN: Resilient title sync that survives DOM recreation
- * Uses event delegation and .hypertextTitle class.
- * It syncs a particular h1 node in the dom to the library record
- * for that book in both indexedDB and postgreSQL...
- * This keeps citation info synced to actual hypertext title.
-  It:
-  1. Looks for .hypertextTitle class first
-  2. Fallback to first h1 in the document 
-  3. Automatically adds hypertextTitle class to it
-  4. Future queries will find it by class
-
-  TO DO: ultimately, user may want to **turn this off**.
-  They might just want to set the bibliographic title as
-  seperate to the first H1 in the doc. More typically,
-  they will want there *not* to be a H1, but still have 
-  a bibliographical title.
-
-  To address this, a button will need to be added to the .hypertextTitle 
-  tag when user is in edit mode. Perhaps the .hypertextTitle
-  should be displayed differently to all othere tags.
-  Then, if the x button is clicked, this will divert back
-  to usual, and the class will be changed to .notHypertextTitle.
-  This is useful so that it can be stopped from being automatically
-  turned back into .hypertextTitle by the above automated process.
- */
-export async function initTitleSync(bookId) {
-  console.log("⏱ initTitleSync() - RESILIENT VERSION", { bookId });
-  const editableContainer = document.getElementById(bookId);
-  if (!editableContainer) {
-    console.warn(`initTitleSync: no div#${bookId}`);
-    return;
-  }
-
-  await ensureLibraryRecord(bookId);
-
-  // ✅ RESILIENT: Query for title each time (don't cache reference)
-  // Look for .hypertextTitle class first, then fall back to first h1 in document
-  const getTitleNode = () => {
-    let title = editableContainer.querySelector('.hypertextTitle');
-    if (!title) {
-      // Fallback: find first h1 in the document
-      title = editableContainer.querySelector('h1');
-      if (title) {
-        // Mark it as the title for future queries
-        title.classList.add('hypertextTitle');
-        console.log(`✅ Found first h1 (id="${title.id}") and marked as hypertextTitle`);
-      }
-    }
-    return title;
-  };
-
-  // Check if title exists initially
-  let titleNode = getTitleNode();
-  if (!titleNode) {
-    console.warn('initTitleSync: no title h1 found - will sync when created');
-    // Don't return - we'll still set up listeners for when it's created
-  } else {
-    console.log("initTitleSync: found titleNode", titleNode);
-  }
-
-  // ✅ RESILIENT: Debounced write function that queries for current title
-  const writeTitle = debounce(
-    async () => {
-      const currentTitle = getTitleNode();
-      if (!currentTitle) {
-        console.warn("🖉 [title-sync] No title node found, skipping sync");
-        return;
-      }
-
-      const newTitle = currentTitle.innerText.trim();
-      console.log("🖉 [title-sync] writeTitle firing, newTitle=", newTitle);
-
-      try {
-        await updateLibraryTitle(bookId, newTitle);
-        console.log("✔ [title-sync] updated library.title=", newTitle);
-      } catch (err) {
-        console.error("✖ [title-sync] failed to update library.title:", err);
-      }
-    },
-    DEBOUNCE_DELAYS.TITLE_SYNC,
-    "titleSync"
-  );
-
-  // ✅ RESILIENT: Use event delegation on container (survives element recreation)
-  const handleInput = (e) => {
-    const currentTitle = getTitleNode();
-    if (!currentTitle) return;
-
-    // Check if the event target is the title or inside it
-    if (e.target === currentTitle ||
-        e.target.classList?.contains('hypertextTitle') ||
-        e.target.closest('.hypertextTitle') === currentTitle) {
-      console.log("🖉 [title-sync] input event on title H1", e);
-      writeTitle();
-    }
-  };
-
-  // Remove any existing listener (prevent duplicates)
-  editableContainer.removeEventListener("input", handleInput);
-  editableContainer.addEventListener("input", handleInput);
-
-  // 🔧 FIX 6: Watch container for title recreation (but scope observer to title when it exists)
-  const containerObserver = new MutationObserver((mutationsList) => {
-    for (const mutation of mutationsList) {
-      // Watch for added nodes (title being recreated)
-      if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
-        for (const node of mutation.addedNodes) {
-          // Check if a title node was added
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            const addedTitle = node.classList?.contains('hypertextTitle')
-              ? node
-              : node.querySelector?.('.hypertextTitle');
-
-            if (addedTitle) {
-              console.log("🔄 [title-sync] Title node recreated, re-attaching observer...");
-              // Add class if missing
-              if (!addedTitle.classList.contains('hypertextTitle')) {
-                addedTitle.classList.add('hypertextTitle');
-              }
-              // Re-scope observer to new title element
-              containerObserver.disconnect();
-              containerObserver.observe(addedTitle, {
-                characterData: true,
-                childList: true,
-                subtree: true,
-              });
-              console.log("✅ [title-sync] Observer re-scoped to new title element");
-            }
-          }
-        }
-      }
-
-      // Watch for text changes within title
-      if (mutation.type === "characterData") {
-        console.log("🖉 [title-sync] mutation detect (characterData)", mutation);
-        writeTitle();
-      }
-    }
-  });
-
-  // 🔧 FIX 6: Scope observer to title element only (not entire container)
-  const initialTitle = getTitleNode();
-  if (initialTitle) {
-    // Observe just the title element for maximum performance
-    containerObserver.observe(initialTitle, {
-      characterData: true,
-      childList: true,
-      subtree: true,
-    });
-    console.log("✅ [title-sync] Observer scoped to title element only");
-  } else {
-    // No title yet - observe container until title is created
-    containerObserver.observe(editableContainer, {
-      childList: true,
-      subtree: true,
-    });
-    console.log("⚠️ [title-sync] No title found, observing container for title creation");
-  }
-
-  console.log("🛠 Title-sync initialized (resilient) for book:", bookId);
-}
-
 
 function createAndInsertParagraph(blockElement, chunkContainer, content, selection) {
   // ==================================================================
@@ -2434,24 +2232,32 @@ function findAllNumericalIdNodesInChunks(container) {
 }
 
 export function ensureMinimumDocumentStructure() {
+  console.log(`🔧 [STRUCTURE CHECK] ===== ensureMinimumDocumentStructure() called =====`);
+  console.log(`🔧 [STRUCTURE CHECK] Call stack:`, new Error().stack);
+
   const mainContent = document.querySelector('.main-content');
-  if (!mainContent) return;
+  if (!mainContent) {
+    console.warn('🔧 [STRUCTURE CHECK] No .main-content found - exiting');
+    return;
+  }
 
   // ✅ CHECK FOR IMPORTED BOOK FIRST
   const isImportedBook = sessionStorage.getItem('imported_book_initializing');
   if (isImportedBook) {
-    console.log("🔒 Imported book detected - skipping document structure creation");
+    console.log("🔧 [STRUCTURE CHECK] Imported book detected - skipping document structure creation");
     return; // Exit early, don't create default structure
   }
-  
+
   // ✅ CHECK FOR PASTE OPERATION IN PROGRESS
-  if (isPasteOperationActive()) {
-    console.log("🔄 Paste operation in progress - skipping document structure creation");
+  const pasteActive = isPasteOperationActive();
+  console.log(`🔧 [STRUCTURE CHECK] Paste operation active: ${pasteActive}`);
+  if (pasteActive) {
+    console.log("🔧 [STRUCTURE CHECK] Paste operation in progress - skipping document structure creation");
     return; // Exit early, don't interfere with paste operation
   }
-  
-  console.log('🔍 Checking document structure...');
-  
+
+  console.log('🔧 [STRUCTURE CHECK] Proceeding with structure check...');
+
   const bookId = book;
   
   // Check for sentinels
@@ -2469,8 +2275,10 @@ export function ensureMinimumDocumentStructure() {
     !node.id.includes('-sentinel')
   );
   
-  console.log(`Found: ${chunks.length} chunks, ${numericalIdNodes.length} numerical nodes (${nonSentinelNodes.length} non-sentinel)`);
-  
+  console.log(`🔧 [STRUCTURE CHECK] Found: ${chunks.length} chunks, ${numericalIdNodes.length} numerical nodes (${nonSentinelNodes.length} non-sentinel)`);
+  console.log(`🔧 [STRUCTURE CHECK] Sentinel status - Top: ${!!hasTopSentinel}, Bottom: ${!!hasBottomSentinel}`);
+  console.log(`🔧 [STRUCTURE CHECK] Non-sentinel node IDs: ${nonSentinelNodes.map(n => n.id).join(', ')}`);
+
   // 🆕 COLLECT ORPHANED CONTENT FIRST, before any structure changes
   const orphanedContent = [];
   Array.from(mainContent.childNodes).forEach(node => {
@@ -2512,11 +2320,10 @@ export function ensureMinimumDocumentStructure() {
   
   // CASE 2: No chunks OR no content nodes - create default structure
   if (chunks.length === 0 || nonSentinelNodes.length === 0) {
-    console.log('📦 Creating default document structure...');
+    console.log('🔧 [STRUCTURE CHECK] *** CASE 2: Creating default document structure ***');
 
-    // 🆕 PRESERVE TITLE CONTENT FIRST - Critical for initTitleSync()
-    // Look for .hypertextTitle first, then fall back to first h1
-    const existingTitle = mainContent.querySelector('.hypertextTitle') || mainContent.querySelector('h1');
+    // Preserve existing title content if it exists
+    const existingTitle = mainContent.querySelector('h1');
     const preservedTitleContent = existingTitle ? existingTitle.innerHTML : null;
     console.log('📝 Preserved title content:', preservedTitleContent);
 
@@ -2539,44 +2346,43 @@ export function ensureMinimumDocumentStructure() {
     chunk.className = 'chunk';
     chunk.setAttribute('data-chunk-id', '0');
 
-    // Create default h1 with hypertextTitle class
-    const h1 = document.createElement('h1');
-    h1.className = 'hypertextTitle';
+    // Create default paragraph
+    const p = document.createElement('p');
     // Use setElementIds to set both id and data-node-id
-    setElementIds(h1, null, null, book);
-    // Force id to be "1" for title (setElementIds might generate something else)
-    if (h1.id !== '1') {
-      h1.id = '1';
-      h1.setAttribute('data-node-id', `${book}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+    setElementIds(p, null, null, book);
+    // Force id to be "1" (setElementIds might generate something else)
+    if (p.id !== '1') {
+      p.id = '1';
+      p.setAttribute('data-node-id', `${book}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
     }
-    
+
     // 🆕 RESTORE TITLE CONTENT FIRST (highest priority)
     if (preservedTitleContent) {
       console.log('✅ Restoring preserved title content');
-      h1.innerHTML = preservedTitleContent;
+      p.innerHTML = preservedTitleContent;
     }
     // Otherwise, add preserved orphaned content
     else if (preservedContent.length > 0) {
-      console.log('📝 Restoring preserved content to new h1');
+      console.log('📝 Restoring preserved content to new paragraph');
       preservedContent.forEach(node => {
         if (node.nodeType === Node.TEXT_NODE) {
-          h1.appendChild(node);
+          p.appendChild(node);
         } else {
           // For element nodes, move their content
           while (node.firstChild) {
-            h1.appendChild(node.firstChild);
+            p.appendChild(node.firstChild);
           }
         }
       });
     }
-    // Otherwise, create empty but editable h1
+    // Otherwise, create empty but editable paragraph
     else {
-      h1.innerHTML = '<br>';
+      p.innerHTML = '<br>';
     }
-    
+
     // Assemble structure
-    chunk.appendChild(h1);
-    
+    chunk.appendChild(p);
+
     // Insert before bottom sentinel
     const bottomSentinel = document.getElementById(bottomSentinelId);
     if (bottomSentinel) {
@@ -2584,22 +2390,22 @@ export function ensureMinimumDocumentStructure() {
     } else {
       mainContent.appendChild(chunk);
     }
-    
+
     // Save to database
     queueNodeForSave('1', 'add');
-    
+
     // Initialize chunk tracking
     if (window.trackChunkNodeCount) {
       trackChunkNodeCount(chunk);
     }
-    
+
     console.log('✅ Created default structure with preserved content');
-    
-    // Position cursor in the new h1
+
+    // Position cursor in the new paragraph
     setTimeout(() => {
       const range = document.createRange();
-      const selection = document.getSelection();
-      range.selectNodeContents(h1);
+      const selection = window.getSelection();
+      range.selectNodeContents(p);
       range.collapse(false); // Collapse to end
       selection.removeAllRanges();
       selection.addRange(range);
@@ -2610,41 +2416,40 @@ export function ensureMinimumDocumentStructure() {
   
   // CASE 3: Has chunks but they're empty - add content to first chunk
   if (chunks.length > 0 && nonSentinelNodes.length === 0) {
-    console.log('📝 Adding content to existing empty chunk...');
+    console.log('🔧 [STRUCTURE CHECK] *** CASE 3: Adding content to existing empty chunk ***');
 
     const firstChunk = chunks[0];
-    const h1 = document.createElement('h1');
-    h1.className = 'hypertextTitle';
+    const p = document.createElement('p');
 
     // Use setElementIds to set both id and data-node-id
-    setElementIds(h1, null, null, book);
-    // Force id to be "1" for title
-    if (h1.id !== '1') {
-      h1.id = '1';
-      h1.setAttribute('data-node-id', `${book}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+    setElementIds(p, null, null, book);
+    // Force id to be "1"
+    if (p.id !== '1') {
+      p.id = '1';
+      p.setAttribute('data-node-id', `${book}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
     }
 
-    // 🆕 ADD ORPHANED CONTENT TO THE NEW H1
+    // 🆕 ADD ORPHANED CONTENT TO THE NEW PARAGRAPH
     if (orphanedContent.length > 0) {
-      console.log('📝 Adding orphaned content to new h1 in existing chunk');
+      console.log('📝 Adding orphaned content to new paragraph in existing chunk');
       orphanedContent.forEach(node => {
         if (node.nodeType === Node.TEXT_NODE) {
-          h1.appendChild(node);
+          p.appendChild(node);
         } else {
           while (node.firstChild) {
-            h1.appendChild(node.firstChild);
+            p.appendChild(node.firstChild);
           }
           node.remove();
         }
       });
     } else {
-      h1.innerHTML = '<br>';
+      p.innerHTML = '<br>';
     }
-    
-    firstChunk.appendChild(h1);
+
+    firstChunk.appendChild(p);
     queueNodeForSave('1', 'add');
-    
-    console.log('✅ Added h1#1 to existing chunk with content');
+
+    console.log('✅ Added p#1 to existing chunk with content');
     return;
   }
   
@@ -2679,21 +2484,29 @@ export function ensureMinimumDocumentStructure() {
     queueNodeForSave(targetElement.id, 'update');
     console.log('✅ Moved orphaned content to existing element');
   }
-  
-  console.log('✅ Document structure is adequate');
+
+  console.log('🔧 [STRUCTURE CHECK] ✅ Document structure is adequate - no changes needed');
 }
 
 function checkForImminentEmptyState() {
   const mainContent = document.querySelector('.main-content');
-  if (!mainContent) return false;
-  
+  if (!mainContent) {
+    console.log(`🔍 [IMMINENT EMPTY] No main-content found, returning false`);
+    return false;
+  }
+
   const numericalIdNodes = findAllNumericalIdNodesInChunks(mainContent);
-  const nonSentinelNodes = numericalIdNodes.filter(node => 
+  const nonSentinelNodes = numericalIdNodes.filter(node =>
     !node.id.includes('-sentinel')
   );
-  
+
+  console.log(`🔍 [IMMINENT EMPTY] Found ${numericalIdNodes.length} numerical nodes, ${nonSentinelNodes.length} non-sentinel nodes`);
+  console.log(`🔍 [IMMINENT EMPTY] Node IDs: ${nonSentinelNodes.map(n => n.id).join(', ')}`);
+
   // If we're down to 1 node, we're about to be empty
-  return nonSentinelNodes.length <= 1;
+  const result = nonSentinelNodes.length <= 1;
+  console.log(`🔍 [IMMINENT EMPTY] Returning: ${result}`);
+  return result;
 }
 
 

@@ -4,7 +4,7 @@ import { book, setCurrentBook } from "./app.js";
 import { getCurrentUser, getAnonymousToken } from "./auth.js";
 import { checkEditPermissionsAndUpdateUI } from "./editButton.js";
 
-import { stopObserving, initTitleSync } from "./divEditor.js";
+import { stopObserving } from "./divEditor.js";
 import { initEditToolbar, destroyEditToolbar } from "./editToolbar.js";
 import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
 import {
@@ -777,7 +777,6 @@ export async function universalPageInitializer(progressCallback = null) {
   await loadPromise;
   console.log("✅ Content loading process complete.");
 
-  await initTitleSync(currentBookId);
   activeKeyboardManager = new KeyboardManager();
   window.addEventListener("beforeunload", () => {
     if (activeKeyboardManager) activeKeyboardManager.destroy();
