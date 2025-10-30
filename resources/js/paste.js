@@ -1251,17 +1251,25 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
   const savedNodeId = currentBlock ? currentBlock.getAttribute('data-node-id') : null;
   const savedBlockId = currentBlock ? currentBlock.id : null;
 
-  // Check if we're pasting into an H1 - always use manual insertion to prevent nesting
+  // Check if we're pasting into an H1 AND pasting block-level content
   const isH1Destination = currentBlock && currentBlock.tagName === 'H1';
 
-  if (isH1Destination) {
-    console.log(`H1 destination detected with ${nodeCount} nodes - using manual insertion to prevent nesting`);
-    
+  // Detect if pasted content contains block-level elements
+  let hasBlockElements = false;
+  if (isH1Destination && finalHtmlToInsert) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = finalHtmlToInsert;
+    hasBlockElements = tempDiv.querySelector('p, h1, h2, h3, h4, h5, h6, div, blockquote, ul, ol, pre') !== null;
+  }
+
+  if (isH1Destination && hasBlockElements) {
+    console.log(`H1 destination with block-level content - using manual insertion to prevent nesting`);
+
     // Parse the HTML content to extract individual blocks
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = finalHtmlToInsert;
     const blocks = Array.from(tempDiv.children);
-    
+
     if (blocks.length > 0) {
       // 1. Replace H1 content with first block's content (but keep it as H1)
       const firstBlock = blocks[0];
@@ -1272,7 +1280,7 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
         // Convert first pasted block content to H1 content
         currentBlock.innerHTML = firstBlock.innerHTML;
       }
-      
+
       // 2. Insert remaining blocks AFTER the H1 as siblings
       let insertAfter = currentBlock;
       for (let i = 1; i < blocks.length; i++) {
@@ -1280,11 +1288,11 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
         insertAfter.parentNode.insertBefore(blockToInsert, insertAfter.nextSibling);
         insertAfter = blockToInsert;
       }
-      
+
       console.log(`Manually inserted ${blocks.length} blocks: 1 into H1, ${blocks.length - 1} as siblings`);
     }
   } else {
-    // Normal paste - use execCommand (safe for small pastes or non-H1 destinations)
+    // Normal paste - use execCommand (safe for text/inline content or non-H1 destinations)
     document.execCommand("insertHTML", false, finalHtmlToInsert);
   }
 
@@ -1507,10 +1515,20 @@ async function handleJsonPaste(
   const selection = window.getSelection();
   const currentElement = document.getElementById(insertionPoint.beforeNodeId);
   const isH1 = currentElement && currentElement.tagName === 'H1';
-  const isH1Selected = isH1 && selection.toString().trim().length > 0;
+
+  // Check if pasted content contains block-level elements
+  let hasBlockElements = false;
+  if (isH1 && processedContent) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = processedContent;
+    hasBlockElements = tempDiv.querySelector('p, h1, h2, h3, h4, h5, h6, div, blockquote, ul, ol, pre') !== null;
+  }
+
+  // Only replace H1 if there's a selection AND pasting block-level content
+  const isH1Selected = isH1 && selection.toString().trim().length > 0 && hasBlockElements;
 
   if (isH1Selected) {
-    console.log(`H1#${currentElement.id} is selected - replacing it entirely with pasted content`);
+    console.log(`H1#${currentElement.id} is selected and pasting block-level content - replacing it entirely`);
 
     // Store the H1's ID before removing it
     const h1Id = currentElement.id;

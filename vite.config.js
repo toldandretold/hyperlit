@@ -107,6 +107,9 @@ export default defineConfig({
                 'resources/js/toc.js',      // ✅ NEW
                 'resources/js/viewManager.js',
                 'resources/js/homepageDisplayUnit.js',
+
+                // divEditor modules
+                'resources/js/divEditor/saveQueue.js',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.
       ],

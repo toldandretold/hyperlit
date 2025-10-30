@@ -12,7 +12,7 @@ import {
   writeNodeChunks,
   prepareLibraryForIndexedDB
           } from "./indexedDB.js";
-import { 
+import {
   withPending,
   chunkOverflowInProgress,
   currentObservedChunk,
@@ -22,6 +22,11 @@ import {
   isProgrammaticUpdateInProgress,
   isPasteInProgress
 } from './operationState.js';
+
+import { SaveQueue, debounce } from './divEditor/saveQueue.js';
+
+// Re-export debounce for backward compatibility (used by indexedDB.js)
+export { debounce };
 
 import { showSpinner, showTick, isProcessing } from './editIndicator.js';
 
@@ -71,9 +76,6 @@ let deletionHandler = null;
 let isObserverRestarting = false;
 let selectionChangeDebounceTimer = null;
 
-// 🔧 FIX 7a: Track pending saves monitor for cleanup
-let pendingSavesMonitor = null;
-
 // 🔧 FIX 7b: Track video delete handler for cleanup
 let videoDeleteHandler = null;
 
@@ -81,232 +83,34 @@ let videoDeleteHandler = null;
 let mutationQueue = [];
 let mutationProcessorRAF = null;
 
+// 💾 Save Queue instance (replaces old pendingSaves + debounce logic)
+let saveQueue = null;
+
 
 
 // ================================================================
-// DEBOUNCING INFRASTRUCTURE
+// PUBLIC API - Save Queue Functions (delegate to SaveQueue instance)
 // ================================================================
 
-// Debounce timers for different operations
-const debounceTimers = {
-  typing: null,
-  mutations: null,
-  saves: null,
-  titleSync: null
-};
-
-// Debounce delays (in milliseconds)
-const DEBOUNCE_DELAYS = {
-  TYPING: 300,        // Wait 300ms after user stops typing (reduced for better responsiveness)
-  MUTATIONS: 300,     // Wait 300ms after mutations stop
-  SAVES: 500,         // Wait 500ms between save operations
-  BULK_SAVE: 1000 , // Wait 1s for bulk operations
-  TITLE_SYNC: 500,
-};
-
-// Track what needs to be saved
-const pendingSaves = {
-  nodes: new Map(),
-  deletions: new Set(),                   
-  lastActivity: null          
-};
-
-
-
-/**
- * Creates a debounced function that delays invoking `func` until after `delay`
- * milliseconds have passed since the last time the debounced function was invoked.
- *
- * This version includes a `.cancel()` method to cancel a pending invocation.
- *
- * @param {Function} func The function to debounce.
- * @param {number} delay The number of milliseconds to delay.
- * @returns {Function} The new debounced function with a `.cancel()` method.
- */
-// In your utility file (e.g., divEditor.js)
-
-export function debounce(func, delay) {
-  let timeoutId;
-  // ✅ NEW: Variables to store the context and arguments of the last call
-  let lastArgs;
-  let lastThis;
-
-  const debouncedFunction = function (...args) {
-    // Store the context and arguments from the most recent call
-    lastThis = this;
-    lastArgs = args;
-
-    // Clear the previous timeout to reset the delay timer
-    clearTimeout(timeoutId);
-
-    // Set a new timeout
-    timeoutId = setTimeout(() => {
-      // When the timeout completes, call the original function
-      // with the arguments from the last call.
-      func.apply(lastThis, lastArgs);
-      // Reset after execution
-      timeoutId = null;
-    }, delay);
-  };
-
-  // This function cancels the pending debounced call
-  debouncedFunction.cancel = function () {
-    clearTimeout(timeoutId);
-    timeoutId = null; // Reset the timer ID
-  };
-
-  // ✅ NEW: This function immediately executes the pending debounced call
-  debouncedFunction.flush = function () {
-    // If there's a pending timeout...
-    if (timeoutId) {
-      // ...cancel the scheduled execution...
-      clearTimeout(timeoutId);
-      timeoutId = null;
-      // ...and immediately call the function with the last-saved arguments.
-      func.apply(lastThis, lastArgs);
-    }
-  };
-
-  return debouncedFunction;
-}
-
-// Specialized debounced functions
-const debouncedSaveNode = debounce(saveNodeToDatabase, DEBOUNCE_DELAYS.SAVES, 'saves');
-const debouncedBatchDelete = debounce(processBatchDeletions, DEBOUNCE_DELAYS.SAVES, 'deletions');
-// ================================================================
-// SAVE QUEUE MANAGEMENT
-// ================================================================
-
-async function processBatchDeletions() {
-  if (pendingSaves.deletions.size === 0) return;
-
-  const nodeIdsToDelete = Array.from(pendingSaves.deletions);
-  pendingSaves.deletions.clear();
-
-  console.log(`🗑️ Batch deleting ${nodeIdsToDelete.length} nodes`);
-
-  try {
-    // Batch delete from IndexedDB
-    await batchDeleteIndexedDBRecords(nodeIdsToDelete);
-
-    console.log(`✅ Batch deleted ${nodeIdsToDelete.length} nodes`);
-
-    setTimeout(() => {
-      const pasteActive = isPasteOperationActive();
-      console.log(`🔍 [BATCH DELETE] Checking structure after batch delete. Paste active: ${pasteActive}`);
-      if (!pasteActive) {
-        console.log(`🔧 [BATCH DELETE] Calling ensureMinimumDocumentStructure()`);
-        ensureMinimumDocumentStructure();
-      } else {
-        console.log(`⏸️ [BATCH DELETE] Skipping structure check - paste in progress`);
-      }
-    }, 100);
-  } catch (error) {
-    console.error('❌ Error in batch deletion:', error);
-    // Re-queue failed deletions
-    nodeIdsToDelete.forEach(id => pendingSaves.deletions.add(id));
-  }
-}
-
-// Add node to pending saves queue
 export function queueNodeForSave(nodeId, action = 'update') {
-  pendingSaves.nodes.set(nodeId, { id: nodeId, action }); // ✅ Overwrites duplicates
-  pendingSaves.lastActivity = Date.now();
-  
-  console.log(`📝 Queued node ${nodeId} for ${action}`);
-  debouncedSaveNode(); 
-}
-
-async function saveNodeToDatabase() {
-  if (pendingSaves.nodes.size === 0) return;
-  
-  const nodesToSave = Array.from(pendingSaves.nodes.values());
-  pendingSaves.nodes.clear();
-  
-  console.log(`💾 Processing ${nodesToSave.length} pending node saves`);
-  
-  const updates = nodesToSave.filter(n => n.action === 'update');
-  const additions = nodesToSave.filter(n => n.action === 'add');
-  const deletions = nodesToSave.filter(n => n.action === 'delete');
-  
-  try {
-    const recordsToUpdate = [...updates, ...additions].filter(node => {
-      const element = document.getElementById(node.id);
-      if (!element) {
-        console.warn(`⚠️ Skipping save for node ${node.id} - element not found in DOM`);
-        return false;
-      }
-      // We need to pass the element itself or enough info for batchUpdate to find it.
-      // The current structure { id, action } is what batchUpdateIndexedDBRecords expects.
-      return true;
-    });
-
-    if (recordsToUpdate.length > 0) {
-      // This function now correctly saves to IndexedDB AND queues the changes
-      // for the master debounced sync in indexedDB.js.
-      await batchUpdateIndexedDBRecords(recordsToUpdate);
-    }
-    
-    if (deletions.length > 0) {
-      // This function also correctly queues deletions.
-      await Promise.all(deletions.map(node => 
-        deleteIndexedDBRecordWithRetry(node.id)
-      ));
-    }
-    
-    // CRITICAL: There should be NO other sync calls here.
-    // The functions above handle all necessary queuing.
-    
-  } catch (error) {
-    console.error('❌ Error in batch save:', error);
-    // Re-queue failed saves
-    nodesToSave.forEach(node => pendingSaves.nodes.set(node.id, node));
-    // Note: Error handling for IndexedDB save failures is handled by the debounced sync
+  if (!saveQueue) {
+    console.warn('⚠️ SaveQueue not initialized, cannot queue node', nodeId);
+    return;
   }
-  
-  // Note: showTick() removed - now only shows green after successful server sync in debouncedMasterSync
+  saveQueue.queueNode(nodeId, action);
 }
 
 
 // ================================================================
-// ACTIVITY MONITORING
+// PAGE UNLOAD HANDLING
 // ================================================================
-
-// 🔧 FIX 7a: Start monitoring function (called from startObserving)
-function startPendingSavesMonitor() {
-  // Clear any existing monitor first
-  if (pendingSavesMonitor) {
-    clearInterval(pendingSavesMonitor);
-  }
-
-  // Monitor pending saves and log activity
-  pendingSavesMonitor = setInterval(() => {
-    const now = Date.now();
-    const timeSinceLastActivity = pendingSaves.lastActivity ? now - pendingSaves.lastActivity : null;
-
-    if (pendingSaves.nodes.size > 0 || pendingSaves.deletions.size > 0 ) {
-      console.log(`📊 Pending saves: ${pendingSaves.nodes.size} nodes, ${pendingSaves.deletions.size} deletions (${timeSinceLastActivity}ms since last activity)`);
-    }
-  }, 5000); // Log every 5 seconds if there's pending activity
-}
 
 // Force save all pending changes (useful for page unload)
 export function flushAllPendingSaves() {
   console.log('🚨 Flushing all pending saves...');
-  
-  // Clear all timers
-  Object.keys(debounceTimers).forEach(key => {
-    clearTimeout(debounceTimers[key]);
-  });
-  
-  // Execute saves immediately
-  if (pendingSaves.nodes.size > 0) {
-    saveNodeToDatabase();
-  }
 
-  // ADD THIS: Execute deletions immediately
-  if (pendingSaves.deletions.size > 0) {
-    processBatchDeletions();
+  if (saveQueue) {
+    saveQueue.flush();
   }
 }
 
@@ -334,6 +138,9 @@ export function startObserving(editableDiv) {
 
   // Stop any existing observer first
   stopObserving();
+
+  // 💾 Initialize SaveQueue with ensureMinimumDocumentStructure callback
+  saveQueue = new SaveQueue(ensureMinimumDocumentStructure);
 
   // 🎬 VIDEO DELETE HANDLER: Handle video embed delete button clicks
   // 🔧 FIX 7b: Remove old handler if it exists
@@ -419,8 +226,10 @@ export function startObserving(editableDiv) {
 
   ensureMinimumDocumentStructure();
 
-  // 🔧 FIX 7a: Start pending saves monitor
-  startPendingSavesMonitor();
+  // 💾 Start monitoring pending saves (for debugging)
+  if (saveQueue) {
+    saveQueue.startMonitoring();
+  }
 
   // Initialize tracking for all current chunks
   initializeCurrentChunks(editableDiv);
@@ -616,9 +425,10 @@ function filterChunkMutations(mutations) {
             // Directly delete each numerical ID node from IndexedDB
             numericalIdNodes.forEach(node => {
               console.log(`Queueing node ${node.id} for batch deletion (chunk removal)`);
-              pendingSaves.deletions.add(node.id);
+              if (saveQueue) {
+                saveQueue.queueDeletion(node.id);
+              }
             });
-            debouncedBatchDelete();
           }
         });
 
@@ -918,9 +728,10 @@ async function processChunkMutations(chunk, mutations) {
               } else {
               // Normal deletion for non-last nodes
               console.log(`🗑️ Queueing node ${node.id} for batch deletion`);
-              pendingSaves.deletions.add(node.id);
+              if (saveQueue) {
+                saveQueue.queueDeletion(node.id);
+              }
               removedNodeIds.add(node.id);
-              debouncedBatchDelete();
             }
           } 
           // Handle hypercites
@@ -1232,11 +1043,11 @@ export function stopObserving() {
     mutationQueue = [];
   }
 
-  // 🔧 FIX 7a: Stop pending saves monitor
-  if (pendingSavesMonitor) {
-    clearInterval(pendingSavesMonitor);
-    pendingSavesMonitor = null;
-    console.log("📊 Pending saves monitor stopped");
+  // 💾 Cleanup SaveQueue
+  if (saveQueue) {
+    saveQueue.destroy();
+    saveQueue = null;
+    console.log("💾 SaveQueue destroyed");
   }
 
   // 🔧 FIX 7b: Remove video delete handler
@@ -1366,9 +1177,7 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
   }
 
   // Rest of your existing keydown logic (unchanged)
-  pendingSaves.lastActivity = Date.now();
-  
- 
+  // Note: lastActivity is now tracked automatically by SaveQueue
 });
 
 function createAndInsertParagraph(blockElement, chunkContainer, content, selection) {
