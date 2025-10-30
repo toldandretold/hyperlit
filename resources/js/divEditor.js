@@ -69,8 +69,14 @@ import { getEditToolbar } from './editToolbar.js';
 import { delinkHypercite, handleHyperciteDeletion } from './hyperCites.js';
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from './toc.js';
 
-
-
+// ================================================================
+// MODULE STATE
+// ================================================================
+// This orchestrator maintains minimal state - most logic has been
+// extracted to specialized modules. State variables track:
+// - Observer instances (MutationObserver, SaveQueue, etc.)
+// - Tracking sets for node changes
+// - UI handler references for cleanup
 
 export let movedNodesByOverflow = new Set();
 // Tracking sets
@@ -97,10 +103,14 @@ let saveQueue = null;
 // 🚀 Mutation Processor instance (RAF-based mutation batching)
 let mutationProcessor = null;
 
-
+// ✅ EnterKeyHandler instance
+let enterKeyHandler = null;
 
 // ================================================================
-// PUBLIC API - Save Queue Functions (delegate to SaveQueue instance)
+// PUBLIC API
+// ================================================================
+// External modules call these functions to interact with the editor.
+// Most functionality is delegated to specialized modules.
 // ================================================================
 
 export function queueNodeForSave(nodeId, action = 'update') {
@@ -136,8 +146,16 @@ window.addEventListener('beforeunload', () => {
   flushAllPendingSaves();
 });
 
-// Modified startObserving function.
-// Note: editable div = <div class="main-content" id="book" contenteditable="true">
+// ================================================================
+// MAIN ORCHESTRATOR
+// ================================================================
+// startObserving() is the heart of the editor system. It:
+// 1. Initializes all specialized modules (SaveQueue, MutationProcessor, etc.)
+// 2. Configures the MutationObserver with proper callbacks
+// 3. Sets up event handlers and UI components
+// 4. Delegates all actual work to specialized modules
+// ================================================================
+
 export function startObserving(editableDiv) {
 
   console.log("🤓 startObserving function called - multi-chunk mode");
@@ -330,6 +348,15 @@ function initializeCurrentChunks(editableDiv) {
   return chunks;
 }
 
+// ================================================================
+// CLEANUP & TEARDOWN
+// ================================================================
+// stopObserving() tears down the editor system, cleaning up:
+// - MutationObserver and all specialized module instances
+// - Event handlers and UI components
+// - Tracking state and references
+// ================================================================
+
 export function stopObserving() {
   if (window.selectionDeletionInProgress) {
     console.log("Skipping observer reset during selection deletion");
@@ -390,10 +417,14 @@ export function stopObserving() {
   console.log("Observer and related state fully reset");
 }
 
+// ================================================================
+// EVENT HANDLERS
+// ================================================================
+// Global event listeners that manage editor behavior:
+// - selectionchange: Track chunk focus changes
+// - keydown: Handle delete operations and empty state prevention
+// ================================================================
 
-
-
-// Replace your old selectionchange listener with this one
 document.addEventListener("selectionchange", () => {
   // Early return for performance - don't process if not editing
   if (!window.isEditing) return;
@@ -490,11 +521,11 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
   // Note: lastActivity is now tracked automatically by SaveQueue
 });
 
-// ✅ Module-level variable to hold EnterKeyHandler instance
-let enterKeyHandler = null;
-
 // ================================================================
-// WRAPPER FUNCTIONS (pass dependencies to domUtilities functions)
+// WRAPPER FUNCTIONS
+// ================================================================
+// Wrapper functions that provide dependencies to extracted modules.
+// These allow the modules to remain pure while accessing orchestrator state.
 // ================================================================
 
 /**
