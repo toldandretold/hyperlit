@@ -114,6 +114,16 @@ export default defineConfig({
                 'resources/js/divEditor/enterKeyHandler.js',
                 'resources/js/divEditor/chunkMutationHandler.js',
                 'resources/js/divEditor/domUtilities.js',
+
+                // editToolbar modules
+                'resources/js/editToolbar/toolbarDOMUtils.js',
+                'resources/js/editToolbar/selectionManager.js',
+                'resources/js/editToolbar/buttonStateManager.js',
+                'resources/js/editToolbar/historyHandler.js',
+                'resources/js/editToolbar/headingSubmenu.js',
+                'resources/js/editToolbar/textFormatter.js',
+                'resources/js/editToolbar/listConverter.js',
+                'resources/js/editToolbar/blockFormatter.js',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.
       ],
