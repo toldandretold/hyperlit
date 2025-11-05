@@ -872,7 +872,7 @@ export function extractReferences(htmlContent, bookId, isHTMLContent = false, fo
 /**
  * Generate reference keys (adapted from Python version)
  */
-function generateRefKeys(text, contextText = '', formatType = 'general') {
+export function generateRefKeys(text, contextText = '', formatType = 'general') {
   // Handle bracketed years by treating them as regular years for key generation
   const processedText = text.replace(/\[(\d{4})\]/g, ' $1 ');
   
@@ -964,8 +964,8 @@ function generateRefKeys(text, contextText = '', formatType = 'general') {
         addKey(acronym.toLowerCase() + year);
     });
 
-    // Then handle regular names
-    const surnames = (sourceText.match(/\b[A-Z][a-zA-Z']+\b/g) || [])
+    // Then handle regular names (including hyphenated surnames like "Mirza-Davies")
+    const surnames = (sourceText.match(/\b[A-Z][a-zA-Z'-]+\b/g) || [])
       .filter(s => !['And', 'The', 'For', 'In', 'An', 'On', 'As', 'Ed', 'Of', 'See', 'Also'].includes(s))
       .filter(s => !acronyms.includes(s)) // Don't re-process acronyms as surnames
       .map(s => s.toLowerCase().replace("'s", ""));
