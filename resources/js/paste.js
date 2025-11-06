@@ -125,7 +125,7 @@ import {
 } from './operationState.js';
 import { queueNodeForSave } from './divEditor.js';
 import { broadcastToOpenTabs } from './BroadcastListener.js';
-import { processContentForFootnotesAndReferences } from './footnoteReferenceExtractor.js';
+import { processContentForFootnotesAndReferences } from './paste/fallback-processor.js';
 import { showSpinner, showTick, showError } from './editIndicator.js';
 import { detectFormat } from './paste/format-detection/format-detector.js';
 import { getFormatConfig } from './paste/format-detection/format-registry.js';
