@@ -3196,7 +3196,15 @@ async function syncReferencesToPostgreSQL(bookId, references) {
   if (!references || references.length === 0) return;
 
   console.log(`🔄 Syncing ${references.length} references to PostgreSQL...`);
-  const payload = { book: bookId, data: references };
+
+  // Filter references to only include fields the server expects (referenceId and content)
+  // This prevents sending arrays like refKeys which cause database errors
+  const sanitizedReferences = references.map(ref => ({
+    referenceId: ref.referenceId,
+    content: ref.content
+  }));
+
+  const payload = { book: bookId, data: sanitizedReferences };
 
   try {
     const res = await fetch("/api/db/references/upsert", {

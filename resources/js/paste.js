@@ -1,3 +1,96 @@
+/**
+ * ================================================================================================
+ * PASTE SYSTEM - Main Orchestrator
+ * ================================================================================================
+ *
+ * This file coordinates all paste operations in Hyperlit, routing clipboard content through
+ * specialized processors based on size, type, and format.
+ *
+ * ================================================================================================
+ * ARCHITECTURE OVERVIEW
+ * ================================================================================================
+ *
+ * paste.js (THIS FILE)              - Main orchestrator, event handling, routing logic
+ * paste/format-detection/           - Detects publisher formats (Cambridge, OUP, Taylor & Francis, etc.)
+ * paste/format-processors/          - Format-specific extraction pipelines (footnotes, references)
+ * paste/utils/                      - Reusable utilities (URL detection, markdown, HTML parsing)
+ *
+ * ================================================================================================
+ * PASTE FLOW
+ * ================================================================================================
+ *
+ * 1. EVENT CAPTURE
+ *    └─→ addPasteListener() registers handlePaste() on contenteditable elements
+ *
+ * 2. EARLY DETECTION (before processing)
+ *    ├─→ URL detection (links, images, YouTube embeds) → instant insert
+ *    ├─→ Hypercite detection (citations with backlinks) → special handling
+ *    └─→ YouTube transcript detection → transform for readability
+ *
+ * 3. SIZE ESTIMATION
+ *    └─→ estimatePasteNodeCount() → determines small vs large paste routing
+ *
+ * 4. PROCESSING PIPELINE (HTML content only)
+ *    ├─→ Small paste (≤10 nodes): processLite() → normalize + cleanup only (3ms)
+ *    └─→ Large paste (>10 nodes): process() → full extraction pipeline (50ms+)
+ *        ├─→ Format detection (Cambridge, OUP, Science Direct, etc.)
+ *        ├─→ Footnote extraction (scans <sup>, [^1], paragraph patterns)
+ *        ├─→ Reference extraction (scans bibliographies, years, authors)
+ *        ├─→ Structure transformation (unwrap divs, wrap loose text)
+ *        ├─→ Security cleanup (strip onclick, style, dangerous attributes)
+ *        ├─→ Citation linking (link (Author, Year) to references)
+ *        └─→ Footnote linking (link <sup>1</sup> to footnotes)
+ *
+ * 5. ROUTING TO HANDLERS
+ *    ├─→ Small paste (≤10 nodes): handleSmallPaste()
+ *    │   └─→ Uses browser execCommand('insertHTML') for speed
+ *    │   └─→ Fixes IDs on pasted elements
+ *    │   └─→ Saves nodes individually to IndexedDB
+ *    │
+ *    └─→ Large paste (>10 nodes): handleJsonPaste()
+ *        └─→ Converts blocks to JSON with generated IDs
+ *        └─→ Batch writes to IndexedDB
+ *        └─→ Immediate bulk sync to PostgreSQL
+ *        └─→ Updates lazy loader and scrolls to pasted content
+ *
+ * ================================================================================================
+ * KEY EXPORTS
+ * ================================================================================================
+ *
+ * addPasteListener(editableDiv)     - Register paste event handler (called from editButton.js)
+ * isPasteOperationActive()          - Check if paste is in progress (prevents race conditions)
+ * extractQuotedText(pasteWrapper)   - Extract quoted text for hypercites
+ *
+ * ================================================================================================
+ * SPECIAL CASES
+ * ================================================================================================
+ *
+ * - URLs: Instant conversion to <a>, <img>, or YouTube <iframe>
+ * - Hypercites: Bidirectional citation linking with automatic backlink updates
+ * - Code blocks: Plain text insertion (preserves HTML as text)
+ * - YouTube transcripts: Timestamp removal + sentence grouping
+ * - Markdown: Converted to HTML via marked.js + DOMPurify
+ *
+ * ================================================================================================
+ * SECURITY
+ * ================================================================================================
+ *
+ * All HTML content is sanitized via:
+ * 1. Format processors (stripAttributes in cleanup stage)
+ * 2. DOMPurify for markdown-converted content
+ * 3. URL validation (blocks javascript:, data:, file: protocols)
+ * 4. Attribute stripping (removes onclick, onstyle, dangerous classes)
+ *
+ * ================================================================================================
+ * PERFORMANCE
+ * ================================================================================================
+ *
+ * Small paste (≤10 nodes): ~3ms (processLite - normalize + cleanup only)
+ * Large paste (>10 nodes): ~50-500ms (full extraction + batch operations)
+ *
+ * ================================================================================================
+ */
+
 import { getNextIntegerId, generateIdBetween, setElementIds, generateNodeId } from './IDfunctions.js';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
@@ -32,8 +125,16 @@ import {
 } from './operationState.js';
 import { queueNodeForSave } from './divEditor.js';
 import { broadcastToOpenTabs } from './BroadcastListener.js';
-import { processContentForFootnotesAndReferences } from './footnoteReferenceExtractor.js';
+import { processContentForFootnotesAndReferences } from './paste/fallback-processor.js';
 import { showSpinner, showTick, showError } from './editIndicator.js';
+import { detectFormat } from './paste/format-detection/format-detector.js';
+import { getFormatConfig } from './paste/format-detection/format-registry.js';
+import { detectAndConvertUrls } from './paste/utils/url-detector.js';
+import { detectMarkdown } from './paste/utils/markdown-detector.js';
+import { parseHtmlToBlocks } from './paste/utils/html-block-parser.js';
+import { getInsertionPoint } from './paste/utils/insertion-point-calculator.js';
+import { convertToJsonObjects, convertTextToHtml } from './paste/utils/content-converter.js';
+import { processMarkdownInChunks } from './paste/utils/markdown-processor.js';
 
 // Configure marked options
 marked.setOptions({
@@ -48,118 +149,6 @@ let pasteHandled = false;
 
 // Flag to temporarily disable safety mechanism during paste operations
 let isPasteOperationInProgress = false;
-
-/**
- * Detect if pasted text is a URL and convert to appropriate HTML
- * @param {string} text - The pasted text
- * @returns {Object} - { isUrl, isYouTube, html, url }
- */
-function detectAndConvertUrls(text) {
-  // Trim and normalize whitespace (remove all newlines/returns)
-  const trimmed = text.trim().replace(/[\n\r]/g, '');
-  if (!trimmed) {
-    return { isUrl: false };
-  }
-
-  // Check if it's a valid URL
-  const urlPattern = /^https?:\/\/.+/i;
-  if (!urlPattern.test(trimmed)) {
-    return { isUrl: false };
-  }
-
-  // Security: Limit URL length to prevent DoS attacks
-  const MAX_URL_LENGTH = 2048; // Standard browser limit
-  if (trimmed.length > MAX_URL_LENGTH) {
-    console.warn(`URL too long (${trimmed.length} chars), max is ${MAX_URL_LENGTH}`);
-    return { isUrl: false };
-  }
-
-  // Validate it's actually a URL
-  let url;
-  try {
-    url = new URL(trimmed);
-  } catch (e) {
-    return { isUrl: false };
-  }
-
-  // Security: Only allow http/https protocols (block javascript:, data:, file:, etc.)
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    console.warn(`Blocked unsafe URL protocol: ${url.protocol}`);
-    return { isUrl: false };
-  }
-
-  // Check for image URLs
-  const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)(\?.*)?$/i;
-  if (imageExtensions.test(url.pathname)) {
-    // Escape URL for safe insertion (prevent attribute breakout)
-    const safeUrl = escapeHtml(url.href);
-    const imageHtml = `<img src="${safeUrl}" class="external-link" alt="Pasted image" referrerpolicy="no-referrer" />`;
-
-    return {
-      isUrl: true,
-      isImage: true,
-      html: imageHtml,
-      url: url.href
-    };
-  }
-
-  // Check for YouTube URLs
-
-  const youtubePatterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|m\.youtube\.com\/watch\?v=|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-  ];
-
-  for (const pattern of youtubePatterns) {
-    const match = trimmed.match(pattern);
-    if (match && match[1]) {
-      const videoId = match[1];
-
-      // Generate YouTube embed HTML (IDs will be added by setElementIds later)
-      // Note: Outer div is selectable (for deletion), inner wrapper is not editable
-      const embedHtml = `<div class="video-embed">
-  <button class="video-delete-btn" contenteditable="false" aria-label="Delete video" data-action="delete-video">×</button>
-  <div class="video-wrapper" contenteditable="false">
-    <iframe src="https://www.youtube.com/embed/${videoId}"
-            frameborder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowfullscreen>
-    </iframe>
-  </div>
-</div>`;
-
-      return {
-        isUrl: true,
-        isYouTube: true,
-        html: embedHtml,
-        url: trimmed,
-        videoId
-      };
-    }
-  }
-
-  // Regular URL - create link with HTML-escaped display text
-  const escapedDisplayUrl = escapeHtml(url.href);
-  const escapedHrefUrl = escapeHtml(url.href);
-  const linkHtml = `<a href="${escapedHrefUrl}" class="external-link" target="_blank" rel="noopener noreferrer">${escapedDisplayUrl}</a>`;
-
-  return {
-    isUrl: true,
-    isYouTube: false,
-    html: linkHtml,
-    url: url.href
-  };
-}
-
-/**
- * Escape HTML special characters to prevent XSS
- * @param {string} text - Text to escape
- * @returns {string} - HTML-escaped text
- */
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
 
 export function isPasteOperationActive() {
   return isPasteOperationInProgress;
@@ -256,440 +245,6 @@ async function showProgressModal() {
 }
 
 
-/**
- * The definitive paste handler. It uses CONDITIONAL anchor injection.
- * - If a link target is a BLOCK element (p, li, h1...), it injects an <a>
- *   tag to hold the ID, freeing the block for a system ID.
- * - If a link target is an INLINE element (a, sup, b...), it simply prefixes
- *   the ID on the element itself, preserving its structure.
- */
-function assimilateHTML(rawHtml) {
-  // 1) Replace nbsp entities with regular spaces to prevent layout shifts
-  // Handle both direct nbsp entities and Apple-converted-space spans
-  let cleanedHtml = rawHtml
-    .replace(/<span class="Apple-converted-space">\s*&nbsp;\s*<\/span>/g, ' ')
-    .replace(/<span class="Apple-converted-space">\s*<\/span>/g, ' ')
-    .replace(/&nbsp;/g, ' ');
-  
-  // 2) Sanitize
-  const cleanHtml = DOMPurify.sanitize(cleanedHtml, {
-    USE_PROFILES: { html: true },
-    ADD_TAGS: [
-      "sup", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote",
-      "ul", "ol", "li",
-    ],
-    ADD_ATTR: ["id", "href", "content-id"],
-  });
-
-  // 2) Parse
-  const doc = new DOMParser().parseFromString(cleanHtml, "text/html");
-  const body = doc.body;
-
-  console.log("🔍 PASTE DEBUG: HTML structure BEFORE processing:");
-  console.log("- Direct children:", Array.from(body.children).map(el => `<${el.tagName}>`).join(', '));
-  console.log("- Cambridge markers (.xref.fn, .circle-list, [id^=reference]):",
-    body.querySelectorAll('.xref.fn, .circle-list__item__grouped__content, [id^="reference-"][id$="-content"]').length);
-  console.log("- First 500 chars:", body.innerHTML.substring(0, 500));
-
-  // --- Helper Functions ---
-  function replaceTag(el, newTagName) {
-    const newEl = doc.createElement(newTagName);
-    for (const { name, value } of el.attributes) {
-      if (name !== "style" && name !== "class") {
-        newEl.setAttribute(name, value);
-      }
-    }
-    while (el.firstChild) {
-      newEl.appendChild(el.firstChild);
-    }
-    el.replaceWith(newEl);
-    return newEl;
-  }
-
-  function unwrap(el) {
-    const parent = el.parentNode;
-    if (!parent) return;
-    while (el.firstChild) {
-      parent.insertBefore(el.firstChild, el);
-    }
-    el.remove();
-  }
-
-  // --- Main Transformation Pipeline ---
-
-  // 3) CONDITIONAL ANCHOR INJECTION & LINK PROCESSING
-  const idPrefix = "pasted-";
-  (function processLinksAndInjectAnchors() {
-    const linksToProcess = new Map();
-    const blockTags = [
-      "P", "LI", "H1", "H2", "H3", "H4", "H5", "H6",
-      "BLOCKQUOTE", "UL", "OL", "PRE", "DIV",
-    ];
-
-    body.querySelectorAll('a[href*="#"]').forEach((link) => {
-      try {
-        const url = new URL(link.href);
-        if (url.hash) {
-          const targetId = url.hash.substring(1);
-          const targetElement = body.querySelector(`#${targetId}`);
-          if (targetElement) {
-            if (!linksToProcess.has(targetId)) {
-              linksToProcess.set(targetId, {
-                targetElement: targetElement,
-                links: [],
-              });
-            }
-            linksToProcess.get(targetId).links.push(link);
-          }
-        }
-      } catch (e) { /* ignore invalid URLs */ }
-    });
-
-    linksToProcess.forEach((data, targetId) => {
-      const { targetElement, links } = data;
-      const newPrefixedId = `${idPrefix}${targetId}`;
-
-      if (blockTags.includes(targetElement.tagName)) {
-        const anchor = doc.createElement("a");
-        anchor.id = newPrefixedId;
-        targetElement.prepend(anchor);
-        targetElement.removeAttribute("id");
-      } else {
-        targetElement.id = newPrefixedId;
-      }
-
-      links.forEach((link) => {
-        link.setAttribute("href", `#${newPrefixedId}`);
-      });
-    });
-  })();
-
-  // 4) Structural transformation (NEW: Router-based strategy with OUP)
-
-  function parseSageBibliography(body) {
-    console.log("Parsing with Aggressive Flattening strategy.");
-    const biblioItems = body.querySelectorAll('.ref, [role="listitem"], .js-splitview-ref-item');
-    
-    biblioItems.forEach(item => {
-        const clone = item.cloneNode(true);
-        clone.querySelectorAll('.external-links, .to-citation__wrapper, .citation-links').forEach(el => el.remove());
-        
-        const contentSource = clone.querySelector('.citation-content, .mixed-citation') || clone;
-        let content = contentSource.innerHTML;
-
-        content = content.replace(/<div[^>]*>/g, ' ').replace(/<\/div>/g, ' ');
-        content = content.replace(/<\/?p[^>]*>/g, ' ');
-        content = content.replace(/<\/?span[^>]*>/g, '');
-        
-        const p = document.createElement('p');
-        p.innerHTML = content.replace(/\s+/g, ' ').trim();
-        item.replaceWith(p);
-    });
-  }
-
-  
-  function parseOupContent(body) {
-    console.log("Parsing with OUP-specific strategy.");
-
-    // Handle OUP footnotes: convert complex nested structure to simple number + content
-    const footnotes = body.querySelectorAll('[content-id^="fn"].footnote');
-
-    footnotes.forEach(footnote => {
-      // Extract the footnote number from the nested structure
-      const numberSpan = footnote.querySelector('.end-note-link');
-      const number = numberSpan ? numberSpan.textContent.trim() : '';
-
-      // Extract the footnote content from the nested paragraph
-      const contentParagraph = footnote.querySelector('.footnote-compatibility');
-      const content = contentParagraph ? contentParagraph.innerHTML.trim() : '';
-
-      if (number && content) {
-        // Create a single clean paragraph: number + content
-        const p = document.createElement('p');
-        p.innerHTML = `${number}. ${content}`;
-        footnote.replaceWith(p);
-        console.log(`📝 OUP: Merged footnote ${number} with content`);
-      } else {
-        console.warn(`📝 OUP: Failed to extract number (${number}) or content (${content.substring(0, 50)}) from footnote`);
-      }
-    });
-
-    // Handle other OUP bibliography items
-    const biblioItems = body.querySelectorAll('.ref, [role="listitem"], .js-splitview-ref-item');
-    biblioItems.forEach(item => {
-        const clone = item.cloneNode(true);
-        clone.querySelectorAll('.external-links, .to-citation__wrapper, .citation-links').forEach(el => el.remove());
-
-        const contentSource = clone.querySelector('.citation-content, .mixed-citation') || clone;
-        let content = contentSource.innerHTML;
-
-        content = content.replace(/<div[^>]*>/g, ' ').replace(/<\/div>/g, ' ');
-        content = content.replace(/<\/?p[^>]*>/g, ' ');
-        content = content.replace(/<\/?span[^>]*>/g, '');
-
-        const p = document.createElement('p');
-        p.innerHTML = content.replace(/\s+/g, ' ').trim();
-        item.replaceWith(p);
-    });
-
-    // Apply general cleanup for any remaining nested structures
-    parseGeneralContent(body);
-  }
-
-  function parseCambridgeContent(body) {
-    console.log("Parsing with Cambridge-specific strategy.");
-    console.log("📚 Cambridge: Initial structure check:");
-    console.log("- .xref.fn links:", body.querySelectorAll('.xref.fn').length);
-    console.log("- reference-*-content divs:", body.querySelectorAll('[id^="reference-"][id$="-content"]').length);
-
-    // STEP 1: Simplify in-text footnote links
-    // Convert <a class="xref fn"><span>Footnote </span><sup>1</sup></a> → <sup>1</sup>
-    const footnoteLinks = body.querySelectorAll('.xref.fn, a[href^="#fn"]');
-    console.log(`📚 Cambridge: Found ${footnoteLinks.length} in-text footnote links`);
-
-    footnoteLinks.forEach((link, index) => {
-      const sup = link.querySelector('sup');
-      if (sup) {
-        const identifier = sup.textContent.trim();
-        // Create a clean <sup> with fn-count-id attribute
-        const cleanSup = document.createElement('sup');
-        cleanSup.setAttribute('fn-count-id', identifier);
-        cleanSup.textContent = identifier;
-
-        // Replace the entire link with just the <sup>
-        link.replaceWith(cleanSup);
-        console.log(`📚 Cambridge: Simplified in-text ref ${index + 1}: ${identifier}`);
-      }
-    });
-
-    // STEP 2: Convert footnote definitions to simple "N. Content" paragraphs
-    // Convert <div id="reference-65-content"><p><span><sup>65</sup></span> Content</p></div> → <p>65. Content</p>
-    const footnoteContainers = body.querySelectorAll('[id^="reference-"][id$="-content"]');
-    console.log(`📚 Cambridge: Found ${footnoteContainers.length} footnote definition containers`);
-
-    footnoteContainers.forEach((container, index) => {
-      const idMatch = container.id.match(/reference-(\d+)-content/);
-      if (!idMatch) {
-        console.log(`📚 Cambridge: Container ${index + 1} has no ID pattern`);
-        return;
-      }
-
-      const footnoteNum = idMatch[1];
-
-      // Extract content from nested structure
-      const paragraph = container.querySelector('p.p, p');
-      if (!paragraph) {
-        console.log(`📚 Cambridge: No paragraph in footnote ${footnoteNum}`);
-        return;
-      }
-
-      // Clone and remove label span
-      const cleanParagraph = paragraph.cloneNode(true);
-      const labelSpan = cleanParagraph.querySelector('span.label');
-      if (labelSpan) labelSpan.remove();
-
-      const content = cleanParagraph.innerHTML.trim();
-
-      // Create simple paragraph: "N. Content"
-      const simpleParagraph = document.createElement('p');
-      simpleParagraph.innerHTML = `${footnoteNum}. ${content}`;
-
-      // Replace container with simple paragraph
-      container.replaceWith(simpleParagraph);
-      console.log(`📚 Cambridge: Converted footnote ${footnoteNum} to "N. Content" format`);
-    });
-
-    // STEP 3: Now apply general parsing - simple <sup> and <p>N. Content</p> will work with existing heuristic
-    parseGeneralContent(body);
-
-    console.log("📚 Cambridge: Conversion complete - now using standard footnote extraction");
-  }
-
-  function parseTaylorFrancisContent(body) {
-    console.log("Parsing with Taylor & Francis structure strategy.");
-    
-    // Find and mark footnote paragraphs with special class
-    // Look for Notes sections and summation-section divs
-    const notesHeadings = body.querySelectorAll('h1, h2, h3, h4, h5, h6');
-    notesHeadings.forEach(heading => {
-      if (/notes/i.test(heading.textContent.trim()) || heading.id === 'inline_frontnotes') {
-        console.log(`📝 T&F: Found Notes heading: "${heading.textContent.trim()}"`);
-        
-        // Mark all following paragraphs as footnotes until we hit another heading
-        let nextElement = heading.nextElementSibling;
-        while (nextElement) {
-          if (nextElement.tagName && /^H[1-6]$/.test(nextElement.tagName)) {
-            // Hit another heading, stop
-            break;
-          }
-          
-          if (nextElement.tagName === 'P') {
-            const pText = nextElement.textContent.trim();
-            // Check if it starts with a number (footnote pattern)
-            if (/^(\d+)[\.\)\s]/.test(pText)) {
-              nextElement.classList.add('footnote');
-              console.log(`📝 T&F: Marked paragraph as footnote: "${pText.substring(0, 50)}..."`);
-            }
-          } else if (nextElement.tagName === 'DIV') {
-            // Look inside divs (like summation-section)
-            const paragraphs = nextElement.querySelectorAll('p');
-            paragraphs.forEach(p => {
-              const pText = p.textContent.trim();
-              if (/^(\d+)[\.\)\s]/.test(pText)) {
-                p.classList.add('footnote');
-                console.log(`📝 T&F: Marked paragraph in div as footnote: "${pText.substring(0, 50)}..."`);
-              }
-            });
-          }
-          
-          nextElement = nextElement.nextElementSibling;
-        }
-      }
-    });
-    
-    // Also check for summation-section divs specifically
-    const summationSections = body.querySelectorAll('.summation-section, div[id^="EN"]');
-    summationSections.forEach(section => {
-      console.log(`📝 T&F: Found footnote section: ${section.className || section.id}`);
-      const paragraphs = section.querySelectorAll('p');
-      paragraphs.forEach(p => {
-        const pText = p.textContent.trim();
-        if (/^(\d+)[\.\)\s]/.test(pText)) {
-          p.classList.add('footnote');
-          console.log(`📝 T&F: Marked paragraph in section as footnote: "${pText.substring(0, 50)}..."`);
-        }
-      });
-    });
-    
-    // Apply general content parsing to handle structure
-    parseGeneralContent(body);
-  }
-
-  function parseGeneralContent(body) {
-    console.log("Parsing with General (Structure Preserving) strategy.");
-    function wrapLooseNodes(container) {
-        const blockTags = /^(P|H[1-6]|BLOCKQUOTE|UL|OL|LI|PRE|DIV|TABLE|FIGURE)$/;
-        const nodesToProcess = Array.from(container.childNodes);
-        let currentWrapper = null;
-        for (const node of nodesToProcess) {
-            const isBlock = node.nodeType === Node.ELEMENT_NODE && blockTags.test(node.tagName);
-            if (isBlock) {
-                currentWrapper = null;
-                continue;
-            }
-            if (node.nodeType === Node.TEXT_NODE && node.textContent.trim() === '') {
-                continue;
-            }
-            if (!currentWrapper) {
-                currentWrapper = document.createElement('p');
-                container.insertBefore(currentWrapper, node);
-            }
-            currentWrapper.appendChild(node);
-        }
-    }
-    const containers = Array.from(body.querySelectorAll('div, article, section, main, header, footer, aside, nav, button'));
-    containers.reverse().forEach(container => {
-        wrapLooseNodes(container);
-        unwrap(container);
-    });
-    body.querySelectorAll('font').forEach(unwrap);
-  }
-
-  // --- ROUTER ---
-  let formatType = 'general';
-  const isTaylorFrancis = body.querySelector('.ref-lnk.lazy-ref.bibr, .NLM_sec, .hlFld-Abstract, li[id^="CIT"]');
-  const isSage = body.querySelector('.citations, .ref, [role="listitem"]');
-  const isOup = body.querySelector('[content-id^="bib"], .js-splitview-ref-item, .footnote[content-id^="fn"]');
-  const isCambridge = body.querySelector('.xref.fn, .circle-list__item__grouped__content, [id^="reference-"][id$="-content"]');
-
-  if (isTaylorFrancis) {
-    formatType = 'taylor-francis';
-    console.log('📚 Detected Taylor & Francis format - applying citation cleanup');
-    parseTaylorFrancisContent(body);
-  } else if (isCambridge) {
-    formatType = 'cambridge';
-    console.log('📚 Detected Cambridge format - applying Cambridge-specific parsing');
-    parseCambridgeContent(body);
-  } else if (isOup) {
-    formatType = 'oup';
-    console.log('📚 Detected OUP format - applying OUP-specific parsing');
-    parseOupContent(body);
-  } else if (isSage) {
-    formatType = 'sage';
-    console.log('📚 Detected Sage format - applying general parsing');
-    parseGeneralContent(body);
-  } else {
-    console.log('📚 No specific format detected - using general parsing');
-    parseGeneralContent(body);
-  }
-
-  // 5) Cleanup (unchanged)
-  body.querySelectorAll("p, blockquote, h1, h2, h3, li").forEach((el) => {
-    if (!el.textContent.trim() && !el.querySelector("img") && !el.querySelector("a[id^='pasted-']")) {
-      el.remove();
-    }
-  });
-  body.querySelectorAll("*").forEach((el) => {
-    el.removeAttribute("style");
-    el.removeAttribute("class");
-    if (el.id && !el.id.startsWith(idPrefix)) {
-      el.removeAttribute("id");
-    }
-    // ✅ Always strip data-node-id to force regeneration for correct positioning
-    el.removeAttribute("data-node-id");
-  });
-
-  // 6) Final cleanup: Wrap any remaining loose inline elements
-  // BUT: Group consecutive inline elements together (don't wrap each one individually)
-  // This preserves structure when pasting a <p> with multiple inline children
-
-  const looseInlineElements = Array.from(body.childNodes).filter(node =>
-    node.nodeType === Node.ELEMENT_NODE &&
-    node.tagName &&
-    !isBlockElement(node.tagName)
-  );
-
-  // Group consecutive inline elements and text nodes together in the same wrapper
-  if (looseInlineElements.length > 0) {
-    let currentWrapper = null;
-    const nodesToProcess = Array.from(body.childNodes); // Copy array to avoid mutation issues
-
-    nodesToProcess.forEach(node => {
-      // Skip if node has been moved already
-      if (!body.contains(node)) return;
-
-      // Check if this is a loose inline element
-      const isLooseInline = node.nodeType === Node.ELEMENT_NODE &&
-                           node.tagName &&
-                           !isBlockElement(node.tagName);
-
-      // Check if this is a text node with content
-      const isTextWithContent = node.nodeType === Node.TEXT_NODE &&
-                               node.textContent.trim();
-
-      if (isLooseInline || isTextWithContent) {
-        // Continue using the current wrapper or create a new one
-        if (!currentWrapper || !body.contains(currentWrapper)) {
-          currentWrapper = doc.createElement('p');
-          body.insertBefore(currentWrapper, node);
-        }
-        currentWrapper.appendChild(node);
-      } else if (node.nodeType === Node.ELEMENT_NODE && isBlockElement(node.tagName)) {
-        // Hit a block element - reset the wrapper
-        currentWrapper = null;
-      }
-    });
-  }
-
-  console.log("🔍 PASTE DEBUG: HTML structure AFTER processing:");
-  console.log("- Direct children:", Array.from(body.children).map(el => `<${el.tagName}>`).join(', '));
-  console.log("- Cambridge markers remaining (.cambridge-footnote, .xref.fn):",
-    body.querySelectorAll('.cambridge-footnote, .xref.fn').length);
-  console.log("- First 500 chars:", body.innerHTML.substring(0, 500));
-
-  return { html: body.innerHTML, format: formatType };
-}
-
 async function handlePaste(event) {
   // 🎯 Generate unique paste operation ID for tracing
   const pasteOpId = `paste_${Date.now()}`;
@@ -773,13 +328,66 @@ async function handlePaste(event) {
       return;
     }
 
+    // 3) Estimate size BEFORE processing (to route efficiently)
+    const estimatedNodes = estimatePasteNodeCount(rawHtml || plainText);
+    console.log(`🎯 [${pasteOpId}] Content analyzed: ${plainText.length} chars, ~${estimatedNodes} nodes`);
+
+    // Define threshold for small vs large paste
+    const SMALL_NODE_LIMIT = 10;
+
     // PRIORITIZE HTML PATH
+    let extractedFootnotes = [];
+    let extractedReferences = [];
+
     if (rawHtml.trim()) {
-      const assimilated = assimilateHTML(rawHtml);
-      htmlContent = assimilated.html;
-      formatType = assimilated.format;
+      console.log('🔧 [REFACTORED] Using new processor architecture');
+
+      // Detect format using new detection system
+      formatType = detectFormat(rawHtml);
+      console.log(`📚 Detected format: ${formatType}`);
+
+      // Get processor configuration
+      const config = getFormatConfig(formatType);
+
+      if (!config) {
+        console.warn(`⚠️ No processor found for format: ${formatType}, using general`);
+        const generalConfig = getFormatConfig('general');
+        const ProcessorClass = generalConfig.processor;
+        const processor = new ProcessorClass();
+        const result = await processor.process(rawHtml, book);
+        htmlContent = result.html;
+        formatType = 'general';
+        extractedFootnotes = result.footnotes;
+        extractedReferences = result.references;
+      } else {
+        // Instantiate processor
+        const ProcessorClass = config.processor;
+        const processor = new ProcessorClass();
+
+        // Route based on estimated size
+        if (estimatedNodes <= SMALL_NODE_LIMIT) {
+          // 🚀 Small paste: Use lite processing (normalize + cleanup only)
+          console.log(`⚡ Running ${formatType} processor [LITE mode]...`);
+          const result = await processor.processLite(rawHtml, book);
+          htmlContent = result.html;
+          formatType = result.formatType;
+          extractedFootnotes = [];
+          extractedReferences = [];
+          console.log(`✅ [LITE] Processing complete (skipped footnote/reference extraction)`);
+        } else {
+          // 🐌 Large paste: Use full processing
+          console.log(`⚙️ Running ${formatType} processor [FULL mode]...`);
+          const result = await processor.process(rawHtml, book);
+          htmlContent = result.html;
+          formatType = result.formatType;
+          extractedFootnotes = result.footnotes;
+          extractedReferences = result.references;
+          console.log(`✅ [FULL] Processing complete: ${extractedFootnotes.length} footnotes, ${extractedReferences.length} references`);
+        }
+      }
+
       console.log(`🎯 [${pasteOpId}] Format detected: ${formatType}`);
-      
+      console.log(`🎯 [${pasteOpId}] Extracted ${extractedFootnotes.length} footnotes, ${extractedReferences.length} references`);
     }
     // FALLBACK TO MARKDOWN/PLAINTEXT PATH
     else {
@@ -811,10 +419,6 @@ async function handlePaste(event) {
       }
     }
 
-    // 3) Get our reliable estimate.
-    const estimatedNodes = estimatePasteNodeCount(htmlContent || plainText);
-    console.log(`🎯 [${pasteOpId}] Content analyzed: ${plainText.length} chars, ~${estimatedNodes} nodes`);
-
     // 4) Perform routing checks for special paste types.
     if (await handleHypercitePaste(event)) return; // Make sure this is awaited if it's async
     const chunk = getCurrentChunk();
@@ -828,7 +432,7 @@ async function handlePaste(event) {
       return;
     }
 
-    const insertionPoint = getInsertionPoint(chunkElement);
+    const insertionPoint = getInsertionPoint(chunkElement, book);
     if (!insertionPoint) {
       console.error(`🎯 [${pasteOpId}] Could not determine insertion point. Aborting paste.`);
       return;
@@ -840,7 +444,9 @@ async function handlePaste(event) {
       insertionPoint,
       contentToProcess,
       !!htmlContent,
-      formatType // Pass the detected format
+      formatType, // Pass the detected format
+      extractedFootnotes, // Pass processor-extracted footnotes
+      extractedReferences // Pass processor-extracted references
     );
 
     if (!newAndUpdatedNodes || newAndUpdatedNodes.length === 0) {
@@ -957,162 +563,6 @@ async function handlePaste(event) {
   }
 }
 
-function getInsertionPoint(chunkElement) {
-  const selection = window.getSelection();
-  const range = selection.getRangeAt(0);
-  const currentNode = range.startContainer;
-
-  // Find the current node element (handle text nodes)
-  let currentNodeElement = currentNode.nodeType === Node.TEXT_NODE
-    ? currentNode.parentElement
-    : currentNode;
-
-  // Traverse up to find parent with numerical ID (including decimals)
-  while (currentNodeElement && currentNodeElement !== chunkElement) {
-    const id = currentNodeElement.id;
-
-    // Check if ID exists and is numerical (including decimals)
-    if (id && /^\d+(\.\d+)*$/.test(id)) {
-      break; // Found our target element
-    }
-
-    // Move up to parent
-    currentNodeElement = currentNodeElement.parentElement;
-  }
-
-  // If we didn't find a numerical ID, we might be at chunk level or need fallback
-  if (!currentNodeElement || !currentNodeElement.id || !/^\d+(\.\d+)*$/.test(currentNodeElement.id)) {
-    console.warn('Could not find parent element with numerical ID');
-    return null;
-  }
-
-  const currentNodeId = currentNodeElement.id;
-  const chunkId = chunkElement.dataset.chunkId || chunkElement.id;
-
-  // Current node becomes the beforeNodeId (we're inserting after it)
-  const beforeNodeId = currentNodeId;
-
-  // Find the next element with a numerical ID (this is the afterNodeId)
-  let afterElement = currentNodeElement.nextElementSibling;
-
-  while (afterElement) {
-    if (afterElement.id && /^\d+(\.\d+)*$/.test(afterElement.id)) {
-      break;
-    }
-
-    afterElement = afterElement.nextElementSibling;
-  }
-
-  const afterNodeId = afterElement?.id || null;
-
-  // Use existing chunk tracking
-  const currentChunkNodeCount = chunkNodeCounts[chunkId] || 0;
-
-  const result = {
-    chunkId: chunkId,
-    currentNodeId: currentNodeId,
-    beforeNodeId: beforeNodeId,
-    afterNodeId: afterNodeId,
-    currentChunkNodeCount: currentChunkNodeCount,
-    insertionStartLine: parseInt(currentNodeId), // startLine = node ID
-    book: book // Available as const
-  };
-
-  console.log(`Insertion point: before=${beforeNodeId}, after=${afterNodeId || 'end'}, chunk=${chunkId}`);
-  return result;
-}
-
-async function processMarkdownInChunks(text, onProgress) {
-  const chunkSize = 50000; // 50KB chunks - adjust as needed
-  const chunks = [];
-  
-  // Split on paragraph boundaries to avoid breaking markdown structure
-  const paragraphs = text.split(/\n\s*\n/);
-  let currentChunk = '';
-  
-  for (const para of paragraphs) {
-    if (currentChunk.length + para.length > chunkSize && currentChunk) {
-      chunks.push(currentChunk);
-      currentChunk = para;
-    } else {
-      currentChunk += (currentChunk ? '\n\n' : '') + para;
-    }
-  }
-  if (currentChunk) chunks.push(currentChunk);
-  
-  console.log(`Processing ${chunks.length} chunks, average size: ${Math.round(text.length / chunks.length)} chars`);
-  
-  let result = '';
-  for (let i = 0; i < chunks.length; i++) {
-    const progress = ((i + 1) / chunks.length) * 100;
-    onProgress(progress, i + 1, chunks.length);
-    
-    // Process chunk (smart quotes already normalized at paste entry)
-    const chunkHtml = marked(chunks[i]);
-    result += chunkHtml;
-    
-    // Let browser breathe between chunks
-    await new Promise(resolve => setTimeout(resolve, 10));
-  }
-  
-  return result;
-}
-
-// (1) change convertToJsonObjects to return both the list
-//     and the final state it left off in
-
-function convertToJsonObjects(textBlocks, insertionPoint) {
-  const jsonObjects = [];
-
-  let currentChunkId       = insertionPoint.chunkId;
-  let nodesInCurrentChunk  = insertionPoint.currentChunkNodeCount;
-  let beforeId             = insertionPoint.beforeNodeId;
-  const afterId            = insertionPoint.afterNodeId;
-
-  textBlocks.forEach((block) => {
-    // rotate chunk?
-    if (nodesInCurrentChunk >= NODE_LIMIT) {
-      currentChunkId      = getNextIntegerId(currentChunkId);
-      nodesInCurrentChunk = 0;
-    }
-
-    // Generate new node ID with 100-unit gaps (like renumbering system)
-    const beforeNum = Math.floor(parseFloat(beforeId));
-    const newNodeId = (beforeNum + 100).toString();
-
-    // Generate stable node_id for this pasted node
-    const nodeId = generateNodeId(insertionPoint.book);
-
-    const trimmed     = block.trim();
-    const htmlContent = convertTextToHtml(trimmed, newNodeId, nodeId);
-
-    const key = `${insertionPoint.book},${newNodeId}`;
-    jsonObjects.push({
-      [key]: {
-        content:   htmlContent,
-        startLine: parseFloat(newNodeId),
-        chunk_id:  parseFloat(currentChunkId),
-        node_id:   nodeId  // Store node_id for tracking through renumbering
-      }
-    });
-
-    // advance
-    beforeId            = newNodeId;
-    nodesInCurrentChunk++;
-  });
-
-  return {
-    jsonObjects,
-    state: {
-      currentChunkId,
-      nodesInCurrentChunk,
-      beforeId
-    }
-  };
-}
-
-
-
 function isCompleteHTML(text) {
   // Basic check if the text appears to be complete HTML
   const trimmed = text.trim();
@@ -1171,7 +621,7 @@ function handleCodeBlockPaste(event, chunk) {
 
 
 function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
-  const SMALL_NODE_LIMIT = 20;
+  const SMALL_NODE_LIMIT = 10;
 
   if (nodeCount > SMALL_NODE_LIMIT) {
     return false; // Not a small paste, continue to large paste handler
@@ -1251,17 +701,25 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
   const savedNodeId = currentBlock ? currentBlock.getAttribute('data-node-id') : null;
   const savedBlockId = currentBlock ? currentBlock.id : null;
 
-  // Check if we're pasting into an H1 - always use manual insertion to prevent nesting
+  // Check if we're pasting into an H1 AND pasting block-level content
   const isH1Destination = currentBlock && currentBlock.tagName === 'H1';
 
-  if (isH1Destination) {
-    console.log(`H1 destination detected with ${nodeCount} nodes - using manual insertion to prevent nesting`);
-    
+  // Detect if pasted content contains block-level elements
+  let hasBlockElements = false;
+  if (isH1Destination && finalHtmlToInsert) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = finalHtmlToInsert;
+    hasBlockElements = tempDiv.querySelector('p, h1, h2, h3, h4, h5, h6, div, blockquote, ul, ol, pre') !== null;
+  }
+
+  if (isH1Destination && hasBlockElements) {
+    console.log(`H1 destination with block-level content - using manual insertion to prevent nesting`);
+
     // Parse the HTML content to extract individual blocks
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = finalHtmlToInsert;
     const blocks = Array.from(tempDiv.children);
-    
+
     if (blocks.length > 0) {
       // 1. Replace H1 content with first block's content (but keep it as H1)
       const firstBlock = blocks[0];
@@ -1272,7 +730,7 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
         // Convert first pasted block content to H1 content
         currentBlock.innerHTML = firstBlock.innerHTML;
       }
-      
+
       // 2. Insert remaining blocks AFTER the H1 as siblings
       let insertAfter = currentBlock;
       for (let i = 1; i < blocks.length; i++) {
@@ -1280,11 +738,11 @@ function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
         insertAfter.parentNode.insertBefore(blockToInsert, insertAfter.nextSibling);
         insertAfter = blockToInsert;
       }
-      
+
       console.log(`Manually inserted ${blocks.length} blocks: 1 into H1, ${blocks.length - 1} as siblings`);
     }
   } else {
-    // Normal paste - use execCommand (safe for small pastes or non-H1 destinations)
+    // Normal paste - use execCommand (safe for text/inline content or non-H1 destinations)
     document.execCommand("insertHTML", false, finalHtmlToInsert);
   }
 
@@ -1443,29 +901,6 @@ function estimatePasteNodeCount(content) {
   }
 }
 
-function convertTextToHtml(content, startLineId, nodeId) {
-  // Check if content is already HTML
-  if (content.trim().startsWith('<') && content.trim().endsWith('>')) {
-    // It's HTML - add/update the ID and data-node-id on the first element
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = content;
-
-    // Find the first element and give it the IDs
-    const firstElement = tempDiv.querySelector('*');
-    if (firstElement) {
-      firstElement.id = startLineId;
-      firstElement.setAttribute('data-node-id', nodeId);
-      return tempDiv.innerHTML;
-    }
-
-    // Fallback if no elements found
-    return content;
-  } else {
-    // It's plain text - wrap in paragraph with both id and data-node-id
-    return `<p id="${startLineId}" data-node-id="${nodeId}">${content}</p>`;
-  }
-}
-
 /**
  * 1) Assumes you have this helper already defined:
  *    async function getNodeChunksAfter(book, afterNodeId) { … }
@@ -1481,36 +916,51 @@ async function handleJsonPaste(
   insertionPoint,
   pastedContent,
   isHtmlContent = false,
-  formatType = 'general' // Add formatType argument
+  formatType = 'general',
+  extractedFootnotes = [], // Accept processor-extracted footnotes
+  extractedReferences = [] // Accept processor-extracted references
 ) {
   event.preventDefault();
 
-  // --- 1. PROCESS FOOTNOTES AND REFERENCES ---
+  // --- 1. USE PROCESSOR-EXTRACTED FOOTNOTES AND REFERENCES ---
   let processedContent = pastedContent;
-  let extractedFootnotes = [];
-  let extractedReferences = [];
-  
-  try {
-    // Pass the formatType to the processor
-    const result = await processContentForFootnotesAndReferences(pastedContent, insertionPoint.book, isHtmlContent, formatType);
-    processedContent = result.processedContent;
-    extractedFootnotes = result.footnotes;
-    extractedReferences = result.references;
-    console.log(`✅ Extracted ${extractedFootnotes.length} footnotes and ${extractedReferences.length} references.`);
 
-  } catch (error) {
+  // If footnotes/references were already extracted by the processor, use them
+  // Otherwise, fall back to the old extraction method
+  if (extractedFootnotes.length === 0 && extractedReferences.length === 0) {
+    try {
+      console.log(`📝 No footnotes/references from processor, using fallback extractor...`);
+      const result = await processContentForFootnotesAndReferences(pastedContent, insertionPoint.book, isHtmlContent, formatType);
+      processedContent = result.processedContent;
+      extractedFootnotes = result.footnotes;
+      extractedReferences = result.references;
+      console.log(`✅ Extracted ${extractedFootnotes.length} footnotes and ${extractedReferences.length} references.`);
+    } catch (error) {
       console.error('❌ Error processing footnotes/references:', error);
       processedContent = pastedContent; // Fallback to original content on error
+    }
+  } else {
+    console.log(`✅ Using processor-extracted ${extractedFootnotes.length} footnotes and ${extractedReferences.length} references.`);
   }
 
   // --- 2. HANDLE H1 REPLACEMENT LOGIC ---
   const selection = window.getSelection();
   const currentElement = document.getElementById(insertionPoint.beforeNodeId);
   const isH1 = currentElement && currentElement.tagName === 'H1';
-  const isH1Selected = isH1 && selection.toString().trim().length > 0;
+
+  // Check if pasted content contains block-level elements
+  let hasBlockElements = false;
+  if (isH1 && processedContent) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = processedContent;
+    hasBlockElements = tempDiv.querySelector('p, h1, h2, h3, h4, h5, h6, div, blockquote, ul, ol, pre') !== null;
+  }
+
+  // Only replace H1 if there's a selection AND pasting block-level content
+  const isH1Selected = isH1 && selection.toString().trim().length > 0 && hasBlockElements;
 
   if (isH1Selected) {
-    console.log(`H1#${currentElement.id} is selected - replacing it entirely with pasted content`);
+    console.log(`H1#${currentElement.id} is selected and pasting block-level content - replacing it entirely`);
 
     // Store the H1's ID before removing it
     const h1Id = currentElement.id;
@@ -1609,6 +1059,21 @@ async function handleJsonPaste(
 
   console.log(`Writing ${toWrite.length} chunks to IndexedDB`);
   await writeNodeChunks(toWrite);
+
+  // Save extracted footnotes and references to IndexedDB
+  if (extractedFootnotes.length > 0 || extractedReferences.length > 0) {
+    const { saveAllFootnotesToIndexedDB, saveAllReferencesToIndexedDB } = await import('./indexedDB.js');
+
+    if (extractedFootnotes.length > 0) {
+      console.log(`💾 Saving ${extractedFootnotes.length} footnotes to IndexedDB...`);
+      await saveAllFootnotesToIndexedDB(extractedFootnotes, insertionPoint.book);
+    }
+
+    if (extractedReferences.length > 0) {
+      console.log(`💾 Saving ${extractedReferences.length} references to IndexedDB...`);
+      await saveAllReferencesToIndexedDB(extractedReferences, insertionPoint.book);
+    }
+  }
 
   // For paste operations, sync immediately to PostgreSQL using bulk upsert
   // (Don't use debounced queue - that's for individual edits)
@@ -2233,129 +1698,6 @@ function transformYouTubeTranscript(plainText, rawHtml, source) {
   // Join paragraphs with double newlines for markdown parsing
   return paragraphs.join('\n\n');
 }
-
-function detectMarkdown(text) {
-  if (!text || typeof text !== 'string') return false;
-  
-  console.log('detectMarkdown input:');
-  
-  const markdownPatterns = [
-    /^#{1,6}\s+/m,                    // Headers
-    /\*{1,2}[^*\n]+\*{1,2}/,         // Bold/italic (removed ^ anchor)
-    /_{1,2}[^_\n]+_{1,2}/,           // Bold/italic with underscores
-    /^\* /m,                         // Unordered lists
-    /^\d+\. /m,                      // Ordered lists
-    /^\> /m,                         // Blockquotes
-    /`[^`]+`/,                       // Inline code (actual backticks only)
-    /^```/m,                         // Code blocks
-    /\[.+\]\(.+\)/,                  // Links (removed ^ anchor)
-    /^!\[.*\]\(.+\)/m,               // Images
-    /^\|.+\|/m,                      // Tables
-    /^---+$/m,                       // Horizontal rules
-    /^\- \[[ x]\]/m                  // Task lists
-  ];
-  
-  // Count how many patterns match and log each one
-  const matches = markdownPatterns.filter((pattern, index) => {
-    const match = pattern.test(text);
-    console.log(`Pattern ${index} (${pattern}):`, match);
-    // Special debug for inline code pattern
-    if (index === 6 && match) {
-      const codeMatch = text.match(pattern);
-      console.log(`🔍 Inline code match found:`, codeMatch);
-    }
-    return match;
-  });
-  
-  console.log('Total matches:', matches.length);
-  
-  // Change this line: lower threshold to 1
-  return matches.length >= 1;
-}
-
-/**
- * Check if an element is a block-level element
- */
-function isBlockElement(tagName) {
-  const blockTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'DIV', 'BLOCKQUOTE', 
-                     'UL', 'OL', 'LI', 'PRE', 'TABLE', 'FIGURE', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER'];
-  return blockTags.includes(tagName.toUpperCase());
-}
-
-/**
- * Parse HTML content into individual block elements
- */
-function parseHtmlToBlocks(htmlContent) {
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = htmlContent;
-  
-  const blocks = [];
-  
-  // The complex div-to-p logic has been moved to assimilateHTML.
-  // This function now focuses on splitting into blocks and wrapping loose text.
-  
-  // Get direct children, INCLUDING text nodes
-  Array.from(tempDiv.childNodes).forEach(node => {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      // This is a block-level element
-      const child = node;
-      child.removeAttribute('id'); // Remove any conflicting IDs
-      
-      // Check if this element contains multiple <br> separated entries (common in bibliographies)
-      const innerHTML = child.innerHTML;
-      const brSeparatedParts = innerHTML.split(/<br\s*\/?>/i);
-
-      // Don't split on <br> if:
-      // 1. The element itself is a block element that shouldn't be split (table, ul, ol, etc.)
-      // 2. The content contains nested block elements
-      const isUnsplittableBlock = /^(TABLE|UL|OL|DIV)$/.test(child.tagName);
-      const containsBlockElements = /<(?:table|div|section|ul|ol)/i.test(innerHTML);
-
-      if (brSeparatedParts.length > 1 && !isUnsplittableBlock && !containsBlockElements) {
-        // Split on <br> tags - each part becomes a separate block
-        brSeparatedParts.forEach(part => {
-          const trimmedPart = part.trim();
-          if (trimmedPart) {
-            // Use a wrapper div to parse the content (browser auto-corrects invalid nesting)
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = trimmedPart;
-
-            // Extract all resulting nodes as separate blocks
-            Array.from(wrapper.childNodes).forEach(node => {
-              if (node.nodeType === Node.ELEMENT_NODE) {
-                // This is an element - use it as-is
-                blocks.push(node.outerHTML);
-              } else if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
-                // Loose text - wrap in the parent element type
-                blocks.push(`<${child.tagName.toLowerCase()}>${node.textContent.trim()}</${child.tagName.toLowerCase()}>`);
-              }
-            });
-          }
-        });
-      } else {
-        // No <br> tags - use the whole element as one block
-        blocks.push(child.outerHTML);
-      }
-    } else if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
-      // This is a "loose" text node that resulted from unwrapping. Wrap it in a <p> tag.
-      blocks.push(`<p>${node.textContent.trim()}</p>`);
-
-    } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName && !isBlockElement(node.tagName)) {
-      // This is a loose inline element (a, span, i, b, etc.) - wrap it in a <p> tag.
-      blocks.push(`<p>${node.outerHTML}</p>`);
-    }
-  });
-  
-  // If no block children were found, but there's content, wrap the whole thing in a <p>.
-  if (blocks.length === 0 && htmlContent.trim()) {
-    blocks.push(`<p>${htmlContent}</p>`);
-  }
-  
-  return blocks;
-}
-
-
-
 
 
 

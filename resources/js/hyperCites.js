@@ -583,7 +583,7 @@ function collectHyperciteData(hyperciteId, wrapper) {
 
 
 // Function to generate a unique hypercite ID
-function generateHyperciteID() {
+export function generateHyperciteID() {
   return "hypercite_" + Math.random().toString(36).substring(2, 9); // Unique ID generation
 }
 
@@ -1770,15 +1770,15 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
  * @param {string} hrefUrl - The href URL
  * @returns {string|null} - The hypercite ID or null if not found
  */
-function extractHyperciteIdFromHref(hrefUrl) {
+export function extractHyperciteIdFromHref(hrefUrl) {
   try {
     const url = new URL(hrefUrl, window.location.origin);
     const hash = url.hash;
-    
+
     if (hash && hash.startsWith('#hypercite_')) {
       return hash.substring(1); // Remove the # symbol
     }
-    
+
     return null;
   } catch (error) {
     console.error("Error parsing href URL:", hrefUrl, error);
@@ -1815,7 +1815,7 @@ async function getHyperciteById(db, hyperciteId) {
  * @param {string} hyperciteElementId - The ID of the hypercite element to remove
  * @returns {Array} - Updated citedIN array
  */
-function removeCitedINEntry(citedINArray, hyperciteElementId) {
+export function removeCitedINEntry(citedINArray, hyperciteElementId) {
   if (!Array.isArray(citedINArray)) {
     return [];
   }
@@ -1836,7 +1836,7 @@ function removeCitedINEntry(citedINArray, hyperciteElementId) {
  * @param {number} citedINLength - Length of the citedIN array
  * @returns {string} - The relationship status
  */
-function determineRelationshipStatus(citedINLength) {
+export function determineRelationshipStatus(citedINLength) {
   if (citedINLength === 0) {
     return "single";
   } else if (citedINLength === 1) {
