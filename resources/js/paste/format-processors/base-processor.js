@@ -61,6 +61,35 @@ export class BaseFormatProcessor {
     };
   }
 
+  /**
+   * Lightweight processing for small pastes (≤10 nodes)
+   * Only runs security-critical stages: normalize + cleanup
+   * Skips footnote/reference extraction, structure transformation, and linking
+   *
+   * @param {string} htmlContent - Raw HTML content to process
+   * @param {string} bookId - Book identifier for database operations
+   * @returns {Promise<{html: string, footnotes: Array, references: Array, formatType: string}>}
+   */
+  async processLite(htmlContent, bookId) {
+    console.log(`📚 [LITE] Processing ${this.formatType} format (minimal)`);
+
+    // Stage 1: Create DOM and normalize (common)
+    const dom = this.createDOM(htmlContent);
+    this.normalize(dom);
+
+    // Stage 2: Cleanup (SECURITY CRITICAL - strips XSS attributes)
+    this.cleanup(dom);
+
+    console.log(`✅ [LITE] ${this.formatType} processing complete`);
+
+    return {
+      html: dom.innerHTML,
+      footnotes: [],
+      references: [],
+      formatType: this.formatType
+    };
+  }
+
   // ========================================================================
   // COMMON STAGES (implemented in base class)
   // ========================================================================

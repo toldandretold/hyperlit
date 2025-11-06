@@ -1,3 +1,96 @@
+/**
+ * ================================================================================================
+ * PASTE SYSTEM - Main Orchestrator
+ * ================================================================================================
+ *
+ * This file coordinates all paste operations in Hyperlit, routing clipboard content through
+ * specialized processors based on size, type, and format.
+ *
+ * ================================================================================================
+ * ARCHITECTURE OVERVIEW
+ * ================================================================================================
+ *
+ * paste.js (THIS FILE)              - Main orchestrator, event handling, routing logic
+ * paste/format-detection/           - Detects publisher formats (Cambridge, OUP, Taylor & Francis, etc.)
+ * paste/format-processors/          - Format-specific extraction pipelines (footnotes, references)
+ * paste/utils/                      - Reusable utilities (URL detection, markdown, HTML parsing)
+ *
+ * ================================================================================================
+ * PASTE FLOW
+ * ================================================================================================
+ *
+ * 1. EVENT CAPTURE
+ *    └─→ addPasteListener() registers handlePaste() on contenteditable elements
+ *
+ * 2. EARLY DETECTION (before processing)
+ *    ├─→ URL detection (links, images, YouTube embeds) → instant insert
+ *    ├─→ Hypercite detection (citations with backlinks) → special handling
+ *    └─→ YouTube transcript detection → transform for readability
+ *
+ * 3. SIZE ESTIMATION
+ *    └─→ estimatePasteNodeCount() → determines small vs large paste routing
+ *
+ * 4. PROCESSING PIPELINE (HTML content only)
+ *    ├─→ Small paste (≤10 nodes): processLite() → normalize + cleanup only (3ms)
+ *    └─→ Large paste (>10 nodes): process() → full extraction pipeline (50ms+)
+ *        ├─→ Format detection (Cambridge, OUP, Science Direct, etc.)
+ *        ├─→ Footnote extraction (scans <sup>, [^1], paragraph patterns)
+ *        ├─→ Reference extraction (scans bibliographies, years, authors)
+ *        ├─→ Structure transformation (unwrap divs, wrap loose text)
+ *        ├─→ Security cleanup (strip onclick, style, dangerous attributes)
+ *        ├─→ Citation linking (link (Author, Year) to references)
+ *        └─→ Footnote linking (link <sup>1</sup> to footnotes)
+ *
+ * 5. ROUTING TO HANDLERS
+ *    ├─→ Small paste (≤10 nodes): handleSmallPaste()
+ *    │   └─→ Uses browser execCommand('insertHTML') for speed
+ *    │   └─→ Fixes IDs on pasted elements
+ *    │   └─→ Saves nodes individually to IndexedDB
+ *    │
+ *    └─→ Large paste (>10 nodes): handleJsonPaste()
+ *        └─→ Converts blocks to JSON with generated IDs
+ *        └─→ Batch writes to IndexedDB
+ *        └─→ Immediate bulk sync to PostgreSQL
+ *        └─→ Updates lazy loader and scrolls to pasted content
+ *
+ * ================================================================================================
+ * KEY EXPORTS
+ * ================================================================================================
+ *
+ * addPasteListener(editableDiv)     - Register paste event handler (called from editButton.js)
+ * isPasteOperationActive()          - Check if paste is in progress (prevents race conditions)
+ * extractQuotedText(pasteWrapper)   - Extract quoted text for hypercites
+ *
+ * ================================================================================================
+ * SPECIAL CASES
+ * ================================================================================================
+ *
+ * - URLs: Instant conversion to <a>, <img>, or YouTube <iframe>
+ * - Hypercites: Bidirectional citation linking with automatic backlink updates
+ * - Code blocks: Plain text insertion (preserves HTML as text)
+ * - YouTube transcripts: Timestamp removal + sentence grouping
+ * - Markdown: Converted to HTML via marked.js + DOMPurify
+ *
+ * ================================================================================================
+ * SECURITY
+ * ================================================================================================
+ *
+ * All HTML content is sanitized via:
+ * 1. Format processors (stripAttributes in cleanup stage)
+ * 2. DOMPurify for markdown-converted content
+ * 3. URL validation (blocks javascript:, data:, file: protocols)
+ * 4. Attribute stripping (removes onclick, onstyle, dangerous classes)
+ *
+ * ================================================================================================
+ * PERFORMANCE
+ * ================================================================================================
+ *
+ * Small paste (≤10 nodes): ~3ms (processLite - normalize + cleanup only)
+ * Large paste (>10 nodes): ~50-500ms (full extraction + batch operations)
+ *
+ * ================================================================================================
+ */
+
 import { getNextIntegerId, generateIdBetween, setElementIds, generateNodeId } from './IDfunctions.js';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
@@ -36,6 +129,12 @@ import { processContentForFootnotesAndReferences } from './footnoteReferenceExtr
 import { showSpinner, showTick, showError } from './editIndicator.js';
 import { detectFormat } from './paste/format-detection/format-detector.js';
 import { getFormatConfig } from './paste/format-detection/format-registry.js';
+import { detectAndConvertUrls } from './paste/utils/url-detector.js';
+import { detectMarkdown } from './paste/utils/markdown-detector.js';
+import { parseHtmlToBlocks } from './paste/utils/html-block-parser.js';
+import { getInsertionPoint } from './paste/utils/insertion-point-calculator.js';
+import { convertToJsonObjects, convertTextToHtml } from './paste/utils/content-converter.js';
+import { processMarkdownInChunks } from './paste/utils/markdown-processor.js';
 
 // Configure marked options
 marked.setOptions({
@@ -50,118 +149,6 @@ let pasteHandled = false;
 
 // Flag to temporarily disable safety mechanism during paste operations
 let isPasteOperationInProgress = false;
-
-/**
- * Detect if pasted text is a URL and convert to appropriate HTML
- * @param {string} text - The pasted text
- * @returns {Object} - { isUrl, isYouTube, html, url }
- */
-function detectAndConvertUrls(text) {
-  // Trim and normalize whitespace (remove all newlines/returns)
-  const trimmed = text.trim().replace(/[\n\r]/g, '');
-  if (!trimmed) {
-    return { isUrl: false };
-  }
-
-  // Check if it's a valid URL
-  const urlPattern = /^https?:\/\/.+/i;
-  if (!urlPattern.test(trimmed)) {
-    return { isUrl: false };
-  }
-
-  // Security: Limit URL length to prevent DoS attacks
-  const MAX_URL_LENGTH = 2048; // Standard browser limit
-  if (trimmed.length > MAX_URL_LENGTH) {
-    console.warn(`URL too long (${trimmed.length} chars), max is ${MAX_URL_LENGTH}`);
-    return { isUrl: false };
-  }
-
-  // Validate it's actually a URL
-  let url;
-  try {
-    url = new URL(trimmed);
-  } catch (e) {
-    return { isUrl: false };
-  }
-
-  // Security: Only allow http/https protocols (block javascript:, data:, file:, etc.)
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    console.warn(`Blocked unsafe URL protocol: ${url.protocol}`);
-    return { isUrl: false };
-  }
-
-  // Check for image URLs
-  const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)(\?.*)?$/i;
-  if (imageExtensions.test(url.pathname)) {
-    // Escape URL for safe insertion (prevent attribute breakout)
-    const safeUrl = escapeHtml(url.href);
-    const imageHtml = `<img src="${safeUrl}" class="external-link" alt="Pasted image" referrerpolicy="no-referrer" />`;
-
-    return {
-      isUrl: true,
-      isImage: true,
-      html: imageHtml,
-      url: url.href
-    };
-  }
-
-  // Check for YouTube URLs
-
-  const youtubePatterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|m\.youtube\.com\/watch\?v=|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-  ];
-
-  for (const pattern of youtubePatterns) {
-    const match = trimmed.match(pattern);
-    if (match && match[1]) {
-      const videoId = match[1];
-
-      // Generate YouTube embed HTML (IDs will be added by setElementIds later)
-      // Note: Outer div is selectable (for deletion), inner wrapper is not editable
-      const embedHtml = `<div class="video-embed">
-  <button class="video-delete-btn" contenteditable="false" aria-label="Delete video" data-action="delete-video">×</button>
-  <div class="video-wrapper" contenteditable="false">
-    <iframe src="https://www.youtube.com/embed/${videoId}"
-            frameborder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowfullscreen>
-    </iframe>
-  </div>
-</div>`;
-
-      return {
-        isUrl: true,
-        isYouTube: true,
-        html: embedHtml,
-        url: trimmed,
-        videoId
-      };
-    }
-  }
-
-  // Regular URL - create link with HTML-escaped display text
-  const escapedDisplayUrl = escapeHtml(url.href);
-  const escapedHrefUrl = escapeHtml(url.href);
-  const linkHtml = `<a href="${escapedHrefUrl}" class="external-link" target="_blank" rel="noopener noreferrer">${escapedDisplayUrl}</a>`;
-
-  return {
-    isUrl: true,
-    isYouTube: false,
-    html: linkHtml,
-    url: url.href
-  };
-}
-
-/**
- * Escape HTML special characters to prevent XSS
- * @param {string} text - Text to escape
- * @returns {string} - HTML-escaped text
- */
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
 
 export function isPasteOperationActive() {
   return isPasteOperationInProgress;
@@ -258,54 +245,6 @@ async function showProgressModal() {
 }
 
 
-/**
- * The definitive paste handler. It uses CONDITIONAL anchor injection.
- * - If a link target is a BLOCK element (p, li, h1...), it injects an <a>
- *   tag to hold the ID, freeing the block for a system ID.
- * - If a link target is an INLINE element (a, sup, b...), it simply prefixes
- *   the ID on the element itself, preserving its structure.
- */
-async function assimilateHTML(rawHtml) {
-  console.log('🔧 [REFACTORED] Using new processor architecture');
-
-  // Detect format using new detection system
-  const formatType = detectFormat(rawHtml);
-  console.log(`📚 Detected format: ${formatType}`);
-
-  // Get processor configuration
-  const config = getFormatConfig(formatType);
-
-  if (!config) {
-    console.warn(`⚠️ No processor found for format: ${formatType}, using general`);
-    const generalConfig = getFormatConfig('general');
-    const ProcessorClass = generalConfig.processor;
-    const processor = new ProcessorClass();
-    const result = await processor.process(rawHtml, book);
-    return {
-      html: result.html,
-      format: 'general',
-      footnotes: result.footnotes,
-      references: result.references
-    };
-  }
-
-  // Instantiate and run processor
-  const ProcessorClass = config.processor;
-  const processor = new ProcessorClass();
-
-  console.log(`⚙️ Running ${formatType} processor...`);
-  const result = await processor.process(rawHtml, book);
-
-  console.log(`✅ Processing complete: ${result.footnotes.length} footnotes, ${result.references.length} references`);
-
-  return {
-    html: result.html,
-    format: result.formatType,
-    footnotes: result.footnotes,
-    references: result.references
-  };
-}
-
 async function handlePaste(event) {
   // 🎯 Generate unique paste operation ID for tracing
   const pasteOpId = `paste_${Date.now()}`;
@@ -389,19 +328,66 @@ async function handlePaste(event) {
       return;
     }
 
+    // 3) Estimate size BEFORE processing (to route efficiently)
+    const estimatedNodes = estimatePasteNodeCount(rawHtml || plainText);
+    console.log(`🎯 [${pasteOpId}] Content analyzed: ${plainText.length} chars, ~${estimatedNodes} nodes`);
+
+    // Define threshold for small vs large paste
+    const SMALL_NODE_LIMIT = 10;
+
     // PRIORITIZE HTML PATH
     let extractedFootnotes = [];
     let extractedReferences = [];
 
     if (rawHtml.trim()) {
-      const assimilated = await assimilateHTML(rawHtml);
-      htmlContent = assimilated.html;
-      formatType = assimilated.format;
-      extractedFootnotes = assimilated.footnotes || [];
-      extractedReferences = assimilated.references || [];
+      console.log('🔧 [REFACTORED] Using new processor architecture');
+
+      // Detect format using new detection system
+      formatType = detectFormat(rawHtml);
+      console.log(`📚 Detected format: ${formatType}`);
+
+      // Get processor configuration
+      const config = getFormatConfig(formatType);
+
+      if (!config) {
+        console.warn(`⚠️ No processor found for format: ${formatType}, using general`);
+        const generalConfig = getFormatConfig('general');
+        const ProcessorClass = generalConfig.processor;
+        const processor = new ProcessorClass();
+        const result = await processor.process(rawHtml, book);
+        htmlContent = result.html;
+        formatType = 'general';
+        extractedFootnotes = result.footnotes;
+        extractedReferences = result.references;
+      } else {
+        // Instantiate processor
+        const ProcessorClass = config.processor;
+        const processor = new ProcessorClass();
+
+        // Route based on estimated size
+        if (estimatedNodes <= SMALL_NODE_LIMIT) {
+          // 🚀 Small paste: Use lite processing (normalize + cleanup only)
+          console.log(`⚡ Running ${formatType} processor [LITE mode]...`);
+          const result = await processor.processLite(rawHtml, book);
+          htmlContent = result.html;
+          formatType = result.formatType;
+          extractedFootnotes = [];
+          extractedReferences = [];
+          console.log(`✅ [LITE] Processing complete (skipped footnote/reference extraction)`);
+        } else {
+          // 🐌 Large paste: Use full processing
+          console.log(`⚙️ Running ${formatType} processor [FULL mode]...`);
+          const result = await processor.process(rawHtml, book);
+          htmlContent = result.html;
+          formatType = result.formatType;
+          extractedFootnotes = result.footnotes;
+          extractedReferences = result.references;
+          console.log(`✅ [FULL] Processing complete: ${extractedFootnotes.length} footnotes, ${extractedReferences.length} references`);
+        }
+      }
+
       console.log(`🎯 [${pasteOpId}] Format detected: ${formatType}`);
       console.log(`🎯 [${pasteOpId}] Extracted ${extractedFootnotes.length} footnotes, ${extractedReferences.length} references`);
-
     }
     // FALLBACK TO MARKDOWN/PLAINTEXT PATH
     else {
@@ -433,10 +419,6 @@ async function handlePaste(event) {
       }
     }
 
-    // 3) Get our reliable estimate.
-    const estimatedNodes = estimatePasteNodeCount(htmlContent || plainText);
-    console.log(`🎯 [${pasteOpId}] Content analyzed: ${plainText.length} chars, ~${estimatedNodes} nodes`);
-
     // 4) Perform routing checks for special paste types.
     if (await handleHypercitePaste(event)) return; // Make sure this is awaited if it's async
     const chunk = getCurrentChunk();
@@ -450,7 +432,7 @@ async function handlePaste(event) {
       return;
     }
 
-    const insertionPoint = getInsertionPoint(chunkElement);
+    const insertionPoint = getInsertionPoint(chunkElement, book);
     if (!insertionPoint) {
       console.error(`🎯 [${pasteOpId}] Could not determine insertion point. Aborting paste.`);
       return;
@@ -581,162 +563,6 @@ async function handlePaste(event) {
   }
 }
 
-function getInsertionPoint(chunkElement) {
-  const selection = window.getSelection();
-  const range = selection.getRangeAt(0);
-  const currentNode = range.startContainer;
-
-  // Find the current node element (handle text nodes)
-  let currentNodeElement = currentNode.nodeType === Node.TEXT_NODE
-    ? currentNode.parentElement
-    : currentNode;
-
-  // Traverse up to find parent with numerical ID (including decimals)
-  while (currentNodeElement && currentNodeElement !== chunkElement) {
-    const id = currentNodeElement.id;
-
-    // Check if ID exists and is numerical (including decimals)
-    if (id && /^\d+(\.\d+)*$/.test(id)) {
-      break; // Found our target element
-    }
-
-    // Move up to parent
-    currentNodeElement = currentNodeElement.parentElement;
-  }
-
-  // If we didn't find a numerical ID, we might be at chunk level or need fallback
-  if (!currentNodeElement || !currentNodeElement.id || !/^\d+(\.\d+)*$/.test(currentNodeElement.id)) {
-    console.warn('Could not find parent element with numerical ID');
-    return null;
-  }
-
-  const currentNodeId = currentNodeElement.id;
-  const chunkId = chunkElement.dataset.chunkId || chunkElement.id;
-
-  // Current node becomes the beforeNodeId (we're inserting after it)
-  const beforeNodeId = currentNodeId;
-
-  // Find the next element with a numerical ID (this is the afterNodeId)
-  let afterElement = currentNodeElement.nextElementSibling;
-
-  while (afterElement) {
-    if (afterElement.id && /^\d+(\.\d+)*$/.test(afterElement.id)) {
-      break;
-    }
-
-    afterElement = afterElement.nextElementSibling;
-  }
-
-  const afterNodeId = afterElement?.id || null;
-
-  // Use existing chunk tracking
-  const currentChunkNodeCount = chunkNodeCounts[chunkId] || 0;
-
-  const result = {
-    chunkId: chunkId,
-    currentNodeId: currentNodeId,
-    beforeNodeId: beforeNodeId,
-    afterNodeId: afterNodeId,
-    currentChunkNodeCount: currentChunkNodeCount,
-    insertionStartLine: parseInt(currentNodeId), // startLine = node ID
-    book: book // Available as const
-  };
-
-  console.log(`Insertion point: before=${beforeNodeId}, after=${afterNodeId || 'end'}, chunk=${chunkId}`);
-  return result;
-}
-
-async function processMarkdownInChunks(text, onProgress) {
-  const chunkSize = 50000; // 50KB chunks - adjust as needed
-  const chunks = [];
-  
-  // Split on paragraph boundaries to avoid breaking markdown structure
-  const paragraphs = text.split(/\n\s*\n/);
-  let currentChunk = '';
-  
-  for (const para of paragraphs) {
-    if (currentChunk.length + para.length > chunkSize && currentChunk) {
-      chunks.push(currentChunk);
-      currentChunk = para;
-    } else {
-      currentChunk += (currentChunk ? '\n\n' : '') + para;
-    }
-  }
-  if (currentChunk) chunks.push(currentChunk);
-  
-  console.log(`Processing ${chunks.length} chunks, average size: ${Math.round(text.length / chunks.length)} chars`);
-  
-  let result = '';
-  for (let i = 0; i < chunks.length; i++) {
-    const progress = ((i + 1) / chunks.length) * 100;
-    onProgress(progress, i + 1, chunks.length);
-    
-    // Process chunk (smart quotes already normalized at paste entry)
-    const chunkHtml = marked(chunks[i]);
-    result += chunkHtml;
-    
-    // Let browser breathe between chunks
-    await new Promise(resolve => setTimeout(resolve, 10));
-  }
-  
-  return result;
-}
-
-// (1) change convertToJsonObjects to return both the list
-//     and the final state it left off in
-
-function convertToJsonObjects(textBlocks, insertionPoint) {
-  const jsonObjects = [];
-
-  let currentChunkId       = insertionPoint.chunkId;
-  let nodesInCurrentChunk  = insertionPoint.currentChunkNodeCount;
-  let beforeId             = insertionPoint.beforeNodeId;
-  const afterId            = insertionPoint.afterNodeId;
-
-  textBlocks.forEach((block) => {
-    // rotate chunk?
-    if (nodesInCurrentChunk >= NODE_LIMIT) {
-      currentChunkId      = getNextIntegerId(currentChunkId);
-      nodesInCurrentChunk = 0;
-    }
-
-    // Generate new node ID with 100-unit gaps (like renumbering system)
-    const beforeNum = Math.floor(parseFloat(beforeId));
-    const newNodeId = (beforeNum + 100).toString();
-
-    // Generate stable node_id for this pasted node
-    const nodeId = generateNodeId(insertionPoint.book);
-
-    const trimmed     = block.trim();
-    const htmlContent = convertTextToHtml(trimmed, newNodeId, nodeId);
-
-    const key = `${insertionPoint.book},${newNodeId}`;
-    jsonObjects.push({
-      [key]: {
-        content:   htmlContent,
-        startLine: parseFloat(newNodeId),
-        chunk_id:  parseFloat(currentChunkId),
-        node_id:   nodeId  // Store node_id for tracking through renumbering
-      }
-    });
-
-    // advance
-    beforeId            = newNodeId;
-    nodesInCurrentChunk++;
-  });
-
-  return {
-    jsonObjects,
-    state: {
-      currentChunkId,
-      nodesInCurrentChunk,
-      beforeId
-    }
-  };
-}
-
-
-
 function isCompleteHTML(text) {
   // Basic check if the text appears to be complete HTML
   const trimmed = text.trim();
@@ -795,7 +621,7 @@ function handleCodeBlockPaste(event, chunk) {
 
 
 function handleSmallPaste(event, htmlContent, plainText, nodeCount) {
-  const SMALL_NODE_LIMIT = 20;
+  const SMALL_NODE_LIMIT = 10;
 
   if (nodeCount > SMALL_NODE_LIMIT) {
     return false; // Not a small paste, continue to large paste handler
@@ -1072,29 +898,6 @@ function estimatePasteNodeCount(content) {
       .filter(line => line.trim())
 
     return Math.max(1, lines.length)
-  }
-}
-
-function convertTextToHtml(content, startLineId, nodeId) {
-  // Check if content is already HTML
-  if (content.trim().startsWith('<') && content.trim().endsWith('>')) {
-    // It's HTML - add/update the ID and data-node-id on the first element
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = content;
-
-    // Find the first element and give it the IDs
-    const firstElement = tempDiv.querySelector('*');
-    if (firstElement) {
-      firstElement.id = startLineId;
-      firstElement.setAttribute('data-node-id', nodeId);
-      return tempDiv.innerHTML;
-    }
-
-    // Fallback if no elements found
-    return content;
-  } else {
-    // It's plain text - wrap in paragraph with both id and data-node-id
-    return `<p id="${startLineId}" data-node-id="${nodeId}">${content}</p>`;
   }
 }
 
@@ -1895,129 +1698,6 @@ function transformYouTubeTranscript(plainText, rawHtml, source) {
   // Join paragraphs with double newlines for markdown parsing
   return paragraphs.join('\n\n');
 }
-
-function detectMarkdown(text) {
-  if (!text || typeof text !== 'string') return false;
-  
-  console.log('detectMarkdown input:');
-  
-  const markdownPatterns = [
-    /^#{1,6}\s+/m,                    // Headers
-    /\*{1,2}[^*\n]+\*{1,2}/,         // Bold/italic (removed ^ anchor)
-    /_{1,2}[^_\n]+_{1,2}/,           // Bold/italic with underscores
-    /^\* /m,                         // Unordered lists
-    /^\d+\. /m,                      // Ordered lists
-    /^\> /m,                         // Blockquotes
-    /`[^`]+`/,                       // Inline code (actual backticks only)
-    /^```/m,                         // Code blocks
-    /\[.+\]\(.+\)/,                  // Links (removed ^ anchor)
-    /^!\[.*\]\(.+\)/m,               // Images
-    /^\|.+\|/m,                      // Tables
-    /^---+$/m,                       // Horizontal rules
-    /^\- \[[ x]\]/m                  // Task lists
-  ];
-  
-  // Count how many patterns match and log each one
-  const matches = markdownPatterns.filter((pattern, index) => {
-    const match = pattern.test(text);
-    console.log(`Pattern ${index} (${pattern}):`, match);
-    // Special debug for inline code pattern
-    if (index === 6 && match) {
-      const codeMatch = text.match(pattern);
-      console.log(`🔍 Inline code match found:`, codeMatch);
-    }
-    return match;
-  });
-  
-  console.log('Total matches:', matches.length);
-  
-  // Change this line: lower threshold to 1
-  return matches.length >= 1;
-}
-
-/**
- * Check if an element is a block-level element
- */
-function isBlockElement(tagName) {
-  const blockTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'DIV', 'BLOCKQUOTE', 
-                     'UL', 'OL', 'LI', 'PRE', 'TABLE', 'FIGURE', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER'];
-  return blockTags.includes(tagName.toUpperCase());
-}
-
-/**
- * Parse HTML content into individual block elements
- */
-function parseHtmlToBlocks(htmlContent) {
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = htmlContent;
-  
-  const blocks = [];
-  
-  // The complex div-to-p logic has been moved to assimilateHTML.
-  // This function now focuses on splitting into blocks and wrapping loose text.
-  
-  // Get direct children, INCLUDING text nodes
-  Array.from(tempDiv.childNodes).forEach(node => {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      // This is a block-level element
-      const child = node;
-      child.removeAttribute('id'); // Remove any conflicting IDs
-      
-      // Check if this element contains multiple <br> separated entries (common in bibliographies)
-      const innerHTML = child.innerHTML;
-      const brSeparatedParts = innerHTML.split(/<br\s*\/?>/i);
-
-      // Don't split on <br> if:
-      // 1. The element itself is a block element that shouldn't be split (table, ul, ol, etc.)
-      // 2. The content contains nested block elements
-      const isUnsplittableBlock = /^(TABLE|UL|OL|DIV)$/.test(child.tagName);
-      const containsBlockElements = /<(?:table|div|section|ul|ol)/i.test(innerHTML);
-
-      if (brSeparatedParts.length > 1 && !isUnsplittableBlock && !containsBlockElements) {
-        // Split on <br> tags - each part becomes a separate block
-        brSeparatedParts.forEach(part => {
-          const trimmedPart = part.trim();
-          if (trimmedPart) {
-            // Use a wrapper div to parse the content (browser auto-corrects invalid nesting)
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = trimmedPart;
-
-            // Extract all resulting nodes as separate blocks
-            Array.from(wrapper.childNodes).forEach(node => {
-              if (node.nodeType === Node.ELEMENT_NODE) {
-                // This is an element - use it as-is
-                blocks.push(node.outerHTML);
-              } else if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
-                // Loose text - wrap in the parent element type
-                blocks.push(`<${child.tagName.toLowerCase()}>${node.textContent.trim()}</${child.tagName.toLowerCase()}>`);
-              }
-            });
-          }
-        });
-      } else {
-        // No <br> tags - use the whole element as one block
-        blocks.push(child.outerHTML);
-      }
-    } else if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
-      // This is a "loose" text node that resulted from unwrapping. Wrap it in a <p> tag.
-      blocks.push(`<p>${node.textContent.trim()}</p>`);
-
-    } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName && !isBlockElement(node.tagName)) {
-      // This is a loose inline element (a, span, i, b, etc.) - wrap it in a <p> tag.
-      blocks.push(`<p>${node.outerHTML}</p>`);
-    }
-  });
-  
-  // If no block children were found, but there's content, wrap the whole thing in a <p>.
-  if (blocks.length === 0 && htmlContent.trim()) {
-    blocks.push(`<p>${htmlContent}</p>`);
-  }
-  
-  return blocks;
-}
-
-
-
 
 
 
