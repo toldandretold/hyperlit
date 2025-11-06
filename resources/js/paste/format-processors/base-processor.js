@@ -7,7 +7,8 @@
 import { normalizeContent } from '../utils/normalizer.js';
 import { createTempDOM, removeEmptyBlocks, stripAttributes, groupInlineElements } from '../utils/dom-utils.js';
 import { generateReferenceKeys } from '../utils/reference-key-generator.js';
-import { processInTextCitations } from '../../footnoteReferenceExtractor.js';
+import { processInTextCitations } from '../utils/citation-linker.js';
+import { processFootnoteReferences } from '../utils/footnote-linker.js';
 
 export class BaseFormatProcessor {
   /**
@@ -118,8 +119,6 @@ export class BaseFormatProcessor {
         ref.refKeys.forEach(key => {
           referenceMappings.set(key, ref.referenceId);
         });
-
-        console.log(`  - Generated ${refKeys.length} keys for reference: "${ref.referenceId}"`);
       } else if (ref.refKeys && ref.referenceId) {
         // Reference already has keys, just populate mappings
         ref.refKeys.forEach(key => {
@@ -147,10 +146,23 @@ export class BaseFormatProcessor {
   linkFootnotes(dom, footnotes) {
     if (!footnotes || footnotes.length === 0) return;
 
-    // This is intentionally minimal here - actual footnote linking
-    // is handled by footnoteReferenceExtractor.js processFootnoteReferences()
-    // We just ensure the data is prepared correctly
-    console.log(`  - ${footnotes.length} footnotes ready for reference linking`);
+    // Build footnoteMappings from footnotes array
+    const footnoteMappings = new Map();
+    footnotes.forEach(footnote => {
+      if (footnote.originalIdentifier) {
+        footnoteMappings.set(footnote.originalIdentifier, {
+          uniqueId: footnote.footnoteId,
+          uniqueRefId: footnote.refId
+        });
+      }
+    });
+
+    // Apply footnote reference linking
+    if (footnoteMappings.size > 0) {
+      const linkedHtml = processFootnoteReferences(dom.innerHTML, footnoteMappings, this.formatType);
+      dom.innerHTML = linkedHtml;
+      console.log(`  - Footnote linking complete: ${footnotes.length} footnotes`);
+    }
   }
 
   /**
