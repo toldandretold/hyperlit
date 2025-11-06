@@ -304,9 +304,9 @@ export function createLazyLoader(config) {
     instance.scrollableParent.addEventListener("scroll", throttle(instance.saveScrollPosition, 250));
   }
 
-  instance.restoreScrollPosition = async () => {
+  instance.restoreScrollPositionAfterResize = async () => {
     // Check if user is currently scrolling
-    if (shouldSkipScrollRestoration("instance restoreScrollPosition")) {
+    if (shouldSkipScrollRestoration("instance restoreScrollPositionAfterResize")) {
       return;
     }
     
@@ -524,7 +524,7 @@ export function createLazyLoader(config) {
         // Check if user is currently scrolling before restoring
         if (!shouldSkipScrollRestoration("viewport resize")) {
           console.log("🔧 VIEWPORT: Safe to restore scroll position");
-          instance.restoreScrollPosition();
+          instance.restoreScrollPositionAfterResize();
         } else {
           console.log("🔧 VIEWPORT: User is scrolling, skipping restoration");
         }

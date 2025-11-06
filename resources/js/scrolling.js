@@ -1,5 +1,135 @@
 // In scrolling.js
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * SCROLLING.JS - Navigation & Scroll Restoration Orchestrator
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * This module is the PRIMARY ORCHESTRATOR for scroll restoration and navigation
+ * to internal IDs (highlights, hypercites, paragraphs). Despite being older than
+ * lazyLoaderFactory.js, it remains essential for navigation functionality.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * RELATIONSHIP WITH LAZYLOADERFACTORY.JS
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * These two modules work together with clear separation of concerns:
+ *
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │ lazyLoaderFactory.js (WRITE SIDE - Saves scroll positions)             │
+ * ├─────────────────────────────────────────────────────────────────────────┤
+ * │ • Continuously saves scroll position as user scrolls (throttled 250ms)  │
+ * │ • Writes to sessionStorage/localStorage                                 │
+ * │ • Manages scroll locking during navigation                              │
+ * │ • Has instance method: restoreScrollPositionAfterResize()               │
+ * │   (Quick restore after viewport resize - NOT the main entry point)      │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ *
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │ scrolling.js (READ SIDE - Restores positions & handles navigation)     │
+ * ├─────────────────────────────────────────────────────────────────────────┤
+ * │ • Exports restoreScrollPosition() - MAIN entry point on page load       │
+ * │ • Reads saved positions from storage                                    │
+ * │ • Handles complex navigation scenarios (URL hashes, highlights, etc.)   │
+ * │ • Provides navigateToInternalId() for programmatic navigation           │
+ * │ • Tracks user scroll activity to prevent restoration interference       │
+ * │ • Shows/hides navigation loading overlays                               │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * CORE RESPONSIBILITIES
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * 1. USER SCROLL STATE TRACKING (lines 22-126)
+ *    - Detects when user is actively scrolling (mouse, touch, keyboard)
+ *    - Prevents restoration from interfering with manual scrolling
+ *    - Exports: isUserCurrentlyScrolling(), shouldSkipScrollRestoration()
+ *
+ * 2. SCROLL RESTORATION (lines 372-519)
+ *    - restoreScrollPosition() - Main entry point called on page load
+ *    - Handles URL hashes (#hypercite_xxx, #HL_xxx, #123)
+ *    - Reads saved positions from storage
+ *    - Delegates to navigateToInternalId() for actual navigation
+ *
+ * 3. NAVIGATION TO INTERNAL IDs (lines 660-1071)
+ *    - navigateToInternalId() - Core navigation function
+ *    - Handles highlights, hypercites, and paragraph IDs
+ *    - Loads required chunks if not already loaded
+ *    - Waits for DOM readiness before scrolling
+ *    - Shows loading overlays during navigation
+ *
+ * 4. SCROLL UTILITIES (lines 129-208)
+ *    - scrollElementIntoMainContent() - Consistent scroll behavior
+ *    - scrollElementWithConsistentMethod() - Low-level scroll logic
+ *    - Handles both window and container scrolling
+ *    - Applies header offsets correctly
+ *
+ * 5. NAVIGATION LOADING OVERLAYS (lines 522-658)
+ *    - showNavigationLoading() - Display loading indicator
+ *    - hideNavigationLoading() - Hide with completion animation
+ *    - Persists across page transitions via sessionStorage
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * CALL HIERARCHY & ENTRY POINTS
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * PAGE LOAD:
+ *   viewManager.js:784
+ *     → restoreScrollPosition() [line 372]
+ *       → navigateToInternalId() [line 660]
+ *         → _navigateToInternalId() [line 751]
+ *           → scrollElementWithConsistentMethod() [line 129]
+ *
+ * PROGRAMMATIC NAVIGATION (e.g., clicking a highlight link):
+ *   hyperLights.js or hypercites/index.js
+ *     → navigateToInternalId() [line 660]
+ *       → _navigateToInternalId() [line 751]
+ *
+ * VIEWPORT RESIZE:
+ *   lazyLoaderFactory.js:527
+ *     → instance.restoreScrollPositionAfterResize() [lazyLoaderFactory.js:307]
+ *       (Quick restore - NOT the main restoration logic)
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * EXPORTED FUNCTIONS (Public API)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * • restoreScrollPosition() - Main restoration entry point (page load)
+ * • navigateToInternalId() - Navigate to specific element ID
+ * • scrollElementIntoMainContent() - Scroll utility for consistent behavior
+ * • showNavigationLoading() - Display loading overlay
+ * • hideNavigationLoading() - Hide loading overlay
+ * • restoreNavigationOverlayIfNeeded() - Restore overlay after page transition
+ * • shouldSkipScrollRestoration() - Check if restoration should be blocked
+ * • isUserCurrentlyScrolling() - Check if user is actively scrolling
+ * • isActivelyScrollingForLinkBlock() - Tighter check for link click blocking
+ * • setupUserScrollDetection() - Initialize scroll tracking for container
+ * • isValidContentElement() - Utility to check if element should be tracked
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WHEN TO USE WHICH FUNCTION
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Use restoreScrollPosition():
+ *   - On page load to restore saved position or navigate to URL hash
+ *   - When switching between reader/edit views
+ *
+ * Use navigateToInternalId():
+ *   - When user clicks a highlight or hypercite link
+ *   - When programmatically navigating to a specific element
+ *   - When handling cross-document citations
+ *
+ * Use scrollElementIntoMainContent():
+ *   - When you just need to scroll to an element that's already in the DOM
+ *   - For simple, direct scrolling without loading chunks
+ *
+ * Use instance.restoreScrollPositionAfterResize() (lazyLoaderFactory):
+ *   - Automatically called on viewport resize
+ *   - Quick restore without full navigation logic
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
 import { book, OpenHyperlightID } from "./app.js";
 import { openHighlightById } from './hyperLights.js';
 import {
