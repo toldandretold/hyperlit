@@ -14,7 +14,7 @@ import {
   waitForElementReady,
   waitForChunkLoadingComplete
 } from "./domReadiness.js";
-import { highlightTargetHypercite } from "./hyperCites.js";
+import { highlightTargetHypercite } from "./hypercites/index.js";
 import { shouldSkipScrollRestoration as shouldSkipScrollRestorationGlobal, setSkipScrollRestoration } from "./operationState.js";
 
 // ========= Scrolling Helper Functions =========

@@ -2,6 +2,19 @@ import { book } from "./app.js";
 import { navigateToInternalId, showNavigationLoading } from "./scrolling.js";
 import { waitForElementReady, waitForMultipleElementsReady } from "./domReadiness.js";
 import { getLocalStorageKey } from "./indexedDB.js";
+import {
+  generateHyperciteID,
+  parseHyperciteHref,
+  extractHyperciteIdFromHref,
+  determineRelationshipStatus,
+  removeCitedINEntry,
+  findParentWithNumericalId,
+  selectionSpansMultipleNodes
+} from "./hypercites/utils.js";
+import {
+  highlightTargetHypercite,
+  restoreNormalHyperciteDisplay
+} from "./hypercites/animations.js";
 import { openDatabase, 
          parseNodeId, 
          createNodeChunksKey, 
@@ -65,7 +78,6 @@ async function fetchLibraryFromServer(bookId) {
 }
 
 let lastEventTime = 0;
-let highlightTimeout = null;
 
 function handleCopyEvent(event, bookId) {
   event.preventDefault();
@@ -269,35 +281,6 @@ function wrapSelectedTextInDOM(hyperciteId, book) {
   NewHyperciteIndexedDB(book, hyperciteId, blocks);
 
   setTimeout(() => selection.removeAllRanges(), 50);
-}
-
-// Helper function to check if selection spans multiple nodes with IDs
-function selectionSpansMultipleNodes(range) {
-  const walker = document.createTreeWalker(
-    range.commonAncestorContainer,
-    NodeFilter.SHOW_ELEMENT,
-    {
-      acceptNode: function(node) {
-        // Only accept nodes that have a numerical ID and intersect with our range
-        if (node.id && /^\d+(?:\.\d+)?$/.test(node.id)) {
-          if (range.intersectsNode(node)) {
-            return NodeFilter.FILTER_ACCEPT;
-          }
-        }
-        return NodeFilter.FILTER_SKIP;
-      }
-    }
-  );
-  
-  let nodeCount = 0;
-  while (walker.nextNode()) {
-    nodeCount++;
-    if (nodeCount > 1) {
-      return true; // Found more than one node, so it spans multiple
-    }
-  }
-  
-  return false; // Single node or no nodes
 }
 
 async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
@@ -580,13 +563,6 @@ function collectHyperciteData(hyperciteId, wrapper) {
   ];
 }
 
-
-
-// Function to generate a unique hypercite ID
-export function generateHyperciteID() {
-  return "hypercite_" + Math.random().toString(36).substring(2, 9); // Unique ID generation
-}
-
 // Fallback copy function: Standard copy if HTML format isn't supported
 function fallbackCopyText(text) {
   const textArea = document.createElement("textarea");
@@ -601,23 +577,6 @@ function fallbackCopyText(text) {
   }
   document.body.removeChild(textArea);
 }
-
-
-// Strictly match only “digits” or “digits.digits”
-function findParentWithNumericalId(element) {
-  let current = element;
-  while (current) {
-    const id = current.getAttribute("id");
-    if (id && /^\d+(?:\.\d+)?$/.test(id)) {
-      return current;
-    }
-    current = current.parentElement;
-  }
-  return null;
-}
-
-
-
 
 // Function to get hypercite data from IndexedDB
 async function getHyperciteData(book, startLine) {
@@ -1585,22 +1544,6 @@ const initializeHyperciteContainerManager = initializeHyperlitManager;
 export const openHyperciteContainer = openHyperlitContainer;
 export const closeHyperciteContainer = closeHyperlitContainer;
 
-
-// Helper: Parse hypercite URL to extract components
-export function parseHyperciteHref(href) {
-  try {
-    const url = new URL(href, window.location.origin);
-    const booka = url.pathname.replace(/^\//, ""); // e.g., "booka"
-    const hyperciteIDa = url.hash.substr(1);       // e.g., "hyperciteIda"
-    const citationIDa = `/${booka}#${hyperciteIDa}`; // e.g., "/booka#hyperciteIda"
-    return { citationIDa, hyperciteIDa, booka };
-  } catch (error) {
-    console.error("Error parsing hypercite href:", href, error);
-    return null;
-  }
-}
-
-
 // DELETE HYPERCITED QUOTE //
 
 /**
@@ -1766,27 +1709,6 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
 }
 
 /**
- * Extract hypercite ID from href URL
- * @param {string} hrefUrl - The href URL
- * @returns {string|null} - The hypercite ID or null if not found
- */
-export function extractHyperciteIdFromHref(hrefUrl) {
-  try {
-    const url = new URL(hrefUrl, window.location.origin);
-    const hash = url.hash;
-
-    if (hash && hash.startsWith('#hypercite_')) {
-      return hash.substring(1); // Remove the # symbol
-    }
-
-    return null;
-  } catch (error) {
-    console.error("Error parsing href URL:", hrefUrl, error);
-    return null;
-  }
-}
-
-/**
  * Get hypercite by ID from IndexedDB
  * @param {IDBDatabase} db - The IndexedDB database
  * @param {string} hyperciteId - The hypercite ID to look up
@@ -1807,43 +1729,6 @@ async function getHyperciteById(db, hyperciteId) {
       reject(new Error(`Error retrieving hypercite: ${hyperciteId}`));
     };
   });
-}
-
-/**
- * Remove a citedIN entry that matches the given hypercite element ID
- * @param {Array} citedINArray - The current citedIN array
- * @param {string} hyperciteElementId - The ID of the hypercite element to remove
- * @returns {Array} - Updated citedIN array
- */
-export function removeCitedINEntry(citedINArray, hyperciteElementId) {
-  if (!Array.isArray(citedINArray)) {
-    return [];
-  }
-
-  return citedINArray.filter(citedINUrl => {
-    // Extract the hypercite ID from the citedIN URL
-    const urlParts = citedINUrl.split('#');
-    if (urlParts.length > 1) {
-      const citedHyperciteId = urlParts[1];
-      return citedHyperciteId !== hyperciteElementId;
-    }
-    return true; // Keep entries that don't match the expected format
-  });
-}
-
-/**
- * Determine relationship status based on citedIN array length
- * @param {number} citedINLength - Length of the citedIN array
- * @returns {string} - The relationship status
- */
-export function determineRelationshipStatus(citedINLength) {
-  if (citedINLength === 0) {
-    return "single";
-  } else if (citedINLength === 1) {
-    return "couple";
-  } else {
-    return "poly";
-  }
 }
 
 /**
@@ -1957,147 +1842,6 @@ export async function handleHyperciteDeletion(hyperciteElement) {
   await delinkHypercite(hyperciteElementId, hrefUrl);
 }
 
-/**
- * Highlight target hypercite and dim others when navigating to a specific hypercite
- * @param {string} targetHyperciteId - The ID of the hypercite being navigated to
- * @param {number} delay - Delay in milliseconds before highlighting starts (default: 300ms)
- */
-export function highlightTargetHypercite(targetHyperciteId, delay = 300) {
-  console.log(`🎯 Highlighting target hypercite: ${targetHyperciteId} (with ${delay}ms delay)`);
-
-  // Clear any existing timeout from previous navigation to prevent race conditions
-  if (highlightTimeout) {
-    console.log('🧹 Clearing previous highlight timeout to prevent animation glitches');
-    clearTimeout(highlightTimeout);
-    highlightTimeout = null;
-  }
-
-  // Find all hypercite elements (u tags with couple, poly, or single classes, and a tags with hypercite_ IDs)
-  const allHypercites = document.querySelectorAll('u.single, u.couple, u.poly, a[id^="hypercite_"]');
-
-  // Find ALL segments for this hypercite (both individual and overlapping)
-  let targetElements = [];
-
-  // 1. Check for direct element (individual segment)
-  const directElement = document.getElementById(targetHyperciteId);
-  if (directElement) {
-    console.log(`🎯 Found direct element for ${targetHyperciteId}:`, directElement);
-    targetElements.push(directElement);
-  }
-
-  // 2. Check ALL overlapping elements for segments containing this hypercite
-  const overlappingElements = document.querySelectorAll('u[data-overlapping]');
-  for (const element of overlappingElements) {
-    const overlappingIds = element.getAttribute('data-overlapping');
-    if (overlappingIds && overlappingIds.split(',').map(id => id.trim()).includes(targetHyperciteId)) {
-      console.log(`🎯 Found target hypercite ${targetHyperciteId} in overlapping element:`, element);
-      targetElements.push(element);
-    }
-  }
-
-  // Clean up old classes IMMEDIATELY (before the setTimeout delay)
-  const allHighlighted = document.querySelectorAll('a.hypercite-target, a.hypercite-dimmed, u.hypercite-target, u.hypercite-dimmed');
-  allHighlighted.forEach(element => {
-    element.classList.remove('hypercite-target', 'hypercite-dimmed');
-  });
-
-  // Remove ALL arrow highlights immediately
-  const allArrows = document.querySelectorAll('.arrow-target');
-  allArrows.forEach(arrow => {
-    arrow.classList.remove('arrow-target');
-  });
-
-  // Wait for the specified delay, then apply highlighting with smooth transition
-  setTimeout(() => {
-    console.log(`✨ Starting hypercite highlighting animation for: ${targetHyperciteId}`);
-
-    // Apply target highlighting to ALL elements containing this hypercite
-    if (targetElements.length > 0) {
-      targetElements.forEach(element => {
-        element.classList.add('hypercite-target');
-
-        // Listen for animation end and remove class
-        const handleAnimationEnd = (e) => {
-          if (e.target === element) {
-            element.classList.remove('hypercite-target');
-            element.removeEventListener('animationend', handleAnimationEnd);
-            console.log(`✅ Hypercite target animation ended for ${element.id}`);
-          }
-        };
-        element.addEventListener('animationend', handleAnimationEnd);
-
-        // 🎯 Highlight arrow icons and auto-remove when animation ends
-        const arrowIcons = element.querySelectorAll('.open-icon, sup.open-icon, span.open-icon');
-        arrowIcons.forEach(arrow => {
-          arrow.classList.add('arrow-target');
-          console.log(`✨ Added arrow highlight to icon in ${targetHyperciteId}`);
-
-          // Listen for animation end and remove class
-          const handleAnimationEnd = (e) => {
-            if (e.target === arrow) {
-              arrow.classList.remove('arrow-target');
-              arrow.removeEventListener('animationend', handleAnimationEnd);
-              console.log(`✅ Arrow animation ended, class removed`);
-            }
-          };
-          arrow.addEventListener('animationend', handleAnimationEnd);
-        });
-      });
-      console.log(`✅ Added target highlighting to ${targetElements.length} segments for: ${targetHyperciteId}`);
-    } else {
-      console.warn(`⚠️ Could not find target hypercite element: ${targetHyperciteId}`);
-    }
-
-    // Dim all other hypercites (but not the target elements)
-    allHypercites.forEach(element => {
-      if (!targetElements.includes(element)) {
-        element.classList.add('hypercite-dimmed');
-
-        // Listen for animation end and remove class
-        const handleAnimationEnd = (e) => {
-          if (e.target === element) {
-            element.classList.remove('hypercite-dimmed');
-            element.removeEventListener('animationend', handleAnimationEnd);
-          }
-        };
-        element.addEventListener('animationend', handleAnimationEnd);
-      }
-    });
-
-    console.log(`🔅 Dimmed ${allHypercites.length - targetElements.length} non-target hypercites`);
-
-    // Remove highlighting after 5 seconds with smooth transition back
-    // Store timeout reference so it can be cleared by subsequent navigations
-    highlightTimeout = setTimeout(() => {
-      console.log(`🌅 Starting fade-out animation for: ${targetHyperciteId}`);
-      restoreNormalHyperciteDisplay();
-      highlightTimeout = null; // Clear reference after completion
-    }, 5000);
-
-  }, delay);
-
-}
-
-/**
- * Restore normal hypercite display by removing all navigation classes
- */
-export function restoreNormalHyperciteDisplay() {
-  console.log(`🔄 Restoring normal hypercite display`);
-
-  // Select both <a> and <u> tags with these classes (anchors in annotations, underlines in text)
-  const allHypercites = document.querySelectorAll('a.hypercite-target, a.hypercite-dimmed, u.hypercite-target, u.hypercite-dimmed');
-  allHypercites.forEach(element => {
-    element.classList.remove('hypercite-target', 'hypercite-dimmed');
-  });
-
-  // 🎯 NEW: Also remove arrow highlighting
-  const allArrows = document.querySelectorAll('.arrow-target');
-  allArrows.forEach(arrow => {
-    arrow.classList.remove('arrow-target');
-  });
-
-  console.log(`✅ Restored normal display for ${allHypercites.length} hypercites and ${allArrows.length} arrows`);
-}
 
 
 
