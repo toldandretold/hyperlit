@@ -1,0 +1,355 @@
+/**
+ * Hypercite Navigation & Click Routing
+ *
+ * Handles all click events for hypercites and routes them appropriately.
+ * Manages navigation between books, highlights, and internal IDs.
+ */
+
+import { book } from '../app.js';
+import { navigateToInternalId, showNavigationLoading } from '../scrolling.js';
+import { waitForElementReady } from '../domReadiness.js';
+import { getLocalStorageKey, openDatabase } from '../indexedDB.js';
+import { getHyperciteData, getHyperciteById } from './database.js';
+import { highlightTargetHypercite } from './animations.js';
+import { createOverlappingPolyContainer } from './containers.js';
+import { handleUnifiedContentClick } from '../unifiedContainer.js';
+import { currentLazyLoader } from '../initializePage.js';
+
+/**
+ * Handle couple click - navigates directly to the single citation
+ * @param {HTMLElement} uElement - The couple element that was clicked
+ */
+export async function CoupleClick(uElement) {
+  console.log("u.couple element clicked:", uElement);
+
+  const parent = uElement.parentElement;
+  if (!parent || !parent.id) {
+    console.error("Parent element not found or missing id.", uElement);
+    return;
+  }
+  console.log("Parent element found:", parent);
+
+  const startLine = parent.id;
+  const bookId = book || "latest";
+
+  try {
+    const nodeChunk = await getHyperciteData(bookId, startLine);
+    if (!nodeChunk) {
+      console.error(
+        `No nodeChunk found for book: ${bookId}, startLine: ${startLine}`
+      );
+      return;
+    }
+    console.log("Retrieved nodeChunk:", nodeChunk);
+
+    const clickedHyperciteId = uElement.id;
+    let link = null;
+
+    if (nodeChunk.hypercites && nodeChunk.hypercites.length > 0) {
+      const matchingHypercite = nodeChunk.hypercites.find(
+        (hyper) => hyper.hyperciteId === clickedHyperciteId
+      );
+
+      if (
+        matchingHypercite &&
+        matchingHypercite.citedIN &&
+        matchingHypercite.citedIN.length > 0
+      ) {
+        link = matchingHypercite.citedIN[0];
+      }
+    }
+
+    if (link) {
+      await navigateToHyperciteLink(link, clickedHyperciteId);
+    } else {
+      console.error(
+        "No citedIN link found for clicked hyperciteId:",
+        clickedHyperciteId,
+        nodeChunk
+      );
+    }
+  } catch (error) {
+    console.error("Failed to retrieve hypercite data:", error);
+  }
+}
+
+/**
+ * Handle underline clicks - delegates to unified container system
+ * @param {HTMLElement} uElement - The underlined element that was clicked
+ * @param {Event} event - The click event
+ */
+export async function handleUnderlineClick(uElement, event) {
+  console.log("🔥 handleUnderlineClick called with element:", uElement.id || uElement.tagName);
+
+  // Use unified container system for all hypercite clicks
+  console.log("🔄 Calling handleUnifiedContentClick from hyperCites.js");
+  await handleUnifiedContentClick(uElement);
+}
+
+/**
+ * Handle overlapping hypercite clicks
+ * @param {HTMLElement} uElement - The overlapping hypercite element
+ * @param {Event} event - The click event
+ */
+export async function handleOverlappingHyperciteClick(uElement, event) {
+  console.log("Overlapping hypercite clicked:", uElement);
+
+  // Update URL for back button support - use the first hypercite ID
+  const overlappingData = uElement.getAttribute("data-overlapping");
+  if (!overlappingData) {
+    console.error("❌ No data-overlapping attribute found");
+    return;
+  }
+
+  const hyperciteIds = overlappingData.split(",").map(id => id.trim());
+  console.log("Overlapping hypercite IDs:", hyperciteIds);
+
+  // Add URL update for back button functionality
+  if (hyperciteIds.length > 0) {
+    const firstHyperciteId = hyperciteIds[0].replace('hypercite_', '');
+    const newUrl = `${window.location.pathname}${window.location.search}#hypercite_${firstHyperciteId}`;
+    console.log(`📍 Updating URL for overlapping hypercite navigation: ${newUrl}`);
+
+    try {
+      // Preserve existing state when updating URL for overlapping hypercite
+      const currentState = history.state || {};
+      const newState = { ...currentState, overlapping_hypercite: { hyperciteIds: hyperciteIds } };
+      history.pushState(newState, '', newUrl);
+      console.log(`📊 Added overlapping hypercite to history - length: ${window.history.length}`);
+    } catch (error) {
+      console.warn('Failed to update URL for overlapping hypercite:', error);
+    }
+  }
+
+  // Always show container for overlapping hypercites (regardless of relationship status)
+  console.log("📝 Showing container for overlapping hypercites");
+
+  try {
+    const db = await openDatabase();
+
+    // Look up all hypercites
+    const hypercitePromises = hyperciteIds.map(id => getHyperciteById(db, id));
+    const hypercites = await Promise.all(hypercitePromises);
+
+    // Filter out null results and collect all citedIN links
+    const validHypercites = hypercites.filter(hc => hc !== null);
+    const allCitedINLinks = [];
+
+    validHypercites.forEach(hypercite => {
+      if (hypercite.citedIN && Array.isArray(hypercite.citedIN)) {
+        allCitedINLinks.push(...hypercite.citedIN);
+      }
+    });
+
+    console.log("All citedIN links from overlapping hypercites:", allCitedINLinks);
+
+    if (allCitedINLinks.length === 0) {
+      console.error("❌ No citedIN links found in any overlapping hypercites");
+      return;
+    }
+
+    // Create the container with all links
+    await createOverlappingPolyContainer(allCitedINLinks, validHypercites);
+
+  } catch (error) {
+    console.error("❌ Error handling overlapping hypercite click:", error);
+  }
+}
+
+/**
+ * Handle overlapping hypercites with couple class
+ * @param {Array} hyperciteIds - Array of overlapping hypercite IDs
+ */
+export async function handleOverlappingCouple(hyperciteIds) {
+  try {
+    const db = await openDatabase();
+
+    // Look up all hypercites to find which one has couple status
+    const hypercitePromises = hyperciteIds.map(id => getHyperciteById(db, id));
+    const hypercites = await Promise.all(hypercitePromises);
+
+    // Find the hypercite with couple relationship status
+    const coupleHypercite = hypercites.find(hc =>
+      hc && hc.relationshipStatus === "couple"
+    );
+
+    if (!coupleHypercite) {
+      console.error("❌ No hypercite with couple status found in overlapping set");
+      return;
+    }
+
+    console.log("Found couple hypercite:", coupleHypercite);
+
+    // Get the citedIN link (should be exactly one for couple status)
+    if (coupleHypercite.citedIN && coupleHypercite.citedIN.length > 0) {
+      const link = coupleHypercite.citedIN[0];
+      await navigateToHyperciteLink(link);
+    } else {
+      console.error("❌ No citedIN link found for couple hypercite:", coupleHypercite.hyperciteId);
+    }
+
+  } catch (error) {
+    console.error("❌ Error handling overlapping couple:", error);
+  }
+}
+
+/**
+ * Handle overlapping hypercites with poly class
+ * @param {Array} hyperciteIds - Array of overlapping hypercite IDs
+ * @param {Event} event - The click event
+ */
+export async function handleOverlappingPoly(hyperciteIds, event) {
+  try {
+    const db = await openDatabase();
+
+    // Look up all hypercites
+    const hypercitePromises = hyperciteIds.map(id => getHyperciteById(db, id));
+    const hypercites = await Promise.all(hypercitePromises);
+
+    // Filter out null results and collect all citedIN links
+    const validHypercites = hypercites.filter(hc => hc !== null);
+    const allCitedINLinks = [];
+
+    validHypercites.forEach(hypercite => {
+      if (hypercite.citedIN && Array.isArray(hypercite.citedIN)) {
+        allCitedINLinks.push(...hypercite.citedIN);
+      }
+    });
+
+    console.log("All citedIN links from overlapping hypercites:", allCitedINLinks);
+
+    if (allCitedINLinks.length === 0) {
+      console.error("❌ No citedIN links found in any overlapping hypercites");
+      return;
+    }
+
+    // Create the poly container content with all links
+    await createOverlappingPolyContainer(allCitedINLinks, validHypercites);
+
+  } catch (error) {
+    console.error("❌ Error handling overlapping poly:", error);
+  }
+}
+
+/**
+ * Navigate to hypercite targets with proper sequencing and DOM readiness
+ * @param {string} highlightId - The highlight ID to navigate to first
+ * @param {string} internalId - Optional internal ID to navigate to after highlight
+ * @param {Object} lazyLoader - The lazy loader instance
+ * @param {boolean} showOverlay - Whether to show loading overlay
+ */
+export async function navigateToHyperciteTarget(highlightId, internalId, lazyLoader, showOverlay = false) {
+  try {
+    console.log(`🎯 Starting hypercite navigation to highlight: ${highlightId}, internal: ${internalId}`);
+
+    // Clear any conflicting saved scroll positions to prevent interference
+    const scrollKey = getLocalStorageKey("scrollPosition", lazyLoader.bookId);
+    console.log(`🧹 Clearing saved scroll positions to prevent navigation interference`);
+    sessionStorage.removeItem(scrollKey);
+
+    if (internalId) {
+      // Sequential navigation: highlight first, then internal ID
+      console.log(`📍 Step 1: Navigating to highlight ${highlightId}`);
+      navigateToInternalId(highlightId, lazyLoader, showOverlay);
+
+      // Wait for the highlight to be ready before proceeding
+      await waitForElementReady(highlightId, {
+        maxAttempts: 40, // 2 seconds max wait
+        checkInterval: 50,
+        container: lazyLoader.container
+      });
+
+      console.log(`✅ Highlight ${highlightId} ready, now navigating to internal ID ${internalId}`);
+
+      // Small delay to let highlight open animation start
+      setTimeout(() => {
+        // Check if hypercite exists inside the opened hyperlit container
+        const hyperciteInContainer = document.querySelector(`#hyperlit-container #${internalId}`);
+        if (hyperciteInContainer) {
+          console.log(`🎯 Found hypercite ${internalId} inside hyperlit container, scrolling within container`);
+          // Scroll within the hyperlit container
+          const container = document.getElementById('hyperlit-container');
+          const scroller = container.querySelector('.scroller');
+          if (scroller) {
+            hyperciteInContainer.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+              inline: 'nearest'
+            });
+            // Highlight the hypercite
+            highlightTargetHypercite(internalId, 500);
+          }
+        } else {
+          console.log(`🎯 Hypercite ${internalId} not found in container, using standard navigation`);
+          // Fall back to standard navigation
+          navigateToInternalId(internalId, lazyLoader, showOverlay);
+        }
+      }, 300);
+
+    } else {
+      // Just navigate to the highlight
+      console.log(`📍 Navigating directly to highlight ${highlightId}`);
+      navigateToInternalId(highlightId, lazyLoader, showOverlay);
+    }
+
+  } catch (error) {
+    console.error(`❌ Error in hypercite navigation:`, error);
+    // Fallback to original method if our improved method fails
+    if (internalId) {
+      navigateToInternalId(highlightId, lazyLoader);
+      setTimeout(() => {
+        navigateToInternalId(internalId, lazyLoader);
+      }, 1000);
+    } else {
+      navigateToInternalId(highlightId, lazyLoader);
+    }
+  }
+}
+
+/**
+ * Navigate to a hypercite link
+ * @param {string} link - The link to navigate to
+ * @param {string} clickedHyperciteId - The ID of the clicked hypercite (for loading overlay)
+ */
+export async function navigateToHyperciteLink(link, clickedHyperciteId = "hypercite_link") {
+  // If the link is relative, prepend the base URL
+  if (link.startsWith("/")) {
+    link = window.location.origin + link;
+  }
+  console.log("Opening link:", link);
+
+  // Check if this is a same-book highlight link
+  const url = new URL(link, window.location.origin);
+  if (url.origin === window.location.origin) {
+    const [bookSegment, hlSegment] = url.pathname.split("/").filter(Boolean);
+    const currentBook = window.location.pathname.split("/").filter(Boolean)[0];
+    const hlMatch = hlSegment && hlSegment.match(/^HL_(.+)$/);
+
+    if (bookSegment === currentBook && hlMatch) {
+      console.log("✅ Same-book highlight link detected in hypercite");
+
+      const highlightId = hlMatch[0]; // "HL_1749896203081"
+      const internalId = url.hash ? url.hash.slice(1) : null;
+
+      // Use proper sequential navigation with DOM readiness
+      await navigateToHyperciteTarget(highlightId, internalId, currentLazyLoader);
+
+      return; // Don't do normal navigation
+    }
+
+    if (bookSegment === currentBook) {
+      console.log("✅ Same-book internal link detected");
+      const internalId = url.hash ? url.hash.slice(1) : null;
+
+      if (internalId) {
+        navigateToInternalId(internalId, currentLazyLoader, false); // Don't show overlay - internal navigation
+        return;
+      }
+    }
+  }
+
+  // If not a same-book highlight, do normal navigation
+  // Show overlay for external navigation
+  showNavigationLoading(clickedHyperciteId);
+  window.location.href = link;
+}

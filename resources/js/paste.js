@@ -115,7 +115,7 @@ import { getNodeChunksAfter,
          toPublicChunk } from './indexedDB.js';
 import { syncIndexedDBtoPostgreSQL } from './postgreSQL.js';
 import { initializeMainLazyLoader } from './initializePage.js';
-import { parseHyperciteHref } from './hyperCites.js';
+import { parseHyperciteHref } from "./hypercites/index.js";
 import { navigateToInternalId } from './scrolling.js';
 import {
   getHandleHypercitePaste,

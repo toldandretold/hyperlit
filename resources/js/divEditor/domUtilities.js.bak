@@ -116,7 +116,7 @@ export async function handleHyperciteRemoval(removedNode) {
             if (window.testDelinkHypercite) {
               await window.testDelinkHypercite(deletedLinkId, href);
             } else {
-              const { delinkHypercite } = await import('../hypercites/index.js');
+              const { delinkHypercite } = await import('../hyperCites.js');
               await delinkHypercite(deletedLinkId, href);
             }
           } catch (error) {

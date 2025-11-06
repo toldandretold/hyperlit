@@ -215,7 +215,7 @@ export class LinkNavigationHandler {
         
         console.log(`🎯 Same-book hyperlight navigation: ${hyperlightId} -> ${hyperciteId}`);
         
-        const { navigateToHyperciteTarget } = await import('../hypercites/index.js');
+        const { navigateToHyperciteTarget } = await import('../hyperCites.js');
         const { currentLazyLoader } = await import('../initializePage.js');
         
         if (currentLazyLoader) {
@@ -428,7 +428,7 @@ export class LinkNavigationHandler {
           console.log(`🎯 Restoring hyperlight container: ${hyperlightId} with target: ${currentHash}`);
           
           // Use the existing hyperlight navigation system
-          const { navigateToHyperciteTarget } = await import('../hypercites/index.js');
+          const { navigateToHyperciteTarget } = await import('../hyperCites.js');
           const { currentLazyLoader } = await import('../initializePage.js');
           
           if (currentLazyLoader && currentHash.startsWith('hypercite_')) {

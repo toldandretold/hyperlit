@@ -1,4 +1,4 @@
-import { parseHyperciteHref, attachUnderlineClickListeners } from './hyperCites.js';
+import { parseHyperciteHref, attachUnderlineClickListeners } from "./hypercites/index.js";
 import { extractQuotedText } from './paste.js';
 import { openDatabase, updateCitationForExistingHypercite, queueForSync } from './indexedDB.js';
 import { book } from './app.js';

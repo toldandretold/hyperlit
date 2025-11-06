@@ -408,7 +408,7 @@ function attachGlobalLinkClickHandler() {
           
           console.log(`🎯 Same-book hyperlight navigation: ${highlightId} -> ${hyperciteId}`);
           
-          import('./hypercites/index.js').then(({ navigateToHyperciteTarget }) => {
+          import('./hyperCites.js').then(({ navigateToHyperciteTarget }) => {
             import('./initializePage.js').then(({ currentLazyLoader }) => {
               if (currentLazyLoader) {
                 window.history.pushState(null, '', link.href);
@@ -489,7 +489,7 @@ function attachGlobalLinkClickHandler() {
                 });
                 
                 // Now safely navigate to the target
-                import('./hypercites/index.js').then(({ navigateToHyperciteTarget }) => {
+                import('./hyperCites.js').then(({ navigateToHyperciteTarget }) => {
                   import('./initializePage.js').then(({ currentLazyLoader }) => {
                     if (currentLazyLoader && hyperciteId) {
                       console.log(`🎯 SPA: Sequential navigation to ${highlightId} then ${hyperciteId}`);

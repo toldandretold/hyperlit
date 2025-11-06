@@ -4,17 +4,20 @@
  * Module structure:
  * - utils.js: Helper functions ✅
  * - animations.js: Visual feedback & highlighting ✅
- * - copy.js: Clipboard operations & DOM wrapping (pending)
- * - database.js: IndexedDB CRUD operations (pending)
- * - navigation.js: Click handling & routing (pending)
- * - containers.js: UI generation & citation formatting (pending)
- * - deletion.js: Delink workflow & cleanup (pending)
- * - listeners.js: Event management (pending)
+ * - deletion.js: Delink workflow & cleanup ✅
+ * - database.js: IndexedDB CRUD operations ✅
+ * - containers.js: UI generation & citation formatting ✅
+ * - navigation.js: Click handling & routing ✅
+ * - copy.js: Clipboard operations & DOM wrapping ✅
+ * - listeners.js: Event management ✅
  */
 
-// Extracted modules
+// Extracted modules - single source of truth
 export * from './utils.js';
 export * from './animations.js';
-
-// Temporary: re-export remaining functions from old location
-export * from '../hyperCites.js';
+export * from './deletion.js';
+export * from './database.js';
+export * from './containers.js';
+export * from './navigation.js';
+export * from './copy.js';
+export * from './listeners.js';

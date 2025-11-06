@@ -6,7 +6,7 @@ import {
   getLocalStorageKey,
   getHyperciteFromIndexedDB
 } from "./indexedDB.js";
-import { attachUnderlineClickListeners } from "./hyperCites.js";
+import { attachUnderlineClickListeners } from "./hypercites/index.js";
 import {
   setChunkLoadingInProgress,
   clearChunkLoadingInProgress,

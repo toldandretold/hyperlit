@@ -15,6 +15,10 @@ import {
   highlightTargetHypercite,
   restoreNormalHyperciteDisplay
 } from "./hypercites/animations.js";
+import {
+  delinkHypercite,
+  handleHyperciteDeletion
+} from "./hypercites/deletion.js";
 import { openDatabase, 
          parseNodeId, 
          createNodeChunksKey, 
@@ -1838,9 +1842,22 @@ export async function handleHyperciteDeletion(hyperciteElement) {
   const hrefUrl = hyperciteElement.href;
 
   console.log("🗑️ Handling deletion of hypercite:", hyperciteElementId);
-  
+
   await delinkHypercite(hyperciteElementId, hrefUrl);
 }
+
+// Re-export extracted modules for backward compatibility
+export {
+  generateHyperciteID,
+  parseHyperciteHref,
+  extractHyperciteIdFromHref,
+  determineRelationshipStatus,
+  removeCitedINEntry,
+  findParentWithNumericalId,
+  selectionSpansMultipleNodes,
+  highlightTargetHypercite,
+  restoreNormalHyperciteDisplay
+};
 
 
 
