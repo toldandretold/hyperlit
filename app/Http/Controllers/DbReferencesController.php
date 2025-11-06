@@ -73,10 +73,17 @@ class DbReferencesController extends Controller
 
         try {
             foreach ($references as $item) {
-                // CORRECTED: Use your PgReference model
-                PgReference::updateOrCreate(
+                // Use DB::table() instead of Eloquent because the model has a composite primary key
+                // which doesn't work well with updateOrCreate()
+                \DB::table('bibliography')->updateOrInsert(
                     ['book' => $bookId, 'referenceId' => $item['referenceId']],
-                    ['content' => $item['content']]
+                    [
+                        'book' => $bookId,
+                        'referenceId' => $item['referenceId'],
+                        'content' => $item['content'],
+                        'updated_at' => now(),
+                        'created_at' => now(),
+                    ]
                 );
                 $upsertedCount++;
             }
