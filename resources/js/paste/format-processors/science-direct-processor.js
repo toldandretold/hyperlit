@@ -45,7 +45,8 @@ export class ScienceDirectProcessor extends BaseFormatProcessor {
     console.log('📚 ScienceDirect: Looking for references');
 
     // Strategy 1: Find <span class="reference"> elements (primary Science Direct pattern)
-    const referenceSpans = dom.querySelectorAll('span.reference[id^="sref"]');
+    // Note: Different articles use different id prefixes (sref, h, etc.)
+    const referenceSpans = dom.querySelectorAll('span.reference[id]');
 
     if (referenceSpans.length > 0) {
       console.log(`📚 ScienceDirect: Found ${referenceSpans.length} reference spans`);
@@ -76,26 +77,27 @@ export class ScienceDirectProcessor extends BaseFormatProcessor {
           const labelAnchor = parentLi.querySelector('span.label a.anchor');
           if (labelAnchor) {
             const hrefMatch = labelAnchor.getAttribute('href');
-            if (hrefMatch && hrefMatch.startsWith('#bbib')) {
-              // Extract bibId from #bbibXX -> bibXX
-              bibId = hrefMatch.substring(1).replace('bbib', 'bib');
+            if (hrefMatch && hrefMatch.startsWith('#bb')) {
+              // Extract bibId: #bbib0120 -> bib0120 OR #bb0120 -> b0120
+              // Remove '#b' prefix (2 chars) to get the bibId
+              bibId = hrefMatch.substring(2);
             }
           }
 
-          // Also check for data-xocs-content-id attributes
+          // Also check for data-xocs-content-id attributes (different articles use b*, bib*, etc.)
           if (!bibId) {
-            const xocsAnchor = parentLi.querySelector('a[data-xocs-content-id^="bib"]');
+            const xocsAnchor = parentLi.querySelector('a[data-xocs-content-id^="b"]');
             if (xocsAnchor) {
               bibId = xocsAnchor.getAttribute('data-xocs-content-id');
             }
           }
         }
 
-        // Fallback: try to extract bibId from refId (sref27 -> bib27)
+        // Fallback: try to extract bibId from refId (h0120 -> b0120, sref27 -> b27)
         if (!bibId) {
           const numMatch = refId.match(/\d+/);
           if (numMatch) {
-            bibId = `bib${numMatch[0]}`;
+            bibId = `b${numMatch[0]}`;
           }
         }
 
@@ -106,15 +108,20 @@ export class ScienceDirectProcessor extends BaseFormatProcessor {
             originalText: text,
             type: 'science-direct',
             needsKeyGeneration: true,
-            refId: refId, // Store the actual reference ID (sref27)
-            bibId: bibId  // Store the citation link ID (bib27)
+            refId: refId, // Store the actual reference ID (h0120, sref27, etc.)
+            bibId: bibId  // Store the citation link ID (b0120, etc.)
           };
 
           references.push(reference);
 
           // Map bibId to reference for citation linking
+          // Store under multiple ID variations to handle different formats
           if (bibId) {
             this.bibIdToRefMap.set(bibId, reference);
+            // Also store "bib" prefix version if we have just "b" (b0120 -> bib0120)
+            if (bibId.startsWith('b') && !bibId.startsWith('bib')) {
+              this.bibIdToRefMap.set('bi' + bibId, reference);
+            }
           }
         }
       });
@@ -137,9 +144,20 @@ export class ScienceDirectProcessor extends BaseFormatProcessor {
               break; // Hit another heading
             }
 
-            // Look for list items
+            // Look for list items - handle both direct lists and lists inside wrapper divs
+            let listsToProcess = [];
+
             if (nextElement.tagName === 'UL' || nextElement.tagName === 'OL') {
-              const listItems = nextElement.querySelectorAll('li');
+              listsToProcess.push(nextElement);
+            } else if (nextElement.querySelectorAll) {
+              // Look for lists nested inside this element
+              const nestedLists = nextElement.querySelectorAll('ul, ol');
+              listsToProcess.push(...nestedLists);
+            }
+
+            // Process all found lists
+            listsToProcess.forEach(list => {
+              const listItems = list.querySelectorAll('li');
 
               listItems.forEach((item, index) => {
                 const clone = item.cloneNode(true);
@@ -162,7 +180,7 @@ export class ScienceDirectProcessor extends BaseFormatProcessor {
                   console.log(`📚 ScienceDirect: Extracted reference from list: "${text.substring(0, 60)}..."`);
                 }
               });
-            }
+            });
 
             nextElement = nextElement.nextElementSibling;
           }
@@ -217,42 +235,44 @@ export class ScienceDirectProcessor extends BaseFormatProcessor {
     // 3. Also unwrap <font> tags
     dom.querySelectorAll('font').forEach(unwrap);
 
+    // 4. Convert citation links NOW (before cleanup strips data attributes and classes)
+    this.convertCitationLinks(dom);
+
     console.log('📚 ScienceDirect: Transformation complete');
   }
 
   /**
-   * Override linkCitations to convert Science Direct citation links
-   * Science Direct uses data-xocs-content-id="bib*" for citations (not href)
+   * Convert Science Direct citation links to proper reference links
+   * MUST be called during transformStructure (before cleanup strips data attributes)
+   *
+   * Science Direct uses data-xocs-content-id="b*" for citations (not href)
    *
    * @param {HTMLElement} dom - DOM element
-   * @param {Array} references - Array of reference objects
    */
-  linkCitations(dom, references) {
-    // First, let base class generate reference IDs and build reference mappings
-    super.linkCitations(dom, references);
-
+  convertCitationLinks(dom) {
     console.log('📚 ScienceDirect: Converting Science Direct citation links...');
 
-    // Find all Science Direct citation links using data-xocs-content-id
-    // (clipboard HTML doesn't include href="#bib*", only the data attribute)
-    const citationLinks = dom.querySelectorAll('a[data-xocs-content-id^="bib"]');
+    // Find all Science Direct citation links using data-xocs-content-type="reference"
+    // Different articles use different ID formats (bib0120, b0120, etc.)
+    const citationLinks = dom.querySelectorAll('a.anchor[data-xocs-content-type="reference"]');
     console.log(`📚 ScienceDirect: Found ${citationLinks.length} citation links`);
     let convertedCount = 0;
     let failedCount = 0;
 
     citationLinks.forEach(link => {
-      const bibId = link.getAttribute('data-xocs-content-id'); // e.g., "bib69"
+      const bibId = link.getAttribute('data-xocs-content-id'); // e.g., "b0120"
 
       // Look up the reference for this bibId
       const reference = this.bibIdToRefMap.get(bibId);
 
-      if (reference && reference.referenceId) {
+      if (reference) {
         // Extract citation text
         const citText = link.textContent.trim();
 
-        // Convert to proper reference link
-        link.setAttribute('href', `#${reference.referenceId}`);
+        // Store temporary bibId in href (will be updated to actual referenceId later)
+        link.setAttribute('href', `#${bibId}`);
         link.setAttribute('class', 'in-text-citation');
+        link.setAttribute('data-temp-bibid', bibId); // Mark for later reference ID update
         link.textContent = citText;
 
         // Remove Science Direct-specific attributes
@@ -273,5 +293,39 @@ export class ScienceDirectProcessor extends BaseFormatProcessor {
     });
 
     console.log(`  - Converted ${convertedCount} Science Direct citation links, ${failedCount} failed`);
+  }
+
+  /**
+   * Override linkCitations to update temporary bibId hrefs with actual reference IDs
+   *
+   * @param {HTMLElement} dom - DOM element
+   * @param {Array} references - Array of reference objects
+   */
+  linkCitations(dom, references) {
+    // First, let base class generate reference IDs and build reference mappings
+    super.linkCitations(dom, references);
+
+    // Now update all ScienceDirect citation links that have temporary bibId hrefs
+    // Note: cleanup stripped the class, so we query by data-temp-bibid only
+    const tempLinks = dom.querySelectorAll('a[data-temp-bibid]');
+    console.log(`📚 ScienceDirect: Updating ${tempLinks.length} temporary citation links with reference IDs`);
+
+    let updatedCount = 0;
+    tempLinks.forEach(link => {
+      const bibId = link.getAttribute('data-temp-bibid');
+      const reference = this.bibIdToRefMap.get(bibId);
+
+      if (reference && reference.referenceId) {
+        // Update href to actual reference ID and re-add class (cleanup stripped it)
+        link.setAttribute('href', `#${reference.referenceId}`);
+        link.setAttribute('class', 'in-text-citation');
+        link.removeAttribute('data-temp-bibid'); // Clean up temp marker
+        updatedCount++;
+      } else {
+        console.warn(`⚠️ ScienceDirect: No reference ID found for bibId: ${bibId}`);
+      }
+    });
+
+    console.log(`📚 ScienceDirect: Updated ${updatedCount} citation links with reference IDs`);
   }
 }
