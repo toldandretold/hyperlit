@@ -94,7 +94,7 @@ export default defineConfig({
                 'resources/js/editToolbar.js',
                 'resources/js/footnotesCitations.js',
                 'resources/js/homepage.js',                 // ✅ NEW
-                'resources/js/hyperLights.js',
+                'resources/js/hyperlights/index.js',
                 'resources/js/initializePage.js',
                 'resources/js/lazyLoadingDiv.js',
                 'resources/js/lazyLoaderFactory.js',

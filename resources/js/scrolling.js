@@ -131,7 +131,7 @@
  */
 
 import { book, OpenHyperlightID } from "./app.js";
-import { openHighlightById } from './hyperLights.js';
+import { openHighlightById } from './hyperlights/index.js';
 import {
   getNodeChunksFromIndexedDB,
   getLocalStorageKey

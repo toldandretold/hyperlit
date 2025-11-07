@@ -11,7 +11,7 @@ import {
   attachMarkListeners,
   initializeHighlightingControls,
   initializeHighlightManager,
-} from "./hyperLights.js";
+} from "./hyperlights/index.js";
 import { initializeHypercitingControls } from "./hypercites/index.js";
 import { initializeBroadcastListener } from "./BroadcastListener.js";
 import { setupUnloadSync } from "./indexedDB.js";

@@ -1,5 +1,5 @@
 import { renderBlockToHtml } from "./convertMarkdown.js";
-import { attachMarkListeners } from "./hyperLights.js";
+import { attachMarkListeners } from "./hyperlights/index.js";
 import {
   //saveNodeChunksToIndexedDB,
   getNodeChunksFromIndexedDB,

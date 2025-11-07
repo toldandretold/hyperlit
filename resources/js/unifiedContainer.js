@@ -2055,9 +2055,9 @@ async function handlePostOpenActions(contentTypes, newHighlightIds = []) {
   if (highlightType) {
     try {
       // Import the required functions
-      const { attachAnnotationListener } = await import('./annotationSaver.js');
-      const { addHighlightContainerPasteListener } = await import('./hyperLightsListener.js');
-      const { attachPlaceholderBehavior } = await import('./hyperLights.js');
+      const { attachAnnotationListener } = await import('./hyperlights/index.js');
+      const { addHighlightContainerPasteListener } = await import('./hyperlights/index.js');
+      const { attachPlaceholderBehavior } = await import('./hyperlights/index.js');
 
       
       const { highlightIds } = highlightType;
@@ -2533,26 +2533,30 @@ async function handleHighlightDelete(event) {
       // Remove all collected elements
       highlightElements.forEach(el => el.remove());
     }
-    
+
+    // Check if there are any remaining highlights in the container BEFORE deletion
+    const remainingHighlights = document.querySelectorAll('#hyperlit-container .author[id^="HL_"]');
+    const shouldCloseContainer = remainingHighlights.length === 0;
+
+    // Close container immediately if no remaining highlights (don't wait for deletion)
+    if (shouldCloseContainer) {
+      closeHyperlitContainer();
+    }
+
+    // Perform the deletion in the background (after UI update)
     if (action === 'delete') {
-      // Full delete - import delete functionality from hyperLights.js
-      const { deleteHighlightById } = await import('./hyperLights.js');
+      // Full delete - import delete functionality from hyperlights module
+      const { deleteHighlightById } = await import('./hyperlights/index.js');
       await deleteHighlightById(highlightId);
     } else if (action === 'hide') {
       // Hide - same as delete but sync as hide operation instead of delete
-      const { hideHighlightById } = await import('./hyperLights.js');
+      const { hideHighlightById } = await import('./hyperlights/index.js');
       await hideHighlightById(highlightId);
     } else {
       console.log('Unknown action:', action);
     }
-    
-    // Check if there are any remaining highlights in the container
-    const remainingHighlights = document.querySelectorAll('#hyperlit-container .author[id^="HL_"]');
-    
-    if (remainingHighlights.length === 0) {
-      // No more highlights - close the container
-      closeHyperlitContainer();
-    } else {
+
+    if (!shouldCloseContainer) {
       // Update the container height if needed
       console.log(`✅ Highlight removed. ${remainingHighlights.length} highlights remaining.`);
     }
