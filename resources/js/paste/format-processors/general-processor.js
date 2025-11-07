@@ -237,5 +237,9 @@ export class GeneralProcessor extends BaseFormatProcessor {
     dom.querySelectorAll('font').forEach(unwrap);
 
     console.log(`  - Unwrapped ${containers.length} containers`);
+
+    // Finally, wrap any loose inline elements left at the top level of dom
+    wrapLooseNodes(dom);
+    console.log(`  - Wrapped loose inline elements at top level`);
   }
 }
