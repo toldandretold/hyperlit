@@ -10,6 +10,7 @@ import { TaylorFrancisProcessor } from '../format-processors/taylor-francis-proc
 import { OupProcessor } from '../format-processors/oup-processor.js';
 import { SageProcessor } from '../format-processors/sage-processor.js';
 import { ScienceDirectProcessor } from '../format-processors/science-direct-processor.js';
+import { SpringerProcessor } from '../format-processors/springer-processor.js';
 
 /**
  * Format registry structure:
@@ -48,6 +49,20 @@ export const FORMAT_REGISTRY = {
     processor: OupProcessor,
     priority: 4,
     description: 'Oxford University Press content with content-id attributes'
+  },
+
+  // Springer - Priority 4
+  'springer': {
+    selectors: [
+      '[id^="ref-CR"]',
+      'a[href*="#ref-CR"]',
+      '[id^="Fn"]',
+      'a[href*="#Fn"]',
+      'a[data-track="click"][data-track-label="link"][href*="springer.com"]'
+    ],
+    processor: SpringerProcessor,
+    priority: 4,
+    description: 'Springer Nature content with ref-CR and Fn ID patterns'
   },
 
   // Cambridge - Priority 3
