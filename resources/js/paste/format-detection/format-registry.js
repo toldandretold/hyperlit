@@ -30,9 +30,9 @@ export const FORMAT_REGISTRY = {
   // Science Direct - Priority 5
   'science-direct': {
     selectors: [
-      '[data-xocs-content-id^="bib"]',
+      '[data-xocs-content-id^="b"]',
       '.anchor.anchor-primary[data-sd-ui-side-panel-opener]',
-      'span.reference[id^="sref"]'
+      'span.reference[id]'
     ],
     processor: ScienceDirectProcessor,
     priority: 5,
