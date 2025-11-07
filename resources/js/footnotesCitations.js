@@ -2,7 +2,7 @@
 import { book } from "./app.js";
 import { openDatabase } from "./indexedDB.js";
 import { ContainerManager } from "./containerManager.js";
-import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './unifiedContainer.js';
+import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './hyperlitContainer/index.js';
 
 // Legacy container manager - now using unified system
 const refManager = new ContainerManager(
@@ -51,99 +51,6 @@ export async function handleFootnoteOrCitationClick(element) {
   }
 }
 
-// Legacy functions - now handled by unified container system
-// Handle footnote clicks
-/*
-async function handleFootnoteClick(supElement) {
-  const fnCountId = supElement.getAttribute('fn-count-id');
-  const elementId = supElement.id;
-  
-  console.log('Footnote clicked:', { fnCountId, elementId, book });
-  
-  // Extract the footnote ID (remove the "ref" suffix if present)
-  let footnoteId = elementId;
-  if (footnoteId.includes('ref')) {
-    footnoteId = footnoteId.replace('ref', '');
-  }
-  
-  console.log('Looking up footnote:', footnoteId);
-  
-  try {
-    const db = await openDatabase();
-    const transaction = db.transaction(["footnotes"], "readonly");
-    const store = transaction.objectStore("footnotes");
-    
-    // Create composite key for lookup
-    const key = [book, footnoteId];
-    const result = await new Promise((resolve, reject) => {
-      const request = store.get(key);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    
-    if (result && result.content) {
-      console.log('Found footnote:', result);
-      
-      const htmlToDisplay = `
-        <div class="footnote-content">
-          <div class="footnote-text">${result.content}</div>
-        </div>`;
-      
-      openReferenceContainer(htmlToDisplay);
-    } else {
-      console.warn('Footnote not found:', footnoteId);
-      openReferenceContainer(`<div class="error">Footnote not found: ${footnoteId}</div>`);
-    }
-  } catch (error) {
-    console.error('Error fetching footnote:', error);
-    openReferenceContainer(`<div class="error">Error loading footnote</div>`);
-  }
-}
-
-// Handle citation clicks
-async function handleCitationClick(linkElement) {
-  const href = linkElement.getAttribute('href');
-  if (!href || !href.startsWith('#')) {
-    console.warn('Invalid citation href:', href);
-    return;
-  }
-  
-  const referenceId = href.substring(1); // Remove the # prefix
-  
-  console.log('Citation clicked:', { referenceId, book });
-  
-  try {
-    const db = await openDatabase();
-    const transaction = db.transaction(["references"], "readonly");
-    const store = transaction.objectStore("references");
-    
-    // Create composite key for lookup
-    const key = [book, referenceId];
-    const result = await new Promise((resolve, reject) => {
-      const request = store.get(key);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    
-    if (result && result.content) {
-      console.log('Found reference:', result);
-      
-      const htmlToDisplay = `
-        <div class="citation-content">
-          <div class="citation-text">${result.content}</div>
-        </div>`;
-      
-      openReferenceContainer(htmlToDisplay);
-    } else {
-      console.warn('Reference not found:', referenceId);
-      openReferenceContainer(`<div class="error">Reference not found: ${referenceId}</div>`);
-    }
-  } catch (error) {
-    console.error('Error fetching reference:', error);
-    openReferenceContainer(`<div class="error">Error loading reference</div>`);
-  }
-}
-*/
 
 // Initialize click listeners
 export function initializeFootnoteCitationListeners() {

@@ -215,7 +215,7 @@ export class LinkNavigationHandler {
         
         console.log(`🎯 Same-book hyperlight navigation: ${hyperlightId} -> ${hyperciteId}`);
         
-        const { navigateToHyperciteTarget } = await import('../hypercites/index.js');
+        const { navigateToHyperciteTarget } = await import('../hyperCites.js');
         const { currentLazyLoader } = await import('../initializePage.js');
         
         if (currentLazyLoader) {
@@ -428,7 +428,7 @@ export class LinkNavigationHandler {
           console.log(`🎯 Restoring hyperlight container: ${hyperlightId} with target: ${currentHash}`);
           
           // Use the existing hyperlight navigation system
-          const { navigateToHyperciteTarget } = await import('../hypercites/index.js');
+          const { navigateToHyperciteTarget } = await import('../hyperCites.js');
           const { currentLazyLoader } = await import('../initializePage.js');
           
           if (currentLazyLoader && currentHash.startsWith('hypercite_')) {
@@ -443,7 +443,7 @@ export class LinkNavigationHandler {
     
     // Try to restore container state from history for non-hyperlight URLs
     try {
-      const { restoreHyperlitContainerFromHistory } = await import('../hyperlitContainer/index.js');
+      const { restoreHyperlitContainerFromHistory } = await import('../unifiedContainer.js');
       const containerRestored = await restoreHyperlitContainerFromHistory();
       
       if (containerRestored) {
@@ -457,7 +457,7 @@ export class LinkNavigationHandler {
     // If no container to restore, close any open containers and scroll to the hash if present.
     // This prevents a loop where a container is re-opened from the hash after a back navigation.
     try {
-      const { closeHyperlitContainer } = await import('../hyperlitContainer/index.js');
+      const { closeHyperlitContainer } = await import('../unifiedContainer.js');
       closeHyperlitContainer();
     } catch (error) {
       // ignore

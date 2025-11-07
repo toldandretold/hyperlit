@@ -1,14 +1,19 @@
-import { parseHyperciteHref, attachUnderlineClickListeners } from './hyperCites.js';
-import { extractQuotedText } from './paste.js';
-import { openDatabase, updateCitationForExistingHypercite, queueForSync } from './indexedDB.js';
-import { book } from './app.js';
-import { broadcastToOpenTabs } from './BroadcastListener.js';
+/**
+ * Paste module - Handles paste operations in annotation areas
+ */
+
+import { parseHyperciteHref, attachUnderlineClickListeners } from "../hypercites/index.js";
+import { extractQuotedText } from '../paste.js';
+import { updateCitationForExistingHypercite } from '../indexedDB.js';
+import { book } from '../app.js';
+import { broadcastToOpenTabs } from '../BroadcastListener.js';
+import { saveHighlightAnnotation } from './annotations.js';
 
 /**
  * This is the main paste handler for the annotation area.
  * It now correctly handles preventing the default browser action.
  */
-async function handleHighlightContainerPaste(event, highlightId) {
+export async function handleHighlightContainerPaste(event, highlightId) {
   // *** THE CRITICAL FIX IS HERE ***
   // We MUST prevent the default action IMMEDIATELY and SYNCHRONOUSLY.
   // This stops the browser from doing its own paste, which caused the "double paste" bug.
@@ -29,7 +34,7 @@ async function handleHighlightContainerPaste(event, highlightId) {
   // If it was NOT a hypercite, we handle it as plain text.
   // Because we prevented the default action, we MUST manually insert the text.
   document.execCommand('insertText', false, plainText);
-  
+
   // After any paste, we save the annotation.
   const annotationDiv = document.querySelector(`.annotation[data-highlight-id="${highlightId}"]`);
   if (annotationDiv) {
@@ -121,32 +126,9 @@ async function processPastedHyperciteInAnnotation(clipboardHtml, highlightId) {
   return true; // Signal that we successfully handled this.
 }
 
-// This function saves the annotation and queues it for sync. It is correct.
-function saveHighlightAnnotation(highlightId, annotationHTML) {
-  if (!highlightId) return;
-  
-  openDatabase().then(db => {
-    const tx = db.transaction("hyperlights", "readwrite");
-    const store = tx.objectStore("hyperlights");
-    const index = store.index("hyperlight_id");
-    const getRequest = index.get(highlightId);
-    
-    getRequest.onsuccess = () => {
-      const highlightData = getRequest.result;
-      if (!highlightData) return;
-      
-      highlightData.annotation = annotationHTML;
-      const updateRequest = store.put(highlightData);
-      
-      updateRequest.onsuccess = () => {
-        console.log(`Successfully saved annotation for highlight ${highlightId}`);
-        queueForSync("hyperlights", highlightId, "update", highlightData);
-      };
-    };
-  });
-}
-
-// This function attaches the paste listener. It is correct.
+/**
+ * This function attaches the paste listener. It is correct.
+ */
 export function addHighlightContainerPasteListener(highlightId) {
   const container = document.getElementById("hyperlit-container");
   if (!container) return;
@@ -155,7 +137,7 @@ export function addHighlightContainerPasteListener(highlightId) {
     `.annotation[data-highlight-id="${highlightId}"]`
   );
   if (!annotationDiv) return;
-  
+
   annotationDiv.removeEventListener("paste", annotationDiv._pasteHandler);
   annotationDiv._pasteHandler = (event) => handleHighlightContainerPaste(event, highlightId);
   annotationDiv.addEventListener("paste", annotationDiv._pasteHandler);

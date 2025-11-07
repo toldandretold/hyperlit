@@ -235,7 +235,7 @@ export class DifferentTemplateTransition {
    */
   static async closeOpenContainers() {
     try {
-      const { closeHyperlitContainer } = await import('../../unifiedContainer.js');
+      const { closeHyperlitContainer } = await import('../../hyperlitContainer/index.js');
       closeHyperlitContainer();
 
       // Close source container if open

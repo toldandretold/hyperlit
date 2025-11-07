@@ -19,7 +19,7 @@ import {
 
 import {
   attachMarkListeners,
-} from "./hyperLights.js";
+} from "./hyperlights/index.js";
 
 import { parseMarkdownIntoChunksInitial } from "./convertMarkdown.js";
 

@@ -1,8 +1,9 @@
-import { withPending } from "./operationState.js";
-import { openDatabase, queueForSync } from "./indexedDB.js";
+/**
+ * Annotations module - Handles annotation saving and management
+ */
 
-// Debounce timer variable for the highlight container.
-let annotationDebounceTimer = null;
+import { withPending } from "../operationState.js";
+import { openDatabase, queueForSync } from "../indexedDB.js";
 
 /**
  * Extracts the current HTML content from within the annotation element.
@@ -10,7 +11,7 @@ let annotationDebounceTimer = null;
  * @param {HTMLElement} container
  * @returns {string} HTML string
  */
-function getAnnotationHTML(container) {
+export function getAnnotationHTML(container) {
   const annotationEl = container.querySelector(".annotation");
   return annotationEl ? annotationEl.innerHTML : "";
 }
@@ -52,6 +53,10 @@ export const saveAnnotationToIndexedDB = (highlightId, annotationHTML) =>
     });
   });
 
+/**
+ * Attach annotation input listener with debouncing
+ * @param {string} highlightId - The highlight ID
+ */
 export function attachAnnotationListener(highlightId) {
   const container = document.getElementById("hyperlit-container");
   if (!container || container.classList.contains("hidden")) return;
@@ -103,5 +108,34 @@ export function attachAnnotationListener(highlightId) {
         });
       }).catch(console.error);
     }, 1000);
+  });
+}
+
+/**
+ * Save annotation directly (used by paste handler)
+ * @param {string} highlightId - The highlight ID
+ * @param {string} annotationHTML - The annotation HTML
+ */
+export function saveHighlightAnnotation(highlightId, annotationHTML) {
+  if (!highlightId) return;
+
+  openDatabase().then(db => {
+    const tx = db.transaction("hyperlights", "readwrite");
+    const store = tx.objectStore("hyperlights");
+    const index = store.index("hyperlight_id");
+    const getRequest = index.get(highlightId);
+
+    getRequest.onsuccess = () => {
+      const highlightData = getRequest.result;
+      if (!highlightData) return;
+
+      highlightData.annotation = annotationHTML;
+      const updateRequest = store.put(highlightData);
+
+      updateRequest.onsuccess = () => {
+        console.log(`Successfully saved annotation for highlight ${highlightId}`);
+        queueForSync("hyperlights", highlightId, "update", highlightData);
+      };
+    };
   });
 }
