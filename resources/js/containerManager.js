@@ -5,7 +5,7 @@ import { navigateToInternalId } from "./scrolling.js";
 import { currentLazyLoader } from "./initializePage.js";
 import { isProcessing, isComplete } from './editIndicator.js'
 import { book } from './app.js';
-import { closeHyperlitContainer } from './unifiedContainer.js';
+import { closeHyperlitContainer } from './hyperlitContainer/index.js';
 
 export class ContainerManager {
   constructor(containerId, overlayId, buttonId = null, frozenContainerIds = []) {

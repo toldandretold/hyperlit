@@ -2,7 +2,7 @@
  * Utils module - Utility functions for hyperlights
  */
 
-import { handleUnifiedContentClick } from '../unifiedContainer.js';
+import { handleUnifiedContentClick } from '../hyperlitContainer/index.js';
 
 /**
  * Generate a unique highlight ID

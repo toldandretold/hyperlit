@@ -7,7 +7,7 @@
 
 import { handleCopyEvent } from './copy.js';
 import { handleUnderlineClick } from './navigation.js';
-import { initializeHyperlitManager } from '../unifiedContainer.js';
+import { initializeHyperlitManager } from '../hyperlitContainer/index.js';
 
 // Module-level variable to track active listeners
 let activeHyperciteListeners = null;

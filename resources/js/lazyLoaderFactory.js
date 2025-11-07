@@ -194,7 +194,7 @@ export function createLazyLoader(config) {
         console.log('🔗 LazyLoader: Opening container for hypercite');
 
         // Import and call unified container handler
-        const { handleUnifiedContentClick } = await import('./unifiedContainer.js');
+        const { handleUnifiedContentClick } = await import('./hyperlitContainer/index.js');
         await handleUnifiedContentClick(link);
         return;
       }

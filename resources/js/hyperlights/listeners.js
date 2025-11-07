@@ -2,7 +2,7 @@
  * Listeners module - Handles event listeners for mark elements
  */
 
-import { handleUnifiedContentClick } from '../unifiedContainer.js';
+import { handleUnifiedContentClick } from '../hyperlitContainer/index.js';
 
 /**
  * Attach click and hover listeners to all mark elements

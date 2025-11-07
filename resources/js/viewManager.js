@@ -35,7 +35,7 @@ import {
   resolveFirstChunkPromise,
   resetCurrentLazyLoader
 } from "./initializePage.js";
-import { closeHyperlitContainer } from './unifiedContainer.js';
+import { closeHyperlitContainer } from './hyperlitContainer/index.js';
 
 // State management and cleanup are correct.
 let activeKeyboardManager = null;
@@ -809,7 +809,7 @@ export async function universalPageInitializer(progressCallback = null) {
       console.log("✅ Reference container manager rebound after content load");
     }
 
-    const { hyperlitManager } = await import('./unifiedContainer.js');
+    const { hyperlitManager } = await import('./hyperlitContainer/index.js');
     if (hyperlitManager && hyperlitManager.rebindElements) {
         hyperlitManager.rebindElements();
         console.log("✅ Hyperlit container manager rebound after content load");

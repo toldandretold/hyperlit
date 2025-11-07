@@ -443,7 +443,7 @@ export class LinkNavigationHandler {
     
     // Try to restore container state from history for non-hyperlight URLs
     try {
-      const { restoreHyperlitContainerFromHistory } = await import('../unifiedContainer.js');
+      const { restoreHyperlitContainerFromHistory } = await import('../hyperlitContainer/index.js');
       const containerRestored = await restoreHyperlitContainerFromHistory();
       
       if (containerRestored) {
@@ -457,7 +457,7 @@ export class LinkNavigationHandler {
     // If no container to restore, close any open containers and scroll to the hash if present.
     // This prevents a loop where a container is re-opened from the hash after a back navigation.
     try {
-      const { closeHyperlitContainer } = await import('../unifiedContainer.js');
+      const { closeHyperlitContainer } = await import('../hyperlitContainer/index.js');
       closeHyperlitContainer();
     } catch (error) {
       // ignore

@@ -12,7 +12,7 @@ import { getLocalStorageKey, openDatabase } from '../indexedDB.js';
 import { getHyperciteData, getHyperciteById } from './database.js';
 import { highlightTargetHypercite } from './animations.js';
 import { createOverlappingPolyContainer } from './containers.js';
-import { handleUnifiedContentClick } from '../unifiedContainer.js';
+import { handleUnifiedContentClick } from '../hyperlitContainer/index.js';
 import { currentLazyLoader } from '../initializePage.js';
 
 /**
