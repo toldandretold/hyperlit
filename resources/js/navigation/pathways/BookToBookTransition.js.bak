@@ -359,7 +359,7 @@ export class BookToBookTransition {
     console.log(`🎯 BookToBookTransition: Delegating to navigateToHyperciteTarget for ${hyperlightId} -> ${hyperciteId}`);
 
     try {
-      const { navigateToHyperciteTarget } = await import('../../hypercites/index.js');
+      const { navigateToHyperciteTarget } = await import('../../hyperCites.js');
       const { currentLazyLoader } = await import('../../initializePage.js');
 
       // Let navigateToHyperciteTarget handle all the logic: waiting, scrolling, and opening
@@ -379,7 +379,7 @@ export class BookToBookTransition {
       console.error('Failed to navigate to hypercite target:', error);
       // Don't throw - attempt navigation anyway as fallback
       try {
-        const { navigateToHyperciteTarget } = await import('../../hypercites/index.js');
+        const { navigateToHyperciteTarget } = await import('../../hyperCites.js');
         const { currentLazyLoader } = await import('../../initializePage.js');
 
         if (currentLazyLoader) {

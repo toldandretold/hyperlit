@@ -121,7 +121,7 @@ export class BookToHomeTransition {
       
       // Fallback: do minimal cleanup manually
       try {
-        const { closeHyperlitContainer } = await import('../../unifiedContainer.js');
+        const { closeHyperlitContainer } = await import('../../hyperlitContainer/index.js');
         closeHyperlitContainer();
       } catch (containerError) {
         console.warn('Could not close hyperlit container:', containerError);
@@ -137,7 +137,7 @@ export class BookToHomeTransition {
     
     try {
       // Close hyperlit container if open
-      const { closeHyperlitContainer } = await import('../../unifiedContainer.js');
+      const { closeHyperlitContainer } = await import('../../hyperlitContainer/index.js');
       closeHyperlitContainer();
       console.log('🧹 Closed hyperlit container');
 

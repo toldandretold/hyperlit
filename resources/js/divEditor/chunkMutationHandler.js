@@ -62,9 +62,9 @@ export class ChunkMutationHandler {
             );
           };
 
-          // Ignore MARK tag mutations (handled by hyperLights.js)
+          // Ignore MARK tag mutations (handled by hyperlights module)
           if (isOnlyHighlightNodes(mutation.addedNodes) || isOnlyHighlightNodes(mutation.removedNodes)) {
-            console.log("✍️ Ignoring MARK tag mutation in divEditor, handled by hyperLights.js.");
+            console.log("✍️ Ignoring MARK tag mutation in divEditor, handled by hyperlights module.");
             return;
           }
         }

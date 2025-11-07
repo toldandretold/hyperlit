@@ -66,7 +66,7 @@ import { isChunkLoadingInProgress, getLoadingChunkId } from './chunkLoadingState
 import { SelectionDeletionHandler } from './selectionDelete.js';
 import { initializeMainLazyLoader } from './initializePage.js';
 import { getEditToolbar } from './editToolbar.js';
-import { delinkHypercite, handleHyperciteDeletion } from './hyperCites.js';
+import { delinkHypercite, handleHyperciteDeletion } from "./hypercites/index.js";
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from './toc.js';
 
 // ================================================================

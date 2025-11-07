@@ -1,12 +1,12 @@
 import { renderBlockToHtml } from "./convertMarkdown.js";
-import { attachMarkListeners } from "./hyperLights.js";
+import { attachMarkListeners } from "./hyperlights/index.js";
 import {
   //saveNodeChunksToIndexedDB,
   getNodeChunksFromIndexedDB,
   getLocalStorageKey,
   getHyperciteFromIndexedDB
 } from "./indexedDB.js";
-import { attachUnderlineClickListeners } from "./hyperCites.js";
+import { attachUnderlineClickListeners } from "./hypercites/index.js";
 import {
   setChunkLoadingInProgress,
   clearChunkLoadingInProgress,
@@ -194,7 +194,7 @@ export function createLazyLoader(config) {
         console.log('🔗 LazyLoader: Opening container for hypercite');
 
         // Import and call unified container handler
-        const { handleUnifiedContentClick } = await import('./unifiedContainer.js');
+        const { handleUnifiedContentClick } = await import('./hyperlitContainer/index.js');
         await handleUnifiedContentClick(link);
         return;
       }
@@ -304,9 +304,9 @@ export function createLazyLoader(config) {
     instance.scrollableParent.addEventListener("scroll", throttle(instance.saveScrollPosition, 250));
   }
 
-  instance.restoreScrollPosition = async () => {
+  instance.restoreScrollPositionAfterResize = async () => {
     // Check if user is currently scrolling
-    if (shouldSkipScrollRestoration("instance restoreScrollPosition")) {
+    if (shouldSkipScrollRestoration("instance restoreScrollPositionAfterResize")) {
       return;
     }
     
@@ -524,7 +524,7 @@ export function createLazyLoader(config) {
         // Check if user is currently scrolling before restoring
         if (!shouldSkipScrollRestoration("viewport resize")) {
           console.log("🔧 VIEWPORT: Safe to restore scroll position");
-          instance.restoreScrollPosition();
+          instance.restoreScrollPositionAfterResize();
         } else {
           console.log("🔧 VIEWPORT: User is scrolling, skipping restoration");
         }
