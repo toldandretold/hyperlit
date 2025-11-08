@@ -205,6 +205,17 @@ export class BaseFormatProcessor {
     // Strip styles, classes, and non-essential IDs
     stripAttributes(dom, 'pasted-'); // Preserve IDs starting with 'pasted-'
 
+    // Unwrap all span elements (after stripping classes, they serve no purpose)
+    const spans = Array.from(dom.querySelectorAll('span'));
+    spans.forEach(span => {
+      const parent = span.parentNode;
+      if (!parent) return;
+      while (span.firstChild) {
+        parent.insertBefore(span.firstChild, span);
+      }
+      span.remove();
+    });
+
     // Group loose inline elements into paragraphs
     groupInlineElements(dom);
 
