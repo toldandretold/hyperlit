@@ -1,11 +1,11 @@
-import { ContainerManager } from "./containerManager.js";
-import { openDatabase } from "./indexedDB.js";
+import { ContainerManager } from "../containerManager.js";
+import { openDatabase } from "../indexedDB.js";
 // Navigation imports moved to new system - see createBookHandler function
-import { ensureAuthInitialized } from "./auth.js";
+import { ensureAuthInitialized } from "../utilities/auth.js";
 
-import { createNewBook, fireAndForgetSync } from "./createNewBook.js";
+import { createNewBook, fireAndForgetSync } from "../createNewBook.js";
 import { enableEditMode } from './editButton.js';
-import { setInitialBookSyncPromise } from "./operationState.js";
+import { setInitialBookSyncPromise } from "../utilities/operationState.js";
 
  
 
@@ -135,7 +135,7 @@ export class NewBookContainerManager extends ContainerManager {
       
       try {
         // Use the new NewBookTransition pathway
-        const { NewBookTransition } = await import('./navigation/pathways/NewBookTransition.js');
+        const { NewBookTransition } = await import('../navigation/pathways/NewBookTransition.js');
         await NewBookTransition.createAndTransition();
         console.log("📘 New book transition completed successfully");
       } catch (error) {
@@ -156,10 +156,10 @@ export class NewBookContainerManager extends ContainerManager {
 
       // Replace content with the form
       this.showImportForm();
-      
+
       // ✅ NOW OPEN THE CONTAINER IN FORM MODE
       this.openContainer("form");
-      
+
       // ✅ FIX: Wait for container animation to complete before setting up form
       // Use a more robust approach that waits for the container to be ready
       const setupForm = () => {
@@ -170,7 +170,7 @@ export class NewBookContainerManager extends ContainerManager {
           setTimeout(setupForm, 50);
           return;
         }
-        
+
         import("./newBookForm.js")
           .then(module => {
             console.log("🔥 DEBUG: Setting up form listeners on", form);

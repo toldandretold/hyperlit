@@ -5,7 +5,7 @@
 
 import { book } from '../../app.js';
 import { openDatabase } from '../../indexedDB.js';
-import { formatBibtexToCitation } from '../../bibtexProcessor.js';
+import { formatBibtexToCitation } from "../../utilities/bibtexProcessor.js";
 
 /**
  * Build citation content section
@@ -100,7 +100,7 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
 
     if (isPrivate) {
       console.log(`🔒 Target book ${targetBook} is private, checking access...`);
-      const { canUserEditBook } = await import('../../auth.js');
+      const { canUserEditBook } = await import('../../utilities/auth.js');
       hasAccess = await canUserEditBook(targetBook);
       console.log(`🔒 Access result: ${hasAccess ? 'ALLOWED' : 'DENIED'}`);
     }

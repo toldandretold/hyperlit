@@ -1,15 +1,15 @@
 import {
   startObserving,
   stopObserving
-} from "./divEditor.js";
-import { book } from "./app.js";
-import { incrementPendingOperations, decrementPendingOperations } from './operationState.js';
-import { addPasteListener } from './paste.js';
-import { getCurrentUser, canUserEditBook } from './auth.js';
-import { getLibraryObjectFromIndexedDB } from './indexedDB.js';
-import { initEditToolbar, getEditToolbar } from './editToolbar.js';
+} from "../divEditor.js";
+import { book } from "../app.js";
+import { incrementPendingOperations, decrementPendingOperations } from '../utilities/operationState.js';
+import { addPasteListener } from '../paste.js';
+import { getCurrentUser, canUserEditBook } from "../utilities/auth.js";
+import { getLibraryObjectFromIndexedDB } from '../indexedDB.js';
+import { initEditToolbar, getEditToolbar } from '../editToolbar.js';
 import userManager from "./userContainer.js";
-import { pendingFirstChunkLoadedPromise } from './initializePage.js';
+import { pendingFirstChunkLoadedPromise } from '../initializePage.js';
 
 
 
@@ -268,7 +268,7 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
         // ✅ ONLY call ensureMinimumDocumentStructure for new blank books
         if (isNewBook) {
           console.log("📝 New blank book: Ensuring minimum document structure...");
-          import("./divEditor.js").then(({ ensureMinimumDocumentStructure }) => {
+          import("../divEditor.js").then(({ ensureMinimumDocumentStructure }) => {
             ensureMinimumDocumentStructure();
           });
         }
@@ -400,9 +400,9 @@ function disableEditMode() {
   }
 
   stopObserving();
-  
+
   // Save any pending changes before disabling edit mode
-  import('./divEditor.js').then(({ flushAllPendingSaves }) => {
+  import('../divEditor.js').then(({ flushAllPendingSaves }) => {
     flushAllPendingSaves();
   });
   

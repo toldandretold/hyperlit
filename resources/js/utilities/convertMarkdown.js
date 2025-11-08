@@ -1,6 +1,6 @@
 // import { processFootnotes} from './footnotes.js';
 // import { saveFootnotesToIndexedDB } from './indexedDB.js';
-import { book } from './app.js';
+import { book } from '../app.js';
 
 /**
  * Converts the raw markdown into pre-rendered HTML,

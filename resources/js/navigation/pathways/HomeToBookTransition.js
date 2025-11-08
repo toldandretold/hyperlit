@@ -92,13 +92,13 @@ export class HomeToBookTransition {
     
     try {
       // Destroy homepage-specific managers
-      const { destroyUserContainer } = await import('../../userContainer.js');
+      const { destroyUserContainer } = await import('../../components/userContainer.js');
       if (typeof destroyUserContainer === 'function') {
         destroyUserContainer();
         console.log('🧹 User container destroyed.');
       }
 
-      const { destroyNewBookContainer } = await import('../../newBookButton.js');
+      const { destroyNewBookContainer } = await import('../../components/newBookButton.js');
       if (typeof destroyNewBookContainer === 'function') {
         destroyNewBookContainer();
         console.log('🧹 New book container destroyed.');
@@ -222,7 +222,7 @@ export class HomeToBookTransition {
 
       // 🔧 Reinitialize logo navigation toggle
       console.log('🔧 HomeToBookTransition: Reinitializing logo navigation toggle');
-      const { initializeLogoNav } = await import('../../logoNavToggle.js');
+      const { initializeLogoNav } = await import('../../components/logoNavToggle.js');
       if (typeof initializeLogoNav === 'function') {
         initializeLogoNav();
         console.log('✅ HomeToBookTransition: Logo navigation toggle initialized');

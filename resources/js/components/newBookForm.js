@@ -1,8 +1,8 @@
-import { openDatabase } from './indexedDB.js';
-import './debugLog.js';
-import { generateBibtexFromForm } from './bibtexProcessor.js';
-import { getCurrentUser, getAnonymousToken } from './auth.js';
-import { loadFromJSONFiles, loadHyperText } from './initializePage.js';
+import { openDatabase } from '../indexedDB.js';
+import '../utilities/debugLog.js';
+import { generateBibtexFromForm } from "../utilities/bibtexProcessor.js";
+import { getCurrentUser, getAnonymousToken } from "../utilities/auth.js";
+import { loadFromJSONFiles, loadHyperText } from '../initializePage.js';
 // Navigation imports moved to new system - see submitToLaravelAndLoad function
 
 // Add the helper functions from createNewBook.js
@@ -638,7 +638,7 @@ async function submitToLaravelAndLoad(formData, submitButton) {
 
   try {
     // Use the new ImportBookTransition pathway
-    const { ImportBookTransition } = await import('./navigation/pathways/ImportBookTransition.js');
+    const { ImportBookTransition } = await import('../navigation/pathways/ImportBookTransition.js');
     
     const result = await ImportBookTransition.handleFormSubmissionAndTransition(formData, submitButton);
     console.log(`🔥 DEBUG: ImportBookTransition completed for ${result.bookId}`);

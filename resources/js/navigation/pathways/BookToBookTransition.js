@@ -148,7 +148,7 @@ export class BookToBookTransition {
       cleanupReaderView();
 
       // Explicitly reset all edit mode state flags as a safeguard
-      const { resetEditModeState } = await import('../../editButton.js');
+      const { resetEditModeState } = await import('../../components/editButton.js');
       resetEditModeState();
       
       // The original cleanup for overlays is still useful here
@@ -257,7 +257,7 @@ export class BookToBookTransition {
     
     // Enforce editable state
     try {
-      const { enforceEditableState } = await import('../../editButton.js');
+      const { enforceEditableState } = await import('../../components/editButton.js');
       enforceEditableState();
     } catch (error) {
       console.warn('Could not enforce editable state:', error);
@@ -278,7 +278,7 @@ export class BookToBookTransition {
       // 🚀 CRITICAL: If we have hash navigation, set the global skip flag BEFORE universalPageInitializer
       // This persists across lazy loader resets and prevents restoreScrollPosition() from interfering
       if (hasHashNavigation) {
-        const { setSkipScrollRestoration } = await import('../../operationState.js');
+        const { setSkipScrollRestoration } = await import('../../utilities/operationState.js');
         console.log(`🔒 Pre-setting skipScrollRestoration = true (hash navigation pending)`);
         setSkipScrollRestoration(true);
       }
@@ -289,7 +289,7 @@ export class BookToBookTransition {
 
       // 🔧 Reinitialize logo navigation toggle
       console.log('🔧 BookToBookTransition: Reinitializing logo navigation toggle');
-      const { initializeLogoNav } = await import('../../logoNavToggle.js');
+      const { initializeLogoNav } = await import('../../components/logoNavToggle.js');
       if (typeof initializeLogoNav === 'function') {
         initializeLogoNav();
         console.log('✅ BookToBookTransition: Logo navigation toggle initialized');

@@ -1,15 +1,15 @@
 // userContainer.js
-import { ContainerManager } from "./containerManager.js";
-import { book } from "./app.js";
+import { ContainerManager } from "../containerManager.js";
+import { book } from "../app.js";
 // MODIFIED: Import more functions from auth.js
 import {
   setCurrentUser,
   clearCurrentUser,
   getCurrentUser,
   getAnonymousToken,
-} from "./auth.js";
-import { clearDatabase } from "./indexedDB.js";
-import { syncBookDataFromDatabase } from "./postgreSQL.js";
+} from "../utilities/auth.js";
+import { clearDatabase } from "../indexedDB.js";
+import { syncBookDataFromDatabase } from "../postgreSQL.js";
 
 export class UserContainerManager extends ContainerManager {
   constructor(containerId, overlayId, buttonId, frozenContainerIds = []) {
@@ -1026,9 +1026,9 @@ export class UserContainerManager extends ContainerManager {
   async triggerContentRefresh(bookId) {
     try {
       console.log(`🎨 Triggering content refresh for ${bookId} with new auth context`);
-      
+
       // Import the lazy loader to refresh content
-      const { currentLazyLoader } = await import('./initializePage.js');
+      const { currentLazyLoader } = await import('../initializePage.js');
       if (currentLazyLoader && typeof currentLazyLoader.refresh === 'function') {
         console.log("🔄 Refreshing lazy loader content with new data");
         await currentLazyLoader.refresh();
@@ -1181,7 +1181,7 @@ export class UserContainerManager extends ContainerManager {
 
       // Use NEW structure-aware navigation system
       // This will automatically detect home→user transition and use DifferentTemplateTransition
-      const { NavigationManager } = await import('./navigation/NavigationManager.js');
+      const { NavigationManager } = await import('../navigation/NavigationManager.js');
       await NavigationManager.navigateByStructure({
         toBook: encodeURIComponent(sanitizedUsername),
         targetUrl: `/u/${encodeURIComponent(sanitizedUsername)}`,

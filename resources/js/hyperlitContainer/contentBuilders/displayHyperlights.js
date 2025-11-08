@@ -4,7 +4,7 @@
  */
 
 import { openDatabase } from '../../indexedDB.js';
-import { getCurrentUserId } from '../../auth.js';
+import { getCurrentUserId } from "../../utilities/auth.js";
 
 /**
  * Build highlight content section
@@ -52,7 +52,7 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
 
 
     // Check if current user can edit any of the books these highlights belong to
-    const { canUserEditBook } = await import('../../auth.js');
+    const { canUserEditBook } = await import('../../utilities/auth.js');
     const bookPermissions = new Map();
 
     // Get unique book IDs and check permissions

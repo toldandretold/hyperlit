@@ -89,22 +89,21 @@ export default defineConfig({
                 'resources/js/indexedDB.js',
                 'resources/js/chunkManager.js',
                 'resources/js/containerCustomization.js',
-                'resources/js/convertMarkdown.js',
-                'resources/js/drag.js',
+                'resources/js/utilities/convertMarkdown.js',
+                'resources/js/utilities/drag.js',
                 'resources/js/editToolbar.js',
                 'resources/js/footnotesCitations.js',
                 'resources/js/homepage.js',                 // ✅ NEW
                 'resources/js/hyperlights/index.js',
                 'resources/js/initializePage.js',
-                'resources/js/lazyLoadingDiv.js',
                 'resources/js/lazyLoaderFactory.js',
-                'resources/js/newBookButton.js',
-                'resources/js/newBookForm.js',
+                'resources/js/components/newBookButton.js',
+                'resources/js/components/newBookForm.js',
                 'resources/js/postgreSQL.js',
                 'resources/js/readerDOMContentLoaded.js',
                 'resources/js/renderOpenBooks.js',
                 'resources/js/scrolling.js',
-                'resources/js/toc.js',      // ✅ NEW
+                'resources/js/components/toc.js',      // ✅ NEW
                 'resources/js/viewManager.js',
                 'resources/js/homepageDisplayUnit.js',
 

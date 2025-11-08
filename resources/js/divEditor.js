@@ -1,5 +1,5 @@
 import { book } from "./app.js";
-import { getCurrentUserId } from "./auth.js";
+import { getCurrentUserId } from "./utilities/auth.js";
 import {
   updateIndexedDBRecord,
   deleteIndexedDBRecordWithRetry,
@@ -21,7 +21,7 @@ import {
   keyboardLayoutInProgress,
   isProgrammaticUpdateInProgress,
   isPasteInProgress
-} from './operationState.js';
+} from './utilities/operationState.js';
 
 import { SaveQueue, debounce } from './divEditor/saveQueue.js';
 import { MutationProcessor } from './divEditor/mutationProcessor.js';
@@ -40,34 +40,34 @@ import {
 // Re-export for backward compatibility
 export { debounce, cleanupStyledSpans, cleanupAfterImport, cleanupAfterPaste };
 
-import { showSpinner, showTick, isProcessing } from './editIndicator.js';
+import { showSpinner, showTick, isProcessing } from './components/editIndicator.js';
 
-import { buildBibtexEntry } from "./bibtexProcessor.js";
+import { buildBibtexEntry } from "./utilities/bibtexProcessor.js";
 import { generateIdBetween,
          setElementIds,
          isNumericalId,
          ensureNodeHasValidId,
-          } from "./IDfunctions.js";
+          } from "./utilities/IDfunctions.js";
 import {
   broadcastToOpenTabs
-} from './BroadcastListener.js';
+} from './utilities/BroadcastListener.js';
 
-import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from './convertMarkdown.js';
+import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from './utilities/convertMarkdown.js';
 
-import { 
-  trackChunkNodeCount, 
-  handleChunkOverflow, 
-  NODE_LIMIT, 
+import {
+  trackChunkNodeCount,
+  handleChunkOverflow,
+  NODE_LIMIT,
   chunkNodeCounts,
   getCurrentChunk
 } from './chunkManager.js';
 import { isPasteOperationActive } from './paste.js';
-import { isChunkLoadingInProgress, getLoadingChunkId } from './chunkLoadingState.js';
-import { SelectionDeletionHandler } from './selectionDelete.js';
+import { isChunkLoadingInProgress, getLoadingChunkId } from './utilities/chunkLoadingState.js';
+import { SelectionDeletionHandler } from './utilities/selectionDelete.js';
 import { initializeMainLazyLoader } from './initializePage.js';
 import { getEditToolbar } from './editToolbar.js';
 import { delinkHypercite, handleHyperciteDeletion } from "./hypercites/index.js";
-import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from './toc.js';
+import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from './components/toc.js';
 
 // ================================================================
 // MODULE STATE

@@ -91,7 +91,7 @@
  * ================================================================================================
  */
 
-import { getNextIntegerId, generateIdBetween, setElementIds, generateNodeId } from './IDfunctions.js';
+import { getNextIntegerId, generateIdBetween, setElementIds, generateNodeId } from "./utilities/IDfunctions.js";
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { 
@@ -122,11 +122,11 @@ import {
   setHandleHypercitePaste,
   isPasteInProgress,
   setPasteInProgress
-} from './operationState.js';
+} from "./utilities/operationState.js";
 import { queueNodeForSave } from './divEditor.js';
-import { broadcastToOpenTabs } from './BroadcastListener.js';
+import { broadcastToOpenTabs } from "./utilities/BroadcastListener.js";
 import { processContentForFootnotesAndReferences } from './paste/fallback-processor.js';
-import { showSpinner, showTick, showError } from './editIndicator.js';
+import { showSpinner, showTick, showError } from './components/editIndicator.js';
 import { detectFormat } from './paste/format-detection/format-detector.js';
 import { getFormatConfig } from './paste/format-detection/format-registry.js';
 import { detectAndConvertUrls } from './paste/utils/url-detector.js';
@@ -1111,7 +1111,7 @@ async function handleJsonPaste(
   }
 
   // Invalidate TOC cache after paste (heading IDs have changed)
-  const { invalidateTocCache } = await import('./toc.js');
+  const { invalidateTocCache } = await import('./components/toc.js');
   invalidateTocCache();
   console.log('🔄 TOC cache invalidated after paste');
 

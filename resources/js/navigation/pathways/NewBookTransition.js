@@ -4,7 +4,7 @@
  * This pathway requires full body replacement and enters edit mode
  */
 import { ProgressManager } from '../ProgressManager.js';
-import { showSpinner, showTick } from '../../editIndicator.js';
+import { showSpinner, showTick } from '../../components/editIndicator.js';
 import { waitForElementReady } from '../../domReadiness.js';
 
 export class NewBookTransition {
@@ -208,7 +208,7 @@ export class NewBookTransition {
     try {
       // Import the debounced sync function and pending syncs map
       const { debouncedMasterSync, pendingSyncs } = await import('../../indexedDB.js');
-      const { showTick } = await import('../../editIndicator.js');
+      const { showTick } = await import('../../components/editIndicator.js');
       
       // If there are pending syncs, force them to complete immediately
       if (pendingSyncs.size > 0) {
@@ -239,8 +239,8 @@ export class NewBookTransition {
     
     try {
       // Import and destroy homepage-specific components
-      const { destroyUserContainer } = await import('../../userContainer.js');
-      const { destroyNewBookContainer } = await import('../../newBookButton.js');
+      const { destroyUserContainer } = await import('../../components/userContainer.js');
+      const { destroyNewBookContainer } = await import('../../components/newBookButton.js');
       if (destroyUserContainer) destroyUserContainer();
       if (destroyNewBookContainer) destroyNewBookContainer();
       console.log('🧹 NewBookTransition: Homepage containers destroyed.');
@@ -322,7 +322,7 @@ export class NewBookTransition {
     
     // Enforce editable state
     try {
-      const { enforceEditableState } = await import('../../editButton.js');
+      const { enforceEditableState } = await import('../../components/editButton.js');
       enforceEditableState();
     } catch (error) {
       console.warn('Could not enforce editable state:', error);
@@ -346,7 +346,7 @@ export class NewBookTransition {
 
       // 🔧 Reinitialize logo navigation toggle
       console.log('🔧 NewBookTransition: Reinitializing logo navigation toggle');
-      const { initializeLogoNav } = await import('../../logoNavToggle.js');
+      const { initializeLogoNav } = await import('../../components/logoNavToggle.js');
       if (typeof initializeLogoNav === 'function') {
         initializeLogoNav();
         console.log('✅ NewBookTransition: Logo navigation toggle initialized');
@@ -384,7 +384,7 @@ export class NewBookTransition {
     console.log('📝 NewBookTransition: Entering edit mode');
     
     try {
-      const { enableEditMode } = await import('../../editButton.js');
+      const { enableEditMode } = await import('../../components/editButton.js');
       await enableEditMode(null, false); // false = don't force redirect
       
       console.log('✅ NewBookTransition: Edit mode enabled');
@@ -427,7 +427,7 @@ export class NewBookTransition {
       
       // Start background sync
       const { fireAndForgetSync } = await import('../../createNewBook.js');
-      const { setInitialBookSyncPromise } = await import('../../operationState.js');
+      const { setInitialBookSyncPromise } = await import('../../utilities/operationState.js');
       
       const syncPromise = fireAndForgetSync(
         pendingSyncData.bookId,
@@ -456,13 +456,13 @@ export class NewBookTransition {
           console.log('✅ NewBookTransition: Initial content sync completed');
           
           // Show green tick - H1 saved to backend
-          const { showTick } = await import('../../editIndicator.js');
+          const { showTick } = await import('../../components/editIndicator.js');
           showTick();
           
         } catch (error) {
           console.warn('Initial content sync failed (will retry later):', error);
           // Show error indicator
-          const { showError } = await import('../../editIndicator.js');
+          const { showError } = await import('../../components/editIndicator.js');
           showError();
         }
       }, 2000); // Wait 2 seconds after transition completes

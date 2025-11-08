@@ -1,6 +1,6 @@
 // operationState.js
 
-import { showSpinner } from "./editIndicator.js";
+import { showSpinner } from "../components/editIndicator.js";
 
 let pendingOperations = 0;
 let unloadWarningActive = false;

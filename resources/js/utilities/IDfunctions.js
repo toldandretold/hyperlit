@@ -1,8 +1,8 @@
-import { updateIndexedDBRecordForNormalization } from "./indexedDB.js";
-import { getAllNodeChunksForBook, renumberNodeChunksInIndexedDB } from "./indexedDB.js";
-import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
-import { book } from "./app.js";
-import { showTick, showError } from "./editIndicator.js";
+import { updateIndexedDBRecordForNormalization } from "../indexedDB.js";
+import { getAllNodeChunksForBook, renumberNodeChunksInIndexedDB } from "../indexedDB.js";
+import { syncIndexedDBtoPostgreSQL } from "../postgreSQL.js";
+import { book } from "../app.js";
+import { showTick, showError } from "../components/editIndicator.js";
 
 // Renumbering system: When IDs get crowded, renumber with 100-gaps
 // Uses node_id as stable reference to preserve node identity
@@ -116,7 +116,7 @@ async function renumberAllNodes() {
   try {
     // 0. Flush all pending saves to IndexedDB first
     console.log('💾 Flushing all pending saves before renumbering...');
-    const { flushAllPendingSaves } = await import('./divEditor.js');
+    const { flushAllPendingSaves } = await import('../divEditor.js');
     await flushAllPendingSaves();
     console.log('✅ All pending saves flushed');
 
@@ -206,7 +206,7 @@ async function renumberAllNodes() {
     showTick();
 
     // 7. Clear any pending syncs queued during the process (they have stale pre-renumber data)
-    const { clearPendingSyncsForBook } = await import('./indexedDB.js');
+    const { clearPendingSyncsForBook } = await import('../indexedDB.js');
     const clearedCount = clearPendingSyncsForBook(book);
     console.log(`✅ RENUMBERING: Cleared ${clearedCount} stale pending syncs`);
 
@@ -216,7 +216,7 @@ async function renumberAllNodes() {
 
     // 8. Update lazy loader's in-memory cache (DOM is already updated in step 4)
     console.log('🔄 RENUMBERING: Updating lazy loader cache from IndexedDB');
-    const { currentLazyLoader } = await import('./initializePage.js');
+    const { currentLazyLoader } = await import('../initializePage.js');
     if (currentLazyLoader) {
       // Just update the in-memory nodeChunks array - DOM elements already updated in step 4
       currentLazyLoader.nodeChunks = await getAllNodeChunksForBook(book);

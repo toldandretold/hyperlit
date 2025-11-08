@@ -95,8 +95,8 @@ export class ImportBookTransition {
     
     try {
       // Import and destroy homepage-specific components
-      const { destroyUserContainer } = await import('../../userContainer.js');
-      const { destroyNewBookContainer } = await import('../../newBookButton.js');
+      const { destroyUserContainer } = await import('../../components/userContainer.js');
+      const { destroyNewBookContainer } = await import('../../components/newBookButton.js');
       if (destroyUserContainer) destroyUserContainer();
       if (destroyNewBookContainer) destroyNewBookContainer();
       console.log('🧹 ImportBookTransition: Homepage containers destroyed.');
@@ -105,7 +105,7 @@ export class ImportBookTransition {
       if (destroyHomepageDisplayUnit) destroyHomepageDisplayUnit();
 
       // Also explicitly reset all edit mode state flags as a safeguard
-      const { resetEditModeState } = await import('../../editButton.js');
+      const { resetEditModeState } = await import('../../components/editButton.js');
       resetEditModeState();
 
       // Also clean up the reader view in case of an inconsistent state
@@ -182,7 +182,7 @@ export class ImportBookTransition {
     
     // Enforce editable state
     try {
-      const { enforceEditableState } = await import('../../editButton.js');
+      const { enforceEditableState } = await import('../../components/editButton.js');
       enforceEditableState();
     } catch (error) {
       console.warn('Could not enforce editable state:', error);
@@ -237,7 +237,7 @@ export class ImportBookTransition {
 
       // 🔧 Reinitialize logo navigation toggle
       console.log('🔧 ImportBookTransition: Reinitializing logo navigation toggle');
-      const { initializeLogoNav } = await import('../../logoNavToggle.js');
+      const { initializeLogoNav } = await import('../../components/logoNavToggle.js');
       if (typeof initializeLogoNav === 'function') {
         initializeLogoNav();
         console.log('✅ ImportBookTransition: Logo navigation toggle initialized');
@@ -259,7 +259,7 @@ export class ImportBookTransition {
     console.log('📝 ImportBookTransition: Entering edit mode');
     
     try {
-      const { enableEditMode } = await import('../../editButton.js');
+      const { enableEditMode } = await import('../../components/editButton.js');
       await enableEditMode(null, false); // false = don't force redirect
       
       console.log('✅ ImportBookTransition: Edit mode enabled');

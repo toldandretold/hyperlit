@@ -1,4 +1,4 @@
-import { renderBlockToHtml } from "./convertMarkdown.js";
+import { renderBlockToHtml } from "./utilities/convertMarkdown.js";
 import { attachMarkListeners } from "./hyperlights/index.js";
 import {
   //saveNodeChunksToIndexedDB,
@@ -11,10 +11,10 @@ import {
   setChunkLoadingInProgress,
   clearChunkLoadingInProgress,
   scheduleAutoClear
-} from './chunkLoadingState.js';
+} from "./utilities/chunkLoadingState.js";
 import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock } from './scrolling.js';
 import { scrollElementIntoMainContent } from "./scrolling.js";
-import { isNewlyCreatedHighlight } from './operationState.js';
+import { isNewlyCreatedHighlight } from "./utilities/operationState.js";
 
 // --- A simple throttle helper to limit scroll firing
 function throttle(fn, delay) {
@@ -166,7 +166,7 @@ export function createLazyLoader(config) {
           // If book is private, check access
           if (libraryData && libraryData.visibility === 'private') {
             console.log('🔒 Target book is private, checking access...');
-            const { canUserEditBook } = await import('./auth.js');
+            const { canUserEditBook } = await import('./utilities/auth.js');
             const hasAccess = await canUserEditBook(targetBookId);
 
             if (!hasAccess) {

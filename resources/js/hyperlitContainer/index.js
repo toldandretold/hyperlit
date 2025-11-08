@@ -64,7 +64,7 @@ export {
 
 import { book } from '../app.js';
 import { openDatabase } from '../indexedDB.js';
-import { getCurrentUserId } from '../auth.js';
+import { getCurrentUserId } from "../utilities/auth.js";
 import { openHyperlitContainer } from './core.js';
 import { detectContentTypes } from './detection.js';
 import { determineSingleContentHash } from './history.js';
@@ -545,7 +545,7 @@ async function checkPrivateBookAccess() {
   const privateLinks = document.querySelectorAll('[data-private="true"]');
   if (privateLinks.length === 0) return;
 
-  const { canUserEditBook } = await import('../auth.js');
+  const { canUserEditBook } = await import('../utilities/auth.js');
 
   for (const link of privateLinks) {
     const bookId = link.getAttribute('data-book-id');

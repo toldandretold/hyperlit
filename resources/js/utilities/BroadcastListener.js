@@ -1,9 +1,9 @@
 // BroadcastListener.js
 
-import { book } from "./app.js"; // current book identifier
-import { applyHypercites, applyHighlights } from "./lazyLoaderFactory.js"; // adjust path as needed
-import { attachUnderlineClickListeners } from "./hypercites/index.js";
-import { setProgrammaticUpdateInProgress } from './operationState.js';
+import { book } from "../app.js"; // current book identifier
+import { applyHypercites, applyHighlights } from "../lazyLoaderFactory.js"; // adjust path as needed
+import { attachUnderlineClickListeners } from "../hypercites/index.js";
+import { setProgrammaticUpdateInProgress } from "./operationState.js";
 
 export function initializeBroadcastListener() {
   const channel = new BroadcastChannel("node-updates");

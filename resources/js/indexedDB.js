@@ -1,14 +1,14 @@
 // In indexedDB.js
 
-import { broadcastToOpenTabs } from "./BroadcastListener.js";
-import { withPending, getInitialBookSyncPromise } from "./operationState.js";
+import { broadcastToOpenTabs } from "./utilities/BroadcastListener.js";
+import { withPending, getInitialBookSyncPromise } from "./utilities/operationState.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
-import { getCurrentUser } from "./auth.js";
+import { getCurrentUser } from "./utilities/auth.js";
 import { debounce } from "./divEditor.js";
 import { book } from "./app.js";
 import { clearRedoHistory } from "./historyManager.js";
 import { getEditToolbar } from "./editToolbar.js";
-import { showTick, showError } from "./editIndicator.js";
+import { showTick, showError } from "./components/editIndicator.js";
 
 // IMPORTANT: Increment this version number ONLY when you need to change the database schema.
 // For instance, if you add a new store, add a new index, or modify a keyPath.

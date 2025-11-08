@@ -12,14 +12,14 @@ import { universalPageInitializer } from "./viewManager.js";
 import { initializeHomepage } from "./homepage.js";
 import { initializeFootnoteCitationListeners } from "./footnotesCitations.js";
 // ✅ This import is correct. We just need to use it.
-import { setInitialBookSyncPromise } from "./operationState.js";
-import { generateTableOfContents } from "./toc.js";
+import { setInitialBookSyncPromise } from "./utilities/operationState.js";
+import { generateTableOfContents } from "./components/toc.js";
 import { attachMarkListeners } from "./hyperlights/index.js";
-import TogglePerimeterButtons from "./togglePerimeterButtons.js";
+import TogglePerimeterButtons from "./components/togglePerimeterButtons.js";
 import { showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
 import { pendingFirstChunkLoadedPromise } from "./initializePage.js";
-import { initializeUserProfileEditor } from "./userProfileEditor.js";
-import { initializeLogoNav } from "./logoNavToggle.js";
+import { initializeUserProfileEditor } from "./components/userProfileEditor.js";
+import { initializeLogoNav } from "./components/logoNavToggle.js";
 
 // Progress bar control functions
 export function updatePageLoadProgress(percent, message = null) {

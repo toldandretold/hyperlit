@@ -6,8 +6,8 @@
 
 import { book } from '../../app.js';
 import { openDatabase } from '../../indexedDB.js';
-import { formatBibtexToCitation } from '../../bibtexProcessor.js';
-import { canUserEditBook } from '../../auth.js';
+import { formatBibtexToCitation } from "../../utilities/bibtexProcessor.js";
+import { canUserEditBook } from "../../utilities/auth.js";
 
 /**
  * Build hypercite content section
@@ -618,7 +618,7 @@ async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCit
   console.log('✅ Sync queue flushed');
 
   // Broadcast changes to other tabs
-  const { broadcastToOpenTabs } = await import('../../BroadcastListener.js');
+  const { broadcastToOpenTabs } = await import('../../utilities/BroadcastListener.js');
   updatedNodeChunks.forEach(chunk => {
     broadcastToOpenTabs(sourceBook, chunk.startLine);
   });

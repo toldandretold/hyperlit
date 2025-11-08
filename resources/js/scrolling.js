@@ -136,7 +136,7 @@ import {
   getNodeChunksFromIndexedDB,
   getLocalStorageKey
 } from "./indexedDB.js";
-import { parseMarkdownIntoChunksInitial } from "./convertMarkdown.js";
+import { parseMarkdownIntoChunksInitial } from "./utilities/convertMarkdown.js";
 import { currentLazyLoader, pendingFirstChunkLoadedPromise } from "./initializePage.js";
 import { repositionSentinels } from "./lazyLoaderFactory.js"; // if exported
 import {
@@ -145,7 +145,7 @@ import {
   waitForChunkLoadingComplete
 } from "./domReadiness.js";
 import { highlightTargetHypercite } from "./hypercites/index.js";
-import { shouldSkipScrollRestoration as shouldSkipScrollRestorationGlobal, setSkipScrollRestoration } from "./operationState.js";
+import { shouldSkipScrollRestoration as shouldSkipScrollRestorationGlobal, setSkipScrollRestoration } from "./utilities/operationState.js";
 
 // ========= Scrolling Helper Functions =========
 

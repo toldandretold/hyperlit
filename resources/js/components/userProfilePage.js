@@ -41,7 +41,7 @@ export function initializeUserProfilePage() {
         libraryCard.remove();
 
         // 2. Queue the node chunk for deletion in IndexedDB
-        const { batchDeleteIndexedDBRecords } = await import('./indexedDB.js');
+        const { batchDeleteIndexedDBRecords } = await import('../indexedDB.js');
         batchDeleteIndexedDBRecords([nodeId]);
 
         // 3. Send delete request to the server in the background

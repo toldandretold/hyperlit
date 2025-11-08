@@ -2,7 +2,7 @@
  * Annotations module - Handles annotation saving and management
  */
 
-import { withPending } from "../operationState.js";
+import { withPending } from "../utilities/operationState.js";
 import { openDatabase, queueForSync } from "../indexedDB.js";
 
 /**

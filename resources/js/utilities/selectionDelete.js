@@ -1,4 +1,4 @@
-import { batchDeleteIndexedDBRecords } from "./indexedDB.js";
+import { batchDeleteIndexedDBRecords } from "../indexedDB.js";
 
 
 export class SelectionDeletionHandler {
@@ -140,7 +140,7 @@ export class SelectionDeletionHandler {
     if (nodesToUpdate.length > 0) {
       console.log(`🔄 Updating ${nodesToUpdate.length} partially selected boundary elements in IndexedDB`);
       // Dynamically import and call batchUpdateIndexedDBRecords
-      import('./indexedDB.js').then(module => {
+      import('../indexedDB.js').then(module => {
         if (module.batchUpdateIndexedDBRecords) {
           module.batchUpdateIndexedDBRecords(nodesToUpdate);
         } else {
@@ -156,9 +156,9 @@ export class SelectionDeletionHandler {
 
 batchDeleteFromIndexedDB(nodeIds) {
   console.log('🔍 About to call batchDeleteIndexedDBRecords with:', nodeIds);
-  
+
   // Import the function if not already imported
-  import('./indexedDB.js').then(module => {
+  import('../indexedDB.js').then(module => {
     const { batchDeleteIndexedDBRecords } = module;
     
     return batchDeleteIndexedDBRecords(nodeIds);

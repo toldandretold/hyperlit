@@ -1,4 +1,4 @@
-import { getCurrentUserId } from './auth.js';
+import { getCurrentUserId } from "./auth.js";
 
 /**
  * Converts a BibTeX entry into a formatted academic citation.

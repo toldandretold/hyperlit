@@ -1,8 +1,8 @@
-import { ContainerManager } from "./containerManager.js";
-import { openDatabase, getNodeChunksFromIndexedDB, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from "./indexedDB.js";
-import { formatBibtexToCitation, generateBibtexFromForm } from "./bibtexProcessor.js";
-import { book } from "./app.js";
-import { canUserEditBook } from "./auth.js";
+import { ContainerManager } from "../containerManager.js";
+import { openDatabase, getNodeChunksFromIndexedDB, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from "../indexedDB.js";
+import { formatBibtexToCitation, generateBibtexFromForm } from "../utilities/bibtexProcessor.js";
+import { book } from "../app.js";
+import { canUserEditBook } from "../utilities/auth.js";
 import { htmlToText } 
   from 'https://cdn.skypack.dev/html-to-text';
   import {

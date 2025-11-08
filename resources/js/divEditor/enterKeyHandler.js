@@ -8,9 +8,9 @@
  * - Shift+Enter for line breaks within paragraphs
  */
 
-import { chunkOverflowInProgress } from '../operationState.js';
+import { chunkOverflowInProgress } from "../utilities/operationState.js";
 import { book } from '../app.js';
-import { generateIdBetween, setElementIds, ensureNodeHasValidId } from '../IDfunctions.js';
+import { generateIdBetween, setElementIds, ensureNodeHasValidId } from "../utilities/IDfunctions.js";
 import { queueNodeForSave } from '../divEditor.js';
 
 /**
@@ -146,7 +146,7 @@ function createAndInsertParagraph(blockElement, chunkContainer, content, selecti
     queueNodeForSave(newParagraph.id, 'add');
 
     // Import and trigger renumbering
-    import('../IDfunctions.js').then(({ triggerRenumberingWithModal }) => {
+    import('../utilities/IDfunctions.js').then(({ triggerRenumberingWithModal }) => {
       triggerRenumberingWithModal(0).catch(err => {
         console.error('Background renumbering failed:', err);
       });
