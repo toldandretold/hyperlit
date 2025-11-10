@@ -3,7 +3,7 @@
  */
 
 import { parseHyperciteHref, attachUnderlineClickListeners } from "../hypercites/index.js";
-import { extractQuotedText } from '../paste.js';
+import { extractQuotedText } from '../paste';
 import { updateCitationForExistingHypercite } from '../indexedDB.js';
 import { book } from '../app.js';
 import { broadcastToOpenTabs } from "../utilities/BroadcastListener.js";

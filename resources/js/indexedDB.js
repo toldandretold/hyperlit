@@ -7,7 +7,7 @@ import { getCurrentUser } from "./utilities/auth.js";
 import { debounce } from "./divEditor.js";
 import { book } from "./app.js";
 import { clearRedoHistory } from "./historyManager.js";
-import { getEditToolbar } from "./editToolbar.js";
+import { getEditToolbar } from "./editToolbar";
 import { showTick, showError } from "./components/editIndicator.js";
 
 // IMPORTANT: Increment this version number ONLY when you need to change the database schema.

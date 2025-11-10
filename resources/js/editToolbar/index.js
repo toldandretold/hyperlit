@@ -4,15 +4,15 @@
 import {
   updateIndexedDBRecord,
   deleteIndexedDBRecord,
-} from "./indexedDB.js";
-import { SelectionManager } from "./editToolbar/selectionManager.js";
-import { ButtonStateManager } from "./editToolbar/buttonStateManager.js";
-import { HistoryHandler } from "./editToolbar/historyHandler.js";
-import { HeadingSubmenu } from "./editToolbar/headingSubmenu.js";
-import { TextFormatter } from "./editToolbar/textFormatter.js";
-import { ListConverter } from "./editToolbar/listConverter.js";
-import { BlockFormatter } from "./editToolbar/blockFormatter.js";
-import { setCurrentBookId } from "./historyManager.js";
+} from "../indexedDB.js";
+import { SelectionManager } from "./selectionManager.js";
+import { ButtonStateManager } from "./buttonStateManager.js";
+import { HistoryHandler } from "./historyHandler.js";
+import { HeadingSubmenu } from "./headingSubmenu.js";
+import { TextFormatter } from "./textFormatter.js";
+import { ListConverter } from "./listConverter.js";
+import { BlockFormatter } from "./blockFormatter.js";
+import { setCurrentBookId } from "../historyManager.js";
 
 // Private module-level variable to hold the toolbar instance
 let editToolbarInstance = null;

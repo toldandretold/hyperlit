@@ -91,7 +91,7 @@ export default defineConfig({
                 'resources/js/containerCustomization.js',
                 'resources/js/utilities/convertMarkdown.js',
                 'resources/js/utilities/drag.js',
-                'resources/js/editToolbar.js',
+                'resources/js/editToolbar/index.js',
                 'resources/js/footnotesCitations.js',
                 'resources/js/homepage.js',                 // ✅ NEW
                 'resources/js/hyperlights/index.js',

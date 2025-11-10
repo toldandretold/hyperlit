@@ -4,10 +4,10 @@ import {
 } from "../divEditor.js";
 import { book } from "../app.js";
 import { incrementPendingOperations, decrementPendingOperations } from '../utilities/operationState.js';
-import { addPasteListener } from '../paste.js';
+import { addPasteListener } from '../paste';
 import { getCurrentUser, canUserEditBook } from "../utilities/auth.js";
 import { getLibraryObjectFromIndexedDB } from '../indexedDB.js';
-import { initEditToolbar, getEditToolbar } from '../editToolbar.js';
+import { initEditToolbar, getEditToolbar } from '../editToolbar';
 import userManager from "./userContainer.js";
 import { pendingFirstChunkLoadedPromise } from '../initializePage.js';
 

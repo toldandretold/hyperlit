@@ -2,7 +2,7 @@
 
 import { openDatabase } from "./indexedDB.js";
 import { currentLazyLoader } from "./initializePage.js";
-import { getEditToolbar } from "./editToolbar.js";
+import { getEditToolbar } from "./editToolbar";
 
 // Private module-level variable to store the current book ID
 let currentBookId = null;

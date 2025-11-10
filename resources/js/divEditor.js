@@ -61,11 +61,11 @@ import {
   chunkNodeCounts,
   getCurrentChunk
 } from './chunkManager.js';
-import { isPasteOperationActive } from './paste.js';
+import { isPasteOperationActive } from './paste';
 import { isChunkLoadingInProgress, getLoadingChunkId } from './utilities/chunkLoadingState.js';
 import { SelectionDeletionHandler } from './utilities/selectionDelete.js';
 import { initializeMainLazyLoader } from './initializePage.js';
-import { getEditToolbar } from './editToolbar.js';
+import { getEditToolbar } from './editToolbar';
 import { delinkHypercite, handleHyperciteDeletion } from "./hypercites/index.js";
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from './components/toc.js';
 

@@ -16,7 +16,7 @@ import { showSpinner, isProcessing } from '../components/editIndicator.js';
 import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../chunkManager.js';
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../components/toc.js';
 import { deleteIndexedDBRecordWithRetry } from '../indexedDB.js';
-import { isPasteOperationActive } from '../paste.js';
+import { isPasteOperationActive } from '../paste';
 
 /**
  * ChunkMutationHandler class
