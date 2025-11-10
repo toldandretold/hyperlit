@@ -10,7 +10,7 @@
  */
 
 import { NODE_LIMIT } from '../../chunkManager.js';
-import { getNextIntegerId, generateNodeId } from '../../IDfunctions.js';
+import { getNextIntegerId, generateNodeId } from "../../utilities/IDfunctions.js";
 
 /**
  * Convert text blocks to JSON objects for storage

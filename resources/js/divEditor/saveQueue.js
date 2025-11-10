@@ -9,8 +9,8 @@ import {
   batchUpdateIndexedDBRecords,
   batchDeleteIndexedDBRecords,
   deleteIndexedDBRecordWithRetry
-} from '../indexedDB.js';
-import { isPasteOperationActive } from '../paste.js';
+} from '../indexedDB/index.js';
+import { isPasteOperationActive } from '../paste';
 
 // ================================================================
 // DEBOUNCING INFRASTRUCTURE

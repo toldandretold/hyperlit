@@ -1,9 +1,9 @@
 // In resources/js/homepage.js
 
-import './userContainer.js';
+import './components/userContainer.js';
 import { initializeHomepageButtons } from './homepageDisplayUnit.js';
-import TogglePerimeterButtons from './togglePerimeterButtons.js';
-import './newBookButton.js'; 
+import TogglePerimeterButtons from './components/togglePerimeterButtons.js';
+import './components/newBookButton.js'; 
 import { initializeLazyLoaderForContainer } from './initializePage.js';
 
 export async function initializeHomepage() {
@@ -31,7 +31,7 @@ export async function initializeHomepage() {
   // Rebind button managers after SPA transition to ensure they reference correct DOM elements
   try {
     // Import and rebind userContainer manager
-    const userContainerModule = await import('./userContainer.js');
+    const userContainerModule = await import('./components/userContainer.js');
     if (userContainerModule.default && userContainerModule.default.rebindElements) {
       userContainerModule.default.rebindElements();
       console.log('✅ User button rebound after SPA transition');
@@ -43,8 +43,8 @@ export async function initializeHomepage() {
       }
     }
     
-    // Import and rebind newBookButton manager  
-    const newBookModule = await import('./newBookButton.js');
+    // Import and rebind newBookButton manager
+    const newBookModule = await import('./components/newBookButton.js');
     if (newBookModule.default && newBookModule.default.rebindElements) {
       newBookModule.default.rebindElements();
       console.log('✅ New book button rebound after SPA transition');

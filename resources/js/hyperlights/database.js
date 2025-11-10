@@ -3,8 +3,8 @@
  */
 
 import { book } from '../app.js';
-import { openDatabase, parseNodeId, createNodeChunksKey } from '../indexedDB.js';
-import { getCurrentUser, getCurrentUserId } from '../auth.js';
+import { openDatabase, parseNodeId, createNodeChunksKey } from '../indexedDB/index.js';
+import { getCurrentUser, getCurrentUserId } from "../utilities/auth.js";
 
 /**
  * Add a new highlight to the hyperlights table

@@ -1,20 +1,20 @@
-import { renderBlockToHtml } from "./convertMarkdown.js";
+import { renderBlockToHtml } from "./utilities/convertMarkdown.js";
 import { attachMarkListeners } from "./hyperlights/index.js";
 import {
   //saveNodeChunksToIndexedDB,
   getNodeChunksFromIndexedDB,
   getLocalStorageKey,
   getHyperciteFromIndexedDB
-} from "./indexedDB.js";
+} from "./indexedDB/index.js";
 import { attachUnderlineClickListeners } from "./hypercites/index.js";
 import {
   setChunkLoadingInProgress,
   clearChunkLoadingInProgress,
   scheduleAutoClear
-} from './chunkLoadingState.js';
+} from "./utilities/chunkLoadingState.js";
 import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock } from './scrolling.js';
 import { scrollElementIntoMainContent } from "./scrolling.js";
-import { isNewlyCreatedHighlight } from './operationState.js';
+import { isNewlyCreatedHighlight } from "./utilities/operationState.js";
 
 // --- A simple throttle helper to limit scroll firing
 function throttle(fn, delay) {
@@ -153,7 +153,7 @@ export function createLazyLoader(config) {
 
         // Check if target book is private and if user has access
         try {
-          const { openDatabase } = await import('./indexedDB.js');
+          const { openDatabase } = await import('./indexedDB/index.js');
           const db = await openDatabase();
           const tx = db.transaction('library', 'readonly');
           const libraryStore = tx.objectStore('library');
@@ -166,7 +166,7 @@ export function createLazyLoader(config) {
           // If book is private, check access
           if (libraryData && libraryData.visibility === 'private') {
             console.log('🔒 Target book is private, checking access...');
-            const { canUserEditBook } = await import('./auth.js');
+            const { canUserEditBook } = await import('./utilities/auth.js');
             const hasAccess = await canUserEditBook(targetBookId);
 
             if (!hasAccess) {

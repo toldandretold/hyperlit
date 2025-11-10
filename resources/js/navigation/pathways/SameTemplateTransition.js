@@ -155,7 +155,7 @@ export class SameTemplateTransition {
       const currentStructure = document.body.getAttribute('data-page');
       if (currentStructure === 'user') {
         console.log('🧹 SameTemplateTransition: Destroying user profile editor listeners');
-        const { destroyUserProfileEditor } = await import('../../userProfileEditor.js');
+        const { destroyUserProfileEditor } = await import('../../components/userProfileEditor.js');
         if (typeof destroyUserProfileEditor === 'function') {
           destroyUserProfileEditor();
         }
@@ -205,7 +205,7 @@ export class SameTemplateTransition {
       // 🔧 CRITICAL: Reinitialize user profile editor if on user page
       if (currentStructure === 'user') {
         console.log('🔧 SameTemplateTransition: Reinitializing user profile editor');
-        const { initializeUserProfileEditor } = await import('../../userProfileEditor.js');
+        const { initializeUserProfileEditor } = await import('../../components/userProfileEditor.js');
         if (typeof initializeUserProfileEditor === 'function') {
           await initializeUserProfileEditor(bookId);
         }
@@ -224,7 +224,7 @@ export class SameTemplateTransition {
 
       // 🔧 CRITICAL: Reinitialize logo navigation toggle
       console.log('🔧 SameTemplateTransition: Reinitializing logo navigation toggle');
-      const { destroyLogoNav, initializeLogoNav } = await import('../../logoNavToggle.js');
+      const { destroyLogoNav, initializeLogoNav } = await import('../../components/logoNavToggle.js');
       if (destroyLogoNav && initializeLogoNav) {
         destroyLogoNav();
         initializeLogoNav();
@@ -233,7 +233,7 @@ export class SameTemplateTransition {
 
       // 🔧 CRITICAL: Reinitialize user container (userButton in logoNavWrapper on user/reader pages)
       console.log('🔧 SameTemplateTransition: Reinitializing user container');
-      const { initializeUserContainer } = await import('../../userContainer.js');
+      const { initializeUserContainer } = await import('../../components/userContainer.js');
       const userManager = initializeUserContainer();
       if (userManager && userManager.initializeUser) {
         await userManager.initializeUser();

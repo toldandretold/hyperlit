@@ -18,7 +18,7 @@ import {
   setElementIds,
   findPreviousElementId,
   findNextElementId,
-} from "../IDfunctions.js";
+} from "../utilities/IDfunctions.js";
 
 /**
  * HeadingSubmenu class

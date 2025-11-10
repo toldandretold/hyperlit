@@ -1,34 +1,32 @@
 
 
 import { book, setCurrentBook } from "./app.js";
-import { getCurrentUser, getAnonymousToken } from "./auth.js";
-import { checkEditPermissionsAndUpdateUI } from "./editButton.js";
+import { getCurrentUser, getAnonymousToken } from "./utilities/auth.js";
+import { checkEditPermissionsAndUpdateUI } from "./components/editButton.js";
 
-import { stopObserving } from "./divEditor.js";
-import { initEditToolbar, destroyEditToolbar } from "./editToolbar.js";
+// ✅ Lazy-loaded edit modules (only loaded when editing)
+// import { stopObserving } from "./divEditor/index.js";
+// import { initEditToolbar, destroyEditToolbar } from "./editToolbar";
 import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
-import {
-  attachMarkListeners,
-  initializeHighlightingControls,
-  initializeHighlightManager,
-} from "./hyperlights/index.js";
+import { attachMarkListeners, initializeHighlightManager } from "./hyperlights/index.js";
+import { initializeHighlightingControls } from "./hyperlights/selection.js";
 import { initializeHypercitingControls } from "./hypercites/index.js";
-import { initializeBroadcastListener } from "./BroadcastListener.js";
-import { setupUnloadSync } from "./indexedDB.js";
-import { generateTableOfContents, destroyTocManager, initializeTocManager } from "./toc.js";
+import { initializeBroadcastListener } from "./utilities/BroadcastListener.js";
+import { setupUnloadSync } from "./indexedDB/index.js";
+import { generateTableOfContents, destroyTocManager, initializeTocManager } from "./components/toc.js";
 import { KeyboardManager } from "./keyboardManager.js";
 import {
   initializeEditButtonListeners,
   updateEditButtonVisibility,
   handleAutoEdit,
   enforceEditableState
-} from "./editButton.js";
-import { initializeSourceButtonListener } from "./sourceButton.js";
+} from "./components/editButton.js";
+import { initializeSourceButtonListener } from "./components/sourceButton.js";
 import {
   initializeSelectionHandler,
   destroySelectionHandler,
-} from "./selectionHandler.js";
-import { SelectionDeletionHandler } from "./selectionDelete.js";
+} from "./utilities/selectionHandler.js";
+import { SelectionDeletionHandler } from "./utilities/selectionDelete.js";
 import {
   loadHyperText,
   pendingFirstChunkLoadedPromise,
@@ -95,7 +93,7 @@ window.addEventListener("pageshow", (event) => {
   }
 });
 
-export function cleanupReaderView() {
+export async function cleanupReaderView() {
   console.log("🧹 Cleaning up previous reader view...");
 
   // Close any open containers before destroying the view
@@ -145,8 +143,22 @@ export function cleanupReaderView() {
     activeSelectionDeletionHandler.destroy();
     activeSelectionDeletionHandler = null;
   }
-  destroyEditToolbar();
-  stopObserving();
+
+  // ✅ Dynamically import edit modules only if they were loaded
+  try {
+    const { destroyEditToolbar } = await import('./editToolbar/index.js');
+    destroyEditToolbar();
+  } catch (e) {
+    // Module not loaded yet, nothing to destroy
+  }
+
+  try {
+    const { stopObserving } = await import('./divEditor/index.js');
+    stopObserving();
+  } catch (e) {
+    // Module not loaded yet, nothing to stop
+  }
+
   destroySelectionHandler();
   destroyTocManager();
 }
@@ -220,7 +232,7 @@ export async function initializeImportedBook(bookId) {
     await initializeImportedReaderView(bookId);
 
     console.log("🎯 Enabling edit mode for imported book");
-    const { enableEditMode } = await import('./editButton.js');
+    const { enableEditMode } = await import('./components/editButton.js');
     await enableEditMode(null, false);
     
     history.replaceState({}, "", `/${bookId}/edit?target=1&edit=1`);
@@ -255,7 +267,7 @@ export async function initializeImportedReaderView(bookId) {
 
   // ✅ NOW call handleAutoEdit since the page is fully initialized
   console.log("🎯 Checking for auto-edit after imported book initialization");
-  import('./editButton.js').then(module => {
+  import('./components/editButton.js').then(module => {
     module.handleAutoEdit();
   });
   
@@ -744,11 +756,11 @@ export async function universalPageInitializer(progressCallback = null) {
     initializeSelectionHandler();
     
     // Initialize user profile page functionality if user owns this book
-    const { getCurrentUser } = await import('./auth.js');
+    const { getCurrentUser } = await import('./utilities/auth.js');
     const user = await getCurrentUser();
     console.log(`🔍 USER PROFILE CHECK: user=${user?.name || 'null'}, currentBookId=${currentBookId}`);
     if (user && user.name === currentBookId) {
-      const { initializeUserProfilePage } = await import('./userProfilePage.js');
+      const { initializeUserProfilePage } = await import('./components/userProfilePage.js');
       initializeUserProfilePage();
       console.log("✅ User profile page functionality initialized");
     } else {
@@ -768,6 +780,8 @@ export async function universalPageInitializer(progressCallback = null) {
       console.log(`ℹ️ No .main-content found for SelectionDeletionHandler (page type: ${currentPageType})`);
     }
     
+    // ✅ Dynamically import edit toolbar only when needed
+    const { initEditToolbar } = await import('./editToolbar/index.js');
     initEditToolbar({
       toolbarId: "edit-toolbar",
       editableSelector: ".main-content[contenteditable='true']",
@@ -914,7 +928,7 @@ async function initializeUniversalComponents(pageType) {
         // Initialize user container - works on both homepage and reader pages
         try {
           // Import the user container module to trigger its initialization
-          await import('./userContainer.js');
+          await import('./components/userContainer.js');
           console.log('✅ User container initialized for universal access');
         } catch (error) {
           console.warn('Could not initialize user container:', error);

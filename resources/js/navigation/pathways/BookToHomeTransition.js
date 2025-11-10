@@ -110,7 +110,7 @@ export class BookToHomeTransition {
       cleanupReaderView();
 
       // Explicitly reset all edit mode state flags as a safeguard
-      const { resetEditModeState } = await import('../../editButton.js');
+      const { resetEditModeState } = await import('../../components/editButton.js');
       resetEditModeState();
       
       // Close any open containers but don't destroy managers - they'll rebind to new DOM
@@ -144,7 +144,7 @@ export class BookToHomeTransition {
       // Close source container if open
       const sourceButton = document.getElementById('cloudRef');
       if (sourceButton) {
-        const { default: sourceManager } = await import('../../sourceButton.js');
+        const { default: sourceManager } = await import('../../components/sourceButton.js');
         if (sourceManager && sourceManager.isOpen) {
           sourceManager.closeContainer();
           console.log('🧹 Closed source container');
@@ -277,7 +277,7 @@ export class BookToHomeTransition {
       console.log('🔧 BookToHomeTransition: userButton exists?', !!userButton, userButton);
       
       // Initialize homepage-specific managers
-      const { initializeUserContainer } = await import('../../userContainer.js');
+      const { initializeUserContainer } = await import('../../components/userContainer.js');
       const userManager = initializeUserContainer();
       console.log('🔧 BookToHomeTransition: User manager created?', !!userManager, userManager);
       
@@ -286,7 +286,7 @@ export class BookToHomeTransition {
         console.log('✅ BookToHomeTransition: User state reinitialized');
       }
       
-      const { initializeNewBookContainer } = await import('../../newBookButton.js');
+      const { initializeNewBookContainer } = await import('../../components/newBookButton.js');
       const newBookManager = initializeNewBookContainer();
 
       const { initializeHomepageButtons } = await import('../../homepageDisplayUnit.js');
@@ -297,7 +297,7 @@ export class BookToHomeTransition {
 
       // 🔧 Reinitialize logo navigation toggle
       console.log('🔧 BookToHomeTransition: Reinitializing logo navigation toggle');
-      const { initializeLogoNav } = await import('../../logoNavToggle.js');
+      const { initializeLogoNav } = await import('../../components/logoNavToggle.js');
       if (typeof initializeLogoNav === 'function') {
         initializeLogoNav();
         console.log('✅ BookToHomeTransition: Logo navigation toggle initialized');

@@ -5,9 +5,9 @@
  */
 
 import { book } from '../../app.js';
-import { openDatabase } from '../../indexedDB.js';
-import { formatBibtexToCitation } from '../../bibtexProcessor.js';
-import { canUserEditBook } from '../../auth.js';
+import { openDatabase } from '../../indexedDB/index.js';
+import { formatBibtexToCitation } from "../../utilities/bibtexProcessor.js";
+import { canUserEditBook } from "../../utilities/auth.js";
 
 /**
  * Build hypercite content section
@@ -471,7 +471,7 @@ export async function handleHyperciteHealthCheck(event) {
  * @param {Array<{url: string, sourceHyperciteId: string}>} brokenCitations - Citations to remove
  */
 async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCitations) {
-  const { queueForSync, debouncedMasterSync, updateBookTimestamp } = await import('../../indexedDB.js');
+  const { queueForSync, debouncedMasterSync, updateBookTimestamp } = await import('../../indexedDB/index.js');
   const db = await openDatabase();
 
   const brokenUrls = brokenCitations.map(c => c.url);
@@ -618,7 +618,7 @@ async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCit
   console.log('✅ Sync queue flushed');
 
   // Broadcast changes to other tabs
-  const { broadcastToOpenTabs } = await import('../../BroadcastListener.js');
+  const { broadcastToOpenTabs } = await import('../../utilities/BroadcastListener.js');
   updatedNodeChunks.forEach(chunk => {
     broadcastToOpenTabs(sourceBook, chunk.startLine);
   });

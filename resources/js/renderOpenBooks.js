@@ -1,6 +1,6 @@
 // renderOpenBooks.js
-import { openDatabase } from './indexedDB.js';
-import { formatBibtexToCitation } from './bibtexProcessor.js';
+import { openDatabase } from './indexedDB/index.js';
+import { formatBibtexToCitation } from "./utilities/bibtexProcessor.js";
 
 async function getAllRecords(db, storeName) {
   return new Promise((resolve, reject) => {

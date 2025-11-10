@@ -17,6 +17,48 @@ function getNetworkIp() {
 }
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          // ✅ Code-splitting optimization for edit-only modules
+
+          // Paste system (lazy loaded only when editing)
+          if (id.includes('/resources/js/paste/')) {
+            return 'paste-system';
+          }
+
+          // divEditor (lazy loaded only when editing)
+          if (id.includes('/resources/js/divEditor/')) {
+            return 'editor';
+          }
+
+          // editToolbar (lazy loaded only when editing)
+          if (id.includes('/resources/js/editToolbar/')) {
+            return 'editor';
+          }
+
+          // historyManager (lazy loaded only when editing)
+          if (id.includes('/resources/js/historyManager.js')) {
+            return 'editor';
+          }
+
+          // Highlighting system (core feature - keep separate)
+          if (id.includes('/resources/js/hyperlights/') ||
+              id.includes('/resources/js/hypercites/')) {
+            return 'highlights';
+          }
+
+          // Large vendor libraries
+          if (id.includes('node_modules')) {
+            if (id.includes('rangy')) {
+              return 'vendor-rangy';
+            }
+          }
+        }
+      }
+    }
+  },
   server: {
     host: process.env.VITE_HOST || '0.0.0.0',
     port: process.env.VITE_PORT || 5173,
@@ -86,29 +128,28 @@ export default defineConfig({
 
                 // JAVASCRIPT (sorted, with new files added)
                 'resources/js/app.js',
-                'resources/js/indexedDB.js',
                 'resources/js/chunkManager.js',
                 'resources/js/containerCustomization.js',
-                'resources/js/convertMarkdown.js',
-                'resources/js/drag.js',
-                'resources/js/editToolbar.js',
+                'resources/js/utilities/convertMarkdown.js',
+                'resources/js/utilities/drag.js',
+                'resources/js/editToolbar/index.js',
                 'resources/js/footnotesCitations.js',
                 'resources/js/homepage.js',                 // ✅ NEW
                 'resources/js/hyperlights/index.js',
                 'resources/js/initializePage.js',
-                'resources/js/lazyLoadingDiv.js',
                 'resources/js/lazyLoaderFactory.js',
-                'resources/js/newBookButton.js',
-                'resources/js/newBookForm.js',
+                'resources/js/components/newBookButton.js',
+                'resources/js/components/newBookForm.js',
                 'resources/js/postgreSQL.js',
                 'resources/js/readerDOMContentLoaded.js',
                 'resources/js/renderOpenBooks.js',
                 'resources/js/scrolling.js',
-                'resources/js/toc.js',      // ✅ NEW
+                'resources/js/components/toc.js',      // ✅ NEW
                 'resources/js/viewManager.js',
                 'resources/js/homepageDisplayUnit.js',
 
                 // divEditor modules
+                'resources/js/divEditor/index.js',
                 'resources/js/divEditor/saveQueue.js',
                 'resources/js/divEditor/mutationProcessor.js',
                 'resources/js/divEditor/enterKeyHandler.js',

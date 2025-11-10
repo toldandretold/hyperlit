@@ -3,7 +3,7 @@
  */
 
 import { book } from '../app.js';
-import { updateBookTimestamp, queueForSync } from '../indexedDB.js';
+import { updateBookTimestamp, queueForSync } from '../indexedDB/index.js';
 import { calculateCleanTextOffset, findContainerWithNumericalId } from './calculations.js';
 import { modifyNewMarks } from './marks.js';
 import { attachMarkListeners, addTouchAndClickListener } from './listeners.js';
@@ -335,7 +335,7 @@ export async function createHighlightHandler(event, bookId) {
   try {
     const { currentLazyLoader, lazyLoaders } = await import('../initializePage.js');
     const { book } = await import('../app.js');
-    const { addNewlyCreatedHighlight, removeNewlyCreatedHighlight } = await import('../operationState.js');
+    const { addNewlyCreatedHighlight, removeNewlyCreatedHighlight } = await import('../utilities/operationState.js');
 
     // Try to get the appropriate lazy loader instance
     const lazyLoader = currentLazyLoader || lazyLoaders[bookId] || lazyLoaders[book];

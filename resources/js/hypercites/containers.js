@@ -5,11 +5,11 @@
  * Handles both single and overlapping hypercites with BibTeX citation formatting.
  */
 
-import { openDatabase } from '../indexedDB.js';
+import { openDatabase } from '../indexedDB/index.js';
 import { fetchLibraryFromServer } from './database.js';
 import { book } from '../app.js';
-import { formatBibtexToCitation } from '../bibtexProcessor.js';
-import { canUserEditBook } from '../auth.js';
+import { formatBibtexToCitation } from "../utilities/bibtexProcessor.js";
+import { canUserEditBook } from "../utilities/auth.js";
 import { openHyperlitContainer } from '../hyperlitContainer/index.js';
 
 /**

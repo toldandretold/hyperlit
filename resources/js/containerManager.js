@@ -3,7 +3,7 @@
 import { saveAnnotationToIndexedDB } from "./hyperlights/index.js";
 import { navigateToInternalId } from "./scrolling.js";
 import { currentLazyLoader } from "./initializePage.js";
-import { isProcessing, isComplete } from './editIndicator.js'
+import { isProcessing, isComplete } from './components/editIndicator.js'
 import { book } from './app.js';
 import { closeHyperlitContainer } from './hyperlitContainer/index.js';
 

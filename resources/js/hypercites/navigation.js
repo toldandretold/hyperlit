@@ -8,7 +8,7 @@
 import { book } from '../app.js';
 import { navigateToInternalId, showNavigationLoading } from '../scrolling.js';
 import { waitForElementReady } from '../domReadiness.js';
-import { getLocalStorageKey, openDatabase } from '../indexedDB.js';
+import { getLocalStorageKey, openDatabase } from '../indexedDB/index.js';
 import { getHyperciteData, getHyperciteById } from './database.js';
 import { highlightTargetHypercite } from './animations.js';
 import { createOverlappingPolyContainer } from './containers.js';

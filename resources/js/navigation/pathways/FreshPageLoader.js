@@ -82,7 +82,7 @@ export class FreshPageLoader {
               console.log('🔧 FreshPageLoader: Reinitializing after bfcache restore');
               
               // Check and update edit permissions
-              const { checkEditPermissionsAndUpdateUI } = await import('../../editButton.js');
+              const { checkEditPermissionsAndUpdateUI } = await import('../../components/editButton.js');
               await checkEditPermissionsAndUpdateUI();
               
             } catch (error) {

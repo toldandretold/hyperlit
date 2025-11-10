@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paste Refactor Test Page</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      border-bottom: 2px solid #4CAF50;
+      padding-bottom: 10px;
+    }
+    h2 {
+      color: #555;
+      margin-top: 30px;
+    }
+    textarea {
+      width: 100%;
+      height: 150px;
+      padding: 10px;
+      border: 2px solid #ddd;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-right: 10px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    .result {
+      background: #f9f9f9;
+      border: 2px solid #4CAF50;
+      border-radius: 4px;
+      padding: 15px;
+      margin-top: 15px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .error {
+      border-color: #f44336;
+      background: #ffebee;
+      color: #c62828;
+    }
+    .test-case {
+      background: #e8f5e9;
+      padding: 10px;
+      margin: 10px 0;
+      border-left: 4px solid #4CAF50;
+    }
+    .test-case h3 {
+      margin-top: 0;
+      color: #2e7d32;
+    }
+    .success {
+      color: #2e7d32;
+      font-weight: bold;
+    }
+    .fail {
+      color: #c62828;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧪 Paste System Refactor Test Page</h1>
+
+  <div class="container">
+    <h2>1. Format Detection Test</h2>
+    <p>Paste HTML content to detect its format:</p>
+    <textarea id="detection-input" placeholder="Paste HTML content here..."></textarea>
+    <button onclick="testFormatDetection()">Detect Format</button>
+    <button onclick="loadCambridgeExample()">Load Cambridge Example</button>
+    <button onclick="loadGeneralExample()">Load General Example</button>
+    <div id="detection-result"></div>
+  </div>
+
+  <div class="container">
+    <h2>2. Processor Test</h2>
+    <p>Process content with detected format processor:</p>
+    <button onclick="testProcessor()">Process Content</button>
+    <div id="processor-result"></div>
+  </div>
+
+  <div class="container">
+    <h2>3. Utility Tests</h2>
+    <button onclick="runUtilityTests()">Run All Utility Tests</button>
+    <div id="utility-results"></div>
+  </div>
+
+  <div class="container">
+    <h2>4. Integration Test</h2>
+    <p>Full pipeline test with sample content:</p>
+    <button onclick="runIntegrationTest()">Run Integration Test</button>
+    <div id="integration-result"></div>
+  </div>
+
+  <script type="module">
+    import { detectFormat, detectFormatVerbose, getProcessorForContent } from './js/paste/format-detection/format-detector.js';
+    import { normalizeQuotes, normalizeSpaces, escapeHtml } from './js/paste/utils/normalizer.js';
+    import { estimatePasteNodeCount, isSmallPaste } from './js/paste/utils/content-estimator.js';
+    import { CambridgeProcessor } from './js/paste/format-processors/cambridge-processor.js';
+    import { GeneralProcessor } from './js/paste/format-processors/general-processor.js';
+
+    // Make functions globally available
+    window.testFormatDetection = async function() {
+      const input = document.getElementById('detection-input').value;
+      const resultDiv = document.getElementById('detection-result');
+
+      if (!input.trim()) {
+        resultDiv.innerHTML = '<div class="result error">Please paste some HTML content</div>';
+        return;
+      }
+
+      try {
+        const verbose = detectFormatVerbose(input);
+        const simple = detectFormat(input);
+
+        let output = `Detected Format: ${simple}\n\n`;
+        output += `Detailed Results:\n`;
+        output += JSON.stringify(verbose, null, 2);
+
+        resultDiv.innerHTML = `<div class="result">${output}</div>`;
+      } catch (error) {
+        resultDiv.innerHTML = `<div class="result error">Error: ${error.message}\n${error.stack}</div>`;
+      }
+    };
+
+    window.testProcessor = async function() {
+      const input = document.getElementById('detection-input').value;
+      const resultDiv = document.getElementById('processor-result');
+
+      if (!input.trim()) {
+        resultDiv.innerHTML = '<div class="result error">Please paste content in Format Detection section first</div>';
+        return;
+      }
+
+      try {
+        const { formatType, processor } = getProcessorForContent(input);
+        console.log('Processing with', formatType, 'processor');
+
+        const result = await processor.process(input, 'testBook');
+
+        let output = `Format: ${result.formatType}\n`;
+        output += `Footnotes: ${result.footnotes.length}\n`;
+        output += `References: ${result.references.length}\n\n`;
+
+        if (result.footnotes.length > 0) {
+          output += `\nFootnotes:\n`;
+          result.footnotes.forEach(fn => {
+            output += `  ${fn.originalIdentifier}: ${fn.content.substring(0, 100)}...\n`;
+          });
+        }
+
+        if (result.references.length > 0) {
+          output += `\nReferences:\n`;
+          result.references.slice(0, 5).forEach(ref => {
+            output += `  ${ref.originalText?.substring(0, 100) || ref.content.substring(0, 100)}...\n`;
+          });
+        }
+
+        output += `\n\nProcessed HTML (first 500 chars):\n${result.html.substring(0, 500)}...`;
+
+        resultDiv.innerHTML = `<div class="result">${output}</div>`;
+      } catch (error) {
+        resultDiv.innerHTML = `<div class="result error">Error: ${error.message}\n${error.stack}</div>`;
+      }
+    };
+
+    window.runUtilityTests = function() {
+      const resultDiv = document.getElementById('utility-results');
+      let output = '';
+      let passed = 0;
+      let failed = 0;
+
+      function test(name, fn) {
+        try {
+          fn();
+          output += `<div class="test-case"><span class="success">✓</span> ${name}</div>`;
+          passed++;
+        } catch (error) {
+          output += `<div class="test-case"><span class="fail">✗</span> ${name}: ${error.message}</div>`;
+          failed++;
+        }
+      }
+
+      // Normalizer tests
+      test('normalizeQuotes converts smart quotes', () => {
+        const result = normalizeQuotes('"Hello" 'world'');
+        if (result !== '"Hello" \'world\'') throw new Error('Failed');
+      });
+
+      test('normalizeSpaces converts nbsp', () => {
+        const result = normalizeSpaces('Hello&nbsp;world');
+        if (result !== 'Hello world') throw new Error('Failed');
+      });
+
+      test('escapeHtml prevents XSS', () => {
+        const result = escapeHtml('<script>alert("XSS")</script>');
+        if (result.includes('<script>')) throw new Error('Failed to escape');
+      });
+
+      // Estimator tests
+      test('estimatePasteNodeCount counts HTML blocks', () => {
+        const count = estimatePasteNodeCount('<p>1</p><p>2</p><h1>3</h1>');
+        if (count !== 3) throw new Error(`Expected 3, got ${count}`);
+      });
+
+      test('estimatePasteNodeCount counts plain text paragraphs', () => {
+        const count = estimatePasteNodeCount('Para 1\n\nPara 2\n\nPara 3');
+        if (count !== 3) throw new Error(`Expected 3, got ${count}`);
+      });
+
+      test('isSmallPaste threshold works', () => {
+        if (!isSmallPaste(10)) throw new Error('10 should be small');
+        if (isSmallPaste(21)) throw new Error('21 should not be small');
+      });
+
+      output += `\n<div class="result"><strong>Results:</strong> ${passed} passed, ${failed} failed</div>`;
+      resultDiv.innerHTML = output;
+    };
+
+    window.runIntegrationTest = async function() {
+      const resultDiv = document.getElementById('integration-result');
+
+      const cambridgeHtml = `
+        <div>
+          <h1>Test Article</h1>
+          <p>Introduction with footnote<a class="xref fn"><sup>1</sup></a></p>
+          <div id="reference-1-content">
+            <p class="p"><span class="label"><sup>1</sup></span> This is a test footnote.</p>
+          </div>
+          <h2>References</h2>
+          <p>Smith, J. (2023). Test Paper. Journal of Testing, 15(2), 123-145.</p>
+        </div>
+      `;
+
+      try {
+        // Test format detection
+        const formatType = detectFormat(cambridgeHtml);
+        if (formatType !== 'cambridge') {
+          throw new Error(`Expected cambridge, got ${formatType}`);
+        }
+
+        // Test processor
+        const processor = new CambridgeProcessor();
+        const result = await processor.process(cambridgeHtml, 'testBook');
+
+        let output = '<div class="test-case"><span class="success">✓</span> Format Detection</div>';
+        output += `<div class="test-case"><span class="success">✓</span> Processor Execution (${result.footnotes.length} footnotes, ${result.references.length} references)</div>`;
+
+        if (result.footnotes.length !== 1) {
+          output += `<div class="test-case"><span class="fail">✗</span> Expected 1 footnote, got ${result.footnotes.length}</div>`;
+        } else {
+          output += '<div class="test-case"><span class="success">✓</span> Footnote Extraction</div>';
+        }
+
+        if (result.html.includes('reference-1-content')) {
+          output += '<div class="test-case"><span class="fail">✗</span> Footnote container not removed</div>';
+        } else {
+          output += '<div class="test-case"><span class="success">✓</span> Footnote Container Removed</div>';
+        }
+
+        output += '<div class="result success">Integration test passed!</div>';
+        resultDiv.innerHTML = output;
+
+      } catch (error) {
+        resultDiv.innerHTML = `<div class="result error">Integration test failed: ${error.message}\n${error.stack}</div>`;
+      }
+    };
+
+    window.loadCambridgeExample = function() {
+      document.getElementById('detection-input').value = `<div>
+  <h1>Sample Cambridge Article</h1>
+  <p>This is an introduction with a footnote<a class="xref fn"><span>Footnote </span><sup>1</sup></a> in the text.</p>
+  <p>Here's another sentence with footnote<a class="xref fn"><sup>2</sup></a>.</p>
+
+  <div id="reference-1-content">
+    <p class="p"><span class="label"><sup>1</sup></span> This is the content of the first footnote with some details.</p>
+  </div>
+
+  <div id="reference-2-content">
+    <p class="p"><span class="label"><sup>2</sup></span> This is the second footnote.</p>
+  </div>
+
+  <h2>References</h2>
+  <p>Smith, J., & Jones, A. (2023). A comprehensive study. Journal of Testing, 45(3), 123-145.</p>
+  <p>Brown, C. (2022). Another important paper. Science Review, 12(1), 67-89.</p>
+</div>`;
+    };
+
+    window.loadGeneralExample = function() {
+      document.getElementById('detection-input').value = `<div>
+  <h1>Generic Article</h1>
+  <p>This is a simple article with footnote<sup>1</sup> markers.</p>
+  <p>Another paragraph with another footnote<sup>2</sup>.</p>
+
+  <h2>Footnotes</h2>
+  <p>1. This is the first footnote.</p>
+  <p>2. This is the second footnote.</p>
+
+  <h2>References</h2>
+  <p>Author, A. (2023). Paper title. Journal Name, 10(2), 45-67.</p>
+</div>`;
+    };
+  </script>
+</body>
+</html>

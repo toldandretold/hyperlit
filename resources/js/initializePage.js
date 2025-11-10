@@ -11,17 +11,17 @@ import {
   getNodeChunksFromIndexedDB,
   saveAllNodeChunksToIndexedDB,
   saveFootnotesToIndexedDB,
-  updateHistoryLog, 
+  updateHistoryLog,
   executeSyncPayload,
   saveAllFootnotesToIndexedDB,
   saveAllReferencesToIndexedDB
-} from "./indexedDB.js";
+} from "./indexedDB/index.js";
 
 import {
   attachMarkListeners,
 } from "./hyperlights/index.js";
 
-import { parseMarkdownIntoChunksInitial } from "./convertMarkdown.js";
+import { parseMarkdownIntoChunksInitial } from "./utilities/convertMarkdown.js";
 
 import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 // Add to your imports at the top
@@ -717,7 +717,7 @@ function notifyContentUpdated() {
 export async function handlePrivateBookAccessDenied(bookId) {
   console.log(`🔒 handlePrivateBookAccessDenied called for book: ${bookId}`);
 
-  const { getCurrentUser } = await import('./auth.js');
+  const { getCurrentUser } = await import('./utilities/auth.js');
   const user = await getCurrentUser();
 
   if (!user) {
@@ -766,7 +766,7 @@ function showPrivateBookLoginPrompt(bookId) {
       window.location.href = "/";
     } else if (targetId === "showLoginButton") {
       // Dynamically import userContainer to avoid circular dependency
-      const { initializeUserContainer } = await import('./userContainer.js');
+      const { initializeUserContainer } = await import('./components/userContainer.js');
 
       // Initialize userManager singleton if not already initialized
       const userManager = initializeUserContainer();
