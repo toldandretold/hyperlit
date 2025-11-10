@@ -1,5 +1,5 @@
 // import { processFootnotes} from './footnotes.js';
-// import { saveFootnotesToIndexedDB } from './indexedDB.js';
+// import { saveFootnotesToIndexedDB } from '../indexedDB/index.js';
 import { book } from '../app.js';
 
 /**

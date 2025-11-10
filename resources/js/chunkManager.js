@@ -1,4 +1,4 @@
-import { updateIndexedDBRecord } from './indexedDB.js';
+import { updateIndexedDBRecord } from './indexedDB/index.js';
 import { generateIdBetween } from './utilities/IDfunctions.js';
 import { setChunkOverflowInProgress, currentObservedChunk } from './utilities/operationState.js';
 // ✅ Lazy-loaded: divEditor only used during editing

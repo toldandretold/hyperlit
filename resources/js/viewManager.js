@@ -12,7 +12,7 @@ import { attachMarkListeners, initializeHighlightManager } from "./hyperlights/i
 import { initializeHighlightingControls } from "./hyperlights/selection.js";
 import { initializeHypercitingControls } from "./hypercites/index.js";
 import { initializeBroadcastListener } from "./utilities/BroadcastListener.js";
-import { setupUnloadSync } from "./indexedDB.js";
+import { setupUnloadSync } from "./indexedDB/index.js";
 import { generateTableOfContents, destroyTocManager, initializeTocManager } from "./components/toc.js";
 import { KeyboardManager } from "./keyboardManager.js";
 import {

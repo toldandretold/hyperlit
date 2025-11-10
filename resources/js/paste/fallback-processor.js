@@ -47,7 +47,7 @@
  * ================================================================================================
  */
 
-import { openDatabase } from '../indexedDB.js';
+import { openDatabase } from '../indexedDB/index.js';
 import { GeneralProcessor } from './format-processors/general-processor.js';
 
 // ========================================================================

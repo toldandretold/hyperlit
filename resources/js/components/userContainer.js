@@ -8,7 +8,7 @@ import {
   getCurrentUser,
   getAnonymousToken,
 } from "../utilities/auth.js";
-import { clearDatabase } from "../indexedDB.js";
+import { clearDatabase } from "../indexedDB/index.js";
 import { syncBookDataFromDatabase } from "../postgreSQL.js";
 
 export class UserContainerManager extends ContainerManager {

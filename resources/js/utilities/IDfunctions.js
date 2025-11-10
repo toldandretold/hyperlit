@@ -1,5 +1,5 @@
-import { updateIndexedDBRecordForNormalization } from "../indexedDB.js";
-import { getAllNodeChunksForBook, renumberNodeChunksInIndexedDB } from "../indexedDB.js";
+import { updateIndexedDBRecordForNormalization } from "../indexedDB/index.js";
+import { getAllNodeChunksForBook, renumberNodeChunksInIndexedDB } from "../indexedDB/index.js";
 import { syncIndexedDBtoPostgreSQL } from "../postgreSQL.js";
 import { book } from "../app.js";
 import { showTick, showError } from "../components/editIndicator.js";
@@ -206,7 +206,7 @@ async function renumberAllNodes() {
     showTick();
 
     // 7. Clear any pending syncs queued during the process (they have stale pre-renumber data)
-    const { clearPendingSyncsForBook } = await import('../indexedDB.js');
+    const { clearPendingSyncsForBook } = await import('../indexedDB/index.js');
     const clearedCount = clearPendingSyncsForBook(book);
     console.log(`✅ RENUMBERING: Cleared ${clearedCount} stale pending syncs`);
 

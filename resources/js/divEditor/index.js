@@ -11,7 +11,7 @@ import {
   deleteNodeChunksAfter,
   writeNodeChunks,
   prepareLibraryForIndexedDB
-          } from "../indexedDB.js";
+          } from "../indexedDB/index.js";
 import {
   withPending,
   chunkOverflowInProgress,

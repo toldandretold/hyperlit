@@ -1,4 +1,4 @@
-import { getLibraryObjectFromIndexedDB, clearDatabase } from '../indexedDB.js';
+import { getLibraryObjectFromIndexedDB, clearDatabase } from '../indexedDB/index.js';
  
 // Internal state
 let currentUserInfo = null;

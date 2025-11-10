@@ -24,7 +24,7 @@ import {
 import {
   batchUpdateIndexedDBRecords,
   batchDeleteIndexedDBRecords,
-} from "../indexedDB.js";
+} from "../indexedDB/index.js";
 
 /**
  * BlockFormatter class

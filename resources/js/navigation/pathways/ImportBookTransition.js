@@ -10,12 +10,14 @@ export class ImportBookTransition {
    * Execute book import and transition
    */
   static async execute(options = {}) {
-    const { 
-      bookId, 
+    console.log('🔥 DEBUG: ImportBookTransition.execute() CALLED with options:', options);
+
+    const {
+      bookId,
       progressCallback,
-      shouldEnterEditMode = true 
+      shouldEnterEditMode = true
     } = options;
-    
+
     console.log('📥 ImportBookTransition: Starting import book transition', { bookId, shouldEnterEditMode });
     
     try {
@@ -347,31 +349,43 @@ export class ImportBookTransition {
 
       // Save the authoritative library record from server
       if (result.library) {
-        const { openDatabase } = await import('../../indexedDB.js');
+        const { openDatabase } = await import('../../indexedDB/index.js');
         const db = await openDatabase();
         const tx = db.transaction('library', 'readwrite');
         tx.objectStore('library').put(result.library);
-        await tx.done;
+
+        // Wait for transaction to complete using proper IndexedDB API
+        await new Promise((resolve, reject) => {
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        });
+
         console.log('✅ Server library record saved to IndexedDB');
       }
 
       // Pre-load the book's content into IndexedDB
+      console.log('🔥 DEBUG: About to pre-load book content for:', result.bookId);
       try {
         const { loadFromJSONFiles } = await import('../../initializePage.js');
+        console.log('🔥 DEBUG: loadFromJSONFiles imported, calling it now...');
         await loadFromJSONFiles(result.bookId);
         console.log('✅ Pre-loaded imported book content');
       } catch (e) {
+        console.error('❌ DEBUG: Preloading JSON failed with error:', e);
         console.warn('Preloading JSON failed; continuing with reader fallback:', e);
       }
+      console.log('🔥 DEBUG: Finished preloading section (after try-catch)');
 
       // Clear form data since import was successful
       this.clearFormData();
 
       // Execute the import transition
+      console.log('🚀 About to execute import transition for bookId:', result.bookId);
       await this.execute({
         bookId: result.bookId,
         shouldEnterEditMode: true
       });
+      console.log('✅ Import transition execute completed');
 
       return result;
 

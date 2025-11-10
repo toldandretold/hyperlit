@@ -5,7 +5,7 @@ import {
   getNodeChunksFromIndexedDB,
   getLocalStorageKey,
   getHyperciteFromIndexedDB
-} from "./indexedDB.js";
+} from "./indexedDB/index.js";
 import { attachUnderlineClickListeners } from "./hypercites/index.js";
 import {
   setChunkLoadingInProgress,
@@ -153,7 +153,7 @@ export function createLazyLoader(config) {
 
         // Check if target book is private and if user has access
         try {
-          const { openDatabase } = await import('./indexedDB.js');
+          const { openDatabase } = await import('./indexedDB/index.js');
           const db = await openDatabase();
           const tx = db.transaction('library', 'readonly');
           const libraryStore = tx.objectStore('library');

@@ -1,6 +1,6 @@
 // In historyManager.js
 
-import { openDatabase } from "./indexedDB.js";
+import { openDatabase } from "./indexedDB/index.js";
 import { currentLazyLoader } from "./initializePage.js";
 import { getEditToolbar } from "./editToolbar";
 

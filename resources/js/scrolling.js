@@ -135,7 +135,7 @@ import { openHighlightById } from './hyperlights/index.js';
 import {
   getNodeChunksFromIndexedDB,
   getLocalStorageKey
-} from "./indexedDB.js";
+} from "./indexedDB/index.js";
 import { parseMarkdownIntoChunksInitial } from "./utilities/convertMarkdown.js";
 import { currentLazyLoader, pendingFirstChunkLoadedPromise } from "./initializePage.js";
 import { repositionSentinels } from "./lazyLoaderFactory.js"; // if exported

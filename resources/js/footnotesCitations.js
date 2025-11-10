@@ -1,6 +1,6 @@
 // footnotes-citations.js - New unified system for footnotes and citations
 import { book } from "./app.js";
-import { openDatabase } from "./indexedDB.js";
+import { openDatabase } from "./indexedDB/index.js";
 import { ContainerManager } from "./containerManager.js";
 import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './hyperlitContainer/index.js';
 

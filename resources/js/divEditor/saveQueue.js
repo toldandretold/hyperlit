@@ -9,7 +9,7 @@ import {
   batchUpdateIndexedDBRecords,
   batchDeleteIndexedDBRecords,
   deleteIndexedDBRecordWithRetry
-} from '../indexedDB.js';
+} from '../indexedDB/index.js';
 import { isPasteOperationActive } from '../paste';
 
 // ================================================================

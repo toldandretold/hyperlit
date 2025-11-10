@@ -6,7 +6,7 @@ import {
   updateBookTimestamp,
   addNewBookToIndexedDB,
   syncNodeChunksToPostgreSQL
-} from "./indexedDB.js";
+} from "./indexedDB/index.js";
 import { buildBibtexEntry } from "./utilities/bibtexProcessor.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 import { getCurrentUser, getAnonymousToken } from "./utilities/auth.js";
@@ -93,8 +93,12 @@ export async function fireAndForgetSync(
             await store.put(syncResult.library);
             console.log("✅ Local library record updated with server data.");
           }
-          
-          await tx.done;
+
+          // Wait for transaction to complete using proper IndexedDB API
+          await new Promise((resolve, reject) => {
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+          });
         }
 
         // The critical part is done. We can resolve the promise now.
@@ -137,7 +141,12 @@ async function syncNewBookToPostgreSQL(bookId, libraryData = null) {
       const db = await openDatabase();
       const tx = db.transaction(["library"], "readonly");
       libraryRecord = await tx.objectStore("library").get(bookId);
-      await tx.done;
+
+      // Wait for transaction to complete using proper IndexedDB API
+      await new Promise((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
     }
 
     if (!libraryRecord) {
@@ -381,7 +390,12 @@ async function syncNodeChunksForNewBook(bookId, chunksData = null, syncStartTime
       const db = await openDatabase();
       const tx = db.transaction(["library"], "readonly");
       const libraryRecord = await tx.objectStore("library").get(bookId);
-      await tx.done;
+
+      // Wait for transaction to complete using proper IndexedDB API
+      await new Promise((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
 
       if (libraryRecord && libraryRecord.timestamp > syncStartTime) {
         console.log("🔄 Book content has been modified after sync started - skipping node chunk sync to preserve local changes", {
@@ -398,7 +412,12 @@ async function syncNodeChunksForNewBook(bookId, chunksData = null, syncStartTime
     const tx = db.transaction(["nodeChunks"], "readonly");
     const index = tx.objectStore("nodeChunks").index("book");
     const currentNodeChunks = await index.getAll(bookId);
-    await tx.done;
+
+    // Wait for transaction to complete using proper IndexedDB API
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
 
     if (currentNodeChunks.length === 0) {
       console.log("No node chunks to sync for book:", bookId);

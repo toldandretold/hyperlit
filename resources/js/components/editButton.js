@@ -6,7 +6,7 @@
 import { book } from "../app.js";
 import { incrementPendingOperations, decrementPendingOperations } from '../utilities/operationState.js';
 import { getCurrentUser, canUserEditBook } from "../utilities/auth.js";
-import { getLibraryObjectFromIndexedDB } from '../indexedDB.js';
+import { getLibraryObjectFromIndexedDB } from '../indexedDB/index.js';
 import userManager from "./userContainer.js";
 import { pendingFirstChunkLoadedPromise } from '../initializePage.js';
 

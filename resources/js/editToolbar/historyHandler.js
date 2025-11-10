@@ -11,7 +11,7 @@ import {
   canUndo,
   canRedo,
 } from "../historyManager.js";
-import { pendingSyncs, debouncedMasterSync } from "../indexedDB.js";
+import { pendingSyncs, debouncedMasterSync } from "../indexedDB/index.js";
 import { currentLazyLoader } from "../initializePage.js";
 
 /**

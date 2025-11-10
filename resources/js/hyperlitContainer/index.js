@@ -63,7 +63,7 @@ export {
 // ============================================================================
 
 import { book } from '../app.js';
-import { openDatabase } from '../indexedDB.js';
+import { openDatabase } from '../indexedDB/index.js';
 import { getCurrentUserId } from "../utilities/auth.js";
 import { openHyperlitContainer } from './core.js';
 import { detectContentTypes } from './detection.js';
@@ -480,8 +480,8 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = []) 
       }
 
       // Attach delete button listeners
-      setTimeout(() => {
-        const { deleteHighlightById } = require('../hyperlights/index.js');
+      setTimeout(async () => {
+        const { deleteHighlightById } = await import('../hyperlights/index.js');
         const deleteButtons = document.querySelectorAll('.delete-highlight-btn');
         deleteButtons.forEach(button => {
           button.addEventListener('click', async (e) => {

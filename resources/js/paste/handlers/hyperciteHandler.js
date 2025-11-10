@@ -14,7 +14,7 @@ import {
   updateHyperciteInIndexedDB,
   getNodeChunkFromIndexedDB,
   toPublicChunk
-} from '../../indexedDB.js';
+} from '../../indexedDB/index.js';
 import { parseHyperciteHref } from '../../hypercites/index.js';
 import { broadcastToOpenTabs } from '../../utilities/BroadcastListener.js';
 import {

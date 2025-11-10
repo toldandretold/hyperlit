@@ -2,7 +2,7 @@
  * Deletion module - Handles highlight deletion, hiding, and reprocessing
  */
 
-import { openDatabase, updateBookTimestamp, queueForSync, getNodeChunksFromIndexedDB } from '../indexedDB.js';
+import { openDatabase, updateBookTimestamp, queueForSync, getNodeChunksFromIndexedDB } from '../indexedDB/index.js';
 import { removeHighlightFromHyperlights, removeHighlightFromNodeChunks, removeHighlightFromNodeChunksWithDeletion } from './database.js';
 import { attachMarkListeners } from './listeners.js';
 

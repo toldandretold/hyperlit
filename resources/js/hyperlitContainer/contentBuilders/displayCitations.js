@@ -4,7 +4,7 @@
  */
 
 import { book } from '../../app.js';
-import { openDatabase } from '../../indexedDB.js';
+import { openDatabase } from '../../indexedDB/index.js';
 import { formatBibtexToCitation } from "../../utilities/bibtexProcessor.js";
 
 /**

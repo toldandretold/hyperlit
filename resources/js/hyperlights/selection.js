@@ -3,7 +3,7 @@
  */
 
 import { book } from '../app.js';
-import { updateBookTimestamp, queueForSync } from '../indexedDB.js';
+import { updateBookTimestamp, queueForSync } from '../indexedDB/index.js';
 import { calculateCleanTextOffset, findContainerWithNumericalId } from './calculations.js';
 import { modifyNewMarks } from './marks.js';
 import { attachMarkListeners, addTouchAndClickListener } from './listeners.js';

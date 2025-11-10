@@ -1,4 +1,4 @@
-import { openDatabase, parseNodeId, prepareLibraryForIndexedDB } from "./indexedDB.js";
+import { openDatabase, parseNodeId, prepareLibraryForIndexedDB } from "./indexedDB/index.js";
 import { getCurrentUser, getAuthorId } from "./utilities/auth.js";
 
 async function syncBookDataToServer(bookName, objectStoreName, method = 'upsert') {

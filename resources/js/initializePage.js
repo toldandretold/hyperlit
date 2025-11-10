@@ -11,11 +11,11 @@ import {
   getNodeChunksFromIndexedDB,
   saveAllNodeChunksToIndexedDB,
   saveFootnotesToIndexedDB,
-  updateHistoryLog, 
+  updateHistoryLog,
   executeSyncPayload,
   saveAllFootnotesToIndexedDB,
   saveAllReferencesToIndexedDB
-} from "./indexedDB.js";
+} from "./indexedDB/index.js";
 
 import {
   attachMarkListeners,

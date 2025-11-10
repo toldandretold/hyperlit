@@ -1,5 +1,5 @@
 import { ContainerManager } from "../containerManager.js";
-import { openDatabase, getNodeChunksFromIndexedDB, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from "../indexedDB.js";
+import { openDatabase, getNodeChunksFromIndexedDB, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from "../indexedDB/index.js";
 import { formatBibtexToCitation, generateBibtexFromForm } from "../utilities/bibtexProcessor.js";
 import { book } from "../app.js";
 import { canUserEditBook } from "../utilities/auth.js";

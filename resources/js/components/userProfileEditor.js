@@ -1,4 +1,4 @@
-import { openDatabase, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from '../indexedDB.js';
+import { openDatabase, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from '../indexedDB/index.js';
 import { canUserEditBook } from "../utilities/auth.js";
 import { book } from '../app.js';
 import { fixHeaderSpacing } from '../homepageDisplayUnit.js';

@@ -6,13 +6,13 @@
 import { book } from "./app.js";
 // =================================================================
 
-import { openDatabase } from "./indexedDB.js";
+import { openDatabase, initializeDatabaseModules } from "./indexedDB/index.js";
 import { fireAndForgetSync } from "./createNewBook.js";
 import { universalPageInitializer } from "./viewManager.js";
 import { initializeHomepage } from "./homepage.js";
 import { initializeFootnoteCitationListeners } from "./footnotesCitations.js";
 // ✅ This import is correct. We just need to use it.
-import { setInitialBookSyncPromise } from "./utilities/operationState.js";
+import { setInitialBookSyncPromise, withPending, getInitialBookSyncPromise } from "./utilities/operationState.js";
 import { generateTableOfContents } from "./components/toc.js";
 import { attachMarkListeners } from "./hyperlights/index.js";
 import TogglePerimeterButtons from "./components/togglePerimeterButtons.js";
@@ -176,6 +176,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   handlePendingNewBookSync();
   await openDatabase();
   console.log("✅ IndexedDB initialized.");
+
+  // Initialize database modules with dependencies
+  const { clearRedoHistory } = await import('./historyManager.js');
+  const { showTick, showError } = await import('./components/editIndicator.js');
+  initializeDatabaseModules({
+    book,
+    withPending,
+    clearRedoHistory,
+    getInitialBookSyncPromise,
+    showTick,
+    showError,
+  });
+  console.log("✅ Database modules initialized with dependencies.");
 
   if (pageType === "reader") {
     // ✅ Delegate fully to the new navigation system

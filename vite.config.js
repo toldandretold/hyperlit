@@ -128,7 +128,6 @@ export default defineConfig({
 
                 // JAVASCRIPT (sorted, with new files added)
                 'resources/js/app.js',
-                'resources/js/indexedDB.js',
                 'resources/js/chunkManager.js',
                 'resources/js/containerCustomization.js',
                 'resources/js/utilities/convertMarkdown.js',

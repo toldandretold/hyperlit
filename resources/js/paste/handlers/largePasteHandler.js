@@ -11,7 +11,7 @@ import {
   getNodeChunksAfter,
   deleteNodeChunksAfter,
   writeNodeChunks
-} from '../../indexedDB.js';
+} from '../../indexedDB/index.js';
 import { showSpinner, showError } from '../../components/editIndicator.js';
 import { processContentForFootnotesAndReferences } from '../fallback-processor.js';
 import { parseHtmlToBlocks } from '../utils/html-block-parser.js';
@@ -92,7 +92,7 @@ export async function handleLargePaste(
     currentElement.remove();
 
     // Delete H1 from IndexedDB
-    const { deleteIndexedDBRecord } = await import('../../indexedDB.js');
+    const { deleteIndexedDBRecord } = await import('../../indexedDB/index.js');
     await deleteIndexedDBRecord(insertionPoint.book, h1Id);
 
     // Update insertion point to be after the element before the deleted H1
@@ -179,7 +179,7 @@ export async function handleLargePaste(
 
   // Save extracted footnotes and references to IndexedDB
   if (extractedFootnotes.length > 0 || extractedReferences.length > 0) {
-    const { saveAllFootnotesToIndexedDB, saveAllReferencesToIndexedDB } = await import('../../indexedDB.js');
+    const { saveAllFootnotesToIndexedDB, saveAllReferencesToIndexedDB } = await import('../../indexedDB/index.js');
 
     if (extractedFootnotes.length > 0) {
       console.log(`💾 Saving ${extractedFootnotes.length} footnotes to IndexedDB...`);

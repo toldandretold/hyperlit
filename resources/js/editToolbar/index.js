@@ -4,7 +4,7 @@
 import {
   updateIndexedDBRecord,
   deleteIndexedDBRecord,
-} from "../indexedDB.js";
+} from "../indexedDB/index.js";
 import { SelectionManager } from "./selectionManager.js";
 import { ButtonStateManager } from "./buttonStateManager.js";
 import { HistoryHandler } from "./historyHandler.js";
