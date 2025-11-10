@@ -20,7 +20,7 @@ import { broadcastToOpenTabs } from '../../utilities/BroadcastListener.js';
 import {
   setHandleHypercitePaste
 } from '../../utilities/operationState.js';
-import { queueNodeForSave } from '../../divEditor.js';
+import { queueNodeForSave } from '../../divEditor/index.js';
 
 /**
  * Extract quoted text before a hypercite link element

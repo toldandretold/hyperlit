@@ -1,5 +1,5 @@
-import { book } from "./app.js";
-import { getCurrentUserId } from "./utilities/auth.js";
+import { book } from "../app.js";
+import { getCurrentUserId } from "../utilities/auth.js";
 import {
   updateIndexedDBRecord,
   deleteIndexedDBRecordWithRetry,
@@ -11,7 +11,7 @@ import {
   deleteNodeChunksAfter,
   writeNodeChunks,
   prepareLibraryForIndexedDB
-          } from "./indexedDB.js";
+          } from "../indexedDB.js";
 import {
   withPending,
   chunkOverflowInProgress,
@@ -21,12 +21,12 @@ import {
   keyboardLayoutInProgress,
   isProgrammaticUpdateInProgress,
   isPasteInProgress
-} from './utilities/operationState.js';
+} from '../utilities/operationState.js';
 
-import { SaveQueue, debounce } from './divEditor/saveQueue.js';
-import { MutationProcessor } from './divEditor/mutationProcessor.js';
-import { EnterKeyHandler } from './divEditor/enterKeyHandler.js';
-import { ChunkMutationHandler } from './divEditor/chunkMutationHandler.js';
+import { SaveQueue, debounce } from './saveQueue.js';
+import { MutationProcessor } from './mutationProcessor.js';
+import { EnterKeyHandler } from './enterKeyHandler.js';
+import { ChunkMutationHandler } from './chunkMutationHandler.js';
 import {
   handleHyperciteRemoval,
   ensureMinimumDocumentStructure as ensureMinimumStructureImpl,
@@ -35,24 +35,24 @@ import {
   cleanupStyledSpans,
   cleanupAfterImport,
   cleanupAfterPaste
-} from './divEditor/domUtilities.js';
+} from './domUtilities.js';
 
 // Re-export for backward compatibility
 export { debounce, cleanupStyledSpans, cleanupAfterImport, cleanupAfterPaste };
 
-import { showSpinner, showTick, isProcessing } from './components/editIndicator.js';
+import { showSpinner, showTick, isProcessing } from '../components/editIndicator.js';
 
-import { buildBibtexEntry } from "./utilities/bibtexProcessor.js";
+import { buildBibtexEntry } from "../utilities/bibtexProcessor.js";
 import { generateIdBetween,
          setElementIds,
          isNumericalId,
          ensureNodeHasValidId,
-          } from "./utilities/IDfunctions.js";
+          } from "../utilities/IDfunctions.js";
 import {
   broadcastToOpenTabs
-} from './utilities/BroadcastListener.js';
+} from '../utilities/BroadcastListener.js';
 
-import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from './utilities/convertMarkdown.js';
+import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown.js';
 
 import {
   trackChunkNodeCount,
@@ -60,14 +60,14 @@ import {
   NODE_LIMIT,
   chunkNodeCounts,
   getCurrentChunk
-} from './chunkManager.js';
-import { isPasteOperationActive } from './paste';
-import { isChunkLoadingInProgress, getLoadingChunkId } from './utilities/chunkLoadingState.js';
-import { SelectionDeletionHandler } from './utilities/selectionDelete.js';
-import { initializeMainLazyLoader } from './initializePage.js';
-import { getEditToolbar } from './editToolbar';
-import { delinkHypercite, handleHyperciteDeletion } from "./hypercites/index.js";
-import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from './components/toc.js';
+} from '../chunkManager.js';
+import { isPasteOperationActive } from '../paste';
+import { isChunkLoadingInProgress, getLoadingChunkId } from '../utilities/chunkLoadingState.js';
+import { SelectionDeletionHandler } from '../utilities/selectionDelete.js';
+import { initializeMainLazyLoader } from '../initializePage.js';
+import { getEditToolbar } from '../editToolbar';
+import { delinkHypercite, handleHyperciteDeletion } from "../hypercites/index.js";
+import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../components/toc.js';
 
 // ================================================================
 // MODULE STATE

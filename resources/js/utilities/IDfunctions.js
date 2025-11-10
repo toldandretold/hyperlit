@@ -116,7 +116,7 @@ async function renumberAllNodes() {
   try {
     // 0. Flush all pending saves to IndexedDB first
     console.log('💾 Flushing all pending saves before renumbering...');
-    const { flushAllPendingSaves } = await import('../divEditor.js');
+    const { flushAllPendingSaves } = await import('../divEditor/index.js');
     await flushAllPendingSaves();
     console.log('✅ All pending saves flushed');
 

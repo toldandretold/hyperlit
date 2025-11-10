@@ -1,7 +1,7 @@
 import {
   startObserving,
   stopObserving
-} from "../divEditor.js";
+} from "../divEditor/index.js";
 import { book } from "../app.js";
 import { incrementPendingOperations, decrementPendingOperations } from '../utilities/operationState.js';
 import { addPasteListener } from '../paste';
@@ -268,7 +268,7 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
         // ✅ ONLY call ensureMinimumDocumentStructure for new blank books
         if (isNewBook) {
           console.log("📝 New blank book: Ensuring minimum document structure...");
-          import("../divEditor.js").then(({ ensureMinimumDocumentStructure }) => {
+          import("../divEditor/index.js").then(({ ensureMinimumDocumentStructure }) => {
             ensureMinimumDocumentStructure();
           });
         }
@@ -402,7 +402,7 @@ function disableEditMode() {
   stopObserving();
 
   // Save any pending changes before disabling edit mode
-  import('../divEditor.js').then(({ flushAllPendingSaves }) => {
+  import('../divEditor/index.js').then(({ flushAllPendingSaves }) => {
     flushAllPendingSaves();
   });
   

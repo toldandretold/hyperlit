@@ -1,7 +1,7 @@
 import { updateIndexedDBRecord } from './indexedDB.js';
 import { generateIdBetween } from './utilities/IDfunctions.js';
 import { setChunkOverflowInProgress, currentObservedChunk } from './utilities/operationState.js';
-import { startObserving, stopObserving, movedNodesByOverflow } from './divEditor.js';
+import { startObserving, stopObserving, movedNodesByOverflow } from './divEditor/index.js';
 
 // Object to store node counts for each chunk
 export const chunkNodeCounts = {};

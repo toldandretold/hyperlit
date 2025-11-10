@@ -108,6 +108,7 @@ export default defineConfig({
                 'resources/js/homepageDisplayUnit.js',
 
                 // divEditor modules
+                'resources/js/divEditor/index.js',
                 'resources/js/divEditor/saveQueue.js',
                 'resources/js/divEditor/mutationProcessor.js',
                 'resources/js/divEditor/enterKeyHandler.js',

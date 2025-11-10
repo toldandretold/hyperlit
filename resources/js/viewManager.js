@@ -4,7 +4,7 @@ import { book, setCurrentBook } from "./app.js";
 import { getCurrentUser, getAnonymousToken } from "./utilities/auth.js";
 import { checkEditPermissionsAndUpdateUI } from "./components/editButton.js";
 
-import { stopObserving } from "./divEditor.js";
+import { stopObserving } from "./divEditor/index.js";
 import { initEditToolbar, destroyEditToolbar } from "./editToolbar";
 import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
 import {

@@ -11,7 +11,7 @@
 import { chunkOverflowInProgress } from "../utilities/operationState.js";
 import { book } from '../app.js';
 import { generateIdBetween, setElementIds, ensureNodeHasValidId } from "../utilities/IDfunctions.js";
-import { queueNodeForSave } from '../divEditor.js';
+import { queueNodeForSave } from './index.js';
 
 /**
  * Helper: Check if element is in viewport

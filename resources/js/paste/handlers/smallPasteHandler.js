@@ -6,7 +6,7 @@
  */
 
 import { generateIdBetween, setElementIds, generateNodeId } from '../../utilities/IDfunctions.js';
-import { queueNodeForSave } from '../../divEditor.js';
+import { queueNodeForSave } from '../../divEditor/index.js';
 
 const SMALL_NODE_LIMIT = 10;
 

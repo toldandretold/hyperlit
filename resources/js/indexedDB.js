@@ -4,7 +4,7 @@ import { broadcastToOpenTabs } from "./utilities/BroadcastListener.js";
 import { withPending, getInitialBookSyncPromise } from "./utilities/operationState.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 import { getCurrentUser } from "./utilities/auth.js";
-import { debounce } from "./divEditor.js";
+import { debounce } from "./divEditor/index.js";
 import { book } from "./app.js";
 import { clearRedoHistory } from "./historyManager.js";
 import { getEditToolbar } from "./editToolbar";
