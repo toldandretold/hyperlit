@@ -1,13 +1,12 @@
-import {
-  startObserving,
-  stopObserving
-} from "../divEditor/index.js";
+// ✅ Lazy-loaded edit modules (only imported when entering edit mode)
+// import { startObserving, stopObserving } from "../divEditor/index.js";
+// import { addPasteListener } from '../paste';
+// import { initEditToolbar, getEditToolbar } from '../editToolbar';
+
 import { book } from "../app.js";
 import { incrementPendingOperations, decrementPendingOperations } from '../utilities/operationState.js';
-import { addPasteListener } from '../paste';
 import { getCurrentUser, canUserEditBook } from "../utilities/auth.js";
 import { getLibraryObjectFromIndexedDB } from '../indexedDB.js';
-import { initEditToolbar, getEditToolbar } from '../editToolbar';
 import userManager from "./userContainer.js";
 import { pendingFirstChunkLoadedPromise } from '../initializePage.js';
 
@@ -243,7 +242,7 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
     await pendingFirstChunkLoadedPromise;
     console.log("✅ First chunk is ready. Proceeding to enable edit mode.");
 
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
         console.log("🚀 Proceeding to enable edit mode after browser tick.");
         window.isEditing = true;
@@ -260,6 +259,8 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
 
         editableDiv.contentEditable = "true";
 
+        // ✅ Dynamically import edit toolbar
+        const { getEditToolbar } = await import('../editToolbar/index.js');
         const toolbar = getEditToolbar();
         if (toolbar) {
           toolbar.setEditMode(true);
@@ -351,6 +352,11 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
         }
 
         editableDiv.focus();
+
+        // ✅ Dynamically import divEditor and paste modules
+        const { startObserving } = await import('../divEditor/index.js');
+        const { addPasteListener } = await import('../paste/index.js');
+
         startObserving(editableDiv);
         addPasteListener(editableDiv);
 
@@ -393,17 +399,26 @@ function disableEditMode() {
   enforceEditableState();
   editableDiv.contentEditable = "false";
 
-  // Get the existing toolbar instance and hide it:
-  const toolbar = getEditToolbar();
-  if (toolbar) {
-    toolbar.setEditMode(false);
-  }
+  // ✅ Dynamically import edit modules (they should already be loaded if we were editing)
+  Promise.all([
+    import('../editToolbar/index.js'),
+    import('../divEditor/index.js')
+  ]).then(([editToolbar, divEditor]) => {
+    const { getEditToolbar } = editToolbar;
+    const { stopObserving, flushAllPendingSaves } = divEditor;
 
-  stopObserving();
+    // Get the existing toolbar instance and hide it:
+    const toolbar = getEditToolbar();
+    if (toolbar) {
+      toolbar.setEditMode(false);
+    }
 
-  // Save any pending changes before disabling edit mode
-  import('../divEditor/index.js').then(({ flushAllPendingSaves }) => {
+    stopObserving();
+
+    // Save any pending changes before disabling edit mode
     flushAllPendingSaves();
+  }).catch(err => {
+    console.warn('Edit modules not loaded:', err);
   });
   
   // Safely clear NodeIdManager if it exists

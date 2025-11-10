@@ -75,7 +75,8 @@ export function addPasteListener(editableDiv) {
 }
 
 // Export extractQuotedText for external use
-export { extractQuotedText };
+// Re-export from utilities (moved to avoid circular dependency with hyperlights)
+export { extractQuotedText } from '../utilities/textExtraction.js';
 
 /**
  * Main paste event handler

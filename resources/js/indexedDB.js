@@ -4,16 +4,31 @@ import { broadcastToOpenTabs } from "./utilities/BroadcastListener.js";
 import { withPending, getInitialBookSyncPromise } from "./utilities/operationState.js";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
 import { getCurrentUser } from "./utilities/auth.js";
-import { debounce } from "./divEditor/index.js";
+// ✅ Lazy-loaded: divEditor and editToolbar only used during editing
+// import { debounce } from "./divEditor/index.js";
+// import { getEditToolbar } from "./editToolbar";
 import { book } from "./app.js";
 import { clearRedoHistory } from "./historyManager.js";
-import { getEditToolbar } from "./editToolbar";
 import { showTick, showError } from "./components/editIndicator.js";
 
 // IMPORTANT: Increment this version number ONLY when you need to change the database schema.
 // For instance, if you add a new store, add a new index, or modify a keyPath.
 // I've incremented it to 20 to ensure it triggers the proper migration for users on version 19.
 export const DB_VERSION = 21;
+
+// ✅ Simple debounce utility (was imported from divEditor)
+function debounce(func, wait = 3000) {
+  let timeout;
+  const debounced = (...args) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+  debounced.flush = () => {
+    clearTimeout(timeout);
+    func();
+  };
+  return debounced;
+}
 
 /**
  * Clean library item data before storing to prevent recursive nesting and oversized payloads
@@ -421,9 +436,15 @@ export const debouncedMasterSync = debounce(async () => {
     console.error(`❌ Sync failed for batch ${logEntry.id}:`, error.message);
     showError(); // Show red indicator on sync failure
   } finally {
-    const toolbar = getEditToolbar();
-    if (toolbar) {
-      await toolbar.updateHistoryButtonStates();
+    // ✅ Dynamically import toolbar (only exists when editing)
+    try {
+      const { getEditToolbar } = await import('./editToolbar/index.js');
+      const toolbar = getEditToolbar();
+      if (toolbar) {
+        await toolbar.updateHistoryButtonStates();
+      }
+    } catch (e) {
+      // Toolbar not loaded (not in edit mode)
     }
   }
 }, 3000);
@@ -2637,9 +2658,15 @@ export async function deleteIndexedDBRecord(id) {
           queueForSync("hypercites", record.hyperciteId, "delete", record);
         });
 
-        const toolbar = getEditToolbar();
-        if (toolbar) {
-            await toolbar.updateHistoryButtonStates();
+        // ✅ Dynamically import toolbar (only exists when editing)
+        try {
+          const { getEditToolbar } = await import('./editToolbar/index.js');
+          const toolbar = getEditToolbar();
+          if (toolbar) {
+              await toolbar.updateHistoryButtonStates();
+          }
+        } catch (e) {
+          // Toolbar not loaded (not in edit mode)
         }
 
         resolve(true);

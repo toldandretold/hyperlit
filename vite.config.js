@@ -17,6 +17,48 @@ function getNetworkIp() {
 }
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          // ✅ Code-splitting optimization for edit-only modules
+
+          // Paste system (lazy loaded only when editing)
+          if (id.includes('/resources/js/paste/')) {
+            return 'paste-system';
+          }
+
+          // divEditor (lazy loaded only when editing)
+          if (id.includes('/resources/js/divEditor/')) {
+            return 'editor';
+          }
+
+          // editToolbar (lazy loaded only when editing)
+          if (id.includes('/resources/js/editToolbar/')) {
+            return 'editor';
+          }
+
+          // historyManager (lazy loaded only when editing)
+          if (id.includes('/resources/js/historyManager.js')) {
+            return 'editor';
+          }
+
+          // Highlighting system (core feature - keep separate)
+          if (id.includes('/resources/js/hyperlights/') ||
+              id.includes('/resources/js/hypercites/')) {
+            return 'highlights';
+          }
+
+          // Large vendor libraries
+          if (id.includes('node_modules')) {
+            if (id.includes('rangy')) {
+              return 'vendor-rangy';
+            }
+          }
+        }
+      }
+    }
+  },
   server: {
     host: process.env.VITE_HOST || '0.0.0.0',
     port: process.env.VITE_PORT || 5173,

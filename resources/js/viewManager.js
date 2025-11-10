@@ -4,8 +4,9 @@ import { book, setCurrentBook } from "./app.js";
 import { getCurrentUser, getAnonymousToken } from "./utilities/auth.js";
 import { checkEditPermissionsAndUpdateUI } from "./components/editButton.js";
 
-import { stopObserving } from "./divEditor/index.js";
-import { initEditToolbar, destroyEditToolbar } from "./editToolbar";
+// ✅ Lazy-loaded edit modules (only loaded when editing)
+// import { stopObserving } from "./divEditor/index.js";
+// import { initEditToolbar, destroyEditToolbar } from "./editToolbar";
 import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
 import { attachMarkListeners, initializeHighlightManager } from "./hyperlights/index.js";
 import { initializeHighlightingControls } from "./hyperlights/selection.js";
@@ -92,7 +93,7 @@ window.addEventListener("pageshow", (event) => {
   }
 });
 
-export function cleanupReaderView() {
+export async function cleanupReaderView() {
   console.log("🧹 Cleaning up previous reader view...");
 
   // Close any open containers before destroying the view
@@ -142,8 +143,22 @@ export function cleanupReaderView() {
     activeSelectionDeletionHandler.destroy();
     activeSelectionDeletionHandler = null;
   }
-  destroyEditToolbar();
-  stopObserving();
+
+  // ✅ Dynamically import edit modules only if they were loaded
+  try {
+    const { destroyEditToolbar } = await import('./editToolbar/index.js');
+    destroyEditToolbar();
+  } catch (e) {
+    // Module not loaded yet, nothing to destroy
+  }
+
+  try {
+    const { stopObserving } = await import('./divEditor/index.js');
+    stopObserving();
+  } catch (e) {
+    // Module not loaded yet, nothing to stop
+  }
+
   destroySelectionHandler();
   destroyTocManager();
 }
@@ -765,6 +780,8 @@ export async function universalPageInitializer(progressCallback = null) {
       console.log(`ℹ️ No .main-content found for SelectionDeletionHandler (page type: ${currentPageType})`);
     }
     
+    // ✅ Dynamically import edit toolbar only when needed
+    const { initEditToolbar } = await import('./editToolbar/index.js');
     initEditToolbar({
       toolbarId: "edit-toolbar",
       editableSelector: ".main-content[contenteditable='true']",

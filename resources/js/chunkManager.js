@@ -1,7 +1,8 @@
 import { updateIndexedDBRecord } from './indexedDB.js';
 import { generateIdBetween } from './utilities/IDfunctions.js';
 import { setChunkOverflowInProgress, currentObservedChunk } from './utilities/operationState.js';
-import { startObserving, stopObserving, movedNodesByOverflow } from './divEditor/index.js';
+// ✅ Lazy-loaded: divEditor only used during editing
+// import { startObserving, stopObserving, movedNodesByOverflow } from './divEditor/index.js';
 
 // Object to store node counts for each chunk
 export const chunkNodeCounts = {};
@@ -87,6 +88,9 @@ export function trackChunkNodeCount(chunk, mutations = null) {
  */
 
 export async function handleChunkOverflow(currentChunk, mutations) {
+  // ✅ Dynamically import divEditor functions (only used during editing)
+  const { startObserving, stopObserving, movedNodesByOverflow } = await import('./divEditor/index.js');
+
   // Set flag at the beginning
   setChunkOverflowInProgress(true);
 
