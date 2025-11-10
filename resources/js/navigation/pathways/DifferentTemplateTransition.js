@@ -121,7 +121,7 @@ export class DifferentTemplateTransition {
     try {
       // 🧹 Cleanup logo navigation toggle (present on all page types)
       console.log('🧹 DifferentTemplateTransition: Cleaning up logo navigation toggle');
-      const { destroyLogoNav } = await import('../../logoNavToggle.js');
+      const { destroyLogoNav } = await import('../../components/logoNavToggle.js');
       if (typeof destroyLogoNav === 'function') {
         destroyLogoNav();
         console.log('✅ DifferentTemplateTransition: Logo navigation toggle destroyed');
@@ -160,11 +160,11 @@ export class DifferentTemplateTransition {
       cleanupReaderView();
 
       // Reset edit mode state
-      const { resetEditModeState } = await import('../../editButton.js');
+      const { resetEditModeState } = await import('../../components/editButton.js');
       resetEditModeState();
 
       // Destroy user container (reader pages also have userButton)
-      const { destroyUserContainer } = await import('../../userContainer.js');
+      const { destroyUserContainer } = await import('../../components/userContainer.js');
       if (typeof destroyUserContainer === 'function') {
         destroyUserContainer();
       }
@@ -185,12 +185,12 @@ export class DifferentTemplateTransition {
 
     try {
       // Destroy homepage-specific managers
-      const { destroyUserContainer } = await import('../../userContainer.js');
+      const { destroyUserContainer } = await import('../../components/userContainer.js');
       if (typeof destroyUserContainer === 'function') {
         destroyUserContainer();
       }
 
-      const { destroyNewBookContainer } = await import('../../newBookButton.js');
+      const { destroyNewBookContainer } = await import('../../components/newBookButton.js');
       if (typeof destroyNewBookContainer === 'function') {
         destroyNewBookContainer();
       }
@@ -216,7 +216,7 @@ export class DifferentTemplateTransition {
 
     try {
       // 🧹 CRITICAL: Destroy user profile editor first
-      const { destroyUserProfileEditor } = await import('../../userProfileEditor.js');
+      const { destroyUserProfileEditor } = await import('../../components/userProfileEditor.js');
       if (typeof destroyUserProfileEditor === 'function') {
         destroyUserProfileEditor();
         console.log('✅ DifferentTemplateTransition: User profile editor destroyed');
@@ -241,7 +241,7 @@ export class DifferentTemplateTransition {
       // Close source container if open
       const sourceButton = document.getElementById('cloudRef');
       if (sourceButton) {
-        const { default: sourceManager } = await import('../../sourceButton.js');
+        const { default: sourceManager } = await import('../../components/sourceButton.js');
         if (sourceManager && sourceManager.isOpen) {
           sourceManager.closeContainer();
         }
@@ -365,7 +365,7 @@ export class DifferentTemplateTransition {
 
       // 🔧 Reinitialize logo navigation toggle
       console.log('🔧 DifferentTemplateTransition: Reinitializing logo navigation toggle');
-      const { initializeLogoNav } = await import('../../logoNavToggle.js');
+      const { initializeLogoNav } = await import('../../components/logoNavToggle.js');
       if (typeof initializeLogoNav === 'function') {
         initializeLogoNav();
         console.log('✅ DifferentTemplateTransition: Logo navigation toggle initialized');
@@ -373,7 +373,7 @@ export class DifferentTemplateTransition {
 
       // 🔧 Reinitialize user container (userButton is in logoNavWrapper on all pages)
       console.log('🔧 DifferentTemplateTransition: Reinitializing user container');
-      const { initializeUserContainer } = await import('../../userContainer.js');
+      const { initializeUserContainer } = await import('../../components/userContainer.js');
       const userManager = initializeUserContainer();
       if (userManager && userManager.initializeUser) {
         await userManager.initializeUser();
@@ -418,7 +418,7 @@ export class DifferentTemplateTransition {
 
       // 🔧 Reinitialize logo navigation toggle
       console.log('🔧 DifferentTemplateTransition: Reinitializing logo navigation toggle');
-      const { initializeLogoNav } = await import('../../logoNavToggle.js');
+      const { initializeLogoNav } = await import('../../components/logoNavToggle.js');
       if (typeof initializeLogoNav === 'function') {
         initializeLogoNav();
         console.log('✅ DifferentTemplateTransition: Logo navigation toggle initialized');
@@ -464,7 +464,7 @@ export class DifferentTemplateTransition {
 
       // 🔧 Reinitialize logo navigation toggle
       console.log('🔧 DifferentTemplateTransition: Reinitializing logo navigation toggle');
-      const { initializeLogoNav } = await import('../../logoNavToggle.js');
+      const { initializeLogoNav } = await import('../../components/logoNavToggle.js');
       if (typeof initializeLogoNav === 'function') {
         initializeLogoNav();
         console.log('✅ DifferentTemplateTransition: Logo navigation toggle initialized');
@@ -488,7 +488,7 @@ export class DifferentTemplateTransition {
       // Initialize user profile editor if it exists
       const userLibraryContainer = document.getElementById('userLibraryContainer');
       if (userLibraryContainer) {
-        const { initializeUserProfileEditor } = await import('../../userProfileEditor.js');
+        const { initializeUserProfileEditor } = await import('../../components/userProfileEditor.js');
         if (typeof initializeUserProfileEditor === 'function') {
           await initializeUserProfileEditor(bookId);
           console.log('✅ User profile editor initialized');
@@ -507,14 +507,14 @@ export class DifferentTemplateTransition {
 
     try {
       // Initialize homepage-specific managers
-      const { initializeUserContainer } = await import('../../userContainer.js');
+      const { initializeUserContainer } = await import('../../components/userContainer.js');
       const userManager = initializeUserContainer();
 
       if (userManager && userManager.initializeUser) {
         await userManager.initializeUser();
       }
 
-      const { initializeNewBookContainer } = await import('../../newBookButton.js');
+      const { initializeNewBookContainer } = await import('../../components/newBookButton.js');
       initializeNewBookContainer();
 
       const { initializeHomepageButtons } = await import('../../homepageDisplayUnit.js');

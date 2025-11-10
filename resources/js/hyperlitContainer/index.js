@@ -63,8 +63,8 @@ export {
 // ============================================================================
 
 import { book } from '../app.js';
-import { openDatabase } from '../indexedDB.js';
-import { getCurrentUserId } from '../auth.js';
+import { openDatabase } from '../indexedDB/index.js';
+import { getCurrentUserId } from "../utilities/auth.js";
 import { openHyperlitContainer } from './core.js';
 import { detectContentTypes } from './detection.js';
 import { determineSingleContentHash } from './history.js';
@@ -480,8 +480,8 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = []) 
       }
 
       // Attach delete button listeners
-      setTimeout(() => {
-        const { deleteHighlightById } = require('../hyperlights/index.js');
+      setTimeout(async () => {
+        const { deleteHighlightById } = await import('../hyperlights/index.js');
         const deleteButtons = document.querySelectorAll('.delete-highlight-btn');
         deleteButtons.forEach(button => {
           button.addEventListener('click', async (e) => {
@@ -545,7 +545,7 @@ async function checkPrivateBookAccess() {
   const privateLinks = document.querySelectorAll('[data-private="true"]');
   if (privateLinks.length === 0) return;
 
-  const { canUserEditBook } = await import('../auth.js');
+  const { canUserEditBook } = await import('../utilities/auth.js');
 
   for (const link of privateLinks) {
     const bookId = link.getAttribute('data-book-id');

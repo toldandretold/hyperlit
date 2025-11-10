@@ -2,8 +2,8 @@
  * Annotations module - Handles annotation saving and management
  */
 
-import { withPending } from "../operationState.js";
-import { openDatabase, queueForSync } from "../indexedDB.js";
+import { withPending } from "../utilities/operationState.js";
+import { openDatabase, queueForSync } from "../indexedDB/index.js";
 
 /**
  * Extracts the current HTML content from within the annotation element.

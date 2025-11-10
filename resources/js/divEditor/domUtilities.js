@@ -12,8 +12,8 @@
  */
 
 import { book } from '../app.js';
-import { isNumericalId, setElementIds } from '../IDfunctions.js';
-import { isPasteOperationActive } from '../paste.js';
+import { isNumericalId, setElementIds } from "../utilities/IDfunctions.js";
+import { isPasteOperationActive } from '../paste';
 import { trackChunkNodeCount } from '../chunkManager.js';
 
 /**

@@ -5,7 +5,7 @@
  * When a hypercite citation is deleted, it updates the source hypercite's citedIN array.
  */
 
-import { openDatabase, updateBookTimestamp, queueForSync, debouncedMasterSync, getLibraryObjectFromIndexedDB } from '../indexedDB.js';
+import { openDatabase, updateBookTimestamp, queueForSync, debouncedMasterSync, getLibraryObjectFromIndexedDB } from '../indexedDB/index.js';
 import { book } from '../app.js';
 import { extractHyperciteIdFromHref, determineRelationshipStatus, removeCitedINEntry } from './utils.js';
 import { getHyperciteById } from './database.js';
@@ -165,7 +165,7 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
 
     // 🔥 NEW: Broadcast the update to other tabs so they can refresh the hypercite's appearance
     if (foundNodeChunk) {
-      const { broadcastToOpenTabs } = await import('../BroadcastListener.js');
+      const { broadcastToOpenTabs } = await import('../utilities/BroadcastListener.js');
       broadcastToOpenTabs(targetHypercite.book, foundNodeChunk.startLine);
       console.log(`📡 Broadcasted delink update for node ${foundNodeChunk.startLine} to other tabs`);
     }

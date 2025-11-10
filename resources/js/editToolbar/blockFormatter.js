@@ -20,11 +20,11 @@ import {
   setElementIds,
   findPreviousElementId,
   findNextElementId,
-} from "../IDfunctions.js";
+} from "../utilities/IDfunctions.js";
 import {
   batchUpdateIndexedDBRecords,
   batchDeleteIndexedDBRecords,
-} from "../indexedDB.js";
+} from "../indexedDB/index.js";
 
 /**
  * BlockFormatter class

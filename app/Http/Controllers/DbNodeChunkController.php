@@ -346,12 +346,12 @@ public function targetedUpsert(Request $request)
             // For owners, prepare all possible updatable fields.
             if ($hasPermission) {
                 $updateData = [
-                    'chunk_id' => $item['chunk_id'] ?? ($existingChunk->chunk_id ?? null),
-                    'node_id' => $item['node_id'] ?? ($existingChunk->node_id ?? null),
-                    'content' => $item['content'] ?? ($existingChunk->content ?? null),
-                    'footnotes' => $item['footnotes'] ?? ($existingChunk->footnotes ?? []),
-                    'plainText' => $item['plainText'] ?? ($existingChunk->plainText ?? null),
-                    'type' => $item['type'] ?? ($existingChunk->type ?? null),
+                    'chunk_id' => $item['chunk_id'] ?? ($existingChunk ? $existingChunk->chunk_id : 0),
+                    'node_id' => $item['node_id'] ?? ($existingChunk ? $existingChunk->node_id : null),
+                    'content' => $item['content'] ?? ($existingChunk ? $existingChunk->content : null),
+                    'footnotes' => $item['footnotes'] ?? ($existingChunk ? $existingChunk->footnotes : []),
+                    'plainText' => $item['plainText'] ?? ($existingChunk ? $existingChunk->plainText : null),
+                    'type' => $item['type'] ?? ($existingChunk ? $existingChunk->type : null),
                 ];
             }
             
@@ -442,9 +442,15 @@ public function targetedUpsert(Request $request)
                 $existingChunk->save();
                 $result = $existingChunk;
             } else {
-                // Create new record
+                // Create new record - always include required NOT NULL fields
                 $result = PgNodeChunk::create(array_merge(
-                    ['book' => $item['book'], 'startLine' => $item['startLine']],
+                    [
+                        'book' => $item['book'],
+                        'startLine' => $item['startLine'],
+                        'chunk_id' => $item['chunk_id'] ?? 0,  // Required NOT NULL field
+                        'content' => $item['content'] ?? '',    // Required NOT NULL field
+                        'node_id' => $item['node_id'] ?? null,
+                    ],
                     $updateData
                 ));
             }

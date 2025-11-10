@@ -3,10 +3,10 @@
  */
 
 import { parseHyperciteHref, attachUnderlineClickListeners } from "../hypercites/index.js";
-import { extractQuotedText } from '../paste.js';
-import { updateCitationForExistingHypercite } from '../indexedDB.js';
+import { extractQuotedText } from '../utilities/textExtraction.js';
+import { updateCitationForExistingHypercite } from '../indexedDB/index.js';
 import { book } from '../app.js';
-import { broadcastToOpenTabs } from '../BroadcastListener.js';
+import { broadcastToOpenTabs } from "../utilities/BroadcastListener.js";
 import { saveHighlightAnnotation } from './annotations.js';
 
 /**

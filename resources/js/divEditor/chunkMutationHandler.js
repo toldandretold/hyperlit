@@ -9,14 +9,14 @@
  * - Chunk overflow management
  */
 
-import { chunkOverflowInProgress } from '../operationState.js';
-import { isNumericalId, ensureNodeHasValidId } from '../IDfunctions.js';
-import { movedNodesByOverflow } from '../divEditor.js';
-import { showSpinner, isProcessing } from '../editIndicator.js';
+import { chunkOverflowInProgress } from "../utilities/operationState.js";
+import { isNumericalId, ensureNodeHasValidId } from "../utilities/IDfunctions.js";
+import { movedNodesByOverflow } from './index.js';
+import { showSpinner, isProcessing } from '../components/editIndicator.js';
 import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../chunkManager.js';
-import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../toc.js';
-import { deleteIndexedDBRecordWithRetry } from '../indexedDB.js';
-import { isPasteOperationActive } from '../paste.js';
+import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../components/toc.js';
+import { deleteIndexedDBRecordWithRetry } from '../indexedDB/index.js';
+import { isPasteOperationActive } from '../paste';
 
 /**
  * ChunkMutationHandler class

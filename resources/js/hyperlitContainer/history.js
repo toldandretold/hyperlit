@@ -116,8 +116,8 @@ export async function restoreHyperlitContainerFromHistory() {
  * Returns null if no container is open
  * @returns {Object|null} Current container state or null
  */
-export function getCurrentContainerState() {
-  const { hyperlitManager } = require('./core.js');
+export async function getCurrentContainerState() {
+  const { hyperlitManager } = await import('./core.js');
 
   if (!hyperlitManager || !document.getElementById('hyperlit-container')?.style.display ||
       document.getElementById('hyperlit-container').style.display === 'none') {

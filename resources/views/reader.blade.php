@@ -470,7 +470,7 @@
   </script>
 
   {{-- Now load your reader‑specific JS via Vite --}}
-  @vite(['resources/js/containerCustomization.js', 'resources/js/drag.js', 'resources/js/readerDOMContentLoaded.js'])
+  @vite(['resources/js/containerCustomization.js', 'resources/js/utilities/drag.js', 'resources/js/readerDOMContentLoaded.js'])
 @endsection
     
 

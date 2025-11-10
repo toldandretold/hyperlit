@@ -9,7 +9,6 @@ const ASSETS_TO_CACHE = [
   "/lazyLoaderFactory.js",
   "/toc.js",
   "/nav-buttons.js",
-  "/lazyLoadingDiv.js",
   "/hyper-lights-cites.js",
   "/footnotesCitations.js",
   "/convertMarkdown.js",

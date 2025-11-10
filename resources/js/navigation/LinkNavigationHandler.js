@@ -375,7 +375,7 @@ export class LinkNavigationHandler {
     // 🚀 CRITICAL: Clear saved scroll positions when navigating with hash to prevent interference
     if (window.location.hash) {
       console.log(`🧹 POPSTATE: Clearing saved scroll positions because hash present: ${window.location.hash}`);
-      const { getLocalStorageKey } = await import('../indexedDB.js');
+      const { getLocalStorageKey } = await import('../indexedDB/index.js');
       const { book: currentBookVariable } = await import('../app.js');
       const scrollKey = getLocalStorageKey("scrollPosition", currentBookVariable);
       sessionStorage.removeItem(scrollKey);

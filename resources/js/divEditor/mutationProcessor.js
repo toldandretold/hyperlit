@@ -6,9 +6,9 @@
  * rapid typing or large paste operations.
  */
 
-import { isPasteInProgress, isProgrammaticUpdateInProgress, hypercitePasteInProgress, keyboardLayoutInProgress } from '../operationState.js';
-import { isChunkLoadingInProgress, getLoadingChunkId } from '../chunkLoadingState.js';
-import { getEditToolbar } from '../editToolbar.js';
+import { isPasteInProgress, isProgrammaticUpdateInProgress, hypercitePasteInProgress, keyboardLayoutInProgress } from "../utilities/operationState.js";
+import { isChunkLoadingInProgress, getLoadingChunkId } from "../utilities/chunkLoadingState.js";
+import { getEditToolbar } from '../editToolbar';
 
 /**
  * MutationProcessor class
