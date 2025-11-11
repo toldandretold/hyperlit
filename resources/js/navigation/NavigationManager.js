@@ -36,13 +36,7 @@ export class NavigationManager {
         
         case 'book-to-book':
           return await this.handleBookToBookTransition(options);
-        
-        case 'book-to-home':
-          return await this.handleBookToHomeTransition(options);
-        
-        case 'home-to-book':
-          return await this.handleHomeToBookTransition(options);
-        
+
         default:
           throw new Error(`Unknown navigation pathway: ${pathway}`);
       }
@@ -97,27 +91,6 @@ export class NavigationManager {
     return await BookToBookTransition.execute(options);
   }
 
-  /**
-   * PATHWAY 5: Book-to-home navigation (reader → home)
-   * Full body replacement, template switch from reader to home
-   */
-  static async handleBookToHomeTransition(options = {}) {
-    console.log('🏠 NavigationManager: Book-to-home transition pathway');
-    
-    const { BookToHomeTransition } = await import('./pathways/BookToHomeTransition.js');
-    return await BookToHomeTransition.execute(options);
-  }
-
-  /**
-   * PATHWAY 6: Home-to-book navigation (home → reader)
-   * Full body replacement, template switch from home to reader
-   */
-  static async handleHomeToBookTransition(options = {}) {
-    console.log('📖 NavigationManager: Home-to-book transition pathway');
-    
-    const { HomeToBookTransition } = await import('./pathways/HomeToBookTransition.js');
-    return await HomeToBookTransition.execute(options);
-  }
 
   /**
    * Determine which pathway should be used based on context
