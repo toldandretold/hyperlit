@@ -582,8 +582,9 @@ export class UserContainerManager extends ContainerManager {
     // MODIFIED: This logic correctly handles both scenarios
     // If the button exists, position the container relative to it.
     if (this.button) {
-      console.log(`🔧 UserContainer: Positioning relative to button`);
+      console.log(`🔧 UserContainer: Positioning relative to button`, this.button);
       const rect = this.button.getBoundingClientRect();
+      console.log(`🔧 UserContainer: Button rect:`, { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right });
       this.container.style.top = `${rect.bottom + 8}px`;
       this.container.style.left = `${rect.left}px`;
       // Ensure any previous transform is cleared for correct positioning

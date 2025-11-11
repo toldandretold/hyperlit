@@ -228,6 +228,12 @@ export async function universalPageInitializer(progressCallback = null) {
     console.log("🔧 Initializing universal components...");
     await initializeUniversalComponents(currentPageType);
 
+    // 🔧 CRITICAL: Attach global handlers (popstate, visibility, focus) for ALL page types
+    // This must happen BEFORE early return for home/user pages
+    const { LinkNavigationHandler } = await import('./navigation/LinkNavigationHandler.js');
+    LinkNavigationHandler.attachGlobalLinkClickHandler();
+    console.log('✅ Global navigation handlers attached (popstate/visibility/focus)');
+
     // For homepage and user pages, skip reader-specific initialization
     // Content loading is handled by initializeHomepageButtons() for these page types
     if (currentPageType === 'home' || currentPageType === 'user') {
@@ -288,9 +294,7 @@ export async function universalPageInitializer(progressCallback = null) {
   });
   restoreScrollPosition();
   attachMarkListeners();
-  // Use the new LinkNavigationHandler instead of inline logic
-  const { LinkNavigationHandler } = await import('./navigation/LinkNavigationHandler.js');
-  LinkNavigationHandler.attachGlobalLinkClickHandler();
+  // Note: LinkNavigationHandler.attachGlobalLinkClickHandler() now called earlier for all page types
   initializeBroadcastListener();
   setupUnloadSync();
   initializeTocManager();
@@ -418,8 +422,13 @@ async function initializeUniversalComponents(pageType) {
     } else {
         // Initialize user container - works on both homepage and reader pages
         try {
-          // Import the user container module to trigger its initialization
-          await import('./components/userContainer.js');
+          // CRITICAL: Actively initialize userContainer after body replacement
+          // Passive import relies on auto-init which runs before DOM exists
+          const { initializeUserContainer } = await import('./components/userContainer.js');
+          const userManager = initializeUserContainer();
+          if (userManager && userManager.initializeUser) {
+            await userManager.initializeUser();
+          }
           console.log('✅ User container initialized for universal access');
         } catch (error) {
           console.warn('Could not initialize user container:', error);

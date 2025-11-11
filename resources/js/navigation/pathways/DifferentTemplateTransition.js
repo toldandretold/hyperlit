@@ -60,9 +60,15 @@ export class DifferentTemplateTransition {
       const bookId = toBook || LinkNavigationHandler.getBookIdFromUrl(targetUrlResolved);
       await initializeToStructure(toStructure, bookId, progress);
 
-      // Step 5: Update URL (using shared utility)
+      // Step 5: Update URL with state preservation for back button (using shared utility)
       const newUrl = hash ? `${targetUrlResolved}${hash}` : targetUrlResolved;
-      updateUrl(newUrl);
+      updateUrl(newUrl, {
+        fromBook: fromStructure === 'reader' ? LinkNavigationHandler.getBookIdFromUrl(window.location.pathname) : null,
+        toBook: bookId,
+        fromStructure,
+        toStructure,
+        transitionType: 'template-switch'
+      });
 
       // Step 6: Handle hash navigation if present (using shared utility)
       if (hash) {

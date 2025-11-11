@@ -66,9 +66,17 @@ export class SameTemplateTransition {
       // Use the shared swapHomeContent utility
       await swapHomeContent(toBook, true);
 
-      // Update URL (using shared utility)
+      // Update URL with state preservation for back button (using shared utility)
       const newUrl = `/${toBook}${hash}`;
-      updateUrl(newUrl);
+      const { LinkNavigationHandler } = await import('../LinkNavigationHandler.js');
+      const currentBook = LinkNavigationHandler.getBookIdFromUrl(window.location.pathname);
+      updateUrl(newUrl, {
+        fromBook: currentBook,
+        toBook: toBook,
+        fromStructure: 'home',
+        toStructure: 'home',
+        transitionType: 'content-swap'
+      });
 
       // Handle hash navigation if present (using shared utility)
       if (hash) {
@@ -106,9 +114,17 @@ export class SameTemplateTransition {
       // Use the shared swapHomeContent utility (works for both home and user pages)
       await swapHomeContent(toBook, true);
 
-      // Update URL (using shared utility)
+      // Update URL with state preservation for back button (using shared utility)
       const newUrl = `/${toBook}${hash}`;
-      updateUrl(newUrl);
+      const { LinkNavigationHandler } = await import('../LinkNavigationHandler.js');
+      const currentBook = LinkNavigationHandler.getBookIdFromUrl(window.location.pathname);
+      updateUrl(newUrl, {
+        fromBook: currentBook,
+        toBook: toBook,
+        fromStructure: 'user',
+        toStructure: 'user',
+        transitionType: 'content-swap'
+      });
 
       // Handle hash navigation if present (using shared utility)
       if (hash) {

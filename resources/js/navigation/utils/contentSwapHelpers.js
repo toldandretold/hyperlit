@@ -228,14 +228,30 @@ export async function navigateToHash(hash, structure = 'reader') {
 }
 
 /**
- * Update browser URL
+ * Update browser URL with state preservation for back button support
+ * Modeled after BookToBookTransition.updateUrlWithStatePreservation()
  */
-export function updateUrl(url) {
+export function updateUrl(url, options = {}) {
   try {
     const currentUrl = window.location.pathname + window.location.hash;
     if (currentUrl !== url) {
-      window.history.pushState({}, '', url);
-      console.log(`🔗 contentSwapHelpers: Updated URL to ${url}`);
+      // Preserve existing history state and add transition metadata
+      const currentState = history.state || {};
+
+      const newState = {
+        ...currentState,
+        transition: {
+          fromBook: options.fromBook || null,
+          toBook: options.toBook || null,
+          fromStructure: options.fromStructure || null,
+          toStructure: options.toStructure || null,
+          transitionType: options.transitionType || 'spa',
+          timestamp: Date.now()
+        }
+      };
+
+      window.history.pushState(newState, '', url);
+      console.log(`🔗 contentSwapHelpers: Updated URL to ${url}`, newState.transition);
     }
   } catch (error) {
     console.warn('Could not update URL:', error);

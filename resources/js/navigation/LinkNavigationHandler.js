@@ -78,12 +78,14 @@ export class LinkNavigationHandler {
     window.addEventListener('popstate', this.globalPopstateHandler);
 
     console.log('🔗 LinkNavigationHandler: Global handlers attached (visibility/focus/popstate)');
+    console.log('🔗 LinkNavigationHandler: Popstate handler is:', this.globalPopstateHandler ? 'DEFINED' : 'UNDEFINED');
   }
 
   /**
    * Remove global handlers
    */
   static removeGlobalHandlers() {
+    console.log('🧹 LinkNavigationHandler: REMOVING global handlers...');
     if (this.globalLinkClickHandler) {
       // Click handler now managed by lazyLoaderFactory
     }
@@ -94,6 +96,7 @@ export class LinkNavigationHandler {
       window.removeEventListener('focus', this.globalFocusHandler);
     }
     if (this.globalPopstateHandler) {
+      console.log('🧹 LinkNavigationHandler: Removing popstate handler');
       window.removeEventListener('popstate', this.globalPopstateHandler);
     }
 
