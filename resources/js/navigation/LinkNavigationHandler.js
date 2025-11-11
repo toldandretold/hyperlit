@@ -15,41 +15,77 @@ export class LinkNavigationHandler {
 
   /**
    * Attach global link click handler for intelligent navigation
+   * NOTE: Click handling is done by lazyLoaderFactory.js
+   * This only attaches visibility/focus/popstate handlers
    */
   static attachGlobalLinkClickHandler() {
     // Remove existing handlers if they exist
     this.removeGlobalHandlers();
     // Reset reload flag when handlers are attached (page is loaded)
     this.isReloading = false;
-    this.globalLinkClickHandler = (event) => {
-      this.handleLinkClick(event);
+
+    // Track recent link clicks for mobile overlay handling
+    let recentLinkClick = false;
+
+    // Clear overlay when page becomes visible again (handles back button cache issues)
+    this.globalVisibilityHandler = async () => {
+      if (!document.hidden && !recentLinkClick) {
+        // Page is visible again, clear any stuck overlay
+        // But only if we didn't just click a link (which would be navigating away)
+        console.log('🎯 Visibility change - clearing overlay (not from recent link click)');
+        const { hideNavigationLoading } = await import('../scrolling.js');
+        hideNavigationLoading();
+      }
     };
 
-    this.globalVisibilityHandler = () => {
-      this.handleVisibilityChange();
+    // Also handle page focus as fallback
+    this.globalFocusHandler = async () => {
+      const { hideNavigationLoading } = await import('../scrolling.js');
+      hideNavigationLoading();
     };
 
-    this.globalFocusHandler = () => {
-      this.handlePageFocus();
+    // Handle browser back/forward navigation
+    this.globalPopstateHandler = async (event) => {
+      // Prevent reload loops
+      if (this.isReloading) {
+        console.log('🔗 LinkNavigationHandler: Already reloading, ignoring popstate');
+        return;
+      }
+
+      console.log('🔗 LinkNavigationHandler: Browser navigation detected (back/forward)');
+      console.log('📊 Popstate event details:', {
+        state: event.state,
+        currentURL: window.location.href,
+        historyLength: window.history.length,
+        hasHash: !!window.location.hash,
+        hash: window.location.hash
+      });
+
+      // Delegate to the existing robust popstate handler
+      await this.handlePopstate(event);
     };
 
-    this.globalPopstateHandler = (event) => {
-      this.handlePopstate(event);
+    // Track recent link clicks (for mobile handling)
+    const clickTracker = () => {
+      recentLinkClick = true;
+      setTimeout(() => { recentLinkClick = false; }, 1000);
     };
 
-    // Add all the event listeners (except click - now handled by lazyLoaderFactory)
-    document.addEventListener('click', this.trackRecentLinkClick);
+    // Add all the event listeners (click handled by lazyLoaderFactory)
+    document.addEventListener('click', clickTracker);
     document.addEventListener('visibilitychange', this.globalVisibilityHandler);
     window.addEventListener('focus', this.globalFocusHandler);
     window.addEventListener('popstate', this.globalPopstateHandler);
 
-    console.log('🔗 LinkNavigationHandler: Global link handling attached');
+    console.log('🔗 LinkNavigationHandler: Global handlers attached (visibility/focus/popstate)');
+    console.log('🔗 LinkNavigationHandler: Popstate handler is:', this.globalPopstateHandler ? 'DEFINED' : 'UNDEFINED');
   }
 
   /**
    * Remove global handlers
    */
   static removeGlobalHandlers() {
+    console.log('🧹 LinkNavigationHandler: REMOVING global handlers...');
     if (this.globalLinkClickHandler) {
       // Click handler now managed by lazyLoaderFactory
     }
@@ -60,6 +96,7 @@ export class LinkNavigationHandler {
       window.removeEventListener('focus', this.globalFocusHandler);
     }
     if (this.globalPopstateHandler) {
+      console.log('🧹 LinkNavigationHandler: Removing popstate handler');
       window.removeEventListener('popstate', this.globalPopstateHandler);
     }
 

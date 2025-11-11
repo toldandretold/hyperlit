@@ -141,7 +141,7 @@ export class BookToBookTransition {
    */
   static async cleanupCurrentReader() {
     console.log('🧹 BookToBookTransition: Cleaning up current reader (preserving navigation)');
-    
+
     try {
       // Import and call the existing cleanup function from viewManager
       const { cleanupReaderView } = await import('../../viewManager.js');
@@ -150,10 +150,17 @@ export class BookToBookTransition {
       // Explicitly reset all edit mode state flags as a safeguard
       const { resetEditModeState } = await import('../../components/editButton.js');
       resetEditModeState();
-      
+
+      // 🧹 CRITICAL: Destroy user container to prevent stale button references
+      const { destroyUserContainer } = await import('../../components/userContainer.js');
+      if (typeof destroyUserContainer === 'function') {
+        destroyUserContainer();
+        console.log('✅ BookToBookTransition: User container destroyed');
+      }
+
       // The original cleanup for overlays is still useful here
       this.cleanupNavigationOverlays();
-      
+
     } catch (error) {
       console.warn('Some cleanup steps failed, continuing:', error);
     }
