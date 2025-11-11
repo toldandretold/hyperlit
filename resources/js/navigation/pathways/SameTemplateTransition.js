@@ -1,10 +1,11 @@
 /**
  * SameTemplateTransition - Universal handler for same-structure transitions
  * Handles content-only replacement for reader→reader, home→home, user→user
- * Preserves page wrapper, buttons, and header - only replaces .main-content
+ * Preserves page wrapper, buttons, and header - only replaces .main-content using shared utilities
  */
 import { ProgressManager } from '../ProgressManager.js';
 import { LinkNavigationHandler } from '../LinkNavigationHandler.js';
+import { swapHomeContent, navigateToHash, updateUrl } from '../utils/contentSwapHelpers.js';
 
 export class SameTemplateTransition {
   /**
@@ -47,6 +48,7 @@ export class SameTemplateTransition {
     return await BookToBookTransition.execute(options);
   }
 
+
   /**
    * Handle home→home transition (content swap only)
    * Uses the homepageDisplayUnit pattern: remove old .main-content, create new, load content
@@ -61,20 +63,17 @@ export class SameTemplateTransition {
 
       progress(10, `Loading ${toBook}...`);
 
-      // Use the homepageDisplayUnit transition pattern
-      await this.swapHomeContent(toBook, true);
+      // Use the shared swapHomeContent utility
+      await swapHomeContent(toBook, true);
 
-      // Update URL
+      // Update URL (using shared utility)
       const newUrl = `/${toBook}${hash}`;
-      if (window.location.pathname + window.location.hash !== newUrl) {
-        window.history.pushState({}, '', newUrl);
-        console.log(`🔗 SameTemplateTransition: Updated URL to ${newUrl}`);
-      }
+      updateUrl(newUrl);
 
-      // Handle hash navigation if present
+      // Handle hash navigation if present (using shared utility)
       if (hash) {
         progress(90, 'Navigating to target...');
-        await this.navigateToHash(hash);
+        await navigateToHash(hash, 'home');
       }
 
       progress(100, 'Complete!');
@@ -88,6 +87,7 @@ export class SameTemplateTransition {
       throw error;
     }
   }
+
 
   /**
    * Handle user→user transition (content swap only)
@@ -103,20 +103,17 @@ export class SameTemplateTransition {
 
       progress(10, `Loading ${toBook}...`);
 
-      // Use the same pattern as home→home (both use .main-content swap)
-      await this.swapHomeContent(toBook, true);
+      // Use the shared swapHomeContent utility (works for both home and user pages)
+      await swapHomeContent(toBook, true);
 
-      // Update URL
+      // Update URL (using shared utility)
       const newUrl = `/${toBook}${hash}`;
-      if (window.location.pathname + window.location.hash !== newUrl) {
-        window.history.pushState({}, '', newUrl);
-        console.log(`🔗 SameTemplateTransition: Updated URL to ${newUrl}`);
-      }
+      updateUrl(newUrl);
 
-      // Handle hash navigation if present
+      // Handle hash navigation if present (using shared utility)
       if (hash) {
         progress(90, 'Navigating to target...');
-        await this.navigateToHash(hash);
+        await navigateToHash(hash, 'user');
       }
 
       progress(100, 'Complete!');
@@ -128,160 +125,6 @@ export class SameTemplateTransition {
       console.error('❌ SameTemplateTransition: User→User transition failed:', error);
       await ProgressManager.hide();
       throw error;
-    }
-  }
-
-  /**
-   * Swap home/user content using homepageDisplayUnit pattern
-   * Extracted from homepageDisplayUnit.transitionToBookContent()
-   */
-  static async swapHomeContent(bookId, showLoader = true) {
-    try {
-      if (showLoader) {
-        const { showNavigationLoading } = await import('../../scrolling.js');
-        showNavigationLoading(`Loading ${bookId}...`);
-      }
-
-      console.log(`🔄 SameTemplateTransition: Swapping content to ${bookId}`);
-
-      // 🧹 CRITICAL: Destroy existing homepage managers before content swap
-      console.log('🧹 SameTemplateTransition: Destroying homepage display unit listeners');
-      const { destroyHomepageDisplayUnit } = await import('../../homepageDisplayUnit.js');
-      if (typeof destroyHomepageDisplayUnit === 'function') {
-        destroyHomepageDisplayUnit();
-      }
-
-      // 🧹 CRITICAL: Destroy existing user profile editor if it exists
-      const currentStructure = document.body.getAttribute('data-page');
-      if (currentStructure === 'user') {
-        console.log('🧹 SameTemplateTransition: Destroying user profile editor listeners');
-        const { destroyUserProfileEditor } = await import('../../components/userProfileEditor.js');
-        if (typeof destroyUserProfileEditor === 'function') {
-          destroyUserProfileEditor();
-        }
-      }
-
-      // Remove existing content containers
-      document.querySelectorAll('.main-content').forEach(content => {
-        console.log(`🧹 Removing existing content container: ${content.id}`);
-        content.remove();
-      });
-
-      // Create fresh container for the new content
-      // Support both home and user page wrappers
-      const mainContainer = document.querySelector('.home-content-wrapper') ||
-                            document.querySelector('.user-content-wrapper');
-      if (!mainContainer) {
-        throw new Error('Content wrapper not found (tried .home-content-wrapper and .user-content-wrapper)');
-      }
-
-      const newContentDiv = document.createElement('div');
-      newContentDiv.id = bookId;
-      newContentDiv.className = 'main-content active-content';
-      mainContainer.appendChild(newContentDiv);
-      console.log(`✨ Created fresh content container: ${bookId}`);
-
-      // Set the current book context (important for other systems)
-      const { setCurrentBook } = await import('../../app.js');
-      setCurrentBook(bookId);
-
-      // Reset the current lazy loader so a fresh one gets created
-      const { resetCurrentLazyLoader, loadHyperText } = await import('../../initializePage.js');
-      resetCurrentLazyLoader();
-
-      // Use the same loading pipeline as regular page transitions
-      await loadHyperText(bookId);
-
-      // 🔧 CRITICAL: Reinitialize homepage display unit after content load
-      console.log('🔧 SameTemplateTransition: Reinitializing homepage display unit');
-      const { initializeHomepageButtons, fixHeaderSpacing } = await import('../../homepageDisplayUnit.js');
-      if (typeof initializeHomepageButtons === 'function') {
-        initializeHomepageButtons();
-      }
-      if (typeof fixHeaderSpacing === 'function') {
-        fixHeaderSpacing();
-      }
-
-      // 🔧 CRITICAL: Reinitialize user profile editor if on user page
-      if (currentStructure === 'user') {
-        console.log('🔧 SameTemplateTransition: Reinitializing user profile editor');
-        const { initializeUserProfileEditor } = await import('../../components/userProfileEditor.js');
-        if (typeof initializeUserProfileEditor === 'function') {
-          await initializeUserProfileEditor(bookId);
-        }
-      }
-
-      // 🔧 CRITICAL: Reinitialize TogglePerimeterButtons
-      console.log('🔧 SameTemplateTransition: Reinitializing TogglePerimeterButtons');
-      const { togglePerimeterButtons } = await import('../../readerDOMContentLoaded.js');
-      if (togglePerimeterButtons) {
-        togglePerimeterButtons.destroy();
-        togglePerimeterButtons.rebindElements();
-        togglePerimeterButtons.init();
-        togglePerimeterButtons.updatePosition();
-        console.log('✅ SameTemplateTransition: TogglePerimeterButtons reinitialized');
-      }
-
-      // 🔧 CRITICAL: Reinitialize logo navigation toggle
-      console.log('🔧 SameTemplateTransition: Reinitializing logo navigation toggle');
-      const { destroyLogoNav, initializeLogoNav } = await import('../../components/logoNavToggle.js');
-      if (destroyLogoNav && initializeLogoNav) {
-        destroyLogoNav();
-        initializeLogoNav();
-        console.log('✅ SameTemplateTransition: Logo navigation toggle reinitialized');
-      }
-
-      // 🔧 CRITICAL: Reinitialize user container (userButton in logoNavWrapper on user/reader pages)
-      console.log('🔧 SameTemplateTransition: Reinitializing user container');
-      const { initializeUserContainer } = await import('../../components/userContainer.js');
-      const userManager = initializeUserContainer();
-      if (userManager && userManager.initializeUser) {
-        await userManager.initializeUser();
-      }
-      console.log('✅ SameTemplateTransition: User container reinitialized');
-
-      console.log(`✅ Successfully loaded ${bookId} content`);
-
-      if (showLoader) {
-        const { hideNavigationLoading } = await import('../../scrolling.js');
-        hideNavigationLoading();
-      }
-
-    } catch (error) {
-      console.error(`❌ Failed to swap content to ${bookId}:`, error);
-      if (showLoader) {
-        const { hideNavigationLoading } = await import('../../scrolling.js');
-        hideNavigationLoading();
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Navigate to hash target if provided
-   */
-  static async navigateToHash(hash) {
-    if (!hash) return;
-
-    console.log(`🎯 SameTemplateTransition: Navigating to hash ${hash}`);
-
-    try {
-      const targetId = hash.substring(1); // Remove the #
-
-      // Wait for target element to be ready
-      const { navigateToInternalId } = await import('../../scrolling.js');
-      const { currentLazyLoader } = await import('../../initializePage.js');
-
-      if (currentLazyLoader) {
-        navigateToInternalId(targetId, currentLazyLoader, false);
-        console.log(`✅ SameTemplateTransition: Navigated to ${hash}`);
-      }
-    } catch (error) {
-      console.warn(`Could not navigate to hash ${hash}:`, error);
-      // Fallback: simple hash navigation
-      if (hash) {
-        window.location.hash = hash;
-      }
     }
   }
 }
