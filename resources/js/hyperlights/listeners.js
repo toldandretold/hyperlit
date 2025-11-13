@@ -3,6 +3,7 @@
  */
 
 import { handleUnifiedContentClick } from '../hyperlitContainer/index.js';
+import { verbose } from '../utilities/logger.js';
 
 /**
  * Attach click and hover listeners to all mark elements
@@ -11,7 +12,7 @@ import { handleUnifiedContentClick } from '../hyperlitContainer/index.js';
 export function attachMarkListeners(scope = document) {
     // Get all mark elements (both with ID and with just class)
     const markTags = scope.querySelectorAll("mark");
-    console.log(`Attempting to attach listeners to ${markTags.length} mark elements`);
+    verbose.user(`Attaching mark listeners (${markTags.length} elements)`, '/hyperlights/listeners.js');
 
     markTags.forEach(function(mark) {
         // Remove existing listeners
@@ -25,10 +26,7 @@ export function attachMarkListeners(scope = document) {
         mark.addEventListener("mouseout", handleMarkHoverOut);
 
         mark.dataset.listenerAttached = true;
-        console.log(`Listener attached to mark with ID or class: ${mark.id || '[class only]'}`);
     });
-
-    console.log(`Mark listeners refreshed for ${markTags.length} <mark> tags`);
 }
 
 /**

@@ -4,6 +4,7 @@
  */
 
 import { ContainerManager } from '../containerManager.js';
+import { log, verbose } from '../utilities/logger.js';
 
 // Create the hyperlit container manager instance
 export let hyperlitManager = null;
@@ -26,15 +27,12 @@ export function initializeHyperlitManager() {
  * @private
  */
 function initializeHyperlitManagerInternal() {
-  console.log("🔄 Initializing Hyperlit Container Manager...");
-
   // Check if container exists in the DOM (should be there from blade template)
   const container = document.getElementById("hyperlit-container");
   if (!container) {
     console.error("❌ hyperlit-container not found in DOM! Check reader.blade.php");
     return;
   }
-  console.log("✅ Found hyperlit-container in DOM");
 
   // Check if overlay exists (should be there from blade template)
   const overlay = document.getElementById("ref-overlay");
@@ -42,7 +40,6 @@ function initializeHyperlitManagerInternal() {
     console.error("❌ ref-overlay not found in DOM! Check reader.blade.php");
     return;
   }
-  console.log("✅ Found ref-overlay in DOM");
 
   // Now create the manager with the existing container and overlay
   hyperlitManager = new ContainerManager(
@@ -52,7 +49,7 @@ function initializeHyperlitManagerInternal() {
     ["main-content", "nav-buttons"]
   );
 
-  console.log("✅ Hyperlit Container Manager initialized");
+  log.init('Hyperlit Container Manager initialized', '/hyperlitContainer/core.js');
 }
 
 /**

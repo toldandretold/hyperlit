@@ -185,11 +185,11 @@ export function waitForElementReadyWithProgress(targetId, progressCallback, opti
           console.log(`✅ Hiding progress - ${targetId} is visually ready`);
           progressCallback(hideProgressAtPercent, `${targetId} ${hideProgressMessage}`);
           
-          // Import and hide progress manager
-          import('./navigation/ProgressManager.js').then(({ ProgressManager }) => {
-            ProgressManager.hide();
+          // Import and hide progress overlay
+          import('./navigation/ProgressOverlayEnactor.js').then(({ ProgressOverlayEnactor }) => {
+            ProgressOverlayEnactor.hide();
           }).catch(err => {
-            console.warn('Could not hide progress manager:', err);
+            console.warn('Could not hide progress overlay:', err);
           });
           
           progressHidden = true;
@@ -251,11 +251,11 @@ export function waitForMultipleElementsReadyWithProgress(targetIds, progressCall
             if (readyCount >= targetIds.length) {
               console.log(`✅ Hiding progress - all ${targetIds.length} elements are visually ready`);
               progressCallback(hideProgressAtPercent, hideProgressMessage);
-              
-              import('./navigation/ProgressManager.js').then(({ ProgressManager }) => {
-                ProgressManager.hide();
+
+              import('./navigation/ProgressOverlayEnactor.js').then(({ ProgressOverlayEnactor }) => {
+                ProgressOverlayEnactor.hide();
               }).catch(err => {
-                console.warn('Could not hide progress manager:', err);
+                console.warn('Could not hide progress overlay:', err);
               });
               
               progressHidden = true;

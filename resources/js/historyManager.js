@@ -3,6 +3,7 @@
 import { openDatabase } from "./indexedDB/index.js";
 import { currentLazyLoader } from "./initializePage.js";
 import { getEditToolbar } from "./editToolbar";
+import { log, verbose } from "./utilities/logger.js";
 
 // Private module-level variable to store the current book ID
 let currentBookId = null;
@@ -10,7 +11,7 @@ let currentBookId = null;
 // Function to set the current book ID when a new book is loaded
 export function setCurrentBookId(bookId) {
   currentBookId = bookId;
-  console.log(`History Manager: Current book ID set to ${currentBookId}`);
+  log.init(`History Manager initialized for ${currentBookId}`, '/historyManager.js');
   // IMPORTANT: When book ID changes, we should ideally clear redo history for that book
   // or at least make sure redo only applies to the correct book context.
   // For simplicity, for now, we'll just check for entries for the current book.

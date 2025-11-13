@@ -8,6 +8,8 @@
  * @module database
  */
 
+import { verbose } from '../utilities/logger.js';
+
 // ============================================================================
 // CORE OPERATIONS
 // ============================================================================
@@ -216,5 +218,5 @@ export async function initializeDatabaseModules(dependencies) {
   initMasterSyncDependencies({ book, getInitialBookSyncPromise, showTick, showError });
   initUnloadSyncDependencies({ book });
 
-  console.log('✅ Database modules initialized');
+  verbose.init('Database modules initialized', '/indexedDB/index.js');
 }

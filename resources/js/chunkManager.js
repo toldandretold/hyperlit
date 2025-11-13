@@ -1,6 +1,7 @@
 import { updateIndexedDBRecord } from './indexedDB/index.js';
 import { generateIdBetween } from './utilities/IDfunctions.js';
 import { setChunkOverflowInProgress, currentObservedChunk } from './utilities/operationState.js';
+import { verbose } from './utilities/logger.js';
 // ✅ Lazy-loaded: divEditor only used during editing
 // import { startObserving, stopObserving, movedNodesByOverflow } from './divEditor/index.js';
 
@@ -16,7 +17,7 @@ export const NODE_LIMIT = 100;
  * @param {MutationRecord[]} mutations - Optional mutations to process
  */
 export function trackChunkNodeCount(chunk, mutations = null) {
-  console.log("trackChunkNodeCount started");
+  verbose.content('trackChunkNodeCount started', 'chunkManager.js');
   if (!chunk) return;
   
   const chunkId = chunk.getAttribute('data-chunk-id');

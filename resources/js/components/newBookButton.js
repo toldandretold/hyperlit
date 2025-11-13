@@ -2,6 +2,7 @@ import { ContainerManager } from "../containerManager.js";
 import { openDatabase } from "../indexedDB/index.js";
 // Navigation imports moved to new system - see createBookHandler function
 import { ensureAuthInitialized } from "../utilities/auth.js";
+import { log, verbose } from "../utilities/logger.js";
 
 import { createNewBook, fireAndForgetSync } from "../createNewBook.js";
 import { enableEditMode } from './editButton.js';
@@ -48,7 +49,7 @@ export class NewBookContainerManager extends ContainerManager {
 
   handleVisibilityChange() {
       if (!document.hidden && this.recentExternalLinkClick) {
-        console.log('🔥 MOBILE: Page visible again after external link click - preserving form state');
+        verbose.init('Page visible again after external link click - preserving form state', 'newBookButton.js');
         this.recentExternalLinkClick = false;
         return; // Don't let other handlers close the form
       }
@@ -56,7 +57,7 @@ export class NewBookContainerManager extends ContainerManager {
 
   handleFocus() {
       if (this.recentExternalLinkClick) {
-        console.log('🔥 MOBILE: Page focused after external link click - preserving form state');
+        verbose.init('Page focused after external link click - preserving form state', 'newBookButton.js');
         this.recentExternalLinkClick = false;
         return;
       }
@@ -66,21 +67,14 @@ export class NewBookContainerManager extends ContainerManager {
     document.removeEventListener('visibilitychange', this.boundVisibilityChangeHandler);
     window.removeEventListener('focus', this.boundFocusHandler);
     this.cleanupResizeListener();
-    console.log('🧹 NewBookContainerManager: All global listeners removed.');
+    verbose.init('All global listeners removed', 'newBookButton.js');
   }
 
   setupResizeListener() {
     // Only set up the resize listener if it hasn't been created yet
     if (!this.resizeHandler) {
-      console.log("🔥 DEBUG: Setting up resize listener for form");
       this.resizeHandler = () => {
-        console.log("🔥 WINDOW RESIZE EVENT FIRED!", {
-          isOpen: this.isOpen,
-          hasCiteForm: !!this.container?.querySelector('#cite-form'),
-          windowWidth: window.innerWidth
-        });
         if (this.isOpen && this.container?.querySelector('#cite-form')) {
-          console.log("🔥 CALLING setResponsiveFormSize FROM RESIZE EVENT");
           // If form is open, adjust size on resize
           this.setResponsiveFormSize();
         }
@@ -91,7 +85,6 @@ export class NewBookContainerManager extends ContainerManager {
 
   cleanupResizeListener() {
     if (this.resizeHandler) {
-      console.log("🔥 DEBUG: Cleaning up resize listener");
       window.removeEventListener('resize', this.resizeHandler);
       this.resizeHandler = null;
     }
@@ -130,14 +123,14 @@ export class NewBookContainerManager extends ContainerManager {
 
     // Create and store event handler functions
     this.createBookHandler = async () => {
-      console.log("Create new book clicked");
+      verbose.init('Create new book clicked', 'newBookButton.js');
       this.closeContainer();
-      
+
       try {
-        // Use the new NewBookTransition pathway
-        const { NewBookTransition } = await import('../navigation/pathways/NewBookTransition.js');
-        await NewBookTransition.createAndTransition();
-        console.log("📘 New book transition completed successfully");
+        // Use NavigationManager to ensure overlay lifecycle is managed correctly
+        const { NavigationManager } = await import('../navigation/NavigationManager.js');
+        await NavigationManager.navigate('create-new-book', { createAndTransition: true });
+        log.init('New book transition completed successfully', 'newBookButton.js');
       } catch (error) {
         console.error("❌ New book creation failed:", error);
         // Could show user feedback here
@@ -145,7 +138,7 @@ export class NewBookContainerManager extends ContainerManager {
     };
 
     this.importBookHandler = () => {
-      console.log("Import book clicked");
+      verbose.init('Import book clicked', 'newBookButton.js');
       // Save the original content if not already saved
       if (!this.originalContent) {
         this.originalContent = this.container.innerHTML;
@@ -173,16 +166,11 @@ export class NewBookContainerManager extends ContainerManager {
 
         import("./newBookForm.js")
           .then(module => {
-            console.log("🔥 DEBUG: Setting up form listeners on", form);
-            
             // Call the initialization function from the imported module
             module.initializeCitationFormListeners();
-            
-            
+
             // Set up the form submission handler explicitly
-            console.log("🔥 DEBUG: About to call setupFormSubmissionHandler");
             module.setupFormSubmissionHandler();
-            console.log("🔥 DEBUG: setupFormSubmissionHandler called");
           })
           .catch(error => {
             console.error("Error importing citation form module:", error);
@@ -383,17 +371,7 @@ export class NewBookContainerManager extends ContainerManager {
   }
 
   setResponsiveFormSize() {
-    console.log("🔥 SETRESPONSIVEFORMSIZE CALLED!");
     const isMobile = window.innerWidth <= 480;
-    
-    console.log("🔥 SETRESPONSIVEFORMSIZE BEFORE CHANGES:", {
-      isMobile,
-      currentWidth: this.container.style.width,
-      currentHeight: this.container.style.height,
-      currentLeft: this.container.style.left,
-      currentRight: this.container.style.right,
-      currentTop: this.container.style.top
-    });
     
     if (isMobile) {
       // Mobile: Maintain our custom positioning - only expand down and to the left
@@ -408,29 +386,12 @@ export class NewBookContainerManager extends ContainerManager {
       this.container.style.left = "15px";
       this.container.style.right = ""; // Clear right positioning
       this.container.style.top = "50px";
-      
-      console.log("🔥 SETRESPONSIVEFORMSIZE MOBILE CHANGES APPLIED:", {
-        width: `${maxWidthFromButton}px`,
-        height: "calc(100vh - 100px)",
-        maxWidth: `${maxWidthFromButton}px`,
-        left: "15px",
-        right: "",
-        top: "50px",
-        originalButtonRight: this.originalButtonRect.right,
-        maxWidthFromButton
-      });
     } else {
       // Desktop: Keep existing size
       this.container.style.width = "500px";
       this.container.style.height = "80vh";
       this.container.style.maxWidth = "500px";
-      
-      console.log("🔥 SETRESPONSIVEFORMSIZE DESKTOP CHANGES APPLIED:", {
-        width: "500px",
-        height: "80vh",
-        maxWidth: "500px"
-      });
-      
+
       // Keep existing positioning logic for desktop
       // (this will be set by openContainer method)
     }
@@ -675,22 +636,17 @@ export class NewBookContainerManager extends ContainerManager {
   this.isAnimating = true;
 
   // 🔥 MOBILE DEBUG: Log when and why container is closing
-  console.log("🔥 MOBILE DEBUG: closeContainer called", {
-    recentExternalLinkClick: this.recentExternalLinkClick,
-    isHidden: document.hidden,
-    userAgent: navigator.userAgent.includes('Mobile'),
-    stackTrace: new Error().stack.split('\n').slice(1, 4)
-  });
+  verbose.init('closeContainer called', 'newBookButton.js');
 
   // Don't close if we recently clicked an external link (mobile protection)
   if (this.recentExternalLinkClick) {
-    console.log("🔥 MOBILE: Preventing container close due to recent external link click");
+    verbose.init('Preventing container close due to recent external link click', 'newBookButton.js');
     this.isAnimating = false;
     this.recentExternalLinkClick = false;
     return;
   }
 
-  console.log("🔥 CLOSECONTAINER - CLEARING ORIGINAL BUTTON RECT");
+  verbose.init('Clearing original button rect', 'newBookButton.js');
   this.originalButtonRect = null; // Clear so it gets recalculated next time
 
   // ✅ CLEANUP: Remove resize listener when form is closed
@@ -883,12 +839,12 @@ export function initializeNewBookContainer() {
         "newBook",
         ["main-content"]
       );
-      console.log('✅ NewBookContainer: Initialized new manager');
+      log.init('New book container initialized', '/components/newBookButton.js');
     } else {
       // Manager exists, just update button reference
       newBookManager.button = document.getElementById("newBook");
       newBookManager.rebindElements();
-      console.log('✅ NewBookContainer: Updated existing manager');
+      log.init('New book container updated', '/components/newBookButton.js');
     }
     
     // Make available globally for mobile link handling
@@ -908,7 +864,7 @@ if (document.getElementById("newBook")) {
 // Destroy function for cleanup during navigation
 export function destroyNewBookContainer() {
   if (newBookManager) {
-    console.log('🧹 Destroying new book container manager');
+    verbose.init('Destroying new book container manager', 'newBookButton.js');
     // Clean up any open containers
     if (newBookManager.isOpen) {
       newBookManager.closeContainer();

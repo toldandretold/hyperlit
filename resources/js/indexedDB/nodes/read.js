@@ -5,6 +5,7 @@
 
 import { openDatabase } from '../core/connection.js';
 import { parseNodeId, toPublicChunk } from '../core/utilities.js';
+import { verbose } from '../../utilities/logger.js';
 
 /**
  * Get all node chunks for a book, sorted by chunk_id
@@ -14,7 +15,7 @@ import { parseNodeId, toPublicChunk } from '../core/utilities.js';
  * @returns {Promise<Array>} Array of node chunks
  */
 export async function getNodeChunksFromIndexedDB(bookId = "latest") {
-  console.log("Fetching nodes from nodeChunks object store in IndexedDB for book:", bookId);
+  verbose.content(`Fetching nodes from IndexedDB: ${bookId}`, '/indexedDB/nodes/read.js');
 
   const db = await openDatabase();
   const tx = db.transaction("nodeChunks", "readonly");
@@ -31,7 +32,7 @@ export async function getNodeChunksFromIndexedDB(bookId = "latest") {
       // Sort the results by chunk_id for proper lazy loading order
       results.sort((a, b) => a.chunk_id - b.chunk_id);
 
-      console.log(`✅ Retrieved ${results.length} nodes from nodeChunks object store in IndexedDB for book: ${bookId}`);
+      verbose.content(`Retrieved ${results.length} nodes for: ${bookId}`, '/indexedDB/nodes/read.js');
       resolve(results);
     };
 

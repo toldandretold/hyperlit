@@ -3,6 +3,8 @@
  * Handles the logo button that rotates and shows/hides navigation menu
  */
 
+import { log, verbose } from '../utilities/logger.js';
+
 let isOpen = false;
 let clickOutsideHandler = null;
 
@@ -15,25 +17,16 @@ export function initializeLogoNav() {
   const navMenu = document.getElementById('logoNavMenu');
 
   if (!logoBtn || !navMenu || !logoWrapper) {
-    console.log('ℹ️ Logo nav: Elements not found, skipping initialization');
     return;
   }
 
-  console.log('🔧 Initializing logo navigation toggle');
+  log.init('Logo navigation toggle initialized', '/components/logoNavToggle.js');
 
   // Click handler for logo button
   logoBtn.addEventListener('click', (e) => {
-    console.log('🖱️ Logo button clicked!', {
-      currentState: isOpen ? 'open' : 'closed',
-      target: e.target,
-      currentTarget: e.currentTarget,
-      hasRotatedClass: logoBtn.classList.contains('rotated')
-    });
     e.stopPropagation(); // Prevent immediate close from document click
     toggleLogoNav();
   });
-
-  console.log('✅ Logo navigation toggle initialized');
 }
 
 /**
@@ -58,8 +51,6 @@ function toggleLogoNav() {
  * Open logo navigation menu
  */
 function openLogoNav(logoBtn, navMenu) {
-  console.log('📖 Opening logo navigation menu');
-
   // Rotate logo
   logoBtn.classList.add('rotated');
 
@@ -73,13 +64,6 @@ function openLogoNav(logoBtn, navMenu) {
       const clickedLogo = logoBtn.contains(e.target);
       const clickedMenu = navMenu.contains(e.target);
 
-      console.log('🔍 Click-outside check:', {
-        clickedElement: e.target,
-        clickedLogo,
-        clickedMenu,
-        shouldClose: !clickedLogo && !clickedMenu
-      });
-
       if (!clickedLogo && !clickedMenu) {
         closeLogoNav(logoBtn, navMenu);
       }
@@ -92,8 +76,6 @@ function openLogoNav(logoBtn, navMenu) {
  * Close logo navigation menu
  */
 function closeLogoNav(logoBtn, navMenu) {
-  console.log('📕 Closing logo navigation menu');
-
   isOpen = false;
 
   // Rotate logo back
@@ -130,5 +112,4 @@ export function destroyLogoNav() {
   }
 
   isOpen = false;
-  console.log('🧹 Logo navigation toggle destroyed');
 }

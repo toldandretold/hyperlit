@@ -8,7 +8,6 @@
  * Extracted from DifferentTemplateTransition.cleanupReader()
  */
 export async function cleanupReader() {
-  console.log('🧹 cleanupHelpers: Cleaning up reader state');
 
   try {
     // Use existing cleanup from viewManager
@@ -38,7 +37,6 @@ export async function cleanupReader() {
  * Extracted from DifferentTemplateTransition.cleanupHome()
  */
 export async function cleanupHome() {
-  console.log('🧹 cleanupHelpers: Cleaning up home state');
 
   try {
     // Destroy homepage-specific managers
@@ -70,14 +68,11 @@ export async function cleanupHome() {
  * Extracted from DifferentTemplateTransition.cleanupUser()
  */
 export async function cleanupUser() {
-  console.log('🧹 cleanupHelpers: Cleaning up user state');
-
   try {
     // 🧹 CRITICAL: Destroy user profile editor first
     const { destroyUserProfileEditor } = await import('../../components/userProfileEditor.js');
     if (typeof destroyUserProfileEditor === 'function') {
       destroyUserProfileEditor();
-      console.log('✅ cleanupHelpers: User profile editor destroyed');
     }
 
     // User pages have same managers as home pages
@@ -93,13 +88,10 @@ export async function cleanupUser() {
  * Extracted from DifferentTemplateTransition.cleanupFromStructure()
  */
 export async function cleanupLogoNav() {
-  console.log('🧹 cleanupHelpers: Cleaning up logo navigation toggle');
-
   try {
     const { destroyLogoNav } = await import('../../components/logoNavToggle.js');
     if (typeof destroyLogoNav === 'function') {
       destroyLogoNav();
-      console.log('✅ cleanupHelpers: Logo navigation toggle destroyed');
     }
   } catch (error) {
     console.warn('Logo nav cleanup failed:', error);
@@ -133,7 +125,6 @@ export async function closeOpenContainers() {
  * Routes to the appropriate cleanup function based on page structure
  */
 export async function cleanupFromStructure(fromStructure) {
-  console.log(`🧹 cleanupHelpers: Cleaning up ${fromStructure} state`);
 
   try {
     // 🧹 Cleanup logo navigation toggle (present on all page types)

@@ -3,6 +3,7 @@ import { book } from "./app.js";
 import { openDatabase } from "./indexedDB/index.js";
 import { ContainerManager } from "./containerManager.js";
 import { handleUnifiedContentClick, initializeHyperlitManager, openHyperlitContainer, closeHyperlitContainer } from './hyperlitContainer/index.js';
+import { log, verbose } from './utilities/logger.js';
 
 // Legacy container manager - now using unified system
 const refManager = new ContainerManager(
@@ -56,7 +57,7 @@ export async function handleFootnoteOrCitationClick(element) {
 export function initializeFootnoteCitationListeners() {
   document.addEventListener('click', (event) => {
     const target = event.target;
-    
+
     // Check if the clicked element or its parent is a footnote or citation
     if (target.tagName === 'SUP' && target.hasAttribute('fn-count-id')) {
       event.preventDefault();
@@ -72,6 +73,6 @@ export function initializeFootnoteCitationListeners() {
       handleFootnoteOrCitationClick(target);
     }
   }, true); // Use capture phase to run before other listeners
-  
-  console.log('✅ Footnote and citation listeners initialized');
+
+  log.init('Footnote and citation listeners initialized', '/footnotesCitations.js');
 }

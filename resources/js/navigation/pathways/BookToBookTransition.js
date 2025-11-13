@@ -2,8 +2,11 @@
  * BookToBookTransition - PATHWAY 4
  * Handles navigation between books while already in reader mode
  * Only replaces content, preserves navigation elements and uses specialized progress handling
+ *
+ * NOTE: Overlay lifecycle managed by NavigationManager
+ * This pathway does NOT hide the overlay - NavigationManager handles that
  */
-import { ProgressManager } from '../ProgressManager.js';
+import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 import { waitForNavigationTarget, waitForElementReady, waitForElementReadyWithProgress, waitForMultipleElementsReadyWithProgress } from '../../domReadiness.js';
 
 export class BookToBookTransition {
@@ -52,7 +55,7 @@ export class BookToBookTransition {
         const progress = progressCallback || this.createDeterministicProgressCallback(toBook);
         
         // Guarantee immediate visibility
-        ProgressManager.showBookToBookTransition(5, `Loading ${toBook}...`, toBook);
+        ProgressOverlayConductor.showBookToBookTransition(5, `Loading ${toBook}...`, toBook);
         
         // Clean up current reader state (but preserve navigation)
         await this.cleanupCurrentReader();
@@ -100,28 +103,21 @@ export class BookToBookTransition {
         this.updateUrlWithStatePreservation(toBook, hash);
         
         // Handle any hash-based navigation (hyperlights, hypercites, etc.)
-        // This may hide the progress bar early if elements are ready
-        const progressHidden = await this.handleHashNavigation(hash, hyperlightId, hyperciteId, toBook, progress);
-        
-        // Only show completion progress if not already hidden
-        if (!progressHidden) {
-          progress(100, 'Complete!');
-          await ProgressManager.hide();
-        }
-        
+        await this.handleHashNavigation(hash, hyperlightId, hyperciteId, toBook, progress);
+
+        progress(100, 'Complete!');
+
         console.log('✅ BookToBookTransition: Book-to-book transition complete');
-        
+        // NOTE: NavigationManager will hide the overlay when this returns
+
       } catch (error) {
         console.error('❌ BookToBookTransition: Transition failed:', error);
-        
-        // Hide progress on error
-        await ProgressManager.hide();
-        
+
         // Fallback to full page navigation
         const fallbackUrl = `/${toBook}/edit?target=1&edit=1${hash}`;
         console.log('🔄 BookToBookTransition: Falling back to full page navigation:', fallbackUrl);
         window.location.href = fallbackUrl;
-        
+
         throw error;
       }
     })();
@@ -417,21 +413,17 @@ export class BookToBookTransition {
         // Don't show overlay since we're in a book-to-book transition with its own progress
         navigateToInternalId(targetId, currentLazyLoader, false);
 
-        // Hide progress after a short delay to ensure navigation completes
+        // Update progress to show navigation is complete
         if (progress) {
-          setTimeout(async () => {
-            await ProgressManager.hide();
-          }, 500);
+          progress(95, 'Navigating to target...');
         }
       } else {
         console.warn('currentLazyLoader not available for internal navigation');
       }
     } catch (error) {
       console.error('Failed to navigate to internal ID:', error);
-      // Hide progress on error
-      if (progress) {
-        await ProgressManager.hide();
-      }
+      // Re-throw to let NavigationManager handle error cleanup
+      throw error;
     }
   }
 
@@ -559,7 +551,7 @@ export class BookToBookTransition {
    */
   static createDeterministicProgressCallback(toBook) {
     // Always show progress immediately, never suppress
-    const progressCallback = ProgressManager.createProgressCallback('book-to-book', toBook);
+    const progressCallback = ProgressOverlayConductor.createProgressCallback('book-to-book', toBook);
     
     // Show initial progress immediately
     progressCallback(5, `Loading ${toBook}...`);
@@ -623,12 +615,12 @@ export class BookToBookTransition {
    * Create regular progress callback for non-cached content
    */
   static createBookToBookProgressCallback(toBook) {
-    const { ProgressManager } = window;
-    if (!ProgressManager) {
-      console.warn('ProgressManager not available, using console fallback');
+    const { ProgressOverlayConductor } = window;
+    if (!ProgressOverlayConductor) {
+      console.warn('ProgressOverlayConductor not available, using console fallback');
       return (percent, message) => console.log(`Progress: ${percent}% - ${message}`);
     }
-    
-    return ProgressManager.showBookToBookTransition(toBook);
+
+    return ProgressOverlayConductor.showBookToBookTransition(toBook);
   }
 }

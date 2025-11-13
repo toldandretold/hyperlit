@@ -2,13 +2,14 @@
  * Content Swap Helpers - Shared content swapping logic for navigation transitions
  * Extracted from DifferentTemplateTransition and SameTemplateTransition for reusability
  */
+import { log } from '../../utilities/logger.js';
 
 /**
  * Fetch HTML for target URL
  * Extracted from DifferentTemplateTransition.fetchHtml()
  */
 export async function fetchHtml(url) {
-  console.log(`📥 contentSwapHelpers: Fetching HTML from ${url}`);
+  log.nav('Fetching target page', '/navigation/utils/contentSwapHelpers.js');
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -16,8 +17,6 @@ export async function fetchHtml(url) {
   }
 
   const htmlString = await response.text();
-  console.log(`✅ contentSwapHelpers: Fetched HTML (${htmlString.length} characters)`);
-
   return htmlString;
 }
 
@@ -26,7 +25,7 @@ export async function fetchHtml(url) {
  * Extracted from DifferentTemplateTransition.replaceBodyContent()
  */
 export async function replaceBodyContent(htmlString) {
-  console.log('🔄 contentSwapHelpers: Replacing body content (full template switch)');
+  log.nav('Replacing page template', '/navigation/utils/contentSwapHelpers.js');
 
   const parser = new DOMParser();
   const newDoc = parser.parseFromString(htmlString, 'text/html');
@@ -48,11 +47,14 @@ export async function replaceBodyContent(htmlString) {
   if (overlayToPreserve) {
     document.body.insertBefore(overlayToPreserve, document.body.firstChild);
 
-    // Reset overlay to its default state
-    overlayToPreserve.style.display = '';
-    overlayToPreserve.style.visibility = '';
+    // DON'T reset the overlay styles - keep it in whatever state it was
+    // If it was visible during navigation, keep it visible
+    // The NavigationManager will hide it when ready
 
-    console.log('🎯 contentSwapHelpers: Preserved navigation overlay');
+    // 🔥 CRITICAL: Rebind ProgressOverlayEnactor to the preserved element
+    // After body replacement, ProgressOverlayEnactor's reference is stale
+    const { ProgressOverlayEnactor } = await import('../ProgressOverlayEnactor.js');
+    ProgressOverlayEnactor.rebind();
   }
 
   // Sync all body attributes
@@ -62,8 +64,6 @@ export async function replaceBodyContent(htmlString) {
 
   // Update document title
   document.title = newDoc.title;
-
-  console.log('✅ contentSwapHelpers: Body content replaced successfully');
 }
 
 /**
@@ -77,10 +77,7 @@ export async function swapHomeContent(bookId, showLoader = true) {
       showNavigationLoading(`Loading ${bookId}...`);
     }
 
-    console.log(`🔄 contentSwapHelpers: Swapping content to ${bookId}`);
-
     // 🧹 CRITICAL: Destroy existing homepage managers before content swap
-    console.log('🧹 contentSwapHelpers: Destroying homepage display unit listeners');
     const { destroyHomepageDisplayUnit } = await import('../../homepageDisplayUnit.js');
     if (typeof destroyHomepageDisplayUnit === 'function') {
       destroyHomepageDisplayUnit();
@@ -89,7 +86,6 @@ export async function swapHomeContent(bookId, showLoader = true) {
     // 🧹 CRITICAL: Destroy existing user profile editor if it exists
     const currentStructure = document.body.getAttribute('data-page');
     if (currentStructure === 'user') {
-      console.log('🧹 contentSwapHelpers: Destroying user profile editor listeners');
       const { destroyUserProfileEditor } = await import('../../components/userProfileEditor.js');
       if (typeof destroyUserProfileEditor === 'function') {
         destroyUserProfileEditor();
@@ -98,7 +94,6 @@ export async function swapHomeContent(bookId, showLoader = true) {
 
     // Remove existing content containers
     document.querySelectorAll('.main-content').forEach(content => {
-      console.log(`🧹 Removing existing content container: ${content.id}`);
       content.remove();
     });
 
@@ -114,7 +109,6 @@ export async function swapHomeContent(bookId, showLoader = true) {
     newContentDiv.id = bookId;
     newContentDiv.className = 'main-content active-content';
     mainContainer.appendChild(newContentDiv);
-    console.log(`✨ Created fresh content container: ${bookId}`);
 
     // Set the current book context (important for other systems)
     const { setCurrentBook } = await import('../../app.js');
@@ -128,7 +122,6 @@ export async function swapHomeContent(bookId, showLoader = true) {
     await loadHyperText(bookId);
 
     // 🔧 CRITICAL: Reinitialize homepage display unit after content load
-    console.log('🔧 contentSwapHelpers: Reinitializing homepage display unit');
     const { initializeHomepageButtons, fixHeaderSpacing } = await import('../../homepageDisplayUnit.js');
     if (typeof initializeHomepageButtons === 'function') {
       initializeHomepageButtons();
@@ -139,7 +132,6 @@ export async function swapHomeContent(bookId, showLoader = true) {
 
     // 🔧 CRITICAL: Reinitialize user profile editor if on user page
     if (currentStructure === 'user') {
-      console.log('🔧 contentSwapHelpers: Reinitializing user profile editor');
       const { initializeUserProfileEditor } = await import('../../components/userProfileEditor.js');
       if (typeof initializeUserProfileEditor === 'function') {
         await initializeUserProfileEditor(bookId);
@@ -147,35 +139,27 @@ export async function swapHomeContent(bookId, showLoader = true) {
     }
 
     // 🔧 CRITICAL: Reinitialize TogglePerimeterButtons
-    console.log('🔧 contentSwapHelpers: Reinitializing TogglePerimeterButtons');
     const { togglePerimeterButtons } = await import('../../readerDOMContentLoaded.js');
     if (togglePerimeterButtons) {
       togglePerimeterButtons.destroy();
       togglePerimeterButtons.rebindElements();
       togglePerimeterButtons.init();
       togglePerimeterButtons.updatePosition();
-      console.log('✅ contentSwapHelpers: TogglePerimeterButtons reinitialized');
     }
 
     // 🔧 CRITICAL: Reinitialize logo navigation toggle
-    console.log('🔧 contentSwapHelpers: Reinitializing logo navigation toggle');
     const { destroyLogoNav, initializeLogoNav } = await import('../../components/logoNavToggle.js');
     if (destroyLogoNav && initializeLogoNav) {
       destroyLogoNav();
       initializeLogoNav();
-      console.log('✅ contentSwapHelpers: Logo navigation toggle reinitialized');
     }
 
     // 🔧 CRITICAL: Reinitialize user container (userButton in logoNavWrapper on user/reader pages)
-    console.log('🔧 contentSwapHelpers: Reinitializing user container');
     const { initializeUserContainer } = await import('../../components/userContainer.js');
     const userManager = initializeUserContainer();
     if (userManager && userManager.initializeUser) {
       await userManager.initializeUser();
     }
-    console.log('✅ contentSwapHelpers: User container reinitialized');
-
-    console.log(`✅ Successfully loaded ${bookId} content`);
 
     if (showLoader) {
       const { hideNavigationLoading } = await import('../../scrolling.js');
@@ -199,8 +183,6 @@ export async function swapHomeContent(bookId, showLoader = true) {
 export async function navigateToHash(hash, structure = 'reader') {
   if (!hash) return;
 
-  console.log(`🎯 contentSwapHelpers: Navigating to hash ${hash}`);
-
   try {
     const targetId = hash.substring(1);
 
@@ -219,8 +201,6 @@ export async function navigateToHash(hash, structure = 'reader') {
         targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }
-
-    console.log(`✅ Navigated to ${hash}`);
   } catch (error) {
     console.warn(`Could not navigate to hash ${hash}:`, error);
     window.location.hash = hash;
@@ -251,7 +231,7 @@ export function updateUrl(url, options = {}) {
       };
 
       window.history.pushState(newState, '', url);
-      console.log(`🔗 contentSwapHelpers: Updated URL to ${url}`, newState.transition);
+      log.nav('Updated browser URL', '/navigation/utils/contentSwapHelpers.js');
     }
   } catch (error) {
     console.warn('Could not update URL:', error);

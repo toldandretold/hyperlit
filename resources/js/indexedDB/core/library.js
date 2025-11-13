@@ -70,18 +70,13 @@ export function prepareLibraryForIndexedDB(libraryRecord) {
  */
 export async function getLibraryObjectFromIndexedDB(book) {
   try {
-    // Validate the book parameter first
     if (!book) {
-      console.warn("⚠️ No book ID provided to getLibraryObjectFromIndexedDB");
       return null;
     }
 
     if (typeof book !== 'string' && typeof book !== 'number') {
-      console.warn("⚠️ Invalid book ID type:", typeof book, book);
       return null;
     }
-
-    console.log("🔍 Looking up library object for book:", book);
 
     const db = await openDatabase();
     const tx = db.transaction(["library"], "readonly");
@@ -91,9 +86,7 @@ export async function getLibraryObjectFromIndexedDB(book) {
 
     const libraryObject = await new Promise((resolve, reject) => {
       getRequest.onsuccess = (e) => {
-        const result = e.target.result;
-        console.log("📚 IndexedDB lookup result for book:", book, result ? "found" : "not found");
-        resolve(result);
+        resolve(e.target.result);
       };
       getRequest.onerror = (e) => {
         console.error("❌ IndexedDB get request failed:", e.target.error);
@@ -101,17 +94,10 @@ export async function getLibraryObjectFromIndexedDB(book) {
       };
     });
 
-    if (libraryObject) {
-      console.log("📚 Retrieved library object for book:", book, libraryObject);
-    } else {
-      console.log("📚 No library object found for book:", book);
-    }
-
     return libraryObject;
 
   } catch (error) {
     console.error("❌ Error getting library object from IndexedDB:", error);
-    console.error("❌ Book parameter was:", book, typeof book);
     return null;
   }
 }

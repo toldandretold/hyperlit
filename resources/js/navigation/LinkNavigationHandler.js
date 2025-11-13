@@ -4,6 +4,8 @@
  */
 import { NavigationManager } from './NavigationManager.js';
 import { BookToBookTransition } from './pathways/BookToBookTransition.js';
+import { getPageStructure, areStructuresCompatible } from './utils/structureDetection.js';
+import { log, verbose } from '../utilities/logger.js';
 
 export class LinkNavigationHandler {
   static globalLinkClickHandler = null;
@@ -32,7 +34,7 @@ export class LinkNavigationHandler {
       if (!document.hidden && !recentLinkClick) {
         // Page is visible again, clear any stuck overlay
         // But only if we didn't just click a link (which would be navigating away)
-        console.log('🎯 Visibility change - clearing overlay (not from recent link click)');
+        verbose.nav('Visibility change - clearing overlay (not from recent link click)', '/navigation/LinkNavigationHandler.js');
         const { hideNavigationLoading } = await import('../scrolling.js');
         hideNavigationLoading();
       }
@@ -48,12 +50,11 @@ export class LinkNavigationHandler {
     this.globalPopstateHandler = async (event) => {
       // Prevent reload loops
       if (this.isReloading) {
-        console.log('🔗 LinkNavigationHandler: Already reloading, ignoring popstate');
+        verbose.nav('Already reloading, ignoring popstate', '/navigation/LinkNavigationHandler.js');
         return;
       }
 
-      console.log('🔗 LinkNavigationHandler: Browser navigation detected (back/forward)');
-      console.log('📊 Popstate event details:', {
+      verbose.nav('Browser navigation detected (back/forward)', '/navigation/LinkNavigationHandler.js', {
         state: event.state,
         currentURL: window.location.href,
         historyLength: window.history.length,
@@ -76,16 +77,12 @@ export class LinkNavigationHandler {
     document.addEventListener('visibilitychange', this.globalVisibilityHandler);
     window.addEventListener('focus', this.globalFocusHandler);
     window.addEventListener('popstate', this.globalPopstateHandler);
-
-    console.log('🔗 LinkNavigationHandler: Global handlers attached (visibility/focus/popstate)');
-    console.log('🔗 LinkNavigationHandler: Popstate handler is:', this.globalPopstateHandler ? 'DEFINED' : 'UNDEFINED');
   }
 
   /**
    * Remove global handlers
    */
   static removeGlobalHandlers() {
-    console.log('🧹 LinkNavigationHandler: REMOVING global handlers...');
     if (this.globalLinkClickHandler) {
       // Click handler now managed by lazyLoaderFactory
     }
@@ -96,7 +93,6 @@ export class LinkNavigationHandler {
       window.removeEventListener('focus', this.globalFocusHandler);
     }
     if (this.globalPopstateHandler) {
-      console.log('🧹 LinkNavigationHandler: Removing popstate handler');
       window.removeEventListener('popstate', this.globalPopstateHandler);
     }
 
@@ -104,8 +100,6 @@ export class LinkNavigationHandler {
     this.globalVisibilityHandler = null;
     this.globalFocusHandler = null;
     this.globalPopstateHandler = null;
-
-    console.log('🧹 LinkNavigationHandler: Global handlers removed');
   }
 
   /**
@@ -126,7 +120,7 @@ export class LinkNavigationHandler {
     // If it's not external and not a special link handled elsewhere, it's for us.
     if (!isExternal && !shouldSkip) {
       event.preventDefault();
-      console.log('🔗 LinkNavigationHandler: Intercepted link for SPA routing.', link.href);
+      verbose.nav('Intercepted link for SPA routing', '/navigation/LinkNavigationHandler.js', link.href);
 
       // --- ASYNCHRONOUS PROCESSING ---
       // Now that the default navigation is stopped, we can perform async operations.
@@ -140,7 +134,7 @@ export class LinkNavigationHandler {
           await this.handleBookToBookNavigation(link, linkUrl);
         } else {
           // This case should not be reached if logic is correct, but as a fallback:
-          console.log(`🔗 LinkNavigationHandler: Link was not routed, falling back to full navigation.`);
+          verbose.nav('Link was not routed, falling back to full navigation', '/navigation/LinkNavigationHandler.js');
           window.location.href = link.href;
         }
       } catch (error) {
@@ -181,11 +175,11 @@ export class LinkNavigationHandler {
       if (linkUrl.origin === window.location.origin && !linkUrl.pathname.startsWith(currentBookPath)) {
         const pathSegments = linkUrl.pathname.split('/').filter(Boolean);
         const targetBookId = pathSegments[0] || 'book';
-        
-        console.log(`[PROGRESS-FIX] Cross-book hypercite detected. Showing progress for ${targetBookId}.`);
-        
-        const { ProgressManager } = await import('./ProgressManager.js');
-        ProgressManager.showBookToBookTransition(5, `Loading ${targetBookId}...`, targetBookId);
+
+        verbose.nav(`Cross-book hypercite detected. Showing progress for ${targetBookId}`, '/navigation/LinkNavigationHandler.js');
+
+        const { ProgressOverlayConductor } = await import('./ProgressOverlayConductor.js');
+        ProgressOverlayConductor.showBookToBookTransition(5, `Loading ${targetBookId}...`, targetBookId);
       }
     } catch (error) {
       console.warn('Could not handle hypercite progress:', error);
@@ -239,7 +233,7 @@ export class LinkNavigationHandler {
    * Handle same-book navigation (anchors, internal links)
    */
   static async handleSameBookNavigation(link, linkUrl) {
-    console.log(`🔗 LinkNavigationHandler: Same-book navigation to ${link.href}`);
+    verbose.nav('Same-book navigation', '/navigation/LinkNavigationHandler.js', link.href);
     
     try {
       // Check if this is a hyperlight URL pattern
@@ -249,8 +243,8 @@ export class LinkNavigationHandler {
       if (isHyperlightURL) {
         const hyperlightId = pathSegments[1];
         const hyperciteId = linkUrl.hash.substring(1);
-        
-        console.log(`🎯 Same-book hyperlight navigation: ${hyperlightId} -> ${hyperciteId}`);
+
+        verbose.nav(`Same-book hyperlight navigation: ${hyperlightId} -> ${hyperciteId}`, '/navigation/LinkNavigationHandler.js');
         
         const { navigateToHyperciteTarget } = await import('../hypercites/index.js');
         const { currentLazyLoader } = await import('../initializePage.js');
@@ -262,7 +256,7 @@ export class LinkNavigationHandler {
           const currentUrl = window.location.pathname + window.location.hash;
           const targetUrl = url.pathname + url.hash;
           if (currentUrl !== targetUrl) {
-            console.log(`🔗 Updating URL for same-book hyperlight: ${url.href}`);
+            verbose.nav('Updating URL for same-book hyperlight', '/navigation/LinkNavigationHandler.js', url.href);
             window.history.pushState(null, '', url.href);
           }
           if (hyperciteId) {
@@ -285,16 +279,12 @@ export class LinkNavigationHandler {
           const currentUrl = window.location.pathname + window.location.hash;
           const targetUrl = url.pathname + url.hash;
           if (currentUrl !== targetUrl) {
-            console.log(`🔗 Updating URL for same-book navigation: ${url.href}`);
-            console.log(`🔗 Current URL before update: ${window.location.href}`);
+            verbose.nav('Updating URL for same-book navigation', '/navigation/LinkNavigationHandler.js', {
+              targetUrl: url.href,
+              currentUrl: window.location.href,
+              historyLength: window.history.length
+            });
             window.history.pushState(null, '', url.href);
-            console.log(`🔗 URL after pushState: ${window.location.href}`);
-            console.log(`🔗 History length: ${window.history.length}`);
-            
-            // DEBUG: Check if something is immediately overriding our URL
-            setTimeout(() => {
-              console.log(`🔗 URL after 100ms delay: ${window.location.href}`);
-            }, 100);
           }
           
           navigateToInternalId(targetId, currentLazyLoader, false);
@@ -309,15 +299,15 @@ export class LinkNavigationHandler {
    * Handle book-to-book navigation (now structure-aware using NEW SYSTEM)
    */
   static async handleBookToBookNavigation(link, linkUrl) {
-    console.log(`🔗 LinkNavigationHandler: Navigation to ${link.href}`);
+    verbose.nav('Book-to-book navigation', '/navigation/LinkNavigationHandler.js', link.href);
 
     try {
       // Detect current and target structures
-      const currentStructure = this.getPageStructure();
+      const currentStructure = getPageStructure();
       const currentBookId = this.getBookIdFromUrl(window.location.href);
       const targetBookId = this.getBookIdFromUrl(linkUrl.href);
 
-      console.log(`📊 Navigation context:`, {
+      verbose.nav('Navigation context', '/navigation/LinkNavigationHandler.js', {
         currentStructure,
         currentBookId,
         targetBookId,
@@ -334,7 +324,7 @@ export class LinkNavigationHandler {
         const hyperlightId = pathSegments[1];
         const hyperciteId = targetHash.substring(1);
 
-        console.log(`🎯 Cross-book hyperlight navigation: ${targetBookId}/${hyperlightId}${targetHash}`);
+        verbose.nav(`Cross-book hyperlight navigation: ${targetBookId}/${hyperlightId}${targetHash}`, '/navigation/LinkNavigationHandler.js');
 
         // Use structure-aware navigation for hyperlight URLs
         await NavigationManager.navigateByStructure({
@@ -348,8 +338,6 @@ export class LinkNavigationHandler {
       }
 
       // Use NEW structure-aware navigation system
-      console.log(`✨ Using structure-aware navigation: ${currentStructure} → [detecting target]`);
-
       await NavigationManager.navigateByStructure({
         fromBook: currentBookId,
         toBook: targetBookId,
@@ -369,8 +357,8 @@ export class LinkNavigationHandler {
    */
   static handleVisibilityChange() {
     if (!document.hidden && !this.recentLinkClick) {
-      console.log('🔗 LinkNavigationHandler: Visibility change - clearing overlay');
-      
+      verbose.nav('Visibility change - clearing overlay', '/navigation/LinkNavigationHandler.js');
+
       import('../scrolling.js').then(({ hideNavigationLoading }) => {
         hideNavigationLoading();
       }).catch(() => {
@@ -396,12 +384,11 @@ export class LinkNavigationHandler {
   static async handlePopstate(event) {
     // Prevent reload loops
     if (this.isReloading) {
-      console.log('🔗 LinkNavigationHandler: Already reloading, ignoring popstate');
+      verbose.nav('Already reloading, ignoring popstate', '/navigation/LinkNavigationHandler.js');
       return;
     }
 
-    console.log('🔗 LinkNavigationHandler: Browser navigation detected (back/forward)');
-    console.log('📊 Popstate event details:', {
+    verbose.nav('Browser navigation detected (back/forward)', '/navigation/LinkNavigationHandler.js', {
       state: event.state,
       currentURL: window.location.href,
       historyLength: window.history.length,
@@ -411,7 +398,7 @@ export class LinkNavigationHandler {
 
     // 🚀 CRITICAL: Clear saved scroll positions when navigating with hash to prevent interference
     if (window.location.hash) {
-      console.log(`🧹 POPSTATE: Clearing saved scroll positions because hash present: ${window.location.hash}`);
+      verbose.nav(`POPSTATE: Clearing saved scroll positions because hash present: ${window.location.hash}`, '/navigation/LinkNavigationHandler.js');
       const { getLocalStorageKey } = await import('../indexedDB/index.js');
       const { book: currentBookVariable } = await import('../app.js');
       const scrollKey = getLocalStorageKey("scrollPosition", currentBookVariable);
@@ -421,7 +408,7 @@ export class LinkNavigationHandler {
       // 🚀 CRITICAL: Clear the "navigatedToHash" flag so back/forward buttons work
       // When user presses back/forward, we ALWAYS want to navigate to the hash
       if (window.history.state && window.history.state.navigatedToHash) {
-        console.log(`🧹 POPSTATE: Clearing navigatedToHash flag for fresh navigation`);
+        verbose.nav('POPSTATE: Clearing navigatedToHash flag for fresh navigation', '/navigation/LinkNavigationHandler.js');
         window.history.replaceState(
           { ...window.history.state, navigatedToHash: null },
           '',
@@ -436,7 +423,7 @@ export class LinkNavigationHandler {
 
     // If the URL book doesn't match the current loaded book content, use SPA navigation
     if (urlBookId !== currentBookVariable) {
-      console.log(`🔙 Back button: URL shows ${urlBookId} but content is ${currentBookVariable}. Using structure-aware navigation.`);
+      verbose.nav(`Back button: URL shows ${urlBookId} but content is ${currentBookVariable}. Using structure-aware navigation.`, '/navigation/LinkNavigationHandler.js');
 
       // Use NEW structure-aware navigation system
       const { NavigationManager } = await import('./NavigationManager.js');
@@ -454,15 +441,15 @@ export class LinkNavigationHandler {
     const currentHash = window.location.hash.substring(1); // Remove #
     
     if (this.isHyperlightUrl(currentPath) && currentHash) {
-      console.log(`🎯 Back button with hyperlight URL: ${currentPath} -> ${currentHash}`);
-      
+      verbose.nav(`Back button with hyperlight URL: ${currentPath} -> ${currentHash}`, '/navigation/LinkNavigationHandler.js');
+
       try {
         // Extract hyperlight ID from path
         const pathSegments = currentPath.split('/').filter(Boolean);
         const hyperlightId = pathSegments.find(segment => segment.startsWith('HL_'));
-        
+
         if (hyperlightId) {
-          console.log(`🎯 Restoring hyperlight container: ${hyperlightId} with target: ${currentHash}`);
+          verbose.nav(`Restoring hyperlight container: ${hyperlightId} with target: ${currentHash}`, '/navigation/LinkNavigationHandler.js');
           
           // Use the existing hyperlight navigation system
           const { navigateToHyperciteTarget } = await import('../hypercites/index.js');
@@ -482,9 +469,9 @@ export class LinkNavigationHandler {
     try {
       const { restoreHyperlitContainerFromHistory } = await import('../hyperlitContainer/index.js');
       const containerRestored = await restoreHyperlitContainerFromHistory();
-      
+
       if (containerRestored) {
-        console.log('✅ Successfully restored hyperlit container from browser history');
+        verbose.nav('Successfully restored hyperlit container from browser history', '/navigation/LinkNavigationHandler.js');
         return; // Don't need to do anything else if container was restored
       }
     } catch (error) {
@@ -503,7 +490,7 @@ export class LinkNavigationHandler {
     // Always attempt to scroll to the hash on the main page if one exists.
     if (window.location.hash) {
       const targetId = window.location.hash.substring(1);
-      console.log(`🎯 Popstate with no state: navigating to hash #${targetId} on main page.`);
+      verbose.nav(`Popstate with no state: navigating to hash #${targetId} on main page`, '/navigation/LinkNavigationHandler.js');
       try {
         const { navigateToInternalId } = await import('../scrolling.js');
         const { currentLazyLoader } = await import('../initializePage.js');
@@ -675,35 +662,18 @@ export class LinkNavigationHandler {
   /**
    * Get page structure type based on DOM elements
    * Returns 'reader', 'home', or 'user'
+   * @deprecated Use getPageStructure from structureDetection.js instead
    */
   static getPageStructure() {
-    if (document.querySelector('.reader-content-wrapper')) {
-      return 'reader';
-    }
-    if (document.querySelector('.home-content-wrapper')) {
-      return 'home';
-    }
-    if (document.querySelector('.user-content-wrapper')) {
-      return 'user';
-    }
-
-    // Fallback to data-page attribute
-    const pageType = document.body.getAttribute('data-page');
-    if (pageType) {
-      return pageType;
-    }
-
-    console.warn('⚠️ Could not determine page structure, defaulting to reader');
-    return 'reader';
+    return getPageStructure();
   }
 
   /**
    * Check if two structures are compatible for content-only transitions
    * Only exact same structures are compatible (home and user have different buttons)
+   * @deprecated Use areStructuresCompatible from structureDetection.js instead
    */
   static areStructuresCompatible(structure1, structure2) {
-    // ONLY exact same structure is compatible
-    // home and user are NOT compatible despite similar layouts (different buttons)
-    return structure1 === structure2;
+    return areStructuresCompatible(structure1, structure2);
   }
 }

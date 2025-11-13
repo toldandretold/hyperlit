@@ -1,6 +1,7 @@
 // EditToolbar - Main orchestrator for toolbar functionality
 // Delegates to specialized modules for different formatting operations
 
+import { log } from "../utilities/logger.js";
 import {
   updateIndexedDBRecord,
   deleteIndexedDBRecord,
@@ -191,9 +192,11 @@ class EditToolbar {
       },
     ];
 
+    // Count found buttons for single log
+    const foundButtons = buttons.filter(({ element }) => element);
+
     buttons.forEach(({ element, name, action }) => {
       if (element) {
-        console.log(`✅ ${name} button found:`, element);
 
         // Prevent default behavior that clears selection
         element.addEventListener(
@@ -216,14 +219,10 @@ class EditToolbar {
             e.preventDefault();
             e.stopPropagation();
 
-            console.log(`📱 ${name} touchend - executing action`);
-
             // Special check for heading button: don't fire if submenu button was just clicked
             if (name === "heading") {
               const submenuButtonClicked = this.headingSubmenu_handler.wasSubmenuButtonJustClicked();
-              console.log("🔍 Checking flag for heading button:", submenuButtonClicked);
               if (submenuButtonClicked) {
-                console.log("⏭️ Skipping heading button - submenu button was just clicked");
                 return;
               }
             }
@@ -240,16 +239,15 @@ class EditToolbar {
 
         // Keep desktop click handler
         element.addEventListener("click", (e) => {
-          console.log(`🖱️ ${name} button click handler triggered - isMobile: ${this.isMobile}`, e.target);
-          console.log(`🖱️ ${name} button clicked!`, e);
           e.preventDefault();
           e.stopPropagation();
           action();
         });
-      } else {
-        console.log(`❌ ${name} button NOT found`);
       }
     });
+
+    // Single consolidated log after initialization
+    log.init(`Edit toolbar buttons initialized (${foundButtons.length}/${buttons.length} found)`, '/editToolbar/index.js');
   }
 
   // Undo/Redo methods delegated to HistoryHandler
@@ -429,8 +427,6 @@ class EditToolbar {
     this.selectionManager.detachListener();
     window.removeEventListener("resize", this.handleResize);
     document.removeEventListener("click", this.handleClickOutsideSubmenu);
-
-    console.log("🧹 EditToolbar: Destroyed and cleaned up");
   }
 
   /**

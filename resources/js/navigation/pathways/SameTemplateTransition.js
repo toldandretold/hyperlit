@@ -2,8 +2,11 @@
  * SameTemplateTransition - Universal handler for same-structure transitions
  * Handles content-only replacement for reader→reader, home→home, user→user
  * Preserves page wrapper, buttons, and header - only replaces .main-content using shared utilities
+ *
+ * NOTE: Overlay lifecycle managed by NavigationManager
+ * This pathway does NOT hide the overlay - NavigationManager handles that
  */
-import { ProgressManager } from '../ProgressManager.js';
+import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 import { LinkNavigationHandler } from '../LinkNavigationHandler.js';
 import { swapHomeContent, navigateToHash, updateUrl } from '../utils/contentSwapHelpers.js';
 
@@ -59,7 +62,7 @@ export class SameTemplateTransition {
     console.log('🏠 SameTemplateTransition: Home→Home content swap', { toBook });
 
     try {
-      const progress = progressCallback || ProgressManager.createProgressCallback('content-swap');
+      const progress = progressCallback || ProgressOverlayConductor.createProgressCallback('content-swap');
 
       progress(10, `Loading ${toBook}...`);
 
@@ -85,13 +88,12 @@ export class SameTemplateTransition {
       }
 
       progress(100, 'Complete!');
-      await ProgressManager.hide();
 
       console.log('✅ SameTemplateTransition: Home→Home transition complete');
+      // NOTE: NavigationManager will hide the overlay when this returns
 
     } catch (error) {
       console.error('❌ SameTemplateTransition: Home→Home transition failed:', error);
-      await ProgressManager.hide();
       throw error;
     }
   }
@@ -107,7 +109,7 @@ export class SameTemplateTransition {
     console.log('👤 SameTemplateTransition: User→User content swap', { toBook });
 
     try {
-      const progress = progressCallback || ProgressManager.createProgressCallback('content-swap');
+      const progress = progressCallback || ProgressOverlayConductor.createProgressCallback('content-swap');
 
       progress(10, `Loading ${toBook}...`);
 
@@ -133,13 +135,12 @@ export class SameTemplateTransition {
       }
 
       progress(100, 'Complete!');
-      await ProgressManager.hide();
 
       console.log('✅ SameTemplateTransition: User→User transition complete');
+      // NOTE: NavigationManager will hide the overlay when this returns
 
     } catch (error) {
       console.error('❌ SameTemplateTransition: User→User transition failed:', error);
-      await ProgressManager.hide();
       throw error;
     }
   }

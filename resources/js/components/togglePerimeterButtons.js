@@ -1,4 +1,5 @@
 import { cancelForcedVisibility } from './editIndicator.js';
+import { log, verbose } from '../utilities/logger.js';
 
 // Export the TogglePerimeterButtons class
 export default class TogglePerimeterButtons {
@@ -39,8 +40,6 @@ export default class TogglePerimeterButtons {
   // THIS IS THE NEW METHOD. It's the "take a new photo" function.
   // =================================================================
   rebindElements() {
-    console.log("Rebinding elements for TogglePerimeterButtons...");
-
     // Find the elements that exist on the CURRENT page.
     this.elements = this.elementIds
       .map((id) => document.getElementById(id))
@@ -49,8 +48,6 @@ export default class TogglePerimeterButtons {
     this.loadingElements = this.possibleLoadingElementIds
       .map((id) => document.getElementById(id))
       .filter((el) => el !== null);
-
-    console.log("Rebound complete. Found elements to toggle:", this.elements.length);
   }
 
   init() {
@@ -68,8 +65,9 @@ export default class TogglePerimeterButtons {
     this.updatePosition();
     window.addEventListener("resize", this.handleResize);
     window.addEventListener('keyboardStateChange', this.handleKeyboardChange);
-    
+
     this.isInitialized = true;
+    log.init('Perimeter button controls initialized', '/components/togglePerimeterButtons.js');
   }
   
 
@@ -78,8 +76,6 @@ export default class TogglePerimeterButtons {
    */
   destroy() {
     if (!this.isInitialized) return;
-
-    console.log("🧹 TogglePerimeterButtons: Destroying and removing event listeners");
 
     // Remove all event listeners
     document.removeEventListener("click", this.handleClick);
@@ -92,7 +88,6 @@ export default class TogglePerimeterButtons {
     this.loadingElements = [];
 
     this.isInitialized = false;
-    console.log("✅ TogglePerimeterButtons: Destroyed successfully");
   }
 
 
@@ -304,19 +299,14 @@ shouldIgnoreEvent(event) {
    * On click (desktop), toggle the perimeter buttons.
    */
   handleClick(event) {
-    console.log(`🔗 TogglePerimeterButtons: handleClick triggered`, event.target, event.target.id, event.target.tagName);
     if (this.shouldIgnoreEvent(event)) {
-      console.log(`🔗 TogglePerimeterButtons: Event ignored by shouldIgnoreEvent`);
       return;
     }
 
     // Don't toggle perimeter button visibility in edit mode
     if (window.isEditing) {
-      console.log(`🔗 TogglePerimeterButtons: Ignoring toggle - edit mode is active`);
       return;
     }
-
-    console.log(`🔗 TogglePerimeterButtons: Toggling perimeter elements`);
 
     // Cancel any forced visibility from edit indicator
     cancelForcedVisibility();

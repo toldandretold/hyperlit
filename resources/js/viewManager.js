@@ -1,5 +1,5 @@
 
-
+import { log, verbose } from './utilities/logger.js';
 import { book, setCurrentBook } from "./app.js";
 import { getCurrentUser, getAnonymousToken } from "./utilities/auth.js";
 import { checkEditPermissionsAndUpdateUI } from "./components/editButton.js";
@@ -54,7 +54,7 @@ async function getCurrentAuthState() {
       anonymousToken: currentToken
     };
   } catch (error) {
-    console.error("❌ Error getting auth state:", error);
+    console.error("Error getting auth state:", error);
     return null;
   }
 }
@@ -66,7 +66,7 @@ async function getCurrentAuthState() {
 // Handle page restoration from browser cache (bfcache) - critical for mobile and desktop
 window.addEventListener("pageshow", (event) => {
   if (event.persisted) {
-    console.log("🔄 Page restored from bfcache - reinitializing interactive features");
+    verbose.init('Page restored from bfcache - reinitializing', 'viewManager.js');
     
     // Sync SPA history state with bfcache restored page
     syncHistoryStateAfterBfcache();
@@ -80,13 +80,11 @@ window.addEventListener("pageshow", (event) => {
       // Small delay to ensure DOM is fully restored
       setTimeout(async () => {
         try {
-          console.log("🔧 Checking if cache invalidation required after browser navigation...");
-          
           // Just ensure interactive features are working
           await checkEditPermissionsAndUpdateUI();
-          
+
         } catch (error) {
-          console.error("❌ Error handling browser navigation:", error);
+          log.error('Error handling browser navigation', 'viewManager.js', error);
         }
       }, 200);
     }
@@ -94,28 +92,13 @@ window.addEventListener("pageshow", (event) => {
 });
 
 export async function cleanupReaderView() {
-  console.log("🧹 Cleaning up previous reader view...");
+  verbose.init('Cleaning up previous reader view', 'viewManager.js');
 
   // Close any open containers before destroying the view
   closeHyperlitContainer();
 
   // SPA TRANSITION FIX: Do not remove the navigation overlay here.
   // It is shown just before the transition and must persist.
-  /*
-  // Remove any navigation overlays that might be blocking button clicks
-  const navigationOverlays = document.querySelectorAll('.navigation-overlay');
-  navigationOverlays.forEach(overlay => {
-    console.log("🎯 Removing leftover navigation overlay:", overlay);
-    overlay.remove();
-  });
-  
-  // Also ensure initial overlay is hidden
-  const initialOverlay = document.getElementById('initial-navigation-overlay');
-  if (initialOverlay) {
-    initialOverlay.style.display = 'none';
-    console.log("🎯 Hidden initial navigation overlay");
-  }
-  */
 
   // Clean up global event handlers via LinkNavigationHandler
   const { LinkNavigationHandler } = await import('./navigation/LinkNavigationHandler.js');
@@ -153,7 +136,6 @@ export async function cleanupReaderView() {
 
 export async function universalPageInitializer(progressCallback = null) {
   const currentBookId = book;
-  console.log(`🚀 Universal Page Initializer for book: ${currentBookId}`);
   
   // Note: Cache invalidation checking removed for performance
   
@@ -168,12 +150,10 @@ export async function universalPageInitializer(progressCallback = null) {
   if (!overlayAlreadyActive && !isNewBookCreation) {
     restoreNavigationOverlayIfNeeded();
   } else if (isNewBookCreation) {
-    console.log("✅ Skipping overlay restore for new book creation");
     // Double-ensure overlay is hidden for new book creation
     const overlay = document.getElementById('initial-navigation-overlay');
     if (overlay && overlay.style.display !== 'none') {
       overlay.style.display = 'none';
-      console.log('🎯 ViewManager: Ensured overlay is hidden for new book creation');
     }
   }
 
@@ -181,23 +161,18 @@ export async function universalPageInitializer(progressCallback = null) {
 
   // ✅ Check if this is an imported book
   const isImportedBook = sessionStorage.getItem('imported_book_initializing');
-  if (isImportedBook) {
-    console.log("📋 Imported book detected - using existing content");
-  }
 
   // 🎯 CRITICAL: Detect page type BEFORE loading content to prevent race conditions
   const currentPageType = document.body.getAttribute('data-page');
-  console.log(`🎯 Page type detected early: ${currentPageType}`);
+  log.init(`Page type: ${currentPageType}`, 'viewManager.js');
 
   // Start loading content and wait for both content loading and DOM stabilization
   // ⚠️ IMPORTANT: Skip loadHyperText for home/user pages to prevent double-load race condition
   // For home/user pages, content is already loaded by initializeHomepageButtons() → transitionToBookContent()
   let loadPromise;
   if (currentPageType === 'home' || currentPageType === 'user') {
-    console.log(`📄 Skipping loadHyperText for ${currentPageType} page (content already loaded by homepage system)`);
     loadPromise = Promise.resolve(); // No-op promise
   } else {
-    console.log(`📖 Loading content for ${currentPageType} page`);
     loadPromise = loadHyperText(currentBookId, progressCallback);
   }
 
@@ -207,43 +182,37 @@ export async function universalPageInitializer(progressCallback = null) {
   // Wait for both content loading and layout stabilization to complete
   await Promise.all([loadPromise, waitForLayoutStabilization()]);
 
-  console.log("✅ DOM settled. Initializing static UI components...");
+  verbose.init('DOM settled. Initializing static UI components', 'viewManager.js');
     // Use the persistent TogglePerimeterButtons instance from readerDOMContentLoaded.js
     import('./readerDOMContentLoaded.js').then(module => {
       if (module.togglePerimeterButtons) {
-        console.log("🔍 TogglePerimeterButtons before destroy - isInitialized:", module.togglePerimeterButtons.isInitialized);
+        verbose.init('TogglePerimeterButtons rebinding and reinitializing', 'viewManager.js');
         // Always destroy and reinitialize to ensure clean state after DOM changes
         module.togglePerimeterButtons.destroy();
-        console.log("🔍 TogglePerimeterButtons after destroy - isInitialized:", module.togglePerimeterButtons.isInitialized);
         module.togglePerimeterButtons.rebindElements();
-        console.log("🔍 TogglePerimeterButtons calling init() - isInitialized:", module.togglePerimeterButtons.isInitialized);
         module.togglePerimeterButtons.init();
-        console.log("🔍 TogglePerimeterButtons after init() - isInitialized:", module.togglePerimeterButtons.isInitialized);
         module.togglePerimeterButtons.updatePosition();
-        console.log("✅ Reinitialized TogglePerimeterButtons instance for universalPageInitializer");
       }
     });
 
     // Initialize components that work on both page types
-    console.log("🔧 Initializing universal components...");
+    log.init('Universal components initialized', 'viewManager.js');
     await initializeUniversalComponents(currentPageType);
 
-    // 🔧 CRITICAL: Attach global handlers (popstate, visibility, focus) for ALL page types
+    // 🔧 CRITICAL: Attach global handlers (popstate/visibility, focus) for ALL page types
     // This must happen BEFORE early return for home/user pages
     const { LinkNavigationHandler } = await import('./navigation/LinkNavigationHandler.js');
     LinkNavigationHandler.attachGlobalLinkClickHandler();
-    console.log('✅ Global navigation handlers attached (popstate/visibility/focus)');
+    verbose.init('Navigation handlers attached', '/navigation/LinkNavigationHandler.js');
 
     // For homepage and user pages, skip reader-specific initialization
     // Content loading is handled by initializeHomepageButtons() for these page types
     if (currentPageType === 'home' || currentPageType === 'user') {
-      console.log(`🏠 ${currentPageType} page initialization complete, skipping reader-specific components`);
       return; // Exit early - everything is handled by homepage/user page system
     }
-    
+
     // Initialize ALL components for both homepage and reader pages
     // Components will handle their own conditional logic internally based on DOM availability
-    console.log("🔧 Initializing all components for SPA compatibility...");
     initializeEditButtonListeners();
     initializeSourceButtonListener();
     updateEditButtonVisibility(currentBookId);
@@ -255,13 +224,11 @@ export async function universalPageInitializer(progressCallback = null) {
     // Initialize user profile page functionality if user owns this book
     const { getCurrentUser } = await import('./utilities/auth.js');
     const user = await getCurrentUser();
-    console.log(`🔍 USER PROFILE CHECK: user=${user?.name || 'null'}, currentBookId=${currentBookId}`);
+    verbose.init(`User profile check: user=${user?.name || 'null'}, currentBookId=${currentBookId}`, 'viewManager.js');
     if (user && user.name === currentBookId) {
       const { initializeUserProfilePage } = await import('./components/userProfilePage.js');
       initializeUserProfilePage();
-      console.log("✅ User profile page functionality initialized");
-    } else {
-      console.log(`❌ USER PROFILE NOT INITIALIZED: user.name="${user?.name}" !== currentBookId="${currentBookId}"`);
+      verbose.init('User profile page functionality initialized', 'viewManager.js');
     }
     
     // Initialize SelectionDeletionHandler for handling selection deletions
@@ -269,12 +236,12 @@ export async function universalPageInitializer(progressCallback = null) {
     if (editorContainer) {
       activeSelectionDeletionHandler = new SelectionDeletionHandler(editorContainer, {
         onDeleted: (nodeId) => {
-          console.log(`✅ SelectionDeletionHandler: Node ${nodeId} deleted`);
+          verbose.init(`SelectionDeletionHandler: Node ${nodeId} deleted`, 'viewManager.js');
         }
       });
-      console.log("✅ SelectionDeletionHandler initialized");
+      verbose.init('SelectionDeletionHandler initialized', 'viewManager.js');
     } else {
-      console.log(`ℹ️ No .main-content found for SelectionDeletionHandler (page type: ${currentPageType})`);
+      verbose.init(`No .main-content found for SelectionDeletionHandler (page type: ${currentPageType})`, 'viewManager.js');
     }
     
     // ✅ Dynamically import edit toolbar only when needed
@@ -286,7 +253,7 @@ export async function universalPageInitializer(progressCallback = null) {
     });
 
   await loadPromise;
-  console.log("✅ Content loading process complete.");
+  verbose.init('Content loading process complete', 'viewManager.js');
 
   activeKeyboardManager = new KeyboardManager();
   window.addEventListener("beforeunload", () => {
@@ -301,27 +268,27 @@ export async function universalPageInitializer(progressCallback = null) {
   
   // ✅ CRITICAL: Check auth state and update edit button permissions after reader initialization
   await checkEditPermissionsAndUpdateUI();
-  console.log("✅ Auth state checked and edit permissions updated in reader view");
+  verbose.init('Auth state checked and edit permissions updated in reader view', 'viewManager.js');
   
   // 🔥 Initialize footnote and citation listeners AFTER content loads
   // This ensures the DOM elements exist before we attach listeners
   setTimeout(async () => {
     const { initializeFootnoteCitationListeners } = await import('./footnotesCitations.js');
     initializeFootnoteCitationListeners();
-    console.log("✅ Footnote and citation listeners initialized after content load");
-    
+    verbose.init('Footnote and citation listeners initialized after content load', 'viewManager.js');
+
     // 🔥 CRITICAL: Rebind the reference container manager after SPA transitions
     // The ContainerManager needs fresh DOM references after HTML replacement
     const { refManager } = await import('./footnotesCitations.js');
     if (refManager && refManager.rebindElements) {
       refManager.rebindElements();
-      console.log("✅ Reference container manager rebound after content load");
+      verbose.init('Reference container manager rebound after content load', 'viewManager.js');
     }
 
     const { hyperlitManager } = await import('./hyperlitContainer/index.js');
     if (hyperlitManager && hyperlitManager.rebindElements) {
         hyperlitManager.rebindElements();
-        console.log("✅ Hyperlit container manager rebound after content load");
+        verbose.init('Hyperlit container manager rebound after content load', 'viewManager.js');
     }
 
   }, 500);
@@ -331,7 +298,7 @@ export async function universalPageInitializer(progressCallback = null) {
   // to avoid race conditions with multiple hide calls
   if (progressCallback) {
     progressCallback(100, "Complete");
-    console.log("✅ Progress callback completed with 100%");
+    verbose.init('Progress callback completed with 100%', 'viewManager.js');
   }
 
 }
@@ -342,15 +309,15 @@ export async function universalPageInitializer(progressCallback = null) {
  */
 function syncHistoryStateAfterBfcache() {
   try {
-    console.log("🔄 Syncing SPA history state after bfcache restoration");
-    
+    verbose.init('Syncing SPA history state after bfcache restoration', 'viewManager.js');
+
     const currentUrl = window.location.href;
     const currentPath = window.location.pathname;
     const currentHash = window.location.hash;
-    
+
     // Determine what type of page we're on
     const pageType = document.body.getAttribute('data-page');
-    console.log(`🔄 bfcache restored page type: ${pageType}, URL: ${currentUrl}`);
+    verbose.init(`bfcache restored page type: ${pageType}, URL: ${currentUrl}`, 'viewManager.js');
     
     // Create a clean history state that matches the current page
     const cleanState = {
@@ -391,20 +358,20 @@ function syncHistoryStateAfterBfcache() {
             timestamp: Date.now(),
             restoredFromBfcache: true
           };
-          
-          console.log(`🔄 Restored hyperlit container state for: ${hashId}`);
+
+          verbose.init(`Restored hyperlit container state for: ${hashId}`, 'viewManager.js');
         }
       }
     }
-    
+
     // Replace the current history state with the clean one
     // This ensures the back button works correctly after bfcache restoration
     history.replaceState(cleanState, '', currentUrl);
-    
-    console.log("✅ History state synchronized after bfcache restoration:", cleanState);
+
+    verbose.init('History state synchronized after bfcache restoration', 'viewManager.js');
     
   } catch (error) {
-    console.error("❌ Error syncing history state after bfcache:", error);
+    console.error("Error syncing history state after bfcache:", error);
   }
 }
 
@@ -413,12 +380,12 @@ function syncHistoryStateAfterBfcache() {
  */
 async function initializeUniversalComponents(pageType) {
   try {
-    console.log(`🔧 Initializing universal components for page type: ${pageType}`);
-    
+    verbose.init(`Initializing universal components for page type: ${pageType}`, 'viewManager.js');
+
     // SPA Transition Fix: If the transition pathway has already initialized
     // containers, skip doing it again here to prevent state corruption.
     if (window.containersAlreadyInitialized) {
-        console.log('🏠 [SPA] Skipping container/homepage initialization as it was handled by the transition.');
+        verbose.init('[SPA] Skipping container/homepage initialization as it was handled by the transition', 'viewManager.js');
     } else {
         // Initialize user container - works on both homepage and reader pages
         try {
@@ -429,29 +396,29 @@ async function initializeUniversalComponents(pageType) {
           if (userManager && userManager.initializeUser) {
             await userManager.initializeUser();
           }
-          console.log('✅ User container initialized for universal access');
+          verbose.init('User container initialized for universal access', 'viewManager.js');
         } catch (error) {
           console.warn('Could not initialize user container:', error);
         }
-        
+
         // Initialize homepage-specific components if we're on the homepage
         if (pageType === 'home') {
           try {
-            console.log('🏠 Initializing homepage-specific components...');
+            verbose.init('Initializing homepage-specific components', 'viewManager.js');
             const { initializeHomepage } = await import('./homepage.js');
             await initializeHomepage();
-            console.log('✅ Homepage components initialized successfully');
+            verbose.init('Homepage components initialized successfully', 'viewManager.js');
           } catch (error) {
-            console.error('❌ Error initializing homepage components:', error);
+            console.error('Error initializing homepage components:', error);
           }
         }
     }
     
     // Add other universal components here that should work on both page types
     // For example: search functionality, theme switcher, etc.
-    
+
   } catch (error) {
-    console.error('❌ Error initializing universal components:', error);
+    console.error('Error initializing universal components:', error);
   }
 }
 

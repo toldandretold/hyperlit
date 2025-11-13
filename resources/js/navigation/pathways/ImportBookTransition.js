@@ -1,9 +1,12 @@
 /**
- * ImportBookTransition - PATHWAY 3  
+ * ImportBookTransition - PATHWAY 3
  * Handles book imports from form submission to reader.blade.php
  * This pathway involves backend processing and full body replacement
+ *
+ * NOTE: Overlay lifecycle managed by NavigationManager
+ * This pathway does NOT hide the overlay - NavigationManager handles that
  */
-import { ProgressManager } from '../ProgressManager.js';
+import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 
 export class ImportBookTransition {
   /**
@@ -22,7 +25,7 @@ export class ImportBookTransition {
     
     try {
       // Use provided progress callback or create our own
-      const progress = progressCallback || ProgressManager.createProgressCallback('spa');
+      const progress = progressCallback || ProgressOverlayConductor.createProgressCallback('spa');
       
       progress(10, 'Processing imported book...');
       
@@ -71,20 +74,20 @@ export class ImportBookTransition {
       
       // Update the URL
       this.updateUrl(bookId, shouldEnterEditMode);
-      
+
       progress(100, 'Import complete!');
-      await ProgressManager.hide();
-      
+
       console.log('✅ ImportBookTransition: Import book transition complete');
-      
+      // NOTE: NavigationManager will hide the overlay when this returns
+
     } catch (error) {
       console.error('❌ ImportBookTransition: Transition failed:', error);
-      
+
       // Fallback to full page navigation
       const fallbackUrl = `/${bookId}/edit?target=1${shouldEnterEditMode ? '&edit=1' : ''}`;
       console.log('🔄 ImportBookTransition: Falling back to full page navigation:', fallbackUrl);
       window.location.href = fallbackUrl;
-      
+
       throw error;
     }
   }

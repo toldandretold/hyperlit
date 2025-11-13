@@ -6,6 +6,7 @@ import { book } from "../app.js";
 import { navigateToInternalId, showNavigationLoading } from "../scrolling.js"; // your internal navigation function
 import { ContainerManager } from "../containerManager.js";
 import { currentLazyLoader } from "../initializePage.js";
+import { log, verbose } from "../utilities/logger.js";
 
 // Get DOM elements for TOC container, overlay, and toggle button.
 export const tocContainer = document.getElementById("toc-container");
@@ -58,7 +59,6 @@ class TocContainerManager extends ContainerManager {
 
 export function initializeTocManager() {
   if (!document.getElementById("toc-toggle-button")) {
-    console.log("ℹ️ TOC button not found, skipping initialization.");
     return;
   }
 
@@ -69,10 +69,9 @@ export function initializeTocManager() {
       "toc-toggle-button",
       ["main-content"]
     );
-    console.log('✅ TOC Manager Initialized');
+    log.init('TOC Manager initialized', '/components/toc.js');
   } else {
     tocManager.rebindElements();
-    console.log('✅ TOC Manager Re-bound');
   }
 }
 
@@ -313,7 +312,6 @@ export function toggleTOC() {
  */
 export function destroyTocManager() {
   if (tocManager) {
-    console.log('🧹 Destroying TOC container manager');
     tocManager.destroy();
     tocManager = null; // Nullify the instance
     // Clear TOC cache as well
