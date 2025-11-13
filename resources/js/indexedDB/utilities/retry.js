@@ -3,6 +3,8 @@
  * Generic retry logic with exponential backoff
  */
 
+import { deleteIndexedDBRecord } from '../nodes/delete.js';
+
 /**
  * Retry an operation with exponential backoff
  *
@@ -45,6 +47,6 @@ export async function retryOperation(operation, maxRetries = 3, delay = 1000) {
  */
 export async function deleteIndexedDBRecordWithRetry(id) {
   // Import deleteIndexedDBRecord dynamically to avoid circular dependency
-  const { deleteIndexedDBRecord } = await import('../nodes/delete.js');
+  // deleteIndexedDBRecord already imported statically
   return retryOperation(() => deleteIndexedDBRecord(id));
 }

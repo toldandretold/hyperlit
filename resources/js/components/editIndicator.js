@@ -1,4 +1,5 @@
 // editIndicator.js
+import { verbose } from '../utilities/logger.js';
 
 export let isProcessing = false
 export let isComplete   = false
@@ -32,10 +33,10 @@ function resetIndicator() {
   if (topRightContainer && topRightVisibilityBeforeEdit !== null) {
     if (topRightVisibilityBeforeEdit === false) {
       topRightContainer.classList.add('perimeter-hidden')
-      console.log('🟢 Hid topRightContainer after editing')
+      verbose.init('Hid topRightContainer after editing', 'editIndicator.js');
     } else {
       topRightContainer.classList.remove('perimeter-hidden')
-      console.log('🟢 Kept topRightContainer visible after editing')
+      verbose.init('Kept topRightContainer visible after editing', 'editIndicator.js');
     }
     topRightVisibilityBeforeEdit = null
   }
@@ -57,8 +58,8 @@ export function showSpinner() {
   if (topRightContainer) {
     topRightVisibilityBeforeEdit = !topRightContainer.classList.contains('perimeter-hidden')
     topRightContainer.classList.remove('perimeter-hidden')
-    console.log('🟠 Saved topRight visibility before edit:', topRightVisibilityBeforeEdit)
-    console.log('🟠 Made topRightContainer visible for editing')
+    verbose.init(`Saved topRight visibility before edit: ${topRightVisibilityBeforeEdit}`, 'editIndicator.js');
+    verbose.init('Made topRightContainer visible for editing', 'editIndicator.js');
   }
 
   console.log('Indicator → orange (saving)')

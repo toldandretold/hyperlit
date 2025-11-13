@@ -109,12 +109,10 @@ export function initializeSelectionHandler() {
   originalParent = hyperlightButtons.parentElement;
 
   document.addEventListener("selectionchange", handleSelection);
-  console.log("✅ Selection Handler Initialized");
 }
 
 export function destroySelectionHandler() {
   document.removeEventListener("selectionchange", handleSelection);
   hyperlightButtons = null;
   originalParent = null;
-  console.log("🧹 Selection Handler Destroyed");
 }

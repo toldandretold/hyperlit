@@ -4,6 +4,7 @@
 // import { initEditToolbar, getEditToolbar } from '../editToolbar';
 
 import { book } from "../app.js";
+import { log, verbose } from "../utilities/logger.js";
 import { incrementPendingOperations, decrementPendingOperations } from '../utilities/operationState.js';
 import { getCurrentUser, canUserEditBook } from "../utilities/auth.js";
 import { getLibraryObjectFromIndexedDB } from '../indexedDB/index.js';
@@ -26,7 +27,6 @@ window.isEditing = false;
 let editModeCheckInProgress = false;
 
 export function resetEditModeState() {
-    console.log(`🧹 Resetting all edit mode state. Was isEditing=${window.isEditing}, was checkInProgress=${editModeCheckInProgress}`);
     window.isEditing = false;
     editModeCheckInProgress = false;
 }
@@ -39,7 +39,6 @@ export function handleAutoEdit() {
   const targetElementId = urlParams.get('target');
 
   if (shouldAutoEdit) {
-    console.log("Auto-edit detected, enabling edit mode");
     enableEditMode(targetElementId);
   }
 }
@@ -78,42 +77,34 @@ function getSavedScrollElementId(bookId) {
 }
 
 // Add this helper function to place cursor at end of specific element
-// Add this helper function to place cursor at end of specific element
 function placeCursorAtEndOfElement(elementId) {
-  console.log(`Attempting to place cursor at element with id="${elementId}"`);
-  
   const targetElement = document.getElementById(elementId);
-  console.log("Target element found:", targetElement);
-  console.log("Target element content:", targetElement?.textContent);
-  
+
   if (!targetElement) {
     console.warn(`Element with id="${elementId}" not found`);
     return false;
   }
-  
+
   try {
     // Focus the element first
     targetElement.focus();
-    console.log("Element focused");
-    
+
     // Create range and selection
     const range = document.createRange();
     const selection = window.getSelection();
-    
+
     // Select all content in the element
     range.selectNodeContents(targetElement);
     // Collapse to end (cursor at end of content)
     range.collapse(false);
-    
+
     // Apply the selection
     selection.removeAllRanges();
     selection.addRange(range);
-    
-    console.log(`✅ Cursor placed at end of element with id="${elementId}"`);
-    console.log("Selection after placement:", selection.toString());
+
     return true;
   } catch (error) {
-    console.error(`❌ Error placing cursor in element ${elementId}:`, error);
+    console.error(`Error placing cursor in element ${elementId}:`, error);
     return false;
   }
 }
@@ -157,10 +148,7 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
   const editBtn = document.getElementById("editButton");
   const editableDiv = document.getElementById(book);
 
-  console.log("🔔 enableEditMode() called...");
-
   if (window.isEditing || editModeCheckInProgress) {
-    console.log("Edit mode already active or check in progress, returning");
     return;
   }
 
@@ -176,9 +164,6 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
   if (window.pendingBookSyncPromise) {
     try {
       await window.pendingBookSyncPromise;
-      console.log(
-        "✅ Pending book sync complete. Proceeding with permission check."
-      );
     } catch (e) {
       console.error("Sync failed, cannot enable edit mode.", e);
       showCustomAlert(
@@ -200,10 +185,8 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
 
   // This block handles the case where the user does NOT have permission.
   if (!canEdit) {
-    console.log("❌ User does not have permission to edit this book");
-    
     const currentUser = await getCurrentUser();
-    
+
     if (!currentUser) {
       // User not logged in - show login prompt
       userManager.setPostLoginAction(() => {
@@ -223,7 +206,6 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
     } else {
       // User is logged in but doesn't have permissions - replace with lock icon
       replaceEditButtonWithLock();
-      console.log("🔒 User is logged in but doesn't have edit permissions - showing lock icon");
     }
 
     editModeCheckInProgress = false;
@@ -238,13 +220,10 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
   incrementPendingOperations();
 
   try {
-    console.log("⏳ Waiting for the first chunk of content to render...");
     await pendingFirstChunkLoadedPromise;
-    console.log("✅ First chunk is ready. Proceeding to enable edit mode.");
 
     setTimeout(async () => {
       try {
-        console.log("🚀 Proceeding to enable edit mode after browser tick.");
         window.isEditing = true;
         if (editBtn) editBtn.classList.add("inverted");
 
@@ -252,7 +231,6 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
         const bottomRightButtons = document.getElementById("bottom-right-buttons");
         if (bottomRightButtons) {
           bottomRightButtons.classList.remove("perimeter-hidden");
-          console.log("👁️ Removed perimeter-hidden from bottom-right-buttons for edit mode");
         }
 
         enforceEditableState();
@@ -268,7 +246,6 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
 
         // ✅ ONLY call ensureMinimumDocumentStructure for new blank books
         if (isNewBook) {
-          console.log("📝 New blank book: Ensuring minimum document structure...");
           import("../divEditor/index.js").then(({ ensureMinimumDocumentStructure }) => {
             ensureMinimumDocumentStructure();
           });
@@ -286,9 +263,6 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
         if (!cursorPlaced) {
           const savedElementId = getSavedScrollElementId(book);
           if (savedElementId) {
-            console.log(
-              `Trying to place cursor at saved scroll position: ${savedElementId}`
-            );
             cursorPlaced = placeCursorAtEndOfElement(savedElementId);
           }
         }
@@ -296,32 +270,22 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
         // 3. Smart fallback based on content length
         if (!cursorPlaced) {
           const contentExceedsViewport = doesContentExceedViewport(editableDiv);
-          console.log(`Content exceeds viewport: ${contentExceedsViewport}`);
 
           if (contentExceedsViewport) {
             // Long content - place cursor at first element (existing behavior)
             const firstElementId = getFirstElementWithId(editableDiv);
             if (firstElementId) {
-              console.log(
-                `Long content: placing cursor at first element with ID: ${firstElementId}`
-              );
               cursorPlaced = placeCursorAtEndOfElement(firstElementId);
             }
           } else {
             // Short content - place cursor at last content element
             const lastContentElementId = getLastContentElement(editableDiv);
             if (lastContentElementId) {
-              console.log(
-                `Short content: placing cursor at last content element with ID: ${lastContentElementId}`
-              );
               cursorPlaced = placeCursorAtEndOfElement(lastContentElementId);
             } else {
               // Fallback to first element if no content elements found
               const firstElementId = getFirstElementWithId(editableDiv);
               if (firstElementId) {
-                console.log(
-                  `No content elements found: placing cursor at first element with ID: ${firstElementId}`
-                );
                 cursorPlaced = placeCursorAtEndOfElement(firstElementId);
               }
             }
@@ -330,7 +294,6 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
 
         // 4. Final fallback - original logic (unchanged)
         if (!cursorPlaced) {
-          console.log("Using final fallback cursor placement");
           const selection = window.getSelection();
           if (!selection.rangeCount || selection.isCollapsed) {
             const range = document.createRange();
@@ -359,8 +322,6 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
 
         startObserving(editableDiv);
         addPasteListener(editableDiv);
-
-        console.log("Edit mode enabled");
       } catch (error) {
         console.error("Error during UI update inside setTimeout:", error);
       } finally {
@@ -377,7 +338,6 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
 
 function disableEditMode() {
   window.isEditing = false; // Reset state immediately
-  console.log("🧹 Edit mode state flag reset to false.");
 
   // ✅ QUERY FOR ELEMENTS AT THE TIME OF EXECUTION
   const editBtn = document.getElementById("editButton");
@@ -394,7 +354,6 @@ function disableEditMode() {
 
   // Don't modify nav button visibility when exiting edit mode
   // Let the scroll handlers control visibility naturally
-  console.log("👁️ Exiting edit mode - nav visibility controlled by scroll handlers");
 
   enforceEditableState();
   editableDiv.contentEditable = "false";
@@ -423,11 +382,8 @@ function disableEditMode() {
   
   // Safely clear NodeIdManager if it exists
   if (window.NodeIdManager && typeof NodeIdManager.usedIds !== 'undefined') {
-    console.log("Clearing NodeIdManager cache");
     NodeIdManager.usedIds.clear();
   }
-  
-  console.log("Edit mode disabled");
 }
 
 // ✅ CREATE A NEW, EXPORTED INITIALIZER FOR THE LISTENERS
@@ -440,55 +396,52 @@ export function initializeEditButtonListeners() {
     editBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      
+
       // Don't do anything if button is in locked state
       if (editBtn.dataset.isLocked === 'true') {
-        console.log("🔒 Edit button is locked - no action taken");
         return;
       }
-      
+
       if (window.isEditing) {
         disableEditMode();
       } else {
         enableEditMode();
       }
     });
-    
+
     editBtn.addEventListener("touchend", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      
+
       // Don't do anything if button is in locked state
       if (editBtn.dataset.isLocked === 'true') {
-        console.log("🔒 Edit button is locked - no action taken");
         return;
       }
-      
+
       if (window.isEditing) {
         disableEditMode();
       } else {
         enableEditMode();
       }
     });
-    
+
     editBtn.dataset.listenersAttached = 'true';
-    console.log("✅ Edit button event listeners attached.");
   }
 }
 
 
 
 export async function updateEditButtonVisibility(bookId) {
-  console.log('EDIT BUTTON VISIBILITY CHECK FOR:', bookId);
+  log.init(`Edit permissions checked for: ${bookId}`, '/components/editButton.js');
   const editButton = document.getElementById('editButton');
   if (!editButton) {
-    console.log('Edit button not found');
+    verbose.init('Edit button not found in DOM', '/components/editButton.js');
     return;
   }
 
   editButton.style.display = 'block';
   editButton.classList.remove('hidden');
-  
+
   // After making button visible, check permissions and update UI
   await checkEditPermissionsAndUpdateUI();
 }
@@ -502,7 +455,6 @@ function replaceEditButtonWithLock() {
 
   // Don't replace if already in locked state
   if (editBtn.dataset.isLocked === 'true') {
-    console.log("🔒 Button already locked, skipping");
     return;
   }
 
@@ -532,8 +484,6 @@ function replaceEditButtonWithLock() {
   // Remove any existing event listeners by cloning the element
   const newEditBtn = editBtn.cloneNode(true);
   editBtn.parentNode.replaceChild(newEditBtn, editBtn);
-
-  console.log("✅ Edit button replaced with lock icon");
 }
 
 // Function to restore edit button from lock state
@@ -556,8 +506,6 @@ function restoreEditButtonFromLock() {
   
   // Re-initialize event listeners
   initializeEditButtonListeners();
-  
-  console.log("✅ Edit button restored from lock state");
 }
 
 // Function to check if user has edit permissions and handle UI accordingly
@@ -569,7 +517,6 @@ export async function checkEditPermissionsAndUpdateUI() {
 
   // Don't modify button during edit mode
   if (window.isEditing) {
-    console.log("⚠️ Skipping permission check - edit mode is active");
     return;
   }
 
@@ -599,7 +546,6 @@ async function showCustomAlert(title, message, options = {}) {
 
   const user = await getCurrentUser();
   const isLoggedIn = user !== null;
-  console.log(`🔍 User login status for alert: ${isLoggedIn ? 'logged in' : 'not logged in'}`);
 
   // Initial alert content
   let buttonsHtml = "";
@@ -672,7 +618,6 @@ async function showCustomAlert(title, message, options = {}) {
   // Prevent default form submission to avoid 422 errors
   alertBox.addEventListener("submit", (e) => {
     e.preventDefault();
-    console.log("Form submission prevented - using JavaScript handlers instead");
   });
 
   // The overlay click should ALWAYS allow cancellation.
@@ -690,13 +635,12 @@ async function showCustomAlert(title, message, options = {}) {
 export function enforceEditableState() {
   const editableDiv = document.getElementById(book);
   if (!editableDiv) return;
-  
+
   const shouldBeEditable = window.isEditing === true;
   const currentlyEditable = editableDiv.contentEditable === "true";
-  
+
   if (shouldBeEditable !== currentlyEditable) {
     editableDiv.contentEditable = shouldBeEditable ? "true" : "false";
-    console.log(`🔧 Fixed contentEditable mismatch: set to ${shouldBeEditable}`);
   }
 }
 

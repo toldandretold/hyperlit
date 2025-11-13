@@ -2,12 +2,16 @@
  * DifferentTemplateTransition - Universal handler for cross-structure transitions
  * Handles full body replacement for reader↔home, reader↔user, home↔user
  * Structure-aware cleanup and initialization using shared utility functions
+ *
+ * NOTE: Overlay lifecycle managed by NavigationManager
+ * This pathway does NOT hide the overlay - NavigationManager handles that
  */
-import { ProgressManager } from '../ProgressManager.js';
+import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 import { LinkNavigationHandler } from '../LinkNavigationHandler.js';
 import { cleanupFromStructure } from '../utils/cleanupHelpers.js';
 import { initializeToStructure } from '../utils/initHelpers.js';
 import { fetchHtml, replaceBodyContent, navigateToHash, updateUrl } from '../utils/contentSwapHelpers.js';
+import { log } from '../../utilities/logger.js';
 
 export class DifferentTemplateTransition {
   /**
@@ -27,10 +31,10 @@ export class DifferentTemplateTransition {
     const fromStructure = providedFromStructure || LinkNavigationHandler.getPageStructure();
     const toStructure = providedToStructure || await this.detectTargetStructure(targetUrl || toBook);
 
-    console.log(`🔄 DifferentTemplateTransition: ${fromStructure}→${toStructure} transition`, options);
+    log.nav(`Page template transition (${fromStructure}→${toStructure})`, '/navigation/pathways/DifferentTemplateTransition.js');
 
     try {
-      const progress = progressCallback || ProgressManager.createProgressCallback('spa');
+      const progress = progressCallback || ProgressOverlayConductor.createProgressCallback('spa');
 
       progress(10, 'Preparing transition...');
 
@@ -77,17 +81,14 @@ export class DifferentTemplateTransition {
       }
 
       progress(100, 'Complete!');
-      await ProgressManager.hide();
 
-      console.log(`✅ DifferentTemplateTransition: ${fromStructure}→${toStructure} transition complete`);
+      // NOTE: NavigationManager will hide the overlay when this returns
 
     } catch (error) {
-      console.error(`❌ DifferentTemplateTransition: ${fromStructure}→${toStructure} transition failed:`, error);
-      await ProgressManager.hide();
+      console.error(`DifferentTemplateTransition: ${fromStructure}→${toStructure} transition failed:`, error);
 
       // Fallback to full page navigation
       const fallbackUrl = targetUrl || `/${toBook}${hash}`;
-      console.log('🔄 DifferentTemplateTransition: Falling back to full page navigation:', fallbackUrl);
       window.location.href = fallbackUrl;
 
       throw error;

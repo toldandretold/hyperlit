@@ -2,9 +2,6 @@
 
 class KeyboardManager {
   constructor() {
-    console.log("🔧 KeyboardManager CONSTRUCTOR CALLED");
-    console.trace("KeyboardManager instantiation stack trace:");
-
     this.isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
     this.initialVisualHeight = null;
     this.isKeyboardOpen = false;
@@ -309,9 +306,6 @@ removeSpacer() {
 }
 
   destroy() {
-    console.log("⌨️ KeyboardManager DESTROY CALLED");
-    console.trace("KeyboardManager destroy stack trace:");
-
     // Clear any pending timers
     if (this.viewportChangeDebounceTimer) {
       clearTimeout(this.viewportChangeDebounceTimer);
@@ -319,14 +313,12 @@ removeSpacer() {
     }
 
     // Reset inline styles on all elements we modified
-    console.log("🔧 KeyboardManager.destroy: Resetting inline styles on all modified elements");
     this.resetInlineStyles(
       document.querySelector("#app-container"),
       document.querySelector(".main-content"),
       document.querySelector("#edit-toolbar"),
       document.querySelector("#bottom-right-buttons")
     );
-    console.log("🔧 KeyboardManager.destroy: Inline styles reset complete");
 
     window.removeEventListener("focusin", this.handleFocusIn, true);
     window.removeEventListener("focusout", this.handleFocusOut, true);
@@ -336,7 +328,6 @@ removeSpacer() {
         this.handleViewportChange,
       );
     }
-    console.log("⌨️ KeyboardManager destroyed - all cleanup complete");
   }
 }
 

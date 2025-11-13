@@ -13,6 +13,7 @@ import {
 } from "../historyManager.js";
 import { pendingSyncs, debouncedMasterSync } from "../indexedDB/index.js";
 import { currentLazyLoader } from "../initializePage.js";
+import { log, verbose } from "../utilities/logger.js";
 
 /**
  * Helper function to yield to the browser's main thread.
@@ -40,6 +41,8 @@ export class HistoryHandler {
     this.handleUndo = this.handleUndo.bind(this);
     this.handleRedo = this.handleRedo.bind(this);
     this.updateHistoryButtonStates = this.updateHistoryButtonStates.bind(this);
+
+    log.init('History handler initialized', '/editToolbar/historyHandler.js');
   }
 
   /**
@@ -115,7 +118,6 @@ export class HistoryHandler {
    */
   async updateHistoryButtonStates() {
     if (this.isDisabled) return;
-    console.log("Updating history button states...");
 
     // RE-ACQUIRE REFERENCES TO THE BUTTONS
     // This is vital because the DOM might have been rebuilt by lazyLoaderFactory.refresh()
@@ -124,9 +126,6 @@ export class HistoryHandler {
 
     if (this.undoButton) {
       const canCurrentlyUndo = await canUndo();
-      console.log(
-        `Undo button: isProcessingHistory=${this.isProcessingHistory}, canCurrentlyUndo=${canCurrentlyUndo}`
-      );
       this.undoButton.classList.toggle("processing", this.isProcessingHistory);
       this.undoButton.classList.toggle(
         "disabled",
@@ -140,9 +139,6 @@ export class HistoryHandler {
 
     if (this.redoButton) {
       const canCurrentlyRedo = await canRedo();
-      console.log(
-        `Redo button: isProcessingHistory=${this.isProcessingHistory}, canCurrentlyRedo=${canCurrentlyRedo}`
-      );
       this.redoButton.classList.toggle("processing", this.isProcessingHistory);
       this.redoButton.classList.toggle(
         "disabled",

@@ -1,4 +1,4 @@
-console.log('App.js is loaded');
+import { log } from './utilities/logger.js';
 
 // Load navigation health check in development
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
@@ -49,18 +49,16 @@ if (!book) {
   console.error("No book ID found in DOM or URL!");
 }
 
+log.init(`Loading hypertext for: ${book}`, 'app.js');
+
 // ✅ ADD THIS EXPORTED FUNCTION
 // This allows our viewManager to update the global book state after an SPA transition.
 export function setCurrentBook(newBookId) {
   book = newBookId;
-  console.log(`Global book variable updated to: ${book}`);
+  log.init(`Book updated to: ${book}`, 'app.js');
 }
 
 // 6) Export the two HL constants
-export const OpenHyperlightID = _hyperlightId;    
-
-// 7) Debug
-console.log("book →", book);
-if (OpenHyperlightID) console.log("OpenHyperlightID →", OpenHyperlightID);
+export const OpenHyperlightID = _hyperlightId;
 
 export const markdownContent = ""; // Store Markdown globally

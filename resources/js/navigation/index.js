@@ -6,8 +6,9 @@
 // Core navigation manager
 export { NavigationManager } from './NavigationManager.js';
 
-// Progress management
-export { ProgressManager } from './ProgressManager.js';
+// Progress overlay management
+export { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
+export { ProgressOverlayEnactor } from './ProgressOverlayEnactor.js';
 
 // Link handling
 export { LinkNavigationHandler } from './LinkNavigationHandler.js';
