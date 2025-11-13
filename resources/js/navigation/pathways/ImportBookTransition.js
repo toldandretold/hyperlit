@@ -7,6 +7,17 @@
  * This pathway does NOT hide the overlay - NavigationManager handles that
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
+import { waitForLayoutStabilization, waitForContentReady } from '../../domReadiness.js';
+import { destroyUserContainer } from '../../components/userContainer.js';
+import { destroyNewBookContainer } from '../../components/newBookButton.js';
+import { destroyHomepageDisplayUnit } from '../../homepageDisplayUnit.js';
+import { resetEditModeState, enforceEditableState, enableEditMode } from '../../components/editButton.js';
+import { cleanupReaderView } from '../../viewManager.js';
+import { setCurrentBook } from '../../app.js';
+import { resolveFirstChunkPromise, loadFromJSONFiles } from '../../initializePage.js';
+import { universalPageInitializer } from '../../viewManager.js';
+import { initializeLogoNav } from '../../components/logoNavToggle.js';
+import { openDatabase } from '../../indexedDB/index.js';
 
 export class ImportBookTransition {
   /**
@@ -43,9 +54,8 @@ export class ImportBookTransition {
       await this.replaceBodyContent(readerHtml, bookId);
       
       progress(60, 'Waiting for DOM stabilization...');
-      
+
       // Wait for DOM to be ready for content insertion
-      const { waitForLayoutStabilization } = await import('../../domReadiness.js');
       await waitForLayoutStabilization();
       
       // Set up session storage for imported book handling
@@ -57,9 +67,8 @@ export class ImportBookTransition {
       await this.initializeImportedReader(bookId, progress);
       
       progress(80, 'Ensuring content readiness...');
-      
+
       // Wait for content to be fully ready after initialization
-      const { waitForContentReady } = await import('../../domReadiness.js');
       await waitForContentReady(bookId, {
         maxWaitTime: 10000,
         requireLazyLoader: true
@@ -100,21 +109,16 @@ export class ImportBookTransition {
     
     try {
       // Import and destroy homepage-specific components
-      const { destroyUserContainer } = await import('../../components/userContainer.js');
-      const { destroyNewBookContainer } = await import('../../components/newBookButton.js');
       if (destroyUserContainer) destroyUserContainer();
       if (destroyNewBookContainer) destroyNewBookContainer();
       console.log('🧹 ImportBookTransition: Homepage containers destroyed.');
 
-      const { destroyHomepageDisplayUnit } = await import('../../homepageDisplayUnit.js');
       if (destroyHomepageDisplayUnit) destroyHomepageDisplayUnit();
 
       // Also explicitly reset all edit mode state flags as a safeguard
-      const { resetEditModeState } = await import('../../components/editButton.js');
       resetEditModeState();
 
       // Also clean up the reader view in case of an inconsistent state
-      const { cleanupReaderView } = await import('../../viewManager.js');
       cleanupReaderView();
     } catch (error) {
       console.warn('⚠️ Cleanup failed, but continuing transition:', error);
@@ -187,7 +191,6 @@ export class ImportBookTransition {
     
     // Enforce editable state
     try {
-      const { enforceEditableState } = await import('../../components/editButton.js');
       enforceEditableState();
     } catch (error) {
       console.warn('Could not enforce editable state:', error);
@@ -215,9 +218,8 @@ export class ImportBookTransition {
     
     try {
       // Set the current book
-      const { setCurrentBook } = await import('../../app.js');
       setCurrentBook(bookId);
-      
+
       // Hide overlay immediately for imported books
       const overlay = document.getElementById('initial-navigation-overlay');
       if (overlay) {
@@ -226,23 +228,20 @@ export class ImportBookTransition {
         overlay.remove();
         console.log('🎯 ImportBookTransition: Overlay removed for imported book');
       }
-      
+
       // Resolve the first chunk promise since content is already in DOM
       try {
-        const { resolveFirstChunkPromise } = await import('../../initializePage.js');
         resolveFirstChunkPromise();
         console.log("✅ ImportBookTransition: First chunk promise resolved");
       } catch (error) {
         console.warn('Could not resolve first chunk promise:', error);
       }
-      
+
       // Initialize the reader view using the existing system
-      const { universalPageInitializer } = await import('../../viewManager.js');
       await universalPageInitializer(progressCallback);
 
       // 🔧 Reinitialize logo navigation toggle
       console.log('🔧 ImportBookTransition: Reinitializing logo navigation toggle');
-      const { initializeLogoNav } = await import('../../components/logoNavToggle.js');
       if (typeof initializeLogoNav === 'function') {
         initializeLogoNav();
         console.log('✅ ImportBookTransition: Logo navigation toggle initialized');
@@ -264,9 +263,8 @@ export class ImportBookTransition {
     console.log('📝 ImportBookTransition: Entering edit mode');
     
     try {
-      const { enableEditMode } = await import('../../components/editButton.js');
       await enableEditMode(null, false); // false = don't force redirect
-      
+
       console.log('✅ ImportBookTransition: Edit mode enabled');
       
     } catch (error) {
@@ -352,7 +350,6 @@ export class ImportBookTransition {
 
       // Save the authoritative library record from server
       if (result.library) {
-        const { openDatabase } = await import('../../indexedDB/index.js');
         const db = await openDatabase();
         const tx = db.transaction('library', 'readwrite');
         tx.objectStore('library').put(result.library);
@@ -369,7 +366,6 @@ export class ImportBookTransition {
       // Pre-load the book's content into IndexedDB
       console.log('🔥 DEBUG: About to pre-load book content for:', result.bookId);
       try {
-        const { loadFromJSONFiles } = await import('../../initializePage.js');
         console.log('🔥 DEBUG: loadFromJSONFiles imported, calling it now...');
         await loadFromJSONFiles(result.bookId);
         console.log('✅ Pre-loaded imported book content');

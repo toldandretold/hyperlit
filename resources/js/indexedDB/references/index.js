@@ -4,6 +4,7 @@
  */
 
 import { openDatabase } from '../core/connection.js';
+import { syncReferencesToPostgreSQL } from './syncReferencesToPostgreSQL.js';
 
 // Import from the main indexedDB file (temporary until fully refactored)
 let withPending;
@@ -42,7 +43,7 @@ export async function saveAllReferencesToIndexedDB(references, bookId) {
 
         // --- ADDED: Trigger the sync to PostgreSQL ---
         try {
-          const { syncReferencesToPostgreSQL } = await import('./syncReferencesToPostgreSQL.js');
+          // syncReferencesToPostgreSQL already imported statically
           await syncReferencesToPostgreSQL(bookId, references);
         } catch (err) {
           console.warn("⚠️ Reference sync to PostgreSQL failed:", err);

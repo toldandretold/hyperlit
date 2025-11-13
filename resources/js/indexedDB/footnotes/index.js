@@ -4,6 +4,7 @@
  */
 
 import { openDatabase } from '../core/connection.js';
+import { syncFootnotesToPostgreSQL } from './syncFootnotesToPostgreSQL.js';
 
 // Import from the main indexedDB file (temporary until fully refactored)
 let updateBookTimestamp, withPending;
@@ -130,7 +131,7 @@ export async function saveAllFootnotesToIndexedDB(footnotes, bookId) {
 
         // --- ADDED: Trigger the sync to PostgreSQL ---
         try {
-          const { syncFootnotesToPostgreSQL } = await import('./syncFootnotesToPostgreSQL.js');
+          // syncFootnotesToPostgreSQL already imported statically
           await syncFootnotesToPostgreSQL(bookId, footnotes);
         } catch (err) {
           // Log the error but don't reject the promise, as the local save was successful.

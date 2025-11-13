@@ -7,9 +7,22 @@
  * This pathway does NOT hide the overlay - NavigationManager handles that
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
-import { showSpinner, showTick } from '../../components/editIndicator.js';
-import { waitForElementReady } from '../../domReadiness.js';
+import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
+import { showSpinner, showTick, showError } from '../../components/editIndicator.js';
+import { waitForElementReady, waitForContentReady } from '../../domReadiness.js';
 import { log, verbose } from '../../utilities/logger.js';
+import { debouncedMasterSync, pendingSyncs } from '../../indexedDB/index.js';
+import { destroyUserContainer } from '../../components/userContainer.js';
+import { destroyNewBookContainer } from '../../components/newBookButton.js';
+import { destroyHomepageDisplayUnit } from '../../homepageDisplayUnit.js';
+import { cleanupReaderView } from '../../viewManager.js';
+import { enforceEditableState, enableEditMode } from '../../components/editButton.js';
+import { setCurrentBook } from '../../app.js';
+import { universalPageInitializer } from '../../viewManager.js';
+import { initializeLogoNav } from '../../components/logoNavToggle.js';
+import { createNewBook, fireAndForgetSync } from '../../createNewBook.js';
+import { setInitialBookSyncPromise } from '../../utilities/operationState.js';
+import { syncIndexedDBtoPostgreSQL } from '../../postgreSQL.js';
 
 export class NewBookTransition {
   /**
@@ -66,9 +79,8 @@ export class NewBookTransition {
       await this.initializeReader(bookId, scopedProgress);
 
       progress(85, 'Ensuring content readiness...');
-      
+
       // Wait for content to be fully ready after initialization
-      const { waitForContentReady } = await import('../../domReadiness.js');
       await waitForContentReady(bookId, {
         maxWaitTime: 10000,
         requireLazyLoader: true
@@ -210,10 +222,6 @@ export class NewBookTransition {
     verbose.nav('Ensuring pending syncs complete', 'NewBookTransition.js');
     
     try {
-      // Import the debounced sync function and pending syncs map
-      const { debouncedMasterSync, pendingSyncs } = await import('../../indexedDB/index.js');
-      const { showTick } = await import('../../components/editIndicator.js');
-      
       // If there are pending syncs, force them to complete immediately
       if (pendingSyncs.size > 0) {
         verbose.nav(`Found ${pendingSyncs.size} pending syncs, forcing completion`, 'NewBookTransition.js');
@@ -243,17 +251,13 @@ export class NewBookTransition {
     
     try {
       // Import and destroy homepage-specific components
-      const { destroyUserContainer } = await import('../../components/userContainer.js');
-      const { destroyNewBookContainer } = await import('../../components/newBookButton.js');
       if (destroyUserContainer) destroyUserContainer();
       if (destroyNewBookContainer) destroyNewBookContainer();
       verbose.nav('Homepage containers destroyed', 'NewBookTransition.js');
 
-      const { destroyHomepageDisplayUnit } = await import('../../homepageDisplayUnit.js');
       if (destroyHomepageDisplayUnit) destroyHomepageDisplayUnit();
 
       // Also clean up the reader view in case of an inconsistent state
-      const { cleanupReaderView } = await import('../../viewManager.js');
       cleanupReaderView();
     } catch (error) {
       console.warn('⚠️ Cleanup failed, but continuing transition:', error);
@@ -306,7 +310,6 @@ export class NewBookTransition {
 
       // 🔥 CRITICAL: Rebind ProgressOverlayEnactor to the preserved element
       // After body replacement, ProgressOverlayEnactor's references are stale
-      const { ProgressOverlayEnactor } = await import('../ProgressOverlayEnactor.js');
       ProgressOverlayEnactor.rebind();
     }
 
@@ -331,7 +334,6 @@ export class NewBookTransition {
     
     // Enforce editable state
     try {
-      const { enforceEditableState } = await import('../../components/editButton.js');
       enforceEditableState();
     } catch (error) {
       console.warn('Could not enforce editable state:', error);
@@ -346,16 +348,13 @@ export class NewBookTransition {
     
     try {
       // Set the current book
-      const { setCurrentBook } = await import('../../app.js');
       setCurrentBook(bookId);
-      
+
       // Initialize the reader view using the existing system
-      const { universalPageInitializer } = await import('../../viewManager.js');
       await universalPageInitializer(progressCallback);
 
       // 🔧 Reinitialize logo navigation toggle
       verbose.nav('Reinitializing logo navigation toggle', 'NewBookTransition.js');
-      const { initializeLogoNav } = await import('../../components/logoNavToggle.js');
       if (typeof initializeLogoNav === 'function') {
         initializeLogoNav();
         verbose.nav('Logo navigation toggle initialized', 'NewBookTransition.js');
@@ -393,9 +392,8 @@ export class NewBookTransition {
     verbose.nav('Entering edit mode', 'NewBookTransition.js');
     
     try {
-      const { enableEditMode } = await import('../../components/editButton.js');
       await enableEditMode(null, false); // false = don't force redirect
-      
+
       verbose.nav('Edit mode enabled', 'NewBookTransition.js');
       
     } catch (error) {
@@ -427,17 +425,13 @@ export class NewBookTransition {
     
     try {
       // Import and create the new book
-      const { createNewBook } = await import('../../createNewBook.js');
       const pendingSyncData = await createNewBook();
-      
+
       if (!pendingSyncData) {
         throw new Error('Failed to create new book data');
       }
-      
+
       // Start background sync
-      const { fireAndForgetSync } = await import('../../createNewBook.js');
-      const { setInitialBookSyncPromise } = await import('../../utilities/operationState.js');
-      
       const syncPromise = fireAndForgetSync(
         pendingSyncData.bookId,
         pendingSyncData.isNewBook,
@@ -457,21 +451,18 @@ export class NewBookTransition {
       setTimeout(async () => {
         try {
           verbose.nav('Ensuring initial H1 node is queued for sync', 'NewBookTransition.js');
-          
+
           // Force a sync of the initial content to ensure the H1 doesn't get lost
-          const { syncIndexedDBtoPostgreSQL } = await import('../../postgreSQL.js');
           await syncIndexedDBtoPostgreSQL(pendingSyncData.bookId);
-          
+
           verbose.nav('Initial content sync completed', 'NewBookTransition.js');
-          
+
           // Show green tick - H1 saved to backend
-          const { showTick } = await import('../../components/editIndicator.js');
           showTick();
-          
+
         } catch (error) {
           console.warn('Initial content sync failed (will retry later):', error);
           // Show error indicator
-          const { showError } = await import('../../components/editIndicator.js');
           showError();
         }
       }, 2000); // Wait 2 seconds after transition completes

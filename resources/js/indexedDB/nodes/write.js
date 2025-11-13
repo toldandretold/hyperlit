@@ -5,6 +5,7 @@
 
 import { openDatabase } from '../core/connection.js';
 import { parseNodeId } from '../core/utilities.js';
+import { syncIndexedDBtoPostgreSQL } from '../../postgreSQL.js';
 
 // Import from the main indexedDB file (temporary until fully refactored)
 // These will be extracted to their respective modules
@@ -163,7 +164,7 @@ export async function saveAllNodeChunksToIndexedDB(
         try {
           await updateBookTimestamp(bookId);
           // Use the original postgreSQL.js sync (non-blocking, fast)
-          const { syncIndexedDBtoPostgreSQL } = await import('../../postgreSQL.js');
+          // syncIndexedDBtoPostgreSQL already imported statically
           await syncIndexedDBtoPostgreSQL(bookId);
         } catch (err) {
           console.warn(

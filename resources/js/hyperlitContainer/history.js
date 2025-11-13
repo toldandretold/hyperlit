@@ -3,6 +3,10 @@
  * Handles URL hashes and browser history for hyperlit container state
  */
 
+import { detectHypercites, detectHighlights } from './detection.js';
+import { buildUnifiedContent, handlePostOpenActions } from './index.js';
+import { openHyperlitContainer, hyperlitManager } from './core.js';
+
 /**
  * Determine URL hash for single content types
  * Returns null for multiple content types (overlapping content)
@@ -64,9 +68,9 @@ export async function restoreHyperlitContainerFromHistory() {
 
   try {
     // Import dependencies dynamically to avoid circular imports
-    const { detectHypercites, detectHighlights } = await import('./detection.js');
-    const { buildUnifiedContent, handlePostOpenActions } = await import('./index.js');
-    const { openHyperlitContainer } = await import('./core.js');
+    // Already imported statically
+    // Already imported statically
+    // Already imported statically
 
     // Reconstruct content types from stored state
     const contentTypes = [];
@@ -117,7 +121,7 @@ export async function restoreHyperlitContainerFromHistory() {
  * @returns {Object|null} Current container state or null
  */
 export async function getCurrentContainerState() {
-  const { hyperlitManager } = await import('./core.js');
+  // Already imported statically
 
   if (!hyperlitManager || !document.getElementById('hyperlit-container')?.style.display ||
       document.getElementById('hyperlit-container').style.display === 'none') {

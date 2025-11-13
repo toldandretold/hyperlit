@@ -9,6 +9,21 @@
  */
 
 import { verbose } from '../utilities/logger.js';
+import { queueForSync } from './syncQueue/queue.js';
+import { debouncedMasterSync } from './syncQueue/master.js';
+import { updateBookTimestamp } from './core/library.js';
+import { getNodeChunksFromIndexedDB } from './nodes/read.js';
+import { initLibraryDependencies } from './core/library.js';
+import { initNodeWriteDependencies } from './nodes/write.js';
+import { initNodeBatchDependencies } from './nodes/batch.js';
+import { initNodeDeleteDependencies } from './nodes/delete.js';
+import { initNodeNormalizeDependencies } from './nodes/normalize.js';
+import { initHypercitesDependencies } from './hypercites/index.js';
+import { initFootnotesDependencies } from './footnotes/index.js';
+import { initReferencesDependencies } from './references/index.js';
+import { initSyncQueueDependencies } from './syncQueue/queue.js';
+import { initMasterSyncDependencies } from './syncQueue/master.js';
+import { initUnloadSyncDependencies } from './syncQueue/unload.js';
 
 // ============================================================================
 // CORE OPERATIONS
@@ -188,22 +203,7 @@ export async function initializeDatabaseModules(dependencies) {
     showError,
   } = dependencies;
 
-  // Import all init functions
-  const { initLibraryDependencies } = await import('./core/library.js');
-  const { initNodeWriteDependencies } = await import('./nodes/write.js');
-  const { initNodeBatchDependencies } = await import('./nodes/batch.js');
-  const { initNodeDeleteDependencies } = await import('./nodes/delete.js');
-  const { initNodeNormalizeDependencies } = await import('./nodes/normalize.js');
-  const { initHypercitesDependencies } = await import('./hypercites/index.js');
-  const { initFootnotesDependencies } = await import('./footnotes/index.js');
-  const { initReferencesDependencies } = await import('./references/index.js');
-  const { initSyncQueueDependencies } = await import('./syncQueue/queue.js');
-  const { initMasterSyncDependencies } = await import('./syncQueue/master.js');
-  const { initUnloadSyncDependencies } = await import('./syncQueue/unload.js');
-  const { queueForSync } = await import('./syncQueue/queue.js');
-  const { debouncedMasterSync } = await import('./syncQueue/master.js');
-  const { updateBookTimestamp } = await import('./core/library.js');
-  const { getNodeChunksFromIndexedDB } = await import('./nodes/read.js');
+  // All functions already statically imported at top of file - no need for dynamic imports here
 
   // Initialize all modules
   initLibraryDependencies({ book, queueForSync });

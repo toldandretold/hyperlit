@@ -7,7 +7,17 @@
  * This pathway does NOT hide the overlay - NavigationManager handles that
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
-import { waitForNavigationTarget, waitForElementReady, waitForElementReadyWithProgress, waitForMultipleElementsReadyWithProgress } from '../../domReadiness.js';
+import { waitForNavigationTarget, waitForElementReady, waitForElementReadyWithProgress, waitForMultipleElementsReadyWithProgress, waitForLayoutStabilization, waitForContentReady } from '../../domReadiness.js';
+import { cleanupReaderView } from '../../viewManager.js';
+import { resetEditModeState, enforceEditableState } from '../../components/editButton.js';
+import { destroyUserContainer } from '../../components/userContainer.js';
+import { setCurrentBook } from '../../app.js';
+import { setSkipScrollRestoration } from '../../utilities/operationState.js';
+import { universalPageInitializer } from '../../viewManager.js';
+import { initializeLogoNav } from '../../components/logoNavToggle.js';
+import { pendingFirstChunkLoadedPromise, currentLazyLoader } from '../../initializePage.js';
+import { navigateToHyperciteTarget } from '../../hypercites/index.js';
+import { navigateToInternalId } from '../../scrolling.js';
 
 export class BookToBookTransition {
   static isTransitioning = false;
@@ -71,9 +81,8 @@ export class BookToBookTransition {
         await this.replacePageContent(readerHtml, toBook);
         
         progress(50, 'Waiting for DOM stabilization...');
-        
+
         // Wait for DOM to be ready for content insertion
-        const { waitForLayoutStabilization } = await import('../../domReadiness.js');
         await waitForLayoutStabilization();
         
         progress(60, 'Initializing reader...');
@@ -84,9 +93,8 @@ export class BookToBookTransition {
         await this.initializeReader(toBook, progress, hasHashNavigation);
 
         progress(75, 'Ensuring content readiness...');
-        
+
         // Wait for content to be fully ready after initialization
-        const { waitForContentReady } = await import('../../domReadiness.js');
         await waitForContentReady(toBook, {
           maxWaitTime: 10000,
           requireLazyLoader: true
@@ -140,15 +148,12 @@ export class BookToBookTransition {
 
     try {
       // Import and call the existing cleanup function from viewManager
-      const { cleanupReaderView } = await import('../../viewManager.js');
       cleanupReaderView();
 
       // Explicitly reset all edit mode state flags as a safeguard
-      const { resetEditModeState } = await import('../../components/editButton.js');
       resetEditModeState();
 
       // 🧹 CRITICAL: Destroy user container to prevent stale button references
-      const { destroyUserContainer } = await import('../../components/userContainer.js');
       if (typeof destroyUserContainer === 'function') {
         destroyUserContainer();
         console.log('✅ BookToBookTransition: User container destroyed');
@@ -260,7 +265,6 @@ export class BookToBookTransition {
     
     // Enforce editable state
     try {
-      const { enforceEditableState } = await import('../../components/editButton.js');
       enforceEditableState();
     } catch (error) {
       console.warn('Could not enforce editable state:', error);
@@ -275,24 +279,20 @@ export class BookToBookTransition {
 
     try {
       // Set the current book
-      const { setCurrentBook } = await import('../../app.js');
       setCurrentBook(bookId);
 
       // 🚀 CRITICAL: If we have hash navigation, set the global skip flag BEFORE universalPageInitializer
       // This persists across lazy loader resets and prevents restoreScrollPosition() from interfering
       if (hasHashNavigation) {
-        const { setSkipScrollRestoration } = await import('../../utilities/operationState.js');
         console.log(`🔒 Pre-setting skipScrollRestoration = true (hash navigation pending)`);
         setSkipScrollRestoration(true);
       }
 
       // Initialize reader view but skip overlay restoration for book-to-book
-      const { universalPageInitializer } = await import('../../viewManager.js');
       await universalPageInitializer(progressCallback);
 
       // 🔧 Reinitialize logo navigation toggle
       console.log('🔧 BookToBookTransition: Reinitializing logo navigation toggle');
-      const { initializeLogoNav } = await import('../../components/logoNavToggle.js');
       if (typeof initializeLogoNav === 'function') {
         initializeLogoNav();
         console.log('✅ BookToBookTransition: Logo navigation toggle initialized');
@@ -323,7 +323,6 @@ export class BookToBookTransition {
     
     try {
       // Wait for content to be fully loaded
-      const { pendingFirstChunkLoadedPromise } = await import('../../initializePage.js');
       if (pendingFirstChunkLoadedPromise) {
         console.log('⏳ BookToBookTransition: Waiting for content to load before navigation');
         await pendingFirstChunkLoadedPromise;
@@ -362,9 +361,6 @@ export class BookToBookTransition {
     console.log(`🎯 BookToBookTransition: Delegating to navigateToHyperciteTarget for ${hyperlightId} -> ${hyperciteId}`);
 
     try {
-      const { navigateToHyperciteTarget } = await import('../../hypercites/index.js');
-      const { currentLazyLoader } = await import('../../initializePage.js');
-
       // Let navigateToHyperciteTarget handle all the logic: waiting, scrolling, and opening
       // Don't wait here - it causes double-waiting and prevents proper scrolling
       if (currentLazyLoader) {
@@ -382,9 +378,6 @@ export class BookToBookTransition {
       console.error('Failed to navigate to hypercite target:', error);
       // Don't throw - attempt navigation anyway as fallback
       try {
-        const { navigateToHyperciteTarget } = await import('../../hypercites/index.js');
-        const { currentLazyLoader } = await import('../../initializePage.js');
-
         if (currentLazyLoader) {
           await navigateToHyperciteTarget(hyperlightId, hyperciteId, currentLazyLoader, false);
         }
@@ -406,9 +399,6 @@ export class BookToBookTransition {
       // 2. Loading that chunk (and adjacent chunks)
       // 3. Waiting for the element to be ready
       // 4. Scrolling to it
-      const { navigateToInternalId } = await import('../../scrolling.js');
-      const { currentLazyLoader } = await import('../../initializePage.js');
-
       if (currentLazyLoader) {
         // Don't show overlay since we're in a book-to-book transition with its own progress
         navigateToInternalId(targetId, currentLazyLoader, false);
@@ -580,7 +570,6 @@ export class BookToBookTransition {
       }
       
       // Get the lazy loader and manually load first chunk
-      const { currentLazyLoader } = await import('../../initializePage.js');
       if (!currentLazyLoader) {
         console.warn('No lazy loader available for manual chunk loading');
         return;

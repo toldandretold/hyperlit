@@ -3,6 +3,14 @@
  * Extracted from DifferentTemplateTransition and SameTemplateTransition for reusability
  */
 import { log } from '../../utilities/logger.js';
+import { setCurrentBook } from '../../app.js';
+import { universalPageInitializer } from '../../viewManager.js';
+import { initializeLogoNav } from '../../components/logoNavToggle.js';
+import { initializeUserContainer } from '../../components/userContainer.js';
+import { initializeUserProfileEditor } from '../../components/userProfileEditor.js';
+import { initializeNewBookContainer } from '../../components/newBookButton.js';
+import { initializeHomepageButtons } from '../../homepageDisplayUnit.js';
+import { currentLazyLoader } from '../../initializePage.js';
 
 /**
  * Initialize reader state
@@ -13,27 +21,27 @@ export async function initializeReader(bookId, progressCallback) {
 
   try {
     // Set current book
-    const { setCurrentBook } = await import('../../app.js');
+    // Already imported statically
     setCurrentBook(bookId);
 
     // Ensure data-page is set to "reader"
     document.body.setAttribute('data-page', 'reader');
 
     // Initialize reader functionality
-    const { universalPageInitializer } = await import('../../viewManager.js');
+    // Already imported statically
     await universalPageInitializer(progressCallback);
 
     // Ensure content is loaded
     await ensureContentLoaded(bookId);
 
     // 🔧 Reinitialize logo navigation toggle
-    const { initializeLogoNav } = await import('../../components/logoNavToggle.js');
+    // Already imported statically
     if (typeof initializeLogoNav === 'function') {
       initializeLogoNav();
     }
 
     // 🔧 Reinitialize user container (userButton is in logoNavWrapper on all pages)
-    const { initializeUserContainer } = await import('../../components/userContainer.js');
+    // Already imported statically
     const userManager = initializeUserContainer();
     if (userManager && userManager.initializeUser) {
       await userManager.initializeUser();
@@ -54,7 +62,7 @@ export async function initializeHome(bookId, progressCallback) {
 
   try {
     // Set current book
-    const { setCurrentBook } = await import('../../app.js');
+    // Already imported statically
     setCurrentBook(bookId);
 
     // Ensure data-page is set to "home"
@@ -64,7 +72,7 @@ export async function initializeHome(bookId, progressCallback) {
     await reinitializeContainerManagers();
 
     // Initialize homepage functionality
-    const { universalPageInitializer } = await import('../../viewManager.js');
+    // Already imported statically
 
     try {
       // Set flag to prevent double initialization
@@ -75,7 +83,7 @@ export async function initializeHome(bookId, progressCallback) {
     }
 
     // 🔧 Reinitialize logo navigation toggle
-    const { initializeLogoNav } = await import('../../components/logoNavToggle.js');
+    // Already imported statically
     if (typeof initializeLogoNav === 'function') {
       initializeLogoNav();
     }
@@ -95,7 +103,7 @@ export async function initializeUser(bookId, progressCallback) {
 
   try {
     // Set current book
-    const { setCurrentBook } = await import('../../app.js');
+    // Already imported statically
     setCurrentBook(bookId);
 
     // Ensure data-page is set to "user"
@@ -108,7 +116,7 @@ export async function initializeUser(bookId, progressCallback) {
     await reinitializeContainerManagers();
 
     // Initialize user page functionality (uses same pattern as home)
-    const { universalPageInitializer } = await import('../../viewManager.js');
+    // Already imported statically
 
     try {
       window.containersAlreadyInitialized = true;
@@ -118,7 +126,7 @@ export async function initializeUser(bookId, progressCallback) {
     }
 
     // 🔧 Reinitialize logo navigation toggle
-    const { initializeLogoNav } = await import('../../components/logoNavToggle.js');
+    // Already imported statically
     if (typeof initializeLogoNav === 'function') {
       initializeLogoNav();
     }
@@ -139,7 +147,7 @@ export async function initializeUserSpecificFeatures(bookId) {
     // Initialize user profile editor if it exists
     const userLibraryContainer = document.getElementById('userLibraryContainer');
     if (userLibraryContainer) {
-      const { initializeUserProfileEditor } = await import('../../components/userProfileEditor.js');
+      // Already imported statically
       if (typeof initializeUserProfileEditor === 'function') {
         await initializeUserProfileEditor(bookId);
       }
@@ -157,17 +165,17 @@ export async function reinitializeContainerManagers() {
 
   try {
     // Initialize homepage-specific managers
-    const { initializeUserContainer } = await import('../../components/userContainer.js');
+    // Already imported statically
     const userManager = initializeUserContainer();
 
     if (userManager && userManager.initializeUser) {
       await userManager.initializeUser();
     }
 
-    const { initializeNewBookContainer } = await import('../../components/newBookButton.js');
+    // Already imported statically
     initializeNewBookContainer();
 
-    const { initializeHomepageButtons } = await import('../../homepageDisplayUnit.js');
+    // Already imported statically
     initializeHomepageButtons();
 
   } catch (error) {
@@ -187,7 +195,7 @@ export async function ensureContentLoaded(bookId) {
       return;
     }
 
-    const { currentLazyLoader } = await import('../../initializePage.js');
+    // Already imported statically
     if (!currentLazyLoader) {
       console.warn('No currentLazyLoader available');
       return;

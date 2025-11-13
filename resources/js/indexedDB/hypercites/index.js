@@ -4,6 +4,7 @@
  */
 
 import { parseNodeId } from '../core/utilities.js';
+import { resolveHypercite } from './helpers.js';
 
 // Import from the main indexedDB file (temporary until fully refactored)
 let updateBookTimestamp, queueForSync, withPending;
@@ -309,7 +310,7 @@ export function updateCitationForExistingHypercite(
     // First, ensure the hypercite exists in our local IndexedDB, fetching
     // it from the server if necessary.
     // Note: resolveHypercite will be imported from a helper module
-    const { resolveHypercite } = await import('./helpers.js');
+    // resolveHypercite already imported statically
     const resolvedHypercite = await resolveHypercite(booka, hyperciteIDa);
 
     // If it's not found anywhere (local or server), we cannot proceed.

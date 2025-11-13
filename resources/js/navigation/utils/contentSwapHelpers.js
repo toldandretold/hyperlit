@@ -3,6 +3,15 @@
  * Extracted from DifferentTemplateTransition and SameTemplateTransition for reusability
  */
 import { log } from '../../utilities/logger.js';
+import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
+import { showNavigationLoading, hideNavigationLoading, navigateToInternalId } from '../../scrolling.js';
+import { destroyHomepageDisplayUnit, initializeHomepageButtons, fixHeaderSpacing } from '../../homepageDisplayUnit.js';
+import { destroyUserProfileEditor, initializeUserProfileEditor } from '../../components/userProfileEditor.js';
+import { setCurrentBook } from '../../app.js';
+import { resetCurrentLazyLoader, loadHyperText, currentLazyLoader } from '../../initializePage.js';
+import { togglePerimeterButtons } from '../../readerDOMContentLoaded.js';
+import { destroyLogoNav, initializeLogoNav } from '../../components/logoNavToggle.js';
+import { initializeUserContainer } from '../../components/userContainer.js';
 
 /**
  * Fetch HTML for target URL
@@ -53,7 +62,7 @@ export async function replaceBodyContent(htmlString) {
 
     // 🔥 CRITICAL: Rebind ProgressOverlayEnactor to the preserved element
     // After body replacement, ProgressOverlayEnactor's reference is stale
-    const { ProgressOverlayEnactor } = await import('../ProgressOverlayEnactor.js');
+    // Already imported statically
     ProgressOverlayEnactor.rebind();
   }
 
@@ -73,12 +82,12 @@ export async function replaceBodyContent(htmlString) {
 export async function swapHomeContent(bookId, showLoader = true) {
   try {
     if (showLoader) {
-      const { showNavigationLoading } = await import('../../scrolling.js');
+      // Already imported statically
       showNavigationLoading(`Loading ${bookId}...`);
     }
 
     // 🧹 CRITICAL: Destroy existing homepage managers before content swap
-    const { destroyHomepageDisplayUnit } = await import('../../homepageDisplayUnit.js');
+    // Already imported statically
     if (typeof destroyHomepageDisplayUnit === 'function') {
       destroyHomepageDisplayUnit();
     }
@@ -86,7 +95,7 @@ export async function swapHomeContent(bookId, showLoader = true) {
     // 🧹 CRITICAL: Destroy existing user profile editor if it exists
     const currentStructure = document.body.getAttribute('data-page');
     if (currentStructure === 'user') {
-      const { destroyUserProfileEditor } = await import('../../components/userProfileEditor.js');
+      // Already imported statically
       if (typeof destroyUserProfileEditor === 'function') {
         destroyUserProfileEditor();
       }
@@ -111,18 +120,18 @@ export async function swapHomeContent(bookId, showLoader = true) {
     mainContainer.appendChild(newContentDiv);
 
     // Set the current book context (important for other systems)
-    const { setCurrentBook } = await import('../../app.js');
+    // Already imported statically
     setCurrentBook(bookId);
 
     // Reset the current lazy loader so a fresh one gets created
-    const { resetCurrentLazyLoader, loadHyperText } = await import('../../initializePage.js');
+    // Already imported statically
     resetCurrentLazyLoader();
 
     // Use the same loading pipeline as regular page transitions
     await loadHyperText(bookId);
 
     // 🔧 CRITICAL: Reinitialize homepage display unit after content load
-    const { initializeHomepageButtons, fixHeaderSpacing } = await import('../../homepageDisplayUnit.js');
+    // Already imported statically
     if (typeof initializeHomepageButtons === 'function') {
       initializeHomepageButtons();
     }
@@ -132,14 +141,14 @@ export async function swapHomeContent(bookId, showLoader = true) {
 
     // 🔧 CRITICAL: Reinitialize user profile editor if on user page
     if (currentStructure === 'user') {
-      const { initializeUserProfileEditor } = await import('../../components/userProfileEditor.js');
+      // Already imported statically
       if (typeof initializeUserProfileEditor === 'function') {
         await initializeUserProfileEditor(bookId);
       }
     }
 
     // 🔧 CRITICAL: Reinitialize TogglePerimeterButtons
-    const { togglePerimeterButtons } = await import('../../readerDOMContentLoaded.js');
+    // Already imported statically
     if (togglePerimeterButtons) {
       togglePerimeterButtons.destroy();
       togglePerimeterButtons.rebindElements();
@@ -148,28 +157,28 @@ export async function swapHomeContent(bookId, showLoader = true) {
     }
 
     // 🔧 CRITICAL: Reinitialize logo navigation toggle
-    const { destroyLogoNav, initializeLogoNav } = await import('../../components/logoNavToggle.js');
+    // Already imported statically
     if (destroyLogoNav && initializeLogoNav) {
       destroyLogoNav();
       initializeLogoNav();
     }
 
     // 🔧 CRITICAL: Reinitialize user container (userButton in logoNavWrapper on user/reader pages)
-    const { initializeUserContainer } = await import('../../components/userContainer.js');
+    // Already imported statically
     const userManager = initializeUserContainer();
     if (userManager && userManager.initializeUser) {
       await userManager.initializeUser();
     }
 
     if (showLoader) {
-      const { hideNavigationLoading } = await import('../../scrolling.js');
+      // Already imported statically
       hideNavigationLoading();
     }
 
   } catch (error) {
     console.error(`❌ Failed to swap content to ${bookId}:`, error);
     if (showLoader) {
-      const { hideNavigationLoading } = await import('../../scrolling.js');
+      // Already imported statically
       hideNavigationLoading();
     }
     throw error;
@@ -188,8 +197,8 @@ export async function navigateToHash(hash, structure = 'reader') {
 
     if (structure === 'reader') {
       // Use reader navigation
-      const { navigateToInternalId } = await import('../../scrolling.js');
-      const { currentLazyLoader } = await import('../../initializePage.js');
+      // Already imported statically
+      // Already imported statically
 
       if (currentLazyLoader) {
         navigateToInternalId(targetId, currentLazyLoader, false);

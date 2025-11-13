@@ -6,6 +6,13 @@ import { NavigationManager } from './NavigationManager.js';
 import { BookToBookTransition } from './pathways/BookToBookTransition.js';
 import { getPageStructure, areStructuresCompatible } from './utils/structureDetection.js';
 import { log, verbose } from '../utilities/logger.js';
+import { hideNavigationLoading, navigateToInternalId } from '../scrolling.js';
+import { book } from '../app.js';
+import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
+import { navigateToHyperciteTarget } from '../hypercites/index.js';
+import { currentLazyLoader } from '../initializePage.js';
+import { getLocalStorageKey } from '../indexedDB/index.js';
+import { restoreHyperlitContainerFromHistory, closeHyperlitContainer } from '../hyperlitContainer/index.js';
 
 export class LinkNavigationHandler {
   static globalLinkClickHandler = null;
@@ -35,14 +42,14 @@ export class LinkNavigationHandler {
         // Page is visible again, clear any stuck overlay
         // But only if we didn't just click a link (which would be navigating away)
         verbose.nav('Visibility change - clearing overlay (not from recent link click)', '/navigation/LinkNavigationHandler.js');
-        const { hideNavigationLoading } = await import('../scrolling.js');
+        // Already imported statically
         hideNavigationLoading();
       }
     };
 
     // Also handle page focus as fallback
     this.globalFocusHandler = async () => {
-      const { hideNavigationLoading } = await import('../scrolling.js');
+      // Already imported statically
       hideNavigationLoading();
     };
 
@@ -125,7 +132,7 @@ export class LinkNavigationHandler {
       // --- ASYNCHRONOUS PROCESSING ---
       // Now that the default navigation is stopped, we can perform async operations.
       try {
-        const { book } = await import('../app.js');
+        // book already imported statically
         const currentBookPath = `/${book}`;
 
         if (this.isSameBookNavigation(linkUrl, currentUrl, currentBookPath)) {
@@ -168,7 +175,7 @@ export class LinkNavigationHandler {
    */
   static async handleHyperciteProgress(linkUrl) {
     try {
-      const { book } = await import('../app.js');
+      // book already imported statically
       const currentBookPath = `/${book}`;
 
       // Check if it's a cross-book hypercite
@@ -178,7 +185,7 @@ export class LinkNavigationHandler {
 
         verbose.nav(`Cross-book hypercite detected. Showing progress for ${targetBookId}`, '/navigation/LinkNavigationHandler.js');
 
-        const { ProgressOverlayConductor } = await import('./ProgressOverlayConductor.js');
+        // ProgressOverlayConductor already imported statically
         ProgressOverlayConductor.showBookToBookTransition(5, `Loading ${targetBookId}...`, targetBookId);
       }
     } catch (error) {
@@ -246,8 +253,8 @@ export class LinkNavigationHandler {
 
         verbose.nav(`Same-book hyperlight navigation: ${hyperlightId} -> ${hyperciteId}`, '/navigation/LinkNavigationHandler.js');
         
-        const { navigateToHyperciteTarget } = await import('../hypercites/index.js');
-        const { currentLazyLoader } = await import('../initializePage.js');
+        // navigateToHyperciteTarget already imported statically
+        // currentLazyLoader already imported statically
         
         if (currentLazyLoader) {
           const url = new URL(link.href);
@@ -262,15 +269,15 @@ export class LinkNavigationHandler {
           if (hyperciteId) {
             navigateToHyperciteTarget(hyperlightId, hyperciteId, currentLazyLoader);
           } else {
-            const { navigateToInternalId } = await import('../scrolling.js');
+            // navigateToInternalId already imported statically
             navigateToInternalId(hyperlightId, currentLazyLoader, false);
           }
         }
       } else {
         // Regular same-book navigation
         const targetId = linkUrl.hash.substring(1);
-        const { navigateToInternalId } = await import('../scrolling.js');
-        const { currentLazyLoader } = await import('../initializePage.js');
+        // navigateToInternalId already imported statically
+        // currentLazyLoader already imported statically
         
         if (currentLazyLoader) {
           const url = new URL(link.href);
@@ -359,7 +366,7 @@ export class LinkNavigationHandler {
     if (!document.hidden && !this.recentLinkClick) {
       verbose.nav('Visibility change - clearing overlay', '/navigation/LinkNavigationHandler.js');
 
-      import('../scrolling.js').then(({ hideNavigationLoading }) => {
+      Promise.resolve().then(() => {
         hideNavigationLoading();
       }).catch(() => {
         // Ignore if not available
@@ -371,7 +378,7 @@ export class LinkNavigationHandler {
    * Handle page focus (fallback overlay clearing)
    */
   static handlePageFocus() {
-    import('../scrolling.js').then(({ hideNavigationLoading }) => {
+    Promise.resolve().then(() => {
       hideNavigationLoading();
     }).catch(() => {
       // Ignore if not available
@@ -399,8 +406,8 @@ export class LinkNavigationHandler {
     // 🚀 CRITICAL: Clear saved scroll positions when navigating with hash to prevent interference
     if (window.location.hash) {
       verbose.nav(`POPSTATE: Clearing saved scroll positions because hash present: ${window.location.hash}`, '/navigation/LinkNavigationHandler.js');
-      const { getLocalStorageKey } = await import('../indexedDB/index.js');
-      const { book: currentBookVariable } = await import('../app.js');
+      // getLocalStorageKey already imported statically
+      const currentBookVariable = book; // Using statically imported book
       const scrollKey = getLocalStorageKey("scrollPosition", currentBookVariable);
       sessionStorage.removeItem(scrollKey);
       // Don't clear localStorage - only session storage to prevent this navigation's interference
@@ -418,7 +425,7 @@ export class LinkNavigationHandler {
     }
 
     // Check if we need to navigate between different content using SPA transitions
-    const { book: currentBookVariable } = await import('../app.js');
+    const currentBookVariable = book; // Using statically imported book
     const urlBookId = this.extractBookSlugFromPath(window.location.pathname);
 
     // If the URL book doesn't match the current loaded book content, use SPA navigation
@@ -426,7 +433,7 @@ export class LinkNavigationHandler {
       verbose.nav(`Back button: URL shows ${urlBookId} but content is ${currentBookVariable}. Using structure-aware navigation.`, '/navigation/LinkNavigationHandler.js');
 
       // Use NEW structure-aware navigation system
-      const { NavigationManager } = await import('./NavigationManager.js');
+      // NavigationManager already imported statically
       await NavigationManager.navigateByStructure({
         fromBook: currentBookVariable,
         toBook: urlBookId,
@@ -452,8 +459,8 @@ export class LinkNavigationHandler {
           verbose.nav(`Restoring hyperlight container: ${hyperlightId} with target: ${currentHash}`, '/navigation/LinkNavigationHandler.js');
           
           // Use the existing hyperlight navigation system
-          const { navigateToHyperciteTarget } = await import('../hypercites/index.js');
-          const { currentLazyLoader } = await import('../initializePage.js');
+          // navigateToHyperciteTarget already imported statically
+          // currentLazyLoader already imported statically
           
           if (currentLazyLoader && currentHash.startsWith('hypercite_')) {
             navigateToHyperciteTarget(hyperlightId, currentHash, currentLazyLoader);
@@ -467,7 +474,7 @@ export class LinkNavigationHandler {
     
     // Try to restore container state from history for non-hyperlight URLs
     try {
-      const { restoreHyperlitContainerFromHistory } = await import('../hyperlitContainer/index.js');
+      // restoreHyperlitContainerFromHistory already imported statically
       const containerRestored = await restoreHyperlitContainerFromHistory();
 
       if (containerRestored) {
@@ -481,7 +488,7 @@ export class LinkNavigationHandler {
     // If no container to restore, close any open containers and scroll to the hash if present.
     // This prevents a loop where a container is re-opened from the hash after a back navigation.
     try {
-      const { closeHyperlitContainer } = await import('../hyperlitContainer/index.js');
+      // closeHyperlitContainer already imported statically
       closeHyperlitContainer();
     } catch (error) {
       // ignore
@@ -492,8 +499,8 @@ export class LinkNavigationHandler {
       const targetId = window.location.hash.substring(1);
       verbose.nav(`Popstate with no state: navigating to hash #${targetId} on main page`, '/navigation/LinkNavigationHandler.js');
       try {
-        const { navigateToInternalId } = await import('../scrolling.js');
-        const { currentLazyLoader } = await import('../initializePage.js');
+        // navigateToInternalId already imported statically
+        // currentLazyLoader already imported statically
         if (currentLazyLoader) {
           navigateToInternalId(targetId, currentLazyLoader, false);
         }
