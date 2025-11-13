@@ -3,11 +3,12 @@
 import './components/userContainer.js';
 import { initializeHomepageButtons } from './homepageDisplayUnit.js';
 import TogglePerimeterButtons from './components/togglePerimeterButtons.js';
-import './components/newBookButton.js'; 
+import './components/newBookButton.js';
 import { initializeLazyLoaderForContainer } from './initializePage.js';
+import { log, verbose } from './utilities/logger.js';
 
 export async function initializeHomepage() {
-  console.log("🏠 Initializing homepage...");
+  log.init("Homepage components initializing", 'homepage.js');
 
   // Import progress functions
   let updatePageLoadProgress, hidePageLoadProgress;
@@ -34,20 +35,19 @@ export async function initializeHomepage() {
     const userContainerModule = await import('./components/userContainer.js');
     if (userContainerModule.default && userContainerModule.default.rebindElements) {
       userContainerModule.default.rebindElements();
-      console.log('✅ User button rebound after SPA transition');
-      
+      verbose.init('User button rebound after SPA transition', 'homepage.js');
+
       // Re-initialize user state after SPA transition
       if (userContainerModule.default.initializeUser) {
         await userContainerModule.default.initializeUser();
-        console.log('✅ User state re-initialized after SPA transition');
       }
     }
-    
+
     // Import and rebind newBookButton manager
     const newBookModule = await import('./components/newBookButton.js');
     if (newBookModule.default && newBookModule.default.rebindElements) {
       newBookModule.default.rebindElements();
-      console.log('✅ New book button rebound after SPA transition');
+      verbose.init('New book button rebound after SPA transition', 'homepage.js');
     }
   } catch (error) {
     console.warn('Could not rebind button managers:', error);

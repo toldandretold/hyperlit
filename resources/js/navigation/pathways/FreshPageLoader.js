@@ -2,45 +2,34 @@
  * FreshPageLoader - PATHWAY 1
  * Handles fresh page loads (user refresh or direct URL access)
  * No SPA transitions, just initialize everything from scratch
+ *
+ * NOTE: Overlay lifecycle managed by NavigationManager
+ * This pathway does NOT hide the overlay - NavigationManager handles that
  */
-import { ProgressManager } from '../ProgressManager.js';
+import { log } from '../../utilities/logger.js';
+import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 
 export class FreshPageLoader {
   /**
    * Initialize a fresh page load
    * This is the non-SPA pathway used when the page loads from scratch
+   *
+   * Overlay is hidden by NavigationManager after this completes
    */
   static async initialize(options = {}) {
     const { progressCallback } = options;
-    
-    console.log('🆕 FreshPageLoader: Starting fresh page initialization');
-    
-    try {
-      // Use provided progress callback or create our own
-      const progress = progressCallback || ProgressManager.createProgressCallback('initial');
-      
-      // Import the universal page initialization system
-      const { universalPageInitializer } = await import('../../viewManager.js');
-      
-      // Delegate to the universal page initializer
-      // This handles all UI initialization including NavButtons
-      await universalPageInitializer(progress);
-      
-      // All UI initialization is now handled by universalPageInitializer
-      console.log("✅ FreshPageLoader: UI initialization delegated to universalPageInitializer");
 
-      // Hide the progress overlay now that initialization is complete
-      await ProgressManager.hide();
-      console.log("✅ FreshPageLoader: Progress overlay hidden");
+    // Use provided progress callback or create our own
+    const progress = progressCallback || ProgressOverlayConductor.createProgressCallback('initial');
 
-      console.log('✅ FreshPageLoader: Fresh page initialization complete');
+    // Import the universal page initialization system
+    const { universalPageInitializer } = await import('../../viewManager.js');
 
-    } catch (error) {
-      console.error('❌ FreshPageLoader: Initialization failed:', error);
-      // Hide progress even on error
-      await ProgressManager.hide();
-      throw error;
-    }
+    // Delegate to the universal page initializer
+    // This handles all UI initialization including NavButtons
+    await universalPageInitializer(progress);
+
+    // NOTE: NavigationManager will hide the overlay when this method returns
   }
 
   /**
@@ -79,20 +68,16 @@ export class FreshPageLoader {
           // Small delay to ensure DOM is fully restored
           setTimeout(async () => {
             try {
-              console.log('🔧 FreshPageLoader: Reinitializing after bfcache restore');
-              
               // Check and update edit permissions
               const { checkEditPermissionsAndUpdateUI } = await import('../../components/editButton.js');
               await checkEditPermissionsAndUpdateUI();
-              
+
             } catch (error) {
-              console.error('❌ FreshPageLoader: Error handling bfcache restore:', error);
+              log.error('Error handling bfcache restore', '/navigation/pathways/FreshPageLoader.js', error);
             }
           }, 200);
         }
       }
     });
-
-    console.log('✅ FreshPageLoader: Fresh page load handling setup complete');
   }
 }

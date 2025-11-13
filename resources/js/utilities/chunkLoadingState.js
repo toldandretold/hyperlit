@@ -1,15 +1,17 @@
 // chunkLoadingState.js
+import { verbose } from './logger.js';
+
 let chunkLoadingInProgress = false;
 let chunkLoadingChunkId = null;
 
 export function setChunkLoadingInProgress(chunkId) {
-  console.log(`🔄 Setting chunk loading in progress for chunk ${chunkId}`);
+  verbose.content(`Chunk loading started: ${chunkId}`, '/utilities/chunkLoadingState.js');
   chunkLoadingInProgress = true;
   chunkLoadingChunkId = chunkId;
 }
 
 export function clearChunkLoadingInProgress(chunkId) {
-  console.log(`✅ Clearing chunk loading in progress for chunk ${chunkId}`);
+  verbose.content(`Chunk loading completed: ${chunkId}`, '/utilities/chunkLoadingState.js');
   chunkLoadingInProgress = false;
   chunkLoadingChunkId = null;
 }

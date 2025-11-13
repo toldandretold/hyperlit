@@ -1,3 +1,4 @@
+import { log, verbose } from './utilities/logger.js';
 import { renderBlockToHtml } from "./utilities/convertMarkdown.js";
 import { attachMarkListeners } from "./hyperlights/index.js";
 import {
@@ -15,6 +16,7 @@ import {
 import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock } from './scrolling.js';
 import { scrollElementIntoMainContent } from "./scrolling.js";
 import { isNewlyCreatedHighlight } from "./utilities/operationState.js";
+import { LinkNavigationHandler } from './navigation/LinkNavigationHandler.js';
 
 // --- A simple throttle helper to limit scroll firing
 function throttle(fn, delay) {
@@ -51,16 +53,14 @@ export function createLazyLoader(config) {
   } = config;
 
   if (!nodeChunks || nodeChunks.length === 0) {
-    console.error("No nodes available for lazy loader. Aborting lazy loader.");
+    log.error('No nodes available for lazy loader', 'lazyLoaderFactory.js');
     return null;
   }
 
   // --- MOVE THIS BLOCK UP! ---
   const container = document.getElementById(bookId); // <<< DEFINE CONTAINER FIRST
   if (!container) {
-    console.error(
-      `Container element with id "${bookId}" not found in the DOM.`
-    );
+    log.error(`Container element with id "${bookId}" not found in the DOM`, 'lazyLoaderFactory.js');
     return null;
   }
   // --- END MOVED BLOCK ---
@@ -79,7 +79,7 @@ export function createLazyLoader(config) {
       scrollableParent = userWrapper;
   } else {
       scrollableParent = window;
-      console.warn("No specific .reader-content-wrapper, .home-content-wrapper, or .user-content-wrapper found. Using window as scrollable parent.");
+      verbose.init('Using window as scrollable parent', 'lazyLoaderFactory.js');
   }
   
   // Create the instance to track lazy-loader state.
@@ -104,10 +104,10 @@ export function createLazyLoader(config) {
 
   // Set up user scroll detection to prevent restoration interference
   if (scrollableParent && scrollableParent !== window) {
-    console.log("🔧 Setting up user scroll detection for scrollable container");
+    verbose.init("User scroll detection for container", 'lazyLoaderFactory.js');
     setupUserScrollDetection(scrollableParent);
   } else {
-    console.log("🔧 Setting up user scroll detection for window");
+    verbose.init("User scroll detection for window", 'lazyLoaderFactory.js');
     setupUserScrollDetection(document.documentElement);
   }
 
@@ -118,16 +118,10 @@ export function createLazyLoader(config) {
 
     // 🛑 PREVENT LINK CLICKS DURING ACTIVE SCROLLING
     if (isActivelyScrollingForLinkBlock()) {
-      console.log('🔗 LazyLoader: Link click blocked - user is actively scrolling');
       event.preventDefault();
       event.stopPropagation();
       return;
     }
-
-    console.log('🔗 LazyLoader: Global link clicked:', {
-      href: link.href,
-      bookId: instance.bookId
-    });
 
     // 🔗 CHECK FOR HYPERCITE CITATION LINKS (links pointing TO hypercites)
     // These should open the unified container instead of navigating
@@ -142,8 +136,6 @@ export function createLazyLoader(config) {
       const isInsideContainer = link.closest('#hyperlit-container');
 
       if (hash && hash.startsWith('#hypercite_') && !link.classList.contains('see-in-source-btn') && !isInsideContainer) {
-        console.log('🔗 LazyLoader: Detected hypercite citation link');
-
         // Prevent default navigation immediately
         event.preventDefault();
         event.stopPropagation();
@@ -165,12 +157,10 @@ export function createLazyLoader(config) {
 
           // If book is private, check access
           if (libraryData && libraryData.visibility === 'private') {
-            console.log('🔒 Target book is private, checking access...');
             const { canUserEditBook } = await import('./utilities/auth.js');
             const hasAccess = await canUserEditBook(targetBookId);
 
             if (!hasAccess) {
-              console.log('🚫 Access denied to private book, blocking container open');
 
               // Find and animate the lock icon if this link has one nearby
               const parentBlock = link.closest('p, blockquote, div');
@@ -191,8 +181,6 @@ export function createLazyLoader(config) {
           // Continue anyway - let the container handle it
         }
 
-        console.log('🔗 LazyLoader: Opening container for hypercite');
-
         // Import and call unified container handler
         const { handleUnifiedContentClick } = await import('./hyperlitContainer/index.js');
         await handleUnifiedContentClick(link);
@@ -204,8 +192,7 @@ export function createLazyLoader(config) {
     }
 
     try {
-      // Import and delegate to LinkNavigationHandler for processing
-      const { LinkNavigationHandler } = await import('./navigation/LinkNavigationHandler.js');
+      // Delegate to LinkNavigationHandler for processing
       const handled = await LinkNavigationHandler.handleLinkClick(event);
 
       if (handled) {
@@ -214,7 +201,6 @@ export function createLazyLoader(config) {
       } else if (handled === false) {
         // LinkNavigationHandler explicitly said not to handle this (e.g., homepage navigation)
         // Let the default browser behavior occur for proper history management
-        console.log('🔗 LazyLoader: Delegating to browser default navigation');
       }
     } catch (error) {
       console.error('🔗 LazyLoader: Link handling failed:', error);
@@ -226,18 +212,17 @@ export function createLazyLoader(config) {
   instance.globalLinkHandler = globalLinkHandler; // Store for cleanup
 
   if (instance.isRestoringFromCache) {
-    console.log("Skipping lazy loading due to cache restoration.");
     attachMarkers(container);
     return instance;
   }
 
   // Remove any existing sentinels.
   container.querySelectorAll(".sentinel").forEach((sentinel) => sentinel.remove());
-  console.log("Removed any existing sentinels.");
+  verbose.init("Removed existing sentinels", 'lazyLoaderFactory.js');
 
   // Here, the container's id is assumed to equal the book id. Use that as a unique id.
   const uniqueId = container.id || Math.random().toString(36).substr(2, 5);
-  console.log("Unique ID for this container:", uniqueId);
+  verbose.init(`Container ID: ${uniqueId}`, 'lazyLoaderFactory.js');
 
   // Wrap caching methods so the instance passes only bookId.
   //instance.saveNodeChunks = (chunks) => {
@@ -280,7 +265,6 @@ export function createLazyLoader(config) {
         if (sessionStorage.getItem(storageKey) !== stringifiedData) {
           sessionStorage.setItem(storageKey, stringifiedData);
           localStorage.setItem(storageKey, stringifiedData);
-          console.log("🔧 SAVE SCROLL: Saved scroll position to element:", detectedId);
         }
       }
     }
@@ -314,7 +298,6 @@ export function createLazyLoader(config) {
     const storedData =
       sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
     if (!storedData) {
-      console.warn("No saved scroll data found.");
       return;
     }
     let scrollData;
@@ -332,22 +315,13 @@ export function createLazyLoader(config) {
     // *** FIX 1: Use instance.container ***
     let targetElement = instance.container.querySelector(`#${CSS.escape(scrollData.elementId)}`);
     if (targetElement) {
-      console.log(
-        "Restoring scroll position to already loaded element:",
-        scrollData.elementId
-      );
       // *** FIX 2: Use scrollElementIntoMainContent ***
       scrollElementIntoMainContent(targetElement, instance.container, 50); // Pass instance.container
     } else {
-      console.log(
-        "Element not in DOM; looking it up in IndexedDB based on startLine:",
-        scrollData.elementId
-      );
       try {
         // Get the node chunks from IndexedDB.
         const nodeChunksData = await instance.getNodeChunks();
         if (!nodeChunksData || nodeChunksData.length === 0) {
-          console.warn("No node chunks found in IndexedDB.");
           return;
         }
         // Look for the chunk where startLine matches the saved element id.
@@ -359,12 +333,6 @@ export function createLazyLoader(config) {
         });
 
         if (matchingChunk) {
-          console.log(
-            "Found matching chunk from IndexedDB for startLine:",
-            savedStartLine,
-            "chunk:",
-            matchingChunk
-          );
           // Load this chunk. If loadChunkInternal() is used, you might load with direction "down".
           loadChunkInternal(
             matchingChunk.chunk_id,
@@ -378,25 +346,10 @@ export function createLazyLoader(config) {
             // *** FIX 4: Use instance.container ***
             let newTarget = instance.container.querySelector(`#${scrollData.elementId}`);
             if (newTarget) {
-              console.log(
-                "Restoring scroll position after loading chunk, element:",
-                scrollData.elementId
-              );
               // *** FIX 5: Use scrollElementIntoMainContent ***
               scrollElementIntoMainContent(newTarget, instance.container, 50); // Pass instance.container
-            } else {
-              console.warn(
-                "After loading, element still not found:",
-                scrollData.elementId
-              );
             }
           }, 100);
-        } else {
-          console.warn(
-            "No matching chunk (startLine:",
-            scrollData.elementId,
-            ") found in IndexedDB."
-          );
         }
       } catch (error) {
         console.error("Error retrieving node chunks from IndexedDB:", error);
@@ -411,14 +364,9 @@ export function createLazyLoader(config) {
     newAndUpdatedNodes,
     beforeNodeId
   ) => {
-    console.log(
-      `🔄 [CORRECTED] updateAndRenderFromPaste called with ${newAndUpdatedNodes.length} nodes.`
-    );
-
     try {
       // 1. GET THE TRUTH: The data in IndexedDB is now correct.
       //    Fetch the complete, fresh list of all node chunks.
-      console.log("🔄 Fetching complete and fresh node list from nodeChunks object store in IndexedDB...");
       instance.nodeChunks = await instance.getNodeChunks();
       if (!instance.nodeChunks || instance.nodeChunks.length === 0) {
         console.error("❌ Aborting render: Failed to fetch any nodes from nodeChunks object store in IndexedDB.");
@@ -426,7 +374,6 @@ export function createLazyLoader(config) {
       }
 
       // 2. CLEAN SLATE: Remove all previously rendered chunks of nodes from the DOM.
-      console.log("🔄 Clearing existing rendered chunks of nodes from the DOM.");
       instance.container
         .querySelectorAll("[data-chunk-id]")
         .forEach((el) => el.remove());
@@ -438,7 +385,6 @@ export function createLazyLoader(config) {
       //    We want to load the chunk of nodes containing the first piece of new content.
       const firstNewNode = newAndUpdatedNodes[0];
       const chunkToLoadId = firstNewNode.chunk_id;
-      console.log(`🔄 Determined initial chunk of nodes to load: ${chunkToLoadId}`);
 
       // 5. RENDER: Load the target chunk. The lazy loader will handle the rest.
       loadChunkInternal(chunkToLoadId, "down", instance, attachMarkers);
@@ -450,8 +396,6 @@ export function createLazyLoader(config) {
         const targetElement = document.getElementById(firstNewElementId);
 
         if (targetElement) {
-          console.log(`✨ Scrolling to and focusing pasted element: ${firstNewElementId}`);
-
           // Scroll element to TOP of viewport for clear visibility after paste
           const scrollParent = instance.scrollableParent === window
             ? document.documentElement
@@ -470,8 +414,6 @@ export function createLazyLoader(config) {
             scrollParent.scrollTop = targetRect.top - containerRect.top + scrollParent.scrollTop - offset;
           }
 
-          console.log(`📍 Scrolled to pasted element at offset: ${offset}px from top`);
-
           // Set focus for contenteditable
           targetElement.focus();
 
@@ -482,20 +424,6 @@ export function createLazyLoader(config) {
           range.collapse(false); // false = collapse to the end
           selection.removeAllRanges();
           selection.addRange(range);
-
-          console.log('🔍 PASTE DIAGNOSTICS - Lazy Loader State:', {
-            scrollLocked: instance.scrollLocked,
-            scrollLockReason: instance.scrollLockReason,
-            isNavigatingToInternalId: instance.isNavigatingToInternalId,
-            currentlyLoadedChunks: Array.from(instance.currentlyLoadedChunks),
-            observerActive: !!instance.observer,
-            topSentinelInDOM: document.contains(instance.topSentinel),
-            bottomSentinelInDOM: document.contains(instance.bottomSentinel)
-          });
-        } else {
-          console.warn(
-            `Could not find element ${firstNewElementId} to set focus.`
-          );
         }
       });
     } catch (error) {
@@ -519,17 +447,11 @@ export function createLazyLoader(config) {
       
       if (Math.abs(currentWidth - instance.lastViewportWidth) > 100) {
         instance.lastViewportWidth = currentWidth;
-        console.log("🔧 VIEWPORT: Significant width change, checking if safe to restore scroll position");
-        
+
         // Check if user is currently scrolling before restoring
         if (!shouldSkipScrollRestoration("viewport resize")) {
-          console.log("🔧 VIEWPORT: Safe to restore scroll position");
           instance.restoreScrollPositionAfterResize();
-        } else {
-          console.log("🔧 VIEWPORT: User is scrolling, skipping restoration");
         }
-      } else {
-        console.log("🔧 VIEWPORT: Minor resize (likely DevTools), skipping restore");
       }
     }, 300); // Longer delay to avoid DevTools flicker
   });
@@ -544,7 +466,7 @@ export function createLazyLoader(config) {
   bottomSentinel.classList.add("sentinel");
   container.prepend(topSentinel);
   container.appendChild(bottomSentinel);
-  console.log("Inserted sentinels:", topSentinel.id, bottomSentinel.id);
+  verbose.init(`Sentinels inserted: ${topSentinel.id}, ${bottomSentinel.id}`, 'lazyLoaderFactory.js');
 
   // Attach marker listeners immediately.
   attachMarkers(container);
@@ -564,21 +486,13 @@ export function createLazyLoader(config) {
 
   // Create the IntersectionObserver.
   const observer = new IntersectionObserver((entries) => {
-    console.log("🔍 Observer triggered, entries:", entries.length);
+    verbose.content(`Observer triggered (${entries.length} entries)`, 'lazyLoaderFactory.js');
 
     // 🔒 CHECK SCROLL LOCK: Don't trigger lazy loading during navigation
     if (instance.scrollLocked || instance.isNavigatingToInternalId) {
-      const reason = instance.scrollLocked ? `scroll locked (${instance.scrollLockReason})` : 'navigation in progress';
-      console.log(`🔍 OBSERVER BLOCKED: ${reason}`, {
-        scrollLocked: instance.scrollLocked,
-        scrollLockReason: instance.scrollLockReason,
-        isNavigatingToInternalId: instance.isNavigatingToInternalId,
-        entries: entries.map(e => ({ target: e.target.id, isIntersecting: e.isIntersecting })),
-        timestamp: Date.now()
-      });
       return;
     }
-    
+
     entries.forEach((entry) => {
       if (!entry.isIntersecting) return;
 
@@ -587,7 +501,6 @@ export function createLazyLoader(config) {
         if (firstChunkEl) {
           const firstChunkId = parseFloat(firstChunkEl.getAttribute("data-chunk-id"));
           if (firstChunkId > 0 && !instance.currentlyLoadedChunks.has(firstChunkId - 1)) {
-            console.log(`🔍 OBSERVER ACTIVE: Loading previous chunk of nodes #${firstChunkId - 1}`);
             loadPreviousChunkFixed(firstChunkId, instance);
           }
         }
@@ -596,7 +509,6 @@ export function createLazyLoader(config) {
         const lastChunkEl = getLastChunkElement();
         if (lastChunkEl) {
           const lastChunkId = parseFloat(lastChunkEl.getAttribute("data-chunk-id"), 10);
-          console.log(`🔍 OBSERVER ACTIVE: Loading next chunk of nodes after #${lastChunkId}`);
           loadNextChunkFixed(lastChunkId, instance);
         }
       }
@@ -605,7 +517,7 @@ export function createLazyLoader(config) {
 
   observer.observe(topSentinel);
   observer.observe(bottomSentinel);
-  console.log("Observer attached to sentinels.");
+  verbose.init("Observer attached to sentinels", 'lazyLoaderFactory.js');
 
   attachMarkers(container);
 
@@ -615,14 +527,11 @@ export function createLazyLoader(config) {
 
   instance.disconnect = () => {
     observer.disconnect();
-    
+
     // 🔗 Remove the centralized link handler
     if (instance.globalLinkHandler) {
       document.removeEventListener('click', instance.globalLinkHandler);
-      console.log("🔗 LazyLoader: Global link handler removed");
     }
-    
-    console.log("Observer disconnected.");
   };
 
   instance.repositionSentinels = () =>
@@ -634,21 +543,16 @@ export function createLazyLoader(config) {
   instance.lockScroll = (reason = 'navigation') => {
     instance.scrollLocked = true;
     instance.scrollLockReason = reason;
-    console.log(`🔒 Scroll locked: ${reason}`);
   };
-  
+
   instance.unlockScroll = () => {
     const wasLocked = instance.scrollLocked;
-    const reason = instance.scrollLockReason;
     instance.scrollLocked = false;
     instance.scrollLockReason = null;
     if (wasLocked) {
-      console.log(`🔓 Scroll unlocked (was: ${reason})`);
-
       // After a navigation lock is released, force a save of the final position.
       // Use a timeout to ensure the scroll has settled after any animations.
       setTimeout(() => {
-        console.log(`🎯 Forcing scroll position save after navigation.`);
         forceSavePosition();
       }, 250);
     }
@@ -658,19 +562,17 @@ export function createLazyLoader(config) {
     // In lazyLoaderFactory.js, inside the createLazyLoader function...
 
   instance.refresh = async (targetElementId = null) => {
-    console.log(`🔄 Lazy-loader refresh starting. Target ID: ${targetElementId}`);
-    
     // 1. Re-read the fresh nodeChunks from IndexedDB (from your original)
     instance.nodeChunks = await instance.getNodeChunks();
-    
+
     // 2. Remove all rendered chunk-DIVs (from your original)
     instance.container
       .querySelectorAll("[data-chunk-id]")
       .forEach(el => el.remove());
-    
-    // 3. Reset our “which chunks are in the DOM” set (from your original)
+
+    // 3. Reset our "which chunks are in the DOM" set (from your original)
     instance.currentlyLoadedChunks.clear();
-    
+
     // 4. Ensure sentinels are in place (from your original)
     if (!instance.container.contains(instance.topSentinel)) {
       instance.container.prepend(instance.topSentinel);
@@ -678,7 +580,7 @@ export function createLazyLoader(config) {
     if (!instance.container.contains(instance.bottomSentinel)) {
       instance.container.appendChild(instance.bottomSentinel);
     }
-    
+
     // 5. ✅ KEPT: Re-observe the sentinels for robustness (from your original)
     instance.observer.observe(instance.topSentinel);
     instance.observer.observe(instance.bottomSentinel);
@@ -691,13 +593,11 @@ export function createLazyLoader(config) {
       const targetChunk = instance.nodeChunks.find(c => c.startLine == targetElementId);
       if (targetChunk) {
         chunkToLoadId = targetChunk.chunk_id;
-        console.log(`🎯 Found target chunk of nodes #${chunkToLoadId} for element ${targetElementId}`);
       }
     }
 
     // 7. Load the determined chunk
     if (chunkToLoadId !== null) {
-      console.log(`🔄 Refresh loading initial chunk of nodes #${chunkToLoadId}`);
       loadChunkInternal(chunkToLoadId, "down", instance, attachMarkers);
     }
 
@@ -708,12 +608,9 @@ export function createLazyLoader(config) {
       // Fallback if the target element isn't found
       if (!elementToFocus) {
         elementToFocus = instance.container.querySelector('p, h1, h2, h3, blockquote, pre');
-        console.log("...target element not found, falling back to first block element.");
       }
 
       if (elementToFocus) {
-        console.log(`✨ Scrolling to and focusing element:`, elementToFocus);
-
         // Scroll the element into view first
         scrollElementIntoMainContent(elementToFocus, instance.container, 50);
 
@@ -728,17 +625,6 @@ export function createLazyLoader(config) {
         selection.removeAllRanges();
         selection.addRange(range);
       }
-
-      // 🔍 DIAGNOSTICS: Log lazy loader state after refresh
-      console.log('🔍 REFRESH DIAGNOSTICS - Lazy Loader State:', {
-        scrollLocked: instance.scrollLocked,
-        scrollLockReason: instance.scrollLockReason,
-        isNavigatingToInternalId: instance.isNavigatingToInternalId,
-        currentlyLoadedChunks: Array.from(instance.currentlyLoadedChunks),
-        observerActive: !!instance.observer,
-        topSentinelInDOM: document.contains(instance.topSentinel),
-        bottomSentinelInDOM: document.contains(instance.bottomSentinel)
-      });
     }, 150); // Slightly longer delay to ensure scrolling completes
   };
 
@@ -752,14 +638,9 @@ export function createLazyLoader(config) {
 // Keep createChunkElement function signature unchanged
 export function createChunkElement(nodes, instance) {
   // <-- Correct, simple signature
-  console.log("🏗️ createChunkElement called", {
-    nodes_count: nodes.length,
-    chunk_id: nodes.length > 0 ? nodes[0].chunk_id : 'unknown',
-    bookId: instance.bookId
-  });
-  
+  verbose.content(`createChunkElement: ${nodes.length} nodes, chunk ${nodes.length > 0 ? nodes[0].chunk_id : 'unknown'}`, 'lazyLoaderFactory.js');
+
   if (!nodes || nodes.length === 0) {
-    console.warn("❌ createChunkElement: No nodes provided");
     return null;
   }
 
@@ -768,13 +649,11 @@ export function createChunkElement(nodes, instance) {
   chunkWrapper.setAttribute("data-chunk-id", chunkId);
   chunkWrapper.classList.add("chunk");
 
-  console.log(`🏗️ Processing ${nodes.length} nodes for chunk of nodes #${chunkId}`);
-
   nodes.forEach((node, nodeIndex) => {
     // ✅ Server handles migration - node_id should already exist
     // If not, log warning but continue (should not happen after migration)
     if (!node.node_id) {
-      console.warn(`⚠️ Node ${node.startLine} missing node_id after server migration!`);
+      console.error(`⚠️ Node ${node.startLine} missing node_id after server migration!`);
     }
 
     let html = renderBlockToHtml(node);
@@ -812,11 +691,11 @@ export function createChunkElement(nodes, instance) {
       firstElement.setAttribute('id', node.startLine);
       chunkWrapper.appendChild(firstElement);
     } else {
-      console.warn(`⚠️ Node ${nodeIndex + 1} (line ${node.startLine}) produced no Element content. HTML: ${html.substring(0, 100)}`);
+      console.error(`⚠️ Node ${nodeIndex + 1} (line ${node.startLine}) produced no Element content. HTML: ${html.substring(0, 100)}`);
     }
   });
 
-  console.log(`✅ createChunkElement completed for chunk of nodes #${chunkId}`);
+  verbose.content(`createChunkElement completed for chunk #${chunkId}`, 'lazyLoaderFactory.js');
   return chunkWrapper;
 }
 
@@ -825,20 +704,7 @@ export function createChunkElement(nodes, instance) {
 export function applyHypercites(html, hypercites) {
   if (!hypercites || hypercites.length === 0) return html;
 
-  // 🔍 ADD THIS DEBUG LINE HERE
-  console.log("🔍 Raw hypercites data:", JSON.stringify(hypercites, null, 2));
-  
-  console.log("Applying hypercites:", hypercites);
-  
-  // 🔍 DEBUG: Let's see what we're working with
-  hypercites.forEach(h => {
-    console.log(`🔍 Hypercite ${h.hyperciteId}: relationshipStatus = "${h.relationshipStatus}"`);
-  });
-  
   const segments = createHyperciteSegments(hypercites);
-  
-  // 🔍 DEBUG: Check what segments were created
-  console.log("🔍 Created segments:", segments);
   
   const tempElement = document.createElement("div");
   tempElement.innerHTML = html;
@@ -846,23 +712,17 @@ export function applyHypercites(html, hypercites) {
   segments.sort((a, b) => b.charStart - a.charStart);
 
   for (const segment of segments) {
-    console.log(`Applying hypercite segment from ${segment.charStart} to ${segment.charEnd}`, segment);
-    
     const positions = findPositionsInDOM(tempElement, segment.charStart, segment.charEnd);
-    
+
     if (positions) {
       const underlineElement = document.createElement("u");
-      
+
       // Handle single vs multiple hypercites in segment
       if (segment.hyperciteIDs.length === 1) {
         underlineElement.id = segment.hyperciteIDs[0];
-        
-        // 🔧 FIX: Don't default to 'single', use the actual status
         const actualStatus = segment.statuses[0];
-        console.log(`🔍 Single hypercite ${segment.hyperciteIDs[0]} status: "${actualStatus}"`);
-        
         underlineElement.className = actualStatus || 'single';
-        
+
         // Set hypercite intensity for single hypercite (start dim)
         if (actualStatus === 'couple' || actualStatus === 'poly') {
           underlineElement.style.setProperty('--hypercite-intensity', '0.4');
@@ -870,39 +730,26 @@ export function applyHypercites(html, hypercites) {
       } else {
         // Multiple hypercites overlapping
         underlineElement.id = "hypercite_overlapping";
-        
-        console.log("🔍 Overlapping segment debug:");
-        console.log("Hypercite IDs:", segment.hyperciteIDs);
-        console.log("Statuses array:", segment.statuses);
-        
+
         let finalStatus = 'single';
         const coupleCount = segment.statuses.filter(status => status === 'couple').length;
-        
-        console.log("Couple count:", coupleCount);
-        
+
         if (segment.statuses.includes('poly')) {
           finalStatus = 'poly';
-          console.log("Set to poly because includes poly");
         } else if (coupleCount >= 2) {
           finalStatus = 'poly';
-          console.log("Set to poly because multiple couples:", coupleCount);
         } else if (segment.statuses.includes('couple')) {
           finalStatus = 'couple';
-          console.log("Set to couple because single couple");
         }
-        
-        console.log("Final status:", finalStatus);
-        
+
         underlineElement.className = finalStatus;
         underlineElement.setAttribute("data-overlapping", segment.hyperciteIDs.join(","));
-        
+
         // Set hypercite intensity for overlapping hypercites (more overlaps = brighter)
         if (finalStatus === 'couple' || finalStatus === 'poly') {
           const overlappingCount = segment.hyperciteIDs.length;
-          // Increase intensity based on overlapping count - more overlaps = brighter
           const intensity = Math.min(1.0, 0.4 + (overlappingCount - 1) * 0.2);
           underlineElement.style.setProperty('--hypercite-intensity', intensity.toString());
-          console.log(`Set hypercite intensity for ${overlappingCount} overlapping hypercites: ${intensity}`);
         }
       }
       
@@ -962,159 +809,62 @@ function createHyperciteSegments(hypercites) {
 
 // Update the applyHighlights function to use server-provided is_user_highlight flag
 export function applyHighlights(html, highlights, bookId) {
-  console.log('🎨 applyHighlights called', {
-    bookId,
-    highlights_count: highlights ? highlights.length : 0,
-    highlights_sample: highlights && highlights.length > 0 ? highlights[0] : null,
-    html_length: html.length
-  });
-
   if (!highlights || highlights.length === 0) {
-    console.log('🎨 applyHighlights: No highlights to apply');
     return html;
   }
 
-  // Enhanced logging for each highlight
-  console.log('🎨 Detailed highlight analysis:');
-  highlights.forEach((highlight, index) => {
-    console.log(`  Highlight ${index + 1}:`, {
-      id: highlight.hyperlight_id || highlight.highlightID,
-      is_user_highlight: highlight.is_user_highlight,
-      has_is_user_highlight_property: 'is_user_highlight' in highlight,
-      creator: highlight.creator,
-      creator_token: highlight.creator_token,
-      startChar: highlight.startChar || highlight.charStart,
-      endChar: highlight.endChar || highlight.charEnd,
-      text_length: (highlight.endChar || highlight.charEnd) - (highlight.startChar || highlight.charStart),
-      full_highlight_object: highlight
-    });
-  });
-
   const tempElement = document.createElement("div");
   tempElement.innerHTML = html;
-  console.log('🎨 Created temp element, original text length:', tempElement.textContent.length);
-  
+
   const segments = createHighlightSegments(highlights);
-  console.log('🎨 applyHighlights: Created segments', {
-    segments_count: segments.length,
-    segments: segments.map(s => ({
-      charStart: s.charStart,
-      charEnd: s.charEnd,
-      length: s.charEnd - s.charStart,
-      highlightIDs: s.highlightIDs
-    }))
-  });
-  
+
   // Keep reverse order but recalculate positions each time
   segments.sort((a, b) => b.charStart - a.charStart);
-  console.log('🎨 Processing segments in reverse order (last to first)');
 
-  for (const [segmentIndex, segment] of segments.entries()) {
-    console.log(`🎨 Processing segment ${segmentIndex + 1}/${segments.length} from ${segment.charStart} to ${segment.charEnd}`, {
-      segment_length: segment.charEnd - segment.charStart,
-      highlightIDs: segment.highlightIDs
-    });
-    
+  for (const segment of segments) {
     // Recalculate positions based on current DOM state
     const positions = findPositionsInDOM(tempElement, segment.charStart, segment.charEnd);
-    
+
     if (positions) {
-      console.log(`🎨 Found DOM positions for segment ${segmentIndex + 1}:`, {
-        startNode_type: positions.startNode.nodeType,
-        startNode_content: positions.startNode.textContent.substring(0, 50) + '...',
-        startOffset: positions.startOffset,
-        endNode_type: positions.endNode.nodeType,
-        endOffset: positions.endOffset
-      });
-      
       const markElement = document.createElement("mark");
-      
+
       // Always set data-highlight-count and intensity
       markElement.setAttribute("data-highlight-count", segment.highlightIDs.length);
       const intensity = Math.min(segment.highlightIDs.length / 5, 1); // Cap at 5 highlights
       markElement.style.setProperty('--highlight-intensity', intensity);
-      
+
       // Check if any highlight in this segment belongs to current user using server flag OR is newly created
-      const userHighlightDetails = segment.highlightIDs.map(id => {
+      const hasUserHighlight = segment.highlightIDs.some(id => {
         const highlight = highlights.find(h => (h.hyperlight_id || h.highlightID) === id);
-        
-        // Check if this is a newly created highlight (before backend processing)
         const isNewlyCreated = isNewlyCreatedHighlight(id);
-        
-        console.log(`🔍 Looking for highlight ${id}:`, {
-          found: !!highlight,
-          highlight_data: highlight,
-          has_is_user_highlight_flag: highlight ? ('is_user_highlight' in highlight) : false,
-          is_user_highlight_value: highlight ? highlight.is_user_highlight : 'N/A',
-          is_newly_created: isNewlyCreated
-        });
-        
-        return {
-          id,
-          highlight_found: !!highlight,
-          is_user_highlight: highlight ? highlight.is_user_highlight : isNewlyCreated,
-          creator: highlight ? highlight.creator : null,
-          creator_token: highlight ? highlight.creator_token : null,
-          is_newly_created: isNewlyCreated
-        };
+        return highlight ? highlight.is_user_highlight : isNewlyCreated;
       });
-      
-      console.log(`🎨 User highlight analysis for segment ${segmentIndex + 1}:`, userHighlightDetails);
-      
-      const hasUserHighlight = userHighlightDetails.some(detail => detail.is_user_highlight);
-      console.log(`🎨 Final hasUserHighlight decision for segment ${segmentIndex + 1}:`, hasUserHighlight);
-      
+
       if (segment.highlightIDs.length === 1) {
         markElement.id = segment.highlightIDs[0];
         markElement.className = segment.highlightIDs[0];
-        console.log(`🎨 Single highlight segment: id=${markElement.id}, class=${markElement.className}`);
       } else {
         markElement.id = "HL_overlap";
         markElement.className = segment.highlightIDs.join(" ");
-        console.log(`🎨 Overlapping highlights segment: id=${markElement.id}, classes=${markElement.className}`);
       }
-      
+
       // Add user-specific class for styling
       if (hasUserHighlight) {
         markElement.classList.add('user-highlight');
-        console.log(`✅ Added user-highlight class to segment ${segmentIndex + 1} with IDs: ${segment.highlightIDs.join(', ')}`);
-      } else {
-        console.log(`❌ No user-highlight class for segment ${segmentIndex + 1} - not user's highlight`);
       }
-      
-      console.log(`🎨 Final mark element for segment ${segmentIndex + 1}:`, {
-        id: markElement.id,
-        className: markElement.className,
-        hasUserHighlight,
-        intensity
-      });
-      
+
       // Use surroundContents instead of extractContents
       wrapRangeWithElement(
-      positions.startNode,
-      positions.startOffset,
-      positions.endNode,
-      positions.endOffset,
-      markElement
-    );
-    console.log(`✅ Applied highlight to segment ${segmentIndex + 1} using tolerant wrapper`);
-    } else {
-      console.warn(`⚠️ Could not find DOM positions for segment ${segmentIndex + 1} (${segment.charStart}-${segment.charEnd})`);
+        positions.startNode,
+        positions.startOffset,
+        positions.endNode,
+        positions.endOffset,
+        markElement
+      );
     }
   }
 
-  const finalHtml = tempElement.innerHTML;
-  console.log(`✅ applyHighlights completed`, {
-    original_length: html.length,
-    final_length: finalHtml.length,
-    segments_processed: segments.length,
-    user_highlight_segments: segments.filter(s => s.highlightIDs.some(id => {
-      const highlight = highlights.find(h => (h.hyperlight_id || h.highlightID) === id);
-      return highlight && highlight.is_user_highlight;
-    })).length
-  });
-  
-  return finalHtml;
+  return tempElement.innerHTML;
 }
 
 
@@ -1189,7 +939,6 @@ function findPositionsInDOM(rootElement, startChar, endChar) {
     return { startNode, startOffset, endNode, endOffset };
   }
 
-  console.warn(`Could not find positions for highlight range: ${startChar}-${endChar}`);
   return null;
 }
 
@@ -1224,32 +973,28 @@ function getTextNodes(element) {
 // Update loadNextChunkFixed
 export function loadNextChunkFixed(currentLastChunkId, instance) {
   const currentId = parseFloat(currentLastChunkId);
-  
+
   let nextChunkId = null;
   let nextNodes = [];
-  
+
   for (const node of instance.nodeChunks) {
     const nodeChunkId = parseFloat(node.chunk_id);
-    
+
     if (nodeChunkId > currentId && (nextChunkId === null || nodeChunkId < nextChunkId)) {
       nextChunkId = nodeChunkId;
     }
   }
-  
+
   if (nextChunkId !== null) {
     if (instance.container.querySelector(`[data-chunk-id="${nextChunkId}"]`)) {
-      console.log(`Next chunk of nodes #${nextChunkId} already loaded.`);
       return;
     }
-    
+
     nextNodes = instance.nodeChunks.filter(node => parseFloat(node.chunk_id) === nextChunkId);
 
     if (nextNodes.length === 0) {
-      console.warn(`No data found for chunk of nodes #${nextChunkId}.`);
       return;
     }
-
-    console.log(`Loading next chunk of nodes #${nextChunkId}`);
     
     // 🚨 SET LOADING STATE BEFORE DOM CHANGES
     setChunkLoadingInProgress(nextChunkId);
@@ -1274,41 +1019,34 @@ export function loadNextChunkFixed(currentLastChunkId, instance) {
     setTimeout(() => {
       clearChunkLoadingInProgress(nextChunkId);
     }, 100);
-
-  } else {
-    console.log("No next chunk of nodes available.");
   }
 }
 
 // Update loadPreviousChunkFixed similarly
 export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
   const currentId = parseFloat(currentFirstChunkId);
-  
+
   let prevChunkId = null;
   let prevNodes = [];
-  
+
   for (const node of instance.nodeChunks) {
     const nodeChunkId = parseFloat(node.chunk_id);
-    
+
     if (nodeChunkId < currentId && (prevChunkId === null || nodeChunkId > prevChunkId)) {
       prevChunkId = nodeChunkId;
     }
   }
-  
+
   if (prevChunkId !== null) {
     if (instance.container.querySelector(`[data-chunk-id="${prevChunkId}"]`)) {
-      console.log(`Previous chunk of nodes #${prevChunkId} already loaded.`);
       return;
     }
 
     prevNodes = instance.nodeChunks.filter(node => parseFloat(node.chunk_id) === prevChunkId);
 
     if (prevNodes.length === 0) {
-      console.warn(`No data found for chunk of nodes #${prevChunkId}.`);
       return;
     }
-
-    console.log(`Loading previous chunk of nodes #${prevChunkId}`);
     
     // 🚨 SET LOADING STATE BEFORE DOM CHANGES
     setChunkLoadingInProgress(prevChunkId);
@@ -1324,15 +1062,9 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
 
     // 🚨 SCROLL LOCK PROTECTION: Don't adjust scroll if locked or navigation is in progress
     if (instance.scrollLocked || instance.isNavigatingToInternalId) {
-      const reason = instance.scrollLocked ? `scroll locked (${instance.scrollLockReason})` : 'navigation in progress';
-      console.log(`🔧 LAZY LOADER: ${reason}, SKIPPING scroll adjustment (would have been +${newHeight}px)`);
+      // Skip scroll adjustment during navigation
     } else {
-      // 🚨 DEBUG: Log before adjusting scroll position
-      console.log(`🔧 LAZY LOADER: About to adjust scroll position by ${newHeight}px (from ${prevScrollTop} to ${prevScrollTop + newHeight})`);
-      console.trace("Lazy loader scroll adjustment source:");
-      
       instance.scrollableParent.scrollTop = prevScrollTop + newHeight; // <<< Use scrollableParent
-      console.log(`🔧 LAZY LOADER: Adjusted scroll top of scrollableParent by ${newHeight}. New scrollTop: ${instance.scrollableParent.scrollTop}`); // NEW DEBUG
     }
     
     if (instance.topSentinel) {
@@ -1347,18 +1079,11 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
     setTimeout(() => {
       clearChunkLoadingInProgress(prevChunkId);
     }, 100);
-
-
-  } else {
-    console.log("No previous chunk of nodes available.");
   }
 }
 
 function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
-  // console.log(`Loading chunk of nodes #${chunkId} in direction: ${direction}`);
-
   if (instance.currentlyLoadedChunks.has(chunkId)) {
-    //console.log(`Chunk of nodes #${chunkId} already loaded; skipping.`);
     return;
   }
 
@@ -1367,7 +1092,6 @@ function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   );
 
   if (!nextNodes || nextNodes.length === 0) {
-    console.warn(`No data found for chunk of nodes #${chunkId}.`);
     return;
   }
 
@@ -1396,9 +1120,6 @@ function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   // ✅ THIS IS THE CORRECT LOGIC AND LOCATION
   // After the element is on the page, check for the stored callback.
   if (typeof instance.onFirstChunkLoadedCallback === "function") {
-    console.log(
-      "✅ First chunk rendered. Resolving pendingFirstChunkLoadedPromise."
-    );
     instance.onFirstChunkLoadedCallback(); // Call the stored callback
     instance.onFirstChunkLoadedCallback = null; // Set it to null so it only fires once.
   }
@@ -1408,7 +1129,11 @@ function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
     clearChunkLoadingInProgress(chunkId);
   }, 100);
 
-  console.log(`Chunk of nodes #${chunkId} loaded into DOM.`);
+  if (chunkId === 0) {
+    const nodeCount = instance.nodeChunks.find(c => c.chunk_id === 0)?.nodes?.length || 50;
+    log.content(`First chunk rendered (${nodeCount} nodes)`, 'lazyLoaderFactory.js');
+  }
+  verbose.content(`Chunk #${chunkId} loaded into DOM`, 'lazyLoaderFactory.js');
   return chunkElement; // ✅ return DOM element
 }
 
@@ -1417,11 +1142,10 @@ function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
  * Repositions the sentinels around loaded chunks.
  */
 function repositionFixedSentinelsForBlockInternal(instance, attachMarkers) {
-  console.log("Repositioning sentinels...");
+  verbose.content("Repositioning sentinels", 'lazyLoaderFactory.js');
   const container = instance.container;
   const allChunks = Array.from(container.querySelectorAll("[data-chunk-id]"));
   if (allChunks.length === 0) {
-    console.warn("No chunks available to reposition sentinels.");
     return;
   }
   allChunks.sort(
@@ -1446,7 +1170,7 @@ function repositionFixedSentinelsForBlockInternal(instance, attachMarkers) {
   if (instance.observer) {
     instance.observer.observe(topSentinel);
     instance.observer.observe(bottomSentinel);
-    console.log("Sentinels repositioned and observer reattached.");
+    verbose.content("Sentinels repositioned and observer reattached", 'lazyLoaderFactory.js');
   }
   instance.currentlyLoadedChunks = new Set(
     allChunks.map((chunk) => parseFloat(chunk.getAttribute("data-chunk-id"), 10))
@@ -1471,7 +1195,6 @@ function insertChunkInOrderInternal(newChunk, instance) {
     }
   }
   if (!inserted) container.appendChild(newChunk);
-  console.log(`Inserted chunk of nodes #${newChunkId} into DOM in order.`);
 }
 
 /**

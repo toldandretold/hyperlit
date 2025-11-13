@@ -2,10 +2,27 @@
  * NewBookTransition - PATHWAY 2
  * Handles creating new books and transitioning from home.blade.php to reader.blade.php
  * This pathway requires full body replacement and enters edit mode
+ *
+ * NOTE: Overlay lifecycle managed by NavigationManager
+ * This pathway does NOT hide the overlay - NavigationManager handles that
  */
-import { ProgressManager } from '../ProgressManager.js';
-import { showSpinner, showTick } from '../../components/editIndicator.js';
-import { waitForElementReady } from '../../domReadiness.js';
+import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
+import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
+import { showSpinner, showTick, showError } from '../../components/editIndicator.js';
+import { waitForElementReady, waitForContentReady } from '../../domReadiness.js';
+import { log, verbose } from '../../utilities/logger.js';
+import { debouncedMasterSync, pendingSyncs } from '../../indexedDB/index.js';
+import { destroyUserContainer } from '../../components/userContainer.js';
+import { destroyNewBookContainer } from '../../components/newBookButton.js';
+import { destroyHomepageDisplayUnit } from '../../homepageDisplayUnit.js';
+import { cleanupReaderView } from '../../viewManager.js';
+import { enforceEditableState, enableEditMode } from '../../components/editButton.js';
+import { setCurrentBook } from '../../app.js';
+import { universalPageInitializer } from '../../viewManager.js';
+import { initializeLogoNav } from '../../components/logoNavToggle.js';
+import { createNewBook, fireAndForgetSync } from '../../createNewBook.js';
+import { setInitialBookSyncPromise } from '../../utilities/operationState.js';
+import { syncIndexedDBtoPostgreSQL } from '../../postgreSQL.js';
 
 export class NewBookTransition {
   /**
@@ -19,11 +36,11 @@ export class NewBookTransition {
       shouldEnterEditMode = true 
     } = options;
     
-    console.log('📝 NewBookTransition: Starting new book transition', { bookId, shouldEnterEditMode });
+    verbose.nav('Starting new book transition', 'NewBookTransition.js');
     
     try {
       // Use provided progress callback or create our own
-      const progress = progressCallback || ProgressManager.createProgressCallback('spa');
+      const progress = progressCallback || ProgressOverlayConductor.createProgressCallback('spa');
       
       progress(10, 'Preparing new book...');
 
@@ -62,9 +79,8 @@ export class NewBookTransition {
       await this.initializeReader(bookId, scopedProgress);
 
       progress(85, 'Ensuring content readiness...');
-      
+
       // Wait for content to be fully ready after initialization
-      const { waitForContentReady } = await import('../../domReadiness.js');
       await waitForContentReady(bookId, {
         maxWaitTime: 10000,
         requireLazyLoader: true
@@ -79,20 +95,20 @@ export class NewBookTransition {
       
       // Update the URL
       this.updateUrl(bookId, shouldEnterEditMode);
-      
+
       progress(100, 'Complete!');
-      await ProgressManager.hide();
-      
-      console.log('✅ NewBookTransition: New book transition complete');
-      
+
+      log.nav('New book transition complete', 'NewBookTransition.js');
+      // NOTE: NavigationManager will hide the overlay when this returns
+
     } catch (error) {
       console.error('❌ NewBookTransition: Transition failed:', error);
-      
+
       // Fallback to full page navigation
       const fallbackUrl = `/${bookId}/edit?target=1${shouldEnterEditMode ? '&edit=1' : ''}`;
-      console.log('🔄 NewBookTransition: Falling back to full page navigation:', fallbackUrl);
+      verbose.nav('Falling back to full page navigation', 'NewBookTransition.js');
       window.location.href = fallbackUrl;
-      
+
       throw error;
     }
   }
@@ -102,7 +118,7 @@ export class NewBookTransition {
    */
   static async ensureOrangeIndicator() {
     try {
-      console.log('🟠 NewBookTransition: Ensuring orange indicator shows');
+      verbose.nav('Ensuring orange indicator shows', 'NewBookTransition.js');
 
       // First try to set orange on existing element
       showSpinner();
@@ -113,7 +129,7 @@ export class NewBookTransition {
           const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1');
           if (cloudSvgPath) {
             cloudSvgPath.style.fill = '#EF8D34';
-            console.log('✅ Orange indicator set deterministically');
+            verbose.nav('Orange indicator set deterministically', 'NewBookTransition.js');
             return true;
           }
           return false;
@@ -168,7 +184,7 @@ export class NewBookTransition {
       
       const markStable = () => {
         cleanup();
-        console.log('✅ DOM stable - ready for initialization');
+        verbose.nav('DOM stable - ready for initialization', 'NewBookTransition.js');
         resolve();
       };
       
@@ -203,27 +219,23 @@ export class NewBookTransition {
    * This prevents data loss when user edits then immediately navigates
    */
   static async ensurePendingSyncsComplete() {
-    console.log('🔄 NewBookTransition: Ensuring pending syncs complete...');
+    verbose.nav('Ensuring pending syncs complete', 'NewBookTransition.js');
     
     try {
-      // Import the debounced sync function and pending syncs map
-      const { debouncedMasterSync, pendingSyncs } = await import('../../indexedDB/index.js');
-      const { showTick } = await import('../../components/editIndicator.js');
-      
       // If there are pending syncs, force them to complete immediately
       if (pendingSyncs.size > 0) {
-        console.log(`🔄 NewBookTransition: Found ${pendingSyncs.size} pending syncs, forcing completion...`);
+        verbose.nav(`Found ${pendingSyncs.size} pending syncs, forcing completion`, 'NewBookTransition.js');
         
         // Cancel the debounced timer and execute immediately
         debouncedMasterSync.cancel();
         await debouncedMasterSync();
         
-        console.log('✅ NewBookTransition: Pending syncs completed');
+        verbose.nav('Pending syncs completed', 'NewBookTransition.js');
         
         // Show green tick - backend sync confirmed
         showTick();
       } else {
-        console.log('✅ NewBookTransition: No pending syncs to complete');
+        verbose.nav('No pending syncs to complete', 'NewBookTransition.js');
       }
     } catch (error) {
       console.warn('⚠️ NewBookTransition: Error ensuring sync completion:', error);
@@ -235,21 +247,17 @@ export class NewBookTransition {
    * Clean up any previous reader state
    */
   static async cleanupPreviousState() {
-    console.log('🧹 NewBookTransition: Cleaning up previous state');
+    verbose.nav('Cleaning up previous state', 'NewBookTransition.js');
     
     try {
       // Import and destroy homepage-specific components
-      const { destroyUserContainer } = await import('../../components/userContainer.js');
-      const { destroyNewBookContainer } = await import('../../components/newBookButton.js');
       if (destroyUserContainer) destroyUserContainer();
       if (destroyNewBookContainer) destroyNewBookContainer();
-      console.log('🧹 NewBookTransition: Homepage containers destroyed.');
+      verbose.nav('Homepage containers destroyed', 'NewBookTransition.js');
 
-      const { destroyHomepageDisplayUnit } = await import('../../homepageDisplayUnit.js');
       if (destroyHomepageDisplayUnit) destroyHomepageDisplayUnit();
 
       // Also clean up the reader view in case of an inconsistent state
-      const { cleanupReaderView } = await import('../../viewManager.js');
       cleanupReaderView();
     } catch (error) {
       console.warn('⚠️ Cleanup failed, but continuing transition:', error);
@@ -260,7 +268,7 @@ export class NewBookTransition {
    * Fetch the reader page HTML
    */
   static async fetchReaderPageHtml(bookId) {
-    console.log(`📥 NewBookTransition: Fetching reader HTML for ${bookId}`);
+    verbose.nav(`Fetching reader HTML for ${bookId}`, 'NewBookTransition.js');
     
     const response = await fetch(`/${bookId}/edit?target=1`);
     if (!response.ok) {
@@ -268,7 +276,7 @@ export class NewBookTransition {
     }
     
     const htmlString = await response.text();
-    console.log(`✅ NewBookTransition: Fetched HTML (${htmlString.length} characters)`);
+    verbose.nav(`Fetched HTML (${htmlString.length} characters)`, 'NewBookTransition.js');
     
     return htmlString;
   }
@@ -277,7 +285,7 @@ export class NewBookTransition {
    * Replace body content with reader HTML
    */
   static async replaceBodyContent(htmlString, bookId) {
-    console.log('🔄 NewBookTransition: Replacing body content (home → reader)');
+    verbose.nav('Replacing body content (home → reader)', 'NewBookTransition.js');
 
     const parser = new DOMParser();
     const newDoc = parser.parseFromString(htmlString, 'text/html');
@@ -289,7 +297,7 @@ export class NewBookTransition {
     const overlayInFetchedHTML = newDoc.getElementById('initial-navigation-overlay');
     if (overlayInFetchedHTML) {
       overlayInFetchedHTML.remove();
-      console.log('🎯 NewBookTransition: Removed overlay from fetched HTML');
+      verbose.nav('Removed overlay from fetched HTML', 'NewBookTransition.js');
     }
 
     // Replace the entire body content
@@ -298,9 +306,13 @@ export class NewBookTransition {
     // 🎯 CRITICAL: Re-insert the preserved overlay if it existed
     if (existingOverlay) {
       document.body.insertBefore(existingOverlay, document.body.firstChild);
-      console.log('🎯 NewBookTransition: Preserved navigation overlay across body replacement');
+      verbose.nav('Preserved navigation overlay across body replacement', 'NewBookTransition.js');
+
+      // 🔥 CRITICAL: Rebind ProgressOverlayEnactor to the preserved element
+      // After body replacement, ProgressOverlayEnactor's references are stale
+      ProgressOverlayEnactor.rebind();
     }
-    
+
     // Sync all body attributes
     for (const { name, value } of newDoc.body.attributes) {
       document.body.setAttribute(name, value);
@@ -308,7 +320,7 @@ export class NewBookTransition {
     
     // Ensure data-page is set to "reader"
     document.body.setAttribute('data-page', 'reader');
-    console.log('🎯 NewBookTransition: Set data-page="reader"');
+    verbose.nav('Set data-page="reader"', 'NewBookTransition.js');
     
     // Update document title
     document.title = newDoc.title;
@@ -317,12 +329,11 @@ export class NewBookTransition {
     const editableDiv = document.getElementById(bookId);
     if (editableDiv) {
       editableDiv.contentEditable = "false";
-      console.log("🧹 NewBookTransition: Reset contentEditable after HTML replacement");
+      verbose.nav('Reset contentEditable after HTML replacement', 'NewBookTransition.js');
     }
     
     // Enforce editable state
     try {
-      const { enforceEditableState } = await import('../../components/editButton.js');
       enforceEditableState();
     } catch (error) {
       console.warn('Could not enforce editable state:', error);
@@ -333,23 +344,20 @@ export class NewBookTransition {
    * Initialize the reader view
    */
   static async initializeReader(bookId, progressCallback) {
-    console.log(`🚀 NewBookTransition: Initializing reader for ${bookId}`);
+    verbose.nav(`Initializing reader for ${bookId}`, 'NewBookTransition.js');
     
     try {
       // Set the current book
-      const { setCurrentBook } = await import('../../app.js');
       setCurrentBook(bookId);
-      
+
       // Initialize the reader view using the existing system
-      const { universalPageInitializer } = await import('../../viewManager.js');
       await universalPageInitializer(progressCallback);
 
       // 🔧 Reinitialize logo navigation toggle
-      console.log('🔧 NewBookTransition: Reinitializing logo navigation toggle');
-      const { initializeLogoNav } = await import('../../components/logoNavToggle.js');
+      verbose.nav('Reinitializing logo navigation toggle', 'NewBookTransition.js');
       if (typeof initializeLogoNav === 'function') {
         initializeLogoNav();
-        console.log('✅ NewBookTransition: Logo navigation toggle initialized');
+        verbose.nav('Logo navigation toggle initialized', 'NewBookTransition.js');
       }
 
       // Wait for DOM to be stable, then rebind UI elements deterministically
@@ -370,7 +378,7 @@ export class NewBookTransition {
       await this.waitForDOMStable();
       
       // All UI rebinding is now handled by universalPageInitializer
-      console.log("✅ NewBookTransition: UI initialization delegated to universalPageInitializer");
+      verbose.nav('UI initialization delegated to universalPageInitializer', 'NewBookTransition.js');
       
     } catch (error) {
       console.warn('Could not rebind UI elements:', error);
@@ -381,13 +389,12 @@ export class NewBookTransition {
    * Enter edit mode
    */
   static async enterEditMode() {
-    console.log('📝 NewBookTransition: Entering edit mode');
+    verbose.nav('Entering edit mode', 'NewBookTransition.js');
     
     try {
-      const { enableEditMode } = await import('../../components/editButton.js');
       await enableEditMode(null, false); // false = don't force redirect
-      
-      console.log('✅ NewBookTransition: Edit mode enabled');
+
+      verbose.nav('Edit mode enabled', 'NewBookTransition.js');
       
     } catch (error) {
       console.error('❌ NewBookTransition: Failed to enter edit mode:', error);
@@ -403,7 +410,7 @@ export class NewBookTransition {
     
     try {
       history.pushState({}, '', newUrl);
-      console.log(`🔗 NewBookTransition: Updated URL to ${newUrl}`);
+      verbose.nav(`Updated URL to ${newUrl}`, 'NewBookTransition.js');
     } catch (error) {
       console.warn('Could not update URL:', error);
     }
@@ -414,21 +421,17 @@ export class NewBookTransition {
    * This is the main entry point from newBookButton.js
    */
   static async createAndTransition() {
-    console.log('📝 NewBookTransition: Starting create and transition');
+    verbose.nav('Starting create and transition', 'NewBookTransition.js');
     
     try {
       // Import and create the new book
-      const { createNewBook } = await import('../../createNewBook.js');
       const pendingSyncData = await createNewBook();
-      
+
       if (!pendingSyncData) {
         throw new Error('Failed to create new book data');
       }
-      
+
       // Start background sync
-      const { fireAndForgetSync } = await import('../../createNewBook.js');
-      const { setInitialBookSyncPromise } = await import('../../utilities/operationState.js');
-      
       const syncPromise = fireAndForgetSync(
         pendingSyncData.bookId,
         pendingSyncData.isNewBook,
@@ -447,22 +450,19 @@ export class NewBookTransition {
       // This prevents the initial "Untitled" H1 from being lost if user starts editing immediately
       setTimeout(async () => {
         try {
-          console.log('🎯 NewBookTransition: Ensuring initial H1 node is queued for sync');
-          
+          verbose.nav('Ensuring initial H1 node is queued for sync', 'NewBookTransition.js');
+
           // Force a sync of the initial content to ensure the H1 doesn't get lost
-          const { syncIndexedDBtoPostgreSQL } = await import('../../postgreSQL.js');
           await syncIndexedDBtoPostgreSQL(pendingSyncData.bookId);
-          
-          console.log('✅ NewBookTransition: Initial content sync completed');
-          
+
+          verbose.nav('Initial content sync completed', 'NewBookTransition.js');
+
           // Show green tick - H1 saved to backend
-          const { showTick } = await import('../../components/editIndicator.js');
           showTick();
-          
+
         } catch (error) {
           console.warn('Initial content sync failed (will retry later):', error);
           // Show error indicator
-          const { showError } = await import('../../components/editIndicator.js');
           showError();
         }
       }, 2000); // Wait 2 seconds after transition completes

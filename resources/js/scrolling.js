@@ -1,5 +1,7 @@
 // In scrolling.js
 
+import { verbose } from './utilities/logger.js';
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * SCROLLING.JS - Navigation & Scroll Restoration Orchestrator
@@ -235,8 +237,8 @@ export function setupUserScrollDetection(scrollableContainer) {
     console.warn("No scrollable container provided for user scroll detection");
     return;
   }
-  
-  console.log(`📡 Setting up user scroll detection for container: ${scrollableContainer.className || scrollableContainer.id}`);
+
+  verbose.init(`User scroll detection for: ${scrollableContainer.className || scrollableContainer.id}`, 'scrolling.js');
   
   // User scroll detection events
   const scrollEvents = ['scroll', 'wheel', 'touchstart', 'touchmove'];
@@ -500,8 +502,6 @@ async function fallbackScrollPosition(lazyLoader) {
 
 
 export async function restoreScrollPosition() {
-  console.log("restoring scroll position...");
-
   // Check if user is currently scrolling
   if (shouldSkipScrollRestoration("restoreScrollPosition")) {
     return;
@@ -515,14 +515,8 @@ export async function restoreScrollPosition() {
   // 🚀 FIX: Skip if we're already navigating to a target
   // This prevents race conditions with BookToBookTransition and other navigation pathways
   if (currentLazyLoader.isNavigatingToInternalId) {
-    console.log(`⏭️ RESTORE SCROLL: Navigation already in progress, skipping restore`);
     return;
   }
-
-  console.log(
-    "📌 Attempting to restore scroll position for container:",
-    currentLazyLoader.bookId
-  );
 
   // 🚀 FIX: Check global flag to skip scroll restoration (set by BookToBookTransition for hash navigation)
   if (shouldSkipScrollRestorationGlobal()) {
@@ -708,34 +702,20 @@ export function showNavigationLoading(targetId) {
 }
 
 export async function hideNavigationLoading() {
-  console.log(`🎯 LOADING: Navigation complete`);
-  
+  console.log(`🎯 LOADING: Navigation complete - delegating to ProgressOverlayEnactor`);
+
   // Clear sessionStorage flags
   sessionStorage.removeItem('navigationOverlayActive');
   sessionStorage.removeItem('navigationTargetId');
-  
-  // Use our progress completion animation instead of directly hiding
-  try {
-    const { hidePageLoadProgress } = await import('./readerDOMContentLoaded.js');
-    await hidePageLoadProgress();
-    console.log('🎯 Initial overlay hidden with completion animation');
-  } catch (e) {
-    console.warn('Could not import progress functions, falling back to direct hide:', e);
-    // Fallback to direct hide if import fails
-    const initialOverlay = document.getElementById('initial-navigation-overlay');
-    if (initialOverlay) {
-      initialOverlay.style.display = 'none';
-      console.log('🎯 Initial overlay hidden (fallback)');
-    }
-  }
-  
+
+  // Delegate to ProgressOverlayEnactor for consistent hiding
+  const { ProgressOverlayEnactor } = await import('./navigation/ProgressOverlayEnactor.js');
+  await ProgressOverlayEnactor.hide();
+
+  // Clean up any dynamically created navigation modals
   if (navigationModal) {
-    // Check if it's the blade template overlay or a created one
-    if (navigationModal.id === 'initial-navigation-overlay') {
-      // It's the blade template overlay, already handled above
-      console.log('🎯 Blade template overlay already handled');
-    } else {
-      // It's a dynamically created overlay, remove it
+    if (navigationModal.id !== 'initial-navigation-overlay') {
+      // Only remove if it's NOT the blade template overlay
       navigationModal.remove();
     }
     navigationModal = null;

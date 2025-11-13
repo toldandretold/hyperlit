@@ -1,6 +1,7 @@
 import { loadHyperText, resetCurrentLazyLoader } from './initializePage.js';
 import { setCurrentBook } from './app.js';
 import { showNavigationLoading, hideNavigationLoading } from './scrolling.js';
+import { log, verbose } from './utilities/logger.js';
 
 let resizeHandler = null;
 const buttonHandlers = new Map();
@@ -97,14 +98,14 @@ export function destroyHomepageDisplayUnit() {
   if (resizeHandler) {
     window.removeEventListener('resize', resizeHandler);
     resizeHandler = null;
-    console.log('🧹 Homepage resize listener removed.');
+    verbose.init('Homepage resize listener removed', 'homepageDisplayUnit.js');
   }
 
   buttonHandlers.forEach((handler, button) => {
     button.removeEventListener('click', handler);
   });
   buttonHandlers.clear();
-  console.log('🧹 Homepage arranger button listeners removed.');
+  verbose.init('Homepage button listeners removed', 'homepageDisplayUnit.js');
 }
 
 async function transitionToBookContent(bookId, showLoader = true) {
@@ -113,11 +114,11 @@ async function transitionToBookContent(bookId, showLoader = true) {
       showNavigationLoading(`Loading ${bookId}...`);
     }
 
-    console.log(`🔄 Transitioning homepage content to: ${bookId}`);
+    log.content(`Homepage content transition: ${bookId}`, 'homepageDisplayUnit.js');
 
     // Remove existing content containers
     document.querySelectorAll('.main-content').forEach(content => {
-      console.log(`🧹 Removing existing content container: ${content.id}`);
+      verbose.content(`Removing existing content: ${content.id}`, 'homepageDisplayUnit.js');
       content.remove();
     });
 
@@ -133,21 +134,21 @@ async function transitionToBookContent(bookId, showLoader = true) {
     newContentDiv.id = bookId;
     newContentDiv.className = 'main-content active-content';
     mainContainer.appendChild(newContentDiv);
-    console.log(`✨ Created fresh content container: ${bookId}`);
-    
-    // Set the current book context (important for other systems)
-    setCurrentBook(bookId);
-    
+    verbose.content(`Created fresh content container: ${bookId}`, 'homepageDisplayUnit.js');
+
+    // Note: setCurrentBook() is handled by the navigation pathway
+    // (initHelpers.js for Different-Template, or transition pathway for Same-Template)
+
     // Reset the current lazy loader so a fresh one gets created
     resetCurrentLazyLoader();
-    
+
     // Use the same loading pipeline as regular page transitions
     await loadHyperText(bookId);
-    
+
     // Realign header content after new content is loaded
     alignHeaderContent();
-    
-    console.log(`✅ Successfully loaded ${bookId} content`);
+
+    verbose.content(`Successfully loaded ${bookId} content`, 'homepageDisplayUnit.js');
     
     if (showLoader) {
       hideNavigationLoading();

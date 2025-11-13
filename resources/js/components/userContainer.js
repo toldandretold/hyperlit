@@ -1,6 +1,7 @@
 // userContainer.js
 import { ContainerManager } from "../containerManager.js";
 import { book } from "../app.js";
+import { log, verbose } from "../utilities/logger.js";
 // MODIFIED: Import more functions from auth.js
 import {
   setCurrentUser,
@@ -39,7 +40,9 @@ export class UserContainerManager extends ContainerManager {
       this.user = user;
       // Update button color to indicate logged-in state
       this.updateButtonColor();
+      log.init("User container initialized (logged in)", "/components/userContainer.js");
     } else {
+      log.init("User container initialized (anonymous)", "/components/userContainer.js");
     }
   }
 
@@ -76,7 +79,6 @@ export class UserContainerManager extends ContainerManager {
 
   destroy() {
     document.removeEventListener("click", this.boundClickHandler);
-    console.log('🧹 UserContainerManager: Document click listener removed.');
   }
 
   handleDocumentClick(e) {
@@ -1212,18 +1214,18 @@ export function initializeUserContainer() {
         "userButton",
         ["main-content"]
       );
-      console.log('✅ UserContainer: Initialized new manager');
+      verbose.init('User container manager created', '/components/userContainer.js');
     } else {
       // Manager exists, just update button reference
       userManager.button = document.getElementById("userButton");
       userManager.rebindElements();
       // Update button color after rebind to maintain logged-in state
       userManager.updateButtonColor();
-      console.log('✅ UserContainer: Updated existing manager');
+      verbose.init('User container manager updated', '/components/userContainer.js');
     }
     return userManager;
   } else {
-    console.log('ℹ️ UserContainer: Button not found, skipping initialization');
+    verbose.init('User container button not found', '/components/userContainer.js');
     return null;
   }
 }

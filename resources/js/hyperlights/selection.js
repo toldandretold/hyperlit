@@ -10,6 +10,7 @@ import { attachMarkListeners, addTouchAndClickListener } from './listeners.js';
 import { addToHighlightsTable, updateNodeHighlight, removeHighlightFromHyperlights, removeHighlightFromNodeChunksWithDeletion } from './database.js';
 import { reprocessHighlightsForNodes, unwrapMark } from './deletion.js';
 import { generateHighlightID, openHighlightById } from './utils.js';
+import { log, verbose } from '../utilities/logger.js';
 
 // Track whether document listeners are attached
 let documentListenersAttached = false;
@@ -117,7 +118,7 @@ export function handleSelection() {
  * @param {string} currentBookId - The current book ID
  */
 export function initializeHighlightingControls(currentBookId) {
-  console.log(`💡 Initializing highlighting controls for book: ${currentBookId}`);
+  log.init(`Highlighting controls initialized for ${currentBookId}`, '/hyperlights/selection.js');
 
   // Find the UI elements within the newly loaded reader view
   const copyButton = document.getElementById("copy-hyperlight");
@@ -137,9 +138,6 @@ export function initializeHighlightingControls(currentBookId) {
     document.addEventListener("mouseup", handleSelection);
     document.addEventListener("touchend", () => setTimeout(handleSelection, 100));
     documentListenersAttached = true;
-    console.log("✅ Document-level highlighting listeners attached");
-  } else {
-    console.log("🚫 Document-level highlighting listeners already attached, skipping");
   }
 
   // --- Attach Listeners for the Action Buttons ---
@@ -160,8 +158,6 @@ export function initializeHighlightingControls(currentBookId) {
     event.preventDefault();
     event.stopPropagation();
   });
-
-  console.log("✅ Highlighting controls are live.");
 }
 
 /**
@@ -172,7 +168,6 @@ export function cleanupHighlightingControls() {
     document.removeEventListener("mouseup", handleSelection);
     // Note: Cannot remove the touchend listener since it was added as an anonymous function
     documentListenersAttached = false;
-    console.log("🧹 Document-level highlighting listeners removed");
   }
 }
 

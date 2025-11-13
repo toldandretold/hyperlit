@@ -1,4 +1,5 @@
 import { ContainerManager } from "../containerManager.js";
+import { log, verbose } from "../utilities/logger.js";
 import { openDatabase, getNodeChunksFromIndexedDB, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from "../indexedDB/index.js";
 import { formatBibtexToCitation, generateBibtexFromForm } from "../utilities/bibtexProcessor.js";
 import { book } from "../app.js";
@@ -1209,5 +1210,5 @@ export function initializeSourceButtonListener() {
   });
 
   sourceManager.button.dataset.sourceListenerAttached = "true";
-  console.log("✅ Source button listener attached to #cloudRef.");
+  log.init('Source button listener attached', '/components/sourceButton.js');
 }

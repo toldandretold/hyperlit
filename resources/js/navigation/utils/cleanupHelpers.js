@@ -3,24 +3,33 @@
  * Extracted from DifferentTemplateTransition for reusability
  */
 
+import { cleanupReaderView } from '../../viewManager.js';
+import { resetEditModeState } from '../../components/editButton.js';
+import { destroyUserContainer } from '../../components/userContainer.js';
+import { destroyNewBookContainer } from '../../components/newBookButton.js';
+import { destroyHomepageDisplayUnit } from '../../homepageDisplayUnit.js';
+import { destroyUserProfileEditor } from '../../components/userProfileEditor.js';
+import { destroyLogoNav } from '../../components/logoNavToggle.js';
+import { closeHyperlitContainer } from '../../hyperlitContainer/index.js';
+import sourceManager from '../../components/sourceButton.js';
+
 /**
  * Clean up reader state
  * Extracted from DifferentTemplateTransition.cleanupReader()
  */
 export async function cleanupReader() {
-  console.log('🧹 cleanupHelpers: Cleaning up reader state');
 
   try {
     // Use existing cleanup from viewManager
-    const { cleanupReaderView } = await import('../../viewManager.js');
+    // Already imported statically
     cleanupReaderView();
 
     // Reset edit mode state
-    const { resetEditModeState } = await import('../../components/editButton.js');
+    // Already imported statically
     resetEditModeState();
 
     // Destroy user container (reader pages also have userButton)
-    const { destroyUserContainer } = await import('../../components/userContainer.js');
+    // Already imported statically
     if (typeof destroyUserContainer === 'function') {
       destroyUserContainer();
     }
@@ -38,21 +47,20 @@ export async function cleanupReader() {
  * Extracted from DifferentTemplateTransition.cleanupHome()
  */
 export async function cleanupHome() {
-  console.log('🧹 cleanupHelpers: Cleaning up home state');
 
   try {
     // Destroy homepage-specific managers
-    const { destroyUserContainer } = await import('../../components/userContainer.js');
+    // Already imported statically
     if (typeof destroyUserContainer === 'function') {
       destroyUserContainer();
     }
 
-    const { destroyNewBookContainer } = await import('../../components/newBookButton.js');
+    // Already imported statically
     if (typeof destroyNewBookContainer === 'function') {
       destroyNewBookContainer();
     }
 
-    const { destroyHomepageDisplayUnit } = await import('../../homepageDisplayUnit.js');
+    // Already imported statically
     if (typeof destroyHomepageDisplayUnit === 'function') {
       destroyHomepageDisplayUnit();
     }
@@ -70,14 +78,11 @@ export async function cleanupHome() {
  * Extracted from DifferentTemplateTransition.cleanupUser()
  */
 export async function cleanupUser() {
-  console.log('🧹 cleanupHelpers: Cleaning up user state');
-
   try {
     // 🧹 CRITICAL: Destroy user profile editor first
-    const { destroyUserProfileEditor } = await import('../../components/userProfileEditor.js');
+    // Already imported statically
     if (typeof destroyUserProfileEditor === 'function') {
       destroyUserProfileEditor();
-      console.log('✅ cleanupHelpers: User profile editor destroyed');
     }
 
     // User pages have same managers as home pages
@@ -93,13 +98,10 @@ export async function cleanupUser() {
  * Extracted from DifferentTemplateTransition.cleanupFromStructure()
  */
 export async function cleanupLogoNav() {
-  console.log('🧹 cleanupHelpers: Cleaning up logo navigation toggle');
-
   try {
-    const { destroyLogoNav } = await import('../../components/logoNavToggle.js');
+    // Already imported statically
     if (typeof destroyLogoNav === 'function') {
       destroyLogoNav();
-      console.log('✅ cleanupHelpers: Logo navigation toggle destroyed');
     }
   } catch (error) {
     console.warn('Logo nav cleanup failed:', error);
@@ -112,13 +114,13 @@ export async function cleanupLogoNav() {
  */
 export async function closeOpenContainers() {
   try {
-    const { closeHyperlitContainer } = await import('../../hyperlitContainer/index.js');
+    // Already imported statically
     closeHyperlitContainer();
 
     // Close source container if open
     const sourceButton = document.getElementById('cloudRef');
     if (sourceButton) {
-      const { default: sourceManager } = await import('../../components/sourceButton.js');
+      // sourceManager already imported statically
       if (sourceManager && sourceManager.isOpen) {
         sourceManager.closeContainer();
       }
@@ -133,7 +135,6 @@ export async function closeOpenContainers() {
  * Routes to the appropriate cleanup function based on page structure
  */
 export async function cleanupFromStructure(fromStructure) {
-  console.log(`🧹 cleanupHelpers: Cleaning up ${fromStructure} state`);
 
   try {
     // 🧹 Cleanup logo navigation toggle (present on all page types)

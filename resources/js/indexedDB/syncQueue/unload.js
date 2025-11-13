@@ -127,6 +127,4 @@ export function setupUnloadSync() {
 
   // `pagehide` is a more reliable event for mobile devices.
   window.addEventListener("pagehide", syncOnUnload, { capture: true });
-
-  console.log("✅ Unload sync handlers registered");
 }

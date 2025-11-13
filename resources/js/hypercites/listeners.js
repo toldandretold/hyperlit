@@ -8,6 +8,7 @@
 import { handleCopyEvent } from './copy.js';
 import { handleUnderlineClick } from './navigation.js';
 import { initializeHyperlitManager } from '../hyperlitContainer/index.js';
+import { log, verbose } from '../utilities/logger.js';
 
 // Module-level variable to track active listeners
 let activeHyperciteListeners = null;
@@ -21,10 +22,6 @@ export function attachUnderlineClickListeners(scope = document) {
   const uElements = scope.querySelectorAll("u.couple:not([data-hypercite-listener]), u.poly:not([data-hypercite-listener])");
 
   if (uElements.length > 0) {
-    console.log(
-      `attachUnderlineClickListeners: Found ${uElements.length} new underlined elements to attach listeners to.`
-    );
-
     uElements.forEach((uElement) => {
       uElement.style.cursor = "pointer";
       uElement.dataset.hyperciteListener = "true"; // Mark as processed
@@ -85,9 +82,7 @@ function attachHyperciteLinkListeners() {
  * @param {string} currentBookId - The current book ID
  */
 export function initializeHypercitingControls(currentBookId) {
-  console.log(
-    `🔗 Initializing hyperciting controls for book: ${currentBookId}`
-  );
+  log.init(`Hyperciting controls initialized for ${currentBookId}`, '/hypercites/listeners.js');
 
   const copyButton = document.getElementById("copy-hypercite");
   if (!copyButton) {
@@ -110,7 +105,6 @@ export function initializeHypercitingControls(currentBookId) {
       "touchend",
       activeHyperciteListeners.touchend
     );
-    console.log("🧹 Cleaned up old hypercite listeners.");
   }
 
   // 2. Define the new set of listeners
@@ -148,16 +142,12 @@ export function initializeHypercitingControls(currentBookId) {
 
   // Re-initialize the ContainerManager for the pop-up
   initializeHyperciteContainerManager();
-
-  console.log("✅ Hyperciting controls are live and correctly bound.");
 }
 
 /**
  * Cleanup function to remove hypercite event listeners
  */
 export function cleanupHypercitingControls() {
-  console.log("🧹 Cleaning up hyperciting controls...");
-
   // Clean up copy button listeners
   const copyButton = document.getElementById("copy-hypercite");
   if (copyButton && activeHyperciteListeners) {
@@ -165,7 +155,6 @@ export function cleanupHypercitingControls() {
     copyButton.removeEventListener("click", activeHyperciteListeners.click);
     copyButton.removeEventListener("touchend", activeHyperciteListeners.touchend);
     activeHyperciteListeners = null;
-    console.log("🧹 Removed copy button listeners");
   }
 
   // Clean up underline click listeners
@@ -181,8 +170,6 @@ export function cleanupHypercitingControls() {
   hyperciteLinks.forEach(link => {
     link.removeAttribute("data-hypercite-link-listener");
   });
-
-  console.log("✅ Hyperciting controls cleanup completed");
 }
 
 // Legacy container functions - redirected to unified system

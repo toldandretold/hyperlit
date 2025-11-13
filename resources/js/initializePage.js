@@ -1,4 +1,5 @@
 import { book, OpenHyperlightID } from './app.js';
+import { log, verbose } from './utilities/logger.js';
 
 import {
   createLazyLoader,
@@ -36,11 +37,9 @@ let firstChunkLoadedResolver;
 
 export function resolveFirstChunkPromise() {
   if (firstChunkLoadedResolver && typeof firstChunkLoadedResolver === 'function') {
-    console.log("✅ Manually resolving first chunk of nodes promise");
     firstChunkLoadedResolver();
     firstChunkLoadedResolver = null; // Clear it after use
   } else {
-    console.log("⚠️ First chunk of nodes resolver not available - will resolve when created");
     // Set a flag to resolve it immediately when the promise is created
     window._resolveFirstChunkWhenReady = true;
   }
@@ -52,12 +51,10 @@ function resetFirstChunkPromise() {
 
         // ✅ If we were asked to resolve immediately, do it now
         if (window._resolveFirstChunkWhenReady) {
-            console.log("✅ Resolving first chunk of nodes promise immediately as requested");
             resolve();
             window._resolveFirstChunkWhenReady = false;
         }
     });
-    console.log("PROMISE STATE: A new first chunk of nodes promise has been created and is pending.");
 }
 
 async function retryFailedBatches() {
@@ -65,7 +62,6 @@ async function retryFailedBatches() {
     return;
   }
   isRetrying = true;
-  console.log("🔁 Network is online. Checking for failed sync batches...");
 
   try {
     const db = await openDatabase();
@@ -80,12 +76,11 @@ async function retryFailedBatches() {
     });
 
     if (failedLogs.length === 0) {
-      console.log("✅ No failed batches to retry.");
       isRetrying = false;
       return;
     }
 
-    console.log(`Retrying ${failedLogs.length} failed sync batches...`);
+    verbose.content(`Retrying ${failedLogs.length} failed sync batches`, 'initializePage.js');
 
     for (const log of failedLogs) {
       try {
@@ -116,19 +111,17 @@ async function retryFailedBatches() {
         };
         // --- END: Build a clean payload for syncing ---
 
-        console.log(`🔄 Retrying batch ${log.id} with clean syncPayload:`, syncPayload);
         await executeSyncPayload(syncPayload); // <-- Pass the clean syncPayload
 
         log.status = "synced";
         await updateHistoryLog(log);
-        console.log(`✅ Successfully retried batch ${log.id}`);
       } catch (error) {
-        console.error(`❌ Retry for batch ${log.id} failed again. Will stop for now.`, error);
+        verbose.content(`Retry for batch ${log.id} failed`, 'initializePage.js', error);
         break;
       }
     }
   } catch (error) {
-    console.error("❌ A critical error occurred during the retry process:", error);
+    log.error('Critical error during retry process', 'initializePage.js', error);
   } finally {
     isRetrying = false;
   }
@@ -146,9 +139,6 @@ export function setupOnlineSyncListener() {
   if (!onlineListenerAttached) {
     window.addEventListener("online", retryFailedBatches);
     onlineListenerAttached = true;
-    console.log("👂 Online sync listener is active.");
-  } else {
-    console.log("👂 Online sync listener already active, skipping.");
   }
 }
 
@@ -157,7 +147,6 @@ export function cleanupOnlineSyncListener() {
   if (onlineListenerAttached) {
     window.removeEventListener("online", retryFailedBatches);
     onlineListenerAttached = false;
-    console.log("🧹 Online sync listener removed.");
   }
 }
 
@@ -166,7 +155,6 @@ export function cleanupOnlineSyncListener() {
 
 // ✅ MODIFIED: This function now loads all three JSON files.
 export async function loadFromJSONFiles(bookId) {
-  console.log(`Attempting to load all pre-generated JSON for book: ${bookId}`);
   try {
     // Fetch all three files concurrently for maximum speed
     const [
@@ -199,10 +187,7 @@ export async function loadFromJSONFiles(bookId) {
       referencesResponse.json(),
     ]);
 
-    console.log(`✅ Successfully fetched all JSON files for ${bookId}.`);
-    console.log(`   - Found ${nodeChunks.length} nodes in nodeChunks.json.`);
-    console.log(`   - Found ${footnotes.length} footnotes in footnotes.json.`);
-    console.log(`   - Found ${references.length} references in references.json.`);
+    verbose.content(`Loaded ${nodeChunks.length} nodes, ${footnotes.length} footnotes, ${references.length} refs from JSON`, 'initializePage.js');
 
     // Save all the fetched data to IndexedDB concurrently
     await Promise.all([
@@ -214,9 +199,7 @@ export async function loadFromJSONFiles(bookId) {
     // Return the nodeChunks to be used immediately for rendering the page
     return nodeChunks;
   } catch (error) {
-    console.warn(
-      `Could not load from JSON files. Reason: ${error.message}`
-    );
+    verbose.content(`Could not load from JSON files: ${error.message}`, 'initializePage.js');
     throw error; // Re-throw to trigger the fallback
   }
 }
@@ -225,7 +208,7 @@ export async function loadFromJSONFiles(bookId) {
 export async function loadHyperText(bookId, progressCallback = null) {
   resetFirstChunkPromise();
   const currentBook = bookId || book;
-  console.log(`📖 Opening: ${currentBook}`);
+  log.content(`Book data loaded: ${currentBook}`, 'initializePage.js');
   setupOnlineSyncListener();
   const openHyperlightID = OpenHyperlightID || null;
 
@@ -234,15 +217,13 @@ export async function loadHyperText(bookId, progressCallback = null) {
   if (progressCallback) {
     updatePageLoadProgress = progressCallback;
     hidePageLoadProgress = () => {}; // SPA handles hiding separately
-    console.log('🎯 Using provided progress callback for SPA navigation');
   } else {
     try {
       const progressModule = await import('./readerDOMContentLoaded.js');
       updatePageLoadProgress = progressModule.updatePageLoadProgress;
       hidePageLoadProgress = progressModule.hidePageLoadProgress;
-      console.log('🎯 Progress functions imported successfully');
     } catch (e) {
-      console.warn('Could not import progress functions:', e);
+      log.error('Could not import progress functions', 'initializePage.js', e);
       // Create dummy functions if import fails
       updatePageLoadProgress = () => {};
       hidePageLoadProgress = () => {};
@@ -253,33 +234,31 @@ export async function loadHyperText(bookId, progressCallback = null) {
   try {
     // 1. Check for node chunks in IndexedDB (No change)
     updatePageLoadProgress(10, "Checking local cache...");
-    console.log("🔍 Checking if nodes are in nodeChunks object store in IndexedDB...");
     const cached = await getNodeChunksFromIndexedDB(currentBook);
     if (cached && cached.length) {
       updatePageLoadProgress(30, "Loading from cache...");
-      console.log(`✅ Found ${cached.length} nodes in nodeChunks object store in IndexedDB`);
+      verbose.content(`Found ${cached.length} nodes in IndexedDB`, 'initializePage.js');
       window.nodeChunks = cached;
-      
+
       // Add small delays to make progress visible
       await new Promise(resolve => setTimeout(resolve, 100));
       updatePageLoadProgress(90, "Initializing interface...");
       initializeLazyLoader(openHyperlightID, currentBook);
-      
+
       // Note: Interactive features initialization handled by viewManager.js
-      
+
       checkAndUpdateIfNeeded(currentBook, currentLazyLoader);
       return;
     }
 
     // 2. Try Database Sync
     updatePageLoadProgress(20, "Connecting to database...");
-    console.log("🔍 Trying to load nodes from node_chunks table in PostgreSQL...");
     const dbResult = await syncBookDataFromDatabase(currentBook);
     if (dbResult && dbResult.success) {
       updatePageLoadProgress(50, "Loading from database...");
       const dbChunks = await getNodeChunksFromIndexedDB(currentBook);
       if (dbChunks && dbChunks.length) {
-        console.log(`✅ Loaded ${dbChunks.length} nodes from node_chunks table in PostgreSQL into nodeChunks object store in IndexedDB`);
+        verbose.content(`Loaded ${dbChunks.length} nodes from PostgreSQL`, 'initializePage.js');
         window.nodeChunks = dbChunks;
         updatePageLoadProgress(90, "Initializing interface...");
         initializeLazyLoader(openHyperlightID, currentBook);
@@ -293,8 +272,7 @@ export async function loadHyperText(bookId, progressCallback = null) {
     // ✅ CRITICAL FIX: Only use file fallbacks if database says "book not found" (404)
     // Do NOT use fallbacks on network/server errors to prevent data loss
     if (dbResult && dbResult.reason === 'sync_error') {
-      console.error(`❌ Database sync failed for ${currentBook}. Will NOT fall back to stale files.`);
-      console.error(`Error: ${dbResult.error}`);
+      log.error(`Database sync failed for ${currentBook}`, 'initializePage.js', dbResult.error);
       updatePageLoadProgress(0, "Database connection failed");
       alert(`Cannot load book: Database connection failed.\n\nError: ${dbResult.error}\n\nPlease check your internet connection and try again.`);
       throw new Error(`Database sync failed: ${dbResult.error}`);
@@ -303,12 +281,12 @@ export async function loadHyperText(bookId, progressCallback = null) {
     // 3. Fallback: Try to load from pre-generated JSON (ONLY if book not found in database)
     if (!dbResult || dbResult.reason === 'book_not_found') {
       updatePageLoadProgress(30, "Loading from files...");
-      console.log("📚 Book not in database, trying pre-generated JSON files...");
+      verbose.content('Book not in database, trying JSON files', 'initializePage.js');
       try {
         // This now calls our new, more powerful function
         const jsonChunks = await loadFromJSONFiles(currentBook);
         if (jsonChunks && jsonChunks.length) {
-          console.log("✅ Content loaded from JSON; now initializing UI");
+          verbose.content('Content loaded from JSON', 'initializePage.js');
           window.nodeChunks = jsonChunks;
           updatePageLoadProgress(90, "Initializing interface...");
           initializeLazyLoader(openHyperlightID, currentBook);
@@ -318,14 +296,13 @@ export async function loadHyperText(bookId, progressCallback = null) {
           return;
         }
       } catch (error) {
-        console.log("ℹ️ JSON loading failed. Falling back to markdown parsing...");
+        verbose.content('JSON loading failed, trying markdown', 'initializePage.js');
       }
 
       // 4. Final Fallback: Generate from markdown (ONLY if book not found anywhere)
       updatePageLoadProgress(40, "Generating from markdown...");
-      console.log("🆕 Not in cache, DB, or JSON – generating from markdown");
+      verbose.content('Generating from markdown', 'initializePage.js');
       window.nodeChunks = await generateNodeChunksFromMarkdown(currentBook);
-      console.log("✅ Content generated + saved; now initializing UI");
       updatePageLoadProgress(90, "Initializing interface...");
       initializeLazyLoader(OpenHyperlightID || null, currentBook);
 
@@ -334,7 +311,7 @@ export async function loadHyperText(bookId, progressCallback = null) {
       return;
     }
   } catch (err) {
-    console.error("❌ A critical error occurred during content loading:", err);
+    log.error('Critical error during content loading', 'initializePage.js', err);
     if (firstChunkLoadedResolver) {
       firstChunkLoadedResolver();
     }
@@ -361,56 +338,8 @@ async function generateNodeChunksFromMarkdown(bookId, forceReload = false) {
 
   // Parse markdown into nodeChunks
   const nodeChunks = parseMarkdownIntoChunksInitial(markdown);
-  console.log(`✅ Generated ${nodeChunks.length} nodes from markdown file for ${bookId}`);
+  verbose.content(`Generated ${nodeChunks.length} nodes from markdown`, 'initializePage.js');
 
-  // Add detailed footnote logging
-  const totalFootnotes = nodeChunks.reduce((sum, chunk) => sum + chunk.footnotes.length, 0);
-  console.log(`📝 Found ${totalFootnotes} footnotes across all nodes for ${bookId}`);
-
-  // Log some sample footnotes if any exist
-  if (totalFootnotes > 0) {
-    // Find nodes with footnotes
-    const chunksWithFootnotes = nodeChunks.filter(chunk => chunk.footnotes.length > 0);
-
-    console.log(`📋 Footnote distribution: ${chunksWithFootnotes.length} nodes contain footnotes`);
-
-    // Log details of the first few nodes with footnotes
-    const samplesToShow = Math.min(3, chunksWithFootnotes.length);
-
-    console.log(`🔍 Showing footnote details for ${samplesToShow} sample nodes:`);
-    
-    for (let i = 0; i < samplesToShow; i++) {
-      const chunk = chunksWithFootnotes[i];
-      console.log(`\n📄 Node #${chunk.startLine} (chunk of nodes #${chunk.chunk_id}, type: ${chunk.type}):`);
-      console.log(`   Text preview: "${chunk.plainText.substring(0, 50)}${chunk.plainText.length > 50 ? '...' : ''}"`);
-      
-      chunk.footnotes.forEach((footnote, index) => {
-        console.log(`   📌 Footnote ${index + 1}/${chunk.footnotes.length}:`);
-        console.log(`      ID: ${footnote.id}`);
-        console.log(`      Reference at line: ${footnote.referenceLine}`);
-        console.log(`      Definition at line: ${footnote.definitionLine}`);
-        console.log(`      Content: "${footnote.content.substring(0, 100)}${footnote.content.length > 100 ? '...' : ''}"`);
-      });
-    }
-    
-    // Log a summary of all footnote IDs found
-    const allFootnoteIds = nodeChunks
-      .flatMap(chunk => chunk.footnotes)
-      .map(footnote => footnote.id);
-    
-    const uniqueIds = [...new Set(allFootnoteIds)];
-    console.log(`\n🔢 Found ${uniqueIds.length} unique footnote IDs: ${uniqueIds.join(', ')}`);
-    
-    // Check for any potential issues
-    const multipleRefsToSameId = uniqueIds.filter(id => 
-      allFootnoteIds.filter(fid => fid === id).length > 1
-    );
-    
-    if (multipleRefsToSameId.length > 0) {
-      console.log(`⚠️ Note: Found ${multipleRefsToSameId.length} footnote IDs with multiple references: ${multipleRefsToSameId.join(', ')}`);
-    }
-  }
-  
   // Pass the callback to the save function
   await saveAllNodeChunksToIndexedDB(nodeChunks, bookId);
   return nodeChunks;
@@ -425,14 +354,11 @@ export let currentLazyLoader = null;
 // Function to reset the current lazy loader for homepage transitions
 export function resetCurrentLazyLoader() {
   if (currentLazyLoader) {
-    console.log("🧹 Resetting current lazy loader for fresh content");
-    
     // Properly disconnect the old lazy loader to remove its event listeners
     if (typeof currentLazyLoader.disconnect === 'function') {
       currentLazyLoader.disconnect();
-      console.log("🧹 Disconnected old lazy loader and removed its event listeners");
     }
-    
+
     currentLazyLoader = null;
   }
 }
@@ -510,11 +436,11 @@ export async function initializeLazyLoaderForContainer(bookId) {
     // Load the first chunk of nodes to initialize content
     const firstChunk = nodeChunks.find(chunk => chunk.chunk_id === 0) || nodeChunks[0];
     if (firstChunk && lazyLoaders[bookId]) {
-      console.log(`📄 Loading initial chunk of nodes #${firstChunk.chunk_id} into DOM for ${bookId}`);
+      verbose.content(`Loading initial chunk #${firstChunk.chunk_id} for ${bookId}`, 'initializePage.js');
       lazyLoaders[bookId].loadChunk(firstChunk.chunk_id, "down");
     }
-    
-    console.log(`✅ Fresh lazy loader created for ${bookId}`);
+
+    verbose.content(`Fresh lazy loader created for ${bookId}`, 'initializePage.js');
     return lazyLoaders[bookId];
     
   } catch (error) {
@@ -545,7 +471,7 @@ function initializeLazyLoader(openHyperlightID, bookId) { // <-- Add bookId para
     if (isHomepageContext) {
       const firstChunk = window.nodeChunks.find(chunk => chunk.chunk_id === 0) || window.nodeChunks[0];
       if (firstChunk && currentLazyLoader) {
-        console.log(`📄 Loading initial chunk of nodes #${firstChunk.chunk_id} into DOM for ${bookId} (homepage/user page context)`);
+        verbose.content(`Loading initial chunk #${firstChunk.chunk_id} (homepage context)`, 'initializePage.js');
         currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
       }
     }
@@ -605,7 +531,7 @@ async function checkAndUpdateIfNeeded(bookId, lazyLoader) {
 
   try {
     // The log message is now more accurate, as it only runs for existing books.
-    console.log(`🕐 Starting async timestamp check for existing book: ${bookId}`);
+    verbose.content(`Async timestamp check for: ${bookId}`, 'initializePage.js');
 
     // Get both records in parallel
     const [serverRecord, localRecord] = await Promise.all([
@@ -640,9 +566,7 @@ async function checkAndUpdateIfNeeded(bookId, lazyLoader) {
       );
       await lazyLoader.refresh();
     } else {
-      console.log(
-        `✅ Local content is up-to-date for ${bookId}. No action needed.`
-      );
+      verbose.content(`Local content is up-to-date for: ${bookId}`, 'initializePage.js');
     }
   } catch (err) {
     console.error("❌ Error during background timestamp check:", err);
@@ -658,15 +582,13 @@ async function getLibraryRecordFromServer(bookId) {
         'Content-Type': 'application/json'
       }
     });
-    
+
     if (!response.ok) {
       throw new Error(`Server responded with ${response.status}`);
     }
-    
+
     const data = await response.json();
-    console.log("🔍 Full server response:", data);
-    console.log("🔍 Library data:", data.library);
-    console.log("🔍 Timestamp in library:", data.library?.timestamp);
+    verbose.content(`Server response for ${bookId}`, 'initializePage.js');
     
     return data.success ? data.library : null;
   } catch (err) {

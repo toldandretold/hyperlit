@@ -13,6 +13,7 @@
 
 import { book } from '../app.js';
 import { isNumericalId, setElementIds } from "../utilities/IDfunctions.js";
+import { verbose } from '../utilities/logger.js';
 import { isPasteOperationActive } from '../paste';
 import { trackChunkNodeCount } from '../chunkManager.js';
 
@@ -160,31 +161,29 @@ export function findAllNumericalIdNodesInChunks(container) {
  * @param {Function} queueNodeForSave - Function to queue nodes for saving to database
  */
 export function ensureMinimumDocumentStructure(queueNodeForSave) {
-  console.log(`🔧 [STRUCTURE CHECK] ===== ensureMinimumDocumentStructure() called =====`);
-  console.log(`🔧 [STRUCTURE CHECK] Call stack:`, new Error().stack);
+  verbose.content('ensureMinimumDocumentStructure() called', 'domUtilities.js');
 
   const mainContent = document.querySelector('.main-content');
   if (!mainContent) {
-    console.warn('🔧 [STRUCTURE CHECK] No .main-content found - exiting');
+    verbose.content('No .main-content found - exiting', 'domUtilities.js');
     return;
   }
 
   // ✅ CHECK FOR IMPORTED BOOK FIRST
   const isImportedBook = sessionStorage.getItem('imported_book_initializing');
   if (isImportedBook) {
-    console.log("🔧 [STRUCTURE CHECK] Imported book detected - skipping document structure creation");
+    verbose.content('Imported book detected - skipping document structure creation', 'domUtilities.js');
     return; // Exit early, don't create default structure
   }
 
   // ✅ CHECK FOR PASTE OPERATION IN PROGRESS
   const pasteActive = isPasteOperationActive();
-  console.log(`🔧 [STRUCTURE CHECK] Paste operation active: ${pasteActive}`);
   if (pasteActive) {
-    console.log("🔧 [STRUCTURE CHECK] Paste operation in progress - skipping document structure creation");
+    verbose.content('Paste operation in progress - skipping document structure creation', 'domUtilities.js');
     return; // Exit early, don't interfere with paste operation
   }
 
-  console.log('🔧 [STRUCTURE CHECK] Proceeding with structure check...');
+  verbose.content('Proceeding with structure check', 'domUtilities.js');
 
   const bookId = book;
 
@@ -203,9 +202,9 @@ export function ensureMinimumDocumentStructure(queueNodeForSave) {
     !node.id.includes('-sentinel')
   );
 
-  console.log(`🔧 [STRUCTURE CHECK] Found: ${chunks.length} chunks, ${numericalIdNodes.length} numerical nodes (${nonSentinelNodes.length} non-sentinel)`);
-  console.log(`🔧 [STRUCTURE CHECK] Sentinel status - Top: ${!!hasTopSentinel}, Bottom: ${!!hasBottomSentinel}`);
-  console.log(`🔧 [STRUCTURE CHECK] Non-sentinel node IDs: ${nonSentinelNodes.map(n => n.id).join(', ')}`);
+  verbose.content(`Found: ${chunks.length} chunks, ${numericalIdNodes.length} numerical nodes (${nonSentinelNodes.length} non-sentinel)`, 'domUtilities.js');
+  verbose.content(`Sentinel status - Top: ${!!hasTopSentinel}, Bottom: ${!!hasBottomSentinel}`, 'domUtilities.js');
+  verbose.content(`Non-sentinel node IDs: ${nonSentinelNodes.map(n => n.id).join(', ')}`, 'domUtilities.js');
 
   // 🆕 COLLECT ORPHANED CONTENT FIRST, before any structure changes
   const orphanedContent = [];
@@ -248,7 +247,7 @@ export function ensureMinimumDocumentStructure(queueNodeForSave) {
 
   // CASE 2: No chunks OR no content nodes - create default structure
   if (chunks.length === 0 || nonSentinelNodes.length === 0) {
-    console.log('🔧 [STRUCTURE CHECK] *** CASE 2: Creating default document structure ***');
+    verbose.content('CASE 2: Creating default document structure', 'domUtilities.js');
 
     // Preserve existing title content if it exists
     const existingTitle = mainContent.querySelector('h1');
@@ -344,7 +343,7 @@ export function ensureMinimumDocumentStructure(queueNodeForSave) {
 
   // CASE 3: Has chunks but they're empty - add content to first chunk
   if (chunks.length > 0 && nonSentinelNodes.length === 0) {
-    console.log('🔧 [STRUCTURE CHECK] *** CASE 3: Adding content to existing empty chunk ***');
+    verbose.content('CASE 3: Adding content to existing empty chunk', 'domUtilities.js');
 
     const firstChunk = chunks[0];
     const p = document.createElement('p');
@@ -413,7 +412,7 @@ export function ensureMinimumDocumentStructure(queueNodeForSave) {
     console.log('✅ Moved orphaned content to existing element');
   }
 
-  console.log('🔧 [STRUCTURE CHECK] ✅ Document structure is adequate - no changes needed');
+  verbose.content('✅ Document structure is adequate - no changes needed', 'domUtilities.js');
 }
 
 /**
