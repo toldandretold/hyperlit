@@ -170,8 +170,9 @@ export class LinkNavigationHandler {
     // Skip hypercites and TOC links - they have their own handlers
     const isHypercite = link.closest('u.couple, u.poly') || link.classList.contains('hypercite-target');
     const isTocLink = link.closest('#toc-container');
+    const isDeleteButton = link.classList.contains('delete-book') || link.closest('.delete-book');
 
-    if (isHypercite || isTocLink) {
+    if (isHypercite || isTocLink || isDeleteButton) {
       return true;
     }
 
