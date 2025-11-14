@@ -8,6 +8,7 @@ import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
 import { initializeUserContainer } from '../../components/userContainer.js';
 import { initializeUserProfileEditor } from '../../components/userProfileEditor.js';
+import { initializeUserProfilePage } from '../../components/userProfilePage.js';
 import { initializeHomepageButtons } from '../../homepageDisplayUnit.js';
 import { currentLazyLoader } from '../../initializePage.js';
 
@@ -149,6 +150,10 @@ export async function initializeUserSpecificFeatures(bookId) {
       // Already imported statically
       if (typeof initializeUserProfileEditor === 'function') {
         await initializeUserProfileEditor(bookId);
+      }
+      // Initialize user profile page functionality (delete buttons, etc.)
+      if (typeof initializeUserProfilePage === 'function') {
+        initializeUserProfilePage();
       }
     }
   } catch (error) {

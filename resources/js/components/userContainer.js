@@ -82,8 +82,11 @@ export class UserContainerManager extends ContainerManager {
   }
 
   handleDocumentClick(e) {
-      // Skip clicks inside hyperlit-container - they have their own handlers
-      if (e.target.closest('#hyperlit-container')) {
+      // Only handle clicks inside user-container or on user-overlay
+      const isInUserContainer = e.target.closest('#user-container');
+      const isUserOverlay = e.target.closest('#user-overlay');
+
+      if (!isInUserContainer && !isUserOverlay) {
         return;
       }
 

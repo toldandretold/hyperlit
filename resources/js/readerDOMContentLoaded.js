@@ -20,6 +20,7 @@ import TogglePerimeterButtons from "./components/togglePerimeterButtons.js";
 import { showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
 import { pendingFirstChunkLoadedPromise } from "./initializePage.js";
 import { initializeUserProfileEditor } from "./components/userProfileEditor.js";
+import { initializeUserProfilePage } from "./components/userProfilePage.js";
 import { initializeLogoNav } from "./components/logoNavToggle.js";
 
 // ═════════════════════════════════════════════════════════════════════
@@ -137,6 +138,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     await initializeHomepage();
     // Initialize user profile editor (title and bio fields)
     await initializeUserProfileEditor();
+    // Initialize user profile page functionality (delete buttons, etc.)
+    initializeUserProfilePage();
   }
 
   // Initialize logo navigation toggle on all pages
