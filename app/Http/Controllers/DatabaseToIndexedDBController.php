@@ -810,7 +810,6 @@ class DatabaseToIndexedDBController extends Controller
             'book' => $library->book,
             'author' => $library->author,
             'bibtex' => $library->bibtex,
-            'citationID' => $library->citationID,
             'fileName' => $library->fileName,
             'fileType' => $library->fileType,
             'journal' => $library->journal,

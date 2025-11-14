@@ -23,23 +23,23 @@ class CiteCreator extends Controller
 
     public function createMainTextMarkdown(Request $request) 
     {
-        $citation_id = $request->input('citation_id');
+        $bookId = $request->input('book');
         $title = $request->input('title');
 
-        if (!$citation_id || !$title) {
+        if (!$bookId || !$title) {
             return response()->json([
                 'error' => 'citation_id and title are required.'
             ], 400);
         }
 
         // Sanitize citation_id
-        $citation_id = preg_replace('/[^a-zA-Z0-9_-]/', '', $citation_id);
+        $bookId = preg_replace('/[^a-zA-Z0-9_-]/', '', $bookId);
         
-        if (empty($citation_id)) {
+        if (empty($bookId)) {
             return response()->json(['error' => 'Invalid citation ID format.'], 400);
         }
 
-        $path = resource_path("markdown/{$citation_id}");
+        $path = resource_path("markdown/{$bookId}");
 
         // Create the directory if it doesn't exist
         if (!File::exists($path)) {
@@ -53,13 +53,13 @@ class CiteCreator extends Controller
         File::put("{$path}/main-text.md", $markdownContent);
 
         Log::info('Basic markdown file created', [
-            'citation_id' => $citation_id,
+            'book' => $bookId,
             'method' => 'createMainTextMarkdown'
         ]);
 
         return response()->json([
             'success' => true,
-            'message' => "main-text.md created for citation_id {$citation_id}",
+            'message' => "main-text.md created for citation_id {$bookId}",
             'path' => "{$path}/main-text.md"
         ]);
     }
@@ -68,7 +68,7 @@ class CiteCreator extends Controller
     {
         $startTime = microtime(true);
         Log::info('File upload started', [
-            'citation_id' => $request->input('citation_id'),
+            'book' => $request->input('book'),
             'has_file' => $request->hasFile('markdown_file'),
             'start_time' => $startTime,
         ]);
@@ -80,7 +80,7 @@ class CiteCreator extends Controller
         if ($request->hasFile('markdown_file')) {
             $files = $request->file('markdown_file');
             Log::info('DEBUG: markdown_file detection', [
-                'citation_id' => $request->input('citation_id'),
+                'book' => $request->input('book'),
                 'has_file' => true,
                 'is_array' => is_array($files),
                 'file_count' => is_array($files) ? count($files) : 1,
@@ -95,7 +95,7 @@ class CiteCreator extends Controller
                 $i++;
             }
             Log::info('DEBUG: markdown_file array detection', [
-                'citation_id' => $request->input('citation_id'),
+                'book' => $request->input('book'),
                 'method' => 'numeric_indices',
                 'file_count' => count($files)
             ]);
@@ -105,13 +105,13 @@ class CiteCreator extends Controller
             if (is_array($fileArray) && !empty($fileArray)) {
                 $files = $fileArray;
                 Log::info('DEBUG: markdown_file direct array', [
-                    'citation_id' => $request->input('citation_id'),
+                    'book' => $request->input('book'),
                     'method' => 'direct_array',
                     'file_count' => count($files)
                 ]);
             } else {
                 Log::info('DEBUG: No files detected', [
-                    'citation_id' => $request->input('citation_id'),
+                    'book' => $request->input('book'),
                     'has_markdown_file' => $request->hasFile('markdown_file'),
                     'all_files' => array_keys($request->allFiles())
                 ]);
@@ -119,7 +119,7 @@ class CiteCreator extends Controller
         }
         
         $request->validate([
-            'citation_id' => 'required|string|regex:/^[a-zA-Z0-9_-]+$/',
+            'book' => 'required|string|regex:/^[a-zA-Z0-9_-]+$/',
             'title' => 'required|string|max:255',
             'author' => 'nullable|string|max:255',
             'year' => 'nullable|integer|min:1000|max:' . (date('Y') + 10),
@@ -158,17 +158,17 @@ class CiteCreator extends Controller
         ]);
         
         Log::info('Validation completed', [
-            'citation_id' => $request->input('citation_id'),
+            'book' => $request->input('book'),
             'validation_duration_ms' => round((microtime(true) - $validationStart) * 1000, 2)
         ]);
 
-        $citation_id = preg_replace('/[^a-zA-Z0-9_-]/', '', $request->input('citation_id'));
+        $bookId = preg_replace('/[^a-zA-Z0-9_-]/', '', $request->input('book'));
 
-        if (empty($citation_id)) {
+        if (empty($bookId)) {
             return redirect()->back()->with('error', 'Invalid citation ID format.');
         }
 
-        $path = resource_path("markdown/{$citation_id}");
+        $path = resource_path("markdown/{$bookId}");
 
         if (!File::exists($path)) {
             File::makeDirectory($path, 0755, true);
@@ -195,11 +195,11 @@ class CiteCreator extends Controller
                 
                 if ($hasMd) {
                     // This is a genuine folder upload with .md files
-                    $this->processFolderFiles($files, $path, $citation_id);
+                    $this->processFolderFiles($files, $path, $bookId);
                     $isDocxProcessing = true; // Set flag to wait for nodeChunks.json
                     
                     Log::info('Folder upload processing completed', [
-                        'citation_id' => $citation_id,
+                        'book' => $bookId,
                         'file_count' => count($files),
                         'processing_duration_ms' => round((microtime(true) - $fileProcessStart) * 1000, 2)
                     ]);
@@ -226,7 +226,7 @@ class CiteCreator extends Controller
                 chmod($originalFilePath, 0644);
 
             Log::info('File upload completed', [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'extension' => $extension,
                 'file_size_bytes' => $fileSize,
                 'upload_duration_ms' => round((microtime(true) - $fileProcessStart) * 1000, 2)
@@ -238,40 +238,40 @@ class CiteCreator extends Controller
                 $isDocxProcessing = true; // Use same processing pipeline as DOCX
                 
                 Log::info('Starting markdown-to-JSON processing', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'input_file' => $originalFilePath,
                     'processing_start_time' => $processingStart
                 ]);
                 
                 // Process markdown file using the same pipeline as DOCX
-                $this->processMarkdownFile($originalFilePath, $path, $citation_id);
+                $this->processMarkdownFile($originalFilePath, $path, $bookId);
                 
                 Log::info('Markdown processing completed', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'processing_duration_ms' => round((microtime(true) - $processingStart) * 1000, 2)
                 ]);
             } elseif ($extension === 'epub') {
                 $isDocxProcessing = true; // Set the flag to wait for nodeChunks.json
                 Log::info('Starting EPUB processing pipeline', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'processing_start_time' => $processingStart
                 ]);
                 // This method now handles the full conversion from EPUB to nodeChunks.json
-                $this->processEpubFile($originalFilePath, $path, $citation_id);
+                $this->processEpubFile($originalFilePath, $path, $bookId);
                 Log::info('EPUB processing pipeline completed', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'processing_duration_ms' => round((microtime(true) - $processingStart) * 1000, 2)
                 ]);
             } elseif ($extension === 'html') {
                 $isDocxProcessing = true; // Set the flag to wait for nodeChunks.json
                 Log::info('Starting HTML processing pipeline', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'processing_start_time' => $processingStart
                 ]);
                 // Process HTML file directly to JSON
-                $this->processHtmlFile($originalFilePath, $path, $citation_id);
+                $this->processHtmlFile($originalFilePath, $path, $bookId);
                 Log::info('HTML processing pipeline completed', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'processing_duration_ms' => round((microtime(true) - $processingStart) * 1000, 2)
                 ]);
             } elseif (in_array($extension, ['doc', 'docx'])) {
@@ -279,23 +279,23 @@ class CiteCreator extends Controller
                 $isDocxProcessing = true; // Set the flag for the waiting logic
 
                 Log::info('Dispatching PandocConversionJob for DOCX processing', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'input_file' => $originalFilePath,
                     'job_dispatch_time' => $processingStart
                 ]);
 
                 // Dispatch the new job to handle the conversion in the background
-                PandocConversionJob::dispatch($citation_id, $originalFilePath);
+                PandocConversionJob::dispatch($bookId, $originalFilePath);
             } elseif ($extension === 'zip') {
                 $isDocxProcessing = true; // Set flag to wait for nodeChunks.json
                 Log::info('Starting ZIP folder processing pipeline', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'processing_start_time' => $processingStart
                 ]);
                 // Process ZIP file containing MD + images
-                $this->processFolderUpload($originalFilePath, $path, $citation_id);
+                $this->processFolderUpload($originalFilePath, $path, $bookId);
                 Log::info('ZIP folder processing pipeline completed', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'processing_duration_ms' => round((microtime(true) - $processingStart) * 1000, 2)
                 ]);
             }
@@ -303,12 +303,12 @@ class CiteCreator extends Controller
     } else {
             $basicMarkdownStart = microtime(true);
             Log::info('No file uploaded, creating basic markdown file', [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'start_time' => $basicMarkdownStart
             ]);
             $this->createBasicMarkdown($request, $path);
             Log::info('Basic markdown file created', [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'creation_duration_ms' => round((microtime(true) - $basicMarkdownStart) * 1000, 2)
             ]);
         }
@@ -330,7 +330,7 @@ class CiteCreator extends Controller
         $waitingStart = microtime(true);
         $attempts = 0;
         Log::info("Starting wait for final file creation", [
-            'citation_id' => $citation_id,
+            'book' => $bookId,
             'expected_file' => $fileDescription,
             'expected_path' => $finalPath,
             'wait_start_time' => $waitingStart
@@ -339,7 +339,7 @@ class CiteCreator extends Controller
         // Wait for the correct final file to be created by the background job.
         while (!File::exists($finalPath) && $attempts < 15) { // Increased attempts for longer jobs
             Log::debug("Waiting for {$fileDescription} creation", [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'attempt' => $attempts + 1,
                 'elapsed_wait_time_ms' => round((microtime(true) - $waitingStart) * 1000, 2)
             ]);
@@ -349,7 +349,7 @@ class CiteCreator extends Controller
         
         $waitingDuration = round((microtime(true) - $waitingStart) * 1000, 2);
         Log::info("File waiting completed", [
-            'citation_id' => $citation_id,
+            'book' => $bookId,
             'file_found' => File::exists($finalPath),
             'total_attempts' => $attempts,
             'waiting_duration_ms' => $waitingDuration
@@ -357,7 +357,7 @@ class CiteCreator extends Controller
 
         if (File::exists($finalPath)) {
             Log::info('File processing completed successfully', [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'final_file' => $fileDescription,
                 'processing_time_approx' => ($attempts * 2) . ' seconds'
             ]);
@@ -366,7 +366,7 @@ class CiteCreator extends Controller
             $creatorInfo = app(DbLibraryController::class)->getCreatorInfo($request);
             
             Log::info('Creator info retrieved', [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'creator_info_duration_ms' => round((microtime(true) - $creatorInfoStart) * 1000, 2),
                 'valid' => $creatorInfo['valid']
             ]);
@@ -387,7 +387,7 @@ class CiteCreator extends Controller
             $referencesPath = "{$path}/references.json";
             
             Log::info('Starting database save process', [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'nodeChunks_exists' => File::exists($nodeChunksPath),
                 'footnotes_exists' => File::exists($footnotesPath),
                 'references_exists' => File::exists($referencesPath),
@@ -400,7 +400,7 @@ class CiteCreator extends Controller
                 $jsonLoadDuration = round((microtime(true) - $jsonLoadStart) * 1000, 2);
                 
                 Log::info('JSON file loaded, starting database saves', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'chunks_count' => count($nodeChunksData),
                     'json_load_duration_ms' => $jsonLoadDuration
                 ]);
@@ -409,17 +409,17 @@ class CiteCreator extends Controller
                 
                 // First, delete existing chunks for this book to avoid duplicates
                 $deleteStart = microtime(true);
-                $deletedCount = PgNodeChunk::where('book', $citation_id)->delete();
+                $deletedCount = PgNodeChunk::where('book', $bookId)->delete();
                 $deleteDuration = round((microtime(true) - $deleteStart) * 1000, 2);
                 
                 Log::info('Existing chunks deleted for bulk insert', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'deleted_count' => $deletedCount,
                     'delete_duration_ms' => $deleteDuration
                 ]);
 
                 Log::info('CHECKPOINT 1: Right after delete, about to start renumbering', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'nodeChunksData_count' => count($nodeChunksData),
                     'nodeChunksData_is_array' => is_array($nodeChunksData),
                     'file' => 'CiteCreator.php',
@@ -433,7 +433,7 @@ class CiteCreator extends Controller
                 $nodesPerChunk = 100; // Group every 100 nodes into a chunk
 
                 Log::info('CHECKPOINT 2: Variables initialized, starting renumbering', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'total_nodes' => count($nodeChunksData),
                     'bulkInsertStart' => $bulkInsertStart,
                     'nodesPerChunk' => $nodesPerChunk,
@@ -444,7 +444,7 @@ class CiteCreator extends Controller
                 foreach ($nodeChunksData as $index => $chunk) {
                     if ($index === 0) {
                         Log::info('CHECKPOINT 3: Inside foreach loop, first iteration', [
-                            'citation_id' => $citation_id,
+                            'book' => $bookId,
                             'index' => $index,
                             'chunk_keys' => array_keys($chunk),
                             'file' => 'CiteCreator.php',
@@ -458,7 +458,7 @@ class CiteCreator extends Controller
                     $newChunkId = $chunkIndex * 100;      // 0, 100, 200...
 
                     // Generate unique node_id
-                    $nodeId = $this->generateNodeId($citation_id);
+                    $nodeId = $this->generateNodeId($bookId);
 
                     // Add node_id to content if not present
                     $content = $this->ensureNodeIdInContent($chunk['content'], $newStartLine, $nodeId);
@@ -466,7 +466,7 @@ class CiteCreator extends Controller
                     // Log first 3 nodes for debugging
                     if ($index < 3) {
                         Log::info('CHECKPOINT 4: Node renumbering details', [
-                            'citation_id' => $citation_id,
+                            'book' => $bookId,
                             'index' => $index,
                             'old_startLine' => $chunk['startLine'] ?? 'missing',
                             'new_startLine' => $newStartLine,
@@ -487,7 +487,7 @@ class CiteCreator extends Controller
                     $rawJson['content'] = $content;
 
                     $insertData[] = [
-                        'book' => $citation_id,
+                        'book' => $bookId,
                         'startLine' => $newStartLine,
                         'chunk_id' => $newChunkId,
                         'node_id' => $nodeId,
@@ -504,7 +504,7 @@ class CiteCreator extends Controller
                 }
 
                 Log::info('CHECKPOINT 5: Foreach loop completed, renumbering done', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'nodes_processed' => count($insertData),
                     'startLine_range' => '100-' . (count($insertData) * 100),
                     'chunk_range' => '0-' . ((floor((count($insertData) - 1) / 100)) * 100),
@@ -520,7 +520,7 @@ class CiteCreator extends Controller
                 $batches = array_chunk($insertData, $batchSize);
 
                 Log::info('CHECKPOINT 6: About to start batch insert', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'total_batches' => count($batches),
                     'batch_size' => $batchSize,
                     'total_records_to_insert' => count($insertData),
@@ -534,7 +534,7 @@ class CiteCreator extends Controller
                     $totalInserted += count($batch);
 
                     Log::info('CHECKPOINT 7: Batch inserted', [
-                        'citation_id' => $citation_id,
+                        'book' => $bookId,
                         'batch_number' => $batchIndex + 1,
                         'batch_size' => count($batch),
                         'batch_duration_ms' => round((microtime(true) - $batchStart) * 1000, 2),
@@ -547,7 +547,7 @@ class CiteCreator extends Controller
                 $savedChunks = $totalInserted;
                 
                 Log::info('All nodeChunks saved to database', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'chunks_saved' => $savedChunks,
                     'total_batches' => count($batches),
                     'bulk_insert_duration_ms' => $bulkInsertDuration,
@@ -565,7 +565,7 @@ class CiteCreator extends Controller
                 File::put($nodeChunksPath, json_encode($renumberedJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
                 Log::info('CHECKPOINT 8: JSON file updated with renumbered values', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'json_path' => $nodeChunksPath,
                     'records_written' => count($renumberedJson),
                     'json_update_duration_ms' => round((microtime(true) - $jsonUpdateStart) * 1000, 2),
@@ -576,7 +576,7 @@ class CiteCreator extends Controller
 
             $totalDbDuration = round((microtime(true) - $dbSaveStart) * 1000, 2);
             Log::info('Database save process completed', [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'total_db_save_duration_ms' => $totalDbDuration
             ]);
             
@@ -585,7 +585,7 @@ class CiteCreator extends Controller
             
         } catch (\Exception $e) {
             Log::error('Failed to save nodeChunks to database', [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'error' => $e->getMessage(),
                 'db_save_duration_before_error_ms' => round((microtime(true) - $dbSaveStart) * 1000, 2)
             ]);
@@ -596,7 +596,7 @@ class CiteCreator extends Controller
             // ✅ Store the result of updateOrCreate in $createdRecord
             $libraryCreateStart = microtime(true);
             $createdRecord = PgLibrary::updateOrCreate(
-                ['book' => $citation_id],
+                ['book' => $bookId],
                 [
                     'title' => $request->input('title'),
                     'author' => $request->input('author'),
@@ -622,14 +622,14 @@ class CiteCreator extends Controller
             }
             
             Log::info('PgLibrary record created/updated', [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'library_save_duration_ms' => round((microtime(true) - $libraryCreateStart) * 1000, 2),
                 'record_id' => $createdRecord->id ?? 'unknown'
             ]);
 
             $totalProcessingTime = round((microtime(true) - $startTime) * 1000, 2);
             Log::info('Complete processing finished successfully', [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'total_processing_duration_ms' => $totalProcessingTime,
                 'total_processing_duration_seconds' => round($totalProcessingTime / 1000, 2)
             ]);
@@ -638,18 +638,18 @@ class CiteCreator extends Controller
                 // ✅ Now $createdRecord exists and can be returned
                 return response()->json([
                     'success' => true,
-                    'bookId' => $citation_id,
+                    'bookId' => $bookId,
                     'library' => $createdRecord,
                     'processing_time_ms' => $totalProcessingTime
                 ]);
             }
 
-            return redirect("/{$citation_id}")->with('success', 'File processed successfully!');
+            return redirect("/{$bookId}")->with('success', 'File processed successfully!');
         }
 
         // ❌ FAILURE CASE
         Log::error('File processing failed: Timed out waiting for output file.', [
-            'citation_id' => $citation_id,
+            'book' => $bookId,
             'expected_path' => $finalPath
         ]);
 
@@ -732,23 +732,23 @@ class CiteCreator extends Controller
 
     public function createNewMarkdown(Request $request)
     {
-        $citation_id = $request->input('citation_id');
+        $bookId = $request->input('book');
         $title = $request->input('title');
 
-        if (!$citation_id || !$title) {
+        if (!$bookId || !$title) {
             return response()->json([
                 'error' => 'citation_id and title are required.'
             ], 400);
         }
 
         // Sanitize citation_id
-        $citation_id = preg_replace('/[^a-zA-Z0-9_-]/', '', $citation_id);
+        $bookId = preg_replace('/[^a-zA-Z0-9_-]/', '', $bookId);
         
-        if (empty($citation_id)) {
+        if (empty($bookId)) {
             return response()->json(['error' => 'Invalid citation ID format.'], 400);
         }
 
-        $path = resource_path("markdown/{$citation_id}");
+        $path = resource_path("markdown/{$bookId}");
 
         if (!File::exists($path)) {
             File::makeDirectory($path, 0755, true);
@@ -757,13 +757,13 @@ class CiteCreator extends Controller
         File::put("{$path}/main-text.md", "# {$title}\n");
 
         Log::info('New markdown file created', [
-            'citation_id' => $citation_id,
+            'book' => $bookId,
             'method' => 'createNewMarkdown'
         ]);
 
         return response()->json([
             'success' => true,
-            'message' => "main-text.md created for {$citation_id}",
+            'message' => "main-text.md created for {$bookId}",
             'path' => "{$path}/main-text.md"
         ]);
     }
@@ -980,13 +980,13 @@ class CiteCreator extends Controller
         File::put($filePath, $content);
     }
 
-    private function processHtmlFile(string $htmlFilePath, string $outputPath, string $citation_id): void
+    private function processHtmlFile(string $htmlFilePath, string $outputPath, string $bookId): void
     {
         $processStart = microtime(true);
         $pythonScriptPath = base_path('app/Python/process_document.py');
 
         Log::info('processHtmlFile started', [
-            'citation_id' => $citation_id,
+            'book' => $bookId,
             'input_file' => basename($htmlFilePath),
             'process_start_time' => $processStart
         ]);
@@ -999,7 +999,7 @@ class CiteCreator extends Controller
             File::put($debugHtmlPath, $originalHtmlContent);
             
             Log::info('Debug files created', [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'debug_duration_ms' => round((microtime(true) - $debugStart) * 1000, 2)
             ]);
             
@@ -1015,7 +1015,7 @@ class CiteCreator extends Controller
             $sanitizeStart = microtime(true);
             $this->sanitizeHtmlFile($htmlFilePath);
             Log::info('HTML sanitization completed', [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'sanitize_duration_ms' => round((microtime(true) - $sanitizeStart) * 1000, 2)
             ]);
             
@@ -1025,7 +1025,7 @@ class CiteCreator extends Controller
             $preprocessedHtmlPath = "{$outputPath}/preprocessed.html";
             
             Log::info("Running HTML preprocessor...", [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'preprocessor' => basename($preprocessorPath),
                 'input' => basename($htmlFilePath),
                 'output' => basename($preprocessedHtmlPath)
@@ -1044,7 +1044,7 @@ class CiteCreator extends Controller
             
             if (!$preprocessProcess->isSuccessful()) {
                 Log::error("HTML preprocessing failed", [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'preprocess_duration_ms' => $preprocessDuration,
                     'stdout' => $preprocessProcess->getOutput(),
                     'stderr' => $preprocessProcess->getErrorOutput()
@@ -1053,7 +1053,7 @@ class CiteCreator extends Controller
             }
             
             Log::info("HTML preprocessing completed", [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'preprocess_duration_ms' => $preprocessDuration,
                 'stdout' => $preprocessProcess->getOutput()
             ]);
@@ -1063,11 +1063,11 @@ class CiteCreator extends Controller
             $htmlProcessorPath = base_path('app/Python/html_footnote_processor.py');
             
             Log::info("Running dedicated HTML footnote processor...", [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'script' => basename($htmlProcessorPath),
                 'html_input' => basename($preprocessedHtmlPath),
                 'output_dir' => basename($outputPath),
-                'book_id' => $citation_id,
+                'book_id' => $bookId,
                 'python_start_time' => $pythonScriptStart
             ]);
 
@@ -1076,7 +1076,7 @@ class CiteCreator extends Controller
                 $htmlProcessorPath,
                 $preprocessedHtmlPath,
                 $outputPath,
-                $citation_id // Pass citation_id as book_id
+                $bookId // Pass citation_id as book_id
             ]);
             $pythonProcess->setTimeout(300);
             $pythonProcess->run();
@@ -1085,7 +1085,7 @@ class CiteCreator extends Controller
 
             if (!$pythonProcess->isSuccessful()) {
                 Log::error("Python script execution failed", [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'python_duration_ms' => $pythonScriptDuration,
                     'stdout' => $pythonProcess->getOutput(),
                     'stderr' => $pythonProcess->getErrorOutput()
@@ -1093,13 +1093,13 @@ class CiteCreator extends Controller
                 throw new ProcessFailedException($pythonProcess);
             }
             Log::info("Python script executed successfully", [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'python_duration_ms' => $pythonScriptDuration
             ]);
 
         } catch (ProcessFailedException $exception) {
             $totalProcessDuration = round((microtime(true) - $processStart) * 1000, 2);
-            Log::error("HTML processing failed for {$citation_id}", [
+            Log::error("HTML processing failed for {$bookId}", [
                 'error' => $exception->getMessage(),
                 'total_process_duration_ms' => $totalProcessDuration,
                 'stdout' => $exception->getProcess()->getOutput(),
@@ -1115,7 +1115,7 @@ class CiteCreator extends Controller
             
             $totalProcessDuration = round((microtime(true) - $processStart) * 1000, 2);
             Log::info("processHtmlFile completed", [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'total_process_duration_ms' => $totalProcessDuration
             ]);
         }
@@ -1159,7 +1159,7 @@ class CiteCreator extends Controller
         File::put($filePath, $content);
     }
 
-    private function processEpubFile(string $originalFilePath, string $path, string $citation_id): void
+    private function processEpubFile(string $originalFilePath, string $path, string $bookId): void
     {
         $epubPath = "{$path}/epub_original";
         
@@ -1209,7 +1209,7 @@ class CiteCreator extends Controller
                 $documentProcessorScript = base_path('app/Python/process_document.py');
                 
                 Log::info("Running document processor on EPUB-generated HTML", [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'script' => basename($documentProcessorScript),
                     'html_input' => basename($htmlPath)
                 ]);
@@ -1219,27 +1219,27 @@ class CiteCreator extends Controller
                     $documentProcessorScript,
                     $htmlPath,
                     $path, // output directory
-                    $citation_id
+                    $bookId
                 ]);
                 $process->setTimeout(300);
                 $process->run();
 
                 if (!$process->isSuccessful()) {
                     Log::error("Python script process_document.py failed for EPUB", [
-                        'citation_id' => $citation_id,
+                        'book' => $bookId,
                         'stdout' => $process->getOutput(),
                         'stderr' => $process->getErrorOutput()
                     ]);
                     throw new ProcessFailedException($process);
                 }
-                Log::info("Python script process_document.py executed successfully for EPUB", ['citation_id' => $citation_id]);
+                Log::info("Python script process_document.py executed successfully for EPUB", ['book' => $bookId]);
 
                 // Clean up the intermediate html file
                 // File::delete($htmlPath);
 
             } else {
                 Log::error('main-text.html not found after EPUB processing.', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'expected_path' => $htmlPath
                 ]);
                 throw new \RuntimeException("main-text.html not found after EPUB processing.");
@@ -1253,13 +1253,13 @@ class CiteCreator extends Controller
         }
     }
 
-    private function processFolderUpload(string $originalFilePath, string $path, string $citation_id): void
+    private function processFolderUpload(string $originalFilePath, string $path, string $bookId): void
     {
         $processStart = microtime(true);
         $extractPath = "{$path}/folder_extracted";
         
         Log::info('processFolderUpload started', [
-            'citation_id' => $citation_id,
+            'book' => $bookId,
             'zip_file' => basename($originalFilePath),
             'process_start_time' => $processStart
         ]);
@@ -1318,7 +1318,7 @@ class CiteCreator extends Controller
                 }
                 
                 Log::info('ZIP file analysis completed', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'markdown_file' => $markdownFile,
                     'image_count' => count($imageFiles),
                     'skipped_files' => $skippedFiles
@@ -1358,10 +1358,10 @@ class CiteCreator extends Controller
                 $markdownPath = "{$extractPath}/{$markdownFile}";
                 if (File::exists($markdownPath)) {
                     // Update image references in markdown to point to media/ directory
-                    $this->updateMarkdownImagePaths($markdownPath, $imageFiles, $citation_id);
+                    $this->updateMarkdownImagePaths($markdownPath, $imageFiles, $bookId);
                     
                     // Process markdown using existing pipeline
-                    $this->processMarkdownFile($markdownPath, $path, $citation_id);
+                    $this->processMarkdownFile($markdownPath, $path, $bookId);
                 } else {
                     throw new \RuntimeException("Markdown file not found after extraction: {$markdownFile}");
                 }
@@ -1375,7 +1375,7 @@ class CiteCreator extends Controller
             
         } catch (\Exception $e) {
             Log::error("Folder upload processing failed", [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'error' => $e->getMessage(),
                 'process_duration_ms' => round((microtime(true) - $processStart) * 1000, 2)
             ]);
@@ -1389,7 +1389,7 @@ class CiteCreator extends Controller
         }
         
         Log::info('processFolderUpload completed successfully', [
-            'citation_id' => $citation_id,
+            'book' => $bookId,
             'total_duration_ms' => round((microtime(true) - $processStart) * 1000, 2)
         ]);
     }
@@ -1435,14 +1435,14 @@ class CiteCreator extends Controller
         ]);
     }
 
-    private function processMarkdownFile(string $markdownFilePath, string $outputPath, string $citation_id): void
+    private function processMarkdownFile(string $markdownFilePath, string $outputPath, string $bookId): void
     {
         $processStart = microtime(true);
         $htmlOutputPath = "{$outputPath}/intermediate.html";
         $pythonScriptPath = base_path('app/Python/process_document.py');
 
         Log::info('processMarkdownFile started', [
-            'citation_id' => $citation_id,
+            'book' => $bookId,
             'input_file' => basename($markdownFilePath),
             'process_start_time' => $processStart
         ]);
@@ -1455,7 +1455,7 @@ class CiteCreator extends Controller
             File::put($debugMarkdownPath, $originalMarkdownContent);
             
             Log::info('Debug files created', [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'debug_duration_ms' => round((microtime(true) - $debugStart) * 1000, 2)
             ]);
             
@@ -1472,20 +1472,20 @@ class CiteCreator extends Controller
             $sanitizeStart = microtime(true);
             $this->sanitizeMarkdownFile($markdownFilePath);
             Log::info('Markdown sanitization completed', [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'sanitize_duration_ms' => round((microtime(true) - $sanitizeStart) * 1000, 2)
             ]);
             
             // Step 2.5: Fix image references BEFORE markdown-to-HTML conversion
             $preConversionStart = microtime(true);
-            $this->fixImageReferencesInMarkdown($markdownFilePath, $citation_id);
+            $this->fixImageReferencesInMarkdown($markdownFilePath, $bookId);
             Log::info('Pre-conversion image fix completed', [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'pre_conversion_duration_ms' => round((microtime(true) - $preConversionStart) * 1000, 2)
             ]);
             
             Log::info('Step 1: Converting Markdown to HTML...', [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'input' => basename($markdownFilePath),
                 'output' => basename($htmlOutputPath)
             ]);
@@ -1506,7 +1506,7 @@ class CiteCreator extends Controller
 
             if (!$markdownProcess->isSuccessful()) {
                 Log::error("Markdown conversion failed", [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'conversion_duration_ms' => $mdToHtmlDuration,
                     'stdout' => $markdownProcess->getOutput(),
                     'stderr' => $markdownProcess->getErrorOutput()
@@ -1514,7 +1514,7 @@ class CiteCreator extends Controller
                 throw new ProcessFailedException($markdownProcess);
             }
             Log::info("Markdown to HTML conversion successful", [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'conversion_duration_ms' => $mdToHtmlDuration
             ]);
             
@@ -1527,7 +1527,7 @@ class CiteCreator extends Controller
                 File::put($debugHtmlPath, $htmlContent);
                 
                 Log::info("HTML Content Generated and saved for debugging:", [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'debug_file_saved' => $debugHtmlPath,
                     'html_preview' => substr($htmlContent, 0, 2000),
                     'full_length' => strlen($htmlContent),
@@ -1540,11 +1540,11 @@ class CiteCreator extends Controller
             // Step 3: Run the Python script on the generated HTML
             $pythonScriptStart = microtime(true);
             Log::info("Step 2: Running Python script...", [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'script' => basename($pythonScriptPath),
                 'html_input' => basename($htmlOutputPath),
                 'output_dir' => basename($outputPath),
-                'book_id' => $citation_id,
+                'book_id' => $bookId,
                 'python_start_time' => $pythonScriptStart
             ]);
 
@@ -1553,7 +1553,7 @@ class CiteCreator extends Controller
                 $pythonScriptPath,
                 $htmlOutputPath,
                 $outputPath,
-                $citation_id // Pass citation_id as book_id
+                $bookId // Pass citation_id as book_id
             ]);
             $pythonProcess->setTimeout(300);
             $pythonProcess->run();
@@ -1562,7 +1562,7 @@ class CiteCreator extends Controller
 
             if (!$pythonProcess->isSuccessful()) {
                 Log::error("Python script execution failed", [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'python_duration_ms' => $pythonScriptDuration,
                     'stdout' => $pythonProcess->getOutput(),
                     'stderr' => $pythonProcess->getErrorOutput()
@@ -1570,13 +1570,13 @@ class CiteCreator extends Controller
                 throw new ProcessFailedException($pythonProcess);
             }
             Log::info("Python script executed successfully", [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'python_duration_ms' => $pythonScriptDuration
             ]);
 
         } catch (ProcessFailedException $exception) {
             $totalProcessDuration = round((microtime(true) - $processStart) * 1000, 2);
-            Log::error("Markdown processing failed for {$citation_id}", [
+            Log::error("Markdown processing failed for {$bookId}", [
                 'error' => $exception->getMessage(),
                 'total_process_duration_ms' => $totalProcessDuration,
                 'stdout' => $exception->getProcess()->getOutput(),
@@ -1591,21 +1591,21 @@ class CiteCreator extends Controller
             }
             $totalProcessDuration = round((microtime(true) - $processStart) * 1000, 2);
             Log::info("processMarkdownFile completed", [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'cleanup_duration_ms' => round((microtime(true) - $cleanupStart) * 1000, 2),
                 'total_process_duration_ms' => $totalProcessDuration
             ]);
         }
     }
 
-    private function processFolderFiles(array $files, string $path, string $citation_id): void
+    private function processFolderFiles(array $files, string $path, string $bookId): void
     {
         $processStart = microtime(true);
         $markdownFiles = [];
         $imageFiles = [];
         
         Log::info('processFolderFiles started', [
-            'citation_id' => $citation_id,
+            'book' => $bookId,
             'file_count' => count($files),
             'process_start_time' => $processStart
         ]);
@@ -1641,7 +1641,7 @@ class CiteCreator extends Controller
         chmod($markdownPath, 0644);
         
         Log::info('Markdown file processed', [
-            'citation_id' => $citation_id,
+            'book' => $bookId,
             'markdown_file' => $markdownFile->getClientOriginalName(),
             'image_count' => count($imageFiles)
         ]);
@@ -1667,14 +1667,14 @@ class CiteCreator extends Controller
                 return $file->getClientOriginalName();
             }, $imageFiles);
             
-            $this->updateMarkdownImagePaths($markdownPath, $imageFilenames, $citation_id);
+            $this->updateMarkdownImagePaths($markdownPath, $imageFilenames, $bookId);
             
             // Process markdown using existing pipeline
-            $this->processMarkdownFile($markdownPath, $path, $citation_id);
+            $this->processMarkdownFile($markdownPath, $path, $bookId);
         }
         
         Log::info('processFolderFiles completed', [
-            'citation_id' => $citation_id,
+            'book' => $bookId,
             'total_duration_ms' => round((microtime(true) - $processStart) * 1000, 2)
         ]);
     }
@@ -1905,7 +1905,7 @@ class CiteCreator extends Controller
         return true;
     }
 
-    private function updateMarkdownImagePaths(string $markdownPath, array $imageFiles, string $citation_id): void
+    private function updateMarkdownImagePaths(string $markdownPath, array $imageFiles, string $bookId): void
     {
         $content = File::get($markdownPath);
         $updatedContent = $content;
@@ -1933,13 +1933,13 @@ class CiteCreator extends Controller
                         $renamedFiles++;
                         
                         Log::debug('Renamed image file to avoid underscores', [
-                            'citation_id' => $citation_id,
+                            'book' => $bookId,
                             'from' => $filename,
                             'to' => $safeFilename
                         ]);
                     } else {
                         Log::warning('Failed to rename image file', [
-                            'citation_id' => $citation_id,
+                            'book' => $bookId,
                             'from' => $originalPath,
                             'to' => $safePath
                         ]);
@@ -1960,7 +1960,7 @@ class CiteCreator extends Controller
         }
         
         Log::info('Image filename mapping created', [
-            'citation_id' => $citation_id,
+            'book' => $bookId,
             'renamed_files' => $renamedFiles,
             'image_map' => $imageMap
         ]);
@@ -1968,7 +1968,7 @@ class CiteCreator extends Controller
         // Pattern to match markdown image references: ![alt](image.jpg)
         $pattern = '/!\[([^\]]*)\]\(([^)]+)\)/';
         
-        $updatedContent = preg_replace_callback($pattern, function($matches) use ($imageMap, &$updatedCount, $citation_id) {
+        $updatedContent = preg_replace_callback($pattern, function($matches) use ($imageMap, &$updatedCount, $bookId) {
             $altText = $matches[1];
             $imagePath = $matches[2];
             $filename = basename($imagePath);
@@ -1976,11 +1976,11 @@ class CiteCreator extends Controller
             // Check if this image exists in our uploaded images
             if (isset($imageMap[$filename])) {
                 $actualFilename = $imageMap[$filename]; // Get the actual filename (might be different if mapped)
-                $newPath = "/{$citation_id}/media/{$actualFilename}"; // Use absolute path with book name
+                $newPath = "/{$bookId}/media/{$actualFilename}"; // Use absolute path with book name
                 $updatedCount++;
                 
                 Log::debug('Updated image reference', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'from' => $imagePath,
                     'to' => $newPath,
                     'actual_filename' => $actualFilename
@@ -1992,7 +1992,7 @@ class CiteCreator extends Controller
                 return $htmlImg;
             } else {
                 Log::warning('Image reference not found in uploaded files', [
-                    'citation_id' => $citation_id,
+                    'book' => $bookId,
                     'reference' => $imagePath,
                     'filename' => $filename
                 ]);
@@ -2005,7 +2005,7 @@ class CiteCreator extends Controller
         File::put($markdownPath, $updatedContent);
 
         Log::info('Markdown image paths updated', [
-            'citation_id' => $citation_id,
+            'book' => $bookId,
             'updated_references' => $updatedCount
         ]);
         
@@ -2021,19 +2021,19 @@ class CiteCreator extends Controller
                 }
             }
             Log::info('Sample image references in updated markdown', [
-                'citation_id' => $citation_id,
+                'book' => $bookId,
                 'sample_lines' => $imageLines,
                 'updated_count' => $updatedCount
             ]);
         }
     }
 
-    private function fixImageReferencesInMarkdown(string $markdownPath, string $citation_id): void
+    private function fixImageReferencesInMarkdown(string $markdownPath, string $bookId): void
     {
         // This method is now simplified since we rename actual image files 
         // in updateMarkdownImagePaths to avoid underscore issues entirely
         Log::info('Pre-conversion image fix step (now handled by file renaming)', [
-            'citation_id' => $citation_id,
+            'book' => $bookId,
             'note' => 'Image files are renamed to replace underscores with hyphens during processing'
         ]);
     }

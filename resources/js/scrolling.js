@@ -554,9 +554,9 @@ export async function restoreScrollPosition() {
   
   // Show overlay for external navigation targets
   let overlayShown = false;
-  const existingOverlay = navigationModal || document.getElementById('initial-navigation-overlay');
+  const existingOverlay = document.getElementById('initial-navigation-overlay');
   const overlayAlreadyVisible = existingOverlay && (
-    existingOverlay.style.display !== 'none' && 
+    existingOverlay.style.display !== 'none' &&
     existingOverlay.style.display !== ''
   );
   
@@ -642,129 +642,52 @@ export async function restoreScrollPosition() {
   navigateToInternalId(targetId, currentLazyLoader, !overlayShown);
 }
 
-// Navigation loading indicator with overlay and progress bar
-let navigationModal = null;
+// ═════════════════════════════════════════════════════════════════════
+// NAVIGATION LOADING - DELEGATED TO PROGRESSOVERLAYCONDUCTOR
+// ═════════════════════════════════════════════════════════════════════
+// These functions delegate to ProgressOverlayConductor for centralized overlay management
+// LEGACY: These were originally managing overlays directly, now they're thin wrappers
 
-export function showNavigationLoading(targetId) {
-  console.log(`🎯 LOADING: Starting navigation to ${targetId}`);
+export async function showNavigationLoading(targetId) {
+  console.log(`🎯 [LEGACY] showNavigationLoading called for ${targetId} - delegating to ProgressOverlayConductor`);
 
-  // Store in sessionStorage so overlay persists across page transitions
-  sessionStorage.setItem('navigationOverlayActive', 'true');
-  sessionStorage.setItem('navigationTargetId', targetId);
+  // Delegate to the new centralized system
+  const { ProgressOverlayConductor } = await import('./navigation/ProgressOverlayConductor.js');
+  ProgressOverlayConductor.showSPATransition(5, `Loading ${targetId}...`);
 
-  // 🧹 CRITICAL: Remove any stale navigation overlays from previous SPA transitions
-  const staleOverlays = document.querySelectorAll('.navigation-overlay:not(#initial-navigation-overlay)');
-  if (staleOverlays.length > 0) {
-    console.warn(`🧹 Removing ${staleOverlays.length} stale navigation overlays`);
-    staleOverlays.forEach(overlay => overlay.remove());
-  }
-
-  // Try to use existing blade template overlay first
-  const initialOverlay = document.getElementById('initial-navigation-overlay');
-  if (initialOverlay) {
-    navigationModal = initialOverlay;
-    navigationModal.style.display = 'block';
-  } else {
-    // Fallback: create overlay if blade template overlay doesn't exist
-    navigationModal = document.createElement("div");
-    navigationModal.className = "navigation-overlay";
-
-    // Add styles (only if not already added)
-    if (!document.getElementById('navigation-overlay-styles')) {
-      const style = document.createElement('style');
-      style.id = 'navigation-overlay-styles';
-      style.textContent = `
-        .navigation-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: rgba(0, 0, 0, 0.3);
-          z-index: 10000;
-          pointer-events: none; /* Don't block clicks - overlay is visual only */
-        }
-      `;
-      document.head.appendChild(style);
-    }
-
-    document.body.appendChild(navigationModal);
-  }
-  
   return {
     updateProgress: (percent, message) => {
-      // No-op for now
+      ProgressOverlayConductor.updateProgress(percent, message);
     },
     setMessage: (message) => {
-      // No-op for now  
+      ProgressOverlayConductor.updateProgress(null, message);
     }
   };
 }
 
 export async function hideNavigationLoading() {
-  console.log(`🎯 LOADING: Navigation complete - delegating to ProgressOverlayEnactor`);
+  console.log(`🎯 [LEGACY] hideNavigationLoading called - delegating to ProgressOverlayConductor`);
 
-  // Clear sessionStorage flags
+  // Delegate to the new centralized system
+  const { ProgressOverlayConductor } = await import('./navigation/ProgressOverlayConductor.js');
+  await ProgressOverlayConductor.hide();
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// RESTORE NAVIGATION OVERLAY - DEPRECATED
+// ═════════════════════════════════════════════════════════════════════
+// LEGACY: This function is now a no-op
+// The ProgressOverlayEnactor handles its own state restoration via _bindElements()
+// which detects overlay visibility using getComputedStyle on initialization
+
+export function restoreNavigationOverlayIfNeeded() {
+  console.log('🎯 [LEGACY] restoreNavigationOverlayIfNeeded called - now handled by ProgressOverlayEnactor._bindElements()');
+
+  // Clear any legacy session storage flags (no longer used)
   sessionStorage.removeItem('navigationOverlayActive');
   sessionStorage.removeItem('navigationTargetId');
 
-  // Delegate to ProgressOverlayEnactor for consistent hiding
-  const { ProgressOverlayEnactor } = await import('./navigation/ProgressOverlayEnactor.js');
-  await ProgressOverlayEnactor.hide();
-
-  // Clean up any dynamically created navigation modals
-  if (navigationModal) {
-    if (navigationModal.id !== 'initial-navigation-overlay') {
-      // Only remove if it's NOT the blade template overlay
-      navigationModal.remove();
-    }
-    navigationModal = null;
-  }
-}
-
-// Function to restore overlay on page load if it was active during navigation
-export function restoreNavigationOverlayIfNeeded() {
-  const overlayActive = sessionStorage.getItem('navigationOverlayActive');
-  const targetId = sessionStorage.getItem('navigationTargetId');
-  
-  // 🔥 DONT RESTORE OVERLAY FOR IMPORTED BOOKS
-  const isImportedBook = sessionStorage.getItem('imported_book_flag');
-  if (isImportedBook) {
-    console.log(`🎯 SKIPPING overlay restore for imported book: ${isImportedBook}`);
-    // Clear the overlay flags to prevent future restoration
-    sessionStorage.removeItem('navigationOverlayActive');
-    sessionStorage.removeItem('navigationTargetId');
-    return;
-  }
-  
-  if (overlayActive === 'true' && targetId) {
-    console.log(`🎯 RESTORING: Navigation overlay for ${targetId} after page transition`);
-    
-    // Recreate the overlay immediately
-    navigationModal = document.createElement("div");
-    navigationModal.className = "navigation-overlay";
-    
-    // Add styles
-    const style = document.createElement('style');
-    style.textContent = `
-      .navigation-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.3);
-        z-index: 10000;
-      }
-    `;
-    
-    document.head.appendChild(style);
-    document.body.appendChild(navigationModal);
-    
-    return true; // Indicate overlay was restored
-  }
-  
-  return false; // No overlay to restore
+  return false; // Always return false - restoration handled by Enactor
 }
 
 export function navigateToInternalId(targetId, lazyLoader, showOverlay = true) {

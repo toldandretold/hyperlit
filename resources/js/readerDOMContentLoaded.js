@@ -22,35 +22,26 @@ import { pendingFirstChunkLoadedPromise } from "./initializePage.js";
 import { initializeUserProfileEditor } from "./components/userProfileEditor.js";
 import { initializeLogoNav } from "./components/logoNavToggle.js";
 
-// Progress bar control functions
-export function updatePageLoadProgress(percent, message = null) {
-  const overlay = document.getElementById('initial-navigation-overlay');
-  const progressBar = document.getElementById('page-load-progress-bar');
-  const progressText = document.getElementById('page-load-progress-text');
-  const progressDetails = document.getElementById('page-load-progress-details');
+// ═════════════════════════════════════════════════════════════════════
+// PROGRESS BAR CONTROL - DELEGATED TO PROGRESSOVERLAYCONDUCTOR
+// ═════════════════════════════════════════════════════════════════════
+// LEGACY: These functions used to directly manipulate DOM, now delegate to Conductor
+// This ensures all overlay management goes through the centralized state machine
 
-  // ✅ Make the overlay visible whenever progress is updated.
-  if (overlay) {
-    overlay.style.display = 'block';
-  }
-  
-  if (progressBar) {
-    // Ensure progress never goes below 5% so we always see some color
-    const adjustedPercent = Math.max(5, percent);
-    progressBar.style.width = adjustedPercent + '%';
-  }
-  if (progressText) {
-    progressText.textContent = `Loading... ${Math.round(percent)}%`;
-  }
-  if (message && progressDetails) {
-    progressDetails.textContent = message;
-  }
+export async function updatePageLoadProgress(percent, message = null) {
+  console.log(`📊 [LEGACY] updatePageLoadProgress called (${percent}%, ${message}) - delegating to ProgressOverlayConductor`);
+
+  // Delegate to the new centralized system
+  const { ProgressOverlayConductor } = await import('./navigation/ProgressOverlayConductor.js');
+  ProgressOverlayConductor.updateProgress(percent, message);
 }
 
 export async function hidePageLoadProgress() {
-  // Delegate to ProgressOverlayEnactor for consistent hiding
-  const { ProgressOverlayEnactor } = await import('./navigation/ProgressOverlayEnactor.js');
-  return await ProgressOverlayEnactor.hide();
+  console.log(`📊 [LEGACY] hidePageLoadProgress called - delegating to ProgressOverlayConductor`);
+
+  // Delegate to the new centralized system
+  const { ProgressOverlayConductor } = await import('./navigation/ProgressOverlayConductor.js');
+  return await ProgressOverlayConductor.hide();
 }
 
 export const togglePerimeterButtons = new TogglePerimeterButtons({
@@ -129,8 +120,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (pageType === "reader") {
     // ✅ Delegate fully to the new navigation system
     // NavigationManager handles ALL initialization including progress completion
+    // CRITICAL: Use .navigate() wrapper to ensure overlay is hidden after completion
     const { NavigationManager } = await import('./navigation/NavigationManager.js');
-    await NavigationManager.handleFreshPageLoad();
+    await NavigationManager.navigate('fresh-page-load');
 
     // Initialize footnote and citation click listeners after page loads
     initializeFootnoteCitationListeners();
