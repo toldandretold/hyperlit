@@ -70,6 +70,7 @@ class HomePageServerController extends Controller
                 'journal'
             ])
             ->where('listed', true)
+            ->where('visibility', '!=', 'private')
             ->get();
 
         // Calculate rankings
@@ -413,11 +414,6 @@ class HomePageServerController extends Controller
         // Pages (if not already added)
         if (!in_array($type, ['article']) && ($pages = $get('pages'))) {
             $html .= ", pp. {$pages}";
-        }
-
-        // URL
-        if ($url = $get('url')) {
-            $html .= ". <a href=\"{$url}\" target=\"_blank\">Available online</a>";
         }
 
         // DOI

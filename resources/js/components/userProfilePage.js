@@ -27,6 +27,7 @@ export function initializeUserProfilePage() {
         const target = e.target.closest('.delete-book');
         if (!target) return;
         e.preventDefault();
+        e.stopPropagation();
         const bookId = target.getAttribute('data-book');
         if (!bookId) return;
 
