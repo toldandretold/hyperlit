@@ -124,8 +124,8 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     );
 
     Route::post(
-        '/validate-citation-id',
-        [DbLibraryController::class, 'validateCitationId']
+        '/validate-book-id',
+        [DbLibraryController::class, 'validateBookId']
     );
 
     Route::post(

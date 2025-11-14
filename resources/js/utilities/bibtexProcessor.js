@@ -86,9 +86,9 @@ export async function formatBibtexToCitation(bibtex) {
 
 
 export function generateBibtexFromForm(data) {
-  // Use the citation ID or generate a unique key
-  const citationID = data.citation_id && data.citation_id.trim() !== ''
-    ? data.citation_id.trim()
+  // Use the book ID as the citation key (book is the primary key)
+  const citationID = data.book && data.book.trim() !== ''
+    ? data.book.trim()
     : 'citation' + Date.now();
 
   // Use the type or default to misc
@@ -126,9 +126,10 @@ export function generateBibtexFromForm(data) {
   return generatedBibtex;
 }
 
-export function buildBibtexEntry({ citationID, title, author }) {
+export function buildBibtexEntry({ book, title, author }) {
+  // Use book ID as citation key (book is the primary key)
   // Here we store the *raw* author ID field in the bibtex.
-  return `@book{${citationID},
+  return `@book{${book},
   author = {${author}},
   title  = {${title}},
   year   = {${new Date().getFullYear()}},

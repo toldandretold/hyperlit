@@ -302,7 +302,6 @@ public function bulkCreate(Request $request)
                 
                 $record = [
                     'book' => $item['book'] ?? null,
-                    'citationID' => $item['citationID'] ?? null,
                     'title' => $title,
                     'author' => $item['author'] ?? null,
                     'creator' => $creatorInfo['creator'], // Use server-determined creator
@@ -676,29 +675,30 @@ public function bulkCreate(Request $request)
     }
 
     /**
-     * Check if a citation ID (book ID) already exists in the database
+     * Check if a book ID already exists in the database
+     * The 'book' column is the primary key
      */
-    public function validateCitationId(Request $request)
+    public function validateBookId(Request $request)
     {
         try {
-            $citationId = $request->input('citation_id');
-            
-            if (!$citationId) {
+            $bookId = $request->input('book');
+
+            if (!$bookId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Citation ID is required'
+                    'message' => 'Book ID is required'
                 ], 400);
             }
-            
-            // Check if the citation ID exists in the book column
-            $existingRecord = PgLibrary::where('book', $citationId)->first();
+
+            // Check if the book ID exists in the book column (primary key)
+            $existingRecord = PgLibrary::where('book', $bookId)->first();
             
             if ($existingRecord) {
                 return response()->json([
                     'success' => true,
                     'exists' => true,
-                    'message' => 'Citation ID is already taken',
-                    'book_url' => url('/') . '/' . $citationId,
+                    'message' => 'Book ID is already taken',
+                    'book_url' => url('/') . '/' . $bookId,
                     'book_title' => $existingRecord->title,
                     'book_author' => $existingRecord->author
                 ]);
@@ -707,11 +707,11 @@ public function bulkCreate(Request $request)
             return response()->json([
                 'success' => true,
                 'exists' => false,
-                'message' => 'Citation ID is available'
+                'message' => 'Book ID is available'
             ]);
             
         } catch (\Exception $e) {
-            Log::error('Citation ID validation failed: ' . $e->getMessage());
+            Log::error('Book ID validation failed: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Validation check failed'

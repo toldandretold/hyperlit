@@ -74,7 +74,7 @@ function populateFieldsFromBibtex() {
     Object.entries(patterns).forEach(([field, pattern]) => {
         const match = bibtexText.match(pattern);
         if (match) {
-            const fieldName = field === 'id' ? 'citation_id' : field;
+            const fieldName = field === 'id' ? 'book' : field;
             const element = document.getElementById(fieldName);
             if (element) {
                 let newVal = match[1].trim();
@@ -94,9 +94,9 @@ function populateFieldsFromBibtex() {
 
     // If fields were updated programmatically, trigger their validation listeners
     if (changed) {
-        const citation = document.getElementById('citation_id');
+        const bookField = document.getElementById('book');
         const title = document.getElementById('title');
-        if (citation) citation.dispatchEvent(new Event('input', { bubbles: true }));
+        if (bookField) bookField.dispatchEvent(new Event('input', { bubbles: true }));
         if (title) title.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }
@@ -192,7 +192,7 @@ function saveFormData() {
         publisher: document.getElementById('publisher').value,
         year: document.getElementById('year').value,
         pages: document.getElementById('pages').value,
-        citation_id: document.getElementById('citation_id').value,
+        book: document.getElementById('book').value,
         url: document.getElementById('url').value,
         school: document.getElementById('school').value,
         note: document.getElementById('note').value,
@@ -224,7 +224,7 @@ function loadFormData() {
         // After restoring values, trigger validations so the user sees status immediately
         setTimeout(() => {
             try {
-                const citation = document.getElementById('citation_id');
+                const bookField = document.getElementById('book');
                 const title = document.getElementById('title');
                 const fileInput = document.getElementById('markdown_file');
 
@@ -265,9 +265,9 @@ export function initializeCitationFormListeners() {
     if (bibtexField) {
         // Helper to kick validators after programmatic autofill
         const triggerAutoValidation = () => {
-            const citation = document.getElementById('citation_id');
+            const bookField = document.getElementById('book');
             const title = document.getElementById('title');
-            if (citation) citation.dispatchEvent(new Event('input', { bubbles: true }));
+            if (bookField) bookField.dispatchEvent(new Event('input', { bubbles: true }));
             if (title) title.dispatchEvent(new Event('input', { bubbles: true }));
         };
         bibtexField.addEventListener('paste', function(e) {
@@ -376,7 +376,7 @@ function setupFormSubmission() {
 
         // Title + Citation ID validation (block duplicates)
         const submitButton = this.querySelector('button[type="submit"]');
-        const citationInput = this.querySelector('#citation_id');
+        const bookInput = this.querySelector('#book');
         const titleInput = this.querySelector('#title');
         const fileInput = this.querySelector('#markdown_file');
 
@@ -390,48 +390,48 @@ function setupFormSubmission() {
         }
 
         // Citation ID checks
-        const idVal = citationInput?.value?.trim() || '';
+        const idVal = bookInput?.value?.trim() || '';
         if (!idVal) {
-            errors.push({ field: 'Citation ID', message: 'Citation ID is required' });
-            const el = document.getElementById('citation_id-validation');
-            if (el) { el.textContent = 'Citation ID is required'; el.className = 'validation-message error'; }
+            errors.push({ field: 'Book ID', message: 'Book ID is required' });
+            const el = document.getElementById('book-validation');
+            if (el) { el.textContent = 'Book ID is required'; el.className = 'validation-message error'; }
         } else if (!/^[a-zA-Z0-9_-]+$/.test(idVal)) {
-            errors.push({ field: 'Citation ID', message: 'Only letters, numbers, underscores, and hyphens allowed' });
-            const el = document.getElementById('citation_id-validation');
+            errors.push({ field: 'Book ID', message: 'Only letters, numbers, underscores, and hyphens allowed' });
+            const el = document.getElementById('book-validation');
             if (el) { el.textContent = 'Only letters, numbers, underscores, and hyphens allowed'; el.className = 'validation-message error'; }
         } else if (idVal.length < 3) {
-            errors.push({ field: 'Citation ID', message: 'Citation ID must be at least 3 characters' });
-            const el = document.getElementById('citation_id-validation');
-            if (el) { el.textContent = 'Citation ID must be at least 3 characters'; el.className = 'validation-message error'; }
+            errors.push({ field: 'Book ID', message: 'Book ID must be at least 3 characters' });
+            const el = document.getElementById('book-validation');
+            if (el) { el.textContent = 'Book ID must be at least 3 characters'; el.className = 'validation-message error'; }
         } else {
             // Server availability check
             try {
-                const resp = await fetch('/api/validate-citation-id', {
+                const resp = await fetch('/api/validate-book-id', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
                     },
-                    body: JSON.stringify({ citation_id: idVal })
+                    body: JSON.stringify({ book: idVal })
                 });
                 const data = await resp.json();
                 if (!data.success) {
-                    errors.push({ field: 'Citation ID', message: 'Error checking citation ID availability' });
-                    const el = document.getElementById('citation_id-validation');
-                    if (el) { el.textContent = 'Error checking citation ID availability'; el.className = 'validation-message error'; }
+                    errors.push({ field: 'Book ID', message: 'Error checking book ID availability' });
+                    const el = document.getElementById('book-validation');
+                    if (el) { el.textContent = 'Error checking book ID availability'; el.className = 'validation-message error'; }
                 } else if (data.exists) {
-                    errors.push({ field: 'Citation ID', message: `Citation ID "${idVal}" is already taken` });
-                    const el = document.getElementById('citation_id-validation');
-                    if (el) { el.textContent = `Citation ID "${idVal}" is already taken`; el.className = 'validation-message error'; }
+                    errors.push({ field: 'Book ID', message: `Book ID "${idVal}" is already taken` });
+                    const el = document.getElementById('book-validation');
+                    if (el) { el.textContent = `Book ID "${idVal}" is already taken`; el.className = 'validation-message error'; }
                 } else {
-                    const el = document.getElementById('citation_id-validation');
-                    if (el) { el.textContent = 'Citation ID is available'; el.className = 'validation-message success'; }
+                    const el = document.getElementById('book-validation');
+                    if (el) { el.textContent = 'Book ID is available'; el.className = 'validation-message success'; }
                 }
             } catch (e) {
-                console.warn('Citation ID check failed', e);
-                errors.push({ field: 'Citation ID', message: 'Unable to verify citation ID availability' });
-                const el = document.getElementById('citation_id-validation');
-                if (el) { el.textContent = 'Unable to verify citation ID availability'; el.className = 'validation-message error'; }
+                console.warn('Book ID check failed', e);
+                errors.push({ field: 'Book ID', message: 'Unable to verify book ID availability' });
+                const el = document.getElementById('book-validation');
+                if (el) { el.textContent = 'Unable to verify book ID availability'; el.className = 'validation-message error'; }
             }
         }
 
@@ -723,14 +723,14 @@ function setupFormPersistence() {
 function setupRealTimeValidation() {
     // Validation functions
     const validators = {
-        validateCitationId: async (value) => {
-            if (!value) return { valid: false, message: 'Citation ID is required' };
+        validateBookId: async (value) => {
+            if (!value) return { valid: false, message: 'Book ID is required' };
             if (!/^[a-zA-Z0-9_-]+$/.test(value)) return { valid: false, message: 'Only letters, numbers, underscores, and hyphens allowed' };
-            if (value.length < 3) return { valid: false, message: 'Citation ID must be at least 3 characters' };
+            if (value.length < 3) return { valid: false, message: 'Book ID must be at least 3 characters' };
             
-            // Check database for existing citation ID
+            // Check database for existing book ID
             try {
-                const response = await fetch('/api/validate-citation-id', {
+                const response = await fetch('/api/validate-book-id', {
                     method: 'POST',
                     credentials: 'same-origin',
                     headers: {
@@ -738,7 +738,7 @@ function setupRealTimeValidation() {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
                     },
-                    body: JSON.stringify({ citation_id: value })
+                    body: JSON.stringify({ book: value })
                 });
                 
                 let data;
@@ -856,12 +856,12 @@ function setupRealTimeValidation() {
     
     // Validate form and update messages (do not disable the submit button pre-emptively)
     const validateForm = async () => {
-        const citationId = document.getElementById('citation_id');
+        const bookField = document.getElementById('book');
         const title = document.getElementById('title');
         const fileInput = document.getElementById('markdown_file');
         const submitButton = document.getElementById('createButton');
-        
-        if (!citationId || !title || !fileInput || !submitButton) return;
+
+        if (!bookField || !title || !fileInput || !submitButton) return;
         
         // Do not disable the button here to avoid Safari double-tap issues
         // Avoid hitting the server here; handle citation ID via its own listeners
@@ -902,31 +902,31 @@ function setupRealTimeValidation() {
     };
     
     // Set up individual field validators
-    const citationIdField = document.getElementById('citation_id');
-    if (citationIdField) {
+    const bookField = document.getElementById('book');
+    if (bookField) {
         let validationTimeout;
-        
-        citationIdField.addEventListener('input', function() {
+
+        bookField.addEventListener('input', function() {
             clearTimeout(validationTimeout);
             // Debounce the database check to avoid too many requests
             validationTimeout = setTimeout(async () => {
-                const result = await validators.validateCitationId(this.value);
-                showValidationMessage('citation_id', result);
+                const result = await validators.validateBookId(this.value);
+                showValidationMessage('book', result);
                 // Also refresh summary with current local field states
                 const titleResult = validators.validateTitle(document.getElementById('title')?.value || '');
                 const fileResult = validators.validateFile(document.getElementById('markdown_file'));
                 updateValidationSummary([
-                    { field: 'Citation ID', result },
+                    { field: 'Book ID', result },
                     { field: 'Title', result: titleResult },
                     { field: 'File', result: fileResult }
                 ]);
             }, 500);
         });
         
-        citationIdField.addEventListener('blur', async function() {
+        bookField.addEventListener('blur', async function() {
             clearTimeout(validationTimeout);
-            const result = await validators.validateCitationId(this.value);
-            showValidationMessage('citation_id', result);
+            const result = await validators.validateBookId(this.value);
+            showValidationMessage('book', result);
             const titleResult = validators.validateTitle(document.getElementById('title')?.value || '');
             const fileResult = validators.validateFile(document.getElementById('markdown_file'));
             updateValidationSummary([
