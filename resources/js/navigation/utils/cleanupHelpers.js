@@ -6,12 +6,10 @@
 import { cleanupReaderView } from '../../viewManager.js';
 import { resetEditModeState } from '../../components/editButton.js';
 import { destroyUserContainer } from '../../components/userContainer.js';
-import { destroyNewBookContainer } from '../../components/newBookButton.js';
 import { destroyHomepageDisplayUnit } from '../../homepageDisplayUnit.js';
 import { destroyUserProfileEditor } from '../../components/userProfileEditor.js';
 import { destroyLogoNav } from '../../components/logoNavToggle.js';
 import { closeHyperlitContainer } from '../../hyperlitContainer/index.js';
-import sourceManager from '../../components/sourceButton.js';
 
 /**
  * Clean up reader state
@@ -50,17 +48,16 @@ export async function cleanupHome() {
 
   try {
     // Destroy homepage-specific managers
-    // Already imported statically
     if (typeof destroyUserContainer === 'function') {
       destroyUserContainer();
     }
 
-    // Already imported statically
+    // Dynamically import to avoid circular dependency
+    const { destroyNewBookContainer } = await import('../../components/newBookButton.js');
     if (typeof destroyNewBookContainer === 'function') {
       destroyNewBookContainer();
     }
 
-    // Already imported statically
     if (typeof destroyHomepageDisplayUnit === 'function') {
       destroyHomepageDisplayUnit();
     }
@@ -114,13 +111,14 @@ export async function cleanupLogoNav() {
  */
 export async function closeOpenContainers() {
   try {
-    // Already imported statically
     closeHyperlitContainer();
 
     // Close source container if open
     const sourceButton = document.getElementById('cloudRef');
     if (sourceButton) {
-      // sourceManager already imported statically
+      // Dynamically import to avoid circular dependency
+      const sourceButtonModule = await import('../../components/sourceButton.js');
+      const sourceManager = sourceButtonModule.default;
       if (sourceManager && sourceManager.isOpen) {
         sourceManager.closeContainer();
       }

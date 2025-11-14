@@ -8,7 +8,6 @@ import { universalPageInitializer } from '../../viewManager.js';
 import { initializeLogoNav } from '../../components/logoNavToggle.js';
 import { initializeUserContainer } from '../../components/userContainer.js';
 import { initializeUserProfileEditor } from '../../components/userProfileEditor.js';
-import { initializeNewBookContainer } from '../../components/newBookButton.js';
 import { initializeHomepageButtons } from '../../homepageDisplayUnit.js';
 import { currentLazyLoader } from '../../initializePage.js';
 
@@ -165,17 +164,16 @@ export async function reinitializeContainerManagers() {
 
   try {
     // Initialize homepage-specific managers
-    // Already imported statically
     const userManager = initializeUserContainer();
 
     if (userManager && userManager.initializeUser) {
       await userManager.initializeUser();
     }
 
-    // Already imported statically
+    // Dynamically import to avoid circular dependency
+    const { initializeNewBookContainer } = await import('../../components/newBookButton.js');
     initializeNewBookContainer();
 
-    // Already imported statically
     initializeHomepageButtons();
 
   } catch (error) {
