@@ -1,9 +1,7 @@
 // In resources/js/homepage.js
 
-import './components/userContainer.js';
 import { initializeHomepageButtons } from './homepageDisplayUnit.js';
 import TogglePerimeterButtons from './components/togglePerimeterButtons.js';
-import './components/newBookButton.js';
 import { initializeLazyLoaderForContainer } from './initializePage.js';
 import { log, verbose } from './utilities/logger.js';
 
@@ -43,11 +41,11 @@ export async function initializeHomepage() {
       }
     }
 
-    // Import and rebind newBookButton manager
+    // Import and initialize newBookButton manager
     const newBookModule = await import('./components/newBookButton.js');
-    if (newBookModule.default && newBookModule.default.rebindElements) {
-      newBookModule.default.rebindElements();
-      verbose.init('New book button rebound after SPA transition', 'homepage.js');
+    const newBookManager = newBookModule.initializeNewBookContainer();
+    if (newBookManager) {
+      verbose.init('New book button initialized', 'homepage.js');
     }
   } catch (error) {
     console.warn('Could not rebind button managers:', error);

@@ -138,7 +138,6 @@ export default defineConfig({
                 'resources/js/hyperlights/index.js',
                 'resources/js/initializePage.js',
                 'resources/js/lazyLoaderFactory.js',
-                'resources/js/components/newBookButton.js',
                 'resources/js/components/newBookForm.js',
                 'resources/js/postgreSQL.js',
                 'resources/js/readerDOMContentLoaded.js',

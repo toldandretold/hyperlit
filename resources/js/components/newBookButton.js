@@ -5,10 +5,9 @@ import { ensureAuthInitialized } from "../utilities/auth.js";
 import { log, verbose } from "../utilities/logger.js";
 
 import { createNewBook, fireAndForgetSync } from "../createNewBook.js";
-import { enableEditMode } from './editButton.js';
 import { setInitialBookSyncPromise } from "../utilities/operationState.js";
 
- 
+
 
 export class NewBookContainerManager extends ContainerManager {
   constructor(
@@ -854,11 +853,6 @@ export function initializeNewBookContainer() {
     console.log('ℹ️ NewBookContainer: Button not found, skipping initialization');
     return null;
   }
-}
-
-// Auto-initialize if button exists on initial load
-if (document.getElementById("newBook")) {
-  newBookManager = initializeNewBookContainer();
 }
 
 // Destroy function for cleanup during navigation

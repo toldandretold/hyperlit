@@ -293,13 +293,10 @@ export async function universalPageInitializer(progressCallback = null) {
 
   }, 500);
 
-  // ✅ CRITICAL: Complete the progress bar to 100%
-  // Note: We don't hide the overlay here - let the navigation pathway handle that
-  // to avoid race conditions with multiple hide calls
-  if (progressCallback) {
-    progressCallback(100, "Complete");
-    verbose.init('Progress callback completed with 100%', 'viewManager.js');
-  }
+  // ✅ REMOVED: Don't call progressCallback(100) here
+  // For SPA navigation: The navigation pathway handles completion/hiding
+  // For fresh page loads: NavigationManager.navigate() hides the overlay after completion
+  // Calling progress(100) here was causing the overlay to show at 100% AFTER being hidden
 
 }
 

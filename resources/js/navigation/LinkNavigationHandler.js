@@ -116,17 +116,22 @@ export class LinkNavigationHandler {
     const link = event.target.closest('a');
     if (!link || !link.href) return;
 
+    console.log('🔗 [LINK CLICK] Link detected:', link.href);
+
     const linkUrl = new URL(link.href, window.location.origin);
     const currentUrl = new URL(window.location.href);
 
-    // --- SYNCHRONOUS DECISION --- 
+    // --- SYNCHRONOUS DECISION ---
     // Decide if this is an SPA-handled link without awaiting anything.
     const isExternal = linkUrl.origin !== currentUrl.origin;
     const shouldSkip = this.shouldSkipLinkHandling(link, linkUrl, currentUrl);
-    
+
+    console.log('🔗 [LINK CLICK] Decision:', { isExternal, shouldSkip, inContainer: !!link.closest('#hyperlit-container') });
+
     // If it's not external and not a special link handled elsewhere, it's for us.
     if (!isExternal && !shouldSkip) {
       event.preventDefault();
+      console.log('🔗 [LINK CLICK] Intercepted for SPA routing');
       verbose.nav('Intercepted link for SPA routing', '/navigation/LinkNavigationHandler.js', link.href);
 
       // --- ASYNCHRONOUS PROCESSING ---
@@ -136,18 +141,25 @@ export class LinkNavigationHandler {
         const currentBookPath = `/${book}`;
 
         if (this.isSameBookNavigation(linkUrl, currentUrl, currentBookPath)) {
+          console.log('🔗 [LINK CLICK] Routing to: SAME BOOK navigation');
           await this.handleSameBookNavigation(link, linkUrl);
+          console.log('🔗 [LINK CLICK] Same book navigation completed');
         } else if (this.isDifferentBookNavigation(linkUrl, currentBookPath)) {
+          console.log('🔗 [LINK CLICK] Routing to: BOOK TO BOOK navigation');
           await this.handleBookToBookNavigation(link, linkUrl);
+          console.log('🔗 [LINK CLICK] Book to book navigation completed');
         } else {
           // This case should not be reached if logic is correct, but as a fallback:
+          console.log('🔗 [LINK CLICK] No route matched, falling back to full navigation');
           verbose.nav('Link was not routed, falling back to full navigation', '/navigation/LinkNavigationHandler.js');
           window.location.href = link.href;
         }
       } catch (error) {
-        console.error('❌ SPA navigation failed, falling back to full navigation:', error);
+        console.error('❌ [LINK CLICK] SPA navigation failed, falling back to full navigation:', error);
         window.location.href = link.href;
       }
+    } else {
+      console.log('🔗 [LINK CLICK] Skipping - external or special link');
     }
   }
 
@@ -158,12 +170,8 @@ export class LinkNavigationHandler {
     // Skip hypercites and TOC links - they have their own handlers
     const isHypercite = link.closest('u.couple, u.poly') || link.classList.contains('hypercite-target');
     const isTocLink = link.closest('#toc-container');
-    
+
     if (isHypercite || isTocLink) {
-      // But show progress for cross-book hypercites
-      if (isHypercite) {
-        this.handleHyperciteProgress(linkUrl);
-      }
       return true;
     }
 
