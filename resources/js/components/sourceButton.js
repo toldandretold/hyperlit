@@ -60,7 +60,7 @@ async function buildSourceHtml(currentBookId) {
     const schoolField = record.school ? `  school = {${record.school}},\n` : '';
     const noteField = record.note ? `  note = {${record.note}},\n` : '';
     
-    bibtex = `@${record.type || 'book'}{${record.citationID || record.book},
+    bibtex = `@${record.type || 'book'}{${record.book},
   author = {${record.author || record.creator || 'Unknown Author'}},
   title = {${record.title || 'Untitled'}},
   year = {${year}},
@@ -720,12 +720,15 @@ export class SourceContainerManager extends ContainerManager {
     try {
       // Collect form data
       const formData = this.collectFormData();
-      
+
+      // Ensure book ID is available for BibTeX generation (used as citation key)
+      formData.book = originalRecord.book;
+
       // Always regenerate BibTeX from form data to ensure all fields are included
       const finalBibtex = await generateBibtexFromForm(formData);
       console.log("🔄 Regenerated BibTeX from form data:", finalBibtex);
 
-      
+
       // Update the record with new data AND regenerated BibTeX
       const updatedRecord = {
         ...originalRecord,
@@ -733,7 +736,7 @@ export class SourceContainerManager extends ContainerManager {
         bibtex: finalBibtex,
         timestamp: Date.now(), // Update timestamp when record is modified
 
-        book: originalRecord.book, // Keep original book ID
+        book: originalRecord.book, // Keep original book ID (primary key)
       };
       
       // 🧹 Clean the record before saving to prevent payload bloat

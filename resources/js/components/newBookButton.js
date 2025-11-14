@@ -234,12 +234,12 @@ export class NewBookContainerManager extends ContainerManager {
         <!-- Required Fields Section -->
         <div class="form-section">
           
-          <label for="citation_id" class="required">Citation ID <span class="required-indicator">*</span></label>
-          <input type="text" id="citation_id" name="citation_id" required 
-                 placeholder="e.g., smith2023, doe_2024_book" 
+          <label for="book" class="required">Book ID <span class="required-indicator">*</span></label>
+          <input type="text" id="book" name="book" required
+                 placeholder="e.g., smith2023, doe_2024_book"
                  title="Only letters, numbers, underscores, and hyphens allowed">
           <div class="field-hint">Unique identifier (letters, numbers, _, - only)</div>
-          <div id="citation_id-validation" class="validation-message"></div>
+          <div id="book-validation" class="validation-message"></div>
 
         </div>
 
@@ -750,8 +750,8 @@ loadFormData() {
     // Wait a bit for the form to be fully rendered
     setTimeout(() => {
       // Restore specific form fields by ID
-      const fieldIds = ['bibtex', 'citation_id', 'author', 'title', 'year', 'url', 'pages', 'journal', 'publisher', 'school', 'note', '_token'];
-      
+      const fieldIds = ['bibtex', 'book', 'author', 'title', 'year', 'url', 'pages', 'journal', 'publisher', 'school', 'note', '_token'];
+
       fieldIds.forEach(fieldId => {
         const element = document.getElementById(fieldId);
         if (element && data[fieldId]) {
@@ -791,7 +791,7 @@ loadFormData() {
 
       // Trigger validations after values are restored so messages appear without interaction
       try {
-        const citation = document.getElementById('citation_id');
+        const bookField = document.getElementById('book');
         const title = document.getElementById('title');
         const fileInput = document.getElementById('markdown_file');
 
@@ -800,9 +800,9 @@ loadFormData() {
           title.dispatchEvent(new Event('blur', { bubbles: true }));
         }
 
-        if (citation && citation.value) {
-          citation.dispatchEvent(new Event('input', { bubbles: true }));
-          citation.dispatchEvent(new Event('blur', { bubbles: true }));
+        if (bookField && bookField.value) {
+          bookField.dispatchEvent(new Event('input', { bubbles: true }));
+          bookField.dispatchEvent(new Event('blur', { bubbles: true }));
         }
 
         if (fileInput) {

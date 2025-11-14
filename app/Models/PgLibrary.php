@@ -16,7 +16,6 @@ class PgLibrary extends Model
         'book',
         'author',
         'bibtex',
-        'citationID',
         'fileName',
         'fileType',
         'journal',

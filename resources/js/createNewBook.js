@@ -206,7 +206,6 @@ export async function createNewBook() {
 
     const newLibraryRecord = {
       book: bookId,
-      citationID: bookId,
       title: "Untitled",
       author: null,
       type: "book",
