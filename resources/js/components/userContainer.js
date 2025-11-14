@@ -82,8 +82,13 @@ export class UserContainerManager extends ContainerManager {
   }
 
   handleDocumentClick(e) {
+      // Skip clicks inside hyperlit-container - they have their own handlers
+      if (e.target.closest('#hyperlit-container')) {
+        return;
+      }
+
       console.log(`🔗 UserContainer: Document click handler triggered`, e.target, e.target.id, e.target.tagName);
-      
+
       if (e.target.closest("#loginSubmit")) {
         console.log(`🔗 UserContainer: Login submit clicked`);
         e.preventDefault();
