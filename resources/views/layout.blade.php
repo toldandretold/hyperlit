@@ -110,5 +110,7 @@
         window.editPermissionDenied = true;
     </script>
     @endif
+
+    <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "d8043ef8f9484fffa2a00be19173a9ea"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>
