@@ -14,7 +14,7 @@ import {
   updateHyperciteInIndexedDB,
   getNodeChunkFromIndexedDB,
   toPublicChunk,
-  debouncedMasterSync
+  syncHyperciteWithNodeChunkImmediately
 } from '../../indexedDB/index.js';
 import { parseHyperciteHref } from '../../hypercites/index.js';
 import { broadcastToOpenTabs } from '../../utilities/BroadcastListener.js';
@@ -261,6 +261,18 @@ export async function handleHypercitePaste(event) {
           if (updateResult && updateResult.success) {
             console.log(`✅ Successfully linked: ${citationIDa} cited in ${citationIDb}`);
 
+            // Sync BOTH hypercite AND nodeChunk immediately in ONE atomic transaction
+            const hyperciteToSync = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
+            const nodeChunkToSync = await getNodeChunkFromIndexedDB(booka, updateResult.startLine);
+
+            if (hyperciteToSync && nodeChunkToSync) {
+              console.log("🚀 Syncing hypercite + nodeChunk in unified transaction...");
+              await syncHyperciteWithNodeChunkImmediately(booka, hyperciteToSync, nodeChunkToSync);
+              console.log("✅ Hypercite + nodeChunk synced to server in one transaction.");
+            } else {
+              console.error("❌ Failed to fetch hypercite or nodeChunk from IndexedDB for sync");
+            }
+
             // Update the DOM in the CURRENT tab
             const localElement = document.getElementById(hyperciteIDa);
             if (localElement) {
@@ -279,11 +291,6 @@ export async function handleHypercitePaste(event) {
           // Continue processing other hypercites even if one fails
         }
       }
-
-      // Flush sync queue immediately to ensure cross-device citation linking
-      console.log("⚡ Flushing sync queue immediately after single hypercite paste...");
-      await debouncedMasterSync.flush();
-      console.log("✅ Sync queue flushed.");
     } else {
       // MULTIPLE HYPERCITES: Batch all updates into ONE request
       const updatedHypercites = [];

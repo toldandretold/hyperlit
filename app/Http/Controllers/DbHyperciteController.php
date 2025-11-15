@@ -52,10 +52,17 @@ class DbHyperciteController extends Controller
     {
         try {
             $data = $request->all();
-            
+
             if (isset($data['data']) && is_array($data['data'])) {
                 foreach ($data['data'] as $item) {
-                    PgHypercite::updateOrCreate(
+                    Log::debug('Upserting hypercite', [
+                        'book' => $item['book'] ?? null,
+                        'hyperciteId' => $item['hyperciteId'] ?? null,
+                        'relationshipStatus' => $item['relationshipStatus'] ?? null,
+                        'citedIN' => $item['citedIN'] ?? []
+                    ]);
+
+                    $result = PgHypercite::updateOrCreate(
                         [
                             'book' => $item['book'] ?? null,
                             'hyperciteId' => $item['hyperciteId'] ?? null,
@@ -72,6 +79,14 @@ class DbHyperciteController extends Controller
                             'updated_at' => now(),
                         ]
                     );
+
+                    Log::debug('Hypercite upserted', [
+                        'book' => $item['book'] ?? null,
+                        'hyperciteId' => $item['hyperciteId'] ?? null,
+                        'wasRecentlyCreated' => $result->wasRecentlyCreated,
+                        'final_relationshipStatus' => $result->relationshipStatus,
+                        'final_citedIN' => $result->citedIN
+                    ]);
                 }
                 
                 return response()->json(['success' => true, 'message' => 'Hypercites synced successfully']);
