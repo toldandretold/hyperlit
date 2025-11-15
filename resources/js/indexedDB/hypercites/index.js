@@ -129,6 +129,7 @@ export async function updateHyperciteInIndexedDB(book, hyperciteId, updatedField
 
           updateRequest.onsuccess = async() => {
             console.log(`Successfully updated hypercite for key: [${book}, ${hyperciteId}]`);
+            console.log(`🔍 Queuing hypercite with citedIN:`, existingRecord.citedIN, `status:`, existingRecord.relationshipStatus);
             await updateBookTimestamp(book);
             if (!skipQueue) {
               queueForSync("hypercites", hyperciteId, "update", existingRecord);
@@ -394,4 +395,5 @@ export function updateCitationForExistingHypercite(
 export {
   syncHyperciteToPostgreSQL,
   syncHyperciteUpdateImmediately,
+  syncHyperciteWithNodeChunkImmediately,
 } from './syncHypercitesToPostgreSQL.js';

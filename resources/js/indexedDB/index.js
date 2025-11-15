@@ -122,6 +122,7 @@ export {
   initHypercitesDependencies,
   syncHyperciteToPostgreSQL,
   syncHyperciteUpdateImmediately,
+  syncHyperciteWithNodeChunkImmediately,
 } from './hypercites/index.js';
 
 // ============================================================================
