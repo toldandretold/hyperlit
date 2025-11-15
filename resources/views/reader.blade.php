@@ -454,6 +454,7 @@
   <div id="user-overlay"></div>
   <div id="user-container" class="hidden" style="visibility: hidden;"></div>
 
+</div><!-- Close app-container -->
 
 @endsection
 

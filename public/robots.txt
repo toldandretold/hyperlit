@@ -1,6 +1,11 @@
 # Hyperlit robots.txt
 # Because we believe in open access, not open exploitation
 
+# LICENSE NOTICE
+# Software: GNU Affero General Public License v3.0 (AGPL-3.0) - See /LICENSE
+# Content: CC BY-SA 4.0 + AI Training Prohibition (unless creator specifies otherwise) - See /LICENSE-CONTENT.md
+# By accessing this site, you agree to these license terms.
+
 # Block all AI scrapers and commercial crawlers
 User-agent: GPTBot
 Disallow: /

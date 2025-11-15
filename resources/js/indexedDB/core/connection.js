@@ -7,8 +7,10 @@
  * Database schema version
  * IMPORTANT: Increment this version number ONLY when you need to change the database schema.
  * For instance, if you add a new store, add a new index, or modify a keyPath.
+ *
+ * Version 23: Added 'license' and 'custom_license_text' fields to library store
  */
-export const DB_VERSION = 22;
+export const DB_VERSION = 23;
 
 /**
  * Opens (or creates) the IndexedDB database.
