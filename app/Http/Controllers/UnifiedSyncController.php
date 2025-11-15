@@ -80,6 +80,11 @@ class UnifiedSyncController extends Controller
 
                 // 2. Sync hypercites (if present)
                 if (!empty($data['hypercites'])) {
+                    Log::debug('Hypercites data received in unified sync', [
+                        'book' => $bookId,
+                        'hypercites' => $data['hypercites']
+                    ]);
+
                     $hyperciteController = new DbHyperciteController();
                     $hyperciteRequest = new Request(['book' => $bookId, 'data' => $data['hypercites']]);
                     $hyperciteRequest->setUserResolver(function () use ($request) {
