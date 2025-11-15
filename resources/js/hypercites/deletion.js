@@ -5,7 +5,7 @@
  * When a hypercite citation is deleted, it updates the source hypercite's citedIN array.
  */
 
-import { openDatabase, updateBookTimestamp, queueForSync, debouncedMasterSync, getLibraryObjectFromIndexedDB } from '../indexedDB/index.js';
+import { openDatabase, updateBookTimestamp, getHyperciteFromIndexedDB, syncHyperciteWithNodeChunkImmediately } from '../indexedDB/index.js';
 import { book } from '../app.js';
 import { extractHyperciteIdFromHref, determineRelationshipStatus, removeCitedINEntry } from './utils.js';
 import { getHyperciteById } from './database.js';
@@ -116,14 +116,6 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
       });
 
       console.log(`✅ Updated nodeChunk hypercites array for startLine ${foundNodeChunk.startLine}`);
-
-      // Queue the UPDATED nodeChunk for sync to PostgreSQL
-      queueForSync(
-        "nodeChunks",
-        foundNodeChunk.startLine,
-        "update",
-        foundNodeChunk
-      );
     } else {
       console.warn(`⚠️ Hypercite ${targetHyperciteId} not found in any nodeChunk`);
     }
@@ -133,7 +125,26 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
       nodeChunksTx.onerror = () => reject(nodeChunksTx.error);
     });
 
-    // Step 8: Update book timestamps for BOTH affected books
+    // Step 8: Sync BOTH hypercite AND nodeChunk immediately in ONE atomic transaction
+    if (foundNodeChunk) {
+      console.log("🚀 Syncing hypercite + nodeChunk deletion in unified transaction...");
+
+      // Fetch the updated hypercite from IndexedDB
+      const hyperciteToSync = await getHyperciteFromIndexedDB(targetHypercite.book, targetHyperciteId);
+
+      if (hyperciteToSync) {
+        await syncHyperciteWithNodeChunkImmediately(
+          targetHypercite.book,
+          hyperciteToSync,
+          foundNodeChunk
+        );
+        console.log("✅ Hypercite + nodeChunk deletion synced to server in one transaction.");
+      } else {
+        console.error("❌ Failed to fetch hypercite from IndexedDB for sync");
+      }
+    }
+
+    // Step 9: Update book timestamps for BOTH affected books
     const affectedBooks = new Set([targetHypercite.book]); // Book A (where cited text lives)
 
     // Also update the book where the deletion occurred (Book B)
@@ -147,19 +158,6 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
     for (const bookId of affectedBooks) {
       await updateBookTimestamp(bookId);
     }
-
-    queueForSync(
-      "hypercites",
-      updatedHypercite.hyperciteId,
-      "update",
-      updatedHypercite
-    );
-
-    // 🔥 CRITICAL FIX: Flush sync queue immediately to persist timestamp updates
-    // This ensures changes are saved before user navigates away
-    console.log("⚡ Flushing sync queue immediately for hypercite deletion...");
-    await debouncedMasterSync.flush();
-    console.log("✅ Sync queue flushed.");
 
     console.log("✅ Delink process completed successfully");
 
