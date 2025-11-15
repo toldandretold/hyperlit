@@ -607,8 +607,8 @@ async function loadBibliographyToIndexedDB(db, bibliography) {
     return;
   }
 
-  const tx = db.transaction('references', 'readwrite');
-  const store = tx.objectStore('references');
+  const tx = db.transaction('bibliography', 'readwrite');
+  const store = tx.objectStore('bibliography');
 
   // Convert bibliography.data object to individual records
   const bibliographyData = bibliography.data;

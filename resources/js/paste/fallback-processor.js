@@ -171,8 +171,8 @@ export async function saveReferencesToIndexedDB(references, bookId) {
 
   try {
     const db = await openDatabase();
-    const tx = db.transaction(['references'], 'readwrite');
-    const store = tx.objectStore('references');
+    const tx = db.transaction(['bibliography'], 'readwrite');
+    const store = tx.objectStore('bibliography');
 
     for (const reference of references) {
       const key = [bookId, reference.referenceId];
