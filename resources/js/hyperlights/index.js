@@ -37,13 +37,13 @@ let highlightLazyLoader;
  */
 export function initOrUpdateHighlightLazyLoader(chunks) {
   if (highlightLazyLoader) {
-    // Update the nodeChunks if the lazy loader already exists.
-    highlightLazyLoader.nodeChunks = chunks;
+    // Update the nodes if the lazy loader already exists.
+    highlightLazyLoader.nodes = chunks;
   } else {
     // Create the lazy loader with the given chunks.
     highlightLazyLoader = createLazyLoader({
       container: document.getElementById("highlight-container"),
-      nodeChunks: chunks,
+      nodes: chunks,
       loadNextChunk: loadNextChunkFixed,
       loadPreviousChunk: loadPreviousChunkFixed,
       attachMarkListeners: _attachMarkListeners,

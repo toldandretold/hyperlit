@@ -18,8 +18,8 @@ export async function getNodeChunksFromIndexedDB(bookId = "latest") {
   verbose.content(`Fetching nodes from IndexedDB: ${bookId}`, '/indexedDB/nodes/read.js');
 
   const db = await openDatabase();
-  const tx = db.transaction("nodeChunks", "readonly");
-  const store = tx.objectStore("nodeChunks");
+  const tx = db.transaction("nodes", "readonly");
+  const store = tx.objectStore("nodes");
 
   return new Promise((resolve, reject) => {
     // Use the book index for more efficient lookup
@@ -37,7 +37,7 @@ export async function getNodeChunksFromIndexedDB(bookId = "latest") {
     };
 
     request.onerror = () => {
-      reject("❌ Error loading nodes from nodeChunks object store in IndexedDB");
+      reject("❌ Error loading nodes from nodes object store in IndexedDB");
     };
   });
 }
@@ -50,11 +50,11 @@ export async function getNodeChunksFromIndexedDB(bookId = "latest") {
  * @returns {Promise<Array>} Array of node chunks sorted by startLine
  */
 export async function getAllNodeChunksForBook(bookId) {
-  console.log("Fetching ALL nodes from nodeChunks object store in IndexedDB for renumbering, book:", bookId);
+  console.log("Fetching ALL nodes from nodes object store in IndexedDB for renumbering, book:", bookId);
 
   const db = await openDatabase();
-  const tx = db.transaction("nodeChunks", "readonly");
-  const store = tx.objectStore("nodeChunks");
+  const tx = db.transaction("nodes", "readonly");
+  const store = tx.objectStore("nodes");
 
   return new Promise((resolve, reject) => {
     const index = store.index("book");
@@ -66,13 +66,13 @@ export async function getAllNodeChunksForBook(bookId) {
       // Sort by startLine to preserve document order
       results.sort((a, b) => a.startLine - b.startLine);
 
-      console.log(`✅ Retrieved ${results.length} nodes from nodeChunks object store in IndexedDB for renumbering`);
+      console.log(`✅ Retrieved ${results.length} nodes from nodes object store in IndexedDB for renumbering`);
       resolve(results);
     };
 
     request.onerror = () => {
-      console.error("❌ Error loading nodes from nodeChunks object store in IndexedDB for renumbering");
-      reject("❌ Error loading nodes from nodeChunks object store in IndexedDB");
+      console.error("❌ Error loading nodes from nodes object store in IndexedDB for renumbering");
+      reject("❌ Error loading nodes from nodes object store in IndexedDB");
     };
   });
 }
@@ -87,7 +87,7 @@ export async function getAllNodeChunksForBook(bookId) {
 export async function getNodeChunkFromIndexedDB(book, startLine) {
   return new Promise((resolve, reject) => {
     const dbName = "MarkdownDB";
-    const storeName = "nodeChunks";
+    const storeName = "nodes";
 
     const numericStartLine = parseNodeId(startLine);
     const request = indexedDB.open(dbName);
@@ -131,7 +131,7 @@ export async function getNodeChunkFromIndexedDB(book, startLine) {
 export async function getNodeChunksAfter(book, afterNodeId) {
   const numericAfter = parseNodeId(afterNodeId);
   const dbName = "MarkdownDB";
-  const storeName = "nodeChunks";
+  const storeName = "nodes";
 
   return new Promise((resolve) => {
     const openReq = indexedDB.open(dbName);

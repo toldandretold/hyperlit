@@ -1,10 +1,11 @@
 import { openDatabase, parseNodeId, prepareLibraryForIndexedDB } from "./indexedDB/index.js";
+import { DB_VERSION } from "./indexedDB/core/connection.js";
 import { getCurrentUser, getAuthorId } from "./utilities/auth.js";
 import { log, verbose } from './utilities/logger.js';
 
 async function syncBookDataToServer(bookName, objectStoreName, method = 'upsert') {
     const storeConfig = {
-        nodeChunks: {
+        nodes: {
             endpoint: `/api/db/node-chunks/${method}`,
             keyRange: IDBKeyRange.bound([bookName, 0], [bookName, Number.MAX_VALUE]),
             useCompositeKey: true
@@ -35,7 +36,7 @@ async function syncBookDataToServer(bookName, objectStoreName, method = 'upsert'
 
     try {
         const db = await new Promise((resolve, reject) => {
-            const request = indexedDB.open("MarkdownDB", 21);
+            const request = indexedDB.open("MarkdownDB", DB_VERSION);
             request.onerror = () => reject(request.error);
             request.onsuccess = () => resolve(request.result);
         });
@@ -147,7 +148,7 @@ async function syncAllBookData(bookName) {
 
   // 2) Once library exists, fire off the rest
   const [nc, hl, hc, fn] = await Promise.all([
-    syncBookDataToServer(bookName, 'nodeChunks'),
+    syncBookDataToServer(bookName, 'nodes'),
     syncBookDataToServer(bookName, 'hyperlights'),
     syncBookDataToServer(bookName, 'hypercites'),
     syncBookDataToServer(bookName, 'footnotes'),
@@ -164,7 +165,7 @@ async function syncAllBooksInLibrary(method = 'upsert') {
     try {
         // Open the database
         const db = await new Promise((resolve, reject) => {
-            const request = indexedDB.open("MarkdownDB", 15);
+            const request = indexedDB.open("MarkdownDB", DB_VERSION);
             request.onerror = () => reject(request.error);
             request.onsuccess = () => resolve(request.result);
         });
@@ -220,7 +221,7 @@ async function syncAllBooksInLibraryParallel(method = 'upsert') {
 
     try {
         const db = await new Promise((resolve, reject) => {
-            const request = indexedDB.open("MarkdownDB", 15);
+            const request = indexedDB.open("MarkdownDB", DB_VERSION);
             request.onerror = () => reject(request.error);
             request.onsuccess = () => resolve(request.result);
         });
@@ -267,7 +268,7 @@ async function syncAllBooksInLibraryParallel(method = 'upsert') {
 async function getAllBookNamesFromLibrary() {
     try {
         const db = await new Promise((resolve, reject) => {
-            const request = indexedDB.open("MarkdownDB", 15);
+            const request = indexedDB.open("MarkdownDB", DB_VERSION);
             request.onerror = () => reject(request.error);
             request.onsuccess = () => resolve(request.result);
         });
@@ -301,7 +302,7 @@ syncAllBookData("book_1748646769736", "upsert");
 // Individual syncs with upsert
 syncBookDataToServer("book_1748495788845", "hyperlights", "upsert");
 syncBookDataToServer("book_1748495788845", "hypercites", "upsert");
-syncBookDataToServer("book_1748495788845", "nodeChunks", "upsert");
+syncBookDataToServer("book_1748495788845", "nodes", "upsert");
 syncBookDataToServer("book_1748495788845", "library", "upsert");
 syncBookDataToServer("book_1748495788845", "footnotes", "upsert");
 
@@ -312,7 +313,7 @@ syncAllBookData("book_1748495788845", "bulk-create");
 // Individual syncs with bulk-create
 syncBookDataToServer("book_1748495788845", "hyperlights", "bulk-create");
 syncBookDataToServer("book_1748495788845", "hypercites", "bulk-create");
-syncBookDataToServer("book_1748495788845", "nodeChunks", "bulk-create");
+syncBookDataToServer("book_1748495788845", "nodes", "bulk-create");
 syncBookDataToServer("book_1748495788845", "library", "bulk-create");
 syncBookDataToServer("book_1748495788845", "footnotes", "bulk-create");
 
@@ -363,7 +364,7 @@ export async function syncBookDataFromDatabase(bookId) {
     }
 
     const data = await response.json();
-    verbose.content(`Data received: ${data.nodeChunks?.length || 0} nodes, ${data.hyperlights?.length || 0} highlights`, 'postgreSQL.js');
+    verbose.content(`Data received: ${data.nodes?.length || 0} nodes, ${data.hyperlights?.length || 0} highlights`, 'postgreSQL.js');
 
     // 2. Open IndexedDB
     verbose.content('Opening IndexedDB', 'postgreSQL.js');
@@ -376,7 +377,7 @@ export async function syncBookDataFromDatabase(bookId) {
     // 4. Load all data types into IndexedDB
     verbose.content('Loading all data types into IndexedDB', 'postgreSQL.js');
     const loadResults = await Promise.allSettled([
-      loadNodeChunksToIndexedDB(db, data.nodeChunks),
+      loadNodeChunksToIndexedDB(db, data.nodes),
       loadFootnotesToIndexedDB(db, data.footnotes),
       loadBibliographyToIndexedDB(db, data.bibliography),
       loadHyperlightsToIndexedDB(db, data.hyperlights),
@@ -385,7 +386,7 @@ export async function syncBookDataFromDatabase(bookId) {
     ]);
 
     // Log results of each load operation
-    const loadTypes = ['nodeChunks', 'footnotes', 'bibliography', 'hyperlights', 'hypercites', 'library'];
+    const loadTypes = ['nodes', 'footnotes', 'bibliography', 'hyperlights', 'hypercites', 'library'];
     loadResults.forEach((result, index) => {
       if (result.status === 'rejected') {
         console.error(`❌ ${loadTypes[index]} failed to load:`, result.reason);
@@ -406,7 +407,7 @@ export async function syncBookDataFromDatabase(bookId) {
       metadata: data.metadata,
       reason: 'synced_from_database',
       loaded_counts: {
-        nodeChunks: data.nodeChunks?.length || 0,
+        nodes: data.nodes?.length || 0,
         hyperlights: data.hyperlights?.length || 0,
         hypercites: data.hypercites?.length || 0
       }
@@ -435,7 +436,7 @@ async function clearBookDataFromIndexedDB(db, bookId) {
   verbose.content(`Clearing existing data for book: ${bookId}`, 'postgreSQL.js');
 
   // Clear stores that have book-based indices
-  const bookIndexedStores = ['nodeChunks', 'hyperlights', 'hypercites'];
+  const bookIndexedStores = ['nodes', 'hyperlights', 'hypercites'];
 
   for (const storeName of bookIndexedStores) {
     const tx = db.transaction(storeName, 'readwrite');
@@ -496,22 +497,22 @@ async function clearBookDataFromIndexedDB(db, bookId) {
 /**
  * Load node chunks into IndexedDB
  */
-async function loadNodeChunksToIndexedDB(db, nodeChunks) {
-  if (!nodeChunks || nodeChunks.length === 0) {
+async function loadNodeChunksToIndexedDB(db, nodes) {
+  if (!nodes || nodes.length === 0) {
     verbose.content('No nodes to load', 'postgreSQL.js');
     return;
   }
 
-  verbose.content(`Loading ${nodeChunks.length} nodes`, 'postgreSQL.js');
+  verbose.content(`Loading ${nodes.length} nodes`, 'postgreSQL.js');
 
-  const tx = db.transaction('nodeChunks', 'readwrite');
-  const store = tx.objectStore('nodeChunks');
+  const tx = db.transaction('nodes', 'readwrite');
+  const store = tx.objectStore('nodes');
 
   let chunksWithHighlights = 0;
   let totalEmbeddedHighlights = 0;
   let userHighlightCount = 0;
 
-  for (const [chunkIndex, chunk] of nodeChunks.entries()) {
+  for (const [chunkIndex, chunk] of nodes.entries()) {
     // ✅ Convert startLine AND parse JSON fields
     let parsedHyperlights = null;
     if (chunk.hyperlights) {
@@ -558,7 +559,7 @@ async function loadNodeChunksToIndexedDB(db, nodeChunks) {
     });
   }
 
-  verbose.content(`Loaded ${nodeChunks.length} nodes (${chunksWithHighlights} with highlights, ${userHighlightCount} user highlights)`, 'postgreSQL.js');
+  verbose.content(`Loaded ${nodes.length} nodes (${chunksWithHighlights} with highlights, ${userHighlightCount} user highlights)`, 'postgreSQL.js');
 }
 
 

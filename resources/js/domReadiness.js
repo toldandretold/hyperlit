@@ -432,7 +432,7 @@ export async function waitForNavigationTarget(targetId, container, expectedChunk
 
 /**
  * Wait for content to be fully loaded and ready for use
- * This ensures nodeChunks are available and lazy loader is properly initialized
+ * This ensures nodes are available and lazy loader is properly initialized
  * @param {string} bookId - The book ID to wait for
  * @param {Object} options - Configuration options
  * @returns {Promise<void>} - Resolves when content is ready
@@ -460,10 +460,10 @@ export async function waitForContentReady(bookId, options = {}) {
         return;
       }
       
-      // Check 1: nodeChunks must be available
-      if (!window.nodeChunks || window.nodeChunks.length === 0) {
+      // Check 1: nodes must be available
+      if (!window.nodes || window.nodes.length === 0) {
         if (attempts % 10 === 0) {
-          console.log(`⏳ Still waiting for nodeChunks... (attempt ${attempts}, ${elapsed}ms)`);
+          console.log(`⏳ Still waiting for nodes... (attempt ${attempts}, ${elapsed}ms)`);
         }
         setTimeout(checkContentReady, checkInterval);
         return;
@@ -502,7 +502,7 @@ export async function waitForContentReady(bookId, options = {}) {
           
           // All checks passed!
           console.log(`✅ Content ready for ${bookId} after ${attempts} attempts (${elapsed}ms)`);
-          console.log(`   - nodeChunks: ${window.nodeChunks.length} chunks available`);
+          console.log(`   - nodes: ${window.nodes.length} chunks available`);
           console.log(`   - lazyLoader: initialized with book ${currentLazyLoader.bookId}`);
           console.log(`   - container: #${bookId} found in DOM`);
           resolve();
@@ -528,7 +528,7 @@ export async function waitForContentReady(bookId, options = {}) {
         
         // All checks passed (without lazy loader)
         console.log(`✅ Content ready for ${bookId} after ${attempts} attempts (${elapsed}ms) - no lazy loader required`);
-        console.log(`   - nodeChunks: ${window.nodeChunks.length} chunks available`);
+        console.log(`   - nodes: ${window.nodes.length} chunks available`);
         console.log(`   - container: #${bookId} found in DOM`);
         resolve();
       }

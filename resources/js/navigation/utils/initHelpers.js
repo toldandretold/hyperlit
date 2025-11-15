@@ -193,8 +193,8 @@ export async function reinitializeContainerManagers() {
 export async function ensureContentLoaded(bookId) {
 
   try {
-    if (!window.nodeChunks || window.nodeChunks.length === 0) {
-      console.warn('No nodeChunks available');
+    if (!window.nodes || window.nodes.length === 0) {
+      console.warn('No nodes available');
       return;
     }
 
@@ -211,7 +211,7 @@ export async function ensureContentLoaded(bookId) {
     }
 
     // Load the first chunk
-    const firstChunk = window.nodeChunks.find(chunk => chunk.chunk_id === 0) || window.nodeChunks[0];
+    const firstChunk = window.nodes.find(chunk => chunk.chunk_id === 0) || window.nodes[0];
     if (firstChunk) {
       currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");
     }

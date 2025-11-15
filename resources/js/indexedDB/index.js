@@ -20,7 +20,7 @@ import { initNodeDeleteDependencies } from './nodes/delete.js';
 import { initNodeNormalizeDependencies } from './nodes/normalize.js';
 import { initHypercitesDependencies } from './hypercites/index.js';
 import { initFootnotesDependencies } from './footnotes/index.js';
-import { initReferencesDependencies } from './references/index.js';
+import { initReferencesDependencies } from './bibliography/index.js';
 import { initSyncQueueDependencies } from './syncQueue/queue.js';
 import { initMasterSyncDependencies } from './syncQueue/master.js';
 import { initUnloadSyncDependencies } from './syncQueue/unload.js';
@@ -145,7 +145,7 @@ export {
   saveAllReferencesToIndexedDB,
   initReferencesDependencies,
   syncReferencesToPostgreSQL,
-} from './references/index.js';
+} from './bibliography/index.js';
 
 // ============================================================================
 // SYNC QUEUE SYSTEM

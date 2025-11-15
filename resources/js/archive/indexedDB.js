@@ -91,7 +91,7 @@ export async function openDatabase() {
       // This is the target state we are migrating to.
       const ALL_STORE_CONFIGS = [
         {
-          name: "nodeChunks",
+          name: "nodes",
           keyPath: ["book", "startLine"],
           indices: [
             "chunk_id",
@@ -108,7 +108,7 @@ export async function openDatabase() {
         },
         
         {
-          name: "references",
+          name: "bibliography",
           keyPath: ["book", "referenceId"], // Composite key for uniqueness
           indices: ["book", "referenceId"], // Indices for fast lookups
         },
@@ -253,14 +253,14 @@ export async function executeSyncPayload(payload) {
 
   // Prepare node chunks (combine updates and deletions)
   const allNodeChunks = [
-    ...payload.updates.nodeChunks.map(toPublicChunk).filter(Boolean),
-    ...payload.deletions.nodeChunks,
+    ...payload.updates.nodes.map(toPublicChunk).filter(Boolean),
+    ...payload.deletions.nodes,
   ];
 
   // Prepare the unified sync request payload
   const unifiedPayload = {
     book: bookId,
-    nodeChunks: allNodeChunks,
+    nodes: allNodeChunks,
     hypercites: payload.updates.hypercites || [],
     hyperlights: payload.updates.hyperlights || [],
     hyperlightDeletions: payload.deletions.hyperlights || [],
@@ -337,16 +337,16 @@ export const debouncedMasterSync = debounce(async () => {
 
   const historyLogPayload = {
     book: bookId,
-    updates: { nodeChunks: [], hypercites: [], hyperlights: [], library: null },
-    deletions: { nodeChunks: [], hyperlights: [], hypercites: [], library: null },
+    updates: { nodes: [], hypercites: [], hyperlights: [], library: null },
+    deletions: { nodes: [], hyperlights: [], hypercites: [], library: null },
   };
 
   // Populate the history payload directly from the queued items
   for (const item of itemsToSync.values()) {
     if (item.type === "update") {
       // Add the new state to 'updates'
-      if (item.store === "nodeChunks") {
-        historyLogPayload.updates.nodeChunks.push(toPublicChunk(item.data));
+      if (item.store === "nodes") {
+        historyLogPayload.updates.nodes.push(toPublicChunk(item.data));
       } else if (item.store === "library") {
         historyLogPayload.updates.library = item.data;
       } else {
@@ -355,8 +355,8 @@ export const debouncedMasterSync = debounce(async () => {
 
       // Add the original state (if it exists) to 'deletions'
       if (item.originalData) {
-        if (item.store === "nodeChunks") {
-          historyLogPayload.deletions.nodeChunks.push(toPublicChunk(item.originalData));
+        if (item.store === "nodes") {
+          historyLogPayload.deletions.nodes.push(toPublicChunk(item.originalData));
         } else if (item.store === "library") {
           historyLogPayload.deletions.library = item.originalData;
         } else {
@@ -366,8 +366,8 @@ export const debouncedMasterSync = debounce(async () => {
     } else if (item.type === "delete") {
       // Add the deleted record to 'deletions'
       if (item.data) {
-        if (item.store === "nodeChunks") {
-          historyLogPayload.deletions.nodeChunks.push(toPublicChunk(item.data));
+        if (item.store === "nodes") {
+          historyLogPayload.deletions.nodes.push(toPublicChunk(item.data));
         } else {
           historyLogPayload.deletions[item.store].push(item.data);
         }
@@ -401,20 +401,20 @@ export const debouncedMasterSync = debounce(async () => {
     if (!navigator.onLine) throw new Error("Offline");
     const syncPayload = {
       book: bookId,
-      updates: { nodeChunks: [], hypercites: [], hyperlights: [], library: null },
-      deletions: { nodeChunks: [], hyperlights: [], hypercites: [] },
+      updates: { nodes: [], hypercites: [], hyperlights: [], library: null },
+      deletions: { nodes: [], hyperlights: [], hypercites: [] },
     };
     for (const item of itemsToSync.values()) {
       if (item.type === "update" && item.data) {
         switch (item.store) {
-          case "nodeChunks": syncPayload.updates.nodeChunks.push(item.data); break;
+          case "nodes": syncPayload.updates.nodes.push(item.data); break;
           case "hypercites": syncPayload.updates.hypercites.push(item.data); break;
           case "hyperlights": syncPayload.updates.hyperlights.push(item.data); break;
           case "library": syncPayload.updates.library = item.data; break;
         }
       } else if (item.type === "delete" && item.data) {
         switch (item.store) {
-          case "nodeChunks": syncPayload.deletions.nodeChunks.push({ ...item.data, _action: "delete" }); break;
+          case "nodes": syncPayload.deletions.nodes.push({ ...item.data, _action: "delete" }); break;
           case "hyperlights": syncPayload.deletions.hyperlights.push({ ...item.data, _action: "delete" }); break;
           case "hypercites": syncPayload.deletions.hypercites.push({ ...item.data, _action: "delete" }); break;
         }
@@ -466,13 +466,13 @@ function syncOnUnload() {
   const payload = {
     book: bookId,
     updates: {
-      nodeChunks: [],
+      nodes: [],
       hypercites: [],
       hyperlights: [],
       library: null,
     },
     deletions: {
-      nodeChunks: [],
+      nodes: [],
       hyperlights: [],
     },
   };
@@ -482,8 +482,8 @@ function syncOnUnload() {
     if (item.type === "update") {
       if (!item.data) continue;
       switch (item.store) {
-        case "nodeChunks":
-          payload.updates.nodeChunks.push(item.data);
+        case "nodes":
+          payload.updates.nodes.push(item.data);
           break;
         case "hypercites":
           payload.updates.hypercites.push(item.data);
@@ -497,8 +497,8 @@ function syncOnUnload() {
       }
     } else if (item.type === "delete") {
       switch (item.store) {
-        case "nodeChunks":
-          payload.deletions.nodeChunks.push({
+        case "nodes":
+          payload.deletions.nodes.push({
             book: bookId,
             startLine: item.id,
             _action: "delete",
@@ -676,13 +676,13 @@ export async function addNewBookToIndexedDB(
     try {
       // --- MODIFICATION START ---
 
-      // If a transaction is NOT provided, create a new one for the 'nodeChunks' store.
+      // If a transaction is NOT provided, create a new one for the 'nodes' store.
       // Otherwise, use the transaction that was passed in.
       const tx =
         transaction ||
-        (await openDatabase()).transaction("nodeChunks", "readwrite");
+        (await openDatabase()).transaction("nodes", "readwrite");
 
-      const store = tx.objectStore("nodeChunks");
+      const store = tx.objectStore("nodes");
       const numericStartLine = parseNodeId(startLine);
 
       // ✅ Try to extract node_id from content's data-node-id attribute
@@ -743,15 +743,15 @@ export async function addNewBookToIndexedDB(
 }
 
 export async function saveAllNodeChunksToIndexedDB(
-  nodeChunks,
+  nodes,
   bookId = "latest",
   onComplete
 ) {
   return withPending(async () => {
     const db = await openDatabase();
-    const tx = db.transaction("nodeChunks", "readwrite");
-    const store = tx.objectStore("nodeChunks");
-    nodeChunks.forEach((record) => {
+    const tx = db.transaction("nodes", "readwrite");
+    const store = tx.objectStore("nodes");
+    nodes.forEach((record) => {
       record.book = bookId;
       record.startLine = parseNodeId(record.startLine);
       store.put(record);
@@ -759,7 +759,7 @@ export async function saveAllNodeChunksToIndexedDB(
 
     return new Promise((resolve, reject) => {
       tx.oncomplete = async () => {
-        console.log("✅ Nodes successfully saved to nodeChunks object store in IndexedDB for book:", bookId);
+        console.log("✅ Nodes successfully saved to nodes object store in IndexedDB for book:", bookId);
         try {
           await updateBookTimestamp(bookId);
           await syncIndexedDBtoPostgreSQL(bookId);
@@ -778,7 +778,7 @@ export async function saveAllNodeChunksToIndexedDB(
         }
       };
       tx.onerror = () => {
-        console.error("❌ Error saving nodes to nodeChunks object store in IndexedDB");
+        console.error("❌ Error saving nodes to nodes object store in IndexedDB");
         reject();
       };
     });
@@ -802,11 +802,11 @@ export function createNodeChunksKey(bookId, startLine) {
 
 
 export async function getNodeChunksFromIndexedDB(bookId = "latest") {
-  console.log("Fetching nodes from nodeChunks object store in IndexedDB for book:", bookId);
+  console.log("Fetching nodes from nodes object store in IndexedDB for book:", bookId);
 
   const db = await openDatabase();
-  const tx = db.transaction("nodeChunks", "readonly");
-  const store = tx.objectStore("nodeChunks");
+  const tx = db.transaction("nodes", "readonly");
+  const store = tx.objectStore("nodes");
 
   return new Promise((resolve, reject) => {
     // Use the book index for more efficient lookup
@@ -819,12 +819,12 @@ export async function getNodeChunksFromIndexedDB(bookId = "latest") {
       // Sort the results by chunk_id for proper lazy loading order
       results.sort((a, b) => a.chunk_id - b.chunk_id);
 
-      console.log(`✅ Retrieved ${results.length} nodes from nodeChunks object store in IndexedDB for book: ${bookId}`);
+      console.log(`✅ Retrieved ${results.length} nodes from nodes object store in IndexedDB for book: ${bookId}`);
       resolve(results);
     };
 
     request.onerror = () => {
-      reject("❌ Error loading nodes from nodeChunks object store in IndexedDB");
+      reject("❌ Error loading nodes from nodes object store in IndexedDB");
     };
   });
 }
@@ -834,11 +834,11 @@ export async function getNodeChunksFromIndexedDB(bookId = "latest") {
  * Used for renumbering operations
  */
 export async function getAllNodeChunksForBook(bookId) {
-  console.log("Fetching ALL nodes from nodeChunks object store in IndexedDB for renumbering, book:", bookId);
+  console.log("Fetching ALL nodes from nodes object store in IndexedDB for renumbering, book:", bookId);
 
   const db = await openDatabase();
-  const tx = db.transaction("nodeChunks", "readonly");
-  const store = tx.objectStore("nodeChunks");
+  const tx = db.transaction("nodes", "readonly");
+  const store = tx.objectStore("nodes");
 
   return new Promise((resolve, reject) => {
     const index = store.index("book");
@@ -850,13 +850,13 @@ export async function getAllNodeChunksForBook(bookId) {
       // Sort by startLine to preserve document order
       results.sort((a, b) => a.startLine - b.startLine);
 
-      console.log(`✅ Retrieved ${results.length} nodes from nodeChunks object store in IndexedDB for renumbering`);
+      console.log(`✅ Retrieved ${results.length} nodes from nodes object store in IndexedDB for renumbering`);
       resolve(results);
     };
 
     request.onerror = () => {
-      console.error("❌ Error loading nodes from nodeChunks object store in IndexedDB for renumbering");
-      reject("❌ Error loading nodes from nodeChunks object store in IndexedDB");
+      console.error("❌ Error loading nodes from nodes object store in IndexedDB for renumbering");
+      reject("❌ Error loading nodes from nodes object store in IndexedDB");
     };
   });
 }
@@ -869,8 +869,8 @@ export async function renumberNodeChunksInIndexedDB(updates, bookId) {
   console.log(`🔄 Renumbering ${updates.length} nodes in IndexedDB`);
 
   const db = await openDatabase();
-  const tx = db.transaction("nodeChunks", "readwrite");
-  const store = tx.objectStore("nodeChunks");
+  const tx = db.transaction("nodes", "readwrite");
+  const store = tx.objectStore("nodes");
 
   return new Promise((resolve, reject) => {
     // Step 1: Delete all old records
@@ -1203,10 +1203,10 @@ export function updateIndexedDBRecord(record) {
 
     const db = await openDatabase();
     const tx = db.transaction(
-      ["nodeChunks", "hyperlights", "hypercites"],
+      ["nodes", "hyperlights", "hypercites"],
       "readwrite"
     );
-    const chunksStore = tx.objectStore("nodeChunks");
+    const chunksStore = tx.objectStore("nodes");
     const lightsStore = tx.objectStore("hyperlights");
     const citesStore = tx.objectStore("hypercites");
     const compositeKey = [bookId, numericNodeId];
@@ -1303,7 +1303,7 @@ export function updateIndexedDBRecord(record) {
         // MODIFIED: Pass the full data object to the queue.
         if (savedNodeChunk) {
           queueForSync(
-            "nodeChunks",
+            "nodes",
             savedNodeChunk.startLine,
             "update",
             savedNodeChunk
@@ -1337,10 +1337,10 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
 
     const db = await openDatabase();
     const tx = db.transaction(
-      ["nodeChunks", "hyperlights", "hypercites"],
+      ["nodes", "hyperlights", "hypercites"],
       "readwrite",
     );
-    const chunksStore = tx.objectStore("nodeChunks");
+    const chunksStore = tx.objectStore("nodes");
     const lightsStore = tx.objectStore("hyperlights");
     const citesStore = tx.objectStore("hypercites");
 
@@ -1497,7 +1497,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
         allSavedNodeChunks.forEach((chunk) => {
           const originalChunk = originalNodeChunkStates.get(chunk.startLine);
           queueForSync(
-            "nodeChunks",
+            "nodes",
             chunk.startLine,
             "update",
             chunk,
@@ -1532,18 +1532,18 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
       console.log(`✅ Database opened successfully`);
       
       const tx = db.transaction(
-        ["nodeChunks", "hyperlights", "hypercites"],
+        ["nodes", "hyperlights", "hypercites"],
         "readwrite"
       );
       console.log(`✅ Transaction created`);
       
-      const chunksStore = tx.objectStore("nodeChunks");
+      const chunksStore = tx.objectStore("nodes");
       const lightsStore = tx.objectStore("hyperlights");
       const citesStore = tx.objectStore("hypercites");
 
       // This object will collect the full data of everything we delete.
       const deletedData = {
-        nodeChunks: [],
+        nodes: [],
         hyperlights: [],
         hypercites: []
       };
@@ -1573,7 +1573,7 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
               
               // ✅ CHANGE 1: Store the original record for the history log.
               // We no longer need the `_deleted: true` flag.
-              deletedData.nodeChunks.push(existing); // This is the record to ADD BACK on UNDO
+              deletedData.nodes.push(existing); // This is the record to ADD BACK on UNDO
               
               const deleteReq = chunksStore.delete(compositeKey);
               deleteReq.onsuccess = () => {
@@ -1640,8 +1640,8 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
           // not for history. They should remain for *single* deletions. For batch deletions,
           // the debouncedMasterSync will gather all the queued items.
           // Your existing queueForSync calls for deletedData are correct for PostgreSQL sync.
-          deletedData.nodeChunks.forEach((record) => {
-            queueForSync("nodeChunks", record.startLine, "delete", record);
+          deletedData.nodes.forEach((record) => {
+            queueForSync("nodes", record.startLine, "delete", record);
           });
           deletedData.hyperlights.forEach((record) => {
             queueForSync("hyperlights", record.hyperlight_id, "delete", record);
@@ -1967,17 +1967,17 @@ export function updateCitationForExistingHypercite(
     // It can now be confident that any local lookups will succeed.
 
     let affectedStartLine = null;
-    const nodeChunks = await getNodeChunksFromIndexedDB(booka);
-    if (!nodeChunks?.length) {
-      console.warn(`No nodes found in nodeChunks object store in IndexedDB for book ${booka}`);
+    const nodes = await getNodeChunksFromIndexedDB(booka);
+    if (!nodes?.length) {
+      console.warn(`No nodes found in nodes object store in IndexedDB for book ${booka}`);
       return { success: false, startLine: null, newStatus: null };
     }
 
     let foundAndUpdated = false;
     let updatedRelationshipStatus = "single";
 
-    // 1) Update the nodeChunks store
-    for (const record of nodeChunks) {
+    // 1) Update the nodes store
+    for (const record of nodes) {
       if (!record.hypercites?.find((hc) => hc.hyperciteId === hyperciteIDa)) {
         continue;
       }
@@ -2055,7 +2055,7 @@ export function updateCitationForExistingHypercite(
           "🔄 Fallback: Queuing hypercite and nodeChunk for debounced sync.",
         );
         queueForSync(
-          "nodeChunks",
+          "nodes",
           finalNodeChunkRecord.startLine,
           "update",
           finalNodeChunkRecord,
@@ -2122,7 +2122,7 @@ export function updateCitationForExistingHypercite(
 export async function getNodeChunkFromIndexedDB(book, startLine) {
   return new Promise((resolve, reject) => {
     const dbName = "MarkdownDB";
-    const storeName = "nodeChunks";
+    const storeName = "nodes";
     
     const numericStartLine = parseNodeId(startLine);
     const request = indexedDB.open(dbName);
@@ -2159,7 +2159,7 @@ export async function getNodeChunkFromIndexedDB(book, startLine) {
 export async function getNodeChunksAfter(book, afterNodeId) {
   const numericAfter = parseNodeId(afterNodeId);
   const dbName = "MarkdownDB";
-  const storeName = "nodeChunks";
+  const storeName = "nodes";
 
   return new Promise((resolve) => {
     const openReq = indexedDB.open(dbName);
@@ -2198,11 +2198,11 @@ export async function getNodeChunksAfter(book, afterNodeId) {
   });
 }
 
-// 🆕 2) Delete all nodeChunks for `book` with startLine >= afterNodeId
+// 🆕 2) Delete all nodes for `book` with startLine >= afterNodeId
 export async function deleteNodeChunksAfter(book, afterNodeId) {
   const numericAfter = parseNodeId(afterNodeId);
   const dbName = "MarkdownDB";
-  const storeName = "nodeChunks";
+  const storeName = "nodes";
   return new Promise((resolve) => {
     const openReq = indexedDB.open(dbName);
     openReq.onerror = () => resolve();
@@ -2245,7 +2245,7 @@ export async function deleteNodeChunksAfter(book, afterNodeId) {
 export async function writeNodeChunks(chunks) {
   if (!chunks.length) return;
   const dbName = "MarkdownDB";
-  const storeName = "nodeChunks";
+  const storeName = "nodes";
   return new Promise((resolve) => {
     const openReq = indexedDB.open(dbName);
     openReq.onerror = () => resolve();
@@ -2271,9 +2271,9 @@ export async function writeNodeChunks(chunks) {
   });
 }
 // 🆕 Function to sync nodes to PostgreSQL
-export async function syncNodeChunksToPostgreSQL(bookId, nodeChunks = []) {
-  if (!nodeChunks.length) {
-    console.log("ℹ️ Sync nodes from nodeChunks object store in IndexedDB to node_chunks table in PostgreSQL: nothing to sync");
+export async function syncNodeChunksToPostgreSQL(bookId, nodes = []) {
+  if (!nodes.length) {
+    console.log("ℹ️ Sync nodes from nodes object store in IndexedDB to node_chunks table in PostgreSQL: nothing to sync");
     return { success: true };
   }
 
@@ -2281,7 +2281,7 @@ export async function syncNodeChunksToPostgreSQL(bookId, nodeChunks = []) {
   // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
   const payload = {
     book: bookId,
-    data: nodeChunks
+    data: nodes
   };
 
 
@@ -2300,12 +2300,12 @@ export async function syncNodeChunksToPostgreSQL(bookId, nodeChunks = []) {
 
   if (!res.ok) {
     const txt = await res.text();
-    console.error("❌ Error syncing nodes from nodeChunks object store in IndexedDB to node_chunks table in PostgreSQL:", txt);
+    console.error("❌ Error syncing nodes from nodes object store in IndexedDB to node_chunks table in PostgreSQL:", txt);
     return { success: false, message: txt };
   }
 
   const out = await res.json();
-  console.log("✅ Nodes synced from nodeChunks object store in IndexedDB to node_chunks table in PostgreSQL:", out);
+  console.log("✅ Nodes synced from nodes object store in IndexedDB to node_chunks table in PostgreSQL:", out);
   return out;
 }
 
@@ -2390,7 +2390,7 @@ export async function clearDatabase() {
 export async function addCitationToHypercite(book, startLine, hyperciteId, newCitation) {
   return new Promise((resolve, reject) => {
     const dbName = "MarkdownDB";
-    const storeName = "nodeChunks";
+    const storeName = "nodes";
     
     const numericStartLine = parseNodeId(startLine);
     
@@ -2574,17 +2574,17 @@ export async function deleteIndexedDBRecord(id) {
     const db = await openDatabase();
     // ✅ CHANGE 1: The transaction now includes all relevant stores.
     const tx = db.transaction(
-      ["nodeChunks", "hyperlights", "hypercites"],
+      ["nodes", "hyperlights", "hypercites"],
       "readwrite"
     );
-    const chunksStore = tx.objectStore("nodeChunks");
+    const chunksStore = tx.objectStore("nodes");
     const lightsStore = tx.objectStore("hyperlights");
     const citesStore = tx.objectStore("hypercites");
     const key = [bookId, numericId];
 
     // Collect all records to be deleted for the history log
     const deletedHistoryPayload = {
-        nodeChunks: [],
+        nodes: [],
         hyperlights: [],
         hypercites: []
     };
@@ -2598,7 +2598,7 @@ export async function deleteIndexedDBRecord(id) {
         if (recordToDelete) {
           console.log("Found record to delete:", recordToDelete);
 
-          deletedHistoryPayload.nodeChunks.push(recordToDelete); // Add for history
+          deletedHistoryPayload.nodes.push(recordToDelete); // Add for history
 
           // Now, delete the main record
           chunksStore.delete(key);
@@ -2648,8 +2648,8 @@ export async function deleteIndexedDBRecord(id) {
 
         // Now, queue for sync to PostgreSQL
         // Your existing queueForSync calls for deletions are correct for backend sync.
-        deletedHistoryPayload.nodeChunks.forEach((record) => {
-          queueForSync("nodeChunks", record.startLine, "delete", record);
+        deletedHistoryPayload.nodes.forEach((record) => {
+          queueForSync("nodes", record.startLine, "delete", record);
         });
         deletedHistoryPayload.hyperlights.forEach((record) => {
           queueForSync("hyperlights", record.hyperlight_id, "delete", record);
@@ -2700,8 +2700,8 @@ export async function updateIndexedDBRecordForNormalization(
     const bookId = book || "latest";
 
     const db = await openDatabase();
-    const tx = db.transaction("nodeChunks", "readwrite");
-    const store = tx.objectStore("nodeChunks");
+    const tx = db.transaction("nodes", "readwrite");
+    const store = tx.objectStore("nodes");
 
     // Optional timeout/abort
     const TRANSACTION_TIMEOUT = 15_000;
@@ -2759,9 +2759,9 @@ export async function updateIndexedDBRecordForNormalization(
         // We need to queue the deletion of the old and update of the new.
         const newRecord = await getNodeChunkFromIndexedDB(bookId, newId);
         if (newRecord) {
-          queueForSync("nodeChunks", newId, "update", newRecord);
+          queueForSync("nodes", newId, "update", newRecord);
         }
-        queueForSync("nodeChunks", oldId, "delete");
+        queueForSync("nodes", oldId, "delete");
         resolve(true);
       };
       tx.onerror = (e) => {
@@ -3055,7 +3055,7 @@ async function resolveHypercite(bookId, hyperciteId) {
 
     const data = await response.json();
     const serverHypercite = data.hypercite;
-    const serverNodeChunks = data.nodeChunks; // Note the plural
+    const serverNodeChunks = data.nodes; // Note the plural
 
     if (!serverHypercite || !serverNodeChunks || serverNodeChunks.length === 0) {
         console.error("❌ Server response was missing hypercite or nodes data from PostgreSQL.");
@@ -3066,16 +3066,16 @@ async function resolveHypercite(bookId, hyperciteId) {
 
     // ✅ CACHE BOTH THE HYPERCITE AND ALL THE NODES
     const db = await openDatabase();
-    const tx = db.transaction(["hypercites", "nodeChunks"], "readwrite");
+    const tx = db.transaction(["hypercites", "nodes"], "readwrite");
     const hypercitesStore = tx.objectStore("hypercites");
-    const nodeChunksStore = tx.objectStore("nodeChunks");
+    const nodesStore = tx.objectStore("nodes");
 
     // Put the single hypercite record
     hypercitesStore.put(serverHypercite);
 
-    // Bulk-write all the nodes to nodeChunks object store
+    // Bulk-write all the nodes to nodes object store
     for (const chunk of serverNodeChunks) {
-        nodeChunksStore.put(chunk);
+        nodesStore.put(chunk);
     }
 
     await tx.done;
@@ -3145,8 +3145,8 @@ export async function saveAllReferencesToIndexedDB(references, bookId) {
   if (!references || references.length === 0) return;
   return withPending(async () => {
     const db = await openDatabase();
-    const tx = db.transaction("references", "readwrite");
-    const store = tx.objectStore("references");
+    const tx = db.transaction("bibliography", "readwrite");
+    const store = tx.objectStore("bibliography");
 
     references.forEach((reference) => {
       const record = { ...reference, book: bookId };

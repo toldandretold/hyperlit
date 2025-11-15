@@ -101,7 +101,7 @@ export async function deleteHighlightById(highlightId) {
 
     affectedNodes.forEach((chunk) => {
       if (chunk && chunk.startLine) {
-        queueForSync("nodeChunks", chunk.startLine, "update", chunk);
+        queueForSync("nodes", chunk.startLine, "update", chunk);
       }
     });
 
@@ -189,11 +189,11 @@ export async function hideHighlightById(highlightId) {
       }
     });
 
-    // For hide: Only remove from IndexedDB locally, DON'T touch PostgreSQL nodeChunks
+    // For hide: Only remove from IndexedDB locally, DON'T touch PostgreSQL nodes
     // Remove from local IndexedDB hyperlights table
     const hiddenHyperlight = await removeHighlightFromHyperlights(highlightId);
 
-    // Remove from local IndexedDB nodeChunks (but don't sync this change to PostgreSQL)
+    // Remove from local IndexedDB nodes (but don't sync this change to PostgreSQL)
     await removeHighlightFromNodeChunks(bookId, highlightId);
 
     // Update book timestamp locally
@@ -205,7 +205,7 @@ export async function hideHighlightById(highlightId) {
       queueForSync("hyperlights", highlightId, "hide", hiddenHyperlight);
     }
 
-    // DON'T queue nodeChunk updates - PostgreSQL nodeChunks should keep the highlight data
+    // DON'T queue nodeChunk updates - PostgreSQL nodes should keep the highlight data
 
     console.log(`✅ Successfully hidden highlight: ${highlightId}`);
     console.log(`📝 Affected nodes: ${Array.from(affectedNodeIds).join(', ')}`);
@@ -235,7 +235,7 @@ export async function reprocessHighlightsForNodes(bookId, affectedNodeIds) {
     const { applyHighlights } = await import('../lazyLoaderFactory.js');
 
     // Get the updated node chunks which should have the correct hyperlights after deletion
-    const nodeChunks = await getNodeChunksFromIndexedDB(bookId);
+    const nodes = await getNodeChunksFromIndexedDB(bookId);
 
     // Process each affected node
     for (const nodeId of affectedNodeIds) {
@@ -246,7 +246,7 @@ export async function reprocessHighlightsForNodes(bookId, affectedNodeIds) {
       }
 
       // Find the node data with its current highlights
-      const nodeData = nodeChunks.find(chunk => chunk.startLine == nodeId);
+      const nodeData = nodes.find(chunk => chunk.startLine == nodeId);
       if (!nodeData) {
         console.warn(`Node data not found for ${nodeId}`);
         continue;

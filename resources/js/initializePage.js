@@ -89,7 +89,7 @@ async function retryFailedBatches() {
         const syncPayload = {
           book: historyPayload.book,
           updates: {
-            nodeChunks: historyPayload.updates.nodeChunks || [],
+            nodes: historyPayload.updates.nodes || [],
             hypercites: historyPayload.updates.hypercites || [],
             hyperlights: historyPayload.updates.hyperlights || [],
             library: historyPayload.updates.library || null,
@@ -97,8 +97,8 @@ async function retryFailedBatches() {
           deletions: {
             // For syncing, we only want TRUE deletions.
             // A true deletion is an item in `deletions` that does NOT have a corresponding `update`.
-            nodeChunks: (historyPayload.deletions.nodeChunks || []).filter(
-              d => !(historyPayload.updates.nodeChunks || []).some(u => u.startLine === d.startLine)
+            nodes: (historyPayload.deletions.nodes || []).filter(
+              d => !(historyPayload.updates.nodes || []).some(u => u.startLine === d.startLine)
             ),
             hypercites: (historyPayload.deletions.hypercites || []).filter(
               d => !(historyPayload.updates.hypercites || []).some(u => u.hyperciteId === d.hyperciteId)
@@ -158,18 +158,18 @@ export async function loadFromJSONFiles(bookId) {
   try {
     // Fetch all three files concurrently for maximum speed
     const [
-      nodeChunksResponse,
+      nodesResponse,
       footnotesResponse,
       referencesResponse,
     ] = await Promise.all([
-      fetch(`/markdown/${bookId}/nodeChunks.json`),
+      fetch(`/markdown/${bookId}/nodes.json`),
       fetch(`/markdown/${bookId}/footnotes.json`),
       fetch(`/markdown/${bookId}/references.json`),
     ]);
 
     // Check if all requests were successful
     if (
-      !nodeChunksResponse.ok ||
+      !nodesResponse.ok ||
       !footnotesResponse.ok ||
       !referencesResponse.ok
     ) {
@@ -178,26 +178,26 @@ export async function loadFromJSONFiles(bookId) {
 
     // Parse all JSON responses concurrently
     const [
-      nodeChunks,
+      nodes,
       footnotes,
       references,
     ] = await Promise.all([
-      nodeChunksResponse.json(),
+      nodesResponse.json(),
       footnotesResponse.json(),
       referencesResponse.json(),
     ]);
 
-    verbose.content(`Loaded ${nodeChunks.length} nodes, ${footnotes.length} footnotes, ${references.length} refs from JSON`, 'initializePage.js');
+    verbose.content(`Loaded ${nodes.length} nodes, ${footnotes.length} footnotes, ${references.length} refs from JSON`, 'initializePage.js');
 
     // Save all the fetched data to IndexedDB concurrently
     await Promise.all([
-      saveAllNodeChunksToIndexedDB(nodeChunks, bookId),
+      saveAllNodeChunksToIndexedDB(nodes, bookId),
       saveAllFootnotesToIndexedDB(footnotes, bookId),
       saveAllReferencesToIndexedDB(references, bookId),
     ]);
 
-    // Return the nodeChunks to be used immediately for rendering the page
-    return nodeChunks;
+    // Return the nodes to be used immediately for rendering the page
+    return nodes;
   } catch (error) {
     verbose.content(`Could not load from JSON files: ${error.message}`, 'initializePage.js');
     throw error; // Re-throw to trigger the fallback
@@ -238,7 +238,7 @@ export async function loadHyperText(bookId, progressCallback = null) {
     if (cached && cached.length) {
       updatePageLoadProgress(30, "Loading from cache...");
       verbose.content(`Found ${cached.length} nodes in IndexedDB`, 'initializePage.js');
-      window.nodeChunks = cached;
+      window.nodes = cached;
 
       // Add small delays to make progress visible
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -259,7 +259,7 @@ export async function loadHyperText(bookId, progressCallback = null) {
       const dbChunks = await getNodeChunksFromIndexedDB(currentBook);
       if (dbChunks && dbChunks.length) {
         verbose.content(`Loaded ${dbChunks.length} nodes from PostgreSQL`, 'initializePage.js');
-        window.nodeChunks = dbChunks;
+        window.nodes = dbChunks;
         updatePageLoadProgress(90, "Initializing interface...");
         initializeLazyLoader(openHyperlightID, currentBook);
 
@@ -287,7 +287,7 @@ export async function loadHyperText(bookId, progressCallback = null) {
         const jsonChunks = await loadFromJSONFiles(currentBook);
         if (jsonChunks && jsonChunks.length) {
           verbose.content('Content loaded from JSON', 'initializePage.js');
-          window.nodeChunks = jsonChunks;
+          window.nodes = jsonChunks;
           updatePageLoadProgress(90, "Initializing interface...");
           initializeLazyLoader(openHyperlightID, currentBook);
 
@@ -302,7 +302,7 @@ export async function loadHyperText(bookId, progressCallback = null) {
       // 4. Final Fallback: Generate from markdown (ONLY if book not found anywhere)
       updatePageLoadProgress(40, "Generating from markdown...");
       verbose.content('Generating from markdown', 'initializePage.js');
-      window.nodeChunks = await generateNodeChunksFromMarkdown(currentBook);
+      window.nodes = await generateNodeChunksFromMarkdown(currentBook);
       updatePageLoadProgress(90, "Initializing interface...");
       initializeLazyLoader(OpenHyperlightID || null, currentBook);
 
@@ -336,13 +336,13 @@ async function fetchMainTextMarkdown(bookId, forceReload = false) {
 async function generateNodeChunksFromMarkdown(bookId, forceReload = false) {
   const markdown = await fetchMainTextMarkdown(bookId);
 
-  // Parse markdown into nodeChunks
-  const nodeChunks = parseMarkdownIntoChunksInitial(markdown);
-  verbose.content(`Generated ${nodeChunks.length} nodes from markdown`, 'initializePage.js');
+  // Parse markdown into nodes
+  const nodes = parseMarkdownIntoChunksInitial(markdown);
+  verbose.content(`Generated ${nodes.length} nodes from markdown`, 'initializePage.js');
 
   // Pass the callback to the save function
-  await saveAllNodeChunksToIndexedDB(nodeChunks, bookId);
-  return nodeChunks;
+  await saveAllNodeChunksToIndexedDB(nodes, bookId);
+  return nodes;
 }
 
 // Store multiple lazy loaders by bookId
@@ -380,7 +380,7 @@ export function initializeMainLazyLoader() {
   
   console.log(`Initializing lazy loader for book: ${book}`);
   currentLazyLoader = createLazyLoader({
-    nodeChunks: window.nodeChunks,
+    nodes: window.nodes,
     loadNextChunk: loadNextChunkFixed,
     loadPreviousChunk: loadPreviousChunkFixed,
     attachMarkListeners,
@@ -404,29 +404,29 @@ export async function initializeLazyLoaderForContainer(bookId) {
   try {
     // Load book data using the same priority as regular books:
     // 1. IndexedDB cache -> 2. Database sync -> 3. Generate from markdown
-    let nodeChunks = await getNodeChunksFromIndexedDB(bookId);
+    let nodes = await getNodeChunksFromIndexedDB(bookId);
     
-    if (!nodeChunks || !nodeChunks.length) {
+    if (!nodes || !nodes.length) {
       console.log(`🔍 Loading ${bookId} from database...`);
       const dbResult = await syncBookDataFromDatabase(bookId);
       if (dbResult && dbResult.success) {
-        nodeChunks = await getNodeChunksFromIndexedDB(bookId);
+        nodes = await getNodeChunksFromIndexedDB(bookId);
       }
     }
     
-    if (!nodeChunks || !nodeChunks.length) {
+    if (!nodes || !nodes.length) {
       console.log(`🆕 Generating ${bookId} from markdown`);
-      nodeChunks = await generateNodeChunksFromMarkdown(bookId, true);
+      nodes = await generateNodeChunksFromMarkdown(bookId, true);
     }
     
-    if (!nodeChunks || !nodeChunks.length) {
-      console.error(`❌ No nodes available in nodeChunks object store in IndexedDB for ${bookId}`);
+    if (!nodes || !nodes.length) {
+      console.error(`❌ No nodes available in nodes object store in IndexedDB for ${bookId}`);
       return null;
     }
     
     // Create fresh lazy loader instance
     lazyLoaders[bookId] = createLazyLoader({
-      nodeChunks: nodeChunks,
+      nodes: nodes,
       loadNextChunk: loadNextChunkFixed,
       loadPreviousChunk: loadPreviousChunkFixed,
       attachMarkListeners,
@@ -434,7 +434,7 @@ export async function initializeLazyLoaderForContainer(bookId) {
     });
     
     // Load the first chunk of nodes to initialize content
-    const firstChunk = nodeChunks.find(chunk => chunk.chunk_id === 0) || nodeChunks[0];
+    const firstChunk = nodes.find(chunk => chunk.chunk_id === 0) || nodes[0];
     if (firstChunk && lazyLoaders[bookId]) {
       verbose.content(`Loading initial chunk #${firstChunk.chunk_id} for ${bookId}`, 'initializePage.js');
       lazyLoaders[bookId].loadChunk(firstChunk.chunk_id, "down");
@@ -455,7 +455,7 @@ export async function initializeLazyLoaderForContainer(bookId) {
 function initializeLazyLoader(openHyperlightID, bookId) { // <-- Add bookId parameter
   if (!currentLazyLoader) {
     currentLazyLoader = createLazyLoader({
-      nodeChunks: window.nodeChunks,
+      nodes: window.nodes,
       loadNextChunk: loadNextChunkFixed,
       loadPreviousChunk: loadPreviousChunkFixed,
       attachMarkListeners,
@@ -469,7 +469,7 @@ function initializeLazyLoader(openHyperlightID, bookId) { // <-- Add bookId para
     const isHomepageContext = document.querySelector('.home-content-wrapper') ||
                               document.querySelector('.user-content-wrapper');
     if (isHomepageContext) {
-      const firstChunk = window.nodeChunks.find(chunk => chunk.chunk_id === 0) || window.nodeChunks[0];
+      const firstChunk = window.nodes.find(chunk => chunk.chunk_id === 0) || window.nodes[0];
       if (firstChunk && currentLazyLoader) {
         verbose.content(`Loading initial chunk #${firstChunk.chunk_id} (homepage context)`, 'initializePage.js');
         currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");

@@ -234,7 +234,7 @@ ${linksHTML.join("")}
 }
 
 /**
- * Check if a hypercite exists in a specific book's nodeChunks
+ * Check if a hypercite exists in a specific book's nodes
  * Searches for the hypercite ID in the content HTML (pasted citations appear as <a id="hypercite_xxx">)
  * @param {string} bookId - The book to search in
  * @param {string} hyperciteId - The hypercite ID to search for (e.g., "hypercite_zlpx0209")
@@ -245,26 +245,26 @@ export async function checkHyperciteExists(bookId, hyperciteId) {
     console.log(`🔍 Checking if hypercite ${hyperciteId} exists in book ${bookId}`);
 
     const db = await openDatabase();
-    const tx = db.transaction(['nodeChunks'], 'readonly');
-    const nodeChunksStore = tx.objectStore('nodeChunks');
+    const tx = db.transaction(['nodes'], 'readonly');
+    const nodesStore = tx.objectStore('nodes');
 
-    // Get all nodeChunks for the book
-    const bookIndex = nodeChunksStore.index('book');
-    const nodeChunksRequest = bookIndex.getAll(bookId);
+    // Get all nodes for the book
+    const bookIndex = nodesStore.index('book');
+    const nodesRequest = bookIndex.getAll(bookId);
 
-    const nodeChunks = await new Promise((resolve, reject) => {
-      nodeChunksRequest.onsuccess = () => resolve(nodeChunksRequest.result || []);
-      nodeChunksRequest.onerror = () => reject(nodeChunksRequest.error);
+    const nodes = await new Promise((resolve, reject) => {
+      nodesRequest.onsuccess = () => resolve(nodesRequest.result || []);
+      nodesRequest.onerror = () => reject(nodesRequest.error);
     });
 
-    console.log(`📚 Found ${nodeChunks.length} chunks for book ${bookId} in IndexedDB`);
+    console.log(`📚 Found ${nodes.length} chunks for book ${bookId} in IndexedDB`);
 
     // Search through all chunks' content for the hypercite ID in HTML
     // Pasted citations appear as: <a href="..." id="hypercite_xxx">
     const idPattern = `id="${hyperciteId}"`;
 
     // Check IndexedDB chunks first
-    for (const chunk of nodeChunks) {
+    for (const chunk of nodes) {
       if (chunk.content && typeof chunk.content === 'string') {
         if (chunk.content.includes(idPattern)) {
           const chunkKey = `${bookId}:${chunk.startLine}`;
@@ -275,7 +275,7 @@ export async function checkHyperciteExists(bookId, hyperciteId) {
     }
 
     // If no chunks in IndexedDB or not found, fall back to PostgreSQL
-    if (nodeChunks.length === 0) {
+    if (nodes.length === 0) {
       console.log(`📡 No chunks in IndexedDB, checking PostgreSQL for book ${bookId}`);
 
       try {
@@ -294,7 +294,7 @@ export async function checkHyperciteExists(bookId, hyperciteId) {
         }
 
         const data = await response.json();
-        const pgChunks = data.nodeChunks || [];
+        const pgChunks = data.nodes || [];
         console.log(`📚 Found ${pgChunks.length} chunks for book ${bookId} in PostgreSQL`);
 
         // Search through PostgreSQL chunks
@@ -549,19 +549,19 @@ async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCit
     }
 
     // 🔥 NEW: Update nodeChunk's hypercites array (like delinkHypercite does)
-    // This ensures the embedded hypercite data in nodeChunks stays in sync
-    const nodeChunksTx = db.transaction(['nodeChunks'], 'readwrite');
-    const nodeChunksStore = nodeChunksTx.objectStore('nodeChunks');
-    const bookIndex = nodeChunksStore.index('book');
+    // This ensures the embedded hypercite data in nodes stays in sync
+    const nodesTx = db.transaction(['nodes'], 'readwrite');
+    const nodesStore = nodesTx.objectStore('nodes');
+    const bookIndex = nodesStore.index('book');
 
-    // Get all nodeChunks for this book
+    // Get all nodes for this book
     const allNodeChunks = await new Promise((resolve, reject) => {
       const request = bookIndex.getAll(sourceBook);
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
     });
 
-    console.log(`🔍 Searching ${allNodeChunks.length} nodeChunks for hypercite ${sourceHyperciteId}`);
+    console.log(`🔍 Searching ${allNodeChunks.length} nodes for hypercite ${sourceHyperciteId}`);
 
     // Find the nodeChunk that contains this hypercite
     let foundNodeChunk = null;
@@ -588,7 +588,7 @@ async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCit
       };
 
       // Update the nodeChunk in IndexedDB
-      const updateRequest = nodeChunksStore.put(foundNodeChunk);
+      const updateRequest = nodesStore.put(foundNodeChunk);
       await new Promise((resolve, reject) => {
         updateRequest.onsuccess = () => resolve();
         updateRequest.onerror = () => reject(updateRequest.error);
@@ -597,15 +597,15 @@ async function removeSpecificCitations(sourceBook, sourceHyperciteIds, brokenCit
       console.log(`✅ Updated nodeChunk hypercites array for startLine ${foundNodeChunk.startLine}`);
 
       // Queue the nodeChunk for sync to PostgreSQL
-      queueForSync('nodeChunks', foundNodeChunk.startLine, 'update', foundNodeChunk);
+      queueForSync('nodes', foundNodeChunk.startLine, 'update', foundNodeChunk);
       updatedNodeChunks.push(foundNodeChunk);
     } else {
       console.warn(`⚠️ Hypercite ${sourceHyperciteId} not found in any nodeChunk`);
     }
 
     await new Promise((resolve, reject) => {
-      nodeChunksTx.oncomplete = () => resolve();
-      nodeChunksTx.onerror = () => reject(nodeChunksTx.error);
+      nodesTx.oncomplete = () => resolve();
+      nodesTx.onerror = () => reject(nodesTx.error);
     });
   }
 

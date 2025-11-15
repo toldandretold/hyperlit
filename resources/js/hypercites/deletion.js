@@ -70,19 +70,19 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
     updateDOMElementClass(targetHyperciteId, newRelationshipStatus);
 
     // Step 7: Update the nodeChunk's hypercites array
-    // Since hypercite records don't store startLine, we need to search all nodeChunks
-    const nodeChunksTx = db.transaction(['nodeChunks'], 'readwrite');
-    const nodeChunksStore = nodeChunksTx.objectStore('nodeChunks');
-    const bookIndex = nodeChunksStore.index('book');
+    // Since hypercite records don't store startLine, we need to search all nodes
+    const nodesTx = db.transaction(['nodes'], 'readwrite');
+    const nodesStore = nodesTx.objectStore('nodes');
+    const bookIndex = nodesStore.index('book');
 
-    // Get all nodeChunks for this book
+    // Get all nodes for this book
     const allNodeChunks = await new Promise((resolve, reject) => {
       const request = bookIndex.getAll(targetHypercite.book);
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
     });
 
-    console.log(`🔍 Searching ${allNodeChunks.length} nodeChunks for hypercite ${targetHyperciteId}`);
+    console.log(`🔍 Searching ${allNodeChunks.length} nodes for hypercite ${targetHyperciteId}`);
 
     // Find the nodeChunk that contains this hypercite
     let foundNodeChunk = null;
@@ -109,7 +109,7 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
       };
 
       // Update the nodeChunk in IndexedDB
-      const updateRequest = nodeChunksStore.put(foundNodeChunk);
+      const updateRequest = nodesStore.put(foundNodeChunk);
       await new Promise((resolve, reject) => {
         updateRequest.onsuccess = () => resolve();
         updateRequest.onerror = () => reject(updateRequest.error);
@@ -121,8 +121,8 @@ export async function delinkHypercite(hyperciteElementId, hrefUrl) {
     }
 
     await new Promise((resolve, reject) => {
-      nodeChunksTx.oncomplete = () => resolve();
-      nodeChunksTx.onerror = () => reject(nodeChunksTx.error);
+      nodesTx.oncomplete = () => resolve();
+      nodesTx.onerror = () => reject(nodesTx.error);
     });
 
     // Step 8: Sync BOTH hypercite AND nodeChunk immediately in ONE atomic transaction

@@ -18,8 +18,8 @@ export async function buildCitationContent(contentType, db = null) {
     const { referenceId } = contentType;
 
     const database = db || await openDatabase();
-    const transaction = database.transaction(["references"], "readonly");
-    const store = transaction.objectStore("references");
+    const transaction = database.transaction(["bibliography"], "readonly");
+    const store = transaction.objectStore("bibliography");
 
     const key = [book, referenceId];
     const result = await new Promise((resolve, reject) => {

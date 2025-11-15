@@ -186,7 +186,7 @@ export async function syncHyperciteWithNodeChunkImmediately(book, hypercite, nod
   // Prepare unified sync payload (same format as executeSyncPayload in master.js)
   const unifiedPayload = {
     book,
-    nodeChunks: [nodeChunk],
+    nodes: [nodeChunk],
     hypercites: [hypercitePayload],
     hyperlights: [],
     hyperlightDeletions: [],

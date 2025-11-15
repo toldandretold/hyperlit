@@ -47,7 +47,7 @@ export async function resolveHypercite(bookId, hyperciteId) {
 
     const data = await response.json();
     const serverHypercite = data.hypercite;
-    const serverNodeChunks = data.nodeChunks; // Note the plural
+    const serverNodeChunks = data.nodes; // Note the plural
 
     if (!serverHypercite || !serverNodeChunks || serverNodeChunks.length === 0) {
       console.error("❌ Server response was missing hypercite or nodes data from PostgreSQL.");
@@ -58,16 +58,16 @@ export async function resolveHypercite(bookId, hyperciteId) {
 
     // ✅ CACHE BOTH THE HYPERCITE AND ALL THE NODES
     const db = await openDatabase();
-    const tx = db.transaction(["hypercites", "nodeChunks"], "readwrite");
+    const tx = db.transaction(["hypercites", "nodes"], "readwrite");
     const hypercitesStore = tx.objectStore("hypercites");
-    const nodeChunksStore = tx.objectStore("nodeChunks");
+    const nodesStore = tx.objectStore("nodes");
 
     // Put the single hypercite record
     hypercitesStore.put(serverHypercite);
 
-    // Bulk-write all the nodes to nodeChunks object store
+    // Bulk-write all the nodes to nodes object store
     for (const chunk of serverNodeChunks) {
-      nodeChunksStore.put(chunk);
+      nodesStore.put(chunk);
     }
 
     await new Promise((resolve, reject) => {

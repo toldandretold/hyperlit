@@ -174,7 +174,7 @@ export async function updateHyperciteInIndexedDB(book, hyperciteId, updatedField
 export async function addCitationToHypercite(book, startLine, hyperciteId, newCitation) {
   return new Promise((resolve, reject) => {
     const dbName = "MarkdownDB";
-    const storeName = "nodeChunks";
+    const storeName = "nodes";
 
     const numericStartLine = parseNodeId(startLine);
 
@@ -324,17 +324,17 @@ export function updateCitationForExistingHypercite(
     // ✅ --- END OF NEW LOGIC ---
 
     let affectedStartLine = null;
-    const nodeChunks = await getNodeChunksFromIndexedDB(booka);
-    if (!nodeChunks?.length) {
-      console.warn(`No nodes found in nodeChunks object store in IndexedDB for book ${booka}`);
+    const nodes = await getNodeChunksFromIndexedDB(booka);
+    if (!nodes?.length) {
+      console.warn(`No nodes found in nodes object store in IndexedDB for book ${booka}`);
       return { success: false, startLine: null, newStatus: null };
     }
 
     let foundAndUpdated = false;
     let updatedRelationshipStatus = "single";
 
-    // 1) Update the nodeChunks store
-    for (const record of nodeChunks) {
+    // 1) Update the nodes store
+    for (const record of nodes) {
       if (!record.hypercites?.find((hc) => hc.hyperciteId === hyperciteIDa)) {
         continue;
       }

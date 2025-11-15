@@ -106,16 +106,16 @@ function isTocCacheValid() {
 }
 
 /**
- * Scan nodeChunks content for heading elements
+ * Scan nodes content for heading elements
  */
 async function scanForHeadings() {
-  console.log("📖 Scanning nodeChunks for headings...");
+  console.log("📖 Scanning nodes for headings...");
   
-  let nodeChunks = [];
+  let nodes = [];
   try {
-    nodeChunks = await getNodeChunksFromIndexedDB(book);
+    nodes = await getNodeChunksFromIndexedDB(book);
   } catch (e) {
-    console.error("Error retrieving nodeChunks from IndexedDB:", e);
+    console.error("Error retrieving nodes from IndexedDB:", e);
     return [];
   }
 
@@ -123,7 +123,7 @@ async function scanForHeadings() {
   // Match id="..." but NOT data-node-id="..." (require space or < before id)
   const headingRegex = /^<(h[1-6])[^>]*\sid="([^"]+)"[^>]*>(.*?)<\/h[1-6]>/i;
 
-  for (const chunk of nodeChunks) {
+  for (const chunk of nodes) {
     if (!chunk.content) continue;
     
     const match = chunk.content.match(headingRegex);

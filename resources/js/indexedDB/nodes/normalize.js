@@ -41,8 +41,8 @@ export async function updateIndexedDBRecordForNormalization(
     const bookId = mainContent?.id || book || "latest";
 
     const db = await openDatabase();
-    const tx = db.transaction("nodeChunks", "readwrite");
-    const store = tx.objectStore("nodeChunks");
+    const tx = db.transaction("nodes", "readwrite");
+    const store = tx.objectStore("nodes");
 
     // Optional timeout/abort
     const TRANSACTION_TIMEOUT = 15_000;
@@ -99,9 +99,9 @@ export async function updateIndexedDBRecordForNormalization(
         // Queue the deletion of the old and update of the new
         const newRecord = await getNodeChunkFromIndexedDB(bookId, newId);
         if (newRecord) {
-          queueForSync("nodeChunks", newId, "update", newRecord);
+          queueForSync("nodes", newId, "update", newRecord);
         }
-        queueForSync("nodeChunks", oldId, "delete");
+        queueForSync("nodes", oldId, "delete");
         resolve(true);
       };
       tx.onerror = (e) => {

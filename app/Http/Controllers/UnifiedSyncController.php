@@ -19,7 +19,7 @@ class UnifiedSyncController extends Controller
      * Expected payload:
      * {
      *   "book": "book_123",
-     *   "nodeChunks": [...],
+     *   "nodes": [...],
      *   "hypercites": [...],
      *   "hyperlights": [...],
      *   "hyperlightDeletions": [...],
@@ -41,7 +41,7 @@ class UnifiedSyncController extends Controller
 
             Log::info('Unified sync started', [
                 'book' => $bookId,
-                'nodeChunks_count' => isset($data['nodeChunks']) ? count($data['nodeChunks']) : 0,
+                'nodeChunks_count' => isset($data['nodes']) ? count($data['nodes']) : 0,
                 'hypercites_count' => isset($data['hypercites']) ? count($data['hypercites']) : 0,
                 'hyperlights_count' => isset($data['hyperlights']) ? count($data['hyperlights']) : 0,
                 'hyperlightDeletions_count' => isset($data['hyperlightDeletions']) ? count($data['hyperlightDeletions']) : 0,
@@ -51,7 +51,7 @@ class UnifiedSyncController extends Controller
             // Wrap everything in a transaction for atomicity
             $result = DB::transaction(function () use ($request, $data, $bookId) {
                 $results = [
-                    'nodeChunks' => null,
+                    'nodes' => null,
                     'hypercites' => null,
                     'hyperlights' => null,
                     'hyperlightDeletions' => null,
@@ -59,9 +59,9 @@ class UnifiedSyncController extends Controller
                 ];
 
                 // 1. Sync node chunks (if present)
-                if (!empty($data['nodeChunks'])) {
+                if (!empty($data['nodes'])) {
                     $nodeChunkController = new DbNodeChunkController();
-                    $nodeChunkRequest = new Request(['book' => $bookId, 'data' => $data['nodeChunks']]);
+                    $nodeChunkRequest = new Request(['book' => $bookId, 'data' => $data['nodes']]);
                     $nodeChunkRequest->setUserResolver(function () use ($request) {
                         return $request->user();
                     });
@@ -71,10 +71,10 @@ class UnifiedSyncController extends Controller
                     }
 
                     $response = $nodeChunkController->targetedUpsert($nodeChunkRequest);
-                    $results['nodeChunks'] = json_decode($response->getContent(), true);
+                    $results['nodes'] = json_decode($response->getContent(), true);
 
-                    if (!($results['nodeChunks']['success'] ?? false)) {
-                        throw new \Exception('Node chunks sync failed: ' . ($results['nodeChunks']['message'] ?? 'Unknown error'));
+                    if (!($results['nodes']['success'] ?? false)) {
+                        throw new \Exception('Node chunks sync failed: ' . ($results['nodes']['message'] ?? 'Unknown error'));
                     }
                 }
 

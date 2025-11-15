@@ -218,8 +218,8 @@ async function renumberAllNodes() {
     console.log('🔄 RENUMBERING: Updating lazy loader cache from IndexedDB');
     const { currentLazyLoader } = await import('../initializePage.js');
     if (currentLazyLoader) {
-      // Just update the in-memory nodeChunks array - DOM elements already updated in step 4
-      currentLazyLoader.nodeChunks = await getAllNodeChunksForBook(book);
+      // Just update the in-memory nodes array - DOM elements already updated in step 4
+      currentLazyLoader.nodes = await getAllNodeChunksForBook(book);
       console.log('✅ RENUMBERING: Lazy loader cache updated with fresh data');
     } else {
       console.warn('⚠️ RENUMBERING: Could not update cache - currentLazyLoader not available');

@@ -8,7 +8,7 @@
  * IMPORTANT: Increment this version number ONLY when you need to change the database schema.
  * For instance, if you add a new store, add a new index, or modify a keyPath.
  */
-export const DB_VERSION = 21;
+export const DB_VERSION = 22;
 
 /**
  * Opens (or creates) the IndexedDB database.
@@ -30,7 +30,7 @@ export async function openDatabase() {
       // Define ALL store configurations for the FINAL desired schema
       const ALL_STORE_CONFIGS = [
         {
-          name: "nodeChunks",
+          name: "nodes",
           keyPath: ["book", "startLine"],
           indices: [
             "chunk_id",
@@ -44,7 +44,7 @@ export async function openDatabase() {
           indices: ["book", "footnoteId"],
         },
         {
-          name: "references",
+          name: "bibliography",
           keyPath: ["book", "referenceId"],
           indices: ["book", "referenceId"],
         },
@@ -121,6 +121,80 @@ export async function openDatabase() {
             }
           }
         });
+      }
+
+      // Migration logic for schema version 22
+      if (oldVersion < 22) {
+        console.log("📦 Migrating to schema version 22: Renaming nodeChunks → nodes, references → bibliography");
+
+        // Migrate nodeChunks → nodes
+        if (db.objectStoreNames.contains("nodeChunks")) {
+          console.log("🔄 Migrating nodeChunks → nodes...");
+
+          // Get old data
+          const oldNodeStore = transaction.objectStore("nodeChunks");
+          const nodeData = [];
+          const nodeRequest = oldNodeStore.openCursor();
+
+          nodeRequest.onsuccess = (e) => {
+            const cursor = e.target.result;
+            if (cursor) {
+              nodeData.push(cursor.value);
+              cursor.continue();
+            } else {
+              // All data collected, now delete old store
+              db.deleteObjectStore("nodeChunks");
+              console.log("🔥 Deleted old 'nodeChunks' store");
+
+              // Create new store
+              const newNodeStore = db.createObjectStore("nodes", { keyPath: ["book", "startLine"] });
+              newNodeStore.createIndex("chunk_id", "chunk_id", { unique: false });
+              newNodeStore.createIndex("book", "book", { unique: false });
+              newNodeStore.createIndex("book_startLine", ["book", "startLine"], { unique: false });
+              console.log("✅ Created new 'nodes' store");
+
+              // Copy data to new store
+              nodeData.forEach(item => {
+                newNodeStore.add(item);
+              });
+              console.log(`✅ Migrated ${nodeData.length} records to 'nodes' store`);
+            }
+          };
+        }
+
+        // Migrate references → bibliography
+        if (db.objectStoreNames.contains("references")) {
+          console.log("🔄 Migrating references → bibliography...");
+
+          // Get old data
+          const oldRefStore = transaction.objectStore("references");
+          const refData = [];
+          const refRequest = oldRefStore.openCursor();
+
+          refRequest.onsuccess = (e) => {
+            const cursor = e.target.result;
+            if (cursor) {
+              refData.push(cursor.value);
+              cursor.continue();
+            } else {
+              // All data collected, now delete old store
+              db.deleteObjectStore("references");
+              console.log("🔥 Deleted old 'references' store");
+
+              // Create new store
+              const newBibStore = db.createObjectStore("bibliography", { keyPath: ["book", "referenceId"] });
+              newBibStore.createIndex("book", "book", { unique: false });
+              newBibStore.createIndex("referenceId", "referenceId", { unique: false });
+              console.log("✅ Created new 'bibliography' store");
+
+              // Copy data to new store
+              refData.forEach(item => {
+                newBibStore.add(item);
+              });
+              console.log(`✅ Migrated ${refData.length} records to 'bibliography' store`);
+            }
+          };
+        }
       }
     };
 

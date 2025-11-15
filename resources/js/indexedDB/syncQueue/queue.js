@@ -19,7 +19,7 @@ export function initSyncQueueDependencies(deps) {
  * Queue an operation for syncing to PostgreSQL
  * Operations are batched and synced via debounced masterSync
  *
- * @param {string} store - Store name (nodeChunks, hyperlights, hypercites, library)
+ * @param {string} store - Store name (nodes, hyperlights, hypercites, library)
  * @param {string|number} id - Record identifier
  * @param {string} type - Operation type (update, delete, hide)
  * @param {Object} data - New data state
