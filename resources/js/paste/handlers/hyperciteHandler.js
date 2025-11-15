@@ -13,7 +13,8 @@ import {
   getHyperciteFromIndexedDB,
   updateHyperciteInIndexedDB,
   getNodeChunkFromIndexedDB,
-  toPublicChunk
+  toPublicChunk,
+  debouncedMasterSync
 } from '../../indexedDB/index.js';
 import { parseHyperciteHref } from '../../hypercites/index.js';
 import { broadcastToOpenTabs } from '../../utilities/BroadcastListener.js';
@@ -278,6 +279,11 @@ export async function handleHypercitePaste(event) {
           // Continue processing other hypercites even if one fails
         }
       }
+
+      // Flush sync queue immediately to ensure cross-device citation linking
+      console.log("⚡ Flushing sync queue immediately after single hypercite paste...");
+      await debouncedMasterSync.flush();
+      console.log("✅ Sync queue flushed.");
     } else {
       // MULTIPLE HYPERCITES: Batch all updates into ONE request
       const updatedHypercites = [];
@@ -458,6 +464,11 @@ export async function handleHypercitePaste(event) {
           console.error('❌ Error during batched sync:', error);
         }
       }
+
+      // Flush sync queue immediately after batched updates
+      console.log("⚡ Flushing sync queue immediately after batched hypercite paste...");
+      await debouncedMasterSync.flush();
+      console.log("✅ Sync queue flushed.");
     }
 
     console.log(`✅ Completed updating ${updateTasks.length} hypercite(s)`);
