@@ -138,10 +138,10 @@ class DbHyperciteController extends Controller
 
         Log::info("Hypercite and all " . $allNodeChunks->count() . " parent nodeChunks found for: {$hyperciteId}");
 
-        // ✅ RETURN THE HYPERCITE AND THE FULL ARRAY OF CHUNKS.
+        // ✅ RETURN THE HYPERCITE AND THE FULL ARRAY OF NODES.
         return response()->json([
             'hypercite' => $hypercite,
-            'nodeChunks' => $allNodeChunks, // Note the plural 'nodeChunks'
+            'nodes' => $allNodeChunks,
         ]);
     }
 

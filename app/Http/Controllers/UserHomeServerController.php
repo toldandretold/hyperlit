@@ -96,7 +96,7 @@ class UserHomeServerController extends Controller
 
         // Preserve existing highlights and cites
         // Build lookup map by original_book from raw_json to handle new node_id pattern
-        $oldChunksRaw = DB::table('node_chunks')->where('book', $bookName)->get();
+        $oldChunksRaw = DB::table('nodes')->where('book', $bookName)->get();
         $oldChunks = [];
         foreach ($oldChunksRaw as $chunk) {
             $rawJson = json_decode($chunk->raw_json ?? '{}', true);
@@ -114,7 +114,7 @@ class UserHomeServerController extends Controller
             ]
         );
 
-        DB::table('node_chunks')->where('book', $bookName)->delete();
+        DB::table('nodes')->where('book', $bookName)->delete();
 
         $chunks = [];
 
@@ -138,7 +138,7 @@ class UserHomeServerController extends Controller
         }
 
         foreach (array_chunk($chunks, 500) as $batch) {
-            DB::table('node_chunks')->insert($batch);
+            DB::table('nodes')->insert($batch);
         }
 
         return ['success' => true, 'count' => count($chunks)];
@@ -153,7 +153,7 @@ class UserHomeServerController extends Controller
         $visibility = $bookRecord->visibility ?? 'public';
         $bookName = $visibility === 'private' ? $sanitizedUsername . 'Private' : $sanitizedUsername;
 
-        $minStartLine = DB::table('node_chunks')
+        $minStartLine = DB::table('nodes')
             ->where('book', $bookName)
             ->where('startLine', '>', 0)
             ->min('startLine');
@@ -166,7 +166,7 @@ class UserHomeServerController extends Controller
             // For addBookToUserPage, always use current auth state (compare sanitized)
             $isOwner = Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername;
             $chunk = $this->generateLibraryCardChunk($bookRecord, $bookName, $newStartLine, $isOwner, false, -1);
-            DB::table('node_chunks')->insert($chunk);
+            DB::table('nodes')->insert($chunk);
             DB::table('library')->where('book', $bookName)->update(['timestamp' => round(microtime(true) * 1000)]);
         }
 
@@ -184,7 +184,7 @@ class UserHomeServerController extends Controller
 
         // Use new node_id pattern to find the card
         $expectedNodeId = $bookName . '_' . $bookRecord->book . '_card';
-        $chunkToUpdate = DB::table('node_chunks')
+        $chunkToUpdate = DB::table('nodes')
             ->where('book', $bookName)
             ->where('node_id', $expectedNodeId)
             ->first();
@@ -198,7 +198,7 @@ class UserHomeServerController extends Controller
             ]);
             $newPlainText = strip_tags($this->generateCitationHtml($bookRecord));
 
-            DB::table('node_chunks')->where('id', $chunkToUpdate->id)->update([
+            DB::table('nodes')->where('id', $chunkToUpdate->id)->update([
                 'content' => $newContent,
                 'raw_json' => $newRawJson,
                 'plainText' => $newPlainText,

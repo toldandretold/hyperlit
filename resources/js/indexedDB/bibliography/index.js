@@ -26,8 +26,8 @@ export async function saveAllReferencesToIndexedDB(references, bookId) {
   if (!references || references.length === 0) return;
   return withPending(async () => {
     const db = await openDatabase();
-    const tx = db.transaction("references", "readwrite");
-    const store = tx.objectStore("references");
+    const tx = db.transaction("bibliography", "readwrite");
+    const store = tx.objectStore("bibliography");
 
     references.forEach((reference) => {
       const record = { ...reference, book: bookId };

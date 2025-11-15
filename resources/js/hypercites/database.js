@@ -88,8 +88,8 @@ export async function getHyperciteById(db, hyperciteId) {
 export async function getHyperciteData(book, startLine) {
   try {
     const db = await openDatabase();
-    const tx = db.transaction("nodeChunks", "readonly");
-    const store = tx.objectStore("nodeChunks");
+    const tx = db.transaction("nodes", "readonly");
+    const store = tx.objectStore("nodes");
 
     // Create the proper key for lookup
     const key = createNodeChunksKey(book, startLine);
@@ -164,7 +164,7 @@ export function collectHyperciteData(hyperciteId, wrapper) {
 
 /**
  * Create new hypercite in IndexedDB and sync to PostgreSQL
- * Saves hypercite to both the main hypercites store and updates nodeChunks
+ * Saves hypercite to both the main hypercites store and updates nodes
  * @param {string} book - The book ID
  * @param {string} hyperciteId - The hypercite ID
  * @param {Array<Object>} blocks - Array of block data from collectHyperciteData
@@ -182,7 +182,7 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
       );
     }
 
-    const tx = db.transaction(["hypercites", "nodeChunks"], "readwrite");
+    const tx = db.transaction(["hypercites", "nodes"], "readwrite");
     const hypercitesStore = tx.objectStore("hypercites");
 
     // Locate the created <u> node in the DOM by hyperciteId.
@@ -234,12 +234,12 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
       console.log("✅ Successfully upserted hypercite record in main store.");
     };
 
-    // --- Update nodeChunks for each affected block ---
-    const nodeChunksStore = tx.objectStore("nodeChunks");
+    // --- Update nodes for each affected block ---
+    const nodesStore = tx.objectStore("nodes");
     const updatedNodeChunks = []; // 👈 Array to collect updated node chunks
 
     for (const block of blocks) {
-      // ... (your existing, correct logic for updating nodeChunks)
+      // ... (your existing, correct logic for updating nodes)
       // This loop populates the `updatedNodeChunks` array.
       // No changes are needed inside this loop.
       console.log("Processing block for NEW hypercite:", block);
@@ -252,7 +252,7 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
       const key = createNodeChunksKey(book, block.startLine);
       console.log("Looking up nodeChunk for NEW hypercite with key:", key);
 
-      const getRequest = nodeChunksStore.get(key);
+      const getRequest = nodesStore.get(key);
 
       const nodeChunkRecord = await new Promise((resolve, reject) => {
         getRequest.onsuccess = (e) => resolve(e.target.result);
@@ -340,14 +340,14 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
       );
       updatedNodeChunks.push(updatedNodeChunkRecord);
 
-      const putRequestNodeChunk = nodeChunksStore.put(updatedNodeChunkRecord);
+      const putRequestNodeChunk = nodesStore.put(updatedNodeChunkRecord);
       await new Promise((resolve, reject) => {
         putRequestNodeChunk.onsuccess = () => {
           console.log(
             `✅ Updated nodeChunk [${book}, ${block.startLine}] with NEW hypercite info.`,
           );
 
-          const verifyRequest = nodeChunksStore.get(
+          const verifyRequest = nodesStore.get(
             createNodeChunksKey(book, block.startLine),
           );
           verifyRequest.onsuccess = () => {
@@ -371,7 +371,7 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
       tx.onerror = (e) => reject(e.target.error);
     });
 
-    console.log("✅ NEW Hypercite and affected nodeChunks updated.");
+    console.log("✅ NEW Hypercite and affected nodes updated.");
 
     // --- START: SOLUTION ---
 
@@ -380,7 +380,7 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
     await updateBookTimestamp(book);
     queueForSync("hypercites", hyperciteId, "update", hyperciteEntry);
     updatedNodeChunks.forEach((chunk) => {
-      queueForSync("nodeChunks", chunk.startLine, "update", chunk);
+      queueForSync("nodes", chunk.startLine, "update", chunk);
     });
 
     // 2. Immediately flush the sync queue to the server. This bypasses the

@@ -36,7 +36,7 @@ export function parseNodeId(id) {
 }
 
 /**
- * Create a composite key for nodeChunks store
+ * Create a composite key for nodes store
  * @param {string} bookId - The book identifier
  * @param {string|number} startLine - The starting line/node ID
  * @returns {Array} Composite key [bookId, startLine]

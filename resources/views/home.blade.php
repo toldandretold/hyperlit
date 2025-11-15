@@ -56,9 +56,9 @@
       </div>
     </div>
     <!-- Homepage content containers -->
-    <div id="most-recent" class="main-content active-content"></div>
-    <div id="most-connected" class="main-content hidden-content"></div>
-    <div id="most-lit" class="main-content hidden-content"></div>
+    <main id="most-recent" class="main-content active-content"></main>
+    <main id="most-connected" class="main-content hidden-content"></main>
+    <main id="most-lit" class="main-content hidden-content"></main>
   </div>
   <!-- ================================================================ -->
 

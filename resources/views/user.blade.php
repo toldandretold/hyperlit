@@ -81,7 +81,7 @@
       @endif
     </div>
     <!-- User page content container - single book, filtered by public/private -->
-    <div id="{{ $book }}" class="main-content active-content"></div>
+    <main id="{{ $book }}" class="main-content active-content"></main>
   </div>
   <!-- ================================================================ -->
 

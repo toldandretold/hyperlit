@@ -895,7 +895,7 @@ async function loadDocxLib() {
 }
 
 /**
- * Fetches all nodeChunks for a book, converts to markdown,
+ * Fetches all nodes for a book, converts to markdown,
  * and returns a single string.
  */
 async function buildMarkdownForBook(bookId = book || 'latest') {

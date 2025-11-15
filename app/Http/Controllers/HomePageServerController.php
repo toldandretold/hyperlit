@@ -2,7 +2,7 @@
 
 /*This controller pulls four columns from the library data table in postgreSQL: 
 [recent, total_highlights, total_hypercites, created_at]
-It processes them into three special books in the node_chunks table: 
+It processes them into three special books in the nodes table: 
 [most-recent, most-connected, most-lit]
 
 This is calculated according to the following logic:
@@ -15,7 +15,7 @@ Higher metric values get lower ranking numbers (1 = best)
 When two books have the same metric value, the one created first gets the better ranking
 Each book gets a unique ranking number (1, 2, 3, etc.) 
 
-call this in terminal to update the node_chunks table with:
+call this in terminal to update the nodes table with:
 
 curl -X POST http://localhost:8000/api/homepage/books/update \
   -H "Content-Type: application/json" \
@@ -77,7 +77,7 @@ class HomePageServerController extends Controller
         $rankings = $this->calculateRankings($libraryRecords);
 
         // Clear existing entries for our special books
-        DB::table('node_chunks')->whereIn('book', [
+        DB::table('nodes')->whereIn('book', [
             'most-recent', 
             'most-connected', 
             'most-lit'
@@ -177,7 +177,7 @@ class HomePageServerController extends Controller
 
         // Insert all chunks for this book
         if (!empty($chunks)) {
-            DB::table('node_chunks')->insert($chunks);
+            DB::table('nodes')->insert($chunks);
         }
     }
 

@@ -104,7 +104,7 @@ function sanitizeContent(html) {
 function getNodeChunkByKey(book, startLine) {
   return new Promise((resolve, reject) => {
     const dbName = "MarkdownDB";
-    const storeName = "nodeChunks";
+    const storeName = "nodes";
     const request = indexedDB.open(dbName);
 
     request.onerror = (event) => {

@@ -323,10 +323,10 @@ export function updateIndexedDBRecord(record) {
 
     const db = await openDatabase();
     const tx = db.transaction(
-      ["nodeChunks", "hyperlights", "hypercites"],
+      ["nodes", "hyperlights", "hypercites"],
       "readwrite"
     );
-    const chunksStore = tx.objectStore("nodeChunks");
+    const chunksStore = tx.objectStore("nodes");
     const lightsStore = tx.objectStore("hyperlights");
     const citesStore = tx.objectStore("hypercites");
     const compositeKey = [bookId, numericNodeId];
@@ -423,7 +423,7 @@ export function updateIndexedDBRecord(record) {
         // MODIFIED: Pass the full data object to the queue.
         if (savedNodeChunk) {
           queueForSync(
-            "nodeChunks",
+            "nodes",
             savedNodeChunk.startLine,
             "update",
             savedNodeChunk
@@ -463,10 +463,10 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
 
     const db = await openDatabase();
     const tx = db.transaction(
-      ["nodeChunks", "hyperlights", "hypercites"],
+      ["nodes", "hyperlights", "hypercites"],
       "readwrite",
     );
-    const chunksStore = tx.objectStore("nodeChunks");
+    const chunksStore = tx.objectStore("nodes");
     const lightsStore = tx.objectStore("hyperlights");
     const citesStore = tx.objectStore("hypercites");
 
@@ -622,7 +622,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
         allSavedNodeChunks.forEach((chunk) => {
           const originalChunk = originalNodeChunkStates.get(chunk.startLine);
           queueForSync(
-            "nodeChunks",
+            "nodes",
             chunk.startLine,
             "update",
             chunk,
@@ -664,18 +664,18 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
       console.log(`✅ Database opened successfully`);
 
       const tx = db.transaction(
-        ["nodeChunks", "hyperlights", "hypercites"],
+        ["nodes", "hyperlights", "hypercites"],
         "readwrite"
       );
       console.log(`✅ Transaction created`);
 
-      const chunksStore = tx.objectStore("nodeChunks");
+      const chunksStore = tx.objectStore("nodes");
       const lightsStore = tx.objectStore("hyperlights");
       const citesStore = tx.objectStore("hypercites");
 
       // This object will collect the full data of everything we delete.
       const deletedData = {
-        nodeChunks: [],
+        nodes: [],
         hyperlights: [],
         hypercites: []
       };
@@ -705,7 +705,7 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
 
               // ✅ CHANGE 1: Store the original record for the history log.
               // We no longer need the `_deleted: true` flag.
-              deletedData.nodeChunks.push(existing); // This is the record to ADD BACK on UNDO
+              deletedData.nodes.push(existing); // This is the record to ADD BACK on UNDO
 
               const deleteReq = chunksStore.delete(compositeKey);
               deleteReq.onsuccess = () => {
@@ -770,8 +770,8 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
           // not for history. They should remain for *single* deletions. For batch deletions,
           // the debouncedMasterSync will gather all the queued items.
           // Your existing queueForSync calls for deletedData are correct for PostgreSQL sync.
-          deletedData.nodeChunks.forEach((record) => {
-            queueForSync("nodeChunks", record.startLine, "delete", record);
+          deletedData.nodes.forEach((record) => {
+            queueForSync("nodes", record.startLine, "delete", record);
           });
           deletedData.hyperlights.forEach((record) => {
             queueForSync("hyperlights", record.hyperlight_id, "delete", record);

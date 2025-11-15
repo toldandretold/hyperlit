@@ -27,10 +27,10 @@ async function renderOpenBooks() {
 
   let chunks;
   try {
-    chunks = await getAllRecords(db, 'nodeChunks');
+    chunks = await getAllRecords(db, 'nodes');
     console.log('Chunks:', chunks);
   } catch (e) {
-    console.error('Failed to get nodeChunks:', e);
+    console.error('Failed to get nodes:', e);
     return;
   }
 

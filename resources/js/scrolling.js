@@ -369,14 +369,14 @@ export function isValidContentElement(el) {
 async function loadDefaultContent(lazyLoader) {
   console.log("Loading default content (first chunk)...");
   
-  // Check if we already have nodeChunks
-  if (!lazyLoader.nodeChunks || lazyLoader.nodeChunks.length === 0) {
-    console.log("No nodeChunks in memory, trying to fetch from IndexedDB...");
+  // Check if we already have nodes
+  if (!lazyLoader.nodes || lazyLoader.nodes.length === 0) {
+    console.log("No nodes in memory, trying to fetch from IndexedDB...");
     try {
       let cachedNodeChunks = await getNodeChunksFromIndexedDB(lazyLoader.bookId);
       if (cachedNodeChunks && cachedNodeChunks.length > 0) {
         console.log(`Found ${cachedNodeChunks.length} chunks in IndexedDB`);
-        lazyLoader.nodeChunks = cachedNodeChunks;
+        lazyLoader.nodes = cachedNodeChunks;
       } else {
         // Fallback: fetch markdown and parse
         console.log("No cached chunks found. Fetching main-text.md...");
@@ -385,8 +385,8 @@ async function loadDefaultContent(lazyLoader) {
           throw new Error(`Failed to fetch markdown: ${response.status}`);
         }
         const markdown = await response.text();
-        lazyLoader.nodeChunks = parseMarkdownIntoChunksInitial(markdown);
-        console.log(`Parsed ${lazyLoader.nodeChunks.length} chunks from markdown`);
+        lazyLoader.nodes = parseMarkdownIntoChunksInitial(markdown);
+        console.log(`Parsed ${lazyLoader.nodes.length} chunks from markdown`);
       }
     } catch (error) {
       console.error("Error loading content:", error);
@@ -398,11 +398,11 @@ async function loadDefaultContent(lazyLoader) {
   lazyLoader.container.innerHTML = "";
   
   // Find chunks with chunk_id === 0
-  const firstChunks = lazyLoader.nodeChunks.filter(node => node.chunk_id === 0);
+  const firstChunks = lazyLoader.nodes.filter(node => node.chunk_id === 0);
   if (firstChunks.length === 0) {
     console.warn("No chunks with ID 0 found! Loading first available chunk instead.");
-    if (lazyLoader.nodeChunks.length > 0) {
-      lazyLoader.loadChunk(lazyLoader.nodeChunks[0].chunk_id, "down");
+    if (lazyLoader.nodes.length > 0) {
+      lazyLoader.loadChunk(lazyLoader.nodes[0].chunk_id, "down");
     } else {
       throw new Error("No chunks available to load");
     }
@@ -616,9 +616,9 @@ export async function restoreScrollPosition() {
       let cachedNodeChunks = await getNodeChunksFromIndexedDB(currentLazyLoader.bookId);
       
       if (cachedNodeChunks?.length > 0) {
-        currentLazyLoader.nodeChunks = cachedNodeChunks;
+        currentLazyLoader.nodes = cachedNodeChunks;
         currentLazyLoader.container.innerHTML = "";
-        currentLazyLoader.nodeChunks
+        currentLazyLoader.nodes
           .filter(node => node.chunk_id === 0)
           .forEach(node => currentLazyLoader.loadChunk(node.chunk_id, "down"));
         return;
@@ -627,8 +627,8 @@ export async function restoreScrollPosition() {
       // Fallback to markdown fetch
       const response = await fetch(`/markdown/${book}/main-text.md`);
       const markdown = await response.text();
-      currentLazyLoader.nodeChunks = parseMarkdownIntoChunksInitial(markdown);
-      currentLazyLoader.nodeChunks
+      currentLazyLoader.nodes = parseMarkdownIntoChunksInitial(markdown);
+      currentLazyLoader.nodes
         .filter(node => node.chunk_id === 0)
         .forEach(node => currentLazyLoader.loadChunk(node.chunk_id, "down"));
     } catch (error) {
@@ -842,12 +842,12 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     let targetChunkIndex = -1;
     if (/^\d+$/.test(targetId)) {
       // Compare targetId (which is startLine) to node.startLine.
-      targetChunkIndex = lazyLoader.nodeChunks.findIndex(
+      targetChunkIndex = lazyLoader.nodes.findIndex(
         node => node.startLine.toString() === targetId
       );
     } else {
       // Use custom logic for non-numeric IDs.
-      const targetLine = findLineForCustomId(targetId, lazyLoader.nodeChunks);
+      const targetLine = findLineForCustomId(targetId, lazyLoader.nodes);
       if (targetLine === null) {
         console.warn(
           `No block found for target ID "${targetId}". ` +
@@ -862,7 +862,7 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
         lazyLoader.isNavigatingToInternalId = false;
         return;
       }
-      targetChunkIndex = lazyLoader.nodeChunks.findIndex(
+      targetChunkIndex = lazyLoader.nodes.findIndex(
         node => targetLine === node.startLine
       );
     }
@@ -890,11 +890,11 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     lazyLoader.currentlyLoadedChunks.clear();
     
     // 🚀 Get the actual chunk_id of the target node, not array index
-    const targetNode = lazyLoader.nodeChunks[targetChunkIndex];
+    const targetNode = lazyLoader.nodes[targetChunkIndex];
     const targetChunkId = targetNode.chunk_id;
     
     // Get all unique chunk_ids and sort them
-    const allChunkIds = [...new Set(lazyLoader.nodeChunks.map(n => n.chunk_id))].sort((a, b) => a - b);
+    const allChunkIds = [...new Set(lazyLoader.nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
     const targetChunkPosition = allChunkIds.indexOf(targetChunkId);
     
     // Load target chunk plus adjacent chunks
@@ -1124,14 +1124,14 @@ function waitForElementAndScroll(targetId, maxAttempts = 10, attempt = 0) {
 }
 
 // Utility: find the line for a custom id in content, hypercites, and hyperlights.
-function findLineForCustomId(targetId, nodeChunks) {
+function findLineForCustomId(targetId, nodes) {
   // Normalize for case-insensitive comparisons.
   const normalizedTarget = targetId.toLowerCase();
   // Create a regex to look in content for an element with the matching id.
   const regex = new RegExp(`id=['"]${targetId}['"]`, "i");
 
-  // Iterate over each node in nodeChunks.
-  for (let node of nodeChunks) {
+  // Iterate over each node in nodes.
+  for (let node of nodes) {
     // Check if the content has an element with the target id.
     if (node.content && regex.test(node.content)) {
       return node.startLine;

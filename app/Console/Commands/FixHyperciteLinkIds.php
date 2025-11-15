@@ -20,7 +20,7 @@ use App\Models\PgNodeChunk;
  * Sometimes these IDs get corrupted (e.g., id="1000" instead of proper hypercite ID).
  *
  * HOW IT WORKS:
- * 1. Scans all node_chunks for hypercite links
+ * 1. Scans all nodes for hypercite links
  * 2. Extracts the target hypercite ID from the href (part after #)
  * 3. Looks up that hypercite in the database
  * 4. Gets the citedIN array from the hypercite

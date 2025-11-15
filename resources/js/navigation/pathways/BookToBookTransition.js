@@ -576,8 +576,8 @@ export class BookToBookTransition {
       }
       
       // Find the first chunk to load
-      if (window.nodeChunks && window.nodeChunks.length > 0) {
-        const firstChunk = window.nodeChunks.find(chunk => chunk.chunk_id === 0) || window.nodeChunks[0];
+      if (window.nodes && window.nodes.length > 0) {
+        const firstChunk = window.nodes.find(chunk => chunk.chunk_id === 0) || window.nodes[0];
         if (firstChunk) {
           console.log(`📄 Manually loading first chunk ${firstChunk.chunk_id} for ${bookId}`);
           currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");

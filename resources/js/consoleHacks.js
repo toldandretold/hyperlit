@@ -94,8 +94,8 @@ async function rescueCurrentDOM() {
       dbRequest.onerror = function() { reject(dbRequest.error); };
     });
     console.log('DB opened');
-    var tx = db.transaction('nodeChunks', 'readonly');
-    var store = tx.objectStore('nodeChunks');
+    var tx = db.transaction('nodes', 'readonly');
+    var store = tx.objectStore('nodes');
     var bookIndex = store.index('book');
     var getAllRequest = bookIndex.getAll(currentBook);
     var existingNodes = await new Promise(function(resolve, reject) {
@@ -110,8 +110,8 @@ async function rescueCurrentDOM() {
       }
     }
     console.log('Found', existingNodesMap.size, 'nodes in DB');
-    var deleteTx = db.transaction('nodeChunks', 'readwrite');
-    var deleteStore = deleteTx.objectStore('nodeChunks');
+    var deleteTx = db.transaction('nodes', 'readwrite');
+    var deleteStore = deleteTx.objectStore('nodes');
     for (var i = 0; i < existingNodes.length; i++) {
       var node = existingNodes[i];
       await deleteStore.delete([node.book, node.startLine]);
@@ -121,8 +121,8 @@ async function rescueCurrentDOM() {
       deleteTx.onerror = function() { reject(deleteTx.error); };
     });
     console.log('Deleted', existingNodes.length, 'old records');
-    var writeTx = db.transaction('nodeChunks', 'readwrite');
-    var writeStore = writeTx.objectStore('nodeChunks');
+    var writeTx = db.transaction('nodes', 'readwrite');
+    var writeStore = writeTx.objectStore('nodes');
     for (var i = 0; i < updates.length; i++) {
       var update = updates[i];
       var existingNode = existingNodesMap.get(update.node_id);
