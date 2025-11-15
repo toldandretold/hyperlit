@@ -107,9 +107,33 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
       ${isPrivate ? PRIVATE_SVG : PUBLIC_SVG}
     </button>` : '';
 
+  // Get license info
+  const license = record?.license || 'CC-BY-SA-4.0-NO-AI';
+  const LICENSE_INFO = {
+    'CC-BY-SA-4.0-NO-AI': { short: 'CC BY-SA 4.0 (No AI)', url: '/license2025content' },
+    'CC-BY-4.0': { short: 'CC BY 4.0', url: 'https://creativecommons.org/licenses/by/4.0/' },
+    'CC-BY-NC-SA-4.0': { short: 'CC BY-NC-SA 4.0', url: 'https://creativecommons.org/licenses/by-nc-sa/4.0/' },
+    'CC0': { short: 'CC0', url: 'https://creativecommons.org/publicdomain/zero/1.0/' },
+    'All-Rights-Reserved': { short: 'All Rights Reserved', url: null },
+    'custom': { short: 'Custom License', url: null }
+  };
+
+  const licenseInfo = LICENSE_INFO[license] || LICENSE_INFO['CC-BY-SA-4.0-NO-AI'];
+  let licenseHtml = '';
+
+  if (licenseInfo.url) {
+    licenseHtml = `<p style="font-size: 12px; color: #888; margin-top: 10px;">📄 <a href="${licenseInfo.url}" target="_blank" style="color: #888; text-decoration: underline;">${licenseInfo.short}</a></p>`;
+  } else if (license === 'custom' && record?.custom_license_text) {
+    const escapedText = record.custom_license_text.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    licenseHtml = `<p style="font-size: 12px; color: #888; margin-top: 10px; cursor: help;" title="${escapedText}">📄 ${licenseInfo.short}</p>`;
+  } else {
+    licenseHtml = `<p style="font-size: 12px; color: #888; margin-top: 10px;">📄 ${licenseInfo.short}</p>`;
+  }
+
   return `
     <div class="scroller" id="source-content">
     <p class="citation">${citation}</p>
+    ${licenseHtml}
 
     <br/>
     
@@ -240,6 +264,21 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
 
             <label for="edit-note" class="optional-field" style="display: none;">Note</label>
             <input type="text" id="edit-note" name="note" class="optional-field" style="display: none;" placeholder="Additional notes">
+          </div>
+
+          <!-- License Section -->
+          <div class="form-section">
+            <label for="edit-license">Content License</label>
+            <select id="edit-license" name="license">
+              <option value="CC-BY-SA-4.0-NO-AI">CC BY-SA 4.0 (No AI Training) - Default</option>
+              <option value="CC-BY-4.0">CC BY 4.0 (Allows AI Training)</option>
+              <option value="CC-BY-NC-SA-4.0">CC BY-NC-SA 4.0 (Non-Commercial, No AI)</option>
+              <option value="CC0">CC0 (Public Domain)</option>
+              <option value="All-Rights-Reserved">All Rights Reserved (Private)</option>
+              <option value="custom">Custom License...</option>
+            </select>
+            <textarea id="edit-custom-license-text" name="custom_license_text" style="display:none; margin-top: 10px;" rows="4" placeholder="Enter your custom license terms..."></textarea>
+            <div class="field-hint">Choose how others can use your content. <a href="/LICENSE-CONTENT.md" target="_blank">Learn more</a></div>
           </div>
 
           <div class="form-actions">
@@ -431,12 +470,24 @@ export class SourceContainerManager extends ContainerManager {
     const yearField = this.container.querySelector("#edit-year");
     const urlField = this.container.querySelector("#edit-url");
     const bibtexField = this.container.querySelector("#edit-bibtex");
-    
+    const licenseField = this.container.querySelector("#edit-license");
+    const customLicenseField = this.container.querySelector("#edit-custom-license-text");
+
     if (titleField) titleField.value = record.title || "";
     if (authorField) authorField.value = record.author || record.creator || "";
     if (yearField) yearField.value = record.year || "";
     if (urlField) urlField.value = record.url || "";
     if (bibtexField) bibtexField.value = record.bibtex || "";
+
+    // License fields
+    if (licenseField) {
+      licenseField.value = record.license || 'CC-BY-SA-4.0-NO-AI';
+      // Show custom license textarea if license is custom
+      if (record.license === 'custom' && customLicenseField) {
+        customLicenseField.style.display = 'block';
+        customLicenseField.value = record.custom_license_text || '';
+      }
+    }
     
     // Set the correct radio button for type
     const typeRadios = this.container.querySelectorAll('input[name="type"]');
@@ -589,8 +640,20 @@ export class SourceContainerManager extends ContainerManager {
 
     const bibtexField = this.container.querySelector("#edit-bibtex");
     const urlField = this.container.querySelector("#edit-url");
+    const licenseField = this.container.querySelector("#edit-license");
+    const customLicenseField = this.container.querySelector("#edit-custom-license-text");
 
-    
+    // License dropdown listener to show/hide custom license textarea
+    if (licenseField && customLicenseField) {
+      licenseField.addEventListener('change', (e) => {
+        if (e.target.value === 'custom') {
+          customLicenseField.style.display = 'block';
+        } else {
+          customLicenseField.style.display = 'none';
+        }
+      });
+    }
+
     // Type change listeners for radio buttons
     typeRadios.forEach(radio => {
       radio.addEventListener("change", (e) => {
@@ -825,16 +888,15 @@ export class SourceContainerManager extends ContainerManager {
     }
     
 
-    // Collect all fields including BibTeX
-    const allFields = ["title", "author", "year", "url", "bibtex", "journal", "pages", "publisher", "school", "note"];
+    // Collect all fields including BibTeX and license
+    const allFields = ["title", "author", "year", "url", "bibtex", "journal", "pages", "publisher", "school", "note", "license", "custom_license_text"];
     allFields.forEach(fieldName => {
-      const field = this.container.querySelector(`#edit-${fieldName}`);
+      const field = this.container.querySelector(`#edit-${fieldName.replace('_', '-')}`);
       if (field) {
         data[fieldName] = field.value || '';
-
       }
     });
-    
+
     return data;
   }
 
