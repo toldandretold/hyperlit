@@ -41,7 +41,7 @@ function throttle(fn, delay) {
  */
 export function createLazyLoader(config) {
   const {
-    nodeChunks,
+    nodes,
     loadNextChunk,
     loadPreviousChunk,
     attachMarkListeners: attachMarkers,
@@ -52,7 +52,7 @@ export function createLazyLoader(config) {
     onFirstChunkLoaded,
   } = config;
 
-  if (!nodeChunks || nodeChunks.length === 0) {
+  if (!nodes || nodes.length === 0) {
     log.error('No nodes available for lazy loader', 'lazyLoaderFactory.js');
     return null;
   }
@@ -84,7 +84,7 @@ export function createLazyLoader(config) {
   
   // Create the instance to track lazy-loader state.
   const instance = {
-    nodeChunks, // Array of chunk objects
+    nodes, // Array of chunk objects
     currentlyLoadedChunks: new Set(),
     observer: null,
     topSentinel: null,
@@ -320,14 +320,14 @@ export function createLazyLoader(config) {
     } else {
       try {
         // Get the node chunks from IndexedDB.
-        const nodeChunksData = await instance.getNodeChunks();
-        if (!nodeChunksData || nodeChunksData.length === 0) {
+        const nodesData = await instance.getNodeChunks();
+        if (!nodesData || nodesData.length === 0) {
           return;
         }
         // Look for the chunk where startLine matches the saved element id.
         // Note: saved element id is a string; if needed, parse it as an integer.
         const savedStartLine = parseFloat(scrollData.elementId);
-        const matchingChunk = nodeChunksData.find((chunk) => {
+        const matchingChunk = nodesData.find((chunk) => {
           // Assuming each chunk object contains a startLine property.
           return parseFloat(chunk.startLine, 10) === savedStartLine;
         });
@@ -367,9 +367,9 @@ export function createLazyLoader(config) {
     try {
       // 1. GET THE TRUTH: The data in IndexedDB is now correct.
       //    Fetch the complete, fresh list of all node chunks.
-      instance.nodeChunks = await instance.getNodeChunks();
-      if (!instance.nodeChunks || instance.nodeChunks.length === 0) {
-        console.error("❌ Aborting render: Failed to fetch any nodes from nodeChunks object store in IndexedDB.");
+      instance.nodes = await instance.getNodeChunks();
+      if (!instance.nodes || instance.nodes.length === 0) {
+        console.error("❌ Aborting render: Failed to fetch any nodes from nodes object store in IndexedDB.");
         return;
       }
 
@@ -562,8 +562,8 @@ export function createLazyLoader(config) {
     // In lazyLoaderFactory.js, inside the createLazyLoader function...
 
   instance.refresh = async (targetElementId = null) => {
-    // 1. Re-read the fresh nodeChunks from IndexedDB (from your original)
-    instance.nodeChunks = await instance.getNodeChunks();
+    // 1. Re-read the fresh nodes from IndexedDB (from your original)
+    instance.nodes = await instance.getNodeChunks();
 
     // 2. Remove all rendered chunk-DIVs (from your original)
     instance.container
@@ -586,11 +586,11 @@ export function createLazyLoader(config) {
     instance.observer.observe(instance.bottomSentinel);
 
     // 6. ✅ NEW: Determine which chunk to load first
-    const allChunkIds = [...new Set(instance.nodeChunks.map(n => n.chunk_id))].sort((a, b) => a - b);
+    const allChunkIds = [...new Set(instance.nodes.map(n => n.chunk_id))].sort((a, b) => a - b);
     let chunkToLoadId = allChunkIds.length > 0 ? allChunkIds[0] : null;
 
     if (targetElementId) {
-      const targetChunk = instance.nodeChunks.find(c => c.startLine == targetElementId);
+      const targetChunk = instance.nodes.find(c => c.startLine == targetElementId);
       if (targetChunk) {
         chunkToLoadId = targetChunk.chunk_id;
       }
@@ -977,7 +977,7 @@ export function loadNextChunkFixed(currentLastChunkId, instance) {
   let nextChunkId = null;
   let nextNodes = [];
 
-  for (const node of instance.nodeChunks) {
+  for (const node of instance.nodes) {
     const nodeChunkId = parseFloat(node.chunk_id);
 
     if (nodeChunkId > currentId && (nextChunkId === null || nodeChunkId < nextChunkId)) {
@@ -990,7 +990,7 @@ export function loadNextChunkFixed(currentLastChunkId, instance) {
       return;
     }
 
-    nextNodes = instance.nodeChunks.filter(node => parseFloat(node.chunk_id) === nextChunkId);
+    nextNodes = instance.nodes.filter(node => parseFloat(node.chunk_id) === nextChunkId);
 
     if (nextNodes.length === 0) {
       return;
@@ -1029,7 +1029,7 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
   let prevChunkId = null;
   let prevNodes = [];
 
-  for (const node of instance.nodeChunks) {
+  for (const node of instance.nodes) {
     const nodeChunkId = parseFloat(node.chunk_id);
 
     if (nodeChunkId < currentId && (prevChunkId === null || nodeChunkId > prevChunkId)) {
@@ -1042,7 +1042,7 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
       return;
     }
 
-    prevNodes = instance.nodeChunks.filter(node => parseFloat(node.chunk_id) === prevChunkId);
+    prevNodes = instance.nodes.filter(node => parseFloat(node.chunk_id) === prevChunkId);
 
     if (prevNodes.length === 0) {
       return;
@@ -1087,7 +1087,7 @@ function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
     return;
   }
 
-  const nextNodes = instance.nodeChunks.filter(
+  const nextNodes = instance.nodes.filter(
     (node) => node.chunk_id === chunkId
   );
 
@@ -1130,7 +1130,7 @@ function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   }, 100);
 
   if (chunkId === 0) {
-    const nodeCount = instance.nodeChunks.find(c => c.chunk_id === 0)?.nodes?.length || 50;
+    const nodeCount = instance.nodes.find(c => c.chunk_id === 0)?.nodes?.length || 50;
     log.content(`First chunk rendered (${nodeCount} nodes)`, 'lazyLoaderFactory.js');
   }
   verbose.content(`Chunk #${chunkId} loaded into DOM`, 'lazyLoaderFactory.js');

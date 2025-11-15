@@ -21,12 +21,12 @@ export function setCurrentBookId(bookId) {
 function getTargetIdFromPayload(payload) {
   const { updates, deletions } = payload;
   // Prioritize deletions, as that's where the content was.
-  if (deletions.nodeChunks && deletions.nodeChunks.length > 0) {
-    return deletions.nodeChunks[0].startLine;
+  if (deletions.nodes && deletions.nodes.length > 0) {
+    return deletions.nodes[0].startLine;
   }
   // If no deletions, use the first updated item.
-  if (updates.nodeChunks && updates.nodeChunks.length > 0) {
-    return updates.nodeChunks[0].startLine;
+  if (updates.nodes && updates.nodes.length > 0) {
+    return updates.nodes[0].startLine;
   }
   return null; // No clear target
 }
@@ -109,12 +109,12 @@ export async function canRedo() {
 export async function undoLastBatch() {
   const db = await openDatabase();
   const tx = db.transaction(
-    ["historyLog", "redoLog", "nodeChunks", "hyperlights", "hypercites", "library"],
+    ["historyLog", "redoLog", "nodes", "hyperlights", "hypercites", "library"],
     "readwrite"
   );
   const historyStore = tx.objectStore("historyLog");
   const redoStore = tx.objectStore("redoLog");
-  const chunksStore = tx.objectStore("nodeChunks");
+  const chunksStore = tx.objectStore("nodes");
   const lightsStore = tx.objectStore("hyperlights");
   const citesStore = tx.objectStore("hypercites");
   const libraryStore = tx.objectStore("library");
@@ -137,7 +137,7 @@ export async function undoLastBatch() {
   const { updates, deletions } = logToUndo.payload;
 
   // Revert operations
-  for (const record of updates.nodeChunks || []) {
+  for (const record of updates.nodes || []) {
     chunksStore.delete([record.book, record.startLine]);
   }
   for (const record of updates.hyperlights || []) {
@@ -150,7 +150,7 @@ export async function undoLastBatch() {
     libraryStore.delete(updates.library.book);
   }
 
-  for (const record of deletions.nodeChunks || []) {
+  for (const record of deletions.nodes || []) {
     chunksStore.put(record);
   }
   for (const record of deletions.hyperlights || []) {
@@ -178,12 +178,12 @@ export async function undoLastBatch() {
 export async function redoLastBatch() {
   const db = await openDatabase();
   const tx = db.transaction(
-    ["historyLog", "redoLog", "nodeChunks", "hyperlights", "hypercites", "library"],
+    ["historyLog", "redoLog", "nodes", "hyperlights", "hypercites", "library"],
     "readwrite"
   );
   const historyStore = tx.objectStore("historyLog");
   const redoStore = tx.objectStore("redoLog");
-  const chunksStore = tx.objectStore("nodeChunks");
+  const chunksStore = tx.objectStore("nodes");
   const lightsStore = tx.objectStore("hyperlights");
   const citesStore = tx.objectStore("hypercites");
 
@@ -205,7 +205,7 @@ export async function redoLastBatch() {
   const { updates, deletions } = logToRedo.payload;
 
   // Re-apply operations
-  for (const r of deletions.nodeChunks || []) {
+  for (const r of deletions.nodes || []) {
     chunksStore.delete([r.book, r.startLine]);
   }
   for (const r of deletions.hyperlights || []) {
@@ -215,7 +215,7 @@ export async function redoLastBatch() {
     citesStore.delete([r.book, r.hyperciteId]);
   }
 
-  for (const record of updates.nodeChunks || []) {
+  for (const record of updates.nodes || []) {
     chunksStore.put(record);
   }
   for (const record of updates.hyperlights || []) {

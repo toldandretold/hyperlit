@@ -151,7 +151,7 @@ export function checkNavigationHealth() {
   // Check for orphaned global listeners
   const globalChecks = {
     'window.currentLazyLoader': typeof window.currentLazyLoader !== 'undefined',
-    'window.nodeChunks': typeof window.nodeChunks !== 'undefined',
+    'window.nodes': typeof window.nodes !== 'undefined',
     'window.book': typeof window.book !== 'undefined'
   };
 

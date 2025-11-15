@@ -26,7 +26,7 @@ class TextController extends Controller
 
         if ($username !== null) {
             $bookCount = DB::table('library')->where('creator', $username)->where('book', '!=', $username)->count();
-            $nodeCount = DB::table('node_chunks')->where('book', $username)->where('startLine', '>', 0)->count();
+            $nodeCount = DB::table('nodes')->where('book', $username)->where('startLine', '>', 0)->count();
 
             // Generate the user-home book if it doesn't exist OR if the counts are out of sync.
             if ($nodeCount === 0 || $bookCount !== $nodeCount) {
@@ -43,7 +43,7 @@ class TextController extends Controller
         $editMode = $request->boolean('edit') || $request->routeIs('book.edit');
 
         // Check all possible data sources
-        $bookExistsInDB = DB::table('node_chunks')->where('book', $book)->exists();
+        $bookExistsInDB = DB::table('nodes')->where('book', $book)->exists();
         $markdownPath = resource_path("markdown/{$book}/main-text.md");
         $htmlPath = resource_path("markdown/{$book}/main-text.html");
         $markdownExists = File::exists($markdownPath);

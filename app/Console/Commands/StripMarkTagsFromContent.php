@@ -7,10 +7,10 @@ use Illuminate\Support\Facades\DB;
 use App\Models\PgNodeChunk;
 
 /**
- * Strip <mark> Tags from node_chunks Content
+ * Strip <mark> Tags from nodes Content
  *
  * PURPOSE:
- * Removes <mark> tags from the content and raw_json columns in the node_chunks table.
+ * Removes <mark> tags from the content and raw_json columns in the nodes table.
  * Highlights should be dynamically injected on page load from the hyperlights array data,
  * not persisted in the content itself.
  *
@@ -30,7 +30,7 @@ use App\Models\PgNodeChunk;
  * php artisan content:strip-mark-tags book_1760156814805 --dry-run
  *
  * WHAT IT DOES:
- * 1. Finds all node_chunks with <mark> tags in content
+ * 1. Finds all nodes with <mark> tags in content
  * 2. Strips both opening <mark> tags (with any attributes) and closing </mark> tags
  * 3. Also cleans raw_json column if it exists
  * 4. Shows progress bar during operation
@@ -51,7 +51,7 @@ class StripMarkTagsFromContent extends Command
      *
      * @var string
      */
-    protected $description = 'Remove <mark> tags from node_chunks content column (highlights are injected on page load)';
+    protected $description = 'Remove <mark> tags from nodes content column (highlights are injected on page load)';
 
     /**
      * Execute the console command.

@@ -84,7 +84,7 @@ export async function addToHighlightsTable(bookId, highlightData) {
 }
 
 /**
- * Update a node with a new highlight in the nodeChunks table
+ * Update a node with a new highlight in the nodes table
  * @param {string} bookId - The book ID
  * @param {string} chunkId - The chunk ID (e.g., "1.1")
  * @param {number} highlightStartOffset - Start offset
@@ -101,8 +101,8 @@ export async function updateNodeHighlight(
 ) {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction("nodeChunks", "readwrite");
-    const store = tx.objectStore("nodeChunks");
+    const tx = db.transaction("nodes", "readwrite");
+    const store = tx.objectStore("nodes");
 
     // Use the helper to create a consistent key
     const key = createNodeChunksKey(bookId, chunkId);
@@ -115,7 +115,7 @@ export async function updateNodeHighlight(
       let updatedNode; // 👈 ADD: Variable to track the updated node
 
       if (!node) {
-        console.warn(`No nodeChunks record for key [${book}, ${chunkId}]`);
+        console.warn(`No nodes record for key [${book}, ${chunkId}]`);
 
         // Create a new node if it doesn't exist
         updatedNode = {
@@ -166,7 +166,7 @@ export async function updateNodeHighlight(
 }
 
 /**
- * Remove highlight from nodeChunks table
+ * Remove highlight from nodes table
  * @param {string} bookId - The book ID
  * @param {string} highlightId - The highlight ID to remove
  * @returns {Promise<Array>} Array of updated nodes
@@ -175,8 +175,8 @@ export async function removeHighlightFromNodeChunks(bookId, highlightId) {
   const db = await openDatabase();
 
   return new Promise((resolve, reject) => {
-    const tx = db.transaction("nodeChunks", "readwrite");
-    const store = tx.objectStore("nodeChunks");
+    const tx = db.transaction("nodes", "readwrite");
+    const store = tx.objectStore("nodes");
     const updatedNodes = [];
     const request = store.openCursor();
 
@@ -208,20 +208,20 @@ export async function removeHighlightFromNodeChunks(bookId, highlightId) {
     };
 
     request.onerror = (error) => {
-      console.error("Error iterating nodeChunks:", error);
+      console.error("Error iterating nodes:", error);
       reject(error);
     };
 
     // Also catch transactional errors.
     tx.onerror = (error) => {
-      console.error("Transaction error in nodeChunks:", error);
+      console.error("Transaction error in nodes:", error);
       reject(error);
     };
   });
 }
 
 /**
- * Remove highlight from nodeChunks but add deletion instruction for backend sync
+ * Remove highlight from nodes but add deletion instruction for backend sync
  * @param {string} bookId - The book ID
  * @param {string} highlightId - The highlight ID to remove
  * @param {Object} deletedHighlightData - The deleted highlight data
@@ -231,8 +231,8 @@ export async function removeHighlightFromNodeChunksWithDeletion(bookId, highligh
   const db = await openDatabase();
 
   return new Promise((resolve, reject) => {
-    const tx = db.transaction("nodeChunks", "readwrite");
-    const store = tx.objectStore("nodeChunks");
+    const tx = db.transaction("nodes", "readwrite");
+    const store = tx.objectStore("nodes");
     const updatedNodes = [];
     const request = store.openCursor();
 
@@ -273,12 +273,12 @@ export async function removeHighlightFromNodeChunksWithDeletion(bookId, highligh
     };
 
     request.onerror = (error) => {
-      console.error("Error iterating nodeChunks:", error);
+      console.error("Error iterating nodes:", error);
       reject(error);
     };
 
     tx.onerror = (error) => {
-      console.error("Transaction error in nodeChunks:", error);
+      console.error("Transaction error in nodes:", error);
       reject(error);
     };
   });

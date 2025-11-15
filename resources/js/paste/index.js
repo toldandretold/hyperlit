@@ -296,8 +296,8 @@ async function handlePaste(event) {
     console.log(`🔄 [${pasteOpId}] Updating lazy loader cache...`);
 
     // 1. Update cache from IndexedDB (truth source)
-    loader.nodeChunks = await loader.getNodeChunks();
-    console.log(`✅ [${pasteOpId}] Lazy loader cache updated: ${loader.nodeChunks.length} nodes`);
+    loader.nodes = await loader.getNodeChunks();
+    console.log(`✅ [${pasteOpId}] Lazy loader cache updated: ${loader.nodes.length} nodes`);
 
     // 2. Clear all chunks below insertion point from DOM
     const insertionElement = document.getElementById(insertionPoint.beforeNodeId);

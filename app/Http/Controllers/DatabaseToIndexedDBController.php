@@ -94,7 +94,7 @@ class DatabaseToIndexedDBController extends Controller
 
             // Structure data for efficient IndexedDB import
             $response = [
-                'nodeChunks' => $nodeChunks,
+                'nodes' => $nodeChunks,
                 'footnotes' => $footnotes,
                 'bibliography' => $bibliography,
                 'hyperlights' => $hyperlights,
@@ -169,7 +169,7 @@ class DatabaseToIndexedDBController extends Controller
     private function migrateNodeIds(string $bookId): void
     {
         // Quick check: if all chunks have node_id, skip migration entirely
-        $chunksWithoutNodeId = DB::table('node_chunks')
+        $chunksWithoutNodeId = DB::table('nodes')
             ->where('book', $bookId)
             ->whereNull('node_id')
             ->count();
@@ -180,7 +180,7 @@ class DatabaseToIndexedDBController extends Controller
         }
 
         // Check if any startLine has decimals (indicates messy paste operations)
-        $hasDecimals = DB::table('node_chunks')
+        $hasDecimals = DB::table('nodes')
             ->where('book', $bookId)
             ->whereRaw('"startLine" != FLOOR("startLine")')
             ->exists();
@@ -205,7 +205,7 @@ class DatabaseToIndexedDBController extends Controller
         ]);
 
         // Get ONLY chunks missing node_id
-        $chunks = DB::table('node_chunks')
+        $chunks = DB::table('nodes')
             ->where('book', $bookId)
             ->whereNull('node_id')
             ->get();
@@ -246,7 +246,7 @@ class DatabaseToIndexedDBController extends Controller
         } else {
             // Individual updates (fine for small counts)
             foreach ($toUpdate as $update) {
-                DB::table('node_chunks')
+                DB::table('nodes')
                     ->where('book', $update['book'])
                     ->where('startLine', $update['startLine'])
                     ->update([
@@ -286,7 +286,7 @@ class DatabaseToIndexedDBController extends Controller
 
         $valuesSql = implode(', ', $values);
 
-        $sql = "UPDATE node_chunks AS nc
+        $sql = "UPDATE nodes AS nc
             SET
                 node_id = v.node_id,
                 content = v.content,
@@ -309,7 +309,7 @@ class DatabaseToIndexedDBController extends Controller
         ]);
 
         // Get ALL chunks for this book, ordered by startLine
-        $chunks = DB::table('node_chunks')
+        $chunks = DB::table('nodes')
             ->where('book', $bookId)
             ->orderBy('startLine')
             ->get();
@@ -365,13 +365,13 @@ class DatabaseToIndexedDBController extends Controller
         if (!empty($toInsert)) {
             DB::transaction(function () use ($bookId, $toInsert) {
                 // Delete all old rows
-                DB::table('node_chunks')
+                DB::table('nodes')
                     ->where('book', $bookId)
                     ->delete();
 
                 // Bulk insert new rows (500 at a time to avoid memory issues)
                 foreach (array_chunk($toInsert, 500) as $chunk) {
-                    DB::table('node_chunks')->insert($chunk);
+                    DB::table('nodes')->insert($chunk);
                 }
             });
 
@@ -548,7 +548,7 @@ class DatabaseToIndexedDBController extends Controller
             'lookup_keys' => array_keys($highlightLookup)
         ]);
 
-        $chunks = DB::table('node_chunks')
+        $chunks = DB::table('nodes')
             ->where('book', $bookId)
             ->orderBy('chunk_id')
             ->get()
@@ -840,7 +840,7 @@ class DatabaseToIndexedDBController extends Controller
 
             // Library records (bibliographic metadata) are publicly accessible
             // even for private books, as they may be cited in public documents.
-            // The privacy restriction applies to node_chunks (actual content), not citations.
+            // The privacy restriction applies to nodes (actual content), not citations.
             $libraryRecord = DB::table('library')->where('book', $bookId)->first();
 
             if (!$libraryRecord) {
@@ -927,7 +927,7 @@ class DatabaseToIndexedDBController extends Controller
                 }
             }
 
-            $chunkCount = DB::table('node_chunks')
+            $chunkCount = DB::table('nodes')
                 ->where('book', $bookId)
                 ->count();
 
@@ -937,7 +937,7 @@ class DatabaseToIndexedDBController extends Controller
                 ], 404);
             }
 
-            $latestUpdate = DB::table('node_chunks')
+            $latestUpdate = DB::table('nodes')
                 ->where('book', $bookId)
                 ->max('updated_at');
 
@@ -966,7 +966,7 @@ class DatabaseToIndexedDBController extends Controller
     public function getAvailableBooks(): JsonResponse
     {
         try {
-            $books = DB::table('node_chunks')
+            $books = DB::table('nodes')
                 ->select('book')
                 ->selectRaw('COUNT(*) as chunk_count')
                 ->selectRaw('MAX(updated_at) as last_modified')

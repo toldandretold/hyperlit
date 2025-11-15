@@ -43,17 +43,17 @@ export async function deleteIndexedDBRecord(id) {
     const db = await openDatabase();
     // ✅ CHANGE 1: The transaction now includes all relevant stores.
     const tx = db.transaction(
-      ["nodeChunks", "hyperlights", "hypercites"],
+      ["nodes", "hyperlights", "hypercites"],
       "readwrite"
     );
-    const chunksStore = tx.objectStore("nodeChunks");
+    const chunksStore = tx.objectStore("nodes");
     const lightsStore = tx.objectStore("hyperlights");
     const citesStore = tx.objectStore("hypercites");
     const key = [bookId, numericId];
 
     // Collect all records to be deleted for the history log
     const deletedHistoryPayload = {
-        nodeChunks: [],
+        nodes: [],
         hyperlights: [],
         hypercites: []
     };
@@ -67,7 +67,7 @@ export async function deleteIndexedDBRecord(id) {
         if (recordToDelete) {
           console.log("Found record to delete:", recordToDelete);
 
-          deletedHistoryPayload.nodeChunks.push(recordToDelete); // Add for history
+          deletedHistoryPayload.nodes.push(recordToDelete); // Add for history
 
           // Now, delete the main record
           chunksStore.delete(key);
@@ -114,8 +114,8 @@ export async function deleteIndexedDBRecord(id) {
         await updateBookTimestamp(bookId);
 
         // Now, queue for sync to PostgreSQL
-        deletedHistoryPayload.nodeChunks.forEach((record) => {
-          queueForSync("nodeChunks", record.startLine, "delete", record);
+        deletedHistoryPayload.nodes.forEach((record) => {
+          queueForSync("nodes", record.startLine, "delete", record);
         });
         deletedHistoryPayload.hyperlights.forEach((record) => {
           queueForSync("hyperlights", record.hyperlight_id, "delete", record);

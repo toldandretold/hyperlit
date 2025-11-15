@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class PgNodeChunk extends Model
 {
-    protected $table = 'node_chunks';
+    protected $table = 'nodes';
     
     protected $fillable = [
         'book',

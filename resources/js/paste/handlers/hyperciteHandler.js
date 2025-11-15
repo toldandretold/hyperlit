@@ -302,9 +302,9 @@ export async function handleHypercitePaste(event) {
         const { booka, hyperciteIDa, citationIDb, citationIDa } = task;
 
         try {
-          // 1. Find and update the hypercite in nodeChunks
-          const nodeChunks = await getNodeChunksFromIndexedDB(booka);
-          if (!nodeChunks?.length) {
+          // 1. Find and update the hypercite in nodes
+          const nodes = await getNodeChunksFromIndexedDB(booka);
+          if (!nodes?.length) {
             console.warn(`No nodes found for book ${booka}`);
             continue;
           }
@@ -312,7 +312,7 @@ export async function handleHypercitePaste(event) {
           let affectedStartLine = null;
           let updatedRelationshipStatus = "single";
 
-          for (const record of nodeChunks) {
+          for (const record of nodes) {
             if (!record.hypercites?.find((hc) => hc.hyperciteId === hyperciteIDa)) {
               continue;
             }
@@ -417,17 +417,17 @@ export async function handleHypercitePaste(event) {
             })
           );
 
-          // Group nodeChunks by book for batching
-          const nodeChunksByBook = {};
+          // Group nodes by book for batching
+          const nodesByBook = {};
           updatedNodeChunks.forEach(nc => {
-            if (!nodeChunksByBook[nc.book]) {
-              nodeChunksByBook[nc.book] = [];
+            if (!nodesByBook[nc.book]) {
+              nodesByBook[nc.book] = [];
             }
-            nodeChunksByBook[nc.book].push(nc);
+            nodesByBook[nc.book].push(nc);
           });
 
-          // Sync each book's nodeChunks
-          const nodeChunkSyncPromises = Object.entries(nodeChunksByBook).map(([book, chunks]) =>
+          // Sync each book's nodes
+          const nodeChunkSyncPromises = Object.entries(nodesByBook).map(([book, chunks]) =>
             fetch("/api/db/node-chunks/targeted-upsert", {
               method: "POST",
               headers: {

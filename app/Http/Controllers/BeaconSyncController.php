@@ -43,12 +43,12 @@ class BeaconSyncController extends Controller
         $validator = Validator::make($request->all(), [
             'book' => 'required|string',
             'updates' => 'present|array',
-            'updates.nodeChunks' => 'present|array',
+            'updates.nodes' => 'present|array',
             'updates.hyperlights' => 'present|array',
             'updates.hypercites' => 'present|array',
             'updates.library' => 'present|nullable|array',
             'deletions' => 'present|array',
-            'deletions.nodeChunks' => 'present|array',
+            'deletions.nodes' => 'present|array',
             'deletions.hyperlights' => 'present|array',
         ]);
 
@@ -65,8 +65,8 @@ class BeaconSyncController extends Controller
                 $updates = $payload['updates'];
                 $deletions = $payload['deletions'];
 
-                if (!empty($updates['nodeChunks'])) {
-                    foreach ($updates['nodeChunks'] as $chunk) {
+                if (!empty($updates['nodes'])) {
+                    foreach ($updates['nodes'] as $chunk) {
                         // ✅ FIX: Add 'raw_json' to the data being saved
                         $chunkData = array_merge($chunk, ['raw_json' => json_encode($chunk)]);
                         
@@ -138,8 +138,8 @@ class BeaconSyncController extends Controller
                 }
 
                 // --- 2. Process Deletions ---
-                if (!empty($deletions['nodeChunks'])) {
-                    $startLinesToDelete = array_column($deletions['nodeChunks'], 'startLine');
+                if (!empty($deletions['nodes'])) {
+                    $startLinesToDelete = array_column($deletions['nodes'], 'startLine');
                     PgNodeChunk::where('book', $bookId)
                         ->whereIn('startLine', $startLinesToDelete)
                         ->delete();

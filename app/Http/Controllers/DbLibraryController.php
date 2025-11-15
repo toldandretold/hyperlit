@@ -65,7 +65,7 @@ class DbLibraryController extends Controller
 
         DB::beginTransaction();
         try {
-            DB::table('node_chunks')->where('book', $book)->delete();
+            DB::table('nodes')->where('book', $book)->delete();
             DB::table('footnotes')->where('book', $book)->delete();
             DB::table('bibliography')->where('book', $book)->delete();
             DB::table('hyperlights')->where('book', $book)->delete();
@@ -73,7 +73,7 @@ class DbLibraryController extends Controller
             DB::table('library')->where('book', $book)->delete();
 
             if ($record->creator) {
-                DB::table('node_chunks')
+                DB::table('nodes')
                     ->where('book', $record->creator)
                     ->where('node_id', $book)
                     ->delete();

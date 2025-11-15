@@ -64,15 +64,15 @@ export async function addNodeChunkToIndexedDB(
       if (transaction) {
         // SHARED MODE: Use the provided transaction.
         tx = transaction;
-        store = tx.objectStore("nodeChunks");
+        store = tx.objectStore("nodes");
         console.log(
           `Using shared transaction for [${bookId}, ${numericStartLine}]`
         );
       } else {
         // STANDALONE MODE: We open our own database and create a transaction.
         db = await openDatabase();
-        tx = db.transaction(["nodeChunks"], "readwrite");
-        store = tx.objectStore("nodeChunks");
+        tx = db.transaction(["nodes"], "readwrite");
+        store = tx.objectStore("nodes");
         console.log(
           `Created standalone transaction for [${bookId}, ${numericStartLine}]`
         );
@@ -137,22 +137,22 @@ export async function addNodeChunkToIndexedDB(
 /**
  * Save all node chunks to IndexedDB (bulk operation)
  *
- * @param {Array} nodeChunks - Array of node chunk records
+ * @param {Array} nodes - Array of node chunk records
  * @param {string} bookId - Book identifier
  * @param {Function} onComplete - Optional completion callback
  * @returns {Promise<void>}
  */
 export async function saveAllNodeChunksToIndexedDB(
-  nodeChunks,
+  nodes,
   bookId = "latest",
   onComplete
 ) {
   return withPending(async () => {
     const db = await openDatabase();
-    const tx = db.transaction("nodeChunks", "readwrite");
-    const store = tx.objectStore("nodeChunks");
+    const tx = db.transaction("nodes", "readwrite");
+    const store = tx.objectStore("nodes");
 
-    nodeChunks.forEach((record) => {
+    nodes.forEach((record) => {
       record.book = bookId;
       record.startLine = parseNodeId(record.startLine);
       store.put(record);
@@ -160,7 +160,7 @@ export async function saveAllNodeChunksToIndexedDB(
 
     return new Promise((resolve, reject) => {
       tx.oncomplete = async () => {
-        console.log("✅ Nodes successfully saved to nodeChunks object store in IndexedDB for book:", bookId);
+        console.log("✅ Nodes successfully saved to nodes object store in IndexedDB for book:", bookId);
         try {
           await updateBookTimestamp(bookId);
           // Use the original postgreSQL.js sync (non-blocking, fast)
@@ -181,7 +181,7 @@ export async function saveAllNodeChunksToIndexedDB(
         }
       };
       tx.onerror = () => {
-        console.error("❌ Error saving nodes to nodeChunks object store in IndexedDB");
+        console.error("❌ Error saving nodes to nodes object store in IndexedDB");
         reject();
       };
     });
@@ -198,7 +198,7 @@ export async function saveAllNodeChunksToIndexedDB(
 export async function deleteNodeChunksAfter(book, afterNodeId) {
   const numericAfter = parseNodeId(afterNodeId);
   const dbName = "MarkdownDB";
-  const storeName = "nodeChunks";
+  const storeName = "nodes";
 
   return new Promise((resolve) => {
     const openReq = indexedDB.open(dbName);
@@ -275,8 +275,8 @@ export async function renumberNodeChunksInIndexedDB(updates, bookId) {
   console.log(`🔄 Renumbering ${updates.length} nodes in IndexedDB`);
 
   const db = await openDatabase();
-  const tx = db.transaction("nodeChunks", "readwrite");
-  const store = tx.objectStore("nodeChunks");
+  const tx = db.transaction("nodes", "readwrite");
+  const store = tx.objectStore("nodes");
 
   return new Promise((resolve, reject) => {
     // Step 1: Delete all old records
@@ -347,7 +347,7 @@ export async function writeNodeChunks(chunks) {
   }
 
   const dbName = "MarkdownDB";
-  const storeName = "nodeChunks";
+  const storeName = "nodes";
 
   return new Promise((resolve) => {
     const openReq = indexedDB.open(dbName);

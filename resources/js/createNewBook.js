@@ -105,7 +105,7 @@ export async function fireAndForgetSync(
         resolve();
 
         // The non-critical part (syncing node chunks) can continue in the background.
-        await syncNodeChunksForNewBook(bookId, payload?.nodeChunks, syncStartTime);
+        await syncNodeChunksForNewBook(bookId, payload?.nodes, syncStartTime);
       } else {
         // For existing books, the sync is the whole operation.
         await syncIndexedDBtoPostgreSQL(bookId);
@@ -229,7 +229,7 @@ export async function createNewBook() {
       hypercites: [],
     };
 
-    const tx = db.transaction(["library", "nodeChunks"], "readwrite");
+    const tx = db.transaction(["library", "nodes"], "readwrite");
     tx.objectStore("library").put(newLibraryRecord);
     await addNewBookToIndexedDB(
       initialNodeChunk.book,
@@ -249,7 +249,7 @@ export async function createNewBook() {
       bookId: bookId,
       isNewBook: true,
       libraryRecord: newLibraryRecord,
-      nodeChunks: [initialNodeChunk],
+      nodes: [initialNodeChunk],
     };
 
     // We still save to sessionStorage as a fallback for page reloads.
@@ -406,10 +406,10 @@ async function syncNodeChunksForNewBook(bookId, chunksData = null, syncStartTime
     }
 
     // Always read current data from IndexedDB to avoid stale sync
-    console.log("📚 Reading current nodeChunks from IndexedDB to avoid syncing stale data...");
+    console.log("📚 Reading current nodes from IndexedDB to avoid syncing stale data...");
     const db = await openDatabase();
-    const tx = db.transaction(["nodeChunks"], "readonly");
-    const index = tx.objectStore("nodeChunks").index("book");
+    const tx = db.transaction(["nodes"], "readonly");
+    const index = tx.objectStore("nodes").index("book");
     const currentNodeChunks = await index.getAll(bookId);
 
     // Wait for transaction to complete using proper IndexedDB API

@@ -46,14 +46,14 @@ export async function executeSyncPayload(payload) {
 
   // Prepare node chunks (combine updates and deletions)
   const allNodeChunks = [
-    ...payload.updates.nodeChunks.map(toPublicChunk).filter(Boolean),
-    ...payload.deletions.nodeChunks,
+    ...payload.updates.nodes.map(toPublicChunk).filter(Boolean),
+    ...payload.deletions.nodes,
   ];
 
   // Prepare the unified sync request payload
   const unifiedPayload = {
     book: bookId,
-    nodeChunks: allNodeChunks,
+    nodes: allNodeChunks,
     hypercites: payload.updates.hypercites || [],
     hyperlights: payload.updates.hyperlights || [],
     hyperlightDeletions: payload.deletions.hyperlights || [],
@@ -128,16 +128,16 @@ export const debouncedMasterSync = debounce(async () => {
 
   const historyLogPayload = {
     book: bookId,
-    updates: { nodeChunks: [], hypercites: [], hyperlights: [], library: null },
-    deletions: { nodeChunks: [], hyperlights: [], hypercites: [], library: null },
+    updates: { nodes: [], hypercites: [], hyperlights: [], library: null },
+    deletions: { nodes: [], hyperlights: [], hypercites: [], library: null },
   };
 
   // Populate the history payload directly from the queued items
   for (const item of itemsToSync.values()) {
     if (item.type === "update") {
       // Add the new state to 'updates'
-      if (item.store === "nodeChunks") {
-        historyLogPayload.updates.nodeChunks.push(toPublicChunk(item.data));
+      if (item.store === "nodes") {
+        historyLogPayload.updates.nodes.push(toPublicChunk(item.data));
       } else if (item.store === "library") {
         historyLogPayload.updates.library = item.data;
       } else {
@@ -146,8 +146,8 @@ export const debouncedMasterSync = debounce(async () => {
 
       // Add the original state (if it exists) to 'deletions'
       if (item.originalData) {
-        if (item.store === "nodeChunks") {
-          historyLogPayload.deletions.nodeChunks.push(toPublicChunk(item.originalData));
+        if (item.store === "nodes") {
+          historyLogPayload.deletions.nodes.push(toPublicChunk(item.originalData));
         } else if (item.store === "library") {
           historyLogPayload.deletions.library = item.originalData;
         } else {
@@ -157,8 +157,8 @@ export const debouncedMasterSync = debounce(async () => {
     } else if (item.type === "delete") {
       // Add the deleted record to 'deletions'
       if (item.data) {
-        if (item.store === "nodeChunks") {
-          historyLogPayload.deletions.nodeChunks.push(toPublicChunk(item.data));
+        if (item.store === "nodes") {
+          historyLogPayload.deletions.nodes.push(toPublicChunk(item.data));
         } else {
           historyLogPayload.deletions[item.store].push(item.data);
         }
@@ -194,20 +194,20 @@ export const debouncedMasterSync = debounce(async () => {
     if (!navigator.onLine) throw new Error("Offline");
     const syncPayload = {
       book: bookId,
-      updates: { nodeChunks: [], hypercites: [], hyperlights: [], library: null },
-      deletions: { nodeChunks: [], hyperlights: [], hypercites: [] },
+      updates: { nodes: [], hypercites: [], hyperlights: [], library: null },
+      deletions: { nodes: [], hyperlights: [], hypercites: [] },
     };
     for (const item of itemsToSync.values()) {
       if (item.type === "update" && item.data) {
         switch (item.store) {
-          case "nodeChunks": syncPayload.updates.nodeChunks.push(item.data); break;
+          case "nodes": syncPayload.updates.nodes.push(item.data); break;
           case "hypercites": syncPayload.updates.hypercites.push(item.data); break;
           case "hyperlights": syncPayload.updates.hyperlights.push(item.data); break;
           case "library": syncPayload.updates.library = item.data; break;
         }
       } else if (item.type === "delete" && item.data) {
         switch (item.store) {
-          case "nodeChunks": syncPayload.deletions.nodeChunks.push({ ...item.data, _action: "delete" }); break;
+          case "nodes": syncPayload.deletions.nodes.push({ ...item.data, _action: "delete" }); break;
           case "hyperlights": syncPayload.deletions.hyperlights.push({ ...item.data, _action: "delete" }); break;
           case "hypercites": syncPayload.deletions.hypercites.push({ ...item.data, _action: "delete" }); break;
         }
@@ -271,27 +271,27 @@ export async function syncIndexedDBtoPostgreSQLBlocking(bookId) {
     const db = await openDatabase();
 
     // Get all data from IndexedDB
-    const nodeChunksTx = db.transaction("nodeChunks", "readonly");
-    const nodeChunksStore = nodeChunksTx.objectStore("nodeChunks");
-    const nodeChunksIndex = nodeChunksStore.index("book");
-    const nodeChunksRequest = nodeChunksIndex.getAll(bookId);
+    const nodesTx = db.transaction("nodes", "readonly");
+    const nodesStore = nodesTx.objectStore("nodes");
+    const nodesIndex = nodesStore.index("book");
+    const nodesRequest = nodesIndex.getAll(bookId);
 
-    const nodeChunks = await new Promise((resolve, reject) => {
-      nodeChunksRequest.onsuccess = () => resolve(nodeChunksRequest.result || []);
-      nodeChunksRequest.onerror = () => reject(nodeChunksRequest.error);
+    const nodes = await new Promise((resolve, reject) => {
+      nodesRequest.onsuccess = () => resolve(nodesRequest.result || []);
+      nodesRequest.onerror = () => reject(nodesRequest.error);
     });
 
     // Prepare payload
     const payload = {
       book: bookId,
       updates: {
-        nodeChunks: nodeChunks.map(toPublicChunk).filter(Boolean),
+        nodes: nodes.map(toPublicChunk).filter(Boolean),
         hypercites: [],
         hyperlights: [],
         library: null
       },
       deletions: {
-        nodeChunks: [],
+        nodes: [],
         hyperlights: [],
         hypercites: []
       }

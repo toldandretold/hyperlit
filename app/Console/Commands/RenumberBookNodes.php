@@ -43,7 +43,7 @@ class RenumberBookNodes extends Command
         $this->info("Renumbering book: {$bookId}");
 
         // Get all chunks ordered by startLine
-        $chunks = DB::table('node_chunks')
+        $chunks = DB::table('nodes')
             ->where('book', $bookId)
             ->orderBy('startLine')
             ->get();
@@ -138,7 +138,7 @@ class RenumberBookNodes extends Command
         try {
             // Update each node with new startLine, chunk_id, and content
             foreach ($updates as $update) {
-                DB::table('node_chunks')
+                DB::table('nodes')
                     ->where('book', $update['book'])
                     ->where('startLine', $update['old_startLine'])
                     ->update([

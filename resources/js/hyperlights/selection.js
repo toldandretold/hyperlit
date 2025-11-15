@@ -311,7 +311,7 @@ export async function createHighlightHandler(event, bookId) {
 
     updatedNodeChunks.forEach((chunk) => {
       if (chunk && chunk.startLine) {
-        queueForSync("nodeChunks", chunk.startLine, "update", chunk);
+        queueForSync("nodes", chunk.startLine, "update", chunk);
       }
     });
 
@@ -439,7 +439,7 @@ export async function deleteHighlightHandler(event, bookId) {
         deletedHyperlights.push(deletedHyperlight);
       }
 
-      // Update nodeChunks with explicit deletion instructions
+      // Update nodes with explicit deletion instructions
       const affectedNodes = await removeHighlightFromNodeChunksWithDeletion(
         bookId,
         highlightId,
@@ -467,7 +467,7 @@ export async function deleteHighlightHandler(event, bookId) {
 
     updatedNodeChunks.forEach((chunk) => {
       if (chunk && chunk.startLine) {
-        queueForSync("nodeChunks", chunk.startLine, "update", chunk);
+        queueForSync("nodes", chunk.startLine, "update", chunk);
       }
     });
 

@@ -40,13 +40,13 @@ function syncOnUnload() {
   const payload = {
     book: bookId,
     updates: {
-      nodeChunks: [],
+      nodes: [],
       hypercites: [],
       hyperlights: [],
       library: null,
     },
     deletions: {
-      nodeChunks: [],
+      nodes: [],
       hyperlights: [],
     },
   };
@@ -56,8 +56,8 @@ function syncOnUnload() {
     if (item.type === "update") {
       if (!item.data) continue;
       switch (item.store) {
-        case "nodeChunks":
-          payload.updates.nodeChunks.push(item.data);
+        case "nodes":
+          payload.updates.nodes.push(item.data);
           break;
         case "hypercites":
           payload.updates.hypercites.push(item.data);
@@ -71,8 +71,8 @@ function syncOnUnload() {
       }
     } else if (item.type === "delete") {
       switch (item.store) {
-        case "nodeChunks":
-          payload.deletions.nodeChunks.push({
+        case "nodes":
+          payload.deletions.nodes.push({
             book: bookId,
             startLine: item.id,
             _action: "delete",
