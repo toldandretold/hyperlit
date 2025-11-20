@@ -104,8 +104,8 @@ export class SelectionDeletionHandler {
     
     let node;
     while (node = walker.nextNode()) {
-      // Check for numerical IDs instead of data-block-id
-      if (node.id && /^\d+$/.test(node.id)) {
+      // Check for numerical IDs (including decimals like 687.3)
+      if (node.id && /^\d+(\.\d+)?$/.test(node.id)) {
         elements.push(node);
       }
     }
@@ -132,13 +132,36 @@ export class SelectionDeletionHandler {
       this.batchDeleteFromIndexedDB(nodeIdsToDelete);
     }
 
-    // 2. Update the partially affected boundary nodes
-    const nodesToUpdate = boundaryElementIds
-      .filter(id => !nodeIdsToDelete.includes(id)) // Don't update an element that was already fully deleted
-      .map(id => ({ id, action: 'update' })); // Create a payload compatible with batchUpdate
+    // 2. Check which boundary elements still exist in DOM vs were deleted
+    const nodesToUpdate = [];
+    const additionalNodesToDelete = [];
 
+    boundaryElementIds.forEach(id => {
+      if (nodeIdsToDelete.includes(id)) {
+        return; // Already marked for deletion
+      }
+
+      // Check if element still exists in DOM
+      const element = document.getElementById(id);
+      if (element) {
+        // Element exists, queue for update (content changed)
+        nodesToUpdate.push({ id, action: 'update' });
+      } else {
+        // Element was deleted from DOM, delete from database too
+        console.log(`🗑️ Boundary element ${id} no longer in DOM, marking for deletion`);
+        additionalNodesToDelete.push(id);
+      }
+    });
+
+    // Delete boundary elements that were removed from DOM
+    if (additionalNodesToDelete.length > 0) {
+      console.log(`🗑️ Batch deleting ${additionalNodesToDelete.length} boundary elements that were removed from DOM`);
+      this.batchDeleteFromIndexedDB(additionalNodesToDelete);
+    }
+
+    // Update boundary elements that still exist
     if (nodesToUpdate.length > 0) {
-      console.log(`🔄 Updating ${nodesToUpdate.length} partially selected boundary elements in IndexedDB`);
+      console.log(`🔄 Updating ${nodesToUpdate.length} boundary elements that still exist in DOM`);
       // Dynamically import and call batchUpdateIndexedDBRecords
       import('../indexedDB/index.js').then(module => {
         if (module.batchUpdateIndexedDBRecords) {
