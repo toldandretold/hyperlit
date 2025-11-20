@@ -332,6 +332,16 @@ export class ChunkMutationHandler {
             parentsToUpdate.add(closestParent);
           }
         }
+
+        // NEW: Queue parent for update when ANY child nodes (BR, text nodes, etc.) are removed
+        // This handles cases like deleting "K" from "<h2>K<br>Text</h2>" where the BR collapses
+        if (mutation.removedNodes.length > 0) {
+          const parent = mutation.target;
+          if (parent && parent.id && /^\d+(\.\d+)?$/.test(parent.id)) {
+            console.log(`🔄 Child nodes removed from parent ${parent.id}, queueing for update`);
+            parentsToUpdate.add(parent);
+          }
+        }
       }
 
       // Handle attribute mutations (SPAN styling)
