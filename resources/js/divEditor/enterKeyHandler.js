@@ -686,6 +686,16 @@ export class EnterKeyHandler {
       }
       console.log("blockElement:", blockElement);
 
+      // 🔧 FIX: For headings, extract only text content (strip heading tags)
+      // Prevents invalid HTML like <p><h1>text</h1></p>
+      if (isHeading && content) {
+        const tempDiv = document.createElement("div");
+        tempDiv.appendChild(content);
+        const textOnly = tempDiv.textContent || tempDiv.innerText || "";
+        console.log(`Stripped heading tags from extracted content: "${textOnly}"`);
+        content = textOnly ? document.createTextNode(textOnly) : null;
+      }
+
       // Create and insert new paragraph
       const newParagraph = createAndInsertParagraph(
         blockElement,
