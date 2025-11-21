@@ -19,10 +19,12 @@ class DbHyperciteController extends Controller
                 PgHypercite::create([
                     'book' => $item['book'] ?? null,
                     'hyperciteId' => $item['hyperciteId'] ?? null,
+                    'node_id' => $item['node_id'] ?? null,           // ✅ NEW: Array of node IDs
+                    'charData' => $item['charData'] ?? null,         // ✅ NEW: Per-node positions
                     'hypercitedText' => $item['hypercitedText'] ?? null,
                     'hypercitedHTML' => $item['hypercitedHTML'] ?? null,
-                    'startChar' => $item['startChar'] ?? null,
-                    'endChar' => $item['endChar'] ?? null,
+                    'startChar' => $item['startChar'] ?? null,       // Backward compatibility
+                    'endChar' => $item['endChar'] ?? null,           // Backward compatibility
                     'relationshipStatus' => $item['relationshipStatus'] ?? null,
                     'citedIN' => $item['citedIN'] ?? [],
                     'time_since' => $item['time_since'] ?? null,
@@ -68,10 +70,12 @@ class DbHyperciteController extends Controller
                             'hyperciteId' => $item['hyperciteId'] ?? null,
                         ],
                         [
+                            'node_id' => $item['node_id'] ?? null,           // ✅ NEW: Array of node IDs
+                            'charData' => $item['charData'] ?? null,         // ✅ NEW: Per-node positions
                             'hypercitedText' => $item['hypercitedText'] ?? null,
                             'hypercitedHTML' => $item['hypercitedHTML'] ?? null,
-                            'startChar' => $item['startChar'] ?? null,
-                            'endChar' => $item['endChar'] ?? null,
+                            'startChar' => $item['startChar'] ?? null,       // Backward compatibility
+                            'endChar' => $item['endChar'] ?? null,           // Backward compatibility
                             'relationshipStatus' => $item['relationshipStatus'] ?? null,
                             'citedIN' => $item['citedIN'] ?? [],        // Remove json_encode()
                             'time_since' => $item['time_since'] ?? null,

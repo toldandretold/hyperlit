@@ -208,14 +208,37 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
     const overallEndChar =
       blocks.length > 0 ? blocks[blocks.length - 1].charEnd : 0;
 
+    // ✅ NEW: Collect node_id array and charData object (like hyperlights)
+    const nodeIdArray = [];
+    const charDataByNode = {};
+
+    for (const block of blocks) {
+      // Get the DOM element for this block
+      const blockElement = document.getElementById(block.startLine);
+      const nodeUUID = blockElement?.getAttribute('data-node-id');
+
+      if (nodeUUID) {
+        nodeIdArray.push(nodeUUID);
+        charDataByNode[nodeUUID] = {
+          charStart: block.charStart,
+          charEnd: block.charEnd
+        };
+      }
+    }
+
+    console.log(`📊 Hypercite ${hyperciteId} affects ${nodeIdArray.length} nodes:`, nodeIdArray);
+    console.log(`📊 CharData:`, charDataByNode);
+
     // Build the initial hypercite record for the main hypercites store
     const hyperciteEntry = {
       book: book,
       hyperciteId: hyperciteId,
+      node_id: nodeIdArray,           // ✅ NEW: Array of node UUIDs
+      charData: charDataByNode,       // ✅ NEW: Per-node positions
       hypercitedText: hypercitedText,
       hypercitedHTML: hypercitedHTML,
-      startChar: overallStartChar,
-      endChar: overallEndChar,
+      startChar: overallStartChar,    // Keep for backward compatibility
+      endChar: overallEndChar,        // Keep for backward compatibility
       relationshipStatus: "single",
       citedIN: [],
       time_since: Math.floor(Date.now() / 1000) // Add timestamp like hyperlights

@@ -73,30 +73,136 @@ export async function deleteIndexedDBRecord(id) {
           chunksStore.delete(key);
 
           try {
-            const range = IDBKeyRange.only([bookId, numericId]);
+            // ✅ NEW: Get node_id (UUID) from DOM before deletion
+            const deletedElement = document.getElementById(numericId);
+            const deletedNodeUUID = deletedElement?.getAttribute('data-node-id');
+            console.log(`🗑️ Deleting node ${numericId}, UUID: ${deletedNodeUUID}`);
 
-            // Delete associated hyperlights
-            const lightIndex = lightsStore.index("book_startLine");
-            const lightReq = lightIndex.openCursor(range);
+            // ✅ NEW: Update hyperlights - remove this node from multi-node highlights
+            // We need to scan ALL highlights for this book to find ones affecting this node
+            const bookIndex = lightsStore.index("book");
+            const bookRange = IDBKeyRange.only(bookId);
+            const lightReq = bookIndex.openCursor(bookRange);
+
             lightReq.onsuccess = (e) => {
               const cursor = e.target.result;
               if (cursor) {
-                console.log("Deleting associated hyperlight:", cursor.value);
-                deletedHistoryPayload.hyperlights.push(cursor.value); // Add for history
-                cursor.delete();
+                const highlight = cursor.value;
+
+                // Check if this highlight affects the deleted node
+                const affectsDeletedNode =
+                  highlight.startLine === numericId || // OLD schema check
+                  (highlight.node_id && Array.isArray(highlight.node_id) &&
+                   deletedNodeUUID && highlight.node_id.includes(deletedNodeUUID)); // NEW schema check
+
+                if (affectsDeletedNode) {
+                  console.log(`📍 Found highlight ${highlight.hyperlight_id} affecting deleted node`);
+
+                  // Check if multi-node highlight
+                  if (highlight.node_id && highlight.node_id.length > 1) {
+                    // Multi-node highlight - mark node for deletion cleanup
+                    console.log(`🔧 Multi-node highlight detected (${highlight.node_id.length} nodes) - marking node ${deletedNodeUUID} for cleanup`);
+
+                    // ✅ Track deleted node for cleanup during next save
+                    if (!highlight._deleted_nodes) {
+                      highlight._deleted_nodes = [];
+                    }
+                    if (deletedNodeUUID && !highlight._deleted_nodes.includes(deletedNodeUUID)) {
+                      highlight._deleted_nodes.push(deletedNodeUUID);
+                      console.log(`📌 Marked node ${deletedNodeUUID} for deletion from highlight ${highlight.hyperlight_id}`);
+                    }
+
+                    // DON'T remove from node_id or charData yet - cleanup happens during update
+                    // This prevents losing track of other nodes in multi-node highlights
+
+                    // Save updated highlight
+                    cursor.update(highlight);
+                    console.log(`✅ Marked highlight ${highlight.hyperlight_id} for cleanup (still ${highlight.node_id.length} nodes until cleanup)`);
+                  } else {
+                    // Single-node highlight - mark as orphaned (might migrate to another node)
+                    console.log(`⏳ Single-node highlight ${highlight.hyperlight_id} - marking as orphaned (will cleanup if not found in DOM)`);
+                    highlight._orphaned_at = Date.now();
+                    highlight._orphaned_from_node = deletedNodeUUID || numericId.toString();
+
+                    // ✅ Track deleted node for cleanup during next save
+                    if (!highlight._deleted_nodes) {
+                      highlight._deleted_nodes = [];
+                    }
+                    if (deletedNodeUUID && !highlight._deleted_nodes.includes(deletedNodeUUID)) {
+                      highlight._deleted_nodes.push(deletedNodeUUID);
+                      console.log(`📌 Marked node ${deletedNodeUUID} for deletion from highlight ${highlight.hyperlight_id}`);
+                    }
+
+                    // ✅ KEEP node_id and charData for now - needed for rendering during migration window
+                    // They'll be updated when the highlight is recovered in the new node
+                    cursor.update(highlight);
+                    // Don't add to deletedHistoryPayload yet - might be recovered
+                  }
+                }
+
                 cursor.continue();
               }
             };
 
-            // Delete associated hypercites
-            const citeIndex = citesStore.index("book_startLine");
-            const citeReq = citeIndex.openCursor(range);
+            // ✅ NEW: Update hypercites - same logic
+            const citeIndex = citesStore.index("book");
+            const citeReq = citeIndex.openCursor(bookRange);
+
             citeReq.onsuccess = (e) => {
               const cursor = e.target.result;
               if (cursor) {
-                console.log("Deleting associated hypercite:", cursor.value);
-                deletedHistoryPayload.hypercites.push(cursor.value); // Add for history
-                cursor.delete();
+                const hypercite = cursor.value;
+
+                // Check if this hypercite affects the deleted node
+                const affectsDeletedNode =
+                  (hypercite.node_id && Array.isArray(hypercite.node_id) &&
+                   deletedNodeUUID && hypercite.node_id.includes(deletedNodeUUID));
+
+                if (affectsDeletedNode) {
+                  console.log(`📍 Found hypercite ${hypercite.hyperciteId} affecting deleted node`);
+
+                  // Check if multi-node hypercite
+                  if (hypercite.node_id && hypercite.node_id.length > 1) {
+                    // Multi-node hypercite - mark node for deletion cleanup
+                    console.log(`🔧 Multi-node hypercite detected (${hypercite.node_id.length} nodes) - marking node ${deletedNodeUUID} for cleanup`);
+
+                    // ✅ Track deleted node for cleanup during next save
+                    if (!hypercite._deleted_nodes) {
+                      hypercite._deleted_nodes = [];
+                    }
+                    if (deletedNodeUUID && !hypercite._deleted_nodes.includes(deletedNodeUUID)) {
+                      hypercite._deleted_nodes.push(deletedNodeUUID);
+                      console.log(`📌 Marked node ${deletedNodeUUID} for deletion from hypercite ${hypercite.hyperciteId}`);
+                    }
+
+                    // DON'T remove from node_id or charData yet - cleanup happens during update
+                    // This prevents losing track of other nodes in multi-node hypercites
+
+                    // Save updated hypercite
+                    cursor.update(hypercite);
+                    console.log(`✅ Marked hypercite ${hypercite.hyperciteId} for cleanup (still ${hypercite.node_id.length} nodes until cleanup)`);
+                  } else {
+                    // Single-node hypercite - mark as orphaned (might migrate to another node)
+                    console.log(`⏳ Single-node hypercite ${hypercite.hyperciteId} - marking as orphaned (will cleanup if not found in DOM)`);
+                    hypercite._orphaned_at = Date.now();
+                    hypercite._orphaned_from_node = deletedNodeUUID || numericId.toString();
+
+                    // ✅ Track deleted node for cleanup during next save
+                    if (!hypercite._deleted_nodes) {
+                      hypercite._deleted_nodes = [];
+                    }
+                    if (deletedNodeUUID && !hypercite._deleted_nodes.includes(deletedNodeUUID)) {
+                      hypercite._deleted_nodes.push(deletedNodeUUID);
+                      console.log(`📌 Marked node ${deletedNodeUUID} for deletion from hypercite ${hypercite.hyperciteId}`);
+                    }
+
+                    // ✅ KEEP node_id and charData for now - needed for rendering during migration window
+                    // They'll be updated when the hypercite is recovered in the new node
+                    cursor.update(hypercite);
+                    // Don't add to deletedHistoryPayload yet - might be recovered
+                  }
+                }
+
                 cursor.continue();
               }
             };
