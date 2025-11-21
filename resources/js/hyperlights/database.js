@@ -55,11 +55,13 @@ export async function addToHighlightsTable(bookId, highlightData) {
     const highlightEntry = {
       book: bookId, // Current book ID
       hyperlight_id: highlightData.highlightId,
+      node_id: Object.keys(highlightData.charData || {}),  // ✅ NEW: Array of node IDs for indexing
+      charData: highlightData.charData || {},              // ✅ NEW: Per-node character positions
       highlightedText: highlightData.text, // Keep the plain text for searching
       highlightedHTML: highlightedHTML, // Store the HTML structure without mark tags
       annotation: "", // initial empty annotation
-      startChar: highlightData.startChar,
-      endChar: highlightData.endChar,
+      startChar: highlightData.startChar,  // Keep for backward compatibility
+      endChar: highlightData.endChar,      // Keep for backward compatibility
       startLine: highlightData.startLine,
       creator: creator,        // ✅ FIXED: Set proper creator
       creator_token: creator_token, // ✅ FIXED: Set proper creator_token

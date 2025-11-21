@@ -240,6 +240,10 @@ export async function createHighlightHandler(event, bookId) {
     }
   });
 
+  // ✅ NEW: Collect per-node character position data
+  const charDataByNode = {};
+  const nodeIdMap = {};
+
   // Update all affected nodes in IndexedDB
   for (const chunkId of affectedIds) {
     const isStart = chunkId === startContainer.id;
@@ -280,6 +284,16 @@ export async function createHighlightHandler(event, bookId) {
     const startOffset = isStart ? cleanStartOffset : 0;
     const endOffset = isEnd ? cleanEndOffset : cleanLength;
 
+    // ✅ NEW: Store per-node positions for new charData structure
+    const element = document.getElementById(chunkId);
+    const nodeId = element?.getAttribute('data-node-id') || chunkId;  // Fallback to startLine if no data-node-id
+
+    nodeIdMap[chunkId] = nodeId;
+    charDataByNode[nodeId] = {
+      charStart: startOffset,
+      charEnd: endOffset
+    };
+
     const updatedNodeChunk = await updateNodeHighlight(
       bookId,
       chunkId,
@@ -299,8 +313,9 @@ export async function createHighlightHandler(event, bookId) {
       {
         highlightId,
         text: selectedText,
-        startChar: cleanStartOffset,
-        endChar: cleanEndOffset,
+        charData: charDataByNode,  // ✅ NEW: Per-node positions keyed by node_id
+        startChar: cleanStartOffset,  // Keep for backward compatibility
+        endChar: cleanEndOffset,      // Keep for backward compatibility
         startLine: startContainer.id,
       }
     );
