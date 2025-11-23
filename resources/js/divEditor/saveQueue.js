@@ -104,12 +104,26 @@ export class SaveQueue {
 
   /**
    * Add node to pending deletions queue
+   * Captures UUID from DOM before element is removed
+   * @param {string} nodeId - The node ID
+   * @param {HTMLElement} [nodeElement] - Optional: the removed node element (has attributes even when removed from DOM)
    */
-  queueDeletion(nodeId) {
+  queueDeletion(nodeId, nodeElement = null) {
+    // ✅ NEW: Capture UUID - prefer passed element, fallback to DOM lookup
+    const element = nodeElement || document.getElementById(nodeId);
+    const nodeUUID = element?.getAttribute('data-node-id');
+
+    // Store both nodeId and UUID in a Map instead of Set
+    if (!this.pendingSaves.deletionMap) {
+      this.pendingSaves.deletionMap = new Map();
+    }
+    this.pendingSaves.deletionMap.set(nodeId, nodeUUID);
+
+    // Keep deletions Set for backward compatibility
     this.pendingSaves.deletions.add(nodeId);
     this.pendingSaves.lastActivity = Date.now();
 
-    console.log(`🗑️ Queued node ${nodeId} for deletion`);
+    console.log(`🗑️ Queued node ${nodeId} for deletion (UUID: ${nodeUUID}${nodeElement ? ' from element' : ' from DOM'})`);
     this.debouncedBatchDelete();
   }
 
@@ -162,12 +176,17 @@ export class SaveQueue {
     if (this.pendingSaves.deletions.size === 0) return;
 
     const nodeIdsToDelete = Array.from(this.pendingSaves.deletions);
+
+    // ✅ NEW: Get UUID map for deleted nodes
+    const deletionMap = this.pendingSaves.deletionMap || new Map();
+
     this.pendingSaves.deletions.clear();
+    this.pendingSaves.deletionMap = new Map(); // Clear the map
 
     console.log(`🗑️ Batch deleting ${nodeIdsToDelete.length} nodes`);
 
     try {
-      await batchDeleteIndexedDBRecords(nodeIdsToDelete);
+      await batchDeleteIndexedDBRecords(nodeIdsToDelete, deletionMap);
       console.log(`✅ Batch deleted ${nodeIdsToDelete.length} nodes`);
 
       // Check if we need to restore minimum structure

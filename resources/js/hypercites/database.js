@@ -5,7 +5,7 @@
  * Handles creation, retrieval, and updates of hypercite records.
  */
 
-import { openDatabase, parseNodeId, createNodeChunksKey, updateBookTimestamp, queueForSync, debouncedMasterSync } from '../indexedDB/index.js';
+import { openDatabase, parseNodeId, createNodeChunksKey, updateBookTimestamp, queueForSync, debouncedMasterSync, rebuildNodeArrays, getNodesByUUIDs } from '../indexedDB/index.js';
 import { findParentWithNumericalId } from './utils.js';
 
 /**
@@ -208,14 +208,37 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
     const overallEndChar =
       blocks.length > 0 ? blocks[blocks.length - 1].charEnd : 0;
 
+    // ✅ NEW: Collect node_id array and charData object (like hyperlights)
+    const nodeIdArray = [];
+    const charDataByNode = {};
+
+    for (const block of blocks) {
+      // Get the DOM element for this block
+      const blockElement = document.getElementById(block.startLine);
+      const nodeUUID = blockElement?.getAttribute('data-node-id');
+
+      if (nodeUUID) {
+        nodeIdArray.push(nodeUUID);
+        charDataByNode[nodeUUID] = {
+          charStart: block.charStart,
+          charEnd: block.charEnd
+        };
+      }
+    }
+
+    console.log(`📊 Hypercite ${hyperciteId} affects ${nodeIdArray.length} nodes:`, nodeIdArray);
+    console.log(`📊 CharData:`, charDataByNode);
+
     // Build the initial hypercite record for the main hypercites store
     const hyperciteEntry = {
       book: book,
       hyperciteId: hyperciteId,
+      node_id: nodeIdArray,           // ✅ NEW: Array of node UUIDs
+      charData: charDataByNode,       // ✅ NEW: Per-node positions
       hypercitedText: hypercitedText,
       hypercitedHTML: hypercitedHTML,
-      startChar: overallStartChar,
-      endChar: overallEndChar,
+      startChar: overallStartChar,    // Keep for backward compatibility
+      endChar: overallEndChar,        // Keep for backward compatibility
       relationshipStatus: "single",
       citedIN: [],
       time_since: Math.floor(Date.now() / 1000) // Add timestamp like hyperlights
@@ -234,14 +257,12 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
       console.log("✅ Successfully upserted hypercite record in main store.");
     };
 
-    // --- Update nodes for each affected block ---
+    // 🔄 OLD SYSTEM: COMMENTED OUT - Don't update embedded arrays in nodes table
+    /*
     const nodesStore = tx.objectStore("nodes");
-    const updatedNodeChunks = []; // 👈 Array to collect updated node chunks
+    const updatedNodeChunks = [];
 
     for (const block of blocks) {
-      // ... (your existing, correct logic for updating nodes)
-      // This loop populates the `updatedNodeChunks` array.
-      // No changes are needed inside this loop.
       console.log("Processing block for NEW hypercite:", block);
       if (block.startLine === undefined || block.startLine === null) {
         console.error("Block missing startLine:", block);
@@ -307,7 +328,6 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
           numericStartLine,
         );
 
-        // ✅ Extract node_id from DOM element if available
         const blockElement = document.getElementById(block.nodeId);
         const nodeIdFromDOM = blockElement?.getAttribute('data-node-id');
 
@@ -315,7 +335,7 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
           book: book,
           startLine: numericStartLine,
           chunk_id: numericStartLine,
-          node_id: nodeIdFromDOM || null, // ✅ ADD node_id field
+          node_id: nodeIdFromDOM || null,
           hypercites: [
             {
               hyperciteId: hyperciteId,
@@ -365,29 +385,36 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
         };
       });
     }
+    */
 
     await new Promise((resolve, reject) => {
       tx.oncomplete = resolve;
       tx.onerror = (e) => reject(e.target.error);
     });
 
-    console.log("✅ NEW Hypercite and affected nodes updated.");
+    console.log("✅ NEW SYSTEM: Hypercite saved to normalized table");
 
-    // --- START: SOLUTION ---
+    // ✅ NEW SYSTEM: Rebuild affected node arrays from normalized tables
+    const affectedNodes = await getNodesByUUIDs(nodeIdArray);
+    await rebuildNodeArrays(affectedNodes);
 
-    // 1. Queue all necessary updates. The `updateBookTimestamp` function
-    //    also uses `queueForSync` internally.
+    console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} affected nodes`);
+
+    // Queue hypercite for PostgreSQL sync
     await updateBookTimestamp(book);
     queueForSync("hypercites", hyperciteId, "update", hyperciteEntry);
+
+    // 🔄 OLD SYSTEM: COMMENTED OUT - Don't queue node updates
+    /*
     updatedNodeChunks.forEach((chunk) => {
       queueForSync("nodes", chunk.startLine, "update", chunk);
     });
+    */
 
-    // 2. Immediately flush the sync queue to the server. This bypasses the
-    //    3-second debounce delay, solving the race condition for cross-device pasting.
-    console.log("⚡ Flushing sync queue immediately for new hypercite...");
+    // Immediately flush sync queue for cross-device pasting
+    console.log("⚡ NEW SYSTEM: Flushing sync queue immediately for new hypercite...");
     await debouncedMasterSync.flush();
-    console.log("✅ Sync queue flushed.");
+    console.log("✅ NEW SYSTEM: Sync queue flushed.");
 
     // --- END: SOLUTION ---
   } catch (error) {

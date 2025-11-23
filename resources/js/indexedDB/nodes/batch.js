@@ -206,13 +206,74 @@ function updateHyperlightRecords(hyperlights, store, bookId, numericNodeId, sync
       const highlightedText = markElement ? markElement.textContent : "";
       const highlightedHTML = markElement ? markElement.outerHTML : "";
 
+      // ✅ NEW: Extract node_id (UUID) from DOM for new schema
+      const nodeUUID = node.getAttribute('data-node-id');
+
       if (existingRecord) {
-        // Update existing record with new positions
+        // ✅ NEW: Check if this was orphaned and now recovered
+        if (existingRecord._orphaned_at) {
+          console.log(`🎉 RECOVERED orphaned highlight ${hyperlight.highlightID} - found in DOM after node deletion`);
+          delete existingRecord._orphaned_at;
+          delete existingRecord._orphaned_from_node;
+        }
+
+        // ✅ NEW: Clean up deleted nodes if marked
+        if (existingRecord._deleted_nodes && existingRecord._deleted_nodes.length > 0) {
+          console.log(`🧹 Cleaning up ${existingRecord._deleted_nodes.length} deleted nodes from highlight ${hyperlight.highlightID}`);
+
+          existingRecord._deleted_nodes.forEach(deletedUUID => {
+            // Remove from node_id array
+            if (existingRecord.node_id && Array.isArray(existingRecord.node_id)) {
+              const beforeLength = existingRecord.node_id.length;
+              existingRecord.node_id = existingRecord.node_id.filter(id => id !== deletedUUID);
+              if (existingRecord.node_id.length < beforeLength) {
+                console.log(`  🗑️ Removed ${deletedUUID} from node_id array`);
+              }
+            }
+
+            // Remove from charData object
+            if (existingRecord.charData && existingRecord.charData[deletedUUID]) {
+              delete existingRecord.charData[deletedUUID];
+              console.log(`  🗑️ Removed ${deletedUUID} from charData`);
+            }
+          });
+
+          // Clear the tracking array
+          delete existingRecord._deleted_nodes;
+          console.log(`✅ Cleanup complete for highlight ${hyperlight.highlightID}`);
+        }
+
+        // Update existing record with new positions (OLD schema - backward compat)
         existingRecord.startChar = hyperlight.charStart;
         existingRecord.endChar = hyperlight.charEnd;
         existingRecord.startLine = numericNodeId;
         existingRecord.highlightedText = highlightedText;
         existingRecord.highlightedHTML = highlightedHTML;
+
+        // ✅ NEW: Update NEW schema (node_id array + charData object)
+        if (nodeUUID) {
+          // Initialize if needed
+          if (!existingRecord.node_id || !Array.isArray(existingRecord.node_id)) {
+            existingRecord.node_id = [];
+          }
+          if (!existingRecord.charData || typeof existingRecord.charData !== 'object') {
+            existingRecord.charData = {};
+          }
+
+          // Add this node to node_id array if not present
+          if (!existingRecord.node_id.includes(nodeUUID)) {
+            existingRecord.node_id.push(nodeUUID);
+            console.log(`➕ Added node ${nodeUUID} to highlight ${hyperlight.highlightID}`);
+          }
+
+          // Update charData for this specific node
+          existingRecord.charData[nodeUUID] = {
+            charStart: hyperlight.charStart,
+            charEnd: hyperlight.charEnd
+          };
+
+          console.log(`✅ Updated NEW schema for ${hyperlight.highlightID}: node_id=${existingRecord.node_id.length} nodes, charData updated for ${nodeUUID}`);
+        }
 
         store.put(existingRecord);
         syncArray.push(existingRecord);
@@ -228,13 +289,24 @@ function updateHyperlightRecords(hyperlights, store, bookId, numericNodeId, sync
           startLine: numericNodeId,
           highlightedText: highlightedText,
           highlightedHTML: highlightedHTML,
-          annotation: ""
+          annotation: "",
+          // ✅ NEW: Initialize NEW schema fields
+          node_id: nodeUUID ? [nodeUUID] : [],
+          charData: nodeUUID ? {
+            [nodeUUID]: {
+              charStart: hyperlight.charStart,
+              charEnd: hyperlight.charEnd
+            }
+          } : {}
         };
 
         store.put(newRecord);
         syncArray.push(newRecord);
 
         console.log(`Created new hyperlight ${hyperlight.highlightID} with positions: ${hyperlight.charStart}-${hyperlight.charEnd}`);
+        if (nodeUUID) {
+          console.log(`✅ Initialized NEW schema: node_id=[${nodeUUID}], charData set`);
+        }
       }
     };
   });
@@ -257,12 +329,73 @@ function updateHyperciteRecords(hypercites, store, bookId, syncArray, node) {
       const hypercitedText = uElement ? uElement.textContent : "";
       const hypercitedHTML = uElement ? uElement.outerHTML : "";
 
+      // ✅ NEW: Extract node_id (UUID) from DOM for new schema
+      const nodeUUID = node.getAttribute('data-node-id');
+
       if (existingRecord) {
-        // Update existing record with new positions
+        // ✅ NEW: Check if this was orphaned and now recovered
+        if (existingRecord._orphaned_at) {
+          console.log(`🎉 RECOVERED orphaned hypercite ${hypercite.hyperciteId} - found in DOM after node deletion`);
+          delete existingRecord._orphaned_at;
+          delete existingRecord._orphaned_from_node;
+        }
+
+        // ✅ NEW: Clean up deleted nodes if marked
+        if (existingRecord._deleted_nodes && existingRecord._deleted_nodes.length > 0) {
+          console.log(`🧹 Cleaning up ${existingRecord._deleted_nodes.length} deleted nodes from hypercite ${hypercite.hyperciteId}`);
+
+          existingRecord._deleted_nodes.forEach(deletedUUID => {
+            // Remove from node_id array
+            if (existingRecord.node_id && Array.isArray(existingRecord.node_id)) {
+              const beforeLength = existingRecord.node_id.length;
+              existingRecord.node_id = existingRecord.node_id.filter(id => id !== deletedUUID);
+              if (existingRecord.node_id.length < beforeLength) {
+                console.log(`  🗑️ Removed ${deletedUUID} from node_id array`);
+              }
+            }
+
+            // Remove from charData object
+            if (existingRecord.charData && existingRecord.charData[deletedUUID]) {
+              delete existingRecord.charData[deletedUUID];
+              console.log(`  🗑️ Removed ${deletedUUID} from charData`);
+            }
+          });
+
+          // Clear the tracking array
+          delete existingRecord._deleted_nodes;
+          console.log(`✅ Cleanup complete for hypercite ${hypercite.hyperciteId}`);
+        }
+
+        // Update existing record with new positions (OLD schema - backward compat)
         existingRecord.startChar = hypercite.charStart;
         existingRecord.endChar = hypercite.charEnd;
         existingRecord.hypercitedText = hypercitedText;
         existingRecord.hypercitedHTML = hypercitedHTML;
+
+        // ✅ NEW: Update NEW schema (node_id array + charData object)
+        if (nodeUUID) {
+          // Initialize if needed
+          if (!existingRecord.node_id || !Array.isArray(existingRecord.node_id)) {
+            existingRecord.node_id = [];
+          }
+          if (!existingRecord.charData || typeof existingRecord.charData !== 'object') {
+            existingRecord.charData = {};
+          }
+
+          // Add this node to node_id array if not present
+          if (!existingRecord.node_id.includes(nodeUUID)) {
+            existingRecord.node_id.push(nodeUUID);
+            console.log(`➕ Added node ${nodeUUID} to hypercite ${hypercite.hyperciteId}`);
+          }
+
+          // Update charData for this specific node
+          existingRecord.charData[nodeUUID] = {
+            charStart: hypercite.charStart,
+            charEnd: hypercite.charEnd
+          };
+
+          console.log(`✅ Updated NEW schema for ${hypercite.hyperciteId}: node_id=${existingRecord.node_id.length} nodes, charData updated for ${nodeUUID}`);
+        }
 
         store.put(existingRecord);
         syncArray.push(existingRecord);
@@ -279,13 +412,24 @@ function updateHyperciteRecords(hypercites, store, bookId, syncArray, node) {
           hypercitedHTML: hypercitedHTML,
           citedIN: [],
           relationshipStatus: "single",
-          time_since: hypercite.time_since || Math.floor(Date.now() / 1000)
+          time_since: hypercite.time_since || Math.floor(Date.now() / 1000),
+          // ✅ NEW: Initialize NEW schema fields
+          node_id: nodeUUID ? [nodeUUID] : [],
+          charData: nodeUUID ? {
+            [nodeUUID]: {
+              charStart: hypercite.charStart,
+              charEnd: hypercite.charEnd
+            }
+          } : {}
         };
 
         store.put(newRecord);
         syncArray.push(newRecord);
 
         console.log(`Created new hypercite ${hypercite.hyperciteId} with positions: ${hypercite.charStart}-${hypercite.charEnd}`);
+        if (nodeUUID) {
+          console.log(`✅ Initialized NEW schema: node_id=[${nodeUUID}], charData set`);
+        }
       }
     };
   });
@@ -650,7 +794,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
  * @param {Array} nodeIds - Array of node IDs to delete
  * @returns {Promise<void>}
  */
-export async function batchDeleteIndexedDBRecords(nodeIds) {
+export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map()) {
   return withPending(async () => {
     // ✅ FIX: Get book ID from DOM instead of stale global variable
     const mainContent = document.querySelector('.main-content');
@@ -658,6 +802,7 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
 
     console.log(`🗑️ Batch deleting ${nodeIds.length} IndexedDB records`);
     console.log(`🔍 First 10 IDs:`, nodeIds.slice(0, 10));
+    console.log(`🔍 Deletion map has ${deletionMap.size} UUIDs`);
 
     try {
       const db = await openDatabase();
@@ -715,38 +860,145 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
               };
               deleteReq.onerror = (e) => reject(e.target.error);
 
+              // ✅ NEW: Get node UUID from deletionMap (captured before DOM removal)
+              // Define OUTSIDE try blocks so both hyperlight and hypercite code can access it
+              const deletedNodeUUID = deletionMap.get(nodeId);
+              console.log(`🗑️ Batch deleting node ${numericNodeId}, UUID: ${deletedNodeUUID}`);
+
               try {
-                const lightIndex = lightsStore.index("book_startLine");
-                const lightRange = IDBKeyRange.only([bookId, numericNodeId]);
-                const lightReq = lightIndex.openCursor(lightRange);
+                // ✅ NEW: Update hyperlights - mark deleted node instead of deleting the record
+                const bookIndex = lightsStore.index("book");
+                const bookRange = IDBKeyRange.only(bookId);
+                const lightReq = bookIndex.openCursor(bookRange);
 
                 lightReq.onsuccess = (e) => {
                   const cursor = e.target.result;
                   if (cursor) {
-                    deletedData.hyperlights.push(cursor.value); // Record for undo
-                    cursor.delete();
+                    const highlight = cursor.value;
+
+                    // Check if this highlight affects the deleted node
+                    const affectsDeletedNode =
+                      highlight.startLine === numericNodeId || // OLD schema check
+                      (highlight.node_id && Array.isArray(highlight.node_id) &&
+                       deletedNodeUUID && highlight.node_id.includes(deletedNodeUUID)); // NEW schema check
+
+                    if (affectsDeletedNode) {
+                      console.log(`📍 Found highlight ${highlight.hyperlight_id} affecting deleted node ${numericNodeId}`);
+
+                      // Check if multi-node highlight
+                      if (highlight.node_id && highlight.node_id.length > 1) {
+                        // Multi-node highlight - mark node for deletion cleanup
+                        console.log(`🔧 Multi-node highlight detected (${highlight.node_id.length} nodes) - marking node ${deletedNodeUUID} for cleanup`);
+
+                        // ✅ Track deleted node for cleanup during next save
+                        if (!highlight._deleted_nodes) {
+                          highlight._deleted_nodes = [];
+                        }
+                        if (deletedNodeUUID && !highlight._deleted_nodes.includes(deletedNodeUUID)) {
+                          highlight._deleted_nodes.push(deletedNodeUUID);
+                          console.log(`📌 Marked node ${deletedNodeUUID} for deletion from highlight ${highlight.hyperlight_id}`);
+                        }
+
+                        // Save updated highlight (don't delete it!)
+                        cursor.update(highlight);
+                        console.log(`✅ Marked highlight ${highlight.hyperlight_id} for cleanup (still ${highlight.node_id.length} nodes until cleanup)`);
+                      } else {
+                        // Single-node highlight - OLD SYSTEM behavior (delete from OLD schema stores)
+                        if (highlight.startLine === numericNodeId) {
+                          console.log(`🗑️ Single-node highlight ${highlight.hyperlight_id} - deleting via OLD system`);
+                          deletedData.hyperlights.push(cursor.value); // Record for undo
+                          cursor.delete();
+                        } else {
+                          // Single-node in NEW schema - mark as orphaned
+                          console.log(`⏳ Single-node highlight ${highlight.hyperlight_id} - marking as orphaned (will cleanup if not found in DOM)`);
+                          highlight._orphaned_at = Date.now();
+                          highlight._orphaned_from_node = deletedNodeUUID || numericNodeId.toString();
+
+                          // Track deleted node for cleanup
+                          if (!highlight._deleted_nodes) {
+                            highlight._deleted_nodes = [];
+                          }
+                          if (deletedNodeUUID && !highlight._deleted_nodes.includes(deletedNodeUUID)) {
+                            highlight._deleted_nodes.push(deletedNodeUUID);
+                          }
+
+                          cursor.update(highlight);
+                        }
+                      }
+                    }
+
                     cursor.continue();
                   }
                 };
               } catch (lightError) {
-                console.warn(`⚠️ Error deleting hyperlights for ${nodeId}:`, lightError);
+                console.warn(`⚠️ Error updating hyperlights for ${nodeId}:`, lightError);
               }
 
               try {
-                const citeIndex = citesStore.index("book_startLine");
-                const citeRange = IDBKeyRange.only([bookId, numericNodeId]);
+                // ✅ NEW: Update hypercites - mark deleted node instead of deleting the record
+                // (deletedElement and deletedNodeUUID already retrieved above)
+                const citeIndex = citesStore.index("book");
+                const citeRange = IDBKeyRange.only(bookId);
                 const citeReq = citeIndex.openCursor(citeRange);
 
                 citeReq.onsuccess = (e) => {
                   const cursor = e.target.result;
                   if (cursor) {
-                    deletedData.hypercites.push(cursor.value); // Record for undo
-                    cursor.delete();
+                    const hypercite = cursor.value;
+
+                    // Check if this hypercite affects the deleted node
+                    const affectsDeletedNode =
+                      (hypercite.node_id && Array.isArray(hypercite.node_id) &&
+                       deletedNodeUUID && hypercite.node_id.includes(deletedNodeUUID));
+
+                    if (affectsDeletedNode) {
+                      console.log(`📍 Found hypercite ${hypercite.hyperciteId} affecting deleted node ${numericNodeId}`);
+
+                      // Check if multi-node hypercite
+                      if (hypercite.node_id && hypercite.node_id.length > 1) {
+                        // Multi-node hypercite - mark node for deletion cleanup
+                        console.log(`🔧 Multi-node hypercite detected (${hypercite.node_id.length} nodes) - marking node ${deletedNodeUUID} for cleanup`);
+
+                        // ✅ Track deleted node for cleanup during next save
+                        if (!hypercite._deleted_nodes) {
+                          hypercite._deleted_nodes = [];
+                        }
+                        if (deletedNodeUUID && !hypercite._deleted_nodes.includes(deletedNodeUUID)) {
+                          hypercite._deleted_nodes.push(deletedNodeUUID);
+                          console.log(`📌 Marked node ${deletedNodeUUID} for deletion from hypercite ${hypercite.hyperciteId}`);
+                        }
+
+                        // Save updated hypercite (don't delete it!)
+                        cursor.update(hypercite);
+                        console.log(`✅ Marked hypercite ${hypercite.hyperciteId} for cleanup (still ${hypercite.node_id.length} nodes until cleanup)`);
+                      } else {
+                        // Single-node hypercite - mark as orphaned
+                        console.log(`⏳ Single-node hypercite ${hypercite.hyperciteId} - marking as orphaned (will cleanup if not found in DOM)`);
+                        hypercite._orphaned_at = Date.now();
+                        hypercite._orphaned_from_node = deletedNodeUUID || numericNodeId.toString();
+
+                        // Track deleted node for cleanup
+                        if (!hypercite._deleted_nodes) {
+                          hypercite._deleted_nodes = [];
+                        }
+                        if (deletedNodeUUID && !hypercite._deleted_nodes.includes(deletedNodeUUID)) {
+                          hypercite._deleted_nodes.push(deletedNodeUUID);
+                        }
+
+                        cursor.update(hypercite);
+                      }
+                    } else if (hypercite.startLine === numericNodeId) {
+                      // OLD SYSTEM - hypercite only in old schema
+                      console.log(`🗑️ Old schema hypercite - deleting via OLD system`);
+                      deletedData.hypercites.push(cursor.value); // Record for undo
+                      cursor.delete();
+                    }
+
                     cursor.continue();
                   }
                 };
               } catch (citeError) {
-                console.warn(`⚠️ Error deleting hypercites for ${nodeId}:`, citeError);
+                console.warn(`⚠️ Error updating hypercites for ${nodeId}:`, citeError);
               }
             } else {
               console.log(`⚠️ No existing record found for ${nodeId}`);
@@ -766,10 +1018,7 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
           console.log(`✅ Batch IndexedDB deletion transaction complete...`);
           await updateBookTimestamp(bookId);
 
-          // The `queueForSync` calls inside `deleteIndexedDBRecord` are for syncing to PostgreSQL,
-          // not for history. They should remain for *single* deletions. For batch deletions,
-          // the debouncedMasterSync will gather all the queued items.
-          // Your existing queueForSync calls for deletedData are correct for PostgreSQL sync.
+          // Queue deleted records for PostgreSQL sync
           deletedData.nodes.forEach((record) => {
             queueForSync("nodes", record.startLine, "delete", record);
           });
@@ -779,6 +1028,86 @@ export async function batchDeleteIndexedDBRecords(nodeIds) {
           deletedData.hypercites.forEach((record) => {
             queueForSync("hypercites", record.hyperciteId, "delete", record);
           });
+
+          // ✅ NEW SYSTEM: Rebuild arrays for remaining nodes affected by multi-node highlights/hypercites
+          try {
+            const { rebuildNodeArrays, getNodesByUUIDs } = await import('../index.js');
+
+            // Collect all remaining node UUIDs from deletionMap that weren't deleted
+            const deletedUUIDs = Array.from(deletionMap.values()).filter(Boolean);
+            console.log(`🔄 NEW SYSTEM: Deleted node UUIDs:`, deletedUUIDs);
+
+            if (deletedUUIDs.length > 0) {
+              // Get all nodes for this book to find remaining nodes
+              const db = await openDatabase();
+              const nodeTx = db.transaction('nodes', 'readonly');
+              const nodeStore = nodeTx.objectStore('nodes');
+              const allNodes = await new Promise((resolve, reject) => {
+                const req = nodeStore.getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+              });
+
+              // Filter to nodes with UUIDs (not deleted)
+              const remainingNodes = allNodes.filter(node => node.node_id && !deletedUUIDs.includes(node.node_id));
+
+              // Find nodes that might have been affected by the deleted nodes
+              // (nodes that share highlights/hypercites with deleted nodes)
+              const affectedNodeUUIDs = new Set();
+
+              // Query hyperlights to find which nodes are affected
+              const lightTx = db.transaction('hyperlights', 'readonly');
+              const lightStore = lightTx.objectStore('hyperlights');
+              const allLights = await new Promise((resolve, reject) => {
+                const req = lightStore.getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+              });
+
+              allLights.forEach(light => {
+                if (light._deleted_nodes && light._deleted_nodes.some(uuid => deletedUUIDs.includes(uuid))) {
+                  // This highlight was affected - rebuild its remaining nodes
+                  light.node_id.forEach(uuid => {
+                    if (!deletedUUIDs.includes(uuid)) {
+                      affectedNodeUUIDs.add(uuid);
+                    }
+                  });
+                }
+              });
+
+              // Query hypercites similarly
+              const citeTx = db.transaction('hypercites', 'readonly');
+              const citeStore = citeTx.objectStore('hypercites');
+              const allCites = await new Promise((resolve, reject) => {
+                const req = citeStore.getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+              });
+
+              allCites.forEach(cite => {
+                if (cite._deleted_nodes && cite._deleted_nodes.some(uuid => deletedUUIDs.includes(uuid))) {
+                  // This hypercite was affected - rebuild its remaining nodes
+                  cite.node_id.forEach(uuid => {
+                    if (!deletedUUIDs.includes(uuid)) {
+                      affectedNodeUUIDs.add(uuid);
+                    }
+                  });
+                }
+              });
+
+              if (affectedNodeUUIDs.size > 0) {
+                console.log(`🔄 NEW SYSTEM: Rebuilding arrays for ${affectedNodeUUIDs.size} affected nodes`);
+                const affectedNodes = await getNodesByUUIDs([...affectedNodeUUIDs]);
+                await rebuildNodeArrays(affectedNodes);
+                console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} nodes after deletion`);
+              } else {
+                console.log(`ℹ️ NEW SYSTEM: No remaining nodes to rebuild (single-node deletions)`);
+              }
+            }
+          } catch (hydrationError) {
+            console.error('❌ NEW SYSTEM: Error rebuilding arrays after deletion:', hydrationError);
+            // Don't fail the whole operation if hydration fails
+          }
 
           resolve();
         };

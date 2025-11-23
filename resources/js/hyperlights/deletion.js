@@ -99,11 +99,14 @@ export async function deleteHighlightById(highlightId) {
       queueForSync("hyperlights", highlightId, "delete", deletedHyperlight);
     }
 
+    // 🔄 OLD SYSTEM: COMMENTED OUT - Don't queue node updates
+    /*
     affectedNodes.forEach((chunk) => {
       if (chunk && chunk.startLine) {
         queueForSync("nodes", chunk.startLine, "update", chunk);
       }
     });
+    */
 
     console.log(`✅ Successfully deleted highlight: ${highlightId}`);
     console.log(`📝 Affected nodes: ${Array.from(affectedNodeIds).join(', ')}`);

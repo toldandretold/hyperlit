@@ -307,7 +307,8 @@ export class ChunkMutationHandler {
               } else {
                 console.log(`🗑️ Queueing node ${node.id} for batch deletion`);
                 if (this.saveQueue) {
-                  this.saveQueue.queueDeletion(node.id);
+                  // ✅ Pass the node element itself so UUID can be read from it
+                  this.saveQueue.queueDeletion(node.id, node);
                 }
                 this.removedNodeIds.add(node.id);
               }
