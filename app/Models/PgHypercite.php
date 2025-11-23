@@ -14,11 +14,11 @@ class PgHypercite extends Model
         'node_id',
         'charData',
         'citedIN',
-        'endChar',
         'hypercitedHTML',
         'hypercitedText',
         'relationshipStatus',
-        'startChar',
+        'creator',
+        'creator_token',
         'time_since',
         'raw_json'
     ];
@@ -27,9 +27,7 @@ class PgHypercite extends Model
         'node_id' => 'array',
         'charData' => 'array',
         'citedIN' => 'array',
-        'raw_json' => 'array',
-        'endChar' => 'integer',
-        'startChar' => 'integer'
+        'raw_json' => 'array'
     ];
 
     /**
