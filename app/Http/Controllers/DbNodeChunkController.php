@@ -135,8 +135,8 @@ class DbNodeChunkController extends Controller
                         'node_id' => $item['node_id'] ?? null,
                         'content' => $item['content'] ?? null,
                         'footnotes' => json_encode($item['footnotes'] ?? []),
-                        'hypercites' => json_encode($item['hypercites'] ?? []),
-                        'hyperlights' => json_encode($item['hyperlights'] ?? []),
+                        // 🔄 NEW SYSTEM: Don't touch hypercites/hyperlights columns - leave existing data intact
+                        // 'hypercites' and 'hyperlights' columns intentionally omitted
                         'plainText' => $item['plainText'] ?? null,
                         'type' => $item['type'] ?? null,
                         'raw_json' => json_encode($this->cleanItemForStorage($item)),
@@ -215,8 +215,8 @@ class DbNodeChunkController extends Controller
                         'node_id' => $item['node_id'] ?? null,
                         'content' => $item['content'] ?? null,
                         'footnotes' => json_encode($item['footnotes'] ?? []),
-                        'hypercites' => json_encode($item['hypercites'] ?? []),
-                        'hyperlights' => json_encode($item['hyperlights'] ?? []),
+                        // 🔄 NEW SYSTEM: Don't touch hypercites/hyperlights columns - leave existing data intact
+                        // 'hypercites' and 'hyperlights' columns intentionally omitted
                         'plainText' => $item['plainText'] ?? null,
                         'type' => $item['type'] ?? null,
                         'raw_json' => json_encode($this->cleanItemForStorage($item)),
@@ -355,7 +355,9 @@ public function targetedUpsert(Request $request)
                 ];
             }
             
-            // Safely merge hyperlights (for ALL users to prevent data loss).
+            // 🔄 OLD SYSTEM: Safely merge hyperlights (for ALL users to prevent data loss).
+            // COMMENTED OUT - NEW SYSTEM uses normalized hyperlights table
+            /*
             $dbHighlights = $existingChunk->hyperlights ?? []; // Eloquent casts this to a PHP array
             $clientHighlights = $item['hyperlights'] ?? [];
 
@@ -383,7 +385,14 @@ public function targetedUpsert(Request $request)
 
             // Assign the PHP arrays directly to the update payload. Eloquent will handle encoding.
             $updateData['hyperlights'] = $finalMergedHighlights;
+            */
 
+            // 🔄 NEW SYSTEM: Don't touch hyperlights column - leave existing data intact
+            // 'hyperlights' intentionally not added to $updateData
+
+            // 🔄 OLD SYSTEM: DEBUG logs and assignment for hypercites
+            // COMMENTED OUT - NEW SYSTEM uses normalized hypercites table
+            /*
             // DEBUG: Log hypercites update
             Log::debug('Hypercites update debug', [
                 'startLine' => $item['startLine'],
@@ -401,6 +410,10 @@ public function targetedUpsert(Request $request)
                 'final_hypercites' => $updateData['hypercites'],
                 'final_count' => is_array($updateData['hypercites']) ? count($updateData['hypercites']) : 'NOT_ARRAY'
             ]);
+            */
+
+            // 🔄 NEW SYSTEM: Don't touch hypercites column - leave existing data intact
+            // 'hypercites' intentionally not added to $updateData
             
             // Rebuild the raw_json field with the most up-to-date, merged data.
             $rawJson = $existingChunk->raw_json ?? $this->cleanItemForStorage($item);
@@ -430,7 +443,8 @@ public function targetedUpsert(Request $request)
                 'node_id' => $item['node_id'] ?? 'none',
                 'existing_found_by' => $existingChunk ? 'node_id or startLine' : 'none',
                 'updateData_keys' => array_keys($updateData),
-                'updateData_hypercites' => $updateData['hypercites']
+                // 🔄 NEW SYSTEM: hypercites/hyperlights no longer in $updateData
+                // 'updateData_hypercites' => $updateData['hypercites']
             ]);
 
             // If we found existing chunk (by node_id or startLine), update it

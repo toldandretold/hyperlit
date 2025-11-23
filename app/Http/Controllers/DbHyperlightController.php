@@ -256,7 +256,7 @@ class DbHyperlightController extends Controller
                         ],
                         [
                             'node_id' => $item['node_id'] ?? null,           // ✅ NEW: Array of node IDs
-                            'charData' => $item['charData'] ?? null,         // ✅ NEW: Per-node positions
+                            'charData' => $item['charData'] ?? [],           // ✅ NEW: Per-node positions (default empty for old highlights)
                             'highlightedText' => $item['highlightedText'] ?? null,
                             'highlightedHTML' => $item['highlightedHTML'] ?? null,
                             'annotation' => $item['annotation'] ?? null,

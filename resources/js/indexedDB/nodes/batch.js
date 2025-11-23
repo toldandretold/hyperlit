@@ -1018,10 +1018,7 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
           console.log(`✅ Batch IndexedDB deletion transaction complete...`);
           await updateBookTimestamp(bookId);
 
-          // The `queueForSync` calls inside `deleteIndexedDBRecord` are for syncing to PostgreSQL,
-          // not for history. They should remain for *single* deletions. For batch deletions,
-          // the debouncedMasterSync will gather all the queued items.
-          // Your existing queueForSync calls for deletedData are correct for PostgreSQL sync.
+          // Queue deleted records for PostgreSQL sync
           deletedData.nodes.forEach((record) => {
             queueForSync("nodes", record.startLine, "delete", record);
           });
@@ -1031,6 +1028,86 @@ export async function batchDeleteIndexedDBRecords(nodeIds, deletionMap = new Map
           deletedData.hypercites.forEach((record) => {
             queueForSync("hypercites", record.hyperciteId, "delete", record);
           });
+
+          // ✅ NEW SYSTEM: Rebuild arrays for remaining nodes affected by multi-node highlights/hypercites
+          try {
+            const { rebuildNodeArrays, getNodesByUUIDs } = await import('../index.js');
+
+            // Collect all remaining node UUIDs from deletionMap that weren't deleted
+            const deletedUUIDs = Array.from(deletionMap.values()).filter(Boolean);
+            console.log(`🔄 NEW SYSTEM: Deleted node UUIDs:`, deletedUUIDs);
+
+            if (deletedUUIDs.length > 0) {
+              // Get all nodes for this book to find remaining nodes
+              const db = await openDatabase();
+              const nodeTx = db.transaction('nodes', 'readonly');
+              const nodeStore = nodeTx.objectStore('nodes');
+              const allNodes = await new Promise((resolve, reject) => {
+                const req = nodeStore.getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+              });
+
+              // Filter to nodes with UUIDs (not deleted)
+              const remainingNodes = allNodes.filter(node => node.node_id && !deletedUUIDs.includes(node.node_id));
+
+              // Find nodes that might have been affected by the deleted nodes
+              // (nodes that share highlights/hypercites with deleted nodes)
+              const affectedNodeUUIDs = new Set();
+
+              // Query hyperlights to find which nodes are affected
+              const lightTx = db.transaction('hyperlights', 'readonly');
+              const lightStore = lightTx.objectStore('hyperlights');
+              const allLights = await new Promise((resolve, reject) => {
+                const req = lightStore.getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+              });
+
+              allLights.forEach(light => {
+                if (light._deleted_nodes && light._deleted_nodes.some(uuid => deletedUUIDs.includes(uuid))) {
+                  // This highlight was affected - rebuild its remaining nodes
+                  light.node_id.forEach(uuid => {
+                    if (!deletedUUIDs.includes(uuid)) {
+                      affectedNodeUUIDs.add(uuid);
+                    }
+                  });
+                }
+              });
+
+              // Query hypercites similarly
+              const citeTx = db.transaction('hypercites', 'readonly');
+              const citeStore = citeTx.objectStore('hypercites');
+              const allCites = await new Promise((resolve, reject) => {
+                const req = citeStore.getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+              });
+
+              allCites.forEach(cite => {
+                if (cite._deleted_nodes && cite._deleted_nodes.some(uuid => deletedUUIDs.includes(uuid))) {
+                  // This hypercite was affected - rebuild its remaining nodes
+                  cite.node_id.forEach(uuid => {
+                    if (!deletedUUIDs.includes(uuid)) {
+                      affectedNodeUUIDs.add(uuid);
+                    }
+                  });
+                }
+              });
+
+              if (affectedNodeUUIDs.size > 0) {
+                console.log(`🔄 NEW SYSTEM: Rebuilding arrays for ${affectedNodeUUIDs.size} affected nodes`);
+                const affectedNodes = await getNodesByUUIDs([...affectedNodeUUIDs]);
+                await rebuildNodeArrays(affectedNodes);
+                console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} nodes after deletion`);
+              } else {
+                console.log(`ℹ️ NEW SYSTEM: No remaining nodes to rebuild (single-node deletions)`);
+              }
+            }
+          } catch (hydrationError) {
+            console.error('❌ NEW SYSTEM: Error rebuilding arrays after deletion:', hydrationError);
+            // Don't fail the whole operation if hydration fails
+          }
 
           resolve();
         };

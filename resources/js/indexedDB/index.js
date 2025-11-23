@@ -96,6 +96,12 @@ export {
   initNodeNormalizeDependencies,
 } from './nodes/normalize.js';
 
+// Node Hydration (NEW SYSTEM)
+export {
+  rebuildNodeArrays,
+  getNodesByUUIDs,
+} from './hydration/rebuild.js';
+
 // Node PostgreSQL Sync
 export {
   syncNodeChunksToPostgreSQL,

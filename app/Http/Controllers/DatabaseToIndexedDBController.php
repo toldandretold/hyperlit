@@ -520,6 +520,165 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
+     * Get hyperlights for a specific node using NEW normalized schema
+     * Queries hyperlights table where node_id array contains the given UUID
+     * @param string $bookId - The book ID
+     * @param string $nodeUUID - The node UUID to search for
+     * @param array $visibleIds - Array of visible hyperlight IDs
+     * @param array $lookup - Lookup array with is_user_highlight flags
+     * @return array - Array of hyperlights for this node with charData extracted
+     */
+    private function getHyperlightsForNode(string $bookId, string $nodeUUID, array $visibleIds, array $lookup): array
+    {
+        if (empty($nodeUUID)) {
+            Log::info('📊 NEW SYSTEM: Skipping hyperlight lookup - no UUID', ['book' => $bookId]);
+            return [];
+        }
+
+        Log::info('📊 NEW SYSTEM: Querying hyperlights table', [
+            'book' => $bookId,
+            'node_uuid' => $nodeUUID,
+            'visible_ids_count' => count($visibleIds)
+        ]);
+
+        // Query hyperlights where node_id array contains this UUID
+        $hyperlights = DB::table('hyperlights')
+            ->where('book', $bookId)
+            ->whereRaw("node_id @> ?", [json_encode([$nodeUUID])]) // PostgreSQL JSONB containment
+            ->get();
+
+        Log::info('📊 NEW SYSTEM: Hyperlights query result', [
+            'node_uuid' => $nodeUUID,
+            'total_found' => $hyperlights->count()
+        ]);
+
+        $result = [];
+        foreach ($hyperlights as $hl) {
+            // Only include if visible
+            if (!in_array($hl->hyperlight_id, $visibleIds)) {
+                Log::info('📊 NEW SYSTEM: Skipping hidden hyperlight', [
+                    'hyperlight_id' => $hl->hyperlight_id,
+                    'node_uuid' => $nodeUUID
+                ]);
+                continue;
+            }
+
+            // Extract charData for THIS specific node
+            $charData = json_decode($hl->charData ?? '{}', true);
+            $nodeCharData = $charData[$nodeUUID] ?? null;
+
+            if (!$nodeCharData) {
+                Log::warning('📊 NEW SYSTEM: No charData found for node', [
+                    'hyperlight_id' => $hl->hyperlight_id,
+                    'node_uuid' => $nodeUUID,
+                    'charData' => $charData
+                ]);
+                continue;
+            }
+
+            // Build highlight in OLD format (for backward compatibility with frontend)
+            $highlight = [
+                'highlightID' => $hl->hyperlight_id,
+                'charStart' => $nodeCharData['charStart'],
+                'charEnd' => $nodeCharData['charEnd'],
+                'annotation' => $hl->annotation,
+                'time_since' => $hl->time_since,
+                'hidden' => $hl->hidden ?? false,
+                'is_user_highlight' => $lookup[$hl->hyperlight_id]['is_user_highlight'] ?? false
+            ];
+
+            $result[] = $highlight;
+
+            Log::info('📊 NEW SYSTEM: Added hyperlight from NEW schema', [
+                'hyperlight_id' => $hl->hyperlight_id,
+                'node_uuid' => $nodeUUID,
+                'charStart' => $nodeCharData['charStart'],
+                'charEnd' => $nodeCharData['charEnd']
+            ]);
+        }
+
+        Log::info('📊 NEW SYSTEM: Hyperlights extraction complete', [
+            'node_uuid' => $nodeUUID,
+            'visible_count' => count($result)
+        ]);
+
+        return $result;
+    }
+
+    /**
+     * Get hypercites for a specific node using NEW normalized schema
+     * Queries hypercites table where node_id array contains the given UUID
+     * @param string $bookId - The book ID
+     * @param string $nodeUUID - The node UUID to search for
+     * @return array - Array of hypercites for this node with charData extracted
+     */
+    private function getHypercitesForNode(string $bookId, string $nodeUUID): array
+    {
+        if (empty($nodeUUID)) {
+            Log::info('📊 NEW SYSTEM: Skipping hypercite lookup - no UUID', ['book' => $bookId]);
+            return [];
+        }
+
+        Log::info('📊 NEW SYSTEM: Querying hypercites table', [
+            'book' => $bookId,
+            'node_uuid' => $nodeUUID
+        ]);
+
+        // Query hypercites where node_id array contains this UUID
+        $hypercites = DB::table('hypercites')
+            ->where('book', $bookId)
+            ->whereRaw("node_id @> ?", [json_encode([$nodeUUID])]) // PostgreSQL JSONB containment
+            ->get();
+
+        Log::info('📊 NEW SYSTEM: Hypercites query result', [
+            'node_uuid' => $nodeUUID,
+            'total_found' => $hypercites->count()
+        ]);
+
+        $result = [];
+        foreach ($hypercites as $hc) {
+            // Extract charData for THIS specific node
+            $charData = json_decode($hc->charData ?? '{}', true);
+            $nodeCharData = $charData[$nodeUUID] ?? null;
+
+            if (!$nodeCharData) {
+                Log::warning('📊 NEW SYSTEM: No charData found for node', [
+                    'hypercite_id' => $hc->hyperciteId,
+                    'node_uuid' => $nodeUUID,
+                    'charData' => $charData
+                ]);
+                continue;
+            }
+
+            // Build hypercite in OLD format (for backward compatibility with frontend)
+            $hypercite = [
+                'hyperciteId' => $hc->hyperciteId,
+                'charStart' => $nodeCharData['charStart'],
+                'charEnd' => $nodeCharData['charEnd'],
+                'relationshipStatus' => $hc->relationshipStatus,
+                'citedIN' => json_decode($hc->citedIN ?? '[]', true),
+                'time_since' => $hc->time_since
+            ];
+
+            $result[] = $hypercite;
+
+            Log::info('📊 NEW SYSTEM: Added hypercite from NEW schema', [
+                'hypercite_id' => $hc->hyperciteId,
+                'node_uuid' => $nodeUUID,
+                'charStart' => $nodeCharData['charStart'],
+                'charEnd' => $nodeCharData['charEnd']
+            ]);
+        }
+
+        Log::info('📊 NEW SYSTEM: Hypercites extraction complete', [
+            'node_uuid' => $nodeUUID,
+            'count' => count($result)
+        ]);
+
+        return $result;
+    }
+
+    /**
      * Get node chunks for a book - matches your IndexedDB structure
      */
     private function getNodeChunks(string $bookId, array $visibleHyperlightIds): array
@@ -553,52 +712,116 @@ class DatabaseToIndexedDBController extends Controller
             ->orderBy('chunk_id')
             ->get()
             ->map(function ($chunk) use ($visibleHyperlightIds, $highlightLookup, $bookId) {
-                $chunkHyperlights = json_decode($chunk->hyperlights ?? '[]', true);
-                Log::info('🔍 Processing chunk', [
+                $nodeUUID = $chunk->node_id;
+
+                Log::info('🔍 Processing chunk - HYBRID SYSTEM', [
                     'chunk_id' => $chunk->chunk_id,
-                    'raw_hyperlights_count' => count($chunkHyperlights),
-                    'raw_hyperlights' => $chunkHyperlights
+                    'node_uuid' => $nodeUUID,
+                    'has_uuid' => !empty($nodeUUID)
                 ]);
 
-                $visibleChunkHyperlights = array_filter($chunkHyperlights, function($hl) use ($visibleHyperlightIds) {
-                    $isVisible = isset($hl['highlightID']) && in_array($hl['highlightID'], $visibleHyperlightIds);
-                    Log::info('🔍 Checking highlight visibility', [
-                        'highlight_id' => $hl['highlightID'] ?? 'missing',
-                        'is_visible' => $isVisible
-                    ]);
-                    return $isVisible;
-                });
+                // ===== HYPERLIGHTS - HYBRID APPROACH =====
+                $finalHyperlights = [];
 
-                Log::info('🔍 Visible chunk highlights after filtering', [
-                    'chunk_id' => $chunk->chunk_id,
-                    'visible_count' => count($visibleChunkHyperlights),
-                    'visible_highlights' => $visibleChunkHyperlights
-                ]);
+                // Try NEW system first
+                if (!empty($nodeUUID)) {
+                    Log::info('💡 Attempting NEW system for hyperlights', ['node_uuid' => $nodeUUID]);
+                    $newHyperlights = $this->getHyperlightsForNode($bookId, $nodeUUID, $visibleHyperlightIds, $highlightLookup);
 
-                // Enrich highlights with is_user_highlight flag from processed highlights
-                $enrichedHyperlights = array_map(function($hl) use ($highlightLookup) {
-                    $highlightId = $hl['highlightID'] ?? null;
-                    $foundInLookup = $highlightId && isset($highlightLookup[$highlightId]);
-                    $isUserHighlight = $foundInLookup ? $highlightLookup[$highlightId]['is_user_highlight'] : false;
-                    
-                    Log::info('🔍 Enriching highlight', [
-                        'highlight_id' => $highlightId,
-                        'found_in_lookup' => $foundInLookup,
-                        'is_user_highlight' => $isUserHighlight
-                    ]);
-
-                    if ($foundInLookup) {
-                        $hl['is_user_highlight'] = $highlightLookup[$highlightId]['is_user_highlight'];
+                    if (!empty($newHyperlights)) {
+                        $finalHyperlights = $newHyperlights;
+                        Log::info('✅ Using NEW system for hyperlights', [
+                            'node_uuid' => $nodeUUID,
+                            'count' => count($finalHyperlights)
+                        ]);
                     } else {
-                        $hl['is_user_highlight'] = false; // Default to false if not found
+                        Log::info('⚠️ NEW system returned empty, falling back to OLD', ['node_uuid' => $nodeUUID]);
                     }
-                    return $hl;
-                }, $visibleChunkHyperlights);
+                }
 
-                Log::info('🔍 Final enriched highlights for chunk', [
+                // 🔄 OLD SYSTEM FALLBACK: COMMENTED OUT FOR NEW SYSTEM TESTING
+                // If NEW normalized tables return empty, that's the truth - no embedded fallback
+                if (empty($finalHyperlights)) {
+                    /*
+                    // OLD SYSTEM: Fallback to embedded JSON in nodes table
+                    Log::info('📜 Using OLD system (embedded JSON) for hyperlights', ['chunk_id' => $chunk->chunk_id]);
+
+                    $chunkHyperlights = json_decode($chunk->hyperlights ?? '[]', true);
+
+                    $visibleChunkHyperlights = array_filter($chunkHyperlights, function($hl) use ($visibleHyperlightIds) {
+                        return isset($hl['highlightID']) && in_array($hl['highlightID'], $visibleHyperlightIds);
+                    });
+
+                    // Enrich with is_user_highlight flag
+                    $finalHyperlights = array_map(function($hl) use ($highlightLookup) {
+                        $highlightId = $hl['highlightID'] ?? null;
+                        if ($highlightId && isset($highlightLookup[$highlightId])) {
+                            $hl['is_user_highlight'] = $highlightLookup[$highlightId]['is_user_highlight'];
+                        } else {
+                            $hl['is_user_highlight'] = false;
+                        }
+                        return $hl;
+                    }, $visibleChunkHyperlights);
+
+                    Log::info('📜 OLD system hyperlights loaded', [
+                        'chunk_id' => $chunk->chunk_id,
+                        'count' => count($finalHyperlights)
+                    ]);
+                    */
+
+                    // ✅ NEW SYSTEM: Empty means no hyperlights (no fallback)
+                    $finalHyperlights = [];
+                    Log::info('✅ NEW SYSTEM: No hyperlights in normalized tables (no fallback)', [
+                        'chunk_id' => $chunk->chunk_id,
+                        'node_uuid' => $nodeUUID
+                    ]);
+                }
+
+                // ===== HYPERCITES - HYBRID APPROACH =====
+                $finalHypercites = [];
+
+                // Try NEW system first
+                if (!empty($nodeUUID)) {
+                    Log::info('💡 Attempting NEW system for hypercites', ['node_uuid' => $nodeUUID]);
+                    $newHypercites = $this->getHypercitesForNode($bookId, $nodeUUID);
+
+                    if (!empty($newHypercites)) {
+                        $finalHypercites = $newHypercites;
+                        Log::info('✅ Using NEW system for hypercites', [
+                            'node_uuid' => $nodeUUID,
+                            'count' => count($finalHypercites)
+                        ]);
+                    } else {
+                        Log::info('⚠️ NEW system returned empty, falling back to OLD', ['node_uuid' => $nodeUUID]);
+                    }
+                }
+
+                // 🔄 OLD SYSTEM FALLBACK: COMMENTED OUT FOR NEW SYSTEM TESTING
+                // If NEW normalized tables return empty, that's the truth - no embedded fallback
+                if (empty($finalHypercites)) {
+                    /*
+                    // OLD SYSTEM: Fallback to embedded JSON in nodes table
+                    Log::info('📜 Using OLD system (embedded JSON) for hypercites', ['chunk_id' => $chunk->chunk_id]);
+                    $finalHypercites = json_decode($chunk->hypercites ?? '[]', true);
+                    Log::info('📜 OLD system hypercites loaded', [
+                        'chunk_id' => $chunk->chunk_id,
+                        'count' => count($finalHypercites)
+                    ]);
+                    */
+
+                    // ✅ NEW SYSTEM: Empty means no hypercites (no fallback)
+                    $finalHypercites = [];
+                    Log::info('✅ NEW SYSTEM: No hypercites in normalized tables (no fallback)', [
+                        'chunk_id' => $chunk->chunk_id,
+                        'node_uuid' => $nodeUUID
+                    ]);
+                }
+
+                Log::info('🔍 Chunk processing complete', [
                     'chunk_id' => $chunk->chunk_id,
-                    'enriched_count' => count($enrichedHyperlights),
-                    'enriched_highlights' => $enrichedHyperlights
+                    'node_uuid' => $nodeUUID,
+                    'hyperlights_count' => count($finalHyperlights),
+                    'hypercites_count' => count($finalHypercites)
                 ]);
 
                 return [
@@ -610,8 +833,8 @@ class DatabaseToIndexedDBController extends Controller
                     'plainText' => $chunk->plainText,
                     'type' => $chunk->type,
                     'footnotes' => json_decode($chunk->footnotes ?? '[]', true),
-                    'hypercites' => json_decode($chunk->hypercites ?? '[]', true),
-                    'hyperlights' => array_values($enrichedHyperlights),
+                    'hypercites' => $finalHypercites,
+                    'hyperlights' => array_values($finalHyperlights),
                     'raw_json' => json_decode($chunk->raw_json ?? '{}', true),
                 ];
             })
@@ -732,6 +955,8 @@ class DatabaseToIndexedDBController extends Controller
                 return [
                     'book' => $hyperlight->book,
                     'hyperlight_id' => $hyperlight->hyperlight_id,
+                    'node_id' => json_decode($hyperlight->node_id ?? '[]', true),  // ✅ NEW: Array of node UUIDs
+                    'charData' => json_decode($hyperlight->charData ?? '{}', true), // ✅ NEW: Per-node positions
                     'annotation' => $hyperlight->annotation,
                     'endChar' => $hyperlight->endChar,
                     'highlightedHTML' => $hyperlight->highlightedHTML,
@@ -770,6 +995,8 @@ class DatabaseToIndexedDBController extends Controller
                 return [
                     'book' => $hypercite->book,
                     'hyperciteId' => $hypercite->hyperciteId,
+                    'node_id' => json_decode($hypercite->node_id ?? '[]', true),  // ✅ NEW: Array of node UUIDs
+                    'charData' => json_decode($hypercite->charData ?? '{}', true), // ✅ NEW: Per-node positions
                     'citedIN' => json_decode($hypercite->citedIN ?? '[]', true),
                     'endChar' => $hypercite->endChar,
                     'hypercitedHTML' => $hypercite->hypercitedHTML,

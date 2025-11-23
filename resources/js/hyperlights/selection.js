@@ -3,11 +3,11 @@
  */
 
 import { book } from '../app.js';
-import { updateBookTimestamp, queueForSync } from '../indexedDB/index.js';
+import { updateBookTimestamp, queueForSync, rebuildNodeArrays, getNodesByUUIDs } from '../indexedDB/index.js';
 import { calculateCleanTextOffset, findContainerWithNumericalId } from './calculations.js';
 import { modifyNewMarks } from './marks.js';
 import { attachMarkListeners, addTouchAndClickListener } from './listeners.js';
-import { addToHighlightsTable, updateNodeHighlight, removeHighlightFromHyperlights, removeHighlightFromNodeChunksWithDeletion } from './database.js';
+import { addToHighlightsTable, removeHighlightFromHyperlights, removeHighlightFromNodeChunksWithDeletion } from './database.js';
 import { reprocessHighlightsForNodes, unwrapMark } from './deletion.js';
 import { generateHighlightID, openHighlightById } from './utils.js';
 import { log, verbose } from '../utilities/logger.js';
@@ -294,6 +294,8 @@ export async function createHighlightHandler(event, bookId) {
       charEnd: endOffset
     };
 
+    // 🔄 OLD SYSTEM: COMMENTED OUT - Don't update embedded arrays directly
+    /*
     const updatedNodeChunk = await updateNodeHighlight(
       bookId,
       chunkId,
@@ -305,9 +307,11 @@ export async function createHighlightHandler(event, bookId) {
     if (updatedNodeChunk) {
       updatedNodeChunks.push(updatedNodeChunk);
     }
+    */
   }
 
   try {
+    // ✅ NEW SYSTEM: Save to normalized hyperlights table
     const savedHighlightEntry = await addToHighlightsTable(
       bookId,
       {
@@ -320,18 +324,31 @@ export async function createHighlightHandler(event, bookId) {
       }
     );
 
+    console.log('✅ NEW SYSTEM: Hyperlight saved to normalized table');
+
+    // ✅ NEW SYSTEM: Rebuild affected node arrays from normalized tables
+    const affectedNodeUUIDs = Object.keys(charDataByNode);
+    const affectedNodes = await getNodesByUUIDs(affectedNodeUUIDs);
+    await rebuildNodeArrays(affectedNodes);
+
+    console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} affected nodes`);
+
     await updateBookTimestamp(bookId);
 
+    // Queue hyperlight for PostgreSQL sync
     queueForSync("hyperlights", highlightId, "update", savedHighlightEntry);
 
+    // 🔄 OLD SYSTEM: COMMENTED OUT - Don't queue node updates
+    /*
     updatedNodeChunks.forEach((chunk) => {
       if (chunk && chunk.startLine) {
         queueForSync("nodes", chunk.startLine, "update", chunk);
       }
     });
+    */
 
     console.log(
-      `✅ Queued for sync: 1 hyperlight and ${updatedNodeChunks.length} node chunks.`
+      `✅ NEW SYSTEM: Queued 1 hyperlight for sync, rebuilt ${affectedNodes.length} node arrays.`
     );
   } catch (error) {
     console.error("❌ Error saving highlight metadata:", error);
@@ -480,14 +497,17 @@ export async function deleteHighlightHandler(event, bookId) {
       }
     });
 
+    // 🔄 OLD SYSTEM: COMMENTED OUT - Don't queue node updates
+    /*
     updatedNodeChunks.forEach((chunk) => {
       if (chunk && chunk.startLine) {
         queueForSync("nodes", chunk.startLine, "update", chunk);
       }
     });
+    */
 
     console.log(
-      `✅ Queued for sync: ${deletedHyperlights.length} deletions and ${updatedNodeChunks.length} node chunk updates.`
+      `✅ Queued for sync: ${deletedHyperlights.length} deletions (no node updates in NEW system).`
     );
   }
 }
