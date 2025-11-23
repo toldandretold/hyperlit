@@ -6,6 +6,8 @@
     <title>Hyperlit</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}?v=2">
+    <link rel="apple-touch-icon" href="{{ asset('favicon.png') }}?v=2">
     <style>
         @media screen and (max-width: 768px) {
             html {
