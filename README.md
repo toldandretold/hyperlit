@@ -18,11 +18,31 @@ This is 🄯 copyleft [free software](LICENSE.md).
 
 In this sense, this is not "open source", it is free sofware. In a similar sense, the site aims not to distribute "open access" research, but "free knowledge" similarly based on 'copy left' principles. That has commonly been assocated with particular forms of creative commons licensing. The problem currently being faced, however, is the enclosure of the knowledge commons by nascent LLM monopolies. This is a problem in-so-far as LLMs are legally no different to any other reader. In a sense, LLMs are like other readers. They use hypertext to learn, and to get better at creating their own hypertext. The main difference is their freedom. What LLMs learn, is monopoly owned and controlled. To properly follow copyleft principles, therefore, a case can be made that a license should prohibit the use of hypertext for the training of any non-free LLM. This is the position of the [default license](https://hyperlit.io/license2025content) of any hypertext published on hyperlit. 
 
+## Use now!
+https://hyperlit.io
 
-## DANGER!
+**login/register** via top left button on homepage.
 
-I created this site using LLMs. I have gradually gotten better at coding but its a bit of a nightmare. For exmaple, it is coded in Vanilly Javascript, and does not use Typescript. From what I gather this is a clear sign of underdevelopment. However, while I lack formal training as a software engineer, I am a formally trained historian of global political economy who created this website in order to use it. As such, I am constantly debugging and, in the process, have at least learned a thing or two along the way. The site is in clear need for peer review. I'm sure even "junior devs" would be able to find major issues with this software. As such, it is strongly advised that this site is **not used for any personal notes**. Please, for that, stick to established note taking systems. If you are aware of the risks of using this non-peer reviewed website that was vibe hacked together by a stoner communist, then sure, use it for your peronal notes. But know that you are a gnarly animal for doing so. It is created, primarily, as a way to share knowledge. If used only for writing that is intended to be openly available, then the risks are minimal. Hopefully, if others see the value in this project, the risks can be significanlty removed. Maybe the whole site will need to be re-written. Who knows, in a couple years, I'll be able to use the code as a prompt from which to regenerate the entire site with far better architecture 🤣, or maybe we will all be dead.
+**create new book or import from file**: top-right [+] button on homepage.
 
+**hyperlight** any book by selecting text, and pressing the colored square.
+
+**hypercite** any book by selecting text, pressing the hypercite button. Then:
+   - **if you paste it within hyperlit** (either in a hyperlight annotation or in the content of one of your books), the cited text and pasted citation will be automatically connected via two-way hyperlink citation.
+   - **if you paste it outseid of hyperlit** (like in a DM or personal notes app) it will still paste a one-way link back to the originally cited text. This is useful for sharing a passage to comrades.
+
+**publish a book** by clicking the cloudRef button (top right in reader/writer mode) and clicking the red lock button. This will prompt you to confirm. The red lock will turn to green earth. Now, anyone else can read, hyperlight or hypercite your work!
+
+**read an academic journal within hyperlit.io** by copy and pasting it. Most major journals will have their footnotes and citations rendered dynamically by default. Even if this is not an open access text, you can still read and cite it yourself legally (just leave it as the default private/unpublished setting). If it **is** open access, publish it so others can read along with you, and compare notes!
+
+
+## WARNING!
+
+I created this website using LLMs. I have gradually gotten better at programming, but I am dependent on LLMs (and these have not been "open weight", so my "vibe coding" (depending on meaning) is certainly not within keeping of "free software"). I'm sure to actual experts this code will be a bit of a nightmare. 
+
+While I lack formal training as programmer, I am a formally trained historian of global political economy who created this website in order to use it. I am using it to write and publish, and hope that -- eventually -- it will become reliable. Now, though, it is clearly in need of "peer review", and I would be grateful for any assistance. 
+
+It is for this reason that it is stronlgy advised that the website is **not used for any personal notes**, or anything that you would not want leaked to he internet. This is intended for publishing "copyleft" writing that you want others to read freely. Nothing is encrypted. However, it is set up so that your hypertext nodes can not leave the database without authorisation. Still, there is **no warranty** on any data leak or loss. You can download local backups of any work via the cloudRef button (top right in reader/writer view). This is unfortunatley useful at the moment and should be done if something seems odd. 
 
 
 ## Built With
@@ -33,48 +53,120 @@ List the major frameworks, libraries, and technologies you used.
 - PostgreSQL
 - Rangy highlighter
 
-
-## Getting Started
-
-<!--
-Instructions on how to get a local copy up and running.
--->
+## Getting Started **locally**
 
 ### Prerequisites
 
-<!--
-List any software or tools that need to be installed before someone can run your project.
-e.g., npm, composer, a specific version of PHP, etc.
--->
-
-```sh
-npm install npm@latest -g
-```
+You need the following installed on your system:
+- **PHP 8.2+** ([download](https://www.php.net/downloads))
+- **Composer** ([download](https://getcomposer.org/download/))
+- **Node.js 18+** and npm ([download](https://nodejs.org/))
+- **PostgreSQL** ([download](https://www.postgresql.org/download/))
 
 ### Installation
 
+1. **Clone the repository**
+   ```sh
+   git clone https://github.com/toldandretold/hyperlit.git
+   cd hyperlit
+   ```
 
-Provide a step-by-step guide to installing your project.
-1. Clone the repo
-   ```sh
-   git clone https://github.com/toldandretold/hyperlit
-   ```
-2. Install NPM packages
-   ```sh
-   npm install
-   ```
-3. Install Composer packages
+2. **Install PHP dependencies**
    ```sh
    composer install
    ```
-4. Copy `.env.example` to `.env` and configure your environment variables.
 
+3. **Install Node.js dependencies**
+   ```sh
+   npm install
+   ```
+
+4. **Set up environment variables**
+   ```sh
+   cp .env.example .env
+   ```
+
+   > *The `.env` file is your local configuration (automatically excluded from git via `.gitignore`). You'll need to update the database credentials in the next step.*
+
+5. **Generate application key**
+   ```sh
+   php artisan key:generate
+   ```
+
+   > *This creates a unique encryption key in your `.env` file. No manual editing needed for this step.*
+
+6. **Set up database (PostgreSQL required)**
+
+   First, create a PostgreSQL database (using pgAdmin, psql, or your preferred tool).
+
+   Then open `.env` and update these lines with your actual database credentials:
+   ```
+   DB_DATABASE=hyperlit          # or whatever you named your database
+   DB_USERNAME=your_username     # your PostgreSQL username
+   DB_PASSWORD=your_password     # your PostgreSQL password
+   ```
+
+   > *PostgreSQL is required (the project uses JSONB and other PostgreSQL-specific features). The other DB settings (host, port) are already correct for a standard local PostgreSQL install.*
+
+7. **Run database migrations**
+   ```sh
+   php artisan migrate
+   ```
+
+8. **Start the development servers**
+   ```sh
+   npm run dev:all
+   ```
+
+   This starts:
+   - PHP server on http://localhost:8000
+   - Queue worker
+   - Vite dev server
+
+   Visit http://localhost:8000 in your browser.
+
+   **For mobile testing:** Use `npm run dev:network` instead. This makes the server accessible on your local network (e.g., http://192.168.1.x:8000) so you can test on phones/tablets.
+
+### Alternative: Run servers separately
+
+If you need more control:
+
+```sh
+# Terminal 1: PHP server
+php artisan serve
+
+# Terminal 2: Queue worker
+php artisan queue:work
+
+# Terminal 3: Vite dev server
+npm run dev
+```
 
 ## Usage
 
-<!--
-Show examples of how to use your project. You can include code snippets or screenshots.
--->
+Once running, visit http://localhost:8000 to:
+- Create and publish hypertext documents
+- Add two-way hyperlink citations (hypercites)
+- Highlight text (hyperlights)
+- Import/export Word docs and Markdown files
+
+### Commands useful for humans and LLMs
+
+**View database schema:**
+```sh
+php artisan schema:dump
+```
+This creates a readable SQL schema file at `database/schema/pgsql-schema.sql` - useful for understanding the database structure without reading individual migration files. Both biological and artificial intelligence benefit from this.
+
+**View application logs:**
+Laravel logs are saved to `storage/logs/laravel.log` - check here for errors and debugging information.
+
+**Other helpful commands:**
+```sh
+php artisan migrate:fresh    # Reset database and re-run all migrations
+php artisan route:list       # View all registered routes
+php artisan tinker           # Interactive PHP REPL with your app loaded
+```
 
 ## Architectural Overview
 
@@ -170,9 +262,13 @@ Hyperlit offers an experiment in a solution to this deep, structural crisis, to 
 
 ## Contact
 
-<!--
-Your contact information.
--->
+contact [at] hyperlit [dot] io
+
+[GitHub issues](https://github.com/toldandretold/hyperlit/issues) or [@toldandretold](https://github.com/toldandretold)
+
+Leave a hyperlight in [my hypertext library](https://hyperlit.io/u/toldandretold)
+
+
 
 ## Notes
 [^1]: two-way hyperlinks was a core idea of Ted Nelson's ideas for a Docuverse. Linking directly to the cited text was a feature of the original hypertext editors. See: Belinda Barnet, ["Crafting the User-Centered Document Interface: The Hypertext Editing System (HES) and the File Retrieval and Editing System (FRESS)"](https://dhq.digitalhumanities.org/vol/4/1/000081/000081.html)
