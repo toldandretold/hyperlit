@@ -43,33 +43,31 @@ export function handleSelection() {
 
   let selectedText = window.getSelection().toString();
   const highlights = document.querySelectorAll('mark');
-  let isOverlapping = false;
+  let isSelectingHighlight = false;
 
-  // Check if the selected text overlaps with any existing highlight
+  // Check if the selection contains or overlaps with any existing highlight
   const selection = window.getSelection();
   if (selection.rangeCount > 0) {
     const selectionRange = selection.getRangeAt(0);
 
     highlights.forEach(function (highlight) {
-      if (highlight.classList.contains("user-highlight")) {
-        // Check if the selection intersects with this highlight element
-        try {
-          const highlightRange = document.createRange();
-          highlightRange.selectNodeContents(highlight);
+      // Check if the selection intersects with this highlight element
+      try {
+        const highlightRange = document.createRange();
+        highlightRange.selectNodeContents(highlight);
 
-          // Check if ranges intersect
-          const intersects = selectionRange.compareBoundaryPoints(Range.END_TO_START, highlightRange) <= 0 &&
-                           highlightRange.compareBoundaryPoints(Range.END_TO_START, selectionRange) <= 0;
+        // Check if ranges intersect
+        const intersects = selectionRange.compareBoundaryPoints(Range.END_TO_START, highlightRange) <= 0 &&
+                         highlightRange.compareBoundaryPoints(Range.END_TO_START, selectionRange) <= 0;
 
-          if (intersects) {
-            isOverlapping = true;
-          }
-        } catch (e) {
-          // Fallback to text-based comparison if range comparison fails
-          if (selectedText.includes(highlight.textContent.trim()) ||
-              highlight.textContent.trim().includes(selectedText)) {
-            isOverlapping = true;
-          }
+        if (intersects) {
+          isSelectingHighlight = true;
+        }
+      } catch (e) {
+        // Fallback to text-based comparison if range comparison fails
+        if (selectedText.includes(highlight.textContent.trim()) ||
+            highlight.textContent.trim().includes(selectedText)) {
+          isSelectingHighlight = true;
         }
       }
     });
@@ -98,12 +96,12 @@ export function handleSelection() {
 
     buttons.style.left = `${rect.left + window.scrollX}px`;
 
-    // Show or hide the delete button based on overlap detection
-    if (isOverlapping) {
-      console.log("Detected overlapping highlight");
+    // Show delete button if selecting any highlight
+    if (isSelectingHighlight) {
+      console.log("Detected highlight selection - showing delete button");
       document.getElementById("delete-hyperlight").style.display = "block";
     } else {
-      console.log("No overlapping highlight detected");
+      console.log("No highlight selected - hiding delete button");
       document.getElementById("delete-hyperlight").style.display = "none";
     }
   } else {
