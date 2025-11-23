@@ -113,6 +113,22 @@ export async function getHyperciteData(book, startLine) {
 }
 
 /**
+ * Recursively get all text nodes from an element
+ * Same logic as rendering system in lazyLoaderFactory.js
+ */
+function getTextNodes(element) {
+  let textNodes = [];
+  for (let node of element.childNodes) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      textNodes.push(node);
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      textNodes.push(...getTextNodes(node));
+    }
+  }
+  return textNodes;
+}
+
+/**
  * Collect hypercite data from DOM element
  * Extracts position and metadata from the wrapped hypercite element
  * @param {string} hyperciteId - The hypercite ID
@@ -132,21 +148,52 @@ export function collectHyperciteData(hyperciteId, wrapper) {
     return [];
   }
 
-  const parentId = parentElement.id; // Keep as string here
-  const parentText = parentElement.innerText;
+  const parentId = parentElement.id;
 
-  // The hypercited text is the text of our <u> element.
-  const hyperciteText = wrapper.innerText;
-  let charStart = parentText.indexOf(hyperciteText);
-  if (charStart === -1) {
-    console.warn(
-      "Could not determine the start position of hypercited text in the parent.",
-      parentText,
-      hyperciteText
+  // ✅ FIX: Calculate charStart/charEnd by walking DOM text nodes
+  // This matches how the rendering system counts characters in applyHypercites()
+  const textNodes = getTextNodes(parentElement);
+  let charStart = -1;
+  let charEnd = -1;
+  let currentIndex = 0;
+  let insideWrapper = false;
+
+  for (const textNode of textNodes) {
+    const nodeLength = textNode.textContent.length;
+
+    // Check if this text node is inside our specific wrapper element
+    const isInsideThisWrapper = wrapper.contains(textNode);
+
+    if (isInsideThisWrapper && !insideWrapper) {
+      // First text node inside our wrapper - this is charStart
+      charStart = currentIndex;
+      insideWrapper = true;
+    }
+
+    if (insideWrapper && isInsideThisWrapper) {
+      // Still inside our wrapper - update charEnd
+      charEnd = currentIndex + nodeLength;
+    }
+
+    if (insideWrapper && !isInsideThisWrapper) {
+      // We've exited the wrapper - stop
+      break;
+    }
+
+    currentIndex += nodeLength;
+  }
+
+  if (charStart === -1 || charEnd === -1) {
+    console.error(
+      "Could not determine character positions for hypercite in parent.",
+      "wrapper:", wrapper.outerHTML,
+      "parent:", parentElement.outerHTML
     );
     charStart = 0;
+    charEnd = wrapper.innerText.length;
   }
-  const charEnd = charStart + hyperciteText.length;
+
+  console.log(`📍 Calculated positions for ${hyperciteId}: charStart=${charStart}, charEnd=${charEnd}`);
 
   // Don't store the entire outerHTML, just the necessary information
   return [
@@ -233,15 +280,13 @@ export async function NewHyperciteIndexedDB(book, hyperciteId, blocks) {
     const hyperciteEntry = {
       book: book,
       hyperciteId: hyperciteId,
-      node_id: nodeIdArray,           // ✅ NEW: Array of node UUIDs
-      charData: charDataByNode,       // ✅ NEW: Per-node positions
+      node_id: nodeIdArray,
+      charData: charDataByNode,
       hypercitedText: hypercitedText,
       hypercitedHTML: hypercitedHTML,
-      startChar: overallStartChar,    // Keep for backward compatibility
-      endChar: overallEndChar,        // Keep for backward compatibility
       relationshipStatus: "single",
       citedIN: [],
-      time_since: Math.floor(Date.now() / 1000) // Add timestamp like hyperlights
+      time_since: Math.floor(Date.now() / 1000)
     };
 
     console.log("Hypercite record to add (main store):", hyperciteEntry);
