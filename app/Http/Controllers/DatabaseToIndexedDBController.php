@@ -353,8 +353,6 @@ class DatabaseToIndexedDBController extends Controller
                 'plainText' => $chunk->plainText ?? null,
                 'type' => $chunk->type ?? null,
                 'footnotes' => $chunk->footnotes ?? '[]',
-                'hyperlights' => $chunk->hyperlights ?? '[]',
-                'hypercites' => $chunk->hypercites ?? '[]',
                 'raw_json' => $updatedRawJson,
                 'created_at' => $chunk->created_at ?? now(),
                 'updated_at' => now(),
@@ -520,201 +518,24 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
-     * Get hyperlights for a specific node using NEW normalized schema
-     * Queries hyperlights table where node_id array contains the given UUID
-     * @param string $bookId - The book ID
-     * @param string $nodeUUID - The node UUID to search for
-     * @param array $visibleIds - Array of visible hyperlight IDs
-     * @param array $lookup - Lookup array with is_user_highlight flags
-     * @return array - Array of hyperlights for this node with charData extracted
-     */
-    private function getHyperlightsForNode(string $bookId, string $nodeUUID, array $visibleIds, array $lookup): array
-    {
-        if (empty($nodeUUID)) {
-            Log::info('📊 NEW SYSTEM: Skipping hyperlight lookup - no UUID', ['book' => $bookId]);
-            return [];
-        }
-
-        Log::info('📊 NEW SYSTEM: Querying hyperlights table', [
-            'book' => $bookId,
-            'node_uuid' => $nodeUUID,
-            'visible_ids_count' => count($visibleIds)
-        ]);
-
-        // Query hyperlights where node_id array contains this UUID
-        $hyperlights = DB::table('hyperlights')
-            ->where('book', $bookId)
-            ->whereRaw("node_id @> ?", [json_encode([$nodeUUID])]) // PostgreSQL JSONB containment
-            ->get();
-
-        Log::info('📊 NEW SYSTEM: Hyperlights query result', [
-            'node_uuid' => $nodeUUID,
-            'total_found' => $hyperlights->count()
-        ]);
-
-        $result = [];
-        foreach ($hyperlights as $hl) {
-            // Only include if visible
-            if (!in_array($hl->hyperlight_id, $visibleIds)) {
-                Log::info('📊 NEW SYSTEM: Skipping hidden hyperlight', [
-                    'hyperlight_id' => $hl->hyperlight_id,
-                    'node_uuid' => $nodeUUID
-                ]);
-                continue;
-            }
-
-            // Extract charData for THIS specific node
-            $charData = json_decode($hl->charData ?? '{}', true);
-            $nodeCharData = $charData[$nodeUUID] ?? null;
-
-            if (!$nodeCharData) {
-                Log::warning('📊 NEW SYSTEM: No charData found for node', [
-                    'hyperlight_id' => $hl->hyperlight_id,
-                    'node_uuid' => $nodeUUID,
-                    'charData' => $charData
-                ]);
-                continue;
-            }
-
-            // Build highlight in OLD format (for backward compatibility with frontend)
-            $highlight = [
-                'highlightID' => $hl->hyperlight_id,
-                'charStart' => $nodeCharData['charStart'],
-                'charEnd' => $nodeCharData['charEnd'],
-                'annotation' => $hl->annotation,
-                'time_since' => $hl->time_since,
-                'hidden' => $hl->hidden ?? false,
-                'is_user_highlight' => $lookup[$hl->hyperlight_id]['is_user_highlight'] ?? false
-            ];
-
-            $result[] = $highlight;
-
-            Log::info('📊 NEW SYSTEM: Added hyperlight from NEW schema', [
-                'hyperlight_id' => $hl->hyperlight_id,
-                'node_uuid' => $nodeUUID,
-                'charStart' => $nodeCharData['charStart'],
-                'charEnd' => $nodeCharData['charEnd']
-            ]);
-        }
-
-        Log::info('📊 NEW SYSTEM: Hyperlights extraction complete', [
-            'node_uuid' => $nodeUUID,
-            'visible_count' => count($result)
-        ]);
-
-        return $result;
-    }
-
-    /**
-     * Get hypercites for a specific node using NEW normalized schema
-     * Queries hypercites table where node_id array contains the given UUID
-     * @param string $bookId - The book ID
-     * @param string $nodeUUID - The node UUID to search for
-     * @return array - Array of hypercites for this node with charData extracted
-     */
-    private function getHypercitesForNode(string $bookId, string $nodeUUID): array
-    {
-        if (empty($nodeUUID)) {
-            Log::info('📊 NEW SYSTEM: Skipping hypercite lookup - no UUID', ['book' => $bookId]);
-            return [];
-        }
-
-        Log::info('📊 NEW SYSTEM: Querying hypercites table', [
-            'book' => $bookId,
-            'node_uuid' => $nodeUUID
-        ]);
-
-        // Query hypercites where node_id array contains this UUID
-        $hypercites = DB::table('hypercites')
-            ->where('book', $bookId)
-            ->whereRaw("node_id @> ?", [json_encode([$nodeUUID])]) // PostgreSQL JSONB containment
-            ->get();
-
-        Log::info('📊 NEW SYSTEM: Hypercites query result', [
-            'node_uuid' => $nodeUUID,
-            'total_found' => $hypercites->count()
-        ]);
-
-        $result = [];
-        foreach ($hypercites as $hc) {
-            // Extract charData for THIS specific node
-            $charData = json_decode($hc->charData ?? '{}', true);
-            $nodeCharData = $charData[$nodeUUID] ?? null;
-
-            if (!$nodeCharData) {
-                Log::warning('📊 NEW SYSTEM: No charData found for node', [
-                    'hypercite_id' => $hc->hyperciteId,
-                    'node_uuid' => $nodeUUID,
-                    'charData' => $charData
-                ]);
-                continue;
-            }
-
-            // Build hypercite in OLD format (for backward compatibility with frontend)
-            $hypercite = [
-                'hyperciteId' => $hc->hyperciteId,
-                'charStart' => $nodeCharData['charStart'],
-                'charEnd' => $nodeCharData['charEnd'],
-                'relationshipStatus' => $hc->relationshipStatus,
-                'citedIN' => json_decode($hc->citedIN ?? '[]', true),
-                'time_since' => $hc->time_since
-            ];
-
-            $result[] = $hypercite;
-
-            Log::info('📊 NEW SYSTEM: Added hypercite from NEW schema', [
-                'hypercite_id' => $hc->hyperciteId,
-                'node_uuid' => $nodeUUID,
-                'charStart' => $nodeCharData['charStart'],
-                'charEnd' => $nodeCharData['charEnd']
-            ]);
-        }
-
-        Log::info('📊 NEW SYSTEM: Hypercites extraction complete', [
-            'node_uuid' => $nodeUUID,
-            'count' => count($result)
-        ]);
-
-        return $result;
-    }
-
-    /**
      * Get node chunks for a book - matches your IndexedDB structure
      */
     private function getNodeChunks(string $bookId, array $visibleHyperlightIds): array
     {
-        // ✅ RUN MIGRATION FIRST (before loading chunks)
+        // Run migration first (before loading chunks)
         $this->migrateNodeIds($bookId);
-
-        Log::info('🔍 getNodeChunks started', [
-            'book_id' => $bookId,
-            'visible_highlight_ids_count' => count($visibleHyperlightIds),
-            'visible_highlight_ids' => $visibleHyperlightIds
-        ]);
 
         // Get processed highlights with is_user_highlight flag
         $processedHighlights = $this->getHyperlights($bookId);
-        Log::info('🔍 getNodeChunks: processed highlights retrieved', [
-            'processed_highlights_count' => count($processedHighlights),
-            'sample_highlight' => count($processedHighlights) > 0 ? $processedHighlights[0] : null
-        ]);
 
         $highlightLookup = [];
         foreach ($processedHighlights as $highlight) {
             $highlightLookup[$highlight['hyperlight_id']] = $highlight;
         }
-        Log::info('🔍 getNodeChunks: highlight lookup created', [
-            'lookup_keys' => array_keys($highlightLookup)
-        ]);
 
-        // ⚡ OPTIMIZATION: Pre-fetch ALL hyperlights and hypercites for this book (avoid N+1 queries)
+        // Pre-fetch ALL hyperlights and hypercites for this book (avoid N+1 queries)
         $hyperlightsByNode = $this->getAllHyperlightsByNode($bookId, $visibleHyperlightIds, $highlightLookup);
         $hypercitesByNode = $this->getAllHypercitesByNode($bookId);
-
-        Log::info('⚡ Pre-fetched annotations', [
-            'hyperlights_nodes' => count($hyperlightsByNode),
-            'hypercites_nodes' => count($hypercitesByNode)
-        ]);
 
         $chunks = DB::table('nodes')
             ->where('book', $bookId)
@@ -723,7 +544,7 @@ class DatabaseToIndexedDBController extends Controller
             ->map(function ($chunk) use ($hyperlightsByNode, $hypercitesByNode) {
                 $nodeUUID = $chunk->node_id;
 
-                // ⚡ Get pre-fetched annotations for this node (O(1) lookup)
+                // Get pre-fetched annotations for this node (O(1) lookup)
                 $finalHyperlights = $hyperlightsByNode[$nodeUUID] ?? [];
                 $finalHypercites = $hypercitesByNode[$nodeUUID] ?? [];
 
@@ -743,17 +564,18 @@ class DatabaseToIndexedDBController extends Controller
             })
             ->toArray();
 
-        Log::info('🔍 getNodeChunks completed', [
-            'book_id' => $bookId,
-            'total_chunks' => count($chunks),
-            'chunks_with_highlights' => count(array_filter($chunks, function($c) { return count($c['hyperlights']) > 0; }))
+        Log::info('Node chunks loaded', [
+            'book' => $bookId,
+            'chunks' => count($chunks),
+            'highlights' => count($hyperlightsByNode),
+            'hypercites' => count($hypercitesByNode)
         ]);
 
         return $chunks;
     }
 
     /**
-     * ⚡ OPTIMIZATION: Fetch ALL hyperlights for a book in one query
+     * Fetch ALL hyperlights for a book in one query
      * Returns array indexed by node_id for O(1) lookup
      */
     private function getAllHyperlightsByNode(string $bookId, array $visibleIds, array $lookup): array
@@ -762,20 +584,11 @@ class DatabaseToIndexedDBController extends Controller
             return [];
         }
 
-        Log::info('⚡ Fetching all hyperlights for book', [
-            'book' => $bookId,
-            'visible_ids_count' => count($visibleIds)
-        ]);
-
         // Query all hyperlights for this book
         $hyperlights = DB::table('hyperlights')
             ->where('book', $bookId)
             ->whereIn('hyperlight_id', $visibleIds)
             ->get();
-
-        Log::info('⚡ Hyperlights fetched', [
-            'count' => $hyperlights->count()
-        ]);
 
         // Group by node_id
         $byNode = [];
@@ -787,10 +600,6 @@ class DatabaseToIndexedDBController extends Controller
                 $nodeCharData = $charData[$nodeUUID] ?? null;
 
                 if (!$nodeCharData) {
-                    Log::warning('⚡ No charData for node', [
-                        'hyperlight_id' => $hl->hyperlight_id,
-                        'node_uuid' => $nodeUUID
-                    ]);
                     continue;
                 }
 
@@ -810,31 +619,19 @@ class DatabaseToIndexedDBController extends Controller
             }
         }
 
-        Log::info('⚡ Hyperlights grouped by node', [
-            'nodes_with_highlights' => count($byNode)
-        ]);
-
         return $byNode;
     }
 
     /**
-     * ⚡ OPTIMIZATION: Fetch ALL hypercites for a book in one query
+     * Fetch ALL hypercites for a book in one query
      * Returns array indexed by node_id for O(1) lookup
      */
     private function getAllHypercitesByNode(string $bookId): array
     {
-        Log::info('⚡ Fetching all hypercites for book', [
-            'book' => $bookId
-        ]);
-
         // Query all hypercites for this book
         $hypercites = DB::table('hypercites')
             ->where('book', $bookId)
             ->get();
-
-        Log::info('⚡ Hypercites fetched', [
-            'count' => $hypercites->count()
-        ]);
 
         // Group by node_id
         $byNode = [];
@@ -846,10 +643,6 @@ class DatabaseToIndexedDBController extends Controller
                 $nodeCharData = $charData[$nodeUUID] ?? null;
 
                 if (!$nodeCharData) {
-                    Log::warning('⚡ No charData for node', [
-                        'hypercite_id' => $hc->hyperciteId,
-                        'node_uuid' => $nodeUUID
-                    ]);
                     continue;
                 }
 
@@ -867,10 +660,6 @@ class DatabaseToIndexedDBController extends Controller
                 ];
             }
         }
-
-        Log::info('⚡ Hypercites grouped by node', [
-            'nodes_with_hypercites' => count($byNode)
-        ]);
 
         return $byNode;
     }
@@ -981,17 +770,15 @@ class DatabaseToIndexedDBController extends Controller
                 return [
                     'book' => $hyperlight->book,
                     'hyperlight_id' => $hyperlight->hyperlight_id,
-                    'node_id' => json_decode($hyperlight->node_id ?? '[]', true),  // ✅ NEW: Array of node UUIDs
-                    'charData' => json_decode($hyperlight->charData ?? '{}', true), // ✅ NEW: Per-node positions
+                    'node_id' => json_decode($hyperlight->node_id ?? '[]', true),
+                    'charData' => json_decode($hyperlight->charData ?? '{}', true),
                     'annotation' => $hyperlight->annotation,
-                    'endChar' => $hyperlight->endChar,
                     'highlightedHTML' => $hyperlight->highlightedHTML,
                     'highlightedText' => $hyperlight->highlightedText,
-                    'startChar' => $hyperlight->startChar,
                     'startLine' => $hyperlight->startLine,
                     'raw_json' => json_decode($hyperlight->raw_json ?? '{}', true),
                     'time_since' => $hyperlight->time_since,
-                    'is_user_highlight' => $isUserHighlight, // Add this flag
+                    'is_user_highlight' => $isUserHighlight,
                     'creator' => $hyperlight->creator,
                     'creator_token' => $hyperlight->creator_token
                 ];
@@ -1021,14 +808,12 @@ class DatabaseToIndexedDBController extends Controller
                 return [
                     'book' => $hypercite->book,
                     'hyperciteId' => $hypercite->hyperciteId,
-                    'node_id' => json_decode($hypercite->node_id ?? '[]', true),  // ✅ NEW: Array of node UUIDs
-                    'charData' => json_decode($hypercite->charData ?? '{}', true), // ✅ NEW: Per-node positions
+                    'node_id' => json_decode($hypercite->node_id ?? '[]', true),
+                    'charData' => json_decode($hypercite->charData ?? '{}', true),
                     'citedIN' => json_decode($hypercite->citedIN ?? '[]', true),
-                    'endChar' => $hypercite->endChar,
                     'hypercitedHTML' => $hypercite->hypercitedHTML,
                     'hypercitedText' => $hypercite->hypercitedText,
                     'relationshipStatus' => $hypercite->relationshipStatus,
-                    'startChar' => $hypercite->startChar,
                     'raw_json' => json_decode($hypercite->raw_json ?? '{}', true),
                 ];
             })
