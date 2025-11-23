@@ -64,7 +64,7 @@ export async function rebuildNodeArrays(nodes) {
 
 /**
  * Query hyperlights that affect specific nodes
- * Uses node_id array to find hyperlights spanning these nodes
+ * Uses node_id multi-entry index for fast O(k) lookups instead of O(N) full scan
  *
  * @param {IDBDatabase} db - IndexedDB database
  * @param {Array<string>} nodeUUIDs - Node UUIDs to query
@@ -73,28 +73,36 @@ export async function rebuildNodeArrays(nodes) {
 async function queryHyperlightsByNodes(db, nodeUUIDs) {
   const tx = db.transaction('hyperlights', 'readonly');
   const store = tx.objectStore('hyperlights');
+  const index = store.index('node_id'); // Multi-entry index on node_id array
 
-  const allHyperlights = await new Promise((resolve, reject) => {
-    const req = store.getAll();
-    req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
-  });
+  // Use a Set to deduplicate (a hyperlight spanning multiple nodes will be found multiple times)
+  const resultsMap = new Map(); // Use Map to deduplicate by hyperlight_id
 
-  // Filter to hyperlights that affect at least one of these nodes
-  const filtered = allHyperlights.filter(hl =>
-    hl.node_id &&
-    Array.isArray(hl.node_id) &&
-    hl.node_id.some(uuid => nodeUUIDs.includes(uuid))
-  );
+  // Query each UUID using the index - each query is O(1) with the index
+  for (const uuid of nodeUUIDs) {
+    const req = index.getAll(uuid);
+    const matches = await new Promise((resolve, reject) => {
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
 
-  console.log(`🔍 NEW SYSTEM: Queried hyperlights table, found ${filtered.length}/${allHyperlights.length} affecting target nodes`);
+    // Add to map, keyed by hyperlight_id to avoid duplicates
+    matches.forEach(hl => {
+      if (hl && hl.hyperlight_id) {
+        resultsMap.set(hl.hyperlight_id, hl);
+      }
+    });
+  }
 
-  return filtered;
+  const results = Array.from(resultsMap.values());
+  console.log(`🔍 NEW SYSTEM: Queried hyperlights index for ${nodeUUIDs.length} nodes, found ${results.length} hyperlights (fast indexed lookup)`);
+
+  return results;
 }
 
 /**
  * Query hypercites that affect specific nodes
- * Uses node_id array to find hypercites spanning these nodes
+ * Uses node_id multi-entry index for fast O(k) lookups instead of O(N) full scan
  *
  * @param {IDBDatabase} db - IndexedDB database
  * @param {Array<string>} nodeUUIDs - Node UUIDs to query
@@ -103,23 +111,31 @@ async function queryHyperlightsByNodes(db, nodeUUIDs) {
 async function queryHypercitesByNodes(db, nodeUUIDs) {
   const tx = db.transaction('hypercites', 'readonly');
   const store = tx.objectStore('hypercites');
+  const index = store.index('node_id'); // Multi-entry index on node_id array
 
-  const allHypercites = await new Promise((resolve, reject) => {
-    const req = store.getAll();
-    req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
-  });
+  // Use a Map to deduplicate (a hypercite spanning multiple nodes will be found multiple times)
+  const resultsMap = new Map(); // Use Map to deduplicate by hyperciteId
 
-  // Filter to hypercites that affect at least one of these nodes
-  const filtered = allHypercites.filter(hc =>
-    hc.node_id &&
-    Array.isArray(hc.node_id) &&
-    hc.node_id.some(uuid => nodeUUIDs.includes(uuid))
-  );
+  // Query each UUID using the index - each query is O(1) with the index
+  for (const uuid of nodeUUIDs) {
+    const req = index.getAll(uuid);
+    const matches = await new Promise((resolve, reject) => {
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
 
-  console.log(`🔍 NEW SYSTEM: Queried hypercites table, found ${filtered.length}/${allHypercites.length} affecting target nodes`);
+    // Add to map, keyed by hyperciteId to avoid duplicates
+    matches.forEach(hc => {
+      if (hc && hc.hyperciteId) {
+        resultsMap.set(hc.hyperciteId, hc);
+      }
+    });
+  }
 
-  return filtered;
+  const results = Array.from(resultsMap.values());
+  console.log(`🔍 NEW SYSTEM: Queried hypercites index for ${nodeUUIDs.length} nodes, found ${results.length} hypercites (fast indexed lookup)`);
+
+  return results;
 }
 
 /**
@@ -231,6 +247,7 @@ async function updateNodesInDB(db, nodes) {
 
 /**
  * Get nodes from IndexedDB by their UUIDs
+ * Uses node_id index for fast O(k) lookups instead of O(N) full scan
  *
  * @param {Array<string>} nodeUUIDs - Node UUIDs to fetch
  * @returns {Promise<Array>} - Array of node objects
@@ -244,16 +261,24 @@ export async function getNodesByUUIDs(nodeUUIDs) {
   const db = await openDatabase();
   const tx = db.transaction('nodes', 'readonly');
   const store = tx.objectStore('nodes');
+  const index = store.index('node_id'); // Use node_id index
 
-  const allNodes = await new Promise((resolve, reject) => {
-    const req = store.getAll();
-    req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
-  });
+  const results = [];
 
-  const filtered = allNodes.filter(node => nodeUUIDs.includes(node.node_id));
+  // Query each UUID using the index - O(1) per lookup
+  for (const uuid of nodeUUIDs) {
+    const req = index.get(uuid);
+    const node = await new Promise((resolve, reject) => {
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
 
-  console.log(`🔍 NEW SYSTEM: Found ${filtered.length}/${allNodes.length} nodes matching UUIDs`, nodeUUIDs);
+    if (node) {
+      results.push(node);
+    }
+  }
 
-  return filtered;
+  console.log(`🔍 NEW SYSTEM: Found ${results.length} nodes using indexed lookups (queried ${nodeUUIDs.length} UUIDs)`, nodeUUIDs);
+
+  return results;
 }

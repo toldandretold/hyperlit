@@ -9,8 +9,9 @@
  * For instance, if you add a new store, add a new index, or modify a keyPath.
  *
  * Version 23: Added 'license' and 'custom_license_text' fields to library store
+ * Version 24: Added multi-entry node_id index to hyperlights and hypercites stores
  */
-export const DB_VERSION = 23;
+export const DB_VERSION = 24;
 
 /**
  * Opens (or creates) the IndexedDB database.
@@ -37,7 +38,8 @@ export async function openDatabase() {
           indices: [
             "chunk_id",
             "book",
-            { name: "book_startLine", keyPath: ["book", "startLine"], unique: false }
+            { name: "book_startLine", keyPath: ["book", "startLine"], unique: false },
+            { name: "node_id", keyPath: "node_id", unique: false }
           ],
         },
         {
@@ -60,7 +62,8 @@ export async function openDatabase() {
           indices: [
             "hyperlight_id",
             "book",
-            { name: "book_startLine", keyPath: ["book", "startLine"], unique: false }
+            { name: "book_startLine", keyPath: ["book", "startLine"], unique: false },
+            { name: "node_id", keyPath: "node_id", unique: false, multiEntry: true }
           ],
         },
         {
@@ -69,7 +72,8 @@ export async function openDatabase() {
           indices: [
             "hyperciteId",
             "book",
-            { name: "book_startLine", keyPath: ["book", "startLine"], unique: false }
+            { name: "book_startLine", keyPath: ["book", "startLine"], unique: false },
+            { name: "node_id", keyPath: "node_id", unique: false, multiEntry: true }
           ],
         },
         {
@@ -196,6 +200,38 @@ export async function openDatabase() {
               console.log(`✅ Migrated ${refData.length} records to 'bibliography' store`);
             }
           };
+        }
+      }
+
+      // Migration logic for schema version 24
+      if (oldVersion < 24) {
+        console.log("📦 Migrating to schema version 24: Adding node_id index to nodes, hyperlights and hypercites");
+
+        // Add node_id index to nodes
+        if (db.objectStoreNames.contains("nodes")) {
+          const nodesStore = transaction.objectStore("nodes");
+          if (!nodesStore.indexNames.contains("node_id")) {
+            nodesStore.createIndex("node_id", "node_id", { unique: false });
+            console.log("✅ Added node_id index to nodes store");
+          }
+        }
+
+        // Add node_id index to hyperlights
+        if (db.objectStoreNames.contains("hyperlights")) {
+          const hyperlightsStore = transaction.objectStore("hyperlights");
+          if (!hyperlightsStore.indexNames.contains("node_id")) {
+            hyperlightsStore.createIndex("node_id", "node_id", { unique: false, multiEntry: true });
+            console.log("✅ Added multi-entry node_id index to hyperlights store");
+          }
+        }
+
+        // Add node_id index to hypercites
+        if (db.objectStoreNames.contains("hypercites")) {
+          const hypercitesStore = transaction.objectStore("hypercites");
+          if (!hypercitesStore.indexNames.contains("node_id")) {
+            hypercitesStore.createIndex("node_id", "node_id", { unique: false, multiEntry: true });
+            console.log("✅ Added multi-entry node_id index to hypercites store");
+          }
         }
       }
     };
