@@ -91,7 +91,9 @@ On the frontend:
 
 1. **intializePage.js** uses **syncBookDataFromDatabase(bookId)** from **postgreSQL.js** to pull the json from backend, and store it into the browser's indexedDB.
 
-2. The nodes for the **book**, and any related hypercites, hyperlights, footnotes or citations, are injected into the main tag within the DOM using lazyLoaderFactory.js
+2. The character position data from each hyperlight and hypercite are pulled from their respective object stores in indexedDB and put into an array within the nodes object store. This allows for the mark (highlight) tags and underline (hypercite) tags to be loaded more seamlessly. 
+
+3. The nodes for the **book**, and any related hypercites, hyperlights, footnotes or citations, are injected into the main tag within the DOM using lazyLoaderFactory.js
 
 ```<main class="main-content" id="**book**">```
 
