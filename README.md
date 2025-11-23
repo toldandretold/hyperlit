@@ -1,6 +1,10 @@
+![hyperlit](/public/images/titleLogo.png)
+
 # Hyperlit
 
 Read and self-publish hypertext literature.
+
+[https://hyperlit.io](https://hyperlit.io)
 
 ## Features
 - **hypercites**: automatic, two-way hyperlink citations
@@ -8,15 +12,6 @@ Read and self-publish hypertext literature.
 - **word .doc** import and export conversion (with dynamic footnotes and citations)
 - **markdown .md** import and export conversion (with dynamic footnotes and citations)
 - **automatic copy-paste conversion** of major academic journals (with dynamic footnotes and citations)
-
-## License 
-Open access research? Open source code?
-
-![](https://imageresizer.static9.net.au/DS5njXm8-6tdUIY0-3EjtcDRQeI=/320x0/https%3A%2F%2Fprod.static9.net.au%2Ffs%2Fcd0a8684-9099-41c5-8b7a-5a03f9e01566)
-
-This is 🄯 copyleft [free software](LICENSE.md).
-
-In this sense, this is not "open source", it is free sofware. In a similar sense, the site aims not to distribute "open access" research, but "free knowledge" similarly based on 'copy left' principles. That has commonly been assocated with particular forms of creative commons licensing. The problem currently being faced, however, is the enclosure of the knowledge commons by nascent LLM monopolies. This is a problem in-so-far as LLMs are legally no different to any other reader. In a sense, LLMs are like other readers. They use hypertext to learn, and to get better at creating their own hypertext. The main difference is their freedom. What LLMs learn, is monopoly owned and controlled. To properly follow copyleft principles, therefore, a case can be made that a license should prohibit the use of hypertext for the training of any non-free LLM. This is the position of the [default license](https://hyperlit.io/license2025content) of any hypertext published on hyperlit. 
 
 ## Use now!
 https://hyperlit.io
@@ -35,12 +30,27 @@ https://hyperlit.io
 
 **read an academic journal within hyperlit.io** by copy and pasting it. Most major journals will have their footnotes and citations rendered dynamically by default. Even if this is not an open access text, you can still read and cite it yourself legally (just leave it as the default private/unpublished setting). If it **is** open access, publish it so others can read along with you, and compare notes!
 
+## License 
+Open access research? Open source code?
+
+![](https://imageresizer.static9.net.au/DS5njXm8-6tdUIY0-3EjtcDRQeI=/320x0/https%3A%2F%2Fprod.static9.net.au%2Ffs%2Fcd0a8684-9099-41c5-8b7a-5a03f9e01566)
+
+This is 🄯 copyleft [free software](LICENSE.md).
+
+In this sense, this is not "open source", it is free sofware. In a similar sense, the site aims not to distribute "open access" research, but "free knowledge" similarly based on 'copy left' principles.
+
+However, even this might not be sufficient to protect users' individual and collective "data sovereignty", or to protect the digital knowledge commons. Why? For right now, proprietary and monopolistic LLMs can use creative commons text to train models that do not themselves generate creative commons text. I believe we need a new system, where users can legally post their work, in such a way taht it can be freely read by any free cosnciousness. This, I believe would be a truly copyleft knowledge license, as it would be free knowledge that helps create more free knowledge. 
+
+For LLMS, that means text can't be included as training data for proprietary models. It does not mean text can't be given to models to read and respond to (unless they are using that to later train on).
+
+In a contradictory step towards this goal, hyperlit texts come with a [default license](https://hyperlit.io/license2025content) that declares this. However, the LLM that wrote this license for me (feel free to re-write it if you know any better), tells me it is unliely to be legally binding. That's concerning. 
+
 
 ## WARNING!
 
-I created this website using LLMs. I have gradually gotten better at programming, but I am dependent on LLMs (and these have not been "open weight", so my "vibe coding" (depending on meaning) is certainly not within keeping of "free software"). I'm sure to actual experts this code will be a bit of a nightmare. 
+I created this website using LLMs. I have gradually gotten better at programming, but I am dependent on LLMs. I'm sure both lovers and haters of vibez will find fucked shit in this code. 
 
-While I lack formal training as programmer, I am a formally trained historian of global political economy who created this website in order to use it. I am using it to write and publish, and hope that -- eventually -- it will become reliable. Now, though, it is clearly in need of "peer review", and I would be grateful for any assistance. 
+That said, I am a formally trained historian of global political economy who created this website in order to use it. I am using it to write and publish, and hope that -- eventually -- it will become reliable enough for others' trust. Now, though, it is clearly in need of "peer review", and I would be grateful for any assistance. 
 
 It is for this reason that it is stronlgy advised that the website is **not used for any personal notes**, or anything that you would not want leaked to he internet. This is intended for publishing "copyleft" writing that you want others to read freely. Nothing is encrypted. However, it is set up so that your hypertext nodes can not leave the database without authorisation. Still, there is **no warranty** on any data leak or loss. You can download local backups of any work via the cloudRef button (top right in reader/writer view). This is unfortunatley useful at the moment and should be done if something seems odd. 
 
@@ -141,14 +151,6 @@ php artisan queue:work
 # Terminal 3: Vite dev server
 npm run dev
 ```
-
-## Usage
-
-Once running, visit http://localhost:8000 to:
-- Create and publish hypertext documents
-- Add two-way hyperlink citations (hypercites)
-- Highlight text (hyperlights)
-- Import/export Word docs and Markdown files
 
 ### Commands useful for humans and LLMs
 
