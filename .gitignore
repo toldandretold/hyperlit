@@ -18,7 +18,8 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
-/resources/markdown
+/resources/markdown/*
+!/resources/markdown/.gitkeep
 ignore/
 dump.rdb
 .DS_Store
