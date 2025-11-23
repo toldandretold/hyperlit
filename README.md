@@ -5,9 +5,9 @@ Read and self-publish hypertext literature.
 ## Features
 - **hypercites**: automatic, two-way hyperlink citations
 - **hyperlights**: any-user can highlight any word
-- word .doc import and export conversion (with dynamic footnotes and citations)
-- markdown import and export conversion (with dynamic footnotes and citations)
-- automatic copy-paste conversion of major academic journals (with dynamic footnotes and citations)
+- **word .doc88 import and export conversion (with dynamic footnotes and citations)
+- **markdown .md** import and export conversion (with dynamic footnotes and citations)
+- **automatic copy-paste conversion** of major academic journals (with dynamic footnotes and citations)
 
 ## License 
 Open access research? Open source code?
