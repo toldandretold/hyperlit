@@ -53,18 +53,16 @@ export async function addToHighlightsTable(bookId, highlightData) {
     const highlightedHTML = tempDiv.innerHTML;
 
     const highlightEntry = {
-      book: bookId, // Current book ID
+      book: bookId,
       hyperlight_id: highlightData.highlightId,
-      node_id: Object.keys(highlightData.charData || {}),  // ✅ NEW: Array of node IDs for indexing
-      charData: highlightData.charData || {},              // ✅ NEW: Per-node character positions
-      highlightedText: highlightData.text, // Keep the plain text for searching
-      highlightedHTML: highlightedHTML, // Store the HTML structure without mark tags
-      annotation: "", // initial empty annotation
-      startChar: highlightData.startChar,  // Keep for backward compatibility
-      endChar: highlightData.endChar,      // Keep for backward compatibility
+      node_id: Object.keys(highlightData.charData || {}),
+      charData: highlightData.charData || {},
+      highlightedText: highlightData.text,
+      highlightedHTML: highlightedHTML,
+      annotation: "",
       startLine: highlightData.startLine,
-      creator: creator,        // ✅ FIXED: Set proper creator
-      creator_token: creator_token, // ✅ FIXED: Set proper creator_token
+      creator: creator,
+      creator_token: creator_token,
       time_since: Math.floor(Date.now() / 1000)
     };
 

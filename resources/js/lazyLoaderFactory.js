@@ -871,25 +871,23 @@ export function applyHighlights(html, highlights, bookId) {
 function createHighlightSegments(highlights) {
   // Collect all boundary points
   const boundaries = new Set();
-  
+
   highlights.forEach(highlight => {
-    boundaries.add(highlight.startChar || highlight.charStart);
-    boundaries.add(highlight.endChar || highlight.charEnd);
+    boundaries.add(highlight.charStart);
+    boundaries.add(highlight.charEnd);
   });
-  
+
   const sortedBoundaries = Array.from(boundaries).sort((a, b) => a - b);
   const segments = [];
-  
+
   // Create segments between each pair of boundaries
   for (let i = 0; i < sortedBoundaries.length - 1; i++) {
     const segmentStart = sortedBoundaries[i];
     const segmentEnd = sortedBoundaries[i + 1];
-    
+
     // Find which highlights cover this segment
     const coveringHighlights = highlights.filter(highlight => {
-      const startChar = highlight.startChar || highlight.charStart;
-      const endChar = highlight.endChar || highlight.charEnd;
-      return startChar <= segmentStart && endChar >= segmentEnd;
+      return highlight.charStart <= segmentStart && highlight.charEnd >= segmentEnd;
     });
     
     if (coveringHighlights.length > 0) {
