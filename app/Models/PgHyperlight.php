@@ -14,10 +14,8 @@ class PgHyperlight extends Model
         'node_id',
         'charData',
         'annotation',
-        'endChar',
         'highlightedHTML',
         'highlightedText',
-        'startChar',
         'startLine',
         'creator',
         'creator_token',
@@ -30,8 +28,6 @@ class PgHyperlight extends Model
         'node_id' => 'array',
         'charData' => 'array',
         'raw_json' => 'array',
-        'endChar' => 'integer',
-        'startChar' => 'integer',
         'hidden' => 'boolean'
     ];
 

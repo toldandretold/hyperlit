@@ -15,8 +15,6 @@ class PgNodeChunk extends Model
         'node_id',
         'content',
         'footnotes',
-        'hypercites',
-        'hyperlights',
         'plainText',
         'type',
         'raw_json'
@@ -26,8 +24,6 @@ class PgNodeChunk extends Model
         'chunk_id' => 'float',
         'startLine' => 'float',
         'footnotes' => 'array',
-        'hypercites' => 'array',
-        'hyperlights' => 'array',
         'raw_json' => 'array'
     ];
 }

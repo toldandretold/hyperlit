@@ -124,11 +124,7 @@ class UserHomeServerController extends Controller
 
         foreach ($records as $i => $record) {
             $newChunk = $this->generateLibraryCardChunk($record, $bookName, $positionId, $isOwner, false, $i);
-            // Use original_book to look up preserved data
-            if(isset($oldChunks[$record->book])) {
-                $newChunk['hypercites'] = $oldChunks[$record->book]->hypercites;
-                $newChunk['hyperlights'] = $oldChunks[$record->book]->hyperlights;
-            }
+            // Note: hypercites/hyperlights preservation removed - these are now in normalized tables
             $chunks[] = $newChunk;
             $positionId++;
         }
@@ -226,7 +222,7 @@ class UserHomeServerController extends Controller
             return [
                 'raw_json' => json_encode(['original_book' => null, 'position_type' => 'user_home', 'position_id' => 1, 'empty' => true]),
                 'book' => $bookName, 'chunk_id' => 0, 'startLine' => 1, 'node_id' => $emptyNodeId,
-                'footnotes' => null, 'hypercites' => null, 'hyperlights' => null,
+                'footnotes' => null,
                 'content' => '<p class="libraryCard" id="1" data-node-id="' . $emptyNodeId . '">' . $emptyMessage . '</p>',
                 'plainText' => strip_tags($emptyMessage), 'type' => 'p', 'created_at' => $now, 'updated_at' => $now,
             ];
@@ -245,7 +241,7 @@ class UserHomeServerController extends Controller
             'chunk_id' => ($index < 0) ? 0 : floor($index / 100),
             'startLine' => $positionId,
             'node_id' => $nodeId,
-            'footnotes' => null, 'hypercites' => null, 'hyperlights' => null,
+            'footnotes' => null,
             'content' => $content,
             'plainText' => strip_tags($this->generateCitationHtml($record)),
             'type' => 'p', 'created_at' => $now, 'updated_at' => $now,
