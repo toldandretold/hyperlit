@@ -80,7 +80,7 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
       const relativeTime = formatRelativeTime(h.time_since);
       const truncatedText = h.highlightedText.length > 140 ? h.highlightedText.substring(0, 140) + '...' : h.highlightedText;
 
-      html += `  <div class="author" id="${h.hyperlight_id}">
+      html += `  <div class="author" id="author-${h.hyperlight_id}">
 `;
       html += `    <div style="display: flex; justify-content: space-between; align-items: center;">
 `;

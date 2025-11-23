@@ -304,83 +304,75 @@ export function updateCitationForExistingHypercite(
 ) {
   return withPending(async () => {
     console.log(
-      `Updating citation: book=${booka}, hyperciteID=${hyperciteIDa}, citationIDb=${citationIDb}`,
+      `✅ NEW SYSTEM: Updating citation: book=${booka}, hyperciteID=${hyperciteIDa}, citationIDb=${citationIDb}`,
     );
 
-    // ✅ --- NEW PRE-FLIGHT CHECK ---
-    // First, ensure the hypercite exists in our local IndexedDB, fetching
+    // ✅ Ensure the hypercite exists in our local IndexedDB, fetching
     // it from the server if necessary.
-    // Note: resolveHypercite will be imported from a helper module
-    // resolveHypercite already imported statically
     const resolvedHypercite = await resolveHypercite(booka, hyperciteIDa);
 
     // If it's not found anywhere (local or server), we cannot proceed.
     if (!resolvedHypercite) {
       console.error(
-        `FATAL: Could not resolve hypercite ${hyperciteIDa} from any source. Aborting link.`,
-      );
-      return { success: false, startLine: null, newStatus: null };
-    }
-    // ✅ --- END OF NEW LOGIC ---
-
-    let affectedStartLine = null;
-    const nodes = await getNodeChunksFromIndexedDB(booka);
-    if (!nodes?.length) {
-      console.warn(`No nodes found in nodes object store in IndexedDB for book ${booka}`);
-      return { success: false, startLine: null, newStatus: null };
-    }
-
-    let foundAndUpdated = false;
-    let updatedRelationshipStatus = "single";
-
-    // 1) Update the nodes store
-    for (const record of nodes) {
-      if (!record.hypercites?.find((hc) => hc.hyperciteId === hyperciteIDa)) {
-        continue;
-      }
-      const startLine = record.startLine;
-      const result = await addCitationToHypercite(
-        booka,
-        startLine,
-        hyperciteIDa,
-        citationIDb,
-      );
-      if (result.success) {
-        foundAndUpdated = true;
-        updatedRelationshipStatus = result.relationshipStatus;
-        affectedStartLine = startLine;
-        break;
-      }
-    }
-
-    if (!foundAndUpdated) {
-      console.log(
-        `No matching hypercite found in book ${booka} with ID ${hyperciteIDa}`,
+        `❌ NEW SYSTEM: Could not resolve hypercite ${hyperciteIDa} from any source. Aborting link.`,
       );
       return { success: false, startLine: null, newStatus: null };
     }
 
-    // 2) Update the hypercites object store itself
+    // ✅ NEW SYSTEM: Update the normalized hypercites table directly
     const existingHypercite = await getHyperciteFromIndexedDB(
       booka,
       hyperciteIDa,
     );
 
-    if (existingHypercite) {
-      if (!Array.isArray(existingHypercite.citedIN)) {
-        existingHypercite.citedIN = [];
-      }
-      if (!existingHypercite.citedIN.includes(citationIDb)) {
-        existingHypercite.citedIN.push(citationIDb);
-      }
-      existingHypercite.relationshipStatus = updatedRelationshipStatus;
-
-      await updateHyperciteInIndexedDB(
-        booka,
-        hyperciteIDa,
-        existingHypercite,
-        false,
+    if (!existingHypercite) {
+      console.error(
+        `❌ NEW SYSTEM: Hypercite ${hyperciteIDa} not found in normalized hypercites table`,
       );
+      return { success: false, startLine: null, newStatus: null };
+    }
+
+    // Update citedIN array
+    if (!Array.isArray(existingHypercite.citedIN)) {
+      existingHypercite.citedIN = [];
+    }
+    if (!existingHypercite.citedIN.includes(citationIDb)) {
+      existingHypercite.citedIN.push(citationIDb);
+    }
+
+    // Update relationship status based on citedIN length
+    const updatedRelationshipStatus =
+      existingHypercite.citedIN.length === 0 ? "single" :
+      existingHypercite.citedIN.length === 1 ? "couple" :
+      "poly";
+
+    existingHypercite.relationshipStatus = updatedRelationshipStatus;
+
+    // Save to normalized hypercites table
+    await updateHyperciteInIndexedDB(
+      booka,
+      hyperciteIDa,
+      existingHypercite,
+      false,
+    );
+
+    console.log(`✅ NEW SYSTEM: Updated hypercite ${hyperciteIDa} in normalized table with status: ${updatedRelationshipStatus}`);
+
+    // ✅ NEW SYSTEM: Rebuild affected node arrays from normalized tables
+    const affectedNodeUUIDs = existingHypercite.node_id || [];
+    if (affectedNodeUUIDs.length > 0) {
+      const { getNodesByUUIDs, rebuildNodeArrays } = await import('../hydration/rebuild.js');
+      const affectedNodes = await getNodesByUUIDs(affectedNodeUUIDs);
+      await rebuildNodeArrays(affectedNodes);
+      console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} affected nodes`);
+    }
+
+    // Determine startLine for broadcasting (use first affected node)
+    let affectedStartLine = null;
+    if (affectedNodeUUIDs.length > 0) {
+      const nodes = await getNodeChunksFromIndexedDB(booka);
+      const affectedNode = nodes.find(n => affectedNodeUUIDs.includes(n.node_id));
+      affectedStartLine = affectedNode?.startLine || null;
     }
 
     return {

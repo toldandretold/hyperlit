@@ -1,5 +1,6 @@
 import { book, OpenHyperlightID } from './app.js';
 import { log, verbose } from './utilities/logger.js';
+import { navigateToInternalId } from './scrolling.js';
 
 import {
   createLazyLoader,
@@ -478,7 +479,7 @@ function initializeLazyLoader(openHyperlightID, bookId) { // <-- Add bookId para
     
     if (openHyperlightID) {
       setTimeout(() => {
-        navigateToElement(openHyperlightID);
+        navigateToInternalId(openHyperlightID, currentLazyLoader, false);
       }, 300);
     }
   }

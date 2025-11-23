@@ -294,7 +294,7 @@ export async function handleHypercitePaste(event) {
     } else {
       // MULTIPLE HYPERCITES: Batch all updates into ONE request
       const updatedHypercites = [];
-      const updatedNodeChunks = [];
+      const affectedNodeUUIDs = new Set(); // Track affected nodes for rebuild
       const domUpdates = []; // Store DOM updates to apply after successful sync
 
       // Process all hypercites and collect updates
@@ -302,52 +302,30 @@ export async function handleHypercitePaste(event) {
         const { booka, hyperciteIDa, citationIDb, citationIDa } = task;
 
         try {
-          // 1. Find and update the hypercite in nodes
-          const nodes = await getNodeChunksFromIndexedDB(booka);
-          if (!nodes?.length) {
-            console.warn(`No nodes found for book ${booka}`);
-            continue;
-          }
-
-          let affectedStartLine = null;
-          let updatedRelationshipStatus = "single";
-
-          for (const record of nodes) {
-            if (!record.hypercites?.find((hc) => hc.hyperciteId === hyperciteIDa)) {
-              continue;
-            }
-            const startLine = record.startLine;
-            const result = await addCitationToHypercite(
-              booka,
-              startLine,
-              hyperciteIDa,
-              citationIDb
-            );
-            if (result.success) {
-              affectedStartLine = startLine;
-              updatedRelationshipStatus = result.relationshipStatus;
-              break;
-            }
-          }
-
-          if (!affectedStartLine) {
-            console.warn(`No matching hypercite found in book ${booka} with ID ${hyperciteIDa}`);
-            continue;
-          }
-
-          // 2. Update the hypercite record itself
+          // ✅ NEW SYSTEM: Update only the normalized hypercites table
           const existingHypercite = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
           if (!existingHypercite) {
-            console.error(`Hypercite ${hyperciteIDa} not found in book ${booka}`);
+            console.error(`❌ Hypercite ${hyperciteIDa} not found in normalized hypercites table`);
             continue;
           }
 
-          existingHypercite.citedIN ||= [];
+          // Update citedIN array
+          if (!Array.isArray(existingHypercite.citedIN)) {
+            existingHypercite.citedIN = [];
+          }
           if (!existingHypercite.citedIN.includes(citationIDb)) {
             existingHypercite.citedIN.push(citationIDb);
           }
+
+          // Update relationship status based on citedIN length
+          const updatedRelationshipStatus =
+            existingHypercite.citedIN.length === 0 ? "single" :
+            existingHypercite.citedIN.length === 1 ? "couple" :
+            "poly";
+
           existingHypercite.relationshipStatus = updatedRelationshipStatus;
 
+          // Save to normalized hypercites table
           const hyperciteSuccess = await updateHyperciteInIndexedDB(
             booka,
             hyperciteIDa,
@@ -364,14 +342,25 @@ export async function handleHypercitePaste(event) {
             continue;
           }
 
-          // 3. Get final records for sync
-          const finalHyperciteRecord = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
-          const finalNodeChunkRecord = await getNodeChunkFromIndexedDB(booka, affectedStartLine);
+          // Track affected node UUIDs for rebuild
+          if (existingHypercite.node_id && Array.isArray(existingHypercite.node_id)) {
+            existingHypercite.node_id.forEach(uuid => affectedNodeUUIDs.add(uuid));
+          }
 
-          if (finalHyperciteRecord && finalNodeChunkRecord) {
-            // Add to batch collections
+          // Get final hypercite record for sync
+          const finalHyperciteRecord = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
+
+          if (finalHyperciteRecord) {
+            // Add to batch collection
             updatedHypercites.push(finalHyperciteRecord);
-            updatedNodeChunks.push(toPublicChunk(finalNodeChunkRecord));
+
+            // Determine startLine for broadcasting (use first affected node)
+            let affectedStartLine = null;
+            if (finalHyperciteRecord.node_id && finalHyperciteRecord.node_id.length > 0) {
+              const nodes = await getNodeChunksFromIndexedDB(booka);
+              const affectedNode = nodes.find(n => finalHyperciteRecord.node_id.includes(n.node_id));
+              affectedStartLine = affectedNode?.startLine || null;
+            }
 
             // Store DOM update for later
             domUpdates.push({
@@ -382,11 +371,23 @@ export async function handleHypercitePaste(event) {
               citationIDa
             });
 
-            console.log(`✅ Prepared batch update for: ${citationIDa} cited in ${citationIDb}`);
+            console.log(`✅ NEW SYSTEM: Prepared batch update for: ${citationIDa} cited in ${citationIDb}`);
           }
         } catch (error) {
           console.error(`❌ Error processing hypercite ${hyperciteIDa}:`, error);
           // Continue processing other hypercites even if one fails
+        }
+      }
+
+      // ✅ NEW SYSTEM: Rebuild affected node arrays from normalized tables
+      if (affectedNodeUUIDs.size > 0) {
+        try {
+          const { getNodesByUUIDs, rebuildNodeArrays } = await import('../../indexedDB/hydration/rebuild.js');
+          const affectedNodes = await getNodesByUUIDs(Array.from(affectedNodeUUIDs));
+          await rebuildNodeArrays(affectedNodes);
+          console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} affected nodes`);
+        } catch (error) {
+          console.error(`❌ NEW SYSTEM: Error rebuilding node arrays:`, error);
         }
       }
 
@@ -404,7 +405,7 @@ export async function handleHypercitePaste(event) {
             hypercitesByBook[hc.book].push(hc);
           });
 
-          // Sync each book's hypercites
+          // ✅ NEW SYSTEM: Sync only hypercites (nodes are rebuilt from normalized tables)
           const hyperciteSyncPromises = Object.entries(hypercitesByBook).map(([book, hypercites]) =>
             fetch("/api/db/hypercites/upsert", {
               method: "POST",
@@ -417,30 +418,8 @@ export async function handleHypercitePaste(event) {
             })
           );
 
-          // Group nodes by book for batching
-          const nodesByBook = {};
-          updatedNodeChunks.forEach(nc => {
-            if (!nodesByBook[nc.book]) {
-              nodesByBook[nc.book] = [];
-            }
-            nodesByBook[nc.book].push(nc);
-          });
-
-          // Sync each book's nodes
-          const nodeChunkSyncPromises = Object.entries(nodesByBook).map(([book, chunks]) =>
-            fetch("/api/db/node-chunks/targeted-upsert", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content"),
-              },
-              credentials: "include",
-              body: JSON.stringify({ book, data: chunks }),
-            })
-          );
-
-          // Wait for all sync operations to complete
-          const allResponses = await Promise.all([...hyperciteSyncPromises, ...nodeChunkSyncPromises]);
+          // Wait for all hypercite sync operations to complete
+          const allResponses = await Promise.all(hyperciteSyncPromises);
 
           // Check if all requests succeeded
           const allSucceeded = allResponses.every(res => res.ok);

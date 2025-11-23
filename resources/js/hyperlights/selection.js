@@ -317,9 +317,7 @@ export async function createHighlightHandler(event, bookId) {
       {
         highlightId,
         text: selectedText,
-        charData: charDataByNode,  // ✅ NEW: Per-node positions keyed by node_id
-        startChar: cleanStartOffset,  // Keep for backward compatibility
-        endChar: cleanEndOffset,      // Keep for backward compatibility
+        charData: charDataByNode,
         startLine: startContainer.id,
       }
     );
