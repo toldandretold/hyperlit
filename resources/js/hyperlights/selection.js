@@ -354,37 +354,19 @@ export async function createHighlightHandler(event, bookId) {
   window.getSelection().removeAllRanges();
   document.getElementById("hyperlight-buttons").style.display = "none";
 
-  // Trigger chunk refresh to apply proper CSS classes to the new highlight
+  // Mark highlight as newly created for proper CSS styling in container
   try {
-    const { currentLazyLoader, lazyLoaders } = await import('../initializePage.js');
-    const { book } = await import('../app.js');
     const { addNewlyCreatedHighlight, removeNewlyCreatedHighlight } = await import('../utilities/operationState.js');
 
-    // Try to get the appropriate lazy loader instance
-    const lazyLoader = currentLazyLoader || lazyLoaders[bookId] || lazyLoaders[book];
+    // Mark this highlight as a newly created user highlight for proper CSS application
+    addNewlyCreatedHighlight(highlightId);
 
-    if (lazyLoader && typeof lazyLoader.refresh === 'function') {
-      console.log('🔄 Triggering lazy loader refresh for new highlight');
-
-      // Mark this highlight as a newly created user highlight for proper CSS application
-      addNewlyCreatedHighlight(highlightId);
-
-      try {
-        await reprocessHighlightsForNodes(bookId, Array.from(affectedIds));
-      } catch (err) {
-        console.error("❌ Failed to reprocess highlights on affected nodes:", err);
-      }
-
-      // Clean up the newly created flag after a delay (backend should have processed by then)
-      setTimeout(() => {
-        removeNewlyCreatedHighlight(highlightId);
-      }, 10000); // 10 seconds should be enough for backend processing
-
-    } else {
-      console.warn('⚠️ No lazy loader available for refresh - new highlight may not have proper CSS');
-    }
+    // Clean up the newly created flag after a delay (backend should have processed by then)
+    setTimeout(() => {
+      removeNewlyCreatedHighlight(highlightId);
+    }, 10000); // 10 seconds should be enough for backend processing
   } catch (error) {
-    console.warn('⚠️ Failed to refresh chunks after highlight creation:', error);
+    console.warn('⚠️ Failed to mark highlight as newly created:', error);
   }
 
   await openHighlightById(highlightId, true, [highlightId]);
