@@ -40,14 +40,27 @@ use Illuminate\Support\Facades\DB;
  */
 class MigrateEmbeddedAnnotations extends Command
 {
-    protected $signature = 'migrate:embedded-annotations {book} {--dry-run} {--force}';
+    protected $signature = 'migrate:embedded-annotations {book?} {--all} {--dry-run} {--force}';
     protected $description = 'Migrate embedded hyperlights/hypercites to normalized charData schema';
 
     public function handle()
     {
         $book = $this->argument('book');
+        $all = $this->option('all');
         $dryRun = $this->option('dry-run');
         $force = $this->option('force');
+
+        if (!$book && !$all) {
+            $this->error('❌ You must specify either a book ID or use --all flag');
+            $this->error('   Usage: migrate:embedded-annotations {book} --force');
+            $this->error('   Usage: migrate:embedded-annotations --all --force');
+            return 1;
+        }
+
+        if ($book && $all) {
+            $this->error('❌ Cannot use both book argument and --all flag');
+            return 1;
+        }
 
         if (!$dryRun && !$force) {
             $this->error('❌ This command requires --force flag to execute.');
@@ -61,6 +74,10 @@ class MigrateEmbeddedAnnotations extends Command
         if (!$dryRun && !$this->confirm('Have you backed up your database?')) {
             $this->info('Migration cancelled.');
             return 0;
+        }
+
+        if ($all) {
+            return $this->migrateAllBooks($dryRun);
         }
 
         $this->info("Processing book: {$book}");
@@ -317,5 +334,112 @@ class MigrateEmbeddedAnnotations extends Command
             'hyperlights' => count($hlConflicts),
             'hypercites' => count($hcConflicts)
         ];
+    }
+
+    /**
+     * Migrate all books in the library
+     */
+    private function migrateAllBooks(bool $dryRun): int
+    {
+        // Get all books from library table
+        $books = DB::table('library')->pluck('book')->toArray();
+
+        if (empty($books)) {
+            $this->warn('No books found in library table');
+            return 0;
+        }
+
+        $this->info("Found " . count($books) . " books to migrate:");
+        $this->newLine();
+
+        // Show list of books
+        foreach (array_slice($books, 0, 10) as $book) {
+            $this->line("  - {$book}");
+        }
+        if (count($books) > 10) {
+            $this->line("  ... and " . (count($books) - 10) . " more");
+        }
+        $this->newLine();
+
+        if (!$dryRun && !$this->confirm('Proceed with migration?', true)) {
+            $this->info('Migration cancelled.');
+            return 0;
+        }
+
+        // Track results
+        $results = [
+            'success' => [],
+            'failed' => [],
+            'total_hyperlights' => 0,
+            'total_hypercites' => 0,
+            'total_conflicts' => 0
+        ];
+
+        $this->info($dryRun ? 'Mode: DRY RUN (no changes will be made)' : 'Mode: LIVE MIGRATION');
+        $this->newLine();
+
+        // Progress bar for books
+        $bar = $this->output->createProgressBar(count($books));
+        $bar->setFormat('very_verbose');
+        $bar->start();
+
+        foreach ($books as $book) {
+            try {
+                DB::beginTransaction();
+
+                // Pass 1: Migrate empty charData
+                $migratedCount = $this->migrateEmptyCharData($book, $dryRun);
+
+                // Pass 2: Report conflicts
+                $conflictCount = $this->reportConflicts($book);
+
+                if ($dryRun) {
+                    DB::rollBack();
+                } else {
+                    DB::commit();
+                }
+
+                $results['success'][] = $book;
+                $results['total_hyperlights'] += $migratedCount['hyperlights'];
+                $results['total_hypercites'] += $migratedCount['hypercites'];
+                $results['total_conflicts'] += $conflictCount['hyperlights'] + $conflictCount['hypercites'];
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+                $results['failed'][] = [
+                    'book' => $book,
+                    'error' => $e->getMessage()
+                ];
+            }
+
+            $bar->advance();
+        }
+
+        $bar->finish();
+        $this->newLine(2);
+
+        // Show summary
+        $this->info('=== MIGRATION SUMMARY ===');
+        $this->info("Successfully processed: " . count($results['success']) . " books");
+        $this->info("Failed: " . count($results['failed']) . " books");
+        $this->info("Total migrated: {$results['total_hyperlights']} hyperlights, {$results['total_hypercites']} hypercites");
+        $this->info("Total conflicts: {$results['total_conflicts']}");
+
+        if (!empty($results['failed'])) {
+            $this->newLine();
+            $this->error('=== FAILED BOOKS ===');
+            foreach ($results['failed'] as $failure) {
+                $this->error("  {$failure['book']}: {$failure['error']}");
+            }
+        }
+
+        $this->newLine();
+        if ($dryRun) {
+            $this->warn('✅ Dry run complete - no changes made');
+        } else {
+            $this->info('✅ Migration complete!');
+        }
+
+        return count($results['failed']) > 0 ? 1 : 0;
     }
 }

@@ -723,9 +723,115 @@ class DatabaseToIndexedDBController extends Controller
             ->map(function ($chunk) use ($hyperlightsByNode, $hypercitesByNode) {
                 $nodeUUID = $chunk->node_id;
 
-                // ⚡ Get pre-fetched annotations for this node (O(1) lookup)
-                $finalHyperlights = $hyperlightsByNode[$nodeUUID] ?? [];
-                $finalHypercites = $hypercitesByNode[$nodeUUID] ?? [];
+                Log::info('🔍 Processing chunk - HYBRID SYSTEM', [
+                    'chunk_id' => $chunk->chunk_id,
+                    'node_uuid' => $nodeUUID,
+                    'has_uuid' => !empty($nodeUUID)
+                ]);
+
+                // ===== HYPERLIGHTS - HYBRID APPROACH =====
+                $finalHyperlights = [];
+
+                // Try NEW system first
+                if (!empty($nodeUUID)) {
+                    Log::info('💡 Attempting NEW system for hyperlights', ['node_uuid' => $nodeUUID]);
+                    $newHyperlights = $this->getHyperlightsForNode($bookId, $nodeUUID, $visibleHyperlightIds, $highlightLookup);
+
+                    if (!empty($newHyperlights)) {
+                        $finalHyperlights = $newHyperlights;
+                        Log::info('✅ Using NEW system for hyperlights', [
+                            'node_uuid' => $nodeUUID,
+                            'count' => count($finalHyperlights)
+                        ]);
+                    } else {
+                        Log::info('⚠️ NEW system returned empty, falling back to OLD', ['node_uuid' => $nodeUUID]);
+                    }
+                }
+
+                // 🔄 OLD SYSTEM FALLBACK: COMMENTED OUT FOR NEW SYSTEM TESTING
+                // If NEW normalized tables return empty, that's the truth - no embedded fallback
+                if (empty($finalHyperlights)) {
+                    /*
+                    // OLD SYSTEM: Fallback to embedded JSON in nodes table
+                    Log::info('📜 Using OLD system (embedded JSON) for hyperlights', ['chunk_id' => $chunk->chunk_id]);
+
+                    $chunkHyperlights = json_decode($chunk->hyperlights ?? '[]', true);
+
+                    $visibleChunkHyperlights = array_filter($chunkHyperlights, function($hl) use ($visibleHyperlightIds) {
+                        return isset($hl['highlightID']) && in_array($hl['highlightID'], $visibleHyperlightIds);
+                    });
+
+                    // Enrich with is_user_highlight flag
+                    $finalHyperlights = array_map(function($hl) use ($highlightLookup) {
+                        $highlightId = $hl['highlightID'] ?? null;
+                        if ($highlightId && isset($highlightLookup[$highlightId])) {
+                            $hl['is_user_highlight'] = $highlightLookup[$highlightId]['is_user_highlight'];
+                        } else {
+                            $hl['is_user_highlight'] = false;
+                        }
+                        return $hl;
+                    }, $visibleChunkHyperlights);
+
+                    Log::info('📜 OLD system hyperlights loaded', [
+                        'chunk_id' => $chunk->chunk_id,
+                        'count' => count($finalHyperlights)
+                    ]);
+                    */
+
+                    // ✅ NEW SYSTEM: Empty means no hyperlights (no fallback)
+                    $finalHyperlights = [];
+                    Log::info('✅ NEW SYSTEM: No hyperlights in normalized tables (no fallback)', [
+                        'chunk_id' => $chunk->chunk_id,
+                        'node_uuid' => $nodeUUID
+                    ]);
+                }
+
+                // ===== HYPERCITES - HYBRID APPROACH =====
+                $finalHypercites = [];
+
+                // Try NEW system first
+                if (!empty($nodeUUID)) {
+                    Log::info('💡 Attempting NEW system for hypercites', ['node_uuid' => $nodeUUID]);
+                    $newHypercites = $this->getHypercitesForNode($bookId, $nodeUUID);
+
+                    if (!empty($newHypercites)) {
+                        $finalHypercites = $newHypercites;
+                        Log::info('✅ Using NEW system for hypercites', [
+                            'node_uuid' => $nodeUUID,
+                            'count' => count($finalHypercites)
+                        ]);
+                    } else {
+                        Log::info('⚠️ NEW system returned empty, falling back to OLD', ['node_uuid' => $nodeUUID]);
+                    }
+                }
+
+                // 🔄 OLD SYSTEM FALLBACK: COMMENTED OUT FOR NEW SYSTEM TESTING
+                // If NEW normalized tables return empty, that's the truth - no embedded fallback
+                if (empty($finalHypercites)) {
+                    /*
+                    // OLD SYSTEM: Fallback to embedded JSON in nodes table
+                    Log::info('📜 Using OLD system (embedded JSON) for hypercites', ['chunk_id' => $chunk->chunk_id]);
+                    $finalHypercites = json_decode($chunk->hypercites ?? '[]', true);
+                    Log::info('📜 OLD system hypercites loaded', [
+                        'chunk_id' => $chunk->chunk_id,
+                        'count' => count($finalHypercites)
+                    ]);
+                    */
+
+                    // ✅ NEW SYSTEM: Empty means no hypercites (no fallback)
+                    $finalHypercites = [];
+                    Log::info('✅ NEW SYSTEM: No hypercites in normalized tables (no fallback)', [
+                        'chunk_id' => $chunk->chunk_id,
+                        'node_uuid' => $nodeUUID
+                    ]);
+                }
+
+                Log::info('🔍 Chunk processing complete', [
+                    'chunk_id' => $chunk->chunk_id,
+                    'node_uuid' => $nodeUUID,
+                    'hyperlights_count' => count($finalHyperlights),
+                    'hypercites_count' => count($finalHypercites)
+                ]);
 
                 return [
                     'book' => $chunk->book,
