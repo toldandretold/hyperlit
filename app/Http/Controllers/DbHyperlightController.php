@@ -132,11 +132,13 @@ class DbHyperlightController extends Controller
                     $record = [
                         'book' => $item['book'] ?? null,
                         'hyperlight_id' => $item['hyperlight_id'] ?? null,
+                        'node_id' => $item['node_id'] ?? null,           // ✅ NEW: Array of node IDs
+                        'charData' => $item['charData'] ?? null,         // ✅ NEW: Per-node positions
                         'highlightedText' => $item['highlightedText'] ?? null,
                         'highlightedHTML' => $item['highlightedHTML'] ?? null,
                         'annotation' => $item['annotation'] ?? null,
-                        'startChar' => $item['startChar'] ?? null,
-                        'endChar' => $item['endChar'] ?? null,
+                        'startChar' => $item['startChar'] ?? null,       // Backward compatibility
+                        'endChar' => $item['endChar'] ?? null,           // Backward compatibility
                         'startLine' => $item['startLine'] ?? null,
                         'creator' => $creator,
                         'creator_token' => $creator_token,
@@ -253,11 +255,13 @@ class DbHyperlightController extends Controller
                             'hyperlight_id' => $item['hyperlight_id'] ?? null,
                         ],
                         [
+                            'node_id' => $item['node_id'] ?? null,           // ✅ NEW: Array of node IDs
+                            'charData' => $item['charData'] ?? [],           // ✅ NEW: Per-node positions (default empty for old highlights)
                             'highlightedText' => $item['highlightedText'] ?? null,
                             'highlightedHTML' => $item['highlightedHTML'] ?? null,
                             'annotation' => $item['annotation'] ?? null,
-                            'startChar' => $item['startChar'] ?? null,
-                            'endChar' => $item['endChar'] ?? null,
+                            'startChar' => $item['startChar'] ?? null,       // Backward compatibility
+                            'endChar' => $item['endChar'] ?? null,           // Backward compatibility
                             'startLine' => $item['startLine'] ?? null,
                             'creator' => $creator,
                             'creator_token' => $creator_token,
