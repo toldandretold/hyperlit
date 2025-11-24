@@ -10,8 +10,9 @@
  *
  * Version 23: Added 'license' and 'custom_license_text' fields to library store
  * Version 24: Added multi-entry node_id index to hyperlights and hypercites stores
+ * Version 25: Fixed node_id index to properly set multiEntry: true
  */
-export const DB_VERSION = 24;
+export const DB_VERSION = 25;
 
 /**
  * Opens (or creates) the IndexedDB database.
@@ -232,6 +233,33 @@ export async function openDatabase() {
             hypercitesStore.createIndex("node_id", "node_id", { unique: false, multiEntry: true });
             console.log("✅ Added multi-entry node_id index to hypercites store");
           }
+        }
+      }
+
+      // Migration logic for schema version 25
+      if (oldVersion < 25) {
+        console.log("📦 Migrating to schema version 25: Fixing node_id index to set multiEntry: true");
+
+        // Fix node_id index on hyperlights - delete and recreate with multiEntry
+        if (db.objectStoreNames.contains("hyperlights")) {
+          const hyperlightsStore = transaction.objectStore("hyperlights");
+          if (hyperlightsStore.indexNames.contains("node_id")) {
+            hyperlightsStore.deleteIndex("node_id");
+            console.log("🔥 Deleted old node_id index from hyperlights");
+          }
+          hyperlightsStore.createIndex("node_id", "node_id", { unique: false, multiEntry: true });
+          console.log("✅ Recreated node_id index on hyperlights with multiEntry: true");
+        }
+
+        // Fix node_id index on hypercites - delete and recreate with multiEntry
+        if (db.objectStoreNames.contains("hypercites")) {
+          const hypercitesStore = transaction.objectStore("hypercites");
+          if (hypercitesStore.indexNames.contains("node_id")) {
+            hypercitesStore.deleteIndex("node_id");
+            console.log("🔥 Deleted old node_id index from hypercites");
+          }
+          hypercitesStore.createIndex("node_id", "node_id", { unique: false, multiEntry: true });
+          console.log("✅ Recreated node_id index on hypercites with multiEntry: true");
         }
       }
     };

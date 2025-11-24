@@ -76,6 +76,13 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
   // Process <mark> tags for hyperlights
   const markTags = node.getElementsByTagName("mark");
   Array.from(markTags).forEach((mark) => {
+    // ⚠️ SKIP newly created highlights - they already have correct positions from selection.js
+    // Rangy may have created incorrect mark boundaries for overlapping highlights
+    if (mark.hasAttribute('data-new-hl')) {
+      console.log(`⏭️ Skipping position recalculation for newly created highlight ${mark.id} (has data-new-hl attribute)`);
+      return; // Don't recalculate positions for newly created highlights
+    }
+
     const startPos = findElementPosition(mark, node);
     const highlightLength = mark.textContent.length;
 

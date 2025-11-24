@@ -220,8 +220,34 @@ export async function createHighlightHandler(event, bookId) {
   // Generate unique highlight ID
   const highlightId = generateHighlightID();
 
+  // Check if selection contains existing marks
+  const selectionContainsMarks = range.cloneContents().querySelectorAll('mark').length > 0;
+
   // Apply the highlight
+  console.log("🎨 Before rangy - selection:", selection.toString(), "range:", range);
+  console.log("🎨 Range details:", {
+    startContainer: range.startContainer,
+    startOffset: range.startOffset,
+    endContainer: range.endContainer,
+    endOffset: range.endOffset,
+    containsExistingMarks: selectionContainsMarks
+  });
+
+  if (selectionContainsMarks) {
+    console.warn("⚠️ Selection contains existing marks - Rangy may not handle boundaries correctly");
+    // TODO: Implement manual mark creation for overlapping highlights
+    // For now, still use Rangy but log the warning
+  }
+
   highlighter.highlightSelection("highlight");
+
+  const newMarks = document.querySelectorAll('mark.highlight');
+  console.log("🎨 After rangy - created marks:", newMarks.length, Array.from(newMarks).map(m => ({
+    text: m.textContent,
+    parent: m.parentElement.tagName,
+    parentId: m.parentElement.id
+  })));
+
   modifyNewMarks(highlightId);
 
   // Find all affected nodes
@@ -346,6 +372,12 @@ export async function createHighlightHandler(event, bookId) {
     console.log(
       `✅ NEW SYSTEM: Queued 1 hyperlight for sync, rebuilt ${affectedNodes.length} node arrays.`
     );
+
+    // 🎨 Reprocess highlights to render overlapping segments correctly
+    const { reprocessHighlightsForNodes } = await import('./deletion.js');
+    await reprocessHighlightsForNodes(bookId, Array.from(affectedIds));
+    console.log(`✅ Reprocessed highlights for ${affectedIds.size} nodes to render overlaps`);
+
   } catch (error) {
     console.error("❌ Error saving highlight metadata:", error);
   }
@@ -487,5 +519,12 @@ export async function deleteHighlightHandler(event, bookId) {
     console.log(
       `✅ Queued for sync: ${deletedHyperlights.length} deletions (no node updates in NEW system).`
     );
+
+    // 🎨 Reprocess highlights to render remaining highlights correctly
+    if (affectedNodeChunks.size > 0) {
+      const { reprocessHighlightsForNodes } = await import('./deletion.js');
+      await reprocessHighlightsForNodes(bookId, Array.from(affectedNodeChunks));
+      console.log(`✅ Reprocessed highlights for ${affectedNodeChunks.size} nodes after deletion`);
+    }
   }
 }

@@ -1,15 +1,17 @@
-/* hyperlit colors: 
-orange #EF8D34; 
-pink #EE4A95; 
-aqua #4EACAE; 
-black #221F20; 
+/* hyperlit colors:
+orange #EF8D34;
+pink #EE4A95;
+aqua #4EACAE;
+black #221F20;
 "white" #CBCCCC*/
+
+@import url('./theme/variables.css');
 
 
 /* Overall form styling */
 #cite-form {
-  background-color: #221F20;
-  color: #CBCCCC;
+  background-color: var(--color-background);
+  color: var(--color-text);
   padding: 10px 20px 20px 20px; /* Reduced top padding from 20px to 10px */
 }
 
@@ -19,7 +21,7 @@ black #221F20;
 #cite-form input[type="file"],
 #cite-form textarea {
   background-color: transparent;
-  color: #CBCCCC;
+  color: var(--color-text);
   border: none;
   outline: none;
   font-family: inherit;
@@ -49,7 +51,7 @@ black #221F20;
 /* Hide buttons' form-like appearance */
 #cite-form .formButton {
   border: none;
-  color: #CBCCCC;
+  color: var(--color-text);
   cursor: pointer;
   padding: 5px 10px;
   font-family: inherit;
@@ -95,7 +97,7 @@ input[type="file"]::-webkit-file-upload-button {
 
 
 form b {
-  color: #CBCCCC;
+  color: var(--color-text);
 }
 
 /* Validation message styling */
@@ -124,8 +126,8 @@ form b {
 
 /* SOURCE CONTAINER EDIT FORM - Make it match cite-form styling */
 #edit-source-form {
-  background-color: #221F20;
-  color: #CBCCCC;
+  background-color: var(--color-background);
+  color: var(--color-text);
   padding: 10px 20px 20px 20px; /* Reduced top padding from 20px to 10px */
 }
 
@@ -135,7 +137,7 @@ form b {
 #edit-source-form input[type="url"],
 #edit-source-form textarea {
   background-color: transparent;
-  color: #CBCCCC;
+  color: var(--color-text);
   border: none;
   outline: none;
   font-family: inherit;
@@ -178,9 +180,9 @@ form b {
 }
 
 #edit-source-form .formButton:hover {
-  background-color: #4EACAE !important;
+  background-color: var(--hyperlit-aqua) !important;
   border: none !important;
-  color: #221F20 !important;
+  color: var(--hyperlit-black) !important;
   cursor: pointer;
   padding: 5px 10px;
   font-family: inherit;

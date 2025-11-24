@@ -2,16 +2,18 @@
 /* === layout.css - FINAL CORRECTED VERSION       === */
 /* ================================================== */
 
+@import url('./theme/variables.css');
+
 /* 1. Base Setup */
 html,
 body {
   height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden; /* Keep this - prevents body scroll */
-  font-family: "Inter", sans-serif;
-  background-color: #221f20;
-  color: #cbcccc;
+  overflow: hidden;
+  font-family: var(--font-family-base);
+  background-color: var(--color-background);
+  color: var(--color-text);
 }
 
 #app-container {
@@ -83,7 +85,7 @@ body[data-page="reader"] .reader-content-wrapper::before {
   left: 0;
   right: 0;
   height: 15px; /* Logo top position = 15px */
-  background-color: #221f20;
+  background-color: var(--color-background);
   z-index: 998; /* Below buttons (999) but above content */
   pointer-events: none; /* Allow clicks to pass through */
 }
@@ -140,7 +142,7 @@ body[data-page="reader"] .main-content {
 .fixed-header {
   position: sticky;
   top: 0;
-  background-color: #221f20;
+  background-color: var(--color-background);
   z-index: 10;
   padding-bottom: 10px;
 }
@@ -197,7 +199,7 @@ body[data-page="home"] .fixed-header {
   max-width: 60ch; /* Matches the content column width */
   box-sizing: border-box;
 
-  background-color: #221f20; /* Makes it a solid, opaque block */
+  background-color: var(--color-background); /* Makes it a solid, opaque block */
   padding: 20px 20px 10px 20px; /* Internal spacing for the logo */
 }
 
@@ -213,7 +215,7 @@ body[data-page="user"] .fixed-header {
   max-width: 60ch; /* Matches the content column width */
   box-sizing: border-box;
 
-  background-color: #221f20; /* Makes it a solid, opaque block */
+  background-color: var(--color-background); /* Makes it a solid, opaque block */
   padding: 20px 20px 10px 20px; /* Internal spacing for user library container */
 }
 

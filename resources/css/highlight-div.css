@@ -1,15 +1,17 @@
  /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black #221F20; "white" #CBCCCC */
 
+ @import url('./theme/variables.css');
+
 
  /* Styling all paragraph elements within #highlight-div */
 #highlight-container p {
   font-size: 25px;
   line-height: 1.5;
-  color: #CBCCCC;
+  color: var(--color-text);
 }
 
 #highlight-container {
-caret-color: #CBCCCC;
+caret-color: var(--color-text);
 
 }
 
@@ -19,8 +21,8 @@ caret-color: #CBCCCC;
 #highlight-container blockquote h3,
 #highlight-container blockquote h4,
 #highlight-container blockquote h5 {
-  background: #221F20;
-  color: #CBCCCC;
+  background: var(--color-background);
+  color: var(--color-text);
   font-size: 25px;
 }
 
@@ -28,16 +30,16 @@ caret-color: #CBCCCC;
   border-left: 4px solid #ccc;
   font-size: 25px;
   line-height: 1.5;
-  color: #CBCCCC;
-  border-color: #EF8D34;
+  color: var(--color-text);
+  border-color: var(--hyperlit-orange);
 }
 
 /* Styling blockquotes within #highlight-div */
 #highlight-container blockquote:hover {
   border-left: 4px solid #ccc;
-  background: #221F20;
-  color: #CBCCCC;
-  border-color: #EF8D34;
+  background: var(--color-background);
+  color: var(--color-text);
+  border-color: var(--hyperlit-orange);
 }
 
 
@@ -48,10 +50,10 @@ caret-color: #CBCCCC;
 #highlight-container .active {
   margin: 1em 2em;
   padding: 0.5em 1em;
-  border-left: 4px solid #221F20;
+  border-left: 4px solid var(--hyperlit-black);
   font-style: italic;
-  background: #4EACAE;
-  color: #221F20;
+  background: var(--hyperlit-aqua);
+  color: var(--hyperlit-black);
   font-size: 25px;
 }
 
@@ -85,7 +87,7 @@ div[contenteditable="true"]:focus {
 
 .spinner {
   animation: spin 1s linear infinite;
-  color: #CBCCCC;
+  color: var(--color-text);
 }
 
 @keyframes spin {
