@@ -215,7 +215,7 @@ export async function deleteNodeChunksAfter(book, afterNodeId) {
       const range = IDBKeyRange.bound(
         lower,
         upper,
-        /*lowerOpen=*/ false,
+        /*lowerOpen=*/ true,  // EXCLUDE afterNodeId from deletion (only delete nodes AFTER it)
         /*upperOpen=*/ false
       );
 

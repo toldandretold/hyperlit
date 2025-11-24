@@ -146,7 +146,7 @@ export async function getNodeChunksAfter(book, afterNodeId) {
       const lower = [book, numericAfter];
       // upper bound is ["book", +∞] -- Number.MAX_SAFE_INTEGER is usually enough
       const upper = [book, Number.MAX_SAFE_INTEGER];
-      const range = IDBKeyRange.bound(lower, upper, /*lowerOpen=*/false, /*upperOpen=*/false);
+      const range = IDBKeyRange.bound(lower, upper, /*lowerOpen=*/true, /*upperOpen=*/false);  // EXCLUDE afterNodeId (only get nodes AFTER it)
 
       const cursorReq = store.openCursor(range);
       const results = [];

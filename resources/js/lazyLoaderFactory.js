@@ -506,10 +506,14 @@ export function createLazyLoader(config) {
         }
       }
       if (entry.target.id === bottomSentinel.id) {
+        console.log('🔍 Bottom sentinel intersecting - attempting to load next chunk');
         const lastChunkEl = getLastChunkElement();
         if (lastChunkEl) {
           const lastChunkId = parseFloat(lastChunkEl.getAttribute("data-chunk-id"), 10);
+          console.log(`🔍 Last chunk in DOM: ${lastChunkId}, loading next chunk...`);
           loadNextChunkFixed(lastChunkId, instance);
+        } else {
+          console.warn('⚠️ Bottom sentinel intersecting but no chunks found in DOM');
         }
       }
     });
@@ -971,6 +975,7 @@ function getTextNodes(element) {
 // Update loadNextChunkFixed
 export function loadNextChunkFixed(currentLastChunkId, instance) {
   const currentId = parseFloat(currentLastChunkId);
+  console.log(`🔍 loadNextChunkFixed called with currentLastChunkId: ${currentId}`);
 
   let nextChunkId = null;
   let nextNodes = [];
@@ -982,6 +987,8 @@ export function loadNextChunkFixed(currentLastChunkId, instance) {
       nextChunkId = nodeChunkId;
     }
   }
+
+  console.log(`🔍 Found next chunk ID: ${nextChunkId} (searched ${instance.nodes.length} nodes)`);
 
   if (nextChunkId !== null) {
     if (instance.container.querySelector(`[data-chunk-id="${nextChunkId}"]`)) {
