@@ -148,7 +148,12 @@ export async function handleLargePaste(
       (o) => o[Object.keys(o)[0]].startLine
     );
     const maxNewLine = Math.max(...newLines);
+
+    console.log(`🔍 [TAIL RENUMBER] Getting existing chunks after node ${afterNodeId}...`);
     const existingChunks = await getNodeChunksAfter(book, afterNodeId);
+    console.log(`📊 [TAIL RENUMBER] Retrieved ${existingChunks.length} existing chunks:`,
+      existingChunks.map(c => `ID=${c.startLine} node_id=${c.node_id?.slice(-10)}`));
+
     let currentChunkId = state.currentChunkId;
     let nodesInCurrentChunk = state.nodesInCurrentChunk;
     const tailChunks = existingChunks.map((origChunk, idx) => {
@@ -162,6 +167,7 @@ export async function handleLargePaste(
         /id="\d+"/g,
         `id="${newStart}"`
       );
+      console.log(`  🔄 [TAIL RENUMBER] Chunk ${idx}: ${origChunk.startLine} → ${newStart} (node_id=${origChunk.node_id?.slice(-10)})`);
       nodesInCurrentChunk++;
       return {
         ...origChunk,
@@ -170,7 +176,13 @@ export async function handleLargePaste(
         content: updatedContent,
       };
     });
+
+    console.log(`✅ [TAIL RENUMBER] Created ${tailChunks.length} tail chunks with new IDs:`,
+      tailChunks.map(c => `ID=${c.startLine}`));
+
     toWrite = [...newChunks, ...tailChunks];
+    console.log(`📝 [TAIL RENUMBER] Final toWrite array: ${toWrite.length} chunks (${newChunks.length} new + ${tailChunks.length} tail)`);
+    console.log(`🗑️ [TAIL RENUMBER] Deleting all chunks after ${afterNodeId}...`);
     await deleteNodeChunksAfter(book, afterNodeId);
   }
 

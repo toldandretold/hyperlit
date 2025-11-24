@@ -293,75 +293,81 @@ async function handlePaste(event) {
 
     const loader = initializeMainLazyLoader();
 
-    console.log(`🔄 [${pasteOpId}] Updating lazy loader cache...`);
+    console.log(`🔄 [${pasteOpId}] Updating DOM in place (like full renumbering)...`);
 
-    // 1. Update cache from IndexedDB (truth source)
+    // 1. Update lazy loader cache from IndexedDB
     loader.nodes = await loader.getNodeChunks();
     console.log(`✅ [${pasteOpId}] Lazy loader cache updated: ${loader.nodes.length} nodes`);
 
-    // 2. Clear all chunks below insertion point from DOM
-    const insertionElement = document.getElementById(insertionPoint.beforeNodeId);
-    if (insertionElement) {
-      console.log(`🧹 [${pasteOpId}] Clearing chunks below insertion point...`);
-      let sibling = insertionElement.nextElementSibling;
-      let clearedCount = 0;
+    // 2. Update existing DOM elements in place using node_id as stable reference
+    // This mirrors the full renumbering approach in IDfunctions.js lines 182-194
+    let domUpdateCount = 0;
+    let newNodeCount = 0;
 
-      while (sibling) {
-        const next = sibling.nextElementSibling; // Save before removal
+    newAndUpdatedNodes.forEach(node => {
+      const element = document.querySelector(`[data-node-id="${node.node_id}"]`);
 
-        if (sibling.hasAttribute('data-chunk-id')) {
-          const chunkId = sibling.dataset.chunkId;
-          loader.currentlyLoadedChunks.delete(chunkId);
-          sibling.remove();
-          clearedCount++;
-        }
-
-        sibling = next;
+      if (element) {
+        // Existing element - just update its ID
+        const oldId = element.id;
+        element.id = node.startLine.toString();
+        domUpdateCount++;
+        console.log(`🔄 [${pasteOpId}] Updated existing node: ${oldId} → ${node.startLine} (${node.node_id.slice(-10)})`);
+      } else {
+        // New pasted element - needs to be inserted
+        newNodeCount++;
       }
+    });
 
-      console.log(`✅ [${pasteOpId}] Cleared ${clearedCount} chunks from DOM`);
+    console.log(`✅ [${pasteOpId}] Updated ${domUpdateCount} existing nodes in DOM`);
+    console.log(`🆕 [${pasteOpId}] Found ${newNodeCount} new nodes that need insertion`);
+
+    // 3. Insert new pasted nodes if any
+    if (newNodeCount > 0) {
+      // Find insertion point in DOM
+      const insertionElement = document.getElementById(insertionPoint.beforeNodeId);
+      if (insertionElement) {
+        // Create temporary container for new nodes
+        const tempContainer = document.createElement('div');
+
+        // Filter for only NEW nodes (those not already in DOM)
+        const newNodes = newAndUpdatedNodes.filter(n => !document.querySelector(`[data-node-id="${n.node_id}"]`));
+
+        newNodes.forEach(node => {
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = node.content;
+          const firstElement = tempDiv.querySelector('*');
+          if (firstElement) {
+            tempContainer.appendChild(firstElement);
+          }
+        });
+
+        // Insert all new nodes after the insertion point
+        let currentElement = insertionElement;
+        Array.from(tempContainer.children).forEach(child => {
+          currentElement.insertAdjacentElement('afterend', child);
+          currentElement = child;
+        });
+
+        console.log(`✅ [${pasteOpId}] Inserted ${newNodes.length} new pasted nodes into DOM`);
+      }
     }
 
-    // 3. Find first pasted node
-    const firstPastedNode = newAndUpdatedNodes[0];
-    const targetChunkId = firstPastedNode.chunk_id;
-    const firstPastedId = firstPastedNode.startLine.toString();
+    // 4. Find first pasted node for scrolling
+    const firstPastedId = newAndUpdatedNodes[0].startLine.toString();
 
-    console.log(`🎯 [${pasteOpId}] First pasted element: ${firstPastedId} in chunk ${targetChunkId}`);
-
-    // 4. Reload target chunk if already loaded (contains old data + new pasted content)
-    if (loader.currentlyLoadedChunks.has(targetChunkId)) {
-      console.log(`🔄 [${pasteOpId}] Reloading chunk ${targetChunkId} with fresh pasted content`);
-      const oldChunkElement = loader.container.querySelector(`[data-chunk-id="${targetChunkId}"]`);
-      if (oldChunkElement) {
-        oldChunkElement.remove();
-      }
-      loader.currentlyLoadedChunks.delete(targetChunkId);
-    }
-
-    // 5. Load chunk containing first pasted content
-    console.log(`📦 [${pasteOpId}] Loading chunk ${targetChunkId}`);
-    loader.loadChunk(targetChunkId, "down");
-
-    // 5a. Reposition sentinels to ensure lazy loading continues working
-    console.log(`🔄 [${pasteOpId}] Repositioning sentinels for continued lazy loading`);
-    const { repositionSentinels } = await import('../lazyLoaderFactory.js');
-    repositionSentinels(loader, true);
-
-    // 6. Scroll to first pasted element (use requestAnimationFrame to ensure chunk rendered)
+    // 5. Scroll to first pasted element
     requestAnimationFrame(() => {
       const targetElement = document.getElementById(firstPastedId);
 
       if (targetElement) {
         console.log(`✨ [${pasteOpId}] Scrolling to first pasted element: ${firstPastedId}`);
 
-        // Instant scroll to top of viewport
+        // Scroll to top of viewport
         targetElement.scrollIntoView({ block: 'start', behavior: 'instant' });
 
-        // Set focus
+        // Set focus and cursor
         targetElement.focus();
-
-        // Place cursor at end
         const selection = window.getSelection();
         const range = document.createRange();
         range.selectNodeContents(targetElement);
@@ -374,7 +380,7 @@ async function handlePaste(event) {
         console.warn(`⚠️ [${pasteOpId}] Could not find pasted element: ${firstPastedId}`);
       }
 
-      // 7. Hide modal after scroll completes
+      // Hide modal after scroll completes
       setTimeout(() => {
         if (window._activeProgressModal) {
           window._activeProgressModal.complete();
@@ -384,7 +390,7 @@ async function handlePaste(event) {
       }, 100);
     });
 
-    console.log(`🎯 [${pasteOpId}] Paste render complete - chunks loaded`);
+    console.log(`🎯 [${pasteOpId}] Paste render complete`);
 
     console.log(`🎯 [${pasteOpId}] Paste operation complete`);
 
