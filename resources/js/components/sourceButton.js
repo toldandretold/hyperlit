@@ -137,7 +137,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
 
     <br/>
     
-    <button id="download-md" class="download-btn">
+    <button type="button" id="download-md" class="download-btn">
   <div class="icon-wrapper">
     <svg
       class="download-icon"
@@ -158,13 +158,13 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
       </div>
     </button>
 
-    
-    <button id="download-docx" class="download-btn">
+
+    <button type="button" id="download-docx" class="download-btn">
   <div class="icon-wrapper">
     <svg
       class="download-icon"
       viewBox="0 0 31.004 31.004"
-      preserveAspectRatio="xMidYMid meet"  
+      preserveAspectRatio="xMidYMid meet"
       xmlns="http://www.w3.org/2000/svg"
     >
       <g fill="currentColor">
@@ -336,8 +336,16 @@ export class SourceContainerManager extends ContainerManager {
     const editBtn = this.container.querySelector("#edit-source");
     const privacyBtn = this.container.querySelector("#privacy-toggle");
 
-    if (mdBtn) mdBtn.addEventListener("click", () => exportBookAsMarkdown(book));
-    if (docxBtn) docxBtn.addEventListener("click", () => exportBookAsDocxStyled(book));
+    if (mdBtn) mdBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      exportBookAsMarkdown(book);
+    });
+    if (docxBtn) docxBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      exportBookAsDocxStyled(book);
+    });
     if (editBtn) editBtn.addEventListener("click", () => this.handleEditClick());
     if (privacyBtn) privacyBtn.addEventListener("click", () => this.handlePrivacyToggle());
 
@@ -938,8 +946,16 @@ export class SourceContainerManager extends ContainerManager {
     const docxBtn = this.container.querySelector("#download-docx");
     const editBtn = this.container.querySelector("#edit-source");
     
-    if (mdBtn) mdBtn.addEventListener("click", () => exportBookAsMarkdown(book));
-    if (docxBtn) docxBtn.addEventListener("click", () => exportBookAsDocxStyled(book));
+    if (mdBtn) mdBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      exportBookAsMarkdown(book);
+    });
+    if (docxBtn) docxBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      exportBookAsDocxStyled(book);
+    });
     if (editBtn) editBtn.addEventListener("click", () => this.handleEditClick());
   }
 }

@@ -172,7 +172,10 @@ export class LinkNavigationHandler {
     const isTocLink = link.closest('#toc-container');
     const isDeleteButton = link.classList.contains('delete-book') || link.closest('.delete-book');
 
-    if (isHypercite || isTocLink || isDeleteButton) {
+    // Skip blob URLs (downloads)
+    const isBlobUrl = linkUrl.protocol === 'blob:';
+
+    if (isHypercite || isTocLink || isDeleteButton || isBlobUrl) {
       return true;
     }
 
