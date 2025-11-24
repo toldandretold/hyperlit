@@ -1,0 +1,31 @@
+/**
+ * Light Theme Example
+ * Demonstrates how users can override variables to create custom themes
+ *
+ * To use: Import this after variables.css in your layout
+ */
+
+:root {
+  /* Inverted color scheme for light mode */
+  --color-background: #F5F5F5;
+  --color-text: #2C2C2C;
+
+  /* Adjust brand colors for light background */
+  --color-primary: #D63384;      /* Darker pink */
+  --color-secondary: #D47020;    /* Darker orange */
+  --color-accent: #3A8E90;       /* Darker aqua */
+
+  --color-link: #3A8E90;
+  --color-link-hover: #D63384;
+  --color-strong: #D47020;
+
+  /* Highlighting adjustments for light mode */
+  --highlight-base: #FFC0CB;     /* Light pink */
+  --highlight-user: #B0E0E6;     /* Light aqua */
+
+  /* Higher opacity needed on light backgrounds */
+  --hypercite-single-opacity: 0.4;
+  --hypercite-multi-opacity: 0.6;
+  --hypercite-dimmed-single: 0.2;
+  --hypercite-dimmed-multi: 0.4;
+}

@@ -1,10 +1,11 @@
-/* hyperlit colors:  
-orange #EF8D34; 
-pink #EE4A95; 
-aqua #4EACAE; 
-black #221F20; 
+/* hyperlit colors:
+orange #EF8D34;
+pink #EE4A95;
+aqua #4EACAE;
+black #221F20;
 "white" #CBCCCC*/
 
+@import url('./theme/variables.css');
 @import url('/public/fonts/inter/inter.css');
 
 body {
@@ -488,12 +489,24 @@ mark[data-highlight-count] {
   color: #CBCCCC;
 }
 
-mark:hover
- {
+mark:hover {
     text-decoration: none !important; /* Ensure no underline on hover */
     cursor: pointer;
-    background: #EE4A95;
-    
+    background-color: rgba(238, 74, 149, var(--highlight-intensity));
+    /* Brighten when dim by default */
+    filter: brightness(1.4);
+    transition: filter 200ms ease;
+}
+
+/* Dim when bright (3+ overlapping highlights) */
+mark[data-highlight-count="3"]:hover,
+mark[data-highlight-count="4"]:hover,
+mark[data-highlight-count="5"]:hover,
+mark[data-highlight-count="6"]:hover,
+mark[data-highlight-count="7"]:hover,
+mark[data-highlight-count="8"]:hover,
+mark[data-highlight-count="9"]:hover {
+    filter: brightness(0.75);
 }
 
 
@@ -505,10 +518,23 @@ mark[data-highlight-count].user-highlight {
 }
 
 mark[data-highlight-count].user-highlight:hover {
-    background-color: #4EACAE;
-
-    color: #221F20;
+    background-color: rgba(78, 172, 174, calc(var(--highlight-intensity) * 1.8));
+    /* Brighten when dim by default */
+    filter: brightness(1.4);
+    color: #CBCCCC;
     text-decoration: none !important;
+    transition: filter 200ms ease;
+}
+
+/* User highlights: Dim when bright (3+ overlaps) */
+mark[data-highlight-count].user-highlight[data-highlight-count="3"]:hover,
+mark[data-highlight-count].user-highlight[data-highlight-count="4"]:hover,
+mark[data-highlight-count].user-highlight[data-highlight-count="5"]:hover,
+mark[data-highlight-count].user-highlight[data-highlight-count="6"]:hover,
+mark[data-highlight-count].user-highlight[data-highlight-count="7"]:hover,
+mark[data-highlight-count].user-highlight[data-highlight-count="8"]:hover,
+mark[data-highlight-count].user-highlight[data-highlight-count="9"]:hover {
+    filter: brightness(0.75);
 }
 
 

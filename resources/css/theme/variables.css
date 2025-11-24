@@ -1,0 +1,97 @@
+/**
+ * Hyperlit Theme Variables
+ * Central source of truth for colors, spacing, and other design tokens
+ * Users can override these values with custom CSS to theme the entire app
+ */
+
+:root {
+  /* Brand Colors */
+  --hyperlit-orange: #EF8D34;
+  --hyperlit-pink: #EE4A95;
+  --hyperlit-aqua: #4EACAE;
+  --hyperlit-black: #221F20;
+  --hyperlit-white: #CBCCCC;
+
+  /* Semantic Color Assignments */
+  --color-background: var(--hyperlit-black);
+  --color-text: var(--hyperlit-white);
+  --color-primary: var(--hyperlit-pink);
+  --color-secondary: var(--hyperlit-orange);
+  --color-accent: var(--hyperlit-aqua);
+
+  /* Interactive Elements */
+  --color-link: var(--hyperlit-aqua);
+  --color-link-hover: var(--hyperlit-pink);
+  --color-strong: var(--hyperlit-orange);
+
+  /* Highlighting */
+  --highlight-base: var(--hyperlit-pink);
+  --highlight-user: var(--hyperlit-aqua);
+  --highlight-hover-multiplier: 1.4;
+  --highlight-user-hover-multiplier: 2.2;
+
+  /* Hypercite Underlines */
+  --hypercite-single-opacity: 0.2;
+  --hypercite-multi-opacity: 0.4;
+  --hypercite-dimmed-single: 0.1;
+  --hypercite-dimmed-multi: 0.3;
+  --hypercite-target-opacity: 1.0;
+
+  /* Typography */
+  --font-family-base: 'Inter', arial, sans-serif;
+  --font-family-mono: "Courier New", Courier, monospace;
+
+  --font-size-base: 28px;
+  --font-size-mobile: 18px;
+  --font-size-h1: 1.5em;
+  --font-size-h2: 1em;
+  --font-size-h3: 1em;
+  --font-size-h4: 0.8em;
+  --font-size-code: 20px;
+  --font-size-sup: 14px;
+
+  --line-height-base: 1.4;
+  --letter-spacing-tight: -0.03em;
+  --letter-spacing-medium: -0.02em;
+  --letter-spacing-light: -0.01em;
+
+  /* Spacing */
+  --spacing-xs: 0.2em;
+  --spacing-sm: 0.4em;
+  --spacing-md: 0.8em;
+  --spacing-lg: 1.6em;
+  --spacing-xl: 2em;
+
+  /* Transitions */
+  --transition-fast: 200ms ease;
+  --transition-medium: 500ms ease;
+  --transition-slow: 2000ms ease-in-out;
+
+  /* Borders & Radii */
+  --border-radius-sm: 3px;
+  --border-radius-md: 4px;
+  --border-radius-lg: 5px;
+  --border-radius-xl: 8px;
+
+  /* Z-index layers */
+  --z-container: 1;
+  --z-clickable: 2;
+  --z-overlay: 9999;
+
+  /* Gradient */
+  --gradient-hyperlit: linear-gradient(to right,
+    var(--hyperlit-pink),
+    var(--hyperlit-orange),
+    var(--hyperlit-aqua),
+    var(--hyperlit-pink));
+}
+
+/* Mobile overrides */
+@media only screen and (max-width: 500px) {
+  :root {
+    --font-size-base: var(--font-size-mobile);
+    --font-size-h1: 1.3em;
+    --font-size-code: 16px;
+    --font-size-sup: 12px;
+  }
+}

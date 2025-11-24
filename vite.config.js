@@ -126,6 +126,11 @@ export default defineConfig({
                 'resources/css/layout.css',
                 'resources/sass/app.scss',
 
+                // Theme system
+                'resources/css/theme/variables.css',
+                'resources/css/theme/light-theme.css',
+                'resources/css/theme/custom-theme-template.css',
+
                 // JAVASCRIPT (sorted, with new files added)
                 'resources/js/app.js',
                 'resources/js/chunkManager.js',
