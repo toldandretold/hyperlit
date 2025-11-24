@@ -72,12 +72,22 @@ export async function addToHighlightsTable(bookId, highlightData) {
 
     addRequest.onsuccess = () => {
       console.log("✅ Successfully added highlight to hyperlights table");
-      // MODIFIED: Resolve with the entry that was just saved.
-      resolve(highlightEntry);
     };
 
     addRequest.onerror = (event) => {
       console.error("❌ Error adding highlight to hyperlights table:", event.target.error);
+      reject(event.target.error);
+    };
+
+    // ✅ FIX: Wait for transaction to complete before resolving
+    // This ensures the data is committed and visible to subsequent readonly transactions
+    tx.oncomplete = () => {
+      console.log("✅ Transaction committed - highlight is now visible to other transactions");
+      resolve(highlightEntry);
+    };
+
+    tx.onerror = (event) => {
+      console.error("❌ Transaction error:", event.target.error);
       reject(event.target.error);
     };
   });

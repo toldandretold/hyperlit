@@ -1,0 +1,89 @@
+/**
+ * Custom Theme Template
+ * Copy this file and modify the values to create your own theme
+ *
+ * Usage:
+ * 1. Copy this file to 'my-theme.css'
+ * 2. Modify the color values below
+ * 3. Import in your layout AFTER variables.css:
+ *    <link rel="stylesheet" href="/css/theme/my-theme.css">
+ */
+
+:root {
+  /* ====================
+     PRIMARY COLORS
+     Change these to your preferred color scheme
+     ==================== */
+
+  /* Main background and text */
+  --color-background: #221F20;   /* Main background color */
+  --color-text: #CBCCCC;         /* Main text color */
+
+  /* Brand accent colors */
+  --color-primary: #EE4A95;      /* Primary accent (pink) */
+  --color-secondary: #EF8D34;    /* Secondary accent (orange) */
+  --color-accent: #4EACAE;       /* Tertiary accent (aqua) */
+
+  /* ====================
+     INTERACTIVE ELEMENTS
+     ==================== */
+
+  --color-link: #4EACAE;         /* Link color */
+  --color-link-hover: #EE4A95;   /* Link hover color */
+  --color-strong: #EF8D34;       /* Bold/strong text color */
+
+  /* ====================
+     HIGHLIGHTING
+     Customize how text highlights appear
+     ==================== */
+
+  --highlight-base: #EE4A95;     /* Default highlight color */
+  --highlight-user: #4EACAE;     /* User-created highlight color */
+
+  /* Hover intensity multipliers (1.0 = base, 2.0 = double) */
+  --highlight-hover-multiplier: 1.4;
+  --highlight-user-hover-multiplier: 2.2;
+
+  /* Hypercite underline opacity (0.0 - 1.0) */
+  --hypercite-single-opacity: 0.2;
+  --hypercite-multi-opacity: 0.4;
+  --hypercite-dimmed-single: 0.1;
+  --hypercite-dimmed-multi: 0.3;
+
+  /* ====================
+     TYPOGRAPHY
+     Customize fonts and sizes
+     ==================== */
+
+  --font-family-base: 'Inter', arial, sans-serif;
+  --font-family-mono: "Courier New", Courier, monospace;
+
+  --font-size-base: 28px;        /* Base font size for desktop */
+  --font-size-mobile: 18px;      /* Base font size for mobile */
+
+  /* Heading sizes (relative to base) */
+  --font-size-h1: 1.5em;
+  --font-size-h2: 1em;
+  --font-size-h3: 1em;
+  --font-size-h4: 0.8em;
+
+  /* ====================
+     SPACING
+     Adjust whitespace and layout
+     ==================== */
+
+  --spacing-xs: 0.2em;
+  --spacing-sm: 0.4em;
+  --spacing-md: 0.8em;
+  --spacing-lg: 1.6em;
+  --spacing-xl: 2em;
+
+  /* ====================
+     TRANSITIONS
+     Animation speeds
+     ==================== */
+
+  --transition-fast: 200ms ease;
+  --transition-medium: 500ms ease;
+  --transition-slow: 2000ms ease-in-out;
+}

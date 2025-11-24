@@ -1,9 +1,11 @@
-/* hyperlit colors: 
-orange #EF8D34; 
-pink #EE4A95; 
-aqua #4EACAE; 
-black #221F20; 
+/* hyperlit colors:
+orange #EF8D34;
+pink #EE4A95;
+aqua #4EACAE;
+black #221F20;
 "white" #CBCCCC*/
+
+@import url('./theme/variables.css');
 
 /* edit toolbar */
 #boldButton,
@@ -46,7 +48,7 @@ black #221F20;
 #toc-toggle-button {
   width: 26px;
   height: 26px;
-  background-color: #221F20;
+  background-color: var(--color-background);
   border: none;
   position: relative;
   display: flex;
@@ -63,7 +65,7 @@ black #221F20;
   border: none;
   cursor: pointer;
   padding: 0px;
-  stroke: #CBCCCC;
+  stroke: var(--color-text);
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -85,7 +87,7 @@ black #221F20;
 }
 
 #editButton.inverted {
-  background: #CBCCCC;
+  background: var(--color-text);
   width: 20px;
   height: 20px;
   border-radius: 4px;
@@ -95,11 +97,11 @@ black #221F20;
 }
 
 #editButton.inverted svg path {
-  stroke: #221F20;
+  stroke: var(--color-background);
 }
 
 #editButton.locked-state {
-  background: #221F20;
+  background: var(--color-background);
   color: #666666; /* Slightly muted color for lock */
   cursor: default !important;
   opacity: 0.8;
@@ -111,9 +113,9 @@ black #221F20;
 }
 
 .open {
-  background-color: #221F20;
+  background-color: var(--color-background);
   border: none;
-  color: #CBCCCC;
+  color: var(--color-text);
   font-size: 24px;
   
   width: 36px;
@@ -169,7 +171,7 @@ black #221F20;
 }
 
 #cloudRef:hover .cls-1 {
-  fill: #221F20;
+  fill: var(--color-background);
 }
 
 /* Container for both buttons */
@@ -277,7 +279,7 @@ black #221F20;
 #userLogo {
   height: 20px;
   width: 20px;
-  fill: #CBCCCC;
+  fill: var(--color-text);
 }
 
 #userButtonContainer {
@@ -363,7 +365,7 @@ black #221F20;
 
 .download-btn {
   background: transparent;
-  color: #CBCCCC;
+  color: var(--color-text);
   border: none;
   padding: 0.5em;
   border-radius: 0.25em;
@@ -545,7 +547,7 @@ black #221F20;
 .heading-remove-btn {
   background: transparent;
   border: none;
-  color: #CBCCCC;
+  color: var(--color-text);
   font-size: 14px;
   font-weight: 600;
   padding: 6px 12px;
@@ -824,8 +826,8 @@ black #221F20;
 
 .arranger-button {
   padding: 8px 16px;
-  background-color: #221F20;
-  color: #CBCCCC;
+  background-color: var(--color-background);
+  color: var(--color-text);
   border: 0px solid #555;
   border-radius: 0px;
   cursor: pointer;
@@ -868,7 +870,7 @@ black #221F20;
   #toc-toggle-button {
     width: 24px;
     height: 24px;
-    background-color: #221F20;
+    background-color: var(--color-background);
     border: none;
     position: relative;
     display: flex;
@@ -880,11 +882,11 @@ black #221F20;
   #editButton {
     width: 22px;
     height: 22px;
-    background: #221F20;
+    background: var(--color-background);
     border: none;
     cursor: pointer;
     padding: 0px;
-    stroke: #CBCCCC;
+    stroke: var(--color-text);
     box-sizing: border-box;
     display: flex;
     align-items: center;
@@ -892,7 +894,7 @@ black #221F20;
   }
 
   #editButton.inverted {
-    background: #CBCCCC;
+    background: var(--color-text);
     width: 22px;
     height: 22px;
     border-radius: 4px;
@@ -900,11 +902,11 @@ black #221F20;
   }
 
   #editButton.inverted svg path {
-    stroke: #221F20;
+    stroke: var(--color-background);
   }
 
   #editButton.locked-state {
-    background: #221F20;
+    background: var(--color-background);
     color: #666666; /* Slightly muted color for lock */
     cursor: default !important;
     opacity: 0.8;

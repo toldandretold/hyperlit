@@ -1,9 +1,11 @@
-/* hyperlit colors: 
-orange #EF8D34; 
-pink #EE4A95; 
-aqua #4EACAE; 
-black #221F20; 
+/* hyperlit colors:
+orange #EF8D34;
+pink #EE4A95;
+aqua #4EACAE;
+black #221F20;
 "white" #CBCCCC*/
+
+@import url('./theme/variables.css');
 
 /* Base styles for the TOC */
 #toc-container {
@@ -16,9 +18,9 @@ black #221F20;
   height: 90%;
   width: 60%;
   max-width: 30ch; /* 70ch text plus ~6ch padding (2em left + 1em right) */
-  background-color: rgba(34, 31, 32, 0.60); /* Semi-transparent version of #221F20 */
-  backdrop-filter: blur(10px); /* Glass blur effect */
-  -webkit-backdrop-filter: blur(10px); /* Safari support */
+  background-color: var(--container-glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   z-index: 1001;
   overflow: hidden; /* Ensure content doesn't overflow the container */
   padding-left: 1em;
@@ -137,8 +139,8 @@ black #221F20;
 }
 
 #newbook-container button:hover {
-  background-color: #4EACAE;
-  color: #221F20;
+  background-color: var(--hyperlit-aqua);
+  color: var(--hyperlit-black);
   cursor: pointer;
 }
 
@@ -306,9 +308,9 @@ black #221F20;
   max-height: calc(100vh - 2em); /* Maximum height (roughly 90% of viewport) */
   width: 60%;
   max-width: 30ch; /* 70ch text plus ~6ch padding (2em left + 1em right) */
-  background-color: rgba(34, 31, 32, 0.60); /* Semi-transparent version of #221F20 */
-  backdrop-filter: blur(10px); /* Glass blur effect */
-  -webkit-backdrop-filter: blur(10px); /* Safari support */
+  background-color: var(--container-glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   z-index: 1001;
   overflow: hidden; /* Ensure content doesn't overflow the container */
   padding-left: 1em;
@@ -502,7 +504,7 @@ black #221F20;
 
 
 #toc-container h1.first {
-    color: #EF8D34 !important;
+    color: var(--hyperlit-orange) !important;
     padding-top: 1em;
 }
 
@@ -651,13 +653,13 @@ black #221F20;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #221F20;
+  background: var(--color-background);
   z-index: 9999;
   padding: 1em;
 }
 
 .progress-modal-content {
-  background: #CBCCCC;
+  background: var(--color-text);
   padding: 2em;
   border-radius: 4px;
   width: 400px; /* Fixed width for desktop */
@@ -668,7 +670,7 @@ black #221F20;
 .progress-text {
   margin: 0 0 1em 0;
   font-size: 16px;
-  color: #221F20;
+  color: var(--hyperlit-black);
   text-align: center;
 }
 
@@ -683,7 +685,7 @@ black #221F20;
 
 .progress-bar {
   height: 100%;
-  background: linear-gradient(to right, #EE4A95, #EF8D34, #4EACAE, #EE4A95);
+  background: var(--gradient-hyperlit);
   width: 0%;
   transition: width 0.3s;
 }
@@ -816,9 +818,9 @@ black #221F20;
 #newbook-container input[type="url"],
 #newbook-container textarea {
   margin-bottom: 0.25em;
-  background-color: #2A2A2A !important;
+  background-color: var(--container-solid-bg) !important;
   border: 1px solid #444 !important;
-  color: #CBCCCC !important;
+  color: var(--color-text) !important;
   padding: 8px !important;
   border-radius: 4px !important;
 }
@@ -969,8 +971,8 @@ black #221F20;
 }
 
 #newbook-container button[type="submit"]:not(:disabled) {
-  background-color: #4EACAE;
-  color: #221F20;
+  background-color: var(--hyperlit-aqua);
+  color: var(--hyperlit-black);
 }
 
 #newbook-container button[type="submit"]:not(:disabled):hover {
@@ -1052,9 +1054,9 @@ black #221F20;
 #source-container input[type="url"],
 #source-container textarea {
   margin-bottom: 0.25em;
-  background-color: #2A2A2A !important;
+  background-color: var(--container-solid-bg) !important;
   border: 1px solid #444 !important;
-  color: #CBCCCC !important;
+  color: var(--color-text) !important;
   padding: 8px !important;
   border-radius: 4px !important;
 }

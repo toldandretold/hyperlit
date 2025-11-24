@@ -73,18 +73,45 @@ export async function rebuildNodeArrays(nodes) {
 async function queryHyperlightsByNodes(db, nodeUUIDs) {
   const tx = db.transaction('hyperlights', 'readonly');
   const store = tx.objectStore('hyperlights');
+
+  // 🔍 DEBUG: Check if index exists
+  console.log('🔍 DEBUG: Available indexes:', Array.from(store.indexNames));
+
+  if (!store.indexNames.contains('node_id')) {
+    console.error('❌ CRITICAL: node_id index does not exist on hyperlights store!');
+    console.error('❌ Database needs to be upgraded to version 24');
+    return [];
+  }
+
   const index = store.index('node_id'); // Multi-entry index on node_id array
 
   // Use a Set to deduplicate (a hyperlight spanning multiple nodes will be found multiple times)
   const resultsMap = new Map(); // Use Map to deduplicate by hyperlight_id
 
+  // 🔍 DEBUG: Let's also check what's in the store directly
+  const allRequest = store.getAll();
+  const allHyperlights = await new Promise((resolve, reject) => {
+    allRequest.onsuccess = () => resolve(allRequest.result || []);
+    allRequest.onerror = () => reject(allRequest.error);
+  });
+  console.log(`🔍 DEBUG: Total hyperlights in store: ${allHyperlights.length}`, allHyperlights);
+  console.log(`🔍 DEBUG: Looking for nodeUUIDs:`, nodeUUIDs);
+  console.log(`🔍 DEBUG: Hyperlights node_id fields:`, allHyperlights.map(hl => ({
+    id: hl.hyperlight_id,
+    node_id: hl.node_id,
+    node_id_type: typeof hl.node_id,
+    node_id_isArray: Array.isArray(hl.node_id)
+  })));
+
   // Query each UUID using the index - each query is O(1) with the index
   for (const uuid of nodeUUIDs) {
+    console.log(`🔍 DEBUG: Querying index for UUID: ${uuid}`);
     const req = index.getAll(uuid);
     const matches = await new Promise((resolve, reject) => {
       req.onsuccess = () => resolve(req.result || []);
       req.onerror = () => reject(req.error);
     });
+    console.log(`🔍 DEBUG: Found ${matches.length} matches for UUID ${uuid}:`, matches);
 
     // Add to map, keyed by hyperlight_id to avoid duplicates
     matches.forEach(hl => {
@@ -94,8 +121,22 @@ async function queryHyperlightsByNodes(db, nodeUUIDs) {
     });
   }
 
+  // 🔍 DEBUG: Fallback - manually filter all hyperlights if index returned nothing
+  if (resultsMap.size === 0 && allHyperlights.length > 0) {
+    console.warn('⚠️ DEBUG: Index returned no results, falling back to manual filtering');
+    allHyperlights.forEach(hl => {
+      if (hl && hl.node_id && Array.isArray(hl.node_id)) {
+        const hasMatch = hl.node_id.some(id => nodeUUIDs.includes(id));
+        if (hasMatch) {
+          console.log(`🔍 DEBUG: Manual filter found match:`, hl.hyperlight_id, hl.node_id);
+          resultsMap.set(hl.hyperlight_id, hl);
+        }
+      }
+    });
+  }
+
   const results = Array.from(resultsMap.values());
-  console.log(`🔍 NEW SYSTEM: Queried hyperlights index for ${nodeUUIDs.length} nodes, found ${results.length} hyperlights (fast indexed lookup)`);
+  console.log(`🔍 NEW SYSTEM: Queried hyperlights index for ${nodeUUIDs.length} nodes, found ${results.length} hyperlights (indexed: ${results.length > 0 || allHyperlights.length === 0}, fallback used: ${results.length > 0 && resultsMap.size > 0})`);
 
   return results;
 }

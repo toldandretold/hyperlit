@@ -1,5 +1,7 @@
 /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black #221F20 */
 
+@import url('./theme/variables.css');
+
 /* User-home delete icon sizing and alignment */
 .libraryCard { position: relative; padding-right: 28px; }
 .libraryCard .delete-book { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding: 2px; }
