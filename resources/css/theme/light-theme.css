@@ -1,31 +1,39 @@
 /**
- * Light Theme Example
- * Demonstrates how users can override variables to create custom themes
+ * Light Theme
+ * Inverted color scheme optimized for daylight reading
  *
- * To use: Import this after variables.css in your layout
+ * To use: Load this CSS file after the main stylesheets
+ * In console: const link = document.createElement('link'); link.rel = 'stylesheet';
+ * link.href = '/build/assets/light-theme-[hash].css'; document.head.appendChild(link);
  */
 
 :root {
-  /* Inverted color scheme for light mode */
-  --color-background: #F5F5F5;
-  --color-text: #2C2C2C;
+  /* Inverted base colors */
+  --hyperlit-black: #F5F5F5;     /* Light background */
+  --hyperlit-white: #2C2C2C;     /* Dark text */
 
-  /* Adjust brand colors for light background */
-  --color-primary: #D63384;      /* Darker pink */
-  --color-secondary: #D47020;    /* Darker orange */
-  --color-accent: #3A8E90;       /* Darker aqua */
+  /* Adjust brand colors for visibility on light */
+  --hyperlit-pink: #D63384;      /* Darker pink */
+  --hyperlit-orange: #D47020;    /* Darker orange */
+  --hyperlit-aqua: #2B7A7B;      /* Darker aqua */
 
-  --color-link: #3A8E90;
-  --color-link-hover: #D63384;
-  --color-strong: #D47020;
+  /* Semantic assignments auto-update */
+  --color-background: var(--hyperlit-black);
+  --color-text: var(--hyperlit-white);
+  --color-primary: var(--hyperlit-pink);
+  --color-secondary: var(--hyperlit-orange);
+  --color-accent: var(--hyperlit-aqua);
+  --color-link: var(--hyperlit-aqua);
+  --color-link-hover: var(--hyperlit-pink);
+  --color-strong: var(--hyperlit-orange);
 
-  /* Highlighting adjustments for light mode */
-  --highlight-base: #FFC0CB;     /* Light pink */
-  --highlight-user: #B0E0E6;     /* Light aqua */
+  /* Container backgrounds for light mode */
+  --container-glass-bg: rgba(245, 245, 245, 0.80);
+  --container-solid-bg: #E8E8E8;
 
   /* Higher opacity needed on light backgrounds */
-  --hypercite-single-opacity: 0.4;
-  --hypercite-multi-opacity: 0.6;
-  --hypercite-dimmed-single: 0.2;
-  --hypercite-dimmed-multi: 0.4;
+  --hypercite-single-opacity: 0.5;
+  --hypercite-multi-opacity: 0.7;
+  --hypercite-dimmed-single: 0.3;
+  --hypercite-dimmed-multi: 0.5;
 }

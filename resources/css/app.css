@@ -9,8 +9,10 @@ black #221F20;
 @import url('/public/fonts/inter/inter.css');
 
 body {
-    font-size: 28px;
+    font-size: var(--font-size-base);
     overflow-x: hidden;
+    background-color: var(--color-background);
+    color: var(--color-text);
 }
 
 /* Prevent horizontal overflow globally */
@@ -33,7 +35,7 @@ img {
 }
 
 #conversion-message {
-    color: #221F20;
+    color: var(--hyperlit-black);
 }
 
 
@@ -52,12 +54,11 @@ p {
     text-align: left;
     hyphens: auto;
     font-size: 1em;
-    color: #CBCCCC;
+    color: var(--color-text);
     font-weight: 350;
-    letter-spacing: -.02em;
+    letter-spacing: var(--letter-spacing-medium);
     word-spacing: -0.02em;
-    line-height: 1.4; /* set so that sup tags do not make some lines higher than others */
-  
+    line-height: var(--line-height-base);
 }
 
 
@@ -68,23 +69,23 @@ p[data-original-line="1"] {
 
 u.single {
   text-decoration: underline;
-  text-decoration-skip-ink: auto; 
-  text-decoration-color: rgba(203, 204, 204, var(--hypercite-intensity, 0.2)); /* Transparent underline with variable intensity */
+  text-decoration-skip-ink: auto;
+  text-decoration-color: rgba(203, 204, 204, var(--hypercite-intensity, var(--hypercite-single-opacity)));
 }
 
 
 u.couple, u.poly {
     text-decoration: none;
     display: inline;
-    background-image: linear-gradient(to right, 
-        rgba(238, 74, 149, var(--hypercite-intensity, 0.4)), 
-        rgba(239, 141, 52, var(--hypercite-intensity, 0.4)), 
-        rgba(78, 172, 174, var(--hypercite-intensity, 0.4)), 
-        rgba(238, 74, 149, var(--hypercite-intensity, 0.4)));
-    background-position: 0 1.04em; /* Position just below the text baseline */
+    background-image: linear-gradient(to right,
+        rgba(238, 74, 149, var(--hypercite-intensity, var(--hypercite-multi-opacity))),
+        rgba(239, 141, 52, var(--hypercite-intensity, var(--hypercite-multi-opacity))),
+        rgba(78, 172, 174, var(--hypercite-intensity, var(--hypercite-multi-opacity))),
+        rgba(238, 74, 149, var(--hypercite-intensity, var(--hypercite-multi-opacity))));
+    background-position: 0 1.04em;
     background-repeat: no-repeat;
-    background-size: 100% 2.5px; /* Width of the underline */
-    padding-bottom: 3px; /* Space for the underline */
+    background-size: 100% 2.5px;
+    padding-bottom: 3px;
 }
 
 /* Hypercite navigation states */
@@ -95,15 +96,15 @@ u.hypercite-target {
 
 /* Single hypercites get dimmed to 50% of their already dim state */
 u.single.hypercite-dimmed {
-    --hypercite-intensity: 0.1 !important; /* 50% of 0.2 = 0.1 */
-    transition: all 2000ms ease-in-out; /* Smooth transition for dimming */
+    --hypercite-intensity: var(--hypercite-dimmed-single) !important;
+    transition: all var(--transition-slow);
 }
 
 /* Couple/poly hypercites get dimmed to about 70% of their current intensity */
 u.couple.hypercite-dimmed,
 u.poly.hypercite-dimmed {
-    --hypercite-intensity: 0.3 !important; /* Dimmed from 0.4+ down to 0.3 */
-    transition: all 2000ms ease-in-out; /* Smooth transition for dimming */
+    --hypercite-intensity: var(--hypercite-dimmed-multi) !important;
+    transition: all var(--transition-slow);
 }
 
 /* Special styling for single hypercites when they're the target */
@@ -177,52 +178,46 @@ span.open-icon.arrow-target {
 }
 
 b, strong {
-    color: #EF8D34;
+    color: var(--color-strong);
 }
 
 h1 {
-    font-size: 1.5em;
-    color: #CBCCCC;
+    font-size: var(--font-size-h1);
+    color: var(--color-text);
     font-weight: 700;
-    letter-spacing: -0.03em;
+    letter-spacing: var(--letter-spacing-tight);
     margin-bottom: 0em;
-
 }
 
 h2 {
-    color: #CBCCCC;
-    font-size: 1em;
-    letter-spacing: -0.02em;
+    color: var(--color-text);
+    font-size: var(--font-size-h2);
+    letter-spacing: var(--letter-spacing-medium);
     margin-top: 1.6em;
     margin-bottom: .4em;
     font-weight: 650;
-
 }
 
 h3 {
-    font-size: 1em;
-    color: #CBCCCC;
+    font-size: var(--font-size-h3);
+    color: var(--color-text);
     margin-top: 1.6em;
     margin-bottom: .4em;
-    letter-spacing: -0.01em;
+    letter-spacing: var(--letter-spacing-light);
     font-weight: 550;
-    
 }
 
 h4, h5, h6 {
-    font-size: .8em;
-    color: #CBCCCC;
+    font-size: var(--font-size-h4);
+    color: var(--color-text);
     margin-top: 1.6em;
     margin-bottom: .4em;
-    letter-spacing: -0.01em;
+    letter-spacing: var(--letter-spacing-light);
     font-weight: 550;
-    
 }
 
 blockquote {
-    
-    color: #CBCCCC;
-    
+    color: var(--color-text);
     padding: 1em;
     padding-left: 1rem;
     display: flow-root;
@@ -285,21 +280,21 @@ blockquote {
 
 ins {
     text-decoration: underline;
-    text-decoration-thickness: 4px; /* Adjust thickness as needed */
+    text-decoration-thickness: 4px;
     text-decoration-color: transparent;
-    background: linear-gradient(to right, #EE4A95, #EF8D34, #4EACAE, #EE4A95);
-    background-size: 100% 4px; /* Adjust thickness here as well */
+    background: var(--gradient-hyperlit);
+    background-size: 100% 4px;
     background-repeat: no-repeat;
     background-position: 0 100%;
 }
 
 blockquote strong {
-    color: #221F20;
+    color: var(--hyperlit-black);
 }
 
 sup {
-    color: #EE4A95;
-    font-size: 14px;
+    color: var(--color-primary);
+    font-size: var(--font-size-sup);
 }
 
 
@@ -314,7 +309,7 @@ sup.open-icon {
 
 
 .footnote-ref {
-    color: #EE4A95;
+    color: var(--color-primary);
 }
 
 /* Touch-friendly footnotes and citations */
@@ -357,11 +352,11 @@ sup[fn-count-id]:active,
 /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black 221F20 */
     
 li {
-    color: #CBCCCC;
-    margin-bottom: 0.3em; /* Space between list items */
-    margin-left: 1em; /* Small indent for the entire list item */
-    padding-left: 0; /* No additional padding */
-    line-height: 1.4; /* Match paragraph line height */
+    color: var(--color-text);
+    margin-bottom: 0.3em;
+    margin-left: 1em;
+    padding-left: 0;
+    line-height: var(--line-height-base);
     word-wrap: break-word;
     overflow-wrap: break-word;
 }
@@ -374,7 +369,7 @@ li p {
 }
 
 a {
-    color: #4EACAE;
+    color: var(--color-link);
     text-decoration: none;
     outline: none;
     word-break: break-word;
@@ -414,13 +409,11 @@ ol {
 }
 
 code {
-    /* Base styles for inline code */
-    /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black #221F20 */
-    font-family: "Courier New", Courier, monospace; 
-    background-color: #4EACAE;
+    font-family: var(--font-family-mono);
+    background-color: var(--color-accent);
     padding: 2px 4px;
-    border-radius: 4px;
-    font-size: 20px;
+    border-radius: var(--border-radius-md);
+    font-size: var(--font-size-code);
 }
 
     /* Base styles for code blocks */
@@ -437,7 +430,7 @@ pre code {
 }
 
 hr {
-    border-color: #EE4A95;
+    border-color: var(--color-primary);
     opacity: 0.5;
 }
 
@@ -445,8 +438,8 @@ hr {
 
 /* change cursor behaviour for links in editable div */
 #html-editor a {
-    cursor: pointer; /* Change the cursor to a pointer (arrow) */
-    color: #221F20;
+    cursor: pointer;
+    color: var(--hyperlit-black);
 }
 
 /* Disable iOS long-press text selection menu */
@@ -486,16 +479,15 @@ mark[data-highlight-count] {
   position: relative;
   background-color: rgba(238, 74, 149, var(--highlight-intensity));
   border-width: calc(var(--highlight-intensity) * 3px);
-  color: #CBCCCC;
+  color: var(--color-text);
 }
 
 mark:hover {
-    text-decoration: none !important; /* Ensure no underline on hover */
+    text-decoration: none !important;
     cursor: pointer;
     background-color: rgba(238, 74, 149, var(--highlight-intensity));
-    /* Brighten when dim by default */
     filter: brightness(1.4);
-    transition: filter 200ms ease;
+    transition: filter var(--transition-fast);
 }
 
 /* Dim when bright (3+ overlapping highlights) */
@@ -512,18 +504,17 @@ mark[data-highlight-count="9"]:hover {
 
 /* User-specific overrides (more specific, comes after) */
 mark[data-highlight-count].user-highlight {
-    background-color: rgba(78, 172, 174, calc(var(--highlight-intensity) * 1.8 ));
-    color: #CBCCCC;
+    background-color: rgba(78, 172, 174, calc(var(--highlight-intensity) * 1.8));
+    color: var(--color-text);
     text-decoration: none !important;
 }
 
 mark[data-highlight-count].user-highlight:hover {
     background-color: rgba(78, 172, 174, calc(var(--highlight-intensity) * 1.8));
-    /* Brighten when dim by default */
     filter: brightness(1.4);
-    color: #CBCCCC;
+    color: var(--color-text);
     text-decoration: none !important;
-    transition: filter 200ms ease;
+    transition: filter var(--transition-fast);
 }
 
 /* User highlights: Dim when bright (3+ overlaps) */
@@ -610,27 +601,22 @@ caption {
 
 .bookmark-indicator {
     position: relative;
-    background-color: #c0392b; /* red */
-    color: #221F20;
+    background-color: #c0392b;
+    color: var(--hyperlit-black);
     padding: 8px 30px;
     font-size: 1em;
     font-weight: bold;
     display: inline-block;
-    /* Optional: remove any border or shadow if you don't need it */
 }
 
-/* Pseudo-element that creates an inward (concave) notch on the right */
 .bookmark-indicator::before {
   content: "";
   position: absolute;
   top: 0;
   right: 0;
-  width: 10px; /* Adjust width to control notch size */
+  width: 10px;
   height: 100%;
-  background-color: #221F20;
-  /* This clip-path creates a triangle starting at the top-right, 
-     going to the left center, then down to the bottom-right.
-     This makes the triangle point inward. */
+  background-color: var(--color-background);
   clip-path: polygon(100% 0, 0 50%, 100% 100%);
 }
 
@@ -655,8 +641,7 @@ div::-webkit-scrollbar {
     }
 
 #citedInHyperlight {
-
-    color: #EE4A95;
+    color: var(--color-primary);
 }
 
 /* Ensure annotation container allows interaction */

@@ -19,6 +19,10 @@
   --color-secondary: var(--hyperlit-orange);
   --color-accent: var(--hyperlit-aqua);
 
+  /* Container backgrounds */
+  --container-glass-bg: rgba(34, 31, 32, 0.60);
+  --container-solid-bg: #2A2A2A;
+
   /* Interactive Elements */
   --color-link: var(--hyperlit-aqua);
   --color-link-hover: var(--hyperlit-pink);
