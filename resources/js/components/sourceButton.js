@@ -605,15 +605,43 @@ export class SourceContainerManager extends ContainerManager {
     }
   }
 
+  cleanUrl(url) {
+    if (!url) return url;
+
+    try {
+      const urlObj = new URL(url);
+
+      // Common tracking parameters to remove
+      const trackingParams = [
+        'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+        'fbclid', 'gclid', 'msclkid', 'mc_cid', 'mc_eid',
+        '_ga', '_gl', 'ref', 'source', 'referrer'
+      ];
+
+      // Remove tracking parameters
+      trackingParams.forEach(param => {
+        urlObj.searchParams.delete(param);
+      });
+
+      return urlObj.toString();
+    } catch (e) {
+      // If URL is invalid, return as-is
+      return url;
+    }
+  }
+
   validateUrl(value) {
     if (!value) return { valid: true, message: '' }; // Optional field
-    
+
     // Auto-format URL if it doesn't have a protocol
     let formattedUrl = value.trim();
     if (formattedUrl && !formattedUrl.match(/^https?:\/\//i)) {
       formattedUrl = `https://${formattedUrl}`;
     }
-    
+
+    // Clean tracking parameters from URL
+    formattedUrl = this.cleanUrl(formattedUrl);
+
     try {
       new URL(formattedUrl);
       return { valid: true, message: 'Valid URL', formattedValue: formattedUrl };
