@@ -509,9 +509,10 @@ export function updateIndexedDBRecord(record) {
         // 🔥 USE PROCESSED CONTENT (WITHOUT MARK/U TAGS)
         if (processedData) {
           toSave.content = processedData.content;
-          // Update hyperlights and hypercites arrays in the node chunk
-          toSave.hyperlights = processedData.hyperlights;
-          toSave.hypercites = processedData.hypercites;
+          // ✅ NEW SYSTEM: Don't set arrays here - they'll be rebuilt from normalized tables
+          // Keep existing arrays or initialize empty if missing
+          if (!toSave.hyperlights) toSave.hyperlights = [];
+          if (!toSave.hypercites) toSave.hypercites = [];
         } else {
           // Fallback to record.html if no DOM node available
           toSave.content = record.html;
@@ -586,6 +587,21 @@ export function updateIndexedDBRecord(record) {
         savedHypercites.forEach((hc) => {
           queueForSync("hypercites", hc.hyperciteId, "update", hc);
         });
+
+        // ✅ NEW SYSTEM: Rebuild node arrays from normalized tables
+        if (savedNodeChunk && savedNodeChunk.node_id) {
+          try {
+            const { rebuildNodeArrays, getNodesByUUIDs } = await import('../hydration/rebuild.js');
+            const nodes = await getNodesByUUIDs([savedNodeChunk.node_id]);
+            if (nodes.length > 0) {
+              await rebuildNodeArrays(nodes);
+              console.log(`✅ NEW SYSTEM: Rebuilt arrays for node ${savedNodeChunk.node_id} after update`);
+            }
+          } catch (error) {
+            console.error('❌ NEW SYSTEM: Error rebuilding arrays after update:', error);
+            // Don't fail the whole operation if rebuild fails
+          }
+        }
 
         resolve();
       };
@@ -712,8 +728,10 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
         toSave = { ...existing };
         if (processedData) {
           toSave.content = processedData.content;
-          toSave.hyperlights = processedData.hyperlights;
-          toSave.hypercites = processedData.hypercites;
+          // ✅ NEW SYSTEM: Don't set arrays here - they'll be rebuilt from normalized tables
+          // Keep existing arrays or initialize empty if missing
+          if (!toSave.hyperlights) toSave.hyperlights = [];
+          if (!toSave.hypercites) toSave.hypercites = [];
         } else {
           toSave.content = record.html || existing.content;
         }
@@ -786,6 +804,25 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
         allSavedHypercites.forEach((hc) => {
           queueForSync("hypercites", hc.hyperciteId, "update", hc, null);
         });
+
+        // ✅ NEW SYSTEM: Rebuild node arrays from normalized tables for all affected nodes
+        const affectedNodeUUIDs = allSavedNodeChunks
+          .map(chunk => chunk.node_id)
+          .filter(Boolean);
+
+        if (affectedNodeUUIDs.length > 0) {
+          try {
+            const { rebuildNodeArrays, getNodesByUUIDs } = await import('../hydration/rebuild.js');
+            const nodes = await getNodesByUUIDs(affectedNodeUUIDs);
+            if (nodes.length > 0) {
+              await rebuildNodeArrays(nodes);
+              console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${nodes.length} nodes after batch update`);
+            }
+          } catch (error) {
+            console.error('❌ NEW SYSTEM: Error rebuilding arrays after batch update:', error);
+            // Don't fail the whole operation if rebuild fails
+          }
+        }
 
         resolve();
       };
