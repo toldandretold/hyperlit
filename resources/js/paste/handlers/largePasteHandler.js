@@ -5,7 +5,7 @@
  * Converts blocks to JSON, writes to IndexedDB, syncs to PostgreSQL immediately.
  */
 
-import { getNextIntegerId } from '../../utilities/IDfunctions.js';
+import { getNextIntegerId, generateNodeId } from '../../utilities/IDfunctions.js';
 import { NODE_LIMIT } from '../../chunkManager.js';
 import {
   getNodeChunksAfter,
@@ -15,7 +15,6 @@ import {
 import { showSpinner, showError } from '../../components/editIndicator.js';
 import { processContentForFootnotesAndReferences } from '../fallback-processor.js';
 import { parseHtmlToBlocks } from '../utils/html-block-parser.js';
-import { convertToJsonObjects } from '../utils/content-converter.js';
 
 /**
  * Handle large paste operations (>10 nodes)
@@ -111,13 +110,52 @@ export async function handleLargePaste(
     : processedContent.split(/\n\s*\n/).filter((blk) => blk.trim());
   if (!textBlocks.length) return [];
 
-  const { jsonObjects: newJsonObjects, state } = convertToJsonObjects(
-    textBlocks,
-    insertionPoint
-  );
-  const newChunks = newJsonObjects.map((obj, index) => {
-    const key = Object.keys(obj)[0];
-    const { content, startLine, chunk_id, node_id } = obj[key];
+  // ✅ FIX: Get existing tail nodes FIRST before assigning any IDs
+  console.log(`🔍 [PASTE] Getting existing chunks after node ${beforeNodeId}...`);
+  const existingTailChunks = afterNodeId != null
+    ? await getNodeChunksAfter(book, beforeNodeId)
+    : [];
+  console.log(`📊 [PASTE] Retrieved ${existingTailChunks.length} existing tail chunks:`,
+    existingTailChunks.map(c => `ID=${c.startLine} node_id=${c.node_id?.slice(-10)}`));
+
+  // Now assign IDs to pasted nodes, knowing what exists
+  let currentChunkId = insertionPoint.chunkId;
+  let nodesInCurrentChunk = insertionPoint.currentChunkNodeCount;
+  let currentStartLine = Math.floor(parseFloat(beforeNodeId));
+
+  const newChunks = textBlocks.map((block, index) => {
+    // Rotate chunk if needed
+    if (nodesInCurrentChunk >= NODE_LIMIT) {
+      currentChunkId = getNextIntegerId(currentChunkId);
+      nodesInCurrentChunk = 0;
+    }
+
+    // Assign new ID with 100-unit gap
+    currentStartLine += 100;
+    const startLine = currentStartLine;
+
+    // Generate fresh node_id UUID (never reuse from clipboard)
+    const node_id = generateNodeId(book);
+
+    // Convert text to HTML with IDs
+    const trimmed = block.trim();
+    let content;
+    if (trimmed.startsWith('<') && trimmed.endsWith('>')) {
+      // It's HTML - add/update the ID and data-node-id on the first element
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = trimmed;
+      const firstElement = tempDiv.querySelector('*');
+      if (firstElement) {
+        firstElement.id = startLine.toString();
+        firstElement.setAttribute('data-node-id', node_id);
+        content = tempDiv.innerHTML;
+      } else {
+        content = trimmed;
+      }
+    } else {
+      // Plain text - wrap in paragraph
+      content = `<p id="${startLine}" data-node-id="${node_id}">${trimmed}</p>`;
+    }
 
     // Validate that content starts with an HTML element, not raw text
     const temp = document.createElement('div');
@@ -130,45 +168,44 @@ export async function handleLargePaste(
       });
     }
 
+    nodesInCurrentChunk++;
+
+    console.log(`📝 [PASTE] Pasted node ${index}: startLine=${startLine}, node_id=${node_id.slice(-10)}`);
+
     return {
-      book: insertionPoint.book,
+      book,
       startLine,
-      chunk_id,
+      chunk_id: currentChunkId,
       content,
-      node_id,  // Include node_id for stable tracking
+      node_id,
       hyperlights: [],
       hypercites: [],
       footnotes: [],
     };
   });
 
+  const maxNewLine = Math.max(...newChunks.map(c => c.startLine));
+  console.log(`✅ [PASTE] Created ${newChunks.length} pasted chunks with IDs up to ${maxNewLine}`);
+
+  // Renumber tail chunks to come AFTER pasted nodes
   let toWrite = newChunks;
-  if (afterNodeId != null) {
-    const newLines = newJsonObjects.map(
-      (o) => o[Object.keys(o)[0]].startLine
-    );
-    const maxNewLine = Math.max(...newLines);
-
-    console.log(`🔍 [TAIL RENUMBER] Getting existing chunks after node ${afterNodeId}...`);
-    const existingChunks = await getNodeChunksAfter(book, afterNodeId);
-    console.log(`📊 [TAIL RENUMBER] Retrieved ${existingChunks.length} existing chunks:`,
-      existingChunks.map(c => `ID=${c.startLine} node_id=${c.node_id?.slice(-10)}`));
-
-    let currentChunkId = state.currentChunkId;
-    let nodesInCurrentChunk = state.nodesInCurrentChunk;
-    const tailChunks = existingChunks.map((origChunk, idx) => {
+  if (existingTailChunks.length > 0) {
+    const tailChunks = existingTailChunks.map((origChunk, idx) => {
       if (nodesInCurrentChunk >= NODE_LIMIT) {
         currentChunkId = getNextIntegerId(currentChunkId);
         nodesInCurrentChunk = 0;
       }
-      // Use 100-unit gaps for tail renumbering too (consistent with paste and renumbering system)
+
+      // Assign new startLine after all pasted nodes
       const newStart = maxNewLine + ((idx + 1) * 100);
       const updatedContent = origChunk.content.replace(
-        /id="\d+"/g,
+        /id="\d+(\.\d+)?"/g,
         `id="${newStart}"`
       );
+
       console.log(`  🔄 [TAIL RENUMBER] Chunk ${idx}: ${origChunk.startLine} → ${newStart} (node_id=${origChunk.node_id?.slice(-10)})`);
       nodesInCurrentChunk++;
+
       return {
         ...origChunk,
         startLine: newStart,
@@ -181,9 +218,7 @@ export async function handleLargePaste(
       tailChunks.map(c => `ID=${c.startLine}`));
 
     toWrite = [...newChunks, ...tailChunks];
-    console.log(`📝 [TAIL RENUMBER] Final toWrite array: ${toWrite.length} chunks (${newChunks.length} new + ${tailChunks.length} tail)`);
-    console.log(`🗑️ [TAIL RENUMBER] Deleting all chunks after ${afterNodeId}...`);
-    await deleteNodeChunksAfter(book, afterNodeId);
+    console.log(`📝 [FINAL] Total chunks to write: ${toWrite.length} (${newChunks.length} pasted + ${tailChunks.length} tail)`);
   }
 
   console.log(`Writing ${toWrite.length} chunks to IndexedDB`);
@@ -212,7 +247,7 @@ export async function handleLargePaste(
   showSpinner();
 
   try {
-    const response = await fetch('/api/db/node-chunks/upsert', {
+    const response = await fetch('/api/db/node-chunks/targeted-upsert', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
