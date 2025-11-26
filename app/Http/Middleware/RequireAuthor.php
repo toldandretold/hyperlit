@@ -29,8 +29,9 @@ class RequireAuthor
 
     private function isValidAnonymousToken($token)
     {
+        // Anonymous sessions valid for 90 days (reduced from 365 for security)
         return AnonymousSession::where('token', $token)
-            ->where('created_at', '>', now()->subDays(365))
+            ->where('created_at', '>', now()->subDays(90))
             ->exists();
     }
 

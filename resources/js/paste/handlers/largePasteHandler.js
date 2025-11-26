@@ -15,6 +15,7 @@ import {
 import { showSpinner, showError } from '../../components/editIndicator.js';
 import { processContentForFootnotesAndReferences } from '../fallback-processor.js';
 import { parseHtmlToBlocks } from '../utils/html-block-parser.js';
+import { ProgressOverlayConductor } from '../../navigation/ProgressOverlayConductor.js';
 
 /**
  * Handle large paste operations (>10 nodes)
@@ -37,6 +38,9 @@ export async function handleLargePaste(
   extractedReferences = []
 ) {
   event.preventDefault();
+
+  // Show progress overlay for large paste operation
+  ProgressOverlayConductor.showSPATransition(10, 'Processing paste...');
 
   // --- 1. USE PROCESSOR-EXTRACTED FOOTNOTES AND REFERENCES ---
   let processedContent = pastedContent;
@@ -118,15 +122,30 @@ export async function handleLargePaste(
   console.log(`📊 [PASTE] Retrieved ${existingTailChunks.length} existing tail chunks:`,
     existingTailChunks.map(c => `ID=${c.startLine} node_id=${c.node_id?.slice(-10)}`));
 
+  // Delete old tail nodes from IndexedDB (they'll be re-inserted with new IDs)
+  if (afterNodeId != null && existingTailChunks.length > 0) {
+    console.log(`🗑️ [PASTE] Deleting ${existingTailChunks.length} old tail chunks from IndexedDB...`);
+    await deleteNodeChunksAfter(book, beforeNodeId);
+    console.log(`✅ [PASTE] Old tail chunks deleted from IndexedDB`);
+  }
+
   // Now assign IDs to pasted nodes, knowing what exists
+  // IMPORTANT: Don't trust insertionPoint.currentChunkNodeCount - it's from DOM, not IndexedDB
+  // We need to count how many nodes are ACTUALLY in this chunk from what we just retrieved
+  const { getNodeChunksFromIndexedDB } = await import('../../indexedDB/index.js');
+  const allNodesInBook = await getNodeChunksFromIndexedDB(book);
+  const actualNodesInInsertionChunk = allNodesInBook.filter(n => n.chunk_id === insertionPoint.chunkId).length;
+
   let currentChunkId = insertionPoint.chunkId;
-  let nodesInCurrentChunk = insertionPoint.currentChunkNodeCount;
+  let nodesInCurrentChunk = actualNodesInInsertionChunk;
   let currentStartLine = Math.floor(parseFloat(beforeNodeId));
+
+  console.log(`🔍 [PASTE] Insertion chunk ${currentChunkId} has ${nodesInCurrentChunk} nodes (will rotate if >= ${NODE_LIMIT})`);
 
   const newChunks = textBlocks.map((block, index) => {
     // Rotate chunk if needed
     if (nodesInCurrentChunk >= NODE_LIMIT) {
-      currentChunkId = getNextIntegerId(currentChunkId);
+      currentChunkId = parseInt(getNextIntegerId(currentChunkId)); // Parse to number
       nodesInCurrentChunk = 0;
     }
 
@@ -170,8 +189,6 @@ export async function handleLargePaste(
 
     nodesInCurrentChunk++;
 
-    console.log(`📝 [PASTE] Pasted node ${index}: startLine=${startLine}, node_id=${node_id.slice(-10)}`);
-
     return {
       book,
       startLine,
@@ -192,7 +209,7 @@ export async function handleLargePaste(
   if (existingTailChunks.length > 0) {
     const tailChunks = existingTailChunks.map((origChunk, idx) => {
       if (nodesInCurrentChunk >= NODE_LIMIT) {
-        currentChunkId = getNextIntegerId(currentChunkId);
+        currentChunkId = parseInt(getNextIntegerId(currentChunkId)); // Parse to number
         nodesInCurrentChunk = 0;
       }
 
@@ -203,7 +220,6 @@ export async function handleLargePaste(
         `id="${newStart}"`
       );
 
-      console.log(`  🔄 [TAIL RENUMBER] Chunk ${idx}: ${origChunk.startLine} → ${newStart} (node_id=${origChunk.node_id?.slice(-10)})`);
       nodesInCurrentChunk++;
 
       return {
@@ -214,14 +230,14 @@ export async function handleLargePaste(
       };
     });
 
-    console.log(`✅ [TAIL RENUMBER] Created ${tailChunks.length} tail chunks with new IDs:`,
-      tailChunks.map(c => `ID=${c.startLine}`));
+    console.log(`✅ [TAIL RENUMBER] Renumbered ${tailChunks.length} tail nodes`);
 
     toWrite = [...newChunks, ...tailChunks];
     console.log(`📝 [FINAL] Total chunks to write: ${toWrite.length} (${newChunks.length} pasted + ${tailChunks.length} tail)`);
   }
 
   console.log(`Writing ${toWrite.length} chunks to IndexedDB`);
+  ProgressOverlayConductor.updateProgress(40, 'Saving to IndexedDB...');
   await writeNodeChunks(toWrite);
 
   // Save extracted footnotes and references to IndexedDB
@@ -239,45 +255,12 @@ export async function handleLargePaste(
     }
   }
 
-  // For paste operations, sync immediately to PostgreSQL using bulk upsert
-  // (Don't use debounced queue - that's for individual edits)
-  console.log(`📤 Immediately syncing ${toWrite.length} pasted chunks to PostgreSQL...`);
-
-  // Show orange indicator while syncing
-  showSpinner();
-
-  try {
-    const response = await fetch('/api/db/node-chunks/targeted-upsert', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        book: insertionPoint.book,
-        data: toWrite
-      })
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('❌ Failed to sync paste to PostgreSQL:', error);
-      showError(); // Show red indicator on failure
-    } else {
-      const result = await response.json();
-      console.log('✅ Paste synced to PostgreSQL:', result);
-      // Don't call showTick() here - wait until entire paste operation completes
-    }
-  } catch (error) {
-    console.error('❌ Error syncing paste to PostgreSQL:', error);
-    showError(); // Show red indicator on exception
-  }
-
   // Invalidate TOC cache after paste (heading IDs have changed)
   const { invalidateTocCache } = await import('../../components/toc.js');
   invalidateTocCache();
   console.log('🔄 TOC cache invalidated after paste');
 
-  return toWrite;
+  // Return data for DOM insertion
+  // PostgreSQL sync will happen in background after DOM is visible (in index.js)
+  return { chunks: toWrite, book: insertionPoint.book };
 }

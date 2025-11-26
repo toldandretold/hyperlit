@@ -122,8 +122,6 @@ export class GeneralProcessor extends BaseFormatProcessor {
 
           footnoteMappings.set(identifier, { uniqueId, uniqueRefId });
           p.remove();
-
-          console.log(`  - Extracted markdown footnote ${identifier}`);
         }
       }
     });
