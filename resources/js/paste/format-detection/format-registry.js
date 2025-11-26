@@ -83,7 +83,9 @@ export const FORMAT_REGISTRY = {
       '.ref-lnk.lazy-ref.bibr',
       '.NLM_sec',
       '.hlFld-Abstract',
-      'li[id^="CIT"]'
+      'li[id^="CIT"]',
+      'a[href*="tandfonline.com"]',  // Catch T&F by domain
+      '[data-pb-dropzone]'  // T&F uses pb-dropzone divs
     ],
     processor: TaylorFrancisProcessor,
     priority: 2,

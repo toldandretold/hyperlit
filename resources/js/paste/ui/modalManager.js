@@ -60,41 +60,10 @@ export function hideConversionModal() {
 }
 
 /**
- * Show progress modal for markdown conversion
- * @returns {Object} - Modal controller with update/complete methods
+ * REMOVED: showProgressModal()
+ *
+ * Markdown conversion now uses ProgressOverlayConductor for consistent UX.
+ * This function has been replaced with the unified progress overlay system.
+ *
+ * See: resources/js/navigation/ProgressOverlayConductor.js
  */
-export async function showProgressModal() {
-  const modal = document.createElement("div");
-  modal.className = "progress-modal";
-
-  modal.innerHTML = `
-    <div class="progress-modal-content">
-      <p class="progress-text">Converting Markdown...</p>
-      <div class="progress-bar-container">
-        <div class="progress-bar"></div>
-      </div>
-      <p class="progress-details">Preparing...</p>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-
-  const bar = modal.querySelector('.progress-bar');
-  const text = modal.querySelector('.progress-text');
-  const details = modal.querySelector('.progress-details');
-
-  return {
-    modal,
-    updateProgress: (percent, current, total) => {
-      bar.style.width = percent + '%';
-      text.textContent = `Converting Markdown... ${Math.round(percent)}%`;
-      details.textContent = `Processing chunk ${current} of ${total}`;
-    },
-    complete: () => {
-      bar.style.width = '100%';
-      text.textContent = 'Conversion Complete!';
-      details.textContent = 'Finalizing...';
-      setTimeout(() => modal.remove(), 500);
-    }
-  };
-}
