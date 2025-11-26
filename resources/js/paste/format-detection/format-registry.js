@@ -11,7 +11,6 @@ import { OupProcessor } from '../format-processors/oup-processor.js';
 import { SageProcessor } from '../format-processors/sage-processor.js';
 import { ScienceDirectProcessor } from '../format-processors/science-direct-processor.js';
 import { SpringerProcessor } from '../format-processors/springer-processor.js';
-import { MobileIOSProcessor } from '../format-processors/mobile-ios-processor.js';
 
 /**
  * Format registry structure:
@@ -27,18 +26,6 @@ import { MobileIOSProcessor } from '../format-processors/mobile-ios-processor.js
 export const FORMAT_REGISTRY = {
   // NOTE: Formats are checked in priority order (highest first)
   // More specific formats should have higher priority
-
-  // Mobile iOS - Priority 6 (check before journal formats)
-  'mobile-ios': {
-    selectors: [
-      'p[style*="margin: 0.0px"]',
-      'p[style*="font-weight: bold"]',
-      'p[style*="webkit"]'
-    ],
-    processor: MobileIOSProcessor,
-    priority: 6,
-    description: 'iOS browser clipboard (Safari, Firefox, DuckDuckGo) with inline styles'
-  },
 
   // Science Direct - Priority 5
   'science-direct': {
@@ -96,7 +83,9 @@ export const FORMAT_REGISTRY = {
       '.ref-lnk.lazy-ref.bibr',
       '.NLM_sec',
       '.hlFld-Abstract',
-      'li[id^="CIT"]'
+      'li[id^="CIT"]',
+      'a[href*="tandfonline.com"]',  // Catch T&F by domain
+      '[data-pb-dropzone]'  // T&F uses pb-dropzone divs
     ],
     processor: TaylorFrancisProcessor,
     priority: 2,

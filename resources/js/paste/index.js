@@ -25,7 +25,7 @@ import { marked } from 'marked';
 import { book } from '../app.js';
 import { getCurrentChunk } from '../chunkManager.js';
 import { initializeMainLazyLoader } from '../initializePage.js';
-import { showTick } from '../components/editIndicator.js';
+import { showTick, showSpinner, showError } from '../components/editIndicator.js';
 import {
   setPasteInProgress,
   isPasteInProgress as isPasteInProgressState
@@ -38,7 +38,7 @@ import { handleLargePaste } from './handlers/largePasteHandler.js';
 import { handleHypercitePaste, extractQuotedText } from './handlers/hyperciteHandler.js';
 
 // Import UI
-import { showProgressModal } from './ui/modalManager.js';
+import { ProgressOverlayConductor } from '../navigation/ProgressOverlayConductor.js';
 
 // Import utilities
 import { detectFormat } from './format-detection/format-detector.js';
@@ -77,6 +77,56 @@ export function addPasteListener(editableDiv) {
 // Export extractQuotedText for external use
 // Re-export from utilities (moved to avoid circular dependency with hyperlights)
 export { extractQuotedText } from '../utilities/textExtraction.js';
+
+/**
+ * Sync pasted nodes to PostgreSQL in background
+ * Fire-and-forget function that handles errors gracefully
+ */
+async function syncPasteToPostgreSQL(bookId) {
+  console.log(`📤 Syncing FULL BOOK to PostgreSQL in background after paste...`);
+
+  // Show orange indicator while syncing
+  showSpinner();
+
+  try {
+    // Get ALL nodes for the book from IndexedDB
+    const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index.js');
+    const allNodes = await getNodeChunksFromIndexedDB(bookId);
+    console.log(`📊 Retrieved ${allNodes.length} total nodes from IndexedDB for full book sync`);
+
+    // Full book sync: deletes all existing nodes for book, then inserts all fresh
+    const response = await fetch('/api/db/node-chunks/upsert', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        book: bookId,
+        data: allNodes
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('❌ Failed to sync full book to PostgreSQL:', error);
+      showError();
+      throw new Error(`Full book sync failed: ${error}`);
+    }
+
+    const result = await response.json();
+    console.log('✅ Full book synced to PostgreSQL:', result);
+
+    // Show green tick when sync completes
+    showTick();
+
+  } catch (error) {
+    console.error('❌ Error syncing full book to PostgreSQL:', error);
+    showError();
+    throw error; // Re-throw for caller's catch block
+  }
+}
 
 /**
  * Main paste event handler
@@ -240,19 +290,16 @@ async function handlePaste(event) {
         event.preventDefault(); // This is now safe to call
 
         if (plainText.length > 1000) {
-          const progressModal = await showProgressModal();
-          // Store modal reference for later cleanup (after paste completes)
-          window._activeProgressModal = progressModal;
+          ProgressOverlayConductor.showSPATransition(5, 'Converting Markdown...');
           try {
-            const dirty = await processMarkdownInChunks(plainText, (p, c, t) =>
-              progressModal.updateProgress(p, c, t)
-            );
+            const dirty = await processMarkdownInChunks(plainText, (percent, current, total) => {
+              ProgressOverlayConductor.updateProgress(percent, `Processing chunk ${current}/${total}`);
+            });
             htmlContent = DOMPurify.sanitize(dirty, { USE_PROFILES: { html: true } });
-            // Don't complete modal yet - wait until after paste and scroll complete
+            // Don't hide overlay yet - wait until after paste and scroll complete
           } catch (error) {
             console.error("Error during chunked conversion:", error);
-            progressModal.modal.remove();
-            window._activeProgressModal = null;
+            await ProgressOverlayConductor.hide();
             return;
           }
         } else {
@@ -272,6 +319,8 @@ async function handlePaste(event) {
 
     // 5) Route to the correct handler (small vs. large paste).
     if (handleSmallPaste(event, htmlContent, plainText, estimatedNodes, book)) {
+      // Small paste completed - hide overlay if it was shown (markdown conversion)
+      await ProgressOverlayConductor.hide();
       return;
     }
 
@@ -282,7 +331,7 @@ async function handlePaste(event) {
     }
     const contentToProcess = htmlContent || plainText;
 
-    const newAndUpdatedNodes = await handleLargePaste(
+    const pasteResult = await handleLargePaste(
       event,
       insertionPoint,
       contentToProcess,
@@ -292,117 +341,99 @@ async function handlePaste(event) {
       extractedReferences // Pass processor-extracted references
     );
 
-    if (!newAndUpdatedNodes || newAndUpdatedNodes.length === 0) {
+    if (!pasteResult || !pasteResult.chunks || pasteResult.chunks.length === 0) {
       console.log(`🎯 [${pasteOpId}] Paste resulted in no new nodes. Aborting render.`);
       return;
     }
 
+    const newAndUpdatedNodes = pasteResult.chunks;
+    const pasteBook = pasteResult.book;
+
     const loader = initializeMainLazyLoader();
 
-    console.log(`🔄 [${pasteOpId}] Updating DOM in place (like full renumbering)...`);
+    console.log(`🔄 [${pasteOpId}] Refreshing DOM via lazy loader...`);
 
     // 1. Update lazy loader cache from IndexedDB
     loader.nodes = await loader.getNodeChunks();
     console.log(`✅ [${pasteOpId}] Lazy loader cache updated: ${loader.nodes.length} nodes`);
 
-    // 2. Update existing DOM elements in place using node_id as stable reference
-    // This mirrors the full renumbering approach in IDfunctions.js lines 182-194
-    let domUpdateCount = 0;
-    let newNodeCount = 0;
+    // DEBUG: Log first pasted node's chunk assignment
+    const firstPastedStartLine = newAndUpdatedNodes[0].startLine;
+    const firstPastedChunkId = newAndUpdatedNodes[0].chunk_id;
+    console.log(`🔍 [${pasteOpId}] First pasted node: ID=${firstPastedStartLine}, chunk_id=${firstPastedChunkId}`);
 
-    newAndUpdatedNodes.forEach(node => {
-      const element = document.querySelector(`[data-node-id="${node.node_id}"]`);
+    // DEBUG: Check if first pasted node is in lazy loader cache
+    const firstPastedInCache = loader.nodes.find(n => n.startLine === firstPastedStartLine);
+    console.log(`🔍 [${pasteOpId}] First pasted node in cache:`, firstPastedInCache ? `YES (chunk_id=${firstPastedInCache.chunk_id})` : 'NO');
 
-      if (element) {
-        // Existing element - just update its ID
-        const oldId = element.id;
-        element.id = node.startLine.toString();
-        domUpdateCount++;
-        console.log(`🔄 [${pasteOpId}] Updated existing node: ${oldId} → ${node.startLine} (${node.node_id.slice(-10)})`);
-      } else {
-        // New pasted element - needs to be inserted
-        newNodeCount++;
-      }
+    // DEBUG: Log all nodes in insertion chunk from cache
+    const insertionChunkId = insertionPoint.chunkId;
+    const nodesInInsertionChunk = loader.nodes.filter(n => n.chunk_id === insertionChunkId);
+    console.log(`🔍 [${pasteOpId}] Nodes in chunk ${insertionChunkId} from cache: ${nodesInInsertionChunk.length} nodes`);
+    console.log(`🔍 [${pasteOpId}] Chunk ${insertionChunkId} startLine range:`,
+      nodesInInsertionChunk.length > 0
+        ? `${Math.min(...nodesInInsertionChunk.map(n => n.startLine))} - ${Math.max(...nodesInInsertionChunk.map(n => n.startLine))}`
+        : 'EMPTY');
+
+    // 2. Remove ALL chunks from DOM (clean slate)
+    const allChunks = Array.from(loader.container.querySelectorAll('[data-chunk-id]'));
+    console.log(`🗑️ [${pasteOpId}] Removing ${allChunks.length} chunks from DOM for clean reload...`);
+
+    allChunks.forEach(chunk => {
+      const chunkId = parseInt(chunk.dataset.chunkId);
+      chunk.remove();
+      loader.currentlyLoadedChunks.delete(chunkId);
     });
 
-    console.log(`✅ [${pasteOpId}] Updated ${domUpdateCount} existing nodes in DOM`);
-    console.log(`🆕 [${pasteOpId}] Found ${newNodeCount} new nodes that need insertion`);
+    console.log(`✅ [${pasteOpId}] All chunks removed from DOM`);
 
-    // 3. Insert new pasted nodes if any
-    if (newNodeCount > 0) {
-      // Find insertion point in DOM
-      const insertionElement = document.getElementById(insertionPoint.beforeNodeId);
-      if (insertionElement) {
-        // Create temporary container for new nodes
-        const tempContainer = document.createElement('div');
+    // 3. Reload only the insertion chunk (lazy loader will handle the rest on scroll)
+    console.log(`📥 [${pasteOpId}] Reloading chunk ${insertionChunkId} with pasted content...`);
+    loader.loadChunk(insertionChunkId, 'down');
+    console.log(`✅ [${pasteOpId}] Chunk ${insertionChunkId} reloaded into DOM`);
 
-        // Filter for only NEW nodes (those not already in DOM)
-        const newNodes = newAndUpdatedNodes.filter(n => !document.querySelector(`[data-node-id="${n.node_id}"]`));
+    // Reposition sentinels to wrap around the newly loaded chunk
+    loader.repositionSentinels();
+    console.log(`✅ [${pasteOpId}] Sentinels repositioned for lazy loading`);
 
-        newNodes.forEach(node => {
-          const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = node.content;
-          const firstElement = tempDiv.querySelector('*');
-          if (firstElement) {
-            tempContainer.appendChild(firstElement);
-          }
-        });
+    // 4. Find first pasted node and scroll to it
+    const firstPastedId = firstPastedStartLine.toString();
+    const targetElement = document.getElementById(firstPastedId);
 
-        // Insert all new nodes after the insertion point
-        let currentElement = insertionElement;
-        Array.from(tempContainer.children).forEach(child => {
-          currentElement.insertAdjacentElement('afterend', child);
-          currentElement = child;
-        });
+    if (targetElement) {
+      console.log(`✨ [${pasteOpId}] Scrolling to first pasted element: ${firstPastedId}`);
 
-        console.log(`✅ [${pasteOpId}] Inserted ${newNodes.length} new pasted nodes into DOM`);
-      }
+      // Scroll to top of viewport
+      targetElement.scrollIntoView({ block: 'start', behavior: 'instant' });
+
+      // Set focus and cursor
+      targetElement.focus();
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(targetElement);
+      range.collapse(false); // Collapse to end
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      console.log(`✅ [${pasteOpId}] Scrolled to and focused pasted element`);
+    } else {
+      console.warn(`⚠️ [${pasteOpId}] Could not find pasted element: ${firstPastedId}`);
     }
 
-    // 4. Find first pasted node for scrolling
-    const firstPastedId = newAndUpdatedNodes[0].startLine.toString();
-
-    // 5. Scroll to first pasted element
-    requestAnimationFrame(() => {
-      const targetElement = document.getElementById(firstPastedId);
-
-      if (targetElement) {
-        console.log(`✨ [${pasteOpId}] Scrolling to first pasted element: ${firstPastedId}`);
-
-        // Scroll to top of viewport
-        targetElement.scrollIntoView({ block: 'start', behavior: 'instant' });
-
-        // Set focus and cursor
-        targetElement.focus();
-        const selection = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(targetElement);
-        range.collapse(false); // Collapse to end
-        selection.removeAllRanges();
-        selection.addRange(range);
-
-        console.log(`✅ [${pasteOpId}] Scrolled to and focused pasted element`);
-      } else {
-        console.warn(`⚠️ [${pasteOpId}] Could not find pasted element: ${firstPastedId}`);
-      }
-
-      // Hide modal after scroll completes
-      setTimeout(() => {
-        if (window._activeProgressModal) {
-          window._activeProgressModal.complete();
-          window._activeProgressModal = null;
-          console.log(`🎯 [${pasteOpId}] Progress modal completed`);
-        }
-      }, 100);
-    });
+    // Hide overlay immediately after scroll (DOM is already visible)
+    await ProgressOverlayConductor.hide();
+    console.log(`🎯 [${pasteOpId}] Progress overlay hidden - content visible`);
 
     console.log(`🎯 [${pasteOpId}] Paste render complete`);
 
-    console.log(`🎯 [${pasteOpId}] Paste operation complete`);
+    // Sync FULL BOOK to PostgreSQL in background (fire and forget - don't block user)
+    // Full sync ensures no orphaned records after paste renumbering
+    syncPasteToPostgreSQL(pasteBook).catch(err => {
+      console.error('❌ Background full book sync failed:', err);
+      showError();
+    });
 
-    // Show green indicator now that entire paste operation is complete
-    // (sync, DOM manipulation, lazy loading, scrolling all done)
-    showTick();
+    console.log(`🎯 [${pasteOpId}] Paste operation complete (full book sync happening in background)`);
 
   } finally {
     // THIS IS ESSENTIAL: No matter what happens, re-enable the observer.
