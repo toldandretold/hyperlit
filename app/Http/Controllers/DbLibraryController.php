@@ -99,19 +99,20 @@ class DbLibraryController extends Controller
             Log::info('No token provided for validation');
             return false;
         }
-        
+
+        // Anonymous sessions valid for 90 days (reduced from 365 for security)
         $session = AnonymousSession::where('token', $token)
-            ->where('created_at', '>', now()->subDays(365))
+            ->where('created_at', '>', now()->subDays(90))
             ->first();
-            
+
         $isValid = $session !== null;
-        
+
         Log::info('Token validation result', [
             'token_length' => strlen($token),
             'session_found' => $isValid,
             'session_created_at' => $session ? $session->created_at : null
         ]);
-        
+
         return $isValid;
     }
 

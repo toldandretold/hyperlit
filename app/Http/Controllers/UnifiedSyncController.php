@@ -90,6 +90,9 @@ class UnifiedSyncController extends Controller
                     $hyperciteRequest->setUserResolver(function () use ($request) {
                         return $request->user();
                     });
+                    foreach ($request->cookies as $key => $value) {
+                        $hyperciteRequest->cookies->set($key, $value);
+                    }
 
                     $response = $hyperciteController->upsert($hyperciteRequest);
                     $results['hypercites'] = json_decode($response->getContent(), true);

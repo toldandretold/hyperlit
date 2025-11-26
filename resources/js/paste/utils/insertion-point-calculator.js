@@ -71,7 +71,7 @@ export function getInsertionPoint(chunkElement, book) {
   const currentChunkNodeCount = chunkNodeCounts[chunkId] || 0;
 
   const result = {
-    chunkId: chunkId,
+    chunkId: parseInt(chunkId), // Parse to number (not string)
     currentNodeId: currentNodeId,
     beforeNodeId: beforeNodeId,
     afterNodeId: afterNodeId,

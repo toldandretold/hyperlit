@@ -126,7 +126,7 @@ export async function handleLargePaste(
   const newChunks = textBlocks.map((block, index) => {
     // Rotate chunk if needed
     if (nodesInCurrentChunk >= NODE_LIMIT) {
-      currentChunkId = getNextIntegerId(currentChunkId);
+      currentChunkId = parseInt(getNextIntegerId(currentChunkId)); // Parse to number
       nodesInCurrentChunk = 0;
     }
 
@@ -192,7 +192,7 @@ export async function handleLargePaste(
   if (existingTailChunks.length > 0) {
     const tailChunks = existingTailChunks.map((origChunk, idx) => {
       if (nodesInCurrentChunk >= NODE_LIMIT) {
-        currentChunkId = getNextIntegerId(currentChunkId);
+        currentChunkId = parseInt(getNextIntegerId(currentChunkId)); // Parse to number
         nodesInCurrentChunk = 0;
       }
 

@@ -103,6 +103,12 @@ async function handlePaste(event) {
     let plainText = event.clipboardData.getData("text/plain");
     let rawHtml = event.clipboardData.getData("text/html") || "";
 
+    // 🔍 DEBUG: Log clipboard HTML to see iOS structure
+    console.log(`🔍 [${pasteOpId}] Clipboard HTML (first 3000 chars):`, rawHtml.substring(0, 3000));
+    console.log(`🔍 [${pasteOpId}] Has inline styles:`, rawHtml.includes('style='));
+    console.log(`🔍 [${pasteOpId}] Has margin 0.0px:`, rawHtml.includes('margin: 0.0px'));
+    console.log(`🔍 [${pasteOpId}] Has webkit:`, rawHtml.includes('webkit'));
+
     // Strip all smart quotes and backticks immediately to prevent any issues
     plainText = plainText
       .replace(/'/g, "'")  // Replace smart single quotes with regular ones
