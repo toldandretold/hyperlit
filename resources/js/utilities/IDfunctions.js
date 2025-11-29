@@ -3,6 +3,7 @@ import { getAllNodeChunksForBook, renumberNodeChunksInIndexedDB } from "../index
 import { syncIndexedDBtoPostgreSQL } from "../postgreSQL.js";
 import { book } from "../app.js";
 import { showTick, showError } from "../components/editIndicator.js";
+import { ProgressOverlayConductor } from "../navigation/ProgressOverlayConductor.js";
 
 // Renumbering system: When IDs get crowded, renumber with 100-gaps
 // Uses node_id as stable reference to preserve node identity
@@ -10,63 +11,6 @@ import { showTick, showError } from "../components/editIndicator.js";
 // Track if renumbering is in progress
 let isRenumberingInProgress = false;
 let renumberingPromise = null;
-
-// Create renumbering modal (similar to paste.js conversion modal)
-const renumberModal = document.createElement("div");
-renumberModal.id = "renumber-modal";
-renumberModal.style.cssText = `
-  position: fixed;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(34, 31, 32, 0.95);
-  z-index: 10000;
-  color: #CBCCCC;
-  pointer-events: all;
-`;
-renumberModal.innerHTML = `
-  <div style="
-    background: #CBCCCC;
-    padding: 2em 3em;
-    border-radius: 4px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    font: 16px sans-serif;
-    color: #221F20;
-    text-align: center;
-  ">
-    <p id="renumber-message" style="margin:0 0 1em 0; font-weight: bold;">
-      Renumbering document nodes...
-    </p>
-    <p id="renumber-details" style="margin:0; font-size: 14px; color: #666;">
-      Please wait...
-    </p>
-  </div>
-`;
-
-// Append modal when DOM is ready
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => {
-    document.body.appendChild(renumberModal);
-  });
-} else {
-  if (document.body) {
-    document.body.appendChild(renumberModal);
-  }
-}
-
-async function showRenumberModal(message, details = '') {
-  renumberModal.querySelector("#renumber-message").textContent = message;
-  renumberModal.querySelector("#renumber-details").textContent = details;
-  renumberModal.style.display = "flex";
-  // Wait two frames to ensure it's painted
-  await new Promise(requestAnimationFrame);
-  await new Promise(requestAnimationFrame);
-}
-
-function hideRenumberModal() {
-  renumberModal.style.display = "none";
-}
 
 /**
  * Trigger renumbering with UI modal (non-blocking)
@@ -89,13 +33,14 @@ export async function triggerRenumberingWithModal(delayMs = 100) {
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }
 
-      await showRenumberModal('Renumbering document...', 'Reorganizing node IDs with 100-unit gaps');
+      // Show progress overlay with custom message and block interactions
+      ProgressOverlayConductor.showSPATransition(10, 'god damn vibe coders!', true);
       await renumberAllNodes();
-      // renumberAllNodes() handles modal hiding and flag reset on success
+      // renumberAllNodes() handles overlay hiding and flag reset on success
       return true;
     } catch (error) {
       console.error('❌ Renumbering failed:', error);
-      hideRenumberModal();
+      await ProgressOverlayConductor.hide();
       isRenumberingInProgress = false;
       renumberingPromise = null;
       alert('Renumbering failed. Please try again.');
@@ -225,9 +170,9 @@ async function renumberAllNodes() {
       console.warn('⚠️ RENUMBERING: Could not update cache - currentLazyLoader not available');
     }
 
-    // 9. Hide modal and continue
+    // 9. Hide overlay and continue
     console.log('🎉 RENUMBERING COMPLETE');
-    hideRenumberModal();
+    await ProgressOverlayConductor.hide();
     isRenumberingInProgress = false;
     renumberingPromise = null;
 
@@ -237,6 +182,8 @@ async function renumberAllNodes() {
     console.error('❌ RENUMBERING FAILED:', error);
     // Show red error indicator
     showError();
+    // Hide overlay on error
+    await ProgressOverlayConductor.hide();
     // Re-enable mutation observer even on failure
     window.renumberingInProgress = false;
     console.log('🔓 RENUMBERING: Mutation observer re-enabled (after error)');

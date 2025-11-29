@@ -11,8 +11,12 @@ export class ProgressOverlayConductor {
   /**
    * Show progress for initial page loads (pathway 1)
    * Uses the full overlay system
+   *
+   * @param {number} percent - Progress percentage (0-100)
+   * @param {string} message - Progress message to display
+   * @param {boolean} blockInteractions - If true, block all user interactions (default: false)
    */
-  static showInitialPageLoad(percent = 5, message = 'Loading...') {
+  static showInitialPageLoad(percent = 5, message = 'Loading...', blockInteractions = false) {
     // 🔥 CRITICAL: Don't show overlay if blade template already hid it
     // This happens for new book creation and imported books where content is immediately available
     const isNewBookCreation = sessionStorage.getItem('pending_new_book_sync');
@@ -21,7 +25,7 @@ export class ProgressOverlayConductor {
     // Only show overlay if it's NOT a new book creation or import
     // For new books/imports, blade template correctly hides it and we should respect that
     if (!isNewBookCreation && !isImportedBook) {
-      ProgressOverlayEnactor.show(percent, message);
+      ProgressOverlayEnactor.show(percent, message, blockInteractions);
       console.log(`📊 Initial page load progress: ${percent}% - ${message}`);
     } else {
       console.log(`📊 Skipping overlay for new book creation/import`);
@@ -31,20 +35,29 @@ export class ProgressOverlayConductor {
   /**
    * Show progress for SPA transitions (pathways 2, 3, 4)
    * More lightweight, preserves existing UI elements
+   *
+   * @param {number} percent - Progress percentage (0-100)
+   * @param {string} message - Progress message to display
+   * @param {boolean} blockInteractions - If true, block all user interactions (default: false)
    */
-  static showSPATransition(percent = 5, message = 'Loading...') {
-    ProgressOverlayEnactor.show(percent, message);
+  static showSPATransition(percent = 5, message = 'Loading...', blockInteractions = false) {
+    ProgressOverlayEnactor.show(percent, message, blockInteractions);
     console.log(`📊 SPA transition progress: ${percent}% - ${message}`);
   }
 
   /**
    * Show progress specifically for book-to-book navigation (pathway 4)
    * Handles the case where we're already in reader mode
+   *
+   * @param {number} percent - Progress percentage (0-100)
+   * @param {string} message - Progress message to display
+   * @param {string|null} bookId - Book ID to display in message
+   * @param {boolean} blockInteractions - If true, block all user interactions (default: false)
    */
-  static showBookToBookTransition(percent = 5, message = 'Loading...', bookId = null) {
+  static showBookToBookTransition(percent = 5, message = 'Loading...', bookId = null, blockInteractions = false) {
     const displayMessage = bookId ? `Loading ${bookId}...` : message;
 
-    ProgressOverlayEnactor.show(percent, displayMessage);
+    ProgressOverlayEnactor.show(percent, displayMessage, blockInteractions);
 
     // Note: We don't call showNavigationLoading() here because we're already using
     // the initial-navigation-overlay above. Calling both creates duplicate overlays
