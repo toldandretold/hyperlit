@@ -40,7 +40,7 @@ export async function handleLargePaste(
   event.preventDefault();
 
   // Show progress overlay for large paste operation
-  ProgressOverlayConductor.showSPATransition(10, 'Processing paste...');
+  ProgressOverlayConductor.showSPATransition(10, 'Processing paste...', true);
 
   // --- 1. USE PROCESSOR-EXTRACTED FOOTNOTES AND REFERENCES ---
   let processedContent = pastedContent;

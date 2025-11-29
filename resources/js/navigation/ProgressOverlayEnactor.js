@@ -31,6 +31,9 @@ export class ProgressOverlayEnactor {
   // Hide operation promise (for preventing concurrent hides)
   static hidePromise = null;
 
+  // Track contenteditable state
+  static wasContentEditable = false;
+
   /**
    * Initialize DOM element references
    * Called lazily on first use
@@ -82,8 +85,12 @@ export class ProgressOverlayEnactor {
   /**
    * Show the overlay with initial progress
    * Idempotent - safe to call multiple times
+   *
+   * @param {number} percent - Progress percentage (0-100)
+   * @param {string} message - Progress message to display
+   * @param {boolean} blockInteractions - If true, block all user interactions (default: false)
    */
-  static show(percent = 5, message = 'Loading...') {
+  static show(percent = 5, message = 'Loading...', blockInteractions = false) {
     this.init();
 
     if (!this.overlay) {
@@ -104,12 +111,25 @@ export class ProgressOverlayEnactor {
       return;
     }
 
-    console.log(`📊 ProgressOverlayEnactor.show: Showing overlay (${percent}% - ${message})`);
+    console.log(`📊 ProgressOverlayEnactor.show: Showing overlay (${percent}% - ${message}, block: ${blockInteractions})`);
 
     this.state = 'visible';
     this.overlay.style.display = 'block';
     this.overlay.style.visibility = 'visible';
-    this.overlay.style.pointerEvents = 'none'; // Don't block user interactions
+    // Use setProperty with !important to override inline styles from blade template
+    this.overlay.style.setProperty('pointer-events', blockInteractions ? 'auto' : 'none', 'important');
+
+    // Block interactions by disabling contenteditable on main editor
+    if (blockInteractions) {
+      const mainContent = document.querySelector('.main-content');
+      if (mainContent) {
+        this.wasContentEditable = mainContent.getAttribute('contenteditable') === 'true';
+        if (this.wasContentEditable) {
+          mainContent.setAttribute('contenteditable', 'false');
+          console.log('📊 ProgressOverlayEnactor: Disabled contenteditable on .main-content');
+        }
+      }
+    }
 
     this.update(percent, message);
   }
@@ -221,6 +241,16 @@ export class ProgressOverlayEnactor {
         this.overlay.style.visibility = 'hidden';
       }
 
+      // Re-enable contenteditable if it was disabled
+      if (this.wasContentEditable) {
+        const mainContent = document.querySelector('.main-content');
+        if (mainContent) {
+          mainContent.setAttribute('contenteditable', 'true');
+          console.log('📊 ProgressOverlayEnactor: Re-enabled contenteditable on .main-content');
+        }
+        this.wasContentEditable = false;
+      }
+
       this.state = 'hidden';
       console.log('✅ ProgressOverlayEnactor: Overlay hidden');
     }
@@ -241,6 +271,16 @@ export class ProgressOverlayEnactor {
       this.overlay.style.display = 'none';
       this.overlay.style.visibility = 'hidden';
       this.overlay.style.opacity = '0';
+    }
+
+    // Re-enable contenteditable if it was disabled
+    if (this.wasContentEditable) {
+      const mainContent = document.querySelector('.main-content');
+      if (mainContent) {
+        mainContent.setAttribute('contenteditable', 'true');
+        console.log('📊 ProgressOverlayEnactor: Re-enabled contenteditable on .main-content');
+      }
+      this.wasContentEditable = false;
     }
 
     this.state = 'hidden';

@@ -290,7 +290,7 @@ async function handlePaste(event) {
         event.preventDefault(); // This is now safe to call
 
         if (plainText.length > 1000) {
-          ProgressOverlayConductor.showSPATransition(5, 'Converting Markdown...');
+          ProgressOverlayConductor.showSPATransition(5, 'Converting Markdown...', true);
           try {
             const dirty = await processMarkdownInChunks(plainText, (percent, current, total) => {
               ProgressOverlayConductor.updateProgress(percent, `Processing chunk ${current}/${total}`);
