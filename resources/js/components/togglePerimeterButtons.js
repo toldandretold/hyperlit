@@ -1,5 +1,6 @@
 import { cancelForcedVisibility, isProcessing } from './editIndicator.js';
 import { log, verbose } from '../utilities/logger.js';
+import { setPerimeterButtonsHidden } from '../utilities/operationState.js';
 
 // Export the TogglePerimeterButtons class
 export default class TogglePerimeterButtons {
@@ -330,6 +331,12 @@ shouldIgnoreEvent(event) {
         element.classList.remove("perimeter-hidden");
       }
     });
+
+    // Update central state (unless we excluded topRightContainer due to edit indicator)
+    // Only update state based on the main perimeter buttons, not topRightContainer
+    if (!respectEditIndicator || !isProcessing) {
+      setPerimeterButtonsHidden(shouldHide);
+    }
   }
 
   /**

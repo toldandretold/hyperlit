@@ -210,3 +210,15 @@ export function setSkipScrollRestoration(value) {
 export function shouldSkipScrollRestoration() {
   return skipScrollRestoration;
 }
+
+// Track perimeter button visibility state (single source of truth)
+let arePerimeterButtonsHidden = false;
+
+export function setPerimeterButtonsHidden(value) {
+  arePerimeterButtonsHidden = value;
+  return arePerimeterButtonsHidden;
+}
+
+export function getPerimeterButtonsHidden() {
+  return arePerimeterButtonsHidden;
+}
