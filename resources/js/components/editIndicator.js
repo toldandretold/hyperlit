@@ -1,5 +1,6 @@
 // editIndicator.js
 import { verbose } from '../utilities/logger.js';
+import { getPerimeterButtonsHidden } from '../utilities/operationState.js';
 
 export let isProcessing = false
 export let isComplete   = false
@@ -29,14 +30,25 @@ function resetIndicator() {
   const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1')
   if (cloudSvgPath) cloudSvgPath.removeAttribute('style')
 
-  // RESTORE topRightContainer visibility
+  // RESTORE topRightContainer visibility with intelligent auto-hide
   if (topRightContainer && topRightVisibilityBeforeEdit !== null) {
-    if (topRightVisibilityBeforeEdit === false) {
-      topRightContainer.classList.add('perimeter-hidden')
-      verbose.init('Hid topRightContainer after editing', 'editIndicator.js');
-    } else {
+    if (topRightVisibilityBeforeEdit === true) {
+      // Original state was visible - restore visibility
       topRightContainer.classList.remove('perimeter-hidden')
       verbose.init('Kept topRightContainer visible after editing', 'editIndicator.js');
+    } else {
+      // Original state was hidden - check if other perimeter buttons are hidden
+      // Use central state instead of DOM checks
+      const perimeterButtonsAreHidden = getPerimeterButtonsHidden();
+
+      if (perimeterButtonsAreHidden) {
+        // Other buttons are hidden - auto-hide topRightContainer too
+        topRightContainer.classList.add('perimeter-hidden')
+        verbose.init('Auto-hiding topRightContainer after save (perimeter buttons are hidden)', 'editIndicator.js');
+      } else {
+        // Other buttons are visible - keep topRightContainer visible too
+        verbose.init('Keeping topRightContainer visible after save (perimeter buttons are visible)', 'editIndicator.js');
+      }
     }
     topRightVisibilityBeforeEdit = null
   }
