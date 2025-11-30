@@ -1,4 +1,4 @@
-import { cancelForcedVisibility } from './editIndicator.js';
+import { cancelForcedVisibility, isProcessing } from './editIndicator.js';
 import { log, verbose } from '../utilities/logger.js';
 
 // Export the TogglePerimeterButtons class
@@ -196,7 +196,7 @@ shouldIgnoreEvent(event) {
   // Ignore other UI elements
   if (
     event.target.closest(
-      "#logoNavWrapper, #logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button, #cloudRef, .custom-alert, .custom-alert-overlay",
+      "#logoNavWrapper, #logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button, #cloudRef, .custom-alert, .custom-alert-overlay, #hyperlit-container, #ref-overlay",
     )
   ) {
     return true;
@@ -283,9 +283,9 @@ shouldIgnoreEvent(event) {
         // Cancel any forced visibility from edit indicator
         cancelForcedVisibility();
 
-        this.elements.forEach((element) => {
-          element.classList.toggle("perimeter-hidden");
-        });
+        // Sync all buttons to same state instead of toggling individually
+        // Pass false to apply full sync including topRightContainer (user deliberately toggled)
+        this.syncPerimeterButtons(false);
       }
     }
 
@@ -293,6 +293,43 @@ shouldIgnoreEvent(event) {
     this.startX = undefined;
     this.startY = undefined;
     this.touchStartTime = undefined;
+  }
+
+  /**
+   * Synchronize all perimeter buttons to either all visible or all hidden
+   * based on current majority state
+   * @param {boolean} respectEditIndicator - If true, exclude topRightContainer when isProcessing is active
+   */
+  syncPerimeterButtons(respectEditIndicator = false) {
+    // Get the topRightContainer element
+    const topRightContainer = document.getElementById('topRightContainer');
+
+    // Determine which elements to consider for counting and syncing
+    let elementsToSync = this.elements;
+
+    // If we should respect the edit indicator and it's currently processing,
+    // exclude topRightContainer from sync operations
+    if (respectEditIndicator && isProcessing && topRightContainer) {
+      elementsToSync = this.elements.filter(el => el !== topRightContainer);
+      console.log('🔵 Excluding topRightContainer from sync - edit indicator is active');
+    }
+
+    // Count how many are currently visible (excluding topRightContainer if needed)
+    const visibleCount = elementsToSync.filter(
+      (el) => !el.classList.contains("perimeter-hidden")
+    ).length;
+
+    // If majority are visible, hide all. Otherwise, show all.
+    const shouldHide = visibleCount > elementsToSync.length / 2;
+
+    // Apply sync only to the filtered elements
+    elementsToSync.forEach((element) => {
+      if (shouldHide) {
+        element.classList.add("perimeter-hidden");
+      } else {
+        element.classList.remove("perimeter-hidden");
+      }
+    });
   }
 
   /**
@@ -311,9 +348,9 @@ shouldIgnoreEvent(event) {
     // Cancel any forced visibility from edit indicator
     cancelForcedVisibility();
 
-    this.elements.forEach((element) => {
-      element.classList.toggle("perimeter-hidden");
-    });
+    // Sync all buttons to same state instead of toggling individually
+    // Pass false to apply full sync including topRightContainer (user deliberately toggled)
+    this.syncPerimeterButtons(false);
   }
 
   /**
