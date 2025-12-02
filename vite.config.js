@@ -129,6 +129,7 @@ export default defineConfig({
                 // Theme system
                 'resources/css/theme/variables.css',
                 'resources/css/theme/light-theme.css',
+                'resources/css/theme/sepia-theme.css',
                 'resources/css/theme/custom-theme-template.css',
 
                 // JAVASCRIPT (sorted, with new files added)
