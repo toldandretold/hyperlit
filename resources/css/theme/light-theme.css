@@ -1,15 +1,11 @@
 /**
  * Light Theme
  * Inverted color scheme optimized for daylight reading
- *
- * To use: Load this CSS file after the main stylesheets
- * In console: const link = document.createElement('link'); link.rel = 'stylesheet';
- * link.href = '/build/assets/light-theme-[hash].css'; document.head.appendChild(link);
  */
 
-:root {
+body.theme-light {
   /* Inverted base colors */
-  --hyperlit-black: #F5F5F5;     /* Light background */
+  --hyperlit-black: #F4ECD8;     /* Warm sepia/cream background */
   --hyperlit-white: #2C2C2C;     /* Dark text */
 
   /* Adjust brand colors for visibility on light */
@@ -28,12 +24,109 @@
   --color-strong: var(--hyperlit-orange);
 
   /* Container backgrounds for light mode */
-  --container-glass-bg: rgba(245, 245, 245, 0.80);
-  --container-solid-bg: #E8E8E8;
+  --container-glass-bg: rgba(244, 236, 216, 0.80);
+  --container-solid-bg: #EAE0CC;
 
   /* Higher opacity needed on light backgrounds */
   --hypercite-single-opacity: 0.5;
   --hypercite-multi-opacity: 0.7;
   --hypercite-dimmed-single: 0.3;
   --hypercite-dimmed-multi: 0.5;
+
+  /* Icon colors for light theme (auto-inherit from base colors) */
+  --icon-fill-primary: var(--hyperlit-white);      /* Dark icons on light bg */
+  --icon-fill-accent: var(--hyperlit-pink);        /* Pink accent */
+  --icon-stroke-primary: var(--hyperlit-white);    /* Dark strokes */
+  --icon-background: var(--hyperlit-black);        /* Light backgrounds */
+
+  /* Icon hover states (inverted) */
+  --icon-hover-background: var(--hyperlit-white);  /* Dark background on hover */
+  --icon-hover-fill: var(--hyperlit-black);        /* Light fill on hover */
+  --icon-hover-stroke: var(--hyperlit-black);      /* Light stroke on hover */
+
+  /* Status indicators remain the same for visibility */
+  --status-ready: var(--hyperlit-white);
+  --status-saving: var(--hyperlit-orange);
+  --status-success: #10a64a;
+  --status-error: #dc3545;
+}
+
+/* Change logo text color for light theme */
+body.theme-light #top {
+  --logo-text-color: #2C2C2C;
+}
+
+/* Darker input text and placeholders for better contrast */
+body.theme-light input[type="email"],
+body.theme-light input[type="password"],
+body.theme-light input[type="text"] {
+  color: #1C1C1C !important;
+}
+
+body.theme-light input[type="email"]::placeholder,
+body.theme-light input[type="password"]::placeholder,
+body.theme-light input[type="text"]::placeholder {
+  color: #1C1C1C !important;
+  opacity: 0.7;
+}
+
+/* Fix arranger button text color on hover */
+body.theme-light .arranger-button:hover {
+  color: var(--hyperlit-black) !important;
+}
+
+/* Fix source container for light theme */
+body.theme-light #source-container {
+  background-color: var(--container-glass-bg) !important;
+}
+
+/* Fix gray text in source container to be darker */
+body.theme-light #source-container p[style*="color: #888"],
+body.theme-light #source-container a[style*="color: #888"] {
+  color: #3C3C3C !important;
+}
+
+/* Fix download icon SVGs to be darker */
+body.theme-light .download-icon path {
+  fill: #2C2C2C !important;
+}
+
+/* Fix source container form inputs for better contrast */
+body.theme-light #edit-source-form input[type="text"],
+body.theme-light #edit-source-form input[type="number"],
+body.theme-light #edit-source-form input[type="url"],
+body.theme-light #edit-source-form textarea,
+body.theme-light #edit-source-form select {
+  color: #1C1C1C !important;
+}
+
+body.theme-light #edit-source-form input[type="text"]::placeholder,
+body.theme-light #edit-source-form input[type="number"]::placeholder,
+body.theme-light #edit-source-form input[type="url"]::placeholder,
+body.theme-light #edit-source-form textarea::placeholder {
+  color: #1C1C1C !important;
+  opacity: 0.6;
+}
+
+/* Fix select dropdown styling */
+body.theme-light #edit-source-form select {
+  background-color: var(--container-solid-bg) !important;
+  border: 1px solid rgba(44, 44, 44, 0.3) !important;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+/* Fix privacy toggle icon */
+body.theme-light #privacy-toggle svg {
+  stroke: #2C2C2C !important;
+}
+
+/* Fix form header to use pink instead of orange */
+body.theme-light #edit-source-form .form-header h2 {
+  color: var(--hyperlit-pink) !important;
+}
+
+/* Fix cancel button text to be dark */
+body.theme-light #cancel-edit:not(:hover) {
+  color: #2C2C2C !important;
 }

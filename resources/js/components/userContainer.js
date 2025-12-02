@@ -64,7 +64,7 @@ export class UserContainerManager extends ContainerManager {
     container.style.transition =
       "width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, padding 0.3s ease-out";
     container.style.zIndex = "1000";
-    container.style.backgroundColor = "#221F20";
+    // backgroundColor handled by CSS using var(--container-glass-bg)
     container.style.boxShadow = "0 0 15px rgba(0, 0, 0, 0.2)";
     container.style.borderRadius = "0.75em";
     container.style.opacity = "0";
@@ -146,18 +146,18 @@ export class UserContainerManager extends ContainerManager {
     // This function now correctly returns ONLY the HTML string.
     return `
       <div class="user-form">
-        <h3 style="color: #EF8D34; margin-bottom: 15px;">Login</h3>
+        <h3 style="color: var(--color-secondary); margin-bottom: 15px;">Login</h3>
         <form id="login-form-embedded">
-          <input type="email" id="loginEmail" placeholder="Email" required 
-                 style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
-          <input type="password" id="loginPassword" placeholder="Password" required 
-                 style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
-          <button type="submit" id="loginSubmit" 
-                  style="width: 100%; padding: 10px; background: #4EACAE; color: #221F20; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">
+          <input type="email" id="loginEmail" placeholder="Email" required
+                 style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: none; background: var(--container-solid-bg); color: var(--color-text); box-sizing: border-box;">
+          <input type="password" id="loginPassword" placeholder="Password" required
+                 style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: none; background: var(--container-solid-bg); color: var(--color-text); box-sizing: border-box;">
+          <button type="submit" id="loginSubmit"
+                  style="width: 100%; padding: 10px; background: var(--color-accent); color: var(--color-background); border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">
             Login
           </button>
-          <button type="button" id="showRegister" 
-                  style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer;">
+          <button type="button" id="showRegister"
+                  style="width: 100%; padding: 8px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer;">
             Switch to Register
           </button>
         </form>
@@ -170,19 +170,19 @@ export class UserContainerManager extends ContainerManager {
     // This function now correctly returns ONLY the HTML string.
     return `
       <div class="user-form">
-        <h3 style="color: #EF8D34; margin-bottom: 15px;">Register</h3>
+        <h3 style="color: var(--color-secondary); margin-bottom: 15px;">Register</h3>
         <form id="register-form-embedded">
           <div style="margin-bottom: 10px;">
-            <input type="text" id="registerName" placeholder="Username" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
-            <div style="font-size: 11px; color: #999; margin-top: 4px; line-height: 1.3;">
+            <input type="text" id="registerName" placeholder="Username" required style="width: 100%; padding: 8px; border-radius: 4px; border: none; background: var(--container-solid-bg); color: var(--color-text); box-sizing: border-box;">
+            <div style="font-size: 11px; color: var(--color-text); opacity: 0.6; margin-top: 4px; line-height: 1.3;">
               Used publicly when sharing hypertext (e.g., /u/username)
             </div>
-            <div id="usernameError" style="font-size: 11px; color: #EE4A95; margin-top: 4px; display: none;"></div>
+            <div id="usernameError" style="font-size: 11px; color: var(--color-primary); margin-top: 4px; display: none;"></div>
           </div>
-          <input type="email" id="registerEmail" placeholder="Email" required style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
-          <input type="password" id="registerPassword" placeholder="Password" required style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box;">
-          <button type="submit" id="registerSubmit" style="width: 100%; padding: 10px; background: #4EACAE; color: #221F20; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">Register</button>
-          <button type="button" id="showLogin" style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer;">Switch to Login</button>
+          <input type="email" id="registerEmail" placeholder="Email" required style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: none; background: var(--container-solid-bg); color: var(--color-text); box-sizing: border-box;">
+          <input type="password" id="registerPassword" placeholder="Password" required style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: none; background: var(--container-solid-bg); color: var(--color-text); box-sizing: border-box;">
+          <button type="submit" id="registerSubmit" style="width: 100%; padding: 10px; background: var(--color-accent); color: var(--color-background); border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">Register</button>
+          <button type="button" id="showLogin" style="width: 100%; padding: 8px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer;">Switch to Login</button>
         </form>
       </div>
     `;
@@ -254,11 +254,11 @@ export class UserContainerManager extends ContainerManager {
           // Show error
           errorDiv.textContent = validation.error;
           errorDiv.style.display = 'block';
-          usernameInput.style.borderColor = '#EE4A95';
+          usernameInput.style.outline = '2px solid var(--color-primary)';
         } else {
           // Hide error
           errorDiv.style.display = 'none';
-          usernameInput.style.borderColor = '#444';
+          usernameInput.style.outline = 'none';
         }
       });
     }
@@ -272,36 +272,35 @@ export class UserContainerManager extends ContainerManager {
     console.log(`🔧 UserContainer: showUserProfile called for user ${this.user?.name}`);
     console.log(`🔧 UserContainer: Container element:`, this.container);
     console.log(`🔧 UserContainer: isOpen=${this.isOpen}`);
-    
+
     const profileHTML = `
       <div class="user-profile">
-        <h3 style="color: #EF8D34; margin-bottom: 15px;">Welcome, ${this.user.name}!</h3>
         <div style="margin-bottom: 15px;">
-          <div style="border-top: 1px solid #444; padding-top: 15px;">
-            <button style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer; margin-bottom: 8px;">
-              Account Settings
+          <div style="padding-top: 0px;">
+            <button id="myBooksBtn" style="width: 100%; padding: 10px; background: var(--color-accent); color: var(--color-background); border: 1px solid var(--color-accent); border-radius: 4px; cursor: pointer; margin-bottom: 10px; box-sizing: border-box; transition: background-color 0.3s, color 0.3s;">
+              My Library
             </button>
-            <button id="myBooksBtn" style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer; margin-bottom: 8px;">
-              My Books
-            </button>
-            <button id="logout" 
-                    style="width: 100%; padding: 8px; background: #EE4A95; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            <button id="logout"
+                    style="width: 100%; padding: 10px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer; box-sizing: border-box; transition: background-color 0.3s, color 0.3s, border-color 0.3s;">
               Logout
             </button>
           </div>
         </div>
       </div>
     `;
-    
+
     console.log(`🔧 UserContainer: Generated profile HTML (${profileHTML.length} chars)`);
-    
+
+    // Update the HTML content
+    this.container.innerHTML = profileHTML;
+
     if (!this.isOpen) {
-      console.log(`🔧 UserContainer: Container closed, setting innerHTML and opening`);
-      this.container.innerHTML = profileHTML;
+      console.log(`🔧 UserContainer: Container closed, opening with profile size`);
       this.openContainer("profile");
     } else {
-      console.log(`🔧 UserContainer: Container already open, just updating innerHTML`);
-      this.container.innerHTML = profileHTML;
+      console.log(`🔧 UserContainer: Container already open, resizing to profile width`);
+      // Smoothly resize to profile dimensions
+      this.container.style.width = "160px";
     }
     
     // NEW: Directly attach event listeners to the buttons we just created
@@ -313,6 +312,18 @@ export class UserContainerManager extends ContainerManager {
             e.stopPropagation(); // Stop the click from bubbling further
             console.log('✅ LOGOUT BUTTON DIRECT LISTENER CLICKED');
             this.handleLogout();
+        });
+
+        // Add hover effect for logout button (like Clear button)
+        logoutBtn.addEventListener('mouseenter', () => {
+            logoutBtn.style.backgroundColor = 'var(--color-accent)';
+            logoutBtn.style.color = 'var(--color-background)';
+            logoutBtn.style.borderColor = 'var(--color-accent)';
+        });
+        logoutBtn.addEventListener('mouseleave', () => {
+            logoutBtn.style.backgroundColor = 'transparent';
+            logoutBtn.style.color = 'var(--color-text)';
+            logoutBtn.style.borderColor = 'var(--color-text)';
         });
     } else {
         console.log('❌ LOGOUT BUTTON NOT FOUND IN CONTAINER');
@@ -335,6 +346,14 @@ export class UserContainerManager extends ContainerManager {
               });
               this.showLoginForm();
             }
+        });
+
+        // Add hover effect for library button (lighter aqua on hover)
+        myBooksBtn.addEventListener('mouseenter', () => {
+            myBooksBtn.style.backgroundColor = '#5FBCC0';
+        });
+        myBooksBtn.addEventListener('mouseleave', () => {
+            myBooksBtn.style.backgroundColor = 'var(--color-accent)';
         });
     } else {
         console.log('❌ MY BOOKS BUTTON NOT FOUND IN CONTAINER');
@@ -524,11 +543,11 @@ export class UserContainerManager extends ContainerManager {
   showError(errors, formId) {
     const errorDiv = document.createElement('div');
     errorDiv.style.cssText = `
-      color: #EE4A95; 
-      font-size: 12px; 
-      margin-top: 10px; 
-      padding: 8px; 
-      background: rgba(238, 74, 149, 0.1); 
+      color: var(--color-primary);
+      font-size: 12px;
+      margin-top: 10px;
+      padding: 8px;
+      background: rgba(238, 74, 149, 0.1);
       border-radius: 4px;
     `;
     
@@ -617,7 +636,7 @@ export class UserContainerManager extends ContainerManager {
       targetHeight = "auto";
       this.container.style.padding = "20px";
     } else if (mode === "profile") {
-      targetWidth = "300px";
+      targetWidth = "160px";
       targetHeight = "auto";
       this.container.style.padding = "20px";
     } else if (mode === "transfer-prompt") {
@@ -761,14 +780,14 @@ export class UserContainerManager extends ContainerManager {
     `;
     
     modal.innerHTML = `
-      <div style="background: #221F20; padding: 20px; border-radius: 8px; max-width: 400px; color: white;">
-        <h3 style="color: #EF8D34; margin-bottom: 15px;">Transfer Anonymous Books?</h3>
+      <div style="background: var(--container-solid-bg); padding: 20px; border-radius: 8px; max-width: 400px; color: var(--color-text);">
+        <h3 style="color: var(--color-secondary); margin-bottom: 15px;">Transfer Anonymous Books?</h3>
         <p style="margin-bottom: 20px; line-height: 1.4;">${message}</p>
         <div style="display: flex; gap: 10px; justify-content: flex-end;">
-          <button id="cancelTransfer" style="padding: 8px 16px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer;">
+          <button id="cancelTransfer" style="padding: 8px 16px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer;">
             Cancel
           </button>
-          <button id="confirmTransfer" style="padding: 8px 16px; background: #4EACAE; color: #221F20; border: none; border-radius: 4px; cursor: pointer;">
+          <button id="confirmTransfer" style="padding: 8px 16px; background: var(--color-accent); color: var(--color-background); border: none; border-radius: 4px; cursor: pointer;">
             Transfer Books
           </button>
         </div>
@@ -916,14 +935,14 @@ export class UserContainerManager extends ContainerManager {
 
     const htmlContent = `
       <div class="user-form">
-        <h3 style="color: #EF8D34; margin-bottom: 15px;">Welcome back!</h3>
-        <p style="margin-bottom: 20px; line-height: 1.4; color: #CBCCCC;">
+        <h3 style="color: var(--color-secondary); margin-bottom: 15px;">Welcome back!</h3>
+        <p style="margin-bottom: 20px; line-height: 1.4; color: var(--color-text);">
           You created ${contentSummary.join(', ')} while logged out. Would you like to bring them into your account?
         </p>
-        <button id="confirmContentTransfer" style="width: 100%; padding: 10px; background: #4EACAE; color: #221F20; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">
+        <button id="confirmContentTransfer" style="width: 100%; padding: 10px; background: var(--color-accent); color: var(--color-background); border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">
           Yes, bring them in
         </button>
-        <button id="skipContentTransfer" style="width: 100%; padding: 8px; background: transparent; color: #CBCCCC; border: 1px solid #444; border-radius: 4px; cursor: pointer;">
+        <button id="skipContentTransfer" style="width: 100%; padding: 8px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer;">
           Skip for now
         </button>
       </div>

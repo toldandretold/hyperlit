@@ -1,4 +1,8 @@
 import { log } from './utilities/logger.js';
+import { initializeTheme } from './utilities/themeSwitcher.js';
+
+// Initialize theme as early as possible to prevent flash
+initializeTheme();
 
 // Load navigation health check in development
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {

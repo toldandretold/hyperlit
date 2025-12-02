@@ -8,7 +8,7 @@ import { book } from './app.js';
 import { closeHyperlitContainer } from './hyperlitContainer/index.js';
 
 export class ContainerManager {
-  constructor(containerId, overlayId, buttonId = null, frozenContainerIds = []) {
+  constructor(containerId, overlayId, buttonId = null, frozenContainerIds = [], options = {}) {
     // 1. Store the IDs. This is the only thing the constructor should do.
     // It runs only once when the app first loads.
     this.containerId = containerId;
@@ -16,6 +16,9 @@ export class ContainerManager {
     this.buttonId = buttonId;
     this.frozenContainerIds = frozenContainerIds;
     this.isOpen = false;
+
+    // Store callbacks
+    this.onOpenCallback = options.onOpen || null;
 
     // Your original properties are preserved
     this.navElementsState = {
@@ -252,15 +255,15 @@ export class ContainerManager {
   openContainer(content = null, highlightId = null) {
     if (content && this.container) this.container.innerHTML = content;
     else if (this.initialContent && this.container) this.container.innerHTML = this.initialContent;
-    
+
     if (highlightId) this.highlightId = highlightId;
     if (window.containerCustomizer) window.containerCustomizer.loadCustomizations();
-    
+
     this.container.classList.remove("hidden");
     this.container.classList.add("open");
     this.isOpen = true;
     window.activeContainer = this.container.id;
-    
+
     if (this.container.id === "toc-container") {
       this.saveNavElementsState();
       const navButtons = document.getElementById("nav-buttons");
@@ -270,13 +273,18 @@ export class ContainerManager {
       if (logoContainer) logoContainer.classList.add("perimeter-hidden");
       if (userButtonContainer) userButtonContainer.classList.add("perimeter-hidden");
     }
-    
+
     this.updateState();
-    
+
     // Only focus the container if it's not a back button navigation
     // to avoid interfering with browser navigation
     if (!this.isBackNavigation) {
       this.container.focus();
+    }
+
+    // Call onOpen callback if provided (after innerHTML replacement)
+    if (this.onOpenCallback) {
+      this.onOpenCallback();
     }
   }
 

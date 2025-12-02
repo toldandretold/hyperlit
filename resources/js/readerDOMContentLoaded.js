@@ -48,6 +48,7 @@ export async function hidePageLoadProgress() {
 export const togglePerimeterButtons = new TogglePerimeterButtons({
   elementIds: [
     "bottom-right-buttons",
+    "bottom-left-buttons",
     "logoNavWrapper",
     "topRightContainer",
     "userButtonContainer",

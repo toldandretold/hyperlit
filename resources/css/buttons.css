@@ -7,6 +7,148 @@ black #221F20;
 
 @import url('./theme/variables.css');
 
+/*
+ * =====================================================================
+ * STANDARDIZED SVG ICON STYLING
+ * =====================================================================
+ * All SVG icons now have clean HTML with NO inline fill/stroke attributes.
+ * CSS controls all styling using CSS variables for easy theming.
+ *
+ * Special Cases:
+ * - cloudRef (.cls-1, .cls-2): Uses JS for status colors (saving/success/error)
+ * - copy-hyperlight (.hyperlight-color): Pink accent, brightens on hover
+ * =====================================================================
+ */
+
+/* ===== CLOUD/SOURCE BUTTON (cloudRef) ===== */
+/* Background rect */
+#cloudRef-svg rect {
+  fill: var(--icon-background);
+}
+
+/* Cloud paths - default to ready state, JS overrides for status */
+#cloudRef-svg .cls-1,
+#cloudRef-svg .cls-2 {
+  fill: var(--status-ready);
+  transition: fill 0.3s ease;
+}
+
+/* Hover state for cloudRef */
+#cloudRef:hover .cls-1 {
+  fill: var(--icon-hover-fill);
+}
+
+/* ===== USER LOGO ===== */
+#userLogo {
+  fill: var(--icon-fill-primary);
+}
+
+/* ===== HOME BUTTON NAV ===== */
+#homeButtonNav svg {
+  fill: var(--icon-fill-primary);
+}
+
+/* ===== TOC TOGGLE BUTTON ===== */
+#toc-toggle-button svg rect {
+  fill: var(--icon-background);
+}
+
+#toc-toggle-button svg g path {
+  fill: var(--icon-fill-primary);
+}
+
+/* ===== EDIT BUTTON (STROKED ICON) ===== */
+#editButton svg path {
+  stroke: var(--icon-stroke-primary);
+  fill: none;
+}
+
+/* ===== SETTINGS BUTTON (FILLED ICON) ===== */
+#settingsButton svg {
+  width: 32px !important;
+  height: auto !important;
+}
+
+#settingsButton svg path {
+  fill: var(--icon-fill-primary);
+}
+
+/* ===== HYPERLIGHT BUTTONS ===== */
+/* Delete button - stroked icon */
+#hyperlight-buttons #delete-hyperlight svg path {
+  stroke: var(--icon-stroke-primary);
+  fill: none;
+}
+
+#hyperlight-buttons #delete-hyperlight:hover svg path {
+  stroke: var(--icon-hover-stroke);
+}
+
+/* Copy hyperlight - pink filled square (special case) */
+#hyperlight-buttons #copy-hyperlight .hyperlight-color {
+  fill: var(--icon-fill-accent);
+}
+
+#hyperlight-buttons #copy-hyperlight:hover .hyperlight-color {
+  filter: brightness(1.3);
+}
+
+/* Copy hypercite - filled paths */
+#hyperlight-buttons #copy-hypercite svg .st0 {
+  fill: var(--icon-fill-primary);
+}
+
+#hyperlight-buttons #copy-hypercite:hover svg .st0 {
+  fill: var(--icon-hover-fill);
+}
+
+/* ===== EDIT TOOLBAR BUTTONS ===== */
+/* Background rects for all toolbar buttons */
+#edit-toolbar button svg rect {
+  fill: var(--icon-background);
+}
+
+/* Stroked icons (bold, italic, heading, blockquote, code) */
+#edit-toolbar button svg path,
+#edit-toolbar button svg line,
+#edit-toolbar button svg polyline {
+  stroke: var(--icon-stroke-primary);
+  fill: none;
+}
+
+/* Filled icons (undo, redo) */
+#undoButton svg path,
+#redoButton svg path {
+  fill: var(--icon-fill-primary);
+  stroke: none;
+}
+
+/* Hover states for toolbar buttons */
+#edit-toolbar button:hover svg rect,
+#edit-toolbar button.active svg rect {
+  fill: transparent;
+}
+
+#edit-toolbar button:hover svg path,
+#edit-toolbar button:hover svg line,
+#edit-toolbar button:hover svg polyline,
+#edit-toolbar button.active svg path,
+#edit-toolbar button.active svg line,
+#edit-toolbar button.active svg polyline {
+  stroke: var(--icon-hover-stroke);
+}
+
+/* Override for filled icons (undo/redo) on hover */
+#undoButton:hover svg path,
+#redoButton:hover svg path,
+#undoButton.active svg path,
+#redoButton.active svg path {
+  fill: var(--icon-hover-fill) !important;
+  stroke: none;
+}
+
+/* ===== END OF STANDARDIZED ICON STYLING ===== */
+
 /* edit toolbar */
 #boldButton,
 #italicButton,
@@ -57,6 +199,18 @@ black #221F20;
   cursor: pointer;
 }
 
+#settingsButton {
+  width: 32px;
+  height: 32px;
+  background-color: var(--color-background);
+  border: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
 #editButton,
 #edit-source {
   width: 20px;
@@ -83,6 +237,7 @@ black #221F20;
 
 #editButton path,
 #edit-source path {
+  stroke: var(--icon-stroke-primary) !important; /* Use theme-aware color */
   pointer-events: none !important; /* Prevent path elements from blocking clicks */
 }
 
@@ -184,7 +339,7 @@ black #221F20;
   z-index: 9999;
   padding: 8px;
   border-radius: 8px;
-  background: #221f20;
+  background: var(--icon-background);
 }
 
 #copy-hyperlight {
@@ -308,6 +463,18 @@ black #221F20;
   align-items: flex-end;
   gap: 8px;
   transition: opacity 0.3s ease, right 0.3s ease;
+}
+
+#bottom-left-buttons {
+  position: fixed;
+  bottom: 40px;
+  left: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 0.3s ease, left 0.3s ease;
+  z-index: 999;
 }
 
 #bottom-right-buttons {
@@ -438,7 +605,7 @@ black #221F20;
 #redoButton.disabled svg rect,
 #undoButton.processing svg rect,
 #redoButton.processing svg rect {
-  fill: #221f20 !important; /* Ensure the rect retains its background fill #221F20 */
+  fill: var(--icon-background) !important; /* Ensure the rect retains its background fill */
 }
 
 #edit-toolbar button {
@@ -469,8 +636,8 @@ black #221F20;
 /* 1. Style the button's background on hover and active states. */
 #edit-toolbar button:hover,
 #edit-toolbar button.active,
-#editButton button.active {
-  background-color: #cbcccc; /* Apply background to the button itself */
+#editButton.active {
+  background-color: var(--icon-hover-background); /* Apply background to the button itself */
 }
 /* Apply transform only on hover for better UX */
 #edit-toolbar button:hover {
@@ -492,7 +659,7 @@ black #221F20;
 #edit-toolbar button.active svg path,
 #edit-toolbar button.active svg line,
 #edit-toolbar button.active svg polyline {
-  stroke: #221f20; /* Make the outline black. */
+  stroke: var(--icon-hover-stroke); /* Make the outline inverted. */
   fill: transparent; /* Make the inside of shapes transparent. */
 }
 
@@ -503,16 +670,16 @@ black #221F20;
 #undoButton.active svg path,
 #redoButton.active svg path {
   /* CRITICAL FIX: Use !important to override the inline fill attribute in the SVG */
-  fill: #221f20 !important;
+  fill: var(--icon-hover-fill) !important;
   stroke: none; /* Ensure no stroke is accidentally applied. */
 }
 
 /* Heading Submenu */
 .heading-submenu {
   position: absolute;
-  background: rgba(34, 31, 32, 0.85);
+  background: color-mix(in srgb, var(--icon-background) 85%, transparent);
   backdrop-filter: blur(10px);
-  border: .25px solid rgba(203, 204, 204, 0.2); 
+  border: .25px solid color-mix(in srgb, var(--icon-stroke-primary) 20%, transparent); 
   border-radius: 8px;
   padding: 4px;
   z-index: 1001;
@@ -569,14 +736,14 @@ black #221F20;
 
 .heading-level-btn:hover,
 .heading-remove-btn:hover {
-  background-color: #CBCCCC;
-  color: #221F20;
+  background-color: var(--icon-hover-background);
+  color: var(--icon-hover-stroke);
   transform: scale(1.05);
 }
 
 .heading-level-btn.active {
-  background-color: #CBCCCC;
-  color: #221F20;
+  background-color: var(--icon-hover-background);
+  color: var(--icon-hover-stroke);
 }
 
 /* end  */
@@ -594,7 +761,7 @@ black #221F20;
   width: 26px;
   height: 26px;
   padding: 0;
-  background: #221f20;
+  background: var(--icon-background);
   border: none;
   border-radius: 4px;
   display: flex;
@@ -632,18 +799,7 @@ black #221F20;
   left: 50%;
   transform: translate(-50%, -50%);
 }
-/* 3. Set the VISIBLE stroke color for the delete icon's path */
-#hyperlight-buttons #delete-hyperlight svg path {
-  stroke: #cbcccc;
-}
-
-/* Universal Icon Colors for other buttons */
-#hyperlight-buttons #copy-hyperlight .hyperlight-color {
-  fill: #ee4a95;
-}
-#hyperlight-buttons #copy-hypercite svg path {
-  fill: #cbcccc;
-}
+/* OLD DUPLICATE RULES REMOVED - Now using standardized CSS variables at top of file */
 
 /* 2. Style the SVG element - apply the transform here. */
 #hyperlight-buttons #copy-hypercite svg {
@@ -659,18 +815,18 @@ black #221F20;
 /* Invert colors on hover for delete and cite buttons */
 #hyperlight-buttons #delete-hyperlight:hover,
 #hyperlight-buttons #copy-hypercite:hover {
-  background: #cbcccc;
+  background: var(--icon-hover-background);
 }
 #hyperlight-buttons #delete-hyperlight:hover svg path {
-  stroke: #221f20;
+  stroke: var(--icon-hover-stroke);
 }
 #hyperlight-buttons #copy-hypercite:hover svg path {
-  fill: #221f20;
+  fill: var(--icon-hover-fill);
 }
 
 /* Special hover for pink button to prevent inversion */
 #hyperlight-buttons #copy-hyperlight:hover {
-  background: #221f20; /* Keep original background */
+  background: var(--icon-background); /* Keep original background */
 }
 #hyperlight-buttons #copy-hyperlight:hover .hyperlight-color {
   filter: brightness(1.3);
@@ -686,7 +842,7 @@ black #221F20;
   display: flex;
   gap: 4px;
   padding: 8px;
-  background: #221f20;
+  background: var(--icon-background);
   border-radius: 8px;
   z-index: 9999;
 }
@@ -747,7 +903,7 @@ black #221F20;
   width: 26px;
   height: 26px;
   padding: 0;
-  background: #221f20;
+  background: var(--icon-background);
   border: none;
   border-radius: 4px;
   display: flex;
@@ -766,27 +922,27 @@ black #221F20;
 
 /* Default icon colors */
 .hypercite-management-buttons .hypercite-health-check-btn svg {
-  fill: #cbcccc;
+  fill: var(--icon-fill-primary);
 }
 
 .hypercite-management-buttons .hypercite-delete-btn svg {
-  stroke: #cbcccc;
+  stroke: var(--icon-stroke-primary);
   fill: none;
 }
 
 /* Hover effects - matching hyperlight buttons */
 .hypercite-management-buttons button:not(:disabled):not(.health-check-complete):hover {
   transform: scale(1.1);
-  background: #cbcccc;
+  background: var(--icon-hover-background);
 }
 
 /* Health check button uses fill, delete uses stroke */
 .hypercite-management-buttons .hypercite-health-check-btn:not(:disabled):not(.health-check-complete):hover svg {
-  fill: #221f20;
+  fill: var(--icon-hover-fill);
 }
 
 .hypercite-management-buttons .hypercite-delete-btn:not(:disabled):hover svg {
-  stroke: #221f20;
+  stroke: var(--icon-hover-stroke);
 }
 
 /* Disable interaction after health check completes */
@@ -803,11 +959,11 @@ black #221F20;
 }
 
 .hypercite-management-buttons .hypercite-health-check-btn:disabled svg {
-  fill: #666666;
+  fill: var(--icon-disabled-fill);
 }
 
 .hypercite-management-buttons .hypercite-delete-btn:disabled svg {
-  stroke: #666666;
+  stroke: var(--icon-disabled-stroke);
 }
 
 /* end  */
@@ -870,6 +1026,18 @@ black #221F20;
   #toc-toggle-button {
     width: 24px;
     height: 24px;
+    background-color: var(--color-background);
+    border: none;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  #settingsButton {
+    width: 26px;
+    height: 26px;
     background-color: var(--color-background);
     border: none;
     position: relative;
@@ -965,7 +1133,7 @@ black #221F20;
     padding: 12px;
 
     /* Appearance */
-    background: rgba(34, 31, 32, 0.98) !important;
+    background: color-mix(in srgb, var(--icon-background) 98%, transparent) !important;
     backdrop-filter: blur(10px);
 
     /* Prevent any transforms or transitions */
@@ -1006,7 +1174,7 @@ black #221F20;
     /* Even more aggressive positioning */
     position: fixed !important;
     z-index: 9999999 !important;
-    background: rgba(34, 31, 32, 1) !important;
+    background: var(--icon-background) !important;
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
   }
 
@@ -1063,7 +1231,7 @@ black #221F20;
     left: 0px !important;
     right: 0px !important;
     z-index: 999999 !important;
-    background: rgba(34, 31, 32, 1) !important;
+    background: var(--icon-background) !important;
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5) !important;
   }
 
@@ -1079,18 +1247,18 @@ black #221F20;
     }
 
     #edit-toolbar button:hover svg rect {
-      fill: #221f20; /* Keep background black */
+      fill: var(--icon-background); /* Keep background */
     }
 
     #edit-toolbar button:hover svg path,
     #edit-toolbar button:hover svg line,
     #edit-toolbar button:hover svg polyline {
-      stroke: #cbcccc; /* Keep icon "white" */
+      stroke: var(--icon-stroke-primary); /* Keep icon default */
     }
 
     #undoButton:hover svg path,
     #redoButton:hover svg path {
-      fill: #cbcccc; /* Keep undo/redo arrow "white" */
+      fill: var(--icon-fill-primary); /* Keep undo/redo arrow default */
     }
 
     /* BUT: Allow .active state to properly invert colors on touch devices
@@ -1103,12 +1271,12 @@ black #221F20;
     #edit-toolbar button.active svg path,
     #edit-toolbar button.active svg line,
     #edit-toolbar button.active svg polyline {
-      stroke: #221f20 !important; /* Invert: make strokes black */
+      stroke: var(--icon-hover-stroke) !important; /* Invert: use hover stroke */
     }
 
     #undoButton.active svg path,
     #redoButton.active svg path {
-      fill: #221f20 !important; /* Invert: make filled paths black */
+      fill: var(--icon-hover-fill) !important; /* Invert: use hover fill */
     }
   }
 }

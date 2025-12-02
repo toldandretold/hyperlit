@@ -46,7 +46,7 @@ black #221F20;
   height: 400px; /* Fixed height for citation display */
   max-height: calc(100vh - 2em); /* Don't exceed viewport */
   width: 300px; /* Fixed width, narrower than hyperlit */
-  background-color: rgba(34, 31, 32, 0.60); /* Glass effect */
+  background-color: var(--container-glass-bg); /* Use theme-aware glass background */
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   z-index: 1001;
@@ -132,15 +132,15 @@ black #221F20;
   border: none;
   border-radius: 5px;
   background-color: #4a4a4a;
-  color: white;
+  color: #CBCCCC;
   font-size: 16px;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 #newbook-container button:hover {
-  background-color: var(--hyperlit-aqua);
-  color: var(--hyperlit-black);
+  background-color: var(--color-accent);
+  color: var(--color-background);
   cursor: pointer;
 }
 
@@ -157,6 +157,7 @@ black #221F20;
   overflow: auto;
   padding: 0 1em 1em 1em; /* no top padding */
   border-radius: 1em 1em;
+  background-color: var(--container-glass-bg);
 }
 
 /* ---------------------------------------------------
@@ -169,11 +170,11 @@ black #221F20;
   width: 100%;
   height: 1em; /* matches scroller's top padding */
   pointer-events: none;
-  background-color: rgba(34, 31, 32, 0.60);
+  background-color: var(--container-glass-bg);
   backdrop-filter: blur(10px); /* Glass blur effect */
   -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 10;
-  box-shadow: inset 0px -4px 4px -4px rgba(34, 31, 32, 0.60);
+  box-shadow: inset 0px -4px 4px -4px var(--container-glass-bg);
   border-radius: 1em 1em 0 0;
 }
 
@@ -187,11 +188,11 @@ black #221F20;
   width: 100%;
   height: 1em; /* matches scroller's bottom padding */
   pointer-events: none;
-  background-color: rgba(34, 31, 32, 0.60);
+  background-color: var(--container-glass-bg);
   backdrop-filter: blur(10px); /* Glass blur effect */
   -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 10; /* Corrected: changed en dash to hyphen */
-  box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60);
+  box-shadow: inset 0px 4px 4px -4px var(--container-glass-bg);
   border-radius: 0 0 1em 1em;
 }
 
@@ -539,7 +540,7 @@ black #221F20;
 
 
 #user-container {
-  background-color: rgba(34, 31, 32, 0.60);
+  background-color: var(--container-glass-bg);
   backdrop-filter: blur(10px); /* Glass blur effect */
   -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 1001;
@@ -787,6 +788,7 @@ black #221F20;
   }
 }
 #newbook-container {
+  background-color: var(--container-glass-bg);
   border-radius: 0.75em; /* Same as other containers */
 }
 
@@ -880,7 +882,8 @@ black #221F20;
 
 .form-subtitle {
   font-size: 14px;
-  color: #CBCCCC;
+  color: var(--color-text);
+  opacity: 0.7;
   margin: 0.25em 0;
 }
 
@@ -906,7 +909,8 @@ black #221F20;
 /* Field hints */
 .field-hint {
   font-size: 12px;
-  color: #888;
+  color: var(--color-text);
+  opacity: 0.6;
   margin-top: 0.1em;
   margin-bottom: 0.5em;
   font-style: italic;
@@ -973,10 +977,31 @@ black #221F20;
 #newbook-container button[type="submit"]:not(:disabled) {
   background-color: var(--hyperlit-aqua);
   color: var(--hyperlit-black);
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid var(--hyperlit-aqua);
+  box-sizing: border-box;
 }
 
 #newbook-container button[type="submit"]:not(:disabled):hover {
   background-color: #5FBCC0;
+}
+
+/* Non-submit form buttons (Clear, etc.) */
+#newbook-container .formButton:not([type="submit"]) {
+  background-color: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-text);
+  padding: 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+#newbook-container .formButton:not([type="submit"]):hover {
+  background-color: var(--color-accent);
+  color: var(--color-background);
+  border: 1px solid var(--color-accent);
 }
 
 /* Form actions button spacing */
@@ -1116,7 +1141,8 @@ black #221F20;
 
 #source-container .form-subtitle {
   font-size: 14px;
-  color: #CBCCCC;
+  color: var(--color-text);
+  opacity: 0.7;
   margin: 0.25em 0;
 }
 
@@ -1142,7 +1168,8 @@ black #221F20;
 /* Field hints */
 #source-container .field-hint {
   font-size: 12px;
-  color: #888;
+  color: var(--color-text);
+  opacity: 0.6;
   margin-top: 0.1em;
   margin-bottom: 0.5em;
   font-style: italic;
@@ -1275,4 +1302,109 @@ body.hyperlit-container-open .home-content-wrapper,
 body.hyperlit-container-open .reader-content-wrapper {
   overflow: hidden;
   touch-action: none; /* Prevent touch scrolling on main content */
+}
+
+/* Bottom-up settings container */
+#bottom-up-container {
+  transform: translateY(calc(100% + 2em)); /* Off-screen, below viewport */
+  transition: transform 0.3s ease-in-out;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: auto;
+  width: 100%;
+  background-color: transparent; /* Fully transparent so page content shows through */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 9999999; /* Above mobile edit-toolbar (999999) */
+  padding: 1em 2em;
+  border-radius: 1em 1em 0 0;
+
+  /* Flex layout for buttons */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75em;
+  align-items: center;
+  justify-content: center;
+}
+
+/* When hidden, ensure container stays off-screen */
+#bottom-up-container.hidden {
+  display: flex; /* Changed from block to maintain flex layout */
+  transform: translateY(calc(100% + 2em));
+}
+
+/* When open, slide up into view */
+#bottom-up-container.open {
+  transform: translateY(0);
+}
+
+/* Settings button styling */
+.settings-button {
+  padding: 0.75em 1em;
+  background-color: rgba(75, 75, 75, 0.6);
+  border: 1px solid rgba(203, 204, 204, 0.2);
+  border-radius: 0.5em;
+  color: var(--color-text);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 0 1 auto; /* Allow buttons to shrink if needed */
+  min-width: fit-content;
+}
+
+.settings-button:hover {
+  background-color: rgba(95, 95, 95, 0.8);
+  border-color: rgba(203, 204, 204, 0.4);
+}
+
+/* Theme preview colors for inactive buttons */
+#lightModeButton:not(.active) {
+  background-color: #F4ECD8;
+  color: #2C2C2C;
+  border-color: #D47020;
+}
+
+#lightModeButton:not(.active):hover {
+  background-color: #EAE0CC;
+  border-color: #D47020;
+}
+
+#sepiaModeButton:not(.active) {
+  background-color: #E8D7B8;
+  color: #3A2F1F;
+  border-color: #C25E10;
+}
+
+#sepiaModeButton:not(.active):hover {
+  background-color: #D9C8A8;
+  border-color: #C25E10;
+}
+
+/* Active button gets aqua styling (overrides preview) */
+.settings-button.active {
+  background-color: var(--hyperlit-aqua);
+  color: var(--hyperlit-black);
+  border-color: var(--hyperlit-aqua);
+}
+
+
+/* Settings Overlay */
+#settings-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: transparent; /* Fully transparent so page remains visible */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease-in-out;
+  z-index: 9999998; /* Below settings container (9999999) but above edit-toolbar (999999) */
+}
+
+#settings-overlay.active {
+  opacity: 1;
+  visibility: visible;
 }

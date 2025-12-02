@@ -6,6 +6,8 @@ black #221F20;
 "white" #CBCCCC*/
 
 @import url('./theme/variables.css');
+@import url('./theme/light-theme.css') layer(light-theme);
+@import url('./theme/sepia-theme.css') layer(sepia-theme);
 @import url('/public/fonts/inter/inter.css');
 
 body {
@@ -205,6 +207,11 @@ h3 {
     margin-bottom: .4em;
     letter-spacing: var(--letter-spacing-light);
     font-weight: 550;
+}
+
+/* Remove top margin from h3 in user container */
+#user-container h3 {
+    margin-top: 0;
 }
 
 h4, h5, h6 {

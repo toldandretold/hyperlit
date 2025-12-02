@@ -14,6 +14,7 @@ import { initializeHypercitingControls } from "./hypercites/index.js";
 import { initializeBroadcastListener } from "./utilities/BroadcastListener.js";
 import { setupUnloadSync } from "./indexedDB/index.js";
 import { generateTableOfContents, destroyTocManager, initializeTocManager } from "./components/toc.js";
+import { destroySettingsManager, initializeSettingsManager } from "./components/settingsContainer.js";
 import { KeyboardManager } from "./keyboardManager.js";
 import {
   initializeEditButtonListeners,
@@ -130,6 +131,7 @@ export async function cleanupReaderView() {
 
   destroySelectionHandler();
   destroyTocManager();
+  // Don't destroy settings manager - it's global UI that persists across pages
 }
 
 
@@ -265,6 +267,7 @@ export async function universalPageInitializer(progressCallback = null) {
   initializeBroadcastListener();
   setupUnloadSync();
   initializeTocManager();
+  initializeSettingsManager();
   
   // ✅ CRITICAL: Check auth state and update edit button permissions after reader initialization
   await checkEditPermissionsAndUpdateUI();
