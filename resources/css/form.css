@@ -168,7 +168,7 @@ form b {
 #edit-source-form .formButton {
   border: none !important;
   background: transparent !important;
-  color: #CBCCCC !important;
+  color: var(--color-text) !important;
   cursor: pointer;
   padding: 5px 10px;
   font-family: inherit;
@@ -180,9 +180,9 @@ form b {
 }
 
 #edit-source-form .formButton:hover {
-  background-color: var(--hyperlit-aqua) !important;
+  background-color: var(--color-accent) !important;
   border: none !important;
-  color: var(--hyperlit-black) !important;
+  color: var(--color-background) !important;
   cursor: pointer;
   padding: 5px 10px;
   font-family: inherit;

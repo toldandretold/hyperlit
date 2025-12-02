@@ -237,6 +237,7 @@ black #221F20;
 
 #editButton path,
 #edit-source path {
+  stroke: var(--icon-stroke-primary) !important; /* Use theme-aware color */
   pointer-events: none !important; /* Prevent path elements from blocking clicks */
 }
 

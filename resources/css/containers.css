@@ -46,7 +46,7 @@ black #221F20;
   height: 400px; /* Fixed height for citation display */
   max-height: calc(100vh - 2em); /* Don't exceed viewport */
   width: 300px; /* Fixed width, narrower than hyperlit */
-  background-color: rgba(34, 31, 32, 0.60); /* Glass effect */
+  background-color: var(--container-glass-bg); /* Use theme-aware glass background */
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   z-index: 1001;
@@ -1313,22 +1313,25 @@ body.hyperlit-container-open .reader-content-wrapper {
   left: 0;
   right: 0;
   height: auto;
-  max-height: 33vh; /* Roughly 1/3 of viewport */
   width: 100%;
-  background-color: var(--container-glass-bg);
+  background-color: transparent; /* Fully transparent so page content shows through */
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  z-index: 1001;
-  overflow: hidden;
+  z-index: 9999999; /* Above mobile edit-toolbar (999999) */
   padding: 1em 2em;
   border-radius: 1em 1em 0 0;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
+
+  /* Flex layout for buttons */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75em;
+  align-items: center;
+  justify-content: center;
 }
 
 /* When hidden, ensure container stays off-screen */
 #bottom-up-container.hidden {
-  display: block;
+  display: flex; /* Changed from block to maintain flex layout */
   transform: translateY(calc(100% + 2em));
 }
 
@@ -1337,21 +1340,8 @@ body.hyperlit-container-open .reader-content-wrapper {
   transform: translateY(0);
 }
 
-#bottom-up-container .scroller {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75em;
-  padding: 1em;
-  overflow: auto;
-  max-height: calc(33vh - 4em);
-  position: relative;
-  z-index: 20; /* Above the mask divs (z-index: 10) */
-  pointer-events: auto; /* Ensure clicks work */
-}
-
 /* Settings button styling */
 .settings-button {
-  width: 100%;
   padding: 0.75em 1em;
   background-color: rgba(75, 75, 75, 0.6);
   border: 1px solid rgba(203, 204, 204, 0.2);
@@ -1360,6 +1350,8 @@ body.hyperlit-container-open .reader-content-wrapper {
   font-size: 16px;
   cursor: pointer;
   transition: all 0.2s ease;
+  flex: 0 1 auto; /* Allow buttons to shrink if needed */
+  min-width: fit-content;
 }
 
 .settings-button:hover {
@@ -1397,30 +1389,6 @@ body.hyperlit-container-open .reader-content-wrapper {
   border-color: var(--hyperlit-aqua);
 }
 
-#bottom-up-container .mask-top,
-#bottom-up-container .mask-bottom {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 0.5em;
-  pointer-events: none;
-  background-color: var(--container-glass-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  z-index: 10;
-}
-
-#bottom-up-container .mask-top {
-  top: 0;
-  box-shadow: inset 0px -4px 4px -4px var(--container-glass-bg);
-  border-radius: 1em 1em 0 0;
-}
-
-#bottom-up-container .mask-bottom {
-  bottom: 0;
-  box-shadow: inset 0px 4px 4px -4px var(--container-glass-bg);
-  border-radius: 0 0 1em 1em;
-}
 
 /* Settings Overlay */
 #settings-overlay {
@@ -1429,11 +1397,11 @@ body.hyperlit-container-open .reader-content-wrapper {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: transparent; /* Fully transparent so page remains visible */
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.3s ease-in-out;
-  z-index: 999;
+  z-index: 9999998; /* Below settings container (9999999) but above edit-toolbar (999999) */
 }
 
 #settings-overlay.active {

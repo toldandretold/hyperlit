@@ -90,3 +90,43 @@ body.theme-sepia #source-container a[style*="color: #888"] {
 body.theme-sepia .download-icon path {
   fill: #3A2F1F !important;
 }
+
+/* Fix source container form inputs for better contrast */
+body.theme-sepia #edit-source-form input[type="text"],
+body.theme-sepia #edit-source-form input[type="number"],
+body.theme-sepia #edit-source-form input[type="url"],
+body.theme-sepia #edit-source-form textarea,
+body.theme-sepia #edit-source-form select {
+  color: #2A1F0F !important;
+}
+
+body.theme-sepia #edit-source-form input[type="text"]::placeholder,
+body.theme-sepia #edit-source-form input[type="number"]::placeholder,
+body.theme-sepia #edit-source-form input[type="url"]::placeholder,
+body.theme-sepia #edit-source-form textarea::placeholder {
+  color: #2A1F0F !important;
+  opacity: 0.6;
+}
+
+/* Fix select dropdown styling */
+body.theme-sepia #edit-source-form select {
+  background-color: var(--container-solid-bg) !important;
+  border: 1px solid rgba(58, 47, 31, 0.3) !important;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+/* Fix privacy toggle icon */
+body.theme-sepia #privacy-toggle svg {
+  stroke: #3A2F1F !important;
+}
+
+/* Fix form header to use pink instead of orange */
+body.theme-sepia #edit-source-form .form-header h2 {
+  color: var(--hyperlit-pink) !important;
+}
+
+/* Fix cancel button text to be dark */
+body.theme-sepia #cancel-edit:not(:hover) {
+  color: #3A2F1F !important;
+}

@@ -90,3 +90,43 @@ body.theme-light #source-container a[style*="color: #888"] {
 body.theme-light .download-icon path {
   fill: #2C2C2C !important;
 }
+
+/* Fix source container form inputs for better contrast */
+body.theme-light #edit-source-form input[type="text"],
+body.theme-light #edit-source-form input[type="number"],
+body.theme-light #edit-source-form input[type="url"],
+body.theme-light #edit-source-form textarea,
+body.theme-light #edit-source-form select {
+  color: #1C1C1C !important;
+}
+
+body.theme-light #edit-source-form input[type="text"]::placeholder,
+body.theme-light #edit-source-form input[type="number"]::placeholder,
+body.theme-light #edit-source-form input[type="url"]::placeholder,
+body.theme-light #edit-source-form textarea::placeholder {
+  color: #1C1C1C !important;
+  opacity: 0.6;
+}
+
+/* Fix select dropdown styling */
+body.theme-light #edit-source-form select {
+  background-color: var(--container-solid-bg) !important;
+  border: 1px solid rgba(44, 44, 44, 0.3) !important;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+/* Fix privacy toggle icon */
+body.theme-light #privacy-toggle svg {
+  stroke: #2C2C2C !important;
+}
+
+/* Fix form header to use pink instead of orange */
+body.theme-light #edit-source-form .form-header h2 {
+  color: var(--hyperlit-pink) !important;
+}
+
+/* Fix cancel button text to be dark */
+body.theme-light #cancel-edit:not(:hover) {
+  color: #2C2C2C !important;
+}
