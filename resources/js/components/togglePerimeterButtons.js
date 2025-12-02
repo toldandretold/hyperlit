@@ -8,6 +8,7 @@ export default class TogglePerimeterButtons {
     // 1. Store the configuration.
     this.elementIds = options.elementIds || [
       "bottom-right-buttons",
+      "bottom-left-buttons",
       "topRightContainer",
       "logoNavWrapper",
       "userButtonContainer"
@@ -17,7 +18,7 @@ export default class TogglePerimeterButtons {
 
     // Define all possible elements this manager might control.
     this.possibleLoadingElementIds = [
-      "bottom-right-buttons", "topRightContainer", "logoNavWrapper",
+      "bottom-right-buttons", "bottom-left-buttons", "topRightContainer", "logoNavWrapper",
       "userButtonContainer", "edit-toolbar",
     ];
 
@@ -197,7 +198,7 @@ shouldIgnoreEvent(event) {
   // Ignore other UI elements
   if (
     event.target.closest(
-      "#logoNavWrapper, #logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button, #cloudRef, .custom-alert, .custom-alert-overlay, #hyperlit-container, #ref-overlay",
+      "#logoNavWrapper, #logoContainer, #userButton, #newBook, #editButton, #toc-toggle-button, #settingsButton, #bottom-up-container, #cloudRef, .custom-alert, .custom-alert-overlay, #hyperlit-container, #ref-overlay",
     )
   ) {
     return true;
@@ -395,7 +396,8 @@ shouldIgnoreEvent(event) {
             element.style.right = `${Math.max(10, newPos)}px`;
           } else if (
             element.id === "logoNavWrapper" ||
-            element.id === "userButtonContainer"
+            element.id === "userButtonContainer" ||
+            element.id === "bottom-left-buttons"
           ) {
             element.style.left = `${Math.max(10, newPos)}px`;
           }

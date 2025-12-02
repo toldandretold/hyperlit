@@ -63,7 +63,7 @@ export function showSpinner() {
 
   const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1')
   if (cloudSvgPath) {
-    cloudSvgPath.style.fill = '#EF8D34'
+    cloudSvgPath.style.fill = 'var(--status-saving)'
   }
 
   // SAVE current topRightContainer state and make it visible
@@ -84,7 +84,7 @@ export function showTick() {
 
   const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1')
   if (cloudSvgPath) {
-    cloudSvgPath.style.fill = '#10a64a'
+    cloudSvgPath.style.fill = 'var(--status-success)'
   }
   console.log('Indicator → green (synced to server)')
 
@@ -102,7 +102,7 @@ export function showError() {
 
   const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1')
   if (cloudSvgPath) {
-    cloudSvgPath.style.fill = '#dc3545'
+    cloudSvgPath.style.fill = 'var(--status-error)'
   }
   console.log('Indicator → red (sync error)')
 

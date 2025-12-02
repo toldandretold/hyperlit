@@ -88,6 +88,28 @@
     var(--hyperlit-orange),
     var(--hyperlit-aqua),
     var(--hyperlit-pink));
+
+  /* Icon Colors - Standardized SVG Styling */
+  --icon-fill-primary: var(--hyperlit-white);      /* Default icon fill (#CBCCCC) */
+  --icon-fill-accent: var(--hyperlit-pink);        /* Accent color (#EE4A95) */
+  --icon-stroke-primary: var(--hyperlit-white);    /* Default icon stroke */
+  --icon-background: var(--hyperlit-black);        /* Icon button backgrounds */
+
+  /* Icon Hover States */
+  --icon-hover-background: var(--hyperlit-white);  /* Inverted background on hover */
+  --icon-hover-fill: var(--hyperlit-black);        /* Inverted fill on hover */
+  --icon-hover-stroke: var(--hyperlit-black);      /* Inverted stroke on hover */
+
+  /* Icon Disabled States */
+  --icon-disabled-fill: #888888;
+  --icon-disabled-stroke: #888888;
+  --icon-disabled-opacity: 0.3;
+
+  /* Status Indicator Colors (for cloudRef save/sync feedback) */
+  --status-ready: var(--hyperlit-white);   /* #CBCCCC - default grey */
+  --status-saving: var(--hyperlit-orange); /* #EF8D34 - saving/processing */
+  --status-success: #10a64a;               /* green - successfully synced */
+  --status-error: #dc3545;                 /* red - sync error */
 }
 
 /* Mobile overrides */
