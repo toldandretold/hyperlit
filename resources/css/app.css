@@ -207,6 +207,11 @@ h3 {
     font-weight: 550;
 }
 
+/* Remove top margin from h3 in user container */
+#user-container h3 {
+    margin-top: 0;
+}
+
 h4, h5, h6 {
     font-size: var(--font-size-h4);
     color: var(--color-text);

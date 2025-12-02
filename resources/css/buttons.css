@@ -63,6 +63,16 @@ black #221F20;
   fill: none;
 }
 
+/* ===== SETTINGS BUTTON (FILLED ICON) ===== */
+#settingsButton svg {
+  width: 32px !important;
+  height: auto !important;
+}
+
+#settingsButton svg path {
+  fill: var(--icon-fill-primary);
+}
+
 /* ===== HYPERLIGHT BUTTONS ===== */
 /* Delete button - stroked icon */
 #hyperlight-buttons #delete-hyperlight svg path {
@@ -180,6 +190,18 @@ black #221F20;
 #toc-toggle-button {
   width: 26px;
   height: 26px;
+  background-color: var(--color-background);
+  border: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+#settingsButton {
+  width: 32px;
+  height: 32px;
   background-color: var(--color-background);
   border: none;
   position: relative;
@@ -440,6 +462,18 @@ black #221F20;
   align-items: flex-end;
   gap: 8px;
   transition: opacity 0.3s ease, right 0.3s ease;
+}
+
+#bottom-left-buttons {
+  position: fixed;
+  bottom: 40px;
+  left: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 0.3s ease, left 0.3s ease;
+  z-index: 999;
 }
 
 #bottom-right-buttons {
@@ -991,6 +1025,18 @@ black #221F20;
   #toc-toggle-button {
     width: 24px;
     height: 24px;
+    background-color: var(--color-background);
+    border: none;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  #settingsButton {
+    width: 26px;
+    height: 26px;
     background-color: var(--color-background);
     border: none;
     position: relative;

@@ -132,15 +132,15 @@ black #221F20;
   border: none;
   border-radius: 5px;
   background-color: #4a4a4a;
-  color: white;
+  color: #CBCCCC;
   font-size: 16px;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 #newbook-container button:hover {
-  background-color: var(--hyperlit-aqua);
-  color: var(--hyperlit-black);
+  background-color: var(--color-accent);
+  color: var(--color-background);
   cursor: pointer;
 }
 
@@ -157,6 +157,7 @@ black #221F20;
   overflow: auto;
   padding: 0 1em 1em 1em; /* no top padding */
   border-radius: 1em 1em;
+  background-color: var(--container-glass-bg);
 }
 
 /* ---------------------------------------------------
@@ -169,11 +170,11 @@ black #221F20;
   width: 100%;
   height: 1em; /* matches scroller's top padding */
   pointer-events: none;
-  background-color: rgba(34, 31, 32, 0.60);
+  background-color: var(--container-glass-bg);
   backdrop-filter: blur(10px); /* Glass blur effect */
   -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 10;
-  box-shadow: inset 0px -4px 4px -4px rgba(34, 31, 32, 0.60);
+  box-shadow: inset 0px -4px 4px -4px var(--container-glass-bg);
   border-radius: 1em 1em 0 0;
 }
 
@@ -187,11 +188,11 @@ black #221F20;
   width: 100%;
   height: 1em; /* matches scroller's bottom padding */
   pointer-events: none;
-  background-color: rgba(34, 31, 32, 0.60);
+  background-color: var(--container-glass-bg);
   backdrop-filter: blur(10px); /* Glass blur effect */
   -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 10; /* Corrected: changed en dash to hyphen */
-  box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60);
+  box-shadow: inset 0px 4px 4px -4px var(--container-glass-bg);
   border-radius: 0 0 1em 1em;
 }
 
@@ -539,7 +540,7 @@ black #221F20;
 
 
 #user-container {
-  background-color: rgba(34, 31, 32, 0.60);
+  background-color: var(--container-glass-bg);
   backdrop-filter: blur(10px); /* Glass blur effect */
   -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 1001;
@@ -787,6 +788,7 @@ black #221F20;
   }
 }
 #newbook-container {
+  background-color: var(--container-glass-bg);
   border-radius: 0.75em; /* Same as other containers */
 }
 
@@ -880,7 +882,8 @@ black #221F20;
 
 .form-subtitle {
   font-size: 14px;
-  color: #CBCCCC;
+  color: var(--color-text);
+  opacity: 0.7;
   margin: 0.25em 0;
 }
 
@@ -906,7 +909,8 @@ black #221F20;
 /* Field hints */
 .field-hint {
   font-size: 12px;
-  color: #888;
+  color: var(--color-text);
+  opacity: 0.6;
   margin-top: 0.1em;
   margin-bottom: 0.5em;
   font-style: italic;
@@ -973,10 +977,31 @@ black #221F20;
 #newbook-container button[type="submit"]:not(:disabled) {
   background-color: var(--hyperlit-aqua);
   color: var(--hyperlit-black);
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid var(--hyperlit-aqua);
+  box-sizing: border-box;
 }
 
 #newbook-container button[type="submit"]:not(:disabled):hover {
   background-color: #5FBCC0;
+}
+
+/* Non-submit form buttons (Clear, etc.) */
+#newbook-container .formButton:not([type="submit"]) {
+  background-color: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-text);
+  padding: 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+#newbook-container .formButton:not([type="submit"]):hover {
+  background-color: var(--color-accent);
+  color: var(--color-background);
+  border: 1px solid var(--color-accent);
 }
 
 /* Form actions button spacing */
@@ -1116,7 +1141,8 @@ black #221F20;
 
 #source-container .form-subtitle {
   font-size: 14px;
-  color: #CBCCCC;
+  color: var(--color-text);
+  opacity: 0.7;
   margin: 0.25em 0;
 }
 
@@ -1142,7 +1168,8 @@ black #221F20;
 /* Field hints */
 #source-container .field-hint {
   font-size: 12px;
-  color: #888;
+  color: var(--color-text);
+  opacity: 0.6;
   margin-top: 0.1em;
   margin-bottom: 0.5em;
   font-style: italic;

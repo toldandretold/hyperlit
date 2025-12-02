@@ -98,7 +98,7 @@ export class NewBookContainerManager extends ContainerManager {
     container.style.transition =
       "width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, padding 0.3s ease-out, top 0.3s ease-out, left 0.3s ease-out, right 0.3s ease-out";
     container.style.zIndex = "1001";
-    container.style.backgroundColor = "#221F20";
+    // backgroundColor handled by CSS using var(--container-glass-bg)
     container.style.boxShadow = "0 0 15px rgba(0, 0, 0, 0.2)";
     container.style.borderRadius = "0.75em";
     container.style.boxSizing = "border-box"; // Prevents padding from adding to the width

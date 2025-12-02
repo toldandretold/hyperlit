@@ -3,7 +3,7 @@
  * Warm sepia-toned color scheme for comfortable reading
  *
  * To enable in browser console:
- * const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = '/build/assets/sepia-theme-DA1Va3yk.css'; link.id = 'sepia-theme'; document.head.appendChild(link);
+ * const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = '/build/assets/sepia-theme-Dn6ETunN.css'; link.id = 'sepia-theme'; document.head.appendChild(link);
  *
  * To disable:
  * document.getElementById('sepia-theme')?.remove();
@@ -60,4 +60,39 @@
 /* Use sepia theme logo with dark brown text */
 #top {
   content: url('/images/titleLogo-sepia.svg');
+}
+
+/* Darker input text and placeholders for better contrast */
+input[type="email"],
+input[type="password"],
+input[type="text"] {
+  color: #2A1F0F !important;
+}
+
+input[type="email"]::placeholder,
+input[type="password"]::placeholder,
+input[type="text"]::placeholder {
+  color: #2A1F0F !important;
+  opacity: 0.7;
+}
+
+/* Fix arranger button text color on hover */
+.arranger-button:hover {
+  color: var(--hyperlit-black) !important;
+}
+
+/* Fix source container for sepia theme */
+#source-container {
+  background-color: var(--container-glass-bg) !important;
+}
+
+/* Fix gray text in source container to be darker */
+#source-container p[style*="color: #888"],
+#source-container a[style*="color: #888"] {
+  color: #4A3F2F !important;
+}
+
+/* Fix download icon SVGs to be darker */
+.download-icon path {
+  fill: #3A2F1F !important;
 }
