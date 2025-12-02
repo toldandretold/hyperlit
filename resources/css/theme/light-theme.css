@@ -1,15 +1,9 @@
 /**
  * Light Theme
  * Inverted color scheme optimized for daylight reading
- *
- * To enable in browser console:
- * const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = '/build/assets/light-theme-wqdfqFcp.css'; link.id = 'light-theme'; document.head.appendChild(link);
- *
- * To disable:
- * document.getElementById('light-theme')?.remove();
  */
 
-:root {
+body.theme-light {
   /* Inverted base colors */
   --hyperlit-black: #F4ECD8;     /* Warm sepia/cream background */
   --hyperlit-white: #2C2C2C;     /* Dark text */
@@ -57,42 +51,42 @@
   --status-error: #dc3545;
 }
 
-/* Use light theme logo with dark text */
-#top {
-  content: url('/images/titleLogo-light.svg');
+/* Change logo text color for light theme */
+body.theme-light #top {
+  --logo-text-color: #2C2C2C;
 }
 
 /* Darker input text and placeholders for better contrast */
-input[type="email"],
-input[type="password"],
-input[type="text"] {
+body.theme-light input[type="email"],
+body.theme-light input[type="password"],
+body.theme-light input[type="text"] {
   color: #1C1C1C !important;
 }
 
-input[type="email"]::placeholder,
-input[type="password"]::placeholder,
-input[type="text"]::placeholder {
+body.theme-light input[type="email"]::placeholder,
+body.theme-light input[type="password"]::placeholder,
+body.theme-light input[type="text"]::placeholder {
   color: #1C1C1C !important;
   opacity: 0.7;
 }
 
 /* Fix arranger button text color on hover */
-.arranger-button:hover {
+body.theme-light .arranger-button:hover {
   color: var(--hyperlit-black) !important;
 }
 
 /* Fix source container for light theme */
-#source-container {
+body.theme-light #source-container {
   background-color: var(--container-glass-bg) !important;
 }
 
 /* Fix gray text in source container to be darker */
-#source-container p[style*="color: #888"],
-#source-container a[style*="color: #888"] {
+body.theme-light #source-container p[style*="color: #888"],
+body.theme-light #source-container a[style*="color: #888"] {
   color: #3C3C3C !important;
 }
 
 /* Fix download icon SVGs to be darker */
-.download-icon path {
+body.theme-light .download-icon path {
   fill: #2C2C2C !important;
 }

@@ -6,6 +6,8 @@ black #221F20;
 "white" #CBCCCC*/
 
 @import url('./theme/variables.css');
+@import url('./theme/light-theme.css') layer(light-theme);
+@import url('./theme/sepia-theme.css') layer(sepia-theme);
 @import url('/public/fonts/inter/inter.css');
 
 body {

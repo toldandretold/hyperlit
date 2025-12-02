@@ -248,6 +248,34 @@
   <div id="user-overlay"></div>
   <div id="user-container" class="hidden" style="visibility: hidden;"></div>
 
+  <!-- Settings container - slides up from bottom -->
+  <div id="bottom-up-container" class="hidden">
+    <div class="scroller">
+      <!-- Dark Mode Button (active by default) -->
+      <button type="button" id="darkModeButton" class="settings-button active">
+        Dark Mode
+      </button>
+
+      <!-- Light Mode Button -->
+      <button type="button" id="lightModeButton" class="settings-button">
+        Light Mode
+      </button>
+
+      <!-- Sepia Mode Button -->
+      <button type="button" id="sepiaModeButton" class="settings-button">
+        Sepia Mode
+      </button>
+
+      <!-- Search Button -->
+      <button type="button" id="searchButton" class="settings-button">
+        Search
+      </button>
+    </div>
+    <div class="mask-top"></div>
+    <div class="mask-bottom"></div>
+  </div>
+  <div id="settings-overlay"></div>
+
 </div><!-- Close app-container -->
 
 @endsection
