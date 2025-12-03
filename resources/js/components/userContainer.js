@@ -275,17 +275,13 @@ export class UserContainerManager extends ContainerManager {
 
     const profileHTML = `
       <div class="user-profile">
-        <div style="margin-bottom: 15px;">
-          <div style="padding-top: 0px;">
-            <button id="myBooksBtn" style="width: 100%; padding: 10px; background: var(--color-accent); color: var(--color-background); border: 1px solid var(--color-accent); border-radius: 4px; cursor: pointer; margin-bottom: 10px; box-sizing: border-box; transition: background-color 0.3s, color 0.3s;">
-              My Library
-            </button>
-            <button id="logout"
-                    style="width: 100%; padding: 10px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer; box-sizing: border-box; transition: background-color 0.3s, color 0.3s, border-color 0.3s;">
-              Logout
-            </button>
-          </div>
-        </div>
+        <button id="myBooksBtn" style="width: 100%; padding: 10px; background: var(--color-accent); color: var(--color-background); border: 1px solid var(--color-accent); border-radius: 4px; cursor: pointer; margin-bottom: 10px; box-sizing: border-box; transition: background-color 0.3s, color 0.3s;">
+          My Library
+        </button>
+        <button id="logout"
+                style="width: 100%; padding: 10px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer; box-sizing: border-box; transition: background-color 0.3s, color 0.3s, border-color 0.3s;">
+          Logout
+        </button>
       </div>
     `;
 

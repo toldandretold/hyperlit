@@ -139,6 +139,28 @@ export async function cleanupReaderView() {
 
   destroySelectionHandler();
 
+  // ✅ Clean up content-specific listeners (hyperlights, hypercites)
+  try {
+    const { cleanupHighlightingControls } = await import('./hyperlights/selection.js');
+    cleanupHighlightingControls();
+  } catch (e) {
+    // Module not loaded yet, nothing to cleanup
+  }
+
+  try {
+    const { cleanupUnderlineClickListeners } = await import('./hypercites/index.js');
+    cleanupUnderlineClickListeners();
+  } catch (e) {
+    // Module not loaded yet, nothing to cleanup
+  }
+
+  try {
+    const { destroyHyperlitManager } = await import('./hyperlitContainer/index.js');
+    destroyHyperlitManager();
+  } catch (e) {
+    // Module not loaded yet, nothing to destroy
+  }
+
   // ✅ NEW: Use ButtonRegistry for systematic cleanup
   // Destroys all registered components (toc, settings, edit, source, logo, etc.)
   buttonRegistry.destroyAll();
@@ -271,6 +293,11 @@ export async function universalPageInitializer(progressCallback = null) {
   });
   restoreScrollPosition();
   attachMarkListeners();
+
+  // ✅ Attach hypercite click listeners after content loads
+  const { attachUnderlineClickListeners } = await import('./hypercites/index.js');
+  attachUnderlineClickListeners();
+
   // Note: LinkNavigationHandler.attachGlobalLinkClickHandler() now called earlier for all page types
   initializeBroadcastListener();
   setupUnloadSync();
