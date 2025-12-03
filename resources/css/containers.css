@@ -384,11 +384,8 @@ black #221F20;
   right: 0;
   height: 1em; /* Matches the scroller's top padding */
   pointer-events: none;
-  background-color: rgba(34, 31, 32, 0.60);
-  backdrop-filter: blur(10px); /* Glass blur effect */
-  -webkit-backdrop-filter: blur(10px); /* Safari support */
+  background: linear-gradient(to bottom, var(--container-solid-bg) 0%, transparent 100%);
   z-index: 10;
-  box-shadow: inset 0px -4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the top */
   border-radius: 1em 1em;
 }
 
@@ -415,11 +412,8 @@ black #221F20;
   right: 0;
   height: 1em; /* Matches the scroller's bottom padding */
   pointer-events: none;
-  background-color: rgba(34, 31, 32, 0.60);
-  backdrop-filter: blur(10px); /* Glass blur effect */
-  -webkit-backdrop-filter: blur(10px); /* Safari support */
+  background: linear-gradient(to top, var(--container-solid-bg) 0%, transparent 100%);
   z-index: 10;
-  box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the bottom */
 }
 
 
@@ -511,21 +505,23 @@ black #221F20;
 
 #toc-container h1 {
     font-size: 25px;
-    color: #E0E0E0;
+    color: var(--color-text);
     margin: 0.5em 0 0.25em 0;
 }
 
 #toc-container h2 {
     font-size: 20px;
     padding-left: 2em;
-    color: #C4C4C4;
+    color: var(--color-text);
+    opacity: 0.85;
     margin: 0.4em 0 0.2em 0;
 }
 
 #toc-container h3, #toc-container h4 {
     padding-left: 4em;
     font-size: 20px;
-    color: #A8A8A8;
+    color: var(--color-text);
+    opacity: 0.7;
     margin: 0.3em 0 0.15em 0;
 }
 
@@ -1344,7 +1340,7 @@ body.hyperlit-container-open .reader-content-wrapper {
 .settings-button {
   padding: 0.75em 1em;
   background-color: rgba(75, 75, 75, 0.6);
-  border: 1px solid rgba(203, 204, 204, 0.2);
+  border: none;
   border-radius: 0.5em;
   color: var(--color-text);
   font-size: 16px;
@@ -1356,37 +1352,40 @@ body.hyperlit-container-open .reader-content-wrapper {
 
 .settings-button:hover {
   background-color: rgba(95, 95, 95, 0.8);
-  border-color: rgba(203, 204, 204, 0.4);
 }
 
 /* Theme preview colors for inactive buttons */
+#darkModeButton:not(.active) {
+  background-color: #221F20;  /* Dark theme background */
+  color: #CBCCCC;             /* Dark theme text */
+}
+
+#darkModeButton:not(.active):hover {
+  background-color: #2A2A2A;  /* Slightly lighter on hover */
+}
+
 #lightModeButton:not(.active) {
   background-color: #F4ECD8;
   color: #2C2C2C;
-  border-color: #D47020;
 }
 
 #lightModeButton:not(.active):hover {
   background-color: #EAE0CC;
-  border-color: #D47020;
 }
 
 #sepiaModeButton:not(.active) {
   background-color: #E8D7B8;
   color: #3A2F1F;
-  border-color: #C25E10;
 }
 
 #sepiaModeButton:not(.active):hover {
   background-color: #D9C8A8;
-  border-color: #C25E10;
 }
 
 /* Active button gets aqua styling (overrides preview) */
 .settings-button.active {
   background-color: var(--hyperlit-aqua);
   color: var(--hyperlit-black);
-  border-color: var(--hyperlit-aqua);
 }
 
 
