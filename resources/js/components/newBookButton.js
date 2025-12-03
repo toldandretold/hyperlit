@@ -101,7 +101,6 @@ export class NewBookContainerManager extends ContainerManager {
     // backgroundColor handled by CSS using var(--container-glass-bg)
     container.style.boxShadow = "0 0 15px rgba(0, 0, 0, 0.2)";
     container.style.borderRadius = "0.75em";
-    container.style.boxSizing = "border-box"; // Prevents padding from adding to the width
 
     // start hidden/collapsed:
     container.style.opacity = "0";
@@ -186,6 +185,31 @@ export class NewBookContainerManager extends ContainerManager {
     // Add the event listeners
     document.getElementById("createNewBook")?.addEventListener("click", this.createBookHandler);
     document.getElementById("importBook")?.addEventListener("click", this.importBookHandler);
+
+    // Add hover effects - both buttons aqua on hover
+    const createBtn = document.getElementById("createNewBook");
+    if (createBtn) {
+      createBtn.addEventListener('mouseenter', () => {
+        createBtn.style.backgroundColor = 'var(--color-accent)';
+        createBtn.style.color = 'var(--color-background)';
+      });
+      createBtn.addEventListener('mouseleave', () => {
+        createBtn.style.backgroundColor = '#4a4a4a';
+        createBtn.style.color = '#CBCCCC';
+      });
+    }
+
+    const importBtn = document.getElementById("importBook");
+    if (importBtn) {
+      importBtn.addEventListener('mouseenter', () => {
+        importBtn.style.backgroundColor = 'var(--color-accent)';
+        importBtn.style.color = 'var(--color-background)';
+      });
+      importBtn.addEventListener('mouseleave', () => {
+        importBtn.style.backgroundColor = '#4a4a4a';
+        importBtn.style.color = '#CBCCCC';
+      });
+    }
   }
 
  showImportForm() {
@@ -599,15 +623,11 @@ export class NewBookContainerManager extends ContainerManager {
         this.container.style.right = `${window.innerWidth - rect.right}px`;
         this.container.style.visibility = "visible";
         this.container.style.opacity = "0";
-        this.container.style.width = "200px";
+        this.container.style.width = "160px";
         this.container.style.height = "auto";
         this.container.style.padding = "20px";
-        this.container.style.display = "flex";
-        this.container.style.flexDirection = "column";
-        this.container.style.justifyContent = "center";
-        this.container.style.alignItems = "center";
-        this.container.style.gap = "10px";
-        
+        this.container.style.display = "block";
+
         // Fade in after positioning is set, synced with button rotation (0.3s)
         requestAnimationFrame(() => {
           this.container.style.opacity = "1";

@@ -152,8 +152,8 @@
 </div>
 
 <div id="newbook-container" class="hidden loading">
-  <button id="createNewBook" type="button">new</button>
-  <button id="importBook" type="button">import</button>
+  <button id="createNewBook" type="button" class="fucked-buttons" style="width: 100%; padding: 10px; background: #4a4a4a; color: #CBCCCC; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; font-family: inherit;">New</button>
+  <button id="importBook" type="button" class="fucked-buttons" style="width: 100%; padding: 10px; background: #4a4a4a; color: #CBCCCC; border: none; border-radius: 4px; cursor: pointer; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; font-family: inherit;">Import</button>
 </div>
 
 

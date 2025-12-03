@@ -114,11 +114,10 @@ black #221F20;
 #newbook-container.button-view {
   display: flex;
   flex-direction: column;
-  gap: 10px;
   justify-content: center;
   align-items: center;
   padding: 20px;
-  width: 200px;  /* Final desired width */
+  width: 160px;  /* Final desired width */
   height: auto;
   opacity: 1;
   pointer-events: auto;
@@ -127,21 +126,22 @@ black #221F20;
 
 
 #newbook-container button {
-  width: 80%;
-  padding: 12px;
+  width: 100%;
+  padding: 10px;
   border: none;
-  border-radius: 5px;
+  border-radius: 4px;
   background-color: #4a4a4a;
   color: #CBCCCC;
-  font-size: 16px;
   cursor: pointer;
   transition: background-color 0.3s, color 0.3s;
+  box-sizing: border-box;
+  font-family: inherit;
 }
 
-#newbook-container button:hover {
-  background-color: var(--color-accent);
-  color: var(--color-background);
-  cursor: pointer;
+/* Hover handled in JS - see newBookButton.js setupButtonListeners() */
+
+#createNewBook {
+  margin-bottom: 10px;
 }
 
 /* ---------------------------------------------------
@@ -540,8 +540,10 @@ black #221F20;
   backdrop-filter: blur(10px); /* Glass blur effect */
   -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 1001;
+  border: none;
   border-radius: 0.75em;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
 
 }
 
@@ -785,17 +787,19 @@ black #221F20;
 }
 #newbook-container {
   background-color: var(--container-glass-bg);
+  border: none;
   border-radius: 0.75em; /* Same as other containers */
+  box-sizing: border-box;
 }
 
 #newbook-container .scroller {
   padding: 1em; /* Same as other containers */
 }
 
-#newbook-container input,
-#newbook-container textarea,
-#newbook-container label,
-#newbook-container button {
+#newbook-container form input,
+#newbook-container form textarea,
+#newbook-container form label,
+#newbook-container form button {
   font-size: 16px;
   font-family: inherit;
 }
@@ -1406,4 +1410,9 @@ body.hyperlit-container-open .reader-content-wrapper {
 #settings-overlay.active {
   opacity: 1;
   visibility: visible;
+}
+
+/* Shared button styling for user and newbook containers. called fucked as it is FUCKED */
+.fucked-buttons {
+  font-size: 12px;
 }
