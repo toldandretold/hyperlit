@@ -246,8 +246,7 @@ black #221F20;
 .top-content {
   width: 100%;
   text-align: left; /* Changed from center to left */
-  padding: 0px 0;
-  padding-left: 40px;
+  padding: 0px 40px 0px 40px; /* Match main content horizontal padding */
 }
 
 #top {
@@ -255,7 +254,8 @@ black #221F20;
   max-width: 100%;
   height: auto;
   display: block;
-  margin: 0; /* Remove auto margins to prevent centering */
+  margin: 0;
+  margin-left: -20px; /* Pull logo to the left for better alignment */
   margin-right: auto; /* This keeps space on the right side */
 }
 
@@ -271,9 +271,14 @@ black #221F20;
 #userLibraryContainer {
   margin-bottom: 1em;
   margin-top: 1em;
-  padding-left: 1em;
   padding-left: 40px;
+  padding-right: 40px;
+}
 
+/* Override padding for user page to account for fixed-header padding */
+body[data-page="user"] #userLibraryContainer {
+  padding-left: 20px;
+  padding-right: 20px;
 }
 
 /* Placeholder text for empty contenteditable fields */

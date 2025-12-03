@@ -153,7 +153,7 @@ export function registerAllComponents() {
     name: 'settings',
     initFn: initializeSettingsManager,
     destroyFn: destroySettingsManager,
-    pages: ['reader'],
+    pages: ['reader', 'home', 'user'],
     dependencies: [],
     required: false
   });
