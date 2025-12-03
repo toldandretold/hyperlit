@@ -130,3 +130,19 @@ body.theme-light #edit-source-form .form-header h2 {
 body.theme-light #cancel-edit:not(:hover) {
   color: #2C2C2C !important;
 }
+
+/* TOC heading colors for better contrast on light */
+body.theme-light #toc-container h1 {
+  color: #1C1C1C !important;
+}
+
+body.theme-light #toc-container h2 {
+  color: #1C1C1C !important;
+  opacity: 0.9 !important;
+}
+
+body.theme-light #toc-container h3,
+body.theme-light #toc-container h4 {
+  color: #1C1C1C !important;
+  opacity: 0.75 !important;
+}

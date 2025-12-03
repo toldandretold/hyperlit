@@ -384,11 +384,8 @@ black #221F20;
   right: 0;
   height: 1em; /* Matches the scroller's top padding */
   pointer-events: none;
-  background-color: rgba(34, 31, 32, 0.60);
-  backdrop-filter: blur(10px); /* Glass blur effect */
-  -webkit-backdrop-filter: blur(10px); /* Safari support */
+  background: linear-gradient(to bottom, var(--container-solid-bg) 0%, transparent 100%);
   z-index: 10;
-  box-shadow: inset 0px -4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the top */
   border-radius: 1em 1em;
 }
 
@@ -415,11 +412,8 @@ black #221F20;
   right: 0;
   height: 1em; /* Matches the scroller's bottom padding */
   pointer-events: none;
-  background-color: rgba(34, 31, 32, 0.60);
-  backdrop-filter: blur(10px); /* Glass blur effect */
-  -webkit-backdrop-filter: blur(10px); /* Safari support */
+  background: linear-gradient(to top, var(--container-solid-bg) 0%, transparent 100%);
   z-index: 10;
-  box-shadow: inset 0px 4px 4px -4px rgba(34, 31, 32, 0.60); /* Fades the text at the bottom */
 }
 
 
@@ -511,21 +505,23 @@ black #221F20;
 
 #toc-container h1 {
     font-size: 25px;
-    color: #E0E0E0;
+    color: var(--color-text);
     margin: 0.5em 0 0.25em 0;
 }
 
 #toc-container h2 {
     font-size: 20px;
     padding-left: 2em;
-    color: #C4C4C4;
+    color: var(--color-text);
+    opacity: 0.85;
     margin: 0.4em 0 0.2em 0;
 }
 
 #toc-container h3, #toc-container h4 {
     padding-left: 4em;
     font-size: 20px;
-    color: #A8A8A8;
+    color: var(--color-text);
+    opacity: 0.7;
     margin: 0.3em 0 0.15em 0;
 }
 

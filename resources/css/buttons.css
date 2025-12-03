@@ -252,7 +252,19 @@ black #221F20;
 }
 
 #editButton.inverted svg path {
-  stroke: var(--color-background);
+  stroke: var(--color-background) !important;
+}
+
+/* Hover and active states for proper color inversion */
+#editButton:hover,
+#editButton.active {
+  background-color: var(--icon-hover-background);
+  border-radius: 4px;
+}
+
+#editButton:hover svg path,
+#editButton.active svg path {
+  stroke: var(--icon-hover-stroke) !important;
 }
 
 #editButton.locked-state {
@@ -635,8 +647,7 @@ black #221F20;
 
 /* 1. Style the button's background on hover and active states. */
 #edit-toolbar button:hover,
-#edit-toolbar button.active,
-#editButton.active {
+#edit-toolbar button.active {
   background-color: var(--icon-hover-background); /* Apply background to the button itself */
 }
 /* Apply transform only on hover for better UX */
@@ -1070,7 +1081,19 @@ black #221F20;
   }
 
   #editButton.inverted svg path {
-    stroke: var(--color-background);
+    stroke: var(--color-background) !important;
+  }
+
+  /* Hover and active states for proper color inversion (mobile) */
+  #editButton:hover,
+  #editButton.active {
+    background-color: var(--icon-hover-background);
+    border-radius: 4px;
+  }
+
+  #editButton:hover svg path,
+  #editButton.active svg path {
+    stroke: var(--icon-hover-stroke) !important;
   }
 
   #editButton.locked-state {
