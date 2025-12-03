@@ -9,7 +9,8 @@ import { destroyHomepageDisplayUnit, initializeHomepageButtons, fixHeaderSpacing
 import { destroyUserProfileEditor, initializeUserProfileEditor } from '../../components/userProfileEditor.js';
 import { setCurrentBook } from '../../app.js';
 import { resetCurrentLazyLoader, loadHyperText, currentLazyLoader } from '../../initializePage.js';
-import { togglePerimeterButtons } from '../../readerDOMContentLoaded.js';
+// ✅ REMOVED: togglePerimeterButtons now managed by ButtonRegistry
+// import { togglePerimeterButtons } from '../../readerDOMContentLoaded.js';
 import { destroyLogoNav, initializeLogoNav } from '../../components/logoNavToggle.js';
 import { initializeUserContainer } from '../../components/userContainer.js';
 
@@ -147,14 +148,15 @@ export async function swapHomeContent(bookId, showLoader = true) {
       }
     }
 
-    // 🔧 CRITICAL: Reinitialize TogglePerimeterButtons
-    // Already imported statically
-    if (togglePerimeterButtons) {
-      togglePerimeterButtons.destroy();
-      togglePerimeterButtons.rebindElements();
-      togglePerimeterButtons.init();
-      togglePerimeterButtons.updatePosition();
-    }
+    // ✅ REMOVED: Manual TogglePerimeterButtons management (now handled by ButtonRegistry)
+    // OLD CODE:
+    // if (togglePerimeterButtons) {
+    //   togglePerimeterButtons.destroy();
+    //   togglePerimeterButtons.rebindElements();
+    //   togglePerimeterButtons.init();
+    //   togglePerimeterButtons.updatePosition();
+    // }
+    // NOW: ButtonRegistry handles this automatically
 
     // 🔧 CRITICAL: Reinitialize logo navigation toggle
     // Already imported statically

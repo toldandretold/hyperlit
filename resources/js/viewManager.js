@@ -4,6 +4,14 @@ import { book, setCurrentBook } from "./app.js";
 import { getCurrentUser, getAnonymousToken } from "./utilities/auth.js";
 import { checkEditPermissionsAndUpdateUI } from "./components/editButton.js";
 
+// ✅ ButtonRegistry - Centralized component initialization
+import { buttonRegistry } from './utilities/buttonRegistry.js';
+import { registerAllComponents } from './components/registerComponents.js';
+
+// ✅ Register all UI components with ButtonRegistry
+// This must happen at module load time before any initialization
+registerAllComponents();
+
 // ✅ Lazy-loaded edit modules (only loaded when editing)
 // import { stopObserving } from "./divEditor/index.js";
 // import { initEditToolbar, destroyEditToolbar } from "./editToolbar";
@@ -130,8 +138,32 @@ export async function cleanupReaderView() {
   }
 
   destroySelectionHandler();
-  destroyTocManager();
-  // Don't destroy settings manager - it's global UI that persists across pages
+
+  // ✅ Clean up content-specific listeners (hyperlights, hypercites)
+  try {
+    const { cleanupHighlightingControls } = await import('./hyperlights/selection.js');
+    cleanupHighlightingControls();
+  } catch (e) {
+    // Module not loaded yet, nothing to cleanup
+  }
+
+  try {
+    const { cleanupUnderlineClickListeners } = await import('./hypercites/index.js');
+    cleanupUnderlineClickListeners();
+  } catch (e) {
+    // Module not loaded yet, nothing to cleanup
+  }
+
+  try {
+    const { destroyHyperlitManager } = await import('./hyperlitContainer/index.js');
+    destroyHyperlitManager();
+  } catch (e) {
+    // Module not loaded yet, nothing to destroy
+  }
+
+  // ✅ NEW: Use ButtonRegistry for systematic cleanup
+  // Destroys all registered components (toc, settings, edit, source, logo, etc.)
+  buttonRegistry.destroyAll();
 }
 
 
@@ -185,20 +217,18 @@ export async function universalPageInitializer(progressCallback = null) {
   await Promise.all([loadPromise, waitForLayoutStabilization()]);
 
   verbose.init('DOM settled. Initializing static UI components', 'viewManager.js');
-    // Use the persistent TogglePerimeterButtons instance from readerDOMContentLoaded.js
-    import('./readerDOMContentLoaded.js').then(module => {
-      if (module.togglePerimeterButtons) {
-        verbose.init('TogglePerimeterButtons rebinding and reinitializing', 'viewManager.js');
-        // Always destroy and reinitialize to ensure clean state after DOM changes
-        module.togglePerimeterButtons.destroy();
-        module.togglePerimeterButtons.rebindElements();
-        module.togglePerimeterButtons.init();
-        module.togglePerimeterButtons.updatePosition();
-      }
-    });
 
-    // Initialize components that work on both page types
-    log.init('Universal components initialized', 'viewManager.js');
+  // ✅ REMOVED: Manual TogglePerimeterButtons management
+  // OLD CODE (conflicted with ButtonRegistry):
+  // import('./readerDOMContentLoaded.js').then(module => {
+  //   module.togglePerimeterButtons.destroy();
+  //   module.togglePerimeterButtons.rebindElements();
+  //   module.togglePerimeterButtons.init();
+  // });
+  // NOW: ButtonRegistry handles this automatically via initializeAll()
+
+  // Initialize components that work on both page types
+  log.init('Universal components initialized', 'viewManager.js');
     await initializeUniversalComponents(currentPageType);
 
     // 🔧 CRITICAL: Attach global handlers (popstate/visibility, focus) for ALL page types
@@ -213,10 +243,10 @@ export async function universalPageInitializer(progressCallback = null) {
       return; // Exit early - everything is handled by homepage/user page system
     }
 
-    // Initialize ALL components for both homepage and reader pages
-    // Components will handle their own conditional logic internally based on DOM availability
-    initializeEditButtonListeners();
-    initializeSourceButtonListener();
+    // ✅ Initialize ALL registered components for reader page
+    await buttonRegistry.initializeAll('reader');
+
+    // Initialize reader-specific features not managed by ButtonRegistry
     updateEditButtonVisibility(currentBookId);
     initializeHighlightManager();
     initializeHighlightingControls(currentBookId);
@@ -263,12 +293,18 @@ export async function universalPageInitializer(progressCallback = null) {
   });
   restoreScrollPosition();
   attachMarkListeners();
+
+  // ✅ Attach hypercite click listeners after content loads
+  const { attachUnderlineClickListeners } = await import('./hypercites/index.js');
+  attachUnderlineClickListeners();
+
   // Note: LinkNavigationHandler.attachGlobalLinkClickHandler() now called earlier for all page types
   initializeBroadcastListener();
   setupUnloadSync();
-  initializeTocManager();
-  initializeSettingsManager();
-  
+
+  // ✅ NOTE: Component initialization (toc, settings, etc.) now handled by
+  // buttonRegistry.initializeAll('reader') above - no duplicate calls needed
+
   // ✅ CRITICAL: Check auth state and update edit button permissions after reader initialization
   await checkEditPermissionsAndUpdateUI();
   verbose.init('Auth state checked and edit permissions updated in reader view', 'viewManager.js');
@@ -382,29 +418,25 @@ async function initializeUniversalComponents(pageType) {
   try {
     verbose.init(`Initializing universal components for page type: ${pageType}`, 'viewManager.js');
 
+    // ✅ Initialize all registered components for this page type (home/user)
+    // Components registered for 'home' and 'user' page types will be initialized
+    if (pageType === 'home' || pageType === 'user') {
+      await buttonRegistry.initializeAll(pageType);
+    }
+
     // SPA Transition Fix: If the transition pathway has already initialized
     // containers, skip doing it again here to prevent state corruption.
     if (window.containersAlreadyInitialized) {
         verbose.init('[SPA] Skipping container/homepage initialization as it was handled by the transition', 'viewManager.js');
     } else {
-        // Initialize user container - works on both homepage and reader pages
-        try {
-          // CRITICAL: Actively initialize userContainer after body replacement
-          // Passive import relies on auto-init which runs before DOM exists
-          const { initializeUserContainer } = await import('./components/userContainer.js');
-          const userManager = initializeUserContainer();
-          if (userManager && userManager.initializeUser) {
-            await userManager.initializeUser();
-          }
-          verbose.init('User container initialized for universal access', 'viewManager.js');
-        } catch (error) {
-          console.warn('Could not initialize user container:', error);
-        }
+        // ✅ NOTE: userContainer initialization now handled by ButtonRegistry above
+        // Legacy manual initialization removed to prevent duplicates
 
-        // Initialize homepage-specific components if we're on the homepage
-        if (pageType === 'home') {
+        // Initialize homepage-specific components for both home AND user pages
+        // User pages share the same structure as home pages (book grid, etc.)
+        if (pageType === 'home' || pageType === 'user') {
           try {
-            verbose.init('Initializing homepage-specific components', 'viewManager.js');
+            verbose.init(`Initializing homepage components for ${pageType} page`, 'viewManager.js');
             const { initializeHomepage } = await import('./homepage.js');
             await initializeHomepage();
             verbose.init('Homepage components initialized successfully', 'viewManager.js');
@@ -412,8 +444,20 @@ async function initializeUniversalComponents(pageType) {
             console.error('Error initializing homepage components:', error);
           }
         }
+
+        // Initialize user profile editor ONLY for user pages
+        if (pageType === 'user') {
+          try {
+            verbose.init('Initializing user profile editor', 'viewManager.js');
+            const { initializeUserProfileEditor } = await import('./components/userProfileEditor.js');
+            await initializeUserProfileEditor();
+            verbose.init('User profile editor initialized successfully', 'viewManager.js');
+          } catch (error) {
+            console.error('Error initializing user profile editor:', error);
+          }
+        }
     }
-    
+
     // Add other universal components here that should work on both page types
     // For example: search functionality, theme switcher, etc.
 
