@@ -131,7 +131,10 @@ export async function cleanupReaderView() {
 
   destroySelectionHandler();
   destroyTocManager();
-  // Don't destroy settings manager - it's global UI that persists across pages
+
+  // ✅ FIXED: Destroy settings manager to allow rebinding after SPA transitions
+  // This prevents stale DOM references when navigating back via browser cache
+  destroySettingsManager();
 }
 
 
