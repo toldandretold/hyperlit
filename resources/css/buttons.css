@@ -230,8 +230,8 @@ black #221F20;
 
 #editButton svg,
 #edit-source svg {
-  width: 100% !important;
-  height: 100% !important;
+  width: 90% !important;
+  height: 90% !important;
   pointer-events: none !important; /* Prevent SVG from blocking clicks */
 }
 

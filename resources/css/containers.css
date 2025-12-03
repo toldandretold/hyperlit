@@ -1340,7 +1340,7 @@ body.hyperlit-container-open .reader-content-wrapper {
 .settings-button {
   padding: 0.75em 1em;
   background-color: rgba(75, 75, 75, 0.6);
-  border: 1px solid rgba(203, 204, 204, 0.2);
+  border: none;
   border-radius: 0.5em;
   color: var(--color-text);
   font-size: 16px;
@@ -1352,37 +1352,40 @@ body.hyperlit-container-open .reader-content-wrapper {
 
 .settings-button:hover {
   background-color: rgba(95, 95, 95, 0.8);
-  border-color: rgba(203, 204, 204, 0.4);
 }
 
 /* Theme preview colors for inactive buttons */
+#darkModeButton:not(.active) {
+  background-color: #221F20;  /* Dark theme background */
+  color: #CBCCCC;             /* Dark theme text */
+}
+
+#darkModeButton:not(.active):hover {
+  background-color: #2A2A2A;  /* Slightly lighter on hover */
+}
+
 #lightModeButton:not(.active) {
   background-color: #F4ECD8;
   color: #2C2C2C;
-  border-color: #D47020;
 }
 
 #lightModeButton:not(.active):hover {
   background-color: #EAE0CC;
-  border-color: #D47020;
 }
 
 #sepiaModeButton:not(.active) {
   background-color: #E8D7B8;
   color: #3A2F1F;
-  border-color: #C25E10;
 }
 
 #sepiaModeButton:not(.active):hover {
   background-color: #D9C8A8;
-  border-color: #C25E10;
 }
 
 /* Active button gets aqua styling (overrides preview) */
 .settings-button.active {
   background-color: var(--hyperlit-aqua);
   color: var(--hyperlit-black);
-  border-color: var(--hyperlit-aqua);
 }
 
 
