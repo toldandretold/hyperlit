@@ -7,6 +7,7 @@ import { log, verbose } from '../utilities/logger.js';
 
 let isOpen = false;
 let clickOutsideHandler = null;
+let logoClickHandler = null; // Store handler reference for cleanup
 
 /**
  * Initialize logo navigation toggle
@@ -17,16 +18,26 @@ export function initializeLogoNav() {
   const navMenu = document.getElementById('logoNavMenu');
 
   if (!logoBtn || !navMenu || !logoWrapper) {
+    verbose.init('Logo nav elements not found, skipping initialization', '/components/logoNavToggle.js');
+    return;
+  }
+
+  // Prevent duplicate listeners
+  if (logoBtn.dataset.logoNavAttached) {
+    verbose.init('Logo nav listener already attached', '/components/logoNavToggle.js');
     return;
   }
 
   log.init('Logo navigation toggle initialized', '/components/logoNavToggle.js');
 
-  // Click handler for logo button
-  logoBtn.addEventListener('click', (e) => {
+  // Store handler reference for cleanup
+  logoClickHandler = (e) => {
     e.stopPropagation(); // Prevent immediate close from document click
     toggleLogoNav();
-  });
+  };
+
+  logoBtn.addEventListener('click', logoClickHandler);
+  logoBtn.dataset.logoNavAttached = 'true';
 }
 
 /**
@@ -98,6 +109,7 @@ export function destroyLogoNav() {
   const logoBtn = document.getElementById('logoContainer');
   const navMenu = document.getElementById('logoNavMenu');
 
+  // Close menu if open
   if (logoBtn) {
     logoBtn.classList.remove('rotated');
   }
@@ -106,10 +118,19 @@ export function destroyLogoNav() {
     navMenu.classList.add('hidden');
   }
 
+  // Remove click-outside handler
   if (clickOutsideHandler) {
     document.removeEventListener('click', clickOutsideHandler);
     clickOutsideHandler = null;
   }
 
+  // ✅ CRITICAL FIX: Remove main click listener
+  if (logoBtn && logoClickHandler) {
+    logoBtn.removeEventListener('click', logoClickHandler);
+    logoClickHandler = null;
+    delete logoBtn.dataset.logoNavAttached;
+  }
+
   isOpen = false;
+  verbose.init('Logo nav destroyed', '/components/logoNavToggle.js');
 }

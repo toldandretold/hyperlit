@@ -386,6 +386,10 @@ function disableEditMode() {
   }
 }
 
+// Store handler references for proper cleanup (like logoNav pattern)
+let editClickHandler = null;
+let editTouchHandler = null;
+
 // ✅ CREATE A NEW, EXPORTED INITIALIZER FOR THE LISTENERS
 export function initializeEditButtonListeners() {
   const editBtn = document.getElementById("editButton");
@@ -393,7 +397,8 @@ export function initializeEditButtonListeners() {
     // This check prevents adding listeners multiple times
     if (editBtn.dataset.listenersAttached) return;
 
-    editBtn.addEventListener("click", (e) => {
+    // Store handler references
+    editClickHandler = (e) => {
       e.preventDefault();
       e.stopPropagation();
 
@@ -407,9 +412,9 @@ export function initializeEditButtonListeners() {
       } else {
         enableEditMode();
       }
-    });
+    };
 
-    editBtn.addEventListener("touchend", (e) => {
+    editTouchHandler = (e) => {
       e.preventDefault();
       e.stopPropagation();
 
@@ -423,9 +428,31 @@ export function initializeEditButtonListeners() {
       } else {
         enableEditMode();
       }
-    });
+    };
 
+    editBtn.addEventListener("click", editClickHandler);
+    editBtn.addEventListener("touchend", editTouchHandler);
     editBtn.dataset.listenersAttached = 'true';
+  }
+}
+
+/**
+ * Destroy edit button listeners
+ * Properly removes event listeners to prevent accumulation
+ */
+export function destroyEditButtonListeners() {
+  const editBtn = document.getElementById("editButton");
+  if (editBtn) {
+    // ✅ CRITICAL FIX: Remove actual listeners
+    if (editClickHandler) {
+      editBtn.removeEventListener("click", editClickHandler);
+      editClickHandler = null;
+    }
+    if (editTouchHandler) {
+      editBtn.removeEventListener("touchend", editTouchHandler);
+      editTouchHandler = null;
+    }
+    delete editBtn.dataset.listenersAttached;
   }
 }
 
