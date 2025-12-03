@@ -130,3 +130,19 @@ body.theme-sepia #edit-source-form .form-header h2 {
 body.theme-sepia #cancel-edit:not(:hover) {
   color: #3A2F1F !important;
 }
+
+/* TOC heading colors for better contrast on sepia */
+body.theme-sepia #toc-container h1 {
+  color: #2A1F0F !important;
+}
+
+body.theme-sepia #toc-container h2 {
+  color: #2A1F0F !important;
+  opacity: 0.9 !important;
+}
+
+body.theme-sepia #toc-container h3,
+body.theme-sepia #toc-container h4 {
+  color: #2A1F0F !important;
+  opacity: 0.75 !important;
+}
