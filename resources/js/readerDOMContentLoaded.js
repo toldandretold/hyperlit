@@ -16,7 +16,8 @@ import { initializeFootnoteCitationListeners } from "./footnotesCitations.js";
 import { setInitialBookSyncPromise, withPending, getInitialBookSyncPromise } from "./utilities/operationState.js";
 import { generateTableOfContents } from "./components/toc.js";
 import { attachMarkListeners } from "./hyperlights/index.js";
-import TogglePerimeterButtons from "./components/togglePerimeterButtons.js";
+// ✅ REMOVED: TogglePerimeterButtons now managed exclusively by ButtonRegistry
+// import TogglePerimeterButtons from "./components/togglePerimeterButtons.js";
 import { showNavigationLoading, hideNavigationLoading } from "./scrolling.js";
 import { pendingFirstChunkLoadedPromise } from "./initializePage.js";
 import { initializeUserProfileEditor } from "./components/userProfileEditor.js";
@@ -45,19 +46,11 @@ export async function hidePageLoadProgress() {
   return await ProgressOverlayConductor.hide();
 }
 
-export const togglePerimeterButtons = new TogglePerimeterButtons({
-  elementIds: [
-    "bottom-right-buttons",
-    "bottom-left-buttons",
-    "logoNavWrapper",
-    "topRightContainer",
-    "userButtonContainer",
-  ],
-  tapThreshold: 15,
-});
-
-// Initialize the perimeter buttons event listeners immediately
-togglePerimeterButtons.init();
+// ✅ REMOVED: TogglePerimeterButtons instance creation moved to ButtonRegistry
+// OLD CODE (caused conflict with ButtonRegistry):
+// export const togglePerimeterButtons = new TogglePerimeterButtons({...});
+// togglePerimeterButtons.init();
+// NOW: ButtonRegistry handles initialization via registerComponents.js
 
 function handlePendingNewBookSync() {
   const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");
@@ -119,30 +112,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
   log.init("Database modules initialized", "readerDOMContentLoaded.js");
 
-  if (pageType === "reader") {
-    // ✅ Delegate fully to the new navigation system
-    // NavigationManager handles ALL initialization including progress completion
-    // CRITICAL: Use .navigate() wrapper to ensure overlay is hidden after completion
-    const { NavigationManager } = await import('./navigation/NavigationManager.js');
-    await NavigationManager.navigate('fresh-page-load');
+  // ✅ UNIFIED: ALL page types go through NavigationManager for consistent initialization
+  // NavigationManager handles ALL initialization including ButtonRegistry
+  const { NavigationManager } = await import('./navigation/NavigationManager.js');
+  await NavigationManager.navigate('fresh-page-load');
 
+  // Page-specific initialization after NavigationManager completes
+  if (pageType === "reader") {
     // Initialize footnote and citation click listeners after page loads
     initializeFootnoteCitationListeners();
-
-    // Note: Progress hiding is now handled by universalPageInitializer in viewManager.js
-    // No need for duplicate cleanup here
-
-  } else if (pageType === "home") {
-    await initializeHomepage();
   } else if (pageType === "user") {
-    // User pages use same initialization as homepage (same structure)
-    await initializeHomepage();
-    // Initialize user profile editor (title and bio fields)
-    await initializeUserProfileEditor();
-    // Initialize user profile page functionality (delete buttons, etc.)
+    // User-specific components (in addition to what NavigationManager initialized)
     initializeUserProfilePage();
   }
 
-  // Initialize logo navigation toggle on all pages
-  initializeLogoNav();
+  // Note: The following are now handled by NavigationManager → universalPageInitializer → ButtonRegistry:
+  // - initializeHomepage() (for home/user pages)
+  // - initializeLogoNav() (all pages)
+  // - initializeUserProfileEditor() (user pages)
+  // - All ButtonRegistry components (togglePerimeterButtons, userContainer, etc.)
 });

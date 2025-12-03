@@ -285,7 +285,16 @@ export async function reprocessHighlightsForNodes(bookId, affectedNodeIds) {
       // Get the clean HTML and re-apply highlights with correct segmentation
       const cleanHtml = nodeElement.innerHTML;
       console.log(`Applying highlights to clean HTML for node ${nodeId}:`, nodeHighlights.map(h => h.highlightID));
-      const newHtml = applyHighlights(cleanHtml, nodeHighlights, bookId);
+      let newHtml = applyHighlights(cleanHtml, nodeHighlights, bookId);
+
+      // ✅ CRITICAL: Also re-apply hypercites (same order as lazy loader)
+      // Without this, hypercite <u> tags are stripped when innerHTML is replaced
+      const nodeHypercites = nodeData.hypercites || [];
+      if (nodeHypercites.length > 0) {
+        console.log(`Also applying ${nodeHypercites.length} hypercites to node ${nodeId}`);
+        const { applyHypercites } = await import('../lazyLoaderFactory.js');
+        newHtml = applyHypercites(newHtml, nodeHypercites);
+      }
 
       console.log(`Original HTML length: ${cleanHtml.length}, New HTML length: ${newHtml.length}`);
       console.log(`Clean HTML: ${cleanHtml.substring(0, 100)}...`);
@@ -300,6 +309,11 @@ export async function reprocessHighlightsForNodes(bookId, affectedNodeIds) {
 
     // Re-attach mark listeners to the new elements
     attachMarkListeners();
+
+    // ✅ Re-attach hypercite listeners to the new elements
+    // innerHTML replacement destroys and recreates DOM elements, losing their event listeners
+    const { attachUnderlineClickListeners } = await import('../hypercites/index.js');
+    attachUnderlineClickListeners();
 
     console.log(`✅ Completed reprocessing highlights for ${affectedNodeIds.length} nodes`);
 

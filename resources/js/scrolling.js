@@ -148,6 +148,7 @@ import {
 } from "./domReadiness.js";
 import { highlightTargetHypercite } from "./hypercites/index.js";
 import { shouldSkipScrollRestoration as shouldSkipScrollRestorationGlobal, setSkipScrollRestoration } from "./utilities/operationState.js";
+import { ProgressOverlayConductor } from './navigation/ProgressOverlayConductor.js';
 
 // ========= Scrolling Helper Functions =========
 
@@ -648,11 +649,10 @@ export async function restoreScrollPosition() {
 // These functions delegate to ProgressOverlayConductor for centralized overlay management
 // LEGACY: These were originally managing overlays directly, now they're thin wrappers
 
-export async function showNavigationLoading(targetId) {
+export function showNavigationLoading(targetId) {
   console.log(`🎯 [LEGACY] showNavigationLoading called for ${targetId} - delegating to ProgressOverlayConductor`);
 
-  // Delegate to the new centralized system
-  const { ProgressOverlayConductor } = await import('./navigation/ProgressOverlayConductor.js');
+  // Delegate to the new centralized system (now statically imported)
   ProgressOverlayConductor.showSPATransition(5, `Loading ${targetId}...`);
 
   return {
@@ -668,8 +668,7 @@ export async function showNavigationLoading(targetId) {
 export async function hideNavigationLoading() {
   console.log(`🎯 [LEGACY] hideNavigationLoading called - delegating to ProgressOverlayConductor`);
 
-  // Delegate to the new centralized system
-  const { ProgressOverlayConductor } = await import('./navigation/ProgressOverlayConductor.js');
+  // Delegate to the new centralized system (now statically imported)
   await ProgressOverlayConductor.hide();
 }
 

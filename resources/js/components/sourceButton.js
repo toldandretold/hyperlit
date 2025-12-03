@@ -1301,6 +1301,9 @@ async function exportBookAsDocxStyled(bookId = book || 'latest') {
   }
 }
 
+// Store handler reference for proper cleanup (like logoNav pattern)
+let sourceClickHandler = null;
+
 export function initializeSourceButtonListener() {
   sourceManager.rebindElements();
 
@@ -1313,11 +1316,28 @@ export function initializeSourceButtonListener() {
     return;
   }
 
-  sourceManager.button.addEventListener("click", (e) => {
+  // Store handler reference
+  sourceClickHandler = (e) => {
     e.preventDefault();
     sourceManager.toggleContainer();
-  });
+  };
 
+  sourceManager.button.addEventListener("click", sourceClickHandler);
   sourceManager.button.dataset.sourceListenerAttached = "true";
   log.init('Source button listener attached', '/components/sourceButton.js');
+}
+
+/**
+ * Destroy source button listener
+ * Properly removes event listener to prevent accumulation
+ */
+export function destroySourceButtonListener() {
+  if (sourceManager && sourceManager.button) {
+    // ✅ CRITICAL FIX: Remove actual listener
+    if (sourceClickHandler) {
+      sourceManager.button.removeEventListener("click", sourceClickHandler);
+      sourceClickHandler = null;
+    }
+    delete sourceManager.button.dataset.sourceListenerAttached;
+  }
 }

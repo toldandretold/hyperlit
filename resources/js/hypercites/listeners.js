@@ -13,6 +13,10 @@ import { log, verbose } from '../utilities/logger.js';
 // Module-level variable to track active listeners
 let activeHyperciteListeners = null;
 
+// ✅ WeakMaps to track listener references for proper cleanup
+const underlineListeners = new WeakMap();
+const hyperciteLinkListeners = new WeakMap();
+
 /**
  * Attach click listeners to underlined citations
  * @param {HTMLElement|Document} scope - The scope to search for elements (default: document)
@@ -22,13 +26,20 @@ export function attachUnderlineClickListeners(scope = document) {
   const uElements = scope.querySelectorAll("u.couple:not([data-hypercite-listener]), u.poly:not([data-hypercite-listener])");
 
   if (uElements.length > 0) {
+    verbose.user(`Attaching underline click listeners (${uElements.length} elements)`, '/hypercites/listeners.js');
+
     uElements.forEach((uElement) => {
+      // ✅ Create handler and store reference
+      const clickHandler = async (event) => {
+        await handleUnderlineClick(uElement, event);
+      };
+
+      // Store handler reference for later removal
+      underlineListeners.set(uElement, clickHandler);
+
       uElement.style.cursor = "pointer";
       uElement.dataset.hyperciteListener = "true"; // Mark as processed
-
-      uElement.addEventListener("click", async (event) => {
-        await handleUnderlineClick(uElement, event);
-      });
+      uElement.addEventListener("click", clickHandler);
     });
   }
 
@@ -62,6 +73,7 @@ function attachHyperciteLinkListeners() {
     anchorElement.style.cursor = "pointer";
     linkElement.style.cursor = "pointer";
 
+    // ✅ Create handler and store reference
     const clickHandler = (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -73,6 +85,8 @@ function attachHyperciteLinkListeners() {
       }
     };
 
+    // Store handler reference for later removal
+    hyperciteLinkListeners.set(anchorElement, clickHandler);
     anchorElement.addEventListener('click', clickHandler);
   });
 }
@@ -145,7 +159,7 @@ export function initializeHypercitingControls(currentBookId) {
 }
 
 /**
- * Cleanup function to remove hypercite event listeners
+ * Cleanup function to remove hypercite copy button listeners
  */
 export function cleanupHypercitingControls() {
   // Clean up copy button listeners
@@ -156,19 +170,35 @@ export function cleanupHypercitingControls() {
     copyButton.removeEventListener("touchend", activeHyperciteListeners.touchend);
     activeHyperciteListeners = null;
   }
+}
 
-  // Clean up underline click listeners
+/**
+ * ✅ Cleanup function to remove underline click listeners
+ * Properly removes actual event listeners using stored handler references
+ */
+export function cleanupUnderlineClickListeners() {
+  verbose.user('Cleaning up underline click listeners', '/hypercites/listeners.js');
+
+  // Clean up <u> element click listeners
   const hyperciteElements = document.querySelectorAll("u.couple[data-hypercite-listener], u.poly[data-hypercite-listener]");
   hyperciteElements.forEach(element => {
+    const handler = underlineListeners.get(element);
+    if (handler) {
+      element.removeEventListener("click", handler);
+      underlineListeners.delete(element);
+    }
     element.removeAttribute("data-hypercite-listener");
-    // Note: We can't remove the specific listener since it's anonymous, but removing the attribute
-    // will prevent the "already attached" check from working, allowing fresh listeners
   });
 
   // Clean up hypercite link listeners
   const hyperciteLinks = document.querySelectorAll('#hyperlit-container a[data-hypercite-link-listener]');
-  hyperciteLinks.forEach(link => {
-    link.removeAttribute("data-hypercite-link-listener");
+  hyperciteLinks.forEach(anchorElement => {
+    const handler = hyperciteLinkListeners.get(anchorElement);
+    if (handler) {
+      anchorElement.removeEventListener("click", handler);
+      hyperciteLinkListeners.delete(anchorElement);
+    }
+    anchorElement.removeAttribute("data-hypercite-link-listener");
   });
 }
 
