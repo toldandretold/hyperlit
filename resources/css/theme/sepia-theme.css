@@ -146,3 +146,14 @@ body.theme-sepia #toc-container h4 {
   color: #2A1F0F !important;
   opacity: 0.75 !important;
 }
+
+/* Search icon matches theme background color */
+body.theme-sepia #searchButton svg path,
+body.theme-sepia #searchButton svg line {
+  stroke: #E8D7B8 !important; /* Same as --hyperlit-black for sepia theme */
+}
+
+body.theme-sepia #searchButton:hover svg path,
+body.theme-sepia #searchButton:hover svg line {
+  stroke: #E8D7B8 !important;
+}

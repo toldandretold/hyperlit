@@ -216,6 +216,26 @@
 
   </div>
 
+  <!-- Search toolbar - iOS Safari style find bar -->
+  <div id="search-toolbar">
+    <input type="text" id="search-input" placeholder="Find in document" autocomplete="off" />
+
+    <button type="button" id="search-prev-button" aria-label="Previous match">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <rect width="24" height="24" />
+        <polyline points="18 15 12 9 6 15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
+
+    <button type="button" id="search-next-button" aria-label="Next match">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <rect width="24" height="24" />
+        <polyline points="6 9 12 15 18 9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
+
+    <span id="search-match-counter">0 of 0</span>
+  </div>
 
 
   <!-- toggle hidden containers -->
@@ -267,7 +287,10 @@
 
     <!-- Search Button -->
     <button type="button" id="searchButton" class="settings-button">
-      Search
+      <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M221.09,64A157.09,157.09,0,1,0,378.18,221.09,157.1,157.1,0,0,0,221.09,64Z" />
+        <line x1="338.29" y1="338.29" x2="448" y2="448" />
+      </svg>
     </button>
   </div>
   <div id="settings-overlay"></div>

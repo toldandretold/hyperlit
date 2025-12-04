@@ -232,6 +232,10 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
         if (bottomRightButtons) {
           bottomRightButtons.classList.remove("perimeter-hidden");
         }
+        const bottomLeftButtons = document.getElementById("bottom-left-buttons");
+        if (bottomLeftButtons) {
+          bottomLeftButtons.classList.remove("perimeter-hidden");
+        }
 
         enforceEditableState();
 
