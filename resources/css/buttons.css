@@ -73,6 +73,26 @@ black #221F20;
   fill: var(--icon-fill-primary);
 }
 
+/* ===== SEARCH BUTTON (STROKED ICON) ===== */
+#searchButton svg {
+  width: 24px;
+  height: 24px;
+}
+
+#searchButton svg path,
+#searchButton svg line {
+  stroke: var(--icon-stroke-primary);
+  stroke-width: 32px;
+  stroke-linecap: round;
+  stroke-miterlimit: 10;
+  fill: none;
+}
+
+#searchButton:hover svg path,
+#searchButton:hover svg line {
+  stroke: var(--icon-hover-stroke);
+}
+
 /* ===== HYPERLIGHT BUTTONS ===== */
 /* Delete button - stroked icon */
 #hyperlight-buttons #delete-hyperlight svg path {
@@ -769,6 +789,171 @@ black #221F20;
 }
 
 /* end  */
+
+/*
+  =====================================================================
+  SEARCH TOOLBAR STYLES
+  =====================================================================
+*/
+
+/* Search toolbar container - iOS Safari style */
+#search-toolbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: color-mix(in srgb, var(--icon-background) 98%, transparent);
+  backdrop-filter: blur(10px);
+  border-top: 0.5px solid color-mix(in srgb, var(--icon-stroke-primary) 20%, transparent);
+  z-index: 999999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#search-toolbar.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Search input field */
+#search-input {
+  flex: 1;
+  max-width: 400px;
+  padding: 6px 12px;
+  background: var(--color-background);
+  color: var(--color-text);
+  border: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 30%, transparent);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+}
+
+#search-input:focus {
+  border-color: var(--icon-stroke-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--icon-stroke-primary) 20%, transparent);
+}
+
+/* Match counter */
+#search-match-counter {
+  color: var(--color-text);
+  font-size: 13px;
+  white-space: nowrap;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* Search toolbar buttons */
+#search-toolbar button {
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#search-toolbar button svg {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
+/* Button SVG styling */
+#search-toolbar button svg rect {
+  fill: var(--icon-background);
+}
+
+#search-toolbar button svg line,
+#search-toolbar button svg polyline {
+  stroke: var(--icon-stroke-primary);
+  fill: none;
+}
+
+/* Hover states */
+#search-toolbar button:hover {
+  background-color: var(--icon-hover-background);
+  transform: scale(1.1);
+}
+
+#search-toolbar button:hover svg rect {
+  fill: transparent;
+}
+
+#search-toolbar button:hover svg line,
+#search-toolbar button:hover svg polyline {
+  stroke: var(--icon-hover-stroke);
+}
+
+/* Disabled state for arrow buttons */
+#search-toolbar button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  #search-toolbar {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  #search-input {
+    max-width: none;
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+
+  #search-toolbar button svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Disable hover effects on touch devices */
+  @media (hover: none) and (pointer: coarse) {
+    #search-toolbar button:hover {
+      transform: none;
+      background-color: transparent;
+    }
+
+    #search-toolbar button:hover svg rect {
+      fill: var(--icon-background);
+    }
+
+    #search-toolbar button:hover svg line,
+    #search-toolbar button:hover svg polyline {
+      stroke: var(--icon-stroke-primary);
+    }
+
+    /* Active state for tap feedback */
+    #search-toolbar button:active {
+      transform: scale(0.95);
+      background-color: var(--icon-hover-background);
+    }
+
+    #search-toolbar button:active svg line,
+    #search-toolbar button:active svg polyline {
+      stroke: var(--icon-hover-stroke);
+    }
+  }
+}
+
+/* end search toolbar */
+
 /*
   =====================================================================
   UNIFIED HYPERLIGHT BUTTONS STYLES (FINAL - SVG FIX)

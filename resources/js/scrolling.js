@@ -149,6 +149,7 @@ import {
 import { highlightTargetHypercite } from "./hypercites/index.js";
 import { shouldSkipScrollRestoration as shouldSkipScrollRestorationGlobal, setSkipScrollRestoration } from "./utilities/operationState.js";
 import { ProgressOverlayConductor } from './navigation/ProgressOverlayConductor.js';
+import { isSearchToolbarOpen } from './components/searchToolbar.js';
 
 // ========= Scrolling Helper Functions =========
 
@@ -161,6 +162,9 @@ let userScrollState = {
   touchStartY: null, // Track touch start position
   touchStartX: null
 };
+
+// Store pending navigation cleanup timer so it can be cancelled
+let pendingNavigationCleanupTimer = null;
 
 function detectUserScrollStart(event) {
   // Don't treat navigation scrolls as user scrolls
@@ -230,6 +234,17 @@ export function shouldSkipScrollRestoration(reason = "user scrolling") {
     console.log(`⏭️ SKIP RESTORATION: ${reason} - user was scrolling ${Date.now() - userScrollState.lastUserScrollTime}ms ago`);
   }
   return skip;
+}
+
+/**
+ * Cancel any pending navigation cleanup timer
+ * Used by search toolbar to prevent navigation from interfering with keyboard positioning
+ */
+export function cancelPendingNavigationCleanup() {
+  if (pendingNavigationCleanupTimer) {
+    clearTimeout(pendingNavigationCleanupTimer);
+    pendingNavigationCleanupTimer = null;
+  }
 }
 
 // Set up user scroll detection for a container
@@ -508,6 +523,18 @@ export async function restoreScrollPosition() {
     return;
   }
 
+  // Skip if search toolbar is blocking navigation
+  if (window.searchToolbarBlockingNavigation) {
+    console.log(`⏭️ RESTORE SCROLL: Search toolbar blocking navigation, skipping restoration`);
+    return;
+  }
+
+  // Skip if search toolbar is open - don't interfere with search UX
+  if (isSearchToolbarOpen()) {
+    console.log(`⏭️ RESTORE SCROLL: Search toolbar is open, skipping restoration`);
+    return;
+  }
+
   if (!currentLazyLoader) {
     console.error("Lazy loader instance not available!");
     return;
@@ -695,6 +722,19 @@ export function navigateToInternalId(targetId, lazyLoader, showOverlay = true) {
     return;
   }
   console.log("Initiating navigation to internal ID:", targetId);
+
+  // Skip if search toolbar is blocking navigation
+  if (window.searchToolbarBlockingNavigation) {
+    console.log(`⏭️ NAVIGATION: Search toolbar blocking, skipping navigation to ${targetId}`);
+    return;
+  }
+
+  // Skip if search-input is focused - don't interfere with search toolbar keyboard positioning
+  const searchInput = document.getElementById('search-input');
+  if (searchInput && document.activeElement === searchInput) {
+    console.log(`⏭️ NAVIGATION: Search input is focused, skipping navigation to ${targetId}`);
+    return;
+  }
 
   // 🚀 CRITICAL: Set flag IMMEDIATELY to prevent race conditions
   // This prevents restoreScrollPosition() from interfering
@@ -1062,10 +1102,16 @@ async function _navigateToInternalId(targetId, lazyLoader, progressIndicator = n
     const cleanupDelay = isAlreadyPerfectlyPositioned ? 0 : 500; // No delay if perfect, 500ms if corrections might fire
     
     console.log(`🎯 SMART CLEANUP: Element at ${currentPosition}px, target ${targetPosition}px, diff ${Math.abs(currentPosition - targetPosition)}px, using ${cleanupDelay}ms delay`);
-    
-    setTimeout(() => {
+
+    // Clear any existing cleanup timer and store the new one
+    if (pendingNavigationCleanupTimer) {
+      clearTimeout(pendingNavigationCleanupTimer);
+    }
+
+    pendingNavigationCleanupTimer = setTimeout(() => {
       console.log(`🏁 Navigation complete for ${targetId}`);
       lazyLoader.isNavigatingToInternalId = false;
+      pendingNavigationCleanupTimer = null; // Clear the reference
 
       // 🔓 Unlock scroll position
       if (lazyLoader.unlockScroll) {

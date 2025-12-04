@@ -1360,6 +1360,16 @@ body.hyperlit-container-open .reader-content-wrapper {
   min-width: fit-content;
 }
 
+/* Search button - square with same height as other buttons */
+#searchButton {
+  padding: 0.75em;
+  width: 2.75em; /* Match height: 1em (line-height) + 0.75em*2 (padding) = 2.5em, but add a bit for visual match */
+  height: 2.75em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .settings-button:hover {
   background-color: rgba(95, 95, 95, 0.8);
 }

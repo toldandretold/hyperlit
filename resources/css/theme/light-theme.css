@@ -146,3 +146,14 @@ body.theme-light #toc-container h4 {
   color: #1C1C1C !important;
   opacity: 0.75 !important;
 }
+
+/* Search icon matches theme background color */
+body.theme-light #searchButton svg path,
+body.theme-light #searchButton svg line {
+  stroke: #F4ECD8 !important; /* Same as --hyperlit-black for light theme */
+}
+
+body.theme-light #searchButton:hover svg path,
+body.theme-light #searchButton:hover svg line {
+  stroke: #F4ECD8 !important;
+}
