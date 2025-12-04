@@ -114,11 +114,10 @@ black #221F20;
 #newbook-container.button-view {
   display: flex;
   flex-direction: column;
-  gap: 10px;
   justify-content: center;
   align-items: center;
   padding: 20px;
-  width: 200px;  /* Final desired width */
+  width: 160px;  /* Final desired width */
   height: auto;
   opacity: 1;
   pointer-events: auto;
@@ -127,21 +126,22 @@ black #221F20;
 
 
 #newbook-container button {
-  width: 80%;
-  padding: 12px;
+  width: 100%;
+  padding: 10px;
   border: none;
-  border-radius: 5px;
+  border-radius: 4px;
   background-color: #4a4a4a;
   color: #CBCCCC;
-  font-size: 16px;
   cursor: pointer;
   transition: background-color 0.3s, color 0.3s;
+  box-sizing: border-box;
+  font-family: inherit;
 }
 
-#newbook-container button:hover {
-  background-color: var(--color-accent);
-  color: var(--color-background);
-  cursor: pointer;
+/* Hover handled in JS - see newBookButton.js setupButtonListeners() */
+
+#createNewBook {
+  margin-bottom: 10px;
 }
 
 /* ---------------------------------------------------
@@ -246,8 +246,7 @@ black #221F20;
 .top-content {
   width: 100%;
   text-align: left; /* Changed from center to left */
-  padding: 0px 0;
-  padding-left: 40px;
+  padding: 0px 40px 0px 40px; /* Match main content horizontal padding */
 }
 
 #top {
@@ -255,7 +254,8 @@ black #221F20;
   max-width: 100%;
   height: auto;
   display: block;
-  margin: 0; /* Remove auto margins to prevent centering */
+  margin: 0;
+  margin-left: -20px; /* Pull logo to the left for better alignment */
   margin-right: auto; /* This keeps space on the right side */
 }
 
@@ -271,9 +271,15 @@ black #221F20;
 #userLibraryContainer {
   margin-bottom: 1em;
   margin-top: 1em;
-  padding-left: 1em;
+  margin-left: 20px;
   padding-left: 40px;
+  padding-right: 40px;
+}
 
+/* Override padding for user page to account for fixed-header padding */
+body[data-page="user"] #userLibraryContainer {
+  padding-left: 20px;
+  padding-right: 20px;
 }
 
 /* Placeholder text for empty contenteditable fields */
@@ -540,8 +546,10 @@ black #221F20;
   backdrop-filter: blur(10px); /* Glass blur effect */
   -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 1001;
+  border: none;
   border-radius: 0.75em;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
 
 }
 
@@ -785,17 +793,19 @@ black #221F20;
 }
 #newbook-container {
   background-color: var(--container-glass-bg);
+  border: none;
   border-radius: 0.75em; /* Same as other containers */
+  box-sizing: border-box;
 }
 
 #newbook-container .scroller {
   padding: 1em; /* Same as other containers */
 }
 
-#newbook-container input,
-#newbook-container textarea,
-#newbook-container label,
-#newbook-container button {
+#newbook-container form input,
+#newbook-container form textarea,
+#newbook-container form label,
+#newbook-container form button {
   font-size: 16px;
   font-family: inherit;
 }
@@ -1274,16 +1284,16 @@ black #221F20;
 }
 
 .delete-highlight-btn svg path {
-  stroke: #cbcccc;
+  stroke: var(--color-text);
 }
 
 .delete-highlight-btn:hover {
-  background: #cbcccc;
+  background: var(--color-text);
   border-radius: 2px;
 }
 
 .delete-highlight-btn:hover svg path {
-  stroke: #221f20;
+  stroke: var(--color-background);
 }
 
 /* Lock body scroll when hyperlit container is open */
@@ -1406,4 +1416,9 @@ body.hyperlit-container-open .reader-content-wrapper {
 #settings-overlay.active {
   opacity: 1;
   visibility: visible;
+}
+
+/* Shared button styling for user and newbook containers. called fucked as it is FUCKED */
+.fucked-buttons {
+  font-size: 12px;
 }

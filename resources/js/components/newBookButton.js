@@ -23,10 +23,14 @@ export class NewBookContainerManager extends ContainerManager {
     this.button = document.getElementById(buttonId);
     this.buttonPosition = null;
     this.originalButtonRect = null; // Store original button position
-    
+
     // Store event handler references for proper cleanup
     this.createBookHandler = null;
     this.importBookHandler = null;
+
+    // Track animation timeout to prevent stuck state
+    this.animationTimeout = null;
+    this.transitionEndHandler = null;
     
     // Track external link clicks to prevent inappropriate closure
     this.recentExternalLinkClick = false;
@@ -66,6 +70,7 @@ export class NewBookContainerManager extends ContainerManager {
     document.removeEventListener('visibilitychange', this.boundVisibilityChangeHandler);
     window.removeEventListener('focus', this.boundFocusHandler);
     this.cleanupResizeListener();
+    this.resetAnimationState(); // Clean up any pending animation state
     verbose.init('All global listeners removed', 'newBookButton.js');
   }
 
@@ -101,13 +106,33 @@ export class NewBookContainerManager extends ContainerManager {
     // backgroundColor handled by CSS using var(--container-glass-bg)
     container.style.boxShadow = "0 0 15px rgba(0, 0, 0, 0.2)";
     container.style.borderRadius = "0.75em";
-    container.style.boxSizing = "border-box"; // Prevents padding from adding to the width
 
     // start hidden/collapsed:
     container.style.opacity = "0";
     container.style.padding = "12px";
     container.style.width = "0";
     container.style.height = "0";
+  }
+
+  /**
+   * Robust animation reset - clears all pending timeouts and listeners
+   * Prevents stuck animation state from rapid clicking
+   */
+  resetAnimationState() {
+    // Clear any pending timeout
+    if (this.animationTimeout) {
+      clearTimeout(this.animationTimeout);
+      this.animationTimeout = null;
+    }
+
+    // Remove any pending transitionend listener
+    if (this.transitionEndHandler) {
+      this.container.removeEventListener("transitionend", this.transitionEndHandler);
+      this.transitionEndHandler = null;
+    }
+
+    // Reset the flag
+    this.isAnimating = false;
   }
 
 
@@ -186,6 +211,31 @@ export class NewBookContainerManager extends ContainerManager {
     // Add the event listeners
     document.getElementById("createNewBook")?.addEventListener("click", this.createBookHandler);
     document.getElementById("importBook")?.addEventListener("click", this.importBookHandler);
+
+    // Add hover effects - both buttons aqua on hover
+    const createBtn = document.getElementById("createNewBook");
+    if (createBtn) {
+      createBtn.addEventListener('mouseenter', () => {
+        createBtn.style.backgroundColor = 'var(--color-accent)';
+        createBtn.style.color = 'var(--color-background)';
+      });
+      createBtn.addEventListener('mouseleave', () => {
+        createBtn.style.backgroundColor = '#4a4a4a';
+        createBtn.style.color = '#CBCCCC';
+      });
+    }
+
+    const importBtn = document.getElementById("importBook");
+    if (importBtn) {
+      importBtn.addEventListener('mouseenter', () => {
+        importBtn.style.backgroundColor = 'var(--color-accent)';
+        importBtn.style.color = 'var(--color-background)';
+      });
+      importBtn.addEventListener('mouseleave', () => {
+        importBtn.style.backgroundColor = '#4a4a4a';
+        importBtn.style.color = '#CBCCCC';
+      });
+    }
   }
 
  showImportForm() {
@@ -454,10 +504,16 @@ export class NewBookContainerManager extends ContainerManager {
 
   openContainer(mode = "buttons") {
     console.log("🔥 DEBUG: openContainer called", { mode, isOpen: this.isOpen, isAnimating: this.isAnimating });
-    
-    if (this.isAnimating) {
-      console.log("🔥 DEBUG: openContainer blocked - already animating");
+
+    // Safety check: if animation has been stuck for >1 second, force reset
+    if (this.isAnimating && this.animationTimeout) {
+      // Animation is in progress, check if it's been too long
+      console.warn("⚠️ Animation in progress, blocking openContainer");
       return;
+    } else if (this.isAnimating && !this.animationTimeout) {
+      // No timeout set but still animating? Something's wrong, force reset
+      console.warn("⚠️ Stuck animation state detected, forcing reset");
+      this.resetAnimationState();
     }
 
     // 🔥 MOBILE FIX: Reset any stuck states that could cause glitches
@@ -532,12 +588,23 @@ export class NewBookContainerManager extends ContainerManager {
           opacity: this.container.style.opacity,
           visibility: this.container.style.visibility
         });
-        
-        // Add both transitionend listener and timeout fallback
-        const resetAnimation = () => { this.isAnimating = false; };
-        this.container.addEventListener("transitionend", resetAnimation, { once: true });
+
+        // Clean up any previous animation state before setting new listeners
+        this.resetAnimationState();
+        this.isAnimating = true; // Set it back after reset
+
+        // Store the handler so we can remove it if needed
+        this.transitionEndHandler = () => {
+          this.resetAnimationState();
+        };
+        this.container.addEventListener("transitionend", this.transitionEndHandler, { once: true });
+
         // Fallback timeout in case transitionend doesn't fire (mobile browser issue)
-        setTimeout(resetAnimation, 500);
+        this.animationTimeout = setTimeout(() => {
+          if (this.isAnimating) {
+            this.resetAnimationState();
+          }
+        }, 500);
       });
       return;
     }
@@ -545,7 +612,22 @@ export class NewBookContainerManager extends ContainerManager {
     // This logic handles the very FIRST opening of the container.
     if (!this.isOpen) {
       console.log("🔥 DEBUG: Opening container for first time in mode:", mode);
-      
+
+      // ✅ Activate overlay FIRST to mask button background during rotation
+      if (this.overlay) {
+        // Disable transition temporarily for instant appearance
+        this.overlay.style.transition = "none";
+        this.overlay.classList.add("active");
+        this.overlay.style.display = "block";
+        this.overlay.style.opacity = "0.5";
+
+        // Re-enable transition after paint (for future animations)
+        requestAnimationFrame(() => {
+          this.overlay.style.transition = "";
+        });
+      }
+
+      // Now start icon rotation (will be masked by darkening overlay)
       this.button.querySelector(".icon")?.classList.add("tilted");
 
       if (!this.originalButtonRect) {
@@ -599,39 +681,48 @@ export class NewBookContainerManager extends ContainerManager {
         this.container.style.right = `${window.innerWidth - rect.right}px`;
         this.container.style.visibility = "visible";
         this.container.style.opacity = "0";
-        this.container.style.width = "200px";
+        this.container.style.width = "160px";
         this.container.style.height = "auto";
         this.container.style.padding = "20px";
-        this.container.style.display = "flex";
-        this.container.style.flexDirection = "column";
-        this.container.style.justifyContent = "center";
-        this.container.style.alignItems = "center";
-        this.container.style.gap = "10px";
-        
+        this.container.style.display = "block";
+
         // Fade in after positioning is set, synced with button rotation (0.3s)
         requestAnimationFrame(() => {
           this.container.style.opacity = "1";
         });
       }
 
-      if (this.overlay) {
-        this.overlay.classList.add("active");
-        this.overlay.style.display = "block";
-        this.overlay.style.opacity = "0.5";
-      }
-
       this.isOpen = true;
       window.uiState?.setActiveContainer(this.container.id);
-      // Add both transitionend listener and timeout fallback
-      const resetAnimation = () => { this.isAnimating = false; };
-      this.container.addEventListener("transitionend", resetAnimation, { once: true });
+
+      // Clean up any previous animation state before setting new listeners
+      this.resetAnimationState();
+      this.isAnimating = true; // Set it back after reset
+
+      // Store the handler so we can remove it if needed
+      this.transitionEndHandler = () => {
+        this.resetAnimationState();
+      };
+      this.container.addEventListener("transitionend", this.transitionEndHandler, { once: true });
+
       // Fallback timeout in case transitionend doesn't fire (mobile browser issue)
-      setTimeout(resetAnimation, 500);
+      this.animationTimeout = setTimeout(() => {
+        if (this.isAnimating) {
+          this.resetAnimationState();
+        }
+      }, 500);
     }
   }
 
   closeContainer() {
-  if (this.isAnimating) return;
+  // Safety check: if stuck in animating state without timeout, force reset
+  if (this.isAnimating && !this.animationTimeout) {
+    console.warn("⚠️ Stuck animation state in closeContainer, forcing reset");
+    this.resetAnimationState();
+  } else if (this.isAnimating) {
+    return;
+  }
+
   this.isAnimating = true;
 
   // 🔥 MOBILE DEBUG: Log when and why container is closing
@@ -684,11 +775,16 @@ export class NewBookContainerManager extends ContainerManager {
   } else {
     window.activeContainer = "main-content";
   }
-  
-  const onTransitionEnd = () => {
+
+  // Clean up any previous animation state before setting new listeners
+  this.resetAnimationState();
+  this.isAnimating = true; // Set it back after reset
+
+  // Store the handler so we can remove it if needed
+  this.transitionEndHandler = () => {
     this.container.classList.add("hidden");
     this.container.style.display = "none";
-    this.isAnimating = false;
+    this.resetAnimationState();
 
     if (this.overlay) {
       this.overlay.style.display = "none";
@@ -701,9 +797,27 @@ export class NewBookContainerManager extends ContainerManager {
     }
   };
 
-  this.container.addEventListener("transitionend", onTransitionEnd, { once: true });
+  this.container.addEventListener("transitionend", this.transitionEndHandler, { once: true });
+
   // Fallback timeout in case transitionend doesn't fire (mobile browser issue)
-  setTimeout(onTransitionEnd, 500);
+  this.animationTimeout = setTimeout(() => {
+    if (this.isAnimating) {
+      // Run the same cleanup logic
+      this.container.classList.add("hidden");
+      this.container.style.display = "none";
+      this.resetAnimationState();
+
+      if (this.overlay) {
+        this.overlay.style.display = "none";
+      }
+
+      if (this.originalContent &&
+          this.container.innerHTML !== this.originalContent) {
+        this.container.innerHTML = this.originalContent;
+        this.setupButtonListeners();
+      }
+    }
+  }, 500);
 }
 
 // Add these methods to your NewBookContainerManager class

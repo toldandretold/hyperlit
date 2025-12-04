@@ -37,8 +37,14 @@ function alignHeaderContent() {
     // Calculate needed offset from the header's current position
     const neededMargin = textLeftEdge - headerRect.left;
 
-    // Apply the calculated margin
-    headerContainer.style.marginLeft = neededMargin + 'px';
+    // Apply the calculated margin to align header content with main content
+    // Skip userLibraryContainer on user page - CSS padding handles alignment
+    const isUserPage = document.body.dataset.page === 'user';
+    const isUserLibrary = headerContainer.id === 'userLibraryContainer';
+
+    if (!(isUserPage && isUserLibrary)) {
+      headerContainer.style.marginLeft = neededMargin + 'px';
+    }
     buttonsContainer.style.marginLeft = neededMargin + 'px';
   }
 }
