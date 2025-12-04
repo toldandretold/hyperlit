@@ -193,6 +193,12 @@ shouldIgnoreEvent(event) {
     return true;
   }
 
+  // Ignore events when search toolbar is open - allow search toolbar to handle clicks outside
+  if (window.searchToolbarBlockingNavigation) {
+    console.log('TogglePerimeterButtons: Ignoring event - search toolbar is open');
+    return true;
+  }
+
   /*
   // Check if click is near important buttons (more forgiving click area)
   if (this.isClickNearImportantButton(event)) {

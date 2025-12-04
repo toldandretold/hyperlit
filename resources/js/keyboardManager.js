@@ -9,6 +9,8 @@ class KeyboardManager {
       focusedElement: null,
       keyboardTop: null,
     };
+    this.lastOffsetTop = 0; // Track offsetTop changes for refocus detection
+    this.cachedSearchToolbarHeight = null; // Cache search toolbar height to avoid iOS scroll bug
 
     // Debouncing property
     this.viewportChangeDebounceTimer = null;
@@ -83,10 +85,53 @@ processViewportChange() {
 
   console.log(`📐 Viewport: height=${vv.height}px, offsetTop=${vv.offsetTop}px, keyboardOpen=${keyboardOpen}, isKeyboardOpen=${this.isKeyboardOpen}`);
 
+  // REFOCUS FIX: Detect when offsetTop changes significantly while keyboard is already open
+  // This happens on search-toolbar refocus when iOS fires viewport events twice
+  const offsetTopChanged = Math.abs(vv.offsetTop - this.lastOffsetTop) > 50;
+  if (keyboardOpen && this.isKeyboardOpen && offsetTopChanged) {
+    console.log(`📍 Keyboard already open but offsetTop changed from ${this.lastOffsetTop}px to ${vv.offsetTop}px`);
+
+    // For search-input, skip repositioning to avoid content shift during iOS scroll
+    // Just update lastOffsetTop so future events work correctly
+    if (this.state.focusedElement?.id === 'search-input') {
+      console.log('⏸️ Search input refocus - updating lastOffsetTop only, skipping adjustLayout');
+      this.lastOffsetTop = vv.offsetTop;
+      return;
+    }
+
+    // Normal refocus for contenteditable - reposition toolbar
+    console.log('📍 Repositioning toolbar for contenteditable refocus');
+    this.lastOffsetTop = vv.offsetTop;
+    this.adjustLayout(true);
+
+    // Normal scroll logic for contenteditable on refocus
+    const keyboardTop = vv.offsetTop + vv.height;
+    console.log(`📍 Keyboard top position: ${keyboardTop}px (vv.offsetTop=${vv.offsetTop}, vv.height=${vv.height})`);
+
+    setTimeout(() => {
+      if (this.state.focusedElement) {
+        this.scrollCaretIntoView(this.state.focusedElement);
+      }
+    }, 350);
+
+    return;
+  }
+
   if (keyboardOpen !== this.isKeyboardOpen) {
     // Keyboard opening detected
     if (keyboardOpen && !this.isKeyboardOpen) {
       console.log('⌨️ Keyboard opening...');
+
+      // REFOCUS FIX: Skip positioning ONLY for search-input when offsetTop is still 0
+      // Search input refocus has iOS scroll lag, contenteditable doesn't
+      // The offsetTop change handler will position correctly when offsetTop updates
+      if (vv.offsetTop === 0 && this.isIOS &&
+          this.state.focusedElement?.id === 'search-input') {
+        console.log('⏸️ Search input focused but offsetTop=0 - waiting for scroll to complete...');
+        this.isKeyboardOpen = true;
+        this.lastOffsetTop = 0;
+        return; // Don't call adjustLayout yet
+      }
     }
 
     // Keyboard closing detected
@@ -95,10 +140,22 @@ processViewportChange() {
     }
 
     this.isKeyboardOpen = keyboardOpen;
+
+    // Track offsetTop on state changes (but reset to 0 on close for clean state)
+    this.lastOffsetTop = keyboardOpen ? vv.offsetTop : 0;
+
     this.adjustLayout(keyboardOpen);
 
     // If the keyboard just opened AND we have a focused element...
     if (keyboardOpen && this.state.focusedElement) {
+      // SKIP scroll logic for search-input - it doesn't need page scrolling
+      // Search input just needs toolbar positioned above keyboard
+      if (this.state.focusedElement.id === 'search-input') {
+        console.log('⏭️ Skipping scroll for search-input (no caret scrolling needed)');
+        return;
+      }
+
+      // Normal scroll logic for contenteditable elements
       const keyboardTop = vv.offsetTop + vv.height;
       console.log(`📍 Keyboard top position: ${keyboardTop}px (vv.offsetTop=${vv.offsetTop}, vv.height=${vv.height})`);
 
@@ -164,12 +221,15 @@ scrollCaretIntoView(element) {
     const appContainer = document.querySelector("#app-container");
     const mainContent = document.querySelector(".main-content");
     const editToolbar = document.querySelector("#edit-toolbar");
+    const searchToolbar = document.querySelector("#search-toolbar");
     const bottomRightButtons = document.querySelector("#bottom-right-buttons");
     const hyperlitContainer = document.querySelector("#hyperlit-container");
 
     if (keyboardOpen) {
       console.log("🔧 KeyboardManager: KEYBOARD OPENING - will modify layout");
       const vv = window.visualViewport;
+
+      console.log(`🔍 DEBUG adjustLayout: vv.offsetTop=${vv.offsetTop}, vv.height=${vv.height}`);
 
       if (appContainer) {
         appContainer.style.setProperty("position", "fixed", "important");
@@ -183,8 +243,10 @@ scrollCaretIntoView(element) {
       const keyboardHeight = window.innerHeight - vv.height;
       this.createOrUpdateSpacer(keyboardHeight);
 
-      this.state.keyboardTop = vv.offsetTop + vv.height;
-      this.moveToolbarAboveKeyboard(editToolbar, bottomRightButtons, mainContent);
+      const newKeyboardTop = vv.offsetTop + vv.height;
+      console.log(`🔍 DEBUG: Setting keyboardTop from ${this.state.keyboardTop} to ${newKeyboardTop}`);
+      this.state.keyboardTop = newKeyboardTop;
+      this.moveToolbarAboveKeyboard(editToolbar, searchToolbar, bottomRightButtons, mainContent);
 
       // Also adjust hyperlit-container if it's open
       if (hyperlitContainer && hyperlitContainer.classList.contains('open')) {
@@ -195,11 +257,14 @@ scrollCaretIntoView(element) {
       if (editToolbar) {
         editToolbar.removeEventListener("touchstart", this.preventToolbarScroll);
       }
+      if (searchToolbar) {
+        searchToolbar.removeEventListener("touchstart", this.preventToolbarScroll);
+      }
       if (bottomRightButtons) {
         bottomRightButtons.removeEventListener("touchstart", this.preventToolbarScroll);
       }
       this.removeSpacer();
-      this.resetInlineStyles(appContainer, mainContent, editToolbar, bottomRightButtons);
+      this.resetInlineStyles(appContainer, mainContent, editToolbar, searchToolbar, bottomRightButtons);
 
       // Reset hyperlit-container height if it's open
       if (hyperlitContainer && hyperlitContainer.classList.contains('open')) {
@@ -211,21 +276,44 @@ scrollCaretIntoView(element) {
     }
   }
 
-  moveToolbarAboveKeyboard(toolbar, bottomRightButtons, mainContent) {
+  moveToolbarAboveKeyboard(editToolbar, searchToolbar, bottomRightButtons, mainContent) {
     console.log("🔧 KeyboardManager.moveToolbarAboveKeyboard called");
-    if (!toolbar) return;
-    const toolbarHeight = toolbar.getBoundingClientRect().height;
-    const top = this.state.keyboardTop - toolbarHeight;
 
-    toolbar.style.setProperty("position", "fixed", "important");
-    toolbar.style.setProperty("top", `${top}px`, "important");
-    toolbar.style.setProperty("left", "0", "important");
-    toolbar.style.setProperty("right", "0", "important");
-    toolbar.style.setProperty("z-index", "999999", "important");
+    // Determine which toolbar is visible
+    const visibleToolbar =
+      (searchToolbar && searchToolbar.classList.contains('visible')) ? searchToolbar :
+      (editToolbar && editToolbar.classList.contains('visible')) ? editToolbar :
+      null;
+
+    if (!visibleToolbar) return;
+
+    // SEARCH TOOLBAR ONLY: Cache height to avoid iOS getBoundingClientRect bug during scroll
+    // Edit toolbar uses getBoundingClientRect() normally (unchanged)
+    let toolbarHeight;
+    if (visibleToolbar.id === 'search-toolbar') {
+      if (!this.cachedSearchToolbarHeight) {
+        this.cachedSearchToolbarHeight = visibleToolbar.getBoundingClientRect().height;
+        console.log(`🔍 Cached search toolbar height: ${this.cachedSearchToolbarHeight}px`);
+      }
+      toolbarHeight = this.cachedSearchToolbarHeight;
+    } else {
+      // Edit toolbar: use getBoundingClientRect() as normal
+      toolbarHeight = visibleToolbar.getBoundingClientRect().height;
+    }
+
+    console.log(`🔍 DEBUG moveToolbar: this.state.keyboardTop=${this.state.keyboardTop}, toolbarHeight=${toolbarHeight}`);
+    const top = this.state.keyboardTop - toolbarHeight;
+    console.log(`🔍 DEBUG moveToolbar: Calculated top=${top}`);
+
+    visibleToolbar.style.setProperty("position", "fixed", "important");
+    visibleToolbar.style.setProperty("top", `${top}px`, "important");
+    visibleToolbar.style.setProperty("left", "0", "important");
+    visibleToolbar.style.setProperty("right", "0", "important");
+    visibleToolbar.style.setProperty("z-index", "999999", "important");
 
     // Remove old listener before adding to prevent buildup
-    toolbar.removeEventListener("touchstart", this.preventToolbarScroll);
-    toolbar.addEventListener("touchstart", this.preventToolbarScroll, {
+    visibleToolbar.removeEventListener("touchstart", this.preventToolbarScroll);
+    visibleToolbar.addEventListener("touchstart", this.preventToolbarScroll, {
       passive: false,
     });
 
@@ -239,18 +327,22 @@ scrollCaretIntoView(element) {
     }
 
     if (bottomRightButtons) {
-      // Check if hyperlit-container is open - if so, use lower z-index to stay below overlay/container
-      const hyperlitContainerOpen = document.body.classList.contains('hyperlit-container-open');
-      const zIndex = hyperlitContainerOpen ? "998" : "999998";
+      // Only reposition bottom-right-buttons for edit-toolbar
+      // Search-toolbar is centered and doesn't interfere with right-side buttons
+      if (visibleToolbar.id === 'edit-toolbar') {
+        // Check if hyperlit-container is open - if so, use lower z-index to stay below overlay/container
+        const hyperlitContainerOpen = document.body.classList.contains('hyperlit-container-open');
+        const zIndex = hyperlitContainerOpen ? "998" : "999998";
 
-      console.log(`🔧 KeyboardManager: SETTING INLINE STYLES ON #bottom-right-buttons - z-index: ${zIndex}, top: ${top - 60}px (hyperlitContainer open: ${hyperlitContainerOpen})`);
-      bottomRightButtons.style.setProperty("position", "fixed", "important");
-      bottomRightButtons.style.setProperty("top", `${top - 60}px`, "important");
-      bottomRightButtons.style.setProperty("right", "5px", "important");
-      bottomRightButtons.style.setProperty("z-index", zIndex, "important");
-      bottomRightButtons.addEventListener("touchstart", this.preventToolbarScroll, {
-        passive: false,
-      });
+        console.log(`🔧 KeyboardManager: SETTING INLINE STYLES ON #bottom-right-buttons - z-index: ${zIndex}, top: ${top - 60}px (hyperlitContainer open: ${hyperlitContainerOpen})`);
+        bottomRightButtons.style.setProperty("position", "fixed", "important");
+        bottomRightButtons.style.setProperty("top", `${top - 60}px`, "important");
+        bottomRightButtons.style.setProperty("right", "5px", "important");
+        bottomRightButtons.style.setProperty("z-index", zIndex, "important");
+        bottomRightButtons.addEventListener("touchstart", this.preventToolbarScroll, {
+          passive: false,
+        });
+      }
     }
   }
 
@@ -317,6 +409,7 @@ removeSpacer() {
       document.querySelector("#app-container"),
       document.querySelector(".main-content"),
       document.querySelector("#edit-toolbar"),
+      document.querySelector("#search-toolbar"),
       document.querySelector("#bottom-right-buttons")
     );
 

@@ -216,6 +216,26 @@
 
   </div>
 
+  <!-- Search toolbar - iOS Safari style find bar -->
+  <div id="search-toolbar">
+    <input type="text" id="search-input" placeholder="Find in document" autocomplete="off" />
+
+    <button type="button" id="search-prev-button" aria-label="Previous match">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <rect width="24" height="24" />
+        <polyline points="18 15 12 9 6 15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
+
+    <button type="button" id="search-next-button" aria-label="Next match">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <rect width="24" height="24" />
+        <polyline points="6 9 12 15 18 9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
+
+    <span id="search-match-counter">0 of 0</span>
+  </div>
 
 
   <!-- toggle hidden containers -->

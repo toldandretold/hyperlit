@@ -17,6 +17,11 @@ import {
 } from './settingsContainer.js';
 
 import {
+  initializeSearchToolbar,
+  destroySearchToolbar
+} from './searchToolbar.js';
+
+import {
   initializeUserContainer,
   destroyUserContainer
 } from './userContainer.js';
@@ -154,6 +159,15 @@ export function registerAllComponents() {
     initFn: initializeSettingsManager,
     destroyFn: destroySettingsManager,
     pages: ['reader', 'home', 'user'],
+    dependencies: [],
+    required: false
+  });
+
+  buttonRegistry.register({
+    name: 'searchToolbar',
+    initFn: initializeSearchToolbar,
+    destroyFn: destroySearchToolbar,
+    pages: ['reader'],
     dependencies: [],
     required: false
   });

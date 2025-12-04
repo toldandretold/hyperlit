@@ -3,6 +3,7 @@
 import { ContainerManager } from "../containerManager.js";
 import { log, verbose } from "../utilities/logger.js";
 import { switchTheme, getCurrentTheme, THEMES } from "../utilities/themeSwitcher.js";
+import { openSearchToolbar } from "./searchToolbar.js";
 
 /**
  * SettingsContainerManager - Extends ContainerManager with event delegation
@@ -66,6 +67,19 @@ export class SettingsContainerManager extends ContainerManager {
       e.stopPropagation();
       verbose.init('Sepia mode clicked via delegation', '/components/settingsContainer.js');
       switchTheme(THEMES.SEPIA);
+      return;
+    }
+
+    // Handle search button click
+    if (e.target.closest("#searchButton")) {
+      e.preventDefault();
+      e.stopPropagation();
+      verbose.init('Search button clicked via delegation', '/components/settingsContainer.js');
+      this.closeContainer();
+      // Open search toolbar after settings closes
+      setTimeout(() => {
+        openSearchToolbar();
+      }, 100);
       return;
     }
 
