@@ -1,5 +1,7 @@
 // This is your working code, with the "bad guess" removed and the scroll call made reliable.
 
+import { getKeyboardWasRecentlyClosed, setKeyboardWasRecentlyClosed } from './utilities/operationState.js';
+
 class KeyboardManager {
   constructor() {
     this.isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
@@ -14,6 +16,7 @@ class KeyboardManager {
 
     // Debouncing property
     this.viewportChangeDebounceTimer = null;
+    this.keyboardClosedFlagTimer = null; // Auto-clear keyboardWasRecentlyClosed flag
 
     this.handleViewportChange = this.handleViewportChange.bind(this);
     this.preventToolbarScroll = this.preventToolbarScroll.bind(this);
@@ -46,11 +49,66 @@ class KeyboardManager {
       return;
     }
     this.state.focusedElement = e.target;
+
+    // QUICK REOPEN FIX: If keyboard was recently closed, force layout on focusin
+    // This catches cases where iOS doesn't fire viewport resize events on rapid reopen
+    if (getKeyboardWasRecentlyClosed()) {
+      console.log('⚡ Quick reopen detected in focusin - scheduling forced layout');
+
+      // Wait briefly for iOS to start keyboard animation
+      setTimeout(() => {
+        if (!this.isKeyboardOpen && this.state.focusedElement) {
+          const vv = window.visualViewport;
+
+          // SEARCH-INPUT SPECIAL CASE: If offsetTop is still 0, wait for iOS scroll
+          // Search input has scroll lag, so we can't adjust layout until offsetTop updates
+          if (vv.offsetTop === 0 && this.isIOS && this.state.focusedElement.id === 'search-input') {
+            console.log('⏸️ Quick reopen on search-input but offsetTop=0 - letting viewport handler take over');
+            this.isKeyboardOpen = true;
+            this.lastOffsetTop = 0;
+            // Don't clear the flag - let the viewport handler catch it when offsetTop updates
+            return;
+          }
+
+          console.log('⚡ Forcing keyboard open state and layout adjustment');
+          this.isKeyboardOpen = true;
+          this.lastOffsetTop = vv.offsetTop;
+          this.adjustLayout(true);
+          setKeyboardWasRecentlyClosed(false);
+
+          // Clear the auto-clear timer since we handled the flag
+          if (this.keyboardClosedFlagTimer) {
+            clearTimeout(this.keyboardClosedFlagTimer);
+            this.keyboardClosedFlagTimer = null;
+          }
+
+          // Schedule scroll for contenteditable (skip for search-input)
+          if (this.state.focusedElement.id !== 'search-input') {
+            setTimeout(() => {
+              if (this.state.focusedElement) {
+                this.scrollCaretIntoView(this.state.focusedElement);
+              }
+            }, 250);
+          }
+        }
+      }, 150);
+    }
   }
 
   handleFocusOut() {
     if (this.isKeyboardOpen) {
       this.isKeyboardOpen = false;
+      setKeyboardWasRecentlyClosed(true);
+
+      // Auto-clear flag after 1 second as safeguard
+      if (this.keyboardClosedFlagTimer) {
+        clearTimeout(this.keyboardClosedFlagTimer);
+      }
+      this.keyboardClosedFlagTimer = setTimeout(() => {
+        setKeyboardWasRecentlyClosed(false);
+        console.log('⏱️ Auto-cleared keyboardWasRecentlyClosed flag after timeout');
+      }, 1000);
+
       this.adjustLayout(false);
     }
     this.state.focusedElement = null;
@@ -117,6 +175,31 @@ processViewportChange() {
     return;
   }
 
+  // QUICK REOPEN FIX: If keyboard was recently closed and we detect it's open now, force repositioning
+  if (keyboardOpen && getKeyboardWasRecentlyClosed()) {
+    console.log('⚡ Quick reopen detected - forcing layout adjustment');
+    this.isKeyboardOpen = true;
+    this.lastOffsetTop = vv.offsetTop;
+    this.adjustLayout(true);
+    setKeyboardWasRecentlyClosed(false);
+
+    // Clear the auto-clear timer since we handled the flag
+    if (this.keyboardClosedFlagTimer) {
+      clearTimeout(this.keyboardClosedFlagTimer);
+      this.keyboardClosedFlagTimer = null;
+    }
+
+    // Schedule scroll for contenteditable (skip for search-input)
+    if (this.state.focusedElement && this.state.focusedElement.id !== 'search-input') {
+      setTimeout(() => {
+        if (this.state.focusedElement) {
+          this.scrollCaretIntoView(this.state.focusedElement);
+        }
+      }, 350);
+    }
+    return;
+  }
+
   if (keyboardOpen !== this.isKeyboardOpen) {
     // Keyboard opening detected
     if (keyboardOpen && !this.isKeyboardOpen) {
@@ -137,6 +220,16 @@ processViewportChange() {
     // Keyboard closing detected
     if (!keyboardOpen && this.isKeyboardOpen) {
       console.log('⌨️ Keyboard closed');
+      setKeyboardWasRecentlyClosed(true);
+
+      // Auto-clear flag after 1 second as safeguard
+      if (this.keyboardClosedFlagTimer) {
+        clearTimeout(this.keyboardClosedFlagTimer);
+      }
+      this.keyboardClosedFlagTimer = setTimeout(() => {
+        setKeyboardWasRecentlyClosed(false);
+        console.log('⏱️ Auto-cleared keyboardWasRecentlyClosed flag after timeout');
+      }, 1000);
     }
 
     this.isKeyboardOpen = keyboardOpen;
@@ -402,6 +495,10 @@ removeSpacer() {
     if (this.viewportChangeDebounceTimer) {
       clearTimeout(this.viewportChangeDebounceTimer);
       this.viewportChangeDebounceTimer = null;
+    }
+    if (this.keyboardClosedFlagTimer) {
+      clearTimeout(this.keyboardClosedFlagTimer);
+      this.keyboardClosedFlagTimer = null;
     }
 
     // Reset inline styles on all elements we modified
