@@ -213,8 +213,8 @@ black #221F20;
 
 #editButton,
 #edit-source {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -243,8 +243,8 @@ black #221F20;
 
 #editButton.inverted {
   background: var(--color-text);
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border-radius: 4px;
   border: none;
   pointer-events: auto !important;
@@ -255,15 +255,15 @@ black #221F20;
   stroke: var(--color-background) !important;
 }
 
-/* Hover and active states for proper color inversion */
-#editButton:hover,
-#editButton.active {
+/* Hover and active states for proper color inversion - but NOT when inverted */
+#editButton:hover:not(.inverted),
+#editButton.active:not(.inverted) {
   background-color: var(--icon-hover-background);
   border-radius: 4px;
 }
 
-#editButton:hover svg path,
-#editButton.active svg path {
+#editButton:hover:not(.inverted) svg path,
+#editButton.active:not(.inverted) svg path {
   stroke: var(--icon-hover-stroke) !important;
 }
 
@@ -284,7 +284,7 @@ black #221F20;
   border: none;
   color: var(--color-text);
   font-size: 24px;
-  
+
   width: 36px;
   height: 36px;
   display: flex;
@@ -292,6 +292,10 @@ black #221F20;
   justify-content: center;
   cursor: pointer;
   position: relative; /* Enable positioning for pseudo-element */
+
+  /* Prevent flashing square during icon rotation */
+  overflow: hidden;
+  border-radius: 50%;
 }
 
 /* Expanded clickable area for specific navigation buttons only */
@@ -509,6 +513,13 @@ black #221F20;
   display: inline-block;
   transform: rotate(0deg);
   transition: transform 0.3s ease-out;
+
+  /* Prevent flashing square during rotation on mobile/light themes */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  backface-visibility: hidden;
+  will-change: transform;
+  background: transparent;
 }
 
 .icon.tilted {
@@ -910,11 +921,13 @@ black #221F20;
 }
 
 /* Button base styling - matching hyperlight buttons */
-.hypercite-management-buttons button {
+.hypercite-management-buttons button,
+.hypercite-health-check-btn,
+.hypercite-delete-btn {
   width: 26px;
   height: 26px;
   padding: 0;
-  background: var(--icon-background);
+  background: transparent;
   border: none;
   border-radius: 4px;
   display: flex;
@@ -926,54 +939,67 @@ black #221F20;
 }
 
 /* SVG sizing */
-.hypercite-management-buttons button svg {
+.hypercite-management-buttons button svg,
+.hypercite-health-check-btn svg,
+.hypercite-delete-btn svg {
   width: 18px;
   height: 18px;
 }
 
 /* Default icon colors */
-.hypercite-management-buttons .hypercite-health-check-btn svg {
+.hypercite-management-buttons .hypercite-health-check-btn svg,
+.hypercite-health-check-btn svg {
   fill: var(--icon-fill-primary);
 }
 
-.hypercite-management-buttons .hypercite-delete-btn svg {
+.hypercite-management-buttons .hypercite-delete-btn svg,
+.hypercite-delete-btn svg {
   stroke: var(--icon-stroke-primary);
   fill: none;
 }
 
 /* Hover effects - matching hyperlight buttons */
-.hypercite-management-buttons button:not(:disabled):not(.health-check-complete):hover {
+.hypercite-management-buttons button:not(:disabled):not(.health-check-complete):hover,
+.hypercite-health-check-btn:not(:disabled):not(.health-check-complete):hover,
+.hypercite-delete-btn:not(:disabled):hover {
   transform: scale(1.1);
-  background: var(--icon-hover-background);
+  background: transparent;
 }
 
 /* Health check button uses fill, delete uses stroke */
-.hypercite-management-buttons .hypercite-health-check-btn:not(:disabled):not(.health-check-complete):hover svg {
+.hypercite-management-buttons .hypercite-health-check-btn:not(:disabled):not(.health-check-complete):hover svg,
+.hypercite-health-check-btn:not(:disabled):not(.health-check-complete):hover svg {
   fill: var(--icon-hover-fill);
 }
 
-.hypercite-management-buttons .hypercite-delete-btn:not(:disabled):hover svg {
+.hypercite-management-buttons .hypercite-delete-btn:not(:disabled):hover svg,
+.hypercite-delete-btn:not(:disabled):hover svg {
   stroke: var(--icon-hover-stroke);
 }
 
 /* Disable interaction after health check completes */
-.hypercite-management-buttons .health-check-complete {
+.hypercite-management-buttons .health-check-complete,
+.health-check-complete {
   cursor: default;
   pointer-events: none;
 }
 
 /* Disabled state */
-.hypercite-management-buttons button:disabled {
+.hypercite-management-buttons button:disabled,
+.hypercite-health-check-btn:disabled,
+.hypercite-delete-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
   pointer-events: none;
 }
 
-.hypercite-management-buttons .hypercite-health-check-btn:disabled svg {
+.hypercite-management-buttons .hypercite-health-check-btn:disabled svg,
+.hypercite-health-check-btn:disabled svg {
   fill: var(--icon-disabled-fill);
 }
 
-.hypercite-management-buttons .hypercite-delete-btn:disabled svg {
+.hypercite-management-buttons .hypercite-delete-btn:disabled svg,
+.hypercite-delete-btn:disabled svg {
   stroke: var(--icon-disabled-stroke);
 }
 
@@ -985,6 +1011,13 @@ black #221F20;
   display: flex;
   gap: 10px;
   justify-content: flex-start;
+}
+
+.arranger-buttons-container {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-start;
+  margin-left: 20px;
 }
 
 .fixed-header {
@@ -1015,6 +1048,15 @@ black #221F20;
 }
 
 @media only screen and (max-width: 768px) {
+  .arranger-buttons-container {
+    gap: 6px;
+  }
+
+  .arranger-button {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
   #cloudRef svg {
     width: 24px !important;
   }
@@ -1084,15 +1126,15 @@ black #221F20;
     stroke: var(--color-background) !important;
   }
 
-  /* Hover and active states for proper color inversion (mobile) */
-  #editButton:hover,
-  #editButton.active {
+  /* Hover and active states for proper color inversion (mobile) - but NOT when inverted */
+  #editButton:hover:not(.inverted),
+  #editButton.active:not(.inverted) {
     background-color: var(--icon-hover-background);
     border-radius: 4px;
   }
 
-  #editButton:hover svg path,
-  #editButton.active svg path {
+  #editButton:hover:not(.inverted) svg path,
+  #editButton.active:not(.inverted) svg path {
     stroke: var(--icon-hover-stroke) !important;
   }
 
@@ -1300,6 +1342,30 @@ black #221F20;
     #undoButton.active svg path,
     #redoButton.active svg path {
       fill: var(--icon-hover-fill) !important; /* Invert: use hover fill */
+    }
+
+    /* Fix sticky hover for standalone #editButton - disable on touch devices, but preserve .inverted */
+    #editButton:hover:not(.inverted) {
+      background-color: transparent !important;
+      border-radius: 0 !important;
+    }
+
+    #editButton:hover:not(.inverted) svg path {
+      stroke: var(--icon-stroke-primary) !important;
+    }
+
+    /* .active class must use higher specificity to override hover */
+    #editButton.active:not(.inverted),
+    #editButton.active:not(.inverted):hover,
+    #editButton.active:not(.inverted):focus {
+      background-color: var(--icon-hover-background) !important;
+      border-radius: 4px !important;
+    }
+
+    #editButton.active:not(.inverted) svg path,
+    #editButton.active:not(.inverted):hover svg path,
+    #editButton.active:not(.inverted):focus svg path {
+      stroke: var(--icon-hover-stroke) !important;
     }
   }
 }

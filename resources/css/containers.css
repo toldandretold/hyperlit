@@ -271,6 +271,7 @@ black #221F20;
 #userLibraryContainer {
   margin-bottom: 1em;
   margin-top: 1em;
+  margin-left: 20px;
   padding-left: 40px;
   padding-right: 40px;
 }
@@ -1283,16 +1284,16 @@ body[data-page="user"] #userLibraryContainer {
 }
 
 .delete-highlight-btn svg path {
-  stroke: #cbcccc;
+  stroke: var(--color-text);
 }
 
 .delete-highlight-btn:hover {
-  background: #cbcccc;
+  background: var(--color-text);
   border-radius: 2px;
 }
 
 .delete-highlight-btn:hover svg path {
-  stroke: #221f20;
+  stroke: var(--color-background);
 }
 
 /* Lock body scroll when hyperlit container is open */

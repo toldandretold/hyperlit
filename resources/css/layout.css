@@ -53,7 +53,7 @@ body[data-page="reader"] #app-container {
 .reader-content-wrapper {
   margin: 0 auto;
   width: 100%;
-  max-width: 50ch;
+  max-width: 40ch;
   flex: 1; /* Take up remaining space */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -196,7 +196,7 @@ body[data-page="home"] .fixed-header {
   z-index: 10;
 
   width: 100%;
-  max-width: 50ch; /* Matches the content column width */
+  max-width: 40ch; /* Matches the content column width */
   box-sizing: border-box;
 
   background-color: var(--color-background); /* Makes it a solid, opaque block */
@@ -212,7 +212,7 @@ body[data-page="user"] .fixed-header {
   z-index: 10;
 
   width: 100%;
-  max-width: 50ch; /* Matches the content column width */
+  max-width: 40ch; /* Matches the content column width */
   box-sizing: border-box;
 
   background-color: var(--color-background); /* Makes it a solid, opaque block */
@@ -235,7 +235,7 @@ body[data-page="user"] .user-content-wrapper {
 /* 4. Center the main content list inside the wrapper */
 body[data-page="home"] .main-content,
 body[data-page="user"] .main-content {
-  max-width: 50ch;
+  max-width: 40ch;
   margin: 0 auto;
   padding: 0 40px 50px 40px; /* Match reader page horizontal padding for consistent perimeter spacing */
 }
