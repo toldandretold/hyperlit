@@ -15,6 +15,7 @@ import {
   setCursorAtTextOffset,
   selectAcrossElements,
   findClosestListItem,
+  isBlockElement,
 } from "./toolbarDOMUtils.js";
 import {
   setElementIds,
@@ -215,8 +216,18 @@ export class BlockFormatter {
     }
 
     // Cursor-only heading formatting
-    const cursorFocusParent = this.selectionManager.currentSelection.focusNode.parentElement;
-    const blockParent = findClosestBlockParent(cursorFocusParent);
+    const focusNode = this.selectionManager.currentSelection.focusNode;
+    let blockParent;
+
+    // If focusNode is already a block element (e.g., empty <p>), use it directly
+    // This prevents selecting the parent chunk div when cursor is in an empty paragraph
+    if (focusNode.nodeType === Node.ELEMENT_NODE && isBlockElement(focusNode)) {
+      blockParent = focusNode;
+    } else {
+      // Otherwise, find closest block parent
+      const cursorFocusParent = focusNode.parentElement;
+      blockParent = findClosestBlockParent(cursorFocusParent);
+    }
 
     if (blockParent && /^H[1-6]$/.test(blockParent.tagName)) {
       // Converting from heading to heading or paragraph
