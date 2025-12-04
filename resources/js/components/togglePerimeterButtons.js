@@ -33,6 +33,8 @@ export default class TogglePerimeterButtons {
 
     // Bind event handlers once
     this.handleClick = this.handleClick.bind(this);
+    this.handleTouchStart = this.handleTouchStart.bind(this);
+    this.handleTouchEnd = this.handleTouchEnd.bind(this);
     this.updatePosition = this.updatePosition.bind(this);
     this.handleResize = this.handleResize.bind(this);
     this.handleKeyboardChange = this.handleKeyboardChange.bind(this);
@@ -59,8 +61,8 @@ export default class TogglePerimeterButtons {
     this.rebindElements();
 
     if (this.isTouchDevice) {
-      document.addEventListener("touchstart", this.handleTouchStart.bind(this), { passive: false });
-      document.addEventListener("touchend", this.handleTouchEnd.bind(this), { passive: false });
+      document.addEventListener("touchstart", this.handleTouchStart, { passive: false });
+      document.addEventListener("touchend", this.handleTouchEnd, { passive: false });
     } else {
       document.addEventListener("click", this.handleClick);
     }
@@ -80,10 +82,14 @@ export default class TogglePerimeterButtons {
     if (!this.isInitialized) return;
 
     // Remove all event listeners
-    document.removeEventListener("click", this.handleClick);
-    window.removeEventListener("resize", this.updatePosition);
-    window.removeEventListener("keyboardDidShow", this.handleKeyboardChange);
-    window.removeEventListener("keyboardDidHide", this.handleKeyboardChange);
+    if (this.isTouchDevice) {
+      document.removeEventListener("touchstart", this.handleTouchStart);
+      document.removeEventListener("touchend", this.handleTouchEnd);
+    } else {
+      document.removeEventListener("click", this.handleClick);
+    }
+    window.removeEventListener("resize", this.handleResize);
+    window.removeEventListener('keyboardStateChange', this.handleKeyboardChange);
 
     // Clear element references
     this.elements = [];

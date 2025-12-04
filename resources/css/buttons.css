@@ -73,6 +73,26 @@ black #221F20;
   fill: var(--icon-fill-primary);
 }
 
+/* ===== SEARCH BUTTON (STROKED ICON) ===== */
+#searchButton svg {
+  width: 24px;
+  height: 24px;
+}
+
+#searchButton svg path,
+#searchButton svg line {
+  stroke: var(--icon-stroke-primary);
+  stroke-width: 32px;
+  stroke-linecap: round;
+  stroke-miterlimit: 10;
+  fill: none;
+}
+
+#searchButton:hover svg path,
+#searchButton:hover svg line {
+  stroke: var(--icon-hover-stroke);
+}
+
 /* ===== HYPERLIGHT BUTTONS ===== */
 /* Delete button - stroked icon */
 #hyperlight-buttons #delete-hyperlight svg path {
