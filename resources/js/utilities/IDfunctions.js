@@ -4,6 +4,7 @@ import { syncIndexedDBtoPostgreSQL } from "../postgreSQL.js";
 import { book } from "../app.js";
 import { showTick, showError } from "../components/editIndicator.js";
 import { ProgressOverlayConductor } from "../navigation/ProgressOverlayConductor.js";
+import { verbose } from './logger.js';
 
 // Renumbering system: When IDs get crowded, renumber with 100-gaps
 // Uses node_id as stable reference to preserve node identity
@@ -223,46 +224,46 @@ function needsRenumbering(beforeId, afterId) {
 // Utility: Generate a fallback unique ID if needed (used as a last resort).
 
 export function compareDecimalStrings(a, b) {
-  console.log(`Comparing decimal strings: "${a}" vs "${b}"`);
-  
+  verbose.content(`Comparing decimal strings: "${a}" vs "${b}"`, 'utilities/IDfunctions.js');
+
   // Handle null/undefined cases
   if (!a && !b) return 0;
   if (!a) return -1;
   if (!b) return 1;
-  
+
   // Convert to strings if they aren't already
   const aStr = a.toString();
   const bStr = b.toString();
-  
+
   // Split into integer and decimal parts
   const [aInt, aDec = ""] = aStr.split(".");
   const [bInt, bDec = ""] = bStr.split(".");
-  
-  console.log(`Split results: a(${aInt}.${aDec}) vs b(${bInt}.${bDec})`);
-  
+
+  verbose.content(`Split results: a(${aInt}.${aDec}) vs b(${bInt}.${bDec})`, 'utilities/IDfunctions.js');
+
   // Compare integer parts numerically
   const aIntNum = parseInt(aInt);
   const bIntNum = parseInt(bInt);
-  
+
   if (aIntNum !== bIntNum) {
     const result = aIntNum - bIntNum;
-    console.log(`Integer parts differ: ${aIntNum} vs ${bIntNum}, result: ${result}`);
+    verbose.content(`Integer parts differ: ${aIntNum} vs ${bIntNum}, result: ${result}`, 'utilities/IDfunctions.js');
     return result; // -1 if a < b, 1 if a > b, 0 if equal
   }
-  
-  console.log(`Integer parts equal (${aIntNum}), comparing decimal parts`);
-  
+
+  verbose.content(`Integer parts equal (${aIntNum}), comparing decimal parts`, 'utilities/IDfunctions.js');
+
   // Integer parts are equal, compare decimal parts as strings
   // Pad the shorter decimal with zeros for proper comparison
   const maxLen = Math.max(aDec.length, bDec.length);
   const aPadded = aDec.padEnd(maxLen, '0');
   const bPadded = bDec.padEnd(maxLen, '0');
-  
-  console.log(`Padded decimals: "${aPadded}" vs "${bPadded}"`);
-  
+
+  verbose.content(`Padded decimals: "${aPadded}" vs "${bPadded}"`, 'utilities/IDfunctions.js');
+
   const result = aPadded.localeCompare(bPadded);
-  console.log(`Decimal comparison result: ${result}`);
-  
+  verbose.content(`Decimal comparison result: ${result}`, 'utilities/IDfunctions.js');
+
   return result;
 }
 
@@ -284,13 +285,13 @@ export function setElementIds(element, beforeId, afterId, bookId) {
 }
 
 export function generateIdBetween(beforeId, afterId) {
-  console.log("Generating ID between:", { beforeId, afterId });
+  verbose.content(`Generating ID between: beforeId=${beforeId}, afterId=${afterId}`, 'utilities/IDfunctions.js');
 
   // RENUMBERING CHECK: Don't trigger here - let caller handle it after element is saved
   // Store the flag so caller can trigger renumbering deterministically
   const shouldRenumber = needsRenumbering(beforeId, afterId);
   if (shouldRenumber) {
-    console.log('🔄 RENUMBERING NEEDED - Will trigger after element is saved');
+    verbose.content('RENUMBERING NEEDED - Will trigger after element is saved', 'utilities/IDfunctions.js');
   }
 
   // Store renumbering flag on window for caller to check
@@ -298,7 +299,7 @@ export function generateIdBetween(beforeId, afterId) {
 
   // 1) No beforeId → just pick something before afterId
   if (!beforeId) {
-    console.log("EXIT: No beforeId");
+    verbose.content("EXIT: No beforeId", 'utilities/IDfunctions.js');
     if (!afterId) return "1";
     const afterNum = parseFloat(afterId);
     return isNaN(afterNum)
@@ -308,7 +309,7 @@ export function generateIdBetween(beforeId, afterId) {
 
   // 2) No afterId → increment with 100-unit gap
   if (!afterId) {
-    console.log("EXIT: No afterId");
+    verbose.content("EXIT: No afterId", 'utilities/IDfunctions.js');
     const beforeNum = parseFloat(beforeId);
     if (isNaN(beforeNum)) return `${beforeId}_1`;
 
@@ -332,7 +333,7 @@ export function generateIdBetween(beforeId, afterId) {
       return `${intPart}.${decPart.slice(0, -1)}${last + 1}`;
     }
 
-    console.log(`EXIT: No afterId, using 100-gap: ${nextInteger}`);
+    verbose.content(`EXIT: No afterId, using 100-gap: ${nextInteger}`, 'utilities/IDfunctions.js');
     return nextInteger.toString();
   }
 
@@ -340,7 +341,7 @@ export function generateIdBetween(beforeId, afterId) {
   const beforeNum = parseFloat(beforeId);
   const afterNum = parseFloat(afterId);
   const cmp = compareDecimalStrings(beforeId, afterId);
-  console.log("Comparison result:", cmp);
+  verbose.content(`Comparison result: ${cmp}`, 'utilities/IDfunctions.js');
 
   if (cmp >= 0) {
     console.warn(`IDs out of order: ${beforeId} ≥ ${afterId}`);
@@ -367,7 +368,7 @@ export function generateIdBetween(beforeId, afterId) {
       const gap = afterNum - beforeNum;
       if (gap >= 2) {
         const midpoint = Math.floor((beforeNum + afterNum) / 2);
-        console.log(`EXIT: Integer gap ${gap}, using midpoint: ${midpoint}`);
+        verbose.content(`EXIT: Integer gap ${gap}, using midpoint: ${midpoint}`, 'utilities/IDfunctions.js');
         return midpoint.toString();
       }
     }
@@ -415,24 +416,20 @@ export function generateIdBetween(beforeId, afterId) {
     }
 
     // CASE 2: before is integer, after has decimals (e.g. 100 vs 100.1)
-    console.log("Checking case 2:", {
-      beforePartsLength: beforeParts.length,
-      afterPartsLength: afterParts.length,
-      sameIntegerPart: beforeParts[0] === afterParts[0],
-    });
+    verbose.content(`Checking case 2: beforeParts=${beforeParts.length}, afterParts=${afterParts.length}, sameInt=${beforeParts[0] === afterParts[0]}`, 'utilities/IDfunctions.js');
     if (
       beforeParts.length === 1 &&
       afterParts.length === 2 &&
       beforeParts[0] === afterParts[0]
     ) {
       // ... (This logic is correct for its purpose and is now protected by the fix above)
-      console.log("EXIT: Case 2 triggered");
+      verbose.content("EXIT: Case 2 triggered", 'utilities/IDfunctions.js');
       const suffix = "0".repeat(lenA) + "1";
       return `${beforeParts[0]}.${suffix}`;
     }
 
     // CASE 3: integers with gap (e.g. 1 and 2 → 1.1, or 3 and 5 → 4)
-    console.log("Checking case 3...");
+    verbose.content("Checking case 3...", 'utilities/IDfunctions.js');
     if (Number.isInteger(beforeNum) && Number.isInteger(afterNum)) {
       // ... (The fix above already handles the "3 and 5 -> 4" case, but this is fine as a fallback)
       if (afterNum - beforeNum === 1) {

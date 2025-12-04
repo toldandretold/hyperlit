@@ -6,6 +6,7 @@
  * This class provides high-level business logic and navigation pathway decisions
  */
 import { ProgressOverlayEnactor } from './ProgressOverlayEnactor.js';
+import { verbose } from '../utilities/logger.js';
 
 export class ProgressOverlayConductor {
   /**
@@ -80,7 +81,7 @@ export class ProgressOverlayConductor {
    * This method simply delegates to ProgressOverlayEnactor for clean, centralized hiding
    */
   static async hide() {
-    console.log('📊 ProgressOverlayConductor.hide() - delegating to ProgressOverlayEnactor');
+    verbose.content('ProgressOverlayConductor.hide() - delegating to ProgressOverlayEnactor', 'navigation/ProgressOverlayConductor.js');
     return await ProgressOverlayEnactor.hide();
   }
 

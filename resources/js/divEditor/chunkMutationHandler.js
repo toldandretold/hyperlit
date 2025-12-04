@@ -17,6 +17,7 @@ import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow }
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../components/toc.js';
 import { deleteIndexedDBRecordWithRetry } from '../indexedDB/index.js';
 import { isPasteOperationActive } from '../paste';
+import { verbose } from '../utilities/logger.js';
 
 /**
  * ChunkMutationHandler class
@@ -41,6 +42,10 @@ export class ChunkMutationHandler {
     if (options.documentChanged) {
       this.documentChanged = options.documentChanged;
     }
+
+    // 🚀 PERFORMANCE: Batch TOC invalidation instead of per-keystroke
+    this.tocInvalidationQueue = new Set();
+    this.tocInvalidationTimer = null;
   }
 
   /**
@@ -64,7 +69,7 @@ export class ChunkMutationHandler {
 
           // Ignore MARK tag mutations (handled by hyperlights module)
           if (isOnlyHighlightNodes(mutation.addedNodes) || isOnlyHighlightNodes(mutation.removedNodes)) {
-            console.log("✍️ Ignoring MARK tag mutation in divEditor, handled by hyperlights module.");
+            verbose.content("Ignoring MARK tag mutation in divEditor, handled by hyperlights module", 'divEditor/chunkMutationHandler.js');
             return;
           }
         }
@@ -163,7 +168,7 @@ export class ChunkMutationHandler {
     }
 
     if (newChunksFound.size > 0) {
-      console.log(`📦 Found ${newChunksFound.size} new chunks:`, Array.from(newChunksFound));
+      verbose.content(`Found ${newChunksFound.size} new chunks: ${Array.from(newChunksFound).join(', ')}`, 'divEditor/chunkMutationHandler.js');
     }
 
     // Process mutations for each chunk
@@ -174,10 +179,9 @@ export class ChunkMutationHandler {
       if (liveChunk) {
         this.observedChunks.set(chunkId, liveChunk);
 
-        // Yield to main thread for snappier typing
-        setTimeout(async () => {
-          await this.processChunkMutations(liveChunk, chunkMutations);
-        }, 0);
+        // 🚀 PERFORMANCE: Process immediately within RAF callback
+        // setTimeout(, 0) adds unnecessary latency
+        await this.processChunkMutations(liveChunk, chunkMutations);
       } else if (!window.isEditing) {
         console.log(`🗑️ Chunk ${chunkId} actually removed from DOM`);
 
@@ -201,7 +205,7 @@ export class ChunkMutationHandler {
       return;
     }
 
-    console.log(`📦 New chunk loaded: ${chunkId}`);
+    verbose.content(`New chunk loaded: ${chunkId}`, 'divEditor/chunkMutationHandler.js');
 
     this.observedChunks.set(chunkId, chunk);
     trackChunkNodeCount(chunk);
@@ -213,7 +217,7 @@ export class ChunkMutationHandler {
   async processChunkMutations(chunk, mutations) {
     const chunkId = chunk.getAttribute('data-chunk-id');
 
-    console.log(`🔄 Processing ${mutations.length} mutations for chunk ${chunkId}`);
+    verbose.content(`Processing ${mutations.length} mutations for chunk ${chunkId}`, 'divEditor/chunkMutationHandler.js');
 
     // Skip during renumbering
     if (window.renumberingInProgress) {
@@ -339,7 +343,7 @@ export class ChunkMutationHandler {
         if (mutation.removedNodes.length > 0) {
           const parent = mutation.target;
           if (parent && parent.id && /^\d+(\.\d+)?$/.test(parent.id)) {
-            console.log(`🔄 Child nodes removed from parent ${parent.id}, queueing for update`);
+            verbose.content(`Child nodes removed from parent ${parent.id}, queueing for update`, 'divEditor/chunkMutationHandler.js');
             parentsToUpdate.add(parent);
           }
         }
@@ -350,7 +354,7 @@ export class ChunkMutationHandler {
         const element = mutation.target;
 
         if (element.tagName === 'SPAN' && mutation.attributeName === 'style') {
-          console.log(`🔥 DESTROYING SPAN that gained style attribute`, element);
+          verbose.content(`DESTROYING SPAN that gained style attribute`, 'divEditor/chunkMutationHandler.js');
 
           const { replacementNode, cursorInfo } = this.destroySpan(element);
 
@@ -391,7 +395,7 @@ export class ChunkMutationHandler {
 
             // Destroy SPAN tags
             if (node.tagName === 'SPAN') {
-              console.log(`🔥 DESTROYING SPAN tag - NO SPANS ALLOWED`);
+              verbose.content(`DESTROYING SPAN tag - NO SPANS ALLOWED`, 'divEditor/chunkMutationHandler.js');
               this.destroySpan(node);
               return;
             }
@@ -404,7 +408,7 @@ export class ChunkMutationHandler {
                                         node.style.wordSpacing;
 
               if (hasSuspiciousStyles) {
-                console.log(`🔥 DESTROYING browser-generated ${node.tagName} with inline styles`);
+                verbose.content(`DESTROYING browser-generated ${node.tagName} with inline styles`, 'divEditor/chunkMutationHandler.js');
 
                 const cleanElement = document.createElement(node.tagName.toLowerCase());
 
@@ -428,10 +432,11 @@ export class ChunkMutationHandler {
             addedCount++;
             newNodes.push(node);
 
-            checkAndInvalidateTocCache(node.id, node);
+            // 🚀 PERFORMANCE: Batch TOC invalidation
+            this.queueTocInvalidation(node.id, node);
 
             if (pasteDetected && node.id) {
-              console.log(`Queueing potentially pasted node: ${node.id}`);
+              verbose.content(`Queueing potentially pasted node: ${node.id}`, 'divEditor/chunkMutationHandler.js');
               if (this.queueNodeForSave) {
                 this.queueNodeForSave(node.id, 'add');
               }
@@ -445,7 +450,7 @@ export class ChunkMutationHandler {
               }
 
               if (parentWithId && parentWithId.id) {
-                console.log(`Queueing parent ${parentWithId.id} due to formatting change (${node.tagName})`);
+                verbose.content(`Queueing parent ${parentWithId.id} due to formatting change (${node.tagName})`, 'divEditor/chunkMutationHandler.js');
                 if (this.queueNodeForSave) {
                   this.queueNodeForSave(parentWithId.id, 'update');
                 }
@@ -464,9 +469,10 @@ export class ChunkMutationHandler {
         }
 
         if (parent && parent.id) {
-          console.log(`Queueing characterData change in parent: ${parent.id}`);
+          verbose.content(`Queueing characterData change in parent: ${parent.id}`, 'divEditor/chunkMutationHandler.js');
 
-          checkAndInvalidateTocCache(parent.id, parent);
+          // 🚀 PERFORMANCE: Batch TOC invalidation
+          this.queueTocInvalidation(parent.id, parent);
 
           if (this.queueNodeForSave) {
             this.queueNodeForSave(parent.id, 'update');
@@ -480,7 +486,7 @@ export class ChunkMutationHandler {
 
     // Process parent updates
     parentsToUpdate.forEach(parent => {
-      console.log(`Queueing parent node after child removal: ${parent.id}`);
+      verbose.content(`Queueing parent node after child removal: ${parent.id}`, 'divEditor/chunkMutationHandler.js');
       if (this.queueNodeForSave) {
         this.queueNodeForSave(parent.id, 'update');
       }
@@ -490,10 +496,10 @@ export class ChunkMutationHandler {
     if (addedCount > 0) {
       const BULK_THRESHOLD = 20;
       if (addedCount < BULK_THRESHOLD) {
-        console.log(`Queueing ${newNodes.length} new nodes individually`);
+        verbose.content(`Queueing ${newNodes.length} new nodes individually`, 'divEditor/chunkMutationHandler.js');
         newNodes.forEach(node => {
           if (node.id) {
-            console.log(`Queueing new node: ${node.id}`);
+            verbose.content(`Queueing new node: ${node.id}`, 'divEditor/chunkMutationHandler.js');
             if (this.queueNodeForSave) {
               this.queueNodeForSave(node.id, 'add');
             }
@@ -548,10 +554,33 @@ export class ChunkMutationHandler {
       newRange.collapse(true);
       selection.removeAllRanges();
       selection.addRange(newRange);
-      console.log(`✅ Cursor restored at offset ${safeOffset} after SPAN destruction`);
+      verbose.content(`Cursor restored at offset ${safeOffset} after SPAN destruction`, 'divEditor/chunkMutationHandler.js');
     }
 
     return { replacementNode: replacementTextNode, cursorInfo: { cursorWasInSpan, cursorOffset } };
+  }
+
+  /**
+   * 🚀 PERFORMANCE: Batch TOC invalidation
+   * Queues TOC updates and processes them after typing settles
+   */
+  queueTocInvalidation(nodeId, nodeElement) {
+    this.tocInvalidationQueue.add({ nodeId, nodeElement });
+
+    // Clear existing timer
+    if (this.tocInvalidationTimer) {
+      clearTimeout(this.tocInvalidationTimer);
+    }
+
+    // Process batch after 500ms of no new invalidations
+    this.tocInvalidationTimer = setTimeout(() => {
+      verbose.content(`Processing ${this.tocInvalidationQueue.size} batched TOC invalidations`, 'divEditor/chunkMutationHandler.js');
+      this.tocInvalidationQueue.forEach(({ nodeId, nodeElement }) => {
+        checkAndInvalidateTocCache(nodeId, nodeElement);
+      });
+      this.tocInvalidationQueue.clear();
+      this.tocInvalidationTimer = null;
+    }, 500);
   }
 
   /**

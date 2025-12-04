@@ -169,7 +169,7 @@ let pendingNavigationCleanupTimer = null;
 function detectUserScrollStart(event) {
   // Don't treat navigation scrolls as user scrolls
   if (userScrollState.isNavigating) {
-    console.log(`🎯 NAVIGATION SCROLL - Ignoring as user scroll`);
+    verbose.content(`NAVIGATION SCROLL - Ignoring as user scroll`, 'scrolling.js');
     return;
   }
 
@@ -202,14 +202,14 @@ function detectUserScrollStart(event) {
     clearTimeout(userScrollState.scrollTimeout);
   }
 
-  console.log(`🔄 USER SCROLL DETECTED - Disabling all scroll restoration for 1 second`);
+  verbose.content(`USER SCROLL DETECTED - Disabling all scroll restoration for 1 second`, 'scrolling.js');
 
   // Reset after 1 second of no scroll events (reduced from 2 seconds)
   userScrollState.scrollTimeout = setTimeout(() => {
     userScrollState.isScrolling = false;
     userScrollState.touchStartY = null;
     userScrollState.touchStartX = null;
-    console.log(`✅ USER SCROLL ENDED - Re-enabling scroll restoration`);
+    verbose.content(`USER SCROLL ENDED - Re-enabling scroll restoration`, 'scrolling.js');
   }, 1000);
 }
 
@@ -693,7 +693,7 @@ export function showNavigationLoading(targetId) {
 }
 
 export async function hideNavigationLoading() {
-  console.log(`🎯 [LEGACY] hideNavigationLoading called - delegating to ProgressOverlayConductor`);
+  verbose.content(`[LEGACY] hideNavigationLoading called - delegating to ProgressOverlayConductor`, 'scrolling.js');
 
   // Delegate to the new centralized system (now statically imported)
   await ProgressOverlayConductor.hide();

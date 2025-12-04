@@ -105,7 +105,7 @@ export function handleSelection() {
       document.getElementById("delete-hyperlight").style.display = "none";
     }
   } else {
-    console.log("No text selected. Hiding buttons.");
+    verbose.content("No text selected. Hiding buttons.", 'hyperlights/selection.js');
     document.getElementById("hyperlight-buttons").style.display = "none";
     document.getElementById("delete-hyperlight").style.display = "none";
   }

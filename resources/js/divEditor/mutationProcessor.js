@@ -9,6 +9,7 @@
 import { isPasteInProgress, isProgrammaticUpdateInProgress, hypercitePasteInProgress, keyboardLayoutInProgress } from "../utilities/operationState.js";
 import { isChunkLoadingInProgress, getLoadingChunkId } from "../utilities/chunkLoadingState.js";
 import { getEditToolbar } from '../editToolbar';
+import { verbose } from '../utilities/logger.js';
 
 /**
  * MutationProcessor class
@@ -93,7 +94,7 @@ export class MutationProcessor {
     const filteredMutations = this.filterMutations(mutations);
 
     if (filteredMutations.length > 0) {
-      console.log(`🚀 Processing batch of ${filteredMutations.length} mutations`);
+      verbose.content(`Processing batch of ${filteredMutations.length} mutations`, 'divEditor/mutationProcessor.js');
       await this.processMutations(filteredMutations);
     }
   }
