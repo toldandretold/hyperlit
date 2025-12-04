@@ -13,6 +13,7 @@ class KeyboardManager {
     };
     this.lastOffsetTop = 0; // Track offsetTop changes for refocus detection
     this.cachedSearchToolbarHeight = null; // Cache search toolbar height to avoid iOS scroll bug
+    this.cachedSearchOffsetTop = null; // Cache offsetTop for search-input rapid reopen
 
     // Debouncing property
     this.viewportChangeDebounceTimer = null;
@@ -60,14 +61,27 @@ class KeyboardManager {
         if (!this.isKeyboardOpen && this.state.focusedElement) {
           const vv = window.visualViewport;
 
-          // SEARCH-INPUT SPECIAL CASE: If offsetTop is still 0, wait for iOS scroll
-          // Search input has scroll lag, so we can't adjust layout until offsetTop updates
+          // SEARCH-INPUT SPECIAL CASE: If offsetTop is still 0 due to iOS scroll lag
           if (vv.offsetTop === 0 && this.isIOS && this.state.focusedElement.id === 'search-input') {
-            console.log('⏸️ Quick reopen on search-input but offsetTop=0 - letting viewport handler take over');
-            this.isKeyboardOpen = true;
-            this.lastOffsetTop = 0;
-            // Don't clear the flag - let the viewport handler catch it when offsetTop updates
-            return;
+            // Check if we have a cached offsetTop from previous successful open
+            if (this.cachedSearchOffsetTop) {
+              console.log(`⚡ Quick reopen on search-input with offsetTop=0 - using cached offsetTop=${this.cachedSearchOffsetTop}px`);
+              this.isKeyboardOpen = true;
+              this.lastOffsetTop = this.cachedSearchOffsetTop;
+              this.adjustLayout(true, this.cachedSearchOffsetTop);
+              setKeyboardWasRecentlyClosed(false);
+              if (this.keyboardClosedFlagTimer) {
+                clearTimeout(this.keyboardClosedFlagTimer);
+                this.keyboardClosedFlagTimer = null;
+              }
+              return;
+            } else {
+              console.log('⏸️ Quick reopen on search-input but offsetTop=0 and no cache - letting viewport handler take over');
+              this.isKeyboardOpen = true;
+              this.lastOffsetTop = 0;
+              // Don't clear the flag - let the viewport handler catch it when offsetTop updates
+              return;
+            }
           }
 
           console.log('⚡ Forcing keyboard open state and layout adjustment');
@@ -154,6 +168,11 @@ processViewportChange() {
     if (this.state.focusedElement?.id === 'search-input') {
       console.log('⏸️ Search input refocus - updating lastOffsetTop only, skipping adjustLayout');
       this.lastOffsetTop = vv.offsetTop;
+      // Cache offsetTop for rapid reopen
+      if (vv.offsetTop > 0) {
+        this.cachedSearchOffsetTop = vv.offsetTop;
+        console.log(`💾 Cached search offsetTop: ${vv.offsetTop}px`);
+      }
       return;
     }
 
@@ -245,6 +264,11 @@ processViewportChange() {
       // Search input just needs toolbar positioned above keyboard
       if (this.state.focusedElement.id === 'search-input') {
         console.log('⏭️ Skipping scroll for search-input (no caret scrolling needed)');
+        // Cache offsetTop for rapid reopen
+        if (vv.offsetTop > 0) {
+          this.cachedSearchOffsetTop = vv.offsetTop;
+          console.log(`💾 Cached search offsetTop: ${vv.offsetTop}px`);
+        }
         return;
       }
 
@@ -308,8 +332,8 @@ scrollCaretIntoView(element) {
 }
 
   // All the functions below are from YOUR working version. They are unchanged.
-  adjustLayout(keyboardOpen) {
-    console.log(`🔧 KeyboardManager.adjustLayout called with keyboardOpen=${keyboardOpen}`);
+  adjustLayout(keyboardOpen, overrideOffsetTop = null) {
+    console.log(`🔧 KeyboardManager.adjustLayout called with keyboardOpen=${keyboardOpen}, overrideOffsetTop=${overrideOffsetTop}`);
 
     const appContainer = document.querySelector("#app-container");
     const mainContent = document.querySelector(".main-content");
@@ -321,12 +345,13 @@ scrollCaretIntoView(element) {
     if (keyboardOpen) {
       console.log("🔧 KeyboardManager: KEYBOARD OPENING - will modify layout");
       const vv = window.visualViewport;
+      const effectiveOffsetTop = overrideOffsetTop !== null ? overrideOffsetTop : vv.offsetTop;
 
-      console.log(`🔍 DEBUG adjustLayout: vv.offsetTop=${vv.offsetTop}, vv.height=${vv.height}`);
+      console.log(`🔍 DEBUG adjustLayout: vv.offsetTop=${vv.offsetTop}, effectiveOffsetTop=${effectiveOffsetTop}, vv.height=${vv.height}`);
 
       if (appContainer) {
         appContainer.style.setProperty("position", "fixed", "important");
-        appContainer.style.setProperty("top", `${vv.offsetTop}px`, "important");
+        appContainer.style.setProperty("top", `${effectiveOffsetTop}px`, "important");
         appContainer.style.setProperty("height", `${vv.height}px`, "important");
         appContainer.style.setProperty("width", "100%", "important");
         appContainer.style.setProperty("left", "0", "important");
@@ -336,7 +361,7 @@ scrollCaretIntoView(element) {
       const keyboardHeight = window.innerHeight - vv.height;
       this.createOrUpdateSpacer(keyboardHeight);
 
-      const newKeyboardTop = vv.offsetTop + vv.height;
+      const newKeyboardTop = effectiveOffsetTop + vv.height;
       console.log(`🔍 DEBUG: Setting keyboardTop from ${this.state.keyboardTop} to ${newKeyboardTop}`);
       this.state.keyboardTop = newKeyboardTop;
       this.moveToolbarAboveKeyboard(editToolbar, searchToolbar, bottomRightButtons, mainContent);
