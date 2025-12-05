@@ -2,7 +2,7 @@ import { updateIndexedDBRecordForNormalization } from "../indexedDB/index.js";
 import { getAllNodeChunksForBook, renumberNodeChunksInIndexedDB } from "../indexedDB/index.js";
 import { syncIndexedDBtoPostgreSQL } from "../postgreSQL.js";
 import { book } from "../app.js";
-import { showTick, showError } from "../components/editIndicator.js";
+import { glowCloudGreen, glowCloudRed } from "../components/editIndicator.js";
 import { ProgressOverlayConductor } from "../navigation/ProgressOverlayConductor.js";
 import { verbose } from './logger.js';
 
@@ -149,7 +149,7 @@ async function renumberAllNodes() {
     console.log('✅ RENUMBERING: PostgreSQL synced');
 
     // Show green tick to indicate successful sync
-    showTick();
+    glowCloudGreen();
 
     // 7. Clear any pending syncs queued during the process (they have stale pre-renumber data)
     const { clearPendingSyncsForBook } = await import('../indexedDB/index.js');
@@ -182,7 +182,7 @@ async function renumberAllNodes() {
   } catch (error) {
     console.error('❌ RENUMBERING FAILED:', error);
     // Show red error indicator
-    showError();
+    glowCloudRed();
     // Hide overlay on error
     await ProgressOverlayConductor.hide();
     // Re-enable mutation observer even on failure

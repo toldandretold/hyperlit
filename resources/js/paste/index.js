@@ -25,7 +25,7 @@ import { marked } from 'marked';
 import { book } from '../app.js';
 import { getCurrentChunk } from '../chunkManager.js';
 import { initializeMainLazyLoader } from '../initializePage.js';
-import { showTick, showSpinner, showError } from '../components/editIndicator.js';
+import { glowCloudGreen, glowCloudOrange, glowCloudRed } from '../components/editIndicator.js';
 import {
   setPasteInProgress,
   isPasteInProgress as isPasteInProgressState
@@ -86,7 +86,7 @@ async function syncPasteToPostgreSQL(bookId) {
   console.log(`📤 Syncing FULL BOOK to PostgreSQL in background after paste...`);
 
   // Show orange indicator while syncing
-  showSpinner();
+  glowCloudOrange();
 
   try {
     // Get ALL nodes for the book from IndexedDB
@@ -111,7 +111,7 @@ async function syncPasteToPostgreSQL(bookId) {
     if (!response.ok) {
       const error = await response.text();
       console.error('❌ Failed to sync full book to PostgreSQL:', error);
-      showError();
+      glowCloudRed();
       throw new Error(`Full book sync failed: ${error}`);
     }
 
@@ -119,11 +119,11 @@ async function syncPasteToPostgreSQL(bookId) {
     console.log('✅ Full book synced to PostgreSQL:', result);
 
     // Show green tick when sync completes
-    showTick();
+    glowCloudGreen();
 
   } catch (error) {
     console.error('❌ Error syncing full book to PostgreSQL:', error);
-    showError();
+    glowCloudRed();
     throw error; // Re-throw for caller's catch block
   }
 }
@@ -430,7 +430,7 @@ async function handlePaste(event) {
     // Full sync ensures no orphaned records after paste renumbering
     syncPasteToPostgreSQL(pasteBook).catch(err => {
       console.error('❌ Background full book sync failed:', err);
-      showError();
+      glowCloudRed();
     });
 
     console.log(`🎯 [${pasteOpId}] Paste operation complete (full book sync happening in background)`);

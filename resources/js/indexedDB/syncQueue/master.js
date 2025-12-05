@@ -8,14 +8,14 @@ import { debounce, toPublicChunk } from '../core/utilities.js';
 import { pendingSyncs } from './queue.js';
 
 // Dependencies that will be injected
-let book, getInitialBookSyncPromise, showTick, showError;
+let book, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed;
 
 // Initialization function to inject dependencies
 export function initMasterSyncDependencies(deps) {
   book = deps.book;
   getInitialBookSyncPromise = deps.getInitialBookSyncPromise;
-  showTick = deps.showTick;
-  showError = deps.showError;
+  glowCloudGreen = deps.glowCloudGreen;
+  glowCloudRed = deps.glowCloudRed;
 }
 
 /**
@@ -222,12 +222,12 @@ export const debouncedMasterSync = debounce(async () => {
     logEntry.status = "synced";
     await updateHistoryLog(logEntry);
     console.log(`✅ Batch ${logEntry.id} synced successfully.`);
-    showTick(); // Show green indicator on successful server sync
+    if (glowCloudGreen) glowCloudGreen(); // Glow cloud green on successful server sync
   } catch (error) {
     logEntry.status = "failed";
     await updateHistoryLog(logEntry);
     console.error(`❌ Sync failed for batch ${logEntry.id}:`, error.message);
-    showError(); // Show red indicator on sync failure
+    if (glowCloudRed) glowCloudRed(); // Glow cloud red on sync failure
   } finally {
     // ✅ Dynamically import toolbar (only exists when editing)
     try {

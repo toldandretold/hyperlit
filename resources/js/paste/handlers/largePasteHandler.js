@@ -12,7 +12,7 @@ import {
   deleteNodeChunksAfter,
   writeNodeChunks
 } from '../../indexedDB/index.js';
-import { showSpinner, showError } from '../../components/editIndicator.js';
+import { glowCloudOrange, glowCloudRed } from '../../components/editIndicator.js';
 import { processContentForFootnotesAndReferences } from '../fallback-processor.js';
 import { parseHtmlToBlocks } from '../utils/html-block-parser.js';
 import { ProgressOverlayConductor } from '../../navigation/ProgressOverlayConductor.js';

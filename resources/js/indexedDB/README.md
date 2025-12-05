@@ -206,7 +206,7 @@ import { initializeDatabaseModules } from './indexedDB/index.js';
 import { book } from './app.js';
 import { withPending, getInitialBookSyncPromise } from './utilities/operationState.js';
 import { clearRedoHistory } from './historyManager.js';
-import { showTick, showError } from './components/editIndicator.js';
+import { glowCloudGreen, glowCloudRed } from './components/editIndicator.js';
 
 // Initialize all IndexedDB modules
 initializeDatabaseModules({
@@ -214,8 +214,8 @@ initializeDatabaseModules({
   withPending,
   clearRedoHistory,
   getInitialBookSyncPromise,
-  showTick,
-  showError,
+  glowCloudGreen,
+  glowCloudRed,
   updateBookTimestamp,
   queueForSync,
 });
@@ -288,8 +288,8 @@ initializeDatabaseModules({
   withPending,
   clearRedoHistory,
   getInitialBookSyncPromise,
-  showTick,
-  showError,
+  glowCloudGreen,
+  glowCloudRed,
   updateBookTimestamp,
   queueForSync,
 });

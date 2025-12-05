@@ -40,7 +40,7 @@ import {
 // Re-export for backward compatibility
 export { debounce, cleanupStyledSpans, cleanupAfterImport, cleanupAfterPaste };
 
-import { showSpinner, showTick, isProcessing } from '../components/editIndicator.js';
+import { glowCloudOrange, glowCloudGreen, isProcessing } from '../components/editIndicator.js';
 import { verbose } from '../utilities/logger.js';
 
 import { buildBibtexEntry } from "../utilities/bibtexProcessor.js";
@@ -258,11 +258,22 @@ export function startObserving(editableDiv) {
   const debouncedInputHandler = debounce((e) => {
     if (!window.isEditing || isComposing) return; // Skip during mobile IME composition
 
-    const target = e.target;
-    if (!target || target.nodeType !== Node.ELEMENT_NODE) return;
+    // Get the actual element where the cursor is, not e.target (which is always the contenteditable container)
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+
+    let targetElement = selection.getRangeAt(0).startContainer;
+
+    // If it's a text node, get its parent element
+    if (targetElement.nodeType === Node.TEXT_NODE) {
+      targetElement = targetElement.parentElement;
+    }
+
+    if (!targetElement) return;
 
     // Find the element with a numerical ID
-    let parentWithId = target.closest('[id]');
+    let parentWithId = targetElement.closest('[id]');
+
     while (parentWithId && !(/^\d+(\.\d+)?$/.test(parentWithId.id))) {
       parentWithId = parentWithId.parentElement?.closest('[id]');
     }
