@@ -419,27 +419,41 @@ export function ensureMinimumDocumentStructure(queueNodeForSave) {
  * Check if the document is about to become empty (down to last node)
  * Used to prevent complete document deletion and trigger structure restoration
  *
+ * 🚀 PERFORMANCE: Optimized with early exits to avoid expensive DOM queries on every keystroke
+ *
  * @returns {boolean} - True if document will be empty after next deletion
  */
 export function checkForImminentEmptyState() {
   const mainContent = document.querySelector('.main-content');
   if (!mainContent) {
-    console.log(`🔍 [IMMINENT EMPTY] No main-content found, returning false`);
     return false;
   }
 
+  // 🚀 PERFORMANCE: Quick chunk count check first (very fast)
+  // If we have more than 2 chunks, we definitely have enough content
+  const chunks = mainContent.querySelectorAll('.chunk');
+  if (chunks.length > 2) {
+    return false;
+  }
+
+  // Only do expensive DOM query if we have few chunks
   const numericalIdNodes = findAllNumericalIdNodesInChunks(mainContent);
   const nonSentinelNodes = numericalIdNodes.filter(node =>
     !node.id.includes('-sentinel')
   );
 
-  console.log(`🔍 [IMMINENT EMPTY] Found ${numericalIdNodes.length} numerical nodes, ${nonSentinelNodes.length} non-sentinel nodes`);
-  console.log(`🔍 [IMMINENT EMPTY] Node IDs: ${nonSentinelNodes.map(n => n.id).join(', ')}`);
+  // 🚀 PERFORMANCE: Early exit for common case (document has plenty of content)
+  if (nonSentinelNodes.length > 10) {
+    return false;
+  }
+
+  // 🚀 PERFORMANCE: Only log when actually near empty state (not on every keystroke!)
+  if (nonSentinelNodes.length <= 2) {
+    verbose.content(`[IMMINENT EMPTY] Document has ${nonSentinelNodes.length} nodes`, 'domUtilities.js');
+  }
 
   // If we're down to 1 node, we're about to be empty
-  const result = nonSentinelNodes.length <= 1;
-  console.log(`🔍 [IMMINENT EMPTY] Returning: ${result}`);
-  return result;
+  return nonSentinelNodes.length <= 1;
 }
 
 // ================================================================
