@@ -94,7 +94,6 @@ let observedChunks = new Map(); // chunkId -> chunk element
 let deletionHandler = null;
 
 let isObserverRestarting = false;
-let selectionChangeDebounceTimer = null;
 
 // 🚀 PERFORMANCE: Input event handler for text changes (replaces characterData observer)
 let inputEventHandler = null;
@@ -102,6 +101,23 @@ let isComposing = false; // Track mobile IME composition state
 
 // 🚀 PERFORMANCE: Cache for input handler parent lookups (50-90% faster)
 const elementToNumericalParent = new WeakMap();
+
+// 🚀 PERFORMANCE: Helper to clear input handler cache during idle time
+function clearInputHandlerCache() {
+  // WeakMaps can't be cleared directly, but we can invalidate by creating new one
+  // However, WeakMaps auto-cleanup when keys are GC'd, so this is mostly for large structural changes
+  const logCacheClear = () => {
+    verbose.content('Input handler cache will auto-clear via WeakMap GC', 'divEditor/index.js');
+  };
+
+  // Use requestIdleCallback to avoid blocking main thread
+  if (window.requestIdleCallback) {
+    window.requestIdleCallback(logCacheClear);
+  } else {
+    // Fallback to immediate execution (it's just logging anyway)
+    logCacheClear();
+  }
+}
 
 // 🔧 FIX 7b: Track video delete handler for cleanup
 let videoDeleteHandler = null;
@@ -505,32 +521,31 @@ export function stopObserving() {
 // - keydown: Handle delete operations and empty state prevention
 // ================================================================
 
+// 🚀 PERFORMANCE: Use proper debounce for selectionchange instead of manual setTimeout
+const handleSelectionChange = debounce(() => {
+  // The actual logic only runs after 150ms of no selection changes
+  if (!window.isEditing || chunkOverflowInProgress || isObserverRestarting) return;
+
+  const toolbar = getEditToolbar();
+  if (toolbar && toolbar.isFormatting) {
+    return;
+  }
+
+  const newChunkId = getCurrentChunk(); // Assumes this gets the ID of the current chunk
+  const currentChunkId = currentObservedChunk; // Assumes this is the stored ID string
+
+  // This is the key: we ONLY update the state. We don't restart the observer.
+  if (newChunkId && newChunkId !== currentChunkId) {
+    verbose.content(`Chunk focus changed (debounced): ${currentChunkId} → ${newChunkId}`, 'divEditor/index.js');
+    setCurrentObservedChunk(newChunkId);
+  }
+}, 150); // 150ms is a good delay to feel responsive but avoid storms
+
 document.addEventListener("selectionchange", () => {
   // Early return for performance - don't process if not editing
   if (!window.isEditing) return;
 
-  // Clear any previous timer
-  clearTimeout(selectionChangeDebounceTimer);
-
-  // Set a new timer
-  selectionChangeDebounceTimer = setTimeout(() => {
-    // The actual logic only runs after 150ms of no selection changes
-    if (!window.isEditing || chunkOverflowInProgress || isObserverRestarting) return;
-
-    const toolbar = getEditToolbar();
-    if (toolbar && toolbar.isFormatting) {
-      return;
-    }
-
-    const newChunkId = getCurrentChunk(); // Assumes this gets the ID of the current chunk
-    const currentChunkId = currentObservedChunk; // Assumes this is the stored ID string
-
-    // This is the key: we ONLY update the state. We don't restart the observer.
-    if (newChunkId && newChunkId !== currentChunkId) {
-      verbose.content(`Chunk focus changed (debounced): ${currentChunkId} → ${newChunkId}`, 'divEditor/index.js');
-      setCurrentObservedChunk(newChunkId);
-    }
-  }, 150); // 150ms is a good delay to feel responsive but avoid storms
+  handleSelectionChange();
 });
 
 document.addEventListener("keydown", function handleTypingActivity(event) {

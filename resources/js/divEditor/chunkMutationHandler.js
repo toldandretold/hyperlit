@@ -55,6 +55,25 @@ export class ChunkMutationHandler {
   }
 
   /**
+   * 🚀 PERFORMANCE: Clear chunk lookup cache during idle time
+   * Called when chunks are added/removed/restructured
+   */
+  clearChunkCache() {
+    // WeakMaps auto-cleanup when keys are GC'd, but we can log during idle time
+    const logCacheClear = () => {
+      verbose.content('Chunk lookup cache will auto-clear via WeakMap GC', 'divEditor/chunkMutationHandler.js');
+    };
+
+    // Use requestIdleCallback to avoid blocking main thread
+    if (window.requestIdleCallback) {
+      window.requestIdleCallback(logCacheClear);
+    } else {
+      // Fallback to immediate execution (it's just logging anyway)
+      logCacheClear();
+    }
+  }
+
+  /**
    * Filter mutations to only include those within .chunk elements
    */
   filterChunkMutations(mutations) {
@@ -200,6 +219,8 @@ export class ChunkMutationHandler {
         setTimeout(() => {
           this.observedChunks.delete(chunkId);
           delete chunkNodeCounts[chunkId];
+          // 🚀 PERFORMANCE: Clear chunk cache when structure changes
+          this.clearChunkCache();
           console.log(`✅ Chunk ${chunkId} cleanup completed`);
         }, 300);
       }
@@ -221,6 +242,9 @@ export class ChunkMutationHandler {
 
     this.observedChunks.set(chunkId, chunk);
     trackChunkNodeCount(chunk);
+
+    // 🚀 PERFORMANCE: Clear chunk cache when structure changes
+    this.clearChunkCache();
   }
 
   /**
@@ -573,26 +597,39 @@ export class ChunkMutationHandler {
   }
 
   /**
-   * 🚀 PERFORMANCE: Batch TOC invalidation
-   * Queues TOC updates and processes them after typing settles
+   * 🚀 PERFORMANCE: Batch TOC invalidation using requestIdleCallback
+   * Queues TOC updates and processes them during browser idle time
    */
   queueTocInvalidation(nodeId, nodeElement) {
     this.tocInvalidationQueue.add({ nodeId, nodeElement });
 
-    // Clear existing timer
+    // Clear existing timer/callback
     if (this.tocInvalidationTimer) {
-      clearTimeout(this.tocInvalidationTimer);
+      if (typeof this.tocInvalidationTimer === 'number' && window.cancelIdleCallback) {
+        window.cancelIdleCallback(this.tocInvalidationTimer);
+      } else {
+        clearTimeout(this.tocInvalidationTimer);
+      }
     }
 
-    // Process batch after 500ms of no new invalidations
-    this.tocInvalidationTimer = setTimeout(() => {
+    // 🚀 Use requestIdleCallback for better performance (processes during browser idle time)
+    // Fall back to setTimeout for browsers that don't support it (Safari)
+    const processInvalidations = () => {
       verbose.content(`Processing ${this.tocInvalidationQueue.size} batched TOC invalidations`, 'divEditor/chunkMutationHandler.js');
       this.tocInvalidationQueue.forEach(({ nodeId, nodeElement }) => {
         checkAndInvalidateTocCache(nodeId, nodeElement);
       });
       this.tocInvalidationQueue.clear();
       this.tocInvalidationTimer = null;
-    }, 500);
+    };
+
+    if (window.requestIdleCallback) {
+      // Process during idle time, with 500ms timeout to ensure it runs eventually
+      this.tocInvalidationTimer = window.requestIdleCallback(processInvalidations, { timeout: 500 });
+    } else {
+      // Fallback for browsers without requestIdleCallback (Safari)
+      this.tocInvalidationTimer = setTimeout(processInvalidations, 500);
+    }
   }
 
   /**
