@@ -15,12 +15,53 @@ import { movedNodesByOverflow } from './index.js';
 import { glowCloudOrange, isProcessing } from '../components/editIndicator.js';
 import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../chunkManager.js';
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../components/toc.js';
-import { deleteIndexedDBRecordWithRetry } from '../indexedDB/index.js';
+import { deleteIndexedDBRecordWithRetry, updateIndexedDBRecord, getNodeChunksFromIndexedDB } from '../indexedDB/index.js';
 import { isPasteOperationActive } from '../paste';
 import { verbose } from '../utilities/logger.js';
 
 // 🚀 PERFORMANCE: Import cached regex pattern
 import { NUMERICAL_ID_PATTERN } from '../utilities/IDfunctions.js';
+
+// 🆕 NO-DELETE-ID MARKER SYSTEM
+import {
+  getNoDeleteNode,
+  setNoDeleteMarker,
+  transferNoDeleteMarker,
+  findNextNoDeleteNode
+} from './domUtilities.js';
+
+/**
+ * Get the ID (startLine) of the first node in the book
+ * Queries IndexedDB for all nodes and returns the one with lowest startLine
+ * @returns {Promise<string|null>} - The startLine of the first node, or null
+ */
+async function getFirstNodeIdForBook() {
+  try {
+    // Get current book ID from DOM
+    const mainContent = document.querySelector('.main-content');
+    const bookId = mainContent?.id || 'latest';
+
+    // Get all nodes for this book from IndexedDB
+    const nodes = await getNodeChunksFromIndexedDB(bookId);
+
+    if (!nodes || nodes.length === 0) {
+      console.warn('⚠️ No nodes found in IndexedDB for book:', bookId);
+      return null;
+    }
+
+    // Find the node with the lowest startLine (first node in book)
+    const firstNode = nodes.reduce((min, node) => {
+      const minStart = parseFloat(min.startLine);
+      const nodeStart = parseFloat(node.startLine);
+      return nodeStart < minStart ? node : min;
+    });
+
+    return firstNode.startLine.toString();
+  } catch (error) {
+    console.error('❌ Error getting first node ID for book:', error);
+    return null;
+  }
+}
 
 /**
  * ChunkMutationHandler class
@@ -326,25 +367,115 @@ export class ChunkMutationHandler {
 
               invalidateTocCacheForDeletion(node.id);
 
-              const remainingNodes = chunk.querySelectorAll('[id]').length;
-              console.log(`🔍 [LAST NODE CHECK] Chunk ${chunkId} has ${remainingNodes} remaining nodes after deleting ${node.id}`);
+              // 🆕 O(1) CHECK: Does this node have the no-delete-id marker?
+              const hasNoDeleteMarker = node.getAttribute('no-delete-id') === 'please';
 
-              if (remainingNodes === 0) {
-                console.log(`🚨 [LAST NODE] Last node ${node.id} being deleted from chunk ${chunkId}`);
+              if (hasNoDeleteMarker) {
+                console.log(`🚨 [NO-DELETE] Node ${node.id} has no-delete-id="please" marker`);
 
-                deleteIndexedDBRecordWithRetry(node.id).then(() => {
-                  const pasteActive = isPasteOperationActive();
-                  console.log(`🔍 [LAST NODE] After deletion, paste active: ${pasteActive}`);
-                  if (!pasteActive && this.ensureMinimumStructure) {
-                    console.log(`🔧 [LAST NODE] Calling ensureMinimumDocumentStructure()`);
-                    this.ensureMinimumStructure();
-                  } else {
-                    console.log(`⏸️ [LAST NODE] Skipping structure check - paste in progress`);
+                // Find another node to transfer the marker to
+                const allNodes = chunk.querySelectorAll('[id]');
+                const otherNodes = Array.from(allNodes).filter(n =>
+                  n !== node &&
+                  n.id &&
+                  NUMERICAL_ID_PATTERN.test(n.id) &&
+                  !n.id.includes('-sentinel')
+                );
+
+                if (otherNodes.length > 0) {
+                  // SCENARIO 1: Other nodes exist - transfer marker and proceed with deletion
+                  // Get the first node in the book from IndexedDB
+                  const firstNodeId = await getFirstNodeIdForBook();
+
+                  if (firstNodeId) {
+                    console.log(`✅ [NO-DELETE] Transferring marker to first node ${firstNodeId}`);
+
+                    // If the first node is loaded in DOM, transfer marker there
+                    const firstNodeInDom = document.getElementById(firstNodeId);
+                    if (firstNodeInDom) {
+                      transferNoDeleteMarker(node, firstNodeInDom);
+                      console.log(`✅ [NO-DELETE] Transferred marker in DOM to ${firstNodeId}`);
+                    }
+
+                    // Always persist the marker to IndexedDB
+                    await updateIndexedDBRecord({ id: firstNodeId });
+                    console.log(`✅ [NO-DELETE] Persisted marker to IndexedDB for node ${firstNodeId}`);
                   }
-                });
 
-                return;
+                  // Now proceed with normal deletion
+                  console.log(`🗑️ Queueing node ${node.id} for batch deletion`);
+                  if (this.saveQueue) {
+                    this.saveQueue.queueDeletion(node.id, node);
+                  }
+                  this.removedNodeIds.add(node.id);
+
+                } else {
+                  // SCENARIO 2: No other nodes in chunk - this is the last node
+                  console.log(`⚠️ [NO-DELETE] No other nodes found - this is the last node`);
+
+                  // Check if there are other chunks with nodes
+                  const mainContent = document.querySelector('.main-content');
+                  const allChunks = mainContent ? mainContent.querySelectorAll('.chunk') : [];
+                  let foundNodeInOtherChunk = false;
+
+                  for (const otherChunk of allChunks) {
+                    if (otherChunk === chunk) continue;
+                    const nodesInOtherChunk = otherChunk.querySelectorAll('[id]');
+                    const validNodes = Array.from(nodesInOtherChunk).filter(n =>
+                      n.id &&
+                      NUMERICAL_ID_PATTERN.test(n.id) &&
+                      !n.id.includes('-sentinel')
+                    );
+                    if (validNodes.length > 0) {
+                      console.log(`✅ [NO-DELETE] Found node in another chunk - transferring marker and proceeding`);
+
+                      // Get the first node in the book from IndexedDB
+                      const firstNodeId = await getFirstNodeIdForBook();
+
+                      if (firstNodeId) {
+                        console.log(`✅ [NO-DELETE] Transferring marker to first node ${firstNodeId}`);
+
+                        // If the first node is loaded in DOM, transfer marker there
+                        const firstNodeInDom = document.getElementById(firstNodeId);
+                        if (firstNodeInDom) {
+                          transferNoDeleteMarker(node, firstNodeInDom);
+                          console.log(`✅ [NO-DELETE] Transferred marker in DOM to ${firstNodeId}`);
+                        }
+
+                        // Always persist the marker to IndexedDB
+                        await updateIndexedDBRecord({ id: firstNodeId });
+                        console.log(`✅ [NO-DELETE] Persisted marker to IndexedDB for node ${firstNodeId}`);
+                      }
+
+                      foundNodeInOtherChunk = true;
+                      break;
+                    }
+                  }
+
+                  if (foundNodeInOtherChunk) {
+                    // Can safely delete this node now
+                    console.log(`🗑️ Queueing node ${node.id} for batch deletion`);
+                    if (this.saveQueue) {
+                      this.saveQueue.queueDeletion(node.id, node);
+                    }
+                    this.removedNodeIds.add(node.id);
+                  } else {
+                    // SCENARIO 3: Truly the last node in the entire document
+                    console.log(`🚨 [NO-DELETE] This is the last node in the document - restoring structure`);
+
+                    deleteIndexedDBRecordWithRetry(node.id).then(() => {
+                      const pasteActive = isPasteOperationActive();
+                      if (!pasteActive && this.ensureMinimumStructure) {
+                        console.log(`🔧 [NO-DELETE] Calling ensureMinimumDocumentStructure()`);
+                        this.ensureMinimumStructure();
+                      }
+                    });
+
+                    return;
+                  }
+                }
               } else {
+                // Normal deletion - no marker on this node
                 console.log(`🗑️ Queueing node ${node.id} for batch deletion`);
                 if (this.saveQueue) {
                   // ✅ Pass the node element itself so UUID can be read from it

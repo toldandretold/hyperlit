@@ -34,11 +34,20 @@ import {
   findAllNumericalIdNodesInChunks,
   cleanupStyledSpans,
   cleanupAfterImport,
-  cleanupAfterPaste
+  cleanupAfterPaste,
+  getNoDeleteNode,
+  setNoDeleteMarker
 } from './domUtilities.js';
 
 // Re-export for backward compatibility
-export { debounce, cleanupStyledSpans, cleanupAfterImport, cleanupAfterPaste };
+export {
+  debounce,
+  cleanupStyledSpans,
+  cleanupAfterImport,
+  cleanupAfterPaste,
+  getNoDeleteNode,
+  setNoDeleteMarker
+};
 
 import { glowCloudOrange, glowCloudGreen, isProcessing } from '../components/editIndicator.js';
 import { verbose } from '../utilities/logger.js';
@@ -551,53 +560,39 @@ document.addEventListener("selectionchange", () => {
 document.addEventListener("keydown", function handleTypingActivity(event) {
   if (!window.isEditing) return;
 
-  // 🆕 SIMPLIFIED: Go back to the working Safari version
+  // 🆕 O(1) CHECK: Use no-delete-id marker instead of expensive DOM queries
   if (['Backspace', 'Delete'].includes(event.key)) {
     const selection = document.getSelection();
     if (selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
-      
-      // Check if we're about to delete the last content
-      const imminentEmpty = checkForImminentEmptyState();
 
-      if (imminentEmpty) {
-        // Check if this deletion would leave us empty
-        let willBeEmpty = false;
+      // Get the element that would be affected
+      let targetElement = range.startContainer;
+      if (targetElement.nodeType !== Node.ELEMENT_NODE) {
+        targetElement = targetElement.parentElement;
+      }
 
-        // Get the element that would be affected
-        let targetElement = range.startContainer;
-        if (targetElement.nodeType !== Node.ELEMENT_NODE) {
-          targetElement = targetElement.parentElement;
-        }
+      // Find the closest element with an ID
+      let elementWithId = targetElement?.closest('[id]');
 
-        // Find the closest element with an ID
-        let elementWithId = targetElement.closest('[id]');
-        console.log(`🔍 [KEYDOWN DELETE] Target element ID: ${elementWithId?.id}`);
+      // 🚀 PERFORMANCE: Simple O(1) attribute check instead of expensive DOM query
+      if (elementWithId && elementWithId.getAttribute('no-delete-id') === 'please') {
+        console.log(`🚨 [NO-DELETE] Attempting to delete protected node ${elementWithId.id}`);
 
-        if (elementWithId && isNumericalId(elementWithId.id)) {
-          // SIMPLIFIED: Back to the original working conditions
-          const textContent = elementWithId.textContent || '';
-          const isSelectingAll = !range.collapsed &&
-            range.toString().trim() === textContent.trim();
-          const isAtStartAndEmpty = range.collapsed &&
-            range.startOffset === 0 &&
-            textContent.trim().length <= 1; // Back to original condition
+        // Check if this deletion would clear the entire node
+        const textContent = elementWithId.textContent || '';
+        const isSelectingAll = !range.collapsed &&
+          range.toString().trim() === textContent.trim();
+        const isAtStartAndEmpty = range.collapsed &&
+          range.startOffset === 0 &&
+          textContent.trim().length <= 1;
 
-          console.log(`🔍 [KEYDOWN DELETE] isSelectingAll: ${isSelectingAll}, isAtStartAndEmpty: ${isAtStartAndEmpty}`);
-
-          if (isSelectingAll || isAtStartAndEmpty) {
-            willBeEmpty = true;
-          }
-        }
-
-        if (willBeEmpty) {
-          const pasteActive = isPasteOperationActive();
-          console.log(`🚨 [KEYDOWN DELETE] Will be empty! Paste active: ${pasteActive}`);
-
-          // Prevent the deletion
+        if (isSelectingAll || isAtStartAndEmpty) {
+          // Prevent the deletion of the protected node
           event.preventDefault();
 
           // Use the ORIGINAL working restoration method
+          const pasteActive = isPasteOperationActive();
           if (!pasteActive) {
             console.log(`🔧 [KEYDOWN DELETE] Calling ensureMinimumDocumentStructure()`);
             ensureMinimumDocumentStructure();

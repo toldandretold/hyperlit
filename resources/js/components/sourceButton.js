@@ -4,16 +4,6 @@ import { openDatabase, getNodeChunksFromIndexedDB, prepareLibraryForIndexedDB, c
 import { formatBibtexToCitation, generateBibtexFromForm } from "../utilities/bibtexProcessor.js";
 import { book } from "../app.js";
 import { canUserEditBook } from "../utilities/auth.js";
-import { htmlToText } 
-  from 'https://cdn.skypack.dev/html-to-text';
-  import {
-  Document,
-  Packer,
-  Paragraph,
-  TextRun,
-  HeadingLevel,
-  ExternalHyperlink
-} from 'https://cdn.skypack.dev/docx@8.3.0';
 
 // SVG icons for privacy toggle
 const PUBLIC_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2ea44f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -985,7 +975,7 @@ async function loadTurndown() {
   if (_TurndownService) return _TurndownService;
   // Skypack will auto-optimize to an ES module
   const mod = await import('https://cdn.skypack.dev/turndown');
-  // turndown’s default export is the constructor
+  // turndown's default export is the constructor
   _TurndownService = mod.default;
   return _TurndownService;
 }
@@ -998,6 +988,14 @@ async function loadDocxLib() {
   // The module exports Document, Packer, Paragraph, etc.
   _Docx = mod;
   return _Docx;
+}
+
+let _htmlToText = null;
+async function loadHtmlToText() {
+  if (_htmlToText) return _htmlToText;
+  const mod = await import('https://cdn.skypack.dev/html-to-text');
+  _htmlToText = mod.htmlToText;
+  return _htmlToText;
 }
 
 /**
@@ -1040,6 +1038,7 @@ async function buildHtmlForBook(bookId = book || 'latest') {
 
 async function buildDocxBuffer(bookId = book || 'latest') {
   const { Document, Packer, Paragraph, TextRun } = await loadDocxLib();
+  const htmlToText = await loadHtmlToText();
   const chunks = await getNodeChunksFromIndexedDB(bookId);
   chunks.sort((a, b) => a.chunk_id - b.chunk_id);
 
@@ -1114,7 +1113,8 @@ function downloadMarkdown(filename, text) {
 
 // Walk a DOM node and return either Paragraphs or Runs.
 // Runs of type TextRun must be created with their styling flags upfront.
-function htmlElementToDocx(node) {
+function htmlElementToDocx(node, docxComponents) {
+  const { TextRun, Paragraph, HeadingLevel, ExternalHyperlink } = docxComponents;
   const out = [];
 
   node.childNodes.forEach(child => {
@@ -1166,7 +1166,7 @@ function htmlElementToDocx(node) {
               );
             } else {
               // nested tags: recurse and mark bold on each run
-              htmlElementToDocx(n).forEach(run => {
+              htmlElementToDocx(n, docxComponents).forEach(run => {
                 if (run instanceof TextRun) {
                   out.push(
                     new TextRun({
@@ -1195,7 +1195,7 @@ function htmlElementToDocx(node) {
                 })
               );
             } else {
-              htmlElementToDocx(n).forEach(run => {
+              htmlElementToDocx(n, docxComponents).forEach(run => {
                 if (run instanceof TextRun) {
                   out.push(
                     new TextRun({
@@ -1237,7 +1237,7 @@ function htmlElementToDocx(node) {
 
         default:
           // everything else: recurse inline
-          htmlElementToDocx(child).forEach(item => out.push(item));
+          htmlElementToDocx(child, docxComponents).forEach(item => out.push(item));
       }
     }
   });
@@ -1247,6 +1247,8 @@ function htmlElementToDocx(node) {
 
 // Build the docx with styled runs/headings/links
 async function buildDocxWithStyles(bookId = book || 'latest') {
+  const docxLib = await loadDocxLib();
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel, ExternalHyperlink } = docxLib;
   const chunks = await getNodeChunksFromIndexedDB(bookId);
   chunks.sort((a,b) => a.chunk_id - b.chunk_id);
 
@@ -1260,7 +1262,7 @@ async function buildDocxWithStyles(bookId = book || 'latest') {
     ).body.firstChild;
 
     // collect Runs and Paragraphs
-    const runsAndParas = htmlElementToDocx(frag);
+    const runsAndParas = htmlElementToDocx(frag, { TextRun, Paragraph, HeadingLevel, ExternalHyperlink });
 
     // group Runs into Paragraphs
     let buf = [];
