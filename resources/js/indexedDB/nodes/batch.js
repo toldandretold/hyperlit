@@ -166,17 +166,26 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
     uTag.parentNode.removeChild(uTag);
   }
 
-  // 🧹 ALSO REMOVE styled spans before saving (prevents them from being stored)
-  const clonedSpans = contentClone.querySelectorAll('span[style]');
-  while (clonedSpans.length > 0) {
-    const span = clonedSpans[0];
-    // Move all child nodes before the span, preserving HTML structure (including <br>)
-    while (span.firstChild) {
-      span.parentNode.insertBefore(span.firstChild, span);
+  // 🧹 REMOVE styled spans before saving (prevents them from being stored)
+  const clonedSpans = Array.from(contentClone.querySelectorAll('span[style]'));
+  clonedSpans.forEach(span => {
+    // Check if span is still in the DOM (not already removed)
+    if (span.parentNode) {
+      // Move all child nodes before the span, preserving HTML structure (including <br>)
+      while (span.firstChild) {
+        span.parentNode.insertBefore(span.firstChild, span);
+      }
+      // Remove the now-empty span
+      span.parentNode.removeChild(span);
     }
-    // Remove the now-empty span
-    span.parentNode.removeChild(span);
-  }
+  });
+
+  // 🧹 STRIP ALL inline style attributes from ALL elements (prevents bloat from copy/paste)
+  // Keep our semantic tags clean - styles should come from CSS, not inline attributes
+  const allElementsWithStyle = Array.from(contentClone.querySelectorAll('[style]'));
+  allElementsWithStyle.forEach(element => {
+    element.removeAttribute('style');
+  });
 
   // 🧹 STRIP navigation classes from ALL elements before saving
   // These are temporary UI classes that shouldn't persist in the database

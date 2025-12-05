@@ -178,6 +178,24 @@ async function handlePaste(event) {
     let htmlContent = "";
     let formatType = 'general'; // Default format
 
+    // 🔍 DETECT RAW HTML SOURCE CODE (not rendered content)
+    // If someone pastes HTML source code, wrap it in a code block instead of rendering
+    const looksLikeRawHTMLCode = (
+      (rawHtml.includes('&lt;') || rawHtml.includes('&gt;')) || // Escaped tags in HTML
+      (plainText.match(/<[a-z]+[^>]*>/i) && rawHtml && !rawHtml.match(/<[a-z]+[^>]*>/i)) // Tags in plain but not in HTML
+    );
+
+    if (looksLikeRawHTMLCode) {
+      console.log(`📝 [${pasteOpId}] Detected raw HTML code paste - wrapping in <pre><code>`);
+      // Use plainText (which has the actual code) and wrap it in a code block
+      const escapedCode = plainText
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      rawHtml = `<pre><code>${escapedCode}</code></pre>`;
+      plainText = ''; // Clear plainText to force HTML path
+    }
+
     // ✅ CHECK FOR YOUTUBE TRANSCRIPT - format for readability
     const youtubeDetection = detectYouTubeTranscript(plainText, rawHtml);
     if (youtubeDetection.isYouTube) {
