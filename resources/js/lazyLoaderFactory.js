@@ -32,6 +32,59 @@ function throttle(fn, delay) {
 }
 
 /**
+ * Ensure exactly ONE no-delete-id marker exists per book.
+ * Checks DOM first (fast), then IndexedDB, then adds if not found anywhere.
+ *
+ * Uses dynamic import to avoid circular dependency with divEditor/domUtilities.js
+ * Persists marker to IndexedDB and syncs to backend.
+ *
+ * @param {HTMLElement} chunkElement - The chunk element that was just loaded
+ * @param {Array} allNodesInBook - All nodes for this book from IndexedDB
+ */
+async function ensureNoDeleteMarkerForBook(chunkElement, allNodesInBook) {
+  try {
+    // 🔄 LAZY IMPORT: Avoid circular dependency (toc.js → containerManager → initializePage → lazyLoader → domUtilities → chunkMutationHandler → toc.js)
+    const { getNoDeleteNode, setNoDeleteMarker } = await import('./divEditor/domUtilities.js');
+    const { updateIndexedDBRecord } = await import('./indexedDB/index.js');
+
+    // Step 1: Check DOM for marker (O(1) - very fast)
+    if (getNoDeleteNode()) {
+      verbose.content('no-delete-id marker already exists in DOM', 'lazyLoaderFactory.js');
+      return; // Already exists in DOM
+    }
+
+    // Step 2: Check if marker exists in any node in IndexedDB
+    // Safety check: allNodesInBook might be undefined/null for new books
+    const hasMarkerInDB = allNodesInBook && Array.isArray(allNodesInBook)
+      ? allNodesInBook.some(node => node.content && node.content.includes('no-delete-id="please"'))
+      : false;
+
+    if (hasMarkerInDB) {
+      verbose.content('no-delete-id marker exists in IndexedDB (not yet loaded)', 'lazyLoaderFactory.js');
+      return; // Exists in DB, will appear when that chunk loads
+    }
+
+    // Step 3: No marker anywhere - add to first node in this chunk
+    const firstNode = chunkElement.querySelector('[id]');
+    if (!firstNode) {
+      console.warn('⚠️ Could not find node with ID to set no-delete marker');
+      return;
+    }
+
+    // Step 3a: Set marker on DOM element
+    setNoDeleteMarker(firstNode);
+    console.log(`✅ Set no-delete-id marker on node ${firstNode.id} in DOM`);
+
+    // Step 3b: Persist to IndexedDB and sync to backend
+    await updateIndexedDBRecord({ id: firstNode.id });
+    console.log(`✅ Persisted no-delete-id marker to IndexedDB & queued for backend sync`);
+  } catch (error) {
+    console.error('❌ FATAL: ensureNoDeleteMarkerForBook failed:', error);
+    throw error; // Re-throw so we can see it in console
+  }
+}
+
+/**
  * Factory function for lazy loading.
  *
  * IMPORTANT: The config object must include a property "bookId" which also
@@ -1010,7 +1063,12 @@ export function loadNextChunkFixed(currentLastChunkId, instance) {
       const chunkElement = createChunkElement(nextNodes, instance);
       container.appendChild(chunkElement);
       instance.currentlyLoadedChunks.add(nextChunkId);
-      
+
+      // 🆕 Ensure no-delete-id marker exists for this book (async, fire-and-forget)
+      ensureNoDeleteMarkerForBook(chunkElement, instance.nodes).catch(err =>
+        console.error('Failed to ensure no-delete-id marker:', err)
+      );
+
       // ✅ Attach listeners only to this chunk
       attachMarkListeners(chunkElement);
       attachUnderlineClickListeners(chunkElement);
@@ -1063,6 +1121,12 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
     const chunkElement = createChunkElement(prevNodes, instance, instance.config?.onFirstChunkLoaded);
     container.insertBefore(chunkElement, container.firstElementChild);
     instance.currentlyLoadedChunks.add(prevChunkId);
+
+    // 🆕 Ensure no-delete-id marker exists for this book (async, fire-and-forget)
+    ensureNoDeleteMarkerForBook(chunkElement, instance.nodes).catch(err =>
+      console.error('Failed to ensure no-delete-id marker:', err)
+    );
+
     const newHeight = chunkElement.getBoundingClientRect().height;
     
 
@@ -1112,8 +1176,13 @@ function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
   } else {
     instance.container.appendChild(chunkElement);
   }
-  
+
   instance.currentlyLoadedChunks.add(chunkId);
+
+  // 🆕 Ensure no-delete-id marker exists for this book (async, fire-and-forget)
+  ensureNoDeleteMarkerForBook(chunkElement, instance.nodes).catch(err =>
+    console.error('Failed to ensure no-delete-id marker:', err)
+  );
 
   // ✅ Attach listeners only to this chunk
   attachMarkListeners(chunkElement);
