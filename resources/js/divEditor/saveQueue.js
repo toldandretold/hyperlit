@@ -11,17 +11,19 @@ import {
   deleteIndexedDBRecordWithRetry
 } from '../indexedDB/index.js';
 import { isPasteOperationActive } from '../paste';
+import { verbose } from '../utilities/logger.js';
 
 // ================================================================
 // DEBOUNCING INFRASTRUCTURE
 // ================================================================
 
 // Debounce delays (in milliseconds)
+// 🚀 PERFORMANCE: Increased delays for better batching and mobile performance
 const DEBOUNCE_DELAYS = {
-  TYPING: 300,        // Wait 300ms after user stops typing
-  MUTATIONS: 300,     // Wait 300ms after mutations stop
-  SAVES: 500,         // Wait 500ms between save operations
-  BULK_SAVE: 1000,    // Wait 1s for bulk operations
+  TYPING: 1500,       // Wait 1.5s after user stops typing (was 300ms)
+  MUTATIONS: 1000,    // Wait 1s after mutations stop (was 300ms)
+  SAVES: 1500,        // Wait 1.5s between save operations (was 500ms)
+  BULK_SAVE: 2000,    // Wait 2s for bulk operations (was 1000ms)
   TITLE_SYNC: 500,
 };
 
@@ -98,7 +100,7 @@ export class SaveQueue {
     this.pendingSaves.nodes.set(nodeId, { id: nodeId, action });
     this.pendingSaves.lastActivity = Date.now();
 
-    console.log(`📝 Queued node ${nodeId} for ${action}`);
+    verbose.content(`Queued node ${nodeId} for ${action}`, 'divEditor/saveQueue.js');
     this.debouncedSaveNode();
   }
 
@@ -123,7 +125,7 @@ export class SaveQueue {
     this.pendingSaves.deletions.add(nodeId);
     this.pendingSaves.lastActivity = Date.now();
 
-    console.log(`🗑️ Queued node ${nodeId} for deletion (UUID: ${nodeUUID}${nodeElement ? ' from element' : ' from DOM'})`);
+    verbose.content(`Queued node ${nodeId} for deletion (UUID: ${nodeUUID}${nodeElement ? ' from element' : ' from DOM'})`, 'divEditor/saveQueue.js');
     this.debouncedBatchDelete();
   }
 
@@ -136,7 +138,7 @@ export class SaveQueue {
     const nodesToSave = Array.from(this.pendingSaves.nodes.values());
     this.pendingSaves.nodes.clear();
 
-    console.log(`💾 Processing ${nodesToSave.length} pending node saves`);
+    verbose.content(`Processing ${nodesToSave.length} pending node saves`, 'divEditor/saveQueue.js');
 
     const updates = nodesToSave.filter(n => n.action === 'update');
     const additions = nodesToSave.filter(n => n.action === 'add');
@@ -183,11 +185,11 @@ export class SaveQueue {
     this.pendingSaves.deletions.clear();
     this.pendingSaves.deletionMap = new Map(); // Clear the map
 
-    console.log(`🗑️ Batch deleting ${nodeIdsToDelete.length} nodes`);
+    verbose.content(`Batch deleting ${nodeIdsToDelete.length} nodes`, 'divEditor/saveQueue.js');
 
     try {
       await batchDeleteIndexedDBRecords(nodeIdsToDelete, deletionMap);
-      console.log(`✅ Batch deleted ${nodeIdsToDelete.length} nodes`);
+      verbose.content(`Batch deleted ${nodeIdsToDelete.length} nodes`, 'divEditor/saveQueue.js');
 
       // Check if we need to restore minimum structure
       setTimeout(() => {
@@ -248,7 +250,7 @@ export class SaveQueue {
         : null;
 
       if (this.hasPending) {
-        console.log(`📊 Pending saves: ${this.pendingSaves.nodes.size} nodes, ${this.pendingSaves.deletions.size} deletions (${timeSinceLastActivity}ms since last activity)`);
+        verbose.content(`Pending saves: ${this.pendingSaves.nodes.size} nodes, ${this.pendingSaves.deletions.size} deletions (${timeSinceLastActivity}ms since last activity)`, 'divEditor/saveQueue.js');
       }
     }, 5000);
   }
@@ -260,7 +262,7 @@ export class SaveQueue {
     if (this.monitor) {
       clearInterval(this.monitor);
       this.monitor = null;
-      console.log("📊 Pending saves monitor stopped");
+      verbose.content("Pending saves monitor stopped", 'divEditor/saveQueue.js');
     }
   }
 

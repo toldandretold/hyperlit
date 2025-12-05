@@ -250,9 +250,7 @@ export async function clearRedoHistory(bookId) {
 
   await new Promise((resolve, reject) => {
     tx.oncomplete = () => {
-      console.log(
-        `📝 New user action detected. Redo log cleared for book: ${bookId}.`
-      );
+      verbose.content(`New user action detected. Redo log cleared for book: ${bookId}`, 'historyManager.js');
       resolve();
     };
     tx.onerror = (event) => reject(event.target.error);

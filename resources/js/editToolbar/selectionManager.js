@@ -5,6 +5,8 @@
  * Handles the complexities of maintaining valid selections across toolbar interactions.
  */
 
+import { verbose } from '../utilities/logger.js';
+
 /**
  * SelectionManager class
  * Tracks and manages text selections within editable content
@@ -37,12 +39,7 @@ export class SelectionManager {
    */
   handleSelectionChange(updateButtonStatesCallback) {
     const selection = window.getSelection();
-    console.log("🔍 Selection change detected:", {
-      hasSelection: !!selection,
-      rangeCount: selection?.rangeCount,
-      isCollapsed: selection?.isCollapsed,
-      toolbarVisible: this.isVisible,
-    });
+    verbose.content(`Selection change detected: hasSelection=${!!selection}, rangeCount=${selection?.rangeCount}, isCollapsed=${selection?.isCollapsed}, toolbarVisible=${this.isVisible}`, 'editToolbar/selectionManager.js');
 
     if (!selection || selection.rangeCount === 0) return;
 
@@ -53,17 +50,12 @@ export class SelectionManager {
         const range = selection.getRangeAt(0);
         const container = range.commonAncestorContainer;
 
-        console.log("🎯 Selection container:", {
-          container: container,
-          containerParent: container.parentElement,
-          containerId: container.id || container.parentElement?.id,
-          isInEditable: editableContent.contains(container),
-        });
+        verbose.content(`Selection container: id=${container.id || container.parentElement?.id}, isInEditable=${editableContent.contains(container)}`, 'editToolbar/selectionManager.js');
 
         // Check if selection is coming from toolbar button click
         const isFromToolbar = container.closest && container.closest('#edit-toolbar');
         if (isFromToolbar) {
-          console.log("🔧 Selection change from toolbar button - ignoring to preserve selection");
+          verbose.content("Selection change from toolbar button - ignoring to preserve selection", 'editToolbar/selectionManager.js');
           return; // Don't update anything if selection changed due to toolbar button click
         }
 
@@ -78,10 +70,7 @@ export class SelectionManager {
             this.mobileBackupRange = range.cloneRange();
             this.mobileBackupText = selection.toString();
             this.mobileBackupContainer = container;
-            console.log("📱 Mobile backup stored:", {
-              text: this.mobileBackupText,
-              container: this.mobileBackupContainer,
-            });
+            verbose.content(`Mobile backup stored: text="${this.mobileBackupText}"`, 'editToolbar/selectionManager.js');
           }
 
           // Call the button state update callback
@@ -131,10 +120,7 @@ export class SelectionManager {
         selection.removeAllRanges();
         selection.addRange(this.lastValidRange.cloneRange());
         this.currentSelection = selection;
-        console.log(
-          "🔄 Restored valid selection to:",
-          this.lastValidRange.commonAncestorContainer
-        );
+        verbose.content(`Restored valid selection to: ${this.lastValidRange.commonAncestorContainer}`, 'editToolbar/selectionManager.js');
         return true;
       } catch (e) {
         console.warn("Failed to restore lastValidRange:", e);
@@ -154,10 +140,7 @@ export class SelectionManager {
     const selection = window.getSelection();
     if (selection && selection.rangeCount > 0) {
       this.lastValidRange = selection.getRangeAt(0).cloneRange();
-      console.log(
-        `📱 ${buttonName} touchstart - stored selection:`,
-        this.lastValidRange.toString()
-      );
+      verbose.content(`${buttonName} touchstart - stored selection: "${this.lastValidRange.toString()}"`, 'editToolbar/selectionManager.js');
     }
   }
 

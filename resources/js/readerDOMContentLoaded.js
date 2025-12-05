@@ -101,14 +101,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Initialize database modules with dependencies
   const { clearRedoHistory } = await import('./historyManager.js');
-  const { showTick, showError } = await import('./components/editIndicator.js');
+  const { glowCloudGreen, glowCloudRed } = await import('./components/editIndicator.js');
   initializeDatabaseModules({
     book,
     withPending,
     clearRedoHistory,
     getInitialBookSyncPromise,
-    showTick,
-    showError,
+    glowCloudGreen,
+    glowCloudRed,
   });
   log.init("Database modules initialized", "readerDOMContentLoaded.js");
 

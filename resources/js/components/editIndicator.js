@@ -1,4 +1,9 @@
 // editIndicator.js
+// Controls the cloudRef button glow colors to indicate save status:
+// - Orange: saving in progress
+// - Green: save successful
+// - Red: save error
+
 import { verbose } from '../utilities/logger.js';
 import { getPerimeterButtonsHidden } from '../utilities/operationState.js';
 
@@ -54,8 +59,8 @@ function resetIndicator() {
   }
 }
 
-/** Mark "saving…" → orange */
-export function showSpinner() {
+/** Glow the cloudRef button orange to indicate saving in progress */
+export function glowCloudOrange() {
   if (isProcessing) return
   resetIndicator()
   isProcessing = true
@@ -74,11 +79,11 @@ export function showSpinner() {
     verbose.init('Made topRightContainer visible for editing', 'editIndicator.js');
   }
 
-  console.log('Indicator → orange (saving)')
+  console.log('CloudRef → orange (saving)')
 }
 
-/** Mark "done" → green, then fade back to grey after 1s */
-export function showTick() {
+/** Glow the cloudRef button green to indicate success, then fade back to grey after 1.5s */
+export function glowCloudGreen() {
   if (!isProcessing || isComplete) return
   isComplete = true
 
@@ -86,17 +91,17 @@ export function showTick() {
   if (cloudSvgPath) {
     cloudSvgPath.style.fill = 'var(--status-success)'
   }
-  console.log('Indicator → green (synced to server)')
+  console.log('CloudRef → green (synced to server)')
 
   // after a short pause, restore to grey AND restore topRight visibility
   setTimeout(() => {
     resetIndicator()
-    console.log('Indicator → grey (ready)')
+    console.log('CloudRef → grey (ready)')
   }, 1500)
 }
 
-/** Mark "error" → red, then fade back to grey after 3s */
-export function showError() {
+/** Glow the cloudRef button red to indicate error, then fade back to grey after 3s */
+export function glowCloudRed() {
   if (!isProcessing) return
   isComplete = true
 
@@ -104,12 +109,12 @@ export function showError() {
   if (cloudSvgPath) {
     cloudSvgPath.style.fill = 'var(--status-error)'
   }
-  console.log('Indicator → red (sync error)')
+  console.log('CloudRef → red (sync error)')
 
   // after a longer pause, restore to grey AND restore topRight visibility
   setTimeout(() => {
     resetIndicator()
-    console.log('Indicator → grey (ready after error)')
+    console.log('CloudRef → grey (ready after error)')
   }, 3000)
 }
 

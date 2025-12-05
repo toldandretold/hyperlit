@@ -217,14 +217,13 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
   // The rest of the function will now execute correctly.
   // =================================================================
 
-  incrementPendingOperations();
-
   try {
     await pendingFirstChunkLoadedPromise;
 
     setTimeout(async () => {
       try {
         window.isEditing = true;
+        log.init('Edit mode entered via edit button', '/components/editButton.js');
         if (editBtn) editBtn.classList.add("inverted");
 
         // Ensure perimeter buttons are visible in edit mode
@@ -329,13 +328,11 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
       } catch (error) {
         console.error("Error during UI update inside setTimeout:", error);
       } finally {
-        decrementPendingOperations();
         editModeCheckInProgress = false;
       }
     }, 0);
   } catch (error) {
     console.error("Error waiting for content promise:", error);
-    decrementPendingOperations();
     editModeCheckInProgress = false;
   }
 }

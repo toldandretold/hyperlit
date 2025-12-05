@@ -281,11 +281,12 @@ export function createLazyLoader(config) {
 
   document.dispatchEvent(new Event("pageReady"));
 
-  // Attach the throttled, guarded listener for regular user scrolling.
+  // 🚀 PERFORMANCE: Attach the throttled, guarded listener for regular user scrolling.
+  // Using passive: true for better scroll performance (we never preventDefault)
   if (instance.scrollableParent === window) {
-    window.addEventListener("scroll", throttle(instance.saveScrollPosition, 250));
+    window.addEventListener("scroll", throttle(instance.saveScrollPosition, 250), { passive: true });
   } else {
-    instance.scrollableParent.addEventListener("scroll", throttle(instance.saveScrollPosition, 250));
+    instance.scrollableParent.addEventListener("scroll", throttle(instance.saveScrollPosition, 250), { passive: true });
   }
 
   instance.restoreScrollPositionAfterResize = async () => {

@@ -12,6 +12,7 @@ import { chunkOverflowInProgress } from "../utilities/operationState.js";
 import { book } from '../app.js';
 import { generateIdBetween, setElementIds, ensureNodeHasValidId } from "../utilities/IDfunctions.js";
 import { queueNodeForSave } from './index.js';
+import { verbose } from '../utilities/logger.js';
 
 /**
  * Helper: Check if element is in viewport
@@ -30,10 +31,10 @@ function isElementInViewport(el) {
  * Helper: Scroll caret into view
  */
 function scrollCaretIntoView() {
-  console.log("→ scrollCaretIntoView start");
+  verbose.content("scrollCaretIntoView start", 'divEditor/enterKeyHandler.js');
   const sel = document.getSelection();
   if (!sel.rangeCount) {
-    console.log("  no selection range → abort");
+    verbose.content("no selection range → abort", 'divEditor/enterKeyHandler.js');
     return;
   }
 
@@ -43,12 +44,7 @@ function scrollCaretIntoView() {
     ? clientRects[0]
     : range.getBoundingClientRect();
 
-  console.log(
-    "  caret rect:",
-    `top=${Math.round(rect.top)}`,
-    `bottom=${Math.round(rect.bottom)}`,
-    `height=${Math.round(rect.height)}`
-  );
+  verbose.content(`caret rect: top=${Math.round(rect.top)} bottom=${Math.round(rect.bottom)} height=${Math.round(rect.height)}`, 'divEditor/enterKeyHandler.js');
 
   const padding = 20;
   const vh = window.innerHeight || document.documentElement.clientHeight;
@@ -57,14 +53,14 @@ function scrollCaretIntoView() {
     // Normal: scroll to keep caret visible
     if (rect.bottom > vh - padding) {
       const delta = rect.bottom - (vh - padding);
-      console.log(`  scrolling down by ${delta}px`);
+      verbose.content(`scrolling down by ${delta}px`, 'divEditor/enterKeyHandler.js');
       window.scrollBy({ top: delta, behavior: "smooth" });
     } else if (rect.top < padding) {
       const delta = rect.top - padding;
-      console.log(`  scrolling up by ${delta}px`);
+      verbose.content(`scrolling up by ${delta}px`, 'divEditor/enterKeyHandler.js');
       window.scrollBy({ top: delta, behavior: "smooth" });
     } else {
-      console.log("  caret in view, no scroll");
+      verbose.content("caret in view, no scroll", 'divEditor/enterKeyHandler.js');
     }
   }
 }
@@ -136,8 +132,6 @@ function createAndInsertParagraph(blockElement, chunkContainer, content, selecti
     container.appendChild(newParagraph);
   }
 
-  console.log(`Created new paragraph with ID ${newParagraph.id} after ${blockElement.id}`);
-
   // Check if renumbering was flagged during ID generation
   if (window.__pendingRenumbering) {
     console.log('🔄 Renumbering flagged - queueing new element and triggering renumbering');
@@ -155,6 +149,8 @@ function createAndInsertParagraph(blockElement, chunkContainer, content, selecti
     // Clear the flag
     window.__pendingRenumbering = false;
   }
+
+  verbose.content(`Created new paragraph with ID ${newParagraph.id} after ${blockElement.id}`, 'divEditor/enterKeyHandler.js');
 
   // 6. Move cursor and scroll
   const target = newParagraph.firstChild?.nodeType === Node.TEXT_NODE
@@ -185,7 +181,7 @@ export class EnterKeyHandler {
 
     // Attach the listener
     document.addEventListener("keydown", this.handleKeyDown);
-    console.log("✅ EnterKeyHandler initialized.");
+    verbose.content("EnterKeyHandler initialized", 'divEditor/enterKeyHandler.js');
   }
 
   handleKeyDown(event) {
@@ -211,7 +207,7 @@ export class EnterKeyHandler {
     this.lastKeyWasEnter = true;
     this.lastEnterTime = now;
 
-    console.log("Enter count:", this.enterCount);
+    verbose.content(`Enter count: ${this.enterCount}`, 'divEditor/enterKeyHandler.js');
 
     if (window.isEditing) {
       // Get the current selection
@@ -372,7 +368,7 @@ export class EnterKeyHandler {
 
         // PATH A: User wants a line break (Shift+Enter)
         if (event.shiftKey) {
-          console.log("Shift+Enter in <p>: Inserting <br>");
+          verbose.content("Shift+Enter in <p>: Inserting <br>", 'divEditor/enterKeyHandler.js');
           const br = document.createElement("br");
           range.insertNode(br);
 
@@ -393,7 +389,7 @@ export class EnterKeyHandler {
         }
 
         // PATH B: User wants a new paragraph (Regular Enter)
-        console.log("Enter in <p>: Creating new paragraph");
+        verbose.content("Enter in <p>: Creating new paragraph", 'divEditor/enterKeyHandler.js');
 
         // Split the content at cursor position
         const cursorOffset = range.startOffset;
@@ -719,6 +715,6 @@ export class EnterKeyHandler {
   // Cleanup method
   destroy() {
     document.removeEventListener("keydown", this.handleKeyDown);
-    console.log("🧹 EnterKeyHandler destroyed.");
+    verbose.content("EnterKeyHandler destroyed", 'divEditor/enterKeyHandler.js');
   }
 }

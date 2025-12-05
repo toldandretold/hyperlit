@@ -206,8 +206,8 @@ export async function initializeDatabaseModules(dependencies) {
     withPending,
     clearRedoHistory,
     getInitialBookSyncPromise,
-    showTick,
-    showError,
+    glowCloudGreen,
+    glowCloudRed,
   } = dependencies;
 
   // All functions already statically imported at top of file - no need for dynamic imports here
@@ -222,7 +222,7 @@ export async function initializeDatabaseModules(dependencies) {
   initFootnotesDependencies({ updateBookTimestamp, withPending });
   initReferencesDependencies({ withPending });
   initSyncQueueDependencies({ clearRedoHistory, debouncedMasterSync });
-  initMasterSyncDependencies({ book, getInitialBookSyncPromise, showTick, showError });
+  initMasterSyncDependencies({ book, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed });
   initUnloadSyncDependencies({ book });
 
   verbose.init('Database modules initialized', '/indexedDB/index.js');

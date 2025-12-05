@@ -18,6 +18,8 @@
  * - ProgressOverlayEnactor.forceHide() - Emergency hide (sync, no animation)
  */
 
+import { verbose } from '../utilities/logger.js';
+
 export class ProgressOverlayEnactor {
   // DOM element references
   static overlay = null;
@@ -178,17 +180,17 @@ export class ProgressOverlayEnactor {
 
     // Already hidden? Nothing to do
     if (this.state === 'hidden') {
-      console.log('📊 ProgressOverlayEnactor.hide: Already hidden, skipping');
+      verbose.content('ProgressOverlayEnactor.hide: Already hidden, skipping', 'navigation/ProgressOverlayEnactor.js');
       return Promise.resolve();
     }
 
     // Already hiding? Return the existing promise
     if (this.hidePromise) {
-      console.log('📊 ProgressOverlayEnactor.hide: Hide already in progress, returning existing promise');
+      verbose.content('ProgressOverlayEnactor.hide: Hide already in progress, returning existing promise', 'navigation/ProgressOverlayEnactor.js');
       return this.hidePromise;
     }
 
-    console.log('📊 ProgressOverlayEnactor.hide: Starting hide sequence');
+    verbose.content('ProgressOverlayEnactor.hide: Starting hide sequence', 'navigation/ProgressOverlayEnactor.js');
 
     // Create and store the hide operation promise
     this.hidePromise = this._performHide();
