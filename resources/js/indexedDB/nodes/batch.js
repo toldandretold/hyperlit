@@ -6,6 +6,8 @@
 import { openDatabase } from '../core/connection.js';
 import { parseNodeId } from '../core/utilities.js';
 import { verbose } from '../../utilities/logger.js';
+import { syncFirstNodeToTitle } from '../core/library.js';
+import { debounce } from '../../divEditor/saveQueue.js';
 
 // Import from the main indexedDB file (temporary until fully refactored)
 let withPending, book, updateBookTimestamp, queueForSync;
@@ -17,6 +19,13 @@ export function initNodeBatchDependencies(deps) {
   updateBookTimestamp = deps.updateBookTimestamp;
   queueForSync = deps.queueForSync;
 }
+
+// Debounced title sync - only runs 500ms after user stops typing
+const debouncedTitleSync = debounce((bookId, nodeContent) => {
+  syncFirstNodeToTitle(bookId, nodeContent).catch(error => {
+    console.error('❌ Error in debounced title sync:', error);
+  });
+}, 500);
 
 /**
  * Helper function to determine chunk_id from the DOM
@@ -814,6 +823,13 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
         allSavedHypercites.forEach((hc) => {
           queueForSync("hypercites", hc.hyperciteId, "update", hc, null);
         });
+
+        // Auto-sync first node to library title (only if node 100 was updated)
+        const firstNodeChunk = allSavedNodeChunks.find(chunk => chunk.startLine === 100);
+        if (firstNodeChunk) {
+          console.log('🔄 First node (100) was updated, triggering debounced title sync');
+          debouncedTitleSync(bookId, firstNodeChunk.content);
+        }
 
         // ✅ NEW SYSTEM: Rebuild node arrays from normalized tables for all affected nodes
         const affectedNodeUUIDs = allSavedNodeChunks
