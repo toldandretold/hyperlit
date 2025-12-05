@@ -8,7 +8,7 @@
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
-import { showSpinner, showTick, showError } from '../../components/editIndicator.js';
+import { glowCloudOrange, glowCloudGreen, glowCloudRed } from '../../components/editIndicator.js';
 import { waitForElementReady, waitForContentReady } from '../../domReadiness.js';
 import { log, verbose } from '../../utilities/logger.js';
 import { debouncedMasterSync, pendingSyncs } from '../../indexedDB/index.js';
@@ -121,7 +121,7 @@ export class NewBookTransition {
       verbose.nav('Ensuring orange indicator shows', 'NewBookTransition.js');
 
       // First try to set orange on existing element
-      showSpinner();
+      glowCloudOrange();
 
       // Use deterministic DOM watching instead of polling
       return new Promise((resolve) => {
@@ -233,7 +233,7 @@ export class NewBookTransition {
         verbose.nav('Pending syncs completed', 'NewBookTransition.js');
         
         // Show green tick - backend sync confirmed
-        showTick();
+        glowCloudGreen();
       } else {
         verbose.nav('No pending syncs to complete', 'NewBookTransition.js');
       }
@@ -458,12 +458,12 @@ export class NewBookTransition {
           verbose.nav('Initial content sync completed', 'NewBookTransition.js');
 
           // Show green tick - H1 saved to backend
-          showTick();
+          glowCloudGreen();
 
         } catch (error) {
           console.warn('Initial content sync failed (will retry later):', error);
           // Show error indicator
-          showError();
+          glowCloudRed();
         }
       }, 2000); // Wait 2 seconds after transition completes
       

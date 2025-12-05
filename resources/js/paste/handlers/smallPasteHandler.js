@@ -167,6 +167,57 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
     currentBlock = liveCurrentBlock;
   } else {
     console.warn(`Could not find element #${savedBlockId} after paste - element may have been removed`);
+
+    // 🐛 FIX: Element was replaced by paste - find the selection position to locate new elements
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      let node = selection.getRangeAt(0).startContainer;
+
+      // Get to an element node
+      if (node.nodeType === Node.TEXT_NODE) {
+        node = node.parentElement;
+      }
+
+      // Find the closest block-level element
+      currentBlock = node.closest('p, h1, h2, h3, h4, h5, h6, div, pre, blockquote');
+
+      if (currentBlock) {
+        console.log(`Found replacement element via selection: ${currentBlock.tagName}#${currentBlock.id || '(no id)'}`);
+
+        // If found element has no ID, try to find previous sibling with ID
+        if (!currentBlock.id || !/^\d+(\.\d+)*$/.test(currentBlock.id)) {
+          // Try to use the saved ID from before paste
+          if (savedBlockId) {
+            // Check if there's a previous sibling with an ID we can use as reference
+            let prevSibling = currentBlock.previousElementSibling;
+            while (prevSibling && (!prevSibling.id || !/^\d+(\.\d+)*$/.test(prevSibling.id))) {
+              prevSibling = prevSibling.previousElementSibling;
+            }
+
+            const prevId = prevSibling ? prevSibling.id : null;
+            const nextSibling = currentBlock.nextElementSibling;
+            let nextId = null;
+            if (nextSibling && /^\d+(\.\d+)*$/.test(nextSibling.id)) {
+              nextId = nextSibling.id;
+            }
+
+            // Assign ID to this first pasted element
+            setElementIds(currentBlock, prevId, nextId, book);
+            console.log(`Assigned ID ${currentBlock.id} to first pasted element`);
+            queueNodeForSave(currentBlock.id, "add");
+          }
+        }
+      }
+    }
+  }
+
+  // 🐛 FIX: If currentBlock was just found and has an ID, queue it for save
+  if (currentBlock && currentBlock.id && /^\d+(\.\d+)*$/.test(currentBlock.id)) {
+    // Only queue if it's a new element (doesn't have saved node-id from before paste)
+    if (!savedNodeId || currentBlock.getAttribute('data-node-id') !== savedNodeId) {
+      queueNodeForSave(currentBlock.id, "add");
+      console.log(`Queued currentBlock ${currentBlock.id} for save`);
+    }
   }
 
   // Find the ID of the next "stable" node that already has an ID.
@@ -181,6 +232,45 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
   const nextStableNodeId = nextStableElement ? nextStableElement.id : null;
 
   // Now, iterate through the new nodes between our original block and the next stable one.
+  // 🐛 FIX: Safety check - if currentBlock is null, can't assign IDs
+  if (!currentBlock) {
+    console.error('❌ Cannot assign IDs: currentBlock is null after paste. Pasted elements will have no IDs!');
+    return;
+  }
+
+  // 🐛 FIX: First, go BACKWARDS from currentBlock to assign IDs to earlier pasted elements
+  let prevElement = currentBlock.previousElementSibling;
+  const elementsToProcessBackwards = [];
+
+  while (prevElement) {
+    // Stop if we hit an element with a valid ID (stable element)
+    if (prevElement.id && /^\d+(\.\d+)*$/.test(prevElement.id)) {
+      break;
+    }
+
+    // Collect elements that need IDs
+    if (prevElement.matches("p, h1, h2, h3, h4, h5, h6, div, pre, blockquote")) {
+      elementsToProcessBackwards.unshift(prevElement); // Add to front to maintain order
+    }
+
+    prevElement = prevElement.previousElementSibling;
+  }
+
+  // Find the ID before the first pasted element
+  const firstPrevId = prevElement?.id || null;
+
+  // Assign IDs to backward elements
+  let lastAssignedId = firstPrevId;
+  elementsToProcessBackwards.forEach(element => {
+    if (!element.id || !/^\d+(\.\d+)*$/.test(element.id)) {
+      setElementIds(element, lastAssignedId, currentBlock.id, book);
+      console.log(`Assigned ID ${element.id} to earlier pasted element`);
+      queueNodeForSave(element.id, "add");
+      lastAssignedId = element.id;
+    }
+  });
+
+  // Now proceed with FORWARD loop as before
   let lastKnownId = currentBlock.id;
   let elementToProcess = currentBlock.nextElementSibling;
 
@@ -194,13 +284,13 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
         // Element needs a new numerical ID (and data-node-id)
         const newId = setElementIds(elementToProcess, lastKnownId, nextStableNodeId, book);
         console.log(`Assigned new ID ${newId} to pasted element.`);
-        queueNodeForSave(newId, "create");
+        queueNodeForSave(newId, "add");
         lastKnownId = newId;
       } else if (!hasNodeId) {
         // Element has valid numerical ID but missing data-node-id
         elementToProcess.setAttribute('data-node-id', generateNodeId(book));
         console.log(`Added data-node-id to pasted element with existing ID ${elementToProcess.id}`);
-        queueNodeForSave(elementToProcess.id, "create");
+        queueNodeForSave(elementToProcess.id, "add");
         lastKnownId = elementToProcess.id;
       } else {
         // Element has both IDs - CHECK if the ID is valid for this position

@@ -25,7 +25,7 @@ import { marked } from 'marked';
 import { book } from '../app.js';
 import { getCurrentChunk } from '../chunkManager.js';
 import { initializeMainLazyLoader } from '../initializePage.js';
-import { showTick, showSpinner, showError } from '../components/editIndicator.js';
+import { glowCloudGreen, glowCloudOrange, glowCloudRed } from '../components/editIndicator.js';
 import {
   setPasteInProgress,
   isPasteInProgress as isPasteInProgressState
@@ -86,7 +86,7 @@ async function syncPasteToPostgreSQL(bookId) {
   console.log(`📤 Syncing FULL BOOK to PostgreSQL in background after paste...`);
 
   // Show orange indicator while syncing
-  showSpinner();
+  glowCloudOrange();
 
   try {
     // Get ALL nodes for the book from IndexedDB
@@ -111,7 +111,7 @@ async function syncPasteToPostgreSQL(bookId) {
     if (!response.ok) {
       const error = await response.text();
       console.error('❌ Failed to sync full book to PostgreSQL:', error);
-      showError();
+      glowCloudRed();
       throw new Error(`Full book sync failed: ${error}`);
     }
 
@@ -119,11 +119,11 @@ async function syncPasteToPostgreSQL(bookId) {
     console.log('✅ Full book synced to PostgreSQL:', result);
 
     // Show green tick when sync completes
-    showTick();
+    glowCloudGreen();
 
   } catch (error) {
     console.error('❌ Error syncing full book to PostgreSQL:', error);
-    showError();
+    glowCloudRed();
     throw error; // Re-throw for caller's catch block
   }
 }
@@ -177,6 +177,24 @@ async function handlePaste(event) {
     // Declare variables that will be used throughout the paste flow
     let htmlContent = "";
     let formatType = 'general'; // Default format
+
+    // 🔍 DETECT RAW HTML SOURCE CODE (not rendered content)
+    // If someone pastes HTML source code, wrap it in a code block instead of rendering
+    const looksLikeRawHTMLCode = (
+      (rawHtml.includes('&lt;') || rawHtml.includes('&gt;')) || // Escaped tags in HTML
+      (plainText.match(/<[a-z]+[^>]*>/i) && rawHtml && !rawHtml.match(/<[a-z]+[^>]*>/i)) // Tags in plain but not in HTML
+    );
+
+    if (looksLikeRawHTMLCode) {
+      console.log(`📝 [${pasteOpId}] Detected raw HTML code paste - wrapping in <pre><code>`);
+      // Use plainText (which has the actual code) and wrap it in a code block
+      const escapedCode = plainText
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      rawHtml = `<pre><code>${escapedCode}</code></pre>`;
+      plainText = ''; // Clear plainText to force HTML path
+    }
 
     // ✅ CHECK FOR YOUTUBE TRANSCRIPT - format for readability
     const youtubeDetection = detectYouTubeTranscript(plainText, rawHtml);
@@ -430,7 +448,7 @@ async function handlePaste(event) {
     // Full sync ensures no orphaned records after paste renumbering
     syncPasteToPostgreSQL(pasteBook).catch(err => {
       console.error('❌ Background full book sync failed:', err);
-      showError();
+      glowCloudRed();
     });
 
     console.log(`🎯 [${pasteOpId}] Paste operation complete (full book sync happening in background)`);

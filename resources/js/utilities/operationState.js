@@ -1,6 +1,6 @@
 // operationState.js
 
-import { showSpinner } from "../components/editIndicator.js";
+import { glowCloudOrange } from "../components/editIndicator.js";
 
 let pendingOperations = 0;
 let unloadWarningActive = false;
@@ -87,18 +87,18 @@ export function setHandleHypercitePaste(value) {
 
 /**
  * Internal helper: whenever pendingOperations changes,
- * show spinner if >0. Tick is now only shown on successful server sync.
+ * glow cloud orange if >0. Green glow is now only shown on successful server sync.
  */
 function notifySpinnerOrTick() {
   if (pendingOperations > 0) {
-    showSpinner();
+    glowCloudOrange();
   }
-  // Note: showTick() removed - now only shows green after successful server sync
+  // Note: glowCloudGreen() removed - now only shows green after successful server sync
 }
 
 /**
  * Increment the pending-operations counter.
- * If going 0 → 1, trigger the spinner.
+ * If going 0 → 1, glow cloud orange.
  */
 export function incrementPendingOperations() {
   pendingOperations++;

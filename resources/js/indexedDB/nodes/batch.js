@@ -5,6 +5,7 @@
 
 import { openDatabase } from '../core/connection.js';
 import { parseNodeId } from '../core/utilities.js';
+import { verbose } from '../../utilities/logger.js';
 
 // Import from the main indexedDB file (temporary until fully refactored)
 let withPending, book, updateBookTimestamp, queueForSync;
@@ -165,17 +166,26 @@ function processNodeContentHighlightsAndCites(node, existingHypercites = []) {
     uTag.parentNode.removeChild(uTag);
   }
 
-  // 🧹 ALSO REMOVE styled spans before saving (prevents them from being stored)
-  const clonedSpans = contentClone.querySelectorAll('span[style]');
-  while (clonedSpans.length > 0) {
-    const span = clonedSpans[0];
-    // Move all child nodes before the span, preserving HTML structure (including <br>)
-    while (span.firstChild) {
-      span.parentNode.insertBefore(span.firstChild, span);
+  // 🧹 REMOVE styled spans before saving (prevents them from being stored)
+  const clonedSpans = Array.from(contentClone.querySelectorAll('span[style]'));
+  clonedSpans.forEach(span => {
+    // Check if span is still in the DOM (not already removed)
+    if (span.parentNode) {
+      // Move all child nodes before the span, preserving HTML structure (including <br>)
+      while (span.firstChild) {
+        span.parentNode.insertBefore(span.firstChild, span);
+      }
+      // Remove the now-empty span
+      span.parentNode.removeChild(span);
     }
-    // Remove the now-empty span
-    span.parentNode.removeChild(span);
-  }
+  });
+
+  // 🧹 STRIP ALL inline style attributes from ALL elements (prevents bloat from copy/paste)
+  // Keep our semantic tags clean - styles should come from CSS, not inline attributes
+  const allElementsWithStyle = Array.from(contentClone.querySelectorAll('[style]'));
+  allElementsWithStyle.forEach(element => {
+    element.removeAttribute('style');
+  });
 
   // 🧹 STRIP navigation classes from ALL elements before saving
   // These are temporary UI classes that shouldn't persist in the database
@@ -501,7 +511,7 @@ export function updateIndexedDBRecord(record) {
       let toSave;
 
       if (existing) {
-        console.log("Existing nodeChunk found for merge:", JSON.stringify(existing));
+        verbose.content(`Existing nodeChunk found for merge: node ${nodeId}, chunk ${existing.chunk_id}`, 'indexedDB/nodes/batch.js');
 
         // Start with a copy of the existing record to preserve its structure
         toSave = { ...existing };
@@ -521,7 +531,7 @@ export function updateIndexedDBRecord(record) {
         // ✅ FIX: Determine chunk_id from DOM if not provided
         if (record.chunk_id !== undefined) {
           toSave.chunk_id = record.chunk_id;
-          console.log(`Updated chunk_id to ${record.chunk_id} for node ${nodeId}`);
+          verbose.content(`Updated chunk_id to ${record.chunk_id} for node ${nodeId}`, 'indexedDB/nodes/batch.js');
         } else {
           toSave.chunk_id = determineChunkIdFromDOM(nodeId);
         }
@@ -529,12 +539,12 @@ export function updateIndexedDBRecord(record) {
         // ✅ UPDATE node_id from DOM if available
         if (nodeIdFromDOM) {
           toSave.node_id = nodeIdFromDOM;
-          console.log(`Updated node_id to ${nodeIdFromDOM} for node ${nodeId}`);
+          verbose.content(`Updated node_id to ${nodeIdFromDOM} for node ${nodeId}`, 'indexedDB/nodes/batch.js');
         }
 
       } else {
         // Case: No existing record, create a new one
-        console.log("No existing nodeChunk record, creating new one.");
+        verbose.content(`No existing nodeChunk record, creating new one for node ${nodeId}`, 'indexedDB/nodes/batch.js');
         toSave = {
           book: bookId,
           startLine: numericNodeId,
@@ -544,10 +554,10 @@ export function updateIndexedDBRecord(record) {
           hyperlights: processedData ? processedData.hyperlights : [],
           hypercites: processedData ? processedData.hypercites : []
         };
-        console.log("New nodeChunk record to create:", JSON.stringify(toSave));
+        verbose.content(`New nodeChunk record to create: node ${nodeId}, chunk ${toSave.chunk_id}`, 'indexedDB/nodes/batch.js');
       }
 
-      console.log("Final nodeChunk record to put:", JSON.stringify(toSave));
+      verbose.content(`Final nodeChunk record to put: node ${nodeId}, chunk ${toSave.chunk_id}, has content: ${!!toSave.content}`, 'indexedDB/nodes/batch.js');
 
       // Store for sync
       savedNodeChunk = toSave;
@@ -718,7 +728,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
       const nodeIdFromDOM = node ? node.getAttribute('data-node-id') : null;
 
       // 🔍 DEBUG: Log node_id extraction
-      console.log(`[node_id DEBUG] record.id=${record.id}, finalNodeId=${nodeId}, node=${node?.tagName}, nodeIdFromDOM=${nodeIdFromDOM}`);
+      verbose.content(`node_id extraction: record.id=${record.id}, finalNodeId=${nodeId}, node=${node?.tagName}, nodeIdFromDOM=${nodeIdFromDOM}`, 'indexedDB/nodes/batch.js');
       if (node && !nodeIdFromDOM) {
         console.warn(`⚠️ Node found but no data-node-id attribute! Element:`, node.outerHTML.substring(0, 200));
       }
@@ -758,7 +768,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess) {
       }
 
       // 🔍 DEBUG: Log what's being saved
-      console.log(`[node_id DEBUG] Saving to IndexedDB:`, { startLine: toSave.startLine, node_id: toSave.node_id, hasContent: !!toSave.content });
+      verbose.content(`Saving to IndexedDB: startLine=${toSave.startLine}, node_id=${toSave.node_id}, hasContent=${!!toSave.content}`, 'indexedDB/nodes/batch.js');
 
       chunksStore.put(toSave);
       allSavedNodeChunks.push(toSave);

@@ -13,6 +13,7 @@
  */
 
 import { openDatabase } from '../core/connection.js';
+import { verbose } from '../../utilities/logger.js';
 
 /**
  * Rebuild hyperlights and hypercites arrays for specific nodes
@@ -35,27 +36,27 @@ export async function rebuildNodeArrays(nodes) {
     return;
   }
 
-  console.log(`🔄 NEW SYSTEM: Rebuilding arrays for ${nodeUUIDs.length} nodes`, nodeUUIDs);
+  verbose.content(`NEW SYSTEM: Rebuilding arrays for ${nodeUUIDs.length} nodes`, 'indexedDB/hydration/rebuild.js');
 
   try {
     // Query normalized tables for all relevant hyperlights/hypercites
     const hyperlights = await queryHyperlightsByNodes(db, nodeUUIDs);
     const hypercites = await queryHypercitesByNodes(db, nodeUUIDs);
 
-    console.log(`📊 NEW SYSTEM: Found ${hyperlights.length} hyperlights, ${hypercites.length} hypercites for these nodes`);
+    verbose.content(`NEW SYSTEM: Found ${hyperlights.length} hyperlights, ${hypercites.length} hypercites for these nodes`, 'indexedDB/hydration/rebuild.js');
 
     // Build arrays for each node from normalized data
     nodes.forEach(node => {
       node.hyperlights = buildHyperlightsForNode(node, hyperlights);
       node.hypercites = buildHypercitesForNode(node, hypercites);
 
-      console.log(`📝 NEW SYSTEM: Node ${node.node_id} rebuilt with ${node.hyperlights.length} hyperlights, ${node.hypercites.length} hypercites`);
+      verbose.content(`NEW SYSTEM: Node ${node.node_id} rebuilt with ${node.hyperlights.length} hyperlights, ${node.hypercites.length} hypercites`, 'indexedDB/hydration/rebuild.js');
     });
 
     // Update nodes in IndexedDB with new arrays
     await updateNodesInDB(db, nodes);
 
-    console.log(`✅ NEW SYSTEM: Successfully rebuilt arrays for ${nodes.length} nodes`);
+    verbose.content(`NEW SYSTEM: Successfully rebuilt arrays for ${nodes.length} nodes`, 'indexedDB/hydration/rebuild.js');
   } catch (error) {
     console.error('❌ NEW SYSTEM: Error rebuilding node arrays:', error);
     throw error;
@@ -75,7 +76,7 @@ async function queryHyperlightsByNodes(db, nodeUUIDs) {
   const store = tx.objectStore('hyperlights');
 
   // 🔍 DEBUG: Check if index exists
-  console.log('🔍 DEBUG: Available indexes:', Array.from(store.indexNames));
+  verbose.content(`DEBUG: Available indexes: ${Array.from(store.indexNames).join(', ')}`, 'indexedDB/hydration/rebuild.js');
 
   if (!store.indexNames.contains('node_id')) {
     console.error('❌ CRITICAL: node_id index does not exist on hyperlights store!');
@@ -94,24 +95,19 @@ async function queryHyperlightsByNodes(db, nodeUUIDs) {
     allRequest.onsuccess = () => resolve(allRequest.result || []);
     allRequest.onerror = () => reject(allRequest.error);
   });
-  console.log(`🔍 DEBUG: Total hyperlights in store: ${allHyperlights.length}`, allHyperlights);
-  console.log(`🔍 DEBUG: Looking for nodeUUIDs:`, nodeUUIDs);
-  console.log(`🔍 DEBUG: Hyperlights node_id fields:`, allHyperlights.map(hl => ({
-    id: hl.hyperlight_id,
-    node_id: hl.node_id,
-    node_id_type: typeof hl.node_id,
-    node_id_isArray: Array.isArray(hl.node_id)
-  })));
+  verbose.content(`DEBUG: Total hyperlights in store: ${allHyperlights.length}`, 'indexedDB/hydration/rebuild.js');
+  verbose.content(`DEBUG: Looking for nodeUUIDs: ${nodeUUIDs.join(', ')}`, 'indexedDB/hydration/rebuild.js');
+  verbose.content(`DEBUG: Hyperlights node_id fields checked (${allHyperlights.length} items)`, 'indexedDB/hydration/rebuild.js');
 
   // Query each UUID using the index - each query is O(1) with the index
   for (const uuid of nodeUUIDs) {
-    console.log(`🔍 DEBUG: Querying index for UUID: ${uuid}`);
+    verbose.content(`DEBUG: Querying index for UUID: ${uuid}`, 'indexedDB/hydration/rebuild.js');
     const req = index.getAll(uuid);
     const matches = await new Promise((resolve, reject) => {
       req.onsuccess = () => resolve(req.result || []);
       req.onerror = () => reject(req.error);
     });
-    console.log(`🔍 DEBUG: Found ${matches.length} matches for UUID ${uuid}:`, matches);
+    verbose.content(`DEBUG: Found ${matches.length} matches for UUID ${uuid}`, 'indexedDB/hydration/rebuild.js');
 
     // Add to map, keyed by hyperlight_id to avoid duplicates
     matches.forEach(hl => {
@@ -123,12 +119,12 @@ async function queryHyperlightsByNodes(db, nodeUUIDs) {
 
   // 🔍 DEBUG: Fallback - manually filter all hyperlights if index returned nothing
   if (resultsMap.size === 0 && allHyperlights.length > 0) {
-    console.warn('⚠️ DEBUG: Index returned no results, falling back to manual filtering');
+    verbose.content('DEBUG: Index returned no results, falling back to manual filtering', 'indexedDB/hydration/rebuild.js');
     allHyperlights.forEach(hl => {
       if (hl && hl.node_id && Array.isArray(hl.node_id)) {
         const hasMatch = hl.node_id.some(id => nodeUUIDs.includes(id));
         if (hasMatch) {
-          console.log(`🔍 DEBUG: Manual filter found match:`, hl.hyperlight_id, hl.node_id);
+          verbose.content(`DEBUG: Manual filter found match: ${hl.hyperlight_id}`, 'indexedDB/hydration/rebuild.js');
           resultsMap.set(hl.hyperlight_id, hl);
         }
       }
@@ -136,7 +132,7 @@ async function queryHyperlightsByNodes(db, nodeUUIDs) {
   }
 
   const results = Array.from(resultsMap.values());
-  console.log(`🔍 NEW SYSTEM: Queried hyperlights index for ${nodeUUIDs.length} nodes, found ${results.length} hyperlights (indexed: ${results.length > 0 || allHyperlights.length === 0}, fallback used: ${results.length > 0 && resultsMap.size > 0})`);
+  verbose.content(`NEW SYSTEM: Queried hyperlights index for ${nodeUUIDs.length} nodes, found ${results.length} hyperlights`, 'indexedDB/hydration/rebuild.js');
 
   return results;
 }
@@ -174,7 +170,7 @@ async function queryHypercitesByNodes(db, nodeUUIDs) {
   }
 
   const results = Array.from(resultsMap.values());
-  console.log(`🔍 NEW SYSTEM: Queried hypercites index for ${nodeUUIDs.length} nodes, found ${results.length} hypercites (fast indexed lookup)`);
+  verbose.content(`NEW SYSTEM: Queried hypercites index for ${nodeUUIDs.length} nodes, found ${results.length} hypercites`, 'indexedDB/hydration/rebuild.js');
 
   return results;
 }
@@ -273,7 +269,7 @@ async function updateNodesInDB(db, nodes) {
     await new Promise((resolve, reject) => {
       const req = store.put(node);
       req.onsuccess = () => {
-        console.log(`💾 NEW SYSTEM: Updated node ${node.node_id} in IndexedDB`);
+        verbose.content(`NEW SYSTEM: Updated node ${node.node_id} in IndexedDB`, 'indexedDB/hydration/rebuild.js');
         resolve();
       };
       req.onerror = () => {
@@ -283,7 +279,7 @@ async function updateNodesInDB(db, nodes) {
     });
   }
 
-  console.log(`✅ NEW SYSTEM: Updated ${nodes.length} nodes in IndexedDB`);
+  verbose.content(`NEW SYSTEM: Updated ${nodes.length} nodes in IndexedDB`, 'indexedDB/hydration/rebuild.js');
 }
 
 /**
@@ -319,7 +315,7 @@ export async function getNodesByUUIDs(nodeUUIDs) {
     }
   }
 
-  console.log(`🔍 NEW SYSTEM: Found ${results.length} nodes using indexed lookups (queried ${nodeUUIDs.length} UUIDs)`, nodeUUIDs);
+  verbose.content(`NEW SYSTEM: Found ${results.length} nodes using indexed lookups (queried ${nodeUUIDs.length} UUIDs)`, 'indexedDB/hydration/rebuild.js');
 
   return results;
 }
