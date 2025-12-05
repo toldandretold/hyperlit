@@ -4,7 +4,12 @@
  * This module contains utility functions for DOM manipulation and document structure management:
  * - handleHyperciteRemoval() - handles deletion of hypercite links and delinks them
  * - ensureMinimumDocumentStructure() - ensures document always has valid structure (sentinels + chunks + content)
- * - checkForImminentEmptyState() - checks if document is about to become empty
+ * - NO-DELETE-ID MARKER SYSTEM (O(1) protection):
+ *   - getNoDeleteNode() - finds the node with no-delete-id="please" marker
+ *   - setNoDeleteMarker() - sets the marker on a node
+ *   - transferNoDeleteMarker() - moves marker between nodes
+ *   - findNextNoDeleteNode() - finds a suitable node for the marker
+ * - checkForImminentEmptyState() - DEPRECATED, use marker system instead
  * - cleanupStyledSpans() - removes browser-generated styled span elements
  *
  * These functions are used by divEditor.js and chunkMutationHandler.js to maintain
@@ -321,12 +326,15 @@ export function ensureMinimumDocumentStructure(queueNodeForSave) {
     // Save to database
     queueNodeForSave('1', 'add');
 
+    // 🆕 Set no-delete-id marker on the first node
+    setNoDeleteMarker(p);
+
     // Initialize chunk tracking
     if (window.trackChunkNodeCount) {
       trackChunkNodeCount(chunk);
     }
 
-    console.log('✅ Created default structure with preserved content');
+    console.log('✅ Created default structure with preserved content and no-delete marker');
 
     // Position cursor in the new paragraph
     setTimeout(() => {
@@ -376,7 +384,10 @@ export function ensureMinimumDocumentStructure(queueNodeForSave) {
     firstChunk.appendChild(p);
     queueNodeForSave('1', 'add');
 
-    console.log('✅ Added p#1 to existing chunk with content');
+    // 🆕 Set no-delete-id marker on the first node
+    setNoDeleteMarker(p);
+
+    console.log('✅ Added p#1 to existing chunk with content and no-delete marker');
     return;
   }
 
@@ -412,48 +423,119 @@ export function ensureMinimumDocumentStructure(queueNodeForSave) {
     console.log('✅ Moved orphaned content to existing element');
   }
 
+  // 🆕 CASE 5: Ensure at least one node has the no-delete-id marker
+  const existingMarker = getNoDeleteNode();
+  if (!existingMarker) {
+    const firstNode = findNextNoDeleteNode();
+    if (firstNode) {
+      setNoDeleteMarker(firstNode);
+      console.log('✅ Set no-delete-id marker on existing node (was missing)');
+    }
+  }
+
   verbose.content('✅ Document structure is adequate - no changes needed', 'domUtilities.js');
 }
 
 /**
+ * @deprecated Use the no-delete-id marker system instead (O(1) vs O(n))
  * Check if the document is about to become empty (down to last node)
- * Used to prevent complete document deletion and trigger structure restoration
  *
- * 🚀 PERFORMANCE: Optimized with early exits to avoid expensive DOM queries on every keystroke
+ * This function is DEPRECATED. Instead of counting all nodes (expensive O(n) operation),
+ * use the new marker system:
+ * - Check if node has `no-delete-id="please"` attribute (O(1))
+ * - Use getNoDeleteNode() to find the protected node
  *
- * @returns {boolean} - True if document will be empty after next deletion
+ * Keeping this function for backward compatibility, but it now uses the marker system.
+ *
+ * @returns {boolean} - True if only the protected node remains
  */
 export function checkForImminentEmptyState() {
+  // 🚀 NEW O(1) IMPLEMENTATION: Just check if only the protected node exists
+  const protectedNode = getNoDeleteNode();
+
+  if (!protectedNode) {
+    // No protected node means document is empty or broken
+    verbose.content('[DEPRECATED checkForImminentEmptyState] No protected node found', 'domUtilities.js');
+    return true;
+  }
+
+  // Quick check: if there's more than one chunk, we're definitely not empty
   const mainContent = document.querySelector('.main-content');
-  if (!mainContent) {
-    return false;
+  if (mainContent) {
+    const chunks = mainContent.querySelectorAll('.chunk');
+    if (chunks.length > 1) {
+      return false;
+    }
   }
 
-  // 🚀 PERFORMANCE: Quick chunk count check first (very fast)
-  // If we have more than 2 chunks, we definitely have enough content
-  const chunks = mainContent.querySelectorAll('.chunk');
-  if (chunks.length > 2) {
-    return false;
-  }
+  // For single chunk case, check if there are other nodes besides the protected one
+  const allNodes = findAllNumericalIdNodesInChunks(mainContent);
+  const nonSentinelNodes = allNodes.filter(node => !node.id.includes('-sentinel'));
 
-  // Only do expensive DOM query if we have few chunks
-  const numericalIdNodes = findAllNumericalIdNodesInChunks(mainContent);
-  const nonSentinelNodes = numericalIdNodes.filter(node =>
-    !node.id.includes('-sentinel')
-  );
-
-  // 🚀 PERFORMANCE: Early exit for common case (document has plenty of content)
-  if (nonSentinelNodes.length > 10) {
-    return false;
-  }
-
-  // 🚀 PERFORMANCE: Only log when actually near empty state (not on every keystroke!)
-  if (nonSentinelNodes.length <= 2) {
-    verbose.content(`[IMMINENT EMPTY] Document has ${nonSentinelNodes.length} nodes`, 'domUtilities.js');
-  }
-
-  // If we're down to 1 node, we're about to be empty
+  // If we only have 1 node (the protected one), we're about to be empty
   return nonSentinelNodes.length <= 1;
+}
+
+// ================================================================
+// NO-DELETE-ID MARKER SYSTEM (O(1) protection against emptying document)
+// ================================================================
+
+/**
+ * Get the node that has the no-delete-id marker
+ * @returns {HTMLElement|null} - The protected node, or null if not found
+ */
+export function getNoDeleteNode() {
+  return document.querySelector('[no-delete-id="please"]');
+}
+
+/**
+ * Set the no-delete-id marker on a node
+ * @param {HTMLElement} node - The node to protect
+ */
+export function setNoDeleteMarker(node) {
+  if (!node) return;
+
+  // Remove marker from any existing node first
+  const existingMarker = getNoDeleteNode();
+  if (existingMarker && existingMarker !== node) {
+    existingMarker.removeAttribute('no-delete-id');
+    verbose.content(`Removed no-delete-id from ${existingMarker.id}`, 'domUtilities.js');
+  }
+
+  node.setAttribute('no-delete-id', 'please');
+  verbose.content(`Set no-delete-id on ${node.id}`, 'domUtilities.js');
+}
+
+/**
+ * Transfer the no-delete-id marker from one node to another
+ * @param {HTMLElement} fromNode - The node to remove the marker from
+ * @param {HTMLElement} toNode - The node to add the marker to
+ */
+export function transferNoDeleteMarker(fromNode, toNode) {
+  if (!fromNode || !toNode) return;
+
+  fromNode.removeAttribute('no-delete-id');
+  toNode.setAttribute('no-delete-id', 'please');
+
+  verbose.content(`Transferred no-delete-id from ${fromNode.id} to ${toNode.id}`, 'domUtilities.js');
+}
+
+/**
+ * Find a suitable node to receive the no-delete-id marker
+ * Looks for the first numerical ID node in the chunk (or main-content if no chunk)
+ * @param {HTMLElement} chunk - The chunk to search in (optional)
+ * @returns {HTMLElement|null} - A suitable node, or null if none found
+ */
+export function findNextNoDeleteNode(chunk = null) {
+  const searchRoot = chunk || document.querySelector('.main-content');
+  if (!searchRoot) return null;
+
+  // Find all nodes with numerical IDs (excluding sentinels)
+  const allNodes = findAllNumericalIdNodesInChunks(searchRoot);
+  const nonSentinelNodes = allNodes.filter(node => !node.id.includes('-sentinel'));
+
+  // Return the first one (if any)
+  return nonSentinelNodes.length > 0 ? nonSentinelNodes[0] : null;
 }
 
 // ================================================================
