@@ -559,7 +559,6 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
       
       // Check if we're about to delete the last content
       const imminentEmpty = checkForImminentEmptyState();
-      console.log(`🔍 [KEYDOWN DELETE] checkForImminentEmptyState returned: ${imminentEmpty}`);
 
       if (imminentEmpty) {
         // Check if this deletion would leave us empty
