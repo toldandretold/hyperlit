@@ -4,6 +4,8 @@
  */
 
 import { openDatabase } from './connection.js';
+import { syncIndexedDBtoPostgreSQL } from '../../postgreSQL.js';
+import { buildBibtexEntry } from '../../utilities/bibtexProcessor.js';
 
 // Dependencies
 let book, queueForSync;
@@ -159,6 +161,89 @@ export async function updateBookTimestamp(bookId = book || "latest") {
     });
   } catch (error) {
     console.error("❌ Failed to update book timestamp:", error);
+    return false;
+  }
+}
+
+/**
+ * Sync the first node's text content to the library title
+ * Only updates if title is still "Untitled"
+ *
+ * @param {string} bookId - Book identifier
+ * @param {string} nodeContent - HTML content of the first node
+ * @returns {Promise<boolean>} Success status
+ */
+export async function syncFirstNodeToTitle(bookId, nodeContent) {
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction("library", "readwrite");
+    const store = tx.objectStore("library");
+    const getRequest = store.get(bookId);
+
+    return new Promise((resolve, reject) => {
+      getRequest.onerror = (e) => {
+        console.error("❌ Failed to get library record for title sync:", e.target.error);
+        reject(e.target.error);
+      };
+
+      getRequest.onsuccess = async () => {
+        const libraryRecord = getRequest.result;
+
+        // Only update if library record exists and title is "Untitled"
+        if (!libraryRecord || libraryRecord.title !== "Untitled") {
+          console.log(`ℹ️ Skipping title sync - title is not "Untitled" (current: "${libraryRecord?.title}")`);
+          resolve(false);
+          return;
+        }
+
+        // Extract text content from HTML (strip tags)
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = nodeContent;
+        const textContent = tempDiv.textContent.trim();
+
+        // Don't update if the text is empty or just whitespace
+        if (!textContent) {
+          console.log(`ℹ️ Skipping title sync - h1 content is empty`);
+          resolve(false);
+          return;
+        }
+
+        // Update the title
+        libraryRecord.title = textContent;
+        libraryRecord.timestamp = Date.now();
+
+        // Set author if not already set (use creator username or "anon" for anonymous users)
+        if (!libraryRecord.author) {
+          if (libraryRecord.creator) {
+            libraryRecord.author = libraryRecord.creator; // Use username
+          } else if (libraryRecord.creator_token) {
+            libraryRecord.author = "anon"; // Anonymous user
+          }
+          console.log(`✅ Auto-set author to: "${libraryRecord.author}"`);
+        }
+
+        // Regenerate bibtex to match new title and author
+        libraryRecord.bibtex = buildBibtexEntry(libraryRecord);
+
+        const putRequest = store.put(libraryRecord);
+
+        putRequest.onerror = (e) => {
+          console.error("❌ Failed to update library title:", e.target.error);
+          reject(e.target.error);
+        };
+
+        putRequest.onsuccess = async () => {
+          console.log(`✅ Auto-synced library: title="${textContent}", author="${libraryRecord.author}"`);
+
+          // Queue for PostgreSQL sync
+          queueForSync("library", bookId, "update", libraryRecord);
+
+          resolve(true);
+        };
+      };
+    });
+  } catch (error) {
+    console.error("❌ Failed to sync first node to title:", error);
     return false;
   }
 }

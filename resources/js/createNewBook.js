@@ -204,14 +204,19 @@ export async function createNewBook() {
     const db = await openDatabase();
     const bookId = "book_" + Date.now();
 
+    // Get current user to set author field
+    const user = await getCurrentUser();
+    const username = user?.username || null;
+    const anonToken = username ? null : await getAnonymousToken();
+
     const newLibraryRecord = {
       book: bookId,
       title: "Untitled",
-      author: null,
+      author: username || (anonToken ? "anon" : null), // Use username, or "anon" if anonymous
       type: "book",
       timestamp: Date.now(),
-      creator: null,
-      creator_token: null,
+      creator: username,
+      creator_token: anonToken,
       visibility: "private",
     };
     newLibraryRecord.bibtex = buildBibtexEntry(newLibraryRecord);
@@ -223,7 +228,7 @@ export async function createNewBook() {
       book: bookId,
       startLine: 100,
       chunk_id: 0,
-      content: `<h1 id="100" data-node-id="${initialNodeId}">Untitled</h1>`,
+      content: `<h1 id="100" data-node-id="${initialNodeId}"><br></h1>`,
       node_id: initialNodeId,
       hyperlights: [],
       hypercites: [],
