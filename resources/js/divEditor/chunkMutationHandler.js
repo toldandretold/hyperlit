@@ -144,43 +144,16 @@ export class ChunkMutationHandler {
         return;
       }
 
-      // Special case: Check for deletion of chunks
+      // Check for numerical ID node deletions (individual nodes only)
+      // Note: Chunk container deletions are ignored - nodes are only deleted when
+      // their individual elements are removed, not when their container div is removed
       if (mutation.type === 'childList' && mutation.removedNodes.length > 0) {
-        const chunkDeletions = Array.from(mutation.removedNodes).filter(node =>
-          node.nodeType === Node.ELEMENT_NODE && node.classList?.contains('chunk')
+        const hasNumericalIdDeletion = Array.from(mutation.removedNodes).some(node =>
+          this.isNumericalIdDeletion(node, mutation.target)
         );
 
-        if (chunkDeletions.length > 0) {
-          if (chunkOverflowInProgress) {
-            console.log(`⚠️ Skipping direct chunk deletion handling (DB) because chunk overflow is in progress.`);
-          } else {
-            console.log('Detected chunk deletion(s):', chunkDeletions);
-
-            chunkDeletions.forEach(deletedChunk => {
-              const numericalIdNodes = this.findNumericalIdNodesInChunk(deletedChunk);
-
-              if (numericalIdNodes.length > 0) {
-                console.log('Deleting numerical ID nodes from IndexedDB:', numericalIdNodes);
-                numericalIdNodes.forEach(node => {
-                  console.log(`Queueing node ${node.id} for batch deletion (chunk removal)`);
-                  if (this.saveQueue) {
-                    this.saveQueue.queueDeletion(node.id);
-                  }
-                });
-              }
-            });
-          }
-
+        if (hasNumericalIdDeletion) {
           filteredMutations.push(mutation);
-        } else {
-          // Check for other numerical ID deletions
-          const hasNumericalIdDeletion = Array.from(mutation.removedNodes).some(node =>
-            this.isNumericalIdDeletion(node, mutation.target)
-          );
-
-          if (hasNumericalIdDeletion) {
-            filteredMutations.push(mutation);
-          }
         }
       }
     });

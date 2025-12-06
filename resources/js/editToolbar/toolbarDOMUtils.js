@@ -161,6 +161,12 @@ export function findClosestBlockParent(element) {
   ];
 
   if (blockElements.includes(element.tagName)) {
+    // Skip chunk divs - they're containers, not content blocks that should be formatted/replaced
+    if (element.tagName === "DIV" && element.classList?.contains('chunk')) {
+      return element.parentNode && element.parentNode.nodeType === 1
+        ? findClosestBlockParent(element.parentNode)
+        : null;
+    }
     return element;
   }
 
