@@ -55,9 +55,6 @@ export async function addNodeChunkToIndexedDB(
   return withPending(async () => {
     try {
       const numericStartLine = parseNodeId(startLine);
-      console.log(
-        `Adding nodeChunk to IndexedDB [book=${bookId}, startLine=${numericStartLine}, chunkId=${chunkId}, nodeId=${nodeId}]`
-      );
 
       let db, tx, store;
 
@@ -65,17 +62,11 @@ export async function addNodeChunkToIndexedDB(
         // SHARED MODE: Use the provided transaction.
         tx = transaction;
         store = tx.objectStore("nodes");
-        console.log(
-          `Using shared transaction for [${bookId}, ${numericStartLine}]`
-        );
       } else {
         // STANDALONE MODE: We open our own database and create a transaction.
         db = await openDatabase();
         tx = db.transaction(["nodes"], "readwrite");
         store = tx.objectStore("nodes");
-        console.log(
-          `Created standalone transaction for [${bookId}, ${numericStartLine}]`
-        );
       }
 
       // Extract node_id from data-node-id attribute if not provided
@@ -97,7 +88,6 @@ export async function addNodeChunkToIndexedDB(
         hypercites: [],
       };
 
-      console.log("Creating nodeChunk record:", nodeChunkRecord);
       store.put(nodeChunkRecord);
 
       // If we are in STANDALONE mode (we created our own transaction),
@@ -105,9 +95,6 @@ export async function addNodeChunkToIndexedDB(
       if (!transaction) {
         return new Promise((resolve, reject) => {
           tx.oncomplete = () => {
-            console.log(
-              `✅ Successfully added nodeChunk [${bookId}, ${numericStartLine}]`
-            );
             resolve(true);
           };
           tx.onerror = (e) => {
@@ -115,16 +102,12 @@ export async function addNodeChunkToIndexedDB(
             reject(e.target.error);
           };
           tx.onabort = (e) => {
-            console.warn("❌ Transaction aborted:", e);
+            console.error("❌ Transaction aborted:", e);
             reject(new Error("Transaction aborted"));
           };
         });
       } else {
         // If we are in SHARED mode, the caller is responsible for the transaction.
-        // We just log that our part is done and resolve immediately.
-        console.log(
-          `✅ Queued nodeChunk [${bookId}, ${numericStartLine}] to existing transaction.`
-        );
         return true; // Resolve immediately.
       }
     } catch (err) {

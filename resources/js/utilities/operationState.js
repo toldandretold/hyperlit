@@ -145,6 +145,7 @@ export async function withPending(fn) {
 export let currentObservedChunk = null;
 export let chunkOverflowInProgress = false;
 export let renumberingInProgress = false;
+export let userDeletionInProgress = false;
 
 
 // Function to update the currentObservedChunk
@@ -160,6 +161,11 @@ export function setChunkOverflowInProgress(value) {
 // Function to update renumbering flag
 export function setRenumberingInProgress(value) {
   renumberingInProgress = value;
+  return value;
+}
+// Function to update user deletion flag
+export function setUserDeletionInProgress(value) {
+  userDeletionInProgress = value;
   return value;
 }
 

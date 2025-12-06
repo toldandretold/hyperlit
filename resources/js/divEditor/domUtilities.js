@@ -391,36 +391,18 @@ export function ensureMinimumDocumentStructure(queueNodeForSave) {
     return;
   }
 
-  // CASE 4: Normal case - just handle orphaned content if any exists
+  // CASE 4: Orphaned content detection (should never happen with proper structure)
   if (orphanedContent.length > 0) {
-    console.log('📝 Moving orphaned content to existing structure...');
-
-    let targetChunk = mainContent.querySelector('.chunk');
-    let targetElement = targetChunk?.querySelector('[id]:not([id*="-sentinel"])');
-
-    if (!targetElement) {
-      // This shouldn't happen in normal case, but just in case
-      targetElement = document.createElement('p');
-      targetElement.id = '1';
-      if (targetChunk) {
-        targetChunk.appendChild(targetElement);
-      }
-    }
-
-    // Move orphaned content to the target element
-    orphanedContent.forEach(node => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        targetElement.appendChild(node);
-      } else {
-        while (node.firstChild) {
-          targetElement.appendChild(node.firstChild);
-        }
-        node.remove();
-      }
-    });
-
-    queueNodeForSave(targetElement.id, 'update');
-    console.log('✅ Moved orphaned content to existing element');
+    console.error(`⚠️ ORPHANED CONTENT DETECTED (${orphanedContent.length} nodes)`, orphanedContent);
+    console.error('This indicates a bug in lazy loading, paste, or import operations');
+    console.error('Orphaned nodes:', orphanedContent.map(n => ({
+      type: n.nodeType === Node.TEXT_NODE ? 'text' : 'element',
+      tag: n.tagName,
+      id: n.id,
+      preview: n.textContent?.substring(0, 50)
+    })));
+    // Don't try to patch it with queueNodeForSave() - this can corrupt chunk_ids
+    // If this appears, investigate the source of orphaned content
   }
 
   // 🆕 CASE 5: Ensure at least one node has the no-delete-id marker

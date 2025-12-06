@@ -330,7 +330,6 @@ export function destroyTocManager() {
  * Invalidate TOC cache - forces a rescan on next access
  */
 export function invalidateTocCache() {
-  console.log("🔄 TOC cache invalidated - STACK TRACE:", new Error().stack);
   tocCache.data = null;
   tocCache.lastScanTime = 0;
 }
@@ -357,7 +356,6 @@ export function checkAndInvalidateTocCache(nodeId, nodeElement) {
  * Force invalidate cache for any node deletion (safer approach)
  */
 export function invalidateTocCacheForDeletion(nodeId) {
-  console.log(`🔄 Node ${nodeId} deleted, invalidating TOC cache (safe approach)`);
   invalidateTocCache();
 }
 
