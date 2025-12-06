@@ -36,6 +36,7 @@ import {
   destroySelectionHandler,
 } from "./utilities/selectionHandler.js";
 import { SelectionDeletionHandler } from "./utilities/selectionDelete.js";
+import { queueNodeForDeletion, queueNodeForSave } from "./divEditor/index.js";
 import {
   loadHyperText,
   pendingFirstChunkLoadedPromise,
@@ -267,9 +268,8 @@ export async function universalPageInitializer(progressCallback = null) {
     const editorContainer = document.querySelector('.main-content');
     if (editorContainer) {
       activeSelectionDeletionHandler = new SelectionDeletionHandler(editorContainer, {
-        onDeleted: (nodeId) => {
-          verbose.init(`SelectionDeletionHandler: Node ${nodeId} deleted`, 'viewManager.js');
-        }
+        queueNodeForDeletion: queueNodeForDeletion,
+        queueNodeForSave: queueNodeForSave
       });
       verbose.init('SelectionDeletionHandler initialized', 'viewManager.js');
     } else {

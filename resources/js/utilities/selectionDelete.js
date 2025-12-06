@@ -5,10 +5,11 @@ export class SelectionDeletionHandler {
   constructor(editorContainer, callbacks = {}) {
     this.editor = editorContainer;
     this.pendingDeletion = null;
-    
-    // Only need onDeleted callback
-    this.onDeleted = callbacks.onDeleted || (() => {});
-    
+
+    // Accept queue callbacks
+    this.queueNodeForDeletion = callbacks.queueNodeForDeletion || null;
+    this.queueNodeForSave = callbacks.queueNodeForSave || null;
+
     this.setupListeners();
   }
   
@@ -143,7 +144,15 @@ export class SelectionDeletionHandler {
     // 1. Delete the fully contained nodes
     if (nodeIdsToDelete.length > 0) {
       totalDeleted += nodeIdsToDelete.length;
-      this.batchDeleteFromIndexedDB(nodeIdsToDelete);
+      if (this.queueNodeForDeletion) {
+        // ✅ Use saveQueue for debounced batching
+        nodeIdsToDelete.forEach(id => {
+          this.queueNodeForDeletion(id);
+        });
+      } else {
+        // Fallback to direct deletion if queue not available
+        this.batchDeleteFromIndexedDB(nodeIdsToDelete);
+      }
     }
 
     // 2. Check which boundary elements still exist in DOM vs were deleted
@@ -170,21 +179,36 @@ export class SelectionDeletionHandler {
 
     // Delete boundary elements that were removed from DOM
     if (additionalNodesToDelete.length > 0) {
-      this.batchDeleteFromIndexedDB(additionalNodesToDelete);
+      if (this.queueNodeForDeletion) {
+        // ✅ Use saveQueue for debounced batching
+        additionalNodesToDelete.forEach(id => {
+          this.queueNodeForDeletion(id);
+        });
+      } else {
+        // Fallback to direct deletion if queue not available
+        this.batchDeleteFromIndexedDB(additionalNodesToDelete);
+      }
     }
 
     // Update boundary elements that still exist
     if (nodesToUpdate.length > 0) {
-      // Dynamically import and call batchUpdateIndexedDBRecords
-      import('../indexedDB/index.js').then(module => {
-        if (module.batchUpdateIndexedDBRecords) {
-          module.batchUpdateIndexedDBRecords(nodesToUpdate);
-        } else {
-          console.error('❌ batchUpdateIndexedDBRecords function not found');
-        }
-      }).catch(error => {
-        console.error('❌ Error updating boundary elements:', error);
-      });
+      if (this.queueNodeForSave) {
+        // ✅ Use saveQueue for debounced batching
+        nodesToUpdate.forEach(node => {
+          this.queueNodeForSave(node.id, node.action);
+        });
+      } else {
+        // Fallback to direct batch update
+        import('../indexedDB/index.js').then(module => {
+          if (module.batchUpdateIndexedDBRecords) {
+            module.batchUpdateIndexedDBRecords(nodesToUpdate);
+          } else {
+            console.error('❌ batchUpdateIndexedDBRecords function not found');
+          }
+        }).catch(error => {
+          console.error('❌ Error updating boundary elements:', error);
+        });
+      }
     }
 
     console.log(`✂️ SELECTION DELETE COMPLETE: ${totalDeleted} deleted, ${totalUpdated} updated`);

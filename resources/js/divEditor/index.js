@@ -155,6 +155,14 @@ export function queueNodeForSave(nodeId, action = 'update') {
   saveQueue.queueNode(nodeId, action);
 }
 
+export function queueNodeForDeletion(nodeId, nodeElement = null) {
+  if (!saveQueue) {
+    console.warn('⚠️ SaveQueue not initialized, cannot queue deletion', nodeId);
+    return;
+  }
+  saveQueue.queueDeletion(nodeId, nodeElement);
+}
+
 
 // ================================================================
 // PAGE UNLOAD HANDLING
