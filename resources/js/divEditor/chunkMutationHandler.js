@@ -9,7 +9,7 @@
  * - Chunk overflow management
  */
 
-import { chunkOverflowInProgress } from "../utilities/operationState.js";
+import { chunkOverflowInProgress, userDeletionInProgress } from "../utilities/operationState.js";
 import { isNumericalId, ensureNodeHasValidId } from "../utilities/IDfunctions.js";
 import { movedNodesByOverflow } from './index.js';
 import { glowCloudOrange, isProcessing } from '../components/editIndicator.js';
@@ -18,6 +18,7 @@ import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../co
 import { deleteIndexedDBRecordWithRetry, updateIndexedDBRecord, getNodeChunksFromIndexedDB } from '../indexedDB/index.js';
 import { isPasteOperationActive } from '../paste';
 import { verbose } from '../utilities/logger.js';
+import { setChunkLoadingInProgress } from '../utilities/chunkLoadingState.js';
 
 // 🚀 PERFORMANCE: Import cached regex pattern
 import { NUMERICAL_ID_PATTERN } from '../utilities/IDfunctions.js';
@@ -152,23 +153,35 @@ export class ChunkMutationHandler {
 
         if (chunkDeletions.length > 0) {
           if (chunkOverflowInProgress) {
-            console.log(`⚠️ Skipping direct chunk deletion handling (DB) because chunk overflow is in progress.`);
+            console.log(`⚠️ Skipping chunk deletion handling - overflow in progress`);
+          } else if (!userDeletionInProgress) {
+            console.log(`⚠️ Skipping chunk deletion handling - no active user deletion`);
           } else {
-            console.log('Detected chunk deletion(s):', chunkDeletions);
+            const chunkIds = chunkDeletions.map(c => c.getAttribute('data-chunk-id')).filter(Boolean);
+            let totalNodes = 0;
 
             chunkDeletions.forEach(deletedChunk => {
+              // ✅ Block lazy loader from reloading this chunk until deletions complete
+              const chunkId = deletedChunk.getAttribute('data-chunk-id');
+              if (chunkId) {
+                const numericChunkId = parseFloat(chunkId);
+                setChunkLoadingInProgress(numericChunkId);
+              }
+
               const numericalIdNodes = this.findNumericalIdNodesInChunk(deletedChunk);
+              totalNodes += numericalIdNodes.length;
 
               if (numericalIdNodes.length > 0) {
-                console.log('Deleting numerical ID nodes from IndexedDB:', numericalIdNodes);
                 numericalIdNodes.forEach(node => {
-                  console.log(`Queueing node ${node.id} for batch deletion (chunk removal)`);
                   if (this.saveQueue) {
-                    this.saveQueue.queueDeletion(node.id);
+                    // ✅ OPTIMIZATION: Pass node element to capture UUID before DOM removal
+                    this.saveQueue.queueDeletion(node.id, node);
                   }
                 });
               }
             });
+
+            console.log(`🗑️ Chunk deletion detected: ${chunkIds.length} chunks [${chunkIds.join(', ')}], ${totalNodes} nodes queued`);
           }
 
           filteredMutations.push(mutation);
@@ -363,15 +376,13 @@ export class ChunkMutationHandler {
 
             // Handle numerical ID deletions
             if (node.id && NUMERICAL_ID_PATTERN.test(node.id)) {
-              console.log(`🗑️ Attempting to delete node ${node.id} from IndexedDB`);
-
               invalidateTocCacheForDeletion(node.id);
 
               // 🆕 O(1) CHECK: Does this node have the no-delete-id marker?
               const hasNoDeleteMarker = node.getAttribute('no-delete-id') === 'please';
 
               if (hasNoDeleteMarker) {
-                console.log(`🚨 [NO-DELETE] Node ${node.id} has no-delete-id="please" marker`);
+                console.log(`🚨 Last node marker detected on ${node.id} - handling deletion`);
 
                 // Find another node to transfer the marker to
                 const allNodes = chunk.querySelectorAll('[id]');
@@ -388,22 +399,18 @@ export class ChunkMutationHandler {
                   const firstNodeId = await getFirstNodeIdForBook();
 
                   if (firstNodeId) {
-                    console.log(`✅ [NO-DELETE] Transferring marker to first node ${firstNodeId}`);
 
                     // If the first node is loaded in DOM, transfer marker there
                     const firstNodeInDom = document.getElementById(firstNodeId);
                     if (firstNodeInDom) {
                       transferNoDeleteMarker(node, firstNodeInDom);
-                      console.log(`✅ [NO-DELETE] Transferred marker in DOM to ${firstNodeId}`);
                     }
 
                     // Always persist the marker to IndexedDB
                     await updateIndexedDBRecord({ id: firstNodeId });
-                    console.log(`✅ [NO-DELETE] Persisted marker to IndexedDB for node ${firstNodeId}`);
                   }
 
                   // Now proceed with normal deletion
-                  console.log(`🗑️ Queueing node ${node.id} for batch deletion`);
                   if (this.saveQueue) {
                     this.saveQueue.queueDeletion(node.id, node);
                   }
@@ -411,7 +418,6 @@ export class ChunkMutationHandler {
 
                 } else {
                   // SCENARIO 2: No other nodes in chunk - this is the last node
-                  console.log(`⚠️ [NO-DELETE] No other nodes found - this is the last node`);
 
                   // Check if there are other chunks with nodes
                   const mainContent = document.querySelector('.main-content');
@@ -427,24 +433,19 @@ export class ChunkMutationHandler {
                       !n.id.includes('-sentinel')
                     );
                     if (validNodes.length > 0) {
-                      console.log(`✅ [NO-DELETE] Found node in another chunk - transferring marker and proceeding`);
-
                       // Get the first node in the book from IndexedDB
                       const firstNodeId = await getFirstNodeIdForBook();
 
                       if (firstNodeId) {
-                        console.log(`✅ [NO-DELETE] Transferring marker to first node ${firstNodeId}`);
 
                         // If the first node is loaded in DOM, transfer marker there
                         const firstNodeInDom = document.getElementById(firstNodeId);
                         if (firstNodeInDom) {
                           transferNoDeleteMarker(node, firstNodeInDom);
-                          console.log(`✅ [NO-DELETE] Transferred marker in DOM to ${firstNodeId}`);
                         }
 
                         // Always persist the marker to IndexedDB
                         await updateIndexedDBRecord({ id: firstNodeId });
-                        console.log(`✅ [NO-DELETE] Persisted marker to IndexedDB for node ${firstNodeId}`);
                       }
 
                       foundNodeInOtherChunk = true;
@@ -454,19 +455,17 @@ export class ChunkMutationHandler {
 
                   if (foundNodeInOtherChunk) {
                     // Can safely delete this node now
-                    console.log(`🗑️ Queueing node ${node.id} for batch deletion`);
                     if (this.saveQueue) {
                       this.saveQueue.queueDeletion(node.id, node);
                     }
                     this.removedNodeIds.add(node.id);
                   } else {
                     // SCENARIO 3: Truly the last node in the entire document
-                    console.log(`🚨 [NO-DELETE] This is the last node in the document - restoring structure`);
+                    console.log(`🚨 Last node in document - restoring minimum structure`);
 
                     deleteIndexedDBRecordWithRetry(node.id).then(() => {
                       const pasteActive = isPasteOperationActive();
                       if (!pasteActive && this.ensureMinimumStructure) {
-                        console.log(`🔧 [NO-DELETE] Calling ensureMinimumDocumentStructure()`);
                         this.ensureMinimumStructure();
                       }
                     });
@@ -476,7 +475,6 @@ export class ChunkMutationHandler {
                 }
               } else {
                 // Normal deletion - no marker on this node
-                console.log(`🗑️ Queueing node ${node.id} for batch deletion`);
                 if (this.saveQueue) {
                   // ✅ Pass the node element itself so UUID can be read from it
                   this.saveQueue.queueDeletion(node.id, node);

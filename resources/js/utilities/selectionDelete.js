@@ -5,10 +5,11 @@ export class SelectionDeletionHandler {
   constructor(editorContainer, callbacks = {}) {
     this.editor = editorContainer;
     this.pendingDeletion = null;
-    
-    // Only need onDeleted callback
-    this.onDeleted = callbacks.onDeleted || (() => {});
-    
+
+    // Accept queue callbacks
+    this.queueNodeForDeletion = callbacks.queueNodeForDeletion || null;
+    this.queueNodeForSave = callbacks.queueNodeForSave || null;
+
     this.setupListeners();
   }
   
@@ -41,11 +42,22 @@ export class SelectionDeletionHandler {
   
   captureSelectionForDeletion() {
   const selection = window.getSelection();
-  
+
   if (!selection.isCollapsed && selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
+
+    // 🔍 DEBUG: Log selection range details
+    console.log('🔍 SELECTION RANGE:', {
+      commonAncestor: range.commonAncestorContainer.nodeName,
+      commonAncestorClass: range.commonAncestorContainer.className,
+      startContainer: range.startContainer.parentElement?.id || range.startContainer.nodeName,
+      endContainer: range.endContainer.parentElement?.id || range.endContainer.nodeName,
+      startChunk: range.startContainer.parentElement?.closest('.chunk')?.getAttribute('data-chunk-id'),
+      endChunk: range.endContainer.parentElement?.closest('.chunk')?.getAttribute('data-chunk-id')
+    });
+
     const affectedElements = this.getAffectedElements(range);
-    
+
     // 🔥 CAPTURE IDs immediately while elements still exist
     const affectedElementIds = affectedElements.map(el => el.id).filter(id => id);
 
@@ -71,14 +83,12 @@ export class SelectionDeletionHandler {
       boundaryElementIds: Array.from(boundaryElementIds),
       timestamp: Date.now()
     };
-    
-    console.log('Captured selection for deletion:', this.pendingDeletion);
-    console.log('🔍 Captured element IDs:', affectedElementIds);
   }
 }
   
   getAffectedElements(range) {
     const elements = [];
+
     const walker = document.createTreeWalker(
       range.commonAncestorContainer,
       NodeFilter.SHOW_ELEMENT,
@@ -88,20 +98,22 @@ export class SelectionDeletionHandler {
           try {
             const nodeRange = document.createRange();
             nodeRange.selectNodeContents(node);
-            return range.compareBoundaryPoints(Range.START_TO_START, nodeRange) <= 0 &&
-                   range.compareBoundaryPoints(Range.END_TO_END, nodeRange) >= 0 ? 
-              NodeFilter.FILTER_ACCEPT : 
+            const isFullyContained = range.compareBoundaryPoints(Range.START_TO_START, nodeRange) <= 0 &&
+                   range.compareBoundaryPoints(Range.END_TO_END, nodeRange) >= 0;
+
+            return isFullyContained ?
+              NodeFilter.FILTER_ACCEPT :
               NodeFilter.FILTER_REJECT;
           } catch (e) {
             // Fallback to intersection if range comparison fails
-            return range.intersectsNode(node) ? 
-              NodeFilter.FILTER_ACCEPT : 
+            return range.intersectsNode(node) ?
+              NodeFilter.FILTER_ACCEPT :
               NodeFilter.FILTER_REJECT;
           }
         }
       }
     );
-    
+
     let node;
     while (node = walker.nextNode()) {
       // Check for numerical IDs (including decimals like 687.3)
@@ -109,27 +121,38 @@ export class SelectionDeletionHandler {
         elements.push(node);
       }
     }
-    
+
     return elements;
   }
   
   // In SelectionDeletionHandler
   handlePostDeletion() {
-    if (!this.pendingDeletion) {
-      console.log("❌ No pendingDeletion found");
-      return;
-    }
+    if (!this.pendingDeletion) return;
 
-    console.log('Handling post-deletion cleanup');
-    console.log('🔍 pendingDeletion:', this.pendingDeletion);
+    // ✅ SET FLAG: User deletion starting
+    import('../utilities/operationState.js').then(module => {
+      module.setUserDeletionInProgress(true);
+    });
 
     const nodeIdsToDelete = this.pendingDeletion.affectedElementIds || [];
     const boundaryElementIds = this.pendingDeletion.boundaryElementIds || [];
 
+    // Track stats for summary
+    let totalDeleted = 0;
+    let totalUpdated = 0;
+
     // 1. Delete the fully contained nodes
     if (nodeIdsToDelete.length > 0) {
-      console.log(`🗑️ Batch deleting ${nodeIdsToDelete.length} fully selected elements from IndexedDB`);
-      this.batchDeleteFromIndexedDB(nodeIdsToDelete);
+      totalDeleted += nodeIdsToDelete.length;
+      if (this.queueNodeForDeletion) {
+        // ✅ Use saveQueue for debounced batching
+        nodeIdsToDelete.forEach(id => {
+          this.queueNodeForDeletion(id);
+        });
+      } else {
+        // Fallback to direct deletion if queue not available
+        this.batchDeleteFromIndexedDB(nodeIdsToDelete);
+      }
     }
 
     // 2. Check which boundary elements still exist in DOM vs were deleted
@@ -146,53 +169,69 @@ export class SelectionDeletionHandler {
       if (element) {
         // Element exists, queue for update (content changed)
         nodesToUpdate.push({ id, action: 'update' });
+        totalUpdated++;
       } else {
         // Element was deleted from DOM, delete from database too
-        console.log(`🗑️ Boundary element ${id} no longer in DOM, marking for deletion`);
         additionalNodesToDelete.push(id);
+        totalDeleted++;
       }
     });
 
     // Delete boundary elements that were removed from DOM
     if (additionalNodesToDelete.length > 0) {
-      console.log(`🗑️ Batch deleting ${additionalNodesToDelete.length} boundary elements that were removed from DOM`);
-      this.batchDeleteFromIndexedDB(additionalNodesToDelete);
+      if (this.queueNodeForDeletion) {
+        // ✅ Use saveQueue for debounced batching
+        additionalNodesToDelete.forEach(id => {
+          this.queueNodeForDeletion(id);
+        });
+      } else {
+        // Fallback to direct deletion if queue not available
+        this.batchDeleteFromIndexedDB(additionalNodesToDelete);
+      }
     }
 
     // Update boundary elements that still exist
     if (nodesToUpdate.length > 0) {
-      console.log(`🔄 Updating ${nodesToUpdate.length} boundary elements that still exist in DOM`);
-      // Dynamically import and call batchUpdateIndexedDBRecords
-      import('../indexedDB/index.js').then(module => {
-        if (module.batchUpdateIndexedDBRecords) {
-          module.batchUpdateIndexedDBRecords(nodesToUpdate);
-        } else {
-          console.error('batchUpdateIndexedDBRecords function not found in indexedDB/index.js');
-        }
-      }).catch(error => {
-        console.error('Error updating boundary elements:', error);
-      });
+      if (this.queueNodeForSave) {
+        // ✅ Use saveQueue for debounced batching
+        nodesToUpdate.forEach(node => {
+          this.queueNodeForSave(node.id, node.action);
+        });
+      } else {
+        // Fallback to direct batch update
+        import('../indexedDB/index.js').then(module => {
+          if (module.batchUpdateIndexedDBRecords) {
+            module.batchUpdateIndexedDBRecords(nodesToUpdate);
+          } else {
+            console.error('❌ batchUpdateIndexedDBRecords function not found');
+          }
+        }).catch(error => {
+          console.error('❌ Error updating boundary elements:', error);
+        });
+      }
     }
 
+    console.log(`✂️ SELECTION DELETE COMPLETE: ${totalDeleted} deleted, ${totalUpdated} updated`);
     this.pendingDeletion = null;
+
+    // ✅ CLEAR FLAG: Deletion complete (delayed to allow chunk mutations to process)
+    setTimeout(() => {
+      import('../utilities/operationState.js').then(module => {
+        module.setUserDeletionInProgress(false);
+      });
+    }, 100);
   }
 
 batchDeleteFromIndexedDB(nodeIds) {
-  console.log('🔍 About to call batchDeleteIndexedDBRecords with:', nodeIds);
-
   // Import the function if not already imported
   import('../indexedDB/index.js').then(module => {
     const { batchDeleteIndexedDBRecords } = module;
-    
     return batchDeleteIndexedDBRecords(nodeIds);
-  }).then(() => {
-    console.log(`✅ Successfully batch deleted ${nodeIds.length} records`);
   }).catch(error => {
     console.error(`❌ Batch deletion failed:`, error);
-    
+
     // Fallback to individual deletions
     nodeIds.forEach(nodeId => {
-      console.log(`Fallback: deleting ${nodeId} individually`);
       this.onDeleted(nodeId);
     });
   });

@@ -74,7 +74,11 @@ export function handleSelection() {
   }
 
   if (selectedText.length > 0) {
-    console.log("Showing buttons. Selected text:", selectedText);
+    // Only log first 100 chars to avoid massive logs for large selections
+    const preview = selectedText.length > 100
+      ? selectedText.substring(0, 100) + `... (${selectedText.length} chars total)`
+      : selectedText;
+    console.log("Showing buttons. Selected text:", preview);
 
     // Get the bounding box of the selected text to position buttons near it
     const range = selection.getRangeAt(0);

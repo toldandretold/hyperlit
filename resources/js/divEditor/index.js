@@ -155,6 +155,14 @@ export function queueNodeForSave(nodeId, action = 'update') {
   saveQueue.queueNode(nodeId, action);
 }
 
+export function queueNodeForDeletion(nodeId, nodeElement = null) {
+  if (!saveQueue) {
+    console.warn('⚠️ SaveQueue not initialized, cannot queue deletion', nodeId);
+    return;
+  }
+  saveQueue.queueDeletion(nodeId, nodeElement);
+}
+
 
 // ================================================================
 // PAGE UNLOAD HANDLING
@@ -197,8 +205,8 @@ export function startObserving(editableDiv) {
   // Stop any existing observer first
   stopObserving();
 
-  // 💾 Initialize SaveQueue with ensureMinimumDocumentStructure callback
-  saveQueue = new SaveQueue(ensureMinimumDocumentStructure);
+  // 💾 Initialize SaveQueue
+  saveQueue = new SaveQueue();
 
   // 🎬 VIDEO DELETE HANDLER: Handle video embed delete button clicks
   // 🔧 FIX 7b: Remove old handler if it exists
@@ -340,7 +348,12 @@ export function startObserving(editableDiv) {
     debouncedInputHandler(e);
   });
 
-  ensureMinimumDocumentStructure();
+  // ✅ Only ensure structure if document is truly empty (new/imported books)
+  // For existing books, lazy loader creates structure on demand
+  const hasContent = document.querySelector('.main-content .chunk [id]');
+  if (!hasContent) {
+    ensureMinimumDocumentStructure();
+  }
 
   // 💾 Start monitoring pending saves (for debugging)
   if (saveQueue) {
@@ -454,11 +467,6 @@ function initializeCurrentChunks(editableDiv) {
 // ================================================================
 
 export function stopObserving() {
-  if (window.selectionDeletionInProgress) {
-    console.log("Skipping observer reset during selection deletion");
-    return;
-  }
-
   if (observer) {
     observer.disconnect();
     observer = null;
@@ -591,14 +599,9 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
           // Prevent the deletion of the protected node
           event.preventDefault();
 
-          // Use the ORIGINAL working restoration method
-          const pasteActive = isPasteOperationActive();
-          if (!pasteActive) {
-            console.log(`🔧 [KEYDOWN DELETE] Calling ensureMinimumDocumentStructure()`);
-            ensureMinimumDocumentStructure();
-          } else {
-            console.log(`⏸️ [KEYDOWN DELETE] Skipping structure check - paste in progress`);
-          }
+          // ✅ REMOVED: ensureMinimumDocumentStructure() call
+          // The no-delete-id marker system prevents last node deletion,
+          // so explicit structure restoration is unnecessary here
 
           return;
         }
