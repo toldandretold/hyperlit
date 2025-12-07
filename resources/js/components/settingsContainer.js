@@ -83,6 +83,27 @@ export class SettingsContainerManager extends ContainerManager {
       return;
     }
 
+    // Handle latency monitor toggle button
+    if (e.target.closest("#latencyMonitorButton")) {
+      e.preventDefault();
+      e.stopPropagation();
+      verbose.init('Latency monitor button clicked via delegation', '/components/settingsContainer.js');
+
+      if (window.latency) {
+        const button = document.getElementById("latencyMonitorButton");
+        const isActive = button?.classList.contains("active");
+
+        if (isActive) {
+          window.latency.stop();
+          button?.classList.remove("active");
+        } else {
+          window.latency.start(true);
+          button?.classList.add("active");
+        }
+      }
+      return;
+    }
+
     // Handle overlay click to close
     if (e.target.closest("#settings-overlay") && this.isOpen) {
       this.closeContainer();
@@ -116,6 +137,14 @@ export class SettingsContainerManager extends ContainerManager {
       case THEMES.SEPIA:
         sepiaButton?.classList.add("active");
         break;
+    }
+
+    // Update latency monitor button state
+    const latencyButton = document.getElementById("latencyMonitorButton");
+    if (latencyButton && window.latency?.isRunning()) {
+      latencyButton.classList.add("active");
+    } else if (latencyButton) {
+      latencyButton.classList.remove("active");
     }
   }
 

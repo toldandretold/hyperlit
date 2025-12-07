@@ -292,6 +292,11 @@
         <line x1="338.29" y1="338.29" x2="448" y2="448" />
       </svg>
     </button>
+
+    <!-- Latency Monitor Button -->
+    <button type="button" id="latencyMonitorButton" class="settings-button">
+      ⚡ Latency
+    </button>
   </div>
   <div id="settings-overlay"></div>
 

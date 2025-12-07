@@ -13,6 +13,13 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
   });
 }
 
+// Load latency monitor (available in all environments)
+import('./utilities/latencyMonitor.js').then(() => {
+  console.log('⚡ Latency monitor loaded. Use settings button or window.latency.start(true)');
+}).catch(() => {
+  // Silently fail if not available
+});
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
