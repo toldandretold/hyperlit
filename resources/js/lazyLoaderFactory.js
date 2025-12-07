@@ -11,12 +11,14 @@ import { attachUnderlineClickListeners } from "./hypercites/index.js";
 import {
   setChunkLoadingInProgress,
   clearChunkLoadingInProgress,
+  isChunkLoadingInProgress,
   scheduleAutoClear
 } from "./utilities/chunkLoadingState.js";
 import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock } from './scrolling.js';
 import { scrollElementIntoMainContent } from "./scrolling.js";
 import { isNewlyCreatedHighlight } from "./utilities/operationState.js";
 import { LinkNavigationHandler } from './navigation/LinkNavigationHandler.js';
+import { isCacheDirty, clearCacheDirtyFlag } from './utilities/cacheState.js';
 
 // --- A simple throttle helper to limit scroll firing
 function throttle(fn, delay) {
@@ -388,7 +390,7 @@ export function createLazyLoader(config) {
 
         if (matchingChunk) {
           // Load this chunk. If loadChunkInternal() is used, you might load with direction "down".
-          loadChunkInternal(
+          await loadChunkInternal(
             matchingChunk.chunk_id,
             "down",
             instance,
@@ -441,7 +443,7 @@ export function createLazyLoader(config) {
       const chunkToLoadId = firstNewNode.chunk_id;
 
       // 5. RENDER: Load the target chunk. The lazy loader will handle the rest.
-      loadChunkInternal(chunkToLoadId, "down", instance, attachMarkers);
+      await loadChunkInternal(chunkToLoadId, "down", instance, attachMarkers);
 
       // 6. RESTORE FOCUS: Immediately after chunk loads, scroll to first pasted element
       // Use requestAnimationFrame to ensure DOM is painted, then scroll immediately
@@ -542,8 +544,14 @@ export function createLazyLoader(config) {
   const observer = new IntersectionObserver((entries) => {
     verbose.content(`Observer triggered (${entries.length} entries)`, 'lazyLoaderFactory.js');
 
-    // 🔒 CHECK SCROLL LOCK: Don't trigger lazy loading during navigation
+    // 🔒 CHECK SCROLL LOCK: Don't trigger lazy loading during navigation or chunk deletion
     if (instance.scrollLocked || instance.isNavigatingToInternalId) {
+      return;
+    }
+
+    // ✅ Don't load chunks if deletions are in progress
+    if (isChunkLoadingInProgress()) {
+      console.log('🔒 Skipping lazy load - chunk deletion in progress');
       return;
     }
 
@@ -594,8 +602,8 @@ export function createLazyLoader(config) {
 
   instance.repositionSentinels = () =>
     repositionFixedSentinelsForBlockInternal(instance, attachMarkers);
-  instance.loadChunk = (chunkId, direction = "down") =>
-    loadChunkInternal(chunkId, direction, instance, attachMarkers);
+  instance.loadChunk = async (chunkId, direction = "down") =>
+    await loadChunkInternal(chunkId, direction, instance, attachMarkers);
 
   // NEW: Scroll lock methods
   instance.lockScroll = (reason = 'navigation') => {
@@ -656,7 +664,7 @@ export function createLazyLoader(config) {
 
     // 7. Load the determined chunk
     if (chunkToLoadId !== null) {
-      loadChunkInternal(chunkToLoadId, "down", instance, attachMarkers);
+      await loadChunkInternal(chunkToLoadId, "down", instance, attachMarkers);
     }
 
     // 8. ✅ NEW: Scroll to and focus the target element after rendering
@@ -1027,7 +1035,14 @@ function getTextNodes(element) {
 
 
 // Update loadNextChunkFixed
-export function loadNextChunkFixed(currentLastChunkId, instance) {
+export async function loadNextChunkFixed(currentLastChunkId, instance) {
+  // ✅ Refresh cache before searching if dirty
+  if (isCacheDirty()) {
+    console.log('🔄 Cache dirty, refreshing from IndexedDB before searching for next chunk...');
+    instance.nodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    clearCacheDirtyFlag();
+  }
+
   const currentId = parseFloat(currentLastChunkId);
   console.log(`🔍 loadNextChunkFixed called with currentLastChunkId: ${currentId}`);
 
@@ -1087,7 +1102,14 @@ export function loadNextChunkFixed(currentLastChunkId, instance) {
 }
 
 // Update loadPreviousChunkFixed similarly
-export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
+export async function loadPreviousChunkFixed(currentFirstChunkId, instance) {
+  // ✅ Refresh cache before searching if dirty
+  if (isCacheDirty()) {
+    console.log('🔄 Cache dirty, refreshing from IndexedDB before searching for previous chunk...');
+    instance.nodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    clearCacheDirtyFlag();
+  }
+
   const currentId = parseFloat(currentFirstChunkId);
 
   let prevChunkId = null;
@@ -1152,7 +1174,14 @@ export function loadPreviousChunkFixed(currentFirstChunkId, instance) {
   }
 }
 
-function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
+async function loadChunkInternal(chunkId, direction, instance, attachMarkers) {
+  // ✅ Check if cache is dirty and refresh if needed
+  if (isCacheDirty()) {
+    console.log('🔄 Cache dirty, refreshing from IndexedDB before loading chunk...');
+    instance.nodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    clearCacheDirtyFlag();
+  }
+
   if (instance.currentlyLoadedChunks.has(chunkId)) {
     return;
   }

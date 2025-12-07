@@ -12,6 +12,8 @@ import {
 } from '../indexedDB/index.js';
 import { isPasteOperationActive } from '../paste';
 import { verbose } from '../utilities/logger.js';
+import { clearChunkLoadingInProgress } from '../utilities/chunkLoadingState.js';
+import { markCacheDirty } from '../utilities/cacheState.js';
 
 // ================================================================
 // DEBOUNCING INFRASTRUCTURE
@@ -70,7 +72,7 @@ export function debounce(func, delay) {
 // ================================================================
 
 export class SaveQueue {
-  constructor(ensureMinimumStructureFn) {
+  constructor() {
     // Track what needs to be saved
     this.pendingSaves = {
       nodes: new Map(),
@@ -78,8 +80,7 @@ export class SaveQueue {
       lastActivity: null
     };
 
-    // Store the structure function for deletion callbacks
-    this.ensureMinimumStructure = ensureMinimumStructureFn;
+    // ✅ REMOVED: ensureMinimumStructure callback - no longer needed with no-delete-id marker system
 
     // Bind methods
     this.saveNodeToDatabase = this.saveNodeToDatabase.bind(this);
@@ -156,12 +157,16 @@ export class SaveQueue {
 
       if (recordsToUpdate.length > 0) {
         await batchUpdateIndexedDBRecords(recordsToUpdate);
+        // ✅ Mark cache dirty after successful saves
+        markCacheDirty();
       }
 
       if (deletions.length > 0) {
         await Promise.all(deletions.map(node =>
           deleteIndexedDBRecordWithRetry(node.id)
         ));
+        // ✅ Mark cache dirty after successful deletions
+        markCacheDirty();
       }
 
     } catch (error) {
@@ -182,6 +187,10 @@ export class SaveQueue {
     // ✅ NEW: Get UUID map for deleted nodes
     const deletionMap = this.pendingSaves.deletionMap || new Map();
 
+    // ✅ OPTIMIZATION: Log UUID capture rate (verbose mode)
+    const uuidsCount = Array.from(deletionMap.values()).filter(Boolean).length;
+    verbose.content(`UUID CAPTURE: ${uuidsCount}/${nodeIdsToDelete.length} nodes have UUIDs (${((uuidsCount/nodeIdsToDelete.length)*100).toFixed(1)}%)`, 'divEditor/saveQueue.js');
+
     this.pendingSaves.deletions.clear();
     this.pendingSaves.deletionMap = new Map(); // Clear the map
 
@@ -191,21 +200,19 @@ export class SaveQueue {
       await batchDeleteIndexedDBRecords(nodeIdsToDelete, deletionMap);
       verbose.content(`Batch deleted ${nodeIdsToDelete.length} nodes`, 'divEditor/saveQueue.js');
 
-      // Check if we need to restore minimum structure
-      setTimeout(() => {
-        const pasteActive = isPasteOperationActive();
-        console.log(`🔍 [BATCH DELETE] Checking structure after batch delete. Paste active: ${pasteActive}`);
-        if (!pasteActive && this.ensureMinimumStructure) {
-          console.log(`🔧 [BATCH DELETE] Calling ensureMinimumDocumentStructure()`);
-          this.ensureMinimumStructure();
-        } else {
-          console.log(`⏸️ [BATCH DELETE] Skipping structure check - paste in progress`);
-        }
-      }, 100);
+      // ✅ REMOVED: Legacy ensureMinimumDocumentStructure() call from old node-counting system
+      // The no-delete-id marker system prevents document from becoming empty, so this is unnecessary
     } catch (error) {
       console.error('❌ Error in batch deletion:', error);
       // Re-queue failed deletions
       nodeIdsToDelete.forEach(id => this.pendingSaves.deletions.add(id));
+    } finally {
+      // ✅ Clear chunk loading flags to re-enable lazy loading
+      clearChunkLoadingInProgress();
+      console.log('🔓 Cleared chunk loading flags - lazy loading re-enabled');
+
+      // ✅ Mark cache dirty so it refreshes before next chunk load
+      markCacheDirty();
     }
   }
 

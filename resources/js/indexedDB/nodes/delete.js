@@ -36,9 +36,6 @@ export async function deleteIndexedDBRecord(id) {
     const mainContent = document.querySelector('.main-content');
     const bookId = mainContent?.id || book || "latest";
     const numericId = parseNodeId(id);
-    console.log(
-      `Deleting node with ID ${id} (numeric: ${numericId}) and its associations`
-    );
 
     const db = await openDatabase();
     // ✅ CHANGE 1: The transaction now includes all relevant stores.
@@ -65,8 +62,6 @@ export async function deleteIndexedDBRecord(id) {
         const recordToDelete = getRequest.result;
 
         if (recordToDelete) {
-          console.log("Found record to delete:", recordToDelete);
-
           deletedHistoryPayload.nodes.push(recordToDelete); // Add for history
 
           // Now, delete the main record
@@ -76,13 +71,14 @@ export async function deleteIndexedDBRecord(id) {
             // ✅ NEW: Get node_id (UUID) from DOM before deletion
             const deletedElement = document.getElementById(numericId);
             const deletedNodeUUID = deletedElement?.getAttribute('data-node-id');
-            console.log(`🗑️ Deleting node ${numericId}, UUID: ${deletedNodeUUID}`);
 
             // ✅ NEW: Update hyperlights - remove this node from multi-node highlights
             // We need to scan ALL highlights for this book to find ones affecting this node
             const bookIndex = lightsStore.index("book");
             const bookRange = IDBKeyRange.only(bookId);
             const lightReq = bookIndex.openCursor(bookRange);
+
+            let affectedHighlights = 0;
 
             lightReq.onsuccess = (e) => {
               const cursor = e.target.result;
@@ -96,20 +92,17 @@ export async function deleteIndexedDBRecord(id) {
                    deletedNodeUUID && highlight.node_id.includes(deletedNodeUUID)); // NEW schema check
 
                 if (affectsDeletedNode) {
-                  console.log(`📍 Found highlight ${highlight.hyperlight_id} affecting deleted node`);
+                  affectedHighlights++;
 
                   // Check if multi-node highlight
                   if (highlight.node_id && highlight.node_id.length > 1) {
                     // Multi-node highlight - mark node for deletion cleanup
-                    console.log(`🔧 Multi-node highlight detected (${highlight.node_id.length} nodes) - marking node ${deletedNodeUUID} for cleanup`);
-
                     // ✅ Track deleted node for cleanup during next save
                     if (!highlight._deleted_nodes) {
                       highlight._deleted_nodes = [];
                     }
                     if (deletedNodeUUID && !highlight._deleted_nodes.includes(deletedNodeUUID)) {
                       highlight._deleted_nodes.push(deletedNodeUUID);
-                      console.log(`📌 Marked node ${deletedNodeUUID} for deletion from highlight ${highlight.hyperlight_id}`);
                     }
 
                     // DON'T remove from node_id or charData yet - cleanup happens during update
@@ -117,10 +110,8 @@ export async function deleteIndexedDBRecord(id) {
 
                     // Save updated highlight
                     cursor.update(highlight);
-                    console.log(`✅ Marked highlight ${highlight.hyperlight_id} for cleanup (still ${highlight.node_id.length} nodes until cleanup)`);
                   } else {
                     // Single-node highlight - mark as orphaned (might migrate to another node)
-                    console.log(`⏳ Single-node highlight ${highlight.hyperlight_id} - marking as orphaned (will cleanup if not found in DOM)`);
                     highlight._orphaned_at = Date.now();
                     highlight._orphaned_from_node = deletedNodeUUID || numericId.toString();
 
@@ -130,7 +121,6 @@ export async function deleteIndexedDBRecord(id) {
                     }
                     if (deletedNodeUUID && !highlight._deleted_nodes.includes(deletedNodeUUID)) {
                       highlight._deleted_nodes.push(deletedNodeUUID);
-                      console.log(`📌 Marked node ${deletedNodeUUID} for deletion from highlight ${highlight.hyperlight_id}`);
                     }
 
                     // ✅ KEEP node_id and charData for now - needed for rendering during migration window
@@ -141,12 +131,16 @@ export async function deleteIndexedDBRecord(id) {
                 }
 
                 cursor.continue();
+              } else if (affectedHighlights > 0) {
+                console.log(`✅ Updated ${affectedHighlights} highlights for deleted node ${numericId}`);
               }
             };
 
             // ✅ NEW: Update hypercites - same logic
             const citeIndex = citesStore.index("book");
             const citeReq = citeIndex.openCursor(bookRange);
+
+            let affectedHypercites = 0;
 
             citeReq.onsuccess = (e) => {
               const cursor = e.target.result;
@@ -159,20 +153,17 @@ export async function deleteIndexedDBRecord(id) {
                    deletedNodeUUID && hypercite.node_id.includes(deletedNodeUUID));
 
                 if (affectsDeletedNode) {
-                  console.log(`📍 Found hypercite ${hypercite.hyperciteId} affecting deleted node`);
+                  affectedHypercites++;
 
                   // Check if multi-node hypercite
                   if (hypercite.node_id && hypercite.node_id.length > 1) {
                     // Multi-node hypercite - mark node for deletion cleanup
-                    console.log(`🔧 Multi-node hypercite detected (${hypercite.node_id.length} nodes) - marking node ${deletedNodeUUID} for cleanup`);
-
                     // ✅ Track deleted node for cleanup during next save
                     if (!hypercite._deleted_nodes) {
                       hypercite._deleted_nodes = [];
                     }
                     if (deletedNodeUUID && !hypercite._deleted_nodes.includes(deletedNodeUUID)) {
                       hypercite._deleted_nodes.push(deletedNodeUUID);
-                      console.log(`📌 Marked node ${deletedNodeUUID} for deletion from hypercite ${hypercite.hyperciteId}`);
                     }
 
                     // DON'T remove from node_id or charData yet - cleanup happens during update
@@ -180,10 +171,8 @@ export async function deleteIndexedDBRecord(id) {
 
                     // Save updated hypercite
                     cursor.update(hypercite);
-                    console.log(`✅ Marked hypercite ${hypercite.hyperciteId} for cleanup (still ${hypercite.node_id.length} nodes until cleanup)`);
                   } else {
                     // Single-node hypercite - mark as orphaned (might migrate to another node)
-                    console.log(`⏳ Single-node hypercite ${hypercite.hyperciteId} - marking as orphaned (will cleanup if not found in DOM)`);
                     hypercite._orphaned_at = Date.now();
                     hypercite._orphaned_from_node = deletedNodeUUID || numericId.toString();
 
@@ -193,7 +182,6 @@ export async function deleteIndexedDBRecord(id) {
                     }
                     if (deletedNodeUUID && !hypercite._deleted_nodes.includes(deletedNodeUUID)) {
                       hypercite._deleted_nodes.push(deletedNodeUUID);
-                      console.log(`📌 Marked node ${deletedNodeUUID} for deletion from hypercite ${hypercite.hyperciteId}`);
                     }
 
                     // ✅ KEEP node_id and charData for now - needed for rendering during migration window
@@ -204,14 +192,15 @@ export async function deleteIndexedDBRecord(id) {
                 }
 
                 cursor.continue();
+              } else if (affectedHypercites > 0) {
+                console.log(`✅ Updated ${affectedHypercites} hypercites for deleted node ${numericId}`);
               }
             };
           } catch (error) {
-            console.warn(`⚠️ Error finding associated records for node ${numericId}:`, error);
+            console.error(`❌ Error finding associated records for node ${numericId}:`, error);
           }
-        } else {
-          console.log(`No record found for key: ${key}, nothing to delete.`);
         }
+        // Silently skip if no record found
       };
 
       getRequest.onerror = (e) => reject(e.target.error);
