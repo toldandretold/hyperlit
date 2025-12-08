@@ -29,6 +29,7 @@ function isElementInViewport(el) {
 
 /**
  * Helper: Scroll caret into view
+ * Uses .reader-content-wrapper as the scroll container (not window)
  */
 function scrollCaretIntoView() {
   verbose.content("scrollCaretIntoView start", 'divEditor/enterKeyHandler.js');
@@ -39,29 +40,54 @@ function scrollCaretIntoView() {
   }
 
   const range = sel.getRangeAt(0);
-  const clientRects = range.getClientRects();
-  const rect = clientRects.length
-    ? clientRects[0]
-    : range.getBoundingClientRect();
+  let rect = range.getBoundingClientRect();
+
+  // If caret rect has no height (empty paragraph with <br>), use parent element's rect
+  if (!rect || rect.height === 0) {
+    const node = range.startContainer;
+    const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+    if (element) {
+      rect = element.getBoundingClientRect();
+      verbose.content(`caret rect was empty, using parent element rect`, 'divEditor/enterKeyHandler.js');
+    }
+  }
+
+  if (!rect || rect.height === 0) {
+    verbose.content("no valid rect found → abort", 'divEditor/enterKeyHandler.js');
+    return;
+  }
 
   verbose.content(`caret rect: top=${Math.round(rect.top)} bottom=${Math.round(rect.bottom)} height=${Math.round(rect.height)}`, 'divEditor/enterKeyHandler.js');
 
-  const padding = 20;
-  const vh = window.innerHeight || document.documentElement.clientHeight;
+  // Find the scroll container (not window)
+  const scrollContainer = document.querySelector('.reader-content-wrapper');
+  if (!scrollContainer) {
+    verbose.content("no scroll container found", 'divEditor/enterKeyHandler.js');
+    return;
+  }
 
-  if (rect.height > 0) {
-    // Normal: scroll to keep caret visible
-    if (rect.bottom > vh - padding) {
-      const delta = rect.bottom - (vh - padding);
-      verbose.content(`scrolling down by ${delta}px`, 'divEditor/enterKeyHandler.js');
-      window.scrollBy({ top: delta, behavior: "smooth" });
-    } else if (rect.top < padding) {
-      const delta = rect.top - padding;
-      verbose.content(`scrolling up by ${delta}px`, 'divEditor/enterKeyHandler.js');
-      window.scrollBy({ top: delta, behavior: "smooth" });
-    } else {
-      verbose.content("caret in view, no scroll", 'divEditor/enterKeyHandler.js');
-    }
+  const containerRect = scrollContainer.getBoundingClientRect();
+  const clipBottom = 40; // clip-path: inset(15px 0 40px 0) clips 40px from bottom
+  const clipTop = 15;    // clip-path clips 15px from top
+  const padding = 20;    // Extra buffer space
+
+  // Visible area is smaller than containerRect due to clip-path
+  const visibleBottom = containerRect.bottom - clipBottom;
+  const visibleTop = containerRect.top + clipTop;
+
+  // Check if caret is below visible area
+  if (rect.bottom > visibleBottom - padding) {
+    const delta = rect.bottom - (visibleBottom - padding);
+    verbose.content(`scrolling container down by ${delta}px`, 'divEditor/enterKeyHandler.js');
+    scrollContainer.scrollBy({ top: delta, behavior: "smooth" });
+  }
+  // Check if caret is above visible area
+  else if (rect.top < visibleTop + padding) {
+    const delta = rect.top - (visibleTop + padding);
+    verbose.content(`scrolling container up by ${delta}px`, 'divEditor/enterKeyHandler.js');
+    scrollContainer.scrollBy({ top: delta, behavior: "smooth" });
+  } else {
+    verbose.content("caret in view, no scroll", 'divEditor/enterKeyHandler.js');
   }
 }
 
@@ -75,7 +101,8 @@ function moveCaretTo(node, offset = 0) {
   r.collapse(true);
   sel.removeAllRanges();
   sel.addRange(r);
-  scrollCaretIntoView();
+  // Delay scroll to ensure DOM has settled
+  setTimeout(scrollCaretIntoView, 50);
 }
 
 /**
@@ -157,9 +184,6 @@ function createAndInsertParagraph(blockElement, chunkContainer, content, selecti
     ? newParagraph.firstChild
     : newParagraph;
   moveCaretTo(target, 0);
-  setTimeout(() => {
-    newParagraph.scrollIntoView({ behavior: 'auto', block: 'nearest' });
-  }, 10);
 
   return newParagraph;
 }
@@ -444,14 +468,6 @@ export class EnterKeyHandler {
           selection
         );
 
-        // Scroll the new paragraph into view
-        setTimeout(() => {
-          newParagraph.scrollIntoView({
-            behavior: "auto",
-            block: "nearest",
-          });
-        }, 10);
-
         this.enterCount = 0;
         return;
       }
@@ -510,9 +526,6 @@ export class EnterKeyHandler {
               null,
               selection
             );
-            setTimeout(() => {
-              newParagraph.scrollIntoView({ behavior: "auto", block: "nearest" });
-            }, 10);
           } else {
             // PATH B: Split block from middle
             console.log("Splitting block from the middle.");
@@ -608,7 +621,6 @@ export class EnterKeyHandler {
             queueNodeForSave(newParagraph.id, "create");
             queueNodeForSave(newSplitBlock.id, "create");
             moveCaretTo(newParagraph, 0);
-            newParagraph.scrollIntoView({ behavior: "auto", block: "center" });
           }
 
           this.enterCount = 0;
@@ -629,7 +641,6 @@ export class EnterKeyHandler {
           range.setStartAfter(br);
           range.insertNode(textNode);
           moveCaretTo(textNode, 0);
-          blockElement.scrollIntoView({ behavior: "smooth", block: "nearest" });
         }
 
         return;
@@ -699,14 +710,6 @@ export class EnterKeyHandler {
         content,
         selection
       );
-
-      // Scroll after a delay
-      setTimeout(() => {
-        newParagraph.scrollIntoView({
-          behavior: "auto",
-          block: "nearest",
-        });
-      }, 10);
 
       this.enterCount = 0;
     }

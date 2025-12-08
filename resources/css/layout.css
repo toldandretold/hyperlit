@@ -92,7 +92,7 @@ body[data-page="reader"] .reader-content-wrapper::before {
 
 /* Alternative approach using clip-path on the wrapper itself */
 body[data-page="reader"] .reader-content-wrapper {
-  clip-path: inset(15px 0 0 0); /* Clip from 15px from top - same as logo top */
+  clip-path: inset(15px 0 40px 0); /* Clip top (15px) and bottom (40px - aligns with buttons) */
 }
 
 #keyboard-spacer {
