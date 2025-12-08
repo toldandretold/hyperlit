@@ -294,12 +294,22 @@ scrollCaretIntoView(element) {
   // Get the actual cursor/caret position
   const selection = window.getSelection();
   let caretRect = null;
-  
+
   if (selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
     caretRect = range.getBoundingClientRect();
+
+    // If caret rect is empty (in empty paragraph with <br>), use parent element's rect
+    if (!caretRect || (caretRect.width === 0 && caretRect.height === 0)) {
+      const node = range.startContainer;
+      const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      if (el) {
+        caretRect = el.getBoundingClientRect();
+        console.log('📍 KeyboardManager: caret rect was empty, using parent element rect');
+      }
+    }
   }
-  
+
   if (!caretRect || (caretRect.width === 0 && caretRect.height === 0)) {
     return; // Silently fail if no caret
   }
