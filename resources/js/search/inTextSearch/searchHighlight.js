@@ -88,9 +88,10 @@ function wrapRangeWithElement(startNode, startOffset, endNode, endOffset, wrapEl
  * @param {number} charStart - Character offset where match starts
  * @param {number} charEnd - Character offset where match ends
  * @param {boolean} isCurrent - Whether this is the current/focused match
+ * @param {string|null} markId - Optional unique ID for the mark element
  * @returns {HTMLElement|null} The created mark element, or null if failed
  */
-export function applySearchHighlight(element, charStart, charEnd, isCurrent = false) {
+export function applySearchHighlight(element, charStart, charEnd, isCurrent = false, markId = null) {
   if (!element) {
     console.warn('SearchHighlight: No element provided');
     return null;
@@ -106,6 +107,9 @@ export function applySearchHighlight(element, charStart, charEnd, isCurrent = fa
   mark.className = 'search-highlight';
   if (isCurrent) {
     mark.classList.add('current');
+  }
+  if (markId) {
+    mark.id = markId;
   }
 
   wrapRangeWithElement(

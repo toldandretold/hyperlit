@@ -3,6 +3,7 @@
 import { log, verbose } from "../../utilities/logger.js";
 import { cancelPendingNavigationCleanup, navigateToInternalId } from "../../scrolling.js";
 import { getNodeChunksFromIndexedDB } from "../../indexedDB/nodes/read.js";
+import { getLocalStorageKey } from "../../indexedDB/index.js";
 import { currentLazyLoader } from "../../initializePage.js";
 import { buildSearchIndex, searchIndex } from "./searchEngine.js";
 import {
@@ -27,6 +28,8 @@ class SearchToolbarManager {
     this.searchIndexCache = null;  // Cached search index
     this.matches = [];             // Current search matches
     this.currentMatchIndex = -1;   // Current match position
+    this.matchesByChunk = new Map(); // chunk_id -> array of matches with matchIndex
+    this.initialStartLine = null;  // Scroll position when search opened (for nearest match)
 
     // Bound event handlers
     this.boundInputHandler = this.handleInput.bind(this);
@@ -34,6 +37,9 @@ class SearchToolbarManager {
     this.boundNextHandler = this.handleNext.bind(this);
     this.boundKeydownHandler = this.handleKeydown.bind(this);
     this.boundClickOutsideHandler = this.handleClickOutside.bind(this);
+    // Touch handlers with preventDefault to avoid ghost clicks
+    this.boundPrevTouchHandler = (e) => { e.preventDefault(); this.handlePrev(); };
+    this.boundNextTouchHandler = (e) => { e.preventDefault(); this.handleNext(); };
 
     // Bind elements
     this.bindElements();
@@ -77,10 +83,12 @@ class SearchToolbarManager {
     // Navigation buttons
     if (this.prevButton) {
       this.prevButton.addEventListener('click', this.boundPrevHandler);
+      this.prevButton.addEventListener('touchend', this.boundPrevTouchHandler);
     }
 
     if (this.nextButton) {
       this.nextButton.addEventListener('click', this.boundNextHandler);
+      this.nextButton.addEventListener('touchend', this.boundNextTouchHandler);
     }
 
     verbose.init('SearchToolbar: Event listeners attached', '/search/inTextSearch/searchToolbar.js');
@@ -93,6 +101,10 @@ class SearchToolbarManager {
     if (!this.toolbar) return;
 
     log.init('SearchToolbar: Opening', '/search/inTextSearch/searchToolbar.js');
+
+    // Capture initial scroll position for nearest-match search
+    this.initialStartLine = this.getCurrentVisibleStartLine();
+    verbose.init(`SearchToolbar: Captured initial position: ${this.initialStartLine}`, '/search/inTextSearch/searchToolbar.js');
 
     // Cancel any pending navigation cleanup timers from previous navigations
     cancelPendingNavigationCleanup();
@@ -204,14 +216,21 @@ class SearchToolbarManager {
     const query = e.target.value;
     verbose.init(`SearchToolbar: Input changed - "${query}"`, '/search/inTextSearch/searchToolbar.js');
 
-    // Clear previous highlights when query changes
+    // Clear previous highlights from DOM when query changes
     clearSearchHighlights();
+    this.matchesByChunk = new Map();
 
     if (!query || query.length === 0) {
       this.matches = [];
       this.currentMatchIndex = -1;
       this.updateNavigationButtons(false);
       this.updateMatchCounter(0, 0);
+
+      // Return to initial reading position when search is cleared
+      if (this.initialStartLine !== null && currentLazyLoader) {
+        verbose.init(`SearchToolbar: Search cleared, returning to initial position: ${this.initialStartLine}`, '/search/inTextSearch/searchToolbar.js');
+        navigateToInternalId(String(this.initialStartLine), currentLazyLoader, false);
+      }
       return;
     }
 
@@ -220,10 +239,23 @@ class SearchToolbarManager {
       this.matches = searchIndex(this.searchIndexCache, query);
 
       if (this.matches.length > 0) {
-        this.currentMatchIndex = 0;
-        this.updateMatchCounter(1, this.matches.length);
+        // Group matches by chunk_id for efficient batch insertion
+        this.matches.forEach((match, index) => {
+          const chunkId = match.chunk_id;
+          if (!this.matchesByChunk.has(chunkId)) {
+            this.matchesByChunk.set(chunkId, []);
+          }
+          this.matchesByChunk.get(chunkId).push({ ...match, matchIndex: index });
+        });
+
+        // Apply marks to chunks already in DOM
+        this.applyMarksToLoadedChunks();
+
+        // Find the first match at or after current scroll position
+        this.currentMatchIndex = this.findNearestMatchIndex();
+        this.updateMatchCounter(this.currentMatchIndex + 1, this.matches.length);
         this.updateNavigationButtons(true);
-        // Navigate to first match
+        // Navigate to the nearest match
         this.navigateToCurrentMatch();
       } else {
         this.currentMatchIndex = -1;
@@ -242,14 +274,24 @@ class SearchToolbarManager {
     }
 
     const match = this.matches[this.currentMatchIndex];
+    const chunkId = match.chunk_id;
     const targetId = String(match.startLine);
 
-    verbose.init(`SearchToolbar: Navigating to match ${this.currentMatchIndex + 1}/${this.matches.length} (startLine: ${targetId}, char: ${match.charStart}-${match.charEnd})`, '/search/inTextSearch/searchToolbar.js');
+    verbose.init(`SearchToolbar: Navigating to match ${this.currentMatchIndex + 1}/${this.matches.length} (startLine: ${targetId}, chunk: ${chunkId})`, '/search/inTextSearch/searchToolbar.js');
 
-    if (currentLazyLoader) {
+    if (!currentLazyLoader) return;
+
+    // Check if chunk is already loaded - if so, skip navigation and go directly to mark
+    const chunkAlreadyLoaded = currentLazyLoader.currentlyLoadedChunks?.has(chunkId);
+
+    if (chunkAlreadyLoaded) {
+      // Chunk is loaded - just highlight and scroll to mark directly
+      this.highlightCurrentMatch();
+    } else {
+      // Chunk not loaded - need to load it first
       navigateToInternalId(targetId, currentLazyLoader, false);
 
-      // Apply highlight after a short delay to let chunk load if needed
+      // Apply highlight after a short delay to let chunk load
       setTimeout(() => {
         this.highlightCurrentMatch();
       }, 300);
@@ -265,23 +307,104 @@ class SearchToolbarManager {
     }
 
     const match = this.matches[this.currentMatchIndex];
-    const element = document.getElementById(String(match.startLine));
+    const chunkId = match.chunk_id;
 
-    if (!element) {
-      console.warn('SearchToolbar: Element not found for highlight', match.startLine);
-      return;
-    }
+    // Ensure all marks for this chunk are applied
+    this.applyMarksForChunk(chunkId);
 
-    // Clear previous highlights first
-    clearSearchHighlights();
+    // Remove 'current' from all marks
+    document.querySelectorAll('mark.search-highlight.current').forEach(m => {
+      m.classList.remove('current');
+    });
 
-    // Apply highlight to current match
-    const markEl = applySearchHighlight(element, match.charStart, match.charEnd, true);
-
+    // Add 'current' to the target mark
+    const markEl = document.getElementById(`search-match-${this.currentMatchIndex}`);
     if (markEl) {
-      // Scroll the mark into view if it's not visible
+      markEl.classList.add('current');
       markEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
+  }
+
+  /**
+   * Apply all search marks for a specific chunk
+   * @param {number} chunkId - The chunk ID to apply marks for
+   */
+  applyMarksForChunk(chunkId) {
+    const chunkMatches = this.matchesByChunk.get(chunkId);
+    if (!chunkMatches) return;
+
+    chunkMatches.forEach(match => {
+      const markId = `search-match-${match.matchIndex}`;
+
+      // Skip if mark already exists (handles chunk reload case)
+      if (document.getElementById(markId)) return;
+
+      const element = document.getElementById(String(match.startLine));
+      if (!element) return;
+
+      const isCurrent = match.matchIndex === this.currentMatchIndex;
+      applySearchHighlight(element, match.charStart, match.charEnd, isCurrent, markId);
+    });
+  }
+
+  /**
+   * Apply marks to all currently loaded chunks
+   * Called when the search query changes to immediately show results in visible chunks
+   */
+  applyMarksToLoadedChunks() {
+    if (!currentLazyLoader?.currentlyLoadedChunks) return;
+
+    // For each loaded chunk, apply marks if we have matches there
+    currentLazyLoader.currentlyLoadedChunks.forEach(chunkId => {
+      if (this.matchesByChunk.has(chunkId)) {
+        this.applyMarksForChunk(chunkId);
+      }
+    });
+  }
+
+  /**
+   * Get the current visible element's startLine from sessionStorage
+   * @returns {number|null} The startLine of the currently visible element, or null
+   */
+  getCurrentVisibleStartLine() {
+    if (!currentLazyLoader?.bookId) return null;
+
+    try {
+      const scrollKey = getLocalStorageKey("scrollPosition", currentLazyLoader.bookId);
+      const sessionData = sessionStorage.getItem(scrollKey);
+      if (sessionData) {
+        const parsed = JSON.parse(sessionData);
+        if (parsed?.elementId) {
+          return parseFloat(parsed.elementId);
+        }
+      }
+    } catch (e) {
+      console.warn('SearchToolbar: Error reading scroll position', e);
+    }
+    return null;
+  }
+
+  /**
+   * Find the index of the first match at or after the initial scroll position (when search opened)
+   * @returns {number} The index of the nearest match (0 if none found after initial position)
+   */
+  findNearestMatchIndex() {
+    if (this.matches.length === 0) return 0;
+
+    // Use the position captured when search opened
+    if (this.initialStartLine === null) return 0;
+
+    // Find first match with startLine >= initial position
+    for (let i = 0; i < this.matches.length; i++) {
+      if (parseFloat(this.matches[i].startLine) >= this.initialStartLine) {
+        verbose.init(`SearchToolbar: Starting from match ${i + 1} (startLine ${this.matches[i].startLine} >= initial ${this.initialStartLine})`, '/search/inTextSearch/searchToolbar.js');
+        return i;
+      }
+    }
+
+    // No match after initial position - wrap to first match
+    verbose.init(`SearchToolbar: No matches after initial position (${this.initialStartLine}), wrapping to first match`, '/search/inTextSearch/searchToolbar.js');
+    return 0;
   }
 
   /**
@@ -388,6 +511,8 @@ class SearchToolbarManager {
     verbose.init('SearchToolbar: Clearing search', '/search/inTextSearch/searchToolbar.js');
     this.matches = [];
     this.currentMatchIndex = -1;
+    this.matchesByChunk = new Map();
+    this.initialStartLine = null;
   }
 
   /**
@@ -468,10 +593,12 @@ class SearchToolbarManager {
 
     if (this.prevButton) {
       this.prevButton.removeEventListener('click', this.boundPrevHandler);
+      this.prevButton.removeEventListener('touchend', this.boundPrevTouchHandler);
     }
 
     if (this.nextButton) {
       this.nextButton.removeEventListener('click', this.boundNextHandler);
+      this.nextButton.removeEventListener('touchend', this.boundNextTouchHandler);
     }
 
     verbose.init('SearchToolbar: Event listeners removed', '/search/inTextSearch/searchToolbar.js');
