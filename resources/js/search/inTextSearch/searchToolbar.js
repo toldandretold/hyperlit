@@ -3,6 +3,7 @@
 import { log, verbose } from "../../utilities/logger.js";
 import { cancelPendingNavigationCleanup, navigateToInternalId } from "../../scrolling.js";
 import { getNodeChunksFromIndexedDB } from "../../indexedDB/nodes/read.js";
+import { getLocalStorageKey } from "../../indexedDB/index.js";
 import { currentLazyLoader } from "../../initializePage.js";
 import { buildSearchIndex, searchIndex } from "./searchEngine.js";
 import {
@@ -28,6 +29,7 @@ class SearchToolbarManager {
     this.matches = [];             // Current search matches
     this.currentMatchIndex = -1;   // Current match position
     this.matchesByChunk = new Map(); // chunk_id -> array of matches with matchIndex
+    this.initialStartLine = null;  // Scroll position when search opened (for nearest match)
 
     // Bound event handlers
     this.boundInputHandler = this.handleInput.bind(this);
@@ -99,6 +101,10 @@ class SearchToolbarManager {
     if (!this.toolbar) return;
 
     log.init('SearchToolbar: Opening', '/search/inTextSearch/searchToolbar.js');
+
+    // Capture initial scroll position for nearest-match search
+    this.initialStartLine = this.getCurrentVisibleStartLine();
+    verbose.init(`SearchToolbar: Captured initial position: ${this.initialStartLine}`, '/search/inTextSearch/searchToolbar.js');
 
     // Cancel any pending navigation cleanup timers from previous navigations
     cancelPendingNavigationCleanup();
@@ -219,6 +225,12 @@ class SearchToolbarManager {
       this.currentMatchIndex = -1;
       this.updateNavigationButtons(false);
       this.updateMatchCounter(0, 0);
+
+      // Return to initial reading position when search is cleared
+      if (this.initialStartLine !== null && currentLazyLoader) {
+        verbose.init(`SearchToolbar: Search cleared, returning to initial position: ${this.initialStartLine}`, '/search/inTextSearch/searchToolbar.js');
+        navigateToInternalId(String(this.initialStartLine), currentLazyLoader, false);
+      }
       return;
     }
 
@@ -239,10 +251,11 @@ class SearchToolbarManager {
         // Apply marks to chunks already in DOM
         this.applyMarksToLoadedChunks();
 
-        this.currentMatchIndex = 0;
-        this.updateMatchCounter(1, this.matches.length);
+        // Find the first match at or after current scroll position
+        this.currentMatchIndex = this.findNearestMatchIndex();
+        this.updateMatchCounter(this.currentMatchIndex + 1, this.matches.length);
         this.updateNavigationButtons(true);
-        // Navigate to first match
+        // Navigate to the nearest match
         this.navigateToCurrentMatch();
       } else {
         this.currentMatchIndex = -1;
@@ -350,6 +363,51 @@ class SearchToolbarManager {
   }
 
   /**
+   * Get the current visible element's startLine from sessionStorage
+   * @returns {number|null} The startLine of the currently visible element, or null
+   */
+  getCurrentVisibleStartLine() {
+    if (!currentLazyLoader?.bookId) return null;
+
+    try {
+      const scrollKey = getLocalStorageKey("scrollPosition", currentLazyLoader.bookId);
+      const sessionData = sessionStorage.getItem(scrollKey);
+      if (sessionData) {
+        const parsed = JSON.parse(sessionData);
+        if (parsed?.elementId) {
+          return parseFloat(parsed.elementId);
+        }
+      }
+    } catch (e) {
+      console.warn('SearchToolbar: Error reading scroll position', e);
+    }
+    return null;
+  }
+
+  /**
+   * Find the index of the first match at or after the initial scroll position (when search opened)
+   * @returns {number} The index of the nearest match (0 if none found after initial position)
+   */
+  findNearestMatchIndex() {
+    if (this.matches.length === 0) return 0;
+
+    // Use the position captured when search opened
+    if (this.initialStartLine === null) return 0;
+
+    // Find first match with startLine >= initial position
+    for (let i = 0; i < this.matches.length; i++) {
+      if (parseFloat(this.matches[i].startLine) >= this.initialStartLine) {
+        verbose.init(`SearchToolbar: Starting from match ${i + 1} (startLine ${this.matches[i].startLine} >= initial ${this.initialStartLine})`, '/search/inTextSearch/searchToolbar.js');
+        return i;
+      }
+    }
+
+    // No match after initial position - wrap to first match
+    verbose.init(`SearchToolbar: No matches after initial position (${this.initialStartLine}), wrapping to first match`, '/search/inTextSearch/searchToolbar.js');
+    return 0;
+  }
+
+  /**
    * Handle previous match button
    */
   handlePrev() {
@@ -454,6 +512,7 @@ class SearchToolbarManager {
     this.matches = [];
     this.currentMatchIndex = -1;
     this.matchesByChunk = new Map();
+    this.initialStartLine = null;
   }
 
   /**
