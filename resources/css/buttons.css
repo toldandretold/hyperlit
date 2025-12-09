@@ -970,20 +970,24 @@ body.search-mode u:not(.search-highlight) {
   text-decoration: none !important;
 }
 
-/* Search highlight styling - traditional yellow highlighter */
+/* Search highlight styling - dimmed for non-current matches */
 mark.search-highlight {
-  background-color: var(--search-highlight, #ffff00);
+  background-color: rgba(255, 255, 0, 0.3);
 }
 
-/* Current match uses same variable */
+/* Current match - full brightness */
 mark.search-highlight.current {
-  background-color: var(--search-highlight, #ffff00);
+  background-color: rgba(255, 255, 0, 0.8);
 }
 
 /* Dark theme override */
-[data-theme="dark"] mark.search-highlight,
+[data-theme="dark"] mark.search-highlight {
+  background-color: rgba(255, 255, 0, 0.3);
+  color: inherit;
+}
+
 [data-theme="dark"] mark.search-highlight.current {
-  background-color: var(--search-highlight-dark, #ffff00);
+  background-color: rgba(255, 255, 0, 0.8);
   color: #000;
 }
 
