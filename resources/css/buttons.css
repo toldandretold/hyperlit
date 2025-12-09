@@ -956,6 +956,41 @@ black #221F20;
 
 /*
   =====================================================================
+  SEARCH HIGHLIGHT STYLES
+  =====================================================================
+*/
+
+/* Hide regular highlight styling in search mode */
+body.search-mode mark:not(.search-highlight) {
+  background: transparent !important;
+  --highlight-intensity: 0 !important;
+}
+
+body.search-mode u:not(.search-highlight) {
+  text-decoration: none !important;
+}
+
+/* Search highlight styling - traditional yellow highlighter */
+mark.search-highlight {
+  background-color: var(--search-highlight, #ffff00);
+}
+
+/* Current match uses same variable */
+mark.search-highlight.current {
+  background-color: var(--search-highlight, #ffff00);
+}
+
+/* Dark theme override */
+[data-theme="dark"] mark.search-highlight,
+[data-theme="dark"] mark.search-highlight.current {
+  background-color: var(--search-highlight-dark, #ffff00);
+  color: #000;
+}
+
+/* end search highlight styles */
+
+/*
+  =====================================================================
   UNIFIED HYPERLIGHT BUTTONS STYLES (FINAL - SVG FIX)
   =====================================================================
 */

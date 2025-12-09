@@ -1,7 +1,15 @@
 // searchToolbar.js - Manages the search toolbar for in-text search
 
-import { log, verbose } from "../utilities/logger.js";
-import { cancelPendingNavigationCleanup } from "../scrolling.js";
+import { log, verbose } from "../../utilities/logger.js";
+import { cancelPendingNavigationCleanup, navigateToInternalId } from "../../scrolling.js";
+import { getNodeChunksFromIndexedDB } from "../../indexedDB/nodes/read.js";
+import { currentLazyLoader } from "../../initializePage.js";
+import { buildSearchIndex, searchIndex } from "./searchEngine.js";
+import {
+  applySearchHighlight,
+  clearSearchHighlights,
+  setSearchMode
+} from "./searchHighlight.js";
 
 /**
  * SearchToolbarManager - Manages the search toolbar UI and state
@@ -14,6 +22,11 @@ class SearchToolbarManager {
     this.nextButton = null;
     this.matchCounter = null;
     this.isOpen = false;
+
+    // Search state
+    this.searchIndexCache = null;  // Cached search index
+    this.matches = [];             // Current search matches
+    this.currentMatchIndex = -1;   // Current match position
 
     // Bound event handlers
     this.boundInputHandler = this.handleInput.bind(this);
@@ -28,7 +41,7 @@ class SearchToolbarManager {
     // Setup event listeners
     this.setupEventListeners();
 
-    verbose.init('SearchToolbar initialized', '/components/searchToolbar.js');
+    verbose.init('SearchToolbar initialized', '/search/inTextSearch/searchToolbar.js');
   }
 
   /**
@@ -46,7 +59,7 @@ class SearchToolbarManager {
       return;
     }
 
-    verbose.init('SearchToolbar: DOM elements bound', '/components/searchToolbar.js');
+    verbose.init('SearchToolbar: DOM elements bound', '/search/inTextSearch/searchToolbar.js');
   }
 
   /**
@@ -70,26 +83,25 @@ class SearchToolbarManager {
       this.nextButton.addEventListener('click', this.boundNextHandler);
     }
 
-    verbose.init('SearchToolbar: Event listeners attached', '/components/searchToolbar.js');
+    verbose.init('SearchToolbar: Event listeners attached', '/search/inTextSearch/searchToolbar.js');
   }
 
   /**
    * Open the search toolbar
    */
-  open() {
+  async open() {
     if (!this.toolbar) return;
 
-    log.init('SearchToolbar: Opening', '/components/searchToolbar.js');
-
-    // CRITICAL: Block any scroll restoration/navigation BEFORE we do anything
-    // This prevents saved scroll positions from interfering
-    window.searchToolbarBlockingNavigation = true;
+    log.init('SearchToolbar: Opening', '/search/inTextSearch/searchToolbar.js');
 
     // Cancel any pending navigation cleanup timers from previous navigations
     cancelPendingNavigationCleanup();
 
     this.toolbar.classList.add('visible');
     this.isOpen = true;
+
+    // Enable search mode (dims other highlights)
+    setSearchMode(true);
 
     // Hide perimeter buttons for clean search UI
     this.hidePerimeterButtons();
@@ -112,6 +124,35 @@ class SearchToolbarManager {
 
     // Disable navigation buttons initially
     this.updateNavigationButtons(false);
+
+    // Build search index if not cached
+    await this.ensureSearchIndex();
+  }
+
+  /**
+   * Ensure search index is built
+   */
+  async ensureSearchIndex() {
+    // If we already have an index, don't rebuild
+    if (this.searchIndexCache) {
+      verbose.init('SearchToolbar: Using cached search index', '/search/inTextSearch/searchToolbar.js');
+      return;
+    }
+
+    // Get book ID from lazyLoader
+    const bookId = currentLazyLoader?.bookId;
+    if (!bookId) {
+      console.warn('SearchToolbar: No bookId available');
+      return;
+    }
+
+    try {
+      const nodes = await getNodeChunksFromIndexedDB(bookId);
+      this.searchIndexCache = buildSearchIndex(nodes);
+      verbose.init(`SearchToolbar: Index built with ${this.searchIndexCache.length} entries`, '/search/inTextSearch/searchToolbar.js');
+    } catch (error) {
+      console.error('SearchToolbar: Failed to build search index', error);
+    }
   }
 
   /**
@@ -120,13 +161,14 @@ class SearchToolbarManager {
   close() {
     if (!this.toolbar) return;
 
-    log.init('SearchToolbar: Closing', '/components/searchToolbar.js');
+    log.init('SearchToolbar: Closing', '/search/inTextSearch/searchToolbar.js');
 
     this.toolbar.classList.remove('visible');
     this.isOpen = false;
 
-    // Clear navigation blocking flag
-    window.searchToolbarBlockingNavigation = false;
+    // Disable search mode and clear highlights
+    setSearchMode(false);
+    clearSearchHighlights();
 
     // Restore perimeter buttons
     this.showPerimeterButtons();
@@ -140,7 +182,7 @@ class SearchToolbarManager {
       this.input.blur();
     }
 
-    // Clear any search highlights (will be implemented later)
+    // Clear search state but keep index cached
     this.clearSearch();
   }
 
@@ -160,22 +202,85 @@ class SearchToolbarManager {
    */
   handleInput(e) {
     const query = e.target.value;
-    verbose.init(`SearchToolbar: Input changed - "${query}"`, '/components/searchToolbar.js');
+    verbose.init(`SearchToolbar: Input changed - "${query}"`, '/search/inTextSearch/searchToolbar.js');
 
-    // Placeholder for future search functionality
-    // This will eventually:
-    // 1. Search through IndexedDB
-    // 2. Highlight matches in the document
-    // 3. Update match counter
-    // 4. Enable/disable navigation buttons
+    // Clear previous highlights when query changes
+    clearSearchHighlights();
 
-    if (query.length > 0) {
-      // For now, just enable navigation buttons as placeholder
-      this.updateNavigationButtons(true);
-    } else {
+    if (!query || query.length === 0) {
+      this.matches = [];
+      this.currentMatchIndex = -1;
       this.updateNavigationButtons(false);
       this.updateMatchCounter(0, 0);
-      this.clearSearch();
+      return;
+    }
+
+    // Perform search
+    if (this.searchIndexCache) {
+      this.matches = searchIndex(this.searchIndexCache, query);
+
+      if (this.matches.length > 0) {
+        this.currentMatchIndex = 0;
+        this.updateMatchCounter(1, this.matches.length);
+        this.updateNavigationButtons(true);
+        // Navigate to first match
+        this.navigateToCurrentMatch();
+      } else {
+        this.currentMatchIndex = -1;
+        this.updateMatchCounter(0, 0);
+        this.updateNavigationButtons(false);
+      }
+    }
+  }
+
+  /**
+   * Navigate to the current match and highlight it
+   */
+  navigateToCurrentMatch() {
+    if (this.currentMatchIndex < 0 || this.currentMatchIndex >= this.matches.length) {
+      return;
+    }
+
+    const match = this.matches[this.currentMatchIndex];
+    const targetId = String(match.startLine);
+
+    verbose.init(`SearchToolbar: Navigating to match ${this.currentMatchIndex + 1}/${this.matches.length} (startLine: ${targetId}, char: ${match.charStart}-${match.charEnd})`, '/search/inTextSearch/searchToolbar.js');
+
+    if (currentLazyLoader) {
+      navigateToInternalId(targetId, currentLazyLoader, false);
+
+      // Apply highlight after a short delay to let chunk load if needed
+      setTimeout(() => {
+        this.highlightCurrentMatch();
+      }, 300);
+    }
+  }
+
+  /**
+   * Highlight the current match in the DOM
+   */
+  highlightCurrentMatch() {
+    if (this.currentMatchIndex < 0 || this.currentMatchIndex >= this.matches.length) {
+      return;
+    }
+
+    const match = this.matches[this.currentMatchIndex];
+    const element = document.getElementById(String(match.startLine));
+
+    if (!element) {
+      console.warn('SearchToolbar: Element not found for highlight', match.startLine);
+      return;
+    }
+
+    // Clear previous highlights first
+    clearSearchHighlights();
+
+    // Apply highlight to current match
+    const markEl = applySearchHighlight(element, match.charStart, match.charEnd, true);
+
+    if (markEl) {
+      // Scroll the mark into view if it's not visible
+      markEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
   }
 
@@ -183,16 +288,38 @@ class SearchToolbarManager {
    * Handle previous match button
    */
   handlePrev() {
-    verbose.init('SearchToolbar: Previous match', '/components/searchToolbar.js');
-    // Placeholder for navigation to previous match
+    if (this.matches.length === 0) return;
+
+    verbose.init('SearchToolbar: Previous match', '/search/inTextSearch/searchToolbar.js');
+
+    // Wrap around to end if at beginning
+    if (this.currentMatchIndex <= 0) {
+      this.currentMatchIndex = this.matches.length - 1;
+    } else {
+      this.currentMatchIndex--;
+    }
+
+    this.updateMatchCounter(this.currentMatchIndex + 1, this.matches.length);
+    this.navigateToCurrentMatch();
   }
 
   /**
    * Handle next match button
    */
   handleNext() {
-    verbose.init('SearchToolbar: Next match', '/components/searchToolbar.js');
-    // Placeholder for navigation to next match
+    if (this.matches.length === 0) return;
+
+    verbose.init('SearchToolbar: Next match', '/search/inTextSearch/searchToolbar.js');
+
+    // Wrap around to beginning if at end
+    if (this.currentMatchIndex >= this.matches.length - 1) {
+      this.currentMatchIndex = 0;
+    } else {
+      this.currentMatchIndex++;
+    }
+
+    this.updateMatchCounter(this.currentMatchIndex + 1, this.matches.length);
+    this.navigateToCurrentMatch();
   }
 
   /**
@@ -255,15 +382,22 @@ class SearchToolbarManager {
   }
 
   /**
-   * Clear search highlights and results
-   * Placeholder for future implementation
+   * Clear search results (keeps index cached)
    */
   clearSearch() {
-    verbose.init('SearchToolbar: Clearing search', '/components/searchToolbar.js');
-    // This will eventually:
-    // 1. Remove all highlight marks from document
-    // 2. Clear search results from memory
-    // 3. Reset IndexedDB search state
+    verbose.init('SearchToolbar: Clearing search', '/search/inTextSearch/searchToolbar.js');
+    this.matches = [];
+    this.currentMatchIndex = -1;
+  }
+
+  /**
+   * Invalidate the search index (call when book changes)
+   */
+  invalidateIndex() {
+    verbose.init('SearchToolbar: Invalidating search index', '/search/inTextSearch/searchToolbar.js');
+    this.searchIndexCache = null;
+    this.matches = [];
+    this.currentMatchIndex = -1;
   }
 
   /**
@@ -285,7 +419,7 @@ class SearchToolbarManager {
       }
     });
 
-    verbose.init('SearchToolbar: Perimeter buttons hidden', '/components/searchToolbar.js');
+    verbose.init('SearchToolbar: Perimeter buttons hidden', '/search/inTextSearch/searchToolbar.js');
   }
 
   /**
@@ -307,7 +441,7 @@ class SearchToolbarManager {
       }
     });
 
-    verbose.init('SearchToolbar: Perimeter buttons shown', '/components/searchToolbar.js');
+    verbose.init('SearchToolbar: Perimeter buttons shown', '/search/inTextSearch/searchToolbar.js');
   }
 
   /**
@@ -315,7 +449,9 @@ class SearchToolbarManager {
    */
   rebindElements() {
     this.bindElements();
-    verbose.init('SearchToolbar: Elements rebound', '/components/searchToolbar.js');
+    // Invalidate index on rebind since book may have changed
+    this.invalidateIndex();
+    verbose.init('SearchToolbar: Elements rebound', '/search/inTextSearch/searchToolbar.js');
   }
 
   /**
@@ -338,7 +474,7 @@ class SearchToolbarManager {
       this.nextButton.removeEventListener('click', this.boundNextHandler);
     }
 
-    verbose.init('SearchToolbar: Event listeners removed', '/components/searchToolbar.js');
+    verbose.init('SearchToolbar: Event listeners removed', '/search/inTextSearch/searchToolbar.js');
   }
 }
 
@@ -352,11 +488,11 @@ export function initializeSearchToolbar() {
   if (!searchToolbarManager) {
     // Create new manager instance
     searchToolbarManager = new SearchToolbarManager();
-    log.init('Search Toolbar initialized', '/components/searchToolbar.js');
+    log.init('Search Toolbar initialized', '/search/inTextSearch/searchToolbar.js');
   } else {
     // Manager exists, just rebind elements after SPA transition
     searchToolbarManager.rebindElements();
-    verbose.init('Search Toolbar rebound', '/components/searchToolbar.js');
+    verbose.init('Search Toolbar rebound', '/search/inTextSearch/searchToolbar.js');
   }
 
   return searchToolbarManager;
@@ -410,8 +546,17 @@ export function destroySearchToolbar() {
   if (searchToolbarManager) {
     searchToolbarManager.destroy();
     searchToolbarManager = null;
-    verbose.init('Search Toolbar destroyed', '/components/searchToolbar.js');
+    verbose.init('Search Toolbar destroyed', '/search/inTextSearch/searchToolbar.js');
     return true;
   }
   return false;
+}
+
+/**
+ * Invalidate the search index (call when book changes or content is edited)
+ */
+export function invalidateSearchIndex() {
+  if (searchToolbarManager) {
+    searchToolbarManager.invalidateIndex();
+  }
 }

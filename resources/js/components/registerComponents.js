@@ -19,7 +19,7 @@ import {
 import {
   initializeSearchToolbar,
   destroySearchToolbar
-} from './searchToolbar.js';
+} from '../search/inTextSearch/searchToolbar.js';
 
 import {
   initializeUserContainer,
