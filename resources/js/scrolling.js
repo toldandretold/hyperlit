@@ -149,7 +149,7 @@ import {
 import { highlightTargetHypercite } from "./hypercites/index.js";
 import { shouldSkipScrollRestoration as shouldSkipScrollRestorationGlobal, setSkipScrollRestoration } from "./utilities/operationState.js";
 import { ProgressOverlayConductor } from './navigation/ProgressOverlayConductor.js';
-import { isSearchToolbarOpen } from './components/searchToolbar.js';
+import { isSearchToolbarOpen } from './search/inTextSearch/searchToolbar.js';
 
 // ========= Scrolling Helper Functions =========
 
@@ -722,19 +722,6 @@ export function navigateToInternalId(targetId, lazyLoader, showOverlay = true) {
     return;
   }
   console.log("Initiating navigation to internal ID:", targetId);
-
-  // Skip if search toolbar is blocking navigation
-  if (window.searchToolbarBlockingNavigation) {
-    console.log(`⏭️ NAVIGATION: Search toolbar blocking, skipping navigation to ${targetId}`);
-    return;
-  }
-
-  // Skip if search-input is focused - don't interfere with search toolbar keyboard positioning
-  const searchInput = document.getElementById('search-input');
-  if (searchInput && document.activeElement === searchInput) {
-    console.log(`⏭️ NAVIGATION: Search input is focused, skipping navigation to ${targetId}`);
-    return;
-  }
 
   // 🚀 CRITICAL: Set flag IMMEDIATELY to prevent race conditions
   // This prevents restoreScrollPosition() from interfering
