@@ -43,7 +43,6 @@ export function generateReferenceKeys(text, contextText = '', formatType = 'gene
       const citationId = tfCitationMatch[1];
       addKey('cit' + citationId + year);
       addKey('citation' + citationId + year);
-      console.log(`📚 T&F: Generated keys for citation ID ${citationId} with year ${year}`);
     }
 
     // Also try standard author extraction for T&F bibliography entries
@@ -52,7 +51,6 @@ export function generateReferenceKeys(text, contextText = '', formatType = 'gene
       if (tfAuthorMatch) {
         const surname = tfAuthorMatch[1];
         addKey(surname.toLowerCase() + year);
-        console.log(`📚 T&F: Generated key "${surname.toLowerCase() + year}" from author`);
       }
     }
   }
@@ -65,7 +63,6 @@ export function generateReferenceKeys(text, contextText = '', formatType = 'gene
       const [, surname, firstname] = oupMatch;
       // Create keys using just the surname (matches in-text citations)
       addKey(surname.toLowerCase() + year);
-      console.log(`📚 OUP: Generated key "${surname.toLowerCase() + year}" from "${surname} ${firstname}"`);
 
       // Also add a key with both names for completeness
       addKey(surname.toLowerCase() + firstname.toLowerCase() + year);
@@ -74,7 +71,6 @@ export function generateReferenceKeys(text, contextText = '', formatType = 'gene
       // Add both hyphenated and non-hyphenated versions
       if (surname.includes('-')) {
         addKey(surname.toLowerCase().replace(/-/g, '') + year);
-        console.log(`📚 OUP: Also generated non-hyphenated key "${surname.toLowerCase().replace(/-/g, '') + year}"`);
       }
 
       // Return early for OUP since we've handled it specially

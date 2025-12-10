@@ -344,7 +344,47 @@ async function handlePaste(event) {
 
     const insertionPoint = getInsertionPoint(chunkElement, book);
     if (!insertionPoint) {
-      console.error(`🎯 [${pasteOpId}] Could not determine insertion point. Aborting paste.`);
+      // Prevent browser default paste that would dump raw HTML into DOM
+      event.preventDefault();
+
+      // Diagnostic logging to understand why insertion point failed
+      const selection = window.getSelection();
+      const currentNode = selection.anchorNode;
+      const currentElement = currentNode?.nodeType === Node.TEXT_NODE ? currentNode.parentElement : currentNode;
+      const mainContent = document.querySelector('.main-content');
+      const chunksInDOM = document.querySelectorAll('[data-chunk-id]').length;
+      const elementsWithNumericIds = document.querySelectorAll('[id]');
+      const numericIdElements = Array.from(elementsWithNumericIds).filter(el => /^\d+(\.\d+)*$/.test(el.id));
+
+      // Build parent chain string for error message
+      const parentChain = [];
+      let node = currentElement;
+      while (node && node !== document.body) {
+        const id = node.id ? `#${node.id}` : '';
+        const classes = node.className ? `.${Array.from(node.classList).join('.')}` : '';
+        parentChain.push(`${node.tagName}${id}${classes}`);
+        node = node.parentElement;
+      }
+      const parentChainStr = parentChain.join(' ← ');
+
+      console.error(`❌ [${pasteOpId}] Could not determine insertion point. Aborting paste.`);
+      console.error(`📍 Diagnostic Info - DOM STATE WHEN PASTE FAILED:`);
+      console.error(`  - Cursor was in node:`, currentNode);
+      console.error(`  - Cursor element:`, currentElement);
+      console.error(`  - Element tag: ${currentElement?.tagName}`);
+      console.error(`  - Element ID: "${currentElement?.id || '(none)'}"`);
+      console.error(`  - Element classes: "${currentElement?.className || '(none)'}"`);
+      console.error(`  - Parent chain: ${parentChainStr}`);
+      console.error(`  - Chunks in DOM: ${chunksInDOM}`);
+      console.error(`  - Elements with numeric IDs: ${numericIdElements.length}`);
+      console.error(`  - Cursor inside .main-content: ${mainContent?.contains(currentNode)}`);
+      console.error(`  - Current chunk element:`, chunkElement);
+
+      // Show user-friendly error message with cursor location
+      const cursorLocation = currentElement?.tagName
+        ? `${currentElement.tagName}${currentElement.id ? `#${currentElement.id}` : ''}`
+        : 'unknown location';
+      alert(`Cannot paste at current cursor position (cursor was in: ${cursorLocation}).\n\nPossible issues:\n- Cursor not inside a paragraph with numeric ID\n- Chunks already in DOM\n- Invalid DOM state\n\nPlease re-position cursor to a valid location (inside a paragraph) and try again.\n\nCheck console for detailed diagnostic info.`);
       return;
     }
     const contentToProcess = htmlContent || plainText;

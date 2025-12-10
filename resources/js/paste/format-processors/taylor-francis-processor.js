@@ -20,15 +20,12 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
   async extractFootnotes(dom, bookId) {
     const footnotes = [];
 
-    console.log('📝 T&F: Looking for Notes sections and footnote markers');
-
     // Find and mark footnote paragraphs
     // Look for Notes sections and summation-section divs
     const notesHeadings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
 
     notesHeadings.forEach(heading => {
       if (/notes/i.test(heading.textContent.trim()) || heading.id === 'inline_frontnotes') {
-        console.log(`📝 T&F: Found Notes heading: "${heading.textContent.trim()}"`);
 
         // Mark all following paragraphs as footnotes until we hit another heading
         let nextElement = heading.nextElementSibling;
@@ -83,8 +80,6 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                 this.generateFootnoteRefId(bookId, identifier),
                 'taylor-francis'
               ));
-
-              console.log(`📝 T&F: Extracted footnote ${identifier}: "${htmlContent.substring(0, 50)}..."`);
             }
           } else if (nextElement.tagName === 'DIV') {
             // Look inside divs (like summation-section)
@@ -147,8 +142,6 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                 );
                 footnote.enId = enId; // Store the EN ID for linking only
                 footnotes.push(footnote);
-
-                console.log(`📝 T&F: Extracted footnote from div ${identifier} (EN: ${enId}): "${htmlContent.substring(0, 50)}..."`);
               }
             });
           }
@@ -162,7 +155,6 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
     const summationSections = dom.querySelectorAll('.summation-section, div[id^="EN"]');
     summationSections.forEach(section => {
       const enId = section.id; // e.g., "EN0001"
-      console.log(`📝 T&F: Found footnote section: ${section.className || section.id}`);
       const paragraphs = section.querySelectorAll('p');
       paragraphs.forEach(p => {
         const pText = p.textContent.trim();
@@ -213,13 +205,12 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
             );
             footnote.enId = enId; // Store the EN ID for linking only
             footnotes.push(footnote);
-
-            console.log(`📝 T&F: Extracted footnote from section ${identifier} (EN: ${enId}): "${htmlContent.substring(0, 50)}..."`);
           }
         }
       });
     });
 
+    console.log(`📝 T&F: Extracted ${footnotes.length} footnotes`);
     return footnotes;
   }
 
@@ -233,7 +224,6 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
     // Direct search for CIT list items (primary T&F pattern)
     const citItems = dom.querySelectorAll('li[id^="CIT"]');
     if (citItems.length > 0) {
-      console.log(`📚 T&F: Found ${citItems.length} CIT reference items`);
       citItems.forEach(item => {
         const citId = item.id; // e.g., "CIT0038"
         const content = item.textContent.trim();
@@ -250,20 +240,15 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
 
           // Map CIT ID to reference for later citation linking
           this.citIdToRefMap.set(citId, reference);
-
-          console.log(`📚 T&F: Extracted reference #${citId}: "${content.substring(0, 60)}..."`);
         }
       });
     }
 
     // Fallback: Look for References heading and extract from lists
     if (references.length === 0) {
-      console.log('📚 T&F: No CIT items found, searching for References heading');
       const headings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
       for (const heading of headings) {
         if (/references|bibliography/i.test(heading.textContent.trim())) {
-          console.log(`📚 T&F: Found references section: "${heading.textContent.trim()}"`);
-
           let nextElement = heading.nextElementSibling;
           while (nextElement) {
             if (nextElement.tagName && /^H[1-6]$/.test(nextElement.tagName)) {
@@ -285,7 +270,6 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                       type: 'taylor-francis-list',
                       needsKeyGeneration: true
                     });
-                    console.log(`📚 T&F: Extracted reference from ${item.tagName}: "${content.substring(0, 60)}..."`);
                   }
                 }
               });
@@ -297,7 +281,7 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
       }
     }
 
-    console.log(`📚 T&F: Total references extracted: ${references.length}`);
+    console.log(`📚 T&F: Extracted ${references.length} references`);
 
     // Store for use in transformStructure
     this.extractedReferences = references;
@@ -348,10 +332,10 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
    * Override linkFootnotes to handle T&F-specific data-rid footnote links
    */
   linkFootnotes(dom, footnotes) {
-    // First, let base class handle standard footnote linking
-    super.linkFootnotes(dom, footnotes);
+    // DO NOT call super.linkFootnotes() - it causes double-processing and malformed structures
+    // T&F has a unique structure with <a data-rid="EN"><sup>1</sup></a> that requires special handling
 
-    // Now convert T&F footnote links from data-rid to href
+    // Convert T&F footnote links from data-rid to href
     const footnoteLinks = dom.querySelectorAll('a[data-rid^="EN"]');
     let convertedCount = 0;
 
@@ -362,9 +346,15 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
       const footnote = footnotes.find(fn => fn.enId === enId);
 
       if (footnote) {
-        // Extract the number from the <sup> tag inside the link
+        // Extract the number from the <sup> tag inside the link BEFORE any processing
         const supElement = link.querySelector('sup');
-        const identifier = supElement ? supElement.textContent.trim() : footnote.originalIdentifier;
+        let identifier = supElement ? supElement.textContent.trim() : footnote.originalIdentifier;
+
+        // Validate identifier is not empty
+        if (!identifier || identifier === '') {
+          console.warn(`⚠️ T&F: Empty identifier for ${enId}, using originalIdentifier: ${footnote.originalIdentifier}`);
+          identifier = footnote.originalIdentifier;
+        }
 
         // Create new structure: <sup id="..." fn-count-id="1"><a href="..." class="footnote-ref">1</a></sup>
         const newSup = document.createElement('sup');
