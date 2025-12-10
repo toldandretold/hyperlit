@@ -83,67 +83,129 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
             }
           } else if (nextElement.tagName === 'DIV') {
             // Look inside divs (like summation-section)
-            // First check if this div itself has an EN id
-            let enId = nextElement.id;
+            // Check if this div itself has a footnote RID (EN or FN format)
+            const divHasFootnoteId = nextElement.id && (nextElement.id.startsWith('EN') || nextElement.id.startsWith('FN'));
 
-            // If not, check for child divs with EN ids (e.g., summation-section > div#EN0001)
-            if (!enId || !enId.startsWith('EN')) {
-              const enDiv = nextElement.querySelector('div[id^="EN"]');
-              if (enDiv) {
-                enId = enDiv.id;
-              }
-            }
+            if (divHasFootnoteId) {
+              // This div itself has a footnote ID - process its paragraphs
+              const footnoteRid = nextElement.id;
+              const paragraphs = nextElement.querySelectorAll('p');
+              paragraphs.forEach(p => {
+                const pText = p.textContent.trim();
+                const match = pText.match(/^(\d+)[\.\)\s]/);
+                if (match) {
+                  const identifier = match[1];
+                  p.classList.add('footnote');
 
-            const paragraphs = nextElement.querySelectorAll('p');
-            paragraphs.forEach(p => {
-              const pText = p.textContent.trim();
-              const match = pText.match(/^(\d+)[\.\)\s]/);
-              if (match) {
-                const identifier = match[1];
-                p.classList.add('footnote');
+                  // Get HTML content and clean thoroughly
+                  let htmlContent = p.innerHTML.trim();
 
-                // Get HTML content and clean thoroughly
-                let htmlContent = p.innerHTML.trim();
+                  // Remove leading number (handles both plain text and HTML)
+                  htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
 
-                // Remove leading number (handles both plain text and HTML)
-                htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
+                  // Clean up T&F citation links in footnote content
+                  const tempDiv = document.createElement('div');
+                  tempDiv.innerHTML = htmlContent;
 
-                // Clean up T&F citation links in footnote content
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = htmlContent;
+                  // Remove citation wrapper spans
+                  tempDiv.querySelectorAll('span.ref-lnk').forEach(span => {
+                    while (span.firstChild) {
+                      span.parentNode.insertBefore(span.firstChild, span);
+                    }
+                    span.remove();
+                  });
 
-                // Remove citation wrapper spans
-                tempDiv.querySelectorAll('span.ref-lnk').forEach(span => {
-                  while (span.firstChild) {
-                    span.parentNode.insertBefore(span.firstChild, span);
+                  // Clean citation links
+                  tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach(link => {
+                    link.removeAttribute('data-rid');
+                    link.removeAttribute('data-behaviour');
+                    link.removeAttribute('data-ref-type');
+                    link.removeAttribute('data-label');
+                    link.removeAttribute('data-registered');
+                    link.removeAttribute('href');
+                    link.querySelectorAll('span.off-screen').forEach(s => s.remove());
+                  });
+
+                  htmlContent = tempDiv.innerHTML;
+
+                  const footnote = this.createFootnote(
+                    this.generateFootnoteId(bookId, identifier), // Always use standard ID
+                    htmlContent, // Don't add identifier prefix
+                    identifier,
+                    this.generateFootnoteRefId(bookId, identifier),
+                    'taylor-francis'
+                  );
+                  // Store the RID for linking - could be "EN" or "FN" format
+                  if (footnoteRid.startsWith('EN')) {
+                    footnote.enId = footnoteRid;
+                  } else if (footnoteRid.startsWith('FN')) {
+                    footnote.fnId = footnoteRid;
                   }
-                  span.remove();
+                  footnotes.push(footnote);
+                }
+              });
+            } else {
+              // This div is a container (like summation-section) - process each child div separately
+              const childDivs = nextElement.querySelectorAll('div[id^="EN"], div[id^="FN"]');
+              childDivs.forEach(childDiv => {
+                const footnoteRid = childDiv.id;
+                const paragraphs = childDiv.querySelectorAll('p');
+                paragraphs.forEach(p => {
+                  const pText = p.textContent.trim();
+                  const match = pText.match(/^(\d+)[\.\)\s]/);
+                  if (match) {
+                    const identifier = match[1];
+                    p.classList.add('footnote');
+
+                    // Get HTML content and clean thoroughly
+                    let htmlContent = p.innerHTML.trim();
+
+                    // Remove leading number (handles both plain text and HTML)
+                    htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
+
+                    // Clean up T&F citation links in footnote content
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = htmlContent;
+
+                    // Remove citation wrapper spans
+                    tempDiv.querySelectorAll('span.ref-lnk').forEach(span => {
+                      while (span.firstChild) {
+                        span.parentNode.insertBefore(span.firstChild, span);
+                      }
+                      span.remove();
+                    });
+
+                    // Clean citation links
+                    tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach(link => {
+                      link.removeAttribute('data-rid');
+                      link.removeAttribute('data-behaviour');
+                      link.removeAttribute('data-ref-type');
+                      link.removeAttribute('data-label');
+                      link.removeAttribute('data-registered');
+                      link.removeAttribute('href');
+                      link.querySelectorAll('span.off-screen').forEach(s => s.remove());
+                    });
+
+                    htmlContent = tempDiv.innerHTML;
+
+                    const footnote = this.createFootnote(
+                      this.generateFootnoteId(bookId, identifier), // Always use standard ID
+                      htmlContent, // Don't add identifier prefix
+                      identifier,
+                      this.generateFootnoteRefId(bookId, identifier),
+                      'taylor-francis'
+                    );
+                    // Store the RID for linking - could be "EN" or "FN" format
+                    if (footnoteRid.startsWith('EN')) {
+                      footnote.enId = footnoteRid;
+                    } else if (footnoteRid.startsWith('FN')) {
+                      footnote.fnId = footnoteRid;
+                    }
+                    footnotes.push(footnote);
+                  }
                 });
-
-                // Clean citation links
-                tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach(link => {
-                  link.removeAttribute('data-rid');
-                  link.removeAttribute('data-behaviour');
-                  link.removeAttribute('data-ref-type');
-                  link.removeAttribute('data-label');
-                  link.removeAttribute('data-registered');
-                  link.removeAttribute('href');
-                  link.querySelectorAll('span.off-screen').forEach(s => s.remove());
-                });
-
-                htmlContent = tempDiv.innerHTML;
-
-                const footnote = this.createFootnote(
-                  this.generateFootnoteId(bookId, identifier), // Always use standard ID
-                  htmlContent, // Don't add identifier prefix
-                  identifier,
-                  this.generateFootnoteRefId(bookId, identifier),
-                  'taylor-francis'
-                );
-                footnote.enId = enId; // Store the EN ID for linking only
-                footnotes.push(footnote);
-              }
-            });
+              });
+            }
           }
 
           nextElement = nextElement.nextElementSibling;
@@ -151,10 +213,10 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
       }
     });
 
-    // Also check for summation-section divs specifically
-    const summationSections = dom.querySelectorAll('.summation-section, div[id^="EN"]');
+    // Also check for summation-section divs specifically (both "EN" and "FN" formats)
+    const summationSections = dom.querySelectorAll('.summation-section, div[id^="EN"], div[id^="FN"]');
     summationSections.forEach(section => {
-      const enId = section.id; // e.g., "EN0001"
+      const footnoteRid = section.id; // e.g., "EN0001" or "FN0002"
       const paragraphs = section.querySelectorAll('p');
       paragraphs.forEach(p => {
         const pText = p.textContent.trim();
@@ -203,7 +265,12 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
               this.generateFootnoteRefId(bookId, identifier),
               'taylor-francis'
             );
-            footnote.enId = enId; // Store the EN ID for linking only
+            // Store the RID for linking - could be "EN" or "FN" format
+            if (footnoteRid && footnoteRid.startsWith('EN')) {
+              footnote.enId = footnoteRid;
+            } else if (footnoteRid && footnoteRid.startsWith('FN')) {
+              footnote.fnId = footnoteRid;
+            }
             footnotes.push(footnote);
           }
         }
@@ -333,17 +400,19 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
    */
   linkFootnotes(dom, footnotes) {
     // DO NOT call super.linkFootnotes() - it causes double-processing and malformed structures
-    // T&F has a unique structure with <a data-rid="EN"><sup>1</sup></a> that requires special handling
+    // T&F has unique structures that require special handling:
+    // - Format 1: <a data-rid="EN0001"><sup>1</sup></a> (endnotes)
+    // - Format 2: <a data-rid="FN0002"><sup>2</sup></a> (footnotes)
 
-    // Convert T&F footnote links from data-rid to href
-    const footnoteLinks = dom.querySelectorAll('a[data-rid^="EN"]');
+    // Convert T&F footnote links from data-rid to href (both "EN" and "FN" formats)
+    const footnoteLinks = dom.querySelectorAll('a[data-rid^="EN"], a[data-rid^="FN"]');
     let convertedCount = 0;
 
     footnoteLinks.forEach(link => {
-      const enId = link.getAttribute('data-rid'); // e.g., "EN0001"
+      const footnoteRid = link.getAttribute('data-rid'); // e.g., "EN0001" or "FN0002"
 
-      // Find the footnote with this EN ID
-      const footnote = footnotes.find(fn => fn.enId === enId);
+      // Find the footnote with this RID (could be stored as enId or fnId)
+      const footnote = footnotes.find(fn => fn.enId === footnoteRid || fn.fnId === footnoteRid);
 
       if (footnote) {
         // Extract the number from the <sup> tag inside the link BEFORE any processing
@@ -352,7 +421,7 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
 
         // Validate identifier is not empty
         if (!identifier || identifier === '') {
-          console.warn(`⚠️ T&F: Empty identifier for ${enId}, using originalIdentifier: ${footnote.originalIdentifier}`);
+          console.warn(`⚠️ T&F: Empty identifier for ${footnoteRid}, using originalIdentifier: ${footnote.originalIdentifier}`);
           identifier = footnote.originalIdentifier;
         }
 
@@ -373,7 +442,7 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
 
         convertedCount++;
       } else {
-        console.warn(`⚠️ T&F: Could not find footnote for ${enId}`);
+        console.warn(`⚠️ T&F: Could not find footnote for ${footnoteRid}`);
       }
     });
 
