@@ -541,15 +541,262 @@ public function targetedUpsert(Request $request)
     {
         // Create a copy to avoid modifying the original
         $cleanItem = $item;
-        
+
         // Remove the raw_json field to prevent recursive nesting
         unset($cleanItem['raw_json']);
-        
+
         // Also remove any other potentially problematic nested fields
         if (isset($cleanItem['full_library_array'])) {
             unset($cleanItem['full_library_array']);
         }
-        
+
         return $cleanItem;
+    }
+
+    /**
+     * Optimized bulk targeted upsert - replaces per-item loop with batch operations
+     * Reduces 300+ queries to 3-5 queries for 150+ nodes
+     */
+    public function bulkTargetedUpsert(Request $request)
+    {
+        try {
+            $data = $request->all();
+
+            if (!isset($data['data']) || !is_array($data['data']) || empty($data['data'])) {
+                return response()->json(['success' => false, 'message' => 'Invalid data format'], 400);
+            }
+
+            // Group items by book
+            $itemsByBook = [];
+            foreach ($data['data'] as $item) {
+                $book = $item['book'] ?? null;
+                if (!$book) {
+                    Log::warning('Skipping item without book ID', ['item' => $item]);
+                    continue;
+                }
+                if (!isset($itemsByBook[$book])) {
+                    $itemsByBook[$book] = [];
+                }
+                $itemsByBook[$book][] = $item;
+            }
+
+            Log::info('Bulk targeted upsert processing', [
+                'books' => array_keys($itemsByBook),
+                'total_items' => count($data['data'])
+            ]);
+
+            $totalDeleted = 0;
+            $totalUpserted = 0;
+
+            foreach ($itemsByBook as $bookId => $items) {
+                $hasPermission = $this->checkBookPermission($request, $bookId);
+
+                if (!$hasPermission) {
+                    Log::warning("Permission denied for book {$bookId}");
+                    continue;
+                }
+
+                // Separate deletes from upserts
+                $toDelete = [];
+                $toUpsert = [];
+
+                foreach ($items as $item) {
+                    if (isset($item['_action']) && $item['_action'] === 'delete') {
+                        $toDelete[] = $item;
+                    } else {
+                        $toUpsert[] = $item;
+                    }
+                }
+
+                // Phase 1: Batch delete (single query)
+                if (!empty($toDelete)) {
+                    $deleted = $this->batchDelete($bookId, $toDelete);
+                    $totalDeleted += $deleted;
+                }
+
+                // Phase 2: Batch upsert
+                if (!empty($toUpsert)) {
+                    $upserted = $this->batchUpsert($bookId, $toUpsert);
+                    $totalUpserted += $upserted;
+                }
+            }
+
+            Log::info('Bulk targeted upsert completed', [
+                'deleted' => $totalDeleted,
+                'upserted' => $totalUpserted
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Node chunks updated successfully (bulk)",
+                'deleted' => $totalDeleted,
+                'upserted' => $totalUpserted
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Bulk targeted upsert failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to sync data (bulk)',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Batch delete nodes by startLine - single query instead of N queries
+     */
+    private function batchDelete(string $bookId, array $items): int
+    {
+        if (empty($items)) {
+            return 0;
+        }
+
+        $startLines = array_column($items, 'startLine');
+
+        $deleted = \DB::table('nodes')
+            ->where('book', $bookId)
+            ->whereIn('startLine', $startLines)
+            ->delete();
+
+        Log::debug("Batch deleted {$deleted} nodes", [
+            'book' => $bookId,
+            'requested' => count($startLines)
+        ]);
+
+        return $deleted;
+    }
+
+    /**
+     * Batch upsert nodes - handles dual-lookup (node_id first, then startLine fallback)
+     */
+    private function batchUpsert(string $bookId, array $items): int
+    {
+        if (empty($items)) {
+            return 0;
+        }
+
+        // Separate items with node_id from those without
+        $withNodeId = array_values(array_filter($items, fn($item) => !empty($item['node_id'])));
+        $withoutNodeId = array_values(array_filter($items, fn($item) => empty($item['node_id'])));
+
+        $count = 0;
+
+        // Phase 1: Upsert records WITH node_id (conflict on book + node_id)
+        if (!empty($withNodeId)) {
+            $count += $this->batchUpsertByNodeId($bookId, $withNodeId);
+        }
+
+        // Phase 2: Upsert records WITHOUT node_id (conflict on book + startLine)
+        if (!empty($withoutNodeId)) {
+            $count += $this->batchUpsertByStartLine($bookId, $withoutNodeId);
+        }
+
+        return $count;
+    }
+
+    /**
+     * Upsert records using node_id as the conflict target
+     * Uses raw SQL for true PostgreSQL UPSERT
+     */
+    private function batchUpsertByNodeId(string $bookId, array $items): int
+    {
+        if (empty($items)) {
+            return 0;
+        }
+
+        $now = now()->format('Y-m-d H:i:s');
+        $values = [];
+        $bindings = [];
+
+        foreach ($items as $item) {
+            $values[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+            $bindings[] = $bookId;
+            $bindings[] = $item['node_id'];
+            $bindings[] = $item['startLine'] ?? null;
+            $bindings[] = $item['chunk_id'] ?? 0;
+            $bindings[] = $item['content'] ?? null;
+            $bindings[] = json_encode($item['footnotes'] ?? []);
+            $bindings[] = $item['plainText'] ?? null;
+            $bindings[] = $item['type'] ?? null;
+            $bindings[] = json_encode($this->cleanItemForStorage($item));
+            $bindings[] = $now;
+            $bindings[] = $now;
+        }
+
+        $sql = '
+            INSERT INTO nodes (book, node_id, "startLine", chunk_id, content, footnotes, "plainText", type, raw_json, created_at, updated_at)
+            VALUES ' . implode(', ', $values) . '
+            ON CONFLICT (book, node_id) WHERE node_id IS NOT NULL
+            DO UPDATE SET
+                "startLine" = EXCLUDED."startLine",
+                chunk_id = EXCLUDED.chunk_id,
+                content = EXCLUDED.content,
+                footnotes = EXCLUDED.footnotes,
+                "plainText" = EXCLUDED."plainText",
+                type = EXCLUDED.type,
+                raw_json = EXCLUDED.raw_json,
+                updated_at = EXCLUDED.updated_at
+        ';
+
+        \DB::statement($sql, $bindings);
+
+        Log::debug("Batch upserted " . count($items) . " nodes by node_id", ['book' => $bookId]);
+
+        return count($items);
+    }
+
+    /**
+     * Upsert records using startLine as the conflict target (fallback for records without node_id)
+     */
+    private function batchUpsertByStartLine(string $bookId, array $items): int
+    {
+        if (empty($items)) {
+            return 0;
+        }
+
+        $now = now()->format('Y-m-d H:i:s');
+        $values = [];
+        $bindings = [];
+
+        foreach ($items as $item) {
+            $values[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+            $bindings[] = $bookId;
+            $bindings[] = $item['node_id'] ?? null;
+            $bindings[] = $item['startLine'] ?? null;
+            $bindings[] = $item['chunk_id'] ?? 0;
+            $bindings[] = $item['content'] ?? null;
+            $bindings[] = json_encode($item['footnotes'] ?? []);
+            $bindings[] = $item['plainText'] ?? null;
+            $bindings[] = $item['type'] ?? null;
+            $bindings[] = json_encode($this->cleanItemForStorage($item));
+            $bindings[] = $now;
+            $bindings[] = $now;
+        }
+
+        $sql = '
+            INSERT INTO nodes (book, node_id, "startLine", chunk_id, content, footnotes, "plainText", type, raw_json, created_at, updated_at)
+            VALUES ' . implode(', ', $values) . '
+            ON CONFLICT (book, "startLine")
+            DO UPDATE SET
+                node_id = COALESCE(EXCLUDED.node_id, nodes.node_id),
+                chunk_id = EXCLUDED.chunk_id,
+                content = EXCLUDED.content,
+                footnotes = EXCLUDED.footnotes,
+                "plainText" = EXCLUDED."plainText",
+                type = EXCLUDED.type,
+                raw_json = EXCLUDED.raw_json,
+                updated_at = EXCLUDED.updated_at
+        ';
+
+        \DB::statement($sql, $bindings);
+
+        Log::debug("Batch upserted " . count($items) . " nodes by startLine", ['book' => $bookId]);
+
+        return count($items);
     }
 }
