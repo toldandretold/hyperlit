@@ -5,7 +5,7 @@
  */
 
 import { normalizeContent } from '../utils/normalizer.js';
-import { createTempDOM, removeEmptyBlocks, stripAttributes, groupInlineElements } from '../utils/dom-utils.js';
+import { createTempDOM, removeEmptyBlocks, stripAttributes, groupInlineElements, visuallyStartsWith } from '../utils/dom-utils.js';
 import { generateReferenceKeys } from '../utils/reference-key-generator.js';
 import { processInTextCitations } from '../utils/citation-linker.js';
 import { processFootnoteReferences } from '../utils/footnote-linker.js';
@@ -272,11 +272,23 @@ export class BaseFormatProcessor {
       footnotes.forEach(footnote => {
         const p = document.createElement('p');
 
-        // Check if content already starts with the number (avoid double numbering)
-        const contentStartsWithNumber = footnote.content.trim().startsWith(`${footnote.originalIdentifier}.`)
-          || footnote.content.trim().startsWith(`${footnote.originalIdentifier} `);
+        // Check if content already visually starts with the number (avoid double numbering)
+        // Use helper to check actual visible text, not raw HTML
+        // Handles cases where numbers are wrapped: "<span>1.</span> Text"
+        const contentStartsWithNumberDot = visuallyStartsWith(
+          footnote.content,
+          `${footnote.originalIdentifier}.`
+        );
+        const contentStartsWithNumberSpace = visuallyStartsWith(
+          footnote.content,
+          `${footnote.originalIdentifier} `
+        );
+        const contentStartsWithNumberParen = visuallyStartsWith(
+          footnote.content,
+          `${footnote.originalIdentifier})`
+        );
 
-        if (contentStartsWithNumber) {
+        if (contentStartsWithNumberDot || contentStartsWithNumberSpace || contentStartsWithNumberParen) {
           // Content already has number, don't prepend
           p.innerHTML = footnote.content;
         } else {

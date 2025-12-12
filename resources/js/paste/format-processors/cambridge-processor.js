@@ -9,7 +9,7 @@
  */
 
 import { BaseFormatProcessor } from './base-processor.js';
-import { wrapLooseNodes, unwrap } from '../utils/dom-utils.js';
+import { wrapLooseNodes, unwrap, isReferenceSectionHeading } from '../utils/dom-utils.js';
 
 export class CambridgeProcessor extends BaseFormatProcessor {
   constructor() {
@@ -274,10 +274,13 @@ export class CambridgeProcessor extends BaseFormatProcessor {
     // They're already extracted above and will be appended as static content
     const headings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
     let removedSections = 0;
+
     headings.forEach(heading => {
-      const headingText = heading.textContent.trim().toLowerCase();
-      if (/^(notes|references|bibliography|footnotes)$/i.test(headingText)) {
-        console.log(`📚 Cambridge: Removing "${heading.textContent.trim()}" section from main content`);
+      const headingText = heading.textContent.trim();
+
+      // Use improved matcher that handles multi-word, whitespace variations
+      if (isReferenceSectionHeading(headingText)) {
+        console.log(`📚 Cambridge: Removing "${headingText}" section from main content`);
         let nextElement = heading.nextElementSibling;
         heading.remove();
         removedSections++;
@@ -292,6 +295,15 @@ export class CambridgeProcessor extends BaseFormatProcessor {
         }
       }
     });
+
+    // PASS 2: Remove elements with data-static-content
+    const staticElements = dom.querySelectorAll('[data-static-content]');
+    staticElements.forEach(el => {
+      console.log(`📚 Cambridge: Removing element with data-static-content="${el.getAttribute('data-static-content')}"`);
+      el.remove();
+      removedSections++;
+    });
+
     console.log(`📚 Cambridge: Removed ${removedSections} section(s) from main content`);
 
     // STEP 5: General unwrapping of remaining containers

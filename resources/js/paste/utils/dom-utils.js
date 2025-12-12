@@ -204,3 +204,53 @@ export function groupInlineElements(container, doc = document) {
     }
   });
 }
+
+/**
+ * Check if HTML content visually starts with a specific text pattern
+ * Handles cases where the text is wrapped in HTML tags like <span>1.</span>
+ * @param {string} htmlContent - HTML content to check
+ * @param {string} textPattern - Text pattern to look for at the start
+ * @returns {boolean} - True if visible content starts with pattern
+ */
+export function visuallyStartsWith(htmlContent, textPattern) {
+  const temp = document.createElement('div');
+  temp.innerHTML = htmlContent.trim();
+  const visibleText = temp.textContent.trim();
+  return visibleText.startsWith(textPattern);
+}
+
+/**
+ * Check if heading text matches a reference/notes section pattern
+ * Handles multi-word, extra whitespace, and common variations
+ * @param {string} headingText - Text content of heading
+ * @returns {boolean} - True if matches a section to remove
+ */
+export function isReferenceSectionHeading(headingText) {
+  const normalized = headingText.trim().toLowerCase().replace(/\s+/g, ' ');
+
+  const exactPatterns = [
+    'footnote', 'footnotes',
+    'endnote', 'endnotes',
+    'end note', 'end notes',
+    'note', 'notes',
+    'bibliography', 'bibliographies',
+    'reference', 'references',
+    'reference list',
+    'works cited',
+    'works consulted',
+    'sources',
+    'literature cited'
+  ];
+
+  if (exactPatterns.includes(normalized)) {
+    return true;
+  }
+
+  // Match headings with colons
+  const startsWithPatterns = ['notes:', 'references:', 'bibliography:'];
+  for (const pattern of startsWithPatterns) {
+    if (normalized.startsWith(pattern)) return true;
+  }
+
+  return false;
+}

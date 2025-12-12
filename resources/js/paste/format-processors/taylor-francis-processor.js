@@ -4,7 +4,7 @@
  */
 
 import { BaseFormatProcessor } from './base-processor.js';
-import { unwrap, wrapLooseNodes } from '../utils/dom-utils.js';
+import { unwrap, wrapLooseNodes, isReferenceSectionHeading } from '../utils/dom-utils.js';
 
 export class TaylorFrancisProcessor extends BaseFormatProcessor {
   constructor() {
@@ -494,11 +494,17 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
     // 3. Remove footnote and reference sections from main content
     // They're already extracted above
     const notesHeadings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    let removedCount = 0;
+
     notesHeadings.forEach(heading => {
-      const headingText = heading.textContent.trim().toLowerCase();
-      if (/notes|references|bibliography/i.test(headingText)) {
+      const headingText = heading.textContent.trim();
+
+      // Use improved matcher that handles multi-word, whitespace variations
+      if (isReferenceSectionHeading(headingText)) {
+        console.log(`📚 T&F: Removing "${headingText}" section from main content`);
         let nextElement = heading.nextElementSibling;
         heading.remove();
+        removedCount++;
 
         while (nextElement) {
           const next = nextElement.nextElementSibling;
@@ -510,6 +516,16 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
         }
       }
     });
+
+    // PASS 2: Remove elements with data-static-content
+    const staticElements = dom.querySelectorAll('[data-static-content]');
+    staticElements.forEach(el => {
+      console.log(`📚 T&F: Removing element with data-static-content="${el.getAttribute('data-static-content')}"`);
+      el.remove();
+      removedCount++;
+    });
+
+    console.log(`📚 T&F: Removed ${removedCount} section(s) from main content`);
 
     // 4. Unwrap T&F footnote/citation wrapper spans first (before general unwrapping)
     const tfWrapperSpans = Array.from(dom.querySelectorAll('span.ref-lnk'));

@@ -9,7 +9,7 @@
  */
 
 import { BaseFormatProcessor } from './base-processor.js';
-import { unwrap, wrapLooseNodes } from '../utils/dom-utils.js';
+import { unwrap, wrapLooseNodes, isReferenceSectionHeading } from '../utils/dom-utils.js';
 
 export class OupProcessor extends BaseFormatProcessor {
   constructor() {
@@ -411,35 +411,40 @@ export class OupProcessor extends BaseFormatProcessor {
    * @param {HTMLElement} dom - DOM element
    */
   removeExtractedSections(dom) {
-    const headings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
     let removedCount = 0;
 
+    // PASS 1: Remove by heading text matching
+    const headings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
+
     headings.forEach(heading => {
-      const text = heading.textContent.trim().toLowerCase();
+      const text = heading.textContent.trim();
 
-      // Match: "footnotes", "endnotes", "notes", "bibliography", "references", "works cited"
-      if (/^(footnotes?|endnotes?|notes|bibliography|references|works cited)$/i.test(text)) {
-        console.log(`📚 OUP: Removing original "${heading.textContent.trim()}" section from body`);
+      // Use improved matcher that handles multi-word, whitespace variations
+      if (isReferenceSectionHeading(text)) {
+        console.log(`📚 OUP: Removing original "${text}" section from body`);
 
-        // Remove heading
         let nextElement = heading.nextElementSibling;
         heading.remove();
         removedCount++;
 
-        // Remove all content until next heading or end of document
+        // Remove all content until next heading or end
         while (nextElement) {
           const next = nextElement.nextElementSibling;
-
-          // Stop if we hit another heading (start of new section)
           if (nextElement.tagName && /^H[1-6]$/.test(nextElement.tagName)) {
             break;
           }
-
-          // Remove this element (part of extracted section)
           nextElement.remove();
           nextElement = next;
         }
       }
+    });
+
+    // PASS 2: Remove elements with data-static-content attribute
+    const staticElements = dom.querySelectorAll('[data-static-content]');
+    staticElements.forEach(el => {
+      console.log(`📚 OUP: Removing element with data-static-content="${el.getAttribute('data-static-content')}"`);
+      el.remove();
+      removedCount++;
     });
 
     console.log(`📚 OUP: Removed ${removedCount} extracted section(s) from body`);
