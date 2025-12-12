@@ -67,12 +67,13 @@ export class BaseFormatProcessor {
     // Stage 5: Cleanup (common) - BEFORE linking so we don't strip essential classes
     this.cleanup(dom);
 
-    // Stage 6: Link processing (common, but uses format-specific data)
+    // Stage 6: Append static sections (common) - BEFORE linking so citations can be linked
+    this.appendStaticSections(dom, footnotes, references);
+
+    // Stage 7: Link processing (common, but uses format-specific data)
+    // Will process body content AND static footnotes (but not bibliography)
     this.linkCitations(dom, references);
     this.linkFootnotes(dom, footnotes);
-
-    // Stage 7: Append static sections (common) - AFTER linking is complete
-    this.appendStaticSections(dom, footnotes, references);
 
     console.log(`✅ ${this.formatType} processing complete`);
 
@@ -270,7 +271,19 @@ export class BaseFormatProcessor {
       // Add each footnote as a paragraph (content already cleaned)
       footnotes.forEach(footnote => {
         const p = document.createElement('p');
-        p.innerHTML = `${footnote.originalIdentifier}. ${footnote.content}`;
+
+        // Check if content already starts with the number (avoid double numbering)
+        const contentStartsWithNumber = footnote.content.trim().startsWith(`${footnote.originalIdentifier}.`)
+          || footnote.content.trim().startsWith(`${footnote.originalIdentifier} `);
+
+        if (contentStartsWithNumber) {
+          // Content already has number, don't prepend
+          p.innerHTML = footnote.content;
+        } else {
+          // Prepend number
+          p.innerHTML = `${footnote.originalIdentifier}. ${footnote.content}`;
+        }
+
         p.setAttribute('data-static-content', 'footnotes');
         dom.appendChild(p);
       });

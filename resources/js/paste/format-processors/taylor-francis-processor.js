@@ -60,15 +60,17 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                 span.remove();
               });
 
-              // Clean citation links
+              // Clean citation links - keep data-rid for T&F linkCitations() to process
               tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach(link => {
-                link.removeAttribute('data-rid');
+                // Remove off-screen spans
+                link.querySelectorAll('span.off-screen').forEach(s => s.remove());
+
+                // Remove problematic attributes but KEEP data-rid
                 link.removeAttribute('data-behaviour');
                 link.removeAttribute('data-ref-type');
                 link.removeAttribute('data-label');
                 link.removeAttribute('data-registered');
-                link.removeAttribute('href');
-                link.querySelectorAll('span.off-screen').forEach(s => s.remove());
+                link.removeAttribute('href'); // Remove temporary href, T&F linkCitations will add proper one
               });
 
               htmlContent = tempDiv.innerHTML;
@@ -115,15 +117,17 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                     span.remove();
                   });
 
-                  // Clean citation links
+                  // Clean citation links - keep data-rid for T&F linkCitations() to process
                   tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach(link => {
-                    link.removeAttribute('data-rid');
+                    // Remove off-screen spans
+                    link.querySelectorAll('span.off-screen').forEach(s => s.remove());
+
+                    // Remove problematic attributes but KEEP data-rid
                     link.removeAttribute('data-behaviour');
                     link.removeAttribute('data-ref-type');
                     link.removeAttribute('data-label');
                     link.removeAttribute('data-registered');
-                    link.removeAttribute('href');
-                    link.querySelectorAll('span.off-screen').forEach(s => s.remove());
+                    link.removeAttribute('href'); // Remove temporary href, T&F linkCitations will add proper one
                   });
 
                   htmlContent = tempDiv.innerHTML;
@@ -175,15 +179,17 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                       span.remove();
                     });
 
-                    // Clean citation links
+                    // Clean citation links - keep data-rid for T&F linkCitations() to process
                     tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach(link => {
-                      link.removeAttribute('data-rid');
+                      // Remove off-screen spans
+                      link.querySelectorAll('span.off-screen').forEach(s => s.remove());
+
+                      // Remove problematic attributes but KEEP data-rid
                       link.removeAttribute('data-behaviour');
                       link.removeAttribute('data-ref-type');
                       link.removeAttribute('data-label');
                       link.removeAttribute('data-registered');
-                      link.removeAttribute('href');
-                      link.querySelectorAll('span.off-screen').forEach(s => s.remove());
+                      link.removeAttribute('href'); // Remove temporary href, T&F linkCitations will add proper one
                     });
 
                     htmlContent = tempDiv.innerHTML;
@@ -245,15 +251,17 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
               span.remove();
             });
 
-            // Clean citation links
+            // Clean citation links - keep data-rid for T&F linkCitations() to process
             tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach(link => {
-              link.removeAttribute('data-rid');
+              // Remove off-screen spans
+              link.querySelectorAll('span.off-screen').forEach(s => s.remove());
+
+              // Remove problematic attributes but KEEP data-rid
               link.removeAttribute('data-behaviour');
               link.removeAttribute('data-ref-type');
               link.removeAttribute('data-label');
               link.removeAttribute('data-registered');
-              link.removeAttribute('href');
-              link.querySelectorAll('span.off-screen').forEach(s => s.remove());
+              link.removeAttribute('href'); // Remove temporary href, T&F linkCitations will add proper one
             });
 
             htmlContent = tempDiv.innerHTML;
