@@ -390,12 +390,13 @@ export class NewBookTransition {
    */
   static async enterEditMode() {
     verbose.nav('Entering edit mode', 'NewBookTransition.js');
-    
+
     try {
-      await enableEditMode(null, false); // false = don't force redirect
+      // For new books, target the initial H1 element (id="100")
+      await enableEditMode("100", false); // Pass "100" as target, false = don't force redirect
 
       verbose.nav('Edit mode enabled', 'NewBookTransition.js');
-      
+
     } catch (error) {
       console.error('❌ NewBookTransition: Failed to enter edit mode:', error);
       // Don't throw - edit mode failure shouldn't break the entire transition

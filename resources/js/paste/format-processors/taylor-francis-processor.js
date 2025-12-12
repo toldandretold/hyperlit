@@ -4,7 +4,7 @@
  */
 
 import { BaseFormatProcessor } from './base-processor.js';
-import { unwrap, wrapLooseNodes } from '../utils/dom-utils.js';
+import { unwrap, wrapLooseNodes, isReferenceSectionHeading } from '../utils/dom-utils.js';
 
 export class TaylorFrancisProcessor extends BaseFormatProcessor {
   constructor() {
@@ -20,15 +20,12 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
   async extractFootnotes(dom, bookId) {
     const footnotes = [];
 
-    console.log('📝 T&F: Looking for Notes sections and footnote markers');
-
     // Find and mark footnote paragraphs
     // Look for Notes sections and summation-section divs
     const notesHeadings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
 
     notesHeadings.forEach(heading => {
       if (/notes/i.test(heading.textContent.trim()) || heading.id === 'inline_frontnotes') {
-        console.log(`📝 T&F: Found Notes heading: "${heading.textContent.trim()}"`);
 
         // Mark all following paragraphs as footnotes until we hit another heading
         let nextElement = heading.nextElementSibling;
@@ -63,15 +60,17 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                 span.remove();
               });
 
-              // Clean citation links
+              // Clean citation links - keep data-rid for T&F linkCitations() to process
               tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach(link => {
-                link.removeAttribute('data-rid');
+                // Remove off-screen spans
+                link.querySelectorAll('span.off-screen').forEach(s => s.remove());
+
+                // Remove problematic attributes but KEEP data-rid
                 link.removeAttribute('data-behaviour');
                 link.removeAttribute('data-ref-type');
                 link.removeAttribute('data-label');
                 link.removeAttribute('data-registered');
-                link.removeAttribute('href');
-                link.querySelectorAll('span.off-screen').forEach(s => s.remove());
+                link.removeAttribute('href'); // Remove temporary href, T&F linkCitations will add proper one
               });
 
               htmlContent = tempDiv.innerHTML;
@@ -83,74 +82,136 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                 this.generateFootnoteRefId(bookId, identifier),
                 'taylor-francis'
               ));
-
-              console.log(`📝 T&F: Extracted footnote ${identifier}: "${htmlContent.substring(0, 50)}..."`);
             }
           } else if (nextElement.tagName === 'DIV') {
             // Look inside divs (like summation-section)
-            // First check if this div itself has an EN id
-            let enId = nextElement.id;
+            // Check if this div itself has a footnote RID (EN or FN format)
+            const divHasFootnoteId = nextElement.id && (nextElement.id.startsWith('EN') || nextElement.id.startsWith('FN'));
 
-            // If not, check for child divs with EN ids (e.g., summation-section > div#EN0001)
-            if (!enId || !enId.startsWith('EN')) {
-              const enDiv = nextElement.querySelector('div[id^="EN"]');
-              if (enDiv) {
-                enId = enDiv.id;
-              }
-            }
+            if (divHasFootnoteId) {
+              // This div itself has a footnote ID - process its paragraphs
+              const footnoteRid = nextElement.id;
+              const paragraphs = nextElement.querySelectorAll('p');
+              paragraphs.forEach(p => {
+                const pText = p.textContent.trim();
+                const match = pText.match(/^(\d+)[\.\)\s]/);
+                if (match) {
+                  const identifier = match[1];
+                  p.classList.add('footnote');
 
-            const paragraphs = nextElement.querySelectorAll('p');
-            paragraphs.forEach(p => {
-              const pText = p.textContent.trim();
-              const match = pText.match(/^(\d+)[\.\)\s]/);
-              if (match) {
-                const identifier = match[1];
-                p.classList.add('footnote');
+                  // Get HTML content and clean thoroughly
+                  let htmlContent = p.innerHTML.trim();
 
-                // Get HTML content and clean thoroughly
-                let htmlContent = p.innerHTML.trim();
+                  // Remove leading number (handles both plain text and HTML)
+                  htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
 
-                // Remove leading number (handles both plain text and HTML)
-                htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
+                  // Clean up T&F citation links in footnote content
+                  const tempDiv = document.createElement('div');
+                  tempDiv.innerHTML = htmlContent;
 
-                // Clean up T&F citation links in footnote content
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = htmlContent;
+                  // Remove citation wrapper spans
+                  tempDiv.querySelectorAll('span.ref-lnk').forEach(span => {
+                    while (span.firstChild) {
+                      span.parentNode.insertBefore(span.firstChild, span);
+                    }
+                    span.remove();
+                  });
 
-                // Remove citation wrapper spans
-                tempDiv.querySelectorAll('span.ref-lnk').forEach(span => {
-                  while (span.firstChild) {
-                    span.parentNode.insertBefore(span.firstChild, span);
+                  // Clean citation links - keep data-rid for T&F linkCitations() to process
+                  tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach(link => {
+                    // Remove off-screen spans
+                    link.querySelectorAll('span.off-screen').forEach(s => s.remove());
+
+                    // Remove problematic attributes but KEEP data-rid
+                    link.removeAttribute('data-behaviour');
+                    link.removeAttribute('data-ref-type');
+                    link.removeAttribute('data-label');
+                    link.removeAttribute('data-registered');
+                    link.removeAttribute('href'); // Remove temporary href, T&F linkCitations will add proper one
+                  });
+
+                  htmlContent = tempDiv.innerHTML;
+
+                  const footnote = this.createFootnote(
+                    this.generateFootnoteId(bookId, identifier), // Always use standard ID
+                    htmlContent, // Don't add identifier prefix
+                    identifier,
+                    this.generateFootnoteRefId(bookId, identifier),
+                    'taylor-francis'
+                  );
+                  // Store the RID for linking - could be "EN" or "FN" format
+                  if (footnoteRid.startsWith('EN')) {
+                    footnote.enId = footnoteRid;
+                  } else if (footnoteRid.startsWith('FN')) {
+                    footnote.fnId = footnoteRid;
                   }
-                  span.remove();
+                  footnotes.push(footnote);
+                }
+              });
+            } else {
+              // This div is a container (like summation-section) - process each child div separately
+              const childDivs = nextElement.querySelectorAll('div[id^="EN"], div[id^="FN"]');
+              childDivs.forEach(childDiv => {
+                const footnoteRid = childDiv.id;
+                const paragraphs = childDiv.querySelectorAll('p');
+                paragraphs.forEach(p => {
+                  const pText = p.textContent.trim();
+                  const match = pText.match(/^(\d+)[\.\)\s]/);
+                  if (match) {
+                    const identifier = match[1];
+                    p.classList.add('footnote');
+
+                    // Get HTML content and clean thoroughly
+                    let htmlContent = p.innerHTML.trim();
+
+                    // Remove leading number (handles both plain text and HTML)
+                    htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
+
+                    // Clean up T&F citation links in footnote content
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = htmlContent;
+
+                    // Remove citation wrapper spans
+                    tempDiv.querySelectorAll('span.ref-lnk').forEach(span => {
+                      while (span.firstChild) {
+                        span.parentNode.insertBefore(span.firstChild, span);
+                      }
+                      span.remove();
+                    });
+
+                    // Clean citation links - keep data-rid for T&F linkCitations() to process
+                    tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach(link => {
+                      // Remove off-screen spans
+                      link.querySelectorAll('span.off-screen').forEach(s => s.remove());
+
+                      // Remove problematic attributes but KEEP data-rid
+                      link.removeAttribute('data-behaviour');
+                      link.removeAttribute('data-ref-type');
+                      link.removeAttribute('data-label');
+                      link.removeAttribute('data-registered');
+                      link.removeAttribute('href'); // Remove temporary href, T&F linkCitations will add proper one
+                    });
+
+                    htmlContent = tempDiv.innerHTML;
+
+                    const footnote = this.createFootnote(
+                      this.generateFootnoteId(bookId, identifier), // Always use standard ID
+                      htmlContent, // Don't add identifier prefix
+                      identifier,
+                      this.generateFootnoteRefId(bookId, identifier),
+                      'taylor-francis'
+                    );
+                    // Store the RID for linking - could be "EN" or "FN" format
+                    if (footnoteRid.startsWith('EN')) {
+                      footnote.enId = footnoteRid;
+                    } else if (footnoteRid.startsWith('FN')) {
+                      footnote.fnId = footnoteRid;
+                    }
+                    footnotes.push(footnote);
+                  }
                 });
-
-                // Clean citation links
-                tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach(link => {
-                  link.removeAttribute('data-rid');
-                  link.removeAttribute('data-behaviour');
-                  link.removeAttribute('data-ref-type');
-                  link.removeAttribute('data-label');
-                  link.removeAttribute('data-registered');
-                  link.removeAttribute('href');
-                  link.querySelectorAll('span.off-screen').forEach(s => s.remove());
-                });
-
-                htmlContent = tempDiv.innerHTML;
-
-                const footnote = this.createFootnote(
-                  this.generateFootnoteId(bookId, identifier), // Always use standard ID
-                  htmlContent, // Don't add identifier prefix
-                  identifier,
-                  this.generateFootnoteRefId(bookId, identifier),
-                  'taylor-francis'
-                );
-                footnote.enId = enId; // Store the EN ID for linking only
-                footnotes.push(footnote);
-
-                console.log(`📝 T&F: Extracted footnote from div ${identifier} (EN: ${enId}): "${htmlContent.substring(0, 50)}..."`);
-              }
-            });
+              });
+            }
           }
 
           nextElement = nextElement.nextElementSibling;
@@ -158,11 +219,10 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
       }
     });
 
-    // Also check for summation-section divs specifically
-    const summationSections = dom.querySelectorAll('.summation-section, div[id^="EN"]');
+    // Also check for summation-section divs specifically (both "EN" and "FN" formats)
+    const summationSections = dom.querySelectorAll('.summation-section, div[id^="EN"], div[id^="FN"]');
     summationSections.forEach(section => {
-      const enId = section.id; // e.g., "EN0001"
-      console.log(`📝 T&F: Found footnote section: ${section.className || section.id}`);
+      const footnoteRid = section.id; // e.g., "EN0001" or "FN0002"
       const paragraphs = section.querySelectorAll('p');
       paragraphs.forEach(p => {
         const pText = p.textContent.trim();
@@ -191,15 +251,17 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
               span.remove();
             });
 
-            // Clean citation links
+            // Clean citation links - keep data-rid for T&F linkCitations() to process
             tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach(link => {
-              link.removeAttribute('data-rid');
+              // Remove off-screen spans
+              link.querySelectorAll('span.off-screen').forEach(s => s.remove());
+
+              // Remove problematic attributes but KEEP data-rid
               link.removeAttribute('data-behaviour');
               link.removeAttribute('data-ref-type');
               link.removeAttribute('data-label');
               link.removeAttribute('data-registered');
-              link.removeAttribute('href');
-              link.querySelectorAll('span.off-screen').forEach(s => s.remove());
+              link.removeAttribute('href'); // Remove temporary href, T&F linkCitations will add proper one
             });
 
             htmlContent = tempDiv.innerHTML;
@@ -211,15 +273,19 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
               this.generateFootnoteRefId(bookId, identifier),
               'taylor-francis'
             );
-            footnote.enId = enId; // Store the EN ID for linking only
+            // Store the RID for linking - could be "EN" or "FN" format
+            if (footnoteRid && footnoteRid.startsWith('EN')) {
+              footnote.enId = footnoteRid;
+            } else if (footnoteRid && footnoteRid.startsWith('FN')) {
+              footnote.fnId = footnoteRid;
+            }
             footnotes.push(footnote);
-
-            console.log(`📝 T&F: Extracted footnote from section ${identifier} (EN: ${enId}): "${htmlContent.substring(0, 50)}..."`);
           }
         }
       });
     });
 
+    console.log(`📝 T&F: Extracted ${footnotes.length} footnotes`);
     return footnotes;
   }
 
@@ -233,10 +299,16 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
     // Direct search for CIT list items (primary T&F pattern)
     const citItems = dom.querySelectorAll('li[id^="CIT"]');
     if (citItems.length > 0) {
-      console.log(`📚 T&F: Found ${citItems.length} CIT reference items`);
       citItems.forEach(item => {
         const citId = item.id; // e.g., "CIT0038"
-        const content = item.textContent.trim();
+
+        // Clone and clean the item before extracting content
+        const clone = item.cloneNode(true);
+
+        // Remove entire extra-links divs (contains View, Web of Science, Google Scholar, etc.)
+        clone.querySelectorAll('.extra-links').forEach(el => el.remove());
+
+        const content = clone.textContent.trim();
         if (content && content.length > 10) {
           // Match old code structure - plain object, no helper methods
           const reference = {
@@ -250,20 +322,15 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
 
           // Map CIT ID to reference for later citation linking
           this.citIdToRefMap.set(citId, reference);
-
-          console.log(`📚 T&F: Extracted reference #${citId}: "${content.substring(0, 60)}..."`);
         }
       });
     }
 
     // Fallback: Look for References heading and extract from lists
     if (references.length === 0) {
-      console.log('📚 T&F: No CIT items found, searching for References heading');
       const headings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
       for (const heading of headings) {
         if (/references|bibliography/i.test(heading.textContent.trim())) {
-          console.log(`📚 T&F: Found references section: "${heading.textContent.trim()}"`);
-
           let nextElement = heading.nextElementSibling;
           while (nextElement) {
             if (nextElement.tagName && /^H[1-6]$/.test(nextElement.tagName)) {
@@ -275,7 +342,13 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                 nextElement.tagName === 'UL' || nextElement.tagName === 'OL') {
               const refItems = nextElement.querySelectorAll('li, p');
               refItems.forEach(item => {
-                const content = item.textContent.trim();
+                // Clone and clean the item before extracting content
+                const clone = item.cloneNode(true);
+
+                // Remove entire extra-links divs (contains View, Web of Science, Google Scholar, etc.)
+                clone.querySelectorAll('.extra-links').forEach(el => el.remove());
+
+                const content = clone.textContent.trim();
                 if (content && content.length > 10) {
                   // Avoid duplicates
                   if (!references.find(ref => ref.content === content)) {
@@ -285,7 +358,6 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                       type: 'taylor-francis-list',
                       needsKeyGeneration: true
                     });
-                    console.log(`📚 T&F: Extracted reference from ${item.tagName}: "${content.substring(0, 60)}..."`);
                   }
                 }
               });
@@ -297,7 +369,7 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
       }
     }
 
-    console.log(`📚 T&F: Total references extracted: ${references.length}`);
+    console.log(`📚 T&F: Extracted ${references.length} references`);
 
     // Store for use in transformStructure
     this.extractedReferences = references;
@@ -348,23 +420,31 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
    * Override linkFootnotes to handle T&F-specific data-rid footnote links
    */
   linkFootnotes(dom, footnotes) {
-    // First, let base class handle standard footnote linking
-    super.linkFootnotes(dom, footnotes);
+    // DO NOT call super.linkFootnotes() - it causes double-processing and malformed structures
+    // T&F has unique structures that require special handling:
+    // - Format 1: <a data-rid="EN0001"><sup>1</sup></a> (endnotes)
+    // - Format 2: <a data-rid="FN0002"><sup>2</sup></a> (footnotes)
 
-    // Now convert T&F footnote links from data-rid to href
-    const footnoteLinks = dom.querySelectorAll('a[data-rid^="EN"]');
+    // Convert T&F footnote links from data-rid to href (both "EN" and "FN" formats)
+    const footnoteLinks = dom.querySelectorAll('a[data-rid^="EN"], a[data-rid^="FN"]');
     let convertedCount = 0;
 
     footnoteLinks.forEach(link => {
-      const enId = link.getAttribute('data-rid'); // e.g., "EN0001"
+      const footnoteRid = link.getAttribute('data-rid'); // e.g., "EN0001" or "FN0002"
 
-      // Find the footnote with this EN ID
-      const footnote = footnotes.find(fn => fn.enId === enId);
+      // Find the footnote with this RID (could be stored as enId or fnId)
+      const footnote = footnotes.find(fn => fn.enId === footnoteRid || fn.fnId === footnoteRid);
 
       if (footnote) {
-        // Extract the number from the <sup> tag inside the link
+        // Extract the number from the <sup> tag inside the link BEFORE any processing
         const supElement = link.querySelector('sup');
-        const identifier = supElement ? supElement.textContent.trim() : footnote.originalIdentifier;
+        let identifier = supElement ? supElement.textContent.trim() : footnote.originalIdentifier;
+
+        // Validate identifier is not empty
+        if (!identifier || identifier === '') {
+          console.warn(`⚠️ T&F: Empty identifier for ${footnoteRid}, using originalIdentifier: ${footnote.originalIdentifier}`);
+          identifier = footnote.originalIdentifier;
+        }
 
         // Create new structure: <sup id="..." fn-count-id="1"><a href="..." class="footnote-ref">1</a></sup>
         const newSup = document.createElement('sup');
@@ -383,7 +463,7 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
 
         convertedCount++;
       } else {
-        console.warn(`⚠️ T&F: Could not find footnote for ${enId}`);
+        console.warn(`⚠️ T&F: Could not find footnote for ${footnoteRid}`);
       }
     });
 
@@ -394,7 +474,11 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
    * Transform structure - unwrap divs and clean up
    */
   async transformStructure(dom, bookId) {
-    // 1. T&F-specific: Clean up citation link TEXT but KEEP the links
+    // 1. Remove entire extra-links divs (contains View, Web of Science, Google Scholar, etc.)
+    // Must happen BEFORE unwrapping divs/spans
+    dom.querySelectorAll('.extra-links').forEach(el => el.remove());
+
+    // 2. T&F-specific: Clean up citation link TEXT but KEEP the links
     // Remove "Citation" text from the link content, but preserve <a> tags for later conversion
     const citationLinks = dom.querySelectorAll('a[data-rid^="CIT"]');
     citationLinks.forEach(link => {
@@ -407,14 +491,20 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
       // Keep the link element for later conversion in linkCitations()
     });
 
-    // 2. Remove footnote and reference sections from main content
+    // 3. Remove footnote and reference sections from main content
     // They're already extracted above
     const notesHeadings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    let removedCount = 0;
+
     notesHeadings.forEach(heading => {
-      const headingText = heading.textContent.trim().toLowerCase();
-      if (/notes|references|bibliography/i.test(headingText)) {
+      const headingText = heading.textContent.trim();
+
+      // Use improved matcher that handles multi-word, whitespace variations
+      if (isReferenceSectionHeading(headingText)) {
+        console.log(`📚 T&F: Removing "${headingText}" section from main content`);
         let nextElement = heading.nextElementSibling;
         heading.remove();
+        removedCount++;
 
         while (nextElement) {
           const next = nextElement.nextElementSibling;
@@ -427,13 +517,23 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
       }
     });
 
-    // 3. Unwrap T&F footnote/citation wrapper spans first (before general unwrapping)
+    // PASS 2: Remove elements with data-static-content
+    const staticElements = dom.querySelectorAll('[data-static-content]');
+    staticElements.forEach(el => {
+      console.log(`📚 T&F: Removing element with data-static-content="${el.getAttribute('data-static-content')}"`);
+      el.remove();
+      removedCount++;
+    });
+
+    console.log(`📚 T&F: Removed ${removedCount} section(s) from main content`);
+
+    // 4. Unwrap T&F footnote/citation wrapper spans first (before general unwrapping)
     const tfWrapperSpans = Array.from(dom.querySelectorAll('span.ref-lnk'));
     tfWrapperSpans.forEach(span => {
       unwrap(span);
     });
 
-    // 4. Unwrap all container divs (like general processor does)
+    // 5. Unwrap all container divs (like general processor does)
     const containers = Array.from(
       dom.querySelectorAll('div, article, section, main, header, footer, aside, nav, button')
     );

@@ -5,7 +5,7 @@
  */
 
 import { normalizeContent } from '../utils/normalizer.js';
-import { createTempDOM, removeEmptyBlocks, stripAttributes, groupInlineElements } from '../utils/dom-utils.js';
+import { createTempDOM, removeEmptyBlocks, stripAttributes, groupInlineElements, visuallyStartsWith } from '../utils/dom-utils.js';
 import { generateReferenceKeys } from '../utils/reference-key-generator.js';
 import { processInTextCitations } from '../utils/citation-linker.js';
 import { processFootnoteReferences } from '../utils/footnote-linker.js';
@@ -37,9 +37,29 @@ export class BaseFormatProcessor {
     const footnotes = await this.extractFootnotes(dom, bookId);
     console.log(`  - Extracted ${footnotes.length} footnotes`);
 
+    // Clean extracted footnote content (strip style attributes)
+    footnotes.forEach(footnote => {
+      if (footnote.content) {
+        const temp = document.createElement('div');
+        temp.innerHTML = footnote.content;
+        stripAttributes(temp, 'pasted-');
+        footnote.content = temp.innerHTML;
+      }
+    });
+
     // Stage 3: Extract references (format-specific)
     const references = await this.extractReferences(dom, bookId);
     console.log(`  - Extracted ${references.length} references`);
+
+    // Clean extracted reference content (strip style attributes)
+    references.forEach(reference => {
+      if (reference.content) {
+        const temp = document.createElement('div');
+        temp.innerHTML = reference.content;
+        stripAttributes(temp, 'pasted-');
+        reference.content = temp.innerHTML;
+      }
+    });
 
     // Stage 4: Transform structure (format-specific)
     await this.transformStructure(dom, bookId);
@@ -47,7 +67,11 @@ export class BaseFormatProcessor {
     // Stage 5: Cleanup (common) - BEFORE linking so we don't strip essential classes
     this.cleanup(dom);
 
-    // Stage 6: Link processing (common, but uses format-specific data)
+    // Stage 6: Append static sections (common) - BEFORE linking so citations can be linked
+    this.appendStaticSections(dom, footnotes, references);
+
+    // Stage 7: Link processing (common, but uses format-specific data)
+    // Will process body content AND static footnotes (but not bibliography)
     this.linkCitations(dom, references);
     this.linkFootnotes(dom, footnotes);
 
@@ -220,6 +244,81 @@ export class BaseFormatProcessor {
     groupInlineElements(dom);
 
     console.log(`  - Cleanup complete`);
+  }
+
+  /**
+   * Append extracted footnotes and references back to content as static sections
+   * These are added AFTER all interactive processing (linking) is complete
+   * No DIV wrappers - only block-level elements like h2 and p
+   * Content is already cleaned (styles stripped) during extraction
+   * @param {HTMLElement} dom - DOM element
+   * @param {Array} footnotes - Extracted footnotes (already cleaned)
+   * @param {Array} references - Extracted references (already cleaned)
+   */
+  appendStaticSections(dom, footnotes, references) {
+    if (footnotes.length === 0 && references.length === 0) return;
+
+    console.log(`  - Appending ${footnotes.length} footnotes and ${references.length} references as static content`);
+
+    // FOOTNOTES SECTION
+    if (footnotes.length > 0) {
+      // Add heading
+      const heading = document.createElement('h2');
+      heading.textContent = 'Notes';
+      heading.setAttribute('data-static-content', 'footnotes');
+      dom.appendChild(heading);
+
+      // Add each footnote as a paragraph (content already cleaned)
+      footnotes.forEach(footnote => {
+        const p = document.createElement('p');
+
+        // Check if content already visually starts with the number (avoid double numbering)
+        // Use helper to check actual visible text, not raw HTML
+        // Handles cases where numbers are wrapped: "<span>1.</span> Text"
+        const contentStartsWithNumberDot = visuallyStartsWith(
+          footnote.content,
+          `${footnote.originalIdentifier}.`
+        );
+        const contentStartsWithNumberSpace = visuallyStartsWith(
+          footnote.content,
+          `${footnote.originalIdentifier} `
+        );
+        const contentStartsWithNumberParen = visuallyStartsWith(
+          footnote.content,
+          `${footnote.originalIdentifier})`
+        );
+
+        if (contentStartsWithNumberDot || contentStartsWithNumberSpace || contentStartsWithNumberParen) {
+          // Content already has number, don't prepend
+          p.innerHTML = footnote.content;
+        } else {
+          // Prepend number
+          p.innerHTML = `${footnote.originalIdentifier}. ${footnote.content}`;
+        }
+
+        p.setAttribute('data-static-content', 'footnotes');
+        dom.appendChild(p);
+      });
+    }
+
+    // BIBLIOGRAPHY SECTION
+    if (references.length > 0) {
+      // Add heading
+      const heading = document.createElement('h2');
+      heading.textContent = 'References';
+      heading.setAttribute('data-static-content', 'bibliography');
+      dom.appendChild(heading);
+
+      // Add each reference as a paragraph (content already cleaned)
+      references.forEach(reference => {
+        const p = document.createElement('p');
+        p.innerHTML = reference.content;
+        p.setAttribute('data-static-content', 'bibliography');
+        dom.appendChild(p);
+      });
+    }
+
+    console.log(`  - Static sections appended successfully`);
   }
 
   // ========================================================================

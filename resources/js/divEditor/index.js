@@ -562,6 +562,35 @@ document.addEventListener("selectionchange", () => {
   // Early return for performance - don't process if not editing
   if (!window.isEditing) return;
 
+  // 🛡️ IMMEDIATE CURSOR VALIDATION (runs before debounced handler)
+  // Only checks and fixes if cursor is in a sentinel div - very lightweight
+  const selection = window.getSelection();
+  if (selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    let node = range.startContainer;
+    let element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+
+    // Quick check: is cursor directly in a sentinel div?
+    const id = element?.id || '';
+    const isSentinel = id.endsWith('-top-sentinel') || id.endsWith('-bottom-sentinel');
+
+    if (isSentinel) {
+      // Move cursor to nearest valid element immediately
+      const editableDiv = document.getElementById(book);
+      const validElement = editableDiv?.querySelector('[id]:not([id$="-top-sentinel"]):not([id$="-bottom-sentinel"])');
+
+      if (validElement) {
+        validElement.focus();
+        const newRange = document.createRange();
+        newRange.selectNodeContents(validElement);
+        newRange.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+      }
+      return; // Don't call debounced handler if we had to fix cursor
+    }
+  }
+
   handleSelectionChange();
 });
 

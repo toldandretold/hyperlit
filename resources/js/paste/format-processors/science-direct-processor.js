@@ -63,8 +63,8 @@ export class ScienceDirectProcessor extends BaseFormatProcessor {
         // Remove inline styles
         clone.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
 
-        // Get clean content
-        const htmlContent = clone.innerHTML.trim();
+        // Get clean content (flatten nested block elements)
+        const htmlContent = this.flattenReferenceContent(clone);
         const text = clone.textContent.trim();
 
         // Find corresponding anchor/label to get the bibId
@@ -165,7 +165,7 @@ export class ScienceDirectProcessor extends BaseFormatProcessor {
                 clone.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
 
                 const text = clone.textContent.trim();
-                const htmlContent = clone.innerHTML.trim();
+                const htmlContent = this.flattenReferenceContent(clone);
 
                 // Check if it looks like a reference (contains year)
                 const yearMatch = text.match(/\d{4}[a-z]?/);
@@ -190,6 +190,94 @@ export class ScienceDirectProcessor extends BaseFormatProcessor {
 
     console.log(`📚 ScienceDirect: Total references extracted: ${references.length}`);
     return references;
+  }
+
+  /**
+   * Flatten nested block elements in reference content
+   * Preserves inline elements (links, em, strong, sup, sub)
+   * Converts everything to a single inline text flow suitable for <p> tag
+   *
+   * @param {HTMLElement} clone - Cloned reference element
+   * @returns {string} - Flattened HTML content
+   */
+  flattenReferenceContent(clone) {
+    // Elements to preserve as-is (inline formatting)
+    const PRESERVE_INLINE = new Set(['A', 'EM', 'I', 'STRONG', 'B', 'SUP', 'SUB']);
+
+    // Block elements that should add spacing when traversed
+    const BLOCK_ELEMENTS = new Set(['DIV', 'P', 'SECTION', 'ARTICLE', 'LI', 'HEADER']);
+
+    /**
+     * Recursively flatten node tree
+     * @param {Node} node - Current node
+     * @param {boolean} addSpaceBefore - Whether to add space before this node
+     * @returns {string} - HTML string
+     */
+    function flattenNode(node, addSpaceBefore = false) {
+      // Text node - return content with optional leading space
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent;
+        // Don't add space if text already starts with space or if text is empty
+        if (addSpaceBefore && text && !/^\s/.test(text)) {
+          return ' ' + text;
+        }
+        return text;
+      }
+
+      // Element node
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const tagName = node.tagName.toUpperCase();
+
+        // Preserve inline elements with their tags
+        if (PRESERVE_INLINE.has(tagName)) {
+          const tempEl = node.cloneNode(false); // Shallow clone (no children)
+          let childHtml = '';
+
+          for (let child of node.childNodes) {
+            childHtml += flattenNode(child, false);
+          }
+
+          tempEl.innerHTML = childHtml;
+          return (addSpaceBefore ? ' ' : '') + tempEl.outerHTML;
+        }
+
+        // Block elements - flatten children and add spacing
+        if (BLOCK_ELEMENTS.has(tagName)) {
+          let result = '';
+          let isFirst = true;
+
+          for (let child of node.childNodes) {
+            const needsSpace = !isFirst && result.trim().length > 0;
+            result += flattenNode(child, needsSpace);
+            isFirst = false;
+          }
+
+          // Add trailing space if this block has content and needs separation
+          if (addSpaceBefore && result.trim().length > 0 && !/^\s/.test(result)) {
+            result = ' ' + result;
+          }
+
+          return result;
+        }
+
+        // Other elements (spans, etc.) - just process children
+        let result = '';
+        for (let child of node.childNodes) {
+          result += flattenNode(child, false);
+        }
+        return result;
+      }
+
+      return '';
+    }
+
+    const flattened = flattenNode(clone);
+
+    // Clean up excessive whitespace
+    return flattened
+      .replace(/\s+/g, ' ')  // Multiple spaces → single space
+      .replace(/\s+([.,;:])/g, '$1')  // Space before punctuation
+      .trim();
   }
 
   /**

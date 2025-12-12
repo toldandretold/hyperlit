@@ -44,6 +44,14 @@ export function processInTextCitations(htmlContent, referenceMappings, allRefere
     // Skip if inside a link or script/style
     const parent = node.parentElement;
     if (parent && !['SCRIPT', 'STYLE', 'A'].includes(parent.tagName)) {
+      // Skip if inside bibliography section (but allow footnotes section)
+      const isStaticBibliography = parent.getAttribute('data-static-content') === 'bibliography'
+        || parent.closest('[data-static-content="bibliography"]');
+
+      if (isStaticBibliography) {
+        continue;
+      }
+
       textNodes.push(node);
     }
   }

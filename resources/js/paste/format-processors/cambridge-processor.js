@@ -9,7 +9,7 @@
  */
 
 import { BaseFormatProcessor } from './base-processor.js';
-import { wrapLooseNodes, unwrap } from '../utils/dom-utils.js';
+import { wrapLooseNodes, unwrap, isReferenceSectionHeading } from '../utils/dom-utils.js';
 
 export class CambridgeProcessor extends BaseFormatProcessor {
   constructor() {
@@ -31,6 +31,8 @@ export class CambridgeProcessor extends BaseFormatProcessor {
     console.log('📚 Cambridge: Initial structure check:');
     console.log('  - .xref.fn links:', dom.querySelectorAll('.xref.fn').length);
     console.log('  - reference-*-content divs:', dom.querySelectorAll('[id^="reference-"][id$="-content"]').length);
+    console.log('  - circle-list items:', dom.querySelectorAll('.circle-list__item').length);
+    console.log('  - fn* divs:', dom.querySelectorAll('div[id^="fn"]').length);
 
     // STEP 1: Simplify in-text footnote links
     // Convert <a class="xref fn"><span>Footnote </span><sup>1</sup></a> → <sup>1</sup>
@@ -48,7 +50,6 @@ export class CambridgeProcessor extends BaseFormatProcessor {
 
         // Replace the entire link with just the <sup>
         link.replaceWith(cleanSup);
-        console.log(`📚 Cambridge: Simplified in-text ref ${index + 1}: ${identifier}`);
       }
     });
 
@@ -84,10 +85,11 @@ export class CambridgeProcessor extends BaseFormatProcessor {
       const uniqueId = this.generateFootnoteId(bookId, footnoteNum);
       const uniqueRefId = this.generateFootnoteRefId(bookId, footnoteNum);
 
-      // Store footnote with "N. Content" format
+      // Store footnote WITHOUT number prefix
+      // The UI will add the number when displaying, and base-processor will add it for static section
       footnotes.push(this.createFootnote(
         uniqueId,
-        `${footnoteNum}. ${content}`,
+        content,  // Just the content, no number prefix
         footnoteNum,
         uniqueRefId,
         'cambridge-normalized'
@@ -100,11 +102,21 @@ export class CambridgeProcessor extends BaseFormatProcessor {
       simpleParagraph.innerHTML = `${footnoteNum}. ${content}`;
       container.replaceWith(simpleParagraph);
 
-      console.log(`📚 Cambridge: Converted footnote ${footnoteNum} to "N. Content" format`);
-
       // Remove the paragraph so it doesn't appear in main content
       simpleParagraph.remove();
     });
+
+    // STEP 3: Find and REMOVE original footnote section containers
+    // These contain the nested Vue components that need to be cleaned up
+    // Pattern 1: circle-list containers (from format-registry.js selector)
+    const circleListContainers = dom.querySelectorAll('.circle-list__item, .circle-list');
+    circleListContainers.forEach(container => container.remove());
+    console.log(`📚 Cambridge: Removed ${circleListContainers.length} circle-list containers`);
+
+    // Pattern 2: Direct fn* divs
+    const fnDivs = dom.querySelectorAll('div[id^="fn"]');
+    fnDivs.forEach(div => div.remove());
+    console.log(`📚 Cambridge: Removed ${fnDivs.length} fn* divs`);
 
     console.log(`📚 Cambridge: Extraction complete - ${footnotes.length} footnotes extracted`);
 
@@ -112,8 +124,42 @@ export class CambridgeProcessor extends BaseFormatProcessor {
   }
 
   /**
+   * Extract and preserve main title/heading
+   * Cambridge articles have h1/h2 titles that shouldn't be lost
+   *
+   * @param {HTMLElement} dom - DOM element
+   * @returns {HTMLElement|null} - Extracted title element or null
+   */
+  extractAndPreserveTitle(dom) {
+    // Look for the first h1 or h2 that looks like a main title
+    const potentialTitles = dom.querySelectorAll('h1, h2');
+
+    for (const heading of potentialTitles) {
+      const text = heading.textContent.trim();
+
+      // Skip if it's a section heading (References, Notes, etc.)
+      if (/^(references|bibliography|notes|footnotes|abstract|introduction)$/i.test(text)) {
+        continue;
+      }
+
+      // If it has substantial length, treat it as the main title
+      if (text.length > 20) {
+        console.log(`📚 Cambridge: Preserved title: "${text.substring(0, 60)}..."`);
+
+        // Clone and remove from current position
+        const titleClone = heading.cloneNode(true);
+        heading.remove();
+
+        return titleClone;
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Extract references from Cambridge content
-   * Cambridge typically doesn't have special reference formatting beyond general patterns
+   * Uses stricter filtering to avoid extracting body text as references
    *
    * @param {HTMLElement} dom - DOM element
    * @param {string} bookId - Book identifier
@@ -122,15 +168,13 @@ export class CambridgeProcessor extends BaseFormatProcessor {
   async extractReferences(dom, bookId) {
     const references = [];
 
-    // Cambridge references usually follow standard patterns
-    // We can rely on the general reference extraction logic
-    console.log('📚 Cambridge: Using general reference extraction patterns');
+    console.log('📚 Cambridge: Using improved reference extraction');
 
-    // Look for reference-like paragraphs (containing years, appearing after certain headings, etc.)
+    // Look for reference-like paragraphs ONLY after References/Bibliography heading
     const allElements = Array.from(dom.children);
     let referenceSectionStartIndex = -1;
 
-    const refHeadings = /^(references|bibliography|notes|footnotes|sources)$/i;
+    const refHeadings = /^(references|bibliography|works cited)$/i;
     for (let i = 0; i < allElements.length; i++) {
       const el = allElements[i];
       if (/^H[1-6]$/.test(el.tagName) && refHeadings.test(el.textContent.trim())) {
@@ -139,16 +183,32 @@ export class CambridgeProcessor extends BaseFormatProcessor {
       }
     }
 
-    let elementsToScan = [];
-    if (referenceSectionStartIndex !== -1) {
-      elementsToScan = allElements.slice(referenceSectionStartIndex + 1).filter(el => el.tagName === 'P');
-    } else {
-      elementsToScan = Array.from(dom.querySelectorAll('p')).reverse();
+    // ONLY process if we found a References heading
+    if (referenceSectionStartIndex === -1) {
+      console.log('📚 Cambridge: No References/Bibliography heading found, skipping reference extraction');
+      return references;
     }
+
+    // Filter to in-text citation pattern (from general-processor.js)
+    const inTextCitePattern = /\(([^)]*?\d{4}[^)]*?)\)/;
+
+    const elementsToScan = allElements
+      .slice(referenceSectionStartIndex + 1)
+      .filter(el => el.tagName === 'P');
 
     elementsToScan.forEach(p => {
       const text = p.textContent.trim();
       if (!text) return;
+
+      // Skip if it looks like body text with in-text citations
+      const citeMatch = text.match(inTextCitePattern);
+      if (citeMatch) {
+        const content = citeMatch[1];
+        // Reject body paragraphs like "(see Smith, 2019)" or "(2017: 143)"
+        if (content.includes(',') || content.includes(':') || /[a-zA-Z]{2,}/.test(content)) {
+          return;
+        }
+      }
 
       // Check for year pattern
       const yearMatch = text.match(/(\d{4}[a-z]?)/);
@@ -156,7 +216,12 @@ export class CambridgeProcessor extends BaseFormatProcessor {
         return;
       }
 
-      // This looks like a reference
+      // Additional validation: check for bibliography structure
+      // Must have: year + reasonable length + punctuation (., ,)
+      if (text.length < 30 || !text.includes('.')) {
+        return;
+      }
+
       references.push({
         content: p.outerHTML,
         originalText: text,
@@ -172,34 +237,94 @@ export class CambridgeProcessor extends BaseFormatProcessor {
 
   /**
    * Transform document structure
-   * For Cambridge, most transformation is done during footnote extraction
-   * Here we apply the general structure-preserving transformation
+   * Aggressive cleanup to remove Vue components and Cambridge-specific structures
    *
    * @param {HTMLElement} dom - DOM element
    * @param {string} bookId - Book identifier
    * @returns {Promise<void>}
    */
   async transformStructure(dom, bookId) {
-    console.log('📚 Cambridge: Applying general structure transformation');
+    console.log('📚 Cambridge: Applying aggressive structure transformation');
 
-    // Find and process all container elements
+    // STEP 0: Extract and preserve title FIRST (before removals)
+    const title = this.extractAndPreserveTitle(dom);
+
+    // STEP 1: Remove specific Vue components that shouldn't be in content
+    // Only remove actual Vue component elements (appbutton), not divs with Vue attributes
+    const appButtons = dom.querySelectorAll('appbutton');
+    appButtons.forEach(el => el.remove());
+    console.log(`📚 Cambridge: Removed ${appButtons.length} <appbutton> Vue components`);
+
+    // STEP 2: Remove SVG/img elements from Vue components (icons, buttons)
+    // Only remove images that are part of UI components, not content images
+    const vueImages = dom.querySelectorAll('img[data-v-d2c09870], img[data-v-2a038744]');
+    vueImages.forEach(el => el.remove());
+    console.log(`📚 Cambridge: Removed ${vueImages.length} Vue icon images`);
+
+    // STEP 3: Remove Cambridge-specific structural classes
+    // These were mostly removed in extractFootnotes, but catch any remaining
+    const cambridgeStructural = dom.querySelectorAll('.circle-list, .circle-list__item, .circle-list__item__indicator, .circle-list__item__number, .circle-list__item__grouped, .circle-list__item__grouped__content');
+    cambridgeStructural.forEach(el => el.remove());
+    console.log(`📚 Cambridge: Removed ${cambridgeStructural.length} Cambridge structural containers`);
+
+    // NOTE: We don't remove all divs with data-v-* attributes because the entire body content has them
+    // The base cleanup() will strip these attributes later
+
+    // STEP 4: Remove Notes/References sections from main content
+    // They're already extracted above and will be appended as static content
+    const headings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    let removedSections = 0;
+
+    headings.forEach(heading => {
+      const headingText = heading.textContent.trim();
+
+      // Use improved matcher that handles multi-word, whitespace variations
+      if (isReferenceSectionHeading(headingText)) {
+        console.log(`📚 Cambridge: Removing "${headingText}" section from main content`);
+        let nextElement = heading.nextElementSibling;
+        heading.remove();
+        removedSections++;
+
+        while (nextElement) {
+          const next = nextElement.nextElementSibling;
+          if (nextElement.tagName && /^H[1-6]$/.test(nextElement.tagName)) {
+            break;
+          }
+          nextElement.remove();
+          nextElement = next;
+        }
+      }
+    });
+
+    // PASS 2: Remove elements with data-static-content
+    const staticElements = dom.querySelectorAll('[data-static-content]');
+    staticElements.forEach(el => {
+      console.log(`📚 Cambridge: Removing element with data-static-content="${el.getAttribute('data-static-content')}"`);
+      el.remove();
+      removedSections++;
+    });
+
+    console.log(`📚 Cambridge: Removed ${removedSections} section(s) from main content`);
+
+    // STEP 5: General unwrapping of remaining containers
     const containers = Array.from(
-      dom.querySelectorAll('div, article, section, main, header, footer, aside, nav, button')
+      dom.querySelectorAll('div, article, section, main, header, footer, aside, nav')
     );
 
-    // Process in reverse order (children before parents)
     containers.reverse().forEach(container => {
-      // Wrap any loose text/inline nodes
       wrapLooseNodes(container);
-
-      // Unwrap the container itself
       unwrap(container);
     });
 
-    // Also unwrap <font> tags
     dom.querySelectorAll('font').forEach(unwrap);
 
-    console.log(`📚 Cambridge: Transformation complete`);
+    // STEP 6: Re-insert title at start
+    if (title) {
+      dom.insertBefore(title, dom.firstChild);
+      console.log('📚 Cambridge: Title re-inserted at start of content');
+    }
+
+    console.log('📚 Cambridge: Transformation complete');
   }
 
   /**
