@@ -24,6 +24,11 @@ export function processFootnoteReferences(htmlContent, footnoteMappings, formatT
   // Handle existing <sup> elements
   const supElements = tempDiv.querySelectorAll('sup');
   supElements.forEach(sup => {
+    // Skip if inside static content (footnotes/bibliography sections)
+    if (sup.closest('[data-static-content]')) {
+      return;
+    }
+
     const identifier = sup.textContent.trim();
     if (footnoteMappings.has(identifier)) {
       const mapping = footnoteMappings.get(identifier);
@@ -56,6 +61,10 @@ export function processFootnoteReferences(htmlContent, footnoteMappings, formatT
   let node;
   while (node = walker.nextNode()) {
     if (node.parentElement && !['SCRIPT', 'STYLE', 'A', 'SUP'].includes(node.parentElement.tagName)) {
+      // Skip if inside static content (footnotes/bibliography sections)
+      if (node.parentElement.closest('[data-static-content]')) {
+        continue;
+      }
       textNodes.push(node);
     }
   }

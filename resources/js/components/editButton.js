@@ -112,7 +112,15 @@ function placeCursorAtEndOfElement(elementId) {
 function getFirstElementWithId(container) {
   const elementsWithId = container.querySelectorAll("[id]");
   if (elementsWithId.length > 0) {
-    return elementsWithId[0].id;
+    // Filter out sentinel divs that lazy loader creates
+    const contentElements = Array.from(elementsWithId).filter(el => {
+      const id = el.id;
+      return !id.endsWith('-top-sentinel') && !id.endsWith('-bottom-sentinel');
+    });
+
+    if (contentElements.length > 0) {
+      return contentElements[0].id;
+    }
   }
   return null;
 }
@@ -129,15 +137,20 @@ function doesContentExceedViewport(container) {
 function getLastContentElement(container) {
   const elementsWithId = container.querySelectorAll("[id]");
   if (elementsWithId.length === 0) return null;
-  
-  // Filter out elements that are likely empty or just structural
+
+  // Filter out elements that are empty, structural, or sentinel divs
   const contentElements = Array.from(elementsWithId).filter(el => {
+    const id = el.id;
     const text = el.textContent?.trim();
-    return text && text.length > 0;
+    // Exclude sentinels and empty elements
+    return text &&
+           text.length > 0 &&
+           !id.endsWith('-top-sentinel') &&
+           !id.endsWith('-bottom-sentinel');
   });
-  
+
   if (contentElements.length === 0) return null;
-  
+
   // Return the last element with content
   return contentElements[contentElements.length - 1].id;
 }

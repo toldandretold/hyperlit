@@ -11,7 +11,7 @@
  */
 
 import { BaseFormatProcessor } from './base-processor.js';
-import { unwrap, wrapLooseNodes } from '../utils/dom-utils.js';
+import { unwrap, wrapLooseNodes, isReferenceSectionHeading } from '../utils/dom-utils.js';
 
 export class SpringerProcessor extends BaseFormatProcessor {
   constructor() {
@@ -64,10 +64,13 @@ export class SpringerProcessor extends BaseFormatProcessor {
       // Remove data-counter attributes
       contentClone.removeAttribute('data-counter');
 
-      // Get content - check if there's a nested content div
-      let contentElement = contentClone.querySelector('.c-article-footnote--listed__content, p');
+      // Get content - look for <p> INSIDE content wrapper, not the wrapper itself
+      // OUP pattern: drill down to actual text element to avoid wrapper div styles
+      let contentElement = contentClone.querySelector('.c-article-footnote--listed__content p, p');
       if (!contentElement) {
+        // Fallback: if no paragraph found, use entire content
         contentElement = contentClone;
+        console.warn(`⚠️ Springer: No content paragraph found for footnote ${identifier}, using entire element`);
       }
 
       // Strip all inline styles
@@ -224,6 +227,9 @@ export class SpringerProcessor extends BaseFormatProcessor {
       this.refIdMap.set(refId, reference);
 
       console.log(`📚 Springer: Extracted reference ${refId}: "${text.substring(0, 60)}..."`);
+
+      // Remove from DOM so it doesn't appear in main content
+      item.remove();
     });
 
     console.log(`📚 Springer: Total references extracted: ${references.length}`);
@@ -241,7 +247,45 @@ export class SpringerProcessor extends BaseFormatProcessor {
   async transformStructure(dom, bookId) {
     console.log('📚 Springer: Applying general structure transformation');
 
-    // Find and process all container elements
+    // STEP 1: Remove original Footnotes/References sections from main content
+    // They're already extracted and will be appended as static content
+    // PASS 1: Remove by heading text matching
+    const headings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    let removedSections = 0;
+
+    headings.forEach(heading => {
+      const headingText = heading.textContent.trim();
+
+      // Use improved matcher that handles multi-word, whitespace variations
+      if (isReferenceSectionHeading(headingText)) {
+        console.log(`📚 Springer: Removing "${headingText}" section from main content`);
+        let nextElement = heading.nextElementSibling;
+        heading.remove();
+        removedSections++;
+
+        // Remove all content until next heading or end
+        while (nextElement) {
+          const next = nextElement.nextElementSibling;
+          if (nextElement.tagName && /^H[1-6]$/.test(nextElement.tagName)) {
+            break; // Hit another heading, stop
+          }
+          nextElement.remove();
+          nextElement = next;
+        }
+      }
+    });
+
+    // PASS 2: Remove elements with data-static-content attribute
+    const staticElements = dom.querySelectorAll('[data-static-content]');
+    staticElements.forEach(el => {
+      console.log(`📚 Springer: Removing element with data-static-content="${el.getAttribute('data-static-content')}"`);
+      el.remove();
+      removedSections++;
+    });
+
+    console.log(`📚 Springer: Removed ${removedSections} section(s) from main content`);
+
+    // STEP 2: Find and process all container elements
     const containers = Array.from(
       dom.querySelectorAll('div, article, section, main, header, footer, aside, nav, button, ul, ol')
     );

@@ -587,6 +587,13 @@ caption {
     overflow-x: auto;
 }
 
+/* Make tables in main-content horizontally scrollable */
+.main-content table {
+    display: block;
+    overflow-x: auto;
+    max-width: 100%;
+}
+
 
 
 
