@@ -9,7 +9,11 @@
  */
 
 import { BaseFormatProcessor } from './base-processor.js';
-import { unwrap, wrapLooseNodes } from '../utils/dom-utils.js';
+import {
+  unwrapContainers,
+  cloneAndClean,
+  isValidReference
+} from '../utils/transform-helpers.js';
 
 export class ScienceDirectProcessor extends BaseFormatProcessor {
   constructor() {
@@ -54,14 +58,8 @@ export class ScienceDirectProcessor extends BaseFormatProcessor {
       referenceSpans.forEach(refSpan => {
         const refId = refSpan.id; // e.g., "sref27"
 
-        // Clone to avoid modifying original DOM
-        const clone = refSpan.cloneNode(true);
-
-        // Remove external links, PDF buttons, and other non-content elements
-        clone.querySelectorAll('.ReferenceLinks, a.pdf, a[target="_blank"], svg').forEach(el => el.remove());
-
-        // Remove inline styles
-        clone.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
+        // Clone and clean element
+        const clone = cloneAndClean(refSpan, ['.ReferenceLinks', 'a.pdf', 'a[target="_blank"]', 'svg']);
 
         // Get clean content (flatten nested block elements)
         const htmlContent = this.flattenReferenceContent(clone);
@@ -160,16 +158,13 @@ export class ScienceDirectProcessor extends BaseFormatProcessor {
               const listItems = list.querySelectorAll('li');
 
               listItems.forEach((item, index) => {
-                const clone = item.cloneNode(true);
-                clone.querySelectorAll('.ReferenceLinks, a.pdf, a[target="_blank"], svg').forEach(el => el.remove());
-                clone.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
+                const clone = cloneAndClean(item, ['.ReferenceLinks', 'a.pdf', 'a[target="_blank"]', 'svg']);
 
                 const text = clone.textContent.trim();
                 const htmlContent = this.flattenReferenceContent(clone);
 
                 // Check if it looks like a reference (contains year)
-                const yearMatch = text.match(/\d{4}[a-z]?/);
-                if (yearMatch && text.length > 20) {
+                if (isValidReference(text)) {
                   references.push({
                     content: htmlContent,
                     originalText: text,
@@ -290,7 +285,7 @@ export class ScienceDirectProcessor extends BaseFormatProcessor {
   async transformStructure(dom, bookId) {
     console.log('📚 ScienceDirect: Applying structure transformation');
 
-    // 1. Remove reference sections from main content
+    // 1. Remove reference sections from main content (custom matcher for ScienceDirect)
     const headings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
     headings.forEach(heading => {
       const headingText = heading.textContent.trim().toLowerCase();
@@ -309,21 +304,10 @@ export class ScienceDirectProcessor extends BaseFormatProcessor {
       }
     });
 
-    // 2. Unwrap all container divs
-    const containers = Array.from(
-      dom.querySelectorAll('div, article, section, main, header, footer, aside, nav, button')
-    );
+    // 2. Unwrap all container elements
+    unwrapContainers(dom);
 
-    // Process in reverse order (children before parents)
-    containers.reverse().forEach(container => {
-      wrapLooseNodes(container);
-      unwrap(container);
-    });
-
-    // 3. Also unwrap <font> tags
-    dom.querySelectorAll('font').forEach(unwrap);
-
-    // 4. Convert citation links NOW (before cleanup strips data attributes and classes)
+    // 3. Convert citation links NOW (before cleanup strips data attributes and classes)
     this.convertCitationLinks(dom);
 
     console.log('📚 ScienceDirect: Transformation complete');
