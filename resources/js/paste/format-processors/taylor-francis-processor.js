@@ -4,7 +4,14 @@
  */
 
 import { BaseFormatProcessor } from './base-processor.js';
-import { unwrap, wrapLooseNodes, isReferenceSectionHeading } from '../utils/dom-utils.js';
+import { unwrap, isReferenceSectionHeading } from '../utils/dom-utils.js';
+import {
+  unwrapContainers,
+  removeSectionsByHeading,
+  removeStaticContentElements,
+  cloneAndClean,
+  addUniqueReference
+} from '../utils/transform-helpers.js';
 
 export class TaylorFrancisProcessor extends BaseFormatProcessor {
   constructor() {
@@ -302,11 +309,8 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
       citItems.forEach(item => {
         const citId = item.id; // e.g., "CIT0038"
 
-        // Clone and clean the item before extracting content
-        const clone = item.cloneNode(true);
-
-        // Remove entire extra-links divs (contains View, Web of Science, Google Scholar, etc.)
-        clone.querySelectorAll('.extra-links').forEach(el => el.remove());
+        // Clone and clean the item
+        const clone = cloneAndClean(item, ['.extra-links']);
 
         const content = clone.textContent.trim();
         if (content && content.length > 10) {
@@ -342,23 +346,18 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                 nextElement.tagName === 'UL' || nextElement.tagName === 'OL') {
               const refItems = nextElement.querySelectorAll('li, p');
               refItems.forEach(item => {
-                // Clone and clean the item before extracting content
-                const clone = item.cloneNode(true);
-
-                // Remove entire extra-links divs (contains View, Web of Science, Google Scholar, etc.)
-                clone.querySelectorAll('.extra-links').forEach(el => el.remove());
+                // Clone and clean the item
+                const clone = cloneAndClean(item, ['.extra-links']);
 
                 const content = clone.textContent.trim();
                 if (content && content.length > 10) {
-                  // Avoid duplicates
-                  if (!references.find(ref => ref.content === content)) {
-                    references.push({
-                      content: content,
-                      originalText: content,
-                      type: 'taylor-francis-list',
-                      needsKeyGeneration: true
-                    });
-                  }
+                  // Avoid duplicates using utility
+                  addUniqueReference(references, {
+                    content: content,
+                    originalText: content,
+                    type: 'taylor-francis-list',
+                    needsKeyGeneration: true
+                  }, 'content');
                 }
               });
             }
@@ -492,62 +491,20 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
     });
 
     // 3. Remove footnote and reference sections from main content
-    // They're already extracted above
-    const notesHeadings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
-    let removedCount = 0;
+    const removedSections = removeSectionsByHeading(dom, isReferenceSectionHeading);
 
-    notesHeadings.forEach(heading => {
-      const headingText = heading.textContent.trim();
+    // 4. Remove elements with data-static-content
+    const removedStatic = removeStaticContentElements(dom);
 
-      // Use improved matcher that handles multi-word, whitespace variations
-      if (isReferenceSectionHeading(headingText)) {
-        console.log(`📚 T&F: Removing "${headingText}" section from main content`);
-        let nextElement = heading.nextElementSibling;
-        heading.remove();
-        removedCount++;
+    console.log(`📚 T&F: Removed ${removedSections + removedStatic} section(s) from main content`);
 
-        while (nextElement) {
-          const next = nextElement.nextElementSibling;
-          if (nextElement.tagName && /^H[1-6]$/.test(nextElement.tagName)) {
-            break;
-          }
-          nextElement.remove();
-          nextElement = next;
-        }
-      }
-    });
-
-    // PASS 2: Remove elements with data-static-content
-    const staticElements = dom.querySelectorAll('[data-static-content]');
-    staticElements.forEach(el => {
-      console.log(`📚 T&F: Removing element with data-static-content="${el.getAttribute('data-static-content')}"`);
-      el.remove();
-      removedCount++;
-    });
-
-    console.log(`📚 T&F: Removed ${removedCount} section(s) from main content`);
-
-    // 4. Unwrap T&F footnote/citation wrapper spans first (before general unwrapping)
+    // 5. Unwrap T&F footnote/citation wrapper spans first (before general unwrapping)
     const tfWrapperSpans = Array.from(dom.querySelectorAll('span.ref-lnk'));
     tfWrapperSpans.forEach(span => {
       unwrap(span);
     });
 
-    // 5. Unwrap all container divs (like general processor does)
-    const containers = Array.from(
-      dom.querySelectorAll('div, article, section, main, header, footer, aside, nav, button')
-    );
-
-    // Process in reverse order (children before parents)
-    containers.reverse().forEach(container => {
-      // Wrap any loose text/inline nodes in this container
-      wrapLooseNodes(container);
-
-      // Unwrap the container itself (move children to parent)
-      unwrap(container);
-    });
-
-    // 4. Also unwrap <font> tags
-    dom.querySelectorAll('font').forEach(unwrap);
+    // 6. Unwrap all container elements
+    unwrapContainers(dom);
   }
 }

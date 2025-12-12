@@ -9,7 +9,15 @@
  */
 
 import { BaseFormatProcessor } from './base-processor.js';
-import { unwrap, wrapLooseNodes, isReferenceSectionHeading } from '../utils/dom-utils.js';
+import { isReferenceSectionHeading } from '../utils/dom-utils.js';
+import {
+  unwrapContainers,
+  removeSectionsByHeading,
+  removeStaticContentElements,
+  cloneAndClean,
+  isValidReference,
+  addUniqueReference
+} from '../utils/transform-helpers.js';
 
 export class SageProcessor extends BaseFormatProcessor {
   constructor() {
@@ -176,11 +184,8 @@ export class SageProcessor extends BaseFormatProcessor {
       biblioElements.forEach(element => {
         const xmlRid = element.id; // e.g., "bibr13-02633957251384867"
 
-        // Clone element to avoid modifying original DOM
-        const clone = element.cloneNode(true);
-
-        // Remove external links (Google Scholar, etc.)
-        clone.querySelectorAll('.external-links, .core-xlink-google-scholar, .to-citation__wrapper').forEach(el => el.remove());
+        // Clone and clean element
+        const clone = cloneAndClean(element, ['.external-links', '.core-xlink-google-scholar', '.to-citation__wrapper']);
 
         // Try to find the actual citation content
         let contentElement = clone.querySelector('.citation-content');
@@ -189,15 +194,11 @@ export class SageProcessor extends BaseFormatProcessor {
           contentElement = clone;
         }
 
-        // Strip all inline styles
-        contentElement.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
-
         const text = contentElement.textContent.trim();
         const htmlContent = contentElement.innerHTML.trim();
 
         // Check if it looks like a reference (contains year and has substantial content)
-        const yearMatch = text.match(/\d{4}[a-z]?/);
-        if (yearMatch && text.length > 20) {
+        if (isValidReference(text)) {
           references.push({
             content: htmlContent,
             originalText: text,
@@ -223,16 +224,13 @@ export class SageProcessor extends BaseFormatProcessor {
 
           items.forEach(item => {
             // Clone and clean
-            const clone = item.cloneNode(true);
-            clone.querySelectorAll('.external-links, .core-xlink-google-scholar, .to-citation__wrapper').forEach(el => el.remove());
-            clone.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
+            const clone = cloneAndClean(item, ['.external-links', '.core-xlink-google-scholar', '.to-citation__wrapper']);
 
             const text = clone.textContent.trim();
             const htmlContent = clone.innerHTML.trim();
 
             // Check if it looks like a reference (contains year)
-            const yearMatch = text.match(/\d{4}[a-z]?/);
-            if (yearMatch && yearMatch.index < 150 && text.length > 20) {
+            if (isValidReference(text)) {
               references.push({
                 content: htmlContent,
                 originalText: text,
@@ -258,25 +256,22 @@ export class SageProcessor extends BaseFormatProcessor {
       }
 
       // Check if it looks like a reference (contains year)
-      const yearMatch = text.match(/\d{4}[a-z]?/);
-      if (yearMatch && yearMatch.index < 150 && text.length > 20) {
+      if (isValidReference(text)) {
         // Clone and clean
-        const clone = ref.cloneNode(true);
-        clone.querySelectorAll('.external-links, .core-xlink-google-scholar, .to-citation__wrapper').forEach(el => el.remove());
-        clone.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
+        const clone = cloneAndClean(ref, ['.external-links', '.core-xlink-google-scholar', '.to-citation__wrapper']);
 
         const cleanText = clone.textContent.trim();
         const htmlContent = clone.innerHTML.trim();
 
-        // Avoid duplicates
-        if (!references.find(r => r.originalText === cleanText)) {
-          references.push({
-            content: htmlContent,
-            originalText: cleanText,
-            type: 'sage-ref',
-            needsKeyGeneration: true
-          });
+        // Avoid duplicates using utility
+        const newRef = {
+          content: htmlContent,
+          originalText: cleanText,
+          type: 'sage-ref',
+          needsKeyGeneration: true
+        };
 
+        if (addUniqueReference(references, newRef)) {
           console.log(`📚 Sage: Extracted reference from .ref: "${cleanText.substring(0, 60)}..."`);
         }
       }
@@ -303,17 +298,14 @@ export class SageProcessor extends BaseFormatProcessor {
 
         elementsToScan.forEach(p => {
           // Clone and clean
-          const clone = p.cloneNode(true);
-          clone.querySelectorAll('.external-links, .core-xlink-google-scholar, .to-citation__wrapper').forEach(el => el.remove());
-          clone.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
+          const clone = cloneAndClean(p, ['.external-links', '.core-xlink-google-scholar', '.to-citation__wrapper']);
 
           const text = clone.textContent.trim();
           const htmlContent = clone.innerHTML.trim();
 
           if (!text) return;
 
-          const yearMatch = text.match(/(\d{4}[a-z]?)/);
-          if (yearMatch && yearMatch.index < 150) {
+          if (isValidReference(text)) {
             references.push({
               content: htmlContent,
               originalText: text,
@@ -341,57 +333,15 @@ export class SageProcessor extends BaseFormatProcessor {
     console.log('📚 Sage: Applying general structure transformation');
 
     // STEP 1: Remove original Footnotes/References sections from main content
-    // They're already extracted and will be appended as static content
-    const headings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
-    let removedCount = 0;
+    const removedSections = removeSectionsByHeading(dom, isReferenceSectionHeading);
 
-    headings.forEach(heading => {
-      const headingText = heading.textContent.trim();
+    // STEP 2: Remove elements with data-static-content
+    const removedStatic = removeStaticContentElements(dom);
 
-      // Use improved matcher that handles multi-word, whitespace variations
-      if (isReferenceSectionHeading(headingText)) {
-        console.log(`📚 Sage: Removing "${headingText}" section from main content`);
-        let nextElement = heading.nextElementSibling;
-        heading.remove();
-        removedCount++;
+    console.log(`📚 Sage: Removed ${removedSections + removedStatic} section(s) from main content`);
 
-        while (nextElement) {
-          const next = nextElement.nextElementSibling;
-          if (nextElement.tagName && /^H[1-6]$/.test(nextElement.tagName)) {
-            break;
-          }
-          nextElement.remove();
-          nextElement = next;
-        }
-      }
-    });
-
-    // PASS 2: Remove elements with data-static-content
-    const staticElements = dom.querySelectorAll('[data-static-content]');
-    staticElements.forEach(el => {
-      console.log(`📚 Sage: Removing element with data-static-content="${el.getAttribute('data-static-content')}"`);
-      el.remove();
-      removedCount++;
-    });
-
-    console.log(`📚 Sage: Removed ${removedCount} section(s) from main content`);
-
-    // STEP 2: Find and process all container elements
-    const containers = Array.from(
-      dom.querySelectorAll('div, article, section, main, header, footer, aside, nav, button')
-    );
-
-    // Process in reverse order (children before parents)
-    containers.reverse().forEach(container => {
-      // Wrap any loose text/inline nodes
-      wrapLooseNodes(container);
-
-      // Unwrap the container itself
-      unwrap(container);
-    });
-
-    // Also unwrap <font> tags
-    dom.querySelectorAll('font').forEach(unwrap);
+    // STEP 3: Unwrap all container elements
+    unwrapContainers(dom);
 
     console.log(`📚 Sage: Transformation complete`);
   }

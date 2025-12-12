@@ -9,7 +9,12 @@
  */
 
 import { BaseFormatProcessor } from './base-processor.js';
-import { unwrap, wrapLooseNodes, isReferenceSectionHeading } from '../utils/dom-utils.js';
+import { isReferenceSectionHeading } from '../utils/dom-utils.js';
+import {
+  unwrapContainers,
+  removeSectionsByHeading,
+  removeStaticContentElements
+} from '../utils/transform-helpers.js';
 
 export class OupProcessor extends BaseFormatProcessor {
   constructor() {
@@ -411,43 +416,13 @@ export class OupProcessor extends BaseFormatProcessor {
    * @param {HTMLElement} dom - DOM element
    */
   removeExtractedSections(dom) {
-    let removedCount = 0;
-
     // PASS 1: Remove by heading text matching
-    const headings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
-
-    headings.forEach(heading => {
-      const text = heading.textContent.trim();
-
-      // Use improved matcher that handles multi-word, whitespace variations
-      if (isReferenceSectionHeading(text)) {
-        console.log(`📚 OUP: Removing original "${text}" section from body`);
-
-        let nextElement = heading.nextElementSibling;
-        heading.remove();
-        removedCount++;
-
-        // Remove all content until next heading or end
-        while (nextElement) {
-          const next = nextElement.nextElementSibling;
-          if (nextElement.tagName && /^H[1-6]$/.test(nextElement.tagName)) {
-            break;
-          }
-          nextElement.remove();
-          nextElement = next;
-        }
-      }
-    });
+    const removedSections = removeSectionsByHeading(dom, isReferenceSectionHeading);
 
     // PASS 2: Remove elements with data-static-content attribute
-    const staticElements = dom.querySelectorAll('[data-static-content]');
-    staticElements.forEach(el => {
-      console.log(`📚 OUP: Removing element with data-static-content="${el.getAttribute('data-static-content')}"`);
-      el.remove();
-      removedCount++;
-    });
+    const removedStatic = removeStaticContentElements(dom);
 
-    console.log(`📚 OUP: Removed ${removedCount} extracted section(s) from body`);
+    console.log(`📚 OUP: Removed ${removedSections + removedStatic} extracted section(s) from body`);
   }
 
   /**
@@ -478,22 +453,7 @@ export class OupProcessor extends BaseFormatProcessor {
     console.log(`📚 OUP: Removed ${uiElements.length} UI elements (buttons, links)`);
 
     // STEP 4: General container unwrapping
-    // Find and process all container elements
-    const containers = Array.from(
-      dom.querySelectorAll('div, article, section, main, header, footer, aside, nav, button')
-    );
-
-    // Process in reverse order (children before parents)
-    containers.reverse().forEach(container => {
-      // Wrap any loose text/inline nodes
-      wrapLooseNodes(container);
-
-      // Unwrap the container itself
-      unwrap(container);
-    });
-
-    // Also unwrap <font> tags
-    dom.querySelectorAll('font').forEach(unwrap);
+    unwrapContainers(dom);
 
     // STEP 5: Remove empty xrefLink spans that OUP inserts before citations
     const xrefLinks = dom.querySelectorAll('span.xrefLink');

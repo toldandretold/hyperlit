@@ -9,7 +9,12 @@
  */
 
 import { BaseFormatProcessor } from './base-processor.js';
-import { wrapLooseNodes, unwrap, isReferenceSectionHeading } from '../utils/dom-utils.js';
+import { isReferenceSectionHeading } from '../utils/dom-utils.js';
+import {
+  unwrapContainers,
+  removeSectionsByHeading,
+  removeStaticContentElements
+} from '../utils/transform-helpers.js';
 
 export class CambridgeProcessor extends BaseFormatProcessor {
   constructor() {
@@ -271,52 +276,15 @@ export class CambridgeProcessor extends BaseFormatProcessor {
     // The base cleanup() will strip these attributes later
 
     // STEP 4: Remove Notes/References sections from main content
-    // They're already extracted above and will be appended as static content
-    const headings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
-    let removedSections = 0;
+    const removedSections = removeSectionsByHeading(dom, isReferenceSectionHeading);
 
-    headings.forEach(heading => {
-      const headingText = heading.textContent.trim();
+    // STEP 4.5: Remove elements with data-static-content
+    const removedStatic = removeStaticContentElements(dom);
 
-      // Use improved matcher that handles multi-word, whitespace variations
-      if (isReferenceSectionHeading(headingText)) {
-        console.log(`📚 Cambridge: Removing "${headingText}" section from main content`);
-        let nextElement = heading.nextElementSibling;
-        heading.remove();
-        removedSections++;
-
-        while (nextElement) {
-          const next = nextElement.nextElementSibling;
-          if (nextElement.tagName && /^H[1-6]$/.test(nextElement.tagName)) {
-            break;
-          }
-          nextElement.remove();
-          nextElement = next;
-        }
-      }
-    });
-
-    // PASS 2: Remove elements with data-static-content
-    const staticElements = dom.querySelectorAll('[data-static-content]');
-    staticElements.forEach(el => {
-      console.log(`📚 Cambridge: Removing element with data-static-content="${el.getAttribute('data-static-content')}"`);
-      el.remove();
-      removedSections++;
-    });
-
-    console.log(`📚 Cambridge: Removed ${removedSections} section(s) from main content`);
+    console.log(`📚 Cambridge: Removed ${removedSections + removedStatic} section(s) from main content`);
 
     // STEP 5: General unwrapping of remaining containers
-    const containers = Array.from(
-      dom.querySelectorAll('div, article, section, main, header, footer, aside, nav')
-    );
-
-    containers.reverse().forEach(container => {
-      wrapLooseNodes(container);
-      unwrap(container);
-    });
-
-    dom.querySelectorAll('font').forEach(unwrap);
+    unwrapContainers(dom);
 
     // STEP 6: Re-insert title at start
     if (title) {
