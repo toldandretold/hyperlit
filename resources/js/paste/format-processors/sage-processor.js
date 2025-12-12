@@ -16,7 +16,8 @@ import {
   removeStaticContentElements,
   cloneAndClean,
   isValidReference,
-  addUniqueReference
+  addUniqueReference,
+  reformatCitationLink
 } from '../utils/transform-helpers.js';
 
 export class SageProcessor extends BaseFormatProcessor {
@@ -461,46 +462,29 @@ export class SageProcessor extends BaseFormatProcessor {
         link.setAttribute('href', `#${matchedReference.referenceId}`);
         link.setAttribute('class', 'in-text-citation');
 
-        // Handle NARRATIVE vs PARENTHETICAL citation formatting
-        if (isNarrative) {
-          // NARRATIVE: "Durose et al. (2022)" → Durose et al. (<a>2022</a>)
-          if (beforeYear) {
-            // Remove trailing opening paren and whitespace
-            const cleanAuthor = beforeYear.replace(/\(\s*$/, '').trim();
-            const authorText = document.createTextNode(cleanAuthor + ' ');
-            link.parentNode.insertBefore(authorText, link);
-          }
-
-          // Insert opening bracket before link
-          const openBracket = document.createTextNode('(');
-          link.parentNode.insertBefore(openBracket, link);
-
-          // Set link text to ONLY the year
-          link.textContent = year;
-
-          // Insert closing bracket after link
-          const closeBracket = document.createTextNode(')');
-          link.parentNode.insertBefore(closeBracket, link.nextSibling);
-        } else {
-          // PARENTHETICAL: "Durose et al., 2022" → Durose et al., <a>2022</a>
-          if (beforeYear) {
-            // Remove trailing comma/whitespace from beforeYear to avoid double commas
-            const cleanAuthor = beforeYear.replace(/[,\s]+$/, '');
-            const authorText = document.createTextNode(cleanAuthor + ', ');
-            link.parentNode.insertBefore(authorText, link);
-          }
-
-          // Set link text to ONLY the year
-          link.textContent = year;
-
-          // Handle any trailing text after the year (e.g., ": 143")
-          const afterYearPos = citText.indexOf(year) + year.length;
-          const trailingPart = citText.substring(afterYearPos);
-          if (trailingPart) {
-            const trailingText = document.createTextNode(trailingPart);
-            link.parentNode.insertBefore(trailingText, link.nextSibling);
+        // Prepare author text (clean up based on citation style)
+        let cleanAuthor = '';
+        if (beforeYear) {
+          if (isNarrative) {
+            // Remove trailing opening paren and whitespace for narrative
+            cleanAuthor = beforeYear.replace(/\(\s*$/, '').trim();
+          } else {
+            // Remove trailing comma/whitespace and add comma separator for parenthetical
+            cleanAuthor = beforeYear.replace(/[,\s]+$/, '') + ', ';
           }
         }
+
+        // Get trailing text after year (e.g., ": 143")
+        const afterYearPos = citText.indexOf(year) + year.length;
+        const trailing = isNarrative ? '' : citText.substring(afterYearPos);
+
+        // Use shared utility for citation reformatting
+        reformatCitationLink(link, {
+          author: cleanAuthor,
+          year,
+          isNarrative,
+          trailing
+        });
 
         // Remove Sage-specific attributes
         link.removeAttribute('role');

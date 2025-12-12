@@ -135,3 +135,90 @@ export function addUniqueReference(references, newRef, keyField = 'originalText'
   }
   return false;
 }
+
+/**
+ * Reformat a citation link to show only the year as the clickable link
+ * Handles both narrative and parenthetical citation styles
+ *
+ * Narrative: "Author (2022)" → Author (<a>2022</a>)
+ * Parenthetical: "Author, 2022" → Author, <a>2022</a>
+ *
+ * @param {HTMLElement} link - The citation link element to reformat
+ * @param {Object} options - Reformatting options
+ * @param {string} options.author - Author text to insert before the link
+ * @param {string} options.year - Year to use as link text
+ * @param {boolean} options.isNarrative - True for narrative style (adds parentheses around year)
+ * @param {string} options.trailing - Any trailing text after the year (e.g., ": 143")
+ */
+export function reformatCitationLink(link, { author = '', year, isNarrative = false, trailing = '' }) {
+  if (!year) return;
+
+  if (isNarrative) {
+    // NARRATIVE: "Author (Year)" → Author (<a>Year</a>)
+    if (author) {
+      const authorText = document.createTextNode(author + ' ');
+      link.parentNode.insertBefore(authorText, link);
+    }
+
+    // Insert opening bracket before link
+    const openBracket = document.createTextNode('(');
+    link.parentNode.insertBefore(openBracket, link);
+
+    // Set link text to only the year
+    link.textContent = year;
+
+    // Insert closing bracket after link
+    const closeBracket = document.createTextNode(')');
+    link.parentNode.insertBefore(closeBracket, link.nextSibling);
+  } else {
+    // PARENTHETICAL: "Author, Year" → Author, <a>Year</a>
+    if (author) {
+      const authorText = document.createTextNode(author);
+      link.parentNode.insertBefore(authorText, link);
+    }
+
+    // Set link text to only the year
+    link.textContent = year;
+
+    // Handle any trailing text after the year (e.g., ": 143" in page citations)
+    if (trailing) {
+      const trailingText = document.createTextNode(trailing);
+      link.parentNode.insertBefore(trailingText, link.nextSibling);
+    }
+  }
+}
+
+/**
+ * Clean Taylor & Francis footnote content by removing wrapper spans and cleaning citation attributes
+ * This pattern is repeated multiple times in taylor-francis-processor.js
+ *
+ * @param {string} htmlContent - Raw HTML content from footnote
+ * @returns {string} - Cleaned HTML content
+ */
+export function cleanTFFootnoteContent(htmlContent) {
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = htmlContent;
+
+  // Remove citation wrapper spans (unwrap their content)
+  tempDiv.querySelectorAll('span.ref-lnk').forEach(span => {
+    while (span.firstChild) {
+      span.parentNode.insertBefore(span.firstChild, span);
+    }
+    span.remove();
+  });
+
+  // Clean citation links - keep data-rid for T&F linkCitations() to process
+  tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach(link => {
+    // Remove off-screen spans
+    link.querySelectorAll('span.off-screen').forEach(s => s.remove());
+
+    // Remove problematic attributes but KEEP data-rid
+    link.removeAttribute('data-behaviour');
+    link.removeAttribute('data-ref-type');
+    link.removeAttribute('data-label');
+    link.removeAttribute('data-registered');
+    link.removeAttribute('href'); // Remove temporary href, T&F linkCitations will add proper one
+  });
+
+  return tempDiv.innerHTML;
+}

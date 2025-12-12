@@ -16,7 +16,8 @@ import {
   unwrapContainers,
   removeSectionsByHeading,
   removeStaticContentElements,
-  cloneAndClean
+  cloneAndClean,
+  reformatCitationLink
 } from '../utils/transform-helpers.js';
 
 export class SpringerProcessor extends BaseFormatProcessor {
@@ -302,43 +303,29 @@ export class SpringerProcessor extends BaseFormatProcessor {
         const hasOpenParen = citText.includes('(');
         const yearMatch = citText.match(/\b(\d{4}[a-z]?)\b/);
 
-        if (hasOpenParen && yearMatch) {
-          // NARRATIVE: "Lincoln (1854)" → Lincoln (<a>1854</a>)
-          const beforeParen = citText.substring(0, citText.indexOf('(')).trim();
+        if (yearMatch) {
           const year = yearMatch[1];
+          const isNarrative = hasOpenParen;
 
-          if (beforeParen) {
-            const authorText = document.createTextNode(beforeParen + ' ');
-            link.parentNode.insertBefore(authorText, link);
+          // Prepare author text based on citation style
+          let author = '';
+          if (isNarrative) {
+            author = citText.substring(0, citText.indexOf('(')).trim();
+          } else {
+            author = citText.substring(0, yearMatch.index).trim();
           }
 
-          const openBracket = document.createTextNode('(');
-          link.parentNode.insertBefore(openBracket, link);
-
-          link.textContent = year;
-
-          const closeBracket = document.createTextNode(')');
-          link.parentNode.insertBefore(closeBracket, link.nextSibling);
-        } else if (yearMatch) {
-          // PARENTHETICAL: "2024b" or with author: "Lincoln, 1854"
-          const year = yearMatch[1];
-          const beforeYear = citText.substring(0, yearMatch.index).trim();
-
-          if (beforeYear) {
-            // Has author before year
-            const authorText = document.createTextNode(beforeYear);
-            link.parentNode.insertBefore(authorText, link);
-          }
-
-          link.textContent = year;
-
-          // Handle any trailing text after the year
+          // Get trailing text after year
           const afterYearPos = citText.indexOf(year) + year.length;
-          const trailingPart = citText.substring(afterYearPos);
-          if (trailingPart) {
-            const trailingText = document.createTextNode(trailingPart);
-            link.parentNode.insertBefore(trailingText, link.nextSibling);
-          }
+          const trailing = isNarrative ? '' : citText.substring(afterYearPos);
+
+          // Use shared utility for citation reformatting
+          reformatCitationLink(link, {
+            author,
+            year,
+            isNarrative,
+            trailing
+          });
         } else {
           // No year found, keep text as-is
           link.textContent = citText;

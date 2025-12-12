@@ -10,7 +10,8 @@ import {
   removeSectionsByHeading,
   removeStaticContentElements,
   cloneAndClean,
-  addUniqueReference
+  addUniqueReference,
+  cleanTFFootnoteContent
 } from '../utils/transform-helpers.js';
 
 export class TaylorFrancisProcessor extends BaseFormatProcessor {
@@ -56,31 +57,7 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
               htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
 
               // Clean up T&F citation links in footnote content
-              const tempDiv = document.createElement('div');
-              tempDiv.innerHTML = htmlContent;
-
-              // Remove citation wrapper spans
-              tempDiv.querySelectorAll('span.ref-lnk').forEach(span => {
-                while (span.firstChild) {
-                  span.parentNode.insertBefore(span.firstChild, span);
-                }
-                span.remove();
-              });
-
-              // Clean citation links - keep data-rid for T&F linkCitations() to process
-              tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach(link => {
-                // Remove off-screen spans
-                link.querySelectorAll('span.off-screen').forEach(s => s.remove());
-
-                // Remove problematic attributes but KEEP data-rid
-                link.removeAttribute('data-behaviour');
-                link.removeAttribute('data-ref-type');
-                link.removeAttribute('data-label');
-                link.removeAttribute('data-registered');
-                link.removeAttribute('href'); // Remove temporary href, T&F linkCitations will add proper one
-              });
-
-              htmlContent = tempDiv.innerHTML;
+              htmlContent = cleanTFFootnoteContent(htmlContent);
 
               footnotes.push(this.createFootnote(
                 this.generateFootnoteId(bookId, identifier),
@@ -113,31 +90,7 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                   htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
 
                   // Clean up T&F citation links in footnote content
-                  const tempDiv = document.createElement('div');
-                  tempDiv.innerHTML = htmlContent;
-
-                  // Remove citation wrapper spans
-                  tempDiv.querySelectorAll('span.ref-lnk').forEach(span => {
-                    while (span.firstChild) {
-                      span.parentNode.insertBefore(span.firstChild, span);
-                    }
-                    span.remove();
-                  });
-
-                  // Clean citation links - keep data-rid for T&F linkCitations() to process
-                  tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach(link => {
-                    // Remove off-screen spans
-                    link.querySelectorAll('span.off-screen').forEach(s => s.remove());
-
-                    // Remove problematic attributes but KEEP data-rid
-                    link.removeAttribute('data-behaviour');
-                    link.removeAttribute('data-ref-type');
-                    link.removeAttribute('data-label');
-                    link.removeAttribute('data-registered');
-                    link.removeAttribute('href'); // Remove temporary href, T&F linkCitations will add proper one
-                  });
-
-                  htmlContent = tempDiv.innerHTML;
+                  htmlContent = cleanTFFootnoteContent(htmlContent);
 
                   const footnote = this.createFootnote(
                     this.generateFootnoteId(bookId, identifier), // Always use standard ID
@@ -175,31 +128,7 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                     htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
 
                     // Clean up T&F citation links in footnote content
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = htmlContent;
-
-                    // Remove citation wrapper spans
-                    tempDiv.querySelectorAll('span.ref-lnk').forEach(span => {
-                      while (span.firstChild) {
-                        span.parentNode.insertBefore(span.firstChild, span);
-                      }
-                      span.remove();
-                    });
-
-                    // Clean citation links - keep data-rid for T&F linkCitations() to process
-                    tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach(link => {
-                      // Remove off-screen spans
-                      link.querySelectorAll('span.off-screen').forEach(s => s.remove());
-
-                      // Remove problematic attributes but KEEP data-rid
-                      link.removeAttribute('data-behaviour');
-                      link.removeAttribute('data-ref-type');
-                      link.removeAttribute('data-label');
-                      link.removeAttribute('data-registered');
-                      link.removeAttribute('href'); // Remove temporary href, T&F linkCitations will add proper one
-                    });
-
-                    htmlContent = tempDiv.innerHTML;
+                    htmlContent = cleanTFFootnoteContent(htmlContent);
 
                     const footnote = this.createFootnote(
                       this.generateFootnoteId(bookId, identifier), // Always use standard ID
@@ -247,31 +176,7 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
             htmlContent = htmlContent.replace(/^(\s*<[^>]+>)*\s*\d+[\.\)]\s*/, '');
 
             // Clean up T&F citation links in footnote content
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = htmlContent;
-
-            // Remove citation wrapper spans
-            tempDiv.querySelectorAll('span.ref-lnk').forEach(span => {
-              while (span.firstChild) {
-                span.parentNode.insertBefore(span.firstChild, span);
-              }
-              span.remove();
-            });
-
-            // Clean citation links - keep data-rid for T&F linkCitations() to process
-            tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach(link => {
-              // Remove off-screen spans
-              link.querySelectorAll('span.off-screen').forEach(s => s.remove());
-
-              // Remove problematic attributes but KEEP data-rid
-              link.removeAttribute('data-behaviour');
-              link.removeAttribute('data-ref-type');
-              link.removeAttribute('data-label');
-              link.removeAttribute('data-registered');
-              link.removeAttribute('href'); // Remove temporary href, T&F linkCitations will add proper one
-            });
-
-            htmlContent = tempDiv.innerHTML;
+            htmlContent = cleanTFFootnoteContent(htmlContent);
 
             const footnote = this.createFootnote(
               this.generateFootnoteId(bookId, identifier), // Always use standard ID

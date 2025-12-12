@@ -13,7 +13,8 @@ import { isReferenceSectionHeading } from '../utils/dom-utils.js';
 import {
   unwrapContainers,
   removeSectionsByHeading,
-  removeStaticContentElements
+  removeStaticContentElements,
+  reformatCitationLink
 } from '../utils/transform-helpers.js';
 
 export class OupProcessor extends BaseFormatProcessor {
@@ -692,46 +693,17 @@ export class OupProcessor extends BaseFormatProcessor {
         link.setAttribute('href', `#${matchedReference.referenceId}`);
         link.setAttribute('class', 'in-text-citation');
 
-        // Handle NARRATIVE vs PARENTHETICAL citation formatting
-        if (isNarrative) {
-          // NARRATIVE: "Lincoln (1854)" → Lincoln (<a>1854</a>)
-          // Original link contains "Lincoln (1854)" - we need to split it up
+        // Get trailing text after year (only for parenthetical)
+        const afterYearPos = citText.indexOf(year) + year.length;
+        const trailing = isNarrative ? '' : citText.substring(afterYearPos);
 
-          // Insert author name before link
-          if (beforeYear) {
-            const authorText = document.createTextNode(beforeYear);
-            link.parentNode.insertBefore(authorText, link);
-          }
-
-          // Insert opening bracket before link
-          const openBracket = document.createTextNode('(');
-          link.parentNode.insertBefore(openBracket, link);
-
-          // Set link text to ONLY the year
-          link.textContent = year;
-
-          // Insert closing bracket after link
-          const closeBracket = document.createTextNode(')');
-          link.parentNode.insertBefore(closeBracket, link.nextSibling);
-        } else {
-          // PARENTHETICAL: "Thatcher, 1981" → Thatcher, <a>1981</a>
-          // Insert author text BEFORE the link (if any)
-          if (beforeYear) {
-            const authorText = document.createTextNode(beforeYear);
-            link.parentNode.insertBefore(authorText, link);
-          }
-          // Set link text to ONLY the year
-          link.textContent = year;
-
-          // Handle any trailing text after the year (e.g., ": 143" in page citations)
-          // Note: Only for parenthetical - narrative has trailing in parentheses already
-          const afterYearPos = citText.indexOf(year) + year.length;
-          const trailingPart = citText.substring(afterYearPos);
-          if (trailingPart) {
-            const trailingText = document.createTextNode(trailingPart);
-            link.parentNode.insertBefore(trailingText, link.nextSibling);
-          }
-        }
+        // Use shared utility for citation reformatting
+        reformatCitationLink(link, {
+          author: beforeYear || '',
+          year,
+          isNarrative,
+          trailing
+        });
 
         // Remove ALL OUP-specific attributes
         link.removeAttribute('reveal-id');
