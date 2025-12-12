@@ -517,9 +517,13 @@ export function createLazyLoader(config) {
   const topSentinel = document.createElement("div");
   topSentinel.id = `${uniqueId}-top-sentinel`;
   topSentinel.classList.add("sentinel");
+  topSentinel.contentEditable = "false"; // Prevent cursor from entering sentinel
+  topSentinel.style.userSelect = "none"; // Prevent text selection
   const bottomSentinel = document.createElement("div");
   bottomSentinel.id = `${uniqueId}-bottom-sentinel`;
   bottomSentinel.classList.add("sentinel");
+  bottomSentinel.contentEditable = "false"; // Prevent cursor from entering sentinel
+  bottomSentinel.style.userSelect = "none"; // Prevent text selection
   container.prepend(topSentinel);
   container.appendChild(bottomSentinel);
   verbose.init(`Sentinels inserted: ${topSentinel.id}, ${bottomSentinel.id}`, 'lazyLoaderFactory.js');
@@ -1264,9 +1268,13 @@ function repositionFixedSentinelsForBlockInternal(instance, attachMarkers) {
   const topSentinel = document.createElement("div");
   topSentinel.id = `${uniqueId}-top-sentinel`;
   topSentinel.className = "sentinel";
+  topSentinel.contentEditable = "false"; // Prevent cursor from entering sentinel
+  topSentinel.style.userSelect = "none"; // Prevent text selection
   const bottomSentinel = document.createElement("div");
   bottomSentinel.id = `${uniqueId}-bottom-sentinel`;
   bottomSentinel.className = "sentinel";
+  bottomSentinel.contentEditable = "false"; // Prevent cursor from entering sentinel
+  bottomSentinel.style.userSelect = "none"; // Prevent text selection
   container.insertBefore(topSentinel, allChunks[0]);
   allChunks[allChunks.length - 1].after(bottomSentinel);
   instance.topSentinel = topSentinel;
