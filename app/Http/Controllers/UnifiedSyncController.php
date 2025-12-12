@@ -70,7 +70,7 @@ class UnifiedSyncController extends Controller
                         $nodeChunkRequest->cookies->set($key, $value);
                     }
 
-                    $response = $nodeChunkController->targetedUpsert($nodeChunkRequest);
+                    $response = $nodeChunkController->bulkTargetedUpsert($nodeChunkRequest);
                     $results['nodes'] = json_decode($response->getContent(), true);
 
                     if (!($results['nodes']['success'] ?? false)) {
