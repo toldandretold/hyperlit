@@ -301,7 +301,14 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
     if (citItems.length > 0) {
       citItems.forEach(item => {
         const citId = item.id; // e.g., "CIT0038"
-        const content = item.textContent.trim();
+
+        // Clone and clean the item before extracting content
+        const clone = item.cloneNode(true);
+
+        // Remove entire extra-links divs (contains View, Web of Science, Google Scholar, etc.)
+        clone.querySelectorAll('.extra-links').forEach(el => el.remove());
+
+        const content = clone.textContent.trim();
         if (content && content.length > 10) {
           // Match old code structure - plain object, no helper methods
           const reference = {
@@ -335,7 +342,13 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
                 nextElement.tagName === 'UL' || nextElement.tagName === 'OL') {
               const refItems = nextElement.querySelectorAll('li, p');
               refItems.forEach(item => {
-                const content = item.textContent.trim();
+                // Clone and clean the item before extracting content
+                const clone = item.cloneNode(true);
+
+                // Remove entire extra-links divs (contains View, Web of Science, Google Scholar, etc.)
+                clone.querySelectorAll('.extra-links').forEach(el => el.remove());
+
+                const content = clone.textContent.trim();
                 if (content && content.length > 10) {
                   // Avoid duplicates
                   if (!references.find(ref => ref.content === content)) {
@@ -461,7 +474,11 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
    * Transform structure - unwrap divs and clean up
    */
   async transformStructure(dom, bookId) {
-    // 1. T&F-specific: Clean up citation link TEXT but KEEP the links
+    // 1. Remove entire extra-links divs (contains View, Web of Science, Google Scholar, etc.)
+    // Must happen BEFORE unwrapping divs/spans
+    dom.querySelectorAll('.extra-links').forEach(el => el.remove());
+
+    // 2. T&F-specific: Clean up citation link TEXT but KEEP the links
     // Remove "Citation" text from the link content, but preserve <a> tags for later conversion
     const citationLinks = dom.querySelectorAll('a[data-rid^="CIT"]');
     citationLinks.forEach(link => {
@@ -474,7 +491,7 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
       // Keep the link element for later conversion in linkCitations()
     });
 
-    // 2. Remove footnote and reference sections from main content
+    // 3. Remove footnote and reference sections from main content
     // They're already extracted above
     const notesHeadings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
     notesHeadings.forEach(heading => {
@@ -494,13 +511,13 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
       }
     });
 
-    // 3. Unwrap T&F footnote/citation wrapper spans first (before general unwrapping)
+    // 4. Unwrap T&F footnote/citation wrapper spans first (before general unwrapping)
     const tfWrapperSpans = Array.from(dom.querySelectorAll('span.ref-lnk'));
     tfWrapperSpans.forEach(span => {
       unwrap(span);
     });
 
-    // 4. Unwrap all container divs (like general processor does)
+    // 5. Unwrap all container divs (like general processor does)
     const containers = Array.from(
       dom.querySelectorAll('div, article, section, main, header, footer, aside, nav, button')
     );
