@@ -36,6 +36,16 @@ export class OupProcessor extends BaseFormatProcessor {
     footnoteElements.forEach(element => {
       const contentId = element.getAttribute('content-id');
 
+      // CHECK CONTEXT: Skip if in table/figure context (CRITICAL FIX)
+      // Table/figure notes should stay in body, not be extracted to Notes section
+      const inTableContext = element.closest('.table-wrap-foot, .table-wrap, table');
+      const inFigureContext = element.closest('.fig, .fig-section, figure');
+
+      if (inTableContext || inFigureContext) {
+        console.log(`📚 OUP: Skipping ${contentId} (in ${inTableContext ? 'table' : 'figure'} context, will stay in body)`);
+        return; // Don't extract, leave in place
+      }
+
       // Extract number from content-id (e.g., "fn1" → "1", "fn-0100" → "0100")
       const identifierMatch = contentId.match(/fn-?(\d+)/);
       if (!identifierMatch) {
@@ -297,6 +307,145 @@ export class OupProcessor extends BaseFormatProcessor {
   }
 
   /**
+   * Remove duplicate OUP tables (modal vs inline versions)
+   * OUP provides .table-modal (for popup) and .table-full-width-wrap (inline)
+   * Keep inline version, remove modal
+   *
+   * @param {HTMLElement} dom - DOM element
+   */
+  handleDuplicateTables(dom) {
+    const modalContainers = dom.querySelectorAll('.table-modal');
+
+    modalContainers.forEach(modalContainer => {
+      // Remove the entire modal container
+      modalContainer.remove();
+      console.log('📚 OUP: Removed duplicate table modal');
+    });
+  }
+
+  /**
+   * Preserve table captions by extracting them from .table-wrap-title
+   * Creates clean paragraph with "Table N. Caption text" format
+   *
+   * @param {HTMLElement} dom - DOM element
+   */
+  preserveTableCaptions(dom) {
+    const tableWraps = dom.querySelectorAll('.table-wrap, .table-full-width-wrap');
+
+    tableWraps.forEach(wrap => {
+      const titleContainer = wrap.querySelector('.table-wrap-title');
+      const label = wrap.querySelector('.label, .title-label');
+      const caption = wrap.querySelector('.caption');
+      const table = wrap.querySelector('table');
+
+      if (label && caption && table) {
+        // Extract label and caption text
+        const labelText = label.textContent.trim();
+
+        // Caption might be nested in a <p> tag
+        const captionPara = caption.querySelector('p');
+        const captionText = (captionPara ? captionPara.textContent : caption.textContent).trim();
+
+        // Create a paragraph with label + caption
+        const captionP = document.createElement('p');
+        captionP.innerHTML = `<strong>${labelText}</strong> ${captionText}`;
+
+        // Insert before the table
+        table.parentNode.insertBefore(captionP, table);
+
+        // Remove the original .table-wrap-title container to prevent duplication
+        if (titleContainer) {
+          titleContainer.remove();
+        }
+
+        console.log(`📚 OUP: Preserved table caption: "${labelText} ${captionText.substring(0, 40)}..."`);
+      }
+    });
+  }
+
+  /**
+   * Preserve figure captions by extracting them from .graphic-bottom
+   * Creates clean paragraph with "Fig. N. Caption text" format
+   *
+   * @param {HTMLElement} dom - DOM element
+   */
+  preserveFigureCaptions(dom) {
+    // Only select .graphic-wrap to avoid duplicate processing
+    // (OUP has nested .fig > .graphic-wrap structure)
+    const graphicWraps = dom.querySelectorAll('.graphic-wrap');
+
+    graphicWraps.forEach(wrap => {
+      const label = wrap.querySelector('.fig-label, .label');
+      const caption = wrap.querySelector('.fig-caption, .caption');
+      const img = wrap.querySelector('img');
+
+      if (label && caption && img) {
+        // Extract label and caption text
+        const labelText = label.textContent.trim();
+        const captionText = caption.textContent.trim();
+
+        // Create a paragraph with label + caption
+        const captionP = document.createElement('p');
+        captionP.innerHTML = `<strong>${labelText}</strong> ${captionText}`;
+
+        // Insert before the image
+        img.parentNode.insertBefore(captionP, img);
+
+        // IMPORTANT: Remove the .graphic-bottom container to prevent duplication
+        // after unwrapping (it contains the original label/caption we just extracted)
+        const graphicBottom = wrap.querySelector('.graphic-bottom');
+        if (graphicBottom) {
+          graphicBottom.remove();
+        }
+
+        console.log(`📚 OUP: Preserved figure caption: "${labelText} ${captionText.substring(0, 40)}..."`);
+      }
+    });
+  }
+
+  /**
+   * Remove original Footnotes and Bibliography sections from body
+   * These sections are already extracted and will be appended as clean sections at the end
+   * Prevents duplicate/mangled content in body
+   *
+   * @param {HTMLElement} dom - DOM element
+   */
+  removeExtractedSections(dom) {
+    const headings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    let removedCount = 0;
+
+    headings.forEach(heading => {
+      const text = heading.textContent.trim().toLowerCase();
+
+      // Match: "footnotes", "endnotes", "notes", "bibliography", "references", "works cited"
+      if (/^(footnotes?|endnotes?|notes|bibliography|references|works cited)$/i.test(text)) {
+        console.log(`📚 OUP: Removing original "${heading.textContent.trim()}" section from body`);
+
+        // Remove heading
+        let nextElement = heading.nextElementSibling;
+        heading.remove();
+        removedCount++;
+
+        // Remove all content until next heading or end of document
+        while (nextElement) {
+          const next = nextElement.nextElementSibling;
+
+          // Stop if we hit another heading (start of new section)
+          if (nextElement.tagName && /^H[1-6]$/.test(nextElement.tagName)) {
+            break;
+          }
+
+          // Remove this element (part of extracted section)
+          nextElement.remove();
+          nextElement = next;
+        }
+      }
+    });
+
+    console.log(`📚 OUP: Removed ${removedCount} extracted section(s) from body`);
+  }
+
+  /**
    * Transform structure - unwrap divs and clean up
    *
    * @param {HTMLElement} dom - DOM element
@@ -306,6 +455,24 @@ export class OupProcessor extends BaseFormatProcessor {
   async transformStructure(dom, bookId) {
     console.log('📚 OUP: Applying general structure transformation');
 
+    // STEP 1: Remove duplicate tables FIRST (before unwrapping)
+    this.handleDuplicateTables(dom);
+
+    // STEP 1.5: Remove original extracted sections (Footnotes, Bibliography)
+    // These were already extracted and will be appended as clean sections at the end
+    this.removeExtractedSections(dom);
+
+    // STEP 2: Preserve table and figure captions before removing UI elements
+    this.preserveTableCaptions(dom);
+    this.preserveFigureCaptions(dom);
+
+    // STEP 3: Remove UI elements (buttons, links) from tables/figures
+    // Note: Don't remove .graphic-bottom as it contains labels/captions we need
+    const uiElements = dom.querySelectorAll('.js-view-large, .openInAnotherWindow, .download-slide, .table-open-button-wrap, .ajax-articleAbstract-exclude-regex, .figure-button-wrap');
+    uiElements.forEach(el => el.remove());
+    console.log(`📚 OUP: Removed ${uiElements.length} UI elements (buttons, links)`);
+
+    // STEP 4: General container unwrapping
     // Find and process all container elements
     const containers = Array.from(
       dom.querySelectorAll('div, article, section, main, header, footer, aside, nav, button')
@@ -323,7 +490,7 @@ export class OupProcessor extends BaseFormatProcessor {
     // Also unwrap <font> tags
     dom.querySelectorAll('font').forEach(unwrap);
 
-    // Remove empty xrefLink spans that OUP inserts before citations
+    // STEP 5: Remove empty xrefLink spans that OUP inserts before citations
     const xrefLinks = dom.querySelectorAll('span.xrefLink');
     xrefLinks.forEach(span => {
       if (!span.textContent.trim()) {
