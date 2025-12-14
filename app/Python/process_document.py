@@ -875,9 +875,9 @@ def main(html_file_path, output_dir, book_id):
         json.dump(footnotes_data, f, ensure_ascii=False, indent=4)
     print(f"Successfully created {os.path.join(output_dir, 'footnotes.json')}")
     
-    with open(os.path.join(output_dir, 'nodeChunks.json'), 'w', encoding='utf-8') as f: 
+    with open(os.path.join(output_dir, 'nodes.json'), 'w', encoding='utf-8') as f: 
         json.dump(node_chunks_data, f, ensure_ascii=False, indent=4)
-    print(f"Successfully created {os.path.join(output_dir, 'nodeChunks.json')}")
+    print(f"Successfully created {os.path.join(output_dir, 'nodes.json')}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process a document to extract references, footnotes, and content chunks.")
