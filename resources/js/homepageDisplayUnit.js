@@ -3,6 +3,9 @@ import { setCurrentBook } from './app.js';
 import { showNavigationLoading, hideNavigationLoading } from './scrolling.js';
 import { log, verbose } from './utilities/logger.js';
 
+// Storage key for active button persistence
+const STORAGE_KEY_ACTIVE_BUTTON = 'homepage_active_button';
+
 let resizeHandler = null;
 const buttonHandlers = new Map();
 
@@ -65,7 +68,19 @@ export function initializeHomepageButtons() {
     alignHeaderContent();
   };
   window.addEventListener('resize', resizeHandler);
-  
+
+  // Restore saved active button state from localStorage
+  const savedActiveButton = localStorage.getItem(STORAGE_KEY_ACTIVE_BUTTON);
+  if (savedActiveButton) {
+    // Update DOM to reflect saved state
+    document.querySelectorAll('.arranger-button').forEach(btn => {
+      btn.classList.remove('active');
+      if (btn.dataset.content === savedActiveButton) {
+        btn.classList.add('active');
+      }
+    });
+  }
+
   // Initialize the default active content on page load
   const activeButton = document.querySelector('.arranger-button.active');
   if (activeButton) {
@@ -92,6 +107,9 @@ export function initializeHomepageButtons() {
 
       document.querySelectorAll('.arranger-button').forEach(btn => btn.classList.remove('active'));
       this.classList.add('active');
+
+      // Save active button to localStorage
+      localStorage.setItem(STORAGE_KEY_ACTIVE_BUTTON, targetId);
 
       await transitionToBookContent(targetId, true);
     };
