@@ -10,6 +10,10 @@ const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
 const RESULTS_LIMIT = 20;
 
+// Storage keys for state persistence
+const STORAGE_KEY_QUERY = 'homepage_search_query';
+const STORAGE_KEY_FULLTEXT = 'homepage_search_fulltext';
+
 // State
 let searchInput = null;
 let searchToggle = null;
@@ -30,6 +34,23 @@ export function initializeHomepageSearch() {
     if (!searchInput || !resultsContainer) {
         verbose.init('Search elements not found, skipping initialization', 'homepageSearch.js');
         return;
+    }
+
+    // Restore state from localStorage
+    const savedFulltext = localStorage.getItem(STORAGE_KEY_FULLTEXT);
+    if (savedFulltext !== null) {
+        isFullTextMode = savedFulltext === 'true';
+        if (searchToggle) {
+            searchToggle.checked = isFullTextMode;
+        }
+        searchInput.placeholder = isFullTextMode
+            ? 'Search all content...'
+            : 'Search titles & authors...';
+    }
+
+    const savedQuery = localStorage.getItem(STORAGE_KEY_QUERY);
+    if (savedQuery) {
+        searchInput.value = savedQuery;
     }
 
     // Bind event listeners
@@ -99,8 +120,15 @@ function handleSearchInput(event) {
     // Clear results if query is too short
     if (query.length < MIN_QUERY_LENGTH) {
         hideResults();
+        // Clear stored query if input is cleared
+        if (query.length === 0) {
+            localStorage.removeItem(STORAGE_KEY_QUERY);
+        }
         return;
     }
+
+    // Save query to localStorage
+    localStorage.setItem(STORAGE_KEY_QUERY, query);
 
     // Show loading state
     showLoading();
@@ -283,6 +311,9 @@ function hideResults() {
 function handleToggleChange(event) {
     isFullTextMode = event.target.checked;
 
+    // Save toggle state to localStorage
+    localStorage.setItem(STORAGE_KEY_FULLTEXT, isFullTextMode.toString());
+
     // Update placeholder text
     searchInput.placeholder = isFullTextMode
         ? 'Search all content...'
@@ -309,12 +340,18 @@ function handleKeyDown(event) {
 
 /**
  * Handle focus on search input
+ * Re-triggers search if there's a query but no results showing
  */
 function handleFocus() {
     const query = searchInput.value.trim();
-    if (query.length >= MIN_QUERY_LENGTH && resultsContainer.innerHTML) {
-        resultsContainer.classList.remove('hidden');
-        resultsContainer.classList.add('visible');
+    if (query.length >= MIN_QUERY_LENGTH) {
+        // Re-search if we have a query but no results showing
+        if (!resultsContainer.innerHTML || resultsContainer.classList.contains('hidden')) {
+            performSearch(query);
+        } else {
+            resultsContainer.classList.remove('hidden');
+            resultsContainer.classList.add('visible');
+        }
     }
 }
 
