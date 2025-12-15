@@ -73,6 +73,27 @@
         </svg>
       </div>
       <div class="arranger-buttons-container">
+        <!-- Homepage search -->
+        <div id="homepage-search-container" class="search-container">
+          <input
+            type="text"
+            id="homepage-search-input"
+            class="search-input"
+            placeholder="Search titles & authors..."
+            autocomplete="off"
+            spellcheck="false"
+          >
+          <label class="fulltext-toggle-label" title="Search within book content">
+            <input
+              type="checkbox"
+              id="fulltext-search-toggle"
+              class="fulltext-toggle-checkbox"
+            >
+            <span class="fulltext-toggle-slider"></span>
+            <span class="fulltext-toggle-text">Full text</span>
+          </label>
+          <div id="search-results-container" class="search-results hidden"></div>
+        </div>
         <!-- Homepage: sorting options -->
         <button class="arranger-button active" data-content="most-recent">Most Recent</button>
         <button class="arranger-button" data-content="most-connected">Most Connected</button>

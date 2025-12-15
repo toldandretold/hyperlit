@@ -112,6 +112,8 @@ export function destroyHomepageDisplayUnit() {
   });
   buttonHandlers.clear();
   verbose.init('Homepage button listeners removed', 'homepageDisplayUnit.js');
+
+  // Note: Homepage search cleanup is handled by ButtonRegistry
 }
 
 async function transitionToBookContent(bookId, showLoader = true) {

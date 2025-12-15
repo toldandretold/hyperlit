@@ -13,12 +13,19 @@ use App\Http\Controllers\BeaconSyncController;
 use App\Http\Controllers\DbReferencesController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UnifiedSyncController;
+use App\Http\Controllers\SearchController;
 
 
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/register', [AuthController::class, 'register']);
+
+// Search routes - public access with rate limiting
+Route::prefix('search')->middleware('throttle:60,1')->group(function () {
+    Route::get('/library', [SearchController::class, 'searchLibrary']);
+    Route::get('/nodes', [SearchController::class, 'searchNodes']);
+});
 
 Route::post('/auth/associate-content', [AuthController::class, 'associateContent'])->middleware('auth:sanctum');
 
