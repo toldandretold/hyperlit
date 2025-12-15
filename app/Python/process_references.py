@@ -127,7 +127,7 @@ def main(html_file_path):
                 new_content.append(NavigableString(text[last_index:]))
                 text_node.replace_with(*new_content)
 
-    # --- PASS 3: Generate one object per node for nodeChunks.json ---
+    # --- PASS 3: Generate one object per node for nodes.json ---
     print("\n--- PASS 3: Generating Node Chunks ---")
     book_id = f"book_{int(time.time() * 1000)}"
     node_chunks_data = {}
@@ -171,9 +171,9 @@ def main(html_file_path):
         json.dump(references_data, f, ensure_ascii=False, indent=4)
     print("Successfully created references.json")
 
-    with open('nodeChunks.json', 'w', encoding='utf-8') as f:
+    with open('nodes.json', 'w', encoding='utf-8') as f:
         json.dump(node_chunks_data, f, ensure_ascii=False, indent=4)
-    print("Successfully created nodeChunks.json")
+    print("Successfully created nodes.json")
 
 
 if __name__ == "__main__":

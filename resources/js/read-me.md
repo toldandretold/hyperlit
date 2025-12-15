@@ -10,13 +10,13 @@ So, if a user creates a new folder '/foldername' in their "vault", and it contai
 
 When a main-text.md is loaded into the page, the loadMarkdownFile(); function checks whether:
 
-nodeChunks.json exists in the indexedDB of browser, and if it is the most updated one. if it isn't, it checks if one exists in the /foldername. if it doesn't, it generates one, and saves it to indexedDB and in the /foldername (via backend MainTextEditableDivController).
+nodes.json exists in the indexedDB of browser, and if it is the most updated one. if it isn't, it checks if one exists in the /foldername. if it doesn't, it generates one, and saves it to indexedDB and in the /foldername (via backend MainTextEditableDivController).
 
-The nodeChunks.json is the md file sorted into chunks of nodes, each chunk is lazy loaded (see lazy-loading.js). 
+The nodes.json is the md file sorted into chunks of nodes, each chunk is lazy loaded (see lazy-loading.js). 
 
 This ensures that even if the main-text.md is a massive book, like The Bible, it will still be loaded reasonably well. 
 
-Then, whenever user adds a highlight hyper-cite, the back end updates the relevant databses, the nodeChunks.json, and the latest_update.json.
+Then, whenever user adds a highlight hyper-cite, the back end updates the relevant databses, the nodes.json, and the latest_update.json.
 
 Thus, with this system, it doesn't matter how "processed" the markdown is. It will get processed when the processing is needed. 
 

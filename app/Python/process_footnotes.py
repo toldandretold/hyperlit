@@ -118,9 +118,9 @@ def main(html_file_path):
         json.dump(footnotes_data, f, ensure_ascii=False, indent=4)
     print("Successfully created footnotes.json")
 
-    with open('nodeChunks.json', 'w', encoding='utf-8') as f:
+    with open('nodes.json', 'w', encoding='utf-8') as f:
         json.dump(node_chunks_data, f, ensure_ascii=False, indent=4)
-    print("Successfully created nodeChunks.json")
+    print("Successfully created nodes.json")
 
 
 if __name__ == "__main__":

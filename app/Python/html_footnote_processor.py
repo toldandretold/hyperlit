@@ -191,8 +191,8 @@ def create_node_chunks(soup, book_id):
 def save_outputs(output_dir, chunks, footnotes, book_id):
     """Save all output files"""
     
-    # Save nodeChunks.json
-    chunks_file = os.path.join(output_dir, 'nodeChunks.json')
+    # Save nodes.json
+    chunks_file = os.path.join(output_dir, 'nodes.json')
     with open(chunks_file, 'w', encoding='utf-8') as f:
         json.dump(chunks, f, ensure_ascii=False, indent=2)
     print(f"Saved {len(chunks)} chunks to: {chunks_file}")
