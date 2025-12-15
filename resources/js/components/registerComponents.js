@@ -18,7 +18,8 @@ import {
 
 import {
   initializeSearchToolbar,
-  destroySearchToolbar
+  destroySearchToolbar,
+  checkHighlightParam
 } from '../search/inTextSearch/searchToolbar.js';
 
 import {
@@ -56,7 +57,7 @@ import {
 import {
   initializeHomepageSearch,
   destroyHomepageSearch
-} from './homepageSearch.js';
+} from '../search/postgreSQLsearch/homepageSearch.js';
 
 /**
  * Register all components
@@ -170,7 +171,11 @@ export function registerAllComponents() {
 
   buttonRegistry.register({
     name: 'searchToolbar',
-    initFn: initializeSearchToolbar,
+    initFn: () => {
+      initializeSearchToolbar();
+      // Check if navigating from homepage search with highlight param
+      checkHighlightParam();
+    },
     destroyFn: destroySearchToolbar,
     pages: ['reader'],
     dependencies: [],

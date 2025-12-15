@@ -3,7 +3,7 @@
  * Handles server-side PostgreSQL search for library and full-text modes
  */
 
-import { log, verbose } from '../utilities/logger.js';
+import { log, verbose } from '../../utilities/logger.js';
 
 // Configuration
 const DEBOUNCE_MS = 300;
@@ -17,6 +17,7 @@ let resultsContainer = null;
 let debounceTimer = null;
 let isFullTextMode = false;
 let abortController = null;
+let currentSearchQuery = ''; // Track current query for highlighting on navigation
 
 /**
  * Initialize the homepage search functionality
@@ -114,6 +115,9 @@ function handleSearchInput(event) {
  * Perform the actual search request
  */
 async function performSearch(query) {
+    // Store query for use in navigation links
+    currentSearchQuery = query;
+
     const endpoint = isFullTextMode ? '/api/search/nodes' : '/api/search/library';
     const url = `${endpoint}?q=${encodeURIComponent(query)}&limit=${RESULTS_LIMIT}`;
 
@@ -192,7 +196,9 @@ function renderResults(results, mode) {
                 const nodeAnchor = match.startLine ? `#${match.startLine}` : '';
                 html += `
                     <li class="search-result-match">
-                        <a href="/${encodeURIComponent(bookResult.book)}${nodeAnchor}" class="search-result-match-link">
+                        <a href="/${encodeURIComponent(bookResult.book)}${nodeAnchor}"
+                           class="search-result-match-link"
+                           data-highlight-query="${escapeHtml(currentSearchQuery)}">
                             <span class="search-result-snippet">${match.headline}</span>
                         </a>
                     </li>
@@ -212,6 +218,26 @@ function renderResults(results, mode) {
     resultsContainer.innerHTML = html;
     resultsContainer.classList.remove('hidden');
     resultsContainer.classList.add('visible');
+
+    // Add click handler for full-text result links to store query for highlighting
+    resultsContainer.querySelectorAll('[data-highlight-query]').forEach(link => {
+        link.addEventListener('click', (e) => {
+            const query = link.dataset.highlightQuery;
+            if (query) {
+                // Extract startLine from the href hash
+                const href = link.getAttribute('href');
+                const hashMatch = href.match(/#(\d+)/);
+                const startLine = hashMatch ? hashMatch[1] : null;
+
+                // Store in sessionStorage for the reader page to pick up
+                sessionStorage.setItem('pendingHighlightQuery', query);
+                if (startLine) {
+                    sessionStorage.setItem('pendingHighlightStartLine', startLine);
+                }
+                verbose.content(`Stored highlight query: ${query}, startLine: ${startLine}`, 'homepageSearch.js');
+            }
+        });
+    });
 }
 
 /**
