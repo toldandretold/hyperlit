@@ -32,8 +32,8 @@ Route::get('/test-log', function () {
 // Hyperlights routes
 Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML'])->name('hyperlights.show');
 
-// File import route - use existing CiteCreator controller
-Route::post('/import-file', [App\Http\Controllers\CiteCreator::class, 'store'])->name('import.file');
+// File import route
+Route::post('/import-file', [App\Http\Controllers\ImportController::class, 'store'])->name('import.file');
 
 // JSON book route
 Route::get('/{book}/main-text-footnotes.json', function ($book) {
@@ -45,6 +45,34 @@ Route::get('/{book}/main-text-footnotes.json', function ($book) {
 
     return response()->file($filePath, ['Content-Type' => 'application/json']);
 })->where('book', '[a-zA-Z0-9\-]+');
+
+// JSON routes for nodes, footnotes, references (fallback file access)
+Route::get('/{book}/nodes.json', function ($book) {
+    $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
+    $filePath = resource_path("markdown/{$book}/nodes.json");
+    if (!file_exists($filePath)) {
+        abort(404, 'File not found.');
+    }
+    return response()->file($filePath, ['Content-Type' => 'application/json']);
+})->where('book', '[a-zA-Z0-9\-_]+');
+
+Route::get('/{book}/footnotes.json', function ($book) {
+    $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
+    $filePath = resource_path("markdown/{$book}/footnotes.json");
+    if (!file_exists($filePath)) {
+        abort(404, 'File not found.');
+    }
+    return response()->file($filePath, ['Content-Type' => 'application/json']);
+})->where('book', '[a-zA-Z0-9\-_]+');
+
+Route::get('/{book}/references.json', function ($book) {
+    $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
+    $filePath = resource_path("markdown/{$book}/references.json");
+    if (!file_exists($filePath)) {
+        abort(404, 'File not found.');
+    }
+    return response()->file($filePath, ['Content-Type' => 'application/json']);
+})->where('book', '[a-zA-Z0-9\-_]+');
 
 // Media serving route for all images (folder uploads use media/, docx uses media/)
 Route::get('/{book}/media/{filename}', function ($book, $filename) {

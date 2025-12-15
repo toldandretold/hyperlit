@@ -163,9 +163,9 @@ export async function loadFromJSONFiles(bookId) {
       footnotesResponse,
       referencesResponse,
     ] = await Promise.all([
-      fetch(`/markdown/${bookId}/nodes.json`),
-      fetch(`/markdown/${bookId}/footnotes.json`),
-      fetch(`/markdown/${bookId}/references.json`),
+      fetch(`/${bookId}/nodes.json`),
+      fetch(`/${bookId}/footnotes.json`),
+      fetch(`/${bookId}/references.json`),
     ]);
 
     // Check if all requests were successful
@@ -279,37 +279,13 @@ export async function loadHyperText(bookId, progressCallback = null) {
       throw new Error(`Database sync failed: ${dbResult.error}`);
     }
 
-    // 3. Fallback: Try to load from pre-generated JSON (ONLY if book not found in database)
+    // 3. Book not found in database - show error
+    // NOTE: File-based fallbacks (JSON and markdown) removed to prevent loading stale data.
+    // During import, ImportBookTransition.js loads fresh JSON files directly.
     if (!dbResult || dbResult.reason === 'book_not_found') {
-      updatePageLoadProgress(30, "Loading from files...");
-      verbose.content('Book not in database, trying JSON files', 'initializePage.js');
-      try {
-        // This now calls our new, more powerful function
-        const jsonChunks = await loadFromJSONFiles(currentBook);
-        if (jsonChunks && jsonChunks.length) {
-          verbose.content('Content loaded from JSON', 'initializePage.js');
-          window.nodes = jsonChunks;
-          updatePageLoadProgress(90, "Initializing interface...");
-          initializeLazyLoader(openHyperlightID, currentBook);
-
-          // Note: Interactive features initialization handled by viewManager.js
-
-          return;
-        }
-      } catch (error) {
-        verbose.content('JSON loading failed, trying markdown', 'initializePage.js');
-      }
-
-      // 4. Final Fallback: Generate from markdown (ONLY if book not found anywhere)
-      updatePageLoadProgress(40, "Generating from markdown...");
-      verbose.content('Generating from markdown', 'initializePage.js');
-      window.nodes = await generateNodeChunksFromMarkdown(currentBook);
-      updatePageLoadProgress(90, "Initializing interface...");
-      initializeLazyLoader(OpenHyperlightID || null, currentBook);
-
-      // Note: Interactive features initialization handled by viewManager.js
-
-      return;
+      log.error(`Book "${currentBook}" not found in database`, 'initializePage.js');
+      updatePageLoadProgress(0, "Book not found");
+      throw new Error(`Book "${currentBook}" not found. It may not have been imported yet.`);
     }
   } catch (err) {
     log.error('Critical error during content loading', 'initializePage.js', err);
@@ -322,7 +298,10 @@ export async function loadHyperText(bookId, progressCallback = null) {
 
 // Note: initializeInteractiveFeatures function removed as it duplicates viewManager.js functionality
 
-// Note: buildUrl helper function removed as it appears unused
+// Helper to add cache-busting parameter when needed
+function buildUrl(path, forceReload = false) {
+  return forceReload ? `${path}?v=${Date.now()}` : path;
+}
 
 // Updated to accept bookId parameter
 async function fetchMainTextMarkdown(bookId, forceReload = false) {
