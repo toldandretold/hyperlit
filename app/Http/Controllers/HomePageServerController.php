@@ -29,6 +29,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
+use App\Models\PgHyperlight;
+use App\Models\PgHypercite;
 
 class HomePageServerController extends Controller
 {
@@ -72,6 +74,9 @@ class HomePageServerController extends Controller
             ->where('listed', true)
             ->where('visibility', '!=', 'private')
             ->get();
+
+        // Recalculate stats from hyperlights/hypercites tables to ensure accuracy
+        $this->recalculateLibraryStats($libraryRecords);
 
         // Calculate rankings
         $rankings = $this->calculateRankings($libraryRecords);
@@ -550,5 +555,72 @@ class HomePageServerController extends Controller
     public static function invalidateCache()
     {
         Cache::forget(self::CACHE_KEY);
+    }
+
+    /**
+     * Recalculate total_highlights and total_citations for all listed books.
+     * Called before ranking calculation to ensure fresh stats.
+     */
+    private function recalculateLibraryStats($libraryRecords)
+    {
+        foreach ($libraryRecords as $record) {
+            $highlightCount = PgHyperlight::where('book', $record->book)->count();
+            $totalCites = $this->countCitationsForBook($record->book);
+
+            DB::table('library')->where('book', $record->book)->update([
+                'total_highlights' => $highlightCount,
+                'total_citations' => $totalCites
+            ]);
+
+            // Update the record object so we don't need to re-fetch
+            $record->total_highlights = $highlightCount;
+            $record->total_citations = $totalCites;
+        }
+    }
+
+    /**
+     * Count citations for a book, excluding self-citations.
+     * Parses citedIN arrays from hypercites table.
+     */
+    private function countCitationsForBook($book)
+    {
+        $hypercites = PgHypercite::where('book', $book)->get();
+        $totalCites = 0;
+
+        foreach ($hypercites as $hypercite) {
+            if ($hypercite->citedIN) {
+                $citedInArray = is_array($hypercite->citedIN)
+                    ? $hypercite->citedIN
+                    : json_decode($hypercite->citedIN, true);
+
+                if (is_array($citedInArray)) {
+                    foreach ($citedInArray as $citation) {
+                        if (!$this->isSelfCitation($citation, $book)) {
+                            $totalCites++;
+                        }
+                    }
+                }
+            }
+        }
+
+        return $totalCites;
+    }
+
+    /**
+     * Check if a citation references the same book (self-citation).
+     */
+    private function isSelfCitation($citation, $currentBook)
+    {
+        if (preg_match('/^\/([^#]+)#/', $citation, $matches)) {
+            $citedBook = $matches[1];
+            return $citedBook === $currentBook;
+        }
+
+        if (preg_match('/^\/([^\/]+)\//', $citation, $matches)) {
+            $citedBook = $matches[1];
+            return $citedBook === $currentBook;
+        }
+
+        return false;
     }
 }
