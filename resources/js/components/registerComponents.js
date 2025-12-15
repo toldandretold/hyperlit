@@ -18,7 +18,8 @@ import {
 
 import {
   initializeSearchToolbar,
-  destroySearchToolbar
+  destroySearchToolbar,
+  checkHighlightParam
 } from '../search/inTextSearch/searchToolbar.js';
 
 import {
@@ -52,6 +53,11 @@ import {
   initializeLogoNav,
   destroyLogoNav
 } from './logoNavToggle.js';
+
+import {
+  initializeHomepageSearch,
+  destroyHomepageSearch
+} from '../search/postgreSQLsearch/homepageSearch.js';
 
 /**
  * Register all components
@@ -165,7 +171,11 @@ export function registerAllComponents() {
 
   buttonRegistry.register({
     name: 'searchToolbar',
-    initFn: initializeSearchToolbar,
+    initFn: () => {
+      initializeSearchToolbar();
+      // Check if navigating from homepage search with highlight param
+      checkHighlightParam();
+    },
     destroyFn: destroySearchToolbar,
     pages: ['reader'],
     dependencies: [],
@@ -183,6 +193,15 @@ export function registerAllComponents() {
     destroyFn: destroyNewBookContainer,
     pages: ['home', 'user'],
     dependencies: ['userContainer'], // Needs user auth state
+    required: false
+  });
+
+  buttonRegistry.register({
+    name: 'homepageSearch',
+    initFn: initializeHomepageSearch,
+    destroyFn: destroyHomepageSearch,
+    pages: ['home'],
+    dependencies: [],
     required: false
   });
 

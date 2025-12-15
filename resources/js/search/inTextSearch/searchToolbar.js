@@ -687,3 +687,56 @@ export function invalidateSearchIndex() {
     searchToolbarManager.invalidateIndex();
   }
 }
+
+/**
+ * Open the search toolbar with a pre-filled query (used for highlighting from homepage search)
+ * @param {string} query - The search query to pre-fill and execute
+ * @param {number|string} [targetStartLine] - Optional startLine to navigate to nearest match
+ */
+export async function openSearchToolbarWithQuery(query, targetStartLine = null) {
+  if (!searchToolbarManager) {
+    console.warn('SearchToolbar: Manager not initialized');
+    return;
+  }
+
+  // Open the toolbar first (this sets initialStartLine to current scroll position)
+  await searchToolbarManager.open();
+
+  // Override initialStartLine AFTER open() if we have a target startLine
+  // This must come after open() because open() resets initialStartLine to current scroll position
+  if (targetStartLine) {
+    searchToolbarManager.initialStartLine = Number(targetStartLine);
+    log.init(`SearchToolbar: Override initial position to ${targetStartLine}`, '/search/inTextSearch/searchToolbar.js');
+  }
+
+  // Set the input value and trigger search
+  if (searchToolbarManager.input && query) {
+    searchToolbarManager.input.value = query;
+    // Trigger the input handler to perform the search
+    searchToolbarManager.handleInput({ target: searchToolbarManager.input });
+
+    verbose.init(`SearchToolbar: Opened with query "${query}"`, '/search/inTextSearch/searchToolbar.js');
+  }
+}
+
+/**
+ * Check sessionStorage for pending highlight query and trigger search if present
+ * Call this after page load on reader pages
+ */
+export function checkHighlightParam() {
+  const highlightQuery = sessionStorage.getItem('pendingHighlightQuery');
+  const highlightStartLine = sessionStorage.getItem('pendingHighlightStartLine');
+
+  if (highlightQuery) {
+    log.init(`SearchToolbar: Found pending highlight query "${highlightQuery}", startLine: ${highlightStartLine}`, '/search/inTextSearch/searchToolbar.js');
+
+    // Clear immediately so it doesn't trigger again on refresh
+    sessionStorage.removeItem('pendingHighlightQuery');
+    sessionStorage.removeItem('pendingHighlightStartLine');
+
+    // Delay to ensure page and search index are ready
+    setTimeout(() => {
+      openSearchToolbarWithQuery(highlightQuery, highlightStartLine);
+    }, 1000);
+  }
+}
