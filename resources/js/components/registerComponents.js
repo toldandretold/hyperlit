@@ -53,6 +53,11 @@ import {
   destroyLogoNav
 } from './logoNavToggle.js';
 
+import {
+  initializeHomepageSearch,
+  destroyHomepageSearch
+} from './homepageSearch.js';
+
 /**
  * Register all components
  * This function should be called once during app initialization
@@ -183,6 +188,15 @@ export function registerAllComponents() {
     destroyFn: destroyNewBookContainer,
     pages: ['home', 'user'],
     dependencies: ['userContainer'], // Needs user auth state
+    required: false
+  });
+
+  buttonRegistry.register({
+    name: 'homepageSearch',
+    initFn: initializeHomepageSearch,
+    destroyFn: destroyHomepageSearch,
+    pages: ['home'],
+    dependencies: [],
     required: false
   });
 

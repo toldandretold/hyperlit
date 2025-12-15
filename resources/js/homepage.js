@@ -53,7 +53,9 @@ export async function initializeHomepage() {
   
   // Initialize homepage buttons - this will handle loading the initial content
   initializeHomepageButtons();
-  
+
+  // Note: Homepage search is initialized via ButtonRegistry in registerComponents.js
+
   updatePageLoadProgress(70, "Interface ready...");
 
   updatePageLoadProgress(90, "Finishing setup...");
