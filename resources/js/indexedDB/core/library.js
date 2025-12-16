@@ -247,3 +247,55 @@ export async function syncFirstNodeToTitle(bookId, nodeContent) {
     return false;
   }
 }
+
+/**
+ * Update the annotations_updated_at timestamp for a book in IndexedDB.
+ * Called after syncing annotations from server to keep local state in sync.
+ *
+ * @param {string} bookId - Book identifier
+ * @param {number} timestamp - The new annotations_updated_at timestamp
+ * @returns {Promise<boolean>} Success status
+ */
+export async function updateLocalAnnotationsTimestamp(bookId, timestamp) {
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction("library", "readwrite");
+    const store = tx.objectStore("library");
+    const getRequest = store.get(bookId);
+
+    return new Promise((resolve, reject) => {
+      getRequest.onerror = (e) => {
+        console.error("❌ Failed to get library record for annotations timestamp update:", e.target.error);
+        reject(e.target.error);
+      };
+
+      getRequest.onsuccess = () => {
+        const record = getRequest.result;
+
+        if (!record) {
+          console.warn(`⚠️ No library record found for ${bookId} when updating annotations timestamp`);
+          resolve(false);
+          return;
+        }
+
+        // Update only the annotations_updated_at field
+        record.annotations_updated_at = timestamp;
+
+        const putRequest = store.put(record);
+
+        putRequest.onerror = (e) => {
+          console.error("❌ Failed to update annotations timestamp:", e.target.error);
+          reject(e.target.error);
+        };
+
+        putRequest.onsuccess = () => {
+          console.log(`✅ Updated local annotations_updated_at for ${bookId}: ${timestamp}`);
+          resolve(true);
+        };
+      };
+    });
+  } catch (error) {
+    console.error("❌ Failed to update annotations timestamp:", error);
+    return false;
+  }
+}

@@ -891,6 +891,7 @@ class DatabaseToIndexedDBController extends Controller
             'publisher' => $library->publisher,
             'school' => $library->school,
             'timestamp' => $library->timestamp,
+            'annotations_updated_at' => $library->annotations_updated_at ?? 0,
             'title' => $library->title,
             'type' => $library->type,
             'url' => $library->url,
