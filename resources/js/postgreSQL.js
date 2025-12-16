@@ -341,6 +341,18 @@ export async function syncBookDataFromDatabase(bookId) {
         return { success: false, reason: 'book_not_found' };
       }
 
+      // 🗑️ Handle deleted book
+      if (response.status === 410) {
+        const errorData = await response.json();
+        verbose.content(`Book "${bookId}" has been deleted`, 'postgreSQL.js');
+
+        if (errorData.error === 'book_deleted') {
+          const { handleDeletedBookAccess } = await import('./initializePage.js');
+          await handleDeletedBookAccess(bookId);
+          return { success: false, reason: 'book_deleted' };
+        }
+      }
+
       // 🔒 Handle private book access denied
       if (response.status === 403) {
         const errorData = await response.json();

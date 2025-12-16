@@ -743,5 +743,41 @@ function showPrivateBookAccessDenied(bookId, user) {
   });
 }
 
+/**
+ * 🗑️ Handle access to deleted book
+ * Shows a message that the book has been deleted
+ */
+export async function handleDeletedBookAccess(bookId) {
+  console.log(`🗑️ handleDeletedBookAccess called for book: ${bookId}`);
+
+  const overlay = document.createElement("div");
+  overlay.className = "custom-alert-overlay";
+  overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); display: flex; align-items: center; justify-content: center; z-index: 10000;";
+
+  const alertBox = document.createElement("div");
+  alertBox.className = "custom-alert";
+  alertBox.style.cssText = "background: #2a2a2a; padding: 30px; border-radius: 8px; max-width: 500px; color: #fff;";
+
+  alertBox.innerHTML = `
+    <div class="user-form">
+      <h3 style="margin: 0 0 15px 0; color: #d73a49;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 8px;"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        Book Deleted
+      </h3>
+      <p style="margin: 0 0 20px 0; line-height: 1.6;">This book has been deleted and is no longer available.</p>
+      <div class="alert-buttons" style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button type="button" id="goHomeButtonDeleted" class="alert-button primary" style="padding: 10px 20px; background: #EF8D34; color: #fff; border: none; border-radius: 4px; cursor: pointer;">Go to Home</button>
+      </div>
+    </div>
+  `;
+
+  overlay.appendChild(alertBox);
+  document.body.appendChild(overlay);
+
+  // Handle button click
+  document.getElementById("goHomeButtonDeleted").addEventListener("click", () => {
+    window.location.href = "/";
+  });
+}
 
 

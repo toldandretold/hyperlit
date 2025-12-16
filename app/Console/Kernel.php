@@ -21,6 +21,12 @@ class Kernel extends ConsoleKernel
         // Cleanup anonymous sessions daily
         $schedule->command('cleanup:anonymous-sessions')
                  ->daily();
+
+        // Cleanup old anonymous private books daily
+        $schedule->job(\App\Jobs\DatabaseCleanupJob::class)
+                 ->daily()
+                 ->withoutOverlapping()
+                 ->onOneServer();
     }
 
     /**
