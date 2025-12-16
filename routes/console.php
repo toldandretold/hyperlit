@@ -23,3 +23,9 @@ Schedule::job(\App\Jobs\DatabaseCleanupJob::class)
     ->daily()
     ->withoutOverlapping()
     ->onOneServer();
+
+// Generate daily statistics at 08:00 UTC
+Schedule::job(\App\Jobs\DailyStatsJob::class)
+    ->dailyAt('08:00')
+    ->withoutOverlapping()
+    ->onOneServer();
