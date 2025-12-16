@@ -26,6 +26,20 @@ class DatabaseToIndexedDBController extends Controller
                 ], 404);
             }
 
+            // If book is deleted, return 410 Gone
+            if ($library->visibility === 'deleted') {
+                Log::info('🗑️ Deleted book accessed', [
+                    'book_id' => $bookId
+                ]);
+
+                return response()->json([
+                    'error' => 'book_deleted',
+                    'message' => 'This book has been deleted',
+                    'is_deleted' => true,
+                    'book_id' => $bookId
+                ], 410);
+            }
+
             // If book is private, check authorization
             if ($library->visibility === 'private') {
                 $user = Auth::user();
@@ -937,6 +951,16 @@ class DatabaseToIndexedDBController extends Controller
                     'error' => 'Book not found',
                     'book_id' => $bookId
                 ], 404);
+            }
+
+            // If book is deleted, return 410 Gone
+            if ($library->visibility === 'deleted') {
+                return response()->json([
+                    'error' => 'book_deleted',
+                    'message' => 'This book has been deleted',
+                    'is_deleted' => true,
+                    'book_id' => $bookId
+                ], 410);
             }
 
             // If book is private, check authorization

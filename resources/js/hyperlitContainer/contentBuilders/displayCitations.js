@@ -94,8 +94,9 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
       }
     }
 
-    // Check if book is private and if user has access
+    // Check if book is private, deleted, or accessible
     const isPrivate = libraryData && libraryData.visibility === 'private';
+    const isDeleted = libraryData && libraryData.visibility === 'deleted';
     let hasAccess = true;
 
     if (isPrivate) {
@@ -105,25 +106,34 @@ export async function buildHyperciteCitationContent(contentType, db = null) {
       console.log(`🔒 Access result: ${hasAccess ? 'ALLOWED' : 'DENIED'}`);
     }
 
-    // Add lock icon if private (no negative margin here - single citation, no list alignment needed)
-    const lockIcon = isPrivate
-      ? '<svg class="private-lock-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d73a49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: text-bottom; margin-right: 4px; transition: transform 0.2s ease;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>'
-      : '';
+    // Add lock icon if private, trash icon if deleted
+    let statusIcon = '';
+    if (isDeleted) {
+      statusIcon = '<svg class="deleted-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d73a49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: text-bottom; margin-right: 4px;"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+    } else if (isPrivate) {
+      statusIcon = '<svg class="private-lock-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d73a49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: text-bottom; margin-right: 4px; transition: transform 0.2s ease;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
+    }
 
     // Configure button based on access
-    const buttonText = (isPrivate && !hasAccess) ? 'source text private' : 'See in source text';
-    const buttonStyle = (isPrivate && !hasAccess)
-      ? 'display: inline-block; padding: 0.5em 1em; background: #4EACAE; color: #221F20; text-decoration: none; border-radius: 4px; opacity: 0.6; cursor: not-allowed;'
-      : 'display: inline-block; padding: 0.5em 1em; background: #4EACAE; color: #221F20; text-decoration: none; border-radius: 4px;';
-    const buttonAttrs = (isPrivate && !hasAccess)
-      ? `data-private="true" data-access="denied" data-book-id="${targetBook}"`
-      : '';
+    let buttonText = 'See in source text';
+    let buttonStyle = 'display: inline-block; padding: 0.5em 1em; background: #4EACAE; color: #221F20; text-decoration: none; border-radius: 4px;';
+    let buttonAttrs = '';
+
+    if (isDeleted) {
+      buttonText = 'source deleted';
+      buttonStyle += ' opacity: 0.6; cursor: not-allowed;';
+      buttonAttrs = `data-deleted="true" data-book-id="${targetBook}"`;
+    } else if (isPrivate && !hasAccess) {
+      buttonText = 'source text private';
+      buttonStyle += ' opacity: 0.6; cursor: not-allowed;';
+      buttonAttrs = `data-private="true" data-access="denied" data-book-id="${targetBook}"`;
+    }
 
     return `
       <div class="hypercite-citation-section" data-content-id="${targetHyperciteId}">
         <h3>Reference</h3>
         <div class="citation-text">
-          ${lockIcon}${formattedCitation}
+          ${statusIcon}${formattedCitation}
         </div>
         <div style="margin-top: 1em;">
           <a href="${targetUrl}" class="see-in-source-btn" ${buttonAttrs} style="${buttonStyle}">
