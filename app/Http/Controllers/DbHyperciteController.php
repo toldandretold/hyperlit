@@ -190,6 +190,10 @@ class DbHyperciteController extends Controller
 
             PgHypercite::insert($records);
 
+            // Update annotations_updated_at for affected books
+            $bookIds = array_column($records, 'book');
+            $this->updateAnnotationsTimestamp($bookIds);
+
             Log::info('DbHyperciteController::bulkCreate - Success', [
                 'records_inserted' => count($records)
             ]);
@@ -229,6 +233,7 @@ class DbHyperciteController extends Controller
 
             if (isset($data['data']) && is_array($data['data'])) {
                 $processedCount = 0;
+                $processedBookIds = [];
                 $user = Auth::user();
                 $anonymousToken = $user ? null : $request->cookie('anon_token');
 
@@ -309,7 +314,13 @@ class DbHyperciteController extends Controller
                     );
 
                     $processedCount++;
+                    if ($bookId) {
+                        $processedBookIds[] = $bookId;
+                    }
                 }
+
+                // Update annotations_updated_at for affected books
+                $this->updateAnnotationsTimestamp($processedBookIds);
 
                 Log::info('DbHyperciteController::upsert - Success', [
                     'records_processed' => $processedCount
@@ -410,5 +421,29 @@ class DbHyperciteController extends Controller
         unset($cleanItem['full_library_array']);
 
         return $cleanItem;
+    }
+
+    /**
+     * Update annotations_updated_at timestamp for the given books.
+     * This is called after any citation modification to enable efficient sync.
+     *
+     * @param array $bookIds - Array of book IDs that had citations modified
+     */
+    private function updateAnnotationsTimestamp(array $bookIds)
+    {
+        if (empty($bookIds)) {
+            return;
+        }
+
+        $now = round(microtime(true) * 1000);
+        $uniqueBookIds = array_unique($bookIds);
+
+        PgLibrary::whereIn('book', $uniqueBookIds)
+            ->update(['annotations_updated_at' => $now]);
+
+        Log::info('Updated annotations_updated_at for books (hypercites)', [
+            'books' => $uniqueBookIds,
+            'timestamp' => $now
+        ]);
     }
 }

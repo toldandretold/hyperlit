@@ -144,17 +144,17 @@ CREATE TABLE public.hypercites (
     book character varying(255) NOT NULL,
     "hyperciteId" character varying(255) NOT NULL,
     "citedIN" jsonb,
-    "endChar" integer,
     "hypercitedHTML" text,
     "hypercitedText" text,
     "relationshipStatus" character varying(255),
-    "startChar" integer,
     raw_json jsonb NOT NULL,
     created_at timestamp(0) without time zone,
     updated_at timestamp(0) without time zone,
     creator character varying(255),
     creator_token uuid,
-    time_since bigint
+    time_since bigint,
+    node_id jsonb,
+    "charData" jsonb DEFAULT '{}'::jsonb NOT NULL
 );
 
 
@@ -186,10 +186,8 @@ CREATE TABLE public.hyperlights (
     book character varying(255) NOT NULL,
     hyperlight_id character varying(255) NOT NULL,
     annotation character varying(1000),
-    "endChar" integer,
     "highlightedHTML" text,
     "highlightedText" text,
-    "startChar" integer,
     "startLine" character varying(255),
     raw_json jsonb NOT NULL,
     created_at timestamp(0) without time zone,
@@ -197,7 +195,9 @@ CREATE TABLE public.hyperlights (
     creator character varying(255),
     creator_token uuid,
     time_since bigint,
-    hidden boolean DEFAULT false NOT NULL
+    hidden boolean DEFAULT false NOT NULL,
+    node_id jsonb,
+    "charData" jsonb DEFAULT '{}'::jsonb NOT NULL
 );
 
 
@@ -280,7 +280,6 @@ CREATE TABLE public.library (
     book character varying(255) NOT NULL,
     author character varying(255),
     bibtex text,
-    "citationID" character varying(255),
     "fileName" character varying(255),
     "fileType" character varying(255),
     journal character varying(255),
@@ -291,7 +290,7 @@ CREATE TABLE public.library (
     "timestamp" bigint,
     title character varying(255),
     type character varying(255),
-    url character varying(255),
+    url text,
     year character varying(255),
     raw_json jsonb NOT NULL,
     created_at timestamp(0) without time zone,
@@ -302,7 +301,12 @@ CREATE TABLE public.library (
     total_highlights integer,
     creator character varying(255),
     creator_token uuid,
-    private boolean DEFAULT false NOT NULL
+    visibility character varying(20) DEFAULT 'public'::character varying NOT NULL,
+    listed boolean DEFAULT true NOT NULL,
+    license character varying(100) DEFAULT 'CC-BY-SA-4.0-NO-AI'::character varying NOT NULL,
+    custom_license_text text,
+    search_vector tsvector GENERATED ALWAYS AS ((setweight(to_tsvector('simple'::regconfig, (COALESCE(title, ''::character varying))::text), 'A'::"char") || setweight(to_tsvector('simple'::regconfig, (COALESCE(author, ''::character varying))::text), 'B'::"char"))) STORED,
+    annotations_updated_at bigint DEFAULT '0'::bigint NOT NULL
 );
 
 
@@ -338,24 +342,24 @@ ALTER SEQUENCE public.migrations_id_seq OWNED BY public.migrations.id;
 
 
 --
--- Name: node_chunks; Type: TABLE; Schema: public; Owner: -
+-- Name: nodes; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.node_chunks (
+CREATE TABLE public.nodes (
     id bigint NOT NULL,
     raw_json jsonb NOT NULL,
     book character varying(255) NOT NULL,
     chunk_id double precision NOT NULL,
     "startLine" double precision NOT NULL,
     footnotes jsonb,
-    hypercites jsonb,
-    hyperlights jsonb,
     content text,
     "plainText" text,
     type character varying(255),
     created_at timestamp(0) without time zone,
     updated_at timestamp(0) without time zone,
-    node_id character varying(255)
+    node_id character varying(255),
+    search_vector tsvector GENERATED ALWAYS AS (to_tsvector('english'::regconfig, COALESCE("plainText", content, ''::text))) STORED,
+    search_vector_simple tsvector GENERATED ALWAYS AS (to_tsvector('simple'::regconfig, COALESCE("plainText", content, ''::text))) STORED
 );
 
 
@@ -375,7 +379,7 @@ CREATE SEQUENCE public.node_chunks_id_seq
 -- Name: node_chunks_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
-ALTER SEQUENCE public.node_chunks_id_seq OWNED BY public.node_chunks.id;
+ALTER SEQUENCE public.node_chunks_id_seq OWNED BY public.nodes.id;
 
 
 --
@@ -521,10 +525,10 @@ ALTER TABLE ONLY public.migrations ALTER COLUMN id SET DEFAULT nextval('public.m
 
 
 --
--- Name: node_chunks id; Type: DEFAULT; Schema: public; Owner: -
+-- Name: nodes id; Type: DEFAULT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.node_chunks ALTER COLUMN id SET DEFAULT nextval('public.node_chunks_id_seq'::regclass);
+ALTER TABLE ONLY public.nodes ALTER COLUMN id SET DEFAULT nextval('public.node_chunks_id_seq'::regclass);
 
 
 --
@@ -662,18 +666,18 @@ ALTER TABLE ONLY public.migrations
 
 
 --
--- Name: node_chunks node_chunks_node_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: nodes node_chunks_node_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.node_chunks
+ALTER TABLE ONLY public.nodes
     ADD CONSTRAINT node_chunks_node_id_unique UNIQUE (node_id);
 
 
 --
--- Name: node_chunks node_chunks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: nodes node_chunks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.node_chunks
+ALTER TABLE ONLY public.nodes
     ADD CONSTRAINT node_chunks_pkey PRIMARY KEY (id);
 
 
@@ -748,10 +752,52 @@ CREATE INDEX anonymous_sessions_token_created_at_index ON public.anonymous_sessi
 
 
 --
+-- Name: hypercites_book_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX hypercites_book_index ON public.hypercites USING btree (book);
+
+
+--
 -- Name: hypercites_creator_token_index; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX hypercites_creator_token_index ON public.hypercites USING btree (creator_token);
+
+
+--
+-- Name: hyperlights_book_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX hyperlights_book_index ON public.hyperlights USING btree (book);
+
+
+--
+-- Name: idx_hypercites_chardata; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_hypercites_chardata ON public.hypercites USING gin ("charData");
+
+
+--
+-- Name: idx_hypercites_node_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_hypercites_node_id ON public.hypercites USING gin (node_id);
+
+
+--
+-- Name: idx_hyperlights_chardata; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_hyperlights_chardata ON public.hyperlights USING gin ("charData");
+
+
+--
+-- Name: idx_hyperlights_node_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_hyperlights_node_id ON public.hyperlights USING gin (node_id);
 
 
 --
@@ -769,10 +815,45 @@ CREATE INDEX library_creator_token_index ON public.library USING btree (creator_
 
 
 --
+-- Name: library_search_vector_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX library_search_vector_idx ON public.library USING gin (search_vector);
+
+
+--
 -- Name: node_chunks_node_id_index; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX node_chunks_node_id_index ON public.node_chunks USING btree (node_id);
+CREATE INDEX node_chunks_node_id_index ON public.nodes USING btree (node_id);
+
+
+--
+-- Name: nodes_book_node_id_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX nodes_book_node_id_unique ON public.nodes USING btree (book, node_id) WHERE (node_id IS NOT NULL);
+
+
+--
+-- Name: nodes_book_startline_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX nodes_book_startline_unique ON public.nodes USING btree (book, "startLine");
+
+
+--
+-- Name: nodes_search_vector_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX nodes_search_vector_idx ON public.nodes USING gin (search_vector);
+
+
+--
+-- Name: nodes_search_vector_simple_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX nodes_search_vector_simple_idx ON public.nodes USING gin (search_vector_simple);
 
 
 --
@@ -823,38 +904,33 @@ SET row_security = off;
 --
 
 COPY public.migrations (id, migration, batch) FROM stdin;
-1	0001_01_01_000000_create_users_table	1
-2	0001_01_01_000001_create_cache_table	1
-3	0001_01_01_000002_create_jobs_table	1
-4	2025_05_26_044301_create_node_chunks_table	2
-5	2025_05_26_233455_create_footnotes_table	3
-6	2025_05_26_233455_create_hypercites_table	3
-7	2025_05_26_233455_create_hyperlights_table	3
-8	2025_05_26_233455_create_library_table	3
-9	2025_05_29_021856_add_metrics_columns_to_library_table	4
-10	2025_06_02_233045_change_timestamp_column_type_in_library_table	5
-11	2025_06_12_004740_make_footnotes_raw_json_nullable	6
-12	2025_06_15_104443_add_two_factor_columns_to_users_table	7
-13	2025_06_15_113048_create_personal_access_tokens_table	8
-14	2025_06_16_065611_add_two_factor_columns_to_users_table	7
-15	2025_06_17_234740_add_creator_to_library_table	9
-16	2025_06_19_231127_create_personal_access_tokens_table	10
-17	2025_06_20_082428_add_creator_token_to_library_table	11
-18	2025_06_24_000000_add_hyperlights_creator_columns	12
-19	2025_06_25_070106_add_time_since_to_hyperlights_table	13
-20	2025_07_03_223443_create_anonymous_sessions_table	14
-21	2025_07_03_223759_add_creator_columns_to_hypercites_table	15
-22	2025_07_05_065455_change_anonymous_sessions_token_to_text	16
-23	2025_07_05_133037_change_anonymous_sessions_token_to_text	17
-24	2025_08_08_004016_create_references_table	18
-25	2025_08_08_004059_update_footnotes_table_for_individual_records	18
-26	2025_08_08_011834_rename_references_table_to_bibliography	19
-27	2025_09_04_090941_add_private_column_to_library_table	20
-28	2025_09_10_001000_add_node_id_to_node_chunks_table	21
-29	2025_09_10_002000_update_annotation_columns	22
-30	2025_09_10_121143_add_time_since_to_hypercites_table	23
-31	2025_09_14_121243_add_hidden_field_to_pg_hyperlights_table	24
-
+1	2025_06_25_070106_add_time_since_to_hyperlights_table	1
+2	2025_07_03_223443_create_anonymous_sessions_table	1
+3	2025_07_03_223759_add_creator_columns_to_hypercites_table	1
+4	2025_07_05_065455_change_anonymous_sessions_token_to_text	1
+5	2025_07_05_133037_change_anonymous_sessions_token_to_text	1
+6	2025_08_08_004016_create_references_table	1
+7	2025_08_08_004059_update_footnotes_table_for_individual_records	1
+8	2025_08_08_011834_rename_references_table_to_bibliography	1
+9	2025_09_04_090941_add_private_column_to_library_table	1
+10	2025_09_10_121143_add_time_since_to_hypercites_table	1
+11	2025_09_14_121243_add_hidden_field_to_pg_hyperlights_table	1
+12	2025_09_14_230729_add_node_uuid_to_node_chunks	1
+13	2025_10_26_105401_replace_private_with_visibility_and_listed_in_library_table	2
+14	2025_11_14_095455_drop_citation_id_from_library_table	2
+15	2025_11_15_081142_rename_node_chunks_to_nodes	2
+16	2025_11_15_101542_add_license_to_library_table	3
+17	2025_11_21_101822_add_node_id_to_highlights_and_hypercites	3
+18	2025_11_21_103337_add_chardata_to_highlights_and_hypercites	3
+19	2025_11_23_022848_drop_hyperlights_hypercites_from_nodes_table	3
+20	2025_11_23_023654_drop_start_char_end_char_from_hyperlights_hypercites_tables	3
+21	2025_11_24_221106_change_url_to_text_in_library_table	3
+22	2025_12_12_134055_add_composite_indexes_to_nodes_table	3
+23	2025_12_15_000001_add_full_text_search_to_library_table	3
+24	2025_12_15_000002_add_full_text_search_to_nodes_table	3
+25	2025_12_15_092358_update_library_search_vector_simple_title_author	3
+26	2025_12_15_094658_add_simple_search_vector_to_nodes_table	3
+27	2025_12_17_100000_add_annotations_updated_at_to_library_table	3
 \.
 
 
@@ -862,8 +938,7 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 -- Name: migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.migrations_id_seq', 31, true);
-
+SELECT pg_catalog.setval('public.migrations_id_seq', 27, true);
 
 
 --

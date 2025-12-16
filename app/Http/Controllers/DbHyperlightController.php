@@ -175,11 +175,15 @@ class DbHyperlightController extends Controller
                 }
                 
                 PgHyperlight::insert($records);
-                
+
+                // Update annotations_updated_at for affected books
+                $bookIds = array_column($records, 'book');
+                $this->updateAnnotationsTimestamp($bookIds);
+
                 Log::info('DbHyperlightController::bulkCreate - Success', [
                     'records_inserted' => count($records)
                 ]);
-                
+
                 return response()->json(['success' => true]);
             }
             
@@ -214,9 +218,10 @@ class DbHyperlightController extends Controller
             
             if (isset($data['data']) && is_array($data['data'])) {
                 $processedCount = 0;
+                $processedBookIds = [];
                 $user = Auth::user();
                 $anonymousToken = $user ? null : $request->cookie('anon_token');
-                
+
                 foreach ($data['data'] as $index => $item) {
                     $bookId = $item['book'] ?? null;
 
@@ -290,16 +295,22 @@ class DbHyperlightController extends Controller
                             'updated_at' => now(),
                         ]
                     );
-                    
+
                     $processedCount++;
+                    if ($bookId) {
+                        $processedBookIds[] = $bookId;
+                    }
                 }
-                
+
+                // Update annotations_updated_at for affected books
+                $this->updateAnnotationsTimestamp($processedBookIds);
+
                 Log::info('DbHyperlightController::upsert - Success', [
                     'records_processed' => $processedCount
                 ]);
-                
+
                 return response()->json([
-                    'success' => true, 
+                    'success' => true,
                     'message' => 'Hyperlights synced successfully'
                 ]);
             }
@@ -334,13 +345,14 @@ class DbHyperlightController extends Controller
             
             if (isset($data['data']) && is_array($data['data'])) {
                 $deletedCount = 0;
-                
+                $deletedBookIds = [];
+
                 foreach ($data['data'] as $index => $item) {
                     // Find the existing record to check permissions
                     $existingRecord = PgHyperlight::where('book', $item['book'] ?? null)
                         ->where('hyperlight_id', $item['hyperlight_id'] ?? null)
                         ->first();
-                    
+
                     if (!$existingRecord) {
                         Log::warning("Hyperlight not found for deletion at index {$index}", [
                             'book' => $item['book'] ?? null,
@@ -348,7 +360,7 @@ class DbHyperlightController extends Controller
                         ]);
                         continue;
                     }
-                    
+
                     // Check permission using existing record's creator info
                     if (!$this->checkHyperlightPermission(
                         $request,
@@ -364,17 +376,24 @@ class DbHyperlightController extends Controller
                         ]);
                         continue; // Skip this item
                     }
-                    
+
+                    $bookId = $existingRecord->book;
                     $existingRecord->delete();
                     $deletedCount++;
+                    if ($bookId) {
+                        $deletedBookIds[] = $bookId;
+                    }
                 }
-                
+
+                // Update annotations_updated_at for affected books
+                $this->updateAnnotationsTimestamp($deletedBookIds);
+
                 Log::info('DbHyperlightController::delete - Success', [
                     'records_deleted' => $deletedCount
                 ]);
-                
+
                 return response()->json([
-                    'success' => true, 
+                    'success' => true,
                     'message' => 'Hyperlights deleted successfully'
                 ]);
             }
@@ -409,13 +428,14 @@ class DbHyperlightController extends Controller
             
             if (isset($data['data']) && is_array($data['data'])) {
                 $hiddenCount = 0;
-                
+                $hiddenBookIds = [];
+
                 foreach ($data['data'] as $index => $item) {
                     // Find the existing record
                     $existingRecord = PgHyperlight::where('book', $item['book'] ?? null)
                         ->where('hyperlight_id', $item['hyperlight_id'] ?? null)
                         ->first();
-                    
+
                     if (!$existingRecord) {
                         Log::warning("Hyperlight not found for hiding at index {$index}", [
                             'book' => $item['book'] ?? null,
@@ -423,7 +443,7 @@ class DbHyperlightController extends Controller
                         ]);
                         continue;
                     }
-                    
+
                     // SECURITY: Only book owner can hide highlights in their book
                     $user = Auth::user();
                     $anonymousToken = $user ? null : $request->cookie('anon_token');
@@ -450,18 +470,24 @@ class DbHyperlightController extends Controller
                     // Set hidden flag to true
                     $existingRecord->hidden = true;
                     $existingRecord->save();
-                    
+
                     $hiddenCount++;
-                    
+                    if ($bookId) {
+                        $hiddenBookIds[] = $bookId;
+                    }
+
                     Log::info("Hidden highlight {$item['hyperlight_id']} in book {$item['book']}");
                 }
-                
+
+                // Update annotations_updated_at for affected books
+                $this->updateAnnotationsTimestamp($hiddenBookIds);
+
                 Log::info('DbHyperlightController::hide - Success', [
                     'records_hidden' => $hiddenCount
                 ]);
-                
+
                 return response()->json([
-                    'success' => true, 
+                    'success' => true,
                     'message' => 'Hyperlights hidden successfully'
                 ]);
             }
@@ -489,15 +515,39 @@ class DbHyperlightController extends Controller
     {
         // Create a copy to avoid modifying the original
         $cleanItem = $item;
-        
+
         // Remove the raw_json field to prevent recursive nesting
         unset($cleanItem['raw_json']);
-        
+
         // Also remove any other potentially problematic nested fields
         if (isset($cleanItem['full_library_array'])) {
             unset($cleanItem['full_library_array']);
         }
-        
+
         return $cleanItem;
+    }
+
+    /**
+     * Update annotations_updated_at timestamp for the given books.
+     * This is called after any highlight modification to enable efficient sync.
+     *
+     * @param array $bookIds - Array of book IDs that had highlights modified
+     */
+    private function updateAnnotationsTimestamp(array $bookIds)
+    {
+        if (empty($bookIds)) {
+            return;
+        }
+
+        $now = round(microtime(true) * 1000);
+        $uniqueBookIds = array_unique($bookIds);
+
+        PgLibrary::whereIn('book', $uniqueBookIds)
+            ->update(['annotations_updated_at' => $now]);
+
+        Log::info('Updated annotations_updated_at for books', [
+            'books' => $uniqueBookIds,
+            'timestamp' => $now
+        ]);
     }
 }

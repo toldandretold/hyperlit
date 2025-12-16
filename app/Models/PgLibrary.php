@@ -24,6 +24,7 @@ class PgLibrary extends Model
         'publisher',
         'school',
         'timestamp',
+        'annotations_updated_at',
         'title',
         'type',
         'url',
@@ -42,6 +43,7 @@ class PgLibrary extends Model
     protected $casts = [
         'raw_json' => 'array',
         'timestamp' => 'integer',
+        'annotations_updated_at' => 'integer',
         'recent' => 'integer',
         'total_views' => 'integer',
         'total_citations' => 'integer',

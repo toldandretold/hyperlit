@@ -219,18 +219,19 @@ public function upsert(Request $request)
                     'raw_json' => json_encode($this->cleanItemForStorage($data)),
                 ];
             } else {
-                // TODO: SECURITY - This allows non-owners to update timestamp, which is a
-                // potential search ranking manipulation vector. Needs architectural refactor
-                // to track changes granularly (see sync refactor plan).
-                // For now, only allow timestamp updates (not other fields).
-                $newTimestamp = $data['timestamp'] ?? $libraryRecord->timestamp;
-                if ($libraryRecord->timestamp && $newTimestamp && $libraryRecord->timestamp > $newTimestamp) {
-                    $newTimestamp = $libraryRecord->timestamp;
-                }
+                // SECURITY FIX: Non-owners cannot update library.timestamp
+                // Annotations (highlights/hypercites) now update annotations_updated_at instead,
+                // which is handled by DbHyperlightController and DbHyperciteController.
+                Log::info('Non-owner library update blocked', [
+                    'book' => $bookId,
+                    'attempted_by' => $currentUserInfo['creator'] ?? $currentUserInfo['creator_token'] ?? 'unknown'
+                ]);
 
-                $updateData = [
-                    'timestamp' => $newTimestamp,
-                ];
+                return response()->json([
+                    'success' => true,
+                    'message' => 'No changes applied - only book owners can update library metadata',
+                    'library' => $libraryRecord
+                ]);
             }
 
             // Apply the update (this is fast)
