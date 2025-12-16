@@ -210,6 +210,21 @@ export function createLazyLoader(config) {
             req.onerror = () => resolve(null);
           });
 
+          // If book is deleted, prevent navigation and animate trash icon
+          if (libraryData && libraryData.visibility === 'deleted') {
+            const parentBlock = link.closest('p, blockquote, div');
+            if (parentBlock) {
+              const deletedIcon = parentBlock.querySelector('.deleted-icon');
+              if (deletedIcon) {
+                deletedIcon.style.transform = 'scale(1.3)';
+                setTimeout(() => {
+                  deletedIcon.style.transform = 'scale(1)';
+                }, 200);
+              }
+            }
+            return;
+          }
+
           // If book is private, check access
           if (libraryData && libraryData.visibility === 'private') {
             const { canUserEditBook } = await import('./utilities/auth.js');
@@ -232,7 +247,7 @@ export function createLazyLoader(config) {
             }
           }
         } catch (accessError) {
-          console.error('🔗 LazyLoader: Error checking private book access:', accessError);
+          console.error('🔗 LazyLoader: Error checking book access:', accessError);
           // Continue anyway - let the container handle it
         }
 

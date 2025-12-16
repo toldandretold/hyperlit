@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use App\Models\AnonymousSession;
+use App\Services\BookDeletionService;
 
 class DbLibraryController extends Controller
 {
@@ -46,6 +47,10 @@ class DbLibraryController extends Controller
 
     /**
      * Delete a book and all associated records. Only the owner (creator) may delete.
+     * Uses BookDeletionService for proper cleanup including:
+     * - De-linking hypercites in other books
+     * - Preserving other users' highlights (orphaned)
+     * - Soft-deleting library record if orphaned highlights exist
      */
     public function destroy(Request $request, string $book)
     {
@@ -63,30 +68,15 @@ class DbLibraryController extends Controller
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
-        DB::beginTransaction();
         try {
-            DB::table('nodes')->where('book', $book)->delete();
-            DB::table('footnotes')->where('book', $book)->delete();
-            DB::table('bibliography')->where('book', $book)->delete();
-            DB::table('hyperlights')->where('book', $book)->delete();
-            DB::table('hypercites')->where('book', $book)->delete();
-            DB::table('library')->where('book', $book)->delete();
+            $service = new BookDeletionService();
+            $stats = $service->deleteBook($book);
 
-            if ($record->creator) {
-                DB::table('nodes')
-                    ->where('book', $record->creator)
-                    ->where('node_id', $book)
-                    ->delete();
-
-                DB::table('library')
-                    ->where('book', $record->creator)
-                    ->update(['timestamp' => round(microtime(true) * 1000)]);
-            }
-
-            DB::commit();
-            return response()->json(['success' => true]);
+            return response()->json([
+                'success' => true,
+                'stats' => $stats
+            ]);
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Delete book failed', ['book' => $book, 'error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Delete failed'], 500);
         }

@@ -72,7 +72,7 @@ class HomePageServerController extends Controller
                 'journal'
             ])
             ->where('listed', true)
-            ->where('visibility', '!=', 'private')
+            ->whereNotIn('visibility', ['private', 'deleted'])
             ->get();
 
         // Recalculate stats from hyperlights/hypercites tables to ensure accuracy
