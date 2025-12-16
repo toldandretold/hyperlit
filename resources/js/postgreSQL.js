@@ -439,7 +439,210 @@ export async function syncBookDataFromDatabase(bookId) {
   }
 }
 
+/**
+ * Sync only annotations (hyperlights/hypercites) from Laravel API to IndexedDB.
+ * Used when only annotations have changed, not book content (nodes).
+ */
+export async function syncAnnotationsOnly(bookId) {
+  verbose.content(`Starting annotations-only sync for: ${bookId}`, 'postgreSQL.js');
 
+  try {
+    // 1. Fetch full book data from Laravel API (we'll only use annotations)
+    const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/data`);
+
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    verbose.content(`Annotations received: ${data.hyperlights?.length || 0} highlights, ${data.hypercites?.length || 0} hypercites`, 'postgreSQL.js');
+
+    // 2. Open IndexedDB
+    const db = await openDatabase();
+
+    // 3. Clear only annotations for this book (not nodes)
+    await clearAnnotationsFromIndexedDB(db, bookId);
+
+    // 4. Load only annotations into IndexedDB (standalone stores)
+    const loadResults = await Promise.allSettled([
+      loadHyperlightsToIndexedDB(db, data.hyperlights),
+      loadHypercitesToIndexedDB(db, data.hypercites),
+    ]);
+
+    // Check if any loads failed
+    const failures = loadResults.filter(r => r.status === 'rejected');
+    if (failures.length > 0) {
+      console.error(`❌ ${failures.length} annotation types failed to load`, failures);
+      throw new Error(`Failed to load annotations into IndexedDB`);
+    }
+
+    // 5. Update embedded hyperlights/hypercites within nodes store
+    // This is critical because lazyLoader renders using node.hyperlights, not standalone store
+    // We use the standalone hyperlights (data.hyperlights) because they're unfiltered
+    await updateEmbeddedAnnotationsInNodes(db, bookId, data.hyperlights, data.hypercites);
+
+    log.content('Annotations-only sync completed', 'postgreSQL.js');
+
+    return {
+      success: true,
+      reason: 'annotations_synced',
+      loaded_counts: {
+        hyperlights: data.hyperlights?.length || 0,
+        hypercites: data.hypercites?.length || 0
+      }
+    };
+
+  } catch (error) {
+    console.error("❌ Annotations sync failed:", {
+      bookId,
+      error: error.message,
+      stack: error.stack
+    });
+    return {
+      success: false,
+      error: error.message,
+      reason: 'sync_error'
+    };
+  }
+}
+
+/**
+ * Clear only annotations (hyperlights/hypercites) from IndexedDB for a specific book.
+ */
+async function clearAnnotationsFromIndexedDB(db, bookId) {
+  verbose.content(`Clearing annotations for book: ${bookId}`, 'postgreSQL.js');
+
+  const annotationStores = ['hyperlights', 'hypercites'];
+
+  for (const storeName of annotationStores) {
+    const tx = db.transaction(storeName, 'readwrite');
+    const store = tx.objectStore(storeName);
+
+    try {
+      const index = store.index('book');
+      const request = index.openCursor(IDBKeyRange.only(bookId));
+
+      await new Promise((resolve, reject) => {
+        request.onsuccess = (event) => {
+          const cursor = event.target.result;
+          if (cursor) {
+            cursor.delete();
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+        request.onerror = () => reject(request.error);
+      });
+    } catch (e) {
+      verbose.content(`Error clearing ${storeName}: ${e.message}`, 'postgreSQL.js');
+    }
+  }
+}
+
+/**
+ * Update embedded hyperlights/hypercites within nodes store.
+ * Nodes store each node with embedded annotations for rendering.
+ * This function rebuilds embedded annotations from standalone hyperlights/hypercites.
+ *
+ * @param {IDBDatabase} db - IndexedDB database
+ * @param {string} bookId - Book identifier
+ * @param {Array} hyperlights - Standalone hyperlights from API (unfiltered)
+ * @param {Array} hypercites - Standalone hypercites from API
+ */
+async function updateEmbeddedAnnotationsInNodes(db, bookId, hyperlights, hypercites) {
+  // Build lookup maps: node_id -> array of hyperlights/hypercites for that node
+  const hyperlightsByNodeId = new Map();
+  const hypercitesByNodeId = new Map();
+
+  // Process hyperlights - each can span multiple nodes
+  if (hyperlights && hyperlights.length > 0) {
+    for (const hl of hyperlights) {
+      // node_id is an array of node IDs this highlight spans
+      const nodeIds = Array.isArray(hl.node_id) ? hl.node_id : [hl.node_id];
+      const charData = hl.charData || {};
+
+      for (const nodeId of nodeIds) {
+        if (!nodeId) continue;
+
+        // Get the char data specific to this node
+        const nodeCharData = charData[nodeId] || {};
+
+        // Create node-specific highlight entry (format expected by applyHighlights)
+        const nodeHighlight = {
+          hyperlight_id: hl.hyperlight_id,
+          charStart: nodeCharData.charStart ?? 0,
+          charEnd: nodeCharData.charEnd ?? 0,
+          is_user_highlight: hl.is_user_highlight || false,
+          annotation: hl.annotation,
+          highlightedText: hl.highlightedText
+        };
+
+        if (!hyperlightsByNodeId.has(nodeId)) {
+          hyperlightsByNodeId.set(nodeId, []);
+        }
+        hyperlightsByNodeId.get(nodeId).push(nodeHighlight);
+      }
+    }
+  }
+
+  // Process hypercites
+  if (hypercites && hypercites.length > 0) {
+    for (const hc of hypercites) {
+      const nodeId = hc.node_id;
+      if (!nodeId) continue;
+
+      if (!hypercitesByNodeId.has(nodeId)) {
+        hypercitesByNodeId.set(nodeId, []);
+      }
+      hypercitesByNodeId.get(nodeId).push(hc);
+    }
+  }
+
+  verbose.content(`Built annotation lookup: ${hyperlightsByNodeId.size} nodes with highlights, ${hypercitesByNodeId.size} nodes with hypercites`, 'postgreSQL.js');
+
+  // Read all nodes for this book from IndexedDB (read transaction)
+  const readTx = db.transaction('nodes', 'readonly');
+  const readStore = readTx.objectStore('nodes');
+  const index = readStore.index('book');
+
+  const localNodes = await new Promise((resolve, reject) => {
+    const request = index.getAll(IDBKeyRange.only(bookId));
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+
+  verbose.content(`Found ${localNodes.length} local nodes to update`, 'postgreSQL.js');
+
+  // Update nodes with fresh embedded annotations
+  // Process in memory first, then write in a single batch
+  const updatedNodes = localNodes.map(localNode => {
+    const nodeHighlights = hyperlightsByNodeId.get(localNode.node_id) || [];
+    const nodeHypercites = hypercitesByNodeId.get(localNode.node_id) || [];
+
+    // Update embedded annotations (always update, even if empty - clears deleted highlights)
+    localNode.hyperlights = nodeHighlights;
+    localNode.hypercites = nodeHypercites;
+
+    return localNode;
+  });
+
+  // Write all updates in a new transaction (batch write)
+  const writeTx = db.transaction('nodes', 'readwrite');
+  const writeStore = writeTx.objectStore('nodes');
+
+  for (const node of updatedNodes) {
+    writeStore.put(node);
+  }
+
+  // Wait for transaction to complete
+  await new Promise((resolve, reject) => {
+    writeTx.oncomplete = () => resolve();
+    writeTx.onerror = () => reject(writeTx.error);
+  });
+
+  verbose.content(`Updated embedded annotations in ${updatedNodes.length} nodes`, 'postgreSQL.js');
+}
 
 /**
  * Clear existing book data from IndexedDB

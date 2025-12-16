@@ -25,7 +25,8 @@ import {
 
 import { parseMarkdownIntoChunksInitial } from "./utilities/convertMarkdown.js";
 
-import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
+import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL, syncAnnotationsOnly } from "./postgreSQL.js";
+import { updateLocalAnnotationsTimestamp } from "./indexedDB/core/library.js";
 // Add to your imports at the top
 
 import { undoLastBatch, redoLastBatch } from './historyManager.js';
@@ -530,19 +531,38 @@ async function checkAndUpdateIfNeeded(bookId, lazyLoader) {
       return;
     }
 
-    const serverTimestamp = new Date(serverRecord.timestamp).getTime();
-    const localTimestamp = new Date(localRecord.timestamp).getTime();
+    const serverTimestamp = serverRecord.timestamp || 0;
+    const localTimestamp = localRecord.timestamp || 0;
+    const serverAnnotationsTs = serverRecord.annotations_updated_at || 0;
+    const localAnnotationsTs = localRecord.annotations_updated_at || 0;
 
+    // Check if book content changed (nodes)
     if (serverTimestamp > localTimestamp) {
       console.log(
-        `🔥 Server content is newer for ${bookId}. Syncing in background...`
+        `🔥 Book content changed for ${bookId}. Full sync...`
       );
-      await syncBookDataFromDatabase(bookId, true); // Download new data
+      await syncBookDataFromDatabase(bookId, true); // Download new data (includes annotations)
       notifyContentUpdated();
 
       // Tell the already-rendered page to refresh itself with the new data.
       console.log(
         `🔄 Triggering lazyLoader.refresh() to display updated content.`
+      );
+      await lazyLoader.refresh();
+      return; // Full sync includes annotations, no need to check further
+    }
+
+    // Check if only annotations changed (highlights/hypercites)
+    if (serverAnnotationsTs > localAnnotationsTs) {
+      console.log(
+        `📝 Annotations changed for ${bookId}. Syncing annotations only...`
+      );
+      await syncAnnotationsOnly(bookId);
+      await updateLocalAnnotationsTimestamp(bookId, serverAnnotationsTs);
+
+      // Refresh to show updated highlights
+      console.log(
+        `🔄 Triggering lazyLoader.refresh() to display updated annotations.`
       );
       await lazyLoader.refresh();
     } else {
