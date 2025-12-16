@@ -9,6 +9,12 @@
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
+    # SECURITY: Block direct access to original uploaded files and sensitive data
+    # Force these through Laravel routes for authorization checks
+    RewriteRule ^markdown/[^/]+/original\.(html|htm|md|doc|docx|epub|zip)$ - [F,L]
+    RewriteRule ^markdown/[^/]+/folder_markdown\.md$ - [F,L]
+    RewriteRule ^markdown/[^/]+/folder_extracted/ - [F,L]
+
     # Redirect Trailing Slashes If Not A Folder...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_URI} (.+)/$

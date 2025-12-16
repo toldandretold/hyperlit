@@ -7,6 +7,7 @@
 
 import { generateIdBetween, setElementIds, generateNodeId } from '../../utilities/IDfunctions.js';
 import { queueNodeForSave } from '../../divEditor/index.js';
+import DOMPurify from 'dompurify';
 
 const SMALL_NODE_LIMIT = 10;
 
@@ -29,7 +30,8 @@ export function handleSmallPaste(event, htmlContent, plainText, nodeCount, book)
   );
 
   // --- 1. PREPARE THE CONTENT (initial) ---
-  let finalHtmlToInsert = htmlContent;
+  // SECURITY: Sanitize HTML content to prevent XSS
+  let finalHtmlToInsert = htmlContent ? DOMPurify.sanitize(htmlContent, { USE_PROFILES: { html: true } }) : null;
 
   // --- 2. GET INSERTION CONTEXT (BEFORE PASTING) ---
   const selection = window.getSelection();

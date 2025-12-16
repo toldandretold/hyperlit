@@ -396,7 +396,7 @@ async function loadDefaultContent(lazyLoader) {
       } else {
         // Fallback: fetch markdown and parse
         console.log("No cached chunks found. Fetching main-text.md...");
-        const response = await fetch(`/markdown/${lazyLoader.bookId}/main-text.md`);
+        const response = await fetch(`/${lazyLoader.bookId}/main-text.md`);
         if (!response.ok) {
           throw new Error(`Failed to fetch markdown: ${response.status}`);
         }
@@ -653,7 +653,7 @@ export async function restoreScrollPosition() {
       }
       
       // Fallback to markdown fetch
-      const response = await fetch(`/markdown/${book}/main-text.md`);
+      const response = await fetch(`/${book}/main-text.md`);
       const markdown = await response.text();
       currentLazyLoader.nodes = parseMarkdownIntoChunksInitial(markdown);
       currentLazyLoader.nodes

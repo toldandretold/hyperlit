@@ -22,6 +22,7 @@ import {
   setHandleHypercitePaste
 } from '../../utilities/operationState.js';
 import { queueNodeForSave } from '../../divEditor/index.js';
+import DOMPurify from 'dompurify';
 
 /**
  * Extract quoted text before a hypercite link element
@@ -106,8 +107,9 @@ export async function handleHypercitePaste(event) {
   if (!clipboardHtml) return false;
 
   // Parse clipboard HTML
+  // SECURITY: Sanitize clipboard HTML to prevent XSS
   const pasteWrapper = document.createElement("div");
-  pasteWrapper.innerHTML = clipboardHtml;
+  pasteWrapper.innerHTML = DOMPurify.sanitize(clipboardHtml, { USE_PROFILES: { html: true } });
 
   // Clear any numeric IDs to prevent conflicts
   pasteWrapper.querySelectorAll('[id]').forEach(el => {

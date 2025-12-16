@@ -173,8 +173,9 @@ export async function hideHighlightById(highlightId) {
       const remainingHighlights = Array.from(mark.classList).filter(cls => cls.startsWith('HL_'));
 
       if (remainingHighlights.length === 0) {
+        const parentNode = mark.parentNode;
         unwrapMark(mark);
-        parent.normalize();
+        if (parentNode) parentNode.normalize();
       } else {
         // Still has other highlights - just update the styling
         console.log(`Mark still has highlights: ${remainingHighlights.join(', ')}`);

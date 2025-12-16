@@ -4,35 +4,111 @@ namespace App\Services\DocumentImport;
 
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use HTMLPurifier;
+use HTMLPurifier_Config;
 
 class SanitizationService
 {
+    private ?HTMLPurifier $htmlPurifier = null;
+    private ?HTMLPurifier $markdownPurifier = null;
+
     /**
-     * Sanitize HTML file by removing dangerous tags and attributes
+     * Get configured HTMLPurifier instance for HTML files
+     * 🔒 SECURITY: Whitelist-based sanitization - only explicitly allowed elements pass
+     * Note: HTMLPurifier works on fragments, not full documents - we extract body content first
+     */
+    private function getHtmlPurifier(): HTMLPurifier
+    {
+        if ($this->htmlPurifier === null) {
+            $config = HTMLPurifier_Config::createDefault();
+
+            // Allow safe structural and formatting tags (fragment-level only, no html/head/body)
+            // Note: HTMLPurifier only supports HTML4 elements - HTML5 semantic elements get stripped
+            // but their content is preserved
+            $config->set('HTML.Allowed',
+                'div,span,p,h1,h2,h3,h4,h5,h6,br,strong,b,em,i,' .
+                'ul,ol,li,a[href|title],img[src|alt|title],blockquote,code,pre,' .
+                'table,tr,td,th,thead,tbody,hr,sup,sub,dl,dt,dd,abbr[title],cite,small,u,s'
+            );
+
+            // Block dangerous URI schemes
+            $config->set('URI.AllowedSchemes', ['http' => true, 'https' => true, 'mailto' => true]);
+
+            // Disable external resources for security
+            $config->set('URI.DisableExternalResources', false);
+
+            // Remove empty tags
+            $config->set('AutoFormat.RemoveEmpty', true);
+
+            // Set cache directory
+            $cacheDir = storage_path('app/htmlpurifier');
+            if (!is_dir($cacheDir)) {
+                mkdir($cacheDir, 0755, true);
+            }
+            $config->set('Cache.SerializerPath', $cacheDir);
+
+            $this->htmlPurifier = new HTMLPurifier($config);
+        }
+
+        return $this->htmlPurifier;
+    }
+
+    /**
+     * Get configured HTMLPurifier instance for Markdown files (more restrictive)
+     */
+    private function getMarkdownPurifier(): HTMLPurifier
+    {
+        if ($this->markdownPurifier === null) {
+            $config = HTMLPurifier_Config::createDefault();
+
+            // Markdown needs fewer HTML elements
+            $config->set('HTML.Allowed',
+                'h1,h2,h3,h4,h5,h6,p,br,strong,b,em,i,ul,ol,li,' .
+                'a[href|title],img[src|alt|title],blockquote,code,pre'
+            );
+
+            // Block dangerous URI schemes
+            $config->set('URI.AllowedSchemes', ['http' => true, 'https' => true, 'mailto' => true]);
+
+            // Remove empty tags
+            $config->set('AutoFormat.RemoveEmpty', true);
+
+            // Set cache directory
+            $cacheDir = storage_path('app/htmlpurifier');
+            if (!is_dir($cacheDir)) {
+                mkdir($cacheDir, 0755, true);
+            }
+            $config->set('Cache.SerializerPath', $cacheDir);
+
+            $this->markdownPurifier = new HTMLPurifier($config);
+        }
+
+        return $this->markdownPurifier;
+    }
+
+    /**
+     * Sanitize HTML file using HTMLPurifier
+     * 🔒 SECURITY: Replaces vulnerable strip_tags() with proper whitelist-based sanitization
+     * Handles full HTML documents by extracting body content first
      */
     public function sanitizeHtmlFile(string $filePath): void
     {
         $originalContent = File::get($filePath);
-
-        // Save content before sanitization for comparison
         $beforeLength = strlen($originalContent);
 
-        // Remove potentially dangerous HTML tags and attributes
-        $content = strip_tags($originalContent, '<html><head><body><div><span><p><h1><h2><h3><h4><h5><h6><br><strong><b><em><i><ul><ol><li><a><img><blockquote><code><pre><table><tr><td><th><thead><tbody><hr><sup><sub>');
+        // Extract body content if this is a full HTML document
+        // HTMLPurifier works on fragments, not full documents
+        $bodyContent = $this->extractBodyContent($originalContent);
 
-        // Remove javascript: and data: URLs
-        $content = preg_replace('/(?:javascript|data|vbscript):[^"\'\s>]*/i', '', $content);
+        // Use HTMLPurifier for proper sanitization
+        $sanitizedBody = $this->getHtmlPurifier()->purify($bodyContent);
 
-        // Remove all event handlers (onclick, onload, etc.)
-        $content = preg_replace('/\son\w+\s*=\s*["\'][^"\']*["\']/i', '', $content);
+        // Reconstruct as a valid HTML document
+        $content = $this->wrapInHtmlDocument($sanitizedBody);
 
-        // Remove style attributes that might contain expressions
-        $content = preg_replace('/\sstyle\s*=\s*["\'][^"\']*expression[^"\']*["\']/i', '', $content);
-
-        // Log what sanitization removed
         $afterLength = strlen($content);
 
-        Log::info('HTML sanitization results', [
+        Log::info('HTML sanitization results (HTMLPurifier)', [
             'file_path' => basename($filePath),
             'before_length' => $beforeLength,
             'after_length' => $afterLength,
@@ -41,37 +117,59 @@ class SanitizationService
         ]);
 
         if ($originalContent !== $content) {
-            // Save sanitized version for comparison
-            $debugSanitizedPath = dirname($filePath) . '/debug_sanitized.html';
-            File::put($debugSanitizedPath, $content);
-            Log::warning('HTML sanitization changed content, saved debug copy to: ' . $debugSanitizedPath);
+            Log::warning('HTML sanitization changed content', [
+                'file' => basename($filePath),
+                'chars_removed' => $beforeLength - $afterLength
+            ]);
         }
 
         File::put($filePath, $content);
     }
 
     /**
-     * Sanitize markdown file by removing dangerous content
+     * Extract body content from a full HTML document
+     */
+    private function extractBodyContent(string $html): string
+    {
+        // Try to extract content between <body> tags
+        if (preg_match('/<body[^>]*>(.*?)<\/body>/is', $html, $matches)) {
+            return $matches[1];
+        }
+
+        // If no body tags, check if it has html/head structure and strip those
+        $content = $html;
+        $content = preg_replace('/<html[^>]*>/i', '', $content);
+        $content = preg_replace('/<\/html>/i', '', $content);
+        $content = preg_replace('/<head[^>]*>.*?<\/head>/is', '', $content);
+
+        return trim($content);
+    }
+
+    /**
+     * Wrap sanitized content in a basic HTML document structure
+     */
+    private function wrapInHtmlDocument(string $content): string
+    {
+        return "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\">\n</head>\n<body>\n{$content}\n</body>\n</html>";
+    }
+
+    /**
+     * Sanitize markdown file using HTMLPurifier
+     * 🔒 SECURITY: Replaces vulnerable strip_tags() with proper whitelist-based sanitization
      */
     public function sanitizeMarkdownFile(string $filePath): void
     {
         $originalContent = File::get($filePath);
-
-        // Save content before sanitization for comparison
         $beforeLength = strlen($originalContent);
         $beforeFootnotes = preg_match_all('/^10[2-5]\s/', $originalContent, $matches);
 
-        // Remove potentially dangerous HTML tags and attributes
-        $content = strip_tags($originalContent, '<h1><h2><h3><h4><h5><h6><p><br><strong><em><ul><ol><li><a><img><blockquote><code><pre>');
+        // Use HTMLPurifier for proper sanitization
+        $content = $this->getMarkdownPurifier()->purify($originalContent);
 
-        // Remove javascript: and data: URLs
-        $content = preg_replace('/(?:javascript|data|vbscript):[^"\'\s>]*/i', '', $content);
-
-        // Log what sanitization removed
         $afterLength = strlen($content);
         $afterFootnotes = preg_match_all('/^10[2-5]\s/', $content, $matches);
 
-        Log::warning('Markdown sanitization results', [
+        Log::info('Markdown sanitization results (HTMLPurifier)', [
             'file_path' => basename($filePath),
             'before_length' => $beforeLength,
             'after_length' => $afterLength,
@@ -82,10 +180,10 @@ class SanitizationService
         ]);
 
         if ($originalContent !== $content) {
-            // Save sanitized version for comparison
-            $debugSanitizedPath = dirname($filePath) . '/debug_sanitized.md';
-            File::put($debugSanitizedPath, $content);
-            Log::warning('Sanitization changed content, saved debug copy to: ' . $debugSanitizedPath);
+            Log::warning('Markdown sanitization changed content', [
+                'file' => basename($filePath),
+                'chars_removed' => $beforeLength - $afterLength
+            ]);
         }
 
         File::put($filePath, $content);

@@ -30,10 +30,16 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\CorsMiddleware::class,
         ]);
         
-        // ✅ THIS IS THE MISSING LINE
-        // This tells Laravel not to require CSRF tokens for any route starting with /api/
+        // CSRF token validation - only exempt truly stateless endpoints
+        // Most API routes now protected by CSRF since they're used by the SPA
         $middleware->validateCsrfTokens(except: [
-            'api/*',
+            'api/login',
+            'api/register',
+            'api/auth-check',
+            'api/anonymous-session',
+            'api/test-cors',
+            'api/search/*',            // Public search endpoints
+            'api/database-to-indexeddb/*',  // Public read-only data endpoints
         ]);
         
         $middleware->alias([

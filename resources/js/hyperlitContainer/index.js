@@ -432,7 +432,11 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = []) 
       // Attach listeners for editable highlights
       results.forEach((highlight) => {
         if (highlight) {
-          const isUserHighlight = highlight.creator ? highlight.creator === currentUserId : (!highlight.creator && highlight.creator_token === currentUserId);
+          // 🔒 SECURITY: Prefer server-calculated is_user_highlight (doesn't expose tokens)
+          // Fall back to local comparison only for locally-created highlights not yet synced
+          const isUserHighlight = highlight.is_user_highlight !== undefined
+            ? highlight.is_user_highlight
+            : (highlight.creator ? highlight.creator === currentUserId : (!highlight.creator && highlight.creator_token === currentUserId));
           const isNewlyCreated = newHighlightIds.includes(highlight.hyperlight_id);
           const isEditable = isUserHighlight || isNewlyCreated;
 
@@ -479,15 +483,22 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = []) 
         }, 150);
       }
 
-      // Attach delete button listeners
+      // Attach delete/hide button listeners
       setTimeout(async () => {
-        const { deleteHighlightById } = await import('../hyperlights/index.js');
+        const { deleteHighlightById, hideHighlightById } = await import('../hyperlights/index.js');
         const deleteButtons = document.querySelectorAll('.delete-highlight-btn');
         deleteButtons.forEach(button => {
           button.addEventListener('click', async (e) => {
             const highlightId = button.getAttribute('data-highlight-id');
             const action = button.getAttribute('data-action'); // 'delete' or 'hide'
-            await deleteHighlightById(highlightId);
+
+            if (action === 'hide') {
+              // Book owner hiding someone else's highlight - sets hidden=true
+              await hideHighlightById(highlightId);
+            } else {
+              // User deleting their own highlight - permanent removal
+              await deleteHighlightById(highlightId);
+            }
           });
         });
       }, 200);

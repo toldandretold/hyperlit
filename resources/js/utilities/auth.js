@@ -194,7 +194,12 @@ export async function getAnonymousToken() {
 /**
  * Helper function to check if user has edit permission for a record
  * Uses prioritized authentication: username first, then anonymous token only if no username
- * @param {Object} record - Record with creator and creator_token fields
+ *
+ * 🔒 SECURITY: Prefers server-provided ownership flags (is_user_highlight, is_owner)
+ * which don't require exposing creator_token in API responses.
+ * Falls back to local comparison only for locally-created content not yet synced.
+ *
+ * @param {Object} record - Record with creator and optionally is_user_highlight/is_owner fields
  * @param {string|null} currentUserId - Current user ID (username for logged in, token for anon)
  * @param {boolean} isLoggedIn - Whether user is currently logged in
  * @returns {boolean} - Whether user has permission
@@ -202,6 +207,15 @@ export async function getAnonymousToken() {
 export function checkUserPermission(record, currentUserId, isLoggedIn = true) {
   if (!record) return false;
 
+  // 🔒 SECURITY: Prefer server-calculated ownership flags (doesn't expose tokens)
+  if (record.is_user_highlight !== undefined) {
+    return record.is_user_highlight;
+  }
+  if (record.is_owner !== undefined) {
+    return record.is_owner;
+  }
+
+  // Fall back to local comparison for locally-created content not yet synced
   // If record has a username (creator), ONLY use username-based auth
   if (record.creator) {
     return isLoggedIn && record.creator === currentUserId;

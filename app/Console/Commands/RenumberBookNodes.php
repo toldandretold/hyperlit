@@ -138,16 +138,19 @@ class RenumberBookNodes extends Command
         try {
             // Update each node with new startLine, chunk_id, and content
             foreach ($updates as $update) {
-                DB::table('nodes')
-                    ->where('book', $update['book'])
-                    ->where('startLine', $update['old_startLine'])
-                    ->update([
-                        'startLine' => $update['new_startLine'],
-                        'chunk_id' => $update['new_chunk_id'],
-                        'content' => $update['content'],
-                        'raw_json' => DB::raw("'" . str_replace("'", "''", $update['raw_json']) . "'::jsonb"),
-                        'updated_at' => now()
-                    ]);
+                // 🔒 SECURITY: Use parameterized query instead of string concatenation
+                DB::statement(
+                    'UPDATE nodes SET "startLine" = ?, chunk_id = ?, content = ?, raw_json = ?::jsonb, updated_at = ? WHERE book = ? AND "startLine" = ?',
+                    [
+                        $update['new_startLine'],
+                        $update['new_chunk_id'],
+                        $update['content'],
+                        $update['raw_json'],
+                        now(),
+                        $update['book'],
+                        $update['old_startLine']
+                    ]
+                );
 
                 $bar->advance();
             }

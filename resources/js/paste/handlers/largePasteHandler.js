@@ -16,6 +16,7 @@ import { glowCloudOrange, glowCloudRed } from '../../components/editIndicator.js
 import { processContentForFootnotesAndReferences } from '../fallback-processor.js';
 import { parseHtmlToBlocks } from '../utils/html-block-parser.js';
 import { ProgressOverlayConductor } from '../../navigation/ProgressOverlayConductor.js';
+import DOMPurify from 'dompurify';
 
 /**
  * Handle large paste operations (>10 nodes)
@@ -43,7 +44,8 @@ export async function handleLargePaste(
   ProgressOverlayConductor.showSPATransition(10, 'Processing paste...', true);
 
   // --- 1. USE PROCESSOR-EXTRACTED FOOTNOTES AND REFERENCES ---
-  let processedContent = pastedContent;
+  // SECURITY: Sanitize pasted content to prevent XSS
+  let processedContent = pastedContent ? DOMPurify.sanitize(pastedContent, { USE_PROFILES: { html: true } }) : pastedContent;
 
   // If footnotes/references were already extracted by the processor, use them
   // Otherwise, fall back to the old extraction method

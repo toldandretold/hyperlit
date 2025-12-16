@@ -159,12 +159,24 @@ class SearchController extends Controller
         }
     }
 
+    // 🔒 SECURITY: Whitelist allowed values to prevent SQL injection
+    private const ALLOWED_CONFIGS = ['simple', 'english'];
+    private const ALLOWED_VECTOR_COLUMNS = ['search_vector', 'search_vector_simple'];
+
     /**
      * Check if matches exist and estimate if it's a high-frequency term
      * Returns: ['has_match' => bool, 'is_high_frequency' => bool]
      */
     private function checkNodeMatches(string $tsQuery, string $config, string $vectorColumn): array
     {
+        // 🔒 SECURITY: Validate config and vectorColumn against whitelist
+        if (!in_array($config, self::ALLOWED_CONFIGS, true)) {
+            throw new \InvalidArgumentException("Invalid search config: {$config}");
+        }
+        if (!in_array($vectorColumn, self::ALLOWED_VECTOR_COLUMNS, true)) {
+            throw new \InvalidArgumentException("Invalid vector column: {$vectorColumn}");
+        }
+
         // Check if we get more than 1000 results quickly (high-frequency threshold)
         // Using LIMIT 1001 and counting - if we hit 1001, it's high frequency
         $result = DB::selectOne("
@@ -191,6 +203,14 @@ class SearchController extends Controller
      */
     private function executeNodeSearch(Request $request, string $tsQuery, string $config, string $vectorColumn, int $limit, bool $isHighFrequency = false)
     {
+        // 🔒 SECURITY: Validate config and vectorColumn against whitelist
+        if (!in_array($config, self::ALLOWED_CONFIGS, true)) {
+            throw new \InvalidArgumentException("Invalid search config: {$config}");
+        }
+        if (!in_array($vectorColumn, self::ALLOWED_VECTOR_COLUMNS, true)) {
+            throw new \InvalidArgumentException("Invalid vector column: {$vectorColumn}");
+        }
+
         $user = Auth::user();
         $anonymousToken = $request->cookie('anon_token');
 
