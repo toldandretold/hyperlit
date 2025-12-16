@@ -8,6 +8,36 @@ import { book } from '../../app.js';
 import { openDatabase } from '../../indexedDB/index.js';
 import { formatBibtexToCitation } from "../../utilities/bibtexProcessor.js";
 import { canUserEditBook } from "../../utilities/auth.js";
+import DOMPurify from 'dompurify';
+
+/**
+ * Validate URL to prevent javascript: and other dangerous protocols
+ * @param {string} url - The URL to validate
+ * @returns {string} Safe URL or '#' if dangerous
+ */
+function sanitizeUrl(url) {
+  if (!url) return '#';
+  try {
+    // Handle relative URLs by using current origin as base
+    const parsed = new URL(url, window.location.origin);
+    // Only allow http, https protocols
+    if (['http:', 'https:'].includes(parsed.protocol)) {
+      return url;
+    }
+    // For relative URLs starting with /, allow them
+    if (url.startsWith('/') && !url.startsWith('//')) {
+      return url;
+    }
+    console.warn(`Blocked dangerous URL protocol: ${parsed.protocol}`);
+    return '#';
+  } catch {
+    // If URL parsing fails, check if it's a simple relative path
+    if (url.startsWith('/') && !url.toLowerCase().includes('javascript:')) {
+      return url;
+    }
+    return '#';
+  }
+}
 
 /**
  * Build hypercite content section
@@ -184,7 +214,9 @@ export async function buildHyperciteContent(contentType, db = null) {
           }
 
           if (libraryData && libraryData.bibtex) {
-            const formattedCitation = await formatBibtexToCitation(libraryData.bibtex);
+            const rawFormattedCitation = await formatBibtexToCitation(libraryData.bibtex);
+            // Sanitize citation to prevent XSS from malicious bibtex data
+            const formattedCitation = DOMPurify.sanitize(rawFormattedCitation, { ALLOWED_TAGS: ['i', 'em', 'b', 'strong'] });
 
             // Check if the book is private and add lock icon
             const isPrivate = libraryData.visibility === 'private';
@@ -201,9 +233,14 @@ export async function buildHyperciteContent(contentType, db = null) {
               ? `data-private="true" data-book-id="${bookID}"`
               : '';
 
-            return `<blockquote>${citationText} <a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}" ${privateAttrs}><span class="open-icon">↗</span></a>${managementButtonsHtml}</blockquote>`;
+            // Sanitize URL to prevent javascript: protocol XSS
+            const safeHref = sanitizeUrl(citationID);
+            return `<blockquote>${citationText} <a href="${safeHref}" class="citation-link" data-content-id="${hyperciteId}" ${privateAttrs}><span class="open-icon">↗</span></a>${managementButtonsHtml}</blockquote>`;
           } else {
-            return `<a href="${citationID}" class="citation-link" data-content-id="${hyperciteId}">${citationID}${managementButtonsHtml}</a>`;
+            // Sanitize URL to prevent javascript: protocol XSS
+            const safeHref = sanitizeUrl(citationID);
+            const displayUrl = DOMPurify.sanitize(citationID, { ALLOWED_TAGS: [] });
+            return `<a href="${safeHref}" class="citation-link" data-content-id="${hyperciteId}">${displayUrl}${managementButtonsHtml}</a>`;
           }
         })
       );

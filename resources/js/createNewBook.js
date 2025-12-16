@@ -75,12 +75,14 @@ export async function fireAndForgetSync(
           if (currentLocal && currentLocal.timestamp > syncResult.library.timestamp) {
             // Local record has been modified since sync started - preserve local changes
             console.log("🔄 Local record is newer - preserving local changes and updating server fields only");
-            
+
             // Update only server-specific fields while preserving local content changes
+            // 🔒 SECURITY: creator_token is no longer returned by server (security fix)
+            // Keep local creator_token, update creator and is_owner from server
             const mergedRecord = {
-              ...currentLocal, // Keep local changes (title, timestamp, etc.)
+              ...currentLocal, // Keep local changes (title, timestamp, etc.) including creator_token
               creator: syncResult.library.creator, // Update server ownership fields
-              creator_token: syncResult.library.creator_token,
+              is_owner: syncResult.library.is_owner, // Server-calculated ownership flag
               updated_at: syncResult.library.updated_at,
               created_at: syncResult.library.created_at
             };
@@ -89,8 +91,13 @@ export async function fireAndForgetSync(
             console.log("✅ Local library record updated with server ownership, local changes preserved.");
           } else {
             // No local changes, safe to use server data
+            // 🔒 SECURITY: Preserve local creator_token since server no longer returns it
+            const serverData = {
+              ...syncResult.library,
+              creator_token: currentLocal?.creator_token || syncResult.library.creator_token
+            };
             console.log("✅ No local changes detected - using server data");
-            await store.put(syncResult.library);
+            await store.put(serverData);
             console.log("✅ Local library record updated with server data.");
           }
 

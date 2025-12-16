@@ -36,19 +36,100 @@ Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML']
 Route::post('/import-file', [App\Http\Controllers\ImportController::class, 'store'])->name('import.file');
 
 // JSON book route
-Route::get('/{book}/main-text-footnotes.json', function ($book) {
-    $filePath = public_path("/markdown/{$book}/main-text-footnotes.json");
+Route::get('/{book}/main-text-footnotes.json', function (Request $request, $book) {
+    $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
+
+    // SECURITY: Check authorization
+    if (!canAccessBookContent($book, $request)) {
+        abort(403, 'Access denied.');
+    }
+
+    $filePath = resource_path("markdown/{$book}/main-text-footnotes.json");
 
     if (!file_exists($filePath)) {
         abort(404, 'File not found.');
     }
 
     return response()->file($filePath, ['Content-Type' => 'application/json']);
-})->where('book', '[a-zA-Z0-9\-]+');
+})->where('book', '[a-zA-Z0-9\-_]+');
+
+// Main text markdown file route
+Route::get('/{book}/main-text.md', function (Request $request, $book) {
+    $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
+
+    // SECURITY: Check authorization
+    if (!canAccessBookContent($book, $request)) {
+        abort(403, 'Access denied.');
+    }
+
+    $filePath = resource_path("markdown/{$book}/main-text.md");
+
+    if (!file_exists($filePath)) {
+        abort(404, 'File not found.');
+    }
+
+    return response()->file($filePath, ['Content-Type' => 'text/markdown']);
+})->where('book', '[a-zA-Z0-9\-_]+');
+
+// Latest update JSON route
+Route::get('/{book}/latest_update.json', function (Request $request, $book) {
+    $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
+
+    // SECURITY: Check authorization
+    if (!canAccessBookContent($book, $request)) {
+        abort(403, 'Access denied.');
+    }
+
+    $filePath = resource_path("markdown/{$book}/latest_update.json");
+
+    if (!file_exists($filePath)) {
+        abort(404, 'File not found.');
+    }
+
+    return response()->file($filePath, ['Content-Type' => 'application/json']);
+})->where('book', '[a-zA-Z0-9\-_]+');
+
+// SECURITY: Helper function to check if user can access book content
+// Returns true if book is public OR user is the owner
+if (!function_exists('canAccessBookContent')) {
+    function canAccessBookContent($book, $request) {
+        $library = \App\Models\PgLibrary::where('book', $book)->first();
+
+        // If no library record, allow access (legacy or public content)
+        if (!$library) {
+            return true;
+        }
+
+        // Public books are accessible to everyone
+        if ($library->visibility === 'public') {
+            return true;
+        }
+
+        // For private books, check ownership
+        $user = Auth::user();
+        if ($user && $library->creator === $user->name) {
+            return true;
+        }
+
+        // Check anonymous token
+        $anonToken = $request->cookie('anon_token');
+        if ($anonToken && $library->creator_token === $anonToken) {
+            return true;
+        }
+
+        return false;
+    }
+}
 
 // JSON routes for nodes, footnotes, references (fallback file access)
-Route::get('/{book}/nodes.json', function ($book) {
+Route::get('/{book}/nodes.json', function (Request $request, $book) {
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
+
+    // SECURITY: Check authorization
+    if (!canAccessBookContent($book, $request)) {
+        abort(403, 'Access denied.');
+    }
+
     $filePath = resource_path("markdown/{$book}/nodes.json");
     if (!file_exists($filePath)) {
         abort(404, 'File not found.');
@@ -56,8 +137,14 @@ Route::get('/{book}/nodes.json', function ($book) {
     return response()->file($filePath, ['Content-Type' => 'application/json']);
 })->where('book', '[a-zA-Z0-9\-_]+');
 
-Route::get('/{book}/footnotes.json', function ($book) {
+Route::get('/{book}/footnotes.json', function (Request $request, $book) {
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
+
+    // SECURITY: Check authorization
+    if (!canAccessBookContent($book, $request)) {
+        abort(403, 'Access denied.');
+    }
+
     $filePath = resource_path("markdown/{$book}/footnotes.json");
     if (!file_exists($filePath)) {
         abort(404, 'File not found.');
@@ -65,8 +152,14 @@ Route::get('/{book}/footnotes.json', function ($book) {
     return response()->file($filePath, ['Content-Type' => 'application/json']);
 })->where('book', '[a-zA-Z0-9\-_]+');
 
-Route::get('/{book}/references.json', function ($book) {
+Route::get('/{book}/references.json', function (Request $request, $book) {
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
+
+    // SECURITY: Check authorization
+    if (!canAccessBookContent($book, $request)) {
+        abort(403, 'Access denied.');
+    }
+
     $filePath = resource_path("markdown/{$book}/references.json");
     if (!file_exists($filePath)) {
         abort(404, 'File not found.');
@@ -75,7 +168,14 @@ Route::get('/{book}/references.json', function ($book) {
 })->where('book', '[a-zA-Z0-9\-_]+');
 
 // Media serving route for all images (folder uploads use media/, docx uses media/)
-Route::get('/{book}/media/{filename}', function ($book, $filename) {
+Route::get('/{book}/media/{filename}', function (Request $request, $book, $filename) {
+    $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
+
+    // SECURITY: Check authorization
+    if (!canAccessBookContent($book, $request)) {
+        abort(403, 'Access denied.');
+    }
+
     $filePath = resource_path("markdown/{$book}/media/{$filename}");
 
     if (!file_exists($filePath)) {

@@ -120,19 +120,39 @@ class ValidationService
 
     /**
      * Validate markdown file for suspicious content
+     * SECURITY: Reads entire file to prevent bypass via content after first chunk
      */
     public function validateMarkdownFile(UploadedFile $file): bool
     {
-        $handle = fopen($file->getPathname(), 'r');
-        $content = fread($handle, 1024);
-        fclose($handle);
+        // Check file size first - reject if too large (10MB limit)
+        $maxSize = 10 * 1024 * 1024;
+        if ($file->getSize() > $maxSize) {
+            Log::warning('Markdown validation failed: file too large', [
+                'size' => $file->getSize(),
+                'max_size' => $maxSize
+            ]);
+            return false;
+        }
+
+        // SECURITY FIX: Read entire file, not just first 1KB
+        $content = file_get_contents($file->getPathname());
 
         $suspiciousPatterns = [
             '/<script/i',
             '/javascript:/i',
             '/vbscript:/i',
             '/onload=/i',
-            '/onerror=/i'
+            '/onerror=/i',
+            '/onclick=/i',
+            '/onmouseover=/i',
+            '/onfocus=/i',
+            '/<iframe/i',
+            '/<object/i',
+            '/<embed/i',
+            // data: URIs in dangerous contexts only (not plain text like "https://data.europa.eu/")
+            '/(src|href)\s*=\s*["\']?\s*data:/i',  // HTML attributes
+            '/url\s*\(\s*["\']?\s*data:/i',        // CSS url()
+            '/\]\s*\(\s*data:/i',                  // Markdown links [text](data:...)
         ];
 
         foreach ($suspiciousPatterns as $pattern) {
@@ -149,19 +169,31 @@ class ValidationService
 
     /**
      * Validate HTML file for suspicious content
+     * SECURITY: Reads entire file to prevent bypass via content after first chunk
      */
     public function validateHtmlFile(UploadedFile $file): bool
     {
-        $handle = fopen($file->getPathname(), 'r');
-        $content = fread($handle, 4096); // Read more for HTML files
-        fclose($handle);
+        // Check file size first - reject if too large (10MB limit)
+        $maxSize = 10 * 1024 * 1024;
+        if ($file->getSize() > $maxSize) {
+            Log::warning('HTML validation failed: file too large', [
+                'size' => $file->getSize(),
+                'max_size' => $maxSize
+            ]);
+            return false;
+        }
+
+        // SECURITY FIX: Read entire file, not just first 4KB
+        $content = file_get_contents($file->getPathname());
 
         // More comprehensive security patterns for HTML
         $suspiciousPatterns = [
             '/<script[^>]*>/i',
             '/javascript:/i',
             '/vbscript:/i',
-            '/data:/i',
+            // data: URIs in dangerous contexts only (not plain text like "https://data.europa.eu/")
+            '/(src|href)\s*=\s*["\']?\s*data:/i',  // HTML attributes with data: URIs
+            '/url\s*\(\s*["\']?\s*data:/i',        // CSS url() with data: URIs
             '/on\w+\s*=/i', // Any on* event handlers (onclick, onload, etc.)
             '/<iframe/i',
             '/<object/i',
@@ -395,15 +427,34 @@ class ValidationService
     private function checkSvgContent(string $content, string $filename): bool
     {
         $suspiciousPatterns = [
+            // Script-related
             '/<script/i',
             '/javascript:/i',
             '/vbscript:/i',
-            '/on\w+\s*=/i', // Event handlers
+
+            // Event handlers
+            '/on\w+\s*=/i',
+
+            // Dangerous elements that can embed external content
             '/<iframe/i',
             '/<object/i',
             '/<embed/i',
             '/<form/i',
-            '/expression\s*\(/i'
+            '/<foreignObject/i',               // Can embed arbitrary HTML including scripts
+            '/<animate/i',                     // SMIL animation can trigger events
+            '/<set/i',                         // SMIL set can modify attributes
+            '/<animateTransform/i',            // Animation element
+
+            // External references that could load malicious content
+            '/<use[^>]+href\s*=\s*["\'][^"\']*:\/\//i',  // <use> with external URL
+            '/xlink:href\s*=\s*["\'](?:javascript|data|vbscript):/i',  // xlink with dangerous protocols
+
+            // CSS expressions
+            '/expression\s*\(/i',
+            '/url\s*\(\s*["\']?\s*(?:javascript|data|vbscript):/i',  // CSS url() with dangerous protocols
+
+            // data: URIs in dangerous contexts only (not plain text)
+            '/(src|href)\s*=\s*["\']?\s*data:/i',  // SVG attributes with data: URIs
         ];
 
         foreach ($suspiciousPatterns as $pattern) {

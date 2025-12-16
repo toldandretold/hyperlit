@@ -9,6 +9,7 @@
         "doctrine/dbal": "^4.2",
         "erusev/parsedown": "^1.7",
         "erusev/parsedown-extra": "*",
+        "ezyang/htmlpurifier": "^4.19",
         "laravel/fortify": "^1.26",
         "laravel/framework": "^11.9",
         "laravel/reverb": "@beta",

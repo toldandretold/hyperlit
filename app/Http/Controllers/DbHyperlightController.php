@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PgHyperlight;
+use App\Models\PgLibrary;
 use App\Models\AnonymousSession;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -20,12 +21,18 @@ class DbHyperlightController extends Controller
 
     /**
      * Check if user has permission to modify the hyperlight
-     * Uses backend-managed auth but keeps individual highlight permission logic
+     * SECURITY: Legacy hyperlights require book ownership check
+     *
+     * @param Request $request
+     * @param string|null $creator - Hyperlight creator username
+     * @param string|null $creatorToken - Hyperlight creator token
+     * @param string|null $bookId - Book ID (required for legacy record check)
      */
-    private function checkHyperlightPermission(Request $request, $creator = null, $creatorToken = null)
+    private function checkHyperlightPermission(Request $request, $creator = null, $creatorToken = null, $bookId = null)
     {
         $user = Auth::user();
-        
+        $anonymousToken = $request->cookie('anon_token');
+
         if ($user) {
             // Logged in user - check they are the creator
             if ($creator && $creator === $user->name) {
@@ -35,23 +42,33 @@ class DbHyperlightController extends Controller
                 ]);
                 return true;
             }
-            
+
+            // SECURITY: For legacy records, check if user owns the book
+            if (!$creator && !$creatorToken && $bookId) {
+                $library = PgLibrary::where('book', $bookId)->first();
+                if ($library && $library->creator === $user->name) {
+                    Log::info('Logged-in user hyperlight access granted (book owner)', [
+                        'user' => $user->name,
+                        'book' => $bookId
+                    ]);
+                    return true;
+                }
+            }
+
             Log::warning('Logged-in user hyperlight access denied', [
                 'user' => $user->name,
                 'creator' => $creator,
                 'reason' => 'not_creator'
             ]);
             return false;
-            
+
         } else {
             // Anonymous user - check server-managed token from cookie
-            $anonymousToken = $request->cookie('anon_token');
-            
             if (!$anonymousToken) {
                 Log::warning('Anonymous user missing cookie token for hyperlight');
                 return false;
             }
-            
+
             // Validate the token exists in our database
             if (!$this->isValidAnonymousToken($anonymousToken)) {
                 Log::warning('Anonymous user invalid token for hyperlight', [
@@ -60,34 +77,31 @@ class DbHyperlightController extends Controller
                 ]);
                 return false;
             }
-            
-            // FIXED: Handle legacy records with null creator_token
+
+            // 🔒 SECURITY FIX: Legacy records (no creator_token) are now READ-ONLY
+            // Previously, book owners could modify other users' legacy highlights.
+            // Now, legacy records cannot be modified by anyone - they are immutable.
+            // This prevents book owners from deleting/modifying other users' old work.
             if ($creatorToken === null) {
-                // For legacy records without creator_token, allow any valid anonymous user
-                // Update last used time for the anonymous session
-                AnonymousSession::where('token', $anonymousToken)
-                    ->update(['last_used_at' => now()]);
-                
-                Log::info('Anonymous user hyperlight access granted for legacy record', [
-                    'token' => $anonymousToken,
-                    'creator_token' => 'null (legacy)',
-                    'reason' => 'legacy_record_access'
+                Log::warning('Legacy hyperlight modification denied - legacy records are read-only', [
+                    'book' => $bookId,
+                    'token' => $anonymousToken
                 ]);
-                return true;
+                return false;
             }
-            
+
             if ($creatorToken && $creatorToken === $anonymousToken) {
                 // Update last used time for the anonymous session
                 AnonymousSession::where('token', $anonymousToken)
                     ->update(['last_used_at' => now()]);
-                
+
                 Log::info('Anonymous user hyperlight access granted', [
                     'token' => $anonymousToken,
                     'creator_token' => $creatorToken
                 ]);
                 return true;
             }
-            
+
             Log::warning('Anonymous user hyperlight access denied', [
                 'token' => $anonymousToken,
                 'creator_token' => $creatorToken,
@@ -116,16 +130,19 @@ class DbHyperlightController extends Controller
                     // Backend sets the creator fields based on auth state
                     $creator = $user ? $user->name : null;
                     $creator_token = $user ? null : $anonymousToken;
-                    
+                    $bookId = $item['book'] ?? null;
+
                     // Check permission using backend-generated auth
                     if (!$this->checkHyperlightPermission(
-                        $request, 
-                        $creator, 
-                        $creator_token
+                        $request,
+                        $creator,
+                        $creator_token,
+                        $bookId
                     )) {
                         Log::warning("Permission denied for hyperlight at index {$index}", [
                             'creator' => $creator,
-                            'creator_token' => $creator_token
+                            'creator_token' => $creator_token,
+                            'book' => $bookId
                         ]);
                         continue; // Skip this item
                     }
@@ -201,26 +218,30 @@ class DbHyperlightController extends Controller
                 $anonymousToken = $user ? null : $request->cookie('anon_token');
                 
                 foreach ($data['data'] as $index => $item) {
+                    $bookId = $item['book'] ?? null;
+
                     // For upserts, we need to check if the record exists first
-                    $existingRecord = PgHyperlight::where('book', $item['book'] ?? null)
+                    $existingRecord = PgHyperlight::where('book', $bookId)
                         ->where('hyperlight_id', $item['hyperlight_id'] ?? null)
                         ->first();
-                    
+
                     if ($existingRecord) {
                         // Check permission against existing record
                         if (!$this->checkHyperlightPermission(
-                            $request, 
-                            $existingRecord->creator, 
-                            $existingRecord->creator_token
+                            $request,
+                            $existingRecord->creator,
+                            $existingRecord->creator_token,
+                            $existingRecord->book
                         )) {
                             Log::warning("Permission denied for existing hyperlight update at index {$index}", [
                                 'hyperlight_id' => $item['hyperlight_id'] ?? null,
+                                'book' => $existingRecord->book,
                                 'existing_creator' => $existingRecord->creator,
                                 'existing_creator_token' => $existingRecord->creator_token
                             ]);
                             continue; // Skip this item
                         }
-                        
+
                         // For existing records, keep the original creator info
                         $creator = $existingRecord->creator;
                         $creator_token = $existingRecord->creator_token;
@@ -228,16 +249,18 @@ class DbHyperlightController extends Controller
                         // New record - use backend-generated auth
                         $creator = $user ? $user->name : null;
                         $creator_token = $user ? null : $anonymousToken;
-                        
+
                         // Check permission for new record
                         if (!$this->checkHyperlightPermission(
-                            $request, 
-                            $creator, 
-                            $creator_token
+                            $request,
+                            $creator,
+                            $creator_token,
+                            $bookId
                         )) {
                             Log::warning("Permission denied for new hyperlight at index {$index}", [
                                 'creator' => $creator,
-                                'creator_token' => $creator_token
+                                'creator_token' => $creator_token,
+                                'book' => $bookId
                             ]);
                             continue; // Skip this item
                         }
@@ -328,12 +351,14 @@ class DbHyperlightController extends Controller
                     
                     // Check permission using existing record's creator info
                     if (!$this->checkHyperlightPermission(
-                        $request, 
-                        $existingRecord->creator, 
-                        $existingRecord->creator_token
+                        $request,
+                        $existingRecord->creator,
+                        $existingRecord->creator_token,
+                        $existingRecord->book
                     )) {
                         Log::warning("Permission denied for hyperlight deletion at index {$index}", [
                             'hyperlight_id' => $item['hyperlight_id'] ?? null,
+                            'book' => $existingRecord->book,
                             'creator' => $existingRecord->creator,
                             'creator_token' => $existingRecord->creator_token
                         ]);
@@ -399,11 +424,29 @@ class DbHyperlightController extends Controller
                         continue;
                     }
                     
-                    // For hide operation, we need to check if user owns the book
-                    // This is a simplified check - in practice you'd have book ownership logic
+                    // SECURITY: Only book owner can hide highlights in their book
                     $user = Auth::user();
                     $anonymousToken = $user ? null : $request->cookie('anon_token');
-                    
+
+                    // Check if current user owns the book
+                    $bookId = $item['book'] ?? null;
+                    $library = PgLibrary::where('book', $bookId)->first();
+
+                    $isBookOwner = $library && (
+                        ($user && $library->creator === $user->name) ||
+                        (!$user && $anonymousToken && $library->creator_token === $anonymousToken)
+                    );
+
+                    if (!$isBookOwner) {
+                        Log::warning("Hide permission denied - user doesn't own book", [
+                            'book' => $bookId,
+                            'hyperlight_id' => $item['hyperlight_id'] ?? null,
+                            'user' => $user?->name,
+                            'has_anon_token' => !empty($anonymousToken)
+                        ]);
+                        continue;
+                    }
+
                     // Set hidden flag to true
                     $existingRecord->hidden = true;
                     $existingRecord->save();

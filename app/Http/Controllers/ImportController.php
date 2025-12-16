@@ -146,6 +146,24 @@ class ImportController extends Controller
 
             // Process single file if not handled by folder upload
             if (!$isDocxProcessing && isset($file)) {
+                // SECURITY: Validate file content before processing
+                if (!$this->validator->validateUploadedFile($file)) {
+                    Log::warning('File validation failed', [
+                        'book' => $bookId,
+                        'extension' => $extension,
+                        'original_name' => $file->getClientOriginalName()
+                    ]);
+
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'error' => 'File validation failed. The file may contain suspicious content or invalid structure.'
+                        ], 422);
+                    }
+
+                    return redirect()->back()->with('error', 'File validation failed. Please check the file format and content.');
+                }
+
                 $originalFilename = "original.{$extension}";
                 $originalFilePath = "{$path}/{$originalFilename}";
                 $file->move($path, $originalFilename);

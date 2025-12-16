@@ -305,7 +305,7 @@ function buildUrl(path, forceReload = false) {
 
 // Updated to accept bookId parameter
 async function fetchMainTextMarkdown(bookId, forceReload = false) {
-  const response = await fetch(buildUrl(`/markdown/${bookId}/main-text.md`, forceReload));
+  const response = await fetch(buildUrl(`/${bookId}/main-text.md`, forceReload));
   if (!response.ok) {
     throw new Error(`Failed to fetch main-text.md for ${bookId}`);
   }

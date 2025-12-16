@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PgHypercite;
 use App\Models\PgNodeChunk;
+use App\Models\PgLibrary;
 use App\Models\AnonymousSession;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -21,18 +22,52 @@ class DbHyperciteController extends Controller
 
     /**
      * Check if user has permission to modify the hypercite
-     * For legacy hypercites (no creator info), allow all operations
-     * For new hypercites, enforce ownership
+     * SECURITY: Legacy hypercites require book ownership check
+     * For new hypercites, enforce creator ownership
+     *
+     * @param Request $request
+     * @param string|null $creator - Hypercite creator username
+     * @param string|null $creatorToken - Hypercite creator token
+     * @param string|null $bookId - Book ID (required for legacy record check)
      */
-    private function checkHypercitePermission(Request $request, $creator = null, $creatorToken = null)
+    private function checkHypercitePermission(Request $request, $creator = null, $creatorToken = null, $bookId = null)
     {
-        // Legacy hypercite with no creator info - allow operation
-        if (!$creator && !$creatorToken) {
-            Log::info('Legacy hypercite access granted (no creator info)');
-            return true;
-        }
-
         $user = Auth::user();
+        $anonymousToken = $request->cookie('anon_token');
+
+        // SECURITY FIX: Legacy hypercites require book ownership
+        if (!$creator && !$creatorToken) {
+            if (!$bookId) {
+                Log::warning('Legacy hypercite access denied - no book ID provided for ownership check');
+                return false;
+            }
+
+            // Check if user owns the BOOK containing this legacy hypercite
+            $library = PgLibrary::where('book', $bookId)->first();
+
+            if (!$library) {
+                // No library record - allow for backwards compatibility with very old data
+                Log::info('Legacy hypercite access granted (no library record)', ['book' => $bookId]);
+                return true;
+            }
+
+            $isBookOwner = ($user && $library->creator === $user->name) ||
+                           ($anonymousToken && $library->creator_token === $anonymousToken);
+
+            if ($isBookOwner) {
+                Log::info('Legacy hypercite access granted (book owner)', [
+                    'book' => $bookId,
+                    'user' => $user ? $user->name : 'anonymous'
+                ]);
+                return true;
+            }
+
+            Log::warning('Legacy hypercite access denied (not book owner)', [
+                'book' => $bookId,
+                'user' => $user ? $user->name : 'anonymous'
+            ]);
+            return false;
+        }
 
         if ($user) {
             // Logged in user - check they are the creator
@@ -111,14 +146,17 @@ class DbHyperciteController extends Controller
                 $creator_token = $user ? null : $anonymousToken;
 
                 // Check permission using backend-generated auth
+                $bookId = $item['book'] ?? null;
                 if (!$this->checkHypercitePermission(
                     $request,
                     $creator,
-                    $creator_token
+                    $creator_token,
+                    $bookId
                 )) {
                     Log::warning("Permission denied for hypercite at index {$index}", [
                         'creator' => $creator,
-                        'creator_token' => $creator_token
+                        'creator_token' => $creator_token,
+                        'book' => $bookId
                     ]);
                     continue; // Skip this item
                 }
@@ -200,15 +238,19 @@ class DbHyperciteController extends Controller
                         ->where('hyperciteId', $item['hyperciteId'] ?? null)
                         ->first();
 
+                    $bookId = $item['book'] ?? null;
+
                     if ($existingRecord) {
                         // Check permission against existing record
                         if (!$this->checkHypercitePermission(
                             $request,
                             $existingRecord->creator,
-                            $existingRecord->creator_token
+                            $existingRecord->creator_token,
+                            $existingRecord->book
                         )) {
                             Log::warning("Permission denied for existing hypercite update at index {$index}", [
                                 'hyperciteId' => $item['hyperciteId'] ?? null,
+                                'book' => $existingRecord->book,
                                 'existing_creator' => $existingRecord->creator,
                                 'existing_creator_token' => $existingRecord->creator_token
                             ]);
@@ -227,11 +269,13 @@ class DbHyperciteController extends Controller
                         if (!$this->checkHypercitePermission(
                             $request,
                             $creator,
-                            $creator_token
+                            $creator_token,
+                            $bookId
                         )) {
                             Log::warning("Permission denied for new hypercite at index {$index}", [
                                 'creator' => $creator,
-                                'creator_token' => $creator_token
+                                'creator_token' => $creator_token,
+                                'book' => $bookId
                             ]);
                             continue; // Skip this item
                         }
@@ -298,16 +342,37 @@ class DbHyperciteController extends Controller
 
     /**
      * Finds a single hypercite.
-     * Assumes the 'author' middleware has already verified the session's
-     * legitimacy (either as a logged-in user or a valid anonymous session).
+     * SECURITY: Checks book visibility before returning data.
      *
+     * @param Request $request
      * @param string $bookId
      * @param string $hyperciteId
      * @return \Illuminate\Http\JsonResponse
      */
-    public function find($bookId, $hyperciteId)
+    public function find(Request $request, $bookId, $hyperciteId)
     {
-        Log::info("Authenticated hypercite lookup for book: {$bookId}, hypercite: {$hyperciteId}");
+        Log::info("Hypercite lookup for book: {$bookId}, hypercite: {$hyperciteId}");
+
+        // SECURITY: Check if user has access to this book
+        $library = PgLibrary::where('book', $bookId)->first();
+
+        if ($library && $library->visibility !== 'public') {
+            // Private book - check ownership
+            $user = Auth::user();
+            $anonToken = $request->cookie('anon_token');
+
+            $isOwner = ($user && $library->creator === $user->name) ||
+                       ($anonToken && $library->creator_token === $anonToken);
+
+            if (!$isOwner) {
+                Log::warning("Unauthorized hypercite access attempt", [
+                    'book' => $bookId,
+                    'hypercite' => $hyperciteId,
+                    'user' => $user ? $user->name : 'anonymous'
+                ]);
+                return response()->json(['error' => 'Access denied.'], 403);
+            }
+        }
 
         $hypercite = PgHypercite::where('book', $bookId)
             ->where('hyperciteId', $hyperciteId)
@@ -317,7 +382,7 @@ class DbHyperciteController extends Controller
             return response()->json(['error' => 'Hypercite not found.'], 404);
         }
 
-        // ✅ YOUR NEW LOGIC: Fetch ALL nodeChunks for the entire book.
+        // Fetch ALL nodeChunks for the entire book.
         $allNodeChunks = PgNodeChunk::where('book', $bookId)->get();
 
         if ($allNodeChunks->isEmpty()) {
@@ -328,7 +393,6 @@ class DbHyperciteController extends Controller
 
         Log::info("Hypercite and all " . $allNodeChunks->count() . " parent nodeChunks found for: {$hyperciteId}");
 
-        // ✅ RETURN THE HYPERCITE AND THE FULL ARRAY OF NODES.
         return response()->json([
             'hypercite' => $hypercite,
             'nodes' => $allNodeChunks,

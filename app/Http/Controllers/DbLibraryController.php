@@ -219,12 +219,15 @@ public function upsert(Request $request)
                     'raw_json' => json_encode($this->cleanItemForStorage($data)),
                 ];
             } else {
-                // For non-owners, still preserve newer timestamps
+                // TODO: SECURITY - This allows non-owners to update timestamp, which is a
+                // potential search ranking manipulation vector. Needs architectural refactor
+                // to track changes granularly (see sync refactor plan).
+                // For now, only allow timestamp updates (not other fields).
                 $newTimestamp = $data['timestamp'] ?? $libraryRecord->timestamp;
                 if ($libraryRecord->timestamp && $newTimestamp && $libraryRecord->timestamp > $newTimestamp) {
                     $newTimestamp = $libraryRecord->timestamp;
                 }
-                
+
                 $updateData = [
                     'timestamp' => $newTimestamp,
                 ];
