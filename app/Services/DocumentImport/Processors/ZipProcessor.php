@@ -50,7 +50,9 @@ class ZipProcessor implements ProcessorInterface
                 $markdownFile = null;
                 $imageFiles = [];
 
-                // Pre-validation: scan for MD file and images
+                // Pre-validation: scan for MD file and images, build list of safe files to extract
+                $safeFilesToExtract = [];
+
                 for ($i = 0; $i < $numFiles; $i++) {
                     $stat = $zip->statIndex($i);
                     if (!$stat) continue;
@@ -58,30 +60,46 @@ class ZipProcessor implements ProcessorInterface
                     $filename = $stat['name'];
                     $filesize = $stat['size'];
 
-                    // Security checks
+                    // Skip directories
+                    if (substr($filename, -1) === '/') {
+                        continue;
+                    }
+
+                    // SECURITY: Check for path traversal attempts
+                    if (strpos($filename, '..') !== false || strpos($filename, '/') === 0) {
+                        Log::warning('ZIP path traversal blocked', ['filename' => $filename]);
+                        $skippedFiles++;
+                        continue;
+                    }
+
+                    // SECURITY: Reject files with null bytes (can bypass extension checks)
+                    if (strpos($filename, "\0") !== false) {
+                        Log::warning('ZIP null byte attack blocked', ['filename' => $filename]);
+                        $skippedFiles++;
+                        continue;
+                    }
+
+                    // Security checks - file size
                     if ($filesize > 50 * 1024 * 1024) { // 50MB per file
                         Log::warning('Skipping large file in ZIP', ['filename' => $filename, 'size' => $filesize]);
                         $skippedFiles++;
                         continue;
                     }
 
-                    if (strpos($filename, '..') !== false || strpos($filename, '/') === 0) {
-                        Log::warning('Skipping suspicious file path in ZIP', ['filename' => $filename]);
-                        $skippedFiles++;
-                        continue;
-                    }
-
-                    // Check file types
+                    // Check file types - only extract known safe extensions
                     $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
                     if ($extension === 'md') {
                         if ($markdownFile === null) {
                             $markdownFile = $filename;
+                            $safeFilesToExtract[] = $filename;
                         } else {
                             Log::warning('Multiple MD files found, using first: ' . $markdownFile);
                         }
                     } elseif (in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'])) {
                         $imageFiles[] = $filename;
+                        $safeFilesToExtract[] = $filename;
                     }
+                    // Other file types are NOT extracted (security by whitelist)
                 }
 
                 // Validate we have required files
@@ -93,11 +111,30 @@ class ZipProcessor implements ProcessorInterface
                     'book' => $bookId,
                     'markdown_file' => $markdownFile,
                     'image_count' => count($imageFiles),
-                    'skipped_files' => $skippedFiles
+                    'skipped_files' => $skippedFiles,
+                    'files_to_extract' => count($safeFilesToExtract)
                 ]);
 
-                // Extract all files
-                $zip->extractTo($extractPath);
+                // SECURITY FIX: Extract only validated safe files, not everything
+                foreach ($safeFilesToExtract as $safeFile) {
+                    $zip->extractTo($extractPath, $safeFile);
+
+                    // Verify the extracted file is within expected directory
+                    $extractedPath = $extractPath . '/' . $safeFile;
+                    if (file_exists($extractedPath)) {
+                        $realPath = realpath($extractedPath);
+                        $realDir = realpath($extractPath);
+                        if (!$realPath || !$realDir || strpos($realPath, $realDir) !== 0) {
+                            Log::error('ZIP extraction path escape detected', [
+                                'file' => $safeFile,
+                                'realpath' => $realPath,
+                                'expected_base' => $realDir
+                            ]);
+                            unlink($extractedPath);
+                            throw new \RuntimeException("Security violation: extracted file escapes target directory");
+                        }
+                    }
+                }
                 $zip->close();
 
                 // SECURITY: Check for symlinks that could escape the extraction directory

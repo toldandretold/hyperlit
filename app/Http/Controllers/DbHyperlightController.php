@@ -445,11 +445,29 @@ class DbHyperlightController extends Controller
                         continue;
                     }
                     
-                    // For hide operation, we need to check if user owns the book
-                    // This is a simplified check - in practice you'd have book ownership logic
+                    // SECURITY: Only book owner can hide highlights in their book
                     $user = Auth::user();
                     $anonymousToken = $user ? null : $request->cookie('anon_token');
-                    
+
+                    // Check if current user owns the book
+                    $bookId = $item['book'] ?? null;
+                    $library = PgLibrary::where('book', $bookId)->first();
+
+                    $isBookOwner = $library && (
+                        ($user && $library->creator === $user->name) ||
+                        (!$user && $anonymousToken && $library->creator_token === $anonymousToken)
+                    );
+
+                    if (!$isBookOwner) {
+                        Log::warning("Hide permission denied - user doesn't own book", [
+                            'book' => $bookId,
+                            'hyperlight_id' => $item['hyperlight_id'] ?? null,
+                            'user' => $user?->name,
+                            'has_anon_token' => !empty($anonymousToken)
+                        ]);
+                        continue;
+                    }
+
                     // Set hidden flag to true
                     $existingRecord->hidden = true;
                     $existingRecord->save();

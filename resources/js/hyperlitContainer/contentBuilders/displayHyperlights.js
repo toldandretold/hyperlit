@@ -5,6 +5,7 @@
 
 import { openDatabase } from '../../indexedDB/index.js';
 import { getCurrentUserId } from "../../utilities/auth.js";
+import DOMPurify from 'dompurify';
 
 /**
  * Build highlight content section
@@ -76,9 +77,11 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
       const isUserHighlight = h.creator ? h.creator === currentUserId : (!h.creator && h.creator_token === currentUserId);
       const isNewlyCreated = newHighlightIds.includes(h.hyperlight_id);
       const isEditable = isUserHighlight || isNewlyCreated;
-      const authorName = h.creator || "Anon";
+      // Sanitize user-controlled content to prevent XSS
+      const authorName = DOMPurify.sanitize(h.creator || "Anon", { ALLOWED_TAGS: [] });
       const relativeTime = formatRelativeTime(h.time_since);
-      const truncatedText = h.highlightedText.length > 140 ? h.highlightedText.substring(0, 140) + '...' : h.highlightedText;
+      const rawTruncatedText = h.highlightedText.length > 140 ? h.highlightedText.substring(0, 140) + '...' : h.highlightedText;
+      const truncatedText = DOMPurify.sanitize(rawTruncatedText, { ALLOWED_TAGS: [] });
 
       html += `  <div class="author" id="author-${h.hyperlight_id}">
 `;
@@ -138,7 +141,9 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
       html += `  <div class="annotation" contenteditable="${isEditable}" `;
       html += `data-highlight-id="${h.hyperlight_id}" data-content-id="${h.hyperlight_id}">
 `;
-      html += `    ${h.annotation || ""}
+      // Sanitize annotation to prevent XSS (allow basic formatting tags for user notes)
+      const sanitizedAnnotation = DOMPurify.sanitize(h.annotation || "", { ALLOWED_TAGS: ['b', 'i', 'em', 'strong'] });
+      html += `    ${sanitizedAnnotation}
 `;
       html += `  </div>
 `;

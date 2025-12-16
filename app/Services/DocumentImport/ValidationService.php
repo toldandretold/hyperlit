@@ -120,19 +120,36 @@ class ValidationService
 
     /**
      * Validate markdown file for suspicious content
+     * SECURITY: Reads entire file to prevent bypass via content after first chunk
      */
     public function validateMarkdownFile(UploadedFile $file): bool
     {
-        $handle = fopen($file->getPathname(), 'r');
-        $content = fread($handle, 1024);
-        fclose($handle);
+        // Check file size first - reject if too large (10MB limit)
+        $maxSize = 10 * 1024 * 1024;
+        if ($file->getSize() > $maxSize) {
+            Log::warning('Markdown validation failed: file too large', [
+                'size' => $file->getSize(),
+                'max_size' => $maxSize
+            ]);
+            return false;
+        }
+
+        // SECURITY FIX: Read entire file, not just first 1KB
+        $content = file_get_contents($file->getPathname());
 
         $suspiciousPatterns = [
             '/<script/i',
             '/javascript:/i',
             '/vbscript:/i',
             '/onload=/i',
-            '/onerror=/i'
+            '/onerror=/i',
+            '/onclick=/i',
+            '/onmouseover=/i',
+            '/onfocus=/i',
+            '/<iframe/i',
+            '/<object/i',
+            '/<embed/i',
+            '/data:/i',  // data: URLs can execute scripts
         ];
 
         foreach ($suspiciousPatterns as $pattern) {
@@ -149,12 +166,22 @@ class ValidationService
 
     /**
      * Validate HTML file for suspicious content
+     * SECURITY: Reads entire file to prevent bypass via content after first chunk
      */
     public function validateHtmlFile(UploadedFile $file): bool
     {
-        $handle = fopen($file->getPathname(), 'r');
-        $content = fread($handle, 4096); // Read more for HTML files
-        fclose($handle);
+        // Check file size first - reject if too large (10MB limit)
+        $maxSize = 10 * 1024 * 1024;
+        if ($file->getSize() > $maxSize) {
+            Log::warning('HTML validation failed: file too large', [
+                'size' => $file->getSize(),
+                'max_size' => $maxSize
+            ]);
+            return false;
+        }
+
+        // SECURITY FIX: Read entire file, not just first 4KB
+        $content = file_get_contents($file->getPathname());
 
         // More comprehensive security patterns for HTML
         $suspiciousPatterns = [

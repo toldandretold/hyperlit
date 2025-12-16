@@ -103,40 +103,74 @@ class AuthController extends Controller
         ]);
     }
 
-    // NEW: Anonymous session methods
+    // Anonymous session methods - security enhanced
     public function createAnonymousSession(Request $request)
     {
+        // SECURITY: Rate limit token creation per IP
+        $recentTokensFromIp = DB::table('anonymous_sessions')
+            ->where('ip_address', $request->ip())
+            ->where('created_at', '>', now()->subHour())
+            ->count();
+
+        if ($recentTokensFromIp > 10) {
+            Log::warning('Anonymous token rate limit exceeded', [
+                'ip' => $request->ip(),
+                'count' => $recentTokensFromIp
+            ]);
+            return response()->json([
+                'error' => 'Too many session requests. Please try again later.'
+            ], 429);
+        }
+
         // Check if user already has a valid anonymous session
         $existingToken = $request->cookie('anon_token');
-        
+
         if ($existingToken && $this->isValidAnonymousToken($existingToken)) {
+            $session = DB::table('anonymous_sessions')
+                ->where('token', $existingToken)
+                ->first();
+
+            // SECURITY: Log if IP changed significantly (potential token theft)
+            if ($session && $session->ip_address && $session->ip_address !== $request->ip()) {
+                Log::info('Anonymous session IP changed', [
+                    'token_prefix' => substr($existingToken, 0, 8) . '...',
+                    'original_ip' => $session->ip_address,
+                    'current_ip' => $request->ip()
+                ]);
+            }
+
             // Update last used time
             DB::table('anonymous_sessions')
                 ->where('token', $existingToken)
                 ->update(['last_used_at' => now()]);
-                
+
             return response()->json([
                 'token' => $existingToken,
                 'type' => 'existing'
             ]);
         }
-        
-        // Generate new anonymous session
+
+        // Generate new anonymous session with cryptographically secure token
         $token = Str::uuid()->toString();
-        
+
         // Store in database for validation
         DB::table('anonymous_sessions')->insert([
             'token' => $token,
             'created_at' => now(),
             'last_used_at' => now(),
             'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
+            'user_agent' => substr($request->userAgent() ?? '', 0, 500), // Limit user agent length
         ]);
-        
+
+        Log::info('New anonymous session created', [
+            'token_prefix' => substr($token, 0, 8) . '...',
+            'ip' => $request->ip()
+        ]);
+
         return response()->json([
             'token' => $token,
             'type' => 'new'
-        ])->cookie('anon_token', $token, 60 * 24 * 365); // 1 year
+        ])->cookie('anon_token', $token, 60 * 24 * 365); // 1 year (user preference)
     }
 
     public function checkAuth(Request $request)
