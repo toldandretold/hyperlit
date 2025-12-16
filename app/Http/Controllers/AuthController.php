@@ -6,6 +6,8 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -125,7 +127,7 @@ class AuthController extends Controller
         // Check if user already has a valid anonymous session
         $existingToken = $request->cookie('anon_token');
 
-        if ($existingToken && $this->isValidAnonymousToken($existingToken)) {
+        if ($existingToken && $this->isValidAnonymousToken($existingToken, $request)) {
             $session = DB::table('anonymous_sessions')
                 ->where('token', $existingToken)
                 ->first();
@@ -167,10 +169,21 @@ class AuthController extends Controller
             'ip' => $request->ip()
         ]);
 
+        // 🔒 SECURITY: Set HttpOnly and other security flags on cookie
         return response()->json([
             'token' => $token,
             'type' => 'new'
-        ])->cookie('anon_token', $token, 60 * 24 * 365); // 1 year (user preference)
+        ])->cookie(
+            'anon_token',
+            $token,
+            60 * 24 * 90,  // 90 days (standardized expiration)
+            '/',
+            config('session.domain'),
+            config('session.secure'),
+            true,  // 🔒 HttpOnly - prevents XSS token theft
+            false,
+            'lax'  // SameSite
+        );
     }
 
     public function checkAuth(Request $request)
@@ -185,7 +198,7 @@ class AuthController extends Controller
         
         // Check for valid anonymous session
         $anonToken = $request->cookie('anon_token');
-        if ($anonToken && $this->isValidAnonymousToken($anonToken)) {
+        if ($anonToken && $this->isValidAnonymousToken($anonToken, $request)) {
             // Update last used
             DB::table('anonymous_sessions')
                 ->where('token', $anonToken)
@@ -207,11 +220,31 @@ class AuthController extends Controller
         ], 200); // Changed from 401 to 200
     }
 
-    private function isValidAnonymousToken($token)
+    // 🔒 SECURITY: Standardized token expiration (90 days)
+    private const TOKEN_EXPIRY_DAYS = 90;
+    private const TOKEN_VALIDATION_RATE_LIMIT = 30; // max attempts per minute per IP
+
+    private function isValidAnonymousToken($token, ?Request $request = null)
     {
+        // 🔒 SECURITY: Rate limit token validation to prevent brute force attacks
+        if ($request) {
+            $rateLimitKey = 'token_validation:' . $request->ip();
+            $attempts = Cache::get($rateLimitKey, 0);
+
+            if ($attempts >= self::TOKEN_VALIDATION_RATE_LIMIT) {
+                Log::warning('Token validation rate limit exceeded', [
+                    'ip' => $request->ip(),
+                    'attempts' => $attempts
+                ]);
+                return false; // Silently fail - don't reveal that rate limiting occurred
+            }
+
+            Cache::put($rateLimitKey, $attempts + 1, 60); // 1 minute window
+        }
+
         return DB::table('anonymous_sessions')
             ->where('token', $token)
-            ->where('created_at', '>', now()->subDays(365)) // Token expires after 1 year
+            ->where('created_at', '>', now()->subDays(self::TOKEN_EXPIRY_DAYS))
             ->exists();
     }
 
@@ -229,7 +262,7 @@ class AuthController extends Controller
 
         // Case 2: User has an existing anonymous session token
         $anonymousToken = $request->cookie('anon_token');
-        if ($anonymousToken && $this->isValidAnonymousToken($anonymousToken)) {
+        if ($anonymousToken && $this->isValidAnonymousToken($anonymousToken, $request)) {
             // The user is a known anonymous user. Return their token.
             return response()->json([
                 'authenticated' => false,
@@ -253,21 +286,22 @@ class AuthController extends Controller
         ]);
 
         // Return the new token and set the cookie for future requests.
+        // 🔒 SECURITY: Use standardized 90-day expiration
         return response()->json([
             'authenticated' => false,
             'user' => null,
             'anonymous_token' => $newAnonymousToken,
             'csrf_token' => csrf_token(),
         ])->cookie(
-            'anon_token',      // cookie name
-            $newAnonymousToken,  // value
-            60 * 24 * 365,       // expires in 1 year
-            '/',                 // path
-            config('session.domain'), // domain
-            config('session.secure'), // secure
-            true,                // httpOnly
-            false,               // raw
-            'lax'                // sameSite
+            'anon_token',
+            $newAnonymousToken,
+            60 * 24 * self::TOKEN_EXPIRY_DAYS,  // 90 days (standardized)
+            '/',
+            config('session.domain'),
+            config('session.secure'),
+            true,   // 🔒 HttpOnly
+            false,
+            'lax'
         );
     }
 
@@ -318,7 +352,7 @@ class AuthController extends Controller
         // Get the anonymous token from cookie
         $anonymousToken = $request->cookie('anon_token');
         
-        if (!$anonymousToken || !$this->isValidAnonymousToken($anonymousToken)) {
+        if (!$anonymousToken || !$this->isValidAnonymousToken($anonymousToken, $request)) {
             return null;
         }
 

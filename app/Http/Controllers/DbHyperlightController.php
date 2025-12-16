@@ -78,33 +78,12 @@ class DbHyperlightController extends Controller
                 return false;
             }
 
-            // SECURITY FIX: Legacy records require book ownership
+            // 🔒 SECURITY FIX: Legacy records (no creator_token) are now READ-ONLY
+            // Previously, book owners could modify other users' legacy highlights.
+            // Now, legacy records cannot be modified by anyone - they are immutable.
+            // This prevents book owners from deleting/modifying other users' old work.
             if ($creatorToken === null) {
-                if (!$bookId) {
-                    Log::warning('Legacy hyperlight access denied - no book ID provided');
-                    return false;
-                }
-
-                $library = PgLibrary::where('book', $bookId)->first();
-                if (!$library) {
-                    // No library record - allow for very old data
-                    Log::info('Legacy hyperlight access granted (no library record)', ['book' => $bookId]);
-                    AnonymousSession::where('token', $anonymousToken)
-                        ->update(['last_used_at' => now()]);
-                    return true;
-                }
-
-                if ($library->creator_token === $anonymousToken) {
-                    Log::info('Legacy hyperlight access granted (book owner)', [
-                        'book' => $bookId,
-                        'token' => $anonymousToken
-                    ]);
-                    AnonymousSession::where('token', $anonymousToken)
-                        ->update(['last_used_at' => now()]);
-                    return true;
-                }
-
-                Log::warning('Legacy hyperlight access denied (not book owner)', [
+                Log::warning('Legacy hyperlight modification denied - legacy records are read-only', [
                     'book' => $bookId,
                     'token' => $anonymousToken
                 ]);

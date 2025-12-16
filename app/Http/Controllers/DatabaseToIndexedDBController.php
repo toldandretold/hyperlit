@@ -260,15 +260,19 @@ class DatabaseToIndexedDBController extends Controller
         } else {
             // Individual updates (fine for small counts)
             foreach ($toUpdate as $update) {
-                DB::table('nodes')
-                    ->where('book', $update['book'])
-                    ->where('startLine', $update['startLine'])
-                    ->update([
-                        'node_id' => $update['node_id'],
-                        'content' => $update['content'],
-                        'raw_json' => DB::raw("'" . str_replace("'", "''", $update['raw_json']) . "'::jsonb"),
-                        'updated_at' => now()
-                    ]);
+                // 🔒 SECURITY: Use parameterized query instead of string concatenation
+                // The old code was vulnerable to SQL injection via raw_json
+                DB::statement(
+                    'UPDATE nodes SET node_id = ?, content = ?, raw_json = ?::jsonb, updated_at = ? WHERE book = ? AND "startLine" = ?',
+                    [
+                        $update['node_id'],
+                        $update['content'],
+                        $update['raw_json'],
+                        now(),
+                        $update['book'],
+                        $update['startLine']
+                    ]
+                );
             }
         }
 
@@ -763,7 +767,7 @@ class DatabaseToIndexedDBController extends Controller
                 // Determine if this highlight belongs to the current user
                 // Prioritized auth: if highlight has username (creator), ONLY use username-based auth
                 $isUserHighlight = false;
-                
+
                 if ($hyperlight->creator) {
                     // Highlight has username - ONLY check username-based auth (ignore token)
                     $isUserHighlight = $user && $hyperlight->creator === $user->name;
@@ -771,7 +775,7 @@ class DatabaseToIndexedDBController extends Controller
                     // Highlight has no username, only token - check token-based auth for anonymous users
                     $isUserHighlight = !$user && $anonymousToken && $hyperlight->creator_token === $anonymousToken;
                 }
-                
+
                 Log::info('🔍 Processing hyperlight in getHyperlights', [
                     'hyperlight_id' => $hyperlight->hyperlight_id,
                     'creator' => $hyperlight->creator,
@@ -780,7 +784,9 @@ class DatabaseToIndexedDBController extends Controller
                     'current_anon_token' => $anonymousToken ? 'present' : 'null',
                     'is_user_highlight' => $isUserHighlight
                 ]);
-                
+
+                // 🔒 SECURITY: Never expose creator_token in API responses
+                // Only the owner needs to know ownership, which is indicated by is_user_highlight
                 return [
                     'book' => $hyperlight->book,
                     'hyperlight_id' => $hyperlight->hyperlight_id,
@@ -794,7 +800,7 @@ class DatabaseToIndexedDBController extends Controller
                     'time_since' => $hyperlight->time_since,
                     'is_user_highlight' => $isUserHighlight,
                     'creator' => $hyperlight->creator,
-                    'creator_token' => $hyperlight->creator_token
+                    // creator_token intentionally omitted - security sensitive
                 ];
             })
             ->toArray();
@@ -849,15 +855,30 @@ class DatabaseToIndexedDBController extends Controller
             return null;
         }
 
+        // 🔒 SECURITY: Determine if current user owns this book
+        $user = Auth::user();
+        $anonymousToken = request()->cookie('anon_token');
+        $isOwner = false;
+
+        if ($library->creator) {
+            // Book has username - check username-based auth
+            $isOwner = $user && $library->creator === $user->name;
+        } elseif ($library->creator_token) {
+            // Book has no username, only token - check token-based auth for anonymous
+            $isOwner = !$user && $anonymousToken && hash_equals($library->creator_token, $anonymousToken);
+        }
+
         Log::info('Library record from database', [
             'book_id' => $bookId,
             'timestamp' => $library->timestamp,
             'timestamp_type' => gettype($library->timestamp),
             'creator' => $library->creator,
-            'creator_token' => $library->creator_token,
-            'full_record' => (array) $library
+            'creator_token' => $library->creator_token ? 'present' : 'null',
+            'is_owner' => $isOwner
         ]);
 
+        // 🔒 SECURITY: Never expose creator_token in API responses
+        // Use is_owner boolean instead so frontend knows ownership without seeing tokens
         return [
             'book' => $library->book,
             'author' => $library->author,
@@ -875,7 +896,8 @@ class DatabaseToIndexedDBController extends Controller
             'url' => $library->url,
             'year' => $library->year,
             'creator' => $library->creator,
-            'creator_token' => $library->creator_token,
+            // creator_token intentionally omitted - security sensitive
+            'is_owner' => $isOwner,
             'visibility' => $library->visibility ?? 'public',
             'listed' => $library->listed ?? true,
             'raw_json' => json_decode($library->raw_json ?? '{}', true),

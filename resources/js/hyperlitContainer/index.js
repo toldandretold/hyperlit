@@ -432,7 +432,11 @@ export async function handlePostOpenActions(contentTypes, newHighlightIds = []) 
       // Attach listeners for editable highlights
       results.forEach((highlight) => {
         if (highlight) {
-          const isUserHighlight = highlight.creator ? highlight.creator === currentUserId : (!highlight.creator && highlight.creator_token === currentUserId);
+          // 🔒 SECURITY: Prefer server-calculated is_user_highlight (doesn't expose tokens)
+          // Fall back to local comparison only for locally-created highlights not yet synced
+          const isUserHighlight = highlight.is_user_highlight !== undefined
+            ? highlight.is_user_highlight
+            : (highlight.creator ? highlight.creator === currentUserId : (!highlight.creator && highlight.creator_token === currentUserId));
           const isNewlyCreated = newHighlightIds.includes(highlight.hyperlight_id);
           const isEditable = isUserHighlight || isNewlyCreated;
 

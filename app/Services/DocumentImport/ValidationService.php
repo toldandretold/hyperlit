@@ -149,7 +149,10 @@ class ValidationService
             '/<iframe/i',
             '/<object/i',
             '/<embed/i',
-            '/data:/i',  // data: URLs can execute scripts
+            // data: URIs in dangerous contexts only (not plain text like "https://data.europa.eu/")
+            '/(src|href)\s*=\s*["\']?\s*data:/i',  // HTML attributes
+            '/url\s*\(\s*["\']?\s*data:/i',        // CSS url()
+            '/\]\s*\(\s*data:/i',                  // Markdown links [text](data:...)
         ];
 
         foreach ($suspiciousPatterns as $pattern) {
@@ -188,7 +191,9 @@ class ValidationService
             '/<script[^>]*>/i',
             '/javascript:/i',
             '/vbscript:/i',
-            '/data:/i',
+            // data: URIs in dangerous contexts only (not plain text like "https://data.europa.eu/")
+            '/(src|href)\s*=\s*["\']?\s*data:/i',  // HTML attributes with data: URIs
+            '/url\s*\(\s*["\']?\s*data:/i',        // CSS url() with data: URIs
             '/on\w+\s*=/i', // Any on* event handlers (onclick, onload, etc.)
             '/<iframe/i',
             '/<object/i',
@@ -426,7 +431,6 @@ class ValidationService
             '/<script/i',
             '/javascript:/i',
             '/vbscript:/i',
-            '/data:/i',                        // data: URLs can embed malicious content
 
             // Event handlers
             '/on\w+\s*=/i',
@@ -448,6 +452,9 @@ class ValidationService
             // CSS expressions
             '/expression\s*\(/i',
             '/url\s*\(\s*["\']?\s*(?:javascript|data|vbscript):/i',  // CSS url() with dangerous protocols
+
+            // data: URIs in dangerous contexts only (not plain text)
+            '/(src|href)\s*=\s*["\']?\s*data:/i',  // SVG attributes with data: URIs
         ];
 
         foreach ($suspiciousPatterns as $pattern) {

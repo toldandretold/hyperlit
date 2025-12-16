@@ -74,7 +74,11 @@ export async function buildHighlightContent(contentType, newHighlightIds = [], d
     let firstUserAnnotation = null;
 
     validResults.forEach((h, index) => {
-      const isUserHighlight = h.creator ? h.creator === currentUserId : (!h.creator && h.creator_token === currentUserId);
+      // 🔒 SECURITY: Prefer server-calculated is_user_highlight (doesn't expose tokens)
+      // Fall back to local comparison only for locally-created highlights not yet synced
+      const isUserHighlight = h.is_user_highlight !== undefined
+        ? h.is_user_highlight
+        : (h.creator ? h.creator === currentUserId : (!h.creator && h.creator_token === currentUserId));
       const isNewlyCreated = newHighlightIds.includes(h.hyperlight_id);
       const isEditable = isUserHighlight || isNewlyCreated;
       // Sanitize user-controlled content to prevent XSS
