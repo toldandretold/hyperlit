@@ -1024,17 +1024,46 @@ class DatabaseToIndexedDBController extends Controller
 
     /**
      * Get list of available books
+     * SECURITY: Only returns public books, or private books owned by the current user
      */
-    public function getAvailableBooks(): JsonResponse
+    public function getAvailableBooks(Request $request): JsonResponse
     {
         try {
-            $books = DB::table('nodes')
-                ->select('book')
+            $user = Auth::user();
+            $anonymousToken = $request->cookie('anon_token');
+
+            // Build query with visibility filtering
+            $query = DB::table('nodes')
+                ->join('library', 'nodes.book', '=', 'library.book')
+                ->select('nodes.book')
                 ->selectRaw('COUNT(*) as chunk_count')
-                ->selectRaw('MAX(updated_at) as last_modified')
-                ->groupBy('book')
-                ->orderBy('book')
-                ->get();
+                ->selectRaw('MAX(nodes.updated_at) as last_modified')
+                ->where(function ($q) use ($user, $anonymousToken) {
+                    // Public books are visible to everyone
+                    $q->where('library.visibility', 'public');
+
+                    // Private books visible only to owner
+                    if ($user) {
+                        $q->orWhere(function ($sub) use ($user) {
+                            $sub->where('library.visibility', 'private')
+                                ->where('library.creator', $user->name);
+                        });
+                    }
+
+                    // Anonymous users can see their own private books via token
+                    if ($anonymousToken) {
+                        $q->orWhere(function ($sub) use ($anonymousToken) {
+                            $sub->where('library.visibility', 'private')
+                                ->where('library.creator_token', $anonymousToken);
+                        });
+                    }
+                })
+                // Exclude deleted books
+                ->where('library.visibility', '!=', 'deleted')
+                ->groupBy('nodes.book')
+                ->orderBy('nodes.book');
+
+            $books = $query->get();
 
             return response()->json([
                 'books' => $books->toArray(),

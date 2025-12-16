@@ -395,15 +395,32 @@ class ValidationService
     private function checkSvgContent(string $content, string $filename): bool
     {
         $suspiciousPatterns = [
+            // Script-related
             '/<script/i',
             '/javascript:/i',
             '/vbscript:/i',
-            '/on\w+\s*=/i', // Event handlers
+            '/data:/i',                        // data: URLs can embed malicious content
+
+            // Event handlers
+            '/on\w+\s*=/i',
+
+            // Dangerous elements that can embed external content
             '/<iframe/i',
             '/<object/i',
             '/<embed/i',
             '/<form/i',
-            '/expression\s*\(/i'
+            '/<foreignObject/i',               // Can embed arbitrary HTML including scripts
+            '/<animate/i',                     // SMIL animation can trigger events
+            '/<set/i',                         // SMIL set can modify attributes
+            '/<animateTransform/i',            // Animation element
+
+            // External references that could load malicious content
+            '/<use[^>]+href\s*=\s*["\'][^"\']*:\/\//i',  // <use> with external URL
+            '/xlink:href\s*=\s*["\'](?:javascript|data|vbscript):/i',  // xlink with dangerous protocols
+
+            // CSS expressions
+            '/expression\s*\(/i',
+            '/url\s*\(\s*["\']?\s*(?:javascript|data|vbscript):/i',  // CSS url() with dangerous protocols
         ];
 
         foreach ($suspiciousPatterns as $pattern) {

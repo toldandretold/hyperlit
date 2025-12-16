@@ -100,6 +100,9 @@ class ZipProcessor implements ProcessorInterface
                 $zip->extractTo($extractPath);
                 $zip->close();
 
+                // SECURITY: Check for symlinks that could escape the extraction directory
+                $this->validateNoSymlinks($extractPath);
+
                 // Set secure permissions
                 $this->helpers->setSecurePermissions($extractPath);
 
@@ -207,6 +210,15 @@ class ZipProcessor implements ProcessorInterface
         $markdownFile = $markdownFiles[0];
         $markdownPath = "{$outputPath}/folder_markdown.md";
 
+        // SECURITY: Validate markdown file before processing
+        if (!$this->validator->validateUploadedFile($markdownFile)) {
+            Log::warning('Markdown file validation failed in folder upload', [
+                'book' => $bookId,
+                'file' => $markdownFile->getClientOriginalName()
+            ]);
+            throw new \RuntimeException("Markdown file validation failed. The file may contain suspicious content.");
+        }
+
         // Move markdown file
         $markdownFile->move($outputPath, 'folder_markdown.md');
         chmod($markdownPath, 0644);
@@ -248,5 +260,45 @@ class ZipProcessor implements ProcessorInterface
             'book' => $bookId,
             'total_duration_ms' => round((microtime(true) - $processStart) * 1000, 2)
         ]);
+    }
+
+    /**
+     * SECURITY: Recursively check for symlinks in extracted directory
+     * Symlinks in ZIP files can be used to escape the extraction directory
+     * and access/overwrite files elsewhere on the filesystem.
+     *
+     * @param string $directory
+     * @throws \RuntimeException if symlinks are found
+     */
+    private function validateNoSymlinks(string $directory): void
+    {
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($directory, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach ($iterator as $file) {
+            if (is_link($file->getPathname())) {
+                $linkTarget = readlink($file->getPathname());
+                Log::warning('Symlink detected in ZIP extraction - removing', [
+                    'symlink' => $file->getPathname(),
+                    'target' => $linkTarget
+                ]);
+                // Remove the symlink instead of throwing - allows rest of extraction to proceed
+                unlink($file->getPathname());
+            }
+
+            // Also validate that extracted files are actually within the target directory
+            $realPath = realpath($file->getPathname());
+            $realDir = realpath($directory);
+            if ($realPath && $realDir && strpos($realPath, $realDir) !== 0) {
+                Log::error('Path traversal detected in ZIP extraction', [
+                    'file' => $file->getPathname(),
+                    'realpath' => $realPath,
+                    'expected_base' => $realDir
+                ]);
+                throw new \RuntimeException("Security violation: extracted file escapes target directory");
+            }
+        }
     }
 }

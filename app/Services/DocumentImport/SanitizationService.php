@@ -20,14 +20,17 @@ class SanitizationService
         // Remove potentially dangerous HTML tags and attributes
         $content = strip_tags($originalContent, '<html><head><body><div><span><p><h1><h2><h3><h4><h5><h6><br><strong><b><em><i><ul><ol><li><a><img><blockquote><code><pre><table><tr><td><th><thead><tbody><hr><sup><sub>');
 
-        // Remove javascript: and data: URLs
+        // Remove javascript: and data: URLs (quoted and unquoted)
         $content = preg_replace('/(?:javascript|data|vbscript):[^"\'\s>]*/i', '', $content);
 
-        // Remove all event handlers (onclick, onload, etc.)
+        // Remove all event handlers (onclick, onload, onerror, etc.)
+        // Handles quoted: onclick="..." and onclick='...'
         $content = preg_replace('/\son\w+\s*=\s*["\'][^"\']*["\']/i', '', $content);
+        // Handles unquoted: onclick=alert(1) or onclick=func()
+        $content = preg_replace('/\son\w+\s*=\s*[^\s>"\']+/i', '', $content);
 
-        // Remove style attributes that might contain expressions
-        $content = preg_replace('/\sstyle\s*=\s*["\'][^"\']*expression[^"\']*["\']/i', '', $content);
+        // Remove style attributes that might contain expressions or javascript
+        $content = preg_replace('/\sstyle\s*=\s*["\'][^"\']*(?:expression|javascript|url\s*\()[^"\']*["\']/i', '', $content);
 
         // Log what sanitization removed
         $afterLength = strlen($content);
@@ -64,8 +67,12 @@ class SanitizationService
         // Remove potentially dangerous HTML tags and attributes
         $content = strip_tags($originalContent, '<h1><h2><h3><h4><h5><h6><p><br><strong><em><ul><ol><li><a><img><blockquote><code><pre>');
 
-        // Remove javascript: and data: URLs
+        // Remove javascript: and data: URLs (quoted and unquoted)
         $content = preg_replace('/(?:javascript|data|vbscript):[^"\'\s>]*/i', '', $content);
+
+        // Remove all event handlers (onclick, onload, onerror, etc.)
+        $content = preg_replace('/\son\w+\s*=\s*["\'][^"\']*["\']/i', '', $content);
+        $content = preg_replace('/\son\w+\s*=\s*[^\s>"\']+/i', '', $content);
 
         // Log what sanitization removed
         $afterLength = strlen($content);

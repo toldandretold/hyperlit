@@ -76,8 +76,6 @@ def convert_markdown_to_html(markdown_content):
             header_id = re.sub(r'[^a-zA-Z0-9\s-]', '', header_text.lower()).replace(' ', '-')
             # Process inline formatting in headers too
             formatted_header = process_inline_formatting(header_text)
-            # Remove the extra HTML escaping since process_inline_formatting already does it
-            formatted_header = formatted_header.replace('&lt;', '<').replace('&gt;', '>').replace('&quot;', '"').replace('&#x27;', "'").replace('&amp;', '&')
             html_lines.append(f'<h{level} id="{header_id}">{formatted_header}</h{level}>')
             continue
         
@@ -90,15 +88,12 @@ def convert_markdown_to_html(markdown_content):
         if stripped.startswith('> '):
             quote_text = stripped[2:]
             formatted_quote = process_inline_formatting(quote_text)
-            formatted_quote = formatted_quote.replace('&lt;', '<').replace('&gt;', '>').replace('&quot;', '"').replace('&#x27;', "'").replace('&amp;', '&')
             html_lines.append(f'<blockquote><p>{formatted_quote}</p></blockquote>')
             continue
         
         # Everything else as paragraph (including footnote patterns)
         # Process inline formatting
         formatted_line = process_inline_formatting(line)
-        # Remove the extra HTML escaping since process_inline_formatting already does it
-        formatted_line = formatted_line.replace('&lt;', '<').replace('&gt;', '>').replace('&quot;', '"').replace('&#x27;', "'").replace('&amp;', '&')
         html_lines.append(f'<p>{formatted_line}</p>')
     
     # Join all lines
