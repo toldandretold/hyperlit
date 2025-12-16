@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Gate;
 use App\Services\DocumentImport\ValidationService;
 use App\Services\DocumentImport\SanitizationService;
 use App\Services\DocumentImport\FileHelpers;
@@ -11,6 +12,12 @@ use App\Services\DocumentImport\Processors\HtmlProcessor;
 use App\Services\DocumentImport\Processors\EpubProcessor;
 use App\Services\DocumentImport\Processors\ZipProcessor;
 use App\Services\DocumentImport\Processors\DocxProcessor;
+use App\Models\PgLibrary;
+use App\Models\PgHyperlight;
+use App\Models\PgHypercite;
+use App\Policies\LibraryPolicy;
+use App\Policies\HyperlightPolicy;
+use App\Policies\HypercitePolicy;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -35,6 +42,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Register authorization policies
+        Gate::policy(PgLibrary::class, LibraryPolicy::class);
+        Gate::policy(PgHyperlight::class, HyperlightPolicy::class);
+        Gate::policy(PgHypercite::class, HypercitePolicy::class);
+
+        // Prevent destructive migration commands everywhere
+        \Illuminate\Database\Console\Migrations\FreshCommand::prohibit();
+        \Illuminate\Database\Console\Migrations\RefreshCommand::prohibit();
+        \Illuminate\Database\Console\Migrations\ResetCommand::prohibit();
     }
 }

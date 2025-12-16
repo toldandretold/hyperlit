@@ -49,5 +49,57 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Global exception handler for consistent API error responses
+        $exceptions->render(function (Throwable $e, \Illuminate\Http\Request $request) {
+            // Only handle API/JSON requests
+            if ($request->expectsJson() || $request->is('api/*')) {
+                $status = 500;
+
+                // Get appropriate status code from exception
+                if (method_exists($e, 'getStatusCode')) {
+                    $status = $e->getStatusCode();
+                } elseif ($e instanceof \Illuminate\Auth\AuthenticationException) {
+                    $status = 401;
+                } elseif ($e instanceof \Illuminate\Auth\Access\AuthorizationException) {
+                    $status = 403;
+                } elseif ($e instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
+                    $status = 404;
+                } elseif ($e instanceof \Illuminate\Validation\ValidationException) {
+                    $status = 422;
+                }
+
+                // Sanitize error message in production
+                $message = $e->getMessage();
+                if ($status === 500 && !config('app.debug')) {
+                    $message = 'An unexpected error occurred';
+                }
+
+                // Log full details server-side for debugging
+                if ($status >= 500) {
+                    \Illuminate\Support\Facades\Log::error('API Exception', [
+                        'exception' => get_class($e),
+                        'message' => $e->getMessage(),
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
+                        'url' => $request->fullUrl(),
+                        'method' => $request->method(),
+                    ]);
+                }
+
+                $response = [
+                    'success' => false,
+                    'message' => $message,
+                ];
+
+                // Include validation errors if applicable
+                if ($e instanceof \Illuminate\Validation\ValidationException) {
+                    $response['errors'] = $e->errors();
+                }
+
+                // Include error type for debugging (safe to expose)
+                $response['error_type'] = class_basename($e);
+
+                return response()->json($response, $status);
+            }
+        });
     })->create();

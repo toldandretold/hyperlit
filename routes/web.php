@@ -24,16 +24,13 @@ require __DIR__.'/auth.php';
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/home', [HomeController::class, 'index']);
 
-Route::get('/test-log', function () {
-    Log::info('Hello with blank line');
-    return 'Logged to storage/logs/laravel.log';
-});
-
 // Hyperlights routes
 Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML'])->name('hyperlights.show');
 
-// File import route
-Route::post('/import-file', [App\Http\Controllers\ImportController::class, 'store'])->name('import.file');
+// File import route - requires authentication (logged in or valid anonymous session)
+Route::post('/import-file', [App\Http\Controllers\ImportController::class, 'store'])
+    ->middleware('author')
+    ->name('import.file');
 
 // JSON book route
 Route::get('/{book}/main-text-footnotes.json', function (Request $request, $book) {
