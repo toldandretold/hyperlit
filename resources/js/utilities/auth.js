@@ -100,6 +100,8 @@ export async function logout() {
   } catch (error) {
     console.error('Error during logout fetch:', error);
   } finally {
+    // Broadcast logout to other tabs BEFORE clearing local state
+    broadcastAuthChange('logout');
     await clearCurrentUser(); // Wipes IndexedDB
     await clearBrowserCache(); // Wipes CacheStorage
     window.location.href = '/'; // Redirect to home for a fresh start
@@ -394,13 +396,16 @@ async function hasAnonymousContent(token) {
 
 // Call this after successful login to update state
 export function setCurrentUser(user) {
-
   // Set the new user state
   currentUserInfo = user;
   anonymousToken = null;
   authInitialized = true;
- 
 
+  // Dispatch event for same-tab UI updates
+  console.log('📡 Dispatching auth-state-changed (login) for same-tab UI update');
+  window.dispatchEvent(new CustomEvent('auth-state-changed', {
+    detail: { type: 'login', user, sameTab: true }
+  }));
 }
 
 
@@ -411,6 +416,134 @@ export async function clearCurrentUser() {
   await clearDatabase();
   // Re-initialize to get new anonymous session
   initializeAuth();
+
+  // Dispatch event for same-tab UI updates
+  console.log('📡 Dispatching auth-state-changed (logout) for same-tab UI update');
+  window.dispatchEvent(new CustomEvent('auth-state-changed', {
+    detail: { type: 'logout', sameTab: true }
+  }));
+}
+
+// ============================================================================
+// CROSS-TAB AUTH SYNC
+// Broadcasts auth changes to other tabs so they stay in sync
+// ============================================================================
+
+let authBroadcastChannel = null;
+
+/**
+ * Initialize the auth broadcast listener
+ * Call this once during app initialization
+ */
+/**
+ * Initialize listener for same-tab auth state changes
+ * Updates UI based on page type without full reload (where possible)
+ */
+export function initializeAuthStateListener() {
+  window.addEventListener('auth-state-changed', async (event) => {
+    const { type, sameTab } = event.detail;
+
+    // Only handle same-tab events here (cross-tab handled by broadcast listener)
+    if (!sameTab) return;
+
+    const pageType = document.body.getAttribute('data-page');
+    console.log(`📡 Auth state changed (${type}) on ${pageType} page`);
+
+    if (pageType === 'user') {
+      // User page: reload to get fresh server-rendered delete buttons
+      console.log('🔄 Reloading user page for fresh server-rendered content...');
+      window.location.reload();
+
+    } else if (pageType === 'reader') {
+      // Reader page: just update edit button permissions (no reload needed)
+      console.log('🔄 Updating edit button permissions...');
+      const { checkEditPermissionsAndUpdateUI } = await import('../components/editButton.js');
+      await checkEditPermissionsAndUpdateUI();
+    }
+    // Home page doesn't need special handling - no auth-dependent UI
+  });
+
+  console.log('📡 Auth state listener initialized');
+}
+
+export function initializeAuthBroadcastListener() {
+  if (authBroadcastChannel) {
+    console.log('📡 Auth broadcast listener already initialized');
+    return; // Already initialized
+  }
+
+  console.log('📡 Initializing auth broadcast listener...');
+  authBroadcastChannel = new BroadcastChannel('auth-sync');
+
+  authBroadcastChannel.addEventListener('message', async (event) => {
+    const { type, user, timestamp } = event.data;
+
+    console.log(`📡 RECEIVED auth broadcast: ${type}`, event.data);
+
+    if (type === 'login') {
+      // Another tab logged in - refresh our auth state
+      console.log('🔄 Another tab logged in, refreshing auth state...');
+      await refreshAuth();
+
+      // Update UI to reflect logged-in state
+      // Dispatch a custom event that components can listen for
+      window.dispatchEvent(new CustomEvent('auth-state-changed', {
+        detail: { type: 'login', user }
+      }));
+
+      // Reload the page to get fresh server-rendered content
+      window.location.reload();
+
+    } else if (type === 'logout') {
+      // Another tab logged out - clear our state
+      console.log('🔄 Another tab logged out, clearing state...');
+      resetAuth();
+      await clearDatabase();
+
+      const pageType = document.body.getAttribute('data-page');
+      console.log(`📡 Handling cross-tab logout on ${pageType} page`);
+
+      if (pageType === 'user') {
+        // User page: reload to refresh server-rendered delete buttons
+        console.log('🔄 Reloading user page for fresh server-rendered content...');
+        window.location.reload();
+
+      } else if (pageType === 'reader') {
+        // Reader page: update edit button permissions
+        console.log('🔄 Updating edit button permissions...');
+        const { checkEditPermissionsAndUpdateUI } = await import('../components/editButton.js');
+        await checkEditPermissionsAndUpdateUI();
+
+      } else {
+        // Home page or unknown: redirect to home for fresh start
+        window.location.href = '/';
+      }
+    }
+  });
+
+  console.log('📡 Auth broadcast listener initialized successfully');
+}
+
+/**
+ * Broadcast an auth change to other tabs
+ * @param {'login' | 'logout'} type - The type of auth change
+ * @param {Object|null} user - The user object (for login) or null (for logout)
+ */
+export function broadcastAuthChange(type, user = null) {
+  console.log(`📡 Broadcasting auth change: ${type}`, user);
+
+  if (!authBroadcastChannel) {
+    console.log('📡 Creating new BroadcastChannel for sending');
+    authBroadcastChannel = new BroadcastChannel('auth-sync');
+  }
+
+  authBroadcastChannel.postMessage({
+    type,
+    user,
+    timestamp: Date.now()
+  });
+
+  console.log(`📡 Auth change broadcasted successfully: ${type}`);
 }
 
 
