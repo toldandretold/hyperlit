@@ -41,16 +41,18 @@ export function initializeUserProfilePage() {
         // 1. Remove from DOM for instant feedback
         libraryCard.remove();
 
-        // 2. Queue the node chunk for deletion in IndexedDB
-        const { batchDeleteIndexedDBRecords } = await import('../indexedDB/index.js');
-        batchDeleteIndexedDBRecords([nodeId]);
+        // 2. Delete the book and all associated data from IndexedDB
+        const { deleteBookFromIndexedDB } = await import('../indexedDB/index.js');
+        await deleteBookFromIndexedDB(bookId);
 
         // 3. Send delete request to the server in the background
         try {
-            // Ensure CSRF cookie is present
-            await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
-            const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-            const csrfToken = csrfMeta ? csrfMeta.content : null;
+            // Refresh auth state to get fresh CSRF token (handles SPA navigation staleness)
+            const { refreshAuth } = await import('../utilities/auth.js');
+            await refreshAuth();
+
+            // Use the freshly updated CSRF token
+            const csrfToken = window.csrfToken || document.querySelector('meta[name="csrf-token"]')?.content;
             const resp = await fetch(`/api/books/${encodeURIComponent(bookId)}`, {
                 method: 'DELETE',
                 headers: {
@@ -61,14 +63,10 @@ export function initializeUserProfilePage() {
                 credentials: 'include',
             });
             if (!resp.ok) {
-          const txt = await resp.text();
-          throw new Error(`${resp.status} ${txt}`);
-        }
-        if (!resp.ok) {
-          const txt = await resp.text();
-          throw new Error(`${resp.status} ${txt}`);
-        }
-        console.log(`Book ${bookId} deletion request sent to server.`);
+                const txt = await resp.text();
+                throw new Error(`${resp.status} ${txt}`);
+            }
+            console.log(`Book ${bookId} deletion request sent to server.`);
         } catch (err) {
             console.error('Server delete failed:', err);
             // Optional: Add UI to inform user of server-side failure

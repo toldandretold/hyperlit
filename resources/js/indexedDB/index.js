@@ -188,6 +188,7 @@ export {
   retryOperation,
   deleteIndexedDBRecordWithRetry,
   clearDatabase,
+  deleteBookFromIndexedDB,
 } from './utilities/index.js';
 
 // ============================================================================

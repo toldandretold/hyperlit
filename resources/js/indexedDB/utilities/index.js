@@ -12,4 +12,5 @@ export {
 // Cleanup utilities
 export {
   clearDatabase,
+  deleteBookFromIndexedDB,
 } from './cleanup.js';

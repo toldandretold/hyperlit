@@ -280,6 +280,7 @@ black #221F20;
 body[data-page="user"] #userLibraryContainer {
   padding-left: 20px;
   padding-right: 20px;
+  margin-left: 0; /* Ensure consistent alignment with or without buttons */
 }
 
 /* Placeholder text for empty contenteditable fields */

@@ -1,7 +1,7 @@
 
 import { log, verbose } from './utilities/logger.js';
 import { book, setCurrentBook } from "./app.js";
-import { getCurrentUser, getAnonymousToken } from "./utilities/auth.js";
+import { getCurrentUser, getAnonymousToken, initializeAuthBroadcastListener, initializeAuthStateListener } from "./utilities/auth.js";
 import { checkEditPermissionsAndUpdateUI } from "./components/editButton.js";
 
 // ✅ ButtonRegistry - Centralized component initialization
@@ -237,6 +237,10 @@ export async function universalPageInitializer(progressCallback = null) {
     const { LinkNavigationHandler } = await import('./navigation/LinkNavigationHandler.js');
     LinkNavigationHandler.attachGlobalLinkClickHandler();
     verbose.init('Navigation handlers attached', '/navigation/LinkNavigationHandler.js');
+
+    // Initialize auth listeners for ALL page types
+    initializeAuthBroadcastListener();  // Cross-tab sync
+    initializeAuthStateListener();       // Same-tab UI updates
 
     // For homepage and user pages, skip reader-specific initialization
     // Content loading is handled by initializeHomepageButtons() for these page types
