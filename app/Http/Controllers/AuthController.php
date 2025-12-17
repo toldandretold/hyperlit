@@ -69,10 +69,14 @@ class AuthController extends Controller
 
         Auth::login($user);
 
+        // Check for anonymous content to transfer (same as login)
+        $anonymousContent = $this->checkAnonymousContent($request);
+
         return response()->json([
             'success' => true,
             'user' => $user,
-            'message' => 'Registration successful'
+            'message' => 'Registration successful',
+            'anonymous_content' => $anonymousContent
         ]);
     }
 
@@ -345,13 +349,36 @@ class AuthController extends Controller
         ]);
 
         $user = $request->user();
-        $anonymousToken = $request->input('anonymous_token');
+        $requestedToken = $request->input('anonymous_token');
 
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
-        // CORRECTED: Update only the models that have creator_token, based on the schema.
+        // 🔒 SECURITY FIX: Verify the requested token matches the user's cookie
+        // This prevents attackers from claiming content from other users' anonymous tokens
+        $cookieToken = $request->cookie('anon_token');
+
+        if (!$cookieToken || !hash_equals($cookieToken, $requestedToken)) {
+            Log::warning('Content association rejected: token mismatch', [
+                'user' => $user->name,
+                'requested_token_prefix' => substr($requestedToken, 0, 8) . '...',
+                'has_cookie' => !empty($cookieToken),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot associate content: token does not match your session.'
+            ], 403);
+        }
+
+        // 🔒 SECURITY: Verify the token exists and is valid (not expired)
+        if (!$this->isValidAnonymousToken($requestedToken, $request)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot associate content: invalid or expired token.'
+            ], 400);
+        }
+
         $modelsToUpdate = [
             \App\Models\PgLibrary::class,
             \App\Models\PgHyperlight::class,
@@ -359,22 +386,35 @@ class AuthController extends Controller
         ];
 
         try {
-            DB::transaction(function () use ($modelsToUpdate, $anonymousToken, $user) {
+            $updatedCounts = [];
+
+            DB::transaction(function () use ($modelsToUpdate, $requestedToken, $user, &$updatedCounts) {
                 foreach ($modelsToUpdate as $modelClass) {
-                    // CORRECTED: Only update the creator column, leaving creator_token intact.
-                    $modelClass::where('creator_token', $anonymousToken)
+                    // Only update content that hasn't already been claimed
+                    $count = $modelClass::where('creator_token', $requestedToken)
+                        ->whereNull('creator')
                         ->update([
                             'creator' => $user->name,
                         ]);
+                    $updatedCounts[class_basename($modelClass)] = $count;
                 }
             });
 
-            return response()->json(['success' => true, 'message' => 'Content successfully associated.']);
+            Log::info('Content associated successfully', [
+                'user' => $user->name,
+                'token_prefix' => substr($requestedToken, 0, 8) . '...',
+                'counts' => $updatedCounts,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Content successfully associated.',
+                'counts' => $updatedCounts,
+            ]);
 
         } catch (\Exception $e) {
-            // Log the specific error for debugging
-            \Log::error('Content association failed: ' . $e->getMessage() . '\n' . $e->getTraceAsString());
-            
+            Log::error('Content association failed: ' . $e->getMessage() . '\n' . $e->getTraceAsString());
+
             return response()->json(['success' => false, 'message' => 'An error occurred during content association.'], 500);
         }
     }
@@ -383,7 +423,7 @@ class AuthController extends Controller
     {
         // Get the anonymous token from cookie
         $anonymousToken = $request->cookie('anon_token');
-        
+
         if (!$anonymousToken || !$this->isValidAnonymousToken($anonymousToken, $request)) {
             return null;
         }
