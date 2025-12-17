@@ -108,23 +108,10 @@ class AuthController extends Controller
     // Anonymous session methods - security enhanced
     public function createAnonymousSession(Request $request)
     {
-        // SECURITY: Rate limit token creation per IP
-        $recentTokensFromIp = DB::table('anonymous_sessions')
-            ->where('ip_address', $request->ip())
-            ->where('created_at', '>', now()->subHour())
-            ->count();
+        $maxTokensPerHour = 10;
+        $ip = $request->ip();
 
-        if ($recentTokensFromIp > 10) {
-            Log::warning('Anonymous token rate limit exceeded', [
-                'ip' => $request->ip(),
-                'count' => $recentTokensFromIp
-            ]);
-            return response()->json([
-                'error' => 'Too many session requests. Please try again later.'
-            ], 429);
-        }
-
-        // Check if user already has a valid anonymous session
+        // Check if user already has a valid anonymous session (outside transaction)
         $existingToken = $request->cookie('anon_token');
 
         if ($existingToken && $this->isValidAnonymousToken($existingToken, $request)) {
@@ -152,38 +139,83 @@ class AuthController extends Controller
             ]);
         }
 
-        // Generate new anonymous session with cryptographically secure token
-        $token = Str::uuid()->toString();
+        // 🔒 SECURITY: Atomic rate-limited token creation using transaction + advisory lock
+        // This prevents TOCTOU race conditions where concurrent requests bypass the limit
+        try {
+            $result = DB::transaction(function () use ($ip, $maxTokensPerHour, $request) {
+                $oneHourAgo = now()->subHour();
 
-        // Store in database for validation
-        DB::table('anonymous_sessions')->insert([
-            'token' => $token,
-            'created_at' => now(),
-            'last_used_at' => now(),
-            'ip_address' => $request->ip(),
-            'user_agent' => substr($request->userAgent() ?? '', 0, 500), // Limit user agent length
-        ]);
+                // Use PostgreSQL advisory lock based on IP hash to serialize requests from same IP
+                // This is more efficient than row locking for rate limiting
+                $lockKey = crc32('anon_rate:' . $ip);
+                DB::statement("SELECT pg_advisory_xact_lock(?)", [$lockKey]);
 
-        Log::info('New anonymous session created', [
-            'token_prefix' => substr($token, 0, 8) . '...',
-            'ip' => $request->ip()
-        ]);
+                // Now we can safely count and insert atomically
+                $recentCount = DB::table('anonymous_sessions')
+                    ->where('ip_address', $ip)
+                    ->where('created_at', '>', $oneHourAgo)
+                    ->count();
 
-        // 🔒 SECURITY: Set HttpOnly and other security flags on cookie
-        return response()->json([
-            'token' => $token,
-            'type' => 'new'
-        ])->cookie(
-            'anon_token',
-            $token,
-            60 * 24 * 90,  // 90 days (standardized expiration)
-            '/',
-            config('session.domain'),
-            config('session.secure'),
-            true,  // 🔒 HttpOnly - prevents XSS token theft
-            false,
-            'lax'  // SameSite
-        );
+                if ($recentCount >= $maxTokensPerHour) {
+                    return ['error' => true, 'count' => $recentCount];
+                }
+
+                // Generate and insert new token within the same transaction
+                $token = Str::uuid()->toString();
+
+                DB::table('anonymous_sessions')->insert([
+                    'token' => $token,
+                    'created_at' => now(),
+                    'last_used_at' => now(),
+                    'ip_address' => $ip,
+                    'user_agent' => substr($request->userAgent() ?? '', 0, 500),
+                ]);
+
+                return ['error' => false, 'token' => $token];
+            });
+
+            if ($result['error']) {
+                Log::warning('Anonymous token rate limit exceeded', [
+                    'ip' => $ip,
+                    'count' => $result['count']
+                ]);
+                return response()->json([
+                    'error' => 'Too many session requests. Please try again later.'
+                ], 429);
+            }
+
+            $token = $result['token'];
+
+            Log::info('New anonymous session created', [
+                'token_prefix' => substr($token, 0, 8) . '...',
+                'ip' => $ip
+            ]);
+
+            // 🔒 SECURITY: Set HttpOnly and other security flags on cookie
+            return response()->json([
+                'token' => $token,
+                'type' => 'new'
+            ])->cookie(
+                'anon_token',
+                $token,
+                60 * 24 * 90,  // 90 days (standardized expiration)
+                '/',
+                config('session.domain'),
+                config('session.secure'),
+                true,  // 🔒 HttpOnly - prevents XSS token theft
+                false,
+                'lax'  // SameSite
+            );
+
+        } catch (\Exception $e) {
+            Log::error('Failed to create anonymous session', [
+                'ip' => $ip,
+                'error' => $e->getMessage()
+            ]);
+            return response()->json([
+                'error' => 'Failed to create session. Please try again.'
+            ], 500);
+        }
     }
 
     public function checkAuth(Request $request)

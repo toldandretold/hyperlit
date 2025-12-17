@@ -46,8 +46,7 @@ const FORBID_ATTR = [
   'onstorage', 'onmessage', 'onoffline', 'ononline',
   'onshow', 'ontoggle', 'oninvalid', 'onreset', 'onsearch', 'onselect',
   'onabort', 'onauxclick', 'onbeforecopy', 'onbeforecut', 'onbeforepaste',
-  // Style attribute - can contain XSS via url()
-  'style',
+  // Note: 'style' is allowed but sanitized via hook below to remove XSS vectors
 ];
 
 /**
@@ -77,9 +76,10 @@ export function sanitizeHtml(html) {
 }
 
 /**
- * Hook to sanitize URLs - removes javascript:, data:, vbscript: URLs
+ * Hook to sanitize URLs and style attributes
  */
 DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
+  // Sanitize href/src URLs
   if (data.attrName === 'href' || data.attrName === 'src') {
     const value = data.attrValue.toLowerCase().trim();
     if (
@@ -88,6 +88,28 @@ DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
       value.startsWith('data:text/html') ||
       value.startsWith('data:application')
     ) {
+      data.attrValue = '';
+      data.keepAttr = false;
+    }
+  }
+
+  // Sanitize style attribute - remove XSS vectors while allowing CSS variables
+  if (data.attrName === 'style') {
+    const value = data.attrValue.toLowerCase();
+    // Block dangerous CSS patterns
+    const dangerousPatterns = [
+      'url(',           // Can load external resources
+      'expression(',    // IE CSS expressions
+      'behavior:',      // IE behaviors
+      'javascript:',    // JS in CSS
+      'vbscript:',      // VBScript
+      '-moz-binding',   // Firefox XBL
+      '@import',        // External CSS
+      '@charset',       // Encoding tricks
+    ];
+
+    if (dangerousPatterns.some(pattern => value.includes(pattern))) {
+      console.log('🛡️ Blocked dangerous style:', data.attrValue);
       data.attrValue = '';
       data.keepAttr = false;
     }
